@@ -19,6 +19,7 @@ const (
 	OutputTileIR
 	// OutputPTXTileIR preserves both outputs from a mixed SIMT/Tile compilation.
 	OutputPTXTileIR
+	OutputOptiXIR
 )
 
 func outputKindName(k OutputKind) string {
@@ -35,6 +36,8 @@ func outputKindName(k OutputKind) string {
 		return "OutputTileIR"
 	case OutputPTXTileIR:
 		return "OutputPTXTileIR"
+	case OutputOptiXIR:
+		return "OutputOptiXIR"
 	default:
 		return fmt.Sprintf("OutputKind(%d)", uint8(k))
 	}
@@ -46,11 +49,11 @@ func outputKindName(k OutputKind) string {
 // SIMT output. Unsupported formats return compiler capability errors.
 func WithOutput(kind OutputKind) Option {
 	return func(o *options) {
-		if kind > OutputPTXTileIR {
+		if kind > OutputOptiXIR {
 			o.err = fmt.Errorf("nvrtcx: invalid output kind %d", kind)
 			return
 		}
-		if o.physicalArch && (kind == OutputLTOIR || kind == OutputTileIR || kind == OutputPTXTileIR) {
+		if o.physicalArch && (kind == OutputLTOIR || kind == OutputTileIR || kind == OutputPTXTileIR || kind == OutputOptiXIR) {
 			o.err = fmt.Errorf("nvrtcx: physical architecture cannot combine with WithOutput(%s)", outputKindName(kind))
 			return
 		}
@@ -85,6 +88,15 @@ func (cm *CompiledModule) TileIR() []byte {
 	return append([]byte(nil), cm.tileir...)
 }
 
+// OptiXIR returns an owned copy of OptiX IR, if selected.
+// OptiX IR must be loaded via optixModuleCreate rather than the CUDA driver loader.
+func (cm *CompiledModule) OptiXIR() []byte {
+	if cm == nil {
+		return nil
+	}
+	return append([]byte(nil), cm.optixir...)
+}
+
 func outputFlags(kind OutputKind, flags []string) ([]string, error) {
 	flags = append([]string(nil), flags...)
 	for _, flag := range flags {
@@ -103,16 +115,20 @@ func outputFlags(kind OutputKind, flags []string) ([]string, error) {
 				return nil, fmt.Errorf("nvrtcx: simt-only flag conflicts with TileIR output")
 			}
 		case "-optix-ir", "--optix-ir":
-			return nil, fmt.Errorf("nvrtcx: OptiX IR output is not supported")
+			if kind != OutputOptiXIR {
+				return nil, fmt.Errorf("nvrtcx: OptiX IR flag requires OutputOptiXIR")
+			}
 		}
 	}
 	switch kind {
 	case OutputPTXTileIR:
-		flags = append(flags, "--enable-tile")
+		flags = append(flags, nvrtc.FlagEnableTile)
 	case OutputLTOIR:
-		flags = append(flags, "-dlto")
+		flags = append(flags, nvrtc.FlagDLTO)
 	case OutputTileIR:
-		flags = append(flags, "--tile-only")
+		flags = append(flags, nvrtc.FlagTileOnly)
+	case OutputOptiXIR:
+		flags = append(flags, nvrtc.FlagOptiXIR)
 	}
 	return flags, nil
 }
@@ -152,6 +168,9 @@ func getArtifact(prog nvrtc.Program, kind OutputKind) (*CompiledModule, error) {
 	case OutputTileIR:
 		data, err = prog.GetTileIR()
 		cm.tileir = data
+	case OutputOptiXIR:
+		data, err = prog.GetOptiXIR()
+		cm.optixir = data
 	default:
 		return nil, fmt.Errorf("nvrtcx: invalid output kind %d", kind)
 	}
@@ -170,17 +189,19 @@ func (cm *CompiledModule) validArtifact() bool {
 	}
 	switch cm.output {
 	case OutputAuto:
-		return (cm.ptx != "" || len(cm.cubin) > 0) && len(cm.ltoir) == 0 && len(cm.tileir) == 0
+		return (cm.ptx != "" || len(cm.cubin) > 0) && len(cm.ltoir) == 0 && len(cm.tileir) == 0 && len(cm.optixir) == 0
 	case OutputPTX:
-		return cm.ptx != "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) == 0
+		return cm.ptx != "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) == 0 && len(cm.optixir) == 0
 	case OutputCUBIN:
-		return len(cm.cubin) > 0 && len(cm.ltoir) == 0 && len(cm.tileir) == 0
+		return len(cm.cubin) > 0 && len(cm.ltoir) == 0 && len(cm.tileir) == 0 && len(cm.optixir) == 0
 	case OutputLTOIR:
-		return cm.ptx == "" && len(cm.cubin) == 0 && len(cm.ltoir) > 0 && len(cm.tileir) == 0
+		return cm.ptx == "" && len(cm.cubin) == 0 && len(cm.ltoir) > 0 && len(cm.tileir) == 0 && len(cm.optixir) == 0
 	case OutputPTXTileIR:
-		return cm.ptx != "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) > 0
+		return cm.ptx != "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) > 0 && len(cm.optixir) == 0
 	case OutputTileIR:
-		return cm.ptx == "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) > 0
+		return cm.ptx == "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) > 0 && len(cm.optixir) == 0
+	case OutputOptiXIR:
+		return cm.ptx == "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) == 0 && len(cm.optixir) > 0
 	}
 	return false
 }

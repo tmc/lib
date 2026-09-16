@@ -1,10 +1,13 @@
 package nvrtcx
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/nvrtc"
 )
 
 // ToolkitIncludeDir reports a CUDA toolkit include directory on the host,
@@ -52,7 +55,7 @@ func WithIncludePaths(paths ...string) Option {
 				o.err = fmt.Errorf("nvrtcx: include path contains NUL")
 				return
 			}
-			o.flags = append(o.flags, "--include-path="+dir)
+			o.flags = append(o.flags, nvrtc.FlagIncludePath+"="+dir)
 		}
 	}
 }
@@ -88,7 +91,7 @@ func WithDefines(macros ...string) Option {
 				o.err = fmt.Errorf("nvrtcx: macro definition contains NUL")
 				return
 			}
-			o.flags = append(o.flags, "-D"+m)
+			o.flags = append(o.flags, nvrtc.FlagDefineMacro+m)
 		}
 	}
 }
@@ -106,7 +109,7 @@ func WithUndefines(macros ...string) Option {
 				o.err = fmt.Errorf("nvrtcx: macro name contains NUL")
 				return
 			}
-			o.flags = append(o.flags, "-U"+m)
+			o.flags = append(o.flags, nvrtc.FlagUndefineMacro+m)
 		}
 	}
 }
@@ -119,20 +122,20 @@ func WithStandard(std string) Option {
 		s := strings.ToLower(strings.TrimSpace(std))
 		switch s {
 		case "11", "c++11":
-			s = "c++11"
+			s = nvrtc.StdCXX11
 		case "14", "c++14":
-			s = "c++14"
+			s = nvrtc.StdCXX14
 		case "17", "c++17":
-			s = "c++17"
+			s = nvrtc.StdCXX17
 		case "20", "c++20":
-			s = "c++20"
+			s = nvrtc.StdCXX20
 		case "23", "c++23":
-			s = "c++23"
+			s = nvrtc.StdCXX23
 		default:
 			o.err = fmt.Errorf("nvrtcx: unsupported C++ standard %q", std)
 			return
 		}
-		o.flags = append(o.flags, "-std="+s)
+		o.flags = append(o.flags, nvrtc.FlagStd+"="+s)
 	}
 }
 
@@ -160,11 +163,11 @@ func WithDeviceDebug() Option {
 	return func(o *options) {
 		o.deviceDebug = true
 		for _, f := range o.flags {
-			if f == "--device-debug" || f == "-G" {
+			if f == nvrtc.FlagDeviceDebug || f == "-G" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--device-debug")
+		o.flags = append(o.flags, nvrtc.FlagDeviceDebug)
 	}
 }
 
@@ -173,11 +176,11 @@ func WithDeviceDebug() Option {
 func WithFastMath() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "--use_fast_math" || f == "-use_fast_math" {
+			if f == nvrtc.FlagUseFastMath || f == "-use_fast_math" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--use_fast_math")
+		o.flags = append(o.flags, nvrtc.FlagUseFastMath)
 	}
 }
 
@@ -186,11 +189,11 @@ func WithFastMath() Option {
 func WithDefaultDevice() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "--device-as-default-execution-space" || f == "-default-device" {
+			if f == nvrtc.FlagDeviceAsDefaultExecutionSpace || f == "-default-device" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--device-as-default-execution-space")
+		o.flags = append(o.flags, nvrtc.FlagDeviceAsDefaultExecutionSpace)
 	}
 }
 
@@ -204,7 +207,7 @@ func WithDefaultExecutionSpace() Option {
 // WithRelocatableDeviceCode enables or disables relocatable device code (--relocatable-device-code).
 func WithRelocatableDeviceCode(enable bool) Option {
 	return func(o *options) {
-		o.flags = append(o.flags, fmt.Sprintf("--relocatable-device-code=%t", enable))
+		o.flags = append(o.flags, fmt.Sprintf("%s=%t", nvrtc.FlagRelocatableDeviceCode, enable))
 	}
 }
 
@@ -223,11 +226,11 @@ func WithOptimizationLevel(level int) Option {
 func WithExtraDeviceVectorization() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "--extra-device-vectorization" {
+			if f == nvrtc.FlagExtraDeviceVectorization {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--extra-device-vectorization")
+		o.flags = append(o.flags, nvrtc.FlagExtraDeviceVectorization)
 	}
 }
 
@@ -244,7 +247,7 @@ func WithMaxRegisters(n int) Option {
 			o.err = fmt.Errorf("nvrtcx: invalid max registers %d", n)
 			return
 		}
-		o.flags = append(o.flags, fmt.Sprintf("--maxrregcount=%d", n))
+		o.flags = append(o.flags, fmt.Sprintf("%s=%d", nvrtc.FlagMaxrregcount, n))
 	}
 }
 
@@ -252,11 +255,11 @@ func WithMaxRegisters(n int) Option {
 func WithWarningsAsErrors() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "--warning-as-error" || f == "-Werror" {
+			if f == nvrtc.FlagWarningAsError || f == "-Werror" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--warning-as-error")
+		o.flags = append(o.flags, nvrtc.FlagWarningAsError)
 	}
 }
 
@@ -264,11 +267,173 @@ func WithWarningsAsErrors() Option {
 func WithDisableWarnings() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "-w" || f == "--disable-warnings" {
+			if f == nvrtc.FlagDisableWarnings || f == "--disable-warnings" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "-w")
+		o.flags = append(o.flags, nvrtc.FlagDisableWarnings)
+	}
+}
+
+// WithContext associates a context.Context with compilation.
+// If the context is cancelled during compilation and the NVRTC library
+// supports flow callbacks, compilation is aborted early.
+func WithContext(ctx context.Context) Option {
+	return func(o *options) {
+		if ctx == nil {
+			o.err = fmt.Errorf("nvrtcx: nil context")
+			return
+		}
+		o.ctx = ctx
+	}
+}
+
+// DefaultBundledHeadersDir returns the default directory used for extracting bundled headers.
+func DefaultBundledHeadersDir() string {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+	return filepath.Join(base, "tmc-lib", "nvrtc-bundled-headers")
+}
+
+// InstallBundledHeaders extracts CUDA headers bundled with NVRTC to targetDir.
+// If targetDir is empty, DefaultBundledHeadersDir() is used.
+// If forceOverwrite is false, existing headers are preserved (nvrtc.InstallHeadersSkipIfExists).
+func InstallBundledHeaders(targetDir string, forceOverwrite bool) (string, error) {
+	if !nvrtc.HasInstallBundledHeaders() {
+		return "", fmt.Errorf("nvrtcx: bundled headers not supported by loaded NVRTC library")
+	}
+	if targetDir == "" {
+		targetDir = DefaultBundledHeadersDir()
+	}
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return "", fmt.Errorf("nvrtcx: create bundled headers directory: %w", err)
+	}
+	var flags uint32 = nvrtc.InstallHeadersSkipIfExists
+	if forceOverwrite {
+		flags = nvrtc.InstallHeadersForceOverwrite
+	}
+	if err := nvrtc.InstallBundledHeaders(targetDir, flags); err != nil {
+		return "", fmt.Errorf("nvrtcx: install bundled headers: %w", err)
+	}
+	return targetDir, nil
+}
+
+// WithBundledHeaders enables extracting and using the CUDA headers bundled with NVRTC.
+// If cacheDir is specified, it sets the directory where headers are extracted;
+// otherwise DefaultBundledHeadersDir() is used.
+func WithBundledHeaders(cacheDir ...string) Option {
+	return func(o *options) {
+		o.bundledHeaders = true
+		if len(cacheDir) > 0 {
+			if cacheDir[0] == "" {
+				o.err = fmt.Errorf("nvrtcx: empty bundled headers directory")
+				return
+			}
+			if strings.ContainsRune(cacheDir[0], 0) {
+				o.err = fmt.Errorf("nvrtcx: bundled headers directory contains NUL")
+				return
+			}
+			o.bundledHeadersDir = cacheDir[0]
+		}
+	}
+}
+
+// WithPCH enables precompiled header processing (-pch).
+func WithPCH() Option {
+	return func(o *options) {
+		for _, f := range o.flags {
+			if f == nvrtc.FlagPCH || f == "--pch" {
+				return
+			}
+		}
+		o.flags = append(o.flags, nvrtc.FlagPCH)
+	}
+}
+
+// WithCreatePCH instructs the compiler to create a precompiled header file (--create-pch=<file>).
+func WithCreatePCH(file string) Option {
+	return func(o *options) {
+		if file == "" {
+			o.err = fmt.Errorf("nvrtcx: empty PCH file")
+			return
+		}
+		if strings.ContainsRune(file, 0) {
+			o.err = fmt.Errorf("nvrtcx: PCH file contains NUL")
+			return
+		}
+		o.flags = append(o.flags, nvrtc.FlagCreatePCH+"="+file)
+	}
+}
+
+// WithUsePCH instructs the compiler to use a precompiled header file (--use-pch=<file>).
+func WithUsePCH(file string) Option {
+	return func(o *options) {
+		if file == "" {
+			o.err = fmt.Errorf("nvrtcx: empty PCH file")
+			return
+		}
+		if strings.ContainsRune(file, 0) {
+			o.err = fmt.Errorf("nvrtcx: PCH file contains NUL")
+			return
+		}
+		o.flags = append(o.flags, nvrtc.FlagUsePCH+"="+file)
+	}
+}
+
+// WithFastCompile configures the fast compilation mode (--Ofast-compile=0|min|mid|max).
+func WithFastCompile(level string) Option {
+	return func(o *options) {
+		s := strings.ToLower(strings.TrimSpace(level))
+		switch s {
+		case "0", "min", "mid", "max":
+		default:
+			o.err = fmt.Errorf("nvrtcx: invalid fast compile level %q (must be 0, min, mid, or max)", level)
+			return
+		}
+		o.flags = append(o.flags, nvrtc.FlagOfastCompile+"="+s)
+	}
+}
+
+// WithRandomSeed specifies a seed for compiler determinism (--frandom-seed=<seed>).
+func WithRandomSeed(seed int) Option {
+	return func(o *options) {
+		o.flags = append(o.flags, fmt.Sprintf("%s=%d", nvrtc.FlagRandomSeed, seed))
+	}
+}
+
+// WithExtensibleWholeProgram enables extensible whole program compilation (--extensible-whole-program).
+func WithExtensibleWholeProgram() Option {
+	return func(o *options) {
+		for _, f := range o.flags {
+			if f == nvrtc.FlagExtensibleWholeProgram || f == "-ewp" {
+				return
+			}
+		}
+		o.flags = append(o.flags, nvrtc.FlagExtensibleWholeProgram)
+	}
+}
+
+// WithDeviceStackProtector enables or disables the device stack protector (--device-stack-protector).
+func WithDeviceStackProtector(enable bool) Option {
+	return func(o *options) {
+		o.flags = append(o.flags, fmt.Sprintf("%s=%t", nvrtc.FlagDeviceStackProtector, enable))
+	}
+}
+
+// WithTimeTrace enables compiler phase time tracing to an output file (--time=<file>).
+func WithTimeTrace(file string) Option {
+	return func(o *options) {
+		if file == "" {
+			o.err = fmt.Errorf("nvrtcx: empty time trace file")
+			return
+		}
+		if strings.ContainsRune(file, 0) {
+			o.err = fmt.Errorf("nvrtcx: time trace file contains NUL")
+			return
+		}
+		o.flags = append(o.flags, nvrtc.FlagTime+"="+file)
 	}
 }
 
@@ -326,6 +491,16 @@ func CompileFlags(opts ...Option) ([]string, error) {
 			}
 		} else {
 			return nil, fmt.Errorf("nvrtcx: CUDA toolkit include directory not found")
+		}
+	}
+	if cfg.bundledHeaders && !cfg.noToolkitIncludes {
+		dir := cfg.bundledHeadersDir
+		if dir == "" {
+			dir = DefaultBundledHeadersDir()
+		}
+		flag := "--include-path=" + dir
+		if !hasFlag(cfg.flags, flag) {
+			cfg.flags = append(cfg.flags, flag)
 		}
 	}
 	return append([]string(nil), cfg.flags...), nil

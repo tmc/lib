@@ -16,6 +16,7 @@ func TestArtifactCache(t *testing.T) {
 		{output: OutputLTOIR, ltoir: []byte{2}},
 		{output: OutputTileIR, tileir: []byte{3}},
 		{output: OutputPTXTileIR, ptx: "ptx", tileir: []byte{3}},
+		{output: OutputOptiXIR, optixir: []byte{4}},
 	} {
 		t.Run(fmt.Sprint(cm.output), func(t *testing.T) {
 			cm.key, cm.log = "key", "compiler warning"
@@ -47,9 +48,31 @@ func TestArtifactCache(t *testing.T) {
 					t.Fatal("TileIR aliases cached data")
 				}
 			}
+			if len(cm.optixir) > 0 {
+				copy := got.OptiXIR()
+				copy[0]++
+				if !bytes.Equal(got.OptiXIR(), cm.optixir) {
+					t.Fatal("OptiXIR aliases cached data")
+				}
+				if _, err := got.Load(nil); err == nil || err.Error() != "nvrtcx: OptiX IR must be passed to optixModuleCreate" {
+					t.Fatalf("got err %v, want OptiX IR load rejection", err)
+				}
+				if _, err := got.LoadOutput(nil, OutputOptiXIR); err == nil || err.Error() != "nvrtcx: OptiX IR must be passed to optixModuleCreate" {
+					t.Fatalf("got err %v, want OptiX IR load output rejection", err)
+				}
+			}
 		})
 	}
-	for _, cm := range []*CompiledModule{{}, {output: OutputLTOIR, ptx: "wrong"}, {output: OutputPTX, tileir: []byte{1}}, {output: OutputPTXTileIR, ptx: "ptx"}, {output: OutputPTXTileIR, tileir: []byte{1}}, {output: 255, cubin: []byte{1}}} {
+	for _, cm := range []*CompiledModule{
+		{},
+		{output: OutputLTOIR, ptx: "wrong"},
+		{output: OutputPTX, tileir: []byte{1}},
+		{output: OutputPTXTileIR, ptx: "ptx"},
+		{output: OutputPTXTileIR, tileir: []byte{1}},
+		{output: OutputOptiXIR, ptx: "wrong"},
+		{output: OutputOptiXIR, cubin: []byte{1}},
+		{output: 255, cubin: []byte{1}},
+	} {
 		if _, err := encodeCacheEntry(cm); err == nil {
 			t.Fatalf("accepted invalid artifact %#v", cm)
 		}
@@ -57,7 +80,7 @@ func TestArtifactCache(t *testing.T) {
 }
 
 func TestOutputFlags(t *testing.T) {
-	for _, kind := range []OutputKind{OutputAuto, OutputPTX, OutputCUBIN, OutputLTOIR, OutputTileIR} {
+	for _, kind := range []OutputKind{OutputAuto, OutputPTX, OutputCUBIN, OutputLTOIR, OutputTileIR, OutputOptiXIR} {
 		flags, err := outputFlags(kind, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -66,6 +89,9 @@ func TestOutputFlags(t *testing.T) {
 			t.Fatal(flags)
 		}
 		if kind == OutputTileIR && !reflect.DeepEqual(flags, []string{"--tile-only"}) {
+			t.Fatal(flags)
+		}
+		if kind == OutputOptiXIR && !reflect.DeepEqual(flags, []string{"--optix-ir"}) {
 			t.Fatal(flags)
 		}
 	}

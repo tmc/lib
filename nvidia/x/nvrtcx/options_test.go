@@ -1,6 +1,7 @@
 package nvrtcx
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"slices"
@@ -365,3 +366,196 @@ extern "C" __global__ void k() {}`
 		t.Fatalf("expected missing toolkit error, got %v", err)
 	}
 }
+
+func TestAdvancedCompilerOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		opt     Option
+		want    []string
+		wantErr string
+	}{
+		{
+			name: "PCH",
+			opt:  WithPCH(),
+			want: []string{"-pch"},
+		},
+		{
+			name: "CreatePCH",
+			opt:  WithCreatePCH("app.pch"),
+			want: []string{"--create-pch=app.pch"},
+		},
+		{
+			name:    "CreatePCH_empty",
+			opt:     WithCreatePCH(""),
+			wantErr: "empty PCH file",
+		},
+		{
+			name:    "CreatePCH_NUL",
+			opt:     WithCreatePCH("app\x00.pch"),
+			wantErr: "contains NUL",
+		},
+		{
+			name: "UsePCH",
+			opt:  WithUsePCH("app.pch"),
+			want: []string{"--use-pch=app.pch"},
+		},
+		{
+			name:    "UsePCH_empty",
+			opt:     WithUsePCH(""),
+			wantErr: "empty PCH file",
+		},
+		{
+			name:    "UsePCH_NUL",
+			opt:     WithUsePCH("app\x00.pch"),
+			wantErr: "contains NUL",
+		},
+		{
+			name: "FastCompile_0",
+			opt:  WithFastCompile("0"),
+			want: []string{"--Ofast-compile=0"},
+		},
+		{
+			name: "FastCompile_min",
+			opt:  WithFastCompile("min"),
+			want: []string{"--Ofast-compile=min"},
+		},
+		{
+			name: "FastCompile_mid",
+			opt:  WithFastCompile("mid"),
+			want: []string{"--Ofast-compile=mid"},
+		},
+		{
+			name: "FastCompile_max",
+			opt:  WithFastCompile("max"),
+			want: []string{"--Ofast-compile=max"},
+		},
+		{
+			name:    "FastCompile_invalid",
+			opt:     WithFastCompile("ultra"),
+			wantErr: "invalid fast compile level",
+		},
+		{
+			name: "RandomSeed",
+			opt:  WithRandomSeed(42),
+			want: []string{"--frandom-seed=42"},
+		},
+		{
+			name: "ExtensibleWholeProgram",
+			opt:  WithExtensibleWholeProgram(),
+			want: []string{"--extensible-whole-program"},
+		},
+		{
+			name: "DeviceStackProtector_true",
+			opt:  WithDeviceStackProtector(true),
+			want: []string{"--device-stack-protector=true"},
+		},
+		{
+			name: "DeviceStackProtector_false",
+			opt:  WithDeviceStackProtector(false),
+			want: []string{"--device-stack-protector=false"},
+		},
+		{
+			name: "TimeTrace",
+			opt:  WithTimeTrace("/tmp/trace.json"),
+			want: []string{"--time=/tmp/trace.json"},
+		},
+		{
+			name:    "TimeTrace_empty",
+			opt:     WithTimeTrace(""),
+			wantErr: "empty time trace file",
+		},
+		{
+			name:    "TimeTrace_NUL",
+			opt:     WithTimeTrace("/tmp/trace\x00.json"),
+			wantErr: "contains NUL",
+		},
+		{
+			name: "NoCache",
+			opt:  WithNoCache(),
+			want: []string{"--no-cache"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var cfg options
+			tc.opt(&cfg)
+			if tc.wantErr != "" {
+				if cfg.err == nil || !strings.Contains(cfg.err.Error(), tc.wantErr) {
+					t.Fatalf("got err %v, want substring %q", cfg.err, tc.wantErr)
+				}
+				return
+			}
+			if cfg.err != nil {
+				t.Fatalf("unexpected error: %v", cfg.err)
+			}
+			if !slices.Equal(cfg.flags, tc.want) {
+				t.Fatalf("got flags %v, want %v", cfg.flags, tc.want)
+			}
+		})
+	}
+}
+
+func TestContextCancellation(t *testing.T) {
+	// Test nil context
+	if _, err := Compile("extern \"C\" __global__ void k() {}", WithContext(nil)); err == nil || !strings.Contains(err.Error(), "nil context") {
+		t.Fatalf("expected nil context error, got %v", err)
+	}
+	if _, err := CompileContext(nil, "extern \"C\" __global__ void k() {}"); err == nil || !strings.Contains(err.Error(), "nil context") {
+		t.Fatalf("expected nil context error from CompileContext, got %v", err)
+	}
+
+	// Test already-cancelled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := CompileContext(ctx, "extern \"C\" __global__ void k() {}")
+	if err == nil || !strings.Contains(err.Error(), context.Canceled.Error()) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+}
+
+func TestBundledHeadersOptions(t *testing.T) {
+	// Test DefaultBundledHeadersDir
+	dir := DefaultBundledHeadersDir()
+	if dir == "" || !strings.Contains(dir, "nvrtc-bundled-headers") {
+		t.Fatalf("unexpected DefaultBundledHeadersDir: %q", dir)
+	}
+
+	// Test WithBundledHeaders option
+	var cfg options
+	WithBundledHeaders()(&cfg)
+	if !cfg.bundledHeaders {
+		t.Fatal("expected bundledHeaders true")
+	}
+
+	// Test custom dir
+	var cfgCustom options
+	WithBundledHeaders("/custom/bundled")(&cfgCustom)
+	if cfgCustom.bundledHeadersDir != "/custom/bundled" {
+		t.Fatalf("expected custom dir, got %q", cfgCustom.bundledHeadersDir)
+	}
+
+	// Test errors on invalid custom dir
+	var cfgEmpty options
+	WithBundledHeaders("")(&cfgEmpty)
+	if cfgEmpty.err == nil || !strings.Contains(cfgEmpty.err.Error(), "empty bundled headers directory") {
+		t.Fatalf("expected empty dir error, got %v", cfgEmpty.err)
+	}
+
+	var cfgNul options
+	WithBundledHeaders("/bad\x00/dir")(&cfgNul)
+	if cfgNul.err == nil || !strings.Contains(cfgNul.err.Error(), "contains NUL") {
+		t.Fatalf("expected NUL error, got %v", cfgNul.err)
+	}
+
+	// Test CompileFlags with bundled headers
+	flags, err := CompileFlags(WithNoLineInfo(), WithBundledHeaders("/custom/bundled"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(flags, []string{"--include-path=/custom/bundled"}) {
+		t.Fatalf("CompileFlags with bundled headers = %v, want [--include-path=/custom/bundled]", flags)
+	}
+}
+

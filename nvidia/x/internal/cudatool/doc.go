@@ -67,3 +67,5 @@
 // Review the diff: it is the flag difference between the toolkits, and it is
 // worth reading rather than committing unseen.
 package cudatool
+
+//go:generate go run ./cmd/genoptions -target=cudatool -out=tables.gen.go
