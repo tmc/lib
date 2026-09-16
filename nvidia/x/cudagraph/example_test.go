@@ -18,3 +18,14 @@ func ExampleGraph_InstantiateWithOptions() {
 	fmt.Println(err)
 	// Output: cudagraph: graph is closed
 }
+
+func ExampleGraph_Eligibility() {
+	var graph cudagraph.Graph
+	el, err := graph.Eligibility()
+	fmt.Println(err)
+	fmt.Println(el.Captured)
+	// Output:
+	// cudagraph: graph is closed
+	// false
+}
+
