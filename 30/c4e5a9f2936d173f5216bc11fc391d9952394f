@@ -1,0 +1,11 @@
+commit: 30c4e5a9f2936d173f5216bc11fc391d9952394f
+date: 2026-09-16T00:54:14.558069+00:00
+agent: Codex /root/core
+model: not exposed in agent runtime
+claude-code version: not applicable (Codex agent)
+tty: non-interactive
+pid (note writer): 79635
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+validation: local Linux ARM64 compile passed; parent executed native test and reported PASS 196.57s; export independently accepted all 28 captures
+native receipt: /Users/tmc/tmp/cuptibench-ds4-evolving-receipts/run-evolving-RkYOpak8
+commit tool: manual fallback; parent reported automated-message attempts exhausted due unavailable API key
