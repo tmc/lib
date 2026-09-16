@@ -25,7 +25,7 @@ rerun of the main integration is claimed. Local integration checks are separate.
 | Multi-stream completion timing | Event dependency graph and failure-path tests; dependent/overlap physical fixture | Native overlap/dependency controls pass |
 | Multi-stream Whole/UserReplay collection | Device entry/exit tickets, event-dependent negative control, per-pass output checks | GB20B single-pass controls pass with one and three operations; no KernelReplay concurrency claim |
 | Profile numeric/schema integrity | Integer boundaries, schema partition, missing values, profile round trips | Native round trip passes |
-| Cleanup invalidates failed measurements | Capture, timer, override retry tests and actual caller-owned Close failure/retry/open-plan subprocess tests | Native failure qualification |
+| Cleanup invalidates failed measurements | Capture, timer, override retry tests and actual caller-owned Close failure/retry/open-plan subprocess tests | Deliberate native invalid-argument recovery passes; spontaneous backend failure remains unqualified |
 | DS4 uses actual forward work | Production stage callbacks preserve graph boundaries; independently prepared prefixes | Token-0, selected position-1, and evolving position-3/4 Regions checks pass; original failure unexplained |
 | Cache semantics are explicit | CachePolicy admission, documented no-reset metadata, cold/warm raw-sector fixture compiled for Linux AMD64/ARM64 | Native cold/warm and two-pass controls pass |
 | Faithful C benchmark formatting | Versioned JSON decoder, 64 MiB input bound, normalization and injection tests, CLI tests | Source-specific reader and checked comparison are separate proposed work |
@@ -227,3 +227,27 @@ Receipt: `~/tmp/cuptibench-ds4-evolving-receipts/run-evolving-RkYOpak8`, includi
 model and source hashes, module replacements, matching lease snapshots, device
 snapshots and the 196.57-second passing test log. This does not resolve the
 retained KernelReplay graph failure or explain the earlier nonfinite result.
+
+## Native Disable rejection and retry
+
+`TestPhysicalDisableRetry` passed on GB20B, CUPTI 130202, driver 580.173.02.
+A deliberate `StructSize=0` call to the native Disable function returned
+`INVALID_PARAMETER`. The collector retained its object, context, storage and
+device lease, cleared its normal result, and retained an independently copied
+diagnostic image. One corrected call with size 24 and the same input object
+succeeded. Repeated Close issued no further native call, and a fresh public
+capture passed. Both the baseline and fresh captures checked every output and
+reported one CTA with complete single-pass decoding and zero reported drops.
+
+This establishes recovery from deliberately invalid Disable arguments. It does
+not qualify spontaneous backend failures, assignment to `Plan.pending`, or
+process export suppression. Those public lifecycle paths have separate synthetic
+tests. Runtime pin state is established by source ordering, not a direct probe.
+
+Source: `d282d8b9` plus the two Disable test files. Binary SHA-256:
+`f10465319f491e7ea10c47695a8d09dc173913b348b8f7ba2be3db8620194921`.
+Receipt: `~/tmp/cuptibench-cleanup-receipts/run-disable-uR0utwTi`, including
+matching lease snapshots, native header/layout evidence and the passing log.
+The earlier `run-disable-uMt3mVf8` failed because the test recorder read the
+handle after native success cleared it. That failure is retained; the corrected
+recorder records input and returned fields separately.
