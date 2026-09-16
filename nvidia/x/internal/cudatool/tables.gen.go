@@ -8,6 +8,7 @@ const (
 	ToolCUObjDump        = "cuobjdump"
 	ToolNVCC             = "nvcc"
 	ToolNVDisasm         = "nvdisasm"
+	ToolNvjitlink        = "nvjitlink"
 	ToolNVLink           = "nvlink"
 	ToolNVPrune          = "nvprune"
 	ToolPTXAS            = "ptxas"
@@ -839,6 +840,39 @@ var staticCorpus = map[string]*toolCorpus{
 				{Name: "--separate-functions", Short: "-sf", Arity: Bare, Default: ""},
 				{Name: "--sort-sections", Short: "-sort", Arity: Bare, Default: ""},
 				{Name: "--version", Short: "-V", Arity: Bare, Default: ""},
+			},
+		},
+	},
+	"nvjitlink": {
+		versions: []Version{
+			V(13, 4),
+		},
+		options: map[Version]Options{
+			V(13, 4): {
+				{Name: "-O0", Short: "", Arity: Bare, Default: ""},
+				{Name: "-O3", Short: "", Arity: Bare, Default: ""},
+				{Name: "-Xptxas", Short: "", Arity: Value, Default: ""},
+				{Name: "-arch", Short: "", Arity: Value, Default: ""},
+				{Name: "-device-stack-protector", Short: "", Arity: Bare, Default: ""},
+				{Name: "-fma", Short: "", Arity: Value, Default: "", Values: []string{"0", "1"}},
+				{Name: "-ftz", Short: "", Arity: Value, Default: "", Values: []string{"0", "1"}},
+				{Name: "-g", Short: "", Arity: Bare, Default: ""},
+				{Name: "-jump-table-density", Short: "", Arity: Value, Default: ""},
+				{Name: "-kernels-used", Short: "", Arity: Value, Default: ""},
+				{Name: "-lineinfo", Short: "", Arity: Bare, Default: ""},
+				{Name: "-lto", Short: "", Arity: Bare, Default: ""},
+				{Name: "-maxrregcount", Short: "", Arity: Value, Default: ""},
+				{Name: "-no-cache", Short: "", Arity: Bare, Default: ""},
+				{Name: "-optimize-unused-variables", Short: "", Arity: Bare, Default: ""},
+				{Name: "-prec-div", Short: "", Arity: Value, Default: "", Values: []string{"0", "1"}},
+				{Name: "-prec-sqrt", Short: "", Arity: Value, Default: "", Values: []string{"0", "1"}},
+				{Name: "-ptx", Short: "", Arity: Bare, Default: ""},
+				{Name: "-r", Short: "", Arity: Bare, Default: ""},
+				{Name: "-split-compile", Short: "", Arity: Value, Default: ""},
+				{Name: "-split-compile-extended", Short: "", Arity: Value, Default: ""},
+				{Name: "-time", Short: "", Arity: Bare, Default: ""},
+				{Name: "-variables-used", Short: "", Arity: Value, Default: ""},
+				{Name: "-verbose", Short: "", Arity: Bare, Default: ""},
 			},
 		},
 	},
