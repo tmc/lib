@@ -1,7 +1,5 @@
 {
   "coverage": {
-    "meaning": "Directory inventory and presence of recorded argv only; not a regeneration, provenance verification, or runtime qualification.",
-    "missing_argv": [],
     "packages": [
       "cublas",
       "cublaslt",
@@ -38,7 +36,9 @@
       "nvvm",
       "sanitizer"
     ],
-    "recorded_argv": 34
+    "recorded_argv": 34,
+    "missing_argv": null,
+    "meaning": "Directory inventory and presence of recorded argv only; not a regeneration, provenance verification, or runtime qualification."
   },
   "packages": {
     "cublas": {
@@ -6695,16 +6695,8 @@
             "sha256": "05dad319665704d8ad5777a0325e75d4aa427d956425f330fdcb377df22996a6"
           },
           {
-            "path": "nvidia/nvcomp/layout_test.go",
-            "sha256": "f7076078132f5c81cf5625a818417c343dc67f9888e4352e423db0e4a93dd543"
-          },
-          {
             "path": "nvidia/nvcomp/limits.gen.go",
             "sha256": "90b60b175c7d320651a5df66a9ab14eee28dd90b9a4df509264ce6b31fb6c404"
-          },
-          {
-            "path": "nvidia/nvcomp/loader_test.go",
-            "sha256": "913b7f02c4bc359a506cf5e8a8dea63b4a8201984c8e386f7a5b0600617f3b18"
           },
           {
             "path": "nvidia/nvcomp/loader_unix.gen.go",
@@ -6729,6 +6721,14 @@
           {
             "path": "nvidia/nvcomp/version.gen.go",
             "sha256": "ef4704b79c2b3ea3f8b400fcdccd03f448d47fb95fd60510324a5dbc90920957"
+          },
+          {
+            "path": "nvidia/nvcomp/layout.gen_test.go",
+            "sha256": "f7076078132f5c81cf5625a818417c343dc67f9888e4352e423db0e4a93dd543"
+          },
+          {
+            "path": "nvidia/nvcomp/loader.gen_test.go",
+            "sha256": "913b7f02c4bc359a506cf5e8a8dea63b4a8201984c8e386f7a5b0600617f3b18"
           }
         ],
         "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
@@ -7359,6 +7359,10 @@
           {
             "path": "nvidia/nvjitlink/result.gen.go",
             "sha256": "c0b4724858473da0bf4232b99c19ae43a1fbf0101f8d420dc1e2e6ab3dfd2fa6"
+          },
+          {
+            "path": "nvidia/nvjitlink/flags.gen.go",
+            "sha256": "ae8b9ec5dac5f58f6d42b424c42e94bbf96e070e5fbc1a3a1c4160ef22186039"
           }
         ],
         "source_state": "clean codegen checkout recorded after generation",
@@ -7957,6 +7961,10 @@
           {
             "path": "nvidia/nvrtc/structs.gen.go",
             "sha256": "5544cbcfee4359ddf2ec338226089848c39068afd08c90ce3fbbda23ebb1d6c5"
+          },
+          {
+            "path": "nvidia/nvrtc/flags.gen.go",
+            "sha256": "0ff3530d51e291fa2e8cf7dc238c86a50e090da335fa02159253473c706c7d10"
           }
         ],
         "source_state": "codegen and headers checkouts clean at the recorded commits for every path reaching this generation; unrelated peer work in other products was present but is not an input",
@@ -8641,6 +8649,6 @@
   },
   "recorded_at": "2026-09-07",
   "schema_version": 1,
-  "scope": "Inventoried 34 generated package directories; all 34 have recorded generation argv. Existing package receipts and their limitations are preserved.",
+  "scope": "Inventoried 34 generated package directories; 34 have recorded generation argv and 0 have no recorded argv. Existing package receipts and their limitations are preserved.",
   "status": "partial-provenance"
 }
