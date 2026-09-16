@@ -1,0 +1,1 @@
+commit=d5549eebf20428ff1c690c56f17a6810cf5609d1; date=2026-09-16T14:46:30-07:00; agent=antigravity; model=gemini; tty=/dev/ttys501; pid=84768; ITERM_SESSION_ID=unknown. Validation: Unit tests in examples/cmd/pprof-report pass; verified against ds4-decode-pcsampled.pprof.
