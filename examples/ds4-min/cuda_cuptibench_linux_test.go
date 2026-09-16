@@ -8,6 +8,9 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -61,6 +64,157 @@ func BenchmarkCUDAKernels(b *testing.B) {
 				b.Run(fmt.Sprintf("f16_pair/rows=%d/tokens=%d", rows, phase.batch), func(b *testing.B) {
 					cudaCUPTIF16(b, rows, phase.batch)
 				})
+			}
+		})
+	}
+}
+
+const (
+	defaultCUDAModelPath    = "/home/tmc/ds4-models/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf"
+	cudaPrefillBenchContext = 4096
+)
+
+var cudaPrefillBench struct {
+	once    sync.Once
+	runtime *cudaRuntime
+	err     error
+}
+
+func cudaPrefillBenchRuntime(b *testing.B) *cudaRuntime {
+	b.Helper()
+	modelPath := os.Getenv("DS4_MODEL")
+	if modelPath == "" {
+		modelPath = defaultCUDAModelPath
+	}
+	if _, err := os.Stat(modelPath); err != nil {
+		b.Skipf("model not accessible: %v", err)
+	}
+	cudaPrefillBench.once.Do(func() {
+		context := cudaPrefillBenchContext
+		if v := os.Getenv("DS4_BENCH_CONTEXT"); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil {
+				cudaPrefillBench.err = fmt.Errorf("DS4_BENCH_CONTEXT: %w", err)
+				return
+			}
+			context = n
+		}
+		cudaPrefillBench.runtime, cudaPrefillBench.err = newCUDARuntime(modelPath, context)
+	})
+	if cudaPrefillBench.err != nil {
+		b.Fatal(cudaPrefillBench.err)
+	}
+	return cudaPrefillBench.runtime
+}
+
+func cudaBenchTokens(n int) []int {
+	tokens := make([]int, n)
+	for i := range tokens {
+		tokens[i] = (i*7919 + 13) % 129280
+	}
+	return tokens
+}
+
+func cudaBenchSizes(b *testing.B, key string, sweep []int) []int {
+	b.Helper()
+	v := os.Getenv(key)
+	if v == "" {
+		return sweep
+	}
+	var out []int
+	for _, part := range strings.Split(v, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		n, err := strconv.Atoi(part)
+		if err != nil {
+			b.Fatalf("%s: invalid integer %q: %v", key, part, err)
+		}
+		out = append(out, n)
+	}
+	if len(out) == 0 {
+		return sweep
+	}
+	return out
+}
+
+// BenchmarkCUDAPrefill evaluates prompt chunks from a fresh session using
+// cuptibench to measure prefill launches, wall time, and GPU duration.
+func BenchmarkCUDAPrefill(b *testing.B) {
+	if !*ds4CUPTIBench {
+		b.Skip("enable with -ds4-cuptibench under gpu-lock")
+	}
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		b.Fatal("gpu-lock is required")
+	}
+	for _, chunk := range cudaBenchSizes(b, "DS4_BENCH_CHUNKS", []int{32, 64, 128, 256}) {
+		b.Run(fmt.Sprintf("tokens=%d", chunk), func(b *testing.B) {
+			r := cudaPrefillBenchRuntime(b)
+			if chunk >= r.ctx {
+				b.Skipf("chunk %d does not fit context %d", chunk, r.ctx)
+			}
+			tokens := cudaBenchTokens(chunk)
+			if err := r.Reset(); err != nil {
+				b.Fatal(err)
+			}
+			if err := r.EvalBatch(tokens, 0); err != nil {
+				b.Fatal(err)
+			}
+			if err := r.Reset(); err != nil {
+				b.Fatal(err)
+			}
+			metrics, err := cuptibench.Resolve("launches")
+			if err != nil {
+				b.Fatal(err)
+			}
+			plan, err := cuptibench.New(r.device, cuptibench.Config{
+				Metrics:     metrics,
+				Mode:        cuptibench.Whole,
+				Operations:  1,
+				CachePolicy: cuptirange.CachePreserve,
+				Limits: cuptirange.Limits{
+					MaxRanges:         64,
+					MaxRangeTreeNodes: 128,
+					MaxCounterBytes:   16 << 20,
+					MaxPasses:         32,
+				},
+				MaxConfigBytes: 4 << 20,
+			})
+			if plan != nil {
+				b.Cleanup(func() {
+					if err := plan.Close(); err != nil {
+						b.Error(err)
+					}
+				})
+			}
+			if err != nil {
+				b.Fatal(err)
+			}
+			work := cuptibench.Workload{
+				View:        "full",
+				Streams:     []*cuda.Stream{r.stream()},
+				Preparation: "reset runtime state before prefill",
+				Prepare:     func() error { return r.Reset() },
+				Synchronize: func() error { return syncStream(r.stream()) },
+				Run: func(s *cuptibench.Scope) error {
+					return r.EvalBatch(tokens, 0)
+				},
+			}
+			res := plan.Measure(b, work)
+			b.ReportMetric(float64(chunk), "tokens/op")
+			if res != nil {
+				counters := res
+				if res.Aggregate != nil {
+					counters = res.Aggregate
+				}
+				for _, rg := range counters.Ranges {
+					for _, m := range rg.Metrics {
+						if m.Name == "sm__ctas_launched.sum" {
+							b.ReportMetric(m.Value, "launches/op")
+						}
+					}
+				}
 			}
 		})
 	}

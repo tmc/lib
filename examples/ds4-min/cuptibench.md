@@ -7,6 +7,11 @@ kernels. No model is loaded. Each leaf can be selected independently:
 - `prefill/q80/{q8_1,quantized,blockdiag}/{tensor}/tokens=8`
 - `{decode,prefill}/f16_pair/rows={256,512,1024}/tokens={1,8}`
 
+`BenchmarkCUDAPrefill` measures prefill execution (`r.EvalBatch(tokens, 0)`)
+across chunk sizes (default 32, 64, 128, 256; configurable via `DS4_BENCH_CHUNKS`)
+on the real model runtime (via `DS4_MODEL` or default path). It measures wall time,
+GPU event duration (`gpu-ns/op`), and launch counts (`launches/op`, `sm__ctas_launched.sum`).
+
 The Q8_0 shapes come from `cudaQ80BenchShapes`, including its documented shape
 provenance limits. The output head is decode-only: prefill does not project
 every input token to logits. The eight-token cases exercise the batched kernel
@@ -42,7 +47,13 @@ GPU-qualified; supply the installed binary and lock wrapper on the remote host):
 -test.run '^$' -test.bench '^BenchmarkCUDAKernels$/^prefill$/^f16_pair$/^rows=256$/^tokens=8$' -test.benchtime=1x -ds4-cuptibench
 ```
 
-Use `-test.bench '^BenchmarkCUDAKernels$'` to select all leaves. Start with one
+Prefill benchmark invocation:
+
+```text
+-test.run '^$' -test.bench '^BenchmarkCUDAPrefill$/^tokens=32$' -test.benchtime=1x -ds4-cuptibench
+```
+
+Use `-test.bench '^BenchmarkCUDAKernels$'` or `-test.bench '^BenchmarkCUDAPrefill$'` to select all leaves. Start with one
 leaf and one iteration before longer runs. CUDA/NVRTC libraries and CUPTI
 profiling permissions must be available on the target host. Failure to create
 the CUPTI plan is a benchmark failure, not a timing-only fallback.
