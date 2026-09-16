@@ -26,9 +26,9 @@ type cudaMoERouting struct {
 // cudaMoERoutings covers, in order: one expert taking every pair; one expert
 // taking exactly one pair per token, so a tile spans distinct activations;
 // every pair on its own expert, so the tile loop is degenerate; a skew with
-// one heavy expert; counts of exactly DS4_MOE_GATHER_TILE, one more, and one
-// less alongside six empty bins; ids the per-token kernels reject; and a
-// routing that leaves every bin but the last empty.
+// one heavy expert; tile boundary counts; ids the per-token kernels reject;
+// a routing that leaves every bin but the last empty; and full-width groups
+// with dense and sparse expert coverage.
 func cudaMoERoutings() []cudaMoERouting {
 	const slots = 6
 	single := make([]int32, 5*slots)
@@ -57,10 +57,15 @@ func cudaMoERoutings() []cudaMoERouting {
 		}
 		skew[i] = 0
 	}
-	boundary := []int32{
-		2, 2, 2, 2, // exactly one tile
-		5, 5, 5, 5, 5, // one tile plus one
-		8, 8, 8, 8, 8, 8, 8, 8, 8, // two tiles plus one
+	var boundary []int32
+	for bin, count := range []int{cudaMoEGatherTile - 1, cudaMoEGatherTile, cudaMoEGatherTile + 1, 2*cudaMoEGatherTile + 1} {
+		for range count {
+			boundary = append(boundary, int32(bin))
+		}
+	}
+	// Keep the boundary bins intact while padding to whole tokens.
+	for len(boundary)%slots != 0 {
+		boundary = append(boundary, 8)
 	}
 	invalid := make([]int32, 3*slots)
 	for i := range invalid {
@@ -79,14 +84,32 @@ func cudaMoERoutings() []cudaMoERouting {
 	for i := range last {
 		last[i] = 8
 	}
+	// At TILE=8, these counts maximize sum ceil(count/TILE) for 1536
+	// pairs over 256 experts: 160*2 + 96 = 416 weight-row tiles.
+	// Interleave the heavy experts so each token has distinct selections.
+	var wide []int32
+	for range 9 {
+		for expert := range 160 {
+			wide = append(wide, int32(expert))
+		}
+	}
+	for expert := 160; expert < 256; expert++ {
+		wide = append(wide, int32(expert))
+	}
+	sparse := make([]int32, 256*slots)
+	for i := range sparse {
+		sparse[i] = int32(250 + i%slots)
+	}
 	return []cudaMoERouting{
 		{"single-expert", 5, slots, 9, single},
 		{"one-pair-per-token", 9, slots, 9, perToken},
 		{"all-distinct", 2, slots, 16, distinct},
 		{"skew", 5, slots, 9, skew},
-		{"tile-boundary", 3, slots, 9, boundary},
+		{"tile-boundary", len(boundary) / slots, slots, 9, boundary},
 		{"invalid-ids", 3, slots, 9, invalid},
 		{"last-bin-only", 2, slots, 9, last},
+		{"full-width-tile8-worst-case", 256, slots, 256, wide},
+		{"full-width-sparse", 256, slots, 256, sparse},
 	}
 }
 
