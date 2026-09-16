@@ -2,6 +2,7 @@ package cudalock
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -354,6 +355,48 @@ func TestAncestorInheritedStaleDeadPID(t *testing.T) {
 	}
 	if _, err := os.Stat(lockDir); !os.IsNotExist(err) {
 		t.Errorf("lock directory not removed after root release")
+	}
+}
+
+func TestAncestorInheritedStaleDeadPIDContention(t *testing.T) {
+	tmp := t.TempDir()
+	lockDir := filepath.Join(tmp, "lock")
+
+	// Another live process holds the lock directory
+	if err := os.MkdirAll(lockDir, 0755); err != nil {
+		t.Fatalf("MkdirAll failed: %v", err)
+	}
+	otherPID := os.Getppid()
+	liveOwner := Owner{
+		PID:   otherPID,
+		Host:  shortHostname(),
+		Label: "live-holder",
+		Epoch: time.Now().Unix(),
+		At:    time.Now(),
+	}
+	if err := os.WriteFile(filepath.Join(lockDir, "owner"), []byte(liveOwner.String()), 0644); err != nil {
+		t.Fatalf("write owner failed: %v", err)
+	}
+
+	deadPID := 99999999
+	for isAlive(deadPID) {
+		deadPID++
+	}
+
+	t.Setenv("GPU_LOCKDIR", lockDir)
+	t.Setenv("GPU_LOCK_HELD", strconv.Itoa(deadPID))
+
+	// Attempt acquire with a short timeout. It must NOT treat deadPID as granting access,
+	// and must wait and time out against the live holder.
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	_, err := Acquire(ctx, WithPollInterval(20*time.Millisecond))
+	if err == nil {
+		t.Fatalf("Acquire should have timed out against live holder with stale GPU_LOCK_HELD, but succeeded")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) && !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
