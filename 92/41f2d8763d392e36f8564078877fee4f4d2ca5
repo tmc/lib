@@ -1,0 +1,1 @@
+commit=9241f2d8763d392e36f8564078877fee4f4d2ca5; date=2026-09-16T14:46:48-07:00; agent=antigravity; model=gemini; tty=/dev/ttys501; pid=84782; ITERM_SESSION_ID=unknown. Validation: Unit tests in nvidia/cmd/cudaprof pass; verified on ds4-decode-pcsampled.pprof (ranked ds4_q8_0_matvec_q8_1 at top, cut warnings from 1731 to 568).
