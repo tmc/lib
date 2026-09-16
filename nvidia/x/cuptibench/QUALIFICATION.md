@@ -26,7 +26,7 @@ rerun of the main integration is claimed. Local integration checks are separate.
 | Multi-stream Whole/UserReplay collection | Device entry/exit tickets, event-dependent negative control, per-pass output checks | GB20B single-pass controls pass with one and three operations; no KernelReplay concurrency claim |
 | Profile numeric/schema integrity | Integer boundaries, schema partition, missing values, profile round trips | Native round trip passes |
 | Cleanup invalidates failed measurements | Capture, timer, override retry tests and actual caller-owned Close failure/retry/open-plan subprocess tests | Native failure qualification |
-| DS4 uses actual forward work | Production stage callbacks preserve graph boundaries; independently prepared prefixes | All 260 token-0 Regions state/logit receipts pass; original failure unexplained |
+| DS4 uses actual forward work | Production stage callbacks preserve graph boundaries; independently prepared prefixes | Token-0, selected position-1, and evolving position-3/4 Regions checks pass; original failure unexplained |
 | Cache semantics are explicit | CachePolicy admission, documented no-reset metadata, cold/warm raw-sector fixture compiled for Linux AMD64/ARM64 | Native cold/warm and two-pass controls pass |
 | Faithful C benchmark formatting | Versioned JSON decoder, 64 MiB input bound, normalization and injection tests, CLI tests | Source-specific reader and checked comparison are separate proposed work |
 | C family mapping is qualified independently of formatting | Adapter alternatives spec includes coverage and mapping gates | Retained Nsight mapping is known wrong and remains format-only |
@@ -196,3 +196,34 @@ The executed source is `f00e31f5` plus the two overlap test files. Binary SHA-25
 `a7097591c2b88d22dbdaffc4125e41061d7bafe1d617e2ef7359642523e4fa99`.
 Receipts: `~/tmp/cuptibench-overlap-receipts/run-RYIhtcZs`, including the source
 patch hash, device snapshots, lease identity, test output and exit status.
+
+## DS4 evolving replay state
+
+The dependent DS4 adapter at `7f9f0374` passed the selected position-1 replay
+check: six stages (layers 00 and 02, QKV, attention, and attention-output/FFN)
+were each captured twice, followed by two full captures. All 14 state/logit
+hashes matched their unprofiled baseline. Receipt:
+`~/tmp/cuptibench-ds4-position-qualification/run-position1-E0FGnSxb`.
+
+`TestCUDAProfileEvolvingReplay`, added in dependent commit `30c4e5a9`, passed at positions
+3 and 4 using fixed tokens `[0,1,2,3,4]`. The comparison baseline evaluates the
+sequence without resetting between tokens. The same six isolated stages and
+full forward work each run twice per position: 28 captures, all matching the
+expected state/logit hashes, all completing three host replay passes with
+successful decoding and zero reported drops.
+
+At position 3, layer 02 emits its first attention and indexer cache entries.
+At position 4, both entries and their counts remain unchanged while both pooling
+states change. The final state at position 3 equals the baseline starting state
+at position 4. These checks cover the selected persistent state and full logits
+against the same implementation. They do not establish independent model
+correctness, all-layer or all-position coverage, or indexer selection beyond
+512 emitted entries.
+
+The evolving test ran on GB20B with CUPTI 130202 and driver 580.173.02, using
+core `d282d8b9` and the dependent adapter plus the retained test patch. Binary
+SHA-256: `331c993ec13d971ada44d3457cabff019f27b98fea53451a61dd4c1915439df0`.
+Receipt: `~/tmp/cuptibench-ds4-evolving-receipts/run-evolving-RkYOpak8`, including
+model and source hashes, module replacements, matching lease snapshots, device
+snapshots and the 196.57-second passing test log. This does not resolve the
+retained KernelReplay graph failure or explain the earlier nonfinite result.
