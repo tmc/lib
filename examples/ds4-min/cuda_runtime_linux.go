@@ -977,6 +977,7 @@ func (r *cudaFoundation) loadMathKernels() error {
 		nvrtcx.WithName("ds4_math.cu"),
 		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", r.major, r.minor)),
 		nvrtcx.WithFlag("--generate-line-info"),
+		nvrtcx.WithFlag("--extra-device-vectorization"),
 	)
 	if err != nil {
 		return fmt.Errorf("cuda: compile math kernels: %w", err)
