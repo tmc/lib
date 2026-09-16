@@ -59,3 +59,17 @@ func ExampleWithMaxRegisters() {
 	fmt.Println(opt != nil)
 	// Output: true
 }
+
+func ExampleCompileFlags() {
+	flags, err := nvrtcx.CompileFlags(
+		nvrtcx.WithStandard("c++17"),
+		nvrtcx.WithFastMath(),
+		nvrtcx.WithOptimizationLevel(3),
+	)
+	if err != nil {
+		fmt.Println("error:", err)
+		return
+	}
+	fmt.Println(flags)
+	// Output: [-std=c++17 --use_fast_math -O3 --generate-line-info]
+}

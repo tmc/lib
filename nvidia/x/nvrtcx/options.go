@@ -194,6 +194,13 @@ func WithDefaultDevice() Option {
 	}
 }
 
+// WithDefaultExecutionSpace treats functions without explicit __host__ or __device__
+// execution space specifiers as __device__ functions (--device-as-default-execution-space).
+// It is an alias for WithDefaultDevice.
+func WithDefaultExecutionSpace() Option {
+	return WithDefaultDevice()
+}
+
 // WithRelocatableDeviceCode enables or disables relocatable device code (--relocatable-device-code).
 func WithRelocatableDeviceCode(enable bool) Option {
 	return func(o *options) {
@@ -222,6 +229,12 @@ func WithExtraDeviceVectorization() Option {
 		}
 		o.flags = append(o.flags, "--extra-device-vectorization")
 	}
+}
+
+// WithDeviceVectorization enables aggressive device code vectorization (--extra-device-vectorization).
+// It is an alias for WithExtraDeviceVectorization.
+func WithDeviceVectorization() Option {
+	return WithExtraDeviceVectorization()
 }
 
 // WithMaxRegisters sets the maximum register count per thread (--maxrregcount=N).
@@ -284,4 +297,36 @@ func hasFlag(flags []string, target string) bool {
 		}
 	}
 	return false
+}
+
+// CompileFlags resolves the given options into a slice of NVRTC command-line flags.
+// It applies line info and toolkit include defaults, and validates all options.
+func CompileFlags(opts ...Option) ([]string, error) {
+	cfg := options{
+		lineInfo: true,
+	}
+	for _, opt := range opts {
+		if opt == nil {
+			return nil, fmt.Errorf("nvrtcx: nil option")
+		}
+		opt(&cfg)
+	}
+	if cfg.err != nil {
+		return nil, cfg.err
+	}
+	if cfg.lineInfo && !cfg.noLineInfo && !cfg.deviceDebug && !hasLineInfoFlag(cfg.flags) {
+		cfg.flags = append(cfg.flags, "--generate-line-info")
+	}
+	if cfg.toolkitIncludes && !cfg.noToolkitIncludes {
+		dir := ToolkitIncludeDir()
+		if dir != "" {
+			flag := "--include-path=" + dir
+			if !hasFlag(cfg.flags, flag) {
+				cfg.flags = append(cfg.flags, flag)
+			}
+		} else {
+			return nil, fmt.Errorf("nvrtcx: CUDA toolkit include directory not found")
+		}
+	}
+	return append([]string(nil), cfg.flags...), nil
 }
