@@ -406,3 +406,328 @@ func gelu(x float32) float32 {
 	v := float64(x)
 	return float32(.5 * v * (1 + math.Erf(v/math.Sqrt2)))
 }
+
+func TestMatMulRowMajor(t *testing.T) {
+	dev := cudatest.Require(t)
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatalf("NewStream: %v", err)
+	}
+	defer stream.Destroy()
+
+	engine, err := cublasltx.NewEngine(dev)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	defer engine.Close()
+
+	const m, k, n = 2, 3, 2
+	aHost := []float32{1, 2, 3, 4, 5, 6}
+	bHost := []float32{7, 8, 9, 10, 11, 12}
+	want := hostMatMulRowMajor(aHost, bHost, m, k, n)
+
+	a, err := cudamem.Alloc[float32](dev, len(aHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Free()
+	b, err := cudamem.Alloc[float32](dev, len(bHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Free()
+	d, err := cudamem.Alloc[float32](dev, len(want))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Free()
+
+	if err := a.CopyFromHost(aHost); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.CopyFromHost(bHost); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := engine.MatMulRowMajor(stream, a, m, k, b, n, d); err != nil {
+		t.Fatalf("MatMulRowMajor: %v", err)
+	}
+	if err := stream.Synchronize(nil); err != nil {
+		t.Fatal(err)
+	}
+
+	got := make([]float32, len(want))
+	if err := d.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("MatMulRowMajor = %v, want %v", got, want)
+	}
+}
+
+func TestLinearRowMajor(t *testing.T) {
+	dev := cudatest.Require(t)
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatalf("NewStream: %v", err)
+	}
+	defer stream.Destroy()
+
+	engine, err := cublasltx.NewEngine(dev)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	defer engine.Close()
+
+	const tokens, inFeatures, outFeatures = 2, 3, 2
+	xHost := []float32{1, 2, 3, 4, 5, 6}
+	wHost := []float32{7, 8, 9, 10, 11, 12}
+	want := hostLinearRowMajor(xHost, wHost, tokens, inFeatures, outFeatures)
+
+	x, err := cudamem.Alloc[float32](dev, len(xHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer x.Free()
+	w, err := cudamem.Alloc[float32](dev, len(wHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Free()
+	y, err := cudamem.Alloc[float32](dev, len(want))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer y.Free()
+
+	if err := x.CopyFromHost(xHost); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.CopyFromHost(wHost); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := engine.LinearRowMajor(stream, x, tokens, inFeatures, w, outFeatures, y); err != nil {
+		t.Fatalf("LinearRowMajor: %v", err)
+	}
+	if err := stream.Synchronize(nil); err != nil {
+		t.Fatal(err)
+	}
+
+	got := make([]float32, len(want))
+	if err := y.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("LinearRowMajor = %v, want %v", got, want)
+	}
+}
+
+func TestMatMulF16(t *testing.T) {
+	dev := cudatest.Require(t)
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatalf("NewStream: %v", err)
+	}
+	defer stream.Destroy()
+
+	engine, err := cublasltx.NewEngine(dev)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	defer engine.Close()
+
+	const m, k, n = 2, 3, 2
+	aF32 := []float32{1, 4, 2, 5, 3, 6}
+	bF32 := []float32{7, 9, 11, 8, 10, 12}
+	aHost := make([]uint16, len(aF32))
+	bHost := make([]uint16, len(bF32))
+	for i, v := range aF32 {
+		aHost[i] = f32ToF16Bits(v)
+	}
+	for i, v := range bF32 {
+		bHost[i] = f32ToF16Bits(v)
+	}
+
+	a, err := cudamem.Alloc[uint16](dev, len(aHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Free()
+	b, err := cudamem.Alloc[uint16](dev, len(bHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Free()
+	d, err := cudamem.Alloc[uint16](dev, m*n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Free()
+
+	if err := a.CopyFromHost(aHost); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.CopyFromHost(bHost); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := engine.MatMulF16(stream, a, m, k, b, n, d); err != nil {
+		t.Fatalf("MatMulF16: %v", err)
+	}
+	if err := stream.Synchronize(nil); err != nil {
+		t.Fatal(err)
+	}
+
+	gotBits := make([]uint16, m*n)
+	if err := d.CopyToHost(gotBits); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]float32, m*n)
+	for i, b := range gotBits {
+		got[i] = f16ToF32Bits(b)
+	}
+	want := []float32{58, 139, 64, 154}
+	for i := range want {
+		if math.Abs(float64(got[i]-want[i])) > 0.5 {
+			t.Fatalf("MatMulF16[%d] = %v, want %v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestLinearRowMajorF16(t *testing.T) {
+	dev := cudatest.Require(t)
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatalf("NewStream: %v", err)
+	}
+	defer stream.Destroy()
+
+	engine, err := cublasltx.NewEngine(dev)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	defer engine.Close()
+
+	const tokens, inFeatures, outFeatures = 2, 3, 2
+	xF32 := []float32{1, 2, 3, 4, 5, 6}
+	wF32 := []float32{7, 8, 9, 10, 11, 12}
+	xHost := make([]uint16, len(xF32))
+	wHost := make([]uint16, len(wF32))
+	for i, v := range xF32 {
+		xHost[i] = f32ToF16Bits(v)
+	}
+	for i, v := range wF32 {
+		wHost[i] = f32ToF16Bits(v)
+	}
+
+	x, err := cudamem.Alloc[uint16](dev, len(xHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer x.Free()
+	w, err := cudamem.Alloc[uint16](dev, len(wHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Free()
+	y, err := cudamem.Alloc[uint16](dev, tokens*outFeatures)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer y.Free()
+
+	if err := x.CopyFromHost(xHost); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.CopyFromHost(wHost); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := engine.LinearRowMajorF16(stream, x, tokens, inFeatures, w, outFeatures, y); err != nil {
+		t.Fatalf("LinearRowMajorF16: %v", err)
+	}
+	if err := stream.Synchronize(nil); err != nil {
+		t.Fatal(err)
+	}
+
+	gotBits := make([]uint16, tokens*outFeatures)
+	if err := y.CopyToHost(gotBits); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]float32, len(gotBits))
+	for i, b := range gotBits {
+		got[i] = f16ToF32Bits(b)
+	}
+	want := []float32{50, 68, 122, 167}
+	for i := range want {
+		if math.Abs(float64(got[i]-want[i])) > 0.5 {
+			t.Fatalf("LinearRowMajorF16[%d] = %v, want %v", i, got[i], want[i])
+		}
+	}
+}
+
+func hostMatMulRowMajor(a, b []float32, m, k, n int) []float32 {
+	d := make([]float32, m*n)
+	for r := 0; r < m; r++ {
+		for c := 0; c < n; c++ {
+			var sum float32
+			for i := 0; i < k; i++ {
+				sum += a[r*k+i] * b[i*n+c]
+			}
+			d[r*n+c] = sum
+		}
+	}
+	return d
+}
+
+func hostLinearRowMajor(x, w []float32, tokens, inFeatures, outFeatures int) []float32 {
+	y := make([]float32, tokens*outFeatures)
+	for t := 0; t < tokens; t++ {
+		for o := 0; o < outFeatures; o++ {
+			var sum float32
+			for i := 0; i < inFeatures; i++ {
+				sum += x[t*inFeatures+i] * w[o*inFeatures+i]
+			}
+			y[t*outFeatures+o] = sum
+		}
+	}
+	return y
+}
+
+func f32ToF16Bits(f float32) uint16 {
+	bits := math.Float32bits(f)
+	sign := uint16((bits >> 16) & 0x8000)
+	exp := int((bits >> 23) & 0xff) - 127 + 15
+	mant := bits & 0x007fffff
+	if exp <= 0 {
+		return sign
+	} else if exp >= 31 {
+		return sign | 0x7c00
+	}
+	return sign | uint16(exp<<10) | uint16(mant>>13)
+}
+
+func f16ToF32Bits(h uint16) float32 {
+	sign := uint32(h&0x8000) << 16
+	exp := (h >> 10) & 0x1f
+	mant := uint32(h & 0x3ff)
+	if exp == 0 {
+		if mant == 0 {
+			return math.Float32frombits(sign)
+		}
+		for (mant & 0x400) == 0 {
+			mant <<= 1
+			exp--
+		}
+		exp++
+		mant &= 0x3ff
+		exp32 := uint32(exp - 15 + 127)
+		return math.Float32frombits(sign | (exp32 << 23) | (mant << 13))
+	} else if exp == 31 {
+		return math.Float32frombits(sign | 0x7f800000 | (mant << 13))
+	}
+	exp32 := uint32(exp - 15 + 127)
+	return math.Float32frombits(sign | (exp32 << 23) | (mant << 13))
+}
+
