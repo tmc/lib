@@ -193,7 +193,7 @@ func WithArch(major, minor int) Option {
 			o.err = fmt.Errorf("nvrtcx: invalid compute architecture %d.%d", major, minor)
 			return
 		}
-		o.flags = append(o.flags, fmt.Sprintf("--gpu-architecture=compute_%d%d", major, minor))
+		o.flags = append(o.flags, nvrtc.FlagGpuArchitecture+"="+nvrtc.ComputeArch(major, minor))
 	}
 }
 
@@ -212,7 +212,7 @@ func WithPhysicalArch(major, minor int) Option {
 			o.err = fmt.Errorf("nvrtcx: physical architecture cannot combine with WithOutput(%s)", outputKindName(o.output))
 			return
 		}
-		o.flags = append(o.flags, fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor))
+		o.flags = append(o.flags, nvrtc.FlagGpuArchitecture+"="+nvrtc.SmArch(major, minor))
 		o.physicalArch = true
 	}
 }
@@ -246,6 +246,10 @@ func WithFlag(flag string) Option {
 		}
 		if strings.ContainsRune(flag, 0) {
 			o.err = fmt.Errorf("nvrtcx: compiler flag contains NUL")
+			return
+		}
+		if err := nvrtc.ValidateOption(flag); err != nil {
+			o.err = fmt.Errorf("nvrtcx: invalid compiler flag %q: %w", flag, err)
 			return
 		}
 		o.flags = append(o.flags, flag)

@@ -122,13 +122,13 @@ func outputFlags(kind OutputKind, flags []string) ([]string, error) {
 	}
 	switch kind {
 	case OutputPTXTileIR:
-		flags = append(flags, "--enable-tile")
+		flags = append(flags, nvrtc.FlagEnableTile)
 	case OutputLTOIR:
-		flags = append(flags, "-dlto")
+		flags = append(flags, nvrtc.FlagDLTO)
 	case OutputTileIR:
-		flags = append(flags, "--tile-only")
+		flags = append(flags, nvrtc.FlagTileOnly)
 	case OutputOptiXIR:
-		flags = append(flags, "--optix-ir")
+		flags = append(flags, nvrtc.FlagOptiXIR)
 	}
 	return flags, nil
 }

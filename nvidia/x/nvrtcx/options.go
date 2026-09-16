@@ -55,7 +55,7 @@ func WithIncludePaths(paths ...string) Option {
 				o.err = fmt.Errorf("nvrtcx: include path contains NUL")
 				return
 			}
-			o.flags = append(o.flags, "--include-path="+dir)
+			o.flags = append(o.flags, nvrtc.FlagIncludePath+"="+dir)
 		}
 	}
 }
@@ -91,7 +91,7 @@ func WithDefines(macros ...string) Option {
 				o.err = fmt.Errorf("nvrtcx: macro definition contains NUL")
 				return
 			}
-			o.flags = append(o.flags, "-D"+m)
+			o.flags = append(o.flags, nvrtc.FlagDefineMacro+m)
 		}
 	}
 }
@@ -109,7 +109,7 @@ func WithUndefines(macros ...string) Option {
 				o.err = fmt.Errorf("nvrtcx: macro name contains NUL")
 				return
 			}
-			o.flags = append(o.flags, "-U"+m)
+			o.flags = append(o.flags, nvrtc.FlagUndefineMacro+m)
 		}
 	}
 }
@@ -122,20 +122,20 @@ func WithStandard(std string) Option {
 		s := strings.ToLower(strings.TrimSpace(std))
 		switch s {
 		case "11", "c++11":
-			s = "c++11"
+			s = nvrtc.StdCXX11
 		case "14", "c++14":
-			s = "c++14"
+			s = nvrtc.StdCXX14
 		case "17", "c++17":
-			s = "c++17"
+			s = nvrtc.StdCXX17
 		case "20", "c++20":
-			s = "c++20"
+			s = nvrtc.StdCXX20
 		case "23", "c++23":
-			s = "c++23"
+			s = nvrtc.StdCXX23
 		default:
 			o.err = fmt.Errorf("nvrtcx: unsupported C++ standard %q", std)
 			return
 		}
-		o.flags = append(o.flags, "-std="+s)
+		o.flags = append(o.flags, nvrtc.FlagStd+"="+s)
 	}
 }
 
@@ -163,11 +163,11 @@ func WithDeviceDebug() Option {
 	return func(o *options) {
 		o.deviceDebug = true
 		for _, f := range o.flags {
-			if f == "--device-debug" || f == "-G" {
+			if f == nvrtc.FlagDeviceDebug || f == "-G" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--device-debug")
+		o.flags = append(o.flags, nvrtc.FlagDeviceDebug)
 	}
 }
 
@@ -176,11 +176,11 @@ func WithDeviceDebug() Option {
 func WithFastMath() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "--use_fast_math" || f == "-use_fast_math" {
+			if f == nvrtc.FlagUseFastMath || f == "-use_fast_math" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--use_fast_math")
+		o.flags = append(o.flags, nvrtc.FlagUseFastMath)
 	}
 }
 
@@ -189,11 +189,11 @@ func WithFastMath() Option {
 func WithDefaultDevice() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "--device-as-default-execution-space" || f == "-default-device" {
+			if f == nvrtc.FlagDeviceAsDefaultExecutionSpace || f == "-default-device" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--device-as-default-execution-space")
+		o.flags = append(o.flags, nvrtc.FlagDeviceAsDefaultExecutionSpace)
 	}
 }
 
@@ -207,7 +207,7 @@ func WithDefaultExecutionSpace() Option {
 // WithRelocatableDeviceCode enables or disables relocatable device code (--relocatable-device-code).
 func WithRelocatableDeviceCode(enable bool) Option {
 	return func(o *options) {
-		o.flags = append(o.flags, fmt.Sprintf("--relocatable-device-code=%t", enable))
+		o.flags = append(o.flags, fmt.Sprintf("%s=%t", nvrtc.FlagRelocatableDeviceCode, enable))
 	}
 }
 
@@ -226,11 +226,11 @@ func WithOptimizationLevel(level int) Option {
 func WithExtraDeviceVectorization() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "--extra-device-vectorization" {
+			if f == nvrtc.FlagExtraDeviceVectorization {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--extra-device-vectorization")
+		o.flags = append(o.flags, nvrtc.FlagExtraDeviceVectorization)
 	}
 }
 
@@ -247,7 +247,7 @@ func WithMaxRegisters(n int) Option {
 			o.err = fmt.Errorf("nvrtcx: invalid max registers %d", n)
 			return
 		}
-		o.flags = append(o.flags, fmt.Sprintf("--maxrregcount=%d", n))
+		o.flags = append(o.flags, fmt.Sprintf("%s=%d", nvrtc.FlagMaxrregcount, n))
 	}
 }
 
@@ -255,11 +255,11 @@ func WithMaxRegisters(n int) Option {
 func WithWarningsAsErrors() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "--warning-as-error" || f == "-Werror" {
+			if f == nvrtc.FlagWarningAsError || f == "-Werror" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--warning-as-error")
+		o.flags = append(o.flags, nvrtc.FlagWarningAsError)
 	}
 }
 
@@ -267,11 +267,11 @@ func WithWarningsAsErrors() Option {
 func WithDisableWarnings() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "-w" || f == "--disable-warnings" {
+			if f == nvrtc.FlagDisableWarnings || f == "--disable-warnings" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "-w")
+		o.flags = append(o.flags, nvrtc.FlagDisableWarnings)
 	}
 }
 
@@ -344,11 +344,11 @@ func WithBundledHeaders(cacheDir ...string) Option {
 func WithPCH() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "-pch" || f == "--pch" {
+			if f == nvrtc.FlagPCH || f == "--pch" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "-pch")
+		o.flags = append(o.flags, nvrtc.FlagPCH)
 	}
 }
 
@@ -363,7 +363,7 @@ func WithCreatePCH(file string) Option {
 			o.err = fmt.Errorf("nvrtcx: PCH file contains NUL")
 			return
 		}
-		o.flags = append(o.flags, "--create-pch="+file)
+		o.flags = append(o.flags, nvrtc.FlagCreatePCH+"="+file)
 	}
 }
 
@@ -378,7 +378,7 @@ func WithUsePCH(file string) Option {
 			o.err = fmt.Errorf("nvrtcx: PCH file contains NUL")
 			return
 		}
-		o.flags = append(o.flags, "--use-pch="+file)
+		o.flags = append(o.flags, nvrtc.FlagUsePCH+"="+file)
 	}
 }
 
@@ -392,14 +392,14 @@ func WithFastCompile(level string) Option {
 			o.err = fmt.Errorf("nvrtcx: invalid fast compile level %q (must be 0, min, mid, or max)", level)
 			return
 		}
-		o.flags = append(o.flags, "--Ofast-compile="+s)
+		o.flags = append(o.flags, nvrtc.FlagOfastCompile+"="+s)
 	}
 }
 
 // WithRandomSeed specifies a seed for compiler determinism (--frandom-seed=<seed>).
 func WithRandomSeed(seed int) Option {
 	return func(o *options) {
-		o.flags = append(o.flags, fmt.Sprintf("--frandom-seed=%d", seed))
+		o.flags = append(o.flags, fmt.Sprintf("%s=%d", nvrtc.FlagRandomSeed, seed))
 	}
 }
 
@@ -407,18 +407,18 @@ func WithRandomSeed(seed int) Option {
 func WithExtensibleWholeProgram() Option {
 	return func(o *options) {
 		for _, f := range o.flags {
-			if f == "--extensible-whole-program" || f == "-ewp" {
+			if f == nvrtc.FlagExtensibleWholeProgram || f == "-ewp" {
 				return
 			}
 		}
-		o.flags = append(o.flags, "--extensible-whole-program")
+		o.flags = append(o.flags, nvrtc.FlagExtensibleWholeProgram)
 	}
 }
 
 // WithDeviceStackProtector enables or disables the device stack protector (--device-stack-protector).
 func WithDeviceStackProtector(enable bool) Option {
 	return func(o *options) {
-		o.flags = append(o.flags, fmt.Sprintf("--device-stack-protector=%t", enable))
+		o.flags = append(o.flags, fmt.Sprintf("%s=%t", nvrtc.FlagDeviceStackProtector, enable))
 	}
 }
 
@@ -433,7 +433,7 @@ func WithTimeTrace(file string) Option {
 			o.err = fmt.Errorf("nvrtcx: time trace file contains NUL")
 			return
 		}
-		o.flags = append(o.flags, "--time="+file)
+		o.flags = append(o.flags, nvrtc.FlagTime+"="+file)
 	}
 }
 
