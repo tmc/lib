@@ -1,8 +1,11 @@
 package nvrtcx
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -19,6 +22,7 @@ type CompiledModule struct {
 	output  OutputKind
 	ltoir   []byte
 	tileir  []byte
+	optixir []byte
 	ptx     string
 	cubin   []byte
 	log     string
@@ -57,6 +61,9 @@ func (cm *CompiledModule) Log() string {
 func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 	if cm == nil {
 		return 0, fmt.Errorf("nvrtcx: nil compiled module")
+	}
+	if cm.output == OutputOptiXIR || len(cm.optixir) > 0 {
+		return 0, fmt.Errorf("nvrtcx: OptiX IR must be passed to optixModuleCreate")
 	}
 	if cm.output == OutputPTXTileIR {
 		return 0, fmt.Errorf("nvrtcx: mixed output requires LoadOutput")
@@ -128,6 +135,9 @@ type options struct {
 	deviceDebug       bool
 	toolkitIncludes   bool
 	noToolkitIncludes bool
+	bundledHeaders    bool
+	bundledHeadersDir string
+	ctx               context.Context
 }
 
 // Option configures JIT compilation.
@@ -260,10 +270,14 @@ func WithHeader(name, content string) Option {
 	}
 }
 
-// WithNoCache disables the compilation cache for this compilation pass.
+// WithNoCache disables the compilation cache for this compilation pass,
+// and passes --no-cache to disable the driver disk cache.
 func WithNoCache() Option {
 	return func(o *options) {
 		o.useCache = false
+		if !hasFlag(o.flags, "--no-cache") {
+			o.flags = append(o.flags, "--no-cache")
+		}
 	}
 }
 
@@ -281,6 +295,8 @@ func (cm *CompiledModule) LoadOutput(dev *cuda.Device, kind OutputKind) (driver.
 		selected.cubin = cm.cubin
 	case OutputTileIR:
 		selected.tileir = cm.tileir
+	case OutputOptiXIR:
+		return 0, fmt.Errorf("nvrtcx: OptiX IR must be passed to optixModuleCreate")
 	default:
 		return 0, fmt.Errorf("nvrtcx: output %d cannot be loaded directly", kind)
 	}
@@ -288,6 +304,17 @@ func (cm *CompiledModule) LoadOutput(dev *cuda.Device, kind OutputKind) (driver.
 		return 0, fmt.Errorf("nvrtcx: output %d is unavailable", kind)
 	}
 	return selected.Load(dev)
+}
+
+// CompileContext compiles the given CUDA C++ source code with context cancellation support.
+func CompileContext(ctx context.Context, src string, opts ...Option) (*CompiledModule, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("nvrtcx: nil context")
+	}
+	allOpts := make([]Option, 0, len(opts)+1)
+	allOpts = append(allOpts, WithContext(ctx))
+	allOpts = append(allOpts, opts...)
+	return Compile(src, allOpts...)
 }
 
 // Compile compiles the given CUDA C++ source code into a CompiledModule.
@@ -316,8 +343,19 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	if cfg.err != nil {
 		return nil, cfg.err
 	}
-	if cfg.physicalArch && cfg.outputSet && (cfg.output == OutputLTOIR || cfg.output == OutputTileIR || cfg.output == OutputPTXTileIR) {
+	if cfg.ctx != nil && cfg.ctx.Err() != nil {
+		return nil, fmt.Errorf("nvrtcx: compile: %w", cfg.ctx.Err())
+	}
+	if cfg.physicalArch && cfg.outputSet && (cfg.output == OutputLTOIR || cfg.output == OutputTileIR || cfg.output == OutputPTXTileIR || cfg.output == OutputOptiXIR) {
 		return nil, fmt.Errorf("nvrtcx: physical architecture cannot combine with WithOutput(%s)", outputKindName(cfg.output))
+	}
+
+	// Disable cache if --no-cache was requested in custom flags
+	for _, f := range cfg.flags {
+		if f == "--no-cache" || f == "-no-cache" {
+			cfg.useCache = false
+			break
+		}
 	}
 
 	// Apply line info default: on by default for profilers and debuggers,
@@ -327,16 +365,38 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		cfg.flags = append(cfg.flags, "--generate-line-info")
 	}
 
-	// Apply toolkit includes: if explicitly requested via WithToolkitIncludes(),
-	// or if source includes a header and automatic inclusion is not disabled.
+	// Apply toolkit includes or bundled headers:
 	if !cfg.noToolkitIncludes {
-		needToolkit := cfg.toolkitIncludes || (strings.Contains(src, "#include") && !hasIncludeFlag(cfg.flags))
-		if needToolkit {
+		needHeaders := cfg.toolkitIncludes || cfg.bundledHeaders || (strings.Contains(src, "#include") && !hasIncludeFlag(cfg.flags))
+		if needHeaders {
 			dir := ToolkitIncludeDir()
-			if dir != "" {
+			if dir != "" && !cfg.bundledHeaders {
 				flag := "--include-path=" + dir
 				if !hasFlag(cfg.flags, flag) {
 					cfg.flags = append(cfg.flags, flag)
+				}
+			} else if cfg.bundledHeaders || nvrtc.HasInstallBundledHeaders() {
+				targetDir := cfg.bundledHeadersDir
+				if targetDir == "" {
+					targetDir = DefaultBundledHeadersDir()
+				}
+				installedDir, err := InstallBundledHeaders(targetDir, false)
+				if err != nil {
+					if cfg.bundledHeaders || cfg.toolkitIncludes {
+						return nil, err
+					}
+				} else {
+					flag := "--include-path=" + installedDir
+					if !hasFlag(cfg.flags, flag) {
+						cfg.flags = append(cfg.flags, flag)
+					}
+					ccclDir := filepath.Join(installedDir, "cccl")
+					if fi, err := os.Stat(ccclDir); err == nil && fi.IsDir() {
+						ccclFlag := "--include-path=" + ccclDir
+						if !hasFlag(cfg.flags, ccclFlag) {
+							cfg.flags = append(cfg.flags, ccclFlag)
+						}
+					}
 				}
 			} else if cfg.toolkitIncludes {
 				return nil, fmt.Errorf("nvrtcx: CUDA toolkit include directory not found")
@@ -385,10 +445,60 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 			headerContents[i] = cfg.headers[k]
 		}
 
-		prog, err := nvrtc.CreateProgram(src, cfg.name, headerContents, headerNames)
-		if err != nil {
-			return nil, fmt.Errorf("nvrtcx: create program: %w", err)
+		compileOnce := func() (nvrtc.Program, string, error, error) {
+			prog, err := nvrtc.CreateProgram(src, cfg.name, headerContents, headerNames)
+			if err != nil {
+				return prog, "", nil, fmt.Errorf("nvrtcx: create program: %w", err)
+			}
+			for _, expression := range cfg.expressions {
+				name := append([]byte(expression), 0)
+				err := prog.AddNameExpression(&name[0])
+				runtime.KeepAlive(name)
+				if err != nil {
+					_ = nvrtc.DestroyProgram(&prog)
+					return prog, "", nil, fmt.Errorf("nvrtcx: register %q: %w", expression, err)
+				}
+			}
+			if cfg.ctx != nil && nvrtc.HassetFlowCallback() {
+				token, unregister := registerFlowContext(cfg.ctx)
+				defer unregister()
+				if err := prog.SetFlowCallback(getFlowCallback(), token); err != nil {
+					_ = nvrtc.DestroyProgram(&prog)
+					return prog, "", nil, fmt.Errorf("nvrtcx: set flow callback: %w", err)
+				}
+			}
+			compileErr := prog.Compile(cfg.flags)
+			log, logErr := prog.GetProgramLog()
+			return prog, log, compileErr, logErr
 		}
+
+		prog, log, compileErr, logErr := compileOnce()
+		if compileErr != nil && cfg.ctx != nil && cfg.ctx.Err() != nil {
+			_ = nvrtc.DestroyProgram(&prog)
+			return nil, fmt.Errorf("nvrtcx: compile: %w", cfg.ctx.Err())
+		}
+
+		// Handle PCH heap exhaustion retry
+		isHeapExhausted := errors.Is(compileErr, nvrtc.ErrPchCreateHeapExhausted)
+		if !isHeapExhausted && compileErr == nil && nvrtc.HasgetPCHCreateStatus() {
+			if errors.Is(prog.GetPCHCreateStatus(), nvrtc.ErrPchCreateHeapExhausted) {
+				isHeapExhausted = true
+			}
+		}
+		if isHeapExhausted && nvrtc.HasgetPCHHeapSizeRequired() && nvrtc.HasSetPCHHeapSize() {
+			reqSize, reqErr := prog.GetPCHHeapSizeRequired()
+			if reqErr == nil && reqSize > 0 {
+				if setErr := nvrtc.SetPCHHeapSize(reqSize); setErr == nil {
+					_ = nvrtc.DestroyProgram(&prog)
+					prog, log, compileErr, logErr = compileOnce()
+					if compileErr != nil && cfg.ctx != nil && cfg.ctx.Err() != nil {
+						_ = nvrtc.DestroyProgram(&prog)
+						return nil, fmt.Errorf("nvrtcx: compile: %w", cfg.ctx.Err())
+					}
+				}
+			}
+		}
+
 		defer func() {
 			result, resultErr = finishProgram(result, resultErr, func() error { return nvrtc.DestroyProgram(&prog) })
 			if resultErr == nil && cfg.useCache {
@@ -397,17 +507,6 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 				}
 			}
 		}()
-
-		for _, expression := range cfg.expressions {
-			name := append([]byte(expression), 0)
-			err := prog.AddNameExpression(&name[0])
-			runtime.KeepAlive(name)
-			if err != nil {
-				return nil, fmt.Errorf("nvrtcx: register %q: %w", expression, err)
-			}
-		}
-		compileErr := prog.Compile(cfg.flags)
-		log, logErr := prog.GetProgramLog()
 
 		if err := compilerDiagnostic(compileErr, logErr, log); err != nil {
 			return nil, err

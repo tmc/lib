@@ -15,7 +15,7 @@ import (
 	"sync"
 )
 
-const cacheMagic = "nvrtcx\x00\x06"
+const cacheMagic = "nvrtcx\x00\x07"
 
 var (
 	memCacheMu sync.RWMutex
@@ -145,7 +145,7 @@ func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
 	var b bytes.Buffer
 	b.WriteString(cacheMagic)
 	b.WriteByte(byte(cm.output))
-	fields := [][]byte{[]byte(cm.ptx), cm.cubin, cm.ltoir, cm.tileir, []byte(cm.log), names}
+	fields := [][]byte{[]byte(cm.ptx), cm.cubin, cm.ltoir, cm.tileir, cm.optixir, []byte(cm.log), names}
 	for _, field := range fields {
 		var length [8]byte
 		binary.LittleEndian.PutUint64(length[:], uint64(len(field)))
@@ -160,7 +160,7 @@ func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
 }
 
 func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
-	const headerSize = len(cacheMagic) + 1 + 6*8
+	const headerSize = len(cacheMagic) + 1 + 7*8
 	if len(data) < headerSize+sha256.Size || string(data[:len(cacheMagic)]) != cacheMagic {
 		return nil, fmt.Errorf("nvrtcx: invalid cache entry")
 	}
@@ -170,11 +170,11 @@ func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
 		return nil, fmt.Errorf("nvrtcx: corrupt cache entry")
 	}
 	kind := OutputKind(data[len(cacheMagic)])
-	if kind > OutputPTXTileIR {
+	if kind > OutputOptiXIR {
 		return nil, fmt.Errorf("nvrtcx: invalid cached output kind")
 	}
 	payload := data[headerSize : len(data)-sha256.Size]
-	var fields [6][]byte
+	var fields [7][]byte
 	for i := range fields {
 		offset := len(cacheMagic) + 1 + i*8
 		size := binary.LittleEndian.Uint64(data[offset : offset+8])
@@ -187,9 +187,17 @@ func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
 	if len(payload) != 0 {
 		return nil, fmt.Errorf("nvrtcx: trailing cache data")
 	}
-	cm := &CompiledModule{output: kind, ptx: string(fields[0]), cubin: append([]byte(nil), fields[1]...),
-		ltoir: append([]byte(nil), fields[2]...), tileir: append([]byte(nil), fields[3]...), log: string(fields[4]), key: key}
-	if err := json.Unmarshal(fields[5], &cm.lowered); err != nil {
+	cm := &CompiledModule{
+		output:  kind,
+		ptx:     string(fields[0]),
+		cubin:   append([]byte(nil), fields[1]...),
+		ltoir:   append([]byte(nil), fields[2]...),
+		tileir:  append([]byte(nil), fields[3]...),
+		optixir: append([]byte(nil), fields[4]...),
+		log:     string(fields[5]),
+		key:     key,
+	}
+	if err := json.Unmarshal(fields[6], &cm.lowered); err != nil {
 		return nil, fmt.Errorf("nvrtcx: cached lowered names: %w", err)
 	}
 	for expression, name := range cm.lowered {
@@ -300,5 +308,6 @@ func (cm *CompiledModule) String() string {
 	if cm == nil {
 		return "CompiledModule(<nil>)"
 	}
-	return fmt.Sprintf("CompiledModule(key=%s, ptx_len=%d, cubin_len=%d)", cm.key, len(cm.ptx), len(cm.cubin))
+	return fmt.Sprintf("CompiledModule(key=%s, ptx_len=%d, cubin_len=%d, ltoir_len=%d, tileir_len=%d, optixir_len=%d)",
+		cm.key, len(cm.ptx), len(cm.cubin), len(cm.ltoir), len(cm.tileir), len(cm.optixir))
 }

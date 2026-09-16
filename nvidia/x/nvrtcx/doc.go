@@ -1,22 +1,29 @@
 // Package nvrtcx provides runtime compilation of CUDA C++ source code
 // into explicit compiler artifacts with content-addressed caching.
 //
-// WithOutput selects PTX, CUBIN, LTOIR, or TileIR. The default selects PTX
+// WithOutput selects PTX, CUBIN, LTOIR, TileIR, or OptiXIR. The default selects PTX
 // and optional CUBIN. Available outputs depend on the loaded NVRTC library,
 // source language, and compiler options. LTOIR requires linking before loading;
 // see github.com/tmc/lib/nvidia/x/nvjitlinkx. TileIR requires a compatible driver.
+// OptiX IR must be loaded via optixModuleCreate.
 //
 // By default, Compile generates source line information (--generate-line-info)
 // for profiling and debugging without optimization penalties. When source includes
 // headers and no include paths are supplied, Compile automatically discovers and
-// adds the CUDA toolkit include directory via ToolkitIncludeDir.
+// adds the CUDA toolkit include directory via ToolkitIncludeDir, or extracts and
+// uses bundled headers via InstallBundledHeaders when running without a local toolkit.
+//
+// Compilation supports context cancellation via [WithContext] and [CompileContext],
+// aborting in-flight compilation via NVRTC flow callbacks.
 //
 // Compiler options configure the compilation pass:
 //   - Target architecture: [WithArch], [WithPhysicalArch], [WithDeviceArch]
 //   - Language and execution space: [WithStandard], [WithDefaultDevice]
-//   - Code generation and optimization: [WithFastMath], [WithOptimizationLevel], [WithExtraDeviceVectorization], [WithRelocatableDeviceCode], [WithMaxRegisters]
-//   - Debugging and diagnostics: [WithLineInfo], [WithNoLineInfo], [WithDeviceDebug], [WithWarningsAsErrors], [WithDisableWarnings]
-//   - Preprocessor and search paths: [WithIncludePaths], [WithToolkitIncludes], [WithNoToolkitIncludes], [WithDefines], [WithUndefines], [WithHeader]
+//   - Code generation and optimization: [WithFastMath], [WithFastCompile], [WithOptimizationLevel], [WithExtraDeviceVectorization], [WithRelocatableDeviceCode], [WithExtensibleWholeProgram], [WithMaxRegisters], [WithRandomSeed], [WithDeviceStackProtector]
+//   - Precompiled headers: [WithPCH], [WithCreatePCH], [WithUsePCH]
+//   - Debugging and diagnostics: [WithLineInfo], [WithNoLineInfo], [WithDeviceDebug], [WithWarningsAsErrors], [WithDisableWarnings], [WithTimeTrace]
+//   - Preprocessor and search paths: [WithIncludePaths], [WithToolkitIncludes], [WithNoToolkitIncludes], [WithBundledHeaders], [WithDefines], [WithUndefines], [WithHeader]
+//   - Context and cancellation: [WithContext], [CompileContext]
 //   - Output and artifacts: [WithOutput], [WithNameExpressions], [WithName], [WithNoCache], [WithFlag]
 //
 // Cache keys include source, program name, in-memory headers, flags, output

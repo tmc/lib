@@ -1,10 +1,13 @@
 package nvrtcx
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/nvrtc"
 )
 
 // ToolkitIncludeDir reports a CUDA toolkit include directory on the host,
@@ -272,6 +275,168 @@ func WithDisableWarnings() Option {
 	}
 }
 
+// WithContext associates a context.Context with compilation.
+// If the context is cancelled during compilation and the NVRTC library
+// supports flow callbacks, compilation is aborted early.
+func WithContext(ctx context.Context) Option {
+	return func(o *options) {
+		if ctx == nil {
+			o.err = fmt.Errorf("nvrtcx: nil context")
+			return
+		}
+		o.ctx = ctx
+	}
+}
+
+// DefaultBundledHeadersDir returns the default directory used for extracting bundled headers.
+func DefaultBundledHeadersDir() string {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+	return filepath.Join(base, "tmc-lib", "nvrtc-bundled-headers")
+}
+
+// InstallBundledHeaders extracts CUDA headers bundled with NVRTC to targetDir.
+// If targetDir is empty, DefaultBundledHeadersDir() is used.
+// If forceOverwrite is false, existing headers are preserved (nvrtc.InstallHeadersSkipIfExists).
+func InstallBundledHeaders(targetDir string, forceOverwrite bool) (string, error) {
+	if !nvrtc.HasInstallBundledHeaders() {
+		return "", fmt.Errorf("nvrtcx: bundled headers not supported by loaded NVRTC library")
+	}
+	if targetDir == "" {
+		targetDir = DefaultBundledHeadersDir()
+	}
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return "", fmt.Errorf("nvrtcx: create bundled headers directory: %w", err)
+	}
+	var flags uint32 = nvrtc.InstallHeadersSkipIfExists
+	if forceOverwrite {
+		flags = nvrtc.InstallHeadersForceOverwrite
+	}
+	if err := nvrtc.InstallBundledHeaders(targetDir, flags); err != nil {
+		return "", fmt.Errorf("nvrtcx: install bundled headers: %w", err)
+	}
+	return targetDir, nil
+}
+
+// WithBundledHeaders enables extracting and using the CUDA headers bundled with NVRTC.
+// If cacheDir is specified, it sets the directory where headers are extracted;
+// otherwise DefaultBundledHeadersDir() is used.
+func WithBundledHeaders(cacheDir ...string) Option {
+	return func(o *options) {
+		o.bundledHeaders = true
+		if len(cacheDir) > 0 {
+			if cacheDir[0] == "" {
+				o.err = fmt.Errorf("nvrtcx: empty bundled headers directory")
+				return
+			}
+			if strings.ContainsRune(cacheDir[0], 0) {
+				o.err = fmt.Errorf("nvrtcx: bundled headers directory contains NUL")
+				return
+			}
+			o.bundledHeadersDir = cacheDir[0]
+		}
+	}
+}
+
+// WithPCH enables precompiled header processing (-pch).
+func WithPCH() Option {
+	return func(o *options) {
+		for _, f := range o.flags {
+			if f == "-pch" || f == "--pch" {
+				return
+			}
+		}
+		o.flags = append(o.flags, "-pch")
+	}
+}
+
+// WithCreatePCH instructs the compiler to create a precompiled header file (--create-pch=<file>).
+func WithCreatePCH(file string) Option {
+	return func(o *options) {
+		if file == "" {
+			o.err = fmt.Errorf("nvrtcx: empty PCH file")
+			return
+		}
+		if strings.ContainsRune(file, 0) {
+			o.err = fmt.Errorf("nvrtcx: PCH file contains NUL")
+			return
+		}
+		o.flags = append(o.flags, "--create-pch="+file)
+	}
+}
+
+// WithUsePCH instructs the compiler to use a precompiled header file (--use-pch=<file>).
+func WithUsePCH(file string) Option {
+	return func(o *options) {
+		if file == "" {
+			o.err = fmt.Errorf("nvrtcx: empty PCH file")
+			return
+		}
+		if strings.ContainsRune(file, 0) {
+			o.err = fmt.Errorf("nvrtcx: PCH file contains NUL")
+			return
+		}
+		o.flags = append(o.flags, "--use-pch="+file)
+	}
+}
+
+// WithFastCompile configures the fast compilation mode (--Ofast-compile=0|min|mid|max).
+func WithFastCompile(level string) Option {
+	return func(o *options) {
+		s := strings.ToLower(strings.TrimSpace(level))
+		switch s {
+		case "0", "min", "mid", "max":
+		default:
+			o.err = fmt.Errorf("nvrtcx: invalid fast compile level %q (must be 0, min, mid, or max)", level)
+			return
+		}
+		o.flags = append(o.flags, "--Ofast-compile="+s)
+	}
+}
+
+// WithRandomSeed specifies a seed for compiler determinism (--frandom-seed=<seed>).
+func WithRandomSeed(seed int) Option {
+	return func(o *options) {
+		o.flags = append(o.flags, fmt.Sprintf("--frandom-seed=%d", seed))
+	}
+}
+
+// WithExtensibleWholeProgram enables extensible whole program compilation (--extensible-whole-program).
+func WithExtensibleWholeProgram() Option {
+	return func(o *options) {
+		for _, f := range o.flags {
+			if f == "--extensible-whole-program" || f == "-ewp" {
+				return
+			}
+		}
+		o.flags = append(o.flags, "--extensible-whole-program")
+	}
+}
+
+// WithDeviceStackProtector enables or disables the device stack protector (--device-stack-protector).
+func WithDeviceStackProtector(enable bool) Option {
+	return func(o *options) {
+		o.flags = append(o.flags, fmt.Sprintf("--device-stack-protector=%t", enable))
+	}
+}
+
+// WithTimeTrace enables compiler phase time tracing to an output file (--time=<file>).
+func WithTimeTrace(file string) Option {
+	return func(o *options) {
+		if file == "" {
+			o.err = fmt.Errorf("nvrtcx: empty time trace file")
+			return
+		}
+		if strings.ContainsRune(file, 0) {
+			o.err = fmt.Errorf("nvrtcx: time trace file contains NUL")
+			return
+		}
+		o.flags = append(o.flags, "--time="+file)
+	}
+}
+
 func hasLineInfoFlag(flags []string) bool {
 	for _, f := range flags {
 		if f == "--generate-line-info" || f == "-lineinfo" || f == "-G" || f == "--device-debug" {
@@ -326,6 +491,16 @@ func CompileFlags(opts ...Option) ([]string, error) {
 			}
 		} else {
 			return nil, fmt.Errorf("nvrtcx: CUDA toolkit include directory not found")
+		}
+	}
+	if cfg.bundledHeaders && !cfg.noToolkitIncludes {
+		dir := cfg.bundledHeadersDir
+		if dir == "" {
+			dir = DefaultBundledHeadersDir()
+		}
+		flag := "--include-path=" + dir
+		if !hasFlag(cfg.flags, flag) {
+			cfg.flags = append(cfg.flags, flag)
 		}
 	}
 	return append([]string(nil), cfg.flags...), nil
