@@ -20,6 +20,12 @@ type benchmarkTimer interface {
 
 type timerFactory func(*Plan, Workload) (benchmarkTimer, error)
 
+// Measure measures w in a leaf benchmark using p. It is equivalent to Benchmark(b, p, w).
+func (p *Plan) Measure(b *testing.B, w Workload) *Result {
+	b.Helper()
+	return Benchmark(b, p, w)
+}
+
 // Benchmark measures w in a leaf benchmark, then collects a bounded counter
 // sample. It owns b.Loop; do not call it inside another iteration loop or
 // RunParallel. Go ns/op measures a sequence of Config.Operations, including
