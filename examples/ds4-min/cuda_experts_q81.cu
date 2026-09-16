@@ -159,6 +159,24 @@ __device__ float ds4_q2_window_q8_1(const unsigned char *p, const ds4_q8_1_activ
   return d * sum_d - dm * sum_m;
 }
 
+__device__ float ds4_q2_window_q8_1_hoisted(
+    unsigned v, const unsigned char *scales, float d, float dm,
+    const ds4_q8_1_activation *x, unsigned iqs) {
+  float sum_d = 0.0f, sum_m = 0.0f;
+  for (unsigned i = 0; i < 4; i++) {
+    const ds4_q8_1_activation *q = x + 4 * (iqs / 8) + i;
+    unsigned scale = scales[i];
+    int q_packed = *reinterpret_cast<const int *>(&q->qs[(iqs % 8) * 4]);
+    int vi = (v >> (2 * i)) & 0x03030303;
+    int dot = __dp4a(vi, q_packed, 0);
+    int minimum = int(scale >> 4) * __dp4a(0x01010101, q_packed, 0);
+    float d8 = ds4_half_to_float(q->d);
+    sum_d += d8 * float(dot * int(scale & 15));
+    sum_m += d8 * float(minimum);
+  }
+  return d * sum_d - dm * sum_m;
+}
+
 extern "C" __global__ void ds4_q2_k_selected_q8_1(
     const unsigned char *weights, const int *ids, const ds4_q8_1_activation *x,
     float *out, unsigned cols, unsigned rows, unsigned slots, unsigned experts) {

@@ -192,11 +192,19 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
       input[t] = x + (unsigned long long)pair[t] * (cols / 32);
     }
     float sum[DS4_MOE_GATHER_TILE] = {0.0f};
+    const unsigned iqs = lane % 16;
+    const unsigned qoffset = 16 + iqs * 4;
+    const unsigned scale_offset = iqs - iqs % 8 + (iqs % 8) / 4;
     for (unsigned b = lane / 16; b < blocks; b += 2) {
       const unsigned char *w = weights + offset + (unsigned long long)b * 84;
+      unsigned v = *reinterpret_cast<const unsigned int *>(w + qoffset);
+      unsigned char scales[4] = {w[scale_offset], w[scale_offset + 2], w[scale_offset + 4], w[scale_offset + 6]};
+      unsigned d_pair = *reinterpret_cast<const unsigned int *>(w + 80);
+      float d = ds4_half_to_float(d_pair & 0xffff);
+      float dm = ds4_half_to_float(d_pair >> 16);
       #pragma unroll
       for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
-        if (t < n) sum[t] += ds4_q2_window_q8_1(w, input[t] + b * 8, lane % 16);
+        if (t < n) sum[t] += ds4_q2_window_q8_1_hoisted(v, scales, d, dm, input[t] + b * 8, iqs);
       }
     }
     #pragma unroll
