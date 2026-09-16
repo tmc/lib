@@ -584,9 +584,12 @@ extern "C" __global__ void KERNEL_NAME(
         const block_iq2_xxs* blk = &W[row * blocks_per_row + b];
         float d = half_to_float(blk->d);
 
-        const uint32_t* qs32 = reinterpret_cast<const uint32_t*>(blk->qs);
-        uint32_t aux0 = qs32[2 * ib32 + 0];
-        uint32_t aux1 = qs32[2 * ib32 + 1];
+        // block_iq2_xxs is 66 bytes, so blk->qs is 4-byte aligned only for even
+        // blocks. Assemble the two 32-bit auxiliaries from uint16_t loads
+        // rather than casting, which faults with MISALIGNED_ADDRESS.
+        const uint16_t* qs16 = blk->qs + 4 * ib32;
+        uint32_t aux0 = (uint32_t)qs16[0] | ((uint32_t)qs16[1] << 16);
+        uint32_t aux1 = (uint32_t)qs16[2] | ((uint32_t)qs16[3] << 16);
 
         float db = d * (0.5f + (float)(aux1 >> 28)) * 0.25f;
         uint8_t grid_idx = (aux0 >> (8 * l)) & 0xff;
