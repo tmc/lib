@@ -40,6 +40,16 @@ fixture. `TestOracleGates -v` lists which gates a run exercises and what each
 unset one would enable. Setting `DS4_REQUIRE_GATES` turns an unset gate into a
 failure, which is how a full parity gate asserts its own coverage.
 
+`TestCUDAPrefillGather` requires `DS4_CUDA_PREFILL_GATHER_GATE=1`, the GPU
+lock, `DS4_MODEL`, and `DS4_CUDA_PREFILL_TOKENS` naming a retained 2048-token
+JSON corpus. It compares gather and per-token projections across prefix
+lengths and two continuation steps, checking logits and every layer's
+compressed-row counts. `DS4_CUDA_PREFILL_GATHER_RECEIPT` optionally names the
+snapshot output file; it is written only after every case succeeds. This
+comparison does not measure performance. `DS4_MOE_GATHER_TILE` and
+`DS4_MOE_MAX_EXPERTS` are CUDA compile-time macros checked against Go constants,
+not environment variables or hardware gates.
+
 ## Physical gates
 
 Run the same immutable model and prompt manifest through ds4 Metal, ds4 CUDA,

@@ -30,6 +30,7 @@ type cudaRuntime struct {
 	batchProgress           func(int) error
 	disableBlockDiagAttnOut bool
 	disableSIMDExperts      bool
+	disableGatherExperts    bool
 	disableGraphs           bool
 }
 
@@ -74,6 +75,9 @@ type cudaBatchDense struct {
 	sharedGate, sharedUp, sharedOut      cudamem.Slice[float32]
 	q81Attn, q81QLora, q81FFN            cudamem.Slice[byte]
 	q80Heads, q80Low, q80Shared          cudamem.Slice[byte]
+	expertIDs                          cudamem.Slice[int32]
+	expertGate, expertUp, expertDown    cudamem.Slice[float32]
+	q81Experts                         cudamem.Slice[byte]
 }
 
 // cudaSharedFFNWidth is the shared expert's intermediate width, matching the
@@ -88,6 +92,7 @@ type cudaBatchResources struct {
 	rows       []cudaTokenState
 	hc         []*cudaHC
 	dense      cudaBatchDense
+	grouping   *cudaMoEGrouping
 }
 
 // cudaPrefillGroupWidth is the number of tokens the prefill path holds resident
@@ -366,6 +371,10 @@ func (b *cudaBatchResources) Close() error {
 		return nil
 	}
 	var errs []error
+	if b.grouping != nil {
+		errs = append(errs, b.grouping.Free())
+		b.grouping = nil
+	}
 	for _, h := range b.hc {
 		errs = append(errs, h.Close())
 	}
@@ -541,9 +550,18 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		q80Heads:       cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-attention-heads", width*32768/32*36),
 		q80Low:         cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-attention-low", width*8192/32*36),
 		q80Shared:      cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-shared", width*cudaSharedFFNWidth/32*36),
+		expertIDs:      cudamem.AllocIn[int32](b.denseArena, "batch-expert-ids", width*6),
+		expertGate:     alloc("batch-expert-gate", width*6*2048),
+		expertUp:       alloc("batch-expert-up", width*6*2048),
+		expertDown:     alloc("batch-expert-down", width*6*cudaWidth),
+		q81Experts:     cudamem.AllocIn[byte](b.denseArena, "batch-q81-experts", width*6*2048/32*36),
 	}
 	if err := errors.Join(b.arena.Err(), b.denseArena.Err()); err != nil {
 		return nil, fmt.Errorf("cuda runtime: allocate batch rows: %w", err)
+	}
+	b.grouping, err = newCUDAMoEGrouping(r.device, cudaMoEMaxExperts, width*6)
+	if err != nil {
+		return nil, fmt.Errorf("cuda runtime: allocate batch grouping: %w", err)
 	}
 	for i := range b.hc {
 		b.hc[i], err = newCUDAHC(r.cudaFoundation)
@@ -595,6 +613,7 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	l := &r.model.layers[index]
 	state := &r.state.layers[index]
 	d := &r.batch.dense
+	gather := !r.disableGatherExperts && !r.disableSIMDExperts
 	if err := r.markCUDAPhase("dense-front", position, index); err != nil {
 		return err
 	}
@@ -616,6 +635,13 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		rows[i].sharedGate = d.sharedGate.Slice(i*cudaSharedFFNWidth, (i+1)*cudaSharedFFNWidth)
 		rows[i].sharedUp = d.sharedUp.Slice(i*cudaSharedFFNWidth, (i+1)*cudaSharedFFNWidth)
 		rows[i].sharedOut = d.sharedOut.Slice(i*cudaWidth, (i+1)*cudaWidth)
+		if gather {
+			rows[i].expertIDs = d.expertIDs.Slice(i*6, (i+1)*6)
+			rows[i].expertGate = d.expertGate.Slice(i*6*2048, (i+1)*6*2048)
+			rows[i].expertUp = d.expertUp.Slice(i*6*2048, (i+1)*6*2048)
+			rows[i].expertDown = d.expertDown.Slice(i*6*cudaWidth, (i+1)*6*cudaWidth)
+			rows[i].q81Experts = d.q81Experts.Slice(i*6*2048/32*36, (i+1)*6*2048/32*36)
+		}
 		// Compressor rows are adjacent at the layer's own compressor width, the
 		// layout the batched pair kernel writes. Layers 0 and 1 have none.
 		if index >= 2 {
@@ -722,12 +748,50 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	if err := r.evalBatchSharedDown(rows, index, position); err != nil {
 		return err
 	}
+	if gather {
+		if err := r.evalBatchExperts(rows, index); err != nil {
+			return err
+		}
+	}
 	for i := range rows {
-		if err := r.evalLayerFFNPost(hc[i], &rows[i], index, position+i, true); err != nil {
+		var err error
+		if gather {
+			err = r.evalLayerFFNResidual(hc[i], &rows[i], index, position+i)
+		} else {
+			err = r.evalLayerFFNPost(hc[i], &rows[i], index, position+i, true)
+		}
+		if err != nil {
 			return fmt.Errorf("token %d: %w", i, err)
 		}
 	}
 	return nil
+}
+
+// evalBatchExperts projects all routed experts while keeping the outputs in
+// token and slot order for the weighted activation and residual kernels.
+func (r *cudaRuntime) evalBatchExperts(rows []cudaTokenState, index int) error {
+	l := &r.model.layers[index]
+	d := &r.batch.dense
+	n := len(rows)
+	// This view borrows the allocation; the batch owns and frees it.
+	g := *r.batch.grouping
+	g.npairs = 6 * n
+	g.pairs = g.pairs.Slice(0, g.npairs)
+	if err := r.encodeMoEGroupCSR(d.expertIDs.Slice(0, g.npairs), &g); err != nil {
+		return err
+	}
+	if err := r.encodeMatvecIQ2SelectedQ81Gather(l.expertGate, l.expertUp, &g, 6,
+		d.q81FFN.Slice(0, n*cudaWidth/32*36), d.expertGate.Slice(0, n*6*2048), d.expertUp.Slice(0, n*6*2048)); err != nil {
+		return err
+	}
+	for i := range rows {
+		s := &rows[i]
+		if err := r.encodeSwiGLUQuantQ81(s.expertGate, s.expertUp, s.expertW, s.q81Experts, 2048, 6); err != nil {
+			return fmt.Errorf("token %d expert activation: %w", i, err)
+		}
+	}
+	return r.encodeMatvecQ2KSelectedQ81Gather(l.expertDown, &g,
+		d.q81Experts.Slice(0, n*6*2048/32*36), d.expertDown.Slice(0, n*6*cudaWidth))
 }
 
 // evalBatchCompressor projects the group's compressor activations with one
@@ -1075,6 +1139,11 @@ func (r *cudaRuntime) evalLayerFFNPost(hc *cudaHC, s *cudaTokenState, index, pos
 			return err
 		}
 	}
+	return r.evalLayerFFNResidual(hc, s, index, position)
+}
+
+// evalLayerFFNResidual consumes the completed shared and routed projections.
+func (r *cudaRuntime) evalLayerFFNResidual(hc *cudaHC, s *cudaTokenState, index, position int) error {
 	if err := r.markCUDAPhase("ffn-post", position, index); err != nil {
 		return err
 	}

@@ -83,6 +83,9 @@ var oracleGates = []oracleGate{
 	{"DS4_CUDA_PHASE_PROFILE_OUT", "new CUDA phase timing result file"},
 	{"DS4_CUDA_PREFILL_PROGRESS", "CUDA EvalBatch progress diagnostic"},
 	{"DS4_CUDA_PREFILL_PROGRESS_OUT", "new CUDA prefill progress JSONL file"},
+	{"DS4_CUDA_PREFILL_GATHER_GATE", "gather versus per-token prefill and continuation comparison under the GPU lock"},
+	{"DS4_CUDA_PREFILL_TOKENS", "retained 2048-token JSON corpus for the gather comparison"},
+	{"DS4_CUDA_PREFILL_GATHER_RECEIPT", "optional output path for successful gather comparison snapshots"},
 	{"DS4_CUDA_HC_MATH_DIAGNOSTIC", "the CUDA HC mathematical diagnostic"},
 	{"DS4_DISABLE_CUDA_GRAPH", "disabling CUDA graph capture and replay in decode"},
 
@@ -178,8 +181,9 @@ func TestOracleGatesDocumented(t *testing.T) {
 	}
 }
 
-// oracleGateNames excludes comments and embedded kernel source. Gate names
-// are complete Go string literals, including names passed through helpers.
+// oracleGateNames excludes comments, embedded kernel source and the CUDA
+// macro names used by constant-mirroring tests. Gate names are complete Go
+// string literals, including names passed through helpers.
 func oracleGateNames(filename string, src []byte) ([]string, error) {
 	f, err := parser.ParseFile(token.NewFileSet(), filename, src, 0)
 	if err != nil {
@@ -192,10 +196,26 @@ func oracleGateNames(filename string, src []byte) ([]string, error) {
 			return true
 		}
 		value, err := strconv.Unquote(lit.Value)
+		// These name compile-time CUDA macros, not environment controls.
+		switch value {
+		case "DS4_MOE_GATHER_TILE", "DS4_MOE_MAX_EXPERTS":
+			return true
+		}
 		if err == nil && ds4EnvName.MatchString(value) {
 			names = append(names, value)
 		}
 		return true
 	})
 	return names, nil
+}
+
+func TestOracleGateNamesMoEConstants(t *testing.T) {
+	source := `package p; var names = []string{"DS4_MOE_GATHER_TILE", "DS4_MOE_MAX_EXPERTS", "DS4_CUDA_PREFILL_GATHER_GATE"}`
+	names, err := oracleGateNames("fixture.go", []byte(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 1 || names[0] != "DS4_CUDA_PREFILL_GATHER_GATE" {
+		t.Fatalf("names = %q, want only the gather gate", names)
+	}
 }
