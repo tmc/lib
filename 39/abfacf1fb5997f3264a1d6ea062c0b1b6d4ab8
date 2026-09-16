@@ -1,0 +1,1 @@
+commit=39abfacf1fb5997f3264a1d6ea062c0b1b6d4ab8; date=2026-09-16T23:56:24Z; agent=antigravity; model=gemini; tty=/dev/ttys008; pid=13807; ITERM_SESSION_ID=; Validation: go test ./nvidia/cmd/cudaprof passed, verified evidence levels and formatting
