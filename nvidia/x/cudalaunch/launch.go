@@ -60,6 +60,13 @@ type Launcher struct {
 // Counter counts successful CUDA kernel submissions.
 type Counter struct{ n atomic.Uint64 }
 
+var totalLaunches atomic.Uint64
+
+// TotalLaunches returns the total number of successful kernel launches across the process.
+func TotalLaunches() uint64 {
+	return totalLaunches.Load()
+}
+
 // Count adds successful launches to counter.
 func (l *Launcher) Count(counter *Counter) *Launcher {
 	l.counter = counter
@@ -458,6 +465,7 @@ func (l *Launcher) Launch(args ...any) error {
 	if err != nil {
 		return fmt.Errorf("cudalaunch: launch kernel: %w", err)
 	}
+	totalLaunches.Add(1)
 	if l.counter != nil {
 		l.counter.n.Add(1)
 	}
