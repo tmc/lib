@@ -253,6 +253,8 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 			var peakGPRAddr, peakUGPRAddr uint64
 			var peakGPRInst, peakUGPRInst cudasass.Instruction
 			var spills []cudasass.Instruction
+			var imadWides []cudasass.Instruction
+			var fchkInsts []cudasass.Instruction
 
 			for _, inst := range fn.Instructions {
 				if inst.LiveGPR > peakGPR {
@@ -273,19 +275,58 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 
 				// Check SASS for IMAD.WIDE scalar fallback
 				if strings.HasPrefix(inst.Opcode, "IMAD.WIDE") || inst.Opcode == "IMAD.WIDE" {
+					imadWides = append(imadWides, inst)
+				}
+
+				// Check SASS for IEEE compliance check branches (missing --use_fast_math)
+				if inst.Opcode == "FCHK" || strings.HasPrefix(inst.Opcode, "FCHK") {
+					fchkInsts = append(fchkInsts, inst)
+				}
+			}
+
+			// Report SASS IMAD.WIDE scalar address arithmetic fallbacks (capped to avoid flooding)
+			for i, inst := range imadWides {
+				if i >= 3 {
 					report.Items = append(report.Items, AdviceItem{
 						Severity: SeverityWarning,
 						Category: CategoryArchitecture,
 						Location: Location{
 							Kernel: fn.Name,
-							PC:     inst.Address,
-							File:   inst.SourceFile,
-							Line:   inst.SourceLine,
 						},
-						Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected at PC 0x%04x", inst.Opcode, inst.Address),
+						Finding:                  fmt.Sprintf("Scalar address arithmetic fallback: kernel %q has %d instructions (%s) on target architecture", fn.Name, len(imadWides), inst.Opcode),
 						ActionableRecommendation: "Use vectorized 128-bit memory addressing or hardware TMA descriptors to eliminate scalar 64-bit integer address multiplications.",
 					})
+					break
 				}
+				report.Items = append(report.Items, AdviceItem{
+					Severity: SeverityWarning,
+					Category: CategoryArchitecture,
+					Location: Location{
+						Kernel: fn.Name,
+						PC:     inst.Address,
+						File:   inst.SourceFile,
+						Line:   inst.SourceLine,
+					},
+					Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected at PC 0x%04x", inst.Opcode, inst.Address),
+					ActionableRecommendation: "Use vectorized 128-bit memory addressing or hardware TMA descriptors to eliminate scalar 64-bit integer address multiplications.",
+				})
+			}
+
+			// Report FCHK arithmetic checks
+			if len(fchkInsts) > 0 {
+				first := fchkInsts[0]
+				report.Items = append(report.Items, AdviceItem{
+					Severity: SeverityWarning,
+					Category: CategoryArchitectureCompute,
+					Location: Location{
+						Kernel: fn.Name,
+						PC:     first.Address,
+						File:   first.SourceFile,
+						Line:   first.SourceLine,
+					},
+					Finding:                  fmt.Sprintf("Kernel %q appears compiled without --use_fast_math: %d IEEE compliance check instructions (FCHK) detected in arithmetic paths", fn.Name, len(fchkInsts)),
+					ActionableRecommendation: "If strict IEEE 754 bit-exact rounding is not required, compile with --use_fast_math to substitute hardware approximations (e.g. MUFU.RCP) and eliminate FCHK branches. If bit-exact zero-drift invariants are required, keep IEEE math and enable --extra-device-vectorization.",
+				})
 			}
 
 			// Report register spill points
@@ -735,6 +776,25 @@ func parseSMCountFromCapture(cap *cudacapture.Capture) int {
 			}
 		}
 	}
+	if cap.Profile != nil {
+		for _, c := range cap.Profile.Comments {
+			cLower := strings.ToLower(c)
+			switch {
+			case strings.Contains(cLower, "gb10"):
+				return 48
+			case strings.Contains(cLower, "gb200"):
+				return 136
+			case strings.Contains(cLower, "b200") || strings.Contains(cLower, "b100"):
+				return 132
+			case strings.Contains(cLower, "h100"):
+				return 132
+			case strings.Contains(cLower, "rtx 4090"):
+				return 128
+			case strings.Contains(cLower, "a100"):
+				return 108
+			}
+		}
+	}
 	return 0
 }
 
@@ -810,6 +870,21 @@ func parseArchFromCapture(cap *cudacapture.Capture) string {
 			if json.Unmarshal(data, &m) == nil {
 				if arch := findArchInMap(m); arch != "" {
 					return arch
+				}
+			}
+		}
+	}
+	if sassData, ok := findSASS(cap); ok && len(sassData) > 0 {
+		lines := strings.SplitN(string(sassData), "\n", 30)
+		for _, line := range lines {
+			lineLower := strings.ToLower(line)
+			if idx := strings.Index(lineLower, "sm_"); idx != -1 {
+				end := idx + 3
+				for end < len(lineLower) && ((lineLower[end] >= '0' && lineLower[end] <= '9') || lineLower[end] == 'a') {
+					end++
+				}
+				if end > idx+3 {
+					return lineLower[idx:end]
 				}
 			}
 		}
@@ -1508,14 +1583,18 @@ func extractKernelNameFromSample(s *profile.Sample) string {
 	if len(s.Label["name"]) > 0 && s.Label["name"][0] != "" {
 		return s.Label["name"][0]
 	}
-	if len(s.Location) > 0 && len(s.Location[0].Line) > 0 {
-		line := s.Location[0].Line[0]
-		if line.Function != nil && line.Function.Name != "" {
-			name := line.Function.Name
-			name = strings.TrimSuffix(name, ".SASS")
-			name = strings.TrimSuffix(name, ".PTX")
-			name = strings.TrimSuffix(name, ".TILEIR")
-			return name
+	if len(s.Location) > 0 {
+		for _, loc := range s.Location {
+			for _, line := range loc.Line {
+				if line.Function != nil && line.Function.Name != "" {
+					name := line.Function.Name
+					name = strings.TrimSuffix(name, ".SASS")
+					name = strings.TrimSuffix(name, ".PTX")
+					name = strings.TrimSuffix(name, ".TILEIR")
+					name = strings.TrimSuffix(name, ".inlined")
+					return name
+				}
+			}
 		}
 	}
 	return ""
@@ -2165,6 +2244,47 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 		}
 		checkGraphCandidate()
 
+		// 1b. Repeated fine-grained host loop dispatch detection
+		consecutiveKernelCounts := make(map[string]int)
+		var maxConsecutive int
+		var maxKernel string
+		var curRun int
+		var curK string
+		for _, ev := range events {
+			sub := strings.ToLower(ev.Subtype)
+			if sub == "kernel" || sub == "" {
+				kClean := cleanKernelName(ev.Name)
+				if kClean == curK {
+					curRun++
+				} else {
+					curK = kClean
+					curRun = 1
+				}
+				if curRun > consecutiveKernelCounts[kClean] {
+					consecutiveKernelCounts[kClean] = curRun
+				}
+				if curRun > maxConsecutive {
+					maxConsecutive = curRun
+					maxKernel = curK
+				}
+			} else {
+				curK = ""
+				curRun = 0
+			}
+		}
+
+		if maxConsecutive >= 50 && maxKernel != "" {
+			report.Items = append(report.Items, AdviceItem{
+				Severity: SeverityWarning,
+				Category: CategoryArchitectureDispatch,
+				Location: Location{
+					Kernel: maxKernel,
+				},
+				Finding:                  fmt.Sprintf("Repeated fine-grained host loop dispatch: kernel %q was launched %d consecutive times on stream %d. This indicates an unbatched host-side token or row loop.", maxKernel, maxConsecutive, streamID),
+				ActionableRecommendation: "Restructure caller to batch loop iterations into a single multi-row or multi-token cooperative grid launch, or capture the host loop into a CUDA Graph.",
+			})
+		}
+
 		// 2. Heuristic 5: Pointwise Producer-Consumer Fusion & Sequential Misses
 		seenFusion := make(map[string]bool)
 		for i := 0; i < len(events)-1; i++ {
@@ -2599,6 +2719,55 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 	}
 }
 
+func parseDurationNanosFromCapture(cap *cudacapture.Capture) int64 {
+	if cap == nil {
+		return 0
+	}
+	parseMap := func(m map[string]any) int64 {
+		for _, k := range []string{"duration_ns", "duration_nanos", "durationNs"} {
+			if v, ok := m[k]; ok {
+				if f, ok := v.(float64); ok && f > 0 {
+					return int64(f)
+				}
+			}
+		}
+		for _, k := range []string{"duration_ms", "duration_millis", "durationMs"} {
+			if v, ok := m[k]; ok {
+				if f, ok := v.(float64); ok && f > 0 {
+					return int64(f * 1e6)
+				}
+			}
+		}
+		for _, k := range []string{"duration_s", "duration_seconds", "duration"} {
+			if v, ok := m[k]; ok {
+				if f, ok := v.(float64); ok && f > 0 {
+					return int64(f * 1e9)
+				}
+			}
+		}
+		return 0
+	}
+	if len(cap.Metadata) > 0 {
+		var m map[string]any
+		if json.Unmarshal(cap.Metadata, &m) == nil {
+			if d := parseMap(m); d > 0 {
+				return d
+			}
+		}
+	}
+	for _, name := range []string{"capture-provenance.json", "capture-status.json", "status.json", "manifest.json", "provenance.json"} {
+		if data, ok := cap.Files[name]; ok && len(data) > 0 {
+			var m map[string]any
+			if json.Unmarshal(data, &m) == nil {
+				if d := parseMap(m); d > 0 {
+					return d
+				}
+			}
+		}
+	}
+	return 0
+}
+
 func computeProfileTimes(cap *cudacapture.Capture) (map[string]int64, int64) {
 	kernelTimes := make(map[string]int64)
 	var totalTime int64
@@ -2606,22 +2775,63 @@ func computeProfileTimes(cap *cudacapture.Capture) (map[string]int64, int64) {
 		return kernelTimes, totalTime
 	}
 	p := cap.Profile
-	timeIdx := 0
+	timeIdx := -1
 	for i, vt := range p.SampleType {
 		if vt.Type == "kernel_time" || vt.Type == "gpu_time" {
 			timeIdx = i
 			break
 		}
 	}
-	for _, s := range p.Sample {
-		val := int64(0)
-		if timeIdx < len(s.Value) {
-			val = s.Value[timeIdx]
+	if timeIdx >= 0 {
+		for _, s := range p.Sample {
+			val := int64(0)
+			if timeIdx < len(s.Value) {
+				val = s.Value[timeIdx]
+			}
+			totalTime += val
+			kName := extractKernelNameFromSample(s)
+			if kName != "" {
+				kernelTimes[kName] += val
+			}
 		}
-		totalTime += val
-		kName := extractKernelNameFromSample(s)
-		if kName != "" {
-			kernelTimes[kName] += val
+	}
+	if totalTime == 0 {
+		// Fall back to hardware PC samples or samples when timing is 0 or absent.
+		sampleIdx := -1
+		for i, vt := range p.SampleType {
+			if vt.Type == "pc_samples" || vt.Type == "samples" {
+				sampleIdx = i
+				break
+			}
+		}
+		if sampleIdx >= 0 {
+			var totalSamples int64
+			sampleCounts := make(map[string]int64)
+			for _, s := range p.Sample {
+				val := int64(0)
+				if sampleIdx < len(s.Value) {
+					val = s.Value[sampleIdx]
+				}
+				totalSamples += val
+				kName := extractKernelNameFromSample(s)
+				if kName != "" {
+					sampleCounts[kName] += val
+				}
+			}
+			if totalSamples > 0 {
+				durNanos := parseDurationNanosFromCapture(cap)
+				if durNanos > 0 {
+					totalTime = durNanos
+					for k, sc := range sampleCounts {
+						kernelTimes[k] = sc * durNanos / totalSamples
+					}
+				} else {
+					totalTime = totalSamples
+					for k, sc := range sampleCounts {
+						kernelTimes[k] = sc
+					}
+				}
+			}
 		}
 	}
 	return kernelTimes, totalTime

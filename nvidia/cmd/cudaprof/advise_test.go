@@ -2583,3 +2583,166 @@ func TestDominanceRecommendationDropsGraphAdviceUnderReplay(t *testing.T) {
 		t.Errorf("suppressed advisory must say why it was suppressed; got %q", rec)
 	}
 }
+
+func TestAdvice_PCSamplingRankingAndDurationFallback(t *testing.T) {
+	cap := &cudacapture.Capture{
+		Metadata: []byte(`{"duration_ms": 100}`),
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "pc_samples", Unit: "count"},
+				{Type: "stall_mem", Unit: "count"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{900, 800},
+					Label: map[string][]string{"kernel": {"heavy_kernel"}},
+				},
+				{
+					Value: []int64{100, 90},
+					Label: map[string][]string{"kernel": {"light_kernel"}},
+				},
+			},
+		},
+	}
+
+	times, totalTime := computeProfileTimes(cap)
+	if totalTime != 100_000_000 { // 100 ms in ns
+		t.Errorf("totalTime = %d, want 100000000", totalTime)
+	}
+	if times["heavy_kernel"] != 90_000_000 {
+		t.Errorf("heavy_kernel time = %d, want 90000000", times["heavy_kernel"])
+	}
+	if times["light_kernel"] != 10_000_000 {
+		t.Errorf("light_kernel time = %d, want 10000000", times["light_kernel"])
+	}
+
+	report := &AdviceReport{
+		Items: []AdviceItem{
+			{
+				Severity: SeverityCritical,
+				Category: CategoryMemory,
+				Location: Location{Kernel: "light_kernel"},
+				Finding:  "light finding",
+			},
+			{
+				Severity: SeverityCritical,
+				Category: CategoryMemory,
+				Location: Location{Kernel: "heavy_kernel"},
+				Finding:  "heavy finding",
+			},
+		},
+	}
+	finalizeAndRankFindings(report, times, totalTime)
+	if len(report.Items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(report.Items))
+	}
+	if report.Items[0].Location.Kernel != "heavy_kernel" {
+		t.Errorf("item 0 kernel = %s, want heavy_kernel", report.Items[0].Location.Kernel)
+	}
+	if report.Items[0].ShareOfProfile != 90.0 {
+		t.Errorf("item 0 share = %.2f, want 90.0", report.Items[0].ShareOfProfile)
+	}
+}
+
+func TestAdvice_SASSFastMathFCHK(t *testing.T) {
+	const sass = `
+	.section	.text.fchk_kernel,"ax",@progbits
+fchk_kernel:
+.text.fchk_kernel:
+        /*0000*/                   FCHK R0, R1, 0x1 ;
+        /*0010*/                   FCHK R2, R3, 0x1 ;
+        /*0020*/                   EXIT ;
+`
+	cap := &cudacapture.Capture{
+		Code: cudacapture.CodeFiles{SASS: "kernels.sass"},
+		Files: map[string][]byte{
+			"kernels.sass": []byte(sass),
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var found bool
+	for _, item := range report.Items {
+		if strings.Contains(item.Finding, "without --use_fast_math") && strings.Contains(item.Finding, "2 IEEE compliance check") {
+			found = true
+			if item.Category != CategoryArchitectureCompute {
+				t.Errorf("category = %s, want %s", item.Category, CategoryArchitectureCompute)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected FCHK finding, got items: %+v", report.Items)
+	}
+}
+
+func TestAdvice_SASSIMADCapping(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString("\t.section\t.text.imad_kernel,\"ax\",@progbits\nimad_kernel:\n.text.imad_kernel:\n")
+	for i := 0; i < 10; i++ {
+		sb.WriteString(fmt.Sprintf("        /*%04x*/                   IMAD.WIDE R%d, R%d, 0x4, R%d ;\n", i*16, i, i, i))
+	}
+	sb.WriteString("        /*00b0*/                   EXIT ;\n")
+
+	cap := &cudacapture.Capture{
+		Code: cudacapture.CodeFiles{SASS: "kernels.sass"},
+		Files: map[string][]byte{
+			"kernels.sass": []byte(sb.String()),
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var imadItems int
+	var summaryItem bool
+	for _, item := range report.Items {
+		if strings.Contains(item.Finding, "Scalar address arithmetic fallback") {
+			imadItems++
+			if strings.Contains(item.Finding, "has 10 instructions") {
+				summaryItem = true
+			}
+		}
+	}
+	// 3 individual items + 1 summary item = 4 items total
+	if imadItems != 4 {
+		t.Errorf("expected 4 IMAD items (3 detailed + 1 summary), got %d", imadItems)
+	}
+	if !summaryItem {
+		t.Errorf("expected summary IMAD item not found")
+	}
+}
+
+func TestAdvice_RepeatedHostLoopDispatch(t *testing.T) {
+	var samples []*profile.Sample
+	for i := 0; i < 60; i++ {
+		start := uint64(1000 + i*5000)
+		samples = append(samples, microKernelSample("repeated_gemv", 1, start, start+2000, 100+i))
+	}
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{Sample: samples},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var found bool
+	for _, item := range report.Items {
+		if strings.Contains(item.Finding, "Repeated fine-grained host loop dispatch") && strings.Contains(item.Finding, "60 consecutive times") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected repeated host loop dispatch finding, got: %+v", report.Items)
+	}
+}
+
