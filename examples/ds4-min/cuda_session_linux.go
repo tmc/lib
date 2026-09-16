@@ -107,7 +107,7 @@ const cudaPrefillGroupWidth = 256
 // runs today; a wider group runs whole chunks at the kernel's maximum.
 const (
 	cudaPrefillQ81Chunk       = cudaPrefillGroupWidth
-	cudaPrefillQ80Chunk       = min(cudaPrefillGroupWidth, cudaQ80MaxBatch)
+	cudaPrefillQ80Chunk       = cudaPrefillGroupWidth
 	cudaPrefillBlockDiagChunk = min(cudaPrefillGroupWidth, cudaQ80BlockDiagMaxBatch)
 	cudaPrefillF16PairChunk   = min(cudaPrefillGroupWidth, cudaF16PairMaxBatch)
 	// evalBatchAttnOut runs the block-diagonal and plain Q8_0 batch kernels

@@ -41,8 +41,15 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_batch(
     unsigned blocks, unsigned rows, unsigned batch) {
   const unsigned warp_id = threadIdx.x / 32, lane = threadIdx.x % 32;
   const unsigned row = blockIdx.x * 8 + warp_id;
-  if (row >= rows) return;
+  const unsigned t_base = blockIdx.y * DS4_Q80_MAX_BATCH;
+
+  if (row >= rows || t_base >= batch) return;
+  const unsigned cur_batch = (batch - t_base < DS4_Q80_MAX_BATCH) ? (batch - t_base) : DS4_Q80_MAX_BATCH;
+
   const unsigned char *weight_row = weights + (unsigned long long)row * blocks * 34;
+  const ds4_q8_activation *batch_x = x + (unsigned long long)t_base * blocks;
+  float *batch_out = out + (unsigned long long)t_base * rows;
+
   float sum[DS4_Q80_MAX_BATCH] = {0.0f};
   for (unsigned b = lane; b < blocks; b += 32) {
     const unsigned char *p = weight_row + (unsigned long long)b * 34;
@@ -55,8 +62,8 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_batch(
     const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
     #pragma unroll
     for (unsigned t = 0; t < DS4_Q80_MAX_BATCH; t++) {
-      if (t < batch) {
-        const ds4_q8_activation *tx = x + (unsigned long long)t * blocks;
+      if (t < cur_batch) {
+        const ds4_q8_activation *tx = batch_x + (unsigned long long)t * blocks;
         const int *x4 = reinterpret_cast<const int *>(tx[b].qs);
         int dot = 0;
         #pragma unroll
@@ -69,12 +76,12 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_batch(
   }
   #pragma unroll
   for (unsigned t = 0; t < DS4_Q80_MAX_BATCH; t++) {
-    if (t < batch) {
+    if (t < cur_batch) {
       float s = sum[t];
       #pragma unroll
       for (unsigned stride = 16; stride; stride >>= 1)
         s += __shfl_down_sync(0xffffffff, s, stride);
-      if (lane == 0) out[(unsigned long long)t * rows + row] = s;
+      if (lane == 0) batch_out[(unsigned long long)t * rows + row] = s;
     }
   }
 }

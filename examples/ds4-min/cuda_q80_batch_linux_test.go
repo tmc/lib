@@ -22,23 +22,11 @@ func TestCUDAQualificationQ80BatchMatvec(t *testing.T) {
 	)
 	weights := cudaSynthQ80(rand.New(rand.NewSource(80)), rows, cols, -8)
 	tensor := cudaSynthTensor(t, r, "batched quantized Q8_0 fixture", 8, []uint64{cols, rows}, weights)
-	for batch := 2; batch <= cudaQ80MaxBatch; batch++ {
+	for _, batch := range []int{2, 3, 7, 8, 9, 16, 32, 64, 128, 256} {
 		t.Run(fmt.Sprintf("batch-%d", batch), func(t *testing.T) {
 			testCUDAQualificationQ80BatchMatvec(t, r, tensor, weights, batch, cols, rows)
 		})
 	}
-	// An over-wide batch must be named and refused. Truncating it to
-	// cudaQ80MaxBatch would silently drop the trailing tokens' outputs.
-	t.Run("reject-oversized-batch", func(t *testing.T) {
-		oversized := cudaQ80MaxBatch + 1
-		in := cudaExpertAllocBytes(t, r, oversized*cols/32*36)
-		out := cudaTestAlloc(t, r, oversized*rows)
-		err := r.encodeQ80MatvecQuantizedBatch(tensor, in, out, oversized)
-		want := fmt.Sprintf("batch %d (max %d)", oversized, cudaQ80MaxBatch)
-		if err == nil || !strings.Contains(err.Error(), want) {
-			t.Fatalf("encodeQ80MatvecQuantizedBatch(batch=%d) error = %v, want one containing %q", oversized, err, want)
-		}
-	})
 }
 
 func testCUDAQualificationQ80BatchMatvec(t *testing.T, r *cudaFoundation, tensor cudaModelTensor, weights []byte, batch, cols, rows int) {

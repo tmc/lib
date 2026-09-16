@@ -70,18 +70,17 @@ func (r *cudaFoundation) encodeQ80MatvecQuantized(t cudaModelTensor, in cudamem.
 	})
 }
 
-// cudaQ80MaxBatch is the compile-time maximum batch width supported by
-// ds4_q8_0_matvec_quantized_batch in cuda_q80_matvec.cu.
+// cudaQ80MaxBatch is the compile-time maximum batch width processed per thread block by
+// ds4_q8_0_matvec_quantized_batch in cuda_q80_matvec.cu. Larger batches are tiled across gridDim.y.
 const cudaQ80MaxBatch = 8
 
 // encodeQ80MatvecQuantizedBatch projects batch adjacent Q8_0 activation rows
 // against one weight matrix with a single launch. Input and output are
 // token-major: in holds batch consecutive quantized rows of cols/32 blocks and
-// out holds batch consecutive rows of rows floats. A batch wider than
-// cudaQ80MaxBatch is rejected, never truncated.
+// out holds batch consecutive rows of rows floats.
 func (r *cudaFoundation) encodeQ80MatvecQuantizedBatch(t cudaModelTensor, in cudamem.Slice[byte], out cudamem.Slice[float32], batch int) error {
-	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || batch <= 0 || batch > cudaQ80MaxBatch {
-		return fmt.Errorf("cuda: batched quantized Q8_0 matvec %q: invalid tensor or batch %d (max %d)", t.name, batch, cudaQ80MaxBatch)
+	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || batch <= 0 {
+		return fmt.Errorf("cuda: batched quantized Q8_0 matvec %q: invalid tensor or batch %d", t.name, batch)
 	}
 	cols, rows := t.dimensions[0], t.dimensions[1]
 	if cols == 0 || cols%32 != 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 ||
@@ -93,7 +92,8 @@ func (r *cudaFoundation) encodeQ80MatvecQuantizedBatch(t cudaModelTensor, in cud
 			return err
 		}
 		gridRows := (uint32(rows) + 7) / 8
-		if err := cudalaunch.Kernel(r.q80QuantizedBatchFn).Grid(gridRows).Block(256).On(r.stream()).Launch(
+		gridBatches := (uint32(batch) + cudaQ80MaxBatch - 1) / cudaQ80MaxBatch
+		if err := cudalaunch.Kernel(r.q80QuantizedBatchFn).Grid(gridRows, gridBatches).Block(256).On(r.stream()).Launch(
 			t.device, in, out, uint32(cols/32), uint32(rows), uint32(batch)); err != nil {
 			return fmt.Errorf("cuda: launch batched quantized Q8_0 matvec %q: %w", t.name, err)
 		}

@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cuptibench"
 	"github.com/tmc/lib/nvidia/x/cuptirange"
@@ -191,6 +192,7 @@ func BenchmarkCUDAPrefill(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
+			var hostLaunches uint64
 			work := cuptibench.Workload{
 				View:        "full",
 				Streams:     []*cuda.Stream{r.stream()},
@@ -198,11 +200,15 @@ func BenchmarkCUDAPrefill(b *testing.B) {
 				Prepare:     func() error { return r.Reset() },
 				Synchronize: func() error { return syncStream(r.stream()) },
 				Run: func(s *cuptibench.Scope) error {
-					return r.EvalBatch(tokens, 0)
+					before := cudalaunch.TotalLaunches()
+					err := r.EvalBatch(tokens, 0)
+					hostLaunches = cudalaunch.TotalLaunches() - before
+					return err
 				},
 			}
 			res := plan.Measure(b, work)
 			b.ReportMetric(float64(chunk), "tokens/op")
+			b.ReportMetric(float64(hostLaunches), "host-launches/op")
 			if res != nil {
 				counters := res
 				if res.Aggregate != nil {
