@@ -68,4 +68,4 @@
 // worth reading rather than committing unseen.
 package cudatool
 
-//go:generate go run ./internal/genoptions -data optiondata -out tables.gen.go
+//go:generate go run ./cmd/genoptions -target=cudatool -out=tables.gen.go
