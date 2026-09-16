@@ -47,6 +47,6 @@ func Example() {
 	// SameArmExact: true
 	// Round 1 baseline: complete=true digest=sha256:abcd
 	// Round 1 candidate: complete=true digest=sha256:abcd
-	// Round 2 baseline: complete=true digest=sha256:abcd
 	// Round 2 candidate: complete=true digest=sha256:abcd
+	// Round 2 baseline: complete=true digest=sha256:abcd
 }

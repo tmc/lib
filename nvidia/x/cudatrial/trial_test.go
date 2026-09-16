@@ -8,27 +8,27 @@ import (
 	"time"
 )
 
-func TestInterleaveOrder(t *testing.T) {
+func TestInterleaveABBAOrder(t *testing.T) {
 	var callOrder []string
 
 	arms := []Arm{
 		{
-			Name: "baseline",
+			Name: "armA",
 			Run: func(ctx context.Context) (Receipt, error) {
-				callOrder = append(callOrder, "baseline")
+				callOrder = append(callOrder, "armA")
 				return Receipt{
 					Complete: true,
-					Digest:   "hash_baseline",
+					Digest:   "hashA",
 				}, nil
 			},
 		},
 		{
-			Name: "candidate",
+			Name: "armB",
 			Run: func(ctx context.Context) (Receipt, error) {
-				callOrder = append(callOrder, "candidate")
+				callOrder = append(callOrder, "armB")
 				return Receipt{
 					Complete: true,
-					Digest:   "hash_candidate",
+					Digest:   "hashB",
 				}, nil
 			},
 		},
@@ -39,10 +39,14 @@ func TestInterleaveOrder(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	// True ABBA ordering:
+	// Round 1: armA, armB
+	// Round 2: armB, armA
+	// Round 3: armA, armB
 	wantCalls := []string{
-		"baseline", "candidate",
-		"baseline", "candidate",
-		"baseline", "candidate",
+		"armA", "armB",
+		"armB", "armA",
+		"armA", "armB",
 	}
 	if len(callOrder) != len(wantCalls) {
 		t.Fatalf("call count = %d, want %d", len(callOrder), len(wantCalls))
@@ -232,13 +236,17 @@ func TestSameArmExact(t *testing.T) {
 			wantExact: true,
 		},
 		{
-			name: "incomplete runs ignored",
+			name: "empty receipts fails",
+			receipts: nil,
+			wantExact: false,
+		},
+		{
+			name: "arm with all failed runs fails",
 			receipts: []Receipt{
-				{Name: "a", Round: 1, Complete: true, Digest: "da"},
+				{Name: "a", Round: 1, Complete: false, Digest: "corrupted"},
 				{Name: "a", Round: 2, Complete: false, Digest: "corrupted"},
-				{Name: "a", Round: 3, Complete: true, Digest: "da"},
 			},
-			wantExact: true,
+			wantExact: false,
 		},
 	}
 
@@ -252,12 +260,41 @@ func TestSameArmExact(t *testing.T) {
 	}
 }
 
-func TestFormatSummaryAndHelpers(t *testing.T) {
+func TestDurationPreferenceAndSummary(t *testing.T) {
 	t0 := time.Now()
 	receipts := []Receipt{
-		{Name: "b_arm", Round: 1, Complete: true, Digest: "h2", Started: t0, Finished: t0.Add(5 * time.Millisecond)},
-		{Name: "a_arm", Round: 1, Complete: true, Digest: "h1", Started: t0, Finished: t0.Add(2 * time.Millisecond)},
-		{Name: "a_arm", Round: 2, Complete: true, Digest: "h1", Started: t0, Finished: t0.Add(3 * time.Millisecond)},
+		{
+			Name:           "b_arm",
+			Round:          1,
+			Complete:       true,
+			Digest:         "h2",
+			Started:        t0,
+			Finished:       t0.Add(5 * time.Millisecond),
+			DeviceDuration: 50 * time.Microsecond, // DeviceDuration preferred over wall
+		},
+		{
+			Name:     "a_arm",
+			Round:    1,
+			Complete: true,
+			Digest:   "h1",
+			Started:  t0,
+			Finished: t0.Add(2 * time.Millisecond),
+		},
+		{
+			Name:     "a_arm",
+			Round:    2,
+			Complete: true,
+			Digest:   "h1",
+			Started:  t0,
+			Finished: t0.Add(3 * time.Millisecond),
+		},
+	}
+
+	if receipts[0].Duration() != 50*time.Microsecond {
+		t.Errorf("b_arm Duration = %v, want DeviceDuration 50µs", receipts[0].Duration())
+	}
+	if receipts[1].Duration() != 2*time.Millisecond {
+		t.Errorf("a_arm Duration = %v, want wall Duration 2ms", receipts[1].Duration())
 	}
 
 	digests := DistinctDigests(receipts)
@@ -266,8 +303,8 @@ func TestFormatSummaryAndHelpers(t *testing.T) {
 	}
 
 	summary := FormatSummary(receipts)
-	if !strings.Contains(summary, "a_arm") || !strings.Contains(summary, "b_arm") {
-		t.Errorf("summary missing arms:\n%s", summary)
+	if !strings.Contains(summary, "MEDIAN_DUR") || !strings.Contains(summary, "a_arm") || !strings.Contains(summary, "b_arm") {
+		t.Errorf("summary missing headers or arms:\n%s", summary)
 	}
 
 	emptySummary := FormatSummary(nil)
