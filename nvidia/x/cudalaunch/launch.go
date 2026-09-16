@@ -53,6 +53,7 @@ type Launcher struct {
 	stream  *cuda.Stream
 	counter *Counter
 	attrs   []driver.LaunchAttribute
+	sig     *Signature
 }
 
 // Counter counts successful CUDA kernel submissions.
@@ -201,10 +202,22 @@ func (l *Launcher) DeviceNode() (uintptr, bool) {
 	return 0, false
 }
 
+// WithSignature sets the expected kernel parameter signature for validation during Launch.
+func (l *Launcher) WithSignature(sig Signature) *Launcher {
+	sig.Params = append([]Param(nil), sig.Params...)
+	l.sig = &sig
+	return l
+}
+
 // Launch packs the provided Go arguments and dispatches the kernel.
 func (l *Launcher) Launch(args ...any) error {
 	if l.owned == nil && l.fn == 0 {
 		return fmt.Errorf("cudalaunch: nil kernel")
+	}
+	if l.sig != nil {
+		if err := Validate(*l.sig, args...); err != nil {
+			return err
+		}
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
