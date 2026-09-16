@@ -34,7 +34,13 @@ func ExampleScope_Region() {
 	// Output: true
 }
 func ExampleResolve() {
-	_, err := cuptibench.Resolve("unknown")
+	// A selector is a curated set name or a native metric name, so a caller
+	// can mix the two and name metrics no set covers.
+	names, err := cuptibench.Resolve("launches", "l1tex__t_sectors.sum")
+	fmt.Println(names, err)
+	_, err = cuptibench.Resolve("unknown")
 	fmt.Println(err)
-	// Output: cuptibench: unknown metric set "unknown"
+	// Output:
+	// [sm__ctas_launched.sum sm__warps_launched.sum l1tex__t_sectors.sum] <nil>
+	// cuptibench: unknown metric set "unknown", have default, instructions, l2, l2-read, launches
 }

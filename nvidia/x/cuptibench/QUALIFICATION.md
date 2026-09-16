@@ -23,13 +23,14 @@ rerun of the main integration is claimed. Local integration checks are separate.
 | Logical-operation normalization independent of replay passes | Collect accounting tests at 1, 2, and 4 passes | Actual native host 1/2/4 nesting controls pass |
 | Whole, attributed, and independently selected isolated benchmarks | Actual Go test-binary selection and repeat tests; separate Whole aggregate for Kernels | Synthetic identity/views and real DS4 Regions benchmark/profile pass; Kernels fails |
 | Multi-stream completion timing | Event dependency graph and failure-path tests; dependent/overlap physical fixture | Native overlap/dependency controls pass |
+| Multi-stream Whole/UserReplay collection | Device entry/exit tickets, event-dependent negative control, per-pass output checks | GB20B single-pass controls pass with one and three operations; no KernelReplay concurrency claim |
 | Profile numeric/schema integrity | Integer boundaries, schema partition, missing values, profile round trips | Native round trip passes |
-| Cleanup invalidates failed measurements | Capture, timer, override retry tests and actual caller-owned Close failure/retry/open-plan subprocess tests | Native failure qualification |
-| DS4 uses actual forward work | Production stage callbacks preserve graph boundaries; independently prepared prefixes | All 260 token-0 Regions state/logit receipts pass; original failure unexplained |
+| Cleanup invalidates failed measurements | Capture, timer, override retry tests and actual caller-owned Close failure/retry/open-plan subprocess tests | Deliberate native invalid-argument recovery passes; spontaneous backend failure remains unqualified |
+| DS4 uses actual forward work | Production stage callbacks preserve graph boundaries; independently prepared prefixes | Token-0, selected position-1, and evolving position-3/4 Regions checks pass; original failure unexplained |
 | Cache semantics are explicit | CachePolicy admission, documented no-reset metadata, cold/warm raw-sector fixture compiled for Linux AMD64/ARM64 | Native cold/warm and two-pass controls pass |
 | Faithful C benchmark formatting | Versioned JSON decoder, 64 MiB input bound, normalization and injection tests, CLI tests | Source-specific reader and checked comparison are separate proposed work |
 | C family mapping is qualified independently of formatting | Adapter alternatives spec includes coverage and mapping gates | Retained Nsight mapping is known wrong and remains format-only |
-| Cross-collector exclusion | Device lease integration for Range, PM and SASS; conflict and failed teardown/retry race tests pass | Native qualification; external and PC collection remain caller-controlled |
+| Cross-collector exclusion | Device lease integration for Range, PM, SASS and PC; conflict and failed teardown/retry race tests pass | PC exclusion and benchmark timing/export pass on GB20B; physical failure injection remains open; external collection remains caller-controlled |
 
 ## Local checks
 
@@ -129,3 +130,124 @@ contains neither NVRTC nor nvrtcx. D304CF8D reports using NVRTC 13.0.88 to run
 these fixtures and rejecting newer emitted PTX on that driver. This establishes
 a fixture/toolchain prerequisite, not a universal CUDA 13 requirement for
 cuptibench workloads using precompiled kernels.
+
+## Completion follow-up: collector ownership (2026-09-15)
+
+PC sampling now shares device exclusion with Range, PM and SASS collection,
+including the standalone reason-inventory enable path. Failed native disable
+retains ownership for retry. If startup fails before a full session exists and
+cleanup also fails, Start returns a session whose Close retries that cleanup.
+The standalone Enable helper likewise returns a cleanup function alongside an
+error when a successful native enable returns malformed parameter storage.
+
+Benchmark event timing also holds device exclusion until timer cleanup succeeds.
+This prevents cooperating collectors from instrumenting the supposedly
+uninstrumented timing interval. It does not exclude external profilers.
+
+Focused race tests cover competing ownership, constructor failures, partial
+construction, cleanup retry and concurrent standalone disable. An early-release
+mutation fails both startup-cleanup cases with "failed cleanup released device".
+The native PC exclusion fixture enables sampling once in a fresh process and
+queries a nonempty reason inventory before releasing ownership.
+
+The initial hardware attempt waited 45 seconds for the directory lease and
+exited 75 while DF6906F6 held it for the T2 census; no GPU test ran in that
+attempt. After the lease became available, revision
+`375de4ea98b76ddb130e43254935a2e942b60375` passed all six selected top-level tests
+on NVIDIA GB10 / CUPTI chip GB20B, CUPTI 130202, driver 580.173.02:
+
+- Native PC exclusion, nonempty reason inventory (36 reasons), and release.
+- Counter-volume control (12 versus 24 CTAs).
+- Multistream event timing: overlapping 20.06 ms, dependent 40.02 ms.
+- Insufficient range capacity rejected by independent launch evidence.
+- Actual benchmark full/isolated profile export and pprof validation.
+- Actual host 1/2/4-pass replay through nesting, with invariant root CTA count 24.
+
+Both test processes exited zero. The PC test enabled sampling once in a fresh
+process; it did not sample a model workload or inject a native Disable failure.
+The timing/profile check executes the new owned timer through Benchmark.
+Lease pid 1461350, label `FC0AB720-cuptibench-375de4ea`, was acquired at
+2026-09-15T15:51:59Z and released after the checks. Toolchain pins were NVRTC
+13.0 and the CUDA 13.2 CUPTI library directory. No clocks were changed.
+
+Receipt: `~/tmp/cuptibench-completion-receipts/375de4ea/`, including verified
+binary/source hashes, source manifest, before/after device snapshots, lease,
+exit statuses, test logs and the exported profile. These are synthetic physical
+controls, not DS4 or performance-parity qualification. The earlier DS4 native
+Stop failure, later-position correctness, native cleanup-failure injection and
+L4 AutoRange gates remain open.
+
+## Direct multistream collection
+
+`TestPhysicalWholeOverlap` passed all five subtests without skips on GB20B,
+CUPTI 130202, driver 580.173.02. Device atomic tickets establish overlapping
+kernel-body intervals in the independent-stream baseline and Whole/UserReplay
+captures. Event-dependent controls execute serially and are rejected by the
+same overlap detector. This does not establish unchanged timing or simultaneous
+instruction issue.
+
+Whole captures contain 2 and 6 CTAs for one and three logical operations,
+respectively, with 2 CTAs per operation. The eight preparation CTAs are excluded.
+Every operation's outputs and tickets are checked before preparation resets them.
+These captures each required one native pass; existing nesting controls provide
+the separate 1/2/4 host-pass evidence.
+
+The executed source is `f00e31f5` plus the two overlap test files. Binary SHA-256:
+`a7097591c2b88d22dbdaffc4125e41061d7bafe1d617e2ef7359642523e4fa99`.
+Receipts: `~/tmp/cuptibench-overlap-receipts/run-RYIhtcZs`, including the source
+patch hash, device snapshots, lease identity, test output and exit status.
+
+## DS4 evolving replay state
+
+The dependent DS4 adapter at `7f9f0374` passed the selected position-1 replay
+check: six stages (layers 00 and 02, QKV, attention, and attention-output/FFN)
+were each captured twice, followed by two full captures. All 14 state/logit
+hashes matched their unprofiled baseline. Receipt:
+`~/tmp/cuptibench-ds4-position-qualification/run-position1-E0FGnSxb`.
+
+`TestCUDAProfileEvolvingReplay`, added in dependent commit `30c4e5a9`, passed at positions
+3 and 4 using fixed tokens `[0,1,2,3,4]`. The comparison baseline evaluates the
+sequence without resetting between tokens. The same six isolated stages and
+full forward work each run twice per position: 28 captures, all matching the
+expected state/logit hashes, all completing three host replay passes with
+successful decoding and zero reported drops.
+
+At position 3, layer 02 emits its first attention and indexer cache entries.
+At position 4, both entries and their counts remain unchanged while both pooling
+states change. The final state at position 3 equals the baseline starting state
+at position 4. These checks cover the selected persistent state and full logits
+against the same implementation. They do not establish independent model
+correctness, all-layer or all-position coverage, or indexer selection beyond
+512 emitted entries.
+
+The evolving test ran on GB20B with CUPTI 130202 and driver 580.173.02, using
+core `d282d8b9` and the dependent adapter plus the retained test patch. Binary
+SHA-256: `331c993ec13d971ada44d3457cabff019f27b98fea53451a61dd4c1915439df0`.
+Receipt: `~/tmp/cuptibench-ds4-evolving-receipts/run-evolving-RkYOpak8`, including
+model and source hashes, module replacements, matching lease snapshots, device
+snapshots and the 196.57-second passing test log. This does not resolve the
+retained KernelReplay graph failure or explain the earlier nonfinite result.
+
+## Native Disable rejection and retry
+
+`TestPhysicalDisableRetry` passed on GB20B, CUPTI 130202, driver 580.173.02.
+A deliberate `StructSize=0` call to the native Disable function returned
+`INVALID_PARAMETER`. The collector retained its object, context, storage and
+device lease, cleared its normal result, and retained an independently copied
+diagnostic image. One corrected call with size 24 and the same input object
+succeeded. Repeated Close issued no further native call, and a fresh public
+capture passed. Both the baseline and fresh captures checked every output and
+reported one CTA with complete single-pass decoding and zero reported drops.
+
+This establishes recovery from deliberately invalid Disable arguments. It does
+not qualify spontaneous backend failures, assignment to `Plan.pending`, or
+process export suppression. Those public lifecycle paths have separate synthetic
+tests. Runtime pin state is established by source ordering, not a direct probe.
+
+Source: `d282d8b9` plus the two Disable test files. Binary SHA-256:
+`f10465319f491e7ea10c47695a8d09dc173913b348b8f7ba2be3db8620194921`.
+Receipt: `~/tmp/cuptibench-cleanup-receipts/run-disable-uR0utwTi`, including
+matching lease snapshots, native header/layout evidence and the passing log.
+The earlier `run-disable-uMt3mVf8` failed because the test recorder read the
+handle after native success cleared it. That failure is retained; the corrected
+recorder records input and returned fields separately.

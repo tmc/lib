@@ -86,3 +86,32 @@ func ExampleCosterFunc() {
 	// Output:
 	// 139264 host_page_table true
 }
+
+// Analyze groups launches across phases and classifies them into families.
+func ExampleCapture_Analyze() {
+	c, err := cudacensus.ReadDir("testdata/capture")
+	if err != nil {
+		panic(err)
+	}
+	tok, _ := c.Phase("token")
+
+	rules := []cudacensus.FamilyRule{
+		{
+			Name: "rmsnorm",
+			Match: func(sym string) bool {
+				return strings.Contains(sym, "rms")
+			},
+		},
+	}
+
+	report := c.Analyze([]cudacensus.Phase{tok}, nil, rules...)
+	p := report.Phases[0]
+	fmt.Printf("complete: %v\n", report.Complete)
+	fmt.Printf("phase: %s, launches: %d\n", p.Phase.Name, p.Launches)
+	fmt.Printf("known launches: %d, unknown launches: %d\n", p.CoverageCount, p.UnknownCount)
+	// Output:
+	// complete: true
+	// phase: token, launches: 132
+	// known launches: 25, unknown launches: 107
+}
+

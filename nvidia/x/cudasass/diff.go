@@ -50,17 +50,19 @@ func (d InstructionDiff) String() string {
 	return d.Op.String() + " " + strings.TrimSpace(raw)
 }
 
-// SpillDiff summarizes register spill additions and removals.
+// SpillDiff counts local-memory accesses added and removed. These counts alone
+// do not establish compiler spills. The historical STS and LDS field names
+// count STL and LDL respectively; shared-memory STS and LDS are excluded.
 type SpillDiff struct {
-	AddedSTS     int // Store-to-stack instructions added
-	RemovedSTS   int // Store-to-stack instructions removed
-	AddedLDS     int // Load-from-stack instructions added
-	RemovedLDS   int // Load-from-stack instructions removed
-	TotalAdded   int // Total spill operations added (AddedSTS + AddedLDS)
-	TotalRemoved int // Total spill operations removed (RemovedSTS + RemovedLDS)
+	AddedSTS     int // Local-memory STL instructions added
+	RemovedSTS   int // Local-memory STL instructions removed
+	AddedLDS     int // Local-memory LDL instructions added
+	RemovedLDS   int // Local-memory LDL instructions removed
+	TotalAdded   int // Total local-memory operations added (AddedSTS + AddedLDS)
+	TotalRemoved int // Total local-memory operations removed (RemovedSTS + RemovedLDS)
 }
 
-// Delta returns the net change in register spill operations.
+// Delta returns the net change in local-memory operations.
 func (s SpillDiff) Delta() int {
 	return s.TotalAdded - s.TotalRemoved
 }
@@ -384,14 +386,14 @@ func isBranchOpcode(opcode string) bool {
 	return false
 }
 
-func isSTSOpcode(opcode string) bool {
+func isLocalStore(opcode string) bool {
 	base := BaseOpcode(opcode)
-	return base == "STS" || base == "STL"
+	return base == "STL"
 }
 
-func isLDSOpcode(opcode string) bool {
+func isLocalLoad(opcode string) bool {
 	base := BaseOpcode(opcode)
-	return base == "LDS" || base == "LDL"
+	return base == "LDL"
 }
 
 // IsScalarArithmetic returns true if the opcode is a scalar arithmetic or logical operation.
@@ -475,17 +477,17 @@ func computeArchitectureDiff(baseFn, targetFn Function, changes []InstructionDif
 	for _, c := range changes {
 		switch c.Op {
 		case DiffAdd:
-			if isSTSOpcode(c.Inst.Opcode) {
+			if isLocalStore(c.Inst.Opcode) {
 				arch.Spills.AddedSTS++
 			}
-			if isLDSOpcode(c.Inst.Opcode) {
+			if isLocalLoad(c.Inst.Opcode) {
 				arch.Spills.AddedLDS++
 			}
 		case DiffDelete:
-			if isSTSOpcode(c.Inst.Opcode) {
+			if isLocalStore(c.Inst.Opcode) {
 				arch.Spills.RemovedSTS++
 			}
-			if isLDSOpcode(c.Inst.Opcode) {
+			if isLocalLoad(c.Inst.Opcode) {
 				arch.Spills.RemovedLDS++
 			}
 		}

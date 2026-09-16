@@ -138,6 +138,7 @@ type Info struct {
 // Session owns an exclusively coordinated PC collector. Its zero value is not
 // usable. Serialize method calls and keep the CUDA context alive through Close.
 type Session struct {
+	pending   func() error
 	core      *samplingSession
 	config    Config
 	inventory ReasonInventory
@@ -151,8 +152,9 @@ type Session struct {
 // requires AllowSerialization because it changes kernel concurrency.
 //
 // The caller must own exclusive PC sampling and coordinate other profilers and
-// shared native names. The package rejects its own concurrent sessions but
-// cannot detect every external registrant. A nonnil Session returned with an
+// shared native names. The package excludes Range, PM and SASS metric collectors
+// on the same device and rejects its own concurrent sessions, but cannot detect
+// every external registrant. A nonnil Session returned with an
 // error retains cleanup ownership: call Close, retrying explicitly if native
 // teardown fails. Do not destroy the context or discard that Session first.
 func Start(ctx cupti.Context, config Config) (*Session, error) {
@@ -194,14 +196,7 @@ func validateConfig(ctx cupti.Context, c Config) error {
 	return nil
 }
 
-// releasing returns the claim and reports no error, so it composes with the
-// native cleanup in an errors.Join without inventing a failure of its own.
-func releasing(release func()) error {
-	release()
-	return nil
-}
-
-func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventoryQuery func(cupti.Context, int) (ReasonInventory, error), nameOwner func(int, int, int) (*samplingNames, error), query func(*cupti.PCSamplingGetDataParams) error) (*Session, error) {
+func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventoryQuery func(cupti.Context, int) (ReasonInventory, error), nameOwner func(int, int, int) (*samplingNames, error), query func(*cupti.PCSamplingGetDataParams) error) (result *Session, err error) {
 	if err := validateConfig(ctx, c); err != nil {
 		return nil, err
 	}
@@ -212,9 +207,16 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 	if !qualifiedSamplingVersion(version) {
 		return nil, fmt.Errorf("cuptipcsampling: unqualified sampling version %d", version)
 	}
-	// Claim the collector before any native call, so a start rejected for
+	// Claim the collector before changing native state, so a start rejected for
 	// exclusivity leaves the context exactly as it found it.
-	adopt, release, err := reserveOwner()
+	if api.device == nil {
+		return nil, errors.New("cuptipcsampling: missing device query")
+	}
+	device, err := api.device(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("cuptipcsampling: identify device: %w", err)
+	}
+	adopt, release, err := reserveOwner(device)
 	if err != nil {
 		return nil, err
 	}
@@ -222,17 +224,35 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 	// sampling query on a context where sampling is off, so the reason table
 	// the configuration is built from cannot be read until this succeeds.
 	// Ownership of the disable passes to the session once one exists.
-	disable, err := enableSampling(ctx, api)
-	if err != nil {
+	disable, err := enableSamplingNative(ctx, api)
+	if disable == nil {
 		release()
+		return nil, err
+	}
+	cleanup := func() error {
+		if err := disable(); err != nil {
+			return err
+		}
+		release()
+		return nil
+	}
+	defer func() {
+		if err != nil && result == nil {
+			if cleanupErr := cleanup(); cleanupErr != nil {
+				result = &Session{pending: cleanup}
+				err = errors.Join(err, cleanupErr)
+			}
+		}
+	}()
+	if err != nil {
 		return nil, err
 	}
 	inventory, err := inventoryQuery(ctx, c.MaxReasons)
 	if err != nil {
-		return nil, errors.Join(err, disable(), releasing(release))
+		return nil, err
 	}
 	if inventory.CUPTIVersion != version {
-		return nil, errors.Join(errors.New("cuptipcsampling: reason inventory version changed"), disable(), releasing(release))
+		return nil, errors.New("cuptipcsampling: reason inventory version changed")
 	}
 	if c.CollectionMode == 0 {
 		c.CollectionMode = cupti.PcSamplingCollectionModeContinuous
@@ -245,7 +265,7 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 	bufBytes := c.MaxOutputBytes / totalBuffers
 	out, err := newSamplingBuffer(c.PCsPerBuffer, len(c.ReasonIDs), bufBytes)
 	if err != nil {
-		return nil, errors.Join(err, disable(), releasing(release))
+		return nil, err
 	}
 	var (
 		drain *samplingBuffer
@@ -255,14 +275,14 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 		ring, err = NewRingBuffer(c.BufferCount, c.PCsPerBuffer, len(c.ReasonIDs), bufBytes)
 		if err != nil {
 			out.release()
-			return nil, errors.Join(err, disable(), releasing(release))
+			return nil, err
 		}
 		drain = ring.slots[0].sampling
 	} else {
 		drain, err = newSamplingBuffer(c.PCsPerBuffer, len(c.ReasonIDs), bufBytes)
 		if err != nil {
 			out.release()
-			return nil, errors.Join(err, disable(), releasing(release))
+			return nil, err
 		}
 	}
 	names, err := nameOwner(c.MaxNames, c.MaxNameBytes, c.MaxTotalNameBytes)
@@ -273,7 +293,7 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 		} else {
 			drain.release()
 		}
-		return nil, errors.Join(err, disable(), releasing(release))
+		return nil, err
 	}
 	o := samplingOptions{period: c.Period, workerSleepMS: c.WorkerSleepMS, mode: c.CollectionMode, allowSerialization: c.AllowSerialization, scratchBytes: c.ScratchBytes, hardwareBytes: c.HardwareBytes, maxNativeBytes: c.MaxNativeBytes, reasons: c.ReasonIDs}
 	cfg, err := newSamplingConfig(o, inventory, out)
@@ -285,7 +305,7 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 		} else {
 			drain.release()
 		}
-		return nil, errors.Join(err, disable(), releasing(release))
+		return nil, err
 	}
 	// The control inherits the enable performed above: touched so that shutdown
 	// still disables, enabled so that prepare does not enable a second time.
@@ -329,6 +349,9 @@ func (s *Session) Stop() error {
 // Prior failures/loss remain errors even after successful cleanup. Close does
 // not destroy the CUDA context. Final remains available after storage release.
 func (s *Session) Close() error {
+	if s != nil && s.pending != nil {
+		return s.pending()
+	}
 	if s == nil || s.core == nil {
 		return errors.New("cuptipcsampling: invalid session")
 	}

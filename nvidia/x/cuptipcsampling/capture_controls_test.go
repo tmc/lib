@@ -14,6 +14,7 @@ import (
 func testPublicControlAPI() samplingControlAPI {
 	var saved []cupti.PCSamplingConfigurationInfo
 	return samplingControlAPI{
+		device:  func(cupti.Context) (uint32, error) { return 0, nil },
 		version: func() (uint32, error) { return 130001, nil },
 		set: func(p *cupti.PCSamplingConfigurationInfoParams) error {
 			a := unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes))

@@ -126,39 +126,9 @@ struct block_iq2_xxs {
     uint16_t qs[32];   // 32 uint16_t = 64 bytes (grid indices, signs, sub-block scales)
 };
 
-// 2-bit 8-element codebook grid table (256 entries) for IQ2_XXS.
-// Each uint16_t packs 8 2-bit values: entry j in {0, 1, 2, 3}, producing grid value 2*j + 1.
-__device__ const uint16_t kgrid_2bit_256[256] = {
-        0,     2,     5,     8,    10,    17,    20,    32,    34,    40,    42,    65,    68,    80,    88,    97,
-      100,   128,   130,   138,   162,   257,   260,   272,   277,   320,   388,   408,   512,   514,   546,   642,
-     1025,  1028,  1040,  1057,  1060,  1088,  1090,  1096,  1120,  1153,  1156,  1168,  1188,  1280,  1282,  1288,
-     1312,  1350,  1385,  1408,  1425,  1545,  1552,  1600,  1668,  1700,  2048,  2053,  2056,  2068,  2088,  2113,
-     2116,  2128,  2130,  2184,  2308,  2368,  2562,  2580,  4097,  4100,  4112,  4129,  4160,  4192,  4228,  4240,
-     4245,  4352,  4360,  4384,  4432,  4442,  4480,  4644,  4677,  5120,  5128,  5152,  5157,  5193,  5248,  5400,
-     5474,  5632,  5654,  6145,  6148,  6160,  6208,  6273,  6400,  6405,  6560,  6737,  8192,  8194,  8202,  8260,
-     8289,  8320,  8322,  8489,  8520,  8704,  8706,  9217,  9220,  9232,  9280,  9302,  9472,  9537,  9572,  9872,
-    10248, 10272, 10388, 10820, 16385, 16388, 16400, 16408, 16417, 16420, 16448, 16456, 16470, 16480, 16513, 16516,
-    16528, 16640, 16672, 16737, 16768, 16773, 16897, 16912, 16968, 16982, 17000, 17408, 17416, 17440, 17536, 17561,
-    17682, 17700, 17920, 18433, 18436, 18448, 18496, 18501, 18688, 18776, 18785, 18818, 19013, 19088, 20480, 20488,
-    20497, 20505, 20512, 20608, 20616, 20740, 20802, 20900, 21137, 21648, 21650, 21770, 22017, 22100, 22528, 22545,
-    22553, 22628, 22848, 23048, 24580, 24592, 24640, 24680, 24832, 24917, 25112, 25184, 25600, 25605, 25872, 25874,
-    25988, 26690, 32768, 32770, 32778, 32833, 32898, 33028, 33048, 33088, 33297, 33793, 33796, 33808, 33813, 33856,
-    33888, 34048, 34118, 34196, 34313, 34368, 34400, 34818, 35076, 35345, 36868, 36880, 36900, 36928, 37025, 37142,
-    37248, 37445, 37888, 37922, 37956, 38225, 39041, 39200, 40962, 41040, 41093, 41225, 41472, 42008, 43088, 43268,
-};
-
-// 7-bit sign lookup table (128 entries) with parity bit for IQ2_XXS.
-__device__ const uint8_t ksigns_iq2xs[128] = {
-      0, 129, 130,   3, 132,   5,   6, 135, 136,   9,  10, 139,  12, 141, 142,  15,
-    144,  17,  18, 147,  20, 149, 150,  23,  24, 153, 154,  27, 156,  29,  30, 159,
-    160,  33,  34, 163,  36, 165, 166,  39,  40, 169, 170,  43, 172,  45,  46, 175,
-     48, 177, 178,  51, 180,  53,  54, 183, 184,  57,  58, 187,  60, 189, 190,  63,
-    192,  65,  66, 195,  68, 197, 198,  71,  72, 201, 202,  75, 204,  77,  78, 207,
-     80, 209, 210,  83, 212,  85,  86, 215, 216,  89,  90, 219,  92, 221, 222,  95,
-     96, 225, 226,  99, 228, 101, 102, 231, 232, 105, 106, 235, 108, 237, 238, 111,
-    240, 113, 114, 243, 116, 245, 246, 119, 120, 249, 250, 123, 252, 125, 126, 255,
-};
-
+`)
+	sb.WriteString(iq2xxsTablesCUDA())
+	sb.WriteString(`
 __device__ const uint8_t kmask_iq2xs[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
 
 // Inlines dequantization of an IQ2_XXS 8-element sub-vector from codebook grid, signs, and sub-block scale.
@@ -168,12 +138,11 @@ __device__ __forceinline__ void dequantize_iq2_xxs_sub8(
     float db,
     float* __restrict__ out8
 ) {
-    uint16_t grid_entry = kgrid_2bit_256[grid_idx];
+    unsigned long long grid_entry = iq2xxs_grid[grid_idx];
     uint8_t signs = ksigns_iq2xs[sign_idx];
     #pragma unroll
     for (int j = 0; j < 8; j++) {
-        int l_val = (grid_entry >> (2 * j)) & 0x03;
-        float grid_val = (float)(2 * l_val + 1);
+        float grid_val = (float)((uint8_t)(grid_entry >> (8 * j)));
         float sign = (signs & kmask_iq2xs[j]) ? -1.0f : 1.0f;
         out8[j] = db * grid_val * sign;
     }
@@ -243,12 +212,35 @@ __device__ __forceinline__ void cudaTriggerProgrammaticLaunchCompletion(void) {
 	return sb.String(), nil
 }
 
-func generateSwiGLUKernel(opts CodegenOptions) string {
-	scalarType := "float"
-	if opts.Precision == "half" || opts.Precision == "float16" {
-		scalarType = "uint16_t"
+// scalarTypeFor reports the C type a generated kernel uses to carry operands of
+// the given precision. Half operands are carried as raw uint16_t bit patterns,
+// because NVRTC's __half is not available in the generated prelude.
+func scalarTypeFor(precision string) string {
+	if precision == "half" || precision == "float16" {
+		return "uint16_t"
 	}
-	return fmt.Sprintf(`extern "C" __global__ void %s(
+	return "float"
+}
+
+// applyScalarConv rewrites the EG_TO_F32 and EG_FROM_F32 markers in a generated
+// kernel into the conversions its precision requires.
+//
+// A C cast is only correct when the operand type is already a float. For half,
+// the operand is a uint16_t holding a float16 bit pattern, so (float)x would do
+// integer arithmetic on the encoding — 1.0 would enter the kernel as 15360.0.
+// Those operands must go through half_to_float and float_to_half.
+func applyScalarConv(src, precision string) string {
+	to, from := "(float)(", "(float)("
+	if precision == "half" || precision == "float16" {
+		to, from = "half_to_float(", "float_to_half("
+	}
+	src = strings.ReplaceAll(src, "EG_TO_F32(", to)
+	return strings.ReplaceAll(src, "EG_FROM_F32(", from)
+}
+
+func generateSwiGLUKernel(opts CodegenOptions) string {
+	scalarType := scalarTypeFor(opts.Precision)
+	src := fmt.Sprintf(`extern "C" __global__ void %s(
     const %s* __restrict__ x,
     const %s* __restrict__ W_gate,
     const %s* __restrict__ W_up,
@@ -264,9 +256,9 @@ func generateSwiGLUKernel(opts CodegenOptions) string {
         float gate = 0.0f;
         float up = 0.0f;
         for (int k = 0; k < hidden_dim; k++) {
-            float xv = (float)x[k];
-            gate += xv * (float)W_gate[j * hidden_dim + k];
-            up += xv * (float)W_up[j * hidden_dim + k];
+            float xv = EG_TO_F32(x[k]);
+            gate += xv * EG_TO_F32(W_gate[j * hidden_dim + k]);
+            up += xv * EG_TO_F32(W_up[j * hidden_dim + k]);
         }
         float silu = gate / (1.0f + expf(-gate));
         s_act[j] = silu * up;
@@ -277,12 +269,13 @@ func generateSwiGLUKernel(opts CodegenOptions) string {
     for (int out_idx = blockIdx.x * blockDim.x + threadIdx.x; out_idx < hidden_dim; out_idx += gridDim.x * blockDim.x) {
         float acc = 0.0f;
         for (int j = 0; j < intermediate_dim; j++) {
-            acc += s_act[j] * (float)W_down[out_idx * intermediate_dim + j];
+            acc += s_act[j] * EG_TO_F32(W_down[out_idx * intermediate_dim + j]);
         }
-        out[out_idx] = (%s)acc;
+        out[out_idx] = EG_FROM_F32(acc);
     }
 }
-`, opts.KernelName, scalarType, scalarType, scalarType, scalarType, scalarType, scalarType)
+`, opts.KernelName, scalarType, scalarType, scalarType, scalarType, scalarType)
+	return applyScalarConv(src, opts.Precision)
 }
 
 func generateSwiGLUQ8_0Kernel(opts CodegenOptions) string {
@@ -334,15 +327,11 @@ func generateSwiGLUQ8_0Kernel(opts CodegenOptions) string {
 }
 
 func generateRMSNormGEMVKernel(opts CodegenOptions) string {
-	scalarType := "float"
-	if opts.Precision == "half" || opts.Precision == "float16" {
-		scalarType = "uint16_t"
-	}
 	src := `extern "C" __global__ void KERNEL_NAME(
-    const T* __restrict__ x,
-    const T* __restrict__ weight,
-    const T* __restrict__ W_proj,
-    T* __restrict__ out,
+    const SCALAR_T* __restrict__ x,
+    const SCALAR_T* __restrict__ weight,
+    const SCALAR_T* __restrict__ W_proj,
+    SCALAR_T* __restrict__ out,
     int in_dim,
     int out_dim,
     float eps
@@ -360,7 +349,7 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
     // Pass one: the RMS scale, reduced over the whole of x.
     float sq = 0.0f;
     for (int i = tid; i < in_dim; i += blockDim.x) {
-        float v = (float)x[i];
+        float v = EG_TO_F32(x[i]);
         sq += v * v;
     }
     sq = warp_sum(sq);
@@ -380,10 +369,10 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
     __syncthreads();
 
     // Pass two: the projection of the normalised, weighted input.
-    const T* w_row = W_proj + row * in_dim;
+    const SCALAR_T* w_row = W_proj + row * in_dim;
     float sum = 0.0f;
     for (int i = tid; i < in_dim; i += blockDim.x) {
-        sum += ((float)x[i] * scale * (float)weight[i]) * (float)w_row[i];
+        sum += (EG_TO_F32(x[i]) * scale * EG_TO_F32(weight[i])) * EG_TO_F32(w_row[i]);
     }
     sum = warp_sum(sum);
     if (lane == 0) {
@@ -394,12 +383,13 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
         float total = (lane < n_warps) ? s_sum[lane] : 0.0f;
         total = warp_sum(total);
         if (lane == 0) {
-            out[row] = (T)total;
+            out[row] = EG_FROM_F32(total);
         }
     }
 }
 `
-	src = strings.ReplaceAll(src, "T", scalarType)
+	src = strings.ReplaceAll(src, "SCALAR_T", scalarTypeFor(opts.Precision))
+	src = applyScalarConv(src, opts.Precision)
 	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
 }
 
@@ -594,21 +584,23 @@ extern "C" __global__ void KERNEL_NAME(
         const block_iq2_xxs* blk = &W[row * blocks_per_row + b];
         float d = half_to_float(blk->d);
 
-        const uint32_t* qs32 = reinterpret_cast<const uint32_t*>(blk->qs);
-        uint32_t aux0 = qs32[2 * ib32 + 0];
-        uint32_t aux1 = qs32[2 * ib32 + 1];
+        // block_iq2_xxs is 66 bytes, so blk->qs is 4-byte aligned only for even
+        // blocks. Assemble the two 32-bit auxiliaries from uint16_t loads
+        // rather than casting, which faults with MISALIGNED_ADDRESS.
+        const uint16_t* qs16 = blk->qs + 4 * ib32;
+        uint32_t aux0 = (uint32_t)qs16[0] | ((uint32_t)qs16[1] << 16);
+        uint32_t aux1 = (uint32_t)qs16[2] | ((uint32_t)qs16[3] << 16);
 
         float db = d * (0.5f + (float)(aux1 >> 28)) * 0.25f;
         uint8_t grid_idx = (aux0 >> (8 * l)) & 0xff;
         uint8_t sign_idx = (aux1 >> (7 * l)) & 0x7f;
         uint8_t signs = ksigns_iq2xs[sign_idx];
-        uint16_t grid_entry = kgrid_2bit_256[grid_idx];
+        unsigned long long grid_entry = iq2xxs_grid[grid_idx];
 
         float acc = 0.0f;
         #pragma unroll
         for (int i = 0; i < 8; i++) {
-            int l_val = (grid_entry >> (2 * i)) & 0x03;
-            float grid_val = (float)(2 * l_val + 1);
+            float grid_val = (float)((uint8_t)(grid_entry >> (8 * i)));
             float sign = (signs & kmask_iq2xs[i]) ? -1.0f : 1.0f;
             float w = db * grid_val * sign;
             acc += w * x[b * 256 + lane * 8 + i];
@@ -689,11 +681,8 @@ func generateFusedRoPEStoreKVKernel(opts CodegenOptions) string {
 }
 
 func generateCompositeKernel(expr *Expr, opts CodegenOptions) string {
-	scalarType := "float"
-	if opts.Precision == "half" || opts.Precision == "float16" {
-		scalarType = "uint16_t"
-	}
-	return fmt.Sprintf(`extern "C" __global__ void %s(
+	scalarType := scalarTypeFor(opts.Precision)
+	src := fmt.Sprintf(`extern "C" __global__ void %s(
     const %s* __restrict__ in_a,
     const %s* __restrict__ in_b,
     %s* __restrict__ out,
@@ -701,10 +690,11 @@ func generateCompositeKernel(expr *Expr, opts CodegenOptions) string {
 ) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx < n) {
-        out[idx] = in_a[idx] + in_b[idx];
+        out[idx] = EG_FROM_F32(EG_TO_F32(in_a[idx]) + EG_TO_F32(in_b[idx]));
     }
 }
 `, opts.KernelName, scalarType, scalarType, scalarType)
+	return applyScalarConv(src, opts.Precision)
 }
 
 func generateFusedGEMVPipelineKernel(opts CodegenOptions) string {

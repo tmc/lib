@@ -14,6 +14,12 @@ import (
 type Graph struct {
 	raw    driver.Graph
 	device *cuda.Device
+
+	// mu guards retained, which owns the kernel argument storage and module
+	// references that graph nodes reach only through an untraced uintptr.
+	// See AddLaunch.
+	mu       sync.Mutex
+	retained []*launchArgs
 }
 
 // New creates an empty CUDA graph.
@@ -144,7 +150,7 @@ func (g *Graph) InstantiateWithOptions(options InstantiateOptions) (*Exec, error
 	if err != nil {
 		return nil, fmt.Errorf("cudagraph: instantiate graph: %w", err)
 	}
-	return &Exec{raw: rawExec, device: g.device, kernelOrder: order}, nil
+	return &Exec{raw: rawExec, device: g.device, kernelOrder: order, retained: g.launchStorage()}, nil
 }
 
 // Raw returns the underlying driver.Graph handle.
@@ -172,6 +178,16 @@ type Exec struct {
 	raw         driver.GraphExec
 	device      *cuda.Device
 	kernelOrder []string
+
+	// retained holds the argument storage of the graph this Exec executes,
+	// so an Exec stays valid after the graph is destroyed. See AddLaunch.
+	//
+	// Update replaces it: after updating, the Exec executes the new graph's
+	// parameters, which point into the new graph's storage. Any future
+	// operation that makes an Exec execute nodes from another graph, such as a
+	// wrapper for cuGraphAddChildGraphNode or cuGraphClone, takes on the same
+	// obligation. Neither is wrapped here today.
+	retained []*launchArgs
 }
 
 // Launch enqueues execution of the instantiated graph on stream.
@@ -199,6 +215,12 @@ func (e *Exec) Launch(s *cuda.Stream) error {
 // CUDA checks the graph topology, but does not check that kernel nodes use the
 // same kernel function, parameters, or shared-memory size. Callers must ensure
 // those properties themselves.
+//
+// A successful update transfers argument ownership: the Exec then holds g's
+// argument storage and modules and releases the previous graph's, so g may be
+// destroyed while this Exec remains valid. A failed update changes nothing,
+// including ownership. As CUDA requires, the Exec must not be updated while a
+// launch of it is still in flight; the storage it released may be reused.
 func (e *Exec) Update(g *Graph) error {
 	if e == nil || e.raw == 0 {
 		return errors.New("cudagraph: executable graph is closed")
@@ -214,7 +236,17 @@ func (e *Exec) Update(g *Graph) error {
 	if err := e.withContext(func() error { return e.raw.Update(g.raw, &result) }); err != nil {
 		return fmt.Errorf("cudagraph: update graph (result=%v%s): %w", result.Result, updateErrorNodes(result), err)
 	}
+	e.adoptStorage(g)
 	return nil
+}
+
+// adoptStorage takes ownership of g's kernel argument storage and modules, and
+// releases what this Exec held before. The driver reads kernel parameters
+// through an untraced uintptr, so nothing but this reference keeps the storage
+// the Exec now executes alive. It is called only after an operation that makes
+// the Exec execute g's nodes has succeeded.
+func (e *Exec) adoptStorage(g *Graph) {
+	e.retained = g.launchStorage()
 }
 
 // updateErrorNodes formats the nodes a failed update blamed, for appending to

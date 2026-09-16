@@ -33,6 +33,9 @@ func (p *Plan) Measure(b *testing.B, w Workload) *Result {
 // values describe the separately replayed sequence; profile-ops names its size.
 // Setup, preparation, and profiling are excluded from the timed loop. Errors
 // fail the benchmark. Use Plan.Collect for counter assertions in ordinary tests.
+// In Kernels mode, a separate Whole/UserReplay capture supplies aggregate
+// counters. MaxPasses applies to each capture; it must cover the aggregate's
+// configuration passes even when KernelReplay needs only one host pass.
 func Benchmark(b *testing.B, p *Plan, w Workload) *Result {
 	b.Helper()
 	selected, owned, err := benchmarkPlan(p)
@@ -50,8 +53,15 @@ func Benchmark(b *testing.B, p *Plan, w Workload) *Result {
 			}
 		}()
 	}
-	result, err := benchmark(b, selected, w, func(p *Plan, w Workload) (benchmarkTimer, error) { return cuda.NewEventTimer(p.dev, w.Streams) })
+	result, err := benchmark(b, selected, w, func(p *Plan, w Workload) (benchmarkTimer, error) {
+		return newOwnedTimer(uint32(p.dev.Ordinal()), func() (benchmarkTimer, error) {
+			return cuda.NewEventTimer(p.dev, w.Streams)
+		})
+	})
 	if err != nil {
+		if result != nil && result.Diagnostics != nil {
+			b.Log(diagnosticSummary(result.Diagnostics))
+		}
 		b.Fatal(err)
 		return nil
 	}
@@ -129,6 +139,9 @@ func benchmark(b *testing.B, p *Plan, w Workload, newTimer timerFactory) (result
 	if err = p.validateWorkload(w); err != nil {
 		return nil, err
 	}
+	if p.config.Mode == Kernels && p.configurationPasses > p.config.Limits.MaxPasses {
+		return nil, fmt.Errorf("cuptibench: whole benchmark aggregate requires %d host passes, limit is %d", p.configurationPasses, p.config.Limits.MaxPasses)
+	}
 	w.Streams = append([]*cuda.Stream(nil), w.Streams...)
 	w.Graphs = append([]*cudagraph.Exec(nil), w.Graphs...)
 	var timer benchmarkTimer
@@ -139,7 +152,7 @@ func benchmark(b *testing.B, p *Plan, w Workload, newTimer timerFactory) (result
 				err = errors.Join(err, cleanup)
 			}
 		}
-		if err != nil {
+		if err != nil && (result == nil || result.Diagnostics == nil) {
 			result = nil
 		}
 	}()
@@ -196,7 +209,7 @@ func benchmark(b *testing.B, p *Plan, w Workload, newTimer timerFactory) (result
 	if p.config.Mode == Kernels {
 		aggregate, collectErr := p.collectMode(w, Whole)
 		if collectErr != nil {
-			return nil, fmt.Errorf("cuptibench: aggregate capture: %w", collectErr)
+			return aggregate, fmt.Errorf("cuptibench: aggregate capture: %w", collectErr)
 		}
 		result.Aggregate = aggregate
 		result.Metadata["aggregate_capture_id"] = aggregate.Metadata["capture_id"]

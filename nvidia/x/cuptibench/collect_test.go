@@ -7,6 +7,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuptirange"
 	"math"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -194,7 +195,21 @@ func TestConfigAndMetricSemantics(t *testing.T) {
 		{"lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum", "l2_sector", cupti.MetricTypeCounter, true},
 		{"lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum", "byte", cupti.MetricTypeCounter, false},
 		{"lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum", "l2_sector", cupti.MetricTypeRatio, false},
-		{"arbitrary.sum", "count", cupti.MetricTypeCounter, false},
+		// A discovered counter rollup is additive: nothing curated expects a
+		// particular dimension for it, but ".sum" still totals events.
+		{"arbitrary.sum", "count", cupti.MetricTypeCounter, true},
+		{"arbitrary.sum", "unknown", cupti.MetricTypeCounter, false},
+		{"arbitrary.avg", "count", cupti.MetricTypeCounter, false},
+		{"arbitrary.peak_sustained", "count", cupti.MetricTypeCounter, false},
+		{"arbitrary.sum", "count", cupti.MetricTypeThroughput, false},
+		// Time is not additive across ranges however the rollup is spelled.
+		// gpu__time_start.sum is a timestamp; the cycle families are durations
+		// summed over hardware units, so ranges that overlap count twice.
+		{"gpu__time_start.sum", "nanosecond", cupti.MetricTypeCounter, false},
+		{"gpu__time_active.sum", "nanosecond", cupti.MetricTypeCounter, false},
+		{"fe__cycles_elapsed.sum", "sys_cycle", cupti.MetricTypeCounter, false},
+		{"sm__warps_active.sum", "gpc_cyclewarp", cupti.MetricTypeCounter, false},
+		{"tpc__l1tex_sram_bytes_mem_tagged_realtime.sum", "bytegpc_cycle", cupti.MetricTypeCounter, false},
 		{"smsp__inst_executed.sum", "unknown", cupti.MetricTypeCounter, false},
 		{"smsp__inst_executed.sum", "inst", cupti.MetricTypeRatio, false},
 	} {
@@ -205,9 +220,12 @@ func TestConfigAndMetricSemantics(t *testing.T) {
 	if _, err := resolveSets([]string{"missing"}); err == nil {
 		t.Fatal("unknown set accepted")
 	}
+	// A repeated selector contributes its metrics once: a duplicate metric is
+	// rejected by Config.validate, so resolution must not produce one.
 	names, err := resolveSets([]string{"instructions", "l2-read", "instructions"})
-	if err != nil || len(names) != 2 {
-		t.Fatalf("%v %v", names, err)
+	want := []string{"smsp__inst_executed.sum", "smsp__thread_inst_executed.sum", "lts__t_sectors_srcunit_tex_op_read.sum"}
+	if err != nil || !slices.Equal(names, want) {
+		t.Fatalf("got %v %v, want %v", names, err, want)
 	}
 }
 

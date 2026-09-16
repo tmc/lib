@@ -190,3 +190,34 @@ func TestStreamingIO(t *testing.T) {
 		t.Errorf("payload mismatch: want %q, got %q", string(data), out.String())
 	}
 }
+
+func TestReinterpret(t *testing.T) {
+	dev := cudatest.Require(t)
+	bytesSlice, err := cudamem.Alloc[byte](dev, 64)
+	if err != nil {
+		t.Fatalf("Alloc[byte]: %v", err)
+	}
+	defer bytesSlice.Free()
+
+	u16Slice, err := cudamem.Reinterpret[uint16](bytesSlice)
+	if err != nil {
+		t.Fatalf("Reinterpret[uint16]: %v", err)
+	}
+	if u16Slice.Len() != 32 {
+		t.Fatalf("got len %d, want 32", u16Slice.Len())
+	}
+
+	u32Slice, err := cudamem.Reinterpret[uint32](bytesSlice)
+	if err != nil {
+		t.Fatalf("Reinterpret[uint32]: %v", err)
+	}
+	if u32Slice.Len() != 16 {
+		t.Fatalf("got len %d, want 16", u32Slice.Len())
+	}
+
+	// Odd byte count cannot be reinterpreted as uint16
+	oddBytes := bytesSlice.Slice(0, 7)
+	if _, err := cudamem.Reinterpret[uint16](oddBytes); err == nil {
+		t.Fatalf("expected error reinterpreting 7 bytes into uint16")
+	}
+}

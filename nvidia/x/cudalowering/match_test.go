@@ -134,3 +134,12 @@ func TestMatchNil(t *testing.T) {
 		t.Errorf("Match against nil disassembly: %d unmatched, want 5", len(match.UnmatchedPTX))
 	}
 }
+
+func TestDuplicateExactNamesRemainUnmatched(t *testing.T) {
+	ptx := &cudaptx.Module{Kernels: []*cudaptx.Kernel{{Name: "k", Entry: true, Body: true}}}
+	sass := &cudasass.Disassembly{Functions: []*cudasass.Function{{Name: "k"}, {Name: "k"}}}
+	result := Match(ptx, sass)
+	if len(result.Pairs) != 0 || len(result.UnmatchedSASS) != 2 || len(result.UnmatchedPTX) != 1 {
+		t.Fatalf("ambiguous match: %+v", result)
+	}
+}

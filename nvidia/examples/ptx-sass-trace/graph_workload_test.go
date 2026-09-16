@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
@@ -69,172 +68,98 @@ func TestGraphWorkloadValidation(t *testing.T) {
 	}
 }
 
-func TestStepToKernelParams(t *testing.T) {
+func TestStepDescription(t *testing.T) {
 	fn := driver.Function(0xcafe0000)
-	dptr := driver.DevicePtr(0xdeadbeef00)
-	n := int32(256)
-	scale := float32(0.5)
 
 	t.Run("launcher configured parameters", func(t *testing.T) {
-		launcher := cudalaunch.Kernel(fn).
-			Grid(4, 2, 1).
-			Block(128, 2, 1).
-			SharedMem(1024)
-
 		step := PipelineStep{
 			Name:     "configured_step",
-			Launcher: launcher,
-			Args:     []any{dptr, n, scale},
+			Launcher: cudalaunch.Kernel(fn).Grid(4, 2, 1).Block(128, 2, 1).SharedMem(1024),
 		}
-
-		params, packed, err := stepToKernelParams(step)
+		desc, err := stepDescription(step)
 		if err != nil {
-			t.Fatalf("stepToKernelParams: %v", err)
+			t.Fatalf("stepDescription: %v", err)
 		}
-
-		if params.Func != fn {
-			t.Errorf("params.Func = %v, want %v", params.Func, fn)
+		if desc.Function != fn {
+			t.Errorf("Function = %v, want %v", desc.Function, fn)
 		}
-		if params.GridDimX != 4 || params.GridDimY != 2 || params.GridDimZ != 1 {
-			t.Errorf("grid dims = (%d, %d, %d), want (4, 2, 1)", params.GridDimX, params.GridDimY, params.GridDimZ)
+		if want := (cudalaunch.Dim3{X: 4, Y: 2, Z: 1}); desc.Grid != want {
+			t.Errorf("Grid = %+v, want %+v", desc.Grid, want)
 		}
-		if params.BlockDimX != 128 || params.BlockDimY != 2 || params.BlockDimZ != 1 {
-			t.Errorf("block dims = (%d, %d, %d), want (128, 2, 1)", params.BlockDimX, params.BlockDimY, params.BlockDimZ)
+		if want := (cudalaunch.Dim3{X: 128, Y: 2, Z: 1}); desc.Block != want {
+			t.Errorf("Block = %+v, want %+v", desc.Block, want)
 		}
-		if params.SharedMemBytes != 1024 {
-			t.Errorf("params.SharedMemBytes = %d, want 1024", params.SharedMemBytes)
-		}
-		if params.KernelParams == 0 {
-			t.Fatal("expected non-zero KernelParams pointer")
-		}
-
-		// KernelParams is an untraced uintptr addressing packed, which the
-		// caller owns and must keep alive. Check that it addresses packed,
-		// then read the arguments through packed itself: recovering them from
-		// the integer instead would dereference memory this test has already
-		// dropped its only reference to.
-		if len(packed) != 3 {
-			t.Fatalf("packed args = %d, want 3", len(packed))
-		}
-		if want := uintptr(unsafe.Pointer(&packed[0])); params.KernelParams != want {
-			t.Errorf("params.KernelParams = 0x%x, want packed array at 0x%x", params.KernelParams, want)
-		}
-		if got := *(*driver.DevicePtr)(packed[0]); got != dptr {
-			t.Errorf("arg 0 = 0x%x, want 0x%x", got, dptr)
-		}
-		if got := *(*int32)(packed[1]); got != n {
-			t.Errorf("arg 1 = %d, want %d", got, n)
-		}
-		if got := *(*float32)(packed[2]); got != scale {
-			t.Errorf("arg 2 = %g, want %g", got, scale)
+		if desc.SharedMem != 1024 {
+			t.Errorf("SharedMem = %d, want 1024", desc.SharedMem)
 		}
 	})
 
 	t.Run("launcher default dimensions", func(t *testing.T) {
-		launcher := cudalaunch.Kernel(fn)
-		step := PipelineStep{
-			Name:     "default_step",
-			Launcher: launcher,
-		}
-
-		params, _, err := stepToKernelParams(step)
+		desc, err := stepDescription(PipelineStep{Name: "default_step", Launcher: cudalaunch.Kernel(fn)})
 		if err != nil {
-			t.Fatalf("stepToKernelParams: %v", err)
+			t.Fatalf("stepDescription: %v", err)
 		}
-
-		if params.GridDimX != 1 || params.GridDimY != 1 || params.GridDimZ != 1 {
-			t.Errorf("default grid dims = (%d, %d, %d), want (1, 1, 1)", params.GridDimX, params.GridDimY, params.GridDimZ)
+		one := cudalaunch.Dim3{X: 1, Y: 1, Z: 1}
+		if desc.Grid != one || desc.Block != one {
+			t.Errorf("default dims = grid %+v block %+v, want %+v each", desc.Grid, desc.Block, one)
 		}
-		if params.BlockDimX != 1 || params.BlockDimY != 1 || params.BlockDimZ != 1 {
-			t.Errorf("default block dims = (%d, %d, %d), want (1, 1, 1)", params.BlockDimX, params.BlockDimY, params.BlockDimZ)
-		}
-		if params.SharedMemBytes != 0 {
-			t.Errorf("default SharedMemBytes = %d, want 0", params.SharedMemBytes)
-		}
-		if params.KernelParams != 0 {
-			t.Errorf("empty args KernelParams = 0x%x, want 0", params.KernelParams)
+		if desc.SharedMem != 0 {
+			t.Errorf("default SharedMem = %d, want 0", desc.SharedMem)
 		}
 	})
 
 	t.Run("step overrides", func(t *testing.T) {
-		step := PipelineStep{
+		desc, err := stepDescription(PipelineStep{
 			Name:           "override_step",
 			Func:           fn,
 			GridDimX:       16,
 			BlockDimX:      64,
 			SharedMemBytes: 256,
-		}
-
-		params, _, err := stepToKernelParams(step)
+		})
 		if err != nil {
-			t.Fatalf("stepToKernelParams: %v", err)
+			t.Fatalf("stepDescription: %v", err)
 		}
-
-		if params.Func != fn {
-			t.Errorf("params.Func = %v, want %v", params.Func, fn)
+		if desc.Function != fn {
+			t.Errorf("Function = %v, want %v", desc.Function, fn)
 		}
-		if params.GridDimX != 16 || params.GridDimY != 1 || params.GridDimZ != 1 {
-			t.Errorf("grid dims = (%d, %d, %d), want (16, 1, 1)", params.GridDimX, params.GridDimY, params.GridDimZ)
+		if want := (cudalaunch.Dim3{X: 16, Y: 1, Z: 1}); desc.Grid != want {
+			t.Errorf("Grid = %+v, want %+v", desc.Grid, want)
 		}
-		if params.BlockDimX != 64 || params.BlockDimY != 1 || params.BlockDimZ != 1 {
-			t.Errorf("block dims = (%d, %d, %d), want (64, 1, 1)", params.BlockDimX, params.BlockDimY, params.BlockDimZ)
+		if want := (cudalaunch.Dim3{X: 64, Y: 1, Z: 1}); desc.Block != want {
+			t.Errorf("Block = %+v, want %+v", desc.Block, want)
 		}
-		if params.SharedMemBytes != 256 {
-			t.Errorf("params.SharedMemBytes = %d, want 256", params.SharedMemBytes)
+		if desc.SharedMem != 256 {
+			t.Errorf("SharedMem = %d, want 256", desc.SharedMem)
 		}
 	})
 
+	// The reflection-based inspector this replaced never read the launcher's
+	// attributes, so a cooperative or PDL launch became a plain graph node
+	// with nothing to show it had been changed.
+	t.Run("attributes reach the description", func(t *testing.T) {
+		step := PipelineStep{
+			Name:     "pdl_step",
+			Launcher: cudalaunch.Kernel(fn).WithProgrammaticStreamSerialization(true),
+		}
+		desc, err := stepDescription(step)
+		if err != nil {
+			t.Fatalf("stepDescription: %v", err)
+		}
+		if len(desc.Attrs) != 1 || desc.Attrs[0].Id != driver.LaunchAttributeProgrammaticStreamSerialization {
+			t.Fatalf("Attrs = %+v, want the programmatic stream serialization attribute", desc.Attrs)
+		}
+		// cudagraph.AddLaunch then refuses it rather than dropping it; that
+		// half is checked in TestAddLaunchUnsupportedAttribute, which can
+		// build a graph handle without a device.
+	})
+
 	t.Run("null function error", func(t *testing.T) {
-		step := PipelineStep{Name: "null_step"}
-		_, _, err := stepToKernelParams(step)
+		_, err := stepDescription(PipelineStep{Name: "null_step"})
 		if err == nil {
 			t.Fatal("expected error for null function, got nil")
 		}
 		if !strings.Contains(err.Error(), "kernel function is null") {
 			t.Errorf("error = %v, want 'kernel function is null'", err)
-		}
-	})
-
-	t.Run("invalid args pack error", func(t *testing.T) {
-		step := PipelineStep{
-			Name: "bad_args",
-			Func: fn,
-			Args: []any{nil},
-		}
-		_, _, err := stepToKernelParams(step)
-		if err == nil {
-			t.Fatal("expected error for nil arg, got nil")
-		}
-	})
-}
-
-func TestInspectLauncher(t *testing.T) {
-	t.Run("nil launcher", func(t *testing.T) {
-		_, _, _, _, err := inspectLauncher(nil)
-		if err == nil {
-			t.Fatal("expected error for nil launcher, got nil")
-		}
-	})
-
-	t.Run("valid launcher", func(t *testing.T) {
-		fn := driver.Function(0x12345678)
-		l := cudalaunch.Kernel(fn).Grid(8, 4, 2).Block(32, 2, 1).SharedMem(2048)
-
-		gotFn, gotGrid, gotBlock, gotShmem, err := inspectLauncher(l)
-		if err != nil {
-			t.Fatalf("inspectLauncher: %v", err)
-		}
-		if gotFn != fn {
-			t.Errorf("gotFn = %v, want %v", gotFn, fn)
-		}
-		if gotGrid.X != 8 || gotGrid.Y != 4 || gotGrid.Z != 2 {
-			t.Errorf("gotGrid = %+v, want (8, 4, 2)", gotGrid)
-		}
-		if gotBlock.X != 32 || gotBlock.Y != 2 || gotBlock.Z != 1 {
-			t.Errorf("gotBlock = %+v, want (32, 2, 1)", gotBlock)
-		}
-		if gotShmem != 2048 {
-			t.Errorf("gotShmem = %d, want 2048", gotShmem)
 		}
 	})
 }

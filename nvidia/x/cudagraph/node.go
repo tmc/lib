@@ -11,6 +11,11 @@ import (
 type Node struct {
 	raw   driver.GraphNode
 	graph *Graph
+
+	// retained is the argument storage this node's parameters point into,
+	// set by Graph.AddLaunch. The graph owns a reference too; this one keeps
+	// the storage alive for a caller that holds only the node.
+	retained *launchArgs
 }
 
 // Raw returns the underlying driver.GraphNode handle.

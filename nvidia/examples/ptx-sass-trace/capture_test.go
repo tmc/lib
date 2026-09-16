@@ -511,8 +511,22 @@ func TestProfileFrameFilesAreBundled(t *testing.T) {
 	}
 	// Written into the bundle at capture time rather than embedded, so they are
 	// not in the FS but are present in the directory a reader opens.
-	for _, generated := range []string{"kernels.sass", "kernels.ptx", "kernels.cu", "kernels.tileir"} {
+	for _, generated := range []string{artifacts.SASS, artifacts.PTX, artifacts.Source, tileIRArtifact} {
 		bundled[generated] = true
+	}
+
+	// The frames for the retained code are built by x/cudacapture from these
+	// names, so they are no longer string literals this file's scan can see.
+	// They are the names most likely to be wrong -- kernels.cu is written at
+	// capture time rather than embedded -- so they are checked directly.
+	for _, name := range []string{artifacts.Source, artifacts.PTX, artifacts.SASS, tileIRArtifact} {
+		if name == "" {
+			t.Error("a code artifact is unnamed; its frames would be omitted from every profile")
+			continue
+		}
+		if !bundled[name] {
+			t.Errorf("code artifact %q is not in the bundle; its frames resolve to nothing", name)
+		}
 	}
 
 	frameFile := regexp.MustCompile(`FileName:\s*"([^"]*)"`)

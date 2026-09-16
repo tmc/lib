@@ -118,39 +118,23 @@ func recordInstructionHotspots(
 			srcLine = int64(k.SourceLine)
 		}
 
-		frames := []cudaprof.Frame{
-			{
-				FunctionName: k.Name + ".SASS",
-				FileName:     "kernels.sass",
-				Line:         int64(iw.inst.SASSLine),
-				// Instruction.Offset is relative to the kernel's own .text
-				// section, and cudacapture enforces that the first is zero, so
-				// the kernel's own offset has to be added to reach the CUBIN
-				// file offset the profile's addresses are defined as. Without
-				// it every kernel's entry is 0x7f000000 and their ranges alias
-				// each other -- invisible in the line-oriented views, wrong in
-				// exactly the address-keyed ones a SASS profile is for.
-				Address: cudaprof.DefaultMappingStart + k.Offset + iw.inst.Offset,
-			},
-			{
-				FunctionName: k.Name + ".PTX",
-				FileName:     "kernels.ptx",
-				Line:         int64(ptxLine),
-				Address:      ptxAddress(rec.ptxLines, ptxLine),
-			},
+		var frames []cudaprof.Frame
+		if f, ok := rec.frames.SASSInstructionFrame(k, iw.inst); ok {
+			frames = append(frames, f)
+		}
+		if f, ok := rec.frames.PTXFrame(k, ptxLine); ok {
+			frames = append(frames, f)
 		}
 		if tileIRLine > 0 {
 			frames = append(frames, cudaprof.Frame{
 				FunctionName: k.Name + ".TileIR",
-				FileName:     "kernels.tileir",
+				FileName:     tileIRArtifact,
 				Line:         int64(tileIRLine),
 			})
 		}
-		frames = append(frames, cudaprof.Frame{
-			FunctionName: k.Name,
-			FileName:     "kernels.cu",
-			Line:         srcLine,
-		})
+		if f, ok := rec.frames.SourceFrame(k, int(srcLine)); ok {
+			frames = append(frames, f)
+		}
 
 		rec.prof.RecordStackSample(ctx, vals, append(frames, stack...))
 		attributed++

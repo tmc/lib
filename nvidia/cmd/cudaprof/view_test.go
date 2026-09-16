@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/tmc/lib/nvidia/internal/cudaview"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -160,8 +161,8 @@ func TestRenderPipelineHTML(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := renderPipelineHTML(&buf, data); err != nil {
-		t.Fatalf("renderPipelineHTML: %v", err)
+	if err := cudaview.Render(&buf, data); err != nil {
+		t.Fatalf("cudaview.Render: %v", err)
 	}
 
 	html := buf.String()
@@ -205,7 +206,7 @@ func TestPipelineServerHandlers(t *testing.T) {
 	if recAPI.Code != http.StatusOK {
 		t.Errorf("GET /api/pipeline returned %d, want 200", recAPI.Code)
 	}
-	var respData PipelineViewData
+	var respData cudaview.PipelineViewData
 	if err := json.Unmarshal(recAPI.Body.Bytes(), &respData); err != nil {
 		t.Fatalf("unmarshal /api/pipeline: %v", err)
 	}
@@ -220,7 +221,7 @@ func TestPipelineServerHandlers(t *testing.T) {
 	if recK.Code != http.StatusOK {
 		t.Errorf("GET /api/kernel returned %d, want 200", recK.Code)
 	}
-	var tiers []PipelineTier
+	var tiers []cudaview.PipelineTier
 	if err := json.Unmarshal(recK.Body.Bytes(), &tiers); err != nil {
 		t.Fatalf("unmarshal /api/kernel: %v", err)
 	}
@@ -391,7 +392,7 @@ func TestSASSStallHeatmap(t *testing.T) {
 	}
 
 	// Verify PC correlation on SASS lines
-	linesByOffset := make(map[string]PipelineLine)
+	linesByOffset := make(map[string]cudaview.PipelineLine)
 	for _, l := range sassTier.Lines {
 		if l.Offset != "" {
 			linesByOffset[l.Offset] = l
@@ -454,8 +455,8 @@ func TestSASSStallHeatmap(t *testing.T) {
 
 	// 2. Verify HTML template rendering contains color-coded stall intensity bars and tooltips
 	var buf bytes.Buffer
-	if err := renderPipelineHTML(&buf, data); err != nil {
-		t.Fatalf("renderPipelineHTML: %v", err)
+	if err := cudaview.Render(&buf, data); err != nil {
+		t.Fatalf("cudaview.Render: %v", err)
 	}
 	html := buf.String()
 
@@ -486,11 +487,11 @@ func TestSASSStallHeatmap(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /api/kernel returned %d", rec.Code)
 	}
-	var apiTiers []PipelineTier
+	var apiTiers []cudaview.PipelineTier
 	if err := json.Unmarshal(rec.Body.Bytes(), &apiTiers); err != nil {
 		t.Fatalf("unmarshal api response: %v", err)
 	}
-	var apiL0 *PipelineLine
+	var apiL0 *cudaview.PipelineLine
 	for _, l := range apiTiers[4].Lines {
 		if l.Offset == "0000" {
 			apiL0 = &l
@@ -607,8 +608,8 @@ Args:
 
 	// 3. Verify HTML rendering has Tile IR styling and badges
 	var buf bytes.Buffer
-	if err := renderPipelineHTML(&buf, data); err != nil {
-		t.Fatalf("renderPipelineHTML: %v", err)
+	if err := cudaview.Render(&buf, data); err != nil {
+		t.Fatalf("cudaview.Render: %v", err)
 	}
 	html := buf.String()
 
@@ -805,8 +806,8 @@ ret;
 
 	// 6. Verify HTML output contains new interactive classes and attributes
 	var buf bytes.Buffer
-	if err := renderPipelineHTML(&buf, data); err != nil {
-		t.Fatalf("renderPipelineHTML: %v", err)
+	if err := cudaview.Render(&buf, data); err != nil {
+		t.Fatalf("cudaview.Render: %v", err)
 	}
 	html := buf.String()
 
@@ -815,16 +816,35 @@ ret;
 		"highlight-semtag",
 		"badge-reg",
 		"badge-launch",
-		"data-sem-tag=\"tma\"",
-		"data-sem-tag=\"mma\"",
-		"data-source-line=\"3\"",
-		"data-source-line=\"4\"",
-		"▶ Launch: gemm_kernel",
+		"\"semantic_tag\":\"tma\"",
+		"\"semantic_tag\":\"mma\"",
+		"\"source_line\":3",
+		"\"source_line\":4",
+		"\"launch_kernel\":\"gemm_kernel\"",
 		"R:4 UR:2",
 		"R:8 UR:2",
 	} {
 		if !strings.Contains(html, expected) {
 			t.Errorf("rendered HTML missing expected token %q", expected)
 		}
+	}
+}
+
+func TestSampleLookupRequiresExactKernel(t *testing.T) {
+	m := &sassStallMap{hasStalls: true, byKernelPC: map[string]map[uint64]*pcStallInfo{"kernel": {0: {totalStalls: 3}}, "kernel_other": {0: {totalStalls: 7}}}, kernelTotals: map[string]int64{"kernel": 3, "kernel_other": 7}}
+	for _, tt := range []struct {
+		name string
+		want int64
+	}{{"kernel", 3}, {"kernel_other", 7}, {"kern", 0}, {"", 0}, {"missing", 0}} {
+		t.Run(tt.name, func(t *testing.T) {
+			info, _ := m.lookup(tt.name, 0)
+			var got int64
+			if info != nil {
+				got = info.totalStalls
+			}
+			if got != tt.want {
+				t.Fatalf("got %d, want %d", got, tt.want)
+			}
+		})
 	}
 }

@@ -49,6 +49,7 @@ func TestPublicStartRejectsUnwitnessedVersions(t *testing.T) {
 	for _, version := range []uint32{0, 27, 28, 120901, 130300, 130500, 140000} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			api := samplingControlAPI{
+				device:  func(cupti.Context) (uint32, error) { return 0, nil },
 				version: func() (uint32, error) { return version, nil },
 				set: func(*cupti.PCSamplingConfigurationInfoParams) error {
 					t.Fatal("configured an unqualified version")

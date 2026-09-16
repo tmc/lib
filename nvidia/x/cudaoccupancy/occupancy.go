@@ -113,6 +113,51 @@ func (r Report) String() string {
 		r.Architecture, r.TheoreticalWarps, r.MaxWarps, r.Occupancy*100, r.ActiveBlocks, r.LimitingFactor)
 }
 
+// Evidence joins compiled static resource usage with a requested launch geometry.
+// It serves as an explanatory bound and diagnostic aid, not an optimizer recommendation.
+type Evidence struct {
+	Kernel          string
+	Registers       int
+	StaticShared    int
+	DynamicShared   int
+	LocalMemory     int // Local stack frame bytes per thread from EIATTR_FRAME_SIZE
+	ThreadsPerBlock int
+	Occupancy       Report
+}
+
+// Evidence computes the theoretical occupancy report for the named architecture
+// and returns Evidence combining the compiled resource usage and occupancy.
+func (k KernelResource) Evidence(arch string, threadsPerBlock, dynamicSmemBytes int) (Evidence, error) {
+	rep, err := k.Calculate(arch, threadsPerBlock, dynamicSmemBytes)
+	if err != nil {
+		return Evidence{}, err
+	}
+	return Evidence{
+		Kernel:          k.Name,
+		Registers:       k.Registers,
+		StaticShared:    k.StaticSharedMem,
+		DynamicShared:   dynamicSmemBytes,
+		LocalMemory:     k.StackFrameBytes,
+		ThreadsPerBlock: threadsPerBlock,
+		Occupancy:       rep,
+	}, nil
+}
+
+// EvidenceDevice computes the theoretical occupancy report for a specific device
+// and returns Evidence.
+func (k KernelResource) EvidenceDevice(dev DeviceProperties, threadsPerBlock, dynamicSmemBytes int) Evidence {
+	rep := k.CalculateDevice(dev, threadsPerBlock, dynamicSmemBytes)
+	return Evidence{
+		Kernel:          k.Name,
+		Registers:       k.Registers,
+		StaticShared:    k.StaticSharedMem,
+		DynamicShared:   dynamicSmemBytes,
+		LocalMemory:     k.StackFrameBytes,
+		ThreadsPerBlock: threadsPerBlock,
+		Occupancy:       rep,
+	}
+}
+
 func roundUp(x, unit int) int {
 	if unit <= 0 {
 		return x
@@ -126,3 +171,4 @@ func min(a, b int) int {
 	}
 	return b
 }
+

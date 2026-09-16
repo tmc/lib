@@ -1,13 +1,16 @@
 package cudatest
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 )
 
 // Requirement represents a device hardware precondition for running a test.
@@ -81,6 +84,15 @@ func Require(t testing.TB, reqs ...Requirement) *cuda.Device {
 		}
 
 		if matched {
+			if os.Getenv("GPU_LOCK_DISABLED") == "" && os.Getenv("CUDATEST_NO_LOCK") == "" {
+				handle, err := cudalock.Acquire(context.Background(), cudalock.WithLabel(t.Name()))
+				if err != nil {
+					t.Fatalf("cudatest: could not acquire GPU lock: %v", err)
+				}
+				t.Cleanup(func() {
+					_ = handle.Release()
+				})
+			}
 			return dev
 		}
 	}

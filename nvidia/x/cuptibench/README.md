@@ -7,6 +7,11 @@ regions, and individual kernel ranges. `Collect` also works in ordinary tests.
 The implementation has unit, race, real Go-runner, and profile round-trip tests.
 Physical GPU tests are opt-in. Cross-compilation does not qualify GPU behavior.
 
+For runnable workloads, see [cuptibench](../../examples/cuptibench), a three-stage
+pipeline with full and isolated benchmarks, and
+[cuptibench-capture](../../examples/cuptibench-capture), which retains source,
+PTX, CUBIN and SASS with the counter profile for offline viewing in cudaprof.
+
 ## Workloads and sub-benchmarks
 
 A workload supplies its streams, a preparation callback, the operation to execute,
@@ -136,6 +141,12 @@ reversed graph controls passed symbol association with unequal CTA counts. This
 does not qualify arbitrary graphs or the full DS4 workload. A separate native
 allocation/kernel/free graph control also passed exact range-count and output
 checks.
+
+Four-kernel sequential graphs remain unqualified on GB20B with CUPTI 130202
+and driver 580.173.02: both a Go fixture and a native C sample failed at
+`cuptiRangeProfilerStop`, while their two-kernel controls passed. The native
+C sample uses neither Go bindings nor cuBLAS. These observations do not establish
+a universal kernel-count limit. Failed captures provide diagnostics, not metrics.
 
 CUPTI returns numeric automatic-range names. `Range.NativeName` preserves that
 ordinal; `Range.Name` is associated through the observed launch sequence and,
@@ -285,6 +296,13 @@ permissions, inspect the opt-in controls in `physical_linux_test.go` before
 running them. They test exact CTA counts, workload changes, reset contamination,
 isolated preparation, range capacity, stream timing, and profile round trips.
 The tests preserve failed receipts and do not establish support on another host.
+
+A failed `Collect` may return `Result.Diagnostics` with a copied counter image
+and the latest bounded launch-observer window. The window may be partial;
+observed launches do not prove execution or counter attribution. These fields
+are omitted from result JSON and rejected by profile export. Retain them
+explicitly for debugging if needed. Failed benchmarks log the image size and
+hash and the observed launch count when available.
 
 Native cleanup failures invalidate the measurement and retain ownership for retry.
 Always check `Close` and `Finish` errors. Hardware tests skipped on this host are

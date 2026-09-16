@@ -85,14 +85,14 @@ func TestIQ2XXSDequantizeTable(t *testing.T) {
 				blk[1] = 0x3c
 				// qs is all zeros:
 				// aux0 = 0 -> gridIdx = 0 for all l
-				// kgrid2bit256[0] = 0 -> all 8 l_val = 0 -> all grid_val = 1
+				// iq2xxsGrid[0] = 0x0808080808080808 -> all 8 codebook bytes = 8
 				// aux1 = 0 -> signIdx = 0 -> signs = ksignsIQ2XS[0] = 0 -> all positive
 				// aux1 >> 28 = 0 -> db = 1.0 * (0.5 + 0) * 0.25 = 0.125
-				// Expected each weight = 0.125 * 1 * 1 = 0.125
+				// Expected each weight = 0.125 * 8 = 1.0
 				return blk
 			},
 			check: func(t *testing.T, out []float32) {
-				const want = float32(0.125)
+				const want = float32(1.0)
 				for i, v := range out {
 					if math.Abs(float64(v-want)) > 1e-6 {
 						t.Fatalf("out[%d] = %v, want %v", i, v, want)
@@ -110,6 +110,7 @@ func TestIQ2XXSDequantizeTable(t *testing.T) {
 				// In sub-block 0, set scale = 15 (0xf << 28)
 				// and sign for l=0 to 1 (sign bit 0 set and parity bit 7 set in ksignsIQ2XS[1] = 129)
 				// db = 1.0 * (0.5 + 15) * 0.25 = 15.5 * 0.25 = 3.875
+				// gridIdx 0 -> every codebook byte is 8, so |w| = 3.875 * 8 = 31
 				aux1 := uint32(1) | (uint32(15) << 28)
 				blk[2+4] = byte(aux1)
 				blk[2+5] = byte(aux1 >> 8)
@@ -118,7 +119,7 @@ func TestIQ2XXSDequantizeTable(t *testing.T) {
 				return blk
 			},
 			check: func(t *testing.T, out []float32) {
-				const db = float32(3.875)
+				const db = float32(3.875 * 8)
 				// Element 0: sign bit 0 is set -> -3.875
 				if math.Abs(float64(out[0]-(-db))) > 1e-6 {
 					t.Errorf("out[0] = %v, want %v", out[0], -db)
@@ -142,24 +143,23 @@ func TestIQ2XXSDequantizeTable(t *testing.T) {
 				// d = 2.0 (0x4000 in float16)
 				blk[0] = 0x00
 				blk[1] = 0x40
-				// Grid index 1: kgrid2bit256[1] = 2.
-				// In binary: 2 = 0b0000000000000010.
-				// j=0: (2 >> 0) & 3 = 2 -> 2*2 + 1 = 5
-				// j=1..7: (2 >> (2*j)) & 3 = 0 -> 2*0 + 1 = 1
+				// Grid index 1: iq2xxsGrid[1] = 0x080808080808082b.
+				// j=0: low byte 0x2b = 43
+				// j=1..7: 0x08 = 8
 				// scale = 0 -> db = 2.0 * 0.5 * 0.25 = 0.25
 				// signs = 0
-				// out[0] = 0.25 * 5 = 1.25
-				// out[1..7] = 0.25 * 1 = 0.25
+				// out[0] = 0.25 * 43 = 10.75
+				// out[1..7] = 0.25 * 8 = 2.0
 				blk[2] = 1 // aux0[0] = 1
 				return blk
 			},
 			check: func(t *testing.T, out []float32) {
-				if math.Abs(float64(out[0]-1.25)) > 1e-6 {
-					t.Errorf("out[0] = %v, want 1.25", out[0])
+				if math.Abs(float64(out[0]-10.75)) > 1e-6 {
+					t.Errorf("out[0] = %v, want 10.75", out[0])
 				}
 				for j := 1; j < 8; j++ {
-					if math.Abs(float64(out[j]-0.25)) > 1e-6 {
-						t.Errorf("out[%d] = %v, want 0.25", j, out[j])
+					if math.Abs(float64(out[j]-2.0)) > 1e-6 {
+						t.Errorf("out[%d] = %v, want 2.0", j, out[j])
 					}
 				}
 			},
