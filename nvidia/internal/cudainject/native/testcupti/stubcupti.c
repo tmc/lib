@@ -12,6 +12,12 @@
 #include <stdint.h>
 #include <string.h>
 
+#if CUPTI_API_VERSION >= 130000
+#define TEST_KERNEL_TYPE CUpti_ActivityKernel10
+#else
+#define TEST_KERNEL_TYPE CUpti_ActivityKernel9
+#endif
+
 static CUpti_BuffersCallbackRequestFunc request_cb;
 static CUpti_BuffersCallbackCompleteFunc complete_cb;
 static _Atomic size_t native_dropped;
@@ -21,7 +27,7 @@ static size_t record_size(CUpti_ActivityKind kind) {
 	size_t n;
 	switch (kind) {
 	case CUPTI_ACTIVITY_KIND_KERNEL:
-	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL: n = sizeof(CUpti_ActivityKernel9); break;
+	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL: n = sizeof(TEST_KERNEL_TYPE); break;
 	case CUPTI_ACTIVITY_KIND_MEMCPY: n = sizeof(CUpti_ActivityMemcpy6); break;
 	case CUPTI_ACTIVITY_KIND_DRIVER:
 	case CUPTI_ACTIVITY_KIND_RUNTIME: n = sizeof(CUpti_ActivityAPI); break;
@@ -129,7 +135,7 @@ int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsig
 		uint32_t correlation = atomic_fetch_add(&next_correlation, 1) + 1;
 		switch (kind) {
 		case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL: {
-			CUpti_ActivityKernel9 *k = (CUpti_ActivityKernel9 *)slot;
+			TEST_KERNEL_TYPE *k = (TEST_KERNEL_TYPE *)slot;
 			k->kind = kind;
 			k->name = "cudaprof_control_kernel";
 			k->start = 1000 + correlation;
@@ -148,6 +154,10 @@ int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsig
 			k->blockZ = 1;
 			k->registersPerThread = 32;
 			k->dynamicSharedMemory = 1024;
+#if CUPTI_API_VERSION >= 130000
+			k->graphId = 0;
+			k->graphNodeId = 0;
+#endif
 			break;
 		}
 		case CUPTI_ACTIVITY_KIND_MEMCPY: {

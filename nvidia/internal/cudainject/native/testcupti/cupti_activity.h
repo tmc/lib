@@ -45,7 +45,18 @@ typedef struct {
 	int32_t dynamicSharedMemory;
 } CUpti_ActivityKernel9;
 
-typedef CUpti_ActivityKernel9 CUpti_ActivityKernel10;
+typedef struct {
+	CUpti_ActivityKind kind;
+	const char *name;
+	uint64_t start, end, queued, submitted;
+	uint32_t deviceId, contextId, streamId, correlationId;
+	int32_t gridX, gridY, gridZ;
+	int32_t blockX, blockY, blockZ;
+	uint16_t registersPerThread;
+	int32_t dynamicSharedMemory;
+	uint32_t graphId;
+	uint64_t graphNodeId;
+} CUpti_ActivityKernel10;
 
 typedef struct {
 	CUpti_ActivityKind kind;
