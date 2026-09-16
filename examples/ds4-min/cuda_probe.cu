@@ -922,3 +922,17 @@ extern "C" __global__ void ds4_sum_routed_shared(
     v += experts[(unsigned long long)row * width + i];
   out[i] = v + shared[i];
 }
+
+extern "C" __global__ void ds4_sum_routed_shared_batch(
+    const float *experts, const float *shared, float *out, unsigned int width, unsigned int n) {
+  const unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= width * n) return;
+  const unsigned int t = i / width;
+  const unsigned int c = i % width;
+  const float *token_experts = experts + (unsigned long long)t * 6 * width;
+  float v = 0.0f;
+  #pragma unroll
+  for (unsigned int row = 0; row < 6; row++)
+    v += token_experts[(unsigned long long)row * width + c];
+  out[i] = v + shared[i];
+}

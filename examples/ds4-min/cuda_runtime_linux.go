@@ -107,6 +107,7 @@ type cudaFoundation struct {
 	swigluQuantQ81Fn          driver.Function
 	sumVectorsFn              driver.Function
 	sumRoutedSharedFn         driver.Function
+	sumRoutedSharedBatchFn    driver.Function
 	iq2SelectedFn             driver.Function
 	q2KSelectedFn             driver.Function
 	quantQ8KFn                driver.Function
@@ -899,6 +900,25 @@ func (r *cudaFoundation) encodeSumRoutedShared(experts, shared, out cudamem.Slic
 	})
 }
 
+// encodeSumRoutedSharedBatch sums 6 routed expert outputs and 1 shared output for each of n tokens.
+func (r *cudaFoundation) encodeSumRoutedSharedBatch(experts, shared, out cudamem.Slice[float32], width, n int) error {
+	if width <= 0 || width%256 != 0 || n <= 0 || experts.Len() != width*6*n || shared.Len() != width*n || out.Len() != width*n {
+		return fmt.Errorf("cuda: sum routed shared batch: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		total := uint32(width * n)
+		grid := (total + 255) / 256
+		if err := cudalaunch.Kernel(r.sumRoutedSharedBatchFn).Grid(grid).Block(256).On(r.stream()).Launch(
+			experts, shared, out, uint32(width), uint32(n)); err != nil {
+			return fmt.Errorf("cuda: launch sum routed shared batch: %w", err)
+		}
+		return nil
+	})
+}
+
 func (r *cudaFoundation) cudaKernels() []struct {
 	name string
 	dst  *driver.Function
@@ -939,6 +959,7 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_swiglu_quant_q8_1", &r.swigluQuantQ81Fn},
 		{"ds4_sum_vectors", &r.sumVectorsFn},
 		{"ds4_sum_routed_shared", &r.sumRoutedSharedFn},
+		{"ds4_sum_routed_shared_batch", &r.sumRoutedSharedBatchFn},
 		{"ds4_iq2_xxs_pair_selected_f32", &r.iq2SelectedFn},
 		{"ds4_q2_k_selected_f32", &r.q2KSelectedFn},
 		{"ds4_quant_q8_k", &r.quantQ8KFn},

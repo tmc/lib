@@ -78,6 +78,7 @@ type cudaBatchDense struct {
 	expertIDs                          cudamem.Slice[int32]
 	expertW                            cudamem.Slice[float32]
 	expertGate, expertUp, expertDown    cudamem.Slice[float32]
+	ffnOut                             cudamem.Slice[float32]
 	q81Experts                         cudamem.Slice[byte]
 }
 
@@ -556,6 +557,7 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		expertGate:     alloc("batch-expert-gate", width*6*2048),
 		expertUp:       alloc("batch-expert-up", width*6*2048),
 		expertDown:     alloc("batch-expert-down", width*6*cudaWidth),
+		ffnOut:         alloc("batch-dense-ffn-output", width*cudaWidth),
 		q81Experts:     cudamem.AllocIn[byte](b.denseArena, "batch-q81-experts", width*6*2048/32*36),
 	}
 	if err := errors.Join(b.arena.Err(), b.denseArena.Err()); err != nil {
@@ -643,6 +645,7 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 			rows[i].expertGate = d.expertGate.Slice(i*6*2048, (i+1)*6*2048)
 			rows[i].expertUp = d.expertUp.Slice(i*6*2048, (i+1)*6*2048)
 			rows[i].expertDown = d.expertDown.Slice(i*6*cudaWidth, (i+1)*6*cudaWidth)
+			rows[i].ffnOut = d.ffnOut.Slice(i*cudaWidth, (i+1)*cudaWidth)
 			rows[i].q81Experts = d.q81Experts.Slice(i*6*2048/32*36, (i+1)*6*2048/32*36)
 		}
 		// Compressor rows are adjacent at the layer's own compressor width, the
@@ -759,15 +762,23 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 			return err
 		}
 	}
-	for i := range rows {
-		var err error
-		if gather {
-			err = r.evalLayerFFNResidual(hc[i], &rows[i], index, position+i)
-		} else {
-			err = r.evalLayerFFNPost(hc[i], &rows[i], index, position+i, true)
+	if gather {
+		if err := r.encodeSumRoutedSharedBatch(d.expertDown.Slice(0, n*6*cudaWidth), d.sharedOut.Slice(0, n*cudaWidth), d.ffnOut.Slice(0, n*cudaWidth), cudaWidth, n); err != nil {
+			return err
 		}
-		if err != nil {
-			return fmt.Errorf("token %d: %w", i, err)
+		for i := range rows {
+			if err := r.markCUDAPhase("ffn-post", position+i, index); err != nil {
+				return err
+			}
+			if err := hc[i].post(rows[i].hc[1], rows[i].ffnOut, rows[i].hc[0]); err != nil {
+				return fmt.Errorf("token %d: %w", i, err)
+			}
+		}
+	} else {
+		for i := range rows {
+			if err := r.evalLayerFFNPost(hc[i], &rows[i], index, position+i, true); err != nil {
+				return fmt.Errorf("token %d: %w", i, err)
+			}
 		}
 	}
 	return nil
