@@ -128,11 +128,14 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
       const unsigned b = part / 8, sub = part % 8;
       const unsigned char *wg = gate + offset + (unsigned long long)b * 66;
       const unsigned char *wu = up + offset + (unsigned long long)b * 66;
+      ds4_iq2_hoisted_part hg, hu;
+      ds4_iq2_hoist_part(wg, sub, s_grid_lo, s_grid_hi, s_ksigns, &hg);
+      ds4_iq2_hoist_part(wu, sub, s_grid_lo, s_grid_hi, s_ksigns, &hu);
       #pragma unroll
       for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
         if (t < n) {
-          g[t] += ds4_iq2_part_q8_1(wg, token[t] + part, sub, s_grid_lo, s_grid_hi, s_ksigns);
-          u[t] += ds4_iq2_part_q8_1(wu, token[t] + part, sub, s_grid_lo, s_grid_hi, s_ksigns);
+          g[t] += ds4_iq2_eval_hoisted(hg, token[t] + part);
+          u[t] += ds4_iq2_eval_hoisted(hu, token[t] + part);
         }
       }
     }

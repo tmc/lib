@@ -45,6 +45,47 @@ __device__ float ds4_iq2_part_q8_1(
   return d * ds4_half_to_float(x->d) * float(sum * ls / 8);
 }
 
+struct ds4_iq2_hoisted_part {
+  int grid[8];
+  float d;
+  int ls;
+};
+
+__device__ void ds4_iq2_hoist_part(
+    const unsigned char *p,
+    unsigned part,
+    const unsigned int *grid_lo_table,
+    const unsigned int *grid_hi_table,
+    const unsigned char *ksigns_table,
+    ds4_iq2_hoisted_part *h) {
+  const unsigned char *q = p + 2 + part * 8;
+  unsigned aux = unsigned(*reinterpret_cast<const unsigned short *>(q + 4)) |
+                 (unsigned(*reinterpret_cast<const unsigned short *>(q + 6)) << 16);
+  for (unsigned group = 0; group < 4; group++) {
+    unsigned signs = ksigns_table[(aux >> (group * 7)) & 127] * 0x01010101u;
+    unsigned grid_lo = grid_lo_table[q[group]];
+    int signs0 = __vcmpne4(signs & 0x08040201u, 0);
+    h->grid[group * 2 + 0] = __vsub4(grid_lo ^ signs0, signs0);
+    unsigned grid_hi = grid_hi_table[q[group]];
+    int signs1 = __vcmpne4(signs & 0x80402010u, 0);
+    h->grid[group * 2 + 1] = __vsub4(grid_hi ^ signs1, signs1);
+  }
+  h->ls = int(aux >> 27) | 1;
+  h->d = ds4_half_to_float(*reinterpret_cast<const unsigned short *>(p));
+}
+
+__device__ float ds4_iq2_eval_hoisted(
+    const ds4_iq2_hoisted_part &h,
+    const ds4_q8_1_activation *x) {
+  const int *u = reinterpret_cast<const int *>(x->qs);
+  int sum = 0;
+  #pragma unroll
+  for (unsigned i = 0; i < 8; i++) {
+    sum = __dp4a(h.grid[i], u[i], sum);
+  }
+  return h.d * ds4_half_to_float(x->d) * float(sum * h.ls / 8);
+}
+
 extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1(
     const unsigned char *gate, const unsigned char *up, const int *ids,
     const ds4_q8_1_activation *x, float *gate_out, float *up_out,
