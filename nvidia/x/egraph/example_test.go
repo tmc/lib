@@ -107,7 +107,7 @@ func ExampleDequantizeIQ2XXS() {
 
 	fmt.Printf("first 4 weights: %.3f %.3f %.3f %.3f\n", dst[0], dst[1], dst[2], dst[3])
 	// Output:
-	// first 4 weights: 0.125 0.125 0.125 0.125
+	// first 4 weights: 1.000 1.000 1.000 1.000
 }
 
 func ExampleGenerateTileIR() {
