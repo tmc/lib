@@ -18,19 +18,23 @@ type Arm struct {
 // A Receipt records the execution outcome, output digest, duration, and provenance
 // metadata of a single arm execution within a trial round.
 type Receipt struct {
-	Name       string
-	Round      int
-	Complete   bool
-	Digest     string
-	Started    time.Time
-	Finished   time.Time
-	Provenance map[string]string
-	Err        error
+	Name           string
+	Round          int
+	Complete       bool
+	Digest         string
+	Started        time.Time
+	Finished       time.Time
+	DeviceDuration time.Duration // Caller-provided kernel/device duration if measured
+	Provenance     map[string]string
+	Err            error
 }
 
-// Duration returns the elapsed wall time (Finished - Started). If either Started
-// or Finished is zero, Duration returns 0.
+// Duration returns the measured execution duration. If DeviceDuration is non-zero,
+// it is returned directly; otherwise wall time (Finished - Started) is returned.
 func (r Receipt) Duration() time.Duration {
+	if r.DeviceDuration > 0 {
+		return r.DeviceDuration
+	}
 	if r.Started.IsZero() || r.Finished.IsZero() {
 		return 0
 	}
@@ -46,11 +50,11 @@ type Options struct {
 	ContinueOnError bool
 }
 
-// Interleave executes arms in round-robin order across the specified number of rounds.
+// Interleave executes arms across the specified number of rounds using ABBA
+// alternating order (e.g. A,B then B,A) to cancel monotonic background drift.
 //
-// In each round, every arm is run once in order. If rounds <= 0, or if arms is empty,
-// Interleave returns an error. If ctx is canceled or times out, Interleave stops and
-// returns ctx.Err().
+// If rounds <= 0, or if arms is empty, Interleave returns an error. If ctx is
+// canceled or times out, Interleave stops and returns ctx.Err().
 func Interleave(ctx context.Context, arms []Arm, rounds int) ([]Receipt, error) {
 	return InterleaveWithOptions(ctx, arms, rounds, Options{})
 }
@@ -76,7 +80,17 @@ func InterleaveWithOptions(ctx context.Context, arms []Arm, rounds int, opts Opt
 	receipts := make([]Receipt, 0, total)
 
 	for round := 1; round <= rounds; round++ {
-		for _, arm := range arms {
+		roundArms := arms
+		if round%2 == 0 && len(arms) > 1 {
+			// ABBA ordering: reverse execution order on alternating rounds to cancel monotonic drift.
+			rev := make([]Arm, len(arms))
+			for i, a := range arms {
+				rev[len(arms)-1-i] = a
+			}
+			roundArms = rev
+		}
+
+		for _, arm := range roundArms {
 			if err := ctx.Err(); err != nil {
 				return receipts, fmt.Errorf("cudatrial: %w", err)
 			}
@@ -120,18 +134,24 @@ func ByArm(receipts []Receipt) map[string][]Receipt {
 	return out
 }
 
-// SameArmExact verifies that every completed receipt for a given arm produced
-// an identical output digest across all rounds.
+// SameArmExact verifies that every completed receipt for each arm produced
+// an identical output digest across all rounds, and that every arm has at least
+// one completed run.
 //
-// If all completed runs for every arm produced consistent digests, SameArmExact
-// returns true and an empty string. If any arm produced divergent digests, it
-// returns false and an explanatory description of the first divergence found.
+// If any arm produced divergent digests, or if an arm has no completed runs,
+// SameArmExact returns false and an explanatory description.
 func SameArmExact(receipts []Receipt) (bool, string) {
+	if len(receipts) == 0 {
+		return false, "cudatrial: no receipts provided"
+	}
 	digests := make(map[string]string)
+	completeCounts := make(map[string]int)
+
 	for _, r := range receipts {
 		if !r.Complete {
 			continue
 		}
+		completeCounts[r.Name]++
 		prev, ok := digests[r.Name]
 		if !ok {
 			digests[r.Name] = r.Digest
@@ -139,6 +159,13 @@ func SameArmExact(receipts []Receipt) (bool, string) {
 		}
 		if prev != r.Digest {
 			return false, fmt.Sprintf("arm %q produced divergent digests: round %d had %q, earlier had %q", r.Name, r.Round, r.Digest, prev)
+		}
+	}
+
+	byArm := ByArm(receipts)
+	for name := range byArm {
+		if completeCounts[name] == 0 {
+			return false, fmt.Sprintf("arm %q has no completed runs", name)
 		}
 	}
 	return true, ""
@@ -161,7 +188,8 @@ func DistinctDigests(receipts []Receipt) []string {
 }
 
 // FormatSummary formats a multi-line tabular summary of the trial receipts,
-// showing arm names, round count, completion status, mean duration, and digests.
+// showing arm names, round count, completion status, mean duration, median duration,
+// and digests.
 func FormatSummary(receipts []Receipt) string {
 	if len(receipts) == 0 {
 		return "no receipts\n"
@@ -174,25 +202,32 @@ func FormatSummary(receipts []Receipt) string {
 	sort.Strings(names)
 
 	var sb strings.Builder
-	sb.WriteString("ARM                  ROUNDS  COMPLETE  MEAN_DUR      DIGESTS\n")
+	sb.WriteString("ARM                  ROUNDS  COMPLETE  MEAN_DUR      MEDIAN_DUR    DIGESTS\n")
 	for _, name := range names {
 		rs := byArm[name]
 		completeCount := 0
 		var totalDur time.Duration
+		var durs []time.Duration
 		digestSet := make(map[string]bool)
 		for _, r := range rs {
 			if r.Complete {
 				completeCount++
 			}
-			totalDur += r.Duration()
+			d := r.Duration()
+			totalDur += d
+			durs = append(durs, d)
 			if r.Digest != "" {
 				digestSet[r.Digest] = true
 			}
 		}
 		var meanDur time.Duration
-		if len(rs) > 0 {
-			meanDur = totalDur / time.Duration(len(rs))
+		var medianDur time.Duration
+		if len(durs) > 0 {
+			meanDur = totalDur / time.Duration(len(durs))
+			sort.Slice(durs, func(i, j int) bool { return durs[i] < durs[j] })
+			medianDur = durs[len(durs)/2]
 		}
+
 		dList := make([]string, 0, len(digestSet))
 		for d := range digestSet {
 			dList = append(dList, d)
@@ -203,11 +238,12 @@ func FormatSummary(receipts []Receipt) string {
 			digestsStr = digestsStr[:21] + "..."
 		}
 
-		fmt.Fprintf(&sb, "%-20s %-7d %-9s %-13s %s\n",
+		fmt.Fprintf(&sb, "%-20s %-7d %-9s %-13s %-13s %s\n",
 			name,
 			len(rs),
 			fmt.Sprintf("%d/%d", completeCount, len(rs)),
 			meanDur.Round(time.Microsecond),
+			medianDur.Round(time.Microsecond),
 			digestsStr,
 		)
 	}
