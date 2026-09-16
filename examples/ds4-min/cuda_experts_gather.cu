@@ -123,20 +123,31 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
       pair[t] = t < n ? unsigned(pairs[base + t]) : 0;
       token[t] = x + (unsigned long long)(pair[t] / slots) * (cols / 32);
     }
+    const unsigned sub = lane % 8;
+    const unsigned b_init = lane / 8;
+    const unsigned char *wg = gate + offset + (unsigned long long)b_init * 66;
+    const unsigned char *wu = up + offset + (unsigned long long)b_init * 66;
+    const ds4_q8_1_activation *cur_token[DS4_MOE_GATHER_TILE];
+    #pragma unroll
+    for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+      cur_token[t] = token[t] + lane;
+    }
     float g[DS4_MOE_GATHER_TILE] = {0.0f}, u[DS4_MOE_GATHER_TILE] = {0.0f};
     for (unsigned part = lane; part < cols / 32; part += 32) {
-      const unsigned b = part / 8, sub = part % 8;
-      const unsigned char *wg = gate + offset + (unsigned long long)b * 66;
-      const unsigned char *wu = up + offset + (unsigned long long)b * 66;
       ds4_iq2_hoisted_part hg, hu;
       ds4_iq2_hoist_part(wg, sub, s_grid_lo, s_grid_hi, s_ksigns, &hg);
       ds4_iq2_hoist_part(wu, sub, s_grid_lo, s_grid_hi, s_ksigns, &hu);
       #pragma unroll
       for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
         if (t < n) {
-          g[t] += ds4_iq2_eval_hoisted(hg, token[t] + part);
-          u[t] += ds4_iq2_eval_hoisted(hu, token[t] + part);
+          ds4_iq2_eval_hoisted_pair(hg, hu, cur_token[t], &g[t], &u[t]);
         }
+      }
+      wg += 264;
+      wu += 264;
+      #pragma unroll
+      for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+        cur_token[t] += 32;
       }
     }
     #pragma unroll
@@ -198,16 +209,74 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
     const unsigned iqs = lane % 16;
     const unsigned qoffset = 16 + iqs * 4;
     const unsigned scale_offset = iqs - iqs % 8 + (iqs % 8) / 4;
-    for (unsigned b = lane / 16; b < blocks; b += 2) {
-      const unsigned char *w = weights + offset + (unsigned long long)b * 84;
+    const unsigned scale_base = scale_offset & ~1;
+    const unsigned b_init = lane / 16;
+    const unsigned char *w = weights + offset + (unsigned long long)b_init * 84;
+    const ds4_q8_1_activation *cur_input[DS4_MOE_GATHER_TILE];
+    #pragma unroll
+    for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+      cur_input[t] = input[t] + b_init * 8;
+    }
+    for (unsigned b = b_init; b < blocks; b += 2) {
       unsigned v = *reinterpret_cast<const unsigned int *>(w + qoffset);
-      unsigned char scales[4] = {w[scale_offset], w[scale_offset + 2], w[scale_offset + 4], w[scale_offset + 6]};
+      unsigned long long w_sc = reinterpret_cast<unsigned long long>(w + scale_base);
+      unsigned int sc0, sc1;
+      if ((w_sc & 7) == 0) {
+        uint2 sc_vec = *reinterpret_cast<const uint2 *>(w + scale_base);
+        sc0 = sc_vec.x;
+        sc1 = sc_vec.y;
+      } else {
+        sc0 = *reinterpret_cast<const unsigned int *>(w + scale_base);
+        sc1 = *reinterpret_cast<const unsigned int *>(w + scale_base + 4);
+      }
+      unsigned char scales[4];
+      if ((scale_offset & 1) == 0) {
+        scales[0] = (unsigned char)(sc0 & 0xff);
+        scales[1] = (unsigned char)((sc0 >> 16) & 0xff);
+        scales[2] = (unsigned char)(sc1 & 0xff);
+        scales[3] = (unsigned char)((sc1 >> 16) & 0xff);
+      } else {
+        scales[0] = (unsigned char)((sc0 >> 8) & 0xff);
+        scales[1] = (unsigned char)((sc0 >> 24) & 0xff);
+        scales[2] = (unsigned char)((sc1 >> 8) & 0xff);
+        scales[3] = (unsigned char)((sc1 >> 24) & 0xff);
+      }
       unsigned d_pair = *reinterpret_cast<const unsigned int *>(w + 80);
       float d = ds4_half_to_float(d_pair & 0xffff);
       float dm = ds4_half_to_float(d_pair >> 16);
+
+      int vi[4], scale_lo[4], scale_hi[4];
+      #pragma unroll
+      for (unsigned i = 0; i < 4; i++) {
+        vi[i] = (v >> (2 * i)) & 0x03030303;
+        scale_lo[i] = int(scales[i] & 15);
+        scale_hi[i] = int(scales[i] >> 4);
+      }
+      const unsigned iqs_div_8 = 4 * (iqs / 8);
+      const unsigned qs_off = (iqs % 8) * 4;
+
       #pragma unroll
       for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
-        if (t < n) sum[t] += ds4_q2_window_q8_1_hoisted(v, scales, d, dm, input[t] + b * 8, iqs);
+        if (t < n) {
+          const ds4_q8_1_activation *q_base = cur_input[t] + iqs_div_8;
+          float sum_d = 0.0f, sum_m = 0.0f;
+          #pragma unroll
+          for (unsigned i = 0; i < 4; i++) {
+            const ds4_q8_1_activation *q = q_base + i;
+            int q_packed = *reinterpret_cast<const int *>(&q->qs[qs_off]);
+            int dot = __dp4a(vi[i], q_packed, 0);
+            int minimum = scale_hi[i] * __dp4a(0x01010101, q_packed, 0);
+            float d8 = ds4_half_to_float(q->d);
+            sum_d += d8 * float(dot * scale_lo[i]);
+            sum_m += d8 * float(minimum);
+          }
+          sum[t] += d * sum_d - dm * sum_m;
+        }
+      }
+      w += 168;
+      #pragma unroll
+      for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+        cur_input[t] += 16;
       }
     }
     #pragma unroll
