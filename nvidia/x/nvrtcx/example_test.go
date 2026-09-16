@@ -1,6 +1,7 @@
 package nvrtcx_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
@@ -72,4 +73,35 @@ func ExampleCompileFlags() {
 	}
 	fmt.Println(flags)
 	// Output: [-std=c++17 --use_fast_math -O3 --generate-line-info]
+}
+
+func ExampleWithFastCompile() {
+	opt := nvrtcx.WithFastCompile("max")
+	fmt.Println(opt != nil)
+	// Output: true
+}
+
+func ExampleWithRandomSeed() {
+	opt := nvrtcx.WithRandomSeed(12345)
+	fmt.Println(opt != nil)
+	// Output: true
+}
+
+func ExampleWithPCH() {
+	opt := nvrtcx.WithPCH()
+	fmt.Println(opt != nil)
+	// Output: true
+}
+
+func ExampleWithBundledHeaders() {
+	opt := nvrtcx.WithBundledHeaders()
+	fmt.Println(opt != nil)
+	// Output: true
+}
+
+func ExampleWithContext() {
+	ctx := context.Background()
+	opt := nvrtcx.WithContext(ctx)
+	fmt.Println(opt != nil)
+	// Output: true
 }
