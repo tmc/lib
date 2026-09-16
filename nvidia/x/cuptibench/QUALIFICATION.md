@@ -23,6 +23,7 @@ rerun of the main integration is claimed. Local integration checks are separate.
 | Logical-operation normalization independent of replay passes | Collect accounting tests at 1, 2, and 4 passes | Actual native host 1/2/4 nesting controls pass |
 | Whole, attributed, and independently selected isolated benchmarks | Actual Go test-binary selection and repeat tests; separate Whole aggregate for Kernels | Synthetic identity/views and real DS4 Regions benchmark/profile pass; Kernels fails |
 | Multi-stream completion timing | Event dependency graph and failure-path tests; dependent/overlap physical fixture | Native overlap/dependency controls pass |
+| Multi-stream Whole/UserReplay collection | Device entry/exit tickets, event-dependent negative control, per-pass output checks | GB20B single-pass controls pass with one and three operations; no KernelReplay concurrency claim |
 | Profile numeric/schema integrity | Integer boundaries, schema partition, missing values, profile round trips | Native round trip passes |
 | Cleanup invalidates failed measurements | Capture, timer, override retry tests and actual caller-owned Close failure/retry/open-plan subprocess tests | Native failure qualification |
 | DS4 uses actual forward work | Production stage callbacks preserve graph boundaries; independently prepared prefixes | All 260 token-0 Regions state/logit receipts pass; original failure unexplained |
@@ -175,3 +176,23 @@ exit statuses, test logs and the exported profile. These are synthetic physical
 controls, not DS4 or performance-parity qualification. The earlier DS4 native
 Stop failure, later-position correctness, native cleanup-failure injection and
 L4 AutoRange gates remain open.
+
+## Direct multistream collection
+
+`TestPhysicalWholeOverlap` passed all five subtests without skips on GB20B,
+CUPTI 130202, driver 580.173.02. Device atomic tickets establish overlapping
+kernel-body intervals in the independent-stream baseline and Whole/UserReplay
+captures. Event-dependent controls execute serially and are rejected by the
+same overlap detector. This does not establish unchanged timing or simultaneous
+instruction issue.
+
+Whole captures contain 2 and 6 CTAs for one and three logical operations,
+respectively, with 2 CTAs per operation. The eight preparation CTAs are excluded.
+Every operation's outputs and tickets are checked before preparation resets them.
+These captures each required one native pass; existing nesting controls provide
+the separate 1/2/4 host-pass evidence.
+
+The executed source is `f00e31f5` plus the two overlap test files. Binary SHA-256:
+`a7097591c2b88d22dbdaffc4125e41061d7bafe1d617e2ef7359642523e4fa99`.
+Receipts: `~/tmp/cuptibench-overlap-receipts/run-RYIhtcZs`, including the source
+patch hash, device snapshots, lease identity, test output and exit status.
