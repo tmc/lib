@@ -78,15 +78,15 @@ func (r *cudaFoundation) encodeQ80MatvecQ81(t cudaModelTensor, in cudamem.Slice[
 	})
 }
 
-// cudaQ81MaxBatch is the compile-time maximum batch width supported by
-// ds4_q8_0_matvec_q8_1_batch in cuda_q81.cu.
+// cudaQ81MaxBatch is the compile-time maximum batch width processed per thread block by
+// ds4_q8_0_matvec_q8_1_batch in cuda_q81.cu. Larger batches are tiled across gridDim.y.
 const cudaQ81MaxBatch = 8
 
 // encodeQ80MatvecQ81Batch projects batch adjacent Q8_1 activation rows with
 // one two-dimensional launch. Input and output are token-major.
 func (r *cudaFoundation) encodeQ80MatvecQ81Batch(t cudaModelTensor, in cudamem.Slice[byte], out cudamem.Slice[float32], batch int) error {
-	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || batch <= 0 || batch > cudaQ81MaxBatch {
-		return fmt.Errorf("cuda: batched quantized Q8_0 matvec %q: invalid tensor or batch %d (max %d)", t.name, batch, cudaQ81MaxBatch)
+	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || batch <= 0 {
+		return fmt.Errorf("cuda: batched quantized Q8_0 matvec %q: invalid tensor or batch %d", t.name, batch)
 	}
 	cols, rows := t.dimensions[0], t.dimensions[1]
 	if cols == 0 || cols%32 != 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 ||
@@ -98,7 +98,8 @@ func (r *cudaFoundation) encodeQ80MatvecQ81Batch(t cudaModelTensor, in cudamem.S
 			return err
 		}
 		gridRows := (uint32(rows) + 7) / 8
-		if err := cudalaunch.Kernel(r.q81MatvecBatchFn).Grid(gridRows, 1).Block(256).On(r.stream()).Launch(
+		gridBatches := (uint32(batch) + cudaQ81MaxBatch - 1) / cudaQ81MaxBatch
+		if err := cudalaunch.Kernel(r.q81MatvecBatchFn).Grid(gridRows, gridBatches).Block(256).On(r.stream()).Launch(
 			t.device, in, out, uint32(cols/32), uint32(rows), uint32(batch)); err != nil {
 			return fmt.Errorf("cuda: launch batched quantized Q8_0 matvec %q: %w", t.name, err)
 		}

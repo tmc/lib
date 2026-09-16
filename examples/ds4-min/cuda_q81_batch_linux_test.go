@@ -83,20 +83,11 @@ func TestCUDAQualificationQ81BatchMatvec(t *testing.T) {
 	)
 	weights := cudaSynthQ80(rand.New(rand.NewSource(81)), rows, cols, -8)
 	tensor := cudaSynthTensor(t, r, "batched Q8_0 fixture", 8, []uint64{cols, rows}, weights)
-	for batch := 2; batch <= cudaQ81MaxBatch; batch++ {
+	for _, batch := range []int{2, 3, 7, 8, 9, 16, 32, 64, 128, 256} {
 		t.Run(fmt.Sprintf("batch-%d", batch), func(t *testing.T) {
 			testCUDAQualificationQ81BatchMatvec(t, r, tensor, weights, batch, cols, rows)
 		})
 	}
-	t.Run("reject-oversized-batch", func(t *testing.T) {
-		oversizedIn := cudaExpertAllocBytes(t, r, (cudaQ81MaxBatch+1)*cols/32*36)
-		oversizedOut := cudaTestAlloc(t, r, (cudaQ81MaxBatch+1)*rows)
-		err := r.encodeQ80MatvecQ81Batch(tensor, oversizedIn, oversizedOut, cudaQ81MaxBatch+1)
-		wantSubstr := fmt.Sprintf("batch %d (max %d)", cudaQ81MaxBatch+1, cudaQ81MaxBatch)
-		if err == nil || !strings.Contains(err.Error(), wantSubstr) {
-			t.Fatalf("expected error containing %q, got %v", wantSubstr, err)
-		}
-	})
 }
 
 func testCUDAQualificationQ81BatchMatvec(t *testing.T, r *cudaFoundation, tensor cudaModelTensor, weights []byte, batch, cols, rows int) {

@@ -106,7 +106,7 @@ const cudaPrefillGroupWidth = 256
 // maximum runs in one short chunk, which is the batch a group of that width
 // runs today; a wider group runs whole chunks at the kernel's maximum.
 const (
-	cudaPrefillQ81Chunk       = min(cudaPrefillGroupWidth, cudaQ81MaxBatch)
+	cudaPrefillQ81Chunk       = cudaPrefillGroupWidth
 	cudaPrefillQ80Chunk       = min(cudaPrefillGroupWidth, cudaQ80MaxBatch)
 	cudaPrefillBlockDiagChunk = min(cudaPrefillGroupWidth, cudaQ80BlockDiagMaxBatch)
 	cudaPrefillF16PairChunk   = min(cudaPrefillGroupWidth, cudaF16PairMaxBatch)
