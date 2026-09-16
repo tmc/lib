@@ -151,6 +151,34 @@ func (s Slice[T]) Slice(low, high int) Slice[T] {
 	}
 }
 
+// Reinterpret creates a Slice[To] viewing the same device memory as s.
+// It returns an error if s is not aligned or its byte size is not an integral
+// multiple of To's element size.
+func Reinterpret[To, From any](s Slice[From]) (Slice[To], error) {
+	var to To
+	toSize := unsafe.Sizeof(to)
+	if toSize == 0 {
+		toSize = 1
+	}
+	bytes := s.SizeBytes()
+	if bytes%toSize != 0 {
+		return Slice[To]{}, fmt.Errorf("cudamem: cannot reinterpret %d bytes into elements of size %d", bytes, toSize)
+	}
+	align := unsafe.Alignof(to)
+	if uintptr(s.ptr)%align != 0 {
+		return Slice[To]{}, fmt.Errorf("cudamem: device pointer %v not aligned to %d bytes", s.ptr, align)
+	}
+	newLen := int(bytes / toSize)
+	newCap := int((uintptr(s.cap) * s.elemSize) / toSize)
+	return Slice[To]{
+		ptr:      s.ptr,
+		len:      newLen,
+		cap:      newCap,
+		elemSize: toSize,
+		alloc:    s.alloc,
+	}, nil
+}
+
 // Free deallocates the device memory. Repeated calls through copies or subslices
 // of s are safe. Free returns ErrInUse while an owned asynchronous transfer is
 // pending; synchronize or destroy its stream before retrying.
