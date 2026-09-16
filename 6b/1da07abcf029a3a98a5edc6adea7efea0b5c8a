@@ -1,0 +1,1 @@
+commit=6b1da07abcf029a3a98a5edc6adea7efea0b5c8a; date=2026-09-16T14:21:06-07:00; agent=antigravity; model=gemini; tty=/dev/ttys497; pid=75126; ITERM_SESSION_ID=. Validation: TestCUDAPrefillGather/2048 passed with canonical digest 3c190c73110cec7aed9f22916a1c84216eb7338071040846cc1d0bd992456aa5. Eliminated 57,120 kernel launches across 2048 prefill tokens.
