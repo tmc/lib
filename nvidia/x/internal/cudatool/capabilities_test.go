@@ -455,3 +455,51 @@ func TestCapabilitiesRecoversVersionFromPrefix(t *testing.T) {
 		t.Errorf("Arity(--kill) = %v, %v; want bare, true", arity, ok)
 	}
 }
+
+func TestGeneratedTables(t *testing.T) {
+	if len(staticCorpus) == 0 {
+		t.Fatal("staticCorpus is empty")
+	}
+	tools := []string{
+		ToolComputeSanitizer,
+		ToolCUObjDump,
+		ToolNVCC,
+		ToolNVDisasm,
+		ToolNVLink,
+		ToolNVPrune,
+		ToolPTXAS,
+	}
+	for _, tool := range tools {
+		if _, ok := staticCorpus[tool]; !ok {
+			t.Errorf("staticCorpus missing %s", tool)
+		}
+	}
+	if len(KnownGPUArchitectures) == 0 {
+		t.Fatal("KnownGPUArchitectures is empty")
+	}
+	if !slices.Contains(KnownGPUArchitectures, "sm_80") || !slices.Contains(KnownGPUArchitectures, "compute_80") {
+		t.Errorf("KnownGPUArchitectures missing sm_80 or compute_80: %v", KnownGPUArchitectures[:5])
+	}
+}
+
+func TestSupportedArchitectures(t *testing.T) {
+	archs134 := SupportedArchitectures(V(13, 4))
+	if len(archs134) == 0 {
+		t.Fatal("SupportedArchitectures(13.4) returned empty")
+	}
+	if !slices.Contains(archs134, "sm_90") {
+		t.Errorf("SupportedArchitectures(13.4) missing sm_90")
+	}
+	archs126 := SupportedArchitectures(V(12, 6))
+	if len(archs126) == 0 {
+		t.Fatal("SupportedArchitectures(12.6) returned empty")
+	}
+	if !slices.Contains(archs126, "sm_50") {
+		t.Errorf("SupportedArchitectures(12.6) missing sm_50")
+	}
+	// Fallback behavior for unrecorded version
+	archs132 := SupportedArchitectures(V(13, 2))
+	if len(archs132) == 0 || !slices.Contains(archs132, "sm_90") {
+		t.Errorf("SupportedArchitectures(13.2) failed to resolve nearest version")
+	}
+}
