@@ -2746,3 +2746,214 @@ func TestAdvice_RepeatedHostLoopDispatch(t *testing.T) {
 	}
 }
 
+func TestAdvice_NativeProfileDuration(t *testing.T) {
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			DurationNanos: 250_000_000,
+			SampleType: []*profile.ValueType{
+				{Type: "pc_samples", Unit: "count"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{100},
+					Label: map[string][]string{"kernel": {"k1"}},
+				},
+			},
+		},
+	}
+	times, totalTime := computeProfileTimes(cap)
+	if totalTime != 250_000_000 {
+		t.Errorf("totalTime = %d, want 250000000", totalTime)
+	}
+	if times["k1"] != 250_000_000 {
+		t.Errorf("times[k1] = %d, want 250000000", times["k1"])
+	}
+}
+
+func TestAdvice_PCSamplingExcludesGhostSequences(t *testing.T) {
+	// PC-sampled instructions without stream/timeline labels must not be treated as microkernel launch sequences.
+	var samples []*profile.Sample
+	for i := 0; i < 20; i++ {
+		samples = append(samples, &profile.Sample{
+			Location: []*profile.Location{
+				{ID: uint64(i + 1), Address: uint64(0x1000 + i*16), Line: []profile.Line{
+					{Function: &profile.Function{ID: 1, Name: "my_kernel"}, Line: int64(i + 1)},
+				}},
+			},
+			Value: []int64{10},
+		})
+	}
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "pc_samples", Unit: "count"}},
+			Sample:     samples,
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	for _, item := range report.Items {
+		if strings.Contains(item.Finding, "Short-kernel dispatch sequence") || strings.Contains(item.Finding, "Repeated fine-grained host loop dispatch") {
+			t.Errorf("unexpected dispatch sequence finding on pure PC samples: %+v", item)
+		}
+	}
+}
+
+func TestAdvice_ScoreboardAndBranchStalls(t *testing.T) {
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "stall_scoreboard", Unit: "count"},
+				{Type: "stall_branch", Unit: "count"},
+				{Type: "stall_math", Unit: "count"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Location: []*profile.Location{
+						{ID: 1, Address: 0x100, Line: []profile.Line{
+							{Function: &profile.Function{ID: 1, Name: "k_stalls"}, Line: 10},
+						}},
+					},
+					Value: []int64{80, 0, 20}, // Scoreboard: 80% >= 25% and 80 >= 50
+					Label: map[string][]string{"opcode": {"FADD"}},
+				},
+				{
+					Location: []*profile.Location{
+						{ID: 2, Address: 0x200, Line: []profile.Line{
+							{Function: &profile.Function{ID: 1, Name: "k_stalls"}, Line: 20},
+						}},
+					},
+					Value: []int64{0, 70, 30}, // Branch: 70% >= 20% and 70 >= 50
+					Label: map[string][]string{"opcode": {"BRA"}},
+				},
+			},
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var foundScoreboard, foundBranch bool
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, "Register scoreboard latency stall") {
+			foundScoreboard = true
+			if !strings.Contains(it.ActionableRecommendation, "software pipelining") {
+				t.Errorf("expected software pipelining recommendation, got: %s", it.ActionableRecommendation)
+			}
+		}
+		if strings.Contains(it.Finding, "Warp branch divergence") {
+			foundBranch = true
+			if !strings.Contains(it.ActionableRecommendation, "branchless predicated selects") {
+				t.Errorf("expected branchless recommendation, got: %s", it.ActionableRecommendation)
+			}
+		}
+	}
+	if !foundScoreboard {
+		t.Errorf("did not find expected register scoreboard finding")
+	}
+	if !foundBranch {
+		t.Errorf("did not find expected warp branch divergence finding")
+	}
+}
+
+func TestAdvice_PTXScalarSuppressedWhenSASS(t *testing.T) {
+	ptxText := `.version 8.0
+.target sm_90
+.address_size 64
+.visible .entry my_kernel(.param .u64 ptr) {
+	ld.param.u64 %rd1, [ptr];
+	mad.wide.u32 %rd2, %r1, 4, %rd1;
+	ld.global.u32 %r2, [%rd2];
+	ret;
+}`
+	sassText := `
+Function : my_kernel
+	MOV R1, c[0x0][0x20] ;
+	RET ;
+`
+	cap := &cudacapture.Capture{
+		Files: map[string][]byte{
+			"kernel.ptx":  []byte(ptxText),
+			"kernel.sass": []byte(sassText),
+		},
+		Code: cudacapture.CodeFiles{
+			PTX:  "kernel.ptx",
+			SASS: "kernel.sass",
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, "mad.wide") || strings.Contains(it.Finding, "Scalar global load (ld.global)") {
+			t.Errorf("PTX scalar finding should have been suppressed by presence of SASS: %+v", it)
+		}
+	}
+}
+
+func TestAdvice_PointwiseKernelPairFusion(t *testing.T) {
+	var samples []*profile.Sample
+	// Simulate 25 back-to-back pairs of norm -> quant
+	for i := 0; i < 25; i++ {
+		samples = append(samples, &profile.Sample{
+			Label: map[string][]string{
+				"stream":  {"1"},
+				"subtype": {"kernel"},
+			},
+			NumLabel: map[string][]int64{
+				"correlation": {int64(i*2 + 1)},
+			},
+			Location: []*profile.Location{
+				{ID: 1, Line: []profile.Line{{Function: &profile.Function{ID: 1, Name: "my_norm"}}}},
+			},
+		})
+		samples = append(samples, &profile.Sample{
+			Label: map[string][]string{
+				"stream":  {"1"},
+				"subtype": {"kernel"},
+			},
+			NumLabel: map[string][]int64{
+				"correlation": {int64(i*2 + 2)},
+			},
+			Location: []*profile.Location{
+				{ID: 2, Line: []profile.Line{{Function: &profile.Function{ID: 2, Name: "my_quant"}}}},
+			},
+		})
+	}
+
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "pc_samples", Unit: "count"}},
+			Sample:     samples,
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var foundFusion bool
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, "occurred 25 times") {
+			foundFusion = true
+			if !strings.Contains(it.ActionableRecommendation, "eliminate 25 DRAM round-trips") {
+				t.Errorf("expected recommendation to cite 25 round trips, got: %s", it.ActionableRecommendation)
+			}
+		}
+	}
+	if !foundFusion {
+		t.Errorf("expected fusion finding with recurrence count 25, items: %+v", report.Items)
+	}
+}
+
+
+
