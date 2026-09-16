@@ -109,7 +109,7 @@ const (
 	cudaPrefillQ81Chunk       = cudaPrefillGroupWidth
 	cudaPrefillQ80Chunk       = cudaPrefillGroupWidth
 	cudaPrefillBlockDiagChunk = min(cudaPrefillGroupWidth, cudaQ80BlockDiagMaxBatch)
-	cudaPrefillF16PairChunk   = min(cudaPrefillGroupWidth, cudaF16PairMaxBatch)
+	cudaPrefillF16PairChunk   = cudaPrefillGroupWidth
 	// evalBatchAttnOut runs the block-diagonal and plain Q8_0 batch kernels
 	// over the same rows in one pass, so its chunk is the narrower maximum.
 	cudaPrefillAttnOutChunk = min(cudaPrefillBlockDiagChunk, cudaPrefillQ80Chunk)

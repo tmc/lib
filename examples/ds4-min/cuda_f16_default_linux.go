@@ -60,8 +60,8 @@ func (r *cudaFoundation) encodeF16PairOrdered(a, b cudaModelTensor, in, outA, ou
 	})
 }
 
-// cudaF16PairMaxBatch is the compile-time maximum batch width supported by
-// ds4_f16_pair_ordered_chunks_batch in cuda_f16_default.cu.
+// cudaF16PairMaxBatch is the compile-time maximum batch width processed per thread block by
+// ds4_f16_pair_ordered_chunks_batch in cuda_f16_default.cu. Larger batches are tiled across gridDim.y.
 const cudaF16PairMaxBatch = 8
 
 // encodeF16PairOrderedBatch projects batch token-major activation rows against
@@ -71,8 +71,8 @@ const cudaF16PairMaxBatch = 8
 // token. Input is batch adjacent rows of cols elements; the outputs are batch
 // adjacent rows of rows elements.
 func (r *cudaFoundation) encodeF16PairOrderedBatch(a, b cudaModelTensor, in, outA, outB cudamem.Slice[float32], batch int) error {
-	if a.typeID != 1 || b.typeID != 1 || len(a.dimensions) != 2 || len(b.dimensions) != 2 || a.device == 0 || b.device == 0 || batch <= 0 || batch > cudaF16PairMaxBatch {
-		return fmt.Errorf("cuda: batched ordered F16 pair: invalid tensor or batch %d (max %d)", batch, cudaF16PairMaxBatch)
+	if a.typeID != 1 || b.typeID != 1 || len(a.dimensions) != 2 || len(b.dimensions) != 2 || a.device == 0 || b.device == 0 || batch <= 0 {
+		return fmt.Errorf("cuda: batched ordered F16 pair: invalid tensor or batch %d", batch)
 	}
 	cols, rows := a.dimensions[0], a.dimensions[1]
 	if cols == 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 || b.dimensions[0] != cols || b.dimensions[1] != rows ||
@@ -84,9 +84,9 @@ func (r *cudaFoundation) encodeF16PairOrderedBatch(a, b cudaModelTensor, in, out
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		// One warp per token: warp t of the block projects token t, so the
-		// batch runs across warps instead of serializing inside one.
-		if err := cudalaunch.Kernel(r.f16PairOrderedBatchFn).Grid(uint32(rows)).Block(32 * uint32(batch)).On(r.stream()).Launch(
+		gridRows := uint32(rows)
+		gridBatches := (uint32(batch) + cudaF16PairMaxBatch - 1) / cudaF16PairMaxBatch
+		if err := cudalaunch.Kernel(r.f16PairOrderedBatchFn).Grid(gridRows, gridBatches).Block(256).On(r.stream()).Launch(
 			a.device, b.device, in, outA, outB, uint32(cols), uint32(batch)); err != nil {
 			return fmt.Errorf("cuda: launch batched ordered F16 pair: %w", err)
 		}
