@@ -123,31 +123,20 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
       pair[t] = t < n ? unsigned(pairs[base + t]) : 0;
       token[t] = x + (unsigned long long)(pair[t] / slots) * (cols / 32);
     }
-    const unsigned sub = lane % 8;
-    const unsigned b_init = lane / 8;
-    const unsigned char *wg = gate + offset + (unsigned long long)b_init * 66;
-    const unsigned char *wu = up + offset + (unsigned long long)b_init * 66;
-    const ds4_q8_1_activation *cur_token[DS4_MOE_GATHER_TILE];
-    #pragma unroll
-    for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
-      cur_token[t] = token[t] + lane;
-    }
     float g[DS4_MOE_GATHER_TILE] = {0.0f}, u[DS4_MOE_GATHER_TILE] = {0.0f};
     for (unsigned part = lane; part < cols / 32; part += 32) {
+      const unsigned b = part / 8, sub = part % 8;
+      const unsigned char *wg = gate + offset + (unsigned long long)b * 66;
+      const unsigned char *wu = up + offset + (unsigned long long)b * 66;
       ds4_iq2_hoisted_part hg, hu;
       ds4_iq2_hoist_part(wg, sub, s_grid_lo, s_grid_hi, s_ksigns, &hg);
       ds4_iq2_hoist_part(wu, sub, s_grid_lo, s_grid_hi, s_ksigns, &hu);
       #pragma unroll
       for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
         if (t < n) {
-          ds4_iq2_eval_hoisted_pair(hg, hu, cur_token[t], &g[t], &u[t]);
+          g[t] += ds4_iq2_eval_hoisted(hg, token[t] + part);
+          u[t] += ds4_iq2_eval_hoisted(hu, token[t] + part);
         }
-      }
-      wg += 264;
-      wu += 264;
-      #pragma unroll
-      for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
-        cur_token[t] += 32;
       }
     }
     #pragma unroll
