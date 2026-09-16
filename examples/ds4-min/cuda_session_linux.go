@@ -673,10 +673,8 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		if err := r.encodeQ80MatvecQ81Batch(l.attnQA, q81Attn, qLora, m); err != nil {
 			return err
 		}
-		for i := lo; i < hi; i++ {
-			if err := r.encodeRMS(rows[i].qLora, l.attnQANorm, rows[i].qLora, 1, true); err != nil {
-				return fmt.Errorf("token %d query lora norm: %w", i, err)
-			}
+		if err := r.encodeRMS(qLora, l.attnQANorm, qLora, m, true); err != nil {
+			return fmt.Errorf("query lora norm: %w", err)
 		}
 		if err := r.encodeQuantQ81Batch(qLora, q81QLora, 1024, 1024, m); err != nil {
 			return err
@@ -696,20 +694,25 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 			return err
 		}
 	}
+	// Normalization for all query heads and key/value rows across the group
+	// is grouped across all n tokens in one pass each.
+	if err := r.markCUDAPhase("qkv-normalization", position, index); err != nil {
+		return err
+	}
+	qHeadsAll := d.qHeads.Slice(0, n*64*cudaKVWidth)
+	if err := r.encodeRMS(qHeadsAll, cudaModelTensor{}, qHeadsAll, n*64, false); err != nil {
+		return fmt.Errorf("batch query head norm: %w", err)
+	}
+	kvRawAll := d.kvRaw.Slice(0, n*cudaKVWidth)
+	kvCurAll := d.kvCur.Slice(0, n*cudaKVWidth)
+	if err := r.encodeRMS(kvRawAll, l.attnKVNorm, kvCurAll, n, true); err != nil {
+		return fmt.Errorf("batch key/value norm: %w", err)
+	}
 	// Attention is token ordered: compress mutates the compressor caches that the
 	// following tokens read. Only the head outputs leave this loop, each in its
 	// own token's buffer, so the projections that consume them batch below.
 	heads := make([]cudamem.Slice[float32], n)
 	for i := range rows {
-		if err := r.markCUDAPhase("qkv-normalization", position+i, index); err != nil {
-			return err
-		}
-		if err := r.encodeRMS(rows[i].qHeads, cudaModelTensor{}, rows[i].qHeads, 64, false); err != nil {
-			return fmt.Errorf("token %d query head norm: %w", i, err)
-		}
-		if err := r.encodeRMS(rows[i].kvRaw, l.attnKVNorm, rows[i].kvCur, 1, true); err != nil {
-			return fmt.Errorf("token %d key/value norm: %w", i, err)
-		}
 		var err error
 		if heads[i], err = r.evalLayerAttention(&rows[i], state, index, position+i, true); err != nil {
 			return fmt.Errorf("token %d: %w", i, err)
