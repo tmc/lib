@@ -212,12 +212,35 @@ __device__ __forceinline__ void cudaTriggerProgrammaticLaunchCompletion(void) {
 	return sb.String(), nil
 }
 
-func generateSwiGLUKernel(opts CodegenOptions) string {
-	scalarType := "float"
-	if opts.Precision == "half" || opts.Precision == "float16" {
-		scalarType = "uint16_t"
+// scalarTypeFor reports the C type a generated kernel uses to carry operands of
+// the given precision. Half operands are carried as raw uint16_t bit patterns,
+// because NVRTC's __half is not available in the generated prelude.
+func scalarTypeFor(precision string) string {
+	if precision == "half" || precision == "float16" {
+		return "uint16_t"
 	}
-	return fmt.Sprintf(`extern "C" __global__ void %s(
+	return "float"
+}
+
+// applyScalarConv rewrites the EG_TO_F32 and EG_FROM_F32 markers in a generated
+// kernel into the conversions its precision requires.
+//
+// A C cast is only correct when the operand type is already a float. For half,
+// the operand is a uint16_t holding a float16 bit pattern, so (float)x would do
+// integer arithmetic on the encoding — 1.0 would enter the kernel as 15360.0.
+// Those operands must go through half_to_float and float_to_half.
+func applyScalarConv(src, precision string) string {
+	to, from := "(float)(", "(float)("
+	if precision == "half" || precision == "float16" {
+		to, from = "half_to_float(", "float_to_half("
+	}
+	src = strings.ReplaceAll(src, "EG_TO_F32(", to)
+	return strings.ReplaceAll(src, "EG_FROM_F32(", from)
+}
+
+func generateSwiGLUKernel(opts CodegenOptions) string {
+	scalarType := scalarTypeFor(opts.Precision)
+	src := fmt.Sprintf(`extern "C" __global__ void %s(
     const %s* __restrict__ x,
     const %s* __restrict__ W_gate,
     const %s* __restrict__ W_up,
@@ -233,9 +256,9 @@ func generateSwiGLUKernel(opts CodegenOptions) string {
         float gate = 0.0f;
         float up = 0.0f;
         for (int k = 0; k < hidden_dim; k++) {
-            float xv = (float)x[k];
-            gate += xv * (float)W_gate[j * hidden_dim + k];
-            up += xv * (float)W_up[j * hidden_dim + k];
+            float xv = EG_TO_F32(x[k]);
+            gate += xv * EG_TO_F32(W_gate[j * hidden_dim + k]);
+            up += xv * EG_TO_F32(W_up[j * hidden_dim + k]);
         }
         float silu = gate / (1.0f + expf(-gate));
         s_act[j] = silu * up;
@@ -246,12 +269,13 @@ func generateSwiGLUKernel(opts CodegenOptions) string {
     for (int out_idx = blockIdx.x * blockDim.x + threadIdx.x; out_idx < hidden_dim; out_idx += gridDim.x * blockDim.x) {
         float acc = 0.0f;
         for (int j = 0; j < intermediate_dim; j++) {
-            acc += s_act[j] * (float)W_down[out_idx * intermediate_dim + j];
+            acc += s_act[j] * EG_TO_F32(W_down[out_idx * intermediate_dim + j]);
         }
-        out[out_idx] = (%s)acc;
+        out[out_idx] = EG_FROM_F32(acc);
     }
 }
-`, opts.KernelName, scalarType, scalarType, scalarType, scalarType, scalarType, scalarType)
+`, opts.KernelName, scalarType, scalarType, scalarType, scalarType, scalarType)
+	return applyScalarConv(src, opts.Precision)
 }
 
 func generateSwiGLUQ8_0Kernel(opts CodegenOptions) string {
@@ -303,15 +327,11 @@ func generateSwiGLUQ8_0Kernel(opts CodegenOptions) string {
 }
 
 func generateRMSNormGEMVKernel(opts CodegenOptions) string {
-	scalarType := "float"
-	if opts.Precision == "half" || opts.Precision == "float16" {
-		scalarType = "uint16_t"
-	}
 	src := `extern "C" __global__ void KERNEL_NAME(
-    const T* __restrict__ x,
-    const T* __restrict__ weight,
-    const T* __restrict__ W_proj,
-    T* __restrict__ out,
+    const SCALAR_T* __restrict__ x,
+    const SCALAR_T* __restrict__ weight,
+    const SCALAR_T* __restrict__ W_proj,
+    SCALAR_T* __restrict__ out,
     int in_dim,
     int out_dim,
     float eps
@@ -329,7 +349,7 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
     // Pass one: the RMS scale, reduced over the whole of x.
     float sq = 0.0f;
     for (int i = tid; i < in_dim; i += blockDim.x) {
-        float v = (float)x[i];
+        float v = EG_TO_F32(x[i]);
         sq += v * v;
     }
     sq = warp_sum(sq);
@@ -349,10 +369,10 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
     __syncthreads();
 
     // Pass two: the projection of the normalised, weighted input.
-    const T* w_row = W_proj + row * in_dim;
+    const SCALAR_T* w_row = W_proj + row * in_dim;
     float sum = 0.0f;
     for (int i = tid; i < in_dim; i += blockDim.x) {
-        sum += ((float)x[i] * scale * (float)weight[i]) * (float)w_row[i];
+        sum += (EG_TO_F32(x[i]) * scale * EG_TO_F32(weight[i])) * EG_TO_F32(w_row[i]);
     }
     sum = warp_sum(sum);
     if (lane == 0) {
@@ -363,12 +383,13 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
         float total = (lane < n_warps) ? s_sum[lane] : 0.0f;
         total = warp_sum(total);
         if (lane == 0) {
-            out[row] = (T)total;
+            out[row] = EG_FROM_F32(total);
         }
     }
 }
 `
-	src = strings.ReplaceAll(src, "T", scalarType)
+	src = strings.ReplaceAll(src, "SCALAR_T", scalarTypeFor(opts.Precision))
+	src = applyScalarConv(src, opts.Precision)
 	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
 }
 
@@ -657,11 +678,8 @@ func generateFusedRoPEStoreKVKernel(opts CodegenOptions) string {
 }
 
 func generateCompositeKernel(expr *Expr, opts CodegenOptions) string {
-	scalarType := "float"
-	if opts.Precision == "half" || opts.Precision == "float16" {
-		scalarType = "uint16_t"
-	}
-	return fmt.Sprintf(`extern "C" __global__ void %s(
+	scalarType := scalarTypeFor(opts.Precision)
+	src := fmt.Sprintf(`extern "C" __global__ void %s(
     const %s* __restrict__ in_a,
     const %s* __restrict__ in_b,
     %s* __restrict__ out,
@@ -669,10 +687,11 @@ func generateCompositeKernel(expr *Expr, opts CodegenOptions) string {
 ) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx < n) {
-        out[idx] = in_a[idx] + in_b[idx];
+        out[idx] = EG_FROM_F32(EG_TO_F32(in_a[idx]) + EG_TO_F32(in_b[idx]));
     }
 }
 `, opts.KernelName, scalarType, scalarType, scalarType)
+	return applyScalarConv(src, opts.Precision)
 }
 
 func generateFusedGEMVPipelineKernel(opts CodegenOptions) string {
