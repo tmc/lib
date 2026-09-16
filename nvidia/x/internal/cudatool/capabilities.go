@@ -30,6 +30,9 @@ type toolCorpus struct {
 }
 
 func loadCorpus() (map[string]*toolCorpus, error) {
+	if len(staticCorpus) > 0 {
+		return staticCorpus, nil
+	}
 	entries, err := optiondata.ReadDir("optiondata")
 	if err != nil {
 		return nil, err
