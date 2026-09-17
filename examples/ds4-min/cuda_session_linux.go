@@ -79,11 +79,15 @@ type cudaBatchDense struct {
 	sharedGate, sharedUp, sharedOut      cudamem.Slice[float32]
 	q81Attn, q81QLora, q81FFN            cudamem.Slice[byte]
 	q80Heads, q80Low, q80Shared          cudamem.Slice[byte]
-	expertIDs                          cudamem.Slice[int32]
-	expertW                            cudamem.Slice[float32]
-	expertGate, expertUp, expertDown    cudamem.Slice[float32]
-	ffnOut                             cudamem.Slice[float32]
-	q81Experts                         cudamem.Slice[byte]
+	expertIDs                            cudamem.Slice[int32]
+	expertW                              cudamem.Slice[float32]
+	expertGate, expertUp, expertDown     cudamem.Slice[float32]
+	ffnOut                               cudamem.Slice[float32]
+	q81Experts                           cudamem.Slice[byte]
+	allowed                              cudamem.Slice[uint32]
+	tokenNComp                           cudamem.Slice[uint32]
+	mixedScores                          cudamem.Slice[float32]
+	mixedDenominators                    cudamem.Slice[float32]
 }
 
 // cudaSharedFFNWidth is the shared expert's intermediate width, matching the
@@ -527,43 +531,49 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 	for i := range b.rows {
 		r.allocTokenState(b.arena, &b.rows[i], fmt.Sprintf("batch-%d-", i))
 	}
+	rawCap, maxComp := min(r.ctx, cudaRawCap), r.ctx/4+2
+	scoreStride := 64 * (rawCap + maxComp)
 	alloc := func(name string, n int) cudamem.Slice[float32] {
 		return cudamem.AllocIn[float32](b.denseArena, name, n)
 	}
 	b.dense = cudaBatchDense{
-		attnPre:        alloc("batch-dense-attention-pre", width*2*cudaWidth),
-		qLora:          alloc("batch-dense-query-lora", width*1024),
-		qHeads:         alloc("batch-dense-query-heads", width*64*cudaKVWidth),
-		kvRaw:          alloc("batch-dense-kv-raw", width*cudaKVWidth),
-		kvCur:          alloc("batch-dense-kv-current", width*cudaKVWidth),
-		attnNorm:       alloc("batch-dense-attention-norm", width*cudaWidth),
-		compressorKV:   alloc("batch-dense-compressor-kv", width*1024),
-		compressorGate: alloc("batch-dense-compressor-gate", width*1024),
-		indexerKV:      alloc("batch-dense-indexer-kv", width*256),
-		indexerGate:    alloc("batch-dense-indexer-gate", width*256),
-		attention:      alloc("batch-dense-attention", width*cudaAttentionStride),
-		attnLow:        alloc("batch-dense-attention-low", width*8192),
-		attnOut:        alloc("batch-dense-attention-output", width*cudaWidth),
-		ffnPre:         alloc("batch-dense-ffn-pre", width*2*cudaWidth),
-		router:         alloc("batch-dense-router", width*256),
-		probs:          alloc("batch-dense-probs", width*256),
-		tokens:         cudamem.AllocIn[uint32](b.denseArena, "batch-dense-tokens", width),
-		sharedGate:     alloc("batch-dense-shared-gate", width*cudaSharedFFNWidth),
-		sharedUp:       alloc("batch-dense-shared-up", width*cudaSharedFFNWidth),
-		sharedOut:      alloc("batch-dense-shared-output", width*cudaWidth),
-		q81Attn:        cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-attention", width*cudaWidth/32*36),
-		q81QLora:       cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-query-lora", width*1024/32*36),
-		q81FFN:         cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-ffn", width*cudaWidth/32*36),
-		q80Heads:       cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-attention-heads", width*32768/32*36),
-		q80Low:         cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-attention-low", width*8192/32*36),
-		q80Shared:      cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-shared", width*cudaSharedFFNWidth/32*36),
-		expertIDs:      cudamem.AllocIn[int32](b.denseArena, "batch-expert-ids", width*6),
-		expertW:        alloc("batch-expert-weights", width*6),
-		expertGate:     alloc("batch-expert-gate", width*6*2048),
-		expertUp:       alloc("batch-expert-up", width*6*2048),
-		expertDown:     alloc("batch-expert-down", width*6*cudaWidth),
-		ffnOut:         alloc("batch-dense-ffn-output", width*cudaWidth),
-		q81Experts:     cudamem.AllocIn[byte](b.denseArena, "batch-q81-experts", width*6*2048/32*36),
+		attnPre:           alloc("batch-dense-attention-pre", width*2*cudaWidth),
+		qLora:             alloc("batch-dense-query-lora", width*1024),
+		qHeads:            alloc("batch-dense-query-heads", width*64*cudaKVWidth),
+		kvRaw:             alloc("batch-dense-kv-raw", width*cudaKVWidth),
+		kvCur:             alloc("batch-dense-kv-current", width*cudaKVWidth),
+		attnNorm:          alloc("batch-dense-attention-norm", width*cudaWidth),
+		compressorKV:      alloc("batch-dense-compressor-kv", width*1024),
+		compressorGate:    alloc("batch-dense-compressor-gate", width*1024),
+		indexerKV:         alloc("batch-dense-indexer-kv", width*256),
+		indexerGate:       alloc("batch-dense-indexer-gate", width*256),
+		attention:         alloc("batch-dense-attention", width*cudaAttentionStride),
+		attnLow:           alloc("batch-dense-attention-low", width*8192),
+		attnOut:           alloc("batch-dense-attention-output", width*cudaWidth),
+		ffnPre:            alloc("batch-dense-ffn-pre", width*2*cudaWidth),
+		router:            alloc("batch-dense-router", width*256),
+		probs:             alloc("batch-dense-probs", width*256),
+		tokens:            cudamem.AllocIn[uint32](b.denseArena, "batch-dense-tokens", width),
+		sharedGate:        alloc("batch-dense-shared-gate", width*cudaSharedFFNWidth),
+		sharedUp:          alloc("batch-dense-shared-up", width*cudaSharedFFNWidth),
+		sharedOut:         alloc("batch-dense-shared-output", width*cudaWidth),
+		q81Attn:           cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-attention", width*cudaWidth/32*36),
+		q81QLora:          cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-query-lora", width*1024/32*36),
+		q81FFN:            cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-ffn", width*cudaWidth/32*36),
+		q80Heads:          cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-attention-heads", width*32768/32*36),
+		q80Low:            cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-attention-low", width*8192/32*36),
+		q80Shared:         cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-shared", width*cudaSharedFFNWidth/32*36),
+		expertIDs:         cudamem.AllocIn[int32](b.denseArena, "batch-expert-ids", width*6),
+		expertW:           alloc("batch-expert-weights", width*6),
+		expertGate:        alloc("batch-expert-gate", width*6*2048),
+		expertUp:          alloc("batch-expert-up", width*6*2048),
+		expertDown:        alloc("batch-expert-down", width*6*cudaWidth),
+		ffnOut:            alloc("batch-dense-ffn-output", width*cudaWidth),
+		q81Experts:        cudamem.AllocIn[byte](b.denseArena, "batch-q81-experts", width*6*2048/32*36),
+		allowed:           cudamem.AllocIn[uint32](b.denseArena, "batch-dense-allowed", width*maxComp),
+		tokenNComp:        cudamem.AllocIn[uint32](b.denseArena, "batch-dense-token-ncomp", width),
+		mixedScores:       alloc("batch-dense-mixed-scores", width*scoreStride),
+		mixedDenominators: alloc("batch-dense-mixed-denominators", width*64),
 	}
 	if err := errors.Join(b.arena.Err(), b.denseArena.Err()); err != nil {
 		return nil, fmt.Errorf("cuda runtime: allocate batch rows: %w", err)
@@ -626,6 +636,8 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	if err := r.markCUDAPhase("dense-front", position, index); err != nil {
 		return err
 	}
+	rawCap, maxComp := min(r.ctx, cudaRawCap), r.ctx/4+2
+	scoreStride := 64 * (rawCap + maxComp)
 	rows := make([]cudaTokenState, len(tokens))
 	for i := range rows {
 		rows[i] = *base[i]
@@ -643,6 +655,9 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		// original buffers, including the terminal token's state.
 		rows[i].rawOutput = d.attention.Slice(i*cudaAttentionStride, (i+1)*cudaAttentionStride)
 		rows[i].mixedOutput = rows[i].rawOutput
+		rows[i].allowed = d.allowed.Slice(i*maxComp, (i+1)*maxComp)
+		rows[i].mixedScores = d.mixedScores.Slice(i*scoreStride, (i+1)*scoreStride)
+		rows[i].mixedDenominators = d.mixedDenominators.Slice(i*64, (i+1)*64)
 		rows[i].attnLow = d.attnLow.Slice(i*8192, (i+1)*8192)
 		rows[i].attnOut = d.attnOut.Slice(i*cudaWidth, (i+1)*cudaWidth)
 		rows[i].ffnPre = d.ffnPre.Slice(i*2*cudaWidth, (i+1)*2*cudaWidth)
@@ -732,10 +747,79 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	// following tokens read. Head outputs occupy strided rows of the dense
 	// attention buffer, so quantization and projection can batch below.
 	heads := make([]cudamem.Slice[float32], n)
-	for i := range rows {
-		var err error
-		if heads[i], err = r.evalLayerAttention(&rows[i], state, index, position+i, true); err != nil {
-			return fmt.Errorf("token %d: %w", i, err)
+	if index < 2 || r.disableMixedAttentionFused {
+		for i := range rows {
+			var err error
+			if heads[i], err = r.evalLayerAttention(&rows[i], state, index, position+i, true); err != nil {
+				return fmt.Errorf("token %d: %w", i, err)
+			}
+		}
+	} else {
+		nCompHost := make([]uint32, n)
+		maxTotal := 0
+		for i := range rows {
+			if err := r.markCUDAPhase("compression", position+i, index); err != nil {
+				return err
+			}
+			if err := r.compress(l, state, &rows[i], position+i, index, true); err != nil {
+				return fmt.Errorf("token %d: %w", i, err)
+			}
+			nCompHost[i] = uint32(state.attn.n)
+			tot := min(position+i+1, rawCap) + int(nCompHost[i])
+			if tot > maxTotal {
+				maxTotal = tot
+			}
+			if err := r.markCUDAPhase("attention", position+i, index); err != nil {
+				return err
+			}
+			heads[i] = rows[i].mixedOutput.Slice(32768+512, 32768+512+32768)
+		}
+		if err := d.tokenNComp.Slice(0, n).CopyFromHost(nCompHost); err != nil {
+			return fmt.Errorf("copy token n_comp: %w", err)
+		}
+
+		qHeadsAll := d.qHeads.Slice(0, n*64*cudaKVWidth)
+		kvCurAll := d.kvCur.Slice(0, n*cudaKVWidth)
+		outAll := d.attention.Slice(0, n*cudaAttentionStride)
+		if err := r.mixedAttentionPrepareBatch(qHeadsAll, kvCurAll, outAll, position, rawCap, n); err != nil {
+			return fmt.Errorf("batch mixed attention prepare: %w", err)
+		}
+		if err := r.mixedAttentionTileScoresBatch(
+			state.rawKV,
+			state.attn.cache,
+			d.allowed.Slice(0, n*maxComp),
+			d.mixedScores.Slice(0, n*scoreStride),
+			outAll,
+			d.tokenNComp.Slice(0, n),
+			maxTotal,
+			position,
+			rawCap,
+			maxComp,
+			scoreStride,
+			n,
+		); err != nil {
+			return fmt.Errorf("batch mixed attention tile scores: %w", err)
+		}
+		if err := r.mixedAttentionFinalizeBatch(
+			l.attnSinks,
+			state.rawKV,
+			state.attn.cache,
+			d.allowed.Slice(0, n*maxComp),
+			d.mixedScores.Slice(0, n*scoreStride),
+			d.mixedDenominators.Slice(0, n*64),
+			outAll,
+			d.tokenNComp.Slice(0, n),
+			maxTotal,
+			position,
+			rawCap,
+			maxComp,
+			scoreStride,
+			n,
+		); err != nil {
+			return fmt.Errorf("batch mixed attention finalize: %w", err)
+		}
+		if err := r.mixedAttentionCommitRaw(state.rawKV, outAll, position, rawCap, n); err != nil {
+			return fmt.Errorf("batch mixed attention commit raw: %w", err)
 		}
 	}
 	// The attention output weights do not depend on the token either. The

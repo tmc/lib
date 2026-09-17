@@ -54,12 +54,12 @@ type cudaFoundation struct {
 	workStream *cuda.Stream
 	file       *os.File
 	model      []byte
-	name   string
-	major  int
-	minor  int
-	hmm    bool
-	gguf   *gguf.File
-	mapped cudaModelRange
+	name       string
+	major      int
+	minor      int
+	hmm        bool
+	gguf       *gguf.File
+	mapped     cudaModelRange
 
 	probeTensor             string
 	probeHost               uint16
@@ -74,7 +74,7 @@ type cudaFoundation struct {
 	mathCompiled            *nvrtcx.CompiledModule
 	matrixFn                driver.Function
 	quantQ80Fn              driver.Function
-	quantQ80StridedFn        driver.Function
+	quantQ80StridedFn       driver.Function
 	quantQ81Fn              driver.Function
 	quantQ81BatchFn         driver.Function
 	q81MatvecFn             driver.Function
@@ -96,50 +96,54 @@ type cudaFoundation struct {
 	hcCollapseFn            driver.Function
 	hcExpandFn              driver.Function
 
-	hcPostFn                  driver.Function
-	rowFn                     driver.Function
-	rawAttentionFn            driver.Function
-	rawAttentionPrepareFn     driver.Function
-	rawAttentionEvalFn        driver.Function
-	disableRawAttentionFused  bool
-	routerHashFn              driver.Function
-	routerHashBatchFn         driver.Function
-	routerBiasedFn            driver.Function
-	routerBiasedBatchFn       driver.Function
-	swigluFn                  driver.Function
-	swigluQuantQ80Fn          driver.Function
-	swigluQuantQ81Fn          driver.Function
-	sumVectorsFn              driver.Function
-	sumRoutedSharedFn         driver.Function
-	sumRoutedSharedBatchFn    driver.Function
-	iq2SelectedFn             driver.Function
-	q2KSelectedFn             driver.Function
-	quantQ8KFn                driver.Function
-	iq2SelectedQ8KFn          driver.Function
-	q2KSelectedQ8KFn          driver.Function
-	iq2SelectedQ81Fn          driver.Function
-	iq2SelectedQ81ScalarFn    driver.Function
-	q2KSelectedQ81Fn          driver.Function
-	q2KSelectedQ81ScalarFn    driver.Function
-	moeGroupCSRFn             driver.Function
-	iq2GatherQ81Fn            driver.Function
-	q2KGatherQ81Fn            driver.Function
-	compressorPoolFn          driver.Function
-	compressorAttentionFn     driver.Function
-	compressorIndexerFn       driver.Function
-	mixedAttentionFn          driver.Function
-	mixedAttentionPrepareFn   driver.Function
-	mixedAttentionScoresFn    driver.Function
-	mixedAttentionNormalizeFn driver.Function
-	mixedAttentionValuesFn    driver.Function
-	mixedAttentionFusedFn     driver.Function
-	mixedAttentionTileScoresFn driver.Function
-	mixedAttentionFinalizeFn  driver.Function
-	disableMixedAttentionFused bool
-	indexerQueryFn            driver.Function
-	indexerScoreFn            driver.Function
-	indexerSelectFn           driver.Function
-	fillU32Fn                 driver.Function
+	hcPostFn                        driver.Function
+	rowFn                           driver.Function
+	rawAttentionFn                  driver.Function
+	rawAttentionPrepareFn           driver.Function
+	rawAttentionEvalFn              driver.Function
+	disableRawAttentionFused        bool
+	routerHashFn                    driver.Function
+	routerHashBatchFn               driver.Function
+	routerBiasedFn                  driver.Function
+	routerBiasedBatchFn             driver.Function
+	swigluFn                        driver.Function
+	swigluQuantQ80Fn                driver.Function
+	swigluQuantQ81Fn                driver.Function
+	sumVectorsFn                    driver.Function
+	sumRoutedSharedFn               driver.Function
+	sumRoutedSharedBatchFn          driver.Function
+	iq2SelectedFn                   driver.Function
+	q2KSelectedFn                   driver.Function
+	quantQ8KFn                      driver.Function
+	iq2SelectedQ8KFn                driver.Function
+	q2KSelectedQ8KFn                driver.Function
+	iq2SelectedQ81Fn                driver.Function
+	iq2SelectedQ81ScalarFn          driver.Function
+	q2KSelectedQ81Fn                driver.Function
+	q2KSelectedQ81ScalarFn          driver.Function
+	moeGroupCSRFn                   driver.Function
+	iq2GatherQ81Fn                  driver.Function
+	q2KGatherQ81Fn                  driver.Function
+	compressorPoolFn                driver.Function
+	compressorAttentionFn           driver.Function
+	compressorIndexerFn             driver.Function
+	mixedAttentionFn                driver.Function
+	mixedAttentionPrepareFn         driver.Function
+	mixedAttentionScoresFn          driver.Function
+	mixedAttentionNormalizeFn       driver.Function
+	mixedAttentionValuesFn          driver.Function
+	mixedAttentionFusedFn           driver.Function
+	mixedAttentionTileScoresFn      driver.Function
+	mixedAttentionFinalizeFn        driver.Function
+	mixedAttentionPrepareBatchFn    driver.Function
+	mixedAttentionTileScoresBatchFn driver.Function
+	mixedAttentionFinalizeBatchFn   driver.Function
+	mixedAttentionCommitRawFn       driver.Function
+	disableMixedAttentionFused      bool
+	indexerQueryFn                  driver.Function
+	indexerScoreFn                  driver.Function
+	indexerSelectFn                 driver.Function
+	fillU32Fn                       driver.Function
 
 	phaseMark func(name string, position, layer int) error
 }
@@ -600,7 +604,6 @@ func (r *cudaFoundation) encodeRMSPair(
 	})
 }
 
-
 // encodeF16Matvec appends an F16 matrix-vector product to the default stream.
 func (r *cudaFoundation) encodeF16Matvec(t cudaModelTensor, x, out cudamem.Slice[float32]) error {
 	if t.typeID != 1 || len(t.dimensions) != 2 || uint64(x.Len()) != t.dimensions[0] || uint64(out.Len()) != t.dimensions[1] {
@@ -932,7 +935,7 @@ func (r *cudaFoundation) encodeSumRoutedShared(experts, shared, out cudamem.Slic
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.sumRoutedSharedFn).Grid(uint32(width / 256)).Block(256).On(r.stream()).Launch(
+		if err := cudalaunch.Kernel(r.sumRoutedSharedFn).Grid(uint32(width/256)).Block(256).On(r.stream()).Launch(
 			experts, shared, out, uint32(width)); err != nil {
 			return fmt.Errorf("cuda: launch sum routed shared: %w", err)
 		}
@@ -1026,6 +1029,10 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_attention_mixed_fused", &r.mixedAttentionFusedFn},
 		{"ds4_attention_mixed_scores_tile", &r.mixedAttentionTileScoresFn},
 		{"ds4_attention_mixed_finalize", &r.mixedAttentionFinalizeFn},
+		{"ds4_attention_mixed_prepare_batch", &r.mixedAttentionPrepareBatchFn},
+		{"ds4_attention_mixed_scores_tile_batch", &r.mixedAttentionTileScoresBatchFn},
+		{"ds4_attention_mixed_finalize_batch", &r.mixedAttentionFinalizeBatchFn},
+		{"ds4_attention_mixed_commit_raw", &r.mixedAttentionCommitRawFn},
 		{"ds4_indexer_query", &r.indexerQueryFn},
 		{"ds4_indexer_score", &r.indexerScoreFn},
 		{"ds4_indexer_select", &r.indexerSelectFn},
@@ -1071,6 +1078,14 @@ func (r *cudaFoundation) loadMathKernels() error {
 	}
 	if r.mixedAttentionFinalizeFn != 0 {
 		_ = r.mixedAttentionFinalizeFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 66048)
+	}
+	if r.mixedAttentionTileScoresBatchFn != 0 {
+		if err := r.mixedAttentionTileScoresBatchFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 66048); err != nil {
+			return fmt.Errorf("cuda: set tile scores batch shmem: %w", err)
+		}
+	}
+	if r.mixedAttentionFinalizeBatchFn != 0 {
+		_ = r.mixedAttentionFinalizeBatchFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 66048)
 	}
 	r.matrixMod = mod
 	return nil

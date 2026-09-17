@@ -752,3 +752,317 @@ extern "C" __global__ void ds4_attention_mixed_finalize(
   }
 }
 
+extern "C" __global__ void ds4_attention_mixed_prepare_batch(
+    const float *q,
+    const float *kv,
+    float *out,
+    unsigned int base_position,
+    unsigned int raw_cap,
+    unsigned int num_tokens) {
+  const unsigned int t = blockIdx.y;
+  if (t >= num_tokens) return;
+  const unsigned int bid = blockIdx.x;
+  const unsigned int tid = threadIdx.x;
+  const unsigned int position = base_position + t;
+
+  const float *token_q = q + (unsigned long long)t * (64u * 512u);
+  const float *token_kv = kv + (unsigned long long)t * 512u;
+  float *token_out = out + (unsigned long long)t * 66048u;
+
+  if (bid < 64u) {
+    const unsigned int head = bid;
+    const unsigned int qoff = head * 512u;
+
+    for (unsigned int i = tid; i < 448u; i += 64u) {
+      token_out[qoff + i] = token_q[qoff + i];
+    }
+    if (tid < 32u) {
+      const unsigned int r = tid * 2u;
+      const unsigned int qi = qoff + 448u + r;
+      const float theta = ds4_compressed_theta(position, r);
+      const float c = cosf(theta);
+      const float s = sinf(theta);
+      const float a = token_q[qi];
+      const float b = token_q[qi + 1u];
+      token_out[qi]      = a * c - b * s;
+      token_out[qi + 1u] = a * s + b * c;
+    }
+    return;
+  }
+
+  if (bid == 64u) {
+    const unsigned int koff = 32768u;
+
+    for (unsigned int i = tid; i < 448u; i += 64u) {
+      token_out[koff + i] = token_kv[i];
+    }
+    if (tid < 32u) {
+      const unsigned int r = tid * 2u;
+      const unsigned int ki = koff + 448u + r;
+      const float theta = ds4_compressed_theta(position, r);
+      const float c = cosf(theta);
+      const float s = sinf(theta);
+      const float a = token_kv[448u + r];
+      const float b = token_kv[448u + r + 1u];
+      const float bs = b * s;
+      const float bc = b * c;
+      token_out[ki]      = fmaf(a, c, -bs);
+      token_out[ki + 1u] = fmaf(a, s, bc);
+    }
+    __syncthreads();
+
+    __shared__ float s_amax[2];
+    for (unsigned int b = 0; b < 7u; b++) {
+      const unsigned int off = b * 64u;
+      const float val = token_out[koff + off + tid];
+      float amax = fabsf(val);
+      for (int offset = 16; offset > 0; offset /= 2) {
+        amax = fmaxf(amax, __shfl_down_sync(0xffffffff, amax, offset));
+      }
+      if ((tid & 31u) == 0) s_amax[tid >> 5u] = amax;
+      __syncthreads();
+      if (tid == 0) s_amax[0] = fmaxf(1.0e-4f, fmaxf(s_amax[0], s_amax[1]));
+      __syncthreads();
+      const float group_amax = s_amax[0];
+      const float scale = exp2f(ceilf(log2f(group_amax / 448.0f)));
+      token_out[koff + off + tid] = ds4_e4m3fn_round(fminf(fmaxf(val / scale, -448.0f), 448.0f)) * scale;
+      __syncthreads();
+    }
+
+    for (unsigned int i = tid; i < 512u; i += 64u) {
+      token_out[koff + i] = ds4_half_round(token_out[koff + i]);
+    }
+    return;
+  }
+}
+
+extern "C" __global__ void ds4_attention_mixed_scores_tile_batch(
+    const float *raw,
+    const float *comp,
+    const unsigned int *allowed,
+    float *scores,
+    const float *out,
+    const unsigned int *token_n_comp,
+    unsigned int base_position,
+    unsigned int raw_cap,
+    unsigned int max_comp,
+    unsigned int score_stride,
+    unsigned int num_tokens) {
+  const unsigned int t = blockIdx.z;
+  if (t >= num_tokens) return;
+
+  const unsigned int position = base_position + t;
+  const unsigned int n_comp = token_n_comp[t];
+  const unsigned int n_raw = min(position + 1u, raw_cap);
+  const unsigned int first = position + 1u - n_raw;
+  const unsigned int total = n_raw + n_comp;
+  if (total == 0u) return;
+
+  const unsigned int g_base = blockIdx.x * DS4_SCORE_TILE_ROWS;
+  const unsigned int h_base = blockIdx.y * DS4_SCORE_TILE_HEADS;
+  if (g_base >= total || h_base >= 64u) return;
+
+  extern __shared__ float s_tile_mem[];
+  float *sh_q = s_tile_mem;
+  float *sh_kv = sh_q + DS4_SCORE_TILE_HEADS * DS4_SCORE_TILE_STRIDE;
+  __shared__ float sh_add[DS4_SCORE_TILE_ROWS];
+
+  const float *token_out = out + (unsigned long long)t * 66048u;
+  const unsigned int *token_allowed = allowed + (unsigned long long)t * max_comp;
+  float *token_scores = scores + (unsigned long long)t * score_stride;
+
+  const unsigned int tile_heads = 64u - h_base < DS4_SCORE_TILE_HEADS ? 64u - h_base : DS4_SCORE_TILE_HEADS;
+  for (unsigned int idx = threadIdx.x; idx < tile_heads * 128u; idx += blockDim.x) {
+    const unsigned int hh = idx >> 7u;
+    const unsigned int dd = idx & 127u;
+    const float4 v = ((const float4 *)(token_out + (h_base + hh) * 512u))[dd];
+    float *dst = sh_q + hh * DS4_SCORE_TILE_STRIDE + dd * 4u;
+    dst[0] = ds4_half_round(v.x);
+    dst[1] = ds4_half_round(v.y);
+    dst[2] = ds4_half_round(v.z);
+    dst[3] = ds4_half_round(v.w);
+  }
+
+  if (threadIdx.x < DS4_SCORE_TILE_ROWS) {
+    const unsigned int g = g_base + threadIdx.x;
+    float add = -1.0e30f;
+    if (g < total) {
+      if (g < n_raw) {
+        add = 0.0f;
+      } else {
+        const unsigned int cidx = g - n_raw;
+        if (token_allowed[cidx]) add = 0.0f;
+      }
+    }
+    sh_add[threadIdx.x] = add;
+  }
+  __syncthreads();
+
+  const unsigned int rr0 = threadIdx.x >> 7u;
+  const unsigned int dd = threadIdx.x & 127u;
+  for (unsigned int r = rr0; r < DS4_SCORE_TILE_ROWS; r += 2u) {
+    const unsigned int g = g_base + r;
+    if (g >= total) continue;
+    if (sh_add[r] <= -1.0e20f) continue;
+    const float4 *src;
+    if (g < n_raw) {
+      const unsigned int pos_g = first + g;
+      if (pos_g < base_position) {
+        const unsigned int raw_row = pos_g % raw_cap;
+        src = (const float4 *)(raw + raw_row * 512u);
+      } else {
+        const unsigned int t_g = pos_g - base_position;
+        src = (const float4 *)(out + (unsigned long long)t_g * 66048u + 32768u);
+      }
+    } else {
+      const unsigned int cidx = g - n_raw;
+      src = (const float4 *)(comp + cidx * 512u);
+    }
+    const float4 v = src[dd];
+    float *dst = sh_kv + r * DS4_SCORE_TILE_STRIDE + dd * 4u;
+    dst[0] = v.x; dst[1] = v.y; dst[2] = v.z; dst[3] = v.w;
+  }
+  __syncthreads();
+
+  const unsigned int r = threadIdx.x & 15u;
+  const unsigned int hh = threadIdx.x >> 4u;
+  const unsigned int h = h_base + hh;
+  const unsigned int g = g_base + r;
+  if (h >= 64u || g >= total) return;
+
+  float *row_scores = token_scores + (unsigned long long)h * total;
+  const float *qh = sh_q + hh * DS4_SCORE_TILE_STRIDE;
+  const float *kvrow = sh_kv + r * DS4_SCORE_TILE_STRIDE;
+  float s = -1.0e30f;
+  if (sh_add[r] > -1.0e20f) {
+    float dot = 0.0f;
+    #pragma unroll 1
+    for (unsigned int d = 0; d < 512u; d++) {
+      dot += qh[d] * kvrow[d];
+    }
+    s = dot * 0.04419417382415922f;
+  }
+  row_scores[g] = s;
+}
+
+extern "C" __global__ void ds4_attention_mixed_finalize_batch(
+    const float *sinks,
+    const float *raw,
+    const float *comp,
+    const unsigned int *allowed,
+    const float *scores,
+    float *denominators,
+    float *out,
+    const unsigned int *token_n_comp,
+    unsigned int base_position,
+    unsigned int raw_cap,
+    unsigned int max_comp,
+    unsigned int score_stride,
+    unsigned int num_tokens) {
+  const unsigned int h = blockIdx.x;
+  const unsigned int t = blockIdx.y;
+  if (h >= 64u || t >= num_tokens) return;
+
+  const unsigned int tid = threadIdx.x;
+  const unsigned int qoff = h * 512u;
+  const unsigned int position = base_position + t;
+  const unsigned int n_comp = token_n_comp[t];
+  const unsigned int n_raw = min(position + 1u, raw_cap);
+  const unsigned int first = position + 1u - n_raw;
+  const unsigned int total = n_raw + n_comp;
+
+  const float *token_scores = scores + (unsigned long long)t * score_stride;
+  const unsigned int *token_allowed = allowed + (unsigned long long)t * max_comp;
+  float *token_denominators = denominators != 0 ? denominators + (unsigned long long)t * 64u : 0;
+  float *token_out = out + (unsigned long long)t * 66048u;
+
+  __shared__ float s_max;
+  __shared__ float s_denom;
+  extern __shared__ float s_scores[];
+
+  const float *row_scores = token_scores + (unsigned long long)h * total;
+  for (unsigned int i = tid; i < total; i += 512u) {
+    s_scores[i] = row_scores[i];
+  }
+  __syncthreads();
+
+  if (tid == 0) {
+    float mx = sinks[h];
+    for (unsigned int p = 0; p < n_raw; p++) mx = fmaxf(mx, s_scores[p]);
+    for (unsigned int cidx = 0; cidx < n_comp; cidx++) {
+      if (token_allowed[cidx]) mx = fmaxf(mx, s_scores[n_raw + cidx]);
+    }
+    s_max = mx;
+  }
+  __syncthreads();
+
+  const float mx = s_max;
+  for (unsigned int i = tid; i < n_raw; i += 512u) s_scores[i] = expf(s_scores[i] - mx);
+  for (unsigned int i = tid; i < n_comp; i += 512u) {
+    if (token_allowed[i]) s_scores[n_raw + i] = expf(s_scores[n_raw + i] - mx);
+  }
+  __syncthreads();
+
+  if (tid == 0) {
+    float denom = expf(sinks[h] - mx);
+    for (unsigned int p = 0; p < n_raw; p++) denom += s_scores[p];
+    for (unsigned int cidx = 0; cidx < n_comp; cidx++) {
+      if (token_allowed[cidx]) denom += s_scores[n_raw + cidx];
+    }
+    s_denom = denom;
+    if (token_denominators != 0) token_denominators[h] = denom;
+  }
+  __syncthreads();
+
+  const float denom = s_denom;
+  const unsigned int d = tid;
+  float acc = 0.0f;
+  for (unsigned int r = 0; r < n_raw; r++) {
+    const unsigned int pos_r = first + r;
+    float kv_val;
+    if (pos_r < base_position) {
+      const unsigned int raw_row = pos_r % raw_cap;
+      kv_val = raw[raw_row * 512u + d];
+    } else {
+      const unsigned int t_r = pos_r - base_position;
+      kv_val = out[(unsigned long long)t_r * 66048u + 32768u + d];
+    }
+    acc += s_scores[r] * kv_val;
+  }
+  for (unsigned int c = 0; c < n_comp; c++) {
+    if (token_allowed[c]) {
+      acc += s_scores[n_raw + c] * comp[c * 512u + d];
+    }
+  }
+  token_out[33280u + qoff + d] = acc / denom;
+  __syncthreads();
+
+  if (tid < 32u) {
+    const unsigned int r = tid * 2u;
+    const unsigned int oi = 33280u + qoff + 448u + r;
+    float theta = ds4_compressed_theta(position, r), c = cosf(theta), s = -sinf(theta);
+    float a = token_out[oi], b = token_out[oi + 1u];
+    token_out[oi]      = a * c - b * s;
+    token_out[oi + 1u] = a * s + b * c;
+  }
+}
+
+extern "C" __global__ void ds4_attention_mixed_commit_raw(
+    float *raw,
+    const float *out,
+    unsigned int base_position,
+    unsigned int raw_cap,
+    unsigned int num_tokens) {
+  const unsigned int count = num_tokens < raw_cap ? num_tokens : raw_cap;
+  const unsigned int b = blockIdx.x;
+  if (b >= count) return;
+  const unsigned int t = num_tokens - count + b;
+  const unsigned int pos = base_position + t;
+  const unsigned int raw_row = pos % raw_cap;
+  const float *src = out + (unsigned long long)t * 66048u + 32768u;
+  float *dst = raw + raw_row * 512u;
+  for (unsigned int i = threadIdx.x; i < 512u; i += blockDim.x) {
+    dst[i] = src[i];
+  }
+}
+

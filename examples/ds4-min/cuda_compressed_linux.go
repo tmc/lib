@@ -156,7 +156,7 @@ func (r *cudaFoundation) encodeIndexer(q, weights, cache cudamem.Slice[float32],
 		if err := r.markCUDAPhase("indexer-score", position, layerIdx); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.indexerScoreFn).Grid(uint32((nComp + 63) / 64)).Block(64).On(r.stream()).Launch(qScratch, weights, cache, scores, uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.indexerScoreFn).Grid(uint32((nComp+63)/64)).Block(64).On(r.stream()).Launch(qScratch, weights, cache, scores, uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch indexer score: %w", err)
 		}
 		if err := r.markCUDAPhase("indexer-select", position, layerIdx); err != nil {
@@ -182,6 +182,97 @@ func (r *cudaFoundation) encodeFillU32(dst cudamem.Slice[uint32], count int, val
 		}
 		if err := cudalaunch.Kernel(r.fillU32Fn).Grid(uint32((count+255)/256)).Block(256).On(r.stream()).Launch(dst, uint32(count), value); err != nil {
 			return fmt.Errorf("cuda: launch fill uint32: %w", err)
+		}
+		return nil
+	})
+}
+
+// mixedAttentionPrepareBatch queues rotation for all Q heads across the batch,
+// and normalizes and quantizes KV for all tokens across the batch.
+func (r *cudaFoundation) mixedAttentionPrepareBatch(q, kv, out cudamem.Slice[float32], basePosition, rawCap, numTokens int) error {
+	if numTokens <= 0 || q.Len() < numTokens*64*512 || kv.Len() < numTokens*512 || out.Len() < numTokens*cudaAttentionStride || rawCap <= 0 || basePosition < 0 {
+		return fmt.Errorf("cuda: mixed attention prepare batch: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.mixedAttentionPrepareBatchFn).
+			Grid(65, uint32(numTokens)).
+			Block(64).
+			On(r.stream()).
+			Launch(q, kv, out, uint32(basePosition), uint32(rawCap), uint32(numTokens)); err != nil {
+			return fmt.Errorf("cuda: launch mixed attention prepare batch: %w", err)
+		}
+		return nil
+	})
+}
+
+// mixedAttentionTileScoresBatch computes dot product scores against raw and compressed KV
+// for all tokens in the batch.
+func (r *cudaFoundation) mixedAttentionTileScoresBatch(raw, comp cudamem.Slice[float32], allowed cudamem.Slice[uint32], scores, out cudamem.Slice[float32], tokenNComp cudamem.Slice[uint32], maxTotal, basePosition, rawCap, maxComp, scoreStride, numTokens int) error {
+	if numTokens <= 0 || raw.Len() == 0 || comp.Len()%512 != 0 || allowed.Len() < numTokens*maxComp || scores.Len() < numTokens*scoreStride || out.Len() < numTokens*cudaAttentionStride || tokenNComp.Len() < numTokens {
+		return fmt.Errorf("cuda: mixed attention tile scores batch: invalid shape")
+	}
+	tileGridX := uint32((maxTotal + 15) / 16)
+	if tileGridX == 0 {
+		tileGridX = 1
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.mixedAttentionTileScoresBatchFn).
+			Grid(tileGridX, 4, uint32(numTokens)).
+			Block(256).
+			SharedMem(66048).
+			On(r.stream()).
+			Launch(raw, comp, allowed, scores, out, tokenNComp, uint32(basePosition), uint32(rawCap), uint32(maxComp), uint32(scoreStride), uint32(numTokens)); err != nil {
+			return fmt.Errorf("cuda: launch mixed attention tile scores batch: %w", err)
+		}
+		return nil
+	})
+}
+
+// mixedAttentionFinalizeBatch computes softmax and values against raw and compressed KV
+// for all tokens in the batch.
+func (r *cudaFoundation) mixedAttentionFinalizeBatch(sinks cudaModelTensor, raw, comp cudamem.Slice[float32], allowed cudamem.Slice[uint32], scores, denominators, out cudamem.Slice[float32], tokenNComp cudamem.Slice[uint32], maxTotal, basePosition, rawCap, maxComp, scoreStride, numTokens int) error {
+	if numTokens <= 0 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 || raw.Len() == 0 || comp.Len()%512 != 0 || allowed.Len() < numTokens*maxComp || scores.Len() < numTokens*scoreStride || out.Len() < numTokens*cudaAttentionStride || tokenNComp.Len() < numTokens {
+		return fmt.Errorf("cuda: mixed attention finalize batch: invalid shape")
+	}
+	shmemFinal := uint32(maxTotal * 4)
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.mixedAttentionFinalizeBatchFn).
+			Grid(64, uint32(numTokens)).
+			Block(512).
+			SharedMem(shmemFinal).
+			On(r.stream()).
+			Launch(sinks.device, raw, comp, allowed, scores, denominators, out, tokenNComp, uint32(basePosition), uint32(rawCap), uint32(maxComp), uint32(scoreStride), uint32(numTokens)); err != nil {
+			return fmt.Errorf("cuda: launch mixed attention finalize batch: %w", err)
+		}
+		return nil
+	})
+}
+
+// mixedAttentionCommitRaw commits the last min(numTokens, rawCap) tokens into raw KV cache.
+func (r *cudaFoundation) mixedAttentionCommitRaw(raw, out cudamem.Slice[float32], basePosition, rawCap, numTokens int) error {
+	if numTokens <= 0 || rawCap <= 0 || raw.Len() < rawCap*512 || out.Len() < numTokens*cudaAttentionStride {
+		return fmt.Errorf("cuda: mixed attention commit raw: invalid shape")
+	}
+	count := min(numTokens, rawCap)
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.mixedAttentionCommitRawFn).
+			Grid(uint32(count)).
+			Block(64).
+			On(r.stream()).
+			Launch(raw, out, uint32(basePosition), uint32(rawCap), uint32(numTokens)); err != nil {
+			return fmt.Errorf("cuda: launch mixed attention commit raw: %w", err)
 		}
 		return nil
 	})
