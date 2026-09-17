@@ -2038,6 +2038,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 				line           int
 				branchPC       uint64
 				branchOpcode   string
+				branchFound    bool
 				defPC          uint64
 				usePC          uint64
 				defUseDistance int
@@ -2119,7 +2120,8 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						brCands = append(brCands, stallCand{
 							pc: pc, opcode: opcode, file: file, line: line,
 							branchPC: branchPC, branchOpcode: branchOpcode,
-							ratio: brRatio, stalls: stat.branchStalls, sev: sev,
+							branchFound: branchOpcode != "",
+							ratio:       brRatio, stalls: stat.branchStalls, sev: sev,
 						})
 					}
 				}
@@ -2193,7 +2195,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						Kernel: kName,
 					},
 					Finding:                  fmt.Sprintf("Loop/control-flow region PC 0x%04x-0x%04x: %d load instructions share memory stalls in kernel %q (up to %.1f%% of stalls, %d total stall cycles)", minPC, maxPC, len(memCands), kName, maxRatio*100, remainingStalls),
-					ActionableRecommendation: "If memory access is contiguous and aligned, vectorize memory loads to 128-bit (uint4/v4), unroll loops, and pipeline global memory loads across iterations to overlap transfer latency.",
+					ActionableRecommendation: memoryRegionRecommendation(kName, fn),
 					NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
 				})
 			}
@@ -2260,7 +2262,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			for _, c := range brCands[:brLimit] {
 				locationPC := c.pc
 				attribution := fmt.Sprintf("sampled at %s", c.opcode)
-				if c.branchPC != 0 {
+				if c.branchFound {
 					locationPC = c.branchPC
 					attribution = fmt.Sprintf("created by preceding %s at PC 0x%04x; sampled at %s at PC 0x%04x, which is awaiting warp reconvergence", c.branchOpcode, c.branchPC, c.opcode, c.pc)
 				}
@@ -2396,7 +2398,7 @@ func precedingControlFlowBranch(fn *cudasass.Function, pc uint64) (uint64, strin
 			break
 		}
 		base := strings.ToUpper(cudasass.BaseOpcode(inst.Opcode))
-		if base == "BRA" || base == "BRX" || base == "CBRA" {
+		if base == "BRA" || base == "BRX" || base == "CBRA" || base == "WARPSYNC" {
 			best = inst
 			found = true
 		}
@@ -2463,6 +2465,13 @@ func reductionLayoutAdvice(kernel string, fn *cudasass.Function) (string, bool) 
 		return "", false
 	}
 	return "This looks like an inner-product reduction with strided expert/channel loads, not proof of a coalescing bug. Compare transposed or SoA-repacked weights, direct-to-register tile layouts, shared-memory double buffering, and Tensor Core MMA before recommending lane realignment.", true
+}
+
+func memoryRegionRecommendation(kernel string, fn *cudasass.Function) string {
+	if advice, ok := reductionLayoutAdvice(kernel, fn); ok {
+		return advice
+	}
+	return "If memory access is contiguous and aligned, vectorize memory loads to 128-bit (uint4/v4), unroll loops, and pipeline global memory loads across iterations to overlap transfer latency."
 }
 
 type streamEvent struct {
