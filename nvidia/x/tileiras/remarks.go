@@ -96,6 +96,9 @@ func ParseRemarksYAML(data []byte) ([]Remark, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
 
 		// Document header: "--- !Passed", "--- !Failure", etc.
 		if strings.HasPrefix(trimmed, "---") {
