@@ -1,0 +1,12 @@
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 91463; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+P6's absence measured on the GB10 host this session:
+  /usr/local/cuda-13.4/bin/nvcc -arch=sm_121 -lineinfo -ptx fixture/kernel.cu
+  -> .version 9.4, grep -c of the two directives = 0
+  fixture/ref130.ptx = 0, controls/twokernels.ptx = 0
+Installed toolkits: cuda-13.0, 13.1, 13.2, 13.3, 13.4.
+
+Gap 8's claim re-verified at HEAD, not taken from the errata file:
+  x/cudacapture/code.go:156 and internal/profilebundle/bundle.go:163.
+The errata spelled the second path 'profilebundle/bundle.go'; the file
+is under internal/, corrected here.
