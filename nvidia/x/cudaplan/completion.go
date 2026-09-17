@@ -1,0 +1,35 @@
+package cudaplan
+
+import "context"
+
+// Completion tracks execution of an asynchronous plan invocation and owns
+// the borrowed input/output buffers and workspace leases until GPU execution completes.
+type Completion struct {
+	state *completionState
+}
+
+// Done reports whether the GPU execution has completed.
+func (c *Completion) Done() bool {
+	if c == nil || c.state == nil {
+		return true
+	}
+	return c.state.done.Load()
+}
+
+// Wait waits for the GPU work to complete and releases borrowed buffer leases.
+//
+// Invariant: Cancellation stops only the host wait; it does NOT free in-flight
+// or queued GPU buffers or cancel GPU execution. Native wait errors similarly retain buffers.
+// Only successful completion releases borrowed buffer leases.
+func (c *Completion) Wait(ctx context.Context) error {
+	if c == nil || c.state == nil {
+		return nil
+	}
+	return c.state.Wait(ctx)
+}
+
+// Close waits without cancellation and releases the completion event.
+// Safe to call multiple times or concurrently.
+func (c *Completion) Close() error {
+	return c.Wait(nil)
+}
