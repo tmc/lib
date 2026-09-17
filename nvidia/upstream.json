@@ -8276,6 +8276,10 @@
             "sha256": "a322a1e8074f6de0d296902b783a8a434a2ec8d0c0a566d2dd047fe14fd7191e"
           },
           {
+            "path": "nvidia/nvvm/flags.gen.go",
+            "sha256": "dd197c2b6b440c601296a1dc72d8340d00abaebda7b10d0cebcc0674096a7053"
+          },
+          {
             "path": "nvidia/nvvm/funcs.gen.go",
             "sha256": "6af6457e4750af287eb0857beec7e446af779c319f826a406274b3de31acf18d"
           },
