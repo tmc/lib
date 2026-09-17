@@ -14,17 +14,71 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
-// Engine manages cuBLASLt contexts, matrix layouts, workspace buffers, and execution heuristics.
-type Engine struct {
-	mu            sync.Mutex
-	dev           *cuda.Device
-	handle        cublaslt.Handle
-	workspace     cudamem.Slice[byte]
-	workspaceSize uint
+// Option configures an Engine.
+type Option func(*engineConfig) error
+
+type engineConfig struct {
+	workspaceBytes *int
+	customWS       cudamem.Slice[byte]
+	hasCustomWS    bool
 }
 
-// NewEngine initializes a cuBLASLt engine with a 32MB workspace buffer.
-func NewEngine(dev *cuda.Device) (*Engine, error) {
+// WithWorkspaceBytes configures the size of the engine-owned workspace buffer in bytes.
+// Setting bytes to 0 disables engine workspace allocation.
+// Negative sizes return an error.
+func WithWorkspaceBytes(bytes int) Option {
+	return func(c *engineConfig) error {
+		if bytes < 0 {
+			return fmt.Errorf("cublasltx: negative workspace size: %d", bytes)
+		}
+		c.workspaceBytes = &bytes
+		return nil
+	}
+}
+
+// WithWorkspace configures the engine to use a caller-provided workspace buffer.
+// The engine does not free the provided workspace upon Close.
+// The workspace must belong to the same device as the engine and its address
+// must be 256-byte aligned.
+func WithWorkspace(ws cudamem.Slice[byte]) Option {
+	return func(c *engineConfig) error {
+		if ws.Len() > 0 && uintptr(ws.Ptr())%256 != 0 {
+			return fmt.Errorf("cublasltx: workspace pointer %v not 256-byte aligned", ws.Ptr())
+		}
+		c.customWS = ws
+		c.hasCustomWS = true
+		return nil
+	}
+}
+
+// Engine manages cuBLASLt contexts, matrix layouts, workspace buffers, and execution heuristics.
+type Engine struct {
+	mu             sync.Mutex
+	dev            *cuda.Device
+	handle         cublaslt.Handle
+	workspace      cudamem.Slice[byte]
+	workspaceSize  uint
+	ownedWorkspace bool
+	sharedHandle   bool
+}
+
+// NewEngine initializes a cuBLASLt engine.
+// By default, it allocates a 32MB workspace buffer owned by the engine.
+// Optional functional options can customize workspace size or provide a caller-owned buffer.
+func NewEngine(dev *cuda.Device, opts ...Option) (*Engine, error) {
+	cfg := engineConfig{}
+	for _, opt := range opts {
+		if opt != nil {
+			if err := opt(&cfg); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if cfg.hasCustomWS && cfg.workspaceBytes != nil {
+		return nil, fmt.Errorf("cublasltx: cannot specify both WithWorkspace and WithWorkspaceBytes")
+	}
+
 	if dev == nil {
 		return nil, fmt.Errorf("cublasltx: nil device")
 	}
@@ -39,23 +93,90 @@ func NewEngine(dev *cuda.Device) (*Engine, error) {
 		return nil, fmt.Errorf("cublasltx: create handle: %w", err)
 	}
 
-	// 32MB workspace enables cuBLASLt split-K and high-occupancy tile algorithms
-	wsSize := 32 * 1024 * 1024
-	ws, err := cudamem.Alloc[byte](dev, wsSize)
-	if err != nil {
-		_ = dev.WithContext(func() error { return h.Destroy() })
-		return nil, fmt.Errorf("cublasltx: alloc workspace: %w", err)
+	var ws cudamem.Slice[byte]
+	var wsSize uint
+	ownedWS := false
+
+	if cfg.hasCustomWS {
+		ws = cfg.customWS
+		wsSize = uint(ws.Len())
+	} else {
+		size := 32 * 1024 * 1024
+		if cfg.workspaceBytes != nil {
+			size = *cfg.workspaceBytes
+		}
+		if size > 0 {
+			var allocErr error
+			ws, allocErr = cudamem.Alloc[byte](dev, size)
+			if allocErr != nil {
+				_ = dev.WithContext(func() error { return h.Destroy() })
+				return nil, fmt.Errorf("cublasltx: alloc workspace: %w", allocErr)
+			}
+			wsSize = uint(size)
+			ownedWS = true
+		}
 	}
 
 	return &Engine{
-		dev:           dev,
-		handle:        h,
-		workspace:     ws,
-		workspaceSize: uint(wsSize),
+		dev:            dev,
+		handle:         h,
+		workspace:      ws,
+		workspaceSize:  wsSize,
+		ownedWorkspace: ownedWS,
 	}, nil
 }
 
-// Close destroys the underlying cuBLASLt handle and frees workspace memory.
+// Workspace returns the default workspace buffer configured for the engine.
+func (e *Engine) Workspace() cudamem.Slice[byte] {
+	if e == nil {
+		return cudamem.Slice[byte]{}
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.workspace
+}
+
+// WorkspaceSize returns the size in bytes of the engine's default workspace.
+func (e *Engine) WorkspaceSize() uint {
+	if e == nil {
+		return 0
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.workspaceSize
+}
+
+// WithWorkspace returns a child Engine sharing the cuBLASLt handle and device
+// of e, but using ws as its workspace. This enables per-stream or per-operation
+// execution without workspace collision hazards across concurrent streams.
+//
+// The returned child Engine does not own ws and does not own the cuBLASLt handle.
+// Closing the child Engine does not destroy the parent handle or free ws.
+// The parent Engine must remain open while the child Engine is in use.
+func (e *Engine) WithWorkspace(ws cudamem.Slice[byte]) (*Engine, error) {
+	if e == nil {
+		return nil, errors.New("cublasltx: nil engine")
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.handle == 0 {
+		return nil, errors.New("cublasltx: closed engine")
+	}
+	if ws.Len() > 0 && uintptr(ws.Ptr())%256 != 0 {
+		return nil, fmt.Errorf("cublasltx: workspace pointer %v not 256-byte aligned", ws.Ptr())
+	}
+	return &Engine{
+		dev:            e.dev,
+		handle:         e.handle,
+		workspace:      ws,
+		workspaceSize:  uint(ws.Len()),
+		ownedWorkspace: false,
+		sharedHandle:   true,
+	}, nil
+}
+
+// Close destroys the underlying cuBLASLt handle (unless shared) and frees
+// any workspace memory owned by the engine.
 func (e *Engine) Close() error {
 	if e == nil {
 		return nil
@@ -63,7 +184,7 @@ func (e *Engine) Close() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	var errs []error
-	if e.handle != 0 {
+	if e.handle != 0 && !e.sharedHandle {
 		err := e.dev.WithContext(func() error {
 			return e.handle.Destroy()
 		})
@@ -72,28 +193,34 @@ func (e *Engine) Close() error {
 		} else {
 			e.handle = 0
 		}
+	} else if e.sharedHandle {
+		e.handle = 0
 	}
-	if e.workspace.Len() > 0 {
+	if e.ownedWorkspace && e.workspace.Len() > 0 {
 		if err := e.workspace.Free(); err != nil {
 			errs = append(errs, fmt.Errorf("cublasltx: free workspace: %w", err))
 		} else {
 			e.workspace = cudamem.Slice[byte]{}
 		}
+	} else {
+		e.workspace = cudamem.Slice[byte]{}
 	}
 	return errors.Join(errs...)
 }
 
 // MatMulConfig specifies options for raw matrix multiplication.
 type MatMulConfig struct {
-	ComputeType cublaslt.ComputeType // e.g. Compute32F, Compute32FFast16F, Compute16F
-	ScaleType   cublaslt.DataType    // e.g. R32F, R16F
-	AType       cublaslt.DataType    // e.g. R32F, R16F, R16BF
-	BType       cublaslt.DataType    // e.g. R32F, R16F, R16BF
-	DType       cublaslt.DataType    // e.g. R32F, R16F, R16BF
-	TransA      bool                 // transpose op(A) = A^T
-	TransB      bool                 // transpose op(B) = B^T
-	Alpha       float32              // scalar multiplier for A*B (defaults to 1.0 if Alpha and Beta are 0)
-	Beta        float32              // scalar multiplier for D (defaults to 0.0)
+	ComputeType   cublaslt.ComputeType // e.g. Compute32F, Compute32FFast16F, Compute16F
+	ScaleType     cublaslt.DataType    // e.g. R32F, R16F
+	AType         cublaslt.DataType    // e.g. R32F, R16F, R16BF
+	BType         cublaslt.DataType    // e.g. R32F, R16F, R16BF
+	DType         cublaslt.DataType    // e.g. R32F, R16F, R16BF
+	TransA        bool                 // transpose op(A) = A^T
+	TransB        bool                 // transpose op(B) = B^T
+	Alpha         float32              // scalar multiplier for A*B (defaults to 1.0 if Alpha and Beta are 0)
+	Beta          float32              // scalar multiplier for D (defaults to 0.0)
+	Workspace     cudamem.Slice[byte]  // Optional per-operation workspace override.
+	WorkspaceSize uint                 // Optional workspace size limit in bytes (defaults to Workspace.Len() if Workspace is set).
 }
 
 func (e *Engine) execute(
@@ -103,6 +230,20 @@ func (e *Engine) execute(
 	bPtr driver.DevicePtr, bRows, bCols, ldb int,
 	dPtr driver.DevicePtr, dRows, dCols, ldd int,
 ) error {
+	wsPtr := uintptr(e.workspace.Ptr())
+	wsSize := e.workspaceSize
+	if cfg.Workspace.Len() > 0 || cfg.WorkspaceSize > 0 {
+		wsPtr = uintptr(cfg.Workspace.Ptr())
+		if cfg.WorkspaceSize > 0 {
+			wsSize = cfg.WorkspaceSize
+		} else {
+			wsSize = uint(cfg.Workspace.Len())
+		}
+	}
+	if wsPtr != 0 && wsPtr%256 != 0 {
+		return fmt.Errorf("cublasltx: workspace pointer 0x%x not 256-byte aligned", wsPtr)
+	}
+
 	if cfg.ComputeType == 0 {
 		cfg.ComputeType = cublaslt.Compute32F
 	}
@@ -172,7 +313,7 @@ func (e *Engine) execute(
 		pref, err := cublaslt.NewMatmulPreference()
 		if err == nil {
 			defer pref.Destroy()
-			wsBytes := uint64(e.workspaceSize)
+			wsBytes := uint64(wsSize)
 			pin.Pin(&wsBytes)
 			_ = pref.SetAttribute(cublaslt.MatmulPrefMaxWorkspaceBytes, uintptr(unsafe.Pointer(&wsBytes)), uint(unsafe.Sizeof(wsBytes)))
 		}
@@ -216,8 +357,8 @@ func (e *Engine) execute(
 				uintptr(dPtr),
 				layoutD,
 				algoPtr,
-				uintptr(e.workspace.Ptr()),
-				e.workspaceSize,
+				wsPtr,
+				wsSize,
 				streamHandle,
 			)
 		})
