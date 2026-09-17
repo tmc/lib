@@ -2142,7 +2142,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			sort.Slice(brCands, func(i, j int) bool { return brCands[i].stalls > brCands[j].stalls })
 			brLimit := len(brCands)
 			if brLimit > 3 {
-				brLimit = 3
+				brLimit = 0
 			}
 			for _, c := range brCands[:brLimit] {
 				locationPC := c.pc
@@ -2164,6 +2164,32 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					Finding:                  fmt.Sprintf("Warp branch divergence: stall_branch is %.1f%% of stalls in kernel %q (%d stall cycles), %s", c.ratio*100, kName, c.stalls, attribution),
 					ActionableRecommendation: "Warp execution path divergence is attributed to the control-flow branch, not the sampled successor instruction. Replace the branch with branchless predicated selects (e.g. SELP / fmaxf) only when the condition is semantically safe, or make the branch condition uniform across each warp.",
 					NextMeasurement:          "sm__branch_targets_threads_divergent.sum or A/B wall-clock timing",
+				})
+			}
+			if len(brCands) > 3 {
+				var total int64
+				var minPC, maxPC uint64
+				var maxRatio float64
+				for i, c := range brCands {
+					total += c.stalls
+					if i == 0 || c.pc < minPC {
+						minPC = c.pc
+					}
+					if c.pc > maxPC {
+						maxPC = c.pc
+					}
+					if c.ratio > maxRatio {
+						maxRatio = c.ratio
+					}
+				}
+				report.Items = append(report.Items, AdviceItem{
+					Severity:      SeverityWarning,
+					Category:      CategoryArchitectureCompute,
+					EvidenceLevel: EvidenceSuspected,
+					Location:      Location{Kernel: kName, PC: minPC},
+					Finding:       fmt.Sprintf("Loop/control-flow region PC 0x%04x-0x%04x: %d sampled successor instructions share reconvergence stalls in kernel %q (up to %.1f%% of stalls, %d total stall cycles)", minPC, maxPC, len(brCands), kName, maxRatio*100, total),
+					ActionableRecommendation: "Treat these repeated successor samples as one control-flow diagnosis: inspect the corresponding branch targets for warp divergence, make predicates uniform where possible, or use branchless selects only when semantically safe.",
+					NextMeasurement:          "sm__branch_targets_threads_divergent.sum and a control-flow A/B wall-clock comparison",
 				})
 			}
 
