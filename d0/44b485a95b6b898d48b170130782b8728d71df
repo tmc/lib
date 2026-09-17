@@ -1,0 +1,6 @@
+commit: d044b485
+date: 2026-09-17T10:34:21Z
+agent: antigravity
+conversation_id: 5a156145-112c-41b6-9d63-784fbe3fbff8
+iterm_session_id:
+qualification: canonical prefill logit 3c190c73110cec7aed9f22916a1c84216eb7338071040846cc1d0bd992456aa5 confirmed bit-exact on DGX GB10; continuation tokens 15342, 201; decode throughput reached 13.36 t/s (97.9% of C oracle parity); ~83k launches eliminated
