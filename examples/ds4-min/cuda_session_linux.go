@@ -86,6 +86,11 @@ type cudaBatchDense struct {
 	expertGate, expertUp, expertDown     cudamem.Slice[float32]
 	d2rGate, d2rUp, d2rDown              cudamem.Slice[byte]
 	d2rLayer                             int
+	denseGate, denseUp, denseDown        cudamem.Slice[byte]
+	denseAttnOutB, denseAttnOutA         cudamem.Slice[byte]
+	denseQ81Act                          cudamem.Slice[byte]
+	denseSharedMid                       cudamem.Slice[float32]
+	denseD2RLayer                        int
 	q81MMQ                               cudamem.Slice[byte]
 	downQ8                               cudamem.Slice[byte]
 	d2rWork                              cudamem.Slice[int32]
@@ -491,6 +496,13 @@ func (r *cudaRuntime) attentionHMMAEnabled() bool {
 	return r.enableAttentionHMMA || os.Getenv("DS4_CUDA_ATTENTION_HMMA") == "1"
 }
 
+func (r *cudaRuntime) denseD2REnabled() bool {
+	if r == nil {
+		return false
+	}
+	return r.enableDenseD2R || os.Getenv("DS4_CUDA_DENSE_D2R") == "1"
+}
+
 // evalBatch spans the chunk rather than each token in it: the batched
 // front end evaluates all of them together, so a per-token interval here
 // would report the chunk's duration once per token.
@@ -665,6 +677,22 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 			return nil, err
 		}
 	}
+	b.dense.denseD2RLayer = -1
+	if r.denseD2REnabled() {
+		gateBytes := denseQ8AlignedBytes(2048, 4096)
+		downBytes := denseQ8AlignedBytes(4096, 2048)
+		bBytes := denseQ8AlignedBytes(4096, 8192)
+		aBytes := 8 * denseQ8AlignedBytes(1024, 4096)
+		actBytes := ((8192/128)*width + 256) * 144
+
+		b.dense.denseGate = cudamem.AllocIn[byte](b.denseArena, "batch-dense-repack-gate", gateBytes)
+		b.dense.denseUp = cudamem.AllocIn[byte](b.denseArena, "batch-dense-repack-up", gateBytes)
+		b.dense.denseDown = cudamem.AllocIn[byte](b.denseArena, "batch-dense-repack-down", downBytes)
+		b.dense.denseAttnOutB = cudamem.AllocIn[byte](b.denseArena, "batch-dense-repack-attnout-b", bBytes)
+		b.dense.denseAttnOutA = cudamem.AllocIn[byte](b.denseArena, "batch-dense-repack-attnout-a", aBytes)
+		b.dense.denseQ81Act = cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-act", actBytes)
+		b.dense.denseSharedMid = cudamem.AllocIn[float32](b.denseArena, "batch-dense-shared-mid", width*2048)
+	}
 	if err := errors.Join(b.arena.Err(), b.denseArena.Err()); err != nil {
 		return nil, fmt.Errorf("cuda runtime: allocate batch rows: %w", err)
 	}
@@ -804,6 +832,12 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		}
 	}
 	n := len(rows)
+	if r.denseD2REnabled() && d.denseD2RLayer != index {
+		if err := r.repackLayerDenseQ8(l, d); err != nil {
+			return err
+		}
+		d.denseD2RLayer = index
+	}
 	if b := r.activeHCBatch(); b != nil {
 		if err := b.pre(d.hc[0].Slice(0, n*cudaHCWidth), l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, d.attnPre.Slice(0, n*2*cudaWidth), n); err != nil {
 			return err
@@ -1048,6 +1082,16 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	// dense front end above already gets for attnQA, attnQB and attnKV.
 	if err := chunkRows(n, cudaPrefillQ81Chunk, func(lo, hi int) error {
 		m := hi - lo
+		if r.denseD2REnabled() && d.denseGate.Len() > 0 {
+			ffnNorm := d.ffnPre.Slice(lo*2*cudaWidth+cudaWidth, hi*2*cudaWidth)
+			if err := r.encodeQuantMMQ(ffnNorm, d.denseQ81Act, 2*cudaWidth, cudaWidth, m); err != nil {
+				return fmt.Errorf("batch shared gate/up quant: %w", err)
+			}
+			if err := r.encodeDenseQ8D2R(d.denseGate, d.denseQ81Act, d.sharedGate.Slice(lo*cudaSharedFFNWidth, hi*cudaSharedFFNWidth), 2048, m, 4096, 2048); err != nil {
+				return fmt.Errorf("batch shared gate d2r: %w", err)
+			}
+			return r.encodeDenseQ8D2R(d.denseUp, d.denseQ81Act, d.sharedUp.Slice(lo*cudaSharedFFNWidth, hi*cudaSharedFFNWidth), 2048, m, 4096, 2048)
+		}
 		q81FFN := d.q81FFN.Slice(lo*cudaWidth/32*36, hi*cudaWidth/32*36)
 		if err := r.encodeQ80MatvecQ81Batch(l.sharedGate, q81FFN, d.sharedGate.Slice(lo*cudaSharedFFNWidth, hi*cudaSharedFFNWidth), m); err != nil {
 			return err
@@ -1214,6 +1258,25 @@ func (r *cudaRuntime) evalBatchAttnOut(rows []cudaTokenState, index, position in
 	lowWidth := rows[0].attnLow.Len()
 	return chunkRows(len(rows), cudaPrefillAttnOutChunk, func(lo, hi int) error {
 		m := hi - lo
+		if r.denseD2REnabled() && d.denseAttnOutB.Len() > 0 {
+			low := d.attnLow.Slice(lo*lowWidth, hi*lowWidth)
+			const blockAlignedBytes = 4456448 // denseQ8AlignedBytes(1024, 4096)
+			for g := range 8 {
+				headsIn := d.attention.Slice(lo*cudaAttentionStride+cudaAttentionScratch+g*4096, d.attention.Len())
+				if err := r.encodeQuantMMQ(headsIn, d.denseQ81Act, cudaAttentionStride, 4096, m); err != nil {
+					return fmt.Errorf("batch attnOutA block %d quant: %w", g, err)
+				}
+				wG := d.denseAttnOutA.Slice(g*blockAlignedBytes, (g+1)*blockAlignedBytes)
+				outG := low.Slice(g*1024, low.Len())
+				if err := r.encodeDenseQ8D2R(wG, d.denseQ81Act, outG, 1024, m, 4096, 8192); err != nil {
+					return fmt.Errorf("batch attnOutA block %d d2r: %w", g, err)
+				}
+			}
+			if err := r.encodeQuantMMQ(low, d.denseQ81Act, 8192, 8192, m); err != nil {
+				return fmt.Errorf("batch attnOutB quant: %w", err)
+			}
+			return r.encodeDenseQ8D2R(d.denseAttnOutB, d.denseQ81Act, d.attnOut.Slice(lo*cudaWidth, hi*cudaWidth), 4096, m, 8192, 4096)
+		}
 		// Skip each row's scratch without copying the head outputs. The
 		// quantizer retains the same independent 32-element blocks.
 		heads := d.attention.Slice(lo*cudaAttentionStride+cudaAttentionScratch, hi*cudaAttentionStride)
@@ -1249,9 +1312,19 @@ func (r *cudaRuntime) evalBatchSharedDown(rows []cudaTokenState, index, position
 	}
 	return chunkRows(len(rows), cudaPrefillQ80Chunk, func(lo, hi int) error {
 		m := hi - lo
+		from, to := lo*cudaSharedFFNWidth, hi*cudaSharedFFNWidth
+		if r.denseD2REnabled() && d.denseDown.Len() > 0 {
+			mid := d.denseSharedMid.Slice(0, to-from)
+			if err := r.encodeSwiGLU(d.sharedGate.Slice(from, to), d.sharedUp.Slice(from, to), mid, 1.0); err != nil {
+				return fmt.Errorf("batch shared down swiglu: %w", err)
+			}
+			if err := r.encodeQuantMMQ(mid, d.denseQ81Act, cudaSharedFFNWidth, cudaSharedFFNWidth, m); err != nil {
+				return fmt.Errorf("batch shared down quant: %w", err)
+			}
+			return r.encodeDenseQ8D2R(d.denseDown, d.denseQ81Act, d.sharedOut.Slice(lo*cudaWidth, hi*cudaWidth), 4096, m, 2048, 4096)
+		}
 		// The SwiGLU quantization is elementwise over the chunk's rows, which
 		// are adjacent, so it spans the whole chunk rather than one row.
-		from, to := lo*cudaSharedFFNWidth, hi*cudaSharedFFNWidth
 		q := d.q80Shared.Slice(from/32*36, to/32*36)
 		if err := r.encodeSwiGLUQuantQ80(d.sharedGate.Slice(from, to), d.sharedUp.Slice(from, to), q, to-from, 1); err != nil {
 			return err

@@ -54,6 +54,7 @@ var cudaMathFiles = [...]string{
 	"cuda_experts_gather.cu",
 	"cuda_moe_d2r.cu",
 	"cuda_attention_hmma.cu",
+	"cuda_dense_d2r.cu",
 }
 
 func cudaMathSourceFromFS() string {
@@ -195,6 +196,7 @@ type cudaFoundation struct {
 	repackIQ2Fn                     driver.Function
 	repackQ2KFn                     driver.Function
 	enableD2RExperts                bool
+	enableDenseD2R                  bool
 	compressorPoolFn                driver.Function
 	compressorAttentionFn           driver.Function
 	compressorIndexerFn             driver.Function
@@ -220,6 +222,8 @@ type cudaFoundation struct {
 	tokentileRawMirrorFn            driver.Function
 	tokentileCompMirrorFn           driver.Function
 	tokentileHMMAFn                 driver.Function
+	repackQ80Fn                     driver.Function
+	denseQ8D2RFn                    driver.Function
 
 	phaseMark func(name string, position, layer int) error
 }
@@ -1126,6 +1130,8 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_attention_tokentile_raw_mirror", &r.tokentileRawMirrorFn},
 		{"ds4_attention_tokentile_comp_mirror", &r.tokentileCompMirrorFn},
 		{"ds4_attention_tokentile_hmma", &r.tokentileHMMAFn},
+		{"ds4_repack_q8_0_aligned", &r.repackQ80Fn},
+		{"ds4_dense_q8_d2r", &r.denseQ8D2RFn},
 	}
 }
 
@@ -1184,6 +1190,11 @@ func (r *cudaFoundation) loadMathKernels() error {
 	if r.tokentileHMMAFn != 0 {
 		if err := r.tokentileHMMAFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 88576); err != nil {
 			return fmt.Errorf("cuda: set tokentile hmma shmem: %w", err)
+		}
+	}
+	if r.denseQ8D2RFn != 0 {
+		if err := r.denseQ8D2RFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 69120); err != nil {
+			return fmt.Errorf("cuda: set dense q8 d2r shmem: %w", err)
 		}
 	}
 	r.matrixMod = mod
