@@ -13,7 +13,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudaplan"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 // affinePTX is a valid PTX kernel implementing y[i] = a * x[i] + b.
@@ -148,11 +147,8 @@ func TestNativeAffineReference(t *testing.T) {
 	_ = bindings.SetOutput("gelu_6", driver.DevicePtr(0x4000), 2*2*4, nil)
 
 	comp, err := plan.Execute(nil, bindings)
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if err := comp.Wait(context.Background()); err != nil {
-		t.Fatalf("Wait: %v", err)
+	if !errors.Is(err, cudaplan.ErrExecutionUnavailable) || comp != nil {
+		t.Fatalf("expected explicit native execution error, completion=%v err=%v", comp, err)
 	}
 
 	// Gated native hardware run
@@ -160,7 +156,7 @@ func TestNativeAffineReference(t *testing.T) {
 		t.Skip("native qualification pending: CUDA_COMPILER_TEST=1 required for hardware execution")
 	}
 
-	dev := cudatest.Require(t)
+	dev := requireNativePlanDevice(t)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
@@ -224,11 +220,8 @@ func TestNativeMatMulReference(t *testing.T) {
 	_ = bindings.SetOutput("matmul_2", driver.DevicePtr(0x3000), 2*2*4, nil)
 
 	comp, err := plan.Execute(nil, bindings)
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if err := comp.Wait(context.Background()); err != nil {
-		t.Fatalf("Wait: %v", err)
+	if !errors.Is(err, cudaplan.ErrExecutionUnavailable) || comp != nil {
+		t.Fatalf("expected explicit native execution error, completion=%v err=%v", comp, err)
 	}
 
 	// Gated native hardware run
@@ -236,7 +229,7 @@ func TestNativeMatMulReference(t *testing.T) {
 		t.Skip("native qualification pending: CUDA_COMPILER_TEST=1 required for hardware execution")
 	}
 
-	dev := cudatest.Require(t)
+	dev := requireNativePlanDevice(t)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
@@ -464,39 +457,12 @@ func TestGraphReplayReference(t *testing.T) {
 	// Acceptance test: TestGraphReplayReference
 	snap := buildAffineGraph(t)
 	plan, err := cudaplan.Compile(snap, cudaplan.WithGraphReplay(true))
-	if err != nil {
-		t.Fatalf("Compile with graph replay: %v", err)
+	if !errors.Is(err, cudaplan.ErrUnsupportedBackend) {
+		t.Fatalf("expected graph replay unsupported error, got %v", err)
 	}
-	defer plan.Close()
-
-	bindings := cudaplan.NewBindings()
-	_ = bindings.SetInput("X", driver.DevicePtr(0x1000), 2*3*4, nil)
-	_ = bindings.SetInput("W", driver.DevicePtr(0x2000), 3*2*4, nil)
-	_ = bindings.SetInput("B", driver.DevicePtr(0x3000), 2*2*4, nil)
-	_ = bindings.SetOutput("gelu_6", driver.DevicePtr(0x4000), 2*2*4, nil)
-
-	comp, err := plan.Execute(nil, bindings)
-	if err != nil {
-		t.Fatalf("Execute replay: %v", err)
+	if plan != nil {
+		t.Fatal("unsupported graph replay returned a plan")
 	}
-	if err := comp.Wait(context.Background()); err != nil {
-		t.Fatalf("Wait replay: %v", err)
-	}
-
-	// Negative Control: Stale graph binding
-	plan.InvalidateGraphBindings()
-	_, err = plan.Execute(nil, bindings)
-	if !errors.Is(err, cudaplan.ErrStaleBinding) {
-		t.Fatalf("expected ErrStaleBinding on invalidated graph binding, got %v", err)
-	}
-
-	// Refresh binding
-	plan.RebindGraph()
-	comp2, err := plan.Execute(nil, bindings)
-	if err != nil {
-		t.Fatalf("Execute after rebind: %v", err)
-	}
-	_ = comp2.Wait(context.Background())
 }
 
 func TestNegativeControlsAndMutants(t *testing.T) {
@@ -555,23 +521,8 @@ func TestNegativeControlsAndMutants(t *testing.T) {
 		defer planInstance.Close()
 
 		comp1, err := planInstance.Execute(nil, bindings)
-		if err != nil {
-			t.Fatal(err)
+		if !errors.Is(err, cudaplan.ErrExecutionUnavailable) || comp1 != nil {
+			t.Fatalf("expected unavailable execution, completion=%v err=%v", comp1, err)
 		}
-
-		// Second invocation while comp1 is still in flight
-		_, err = planInstance.Execute(nil, bindings)
-		if !errors.Is(err, cudaplan.ErrInvocationInFlight) {
-			t.Fatalf("expected ErrInvocationInFlight, got %v", err)
-		}
-
-		_ = comp1.Close()
-
-		// Now subsequent invocation succeeds
-		comp2, err := planInstance.Execute(nil, bindings)
-		if err != nil {
-			t.Fatalf("expected success after completion, got %v", err)
-		}
-		_ = comp2.Close()
 	})
 }

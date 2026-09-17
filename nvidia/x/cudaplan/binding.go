@@ -3,6 +3,7 @@ package cudaplan
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -66,11 +67,23 @@ func NewBindings() *Bindings {
 
 // SetInput binds a device buffer for an input node.
 func (b *Bindings) SetInput(name string, ptr driver.DevicePtr, bytes int, dev *cuda.Device) error {
+	if b == nil {
+		return errors.New("cudaplan: nil bindings")
+	}
+	if name == "" {
+		return errors.New("cudaplan: empty input name")
+	}
 	if ptr == 0 {
 		return fmt.Errorf("%w: input %q", ErrNilBuffer, name)
 	}
 	if bytes <= 0 {
 		return fmt.Errorf("cudaplan: invalid byte count %d for input %q", bytes, name)
+	}
+	if uint64(ptr) > math.MaxUint64-uint64(bytes) {
+		return errors.New("cudaplan: input address range overflows")
+	}
+	if b.inputs == nil {
+		b.inputs = make(map[string]BufferBinding)
 	}
 	b.inputs[name] = BufferBinding{
 		NodeName:  name,
@@ -83,11 +96,23 @@ func (b *Bindings) SetInput(name string, ptr driver.DevicePtr, bytes int, dev *c
 
 // SetOutput binds a device buffer for an output node.
 func (b *Bindings) SetOutput(name string, ptr driver.DevicePtr, bytes int, dev *cuda.Device) error {
+	if b == nil {
+		return errors.New("cudaplan: nil bindings")
+	}
+	if name == "" {
+		return errors.New("cudaplan: empty output name")
+	}
 	if ptr == 0 {
 		return fmt.Errorf("%w: output %q", ErrNilBuffer, name)
 	}
 	if bytes <= 0 {
 		return fmt.Errorf("cudaplan: invalid byte count %d for output %q", bytes, name)
+	}
+	if uint64(ptr) > math.MaxUint64-uint64(bytes) {
+		return errors.New("cudaplan: output address range overflows")
+	}
+	if b.outputs == nil {
+		b.outputs = make(map[string]BufferBinding)
 	}
 	b.outputs[name] = BufferBinding{
 		NodeName:  name,
@@ -100,12 +125,18 @@ func (b *Bindings) SetOutput(name string, ptr driver.DevicePtr, bytes int, dev *
 
 // SetInputSlice binds a cudamem.Slice as an input.
 func SetInputSlice[T any](b *Bindings, name string, s cudamem.Slice[T], dev *cuda.Device) error {
+	if s.SizeBytes() > uintptr(math.MaxInt) {
+		return errors.New("cudaplan: input byte length overflows int")
+	}
 	bytes := int(s.SizeBytes())
 	return b.SetInput(name, s.Ptr(), bytes, dev)
 }
 
 // SetOutputSlice binds a cudamem.Slice as an output.
 func SetOutputSlice[T any](b *Bindings, name string, s cudamem.Slice[T], dev *cuda.Device) error {
+	if s.SizeBytes() > uintptr(math.MaxInt) {
+		return errors.New("cudaplan: output byte length overflows int")
+	}
 	bytes := int(s.SizeBytes())
 	return b.SetOutput(name, s.Ptr(), bytes, dev)
 }
@@ -113,8 +144,14 @@ func SetOutputSlice[T any](b *Bindings, name string, s cudamem.Slice[T], dev *cu
 // Validate verifies all input and output bindings against the plan's requirements,
 // checking device affinity, size bounds, alignment, and lack of overlapping memory ranges.
 func (b *Bindings) Validate(planDev *cuda.Device, requiredInputs, requiredOutputs map[string]int) error {
+	if b == nil {
+		return errors.New("cudaplan: nil bindings")
+	}
 	// Check inputs
 	for name, reqBytes := range requiredInputs {
+		if reqBytes <= 0 {
+			return fmt.Errorf("cudaplan: invalid required input size for %q", name)
+		}
 		binding, ok := b.inputs[name]
 		if !ok {
 			return fmt.Errorf("%w: input %q", ErrMissingBinding, name)
@@ -122,7 +159,7 @@ func (b *Bindings) Validate(planDev *cuda.Device, requiredInputs, requiredOutput
 		if binding.DevicePtr == 0 {
 			return fmt.Errorf("%w: input %q", ErrNilBuffer, name)
 		}
-		if planDev != nil && binding.Device != nil && binding.Device != planDev {
+		if planDev != nil && binding.Device != planDev {
 			return fmt.Errorf("%w: input %q belongs to different device", ErrCrossDeviceBuffer, name)
 		}
 		if binding.Bytes < reqBytes {
@@ -135,6 +172,9 @@ func (b *Bindings) Validate(planDev *cuda.Device, requiredInputs, requiredOutput
 
 	// Check outputs
 	for name, reqBytes := range requiredOutputs {
+		if reqBytes <= 0 {
+			return fmt.Errorf("cudaplan: invalid required output size for %q", name)
+		}
 		binding, ok := b.outputs[name]
 		if !ok {
 			return fmt.Errorf("%w: output %q", ErrMissingBinding, name)
@@ -142,7 +182,7 @@ func (b *Bindings) Validate(planDev *cuda.Device, requiredInputs, requiredOutput
 		if binding.DevicePtr == 0 {
 			return fmt.Errorf("%w: output %q", ErrNilBuffer, name)
 		}
-		if planDev != nil && binding.Device != nil && binding.Device != planDev {
+		if planDev != nil && binding.Device != planDev {
 			return fmt.Errorf("%w: output %q belongs to different device", ErrCrossDeviceBuffer, name)
 		}
 		if binding.Bytes < reqBytes {
@@ -161,11 +201,24 @@ func (b *Bindings) Validate(planDev *cuda.Device, requiredInputs, requiredOutput
 	}
 	var outSpans []rangeSpan
 	for name, binding := range b.outputs {
+		if binding.Bytes <= 0 || uint64(binding.DevicePtr) > math.MaxUint64-uint64(binding.Bytes) {
+			return errors.New("cudaplan: invalid output address range")
+		}
 		outSpans = append(outSpans, rangeSpan{
 			name:  name,
 			start: uint64(binding.DevicePtr),
 			end:   uint64(binding.DevicePtr) + uint64(binding.Bytes),
 		})
+	}
+	for _, out := range outSpans {
+		for name, in := range b.inputs {
+			if in.Bytes <= 0 || uint64(in.DevicePtr) > math.MaxUint64-uint64(in.Bytes) {
+				return errors.New("cudaplan: invalid input address range")
+			}
+			if rangesOverlap(out.start, out.end, uint64(in.DevicePtr), uint64(in.DevicePtr)+uint64(in.Bytes)) {
+				return fmt.Errorf("%w: output %q overlaps input %q", ErrOverlappingOutputs, out.name, name)
+			}
+		}
 	}
 
 	for i := 0; i < len(outSpans); i++ {
