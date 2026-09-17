@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/ebitengine/purego v0.11.0
-	github.com/google/pprof v0.0.0-20260507013755-92041b743c96
+	github.com/google/pprof v0.0.0-20260906184651-6331bc6350fe
 	golang.org/x/sys v0.47.0
 )
 
