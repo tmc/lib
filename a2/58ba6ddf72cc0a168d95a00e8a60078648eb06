@@ -1,0 +1,1 @@
+date=2026-09-17 agent=Codex model=GPT-5; follows 76a3a82d; default enable pending full DGX gate; rollback DS4_CUDA_HC_BATCH=0; no binary staged
