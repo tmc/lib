@@ -83,9 +83,9 @@ extern "C" __global__ void ds4_moe_group_csr(
 // is bit identical to that kernel's. Tiling changes only which loop is outer
 // and which warp computes an output, never the order of a single sum.
 extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
-    const unsigned char *gate, const unsigned char *up,
-    const int *offsets, const int *pairs, const int *active, const int *count,
-    const ds4_q8_1_activation *x, float *gate_out, float *up_out,
+    const unsigned char * __restrict__ gate, const unsigned char * __restrict__ up,
+    const int * __restrict__ offsets, const int * __restrict__ pairs, const int * __restrict__ active, const int * __restrict__ count,
+    const ds4_q8_1_activation * __restrict__ x, float * __restrict__ gate_out, float * __restrict__ up_out,
     unsigned cols, unsigned rows, unsigned slots, unsigned experts) {
   if (blockIdx.y >= unsigned(*count)) return;
   const unsigned bin = unsigned(active[blockIdx.y]);
@@ -170,9 +170,9 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
 // block order and the same shfl_xor reduction, so it is bit identical to the
 // per pair kernel's.
 extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
-    const unsigned char *weights,
-    const int *offsets, const int *pairs, const int *active, const int *count,
-    const ds4_q8_1_activation *x, float *out,
+    const unsigned char * __restrict__ weights,
+    const int * __restrict__ offsets, const int * __restrict__ pairs, const int * __restrict__ active, const int * __restrict__ count,
+    const ds4_q8_1_activation * __restrict__ x, float * __restrict__ out,
     unsigned cols, unsigned rows, unsigned experts) {
   if (blockIdx.y >= unsigned(*count)) return;
   const unsigned bin = unsigned(active[blockIdx.y]);
