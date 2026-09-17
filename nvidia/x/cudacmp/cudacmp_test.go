@@ -2,11 +2,13 @@ package cudacmp
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaroofline"
+	"github.com/tmc/lib/nvidia/x/cudatrial"
 )
 
 func TestNewTrial(t *testing.T) {
@@ -175,4 +177,176 @@ func TestHelperMethods(t *testing.T) {
 	if got := dr.Delta(); got != -5*time.Millisecond {
 		t.Errorf("Delta() = %v, want -5ms", got)
 	}
+}
+
+func TestTrialRun(t *testing.T) {
+	baseCalls := 0
+	candCalls := 0
+
+	baseArm := func(ctx context.Context, phase Phase) (cudatrial.Receipt, error) {
+		baseCalls++
+		r := cudatrial.Receipt{
+			Name:     "baseline",
+			Complete: true,
+			Digest:   "hash_match",
+		}
+		_ = r.RecordTiming(cudatrial.TimingGPUBusy, 100*time.Millisecond)
+		return r, nil
+	}
+
+	candArm := func(ctx context.Context, phase Phase) (cudatrial.Receipt, error) {
+		candCalls++
+		r := cudatrial.Receipt{
+			Name:     "candidate",
+			Complete: true,
+			Digest:   "hash_match",
+		}
+		_ = r.RecordTiming(cudatrial.TimingGPUBusy, 80*time.Millisecond)
+		return r, nil
+	}
+
+	cfg := TrialConfig{
+		InterleavedRuns: 2,
+		WarmupRuns:      1,
+		PrefillTokens:   128,
+		DecodeTokens:    0, // test only prefill
+		TimingKind:      cudatrial.TimingGPUBusy,
+		BaselineArm:     baseArm,
+		CandidateArm:    candArm,
+	}
+
+	trial, err := NewTrial(cfg)
+	if err != nil {
+		t.Fatalf("NewTrial failed: %v", err)
+	}
+
+	res, err := trial.RunTrial(context.Background())
+	if err != nil {
+		t.Fatalf("RunTrial failed: %v", err)
+	}
+
+	// Warmup: 1 run each = 2 warmup receipts
+	if len(res.WarmupReceipts) != 2 {
+		t.Errorf("warmup receipts = %d, want 2", len(res.WarmupReceipts))
+	}
+
+	// Null control: 2 arms * 2 rounds = 4 null receipts
+	if len(res.NullControlReceipts) != 4 {
+		t.Errorf("null control receipts = %d, want 4", len(res.NullControlReceipts))
+	}
+
+	// Trial: 2 arms * 2 rounds = 4 receipts (2 baseline, 2 candidate)
+	if len(res.BaselineReceipts) != 2 {
+		t.Errorf("baseline receipts = %d, want 2", len(res.BaselineReceipts))
+	}
+	if len(res.CandidateReceipts) != 2 {
+		t.Errorf("candidate receipts = %d, want 2", len(res.CandidateReceipts))
+	}
+
+	// Single report for prefill
+	if len(res.Reports) != 1 {
+		t.Fatalf("reports count = %d, want 1", len(res.Reports))
+	}
+
+	rep := res.Reports[0]
+	if rep.Phase != PhasePrefill {
+		t.Errorf("report phase = %v, want %v", rep.Phase, PhasePrefill)
+	}
+	if rep.CDurationNs != int64(100*time.Millisecond) {
+		t.Errorf("CDurationNs = %v, want 100ms", rep.CDurationNs)
+	}
+	if rep.GoDurationNs != int64(80*time.Millisecond) {
+		t.Errorf("GoDurationNs = %v, want 80ms", rep.GoDurationNs)
+	}
+	if rep.DeltaNs != int64(-20*time.Millisecond) {
+		t.Errorf("DeltaNs = %v, want -20ms", rep.DeltaNs)
+	}
+	if rep.Speedup != 1.25 {
+		t.Errorf("Speedup = %v, want 1.25", rep.Speedup)
+	}
+	if !rep.ExceedsDrift {
+		t.Errorf("ExceedsDrift = false, want true (null drift was 0, delta was 20ms)")
+	}
+}
+
+func TestTrialRejections(t *testing.T) {
+	baseArm := func(ctx context.Context, phase Phase) (cudatrial.Receipt, error) {
+		r := cudatrial.Receipt{
+			Name:     "baseline",
+			Complete: true,
+			Digest:   "hash_base",
+		}
+		_ = r.RecordTiming(cudatrial.TimingGPUBusy, 100*time.Millisecond)
+		return r, nil
+	}
+
+	t.Run("reject mismatched digest", func(t *testing.T) {
+		candMismatched := func(ctx context.Context, phase Phase) (cudatrial.Receipt, error) {
+			r := cudatrial.Receipt{
+				Name:     "candidate",
+				Complete: true,
+				Digest:   "hash_different",
+			}
+			_ = r.RecordTiming(cudatrial.TimingGPUBusy, 80*time.Millisecond)
+			return r, nil
+		}
+
+		trial, _ := NewTrial(TrialConfig{
+			InterleavedRuns: 1,
+			PrefillTokens:   10,
+			BaselineArm:     baseArm,
+			CandidateArm:    candMismatched,
+			TimingKind:      cudatrial.TimingGPUBusy,
+		})
+		_, err := trial.Run(context.Background())
+		if err == nil {
+			t.Fatal("expected error on mismatched digest, got nil")
+		}
+		if !strings.Contains(err.Error(), "mismatch") {
+			t.Errorf("error = %q, want substring 'mismatch'", err.Error())
+		}
+	})
+
+	t.Run("reject incomplete candidate arm", func(t *testing.T) {
+		candIncomplete := func(ctx context.Context, phase Phase) (cudatrial.Receipt, error) {
+			return cudatrial.Receipt{
+				Name:     "candidate",
+				Complete: false,
+			}, nil
+		}
+
+		trial, _ := NewTrial(TrialConfig{
+			InterleavedRuns: 1,
+			PrefillTokens:   10,
+			BaselineArm:     baseArm,
+			CandidateArm:    candIncomplete,
+			TimingKind:      cudatrial.TimingGPUBusy,
+		})
+		_, err := trial.Run(context.Background())
+		if err == nil {
+			t.Fatal("expected error on incomplete candidate, got nil")
+		}
+	})
+
+	t.Run("context cancellation halts trial", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		candArm := func(c context.Context, phase Phase) (cudatrial.Receipt, error) {
+			cancel() // cancel context during execution
+			r := cudatrial.Receipt{Name: "candidate", Complete: true, Digest: "hash_base"}
+			_ = r.RecordTiming(cudatrial.TimingGPUBusy, 80*time.Millisecond)
+			return r, nil
+		}
+
+		trial, _ := NewTrial(TrialConfig{
+			InterleavedRuns: 5,
+			PrefillTokens:   10,
+			BaselineArm:     baseArm,
+			CandidateArm:    candArm,
+			TimingKind:      cudatrial.TimingGPUBusy,
+		})
+		_, err := trial.Run(ctx)
+		if err == nil {
+			t.Fatal("expected error on context cancellation, got nil")
+		}
+	})
 }
