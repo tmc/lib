@@ -276,7 +276,9 @@ func (s *Session) RecordSASSMetric(ctx context.Context, kernelName, filename str
 	// total. Normalizing the prefix is what makes the arms match what a
 	// producer actually emits rather than what this file assumed it emits.
 	if m.StallWarps > 0 {
-		switch strings.TrimPrefix(m.StallReason, "stall_") {
+		norm := strings.TrimPrefix(m.StallReason, "smsp__pcsamp_warps_issue_stalled_")
+		norm = strings.TrimPrefix(norm, "stall_")
+		switch norm {
 		// A long scoreboard wait is a wait on load data, counted as memory to
 		// match how cuptipcsampling routes the PC-sampling reason of the same
 		// name; short_scoreboard is a fixed-latency arithmetic or shared-memory

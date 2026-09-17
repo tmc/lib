@@ -23,6 +23,28 @@ const (
 	PhaseDecode  Phase = "decode"
 )
 
+// Unmeasured indicates an unmeasured or unavailable timing dimension.
+// It is returned instead of zero or host wall-clock time.Since fallbacks.
+const Unmeasured int64 = -1
+
+// ErrNaiveSumDoubleCounts indicates an attempt to naively sum non-additive timing channels.
+var ErrNaiveSumDoubleCounts = errors.New("cudacmp: naive sum of host, device, queue, and API durations causes double-counting")
+
+// TimingDecomposition separates host elapsed time, summed kernel duration,
+// GPU interval union, and API call duration into distinct, non-additive fields.
+// Naive additions across these channels are explicitly rejected to prevent double-counting.
+type TimingDecomposition struct {
+	HostElapsedNs      int64 // Host CPU wall time from submission to synchronization (or Unmeasured)
+	SummedKernelNs     int64 // Sum of individual kernel launch durations (or Unmeasured)
+	GPUIntervalUnionNs int64 // Non-overlapping device busy duration across streams (or Unmeasured)
+	APICallNs          int64 // Duration of host driver/runtime API calls (or Unmeasured)
+}
+
+// TotalDuration returns an error to explicitly reject naive addition of overlapping timing channels.
+func (td TimingDecomposition) TotalDuration() (time.Duration, error) {
+	return 0, ErrNaiveSumDoubleCounts
+}
+
 // LatencyDecomposition separates launch overhead from device kernel execution.
 type LatencyDecomposition struct {
 	HostLaunchNs uint64 // Duration of host cuLaunchKernel driver API call
@@ -50,19 +72,37 @@ func (k KernelMetric) Duration() time.Duration {
 // PhaseCensus stores the census partitioned by workload phase.
 type PhaseCensus struct {
 	Phase          Phase
-	SummedKernelNs int64 // Sum of individual kernel launch durations
-	GPUBusyNs      int64 // Duration of the union of GPU execution intervals
+	SummedKernelNs int64 // Sum of individual kernel launch durations (or Unmeasured)
+	GPUBusyNs      int64 // Duration of the union of GPU execution intervals (or Unmeasured)
+	HostElapsedNs  int64 // Duration of host CPU wall time (or Unmeasured)
+	APICallNs      int64 // Duration of driver/runtime API calls (or Unmeasured)
 	Families       map[string]KernelMetric
 	Entries        []cudacensus.Entry
 }
 
+// TimingDecomposition returns the decomposed non-additive timing channels for this phase.
+func (p PhaseCensus) TimingDecomposition() TimingDecomposition {
+	return TimingDecomposition{
+		HostElapsedNs:      p.HostElapsedNs,
+		SummedKernelNs:     p.SummedKernelNs,
+		GPUIntervalUnionNs: p.GPUBusyNs,
+		APICallNs:          p.APICallNs,
+	}
+}
+
 // SummedKernelDuration returns the sum of kernel launch execution durations for this phase.
 func (p PhaseCensus) SummedKernelDuration() time.Duration {
+	if p.SummedKernelNs == Unmeasured {
+		return time.Duration(Unmeasured)
+	}
 	return time.Duration(p.SummedKernelNs)
 }
 
 // GPUBusyDuration returns the duration of the union of GPU execution intervals for this phase.
 func (p PhaseCensus) GPUBusyDuration() time.Duration {
+	if p.GPUBusyNs == Unmeasured {
+		return time.Duration(Unmeasured)
+	}
 	return time.Duration(p.GPUBusyNs)
 }
 
@@ -75,26 +115,24 @@ func (p PhaseCensus) Duration() time.Duration {
 type Availability string
 
 const (
-	// AvailableBoth indicates the family was observed in both C and Go arms.
-	AvailableBoth Availability = "both"
-	// AvailableCOnly indicates the family was observed only in the C baseline.
-	AvailableCOnly Availability = "c_only"
-	// AvailableGoOnly indicates the family was observed only in the Go candidate.
+	AvailableBoth   Availability = "both"
+	AvailableCOnly  Availability = "c_only"
 	AvailableGoOnly Availability = "go_only"
+	AvailableNone   Availability = "none"
 )
 
-// DifferentialReport holds pairwise comparison results across arms and control baselines.
+// DifferentialReport records comparison metrics for one architectural family within a phase.
 type DifferentialReport struct {
 	Phase              Phase
 	Family             string
-	Availability       Availability // Availability status: "both", "c_only", or "go_only"
-	Available          bool         // true if observed in both arms and comparable
-	CObserved          bool         // true if observed in C arm
-	GoObserved         bool         // true if observed in Go arm
-	CDurationNs        int64        // C baseline device duration (if CObserved)
-	GoDurationNs       int64        // Go candidate device duration (if GoObserved)
-	DeltaNs            int64        // Go - C (only computed when Available is true)
-	Speedup            float64      // C / Go (only computed when Available is true)
+	Availability       Availability // Observation status across comparison arms
+	Available          bool         // true only when observed in both arms
+	CObserved          bool         // true if observed in C baseline
+	GoObserved         bool         // true if observed in Go candidate
+	CDurationNs        int64        // C baseline device execution duration (or Unmeasured)
+	GoDurationNs       int64        // Go candidate device execution duration (or Unmeasured)
+	DeltaNs            int64        // Go - C duration in nanoseconds (or Unmeasured)
+	Speedup            float64      // C / Go speedup factor
 	LaunchDeltaNs      int64        // Host launch overhead difference (only computed when Available is true)
 	NullDriftNs        int64        // Noise floor from null control basket
 	ExceedsDrift       bool         // true if |DeltaNs| > NullDriftNs (only computed when Available is true)
@@ -103,18 +141,27 @@ type DifferentialReport struct {
 	RooflineC          *cudaroofline.KernelPoint
 }
 
-// CDuration returns the C baseline device execution duration.
+// CDuration returns the C baseline device execution duration, or Unmeasured if unavailable.
 func (r DifferentialReport) CDuration() time.Duration {
+	if r.CDurationNs == Unmeasured {
+		return time.Duration(Unmeasured)
+	}
 	return time.Duration(r.CDurationNs)
 }
 
-// GoDuration returns the Go candidate device execution duration.
+// GoDuration returns the Go candidate device execution duration, or Unmeasured if unavailable.
 func (r DifferentialReport) GoDuration() time.Duration {
+	if r.GoDurationNs == Unmeasured {
+		return time.Duration(Unmeasured)
+	}
 	return time.Duration(r.GoDurationNs)
 }
 
-// Delta returns the duration difference (Go - C).
+// Delta returns the duration difference (Go - C), or Unmeasured if unavailable.
 func (r DifferentialReport) Delta() time.Duration {
+	if r.DeltaNs == Unmeasured {
+		return time.Duration(Unmeasured)
+	}
 	return time.Duration(r.DeltaNs)
 }
 
@@ -451,19 +498,19 @@ func Render(w io.Writer, reports []DifferentialReport) error {
 		var deltaStr string
 		var speedupStr string
 
-		if r.CObserved {
+		if r.CObserved && r.CDurationNs != Unmeasured {
 			cTimeStr = formatDurationNs(r.CDurationNs)
 		} else {
 			cTimeStr = "n/a"
 		}
 
-		if r.GoObserved {
+		if r.GoObserved && r.GoDurationNs != Unmeasured {
 			goTimeStr = formatDurationNs(r.GoDurationNs)
 		} else {
 			goTimeStr = "n/a"
 		}
 
-		if !r.Available {
+		if !r.Available || r.DeltaNs == Unmeasured {
 			deltaStr = "n/a"
 			speedupStr = "n/a"
 			if r.Availability == AvailableCOnly {
@@ -502,6 +549,9 @@ func Render(w io.Writer, reports []DifferentialReport) error {
 }
 
 func formatDurationNs(ns int64) string {
+	if ns == Unmeasured {
+		return "unmeasured"
+	}
 	if ns < 0 {
 		return "-" + formatDurationNs(-ns)
 	}
@@ -519,6 +569,9 @@ func formatDurationNs(ns int64) string {
 }
 
 func formatDeltaNs(ns int64) string {
+	if ns == Unmeasured {
+		return "unmeasured"
+	}
 	if ns > 0 {
 		return "+" + formatDurationNs(ns)
 	}
