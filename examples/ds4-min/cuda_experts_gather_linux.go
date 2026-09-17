@@ -21,10 +21,10 @@ import (
 var cudaExpertGatherSource string
 
 // cudaMoEIQ2GatherTile mirrors DS4_MOE_IQ2_GATHER_TILE in cuda_experts_gather.cu.
-const cudaMoEIQ2GatherTile = 16
+const cudaMoEIQ2GatherTile = 8
 
 // cudaMoEQ2GatherTile mirrors DS4_MOE_Q2_GATHER_TILE in cuda_experts_gather.cu.
-const cudaMoEQ2GatherTile = 8
+const cudaMoEQ2GatherTile = 4
 
 // cudaMoEGatherTile mirrors DS4_MOE_GATHER_TILE in cuda_experts_gather.cu.
 // TestCUDAMoEGatherConstants fails if the two drift apart.

@@ -6,13 +6,13 @@
 // DS4_MOE_IQ2_GATHER_TILE is the number of (token, slot) pairs one warp keeps in
 // flight against a single expert weight row for IQ2_XXS gate and up projections.
 #ifndef DS4_MOE_IQ2_GATHER_TILE
-#define DS4_MOE_IQ2_GATHER_TILE 16
+#define DS4_MOE_IQ2_GATHER_TILE 8
 #endif
 
 // DS4_MOE_Q2_GATHER_TILE is the number of (token, slot) pairs one warp keeps in
 // flight against a single expert weight row for Q2_K down projections.
 #ifndef DS4_MOE_Q2_GATHER_TILE
-#define DS4_MOE_Q2_GATHER_TILE 8
+#define DS4_MOE_Q2_GATHER_TILE 4
 #endif
 
 #ifndef DS4_MOE_GATHER_TILE

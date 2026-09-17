@@ -87,6 +87,7 @@ var oracleGates = []oracleGate{
 	{"DS4_CUDA_PREFILL_TOKENS", "retained 2048-token JSON corpus for the gather comparison"},
 	{"DS4_CUDA_PREFILL_GATHER_RECEIPT", "optional output path for successful gather comparison snapshots"},
 	{"DS4_CUDA_HC_MATH_DIAGNOSTIC", "the CUDA HC mathematical diagnostic"},
+	{"DS4_CUDA_HC_BATCH", "batched HC pre and post operations across tokens"},
 	{"DS4_DISABLE_CUDA_GRAPH", "disabling CUDA graph capture and replay in decode"},
 
 	{"DS4_BENCH_CONTEXT", "how much context the Metal workload benchmarks allocate"},
