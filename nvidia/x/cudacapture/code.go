@@ -37,9 +37,16 @@ type Kernel struct {
 
 // Instruction represents a single decoded hardware SASS instruction within a Kernel.
 type Instruction struct {
-	Offset     uint64 // Offset within the kernel's .text section.
-	Text       string
-	SASSLine   int
+	Offset   uint64 // Offset within the kernel's .text section.
+	Text     string
+	SASSLine int
+
+	// SourceFile is the file the disassembler attributed this instruction to,
+	// which is not always the capture's main source: an instruction inlined
+	// from a header is attributed to that header. It is empty exactly when
+	// SourceLine is 0. Readers that assume one file must test it; dropping a
+	// header-originated line renders a measured location as no location.
+	SourceFile string
 	SourceLine int
 	PTXLine    int
 	InlinedAt  []cudaptx.Location
@@ -112,26 +119,33 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 	}
 
 	lineNumbers := make(map[string]int)
-	cuLines := make(map[int]int)
-	cuLine := 0
+	// cuLines carries the location a "//## File" comment establishes for every
+	// SASS line until the next one, which is nvdisasm's own convention. The
+	// file travels with the line: an instruction inlined from a header is
+	// attributed to that header, and reducing it to a bare line number in the
+	// main source would move it to an unrelated statement.
+	type cuLoc struct {
+		file string
+		line int
+	}
+	cuLines := make(map[int]cuLoc)
+	var cur cuLoc
 	currentKernel := ""
 	sourceBase := filepath.Base(sourceFilename)
 
 	for i, line := range strings.Split(sass, "\n") {
 		if m := textSection.FindStringSubmatch(line); m != nil {
-			currentKernel, cuLine = m[1], 0
+			currentKernel, cur = m[1], cuLoc{}
 		}
 		if m := sourceLocation.FindStringSubmatch(line); m != nil {
 			if m[1] == ".nv_debug_ptx_txt" {
 				continue
 			}
-			cuLine = 0
-			if filepath.Base(m[1]) == sourceBase {
-				cuLine, _ = strconv.Atoi(m[2])
-			}
+			n, _ := strconv.Atoi(m[2])
+			cur = cuLoc{file: filepath.Base(m[1]), line: n}
 		}
 		lineNumbers[currentKernel+"\x00"+line] = i + 1
-		cuLines[i+1] = cuLine
+		cuLines[i+1] = cur
 	}
 
 	if err := verifyLineBinding(p, d, sourceBase); err != nil {
@@ -148,26 +162,24 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 		if section.Size == 0 || section.Offset > uint64(len(cubin)) || section.Size > uint64(len(cubin))-section.Offset {
 			return nil, fmt.Errorf("cudacapture: %s: invalid CUBIN section", fn.Name)
 		}
+		// PTXLine is where the kernel is declared in the PTX text. It used to
+		// be moved to the first instruction whose opcode looked "arithmetic",
+		// which is a line derived from opcode spelling rather than from the
+		// PTX's own structure.
 		k := &Kernel{Name: fn.Name, Offset: section.Offset, Size: section.Size, PTXLine: pk.StartLine}
-		if len(pk.Instructions) > 0 {
-			k.PTXLine = pk.Instructions[0].Line
-			for _, inst := range pk.Instructions {
-				if isArithmeticPTXOpcode(inst.Opcode) {
-					k.PTXLine = inst.Line
-					break
-				}
-			}
-		}
 		srcLine, err := cudalowering.DefinitionLine(source, fn.Name)
 		if err != nil {
 			return nil, fmt.Errorf("cudacapture: %s: %w", fn.Name, err)
 		}
 		k.SourceLine = srcLine
 
-		ptxByLine := make(map[int][]cudaptx.Instruction)
+		// Keyed on (file, line): two files can both have a line 12, and
+		// joining on the number alone fuses them.
+		ptxByLine := make(map[cuLoc][]cudaptx.Instruction)
 		for _, pInst := range pk.Instructions {
 			if pInst.Loc.Line > 0 {
-				ptxByLine[pInst.Loc.Line] = append(ptxByLine[pInst.Loc.Line], pInst)
+				key := cuLoc{file: filepath.Base(pInst.Loc.File), line: pInst.Loc.Line}
+				ptxByLine[key] = append(ptxByLine[key], pInst)
 			}
 		}
 
@@ -182,12 +194,12 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			if line == 0 {
 				return nil, fmt.Errorf("cudacapture: %s: missing SASS source line", fn.Name)
 			}
-			cuLine := inst.SourceLine
-			if inst.SourceFile != "" && filepath.Base(inst.SourceFile) != sourceBase {
-				cuLine = 0
+			loc := cuLoc{line: inst.SourceLine}
+			if inst.SourceFile != "" {
+				loc.file = filepath.Base(inst.SourceFile)
 			}
-			if cuLine == 0 {
-				cuLine = cuLines[line]
+			if loc.line == 0 {
+				loc = cuLines[line]
 			}
 
 			// PTXLine is set only where the PTX instruction is identified.
@@ -209,7 +221,7 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			}
 			if inst.PTXLine > 0 {
 				ptxLine = inst.PTXLine
-			} else if candidates := ptxByLine[cuLine]; len(candidates) == 1 {
+			} else if candidates := ptxByLine[loc]; len(candidates) == 1 {
 				ptxLine = candidates[0].Line
 				if len(inlinedAt) == 0 {
 					inlinedAt = candidates[0].InlinedAt
@@ -221,7 +233,8 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 				Offset:     inst.Address,
 				Text:       text,
 				SASSLine:   line,
-				SourceLine: cuLine,
+				SourceFile: loc.file,
+				SourceLine: loc.line,
 				PTXLine:    ptxLine,
 				InlinedAt:  inlinedAt,
 			})
@@ -298,40 +311,6 @@ func (k *Kernel) Instruction(offset uint64) *Instruction {
 	return nil
 }
 
-func isArithmeticPTXOpcode(op string) bool {
-	lower := strings.ToLower(op)
-	for _, prefix := range []string{
-		"add", "sub", "mul", "fma", "mad", "dp4a", "shfl", "rsqrt", "div", "cvt", "ld", "st",
-	} {
-		if strings.HasPrefix(lower, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
-// verifyLineBinding reports whether the PTX and the SASS can have come from one
-// compilation of the file named by sourceBase.
-//
-// Nothing else in this package binds the two tiers: they are matched by
-// filename, so a PTX and a SASS produced by separate compilations of different
-// files that happen to share a name fuse into a plausible table with no signal.
-// The line tables are the evidence at hand. SASS line info is derived from the
-// same debug information the PTX .loc directives were written from, so every
-// source line the SASS claims must also be claimed somewhere in the PTX; a line
-// the SASS claims and the PTX never does cannot have come from this PTX.
-//
-// Measured on the GB10 host with CUDA 13.0 and sm_121: ten matched pairs --
-// the qualification fixture, a constant mutation of it, a two-kernel module, a
-// module of templates, unrolled loops and a __forceinline__ helper, and the
-// fixture at -O0 through -O3 -- each report zero unclaimed lines. Crossing two
-// compilations of one filename whose line numbers differ reports 8, 8 and 13.
-//
-// The check is blind by construction to a fusion that preserves line numbers:
-// crossing the fixture with a mutation that changed only a constant reports
-// zero, because the two line tables really are identical. Closing that case
-// needs a content digest recorded at compile time, which no producer here
-// writes yet.
 func verifyLineBinding(p *cudaptx.Module, d *cudasass.Disassembly, sourceBase string) error {
 	claimed := make(map[int]bool)
 	for _, k := range p.Kernels {
