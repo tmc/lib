@@ -1,0 +1,6 @@
+commit: 04b78dc549fa02204e399c8adccc30ded47ebda0
+date: 2026-09-17T04:54:49Z
+agent: antigravity
+subagent_id: b4f0fa37-3f4d-4e14-9d61-786c22f27faf
+lane: 12-continuous-batching-and-kv-state
+status: host-verified; scheduler budgeting, live continuation, exact suffix tokenization passed
