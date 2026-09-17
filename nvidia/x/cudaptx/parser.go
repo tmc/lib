@@ -449,14 +449,23 @@ func parseLocDirective(stmt string) (Location, []Location) {
 	rest := directiveArg(stmt, directive)
 	parts := strings.Split(rest, ",")
 
-	loc := parseLocTriple(strings.Fields(parts[0]))
+	loc, ok := parseLocTriple(strings.Fields(parts[0]))
+	if !ok {
+		// A location that does not parse is unknown, not a location on line 0
+		// of a real file: reporting the latter gives a consumer a source
+		// position nothing produced.
+		return Location{}, nil
+	}
 	loc.Intermediate = intermediate
 	var inlinedAt []Location
 	for _, p := range parts[1:] {
 		p = strings.TrimSpace(p)
 		switch {
 		case strings.HasPrefix(p, "inlined_at"):
-			inlinedLoc := parseLocTriple(strings.Fields(strings.TrimPrefix(p, "inlined_at")))
+			inlinedLoc, ok := parseLocTriple(strings.Fields(strings.TrimPrefix(p, "inlined_at")))
+			if !ok {
+				continue
+			}
 			inlinedLoc.Intermediate = intermediate
 			inlinedAt = append(inlinedAt, inlinedLoc)
 		case strings.HasPrefix(p, "function_name"):
@@ -468,18 +477,29 @@ func parseLocDirective(stmt string) (Location, []Location) {
 	return loc, inlinedAt
 }
 
-func parseLocTriple(f []string) Location {
-	var l Location
-	if len(f) > 0 {
-		l.FileIndex, _ = strconv.Atoi(f[0])
+// parseLocTriple parses "file_index line_number column_position". The file
+// index and line number are required; the column is optional, and a column of 0
+// is a value real toolchains write (docs/ptx/11-directives.md:1735), not a
+// failure. ok is false if the required fields are missing or unparsable, and
+// the caller must then report no location rather than a partial one.
+func parseLocTriple(f []string) (Location, bool) {
+	if len(f) < 2 {
+		return Location{}, false
 	}
-	if len(f) > 1 {
-		l.Line, _ = strconv.Atoi(f[1])
+	var l Location
+	var err error
+	if l.FileIndex, err = strconv.Atoi(f[0]); err != nil || l.FileIndex <= 0 {
+		return Location{}, false
+	}
+	if l.Line, err = strconv.Atoi(f[1]); err != nil || l.Line < 0 {
+		return Location{}, false
 	}
 	if len(f) > 2 {
-		l.Column, _ = strconv.Atoi(f[2])
+		if l.Column, err = strconv.Atoi(f[2]); err != nil {
+			return Location{}, false
+		}
 	}
-	return l
+	return l, true
 }
 
 func parseTuningDirective(stmt string, t *Tuning) {
