@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
@@ -152,15 +153,11 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 				}
 			}
 		}
-		for i, line := range strings.Split(source, "\n") {
-			if strings.Contains(line, "void "+fn.Name+"(") {
-				k.SourceLine = i + 1
-				break
-			}
+		srcLine, err := cudalowering.DefinitionLine(source, fn.Name)
+		if err != nil {
+			return nil, fmt.Errorf("cudacapture: %s: %w", fn.Name, err)
 		}
-		if k.SourceLine == 0 {
-			return nil, fmt.Errorf("cudacapture: %s: missing CUDA definition", fn.Name)
-		}
+		k.SourceLine = srcLine
 
 		ptxByLine := make(map[int][]cudaptx.Instruction)
 		for _, pInst := range pk.Instructions {
@@ -188,7 +185,16 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 				cuLine = cuLines[line]
 			}
 
-			ptxLine := k.PTXLine
+			// PTXLine is set only where the PTX instruction is identified.
+			// The disassembler's own PTX line is direct evidence; failing
+			// that, a source line that exactly one PTX instruction claims
+			// identifies it too, because both sides name the same line of the
+			// same file. Anything beyond that -- picking among several
+			// candidates by opcode text, or walking back to the last "ret" --
+			// is a guess, and a guess here is indistinguishable in the output
+			// from a measurement. Zero means unknown, which every consumer
+			// already tests for.
+			var ptxLine int
 			var inlinedAt []cudaptx.Location
 			if inst.InlinedLine > 0 {
 				inlinedAt = []cudaptx.Location{{
@@ -198,27 +204,10 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			}
 			if inst.PTXLine > 0 {
 				ptxLine = inst.PTXLine
-			} else if candidates := ptxByLine[cuLine]; len(candidates) > 0 {
-				matched := candidates[0]
-				for _, c := range candidates {
-					if matchOpcodeAffinity(inst.Opcode, c.Mnemonic) {
-						matched = c
-						break
-					}
-				}
-				ptxLine = matched.Line
+			} else if candidates := ptxByLine[cuLine]; len(candidates) == 1 {
+				ptxLine = candidates[0].Line
 				if len(inlinedAt) == 0 {
-					inlinedAt = matched.InlinedAt
-				}
-			} else if strings.HasPrefix(strings.ToUpper(inst.Opcode), "RET") || strings.HasPrefix(strings.ToUpper(inst.Opcode), "EXIT") {
-				for j := len(pk.Instructions) - 1; j >= 0; j-- {
-					if pk.Instructions[j].Mnemonic == "ret" || pk.Instructions[j].Mnemonic == "exit" {
-						ptxLine = pk.Instructions[j].Line
-						if len(inlinedAt) == 0 {
-							inlinedAt = pk.Instructions[j].InlinedAt
-						}
-						break
-					}
+					inlinedAt = candidates[0].InlinedAt
 				}
 			}
 
@@ -302,37 +291,6 @@ func (k *Kernel) Instruction(offset uint64) *Instruction {
 		return &k.Instructions[idx]
 	}
 	return nil
-}
-
-func matchOpcodeAffinity(sassOp, ptxMnemonic string) bool {
-	s := strings.ToUpper(sassOp)
-	p := strings.ToLower(ptxMnemonic)
-	switch {
-	case strings.HasPrefix(s, "LD") && p == "ld":
-		return true
-	case strings.HasPrefix(s, "ST") && p == "st":
-		return true
-	case (strings.Contains(s, "FMA") || strings.Contains(s, "MAD") || strings.Contains(s, "MUL")) && (p == "fma" || p == "mad" || p == "mul"):
-		return true
-	case (strings.Contains(s, "ADD") || strings.Contains(s, "SUB")) && (p == "add" || p == "sub"):
-		return true
-	case strings.Contains(s, "DP4A") && p == "dp4a":
-		return true
-	case strings.Contains(s, "SHFL") && p == "shfl":
-		return true
-	case strings.Contains(s, "BRA") && p == "bra":
-		return true
-	case (strings.Contains(s, "RET") || strings.Contains(s, "EXIT")) && (p == "ret" || p == "exit"):
-		return true
-	case strings.Contains(s, "BAR") && p == "bar":
-		return true
-	case (strings.Contains(s, "SETP") || strings.Contains(s, "SEL")) && (p == "setp" || p == "selp"):
-		return true
-	case strings.Contains(s, "MOV") && (p == "mov" || p == "cvt" || p == "ld"):
-		return true
-	default:
-		return false
-	}
 }
 
 func isArithmeticPTXOpcode(op string) bool {

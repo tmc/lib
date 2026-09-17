@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
@@ -159,15 +160,11 @@ func ParseCode(cubin []byte, ptx, sass, source string) (*Code, error) {
 			return nil, fmt.Errorf("%s: invalid CUBIN section", fn.Name)
 		}
 		k := &Kernel{Name: fn.Name, Offset: section.Offset, Size: section.Size, PTXLine: pk.StartLine}
-		for i, line := range strings.Split(source, "\n") {
-			if strings.Contains(line, "void "+fn.Name+"(") {
-				k.SourceLine = i + 1
-				break
-			}
+		srcLine, err := cudalowering.DefinitionLine(source, fn.Name)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", fn.Name, err)
 		}
-		if k.SourceLine == 0 {
-			return nil, fmt.Errorf("%s: missing CUDA definition", fn.Name)
-		}
+		k.SourceLine = srcLine
 		for _, inst := range fn.Instructions {
 			if inst.Address >= section.Size || inst.Address%16 != 0 {
 				return nil, fmt.Errorf("%s: invalid SASS offset %#x", fn.Name, inst.Address)
