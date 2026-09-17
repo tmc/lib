@@ -233,6 +233,11 @@ func run() error {
 	if handled, err := retainedDisasm(os.Stdout, os.Args[1:], cap.Profile, tool); handled {
 		return err
 	}
+	// Refuse an artifact that records its own failure before handing it to
+	// pprof, which would render it as a valid, empty profile and exit 0.
+	if err := preflightCapture(cap); err != nil {
+		return err
+	}
 	return driver.PProf(&driver.Options{Obj: tool, Fetch: fetch})
 }
 
