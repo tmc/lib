@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/nvrtc"
 )
 
 func TestToolkitIncludeDir(t *testing.T) {
@@ -369,7 +371,19 @@ extern "C" __global__ void k() {}`
 	if dir := ToolkitIncludeDir(); dir != "" {
 		t.Fatalf("toolkit include directory still discoverable at %q", dir)
 	}
-	if _, err := Compile("void k() {}", WithToolkitIncludes()); err == nil || !strings.Contains(err.Error(), "CUDA toolkit include directory not found") {
+	// With no toolkit to find, Compile falls back to the headers bundled in
+	// libnvrtc, and only reports the directory missing when the loaded NVRTC
+	// cannot supply them. Both outcomes are the documented contract, so assert
+	// whichever one this NVRTC is capable of rather than assuming a version.
+	_, err := Compile("void k() {}", WithToolkitIncludes())
+	if err == nil {
+		t.Fatal("expected an error compiling an unannotated host function")
+	}
+	if nvrtc.HasInstallBundledHeaders() {
+		if strings.Contains(err.Error(), "CUDA toolkit include directory not found") {
+			t.Fatalf("NVRTC supplies bundled headers, but Compile reported the toolkit missing: %v", err)
+		}
+	} else if !strings.Contains(err.Error(), "CUDA toolkit include directory not found") {
 		t.Fatalf("expected missing toolkit error, got %v", err)
 	}
 }
