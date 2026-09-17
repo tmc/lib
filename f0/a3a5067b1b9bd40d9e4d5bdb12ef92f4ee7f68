@@ -1,0 +1,11 @@
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 9745; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Peer errata-triage re-sent its report claiming B1 (a PC-sample share
+printed as milliseconds) is open on both branches, verified against
+4eaf1b73. That is wrong: git merge-base --is-ancestor c942ab04 4eaf1b73
+is true, hasProfileDurationOrTime and parseDurationNanosFromCapture no
+longer exist, and advise_test.go's assertion was inverted in that same
+commit. Replied with the three checks rather than the assertion.
+
+The same peer was right against me on B1 earlier in this session; the
+direction reversed here.
