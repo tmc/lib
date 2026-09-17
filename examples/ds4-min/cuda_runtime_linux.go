@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -22,7 +23,25 @@ import (
 //go:embed cuda_probe.cu
 var cudaProbeSource string
 
-var cudaMathSource = cudaProbeSource + cudaExpertSource + cudaCompressedSource + cudaQ80Layout + cudaQ80MatvecBody + cudaQ81Source + cudaF16DefaultSource + cudaExpertQ81Source + cudaHCSource + cudaExpertGatherSource
+// cudaSourceChunk gives each embedded translation-unit fragment its own
+// logical filename. Without these directives NVRTC reports line numbers in
+// the concatenated string, which cannot be mapped back to a file on disk.
+func cudaSourceChunk(name, source string) string {
+	return fmt.Sprintf("#line 1 %q\n%s\n", name, strings.TrimSuffix(source, "\n"))
+}
+
+var cudaMathSource = strings.Join([]string{
+	cudaSourceChunk("cuda_probe.cu", cudaProbeSource),
+	cudaSourceChunk("cuda_experts.cu", cudaExpertSource),
+	cudaSourceChunk("cuda_compressed.cu", cudaCompressedSource),
+	cudaSourceChunk("cuda_q80_layout.cu", cudaQ80Layout),
+	cudaSourceChunk("cuda_q80_matvec.cu", cudaQ80MatvecBody),
+	cudaSourceChunk("cuda_q81.cu", cudaQ81Source),
+	cudaSourceChunk("cuda_f16_default.cu", cudaF16DefaultSource),
+	cudaSourceChunk("cuda_experts_q81.cu", cudaExpertQ81Source),
+	cudaSourceChunk("cuda_hc.cu", cudaHCSource),
+	cudaSourceChunk("cuda_experts_gather.cu", cudaExpertGatherSource),
+}, "")
 
 const (
 	cudaMemHostRegisterDeviceMap = 2
