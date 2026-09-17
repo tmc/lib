@@ -66,3 +66,27 @@ func TestResolveSourceLocationsUniqueMatchResolves(t *testing.T) {
 		t.Errorf("resolved to %s:%d, want /caps/b.cu:2", fn.Filename, fn.StartLine)
 	}
 }
+
+func TestInferCodeFilesIsDeterministic(t *testing.T) {
+	files := map[string][]byte{
+		"a.ptx": nil, "b.ptx": nil, "c.ptx": nil,
+		"a.cu": nil, "b.cu": nil,
+		"a.sass": nil, "b.sass": nil,
+		"a.cubin": nil, "b.cubin": nil,
+	}
+	// Selection used to depend on map iteration order, so two runs over the
+	// same bundle could disassemble one PTX and show another's source.
+	want := inferCodeFiles(files)
+	for i := 0; i < 50; i++ {
+		if got := inferCodeFiles(files); got != want {
+			t.Fatalf("run %d selected %+v, first run selected %+v", i, got, want)
+		}
+	}
+}
+
+func TestInferCodeFilesPrefersCanonicalNames(t *testing.T) {
+	files := map[string][]byte{"a.ptx": nil, "kernels.ptx": nil, "z.ptx": nil}
+	if got := inferCodeFiles(files).PTX; got != "kernels.ptx" {
+		t.Errorf("PTX = %q, want kernels.ptx", got)
+	}
+}

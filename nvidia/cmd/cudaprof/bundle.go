@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/google/pprof/profile"
@@ -213,37 +214,59 @@ func openDecompressedReader(r io.Reader) (io.Reader, io.Closer, error) {
 	return br, io.NopCloser(br), nil
 }
 
+// inferCodeFiles picks one artifact of each kind out of a bundle's files. A
+// name of the form kernels.<ext> wins; otherwise the first in sorted order is
+// taken, so that two runs over the same bundle agree. Iterating the map
+// directly made the choice depend on Go's map ordering, which could pair one
+// run's PTX with another run's disassembly.
+//
+// Nothing here establishes that the selected artifacts came from the same
+// compilation: a bundle assembled by hand can hold a PTX and a SASS built from
+// different sources, and their file and line records will fuse without
+// complaint. Artifacts recorded by a capture are produced together and do not
+// have this problem.
 func inferCodeFiles(files map[string][]byte) cudacapture.CodeFiles {
-	var code cudacapture.CodeFiles
+	names := make([]string, 0, len(files))
 	for name := range files {
-		switch {
-		case strings.HasSuffix(name, ".cu") || strings.HasSuffix(name, ".cpp"):
-			if code.Source == "" || name == "kernels.cu" {
-				code.Source = name
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	pick := func(dst *string, canonical string, match func(string) bool) {
+		for _, name := range names {
+			if !match(name) {
+				continue
 			}
-		case strings.HasSuffix(name, ".ptx"):
-			if code.PTX == "" || name == "kernels.ptx" {
-				code.PTX = name
+			if name == canonical {
+				*dst = name
+				return
 			}
-		case strings.HasSuffix(name, ".cubin"):
-			if code.CUBIN == "" || name == "kernels.cubin" {
-				code.CUBIN = name
-			}
-		case strings.HasSuffix(name, ".sass"):
-			if code.SASS == "" || name == "kernels.sass" {
-				code.SASS = name
-			}
-		case strings.HasSuffix(name, ".tileir") || strings.HasSuffix(name, ".mlir"):
-			if code.TileIR == "" || name == "kernels.tileir" {
-				code.TileIR = name
-			}
-		case strings.HasSuffix(name, ".bbcfg.dot"):
-			code.BBCFG = name
-		case strings.HasSuffix(name, ".cfg.dot") || (strings.HasSuffix(name, ".dot") && !strings.HasSuffix(name, ".bbcfg.dot")):
-			if code.CFG == "" || name == "kernels.cfg.dot" {
-				code.CFG = name
+			if *dst == "" {
+				*dst = name
 			}
 		}
 	}
+	hasSuffix := func(suffixes ...string) func(string) bool {
+		return func(name string) bool {
+			for _, s := range suffixes {
+				if strings.HasSuffix(name, s) {
+					return true
+				}
+			}
+			return false
+		}
+	}
+
+	var code cudacapture.CodeFiles
+	pick(&code.Source, "kernels.cu", hasSuffix(".cu", ".cpp"))
+	pick(&code.PTX, "kernels.ptx", hasSuffix(".ptx"))
+	pick(&code.CUBIN, "kernels.cubin", hasSuffix(".cubin"))
+	pick(&code.SASS, "kernels.sass", hasSuffix(".sass"))
+	pick(&code.TileIR, "kernels.tileir", hasSuffix(".tileir", ".mlir"))
+	pick(&code.BBCFG, "kernels.bbcfg.dot", hasSuffix(".bbcfg.dot"))
+	pick(&code.CFG, "kernels.cfg.dot", func(name string) bool {
+		return strings.HasSuffix(name, ".cfg.dot") ||
+			strings.HasSuffix(name, ".dot") && !strings.HasSuffix(name, ".bbcfg.dot")
+	})
 	return code
 }
