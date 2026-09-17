@@ -2,6 +2,14 @@ package egraph
 
 import "fmt"
 
+var collectiveOperations = map[string]bool{
+	"allgather":     true,
+	"allreduce":     true,
+	"alltoall":      true,
+	"broadcast":     true,
+	"reducescatter": true,
+}
+
 // CollectiveIntent describes one rank-ordered communication operation without
 // embedding runtime handles in an e-graph term.
 type CollectiveIntent struct {
@@ -25,7 +33,7 @@ func (c CollectiveIntent) Validate() error {
 	if c.WorldSize <= 0 || c.Rank < 0 || c.Rank >= c.WorldSize {
 		return fmt.Errorf("egraph: invalid rank %d for world size %d", c.Rank, c.WorldSize)
 	}
-	if c.Operation != "allreduce" {
+	if !collectiveOperations[c.Operation] {
 		return fmt.Errorf("egraph: unsupported collective %q", c.Operation)
 	}
 	if c.DType == "" || c.Count == 0 || c.EffectToken == 0 {
