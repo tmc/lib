@@ -2025,7 +2025,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						File:   c.file,
 						Line:   c.line,
 					},
-					Finding:                  fmt.Sprintf("Memory stalls dominate this load: %s is %.1f%% of stalls (over 35%%) on %s at PC 0x%04x in kernel %q", memSource, c.ratio*100, c.opcode, c.pc, kName),
+					Finding:                  fmt.Sprintf("Memory stalls dominate this load: %s is %.1f%% of stalls (over 35%%) on %s at PC 0x%04x in kernel %q", memSource, c.ratio*100, instructionName(c.opcode), c.pc, kName),
 					ActionableRecommendation: "Check whether adjacent lane IDs access contiguous bytes within a single 128B cache line; if they already do, the stall is memory latency or bandwidth rather than transaction count, and the fix is reuse or a wider access, not realignment.",
 					NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
 				})
@@ -2069,7 +2069,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						File:   c.file,
 						Line:   c.line,
 					},
-					Finding:                  fmt.Sprintf("Register scoreboard latency stall: stall_scoreboard is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, c.opcode, c.pc, kName, c.stalls),
+					Finding:                  fmt.Sprintf("Register scoreboard latency stall: stall_scoreboard is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, instructionName(c.opcode), c.pc, kName, c.stalls),
 					ActionableRecommendation: "Instruction is stalled waiting for register data from a pending memory load or high-latency operation. Increase instruction-level parallelism (ILP), hoist memory loads further ahead of first use, or use double buffering / software pipelining.",
 					NextMeasurement:          "stall_scoreboard sample reduction or A/B wall-clock timing",
 				})
@@ -2092,7 +2092,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						File:   c.file,
 						Line:   c.line,
 					},
-					Finding:                  fmt.Sprintf("Warp branch divergence: stall_branch is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, c.opcode, c.pc, kName, c.stalls),
+					Finding:                  fmt.Sprintf("Warp branch divergence: stall_branch is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, instructionName(c.opcode), c.pc, kName, c.stalls),
 					ActionableRecommendation: "Warp execution path divergence detected. Replace conditional branches with branchless predicated selects (e.g. SELP / fmaxf) or ensure branch conditions are uniform across threads in each warp.",
 					NextMeasurement:          "sm__branch_targets_threads_divergent.sum or A/B wall-clock timing",
 				})
@@ -2115,7 +2115,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						File:   c.file,
 						Line:   c.line,
 					},
-					Finding:                  fmt.Sprintf("Barrier synchronization latency: stall_wait is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, c.opcode, c.pc, kName, c.stalls),
+					Finding:                  fmt.Sprintf("Barrier synchronization latency: stall_wait is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, instructionName(c.opcode), c.pc, kName, c.stalls),
 					ActionableRecommendation: "Threads are stalled waiting at a block barrier (__syncthreads / BAR.SYNC). Check for workload imbalance across warps before the barrier, or reduce barrier synchronization frequency.",
 					NextMeasurement:          "A/B wall-clock timing with reduced barrier synchronization",
 				})
@@ -3097,6 +3097,18 @@ func parseStreamEventsFromJSON(data []byte) []streamEvent {
 		}
 	}
 	return events
+}
+
+// instructionName renders the SASS opcode a finding is about. A capture with
+// no disassembly and no sass.opcode label cannot name the instruction at all;
+// the name is then absent, not empty, and must read as such. Rendering the
+// empty string turned "on LDG at PC" into "on  at PC" and quietly demoted a
+// Critical finding into one nobody could act on.
+func instructionName(opcode string) string {
+	if strings.TrimSpace(opcode) == "" {
+		return "an unnamed instruction"
+	}
+	return opcode
 }
 
 func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
