@@ -46,6 +46,31 @@ func BenchmarkCUDAKernels(b *testing.B) {
 	}
 }
 
+// BenchmarkCUDAQ80BatchWidth compares batch tiles on the attention projections.
+// Each timed launch must match independent per-token launches bit for bit.
+func BenchmarkCUDAQ80BatchWidth(b *testing.B) {
+	if !*ds4CUPTIBench {
+		b.Skip("enable with -ds4-cuptibench under gpu-lock")
+	}
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		b.Fatal("gpu-lock is required")
+	}
+	// The attention output has eight diagonal groups, each reading 4096
+	// head values and writing 1024 low-rank values (evalBatchAttnOut).
+	// Projection B maps the resulting 8192 values to cudaWidth (4096).
+	for _, shape := range []cudaQ80BenchShape{
+		{"attn_q_b", "q8_1", 1024, 32768, 0, 43},
+		{"attn_output_b", "quantized", 8192, 4096, 0, 43},
+		{"attn_output_a", "blockdiag", 4096, 8192, 8, 43},
+	} {
+		for _, batch := range []int{8, 16, 32, 256} {
+			b.Run(fmt.Sprintf("%s/%s/tokens=%d", shape.kernel, shape.name, batch), func(b *testing.B) {
+				cudaCUPTIQ80(b, shape, batch)
+			})
+		}
+	}
+}
+
 func cudaCUPTIQ80(b *testing.B, s cudaQ80BenchShape, batch int) {
 	r := cudaQ80BenchFoundation(b)
 	weights := cudaSynthQ80(rand.New(rand.NewSource(1)), s.rows, s.cols, -8)

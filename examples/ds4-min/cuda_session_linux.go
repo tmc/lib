@@ -72,6 +72,7 @@ type cudaBatchDense struct {
 	compressorKV, compressorGate         cudamem.Slice[float32]
 	indexerKV, indexerGate               cudamem.Slice[float32]
 	attnLow, attnOut                     cudamem.Slice[float32]
+	attention                            cudamem.Slice[float32]
 	ffnPre                               cudamem.Slice[float32]
 	router, probs                        cudamem.Slice[float32]
 	tokens                               cudamem.Slice[uint32]
@@ -100,35 +101,27 @@ type cudaBatchResources struct {
 	grouping   *cudaMoEGrouping
 }
 
-// cudaPrefillGroupWidth is the number of tokens the prefill path holds resident
-// at once. It is not a kernel property: every batched encoder call site splits
-// the group's rows into chunks of the relevant kernel's own compile-time
-// maximum, so the group may be widened without touching a kernel. Widening it
-// raises the resident per-token state proportionally; see allocTokenState.
+// cudaPrefillGroupWidth is the number of tokens prefill holds resident at
+// once. Batched projection kernels tile these rows internally.
 const cudaPrefillGroupWidth = 256
 
-// The chunk width each batched kernel is fed. A group narrower than a kernel's
-// maximum runs in one short chunk, which is the batch a group of that width
-// runs today; a wider group runs whole chunks at the kernel's maximum.
+// Attention kernels store rotated queries and keys before the head outputs.
+const (
+	cudaAttentionHeads   = 64 * cudaKVWidth
+	cudaAttentionScratch = cudaAttentionHeads + cudaKVWidth
+	cudaAttentionStride  = cudaAttentionScratch + cudaAttentionHeads
+)
+
 const (
 	cudaPrefillQ81Chunk       = cudaPrefillGroupWidth
 	cudaPrefillQ80Chunk       = cudaPrefillGroupWidth
-	cudaPrefillBlockDiagChunk = min(cudaPrefillGroupWidth, cudaQ80BlockDiagMaxBatch)
+	cudaPrefillBlockDiagChunk = cudaPrefillGroupWidth
 	cudaPrefillF16PairChunk   = cudaPrefillGroupWidth
-	// evalBatchAttnOut runs the block-diagonal and plain Q8_0 batch kernels
-	// over the same rows in one pass, so its chunk is the narrower maximum.
-	cudaPrefillAttnOutChunk = min(cudaPrefillBlockDiagChunk, cudaPrefillQ80Chunk)
+	cudaPrefillAttnOutChunk   = cudaPrefillGroupWidth
 )
 
-// A chunk cannot exceed the maximum of the kernel it feeds: each is defined
-// above as a min against that maximum, so the property is structural and an
-// assertion of it here could not fail. What is not structural is that the group
-// tile into whole chunks. A trailing partial chunk would hand a kernel a batch
-// width the group never runs today, and would address the dense group buffers
-// at an offset no other chunk uses, so each declaration below fails the build
-// if the group width is not an exact multiple of that chunk. The group must
-// also stay wide enough to be a group at all: evalBatch routes a single token
-// to evalPosition and newCUDABatchResources rejects a width below two.
+// Full groups tile exactly into chunks; the final group may be shorter.
+// evalBatch routes single tokens to evalPosition.
 const (
 	_ = uint(0 - cudaPrefillGroupWidth%cudaPrefillQ81Chunk)
 	_ = uint(0 - cudaPrefillGroupWidth%cudaPrefillQ80Chunk)
@@ -139,8 +132,7 @@ const (
 )
 
 // chunkRows calls fn for each [lo, hi) span of n rows in steps of width. The
-// group width is an exact multiple of every chunk width, so each span the
-// batched encoders see is exactly the batch they run today.
+// final span may contain fewer than width rows.
 func chunkRows(n, width int, fn func(lo, hi int) error) error {
 	for lo := 0; lo < n; lo += width {
 		if err := fn(lo, min(lo+width, n)); err != nil {
@@ -549,6 +541,7 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		compressorGate: alloc("batch-dense-compressor-gate", width*1024),
 		indexerKV:      alloc("batch-dense-indexer-kv", width*256),
 		indexerGate:    alloc("batch-dense-indexer-gate", width*256),
+		attention:      alloc("batch-dense-attention", width*cudaAttentionStride),
 		attnLow:        alloc("batch-dense-attention-low", width*8192),
 		attnOut:        alloc("batch-dense-attention-output", width*cudaWidth),
 		ffnPre:         alloc("batch-dense-ffn-pre", width*2*cudaWidth),
@@ -645,6 +638,11 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		// The attention output, the shared FFN's activation and the shared
 		// projections move into token-major group storage so the group projects
 		// them with one launch per weight.
+		// Raw and mixed attention run in different layers and can share this
+		// storage. Keep only these local views rebound: decode still owns its
+		// original buffers, including the terminal token's state.
+		rows[i].rawOutput = d.attention.Slice(i*cudaAttentionStride, (i+1)*cudaAttentionStride)
+		rows[i].mixedOutput = rows[i].rawOutput
 		rows[i].attnLow = d.attnLow.Slice(i*8192, (i+1)*8192)
 		rows[i].attnOut = d.attnOut.Slice(i*cudaWidth, (i+1)*cudaWidth)
 		rows[i].ffnPre = d.ffnPre.Slice(i*2*cudaWidth, (i+1)*2*cudaWidth)
@@ -731,8 +729,8 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		return fmt.Errorf("batch key/value norm: %w", err)
 	}
 	// Attention is token ordered: compress mutates the compressor caches that the
-	// following tokens read. Only the head outputs leave this loop, each in its
-	// own token's buffer, so the projections that consume them batch below.
+	// following tokens read. Head outputs occupy strided rows of the dense
+	// attention buffer, so quantization and projection can batch below.
 	heads := make([]cudamem.Slice[float32], n)
 	for i := range rows {
 		var err error
@@ -745,7 +743,7 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	// point of that switch, so the group projects with it token by token.
 	projected := !r.disableBlockDiagAttnOut
 	if projected {
-		if err := r.evalBatchAttnOut(rows, heads, index, position); err != nil {
+		if err := r.evalBatchAttnOut(rows, index, position); err != nil {
 			return err
 		}
 	}
@@ -888,28 +886,25 @@ func (r *cudaRuntime) evalBatchCompressor(rows []cudaTokenState, index int) erro
 	})
 }
 
-// evalBatchAttnOut projects the group's attention outputs. Each token reads only
-// its own head outputs, so the group streams attnOutA and attnOutB once instead
-// of once per token.
-func (r *cudaRuntime) evalBatchAttnOut(rows []cudaTokenState, heads []cudamem.Slice[float32], index, position int) error {
+// evalBatchAttnOut projects the group's attention outputs with one launch per
+// weight tensor. Tokens within each kernel tile share the weight loads.
+func (r *cudaRuntime) evalBatchAttnOut(rows []cudaTokenState, index, position int) error {
 	l, d := &r.model.layers[index], &r.batch.dense
 	// The mark covers the group's whole attention-output phase, however many
 	// chunks it takes; it is host side and encodes nothing on the stream.
 	if err := r.markCUDAPhase("attention-output", position, index); err != nil {
 		return err
 	}
-	// The head outputs stay in each token's own attention buffer, so they are
-	// quantized one token at a time, as the per-token path does. A token whose
-	// width disagrees fails here rather than shifting the rows that follow.
-	width := heads[0].Len()
-	stride := width / 32 * 36
+	const width = cudaAttentionHeads
+	const stride = width / 32 * 36
 	lowWidth := rows[0].attnLow.Len()
 	return chunkRows(len(rows), cudaPrefillAttnOutChunk, func(lo, hi int) error {
 		m := hi - lo
-		for i := lo; i < hi; i++ {
-			if err := r.encodeQuantQ80(heads[i], d.q80Heads.Slice(i*stride, (i+1)*stride), width); err != nil {
-				return fmt.Errorf("token %d attention output quantization: %w", i, err)
-			}
+		// Skip each row's scratch without copying the head outputs. The
+		// quantizer retains the same independent 32-element blocks.
+		heads := d.attention.Slice(lo*cudaAttentionStride+cudaAttentionScratch, hi*cudaAttentionStride)
+		if err := r.encodeQuantQ80Strided(heads, d.q80Heads.Slice(lo*stride, hi*stride), width, cudaAttentionStride, m); err != nil {
+			return fmt.Errorf("batch attention output quantization: %w", err)
 		}
 		low := d.attnLow.Slice(lo*lowWidth, hi*lowWidth)
 		if err := r.encodeQ80MatvecQuantizedBlockDiagBatch(l.attnOutA, d.q80Heads.Slice(lo*stride, hi*stride), low, 8, m); err != nil {

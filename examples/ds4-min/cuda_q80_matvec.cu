@@ -2,7 +2,7 @@
 // DS4_Q80_MAX_BATCH is the compile-time maximum batch width of
 // ds4_q8_0_matvec_quantized_batch. cudaQ80MaxBatch in cuda_q80_linux.go must
 // hold the same value; TestCUDAQualificationQ80MaxBatchConstantSync asserts it.
-#define DS4_Q80_MAX_BATCH 8
+#define DS4_Q80_MAX_BATCH 16
 
 extern "C" __global__ void ds4_q8_0_matvec_quantized(
     const unsigned char *weights, const ds4_q8_activation *x, float *out,
@@ -113,7 +113,7 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag(
   if (lane == 0) out[(unsigned long long)diag * rows + row] = sum;
 }
 
-// DS4_Q80_BLOCKDIAG_MAX_BATCH is the compile-time maximum batch width of
+// DS4_Q80_BLOCKDIAG_MAX_BATCH is the compile-time batch tile width of
 // ds4_q8_0_matvec_quantized_blockdiag_batch. cudaQ80BlockDiagMaxBatch in
 // cuda_q80_linux.go must hold the same value;
 // TestCUDAQualificationQ80BlockDiagMaxBatchConstantSync asserts it.
@@ -123,7 +123,8 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag(
 // ds4_q8_0_matvec_quantized_blockdiag with the weight load hoisted out of a
 // token loop. The weight row a warp reads is addressed by (diag, row) alone, so
 // every token in a batch reads the same weight bytes; the batch streams the
-// block-diagonal weight tensor once instead of once per token.
+// block-diagonal weight tensor once per tile instead of once per token.
+// Tiles of up to DS4_Q80_BLOCKDIAG_MAX_BATCH tokens run along gridDim.z.
 //
 // Each token keeps its own accumulator, its own lane-strided walk over b, and
 // its own shfl_down reduction, so no term moves within any sum and the float32
@@ -135,9 +136,12 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag_batch(
     unsigned blocks, unsigned rows, unsigned diags, unsigned batch) {
   const unsigned warp_id = threadIdx.x / 32, lane = threadIdx.x % 32;
   const unsigned row = blockIdx.x * 8 + warp_id, diag = blockIdx.y;
-  if (row >= rows) return;
+  const unsigned t_base = blockIdx.z * DS4_Q80_BLOCKDIAG_MAX_BATCH;
+  if (row >= rows || t_base >= batch) return;
+  const unsigned cur_batch = (batch - t_base < DS4_Q80_BLOCKDIAG_MAX_BATCH)
+      ? batch - t_base : DS4_Q80_BLOCKDIAG_MAX_BATCH;
   const unsigned char *weight_row = weights + ((unsigned long long)diag * rows + row) * blocks * 34;
-  const ds4_q8_activation *xb = x + (unsigned long long)diag * blocks;
+  const ds4_q8_activation *xb = x + ((unsigned long long)t_base * diags + diag) * blocks;
   const unsigned long long token_blocks = (unsigned long long)diags * blocks;
   float sum[DS4_Q80_BLOCKDIAG_MAX_BATCH] = {0.0f};
   for (unsigned b = lane; b < blocks; b += 32) {
@@ -151,7 +155,7 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag_batch(
     const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
     #pragma unroll
     for (unsigned t = 0; t < DS4_Q80_BLOCKDIAG_MAX_BATCH; t++) {
-      if (t < batch) {
+      if (t < cur_batch) {
         const ds4_q8_activation *tx = xb + (unsigned long long)t * token_blocks;
         const int *x4 = reinterpret_cast<const int *>(tx[b].qs);
         int dot = 0;
@@ -165,13 +169,13 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag_batch(
   }
   #pragma unroll
   for (unsigned t = 0; t < DS4_Q80_BLOCKDIAG_MAX_BATCH; t++) {
-    if (t < batch) {
+    if (t < cur_batch) {
       float s = sum[t];
       #pragma unroll
       for (unsigned stride = 16; stride; stride >>= 1)
         s += __shfl_down_sync(0xffffffff, s, stride);
       if (lane == 0)
-        out[((unsigned long long)t * diags + diag) * rows + row] = s;
+        out[((unsigned long long)(t_base + t) * diags + diag) * rows + row] = s;
     }
   }
 }

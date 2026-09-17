@@ -74,6 +74,7 @@ type cudaFoundation struct {
 	mathCompiled            *nvrtcx.CompiledModule
 	matrixFn                driver.Function
 	quantQ80Fn              driver.Function
+	quantQ80StridedFn        driver.Function
 	quantQ81Fn              driver.Function
 	quantQ81BatchFn         driver.Function
 	q81MatvecFn             driver.Function
@@ -1139,7 +1140,7 @@ func (r *cudaFoundation) Close() error {
 			if err := r.quantQ80Mod.Unload(); err != nil {
 				return err
 			}
-			r.quantQ80Mod, r.quantQ80Fn = 0, 0
+			r.quantQ80Mod, r.quantQ80Fn, r.quantQ80StridedFn = 0, 0, 0
 			return nil
 		})
 		if err != nil {

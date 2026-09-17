@@ -20,15 +20,15 @@ package main
 //
 // Weights are synthetic. These kernels are data independent -- no branch reads
 // a weight value -- so timing does not depend on the bytes, only on the shape
-// and the traffic. What must be faithful is the shape, and the shapes below are
-// derived rather than read; see cudaQ80BenchShapes.
+// and the traffic. The attention-output shapes below follow the runtime's
+// eight-group projection; see cudaQ80BenchShapes.
 //
 // Reported per shape: microseconds per launch from CUDA events, the resulting
 // GB/s against the weight bytes that launch must read, and the contribution to
 // a token at the decode's launch count. BenchmarkCUDAQ80MatvecToken sums those
 // contributions and compares the total against the census row, which is the
-// conservation check: a sum that no longer lands near 40.453 means the shape
-// table has drifted from the model, not that the kernels got faster.
+// historical comparison. Shape corrections and kernel changes can both move
+// the total away from the original 40.453 ms/token measurement.
 
 import (
 	"context"
@@ -47,26 +47,14 @@ const cudaQ80CensusTotal = 40.453
 
 // cudaQ80BenchShape is one matvec the decode issues, at the shape it issues it.
 //
-// PROVENANCE, because every number here is load-bearing and none of it was read
-// out of the checkpoint. The byte size of each tensor is measured -- it comes
-// from the GGUF tensor inventory. Columns and rows are DERIVED from that size
-// through the Q8_0 block layout, which stores each 32-element block in 34
-// bytes, so bytes = rows * cols/32 * 34. Fixing cols determines rows.
+// The original shapes were derived from GGUF tensor byte counts using
+// bytes = rows * cols/32 * 34. Byte counts alone do not determine geometry.
+// The attention-output entries now follow evalBatchAttnOut and the model
+// oracle's eight groups of 4096 inputs and 1024 outputs. Projection B maps
+// their 8192 combined outputs to the model width of 4096.
 //
-// cols=4096 is not a guess: output.weight measures 562.63 MB, and at cols=4096
-// that yields 129280 rows, which is exactly the vocabulary size. Every other
-// row count derived at these column counts lands on a power of two. A wrong
-// cols would have to produce eight coincidences at once.
-//
-// The check that matters is at the bottom: these shapes, driven at the launch
-// counts below, predict the three census kernels to within 6% each, using
-// per-launch times from a different instrument in a different regime. Treat
-// that as corroboration of the table, not as a measurement of the kernels.
-//
-// TestCUDAQ80BenchShapesMatchModel validates the table against the real
-// checkpoint when DS4_MODEL is set. Until that has run on a given checkpoint,
-// the table is a declared premise, and it is the first thing to doubt if a
-// result here disagrees with a full-workload capture.
+// These fixtures do not load a checkpoint. Their dimensions must be checked
+// before using them to characterize a different model.
 type cudaQ80BenchShape struct {
 	name     string // the GGUF tensor this stands in for
 	kernel   string // which of the three matvecs consumes it
@@ -90,14 +78,12 @@ var cudaQ80BenchShapes = []cudaQ80BenchShape{
 	{"output.weight", "q8_1", 4096, 129280, 0, 1},
 
 	// ds4_q8_0_matvec_quantized: 2 per layer = 86.
-	{"attn_out_b", "quantized", 32768, 1024, 0, 43},
+	{"attn_output_b", "quantized", 8192, 4096, 0, 43},
 	{"ffn_down_shexp", "quantized", 2048, 4096, 0, 43},
 
 	// ds4_q8_0_matvec_quantized_blockdiag: 1 per layer = 43.
-	// UNVERIFIED beyond the byte count: 35.65 MB is consistent with several
-	// (cols, rows, diag) splits and only the product is pinned. diag=64 is the
-	// head count. If this row disagrees with a capture, suspect it first.
-	{"attn_output_a", "blockdiag", 512, 65536, 64, 43},
+	// Eight groups each map 4096 head values to 1024 low-rank values.
+	{"attn_output_a", "blockdiag", 4096, 8192, 8, 43},
 }
 
 // cudaQ80BenchWeightBytes is the device footprint of one weight tensor.
@@ -271,13 +257,8 @@ func BenchmarkCUDAQ80Matvec(b *testing.B) {
 }
 
 // BenchmarkCUDAQ80MatvecToken sums the shapes into the per-token family cost
-// and checks it against the census.
-//
-// The comparison is the point. A per-kernel benchmark that never adds up is how
-// a ledger drifts from the workload it claims to describe without anybody
-// noticing: every row stays individually defensible while the total stops
-// meaning anything. If this reports a total far from cudaQ80CensusTotal, the
-// first suspect is cudaQ80BenchShapes, not the kernels.
+// and reports its ratio to the historical census. Corrected shapes and later
+// kernel changes need not reproduce that census.
 func BenchmarkCUDAQ80MatvecToken(b *testing.B) {
 	r := cudaQ80BenchFoundation(b)
 	perKernel := map[string]float64{}

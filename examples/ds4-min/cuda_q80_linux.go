@@ -72,7 +72,7 @@ func (r *cudaFoundation) encodeQ80MatvecQuantized(t cudaModelTensor, in cudamem.
 
 // cudaQ80MaxBatch is the compile-time maximum batch width processed per thread block by
 // ds4_q8_0_matvec_quantized_batch in cuda_q80_matvec.cu. Larger batches are tiled across gridDim.y.
-const cudaQ80MaxBatch = 8
+const cudaQ80MaxBatch = 16
 
 // encodeQ80MatvecQuantizedBatch projects batch adjacent Q8_0 activation rows
 // against one weight matrix with a single launch. Input and output are
@@ -127,24 +127,24 @@ func (r *cudaFoundation) encodeQ80MatvecQuantizedBlockDiag(t cudaModelTensor, in
 	})
 }
 
-// cudaQ80BlockDiagMaxBatch is the compile-time maximum batch width supported by
+// cudaQ80BlockDiagMaxBatch is the compile-time batch tile width of
 // ds4_q8_0_matvec_quantized_blockdiag_batch in cuda_q80_matvec.cu.
+// Larger batches are tiled across gridDim.z.
 const cudaQ80BlockDiagMaxBatch = 8
 
 // encodeQ80MatvecQuantizedBlockDiagBatch projects batch tokens through the same
 // block-diagonal Q8_0 weights with a single launch. The weight bytes a warp
 // reads depend only on the diagonal and the row, so the batch streams the weight
-// tensor once for all batch tokens instead of once per token.
+// tensor once per batch tile instead of once per token.
 //
 // Input and output are token major: in holds batch consecutive activation
 // groups of diag*cols/32 blocks, out holds batch consecutive groups of
 // diag*rows floats, and each group has the layout encodeQ80MatvecQuantizedBlockDiag
-// uses for one token. A batch wider than cudaQ80BlockDiagMaxBatch is rejected,
-// never truncated.
+// uses for one token.
 func (r *cudaFoundation) encodeQ80MatvecQuantizedBlockDiagBatch(t cudaModelTensor, in cudamem.Slice[byte], out cudamem.Slice[float32], diag, batch int) error {
-	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || diag <= 0 || uint64(diag) > math.MaxUint32 ||
-		batch <= 0 || batch > cudaQ80BlockDiagMaxBatch {
-		return fmt.Errorf("cuda: batched quantized Q8_0 block-diagonal matvec %q: invalid tensor or batch %d (max %d)", t.name, batch, cudaQ80BlockDiagMaxBatch)
+	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || diag <= 0 || diag > math.MaxUint16 ||
+		batch <= 0 || batch > math.MaxUint16*cudaQ80BlockDiagMaxBatch {
+		return fmt.Errorf("cuda: batched quantized Q8_0 block-diagonal matvec %q: invalid tensor, diagonal count, or batch %d", t.name, batch)
 	}
 	cols, totalRows := t.dimensions[0], t.dimensions[1]
 	if totalRows%uint64(diag) != 0 {
@@ -152,7 +152,8 @@ func (r *cudaFoundation) encodeQ80MatvecQuantizedBlockDiagBatch(t cudaModelTenso
 	}
 	rows := totalRows / uint64(diag)
 	if cols == 0 || cols%32 != 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 ||
-		uint64(in.Len()) != uint64(batch)*(cols/32*36)*uint64(diag) || uint64(out.Len()) != uint64(batch)*totalRows ||
+		in.Len()%batch != 0 || uint64(in.Len()/batch) != (cols/32*36)*uint64(diag) ||
+		out.Len()%batch != 0 || uint64(out.Len()/batch) != totalRows ||
 		totalRows > t.bytes/(cols/32*34) {
 		return fmt.Errorf("cuda: batched quantized Q8_0 block-diagonal matvec %q: invalid shape or extent", t.name)
 	}
@@ -161,7 +162,8 @@ func (r *cudaFoundation) encodeQ80MatvecQuantizedBlockDiagBatch(t cudaModelTenso
 			return err
 		}
 		gridRows := (uint32(rows) + 7) / 8
-		if err := cudalaunch.Kernel(r.q80BlockDiagBatchFn).Grid(gridRows, uint32(diag)).Block(256).On(r.stream()).Launch(
+		gridBatches := (uint32(batch) + cudaQ80BlockDiagMaxBatch - 1) / cudaQ80BlockDiagMaxBatch
+		if err := cudalaunch.Kernel(r.q80BlockDiagBatchFn).Grid(gridRows, uint32(diag), gridBatches).Block(256).On(r.stream()).Launch(
 			t.device, in, out, uint32(cols/32), uint32(rows), uint32(diag), uint32(batch)); err != nil {
 			return fmt.Errorf("cuda: launch batched quantized Q8_0 block-diagonal matvec %q: %w", t.name, err)
 		}

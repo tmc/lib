@@ -1,8 +1,6 @@
 
-extern "C" __global__ void ds4_quant_q8_0(const float *in, ds4_q8_activation *out) {
+__device__ __forceinline__ void ds4_quant_q8_0_block(const float *x, ds4_q8_activation *q) {
   const unsigned tid = threadIdx.x;
-  const float *x = in + (unsigned long long)blockIdx.x * 32;
-  ds4_q8_activation *q = out + blockIdx.x;
   __shared__ float magnitude[32];
   magnitude[tid] = fabsf(x[tid]);
   __syncthreads();
@@ -18,3 +16,13 @@ extern "C" __global__ void ds4_quant_q8_0(const float *in, ds4_q8_activation *ou
   if (tid == 0) q->d = d;
 }
 
+extern "C" __global__ void ds4_quant_q8_0(const float *in, ds4_q8_activation *out) {
+  ds4_quant_q8_0_block(in + (unsigned long long)blockIdx.x * 32, out + blockIdx.x);
+}
+
+extern "C" __global__ void ds4_quant_q8_0_strided(const float *in, ds4_q8_activation *out,
+                                                 unsigned blocks, unsigned stride) {
+  const unsigned row = blockIdx.x / blocks;
+  const unsigned block = blockIdx.x % blocks;
+  ds4_quant_q8_0_block(in + (unsigned long long)row * stride + block * 32, out + blockIdx.x);
+}
