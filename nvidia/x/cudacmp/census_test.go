@@ -268,8 +268,8 @@ func TestComparePhases_OneSidedFamilies(t *testing.T) {
 		if r.Available {
 			t.Errorf("family %s: expected Available = false for one-sided family", r.Family)
 		}
-		if r.DeltaNs != 0 {
-			t.Errorf("family %s: expected DeltaNs = 0, got %d", r.Family, r.DeltaNs)
+		if r.DeltaNs != Unmeasured {
+			t.Errorf("family %s: expected DeltaNs = %d, got %d", r.Family, Unmeasured, r.DeltaNs)
 		}
 		if r.Speedup != 0 {
 			t.Errorf("family %s: expected Speedup = 0, got %f", r.Family, r.Speedup)
@@ -286,8 +286,8 @@ func TestComparePhases_OneSidedFamilies(t *testing.T) {
 			if !r.CObserved || r.GoObserved {
 				t.Errorf("experts: CObserved=%v, GoObserved=%v; want CObserved=true, GoObserved=false", r.CObserved, r.GoObserved)
 			}
-			if r.CDurationNs != 12_000_000 || r.GoDurationNs != 0 {
-				t.Errorf("experts: CDurationNs=%d, GoDurationNs=%d; want 12ms and 0", r.CDurationNs, r.GoDurationNs)
+			if r.CDurationNs != 12_000_000 || r.GoDurationNs != Unmeasured {
+				t.Errorf("experts: CDurationNs=%d, GoDurationNs=%d; want 12ms and Unmeasured", r.CDurationNs, r.GoDurationNs)
 			}
 		case FamilyAttention:
 			if r.Availability != AvailableGoOnly {
@@ -296,8 +296,8 @@ func TestComparePhases_OneSidedFamilies(t *testing.T) {
 			if r.CObserved || !r.GoObserved {
 				t.Errorf("attention: CObserved=%v, GoObserved=%v; want CObserved=false, GoObserved=true", r.CObserved, r.GoObserved)
 			}
-			if r.CDurationNs != 0 || r.GoDurationNs != 8_000_000 {
-				t.Errorf("attention: CDurationNs=%d, GoDurationNs=%d; want 0 and 8ms", r.CDurationNs, r.GoDurationNs)
+			if r.CDurationNs != Unmeasured || r.GoDurationNs != 8_000_000 {
+				t.Errorf("attention: CDurationNs=%d, GoDurationNs=%d; want Unmeasured and 8ms", r.CDurationNs, r.GoDurationNs)
 			}
 		}
 	}

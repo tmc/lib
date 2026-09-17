@@ -177,6 +177,8 @@ func BuildPhaseCensus(phase Phase, launches []cudacensus.Launch, coster cudacens
 		Phase:          phase,
 		SummedKernelNs: totalNs,
 		GPUBusyNs:      gpuBusyNs,
+		HostElapsedNs:  Unmeasured,
+		APICallNs:      Unmeasured,
 		Families:       families,
 		Entries:        entries,
 	}, nil
@@ -302,6 +304,8 @@ func ComparePhases(cPhase, goPhase PhaseCensus, nullDriftNs int64, model *cudaro
 			rpt.GoObserved = false
 			cDur := int64(cKm.Timing.DeviceNs)
 			rpt.CDurationNs = cDur
+			rpt.GoDurationNs = Unmeasured
+			rpt.DeltaNs = Unmeasured
 			// Delta, Speedup, and ExceedsDrift are not computed for one-sided families.
 			if model != nil && cKm.Launches > 0 && cDur > 0 && cKm.Residency == model.Ceiling.Residency {
 				pt := model.Evaluate(fam, cKm.FLOPs, cKm.BytesMoved, uint64(cDur))
@@ -315,6 +319,8 @@ func ComparePhases(cPhase, goPhase PhaseCensus, nullDriftNs int64, model *cudaro
 			rpt.GoObserved = true
 			goDur := int64(goKm.Timing.DeviceNs)
 			rpt.GoDurationNs = goDur
+			rpt.CDurationNs = Unmeasured
+			rpt.DeltaNs = Unmeasured
 			// Delta, Speedup, and ExceedsDrift are not computed for one-sided families.
 			if model != nil && goKm.Launches > 0 && goDur > 0 && goKm.Residency == model.Ceiling.Residency {
 				pt := model.Evaluate(fam, goKm.FLOPs, goKm.BytesMoved, uint64(goDur))

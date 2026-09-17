@@ -62,6 +62,10 @@ func ExampleRecorder_Snapshot_withGoTrace() {
 	}
 	defer rec.Stop()
 
+	rec.SetGoTraceProvider(func(ctx context.Context) ([]byte, error) {
+		return []byte("go 1.22 trace payload"), nil
+	})
+
 	// Record a GPU execution observation
 	now := time.Now()
 	rec.Push(cudaflightrecorder.Record{

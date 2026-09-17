@@ -7,7 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -27,8 +30,10 @@ type Manifest struct {
 	// ClockUncertaintyNs is the alignment uncertainty in nanoseconds; -1 means unavailable.
 	ClockUncertaintyNs int64 `json:"clock_uncertainty_ns"`
 	// ClockUncertaintySource is measured, configured, or unavailable.
-	ClockUncertaintySource string `json:"clock_uncertainty_source"`
-	OverlapReliable        bool   `json:"overlap_reliable"`
+	ClockUncertaintySource string            `json:"clock_uncertainty_source"`
+	OverlapReliable        bool              `json:"overlap_reliable"`
+	ProviderStatus         map[string]string `json:"provider_status,omitempty"`
+	LossReasons            []string          `json:"loss_reasons,omitempty"`
 }
 
 // WindowRequested reports the requested recording duration as time.Duration.
@@ -164,4 +169,152 @@ func ReadBundle(r io.Reader) (*Bundle, error) {
 	}
 
 	return bundle, nil
+}
+
+// Budget and validation errors.
+var (
+	ErrDiskBudgetExceeded     = errors.New("cudaflightrecorder: disk retention budget exhausted")
+	ErrProviderBudgetExceeded = errors.New("cudaflightrecorder: provider output budget exceeded")
+	ErrSnapshotBudgetExceeded = errors.New("cudaflightrecorder: snapshot size budget exceeded")
+	ErrPlaceholderRejected    = errors.New("cudaflightrecorder: placeholder payload rejected")
+	ErrArtifactInvalid        = errors.New("cudaflightrecorder: invalid artifact format")
+)
+
+// FaultInfo describes a GPU fault or abort event for zero-device crash dump generation.
+type FaultInfo struct {
+	TimestampNs      int64             `json:"timestamp_ns"`
+	ErrorCode        int               `json:"error_code"`
+	ErrorName        string            `json:"error_name"`
+	ErrorMessage     string            `json:"error_message"`
+	OffendingKernel  string            `json:"offending_kernel,omitempty"`
+	CorrelationID    uint64            `json:"correlation_id,omitempty"`
+	ModuleID         string            `json:"module_id,omitempty"`
+	ModuleDigest     string            `json:"module_digest,omitempty"`
+	ModuleGeneration uint64            `json:"module_generation,omitempty"`
+	FailedRuleNames  []string          `json:"failed_rule_names,omitempty"`
+	Labels           map[string]string `json:"labels,omitempty"`
+}
+
+// NegativeRewriteConstraint represents a negative rewrite rule exported in a crash dump
+// to feed negative constraints to egraph search.
+type NegativeRewriteConstraint struct {
+	CandidateDigest  string    `json:"candidate_digest"`
+	OffendingKernel  string    `json:"offending_kernel"`
+	QuarantinedRules []string  `json:"quarantined_rules"`
+	Reason           string    `json:"reason"`
+	PruneSubtree     bool      `json:"prune_subtree"`
+	Timestamp        time.Time `json:"timestamp"`
+}
+
+// SnapshotDiskManager manages disk retention budgets for saved flight recorder snapshots.
+type SnapshotDiskManager struct {
+	dir      string
+	maxBytes int64
+	mu       sync.Mutex
+}
+
+// NewSnapshotDiskManager creates a new disk retention manager for the specified directory.
+func NewSnapshotDiskManager(dir string, maxBytes int64) (*SnapshotDiskManager, error) {
+	if dir == "" {
+		return nil, errors.New("cudaflightrecorder: empty snapshot directory")
+	}
+	if maxBytes <= 0 {
+		return nil, errors.New("cudaflightrecorder: invalid non-positive disk budget")
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("cudaflightrecorder: create snapshot dir: %w", err)
+	}
+	return &SnapshotDiskManager{
+		dir:      dir,
+		maxBytes: maxBytes,
+	}, nil
+}
+
+type diskFile struct {
+	path    string
+	size    int64
+	modTime time.Time
+}
+
+// SaveSnapshot writes a snapshot archive to disk while enforcing the retention budget.
+// If the snapshot exceeds maxBytes by itself, or if existing files cannot be pruned
+// to accommodate it, ErrDiskBudgetExceeded is returned.
+func (m *SnapshotDiskManager) SaveSnapshot(filename string, data []byte) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	dataLen := int64(len(data))
+	if dataLen > m.maxBytes {
+		return "", fmt.Errorf("%w: snapshot size %d exceeds total disk budget %d", ErrDiskBudgetExceeded, dataLen, m.maxBytes)
+	}
+
+	entries, err := os.ReadDir(m.dir)
+	if err != nil {
+		return "", fmt.Errorf("cudaflightrecorder: read snapshot dir: %w", err)
+	}
+
+	var files []diskFile
+	var currentTotal int64
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		files = append(files, diskFile{
+			path:    filepath.Join(m.dir, entry.Name()),
+			size:    info.Size(),
+			modTime: info.ModTime(),
+		})
+		currentTotal += info.Size()
+	}
+
+	// Sort files by modTime ascending (oldest first)
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].modTime.Before(files[j].modTime)
+	})
+
+	// Prune oldest files until currentTotal + dataLen <= maxBytes
+	for _, f := range files {
+		if currentTotal+dataLen <= m.maxBytes {
+			break
+		}
+		if err := os.Remove(f.path); err == nil {
+			currentTotal -= f.size
+		}
+	}
+
+	if currentTotal+dataLen > m.maxBytes {
+		return "", fmt.Errorf("%w: remaining usage %d plus snapshot %d exceeds budget %d", ErrDiskBudgetExceeded, currentTotal, dataLen, m.maxBytes)
+	}
+
+	destPath := filepath.Join(m.dir, filename)
+	if err := os.WriteFile(destPath, data, 0644); err != nil {
+		return "", fmt.Errorf("cudaflightrecorder: write snapshot file: %w", err)
+	}
+
+	return destPath, nil
+}
+
+// RetainedBytes computes the current total disk usage for snapshots in the managed directory.
+func (m *SnapshotDiskManager) RetainedBytes() int64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	entries, err := os.ReadDir(m.dir)
+	if err != nil {
+		return 0
+	}
+	var total int64
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if info, err := entry.Info(); err == nil {
+			total += info.Size()
+		}
+	}
+	return total
 }

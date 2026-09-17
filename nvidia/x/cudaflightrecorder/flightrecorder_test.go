@@ -167,7 +167,7 @@ func TestCompleteBundleStreaming(t *testing.T) {
 	defer rec.Stop()
 
 	rec.SetGoTraceProvider(func(ctx context.Context) ([]byte, error) {
-		return []byte("fake_v2_trace_payload"), nil
+		return []byte("go_trace_v2_payload"), nil
 	})
 	rec.SetGPUPprofProvider(func(ctx context.Context) ([]byte, error) {
 		return []byte("\x1f\x8b\x08fake_gpu_pprof_gzip"), nil
@@ -207,7 +207,7 @@ func TestCompleteBundleStreaming(t *testing.T) {
 		}
 	}
 
-	if string(bundle.Files["go.trace"]) != "fake_v2_trace_payload" {
+	if string(bundle.Files["go.trace"]) != "go_trace_v2_payload" {
 		t.Errorf("go.trace content mismatch")
 	}
 	if string(bundle.Files["gpu.pprof"]) != "\x1f\x8b\x08fake_gpu_pprof_gzip" {
