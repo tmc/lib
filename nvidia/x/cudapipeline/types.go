@@ -279,17 +279,30 @@ func (p *Pipeline) TotalTMEMColumns() int {
 
 // Violation kinds identified during static pipeline analysis.
 const (
-	ErrUninitializedBarrier = "uninitialized barrier"
-	ErrDuplicateInit        = "duplicate barrier initialization"
-	ErrInvalidatedBarrier   = "barrier invalidated"
-	ErrMissingArrive        = "missing barrier arrive"
-	ErrMismatchedTxBytes    = "mismatched transaction byte count"
-	ErrUnexpectedTx         = "unexpected transaction without expect_tx"
-	ErrPhaseParity          = "phase parity mismatch"
-	ErrInvalidParity        = "invalid parity value"
-	ErrTMEMCapacityExceeded = "TMEM capacity exceeded"
-	ErrInvalidTMEMColumns   = "invalid TMEM column count"
-	ErrUnsupportedTMEM      = "unsupported TMEM operation on architecture"
+	ErrUninitializedBarrier     = "uninitialized barrier"
+	ErrDuplicateInit            = "duplicate barrier initialization"
+	ErrInvalidatedBarrier       = "barrier invalidated"
+	ErrMissingArrive            = "missing barrier arrive"
+	ErrMismatchedTxBytes        = "mismatched transaction byte count"
+	ErrUnexpectedTx             = "unexpected transaction without expect_tx"
+	ErrPhaseParity              = "phase parity mismatch"
+	ErrInvalidParity            = "invalid parity value"
+	ErrTMEMCapacityExceeded     = "TMEM capacity exceeded"
+	ErrInvalidTMEMColumns       = "invalid TMEM column count"
+	ErrUnsupportedTMEM          = "unsupported TMEM operation on architecture"
+	ErrUnsupportedControlFlow   = "unsupported control flow across barrier protocol"
+	ErrInvalidBulkTMEMPTX       = "invalid bulk async TMEM PTX instruction"
+	ErrInvalidClusterMulticast  = "invalid cluster multicast instruction"
+	ErrStageIndexOutOfBounds    = "stage index out of bounds"
+	ErrStageOverwrite           = "stage buffer overwritten before consumer release"
+	ErrStageNotReady            = "stage consumed or released before ready"
+	ErrEpochReuseStale          = "stale epoch reused"
+	ErrBarrierPhaseParity       = "barrier phase parity mismatch"
+	ErrTransactionUnderflow     = "transaction bytes underflow"
+	ErrExceededSMEMLimit        = "shared memory exceeds limit"
+	ErrExceededWarpsPerSM       = "warps per SM exceeds limit"
+	ErrExceededBlocksPerSM      = "blocks per SM exceeds limit"
+	ErrInvalidRegisterQuantum   = "registers per warp must align to 256 quantum"
 )
 
 // ValidationError records a static pipeline or mbarrier protocol violation.
@@ -366,5 +379,13 @@ func WithBarrierArrivalCount(barrier string, count int) Option {
 func WithTargetArch(arch string) Option {
 	return func(t *BarrierTracker) {
 		t.targetArch = arch
+	}
+}
+
+// WithAllowLegacyTMEM controls whether legacy unverified direct global-to-TMEM
+// bulk copy strings are permitted during static validation (default: false, audit and reject).
+func WithAllowLegacyTMEM(allow bool) Option {
+	return func(t *BarrierTracker) {
+		t.allowLegacyTMEM = allow
 	}
 }
