@@ -9,3 +9,10 @@ commit. Replied with the three checks rather than the assertion.
 
 The same peer was right against me on B1 earlier in this session; the
 direction reversed here.
+
+CORRECTION (added later in the same session): the ancestry claim above is
+backwards. git merge-base --is-ancestor c942ab04 4eaf1b73 returns FALSE, not
+true; c942ab04 is the first of the commits AFTER 4eaf1b73. B1 was therefore
+open at the tree errata-triage verified, and was fixed minutes later. The
+conclusion -- B1 is closed at HEAD -- stands on the four greps, which were
+re-run and hold. The stated evidence for it did not. Caught by errata-triage.
