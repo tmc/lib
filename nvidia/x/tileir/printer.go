@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 )
 
@@ -86,6 +87,9 @@ func (m *Module) WriteTo(w io.Writer) (int64, error) {
 					b.WriteString(" : ")
 					b.WriteString(op.Type)
 				}
+				if op.LocRef != "" {
+					b.WriteString(" loc(#" + strings.TrimPrefix(op.LocRef, "#") + ")")
+				}
 				b.WriteString("\n")
 				line = b.String()
 			}
@@ -107,7 +111,13 @@ func (m *Module) WriteTo(w io.Writer) (int64, error) {
 		if err := writeStr("\n"); err != nil {
 			return total, err
 		}
-		for sym, loc := range m.Locations {
+		syms := make([]string, 0, len(m.Locations))
+		for sym := range m.Locations {
+			syms = append(syms, sym)
+		}
+		sort.Strings(syms)
+		for _, sym := range syms {
+			loc := m.Locations[sym]
 			var locStr string
 			if loc.Column > 0 {
 				locStr = fmt.Sprintf("#%s = loc(%q:%d:%d)\n", sym, loc.File, loc.Line, loc.Column)

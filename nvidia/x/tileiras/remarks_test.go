@@ -1,6 +1,8 @@
 package tileiras_test
 
 import (
+	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/tileiras"
@@ -115,5 +117,55 @@ func TestParseRemarksYAML(t *testing.T) {
 	tcFails := res.TensorCoreFailures()
 	if len(tcFails) != 1 || tcFails[0].Name != "RemarkTensorCoreMMA" {
 		t.Errorf("TensorCoreFailures = %v, want 1 remark", tcFails)
+	}
+}
+
+func TestRemarkRoundTrip(t *testing.T) {
+	parsed, err := tileiras.ParseRemarksYAML([]byte(sampleRemarksYAML))
+	if err != nil {
+		t.Fatalf("ParseRemarksYAML: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := tileiras.EmitRemarksYAML(&buf, parsed); err != nil {
+		t.Fatalf("EmitRemarksYAML: %v", err)
+	}
+	reparsed, err := tileiras.ParseRemarksYAML(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ParseRemarksYAML(re-emitted): %v\nOutput:\n%s", err, buf.String())
+	}
+	if len(reparsed) != len(parsed) {
+		t.Fatalf("len(reparsed) = %d, want %d", len(reparsed), len(parsed))
+	}
+	for i := range parsed {
+		p, r := parsed[i], reparsed[i]
+		if p.Kind != r.Kind || p.Pass != r.Pass || p.Name != r.Name || p.File != r.File || p.Line != r.Line || p.Function != r.Function {
+			t.Errorf("remark %d mismatch: got %+v, want %+v", i, r, p)
+		}
+		if p.Remark != r.Remark || p.Instruction != r.Instruction || p.Shape != r.Shape || p.Reason != r.Reason {
+			t.Errorf("remark %d fields mismatch: got %+v, want %+v", i, r, p)
+		}
+	}
+}
+
+func TestMalformedRemarksRejected(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{"missing kind", "---\nPass: Memory\n"},
+		{"content before header", "Pass: Memory\n---\n"},
+		{"unclosed debug loc", "--- !Passed\nDebugLoc: { File: 'foo.cu'\n"},
+		{"malformed key value", "--- !Passed\nNotAColonLine\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := tileiras.ParseRemarksYAML([]byte(tc.input))
+			if err == nil {
+				t.Errorf("expected error for %q, got nil", tc.name)
+			}
+			if !errors.Is(err, tileiras.ErrMalformedRemark) {
+				t.Errorf("expected ErrMalformedRemark, got: %v", err)
+			}
+		})
 	}
 }

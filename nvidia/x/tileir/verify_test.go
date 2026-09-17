@@ -156,6 +156,19 @@ func TestVerifyShapes(t *testing.T) {
 }`,
 			wantReason: "reshape total elements mismatch: 256 != 128",
 		},
+		{
+			name: "mma operand tile type mismatch",
+			code: `cuda_tile.module @m {
+  cuda_tile.entry @bad_types() {
+    %A = cuda_tile.constant <f16: 1.0> : !cuda_tile.tile<16x16xf16>
+    %B = cuda_tile.constant <f32: 1.0> : !cuda_tile.tile<16x16xf32>
+    %C = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<16x16xf32>
+    %acc = cuda_tile.mma_f %A, %B, %C : (!cuda_tile.tile<16x16xf16>, !cuda_tile.tile<16x16xf32>, !cuda_tile.tile<16x16xf32>) -> !cuda_tile.tile<16x16xf32>
+    cuda_tile.return
+  }
+}`,
+			wantReason: "MMA operand tile type mismatch: f16 != f32",
+		},
 	}
 
 	for _, tt := range tests {
