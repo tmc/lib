@@ -34,9 +34,9 @@ func Example() {
 		DurationNs:    8500,
 	})
 
-	// Take a zero-device crash dump snapshot to a buffer
+	// Preserve recent observations at a workload boundary.
 	var buf bytes.Buffer
-	manifest, err := rec.Snapshot(context.Background(), &buf, "watchdog_timeout")
+	manifest, err := rec.Snapshot(context.Background(), &buf, "workload_boundary")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func Example() {
 	fmt.Printf("Snapshot reason: %s (records: %d)\n", manifest.Reason, manifest.GPURecords)
 
 	// Output:
-	// Snapshot reason: watchdog_timeout (records: 1)
+	// Snapshot reason: workload_boundary (records: 1)
 }
 
 func ExampleRecorder_Snapshot_withGoTrace() {
