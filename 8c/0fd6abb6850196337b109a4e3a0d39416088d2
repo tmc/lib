@@ -1,0 +1,1 @@
+commit: 8c0fd6ab; date: 2026-09-17; model: GPT-6 Codex; tty: unavailable; pid: $$; ITERM_SESSION_ID: unavailable; source: qualified agent commit 8e98d601; DGX GB10 sm_121 under gpu-lock; full 16-prefix receipt passed; canonical digest preserved; profiles: /Users/tmc/tmp/ds4-attn-rows32-20260917/candidate-prefill-pcsampled.pprof and base-prefill-pcsampled.pprof
