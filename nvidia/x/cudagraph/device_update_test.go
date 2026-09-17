@@ -391,6 +391,20 @@ func TestDeviceUpdateErrorHandling(t *testing.T) {
 			},
 		},
 		{
+			name: "nil exec HotSwapNode",
+			fn: func() error {
+				var e *cudagraph.Exec
+				return e.HotSwapNode(&cudagraph.Node{}, 1, cudalaunch.Dims(1))
+			},
+		},
+		{
+			name: "closed exec HotSwapNode",
+			fn: func() error {
+				e := &cudagraph.Exec{}
+				return e.HotSwapNode(&cudagraph.Node{}, 1, cudalaunch.Dims(1))
+			},
+		},
+		{
 			name: "nil exec ApplyKernelNodeUpdate",
 			fn: func() error {
 				var e *cudagraph.Exec
