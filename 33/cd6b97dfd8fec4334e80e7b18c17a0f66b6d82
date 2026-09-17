@@ -1,0 +1,12 @@
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 17019; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Both peer sessions independently verified 1a26f353 and closed out. Neither
+wrote anything in the repo across the investigation; both produced findings
+only.
+
+cudavet-spec's close-out corrected its own severity call (it had rated the
+text key latent and fail-closed; the control showed it live) and noted the
+thing I had not: code.go and bundle.go were near-duplicate copies of one
+function, so every finding in its section 3c existed twice, and a fix landing
+in one copy while a test covered the other would have read as green. Both
+copies are fixed and now call the same parser.
