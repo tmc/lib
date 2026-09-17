@@ -828,7 +828,7 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 			if err := r.markCUDAPhase("attention", position+i, index); err != nil {
 				return err
 			}
-			heads[i] = rows[i].mixedOutput.Slice(32768+512, 32768+512+32768)
+			heads[i] = d.attention.Slice(i*cudaAttentionStride+cudaAttentionScratch, i*cudaAttentionStride+cudaAttentionScratch+cudaAttentionHeads)
 		}
 		if err := d.tokenNComp.Slice(0, n).CopyFromHost(nCompHost); err != nil {
 			return fmt.Errorf("copy token n_comp: %w", err)
