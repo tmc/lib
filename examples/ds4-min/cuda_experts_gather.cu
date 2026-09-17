@@ -195,6 +195,7 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
   const unsigned qoffset = 16 + iqs * 4;
   const unsigned scale_offset = iqs - iqs % 8 + (iqs % 8) / 4;
   const unsigned scale_base = scale_offset & ~1;
+  const unsigned sc_shift_base = (scale_offset & 1) << 3;
   const unsigned iqs_div_8 = 4 * (iqs / 8);
   const unsigned qs_off = (iqs % 8) * 4;
 
@@ -210,12 +211,8 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
     const unsigned char *w = weights + offset + (unsigned long long)b_init * 84;
     for (unsigned b = b_init; b < blocks; b += 2) {
       unsigned v = *reinterpret_cast<const unsigned int *>(w + qoffset);
-      unsigned int sc0 = *reinterpret_cast<const unsigned int *>(w + scale_base);
-      unsigned int sc1 = *reinterpret_cast<const unsigned int *>(w + scale_base + 4);
-      if (scale_offset & 1) {
-        sc0 >>= 8;
-        sc1 >>= 8;
-      }
+      unsigned int sc0 = *reinterpret_cast<const unsigned int *>(w + scale_base) >> sc_shift_base;
+      unsigned int sc1 = *reinterpret_cast<const unsigned int *>(w + scale_base + 4) >> sc_shift_base;
       unsigned d_pair = *reinterpret_cast<const unsigned int *>(w + 80);
       float d = ds4_half_to_float(d_pair & 0xffff);
       float dm = ds4_half_to_float(d_pair >> 16);
