@@ -1,6 +1,7 @@
 package cudalaunch
 
 import (
+	"encoding/binary"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -308,6 +309,25 @@ func ProgrammaticStreamSerializationAttr(enable bool) driver.LaunchAttribute {
 		Id:    driver.LaunchAttributeProgrammaticStreamSerialization,
 		Value: [8]uint64{val},
 	}
+}
+
+// ClusterDimAttr returns a LaunchAttribute setting the cluster dimensions
+// for cuLaunchKernelEx or kernel graph nodes.
+func ClusterDimAttr(dim Dim3) driver.LaunchAttribute {
+	var attr driver.LaunchAttribute
+	attr.Id = driver.LaunchAttributeClusterDimension
+	// CUlaunchAttributeValue.clusterDim is struct { unsigned int x, y, z; }.
+	// LittleEndian packing into Value[0] (x, y) and Value[1] (z).
+	slice := unsafe.Slice((*byte)(unsafe.Pointer(&attr.Value[0])), 12)
+	binary.LittleEndian.PutUint32(slice[0:4], dim.X)
+	binary.LittleEndian.PutUint32(slice[4:8], dim.Y)
+	binary.LittleEndian.PutUint32(slice[8:12], dim.Z)
+	return attr
+}
+
+// WithClusterDim configures cluster dimensions for this launch.
+func (l *Launcher) WithClusterDim(dim Dim3) *Launcher {
+	return l.WithAttrs(ClusterDimAttr(dim))
 }
 
 // CooperativeAttr returns a LaunchAttribute enabling or disabling cooperative grid launch.
