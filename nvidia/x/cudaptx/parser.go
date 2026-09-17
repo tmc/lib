@@ -34,7 +34,6 @@ import (
 // appear at module scope or inside a function body.
 var newlineTerminated = []string{
 	".version", ".target", ".address_size", ".file", ".loc", ".loc_intermediate",
-	".nv_intermediate_source_section",
 }
 
 // tuningDirectives lists the performance-tuning directives, which are written
@@ -71,6 +70,10 @@ func Parse(r io.Reader) (*Module, error) {
 		curIntermediateLoc Location
 		curInlinedAt       []Location
 		inBlockComment     bool
+		inSection          bool // inside .nv_intermediate_source_section
+		sectionDepth       int  // brace depth within it; it ends when this returns to 0
+		sectionOpened      bool // its "{" has been seen; before that depth 0 is not the end
+		inSectionSource    bool // between .source_begin and .source_end
 		stmt               []string
 		stmtLine           int
 		lineNum            int
@@ -164,6 +167,43 @@ func Parse(r io.Reader) (*Module, error) {
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		lineNum++
+
+		// A .nv_intermediate_source_section embeds intermediate IR source
+		// text, which "may contain arbitrary text including newlines"
+		// (docs/ptx/11-directives.md:1878-1879). It is skipped before comment
+		// stripping and before the statement scanner: a brace in that text
+		// would otherwise be counted as block structure and detach every
+		// following kernel, and a "/*" in it would swallow the rest of the
+		// module.
+		if inSection {
+			t := strings.TrimSpace(scanner.Text())
+			switch {
+			case inSectionSource:
+				if t == ".source_end" {
+					inSectionSource = false
+				}
+			case t == ".source_begin":
+				inSectionSource = true
+			default:
+				if strings.Contains(t, "{") {
+					sectionOpened = true
+				}
+				sectionDepth += strings.Count(t, "{") - strings.Count(t, "}")
+				if sectionOpened && sectionDepth <= 0 {
+					inSection = false
+				}
+			}
+			continue
+		}
+		if len(stmt) == 0 && strings.HasPrefix(strings.TrimSpace(scanner.Text()), ".nv_intermediate_source_section") {
+			inSection = true
+			sectionDepth = strings.Count(scanner.Text(), "{") - strings.Count(scanner.Text(), "}")
+			// The "{" may sit on the next line; until it is seen, a depth of
+			// zero means the block has not opened yet, not that it has closed.
+			sectionOpened = sectionDepth > 0
+			continue
+		}
+
 		line, stillInComment := stripComments(scanner.Text(), inBlockComment)
 		inBlockComment = stillInComment
 		trimmed := strings.TrimSpace(line)
