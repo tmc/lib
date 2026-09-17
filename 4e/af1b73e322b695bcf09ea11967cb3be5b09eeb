@@ -1,0 +1,6 @@
+Document only; no code change. Every table row traces to a command run on the
+GB10 (linux/arm64, CUDA 13.0, sm_121) or to a test in this repo.
+
+claude-code $(claude --version 2>/dev/null | head -1)
+model=claude-opus-5[1m]
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
