@@ -74,23 +74,14 @@ var cudaMathSource = cudaMathSourceFromFS()
 func cudaMathCompilationSource() string {
 	var b strings.Builder
 	for _, name := range cudaMathFiles {
-		header := strings.TrimSuffix(name, ".cu") + ".cuh"
-		fmt.Fprintf(&b, "#include %q\n", header)
+		fmt.Fprintf(&b, "#include %q\n", name)
 	}
 	return b.String()
 }
 
 func cudaMathHeaderOptions() []nvrtcx.Option {
-	opts := make([]nvrtcx.Option, 0, len(cudaMathFiles))
-	for _, name := range cudaMathFiles {
-		data, err := cudaSourceFS.ReadFile(name)
-		if err != nil {
-			panic(fmt.Sprintf("ds4-min: embedded CUDA header %q: %v", name, err))
-		}
-		header := strings.TrimSuffix(name, ".cu") + ".cuh"
-		opts = append(opts, nvrtcx.WithHeader(header, string(data)))
-	}
-	return opts
+	patterns := append([]string(nil), cudaMathFiles[:]...)
+	return []nvrtcx.Option{nvrtcx.WithHeadersFS(cudaSourceFS, patterns...)}
 }
 
 const (
