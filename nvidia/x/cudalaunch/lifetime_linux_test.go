@@ -188,3 +188,112 @@ func TestDescribeDoesNotDetectAClosedModule(t *testing.T) {
 		t.Error("Description does not retain the kernel it was built from")
 	}
 }
+
+func TestSharedMemOptinBoundaryQueries(t *testing.T) {
+	dev := cudatest.RequireDevice(t)
+	devMaxOptin, err := dev.Attribute(driver.DevAttrMaxSharedMemoryPerBlockOptin)
+	if err != nil {
+		t.Fatalf("query DevAttrMaxSharedMemoryPerBlockOptin: %v", err)
+	}
+	if devMaxOptin <= 0 {
+		t.Fatalf("DevAttrMaxSharedMemoryPerBlockOptin = %d, want > 0", devMaxOptin)
+	}
+
+	// Within limits
+	maxDynamic, err := cudalaunch.CheckSharedMemLimit(dev, 0, devMaxOptin)
+	if err != nil {
+		t.Fatalf("CheckSharedMemLimit at exact limit failed: %v", err)
+	}
+	if maxDynamic != devMaxOptin {
+		t.Errorf("maxDynamic = %d, want %d", maxDynamic, devMaxOptin)
+	}
+
+	// Exceeding limit by 1 byte must be rejected
+	if _, err := cudalaunch.CheckSharedMemLimit(dev, 0, devMaxOptin+1); err == nil {
+		t.Errorf("CheckSharedMemLimit(%d + 1) succeeded, want rejection", devMaxOptin)
+	}
+
+	// Accounting for static shared memory
+	const staticSmem = 4096
+	maxWithStatic, err := cudalaunch.CheckSharedMemLimit(dev, staticSmem, devMaxOptin-staticSmem)
+	if err != nil {
+		t.Fatalf("CheckSharedMemLimit with static failed: %v", err)
+	}
+	if maxWithStatic != devMaxOptin-staticSmem {
+		t.Errorf("maxWithStatic = %d, want %d", maxWithStatic, devMaxOptin-staticSmem)
+	}
+
+	// Exceeding limit with static memory accounted for
+	if _, err := cudalaunch.CheckSharedMemLimit(dev, staticSmem, devMaxOptin-staticSmem+1); err == nil {
+		t.Errorf("CheckSharedMemLimit with static overflow succeeded, want rejection")
+	}
+}
+
+func TestDynamicSharedMemOptinLifecycle(t *testing.T) {
+	dev := cudatest.RequireDevice(t)
+	image := append([]byte(lifetimePTX), 0)
+	var raw driver.Module
+	if err := dev.WithContext(func() error {
+		var err error
+		raw, err = driver.NewModuleLoadData(unsafe.Pointer(&image[0]))
+		return err
+	}); err != nil {
+		t.Fatalf("load PTX: %v", err)
+	}
+	mod, err := cuda.OwnModule(dev, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mod.Close()
+
+	kern, err := mod.Function("spin")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	devMaxOptin, err := dev.Attribute(driver.DevAttrMaxSharedMemoryPerBlockOptin)
+	if err != nil {
+		t.Fatalf("query DevAttrMaxSharedMemoryPerBlockOptin: %v", err)
+	}
+
+	// Test 1: Rejected over-limit request
+	overLimitLauncher := cudalaunch.OwnedKernel(kern).SharedMem(uint32(devMaxOptin + 1024))
+	if err := overLimitLauncher.PrepareSharedMem(); err == nil {
+		t.Error("PrepareSharedMem succeeded for over-limit request, want error")
+	}
+
+	// Test 2: Raise opt-in limit above default (e.g. 64 KiB, if supported by device)
+	targetSize := 64 * 1024
+	if targetSize > devMaxOptin {
+		targetSize = devMaxOptin
+	}
+
+	l := cudalaunch.OwnedKernel(kern).SharedMem(uint32(targetSize))
+	if err := l.PrepareSharedMem(); err != nil {
+		t.Fatalf("PrepareSharedMem(%d) failed: %v", targetSize, err)
+	}
+
+	// Verify attribute was set on kernel
+	curDynamic, err := kern.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+	if err != nil {
+		t.Fatalf("query FuncAttributeMaxDynamicSharedSizeBytes: %v", err)
+	}
+	if curDynamic < targetSize {
+		t.Errorf("curDynamic = %d, want >= %d", curDynamic, targetSize)
+	}
+
+	// Test 3: Preserve larger previously established opt-in limit rather than lowering
+	lowerSize := 16 * 1024
+	lLower := cudalaunch.OwnedKernel(kern).SharedMem(uint32(lowerSize))
+	if err := lLower.PrepareSharedMem(); err != nil {
+		t.Fatalf("PrepareSharedMem(%d) failed: %v", lowerSize, err)
+	}
+	curAfterLower, err := kern.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+	if err != nil {
+		t.Fatalf("query after lower: %v", err)
+	}
+	if curAfterLower != curDynamic {
+		t.Errorf("limit lowered: was %d, now %d (must preserve larger)", curDynamic, curAfterLower)
+	}
+}
+

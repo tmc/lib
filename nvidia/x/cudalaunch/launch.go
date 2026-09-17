@@ -144,6 +144,124 @@ func (l *Launcher) AutoBlock(dev *cuda.Device, dynamicSMem int) error {
 	return nil
 }
 
+// CheckSharedMemLimit verifies whether reqShmem dynamic shared memory bytes can be allocated
+// on dev given staticSmem bytes of static shared memory. It returns the maximum dynamic shared
+// memory allowed by the device opt-in limit.
+func CheckSharedMemLimit(dev *cuda.Device, staticSmem, reqShmem int) (int, error) {
+	if dev == nil {
+		return 0, fmt.Errorf("cudalaunch: nil device")
+	}
+	if staticSmem < 0 || reqShmem < 0 {
+		return 0, fmt.Errorf("cudalaunch: negative shared memory size")
+	}
+	devMaxOptin, err := dev.Attribute(driver.DevAttrMaxSharedMemoryPerBlockOptin)
+	if err != nil {
+		return 0, fmt.Errorf("cudalaunch: query device max shared memory opt-in: %w", err)
+	}
+	maxDynamic := devMaxOptin - staticSmem
+	if maxDynamic < 0 {
+		maxDynamic = 0
+	}
+	if reqShmem > maxDynamic {
+		return maxDynamic, fmt.Errorf("cudalaunch: requested dynamic shared memory %d bytes exceeds device maximum %d bytes (device limit %d, static allocation %d bytes)",
+			reqShmem, maxDynamic, devMaxOptin, staticSmem)
+	}
+	return maxDynamic, nil
+}
+
+// PrepareSharedMem validates dynamic shared memory against device opt-in limits
+// and raises FuncAttributeMaxDynamicSharedSizeBytes on the kernel if needed.
+// It preserves larger previously established opt-in limits and accounts for static
+// shared memory allocation. For an owned kernel, the device is inferred from the kernel;
+// for a raw driver function, an explicit device must be passed (or inferred from the stream).
+func (l *Launcher) PrepareSharedMem(targetDev ...*cuda.Device) error {
+	if l == nil {
+		return fmt.Errorf("cudalaunch: nil launcher")
+	}
+	if l.shmem == 0 {
+		return nil
+	}
+
+	var dev *cuda.Device
+	if len(targetDev) > 0 && targetDev[0] != nil {
+		dev = targetDev[0]
+	}
+
+	if l.owned != nil {
+		ownedDev := l.owned.Device()
+		if ownedDev == nil {
+			return fmt.Errorf("cudalaunch: kernel does not belong to a device")
+		}
+		if dev != nil && dev.Raw() != ownedDev.Raw() {
+			return fmt.Errorf("cudalaunch: device mismatch: kernel belongs to device %d, requested %d", ownedDev.Ordinal(), dev.Ordinal())
+		}
+		dev = ownedDev
+
+		staticSmem, err := l.owned.Attribute(driver.FuncAttributeSharedSizeBytes)
+		if err != nil {
+			return fmt.Errorf("cudalaunch: query kernel static shared memory: %w", err)
+		}
+
+		if _, err := CheckSharedMemLimit(dev, staticSmem, int(l.shmem)); err != nil {
+			return err
+		}
+
+		currentDynamic, err := l.owned.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+		if err != nil {
+			return fmt.Errorf("cudalaunch: query kernel dynamic shared memory limit: %w", err)
+		}
+
+		if int(l.shmem) <= currentDynamic {
+			return nil
+		}
+
+		if err := l.owned.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, int(l.shmem)); err != nil {
+			return fmt.Errorf("cudalaunch: set max dynamic shared memory: %w", err)
+		}
+		return nil
+	}
+
+	// Raw function handle path:
+	if l.fn == 0 {
+		return fmt.Errorf("cudalaunch: nil kernel function")
+	}
+	if dev == nil && l.stream != nil {
+		dev = l.stream.Device()
+	}
+	if dev == nil {
+		return fmt.Errorf("cudalaunch: raw function handle requires a device or stream for shared memory preparation")
+	}
+
+	static32, err := l.fn.GetAttribute(driver.FuncAttributeSharedSizeBytes)
+	if err != nil {
+		return fmt.Errorf("cudalaunch: query function static shared memory: %w", err)
+	}
+	staticSmem := int(static32)
+
+	if _, err := CheckSharedMemLimit(dev, staticSmem, int(l.shmem)); err != nil {
+		return err
+	}
+
+	current32, err := l.fn.GetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+	if err != nil {
+		return fmt.Errorf("cudalaunch: query function dynamic shared memory limit: %w", err)
+	}
+	currentDynamic := int(current32)
+
+	if int(l.shmem) <= currentDynamic {
+		return nil
+	}
+
+	err = dev.WithContext(func() error {
+		return l.fn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, int32(l.shmem))
+	})
+	if err != nil {
+		return fmt.Errorf("cudalaunch: set max dynamic shared memory: %w", err)
+	}
+	return nil
+}
+
+
 // On assigns the CUDA stream for asynchronous execution.
 func (l *Launcher) On(s *cuda.Stream) *Launcher {
 	l.stream = s
@@ -249,6 +367,13 @@ func (l *Launcher) WithSignature(sig Signature) *Launcher {
 func (l *Launcher) Launch(args ...any) error {
 	if l.owned == nil && l.fn == 0 {
 		return fmt.Errorf("cudalaunch: nil kernel")
+	}
+	if l.shmem > 0 {
+		if l.owned != nil || l.stream != nil {
+			if err := l.PrepareSharedMem(); err != nil {
+				return err
+			}
+		}
 	}
 	if l.sig != nil {
 		if err := Validate(*l.sig, args...); err != nil {
