@@ -1023,14 +1023,20 @@ func (r *cudaRuntime) evalBatchExperts(rows []cudaTokenState, index int) error {
 // activation where the launch it replaces reads the whole weight pair again.
 func (r *cudaRuntime) evalBatchCompressor(rows []cudaTokenState, index int) error {
 	l, state, d := &r.model.layers[index], &r.state.layers[index], &r.batch.dense
+	b := r.activeHCBatch()
 	return chunkRows(len(rows), cudaPrefillF16PairChunk, func(lo, hi int) error {
 		m := hi - lo
-		for i := lo; i < hi; i++ {
-			if err := d.attnNorm.Slice(i*cudaWidth, (i+1)*cudaWidth).CopyDeviceToDeviceAsync(rows[i].attnNorm, r.stream()); err != nil {
-				return fmt.Errorf("token %d compressor activation: %w", i, err)
+		var in cudamem.Slice[float32]
+		if b != nil {
+			in = b.norm.Slice(lo*cudaWidth, hi*cudaWidth)
+		} else {
+			for i := lo; i < hi; i++ {
+				if err := d.attnNorm.Slice(i*cudaWidth, (i+1)*cudaWidth).CopyDeviceToDeviceAsync(rows[i].attnNorm, r.stream()); err != nil {
+					return fmt.Errorf("token %d compressor activation: %w", i, err)
+				}
 			}
+			in = d.attnNorm.Slice(lo*cudaWidth, hi*cudaWidth)
 		}
-		in := d.attnNorm.Slice(lo*cudaWidth, hi*cudaWidth)
 		w := state.attn.width
 		if err := r.encodeF16PairOrderedBatch(l.attnCompressorKV, l.attnCompressorGate, in,
 			d.compressorKV.Slice(lo*w, hi*w), d.compressorGate.Slice(lo*w, hi*w), m); err != nil {
