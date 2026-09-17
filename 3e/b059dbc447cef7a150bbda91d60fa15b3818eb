@@ -1,0 +1,13 @@
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 12752; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Deliverables 4 and 5 of the handoff. The table is the audit surface: a reader
+who doubts a row has the test name to run or the artifact hash to check.
+
+Verification of the table itself, since a table of evidence can be as
+fabricated as the attribution it documents:
+  - all 21 cited test names grep to a func in a _test.go in this tree
+  - all 23 cited bundle paths grep to a row of qual/MANIFEST.txt
+Both checks were run after writing, not before.
+
+go test ./x/cudaptx/... ./x/cudacapture/... ./x/cudalowering/... ./cmd/cudaprof/...
+green on darwin/arm64.
