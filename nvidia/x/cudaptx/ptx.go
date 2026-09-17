@@ -13,6 +13,14 @@ type Location struct {
 	Line         int    // 1-based source line
 	Column       int    // 1-based source column
 	Intermediate bool   // true if from .loc_intermediate directive (PTX ISA 9.4)
+
+	// FunctionName is the function_name attribute exactly as written: a label
+	// expression naming an offset in the DWARF .debug_str section, such as
+	// "info_string1" or ".debug_str+16" (docs/ptx/11-directives.md:1714-1718).
+	// It is not the function's name, which only .debug_str holds; it is
+	// recorded because it is the only thing that distinguishes two functions
+	// inlined at the same source position. Empty when the directive omits it.
+	FunctionName string
 }
 
 func (l Location) String() string {

@@ -244,7 +244,8 @@ func Parse(r io.Reader) (*Module, error) {
 				case strings.HasPrefix(trimmed, ".loc_intermediate"):
 					curIntermediateLoc, _ = parseLocDirective(trimmed)
 				case strings.HasPrefix(trimmed, ".loc"):
-					curLoc, curInlinedAt = parseLocDirective(trimmed)
+					loc, inlinedAt := parseLocDirective(trimmed)
+					curLoc, curInlinedAt = linkInlineChain(curLoc, curInlinedAt, loc, inlinedAt)
 					// A new source position starts here; an intermediate
 					// location that never reached an instruction does not
 					// carry across it.
@@ -453,12 +454,16 @@ func parseLocDirective(stmt string) (Location, []Location) {
 	var inlinedAt []Location
 	for _, p := range parts[1:] {
 		p = strings.TrimSpace(p)
-		if !strings.HasPrefix(p, "inlined_at") {
-			continue
+		switch {
+		case strings.HasPrefix(p, "inlined_at"):
+			inlinedLoc := parseLocTriple(strings.Fields(strings.TrimPrefix(p, "inlined_at")))
+			inlinedLoc.Intermediate = intermediate
+			inlinedAt = append(inlinedAt, inlinedLoc)
+		case strings.HasPrefix(p, "function_name"):
+			// "function_name label" or "function_name label + immediate";
+			// keep it as written, spaces squeezed.
+			loc.FunctionName = strings.Join(strings.Fields(strings.TrimPrefix(p, "function_name")), "")
 		}
-		inlinedLoc := parseLocTriple(strings.Fields(strings.TrimPrefix(p, "inlined_at")))
-		inlinedLoc.Intermediate = intermediate
-		inlinedAt = append(inlinedAt, inlinedLoc)
 	}
 	return loc, inlinedAt
 }
@@ -690,4 +695,28 @@ func parseInstructionStatement(stmt string, line int, loc Location, inlinedAt []
 		inst.InlinedAt = append([]Location(nil), inlinedAt...)
 	}
 	return inst
+}
+
+// linkInlineChain returns the location and inline chain in effect after a .loc
+// directive parsed as (loc, inlinedAt), given the ones the preceding .loc left
+// in effect.
+//
+// A nested inline is written as successive .loc directives, each naming in its
+// inlined_at the location of the directive before it
+// (docs/ptx/11-directives.md:1739-1748). Reading each directive in isolation
+// keeps only the innermost call site and drops every outer frame, so a two-deep
+// inline is reported as one deep.
+//
+// The frames are linked only when the inlined_at actually names the preceding
+// location. Without that match there is no evidence the two directives belong
+// to one chain, and only the frame written is reported.
+func linkInlineChain(prevLoc Location, prevChain []Location, loc Location, inlinedAt []Location) (Location, []Location) {
+	if len(inlinedAt) == 0 || prevLoc.FileIndex == 0 {
+		return loc, inlinedAt
+	}
+	outermost := inlinedAt[len(inlinedAt)-1]
+	if outermost.FileIndex != prevLoc.FileIndex || outermost.Line != prevLoc.Line || outermost.Column != prevLoc.Column {
+		return loc, inlinedAt
+	}
+	return loc, append(inlinedAt, prevChain...)
 }
