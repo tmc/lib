@@ -2,7 +2,7 @@
 // DS4_Q80_MAX_BATCH is the compile-time maximum batch width of
 // ds4_q8_0_matvec_quantized_batch. cudaQ80MaxBatch in cuda_q80_linux.go must
 // hold the same value; TestCUDAQualificationQ80MaxBatchConstantSync asserts it.
-#define DS4_Q80_MAX_BATCH 16
+#define DS4_Q80_MAX_BATCH 32
 
 extern "C" __global__ void ds4_q8_0_matvec_quantized(
     const unsigned char *weights, const ds4_q8_activation *x, float *out,

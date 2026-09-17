@@ -80,7 +80,7 @@ func (r *cudaFoundation) encodeQ80MatvecQ81(t cudaModelTensor, in cudamem.Slice[
 
 // cudaQ81MaxBatch is the compile-time maximum batch width processed per thread block by
 // ds4_q8_0_matvec_q8_1_batch in cuda_q81.cu. Larger batches are tiled across gridDim.y.
-const cudaQ81MaxBatch = 16
+const cudaQ81MaxBatch = 32
 
 // encodeQ80MatvecQ81Batch projects batch adjacent Q8_1 activation rows with
 // one two-dimensional launch. Input and output are token-major.

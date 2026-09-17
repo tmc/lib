@@ -72,7 +72,7 @@ func (r *cudaFoundation) encodeQ80MatvecQuantized(t cudaModelTensor, in cudamem.
 
 // cudaQ80MaxBatch is the compile-time maximum batch width processed per thread block by
 // ds4_q8_0_matvec_quantized_batch in cuda_q80_matvec.cu. Larger batches are tiled across gridDim.y.
-const cudaQ80MaxBatch = 16
+const cudaQ80MaxBatch = 32
 
 // encodeQ80MatvecQuantizedBatch projects batch adjacent Q8_0 activation rows
 // against one weight matrix with a single launch. Input and output are

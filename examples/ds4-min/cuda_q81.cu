@@ -2,7 +2,7 @@
 struct ds4_q8_1_activation { unsigned short d, sum; signed char qs[32]; };
 static_assert(sizeof(ds4_q8_1_activation) == 36, "Q8_1 block size");
 
-#define DS4_Q81_MAX_BATCH 16
+#define DS4_Q81_MAX_BATCH 32
 
 // ds4_half_round already implements the binary16 nearest-even boundary. Encode
 // its rounded float result without another rounding step or toolkit headers.
