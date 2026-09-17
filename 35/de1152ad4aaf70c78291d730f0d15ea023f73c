@@ -1,0 +1,1 @@
+commit=35de1152ad4aaf70c78291d730f0d15ea023f73c; date=2026-09-17T00:05:50Z; agent=antigravity; model=gemini; tty=/dev/ttys008; pid=15931; ITERM_SESSION_ID=; Validation: BenchmarkCUDA suite passed on DGX GB10 under gpu-lock (BenchmarkCUDAAttention, BenchmarkCUDAFFNPre, BenchmarkCUDAMoEGather, BenchmarkCUDARMSNormQuant, BenchmarkCUDAPrefill, BenchmarkCUDAKernels)
