@@ -13,6 +13,13 @@ func ExampleCompile() {
 	// Output: nvvmx: no inputs
 }
 
+func ExampleCompileWithOptions() {
+	// Options are validated before native library calls.
+	_, err := nvvmx.CompileWithOptions(nil, nvvmx.WithArch("compute_80"), nvvmx.WithOpt(3))
+	fmt.Println(err)
+	// Output: nvvmx: no inputs
+}
+
 func ExampleInput() {
 	input := nvvmx.Input{Name: "libdevice", Data: []byte{1, 2, 3}, Lazy: true}
 	fmt.Println(input.Name, input.Lazy)
