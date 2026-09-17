@@ -810,11 +810,14 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	} else {
 		nCompHost := make([]uint32, n)
 		maxTotal := 0
+		if err := r.encodeFillU32(d.allowed.Slice(0, n*maxComp), n*maxComp, 1); err != nil {
+			return err
+		}
 		for i := range rows {
 			if err := r.markCUDAPhase("compression", position+i, index); err != nil {
 				return err
 			}
-			if err := r.compress(l, state, &rows[i], position+i, index, true); err != nil {
+			if err := r.compress(l, state, &rows[i], position+i, index, true, true); err != nil {
 				return fmt.Errorf("token %d: %w", i, err)
 			}
 			nCompHost[i] = uint32(state.attn.n)
@@ -1454,7 +1457,8 @@ func (r *cudaRuntime) evalLayer(index, token, position int) error {
 // projected reports that the caller already projected them, which the batched
 // front end does for the whole group: the projections read only attnNorm, while
 // the pooling below is what forces the token order.
-func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTokenState, position, index int, projected bool) error {
+func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTokenState, position, index int, projected bool, batchedAllowed ...bool) error {
+	skipAllowed := len(batchedAllowed) > 0 && batchedAllowed[0]
 	kv, gate := s.compressorKV.Slice(0, state.attn.width), s.compressorGate.Slice(0, state.attn.width)
 	if !projected {
 		if err := r.encodeF16PairOrdered(l.attnCompressorKV, l.attnCompressorGate, s.attnNorm, kv, gate); err != nil {
@@ -1506,8 +1510,15 @@ func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTok
 			if err := r.encodeF16MatvecDefault(l.indexerProj, s.attnNorm, s.indexerWeights); err != nil {
 				return err
 			}
+			return r.encodeIndexer(s.indexerQ, s.indexerWeights, state.indexer.cache, state.indexer.n, s.indexerScratch, s.indexerScores, s.allowed, position, index)
 		}
-		return r.encodeIndexer(s.indexerQ, s.indexerWeights, state.indexer.cache, state.indexer.n, s.indexerScratch, s.indexerScores, s.allowed, position, index)
+		if skipAllowed {
+			return nil
+		}
+		return r.encodeFillU32(s.allowed, state.indexer.n, 1)
+	}
+	if skipAllowed {
+		return nil
 	}
 	// An odd layer must not inherit the preceding even layer's selection mask.
 	count := max(1, state.attn.n)
