@@ -1,0 +1,6 @@
+commit: 6fcee6223b477216464147ac9205c53b1f4d528e
+date: 2026-09-17T05:06:23Z
+agent: antigravity
+subagent_id: 83f1e6f6-6f12-49ae-8d7f-3420c17b20ef
+lane: 08-typed-tile-ir-backend
+status: host-verified; semantic lowering, pinned Tile C++ flags, two-stage disassembly, remarks passed
