@@ -10,6 +10,11 @@ import (
 	"github.com/tmc/lib/nvidia/nvrtc"
 )
 
+// toolkitSearchRoots lists the standard installation prefixes consulted after
+// CUDA_HOME and CUDA_PATH. Tests replace it to reach the not-found path on a
+// host that has a toolkit installed at one of these locations.
+var toolkitSearchRoots = []string{"/usr/local/cuda", "/opt/cuda"}
+
 // ToolkitIncludeDir reports a CUDA toolkit include directory on the host,
 // or the empty string when none is found. It inspects CUDA_HOME, CUDA_PATH,
 // standard installation paths like /usr/local/cuda and /opt/cuda, and
@@ -21,7 +26,7 @@ func ToolkitIncludeDir() string {
 			roots = append(roots, root)
 		}
 	}
-	roots = append(roots, "/usr/local/cuda", "/opt/cuda")
+	roots = append(roots, toolkitSearchRoots...)
 	if pf := os.Getenv("ProgramFiles"); pf != "" {
 		base := filepath.Join(pf, "NVIDIA GPU Computing Toolkit", "CUDA")
 		if versions, err := filepath.Glob(filepath.Join(base, "v*")); err == nil {

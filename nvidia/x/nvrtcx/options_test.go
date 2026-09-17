@@ -359,9 +359,16 @@ extern "C" __global__ void k() {}`
 		t.Fatal("expected error on invalid standard")
 	}
 
-	// Test WithToolkitIncludes failure when no directory found
+	// Test WithToolkitIncludes failure when no directory found. The standard
+	// installation prefixes are searched regardless of the environment, so a
+	// host with a toolkit installed reaches this path only with them removed.
 	t.Setenv("CUDA_HOME", t.TempDir()) // empty dir, no headers
 	t.Setenv("CUDA_PATH", "")
+	defer func(saved []string) { toolkitSearchRoots = saved }(toolkitSearchRoots)
+	toolkitSearchRoots = nil
+	if dir := ToolkitIncludeDir(); dir != "" {
+		t.Fatalf("toolkit include directory still discoverable at %q", dir)
+	}
 	if _, err := Compile("void k() {}", WithToolkitIncludes()); err == nil || !strings.Contains(err.Error(), "CUDA toolkit include directory not found") {
 		t.Fatalf("expected missing toolkit error, got %v", err)
 	}
@@ -558,4 +565,3 @@ func TestBundledHeadersOptions(t *testing.T) {
 		t.Fatalf("CompileFlags with bundled headers = %v, want [--include-path=/custom/bundled]", flags)
 	}
 }
-
