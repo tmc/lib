@@ -1,0 +1,10 @@
+commit=79320971fa422ccaa9e4196ce48c52faab3ff838
+date=2026-09-16T21:12:05-07:00
+agent=Codex; codex-cli=0.154.0; model=GPT-6 (exact variant unavailable)
+claude-code-version=2.1.257 (installed, not the acting agent)
+tty=unavailable (tool pipe); pid=14623 (note writer); agent-pid=unavailable
+ITERM_SESSION_ID=unavailable
+Validation: GB10 sm_121 under gpu-lock. All16 prefix cases and48 prefill/continuation snapshots bit-exact against a69ae9dd. Canonical SHA256=3c190c73110cec7aed9f22916a1c84216eb7338071040846cc1d0bd992456aa5; greedy tokens15342,201. Q80/Q81 tests passed including real-model checks; both tile/stride mutants failed intended differential checks. Linux arm64 cross-build and vet passed.
+Median prefill:43.341533s to40.798657s (3 trials per variant); launches1,686,232 to1,566,520. Wider Q8 registers80/64; local_bytes0. Dense attention memory+64.5MiB.
+Evidence: /Users/tmc/tmp/ds4-target3-20260916/RESULTS.md
+Commit helper failed due missing ANTHROPIC_API_KEY; used authorized manual fallback after one attempt.
