@@ -3,7 +3,7 @@
 package main
 
 import (
-	_ "embed"
+	"embed"
 	"errors"
 	"fmt"
 	"os"
@@ -20,6 +20,13 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
+// cudaSourceFS is the source-of-truth for the CUDA fragments compiled by the
+// runtime. Keeping the files in one embedded filesystem makes the logical
+// filename used by #line directives derive from the embedded path itself.
+//
+//go:embed *.cu
+var cudaSourceFS embed.FS
+
 //go:embed cuda_probe.cu
 var cudaProbeSource string
 
@@ -30,18 +37,27 @@ func cudaSourceChunk(name, source string) string {
 	return fmt.Sprintf("#line 1 %q\n%s\n", name, strings.TrimSuffix(source, "\n"))
 }
 
-var cudaMathSource = strings.Join([]string{
-	cudaSourceChunk("cuda_probe.cu", cudaProbeSource),
-	cudaSourceChunk("cuda_experts.cu", cudaExpertSource),
-	cudaSourceChunk("cuda_compressed.cu", cudaCompressedSource),
-	cudaSourceChunk("cuda_q80_layout.cu", cudaQ80Layout),
-	cudaSourceChunk("cuda_q80_matvec.cu", cudaQ80MatvecBody),
-	cudaSourceChunk("cuda_q81.cu", cudaQ81Source),
-	cudaSourceChunk("cuda_f16_default.cu", cudaF16DefaultSource),
-	cudaSourceChunk("cuda_experts_q81.cu", cudaExpertQ81Source),
-	cudaSourceChunk("cuda_hc.cu", cudaHCSource),
-	cudaSourceChunk("cuda_experts_gather.cu", cudaExpertGatherSource),
-}, "")
+func cudaMathSourceFromFS() string {
+	entries, err := cudaSourceFS.ReadDir(".")
+	if err != nil {
+		panic(fmt.Sprintf("ds4-min: read embedded CUDA sources: %v", err))
+	}
+	chunks := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".cu") {
+			continue
+		}
+		name := entry.Name()
+		data, err := cudaSourceFS.ReadFile(name)
+		if err != nil {
+			panic(fmt.Sprintf("ds4-min: embedded CUDA source %q: %v", name, err))
+		}
+		chunks = append(chunks, cudaSourceChunk(name, string(data)))
+	}
+	return strings.Join(chunks, "")
+}
+
+var cudaMathSource = cudaMathSourceFromFS()
 
 const (
 	cudaMemHostRegisterDeviceMap = 2

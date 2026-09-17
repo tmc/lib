@@ -36,3 +36,29 @@ func TestCUDAEmbeddedSources(t *testing.T) {
 		t.Errorf("cudaMathSource does not contain expected kernels")
 	}
 }
+
+func TestCUDAMathSourceUsesLexicalEmbedOrder(t *testing.T) {
+	entries, err := cudaSourceFS.ReadDir(".")
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	previous := ""
+	marked := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".cu") {
+			continue
+		}
+		if previous >= entry.Name() {
+			t.Fatalf("embed.FS entries are not lexical: %q before %q", previous, entry.Name())
+		}
+		previous = entry.Name()
+		marked++
+		marker := `#line 1 "` + entry.Name() + `"`
+		if !strings.Contains(cudaMathSource, marker) {
+			t.Errorf("cudaMathSource missing source marker %q", marker)
+		}
+	}
+	if marked == 0 {
+		t.Fatal("embed.FS contained no CUDA sources")
+	}
+}

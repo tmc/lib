@@ -17,6 +17,7 @@ __device__ unsigned short ds4_q81_half_bits(float value) {
   return (unsigned short)(sign | ((mantissa | 0x800000) >> (-exponent - 1)));
 }
 
+
 extern "C" __global__ void ds4_quant_q8_1(const float *in, ds4_q8_1_activation *out) {
   const unsigned tid = threadIdx.x;
   float value = in[(unsigned long long)blockIdx.x * 32 + tid];
@@ -178,4 +179,3 @@ extern "C" __global__ void ds4_swiglu_quant_q8_1(
     out[block_idx].sum = ds4_q81_half_bits(sum);
   }
 }
-

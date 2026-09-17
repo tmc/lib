@@ -15,6 +15,7 @@ extern "C" __global__ void ds4_f16_matvec_half_input(
   }
   if (tid == 0) out[row] = float(partial[0]);
 }
+
 extern "C" __global__ void ds4_f16_pair_ordered_chunks(
     const unsigned short *a, const unsigned short *b, const float *x,
     float *out_a, float *out_b, unsigned cols) {
@@ -321,4 +322,3 @@ extern "C" __global__ void ds4_f16_matvec_half_input_batch(
   }
   if (tid == 0) out[(unsigned long long)t * rows + row] = float(partial[0]);
 }
-
