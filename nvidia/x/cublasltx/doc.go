@@ -1,6 +1,9 @@
 // Package cublasltx provides an owning cuBLASLt matrix multiplication engine.
 //
-// [NewEngine] allocates a handle and a 32 MiB workspace on a CUDA device.
+// [NewEngine] allocates a handle and a default 32 MiB workspace on a CUDA device.
+// The workspace allocation can be customized or supplied by the caller using
+// [WithWorkspaceBytes] or [WithWorkspace].
+//
 // [Engine.MatMul], [Engine.MatMulF16], and [Engine.MatMulBF16] compute D = A*B
 // for column-major matrices.
 // [Engine.MatMulRowMajor], [Engine.MatMulRowMajorF16], and [Engine.MatMulRowMajorBF16]
@@ -9,12 +12,14 @@
 // and [Engine.LinearRowMajorF16ToF32] compute transformer linear projections Y = X*W^T
 // for row-major matrices without transposition overhead.
 // [Engine.MatMulRaw] allows full control over compute type, scale type, data types,
-// and transposed operands via [MatMulConfig].
+// transposed operands, and per-operation workspace override via [MatMulConfig].
 //
 // An Engine serializes host submissions, but matrix multiplications do not wait for GPU
-// completion. Because calls share workspace, use an ordered stream or wait for
-// earlier work to finish before submitting through another stream. A nil stream
-// selects the CUDA default stream. Keep buffers alive until work completes and
+// completion. When using the default shared workspace across multiple streams, host submission
+// alone does not order work on the device. To run concurrent operations on separate streams safely,
+// use [Engine.WithWorkspace] to derive a child Engine with dedicated workspace per stream,
+// or provide a stream-local [MatMulConfig.Workspace] on each invocation.
+// A nil stream selects the CUDA default stream. Keep buffers alive until work completes and
 // synchronize before reading results on the host or calling [Engine.Close].
 // A closed Engine cannot be reused.
 package cublasltx
