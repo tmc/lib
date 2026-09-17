@@ -1,0 +1,5 @@
+commit: 6a1c8d081c489964d8703bf81c29aed9ac373af2
+date: 2026-09-17T04:43:30Z
+agent: antigravity
+lane: 18-fusion-quantization-and-moe
+status: host-verified; Q8_1 d/s IEEE fp16 layout, Gather16 checked, native/W256 pending
