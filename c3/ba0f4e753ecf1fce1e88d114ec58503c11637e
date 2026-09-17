@@ -1,0 +1,1 @@
+Integrated isolated compile repairs 559fdf08 and 6fd2dea3; active originals preserved under /Users/tmc/tmp/lib-nvidia-implementation/active-backup-20260917/kernel-collective-mega. Codex manual repairs; Luna unavailable due usage limit. Focused tests passed in isolated worktrees.
