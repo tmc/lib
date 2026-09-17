@@ -1,11 +1,15 @@
 package cudafuse
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudair"
 )
+
+// ErrUnsupportedOperator indicates that an operator cannot be lowered by cudafuse.
+var ErrUnsupportedOperator = errors.New("cudafuse: unsupported operator for fusion")
 
 
 // FusedKernel represents a synthesized CUDA C++ kernel with line-level source provenance.
@@ -126,13 +130,13 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 		case n.Op == "div":
 			expr = fmt.Sprintf("v_%s / v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
 		case strings.HasPrefix(n.Op, "rmsnorm"):
-			expr = fmt.Sprintf("v_%s * rsqrtf(v_%s * v_%s + 1e-5f)", n.Inputs[0].Name, n.Inputs[0].Name, n.Inputs[0].Name)
+			return fk, fmt.Errorf("%w: %s (RMSNorm reduction not implemented)", ErrUnsupportedOperator, n.Op)
 		case strings.HasPrefix(n.Op, "rope"):
-			expr = fmt.Sprintf("v_%s", n.Inputs[0].Name)
+			return fk, fmt.Errorf("%w: %s (RoPE transformation not implemented)", ErrUnsupportedOperator, n.Op)
 		case n.Op == "matmul":
-			expr = fmt.Sprintf("v_%s * v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
+			return fk, fmt.Errorf("%w: %s (matmul cannot be lowered as elementwise)", ErrUnsupportedOperator, n.Op)
 		default:
-			return fk, fmt.Errorf("cudafuse: unsupported operator for fusion: %s", n.Op)
+			return fk, fmt.Errorf("%w: %s", ErrUnsupportedOperator, n.Op)
 		}
 
 		addLine(fmt.Sprintf("        float v_%s = %s;", n.Name, expr), &n.SourceLoc)
