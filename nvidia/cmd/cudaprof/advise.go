@@ -112,7 +112,22 @@ type AdviceItem struct {
 // AdviceReport contains all recommendations resulting from analyzing a capture.
 type AdviceReport struct {
 	Items []AdviceItem `json:"items"`
+
+	// SampleOnly reports that the capture carries PC samples but no device
+	// timing. A share of samples then says where execution was, never how
+	// long anything took, and never whether the device was idle between
+	// launches. That limit is a property of the instrument, not a defect,
+	// but it has to be stated: a reader who does not know it reads
+	// "17.66% of observed samples" as "17.66% of elapsed time".
+	SampleOnly bool `json:"sample_only,omitempty"`
 }
+
+// sampleOnlyCaveat names what PC sampling cannot see. Activity tracing is the
+// only tier that records launch counts and inter-launch gaps, so on a
+// sample-only capture device idle is unmeasured rather than absent.
+const sampleOnlyCaveat = "> **This capture is PC samples only.** A share of observed samples says where " +
+	"execution was, and is *not a share of elapsed time*. PC sampling cannot observe " +
+	"device idle between launches; capture with activity tracing to measure that.\n\n"
 
 const defaultAdviceLimit = 10
 
@@ -130,6 +145,9 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 
 	var sb strings.Builder
 	sb.WriteString("# CUDA Kernel Advice Report\n\n")
+	if r.SampleOnly {
+		sb.WriteString(sampleOnlyCaveat)
+	}
 
 	var criticals, warnings, infos int
 	for _, item := range r.Items {
@@ -640,6 +658,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	auditKernelFamilyDominance(cap, report, kernelTimes, totalTime, hasTiming)
 
 	// Finalize device times and rank findings by device time
+	report.SampleOnly = !hasTiming
 	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, hasTiming)
 
 	return report, nil
