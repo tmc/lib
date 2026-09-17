@@ -97,19 +97,21 @@ type Capture struct {
 	// CodeUnavailable maps source, ptx, cubin, and sass to an explicit
 	// disposition when that artifact was not retained or could not be captured.
 	CodeUnavailable map[string]string
+	Identity        *ComparisonIdentity
 	Metadata        json.RawMessage
 }
 
 // Manifest represents the serialization schema for manifest.json.
 type Manifest struct {
-	Version      int                `json:"version"`
-	Code         CodeFiles          `json:"code,omitempty"`
-	Modules      []Module           `json:"modules,omitempty"`
-	Descriptors  []MetricDescriptor `json:"descriptors,omitempty"`
-	Observations []Observation      `json:"observations,omitempty"`
-	Unavailable  map[string]string  `json:"code_unavailable,omitempty"`
-	SHA256       map[string]string  `json:"sha256"`
-	Metadata     json.RawMessage    `json:"metadata,omitempty"`
+	Version      int                 `json:"version"`
+	Code         CodeFiles           `json:"code,omitempty"`
+	Modules      []Module            `json:"modules,omitempty"`
+	Descriptors  []MetricDescriptor  `json:"descriptors,omitempty"`
+	Observations []Observation       `json:"observations,omitempty"`
+	Unavailable  map[string]string   `json:"code_unavailable,omitempty"`
+	SHA256       map[string]string   `json:"sha256"`
+	Identity     *ComparisonIdentity `json:"identity,omitempty"`
+	Metadata     json.RawMessage     `json:"metadata,omitempty"`
 }
 
 // embeddedCaptureV2 is the JSON structure stored inside pprof comments in v2.
@@ -354,7 +356,7 @@ func WriteLimits(w io.Writer, c *Capture, l Limits) error {
 	}
 
 	version := 2
-	if len(c.Modules) > 0 || len(c.CodeUnavailable) > 0 || len(c.Descriptors) > 0 || len(c.Observations) > 0 {
+	if len(c.Modules) > 0 || len(c.CodeUnavailable) > 0 || len(c.Descriptors) > 0 || len(c.Observations) > 0 || c.Identity != nil {
 		version = 3
 	}
 	manifest := Manifest{
@@ -365,6 +367,7 @@ func WriteLimits(w io.Writer, c *Capture, l Limits) error {
 		Observations: c.Observations,
 		Unavailable:  c.CodeUnavailable,
 		SHA256:       make(map[string]string, len(c.Files)),
+		Identity:     c.Identity,
 		Metadata:     c.Metadata,
 	}
 	for name, data := range c.Files {
@@ -516,6 +519,7 @@ func decodeEmbeddedV2(p *profile.Profile, data []byte, l Limits) (*Capture, erro
 		CodeUnavailable: emb.Manifest.Unavailable,
 		Descriptors:     emb.Manifest.Descriptors,
 		Observations:    emb.Manifest.Observations,
+		Identity:        emb.Manifest.Identity,
 		Metadata:        emb.Manifest.Metadata,
 	}
 	if err := validateCapture(cap, l); err != nil {
@@ -605,7 +609,7 @@ func WriteDirLimits(dir string, c *Capture, l Limits) error {
 	}
 
 	version := 2
-	if len(c.Modules) > 0 || len(c.CodeUnavailable) > 0 || len(c.Descriptors) > 0 || len(c.Observations) > 0 {
+	if len(c.Modules) > 0 || len(c.CodeUnavailable) > 0 || len(c.Descriptors) > 0 || len(c.Observations) > 0 || c.Identity != nil {
 		version = 3
 	}
 	manifest := Manifest{
@@ -616,6 +620,7 @@ func WriteDirLimits(dir string, c *Capture, l Limits) error {
 		Observations: c.Observations,
 		Unavailable:  c.CodeUnavailable,
 		SHA256:       make(map[string]string, len(c.Files)),
+		Identity:     c.Identity,
 		Metadata:     c.Metadata,
 	}
 	// Check every destination before writing. The later O_EXCL creates also
@@ -804,6 +809,7 @@ func readDirV2(dir string, manifestBytes []byte, l Limits) (*Capture, error) {
 		CodeUnavailable: m.Unavailable,
 		Descriptors:     m.Descriptors,
 		Observations:    m.Observations,
+		Identity:        m.Identity,
 		Metadata:        m.Metadata,
 	}
 	if err := validateCapture(cap, l); err != nil {
