@@ -122,6 +122,8 @@ func TestCUDAMoEGatherConstants(t *testing.T) {
 		define string
 		want   int
 	}{
+		{"DS4_MOE_IQ2_GATHER_TILE", cudaMoEIQ2GatherTile},
+		{"DS4_MOE_Q2_GATHER_TILE", cudaMoEQ2GatherTile},
 		{"DS4_MOE_GATHER_TILE", cudaMoEGatherTile},
 		{"DS4_MOE_MAX_EXPERTS", cudaMoEMaxExperts},
 	} {

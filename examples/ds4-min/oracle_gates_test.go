@@ -198,7 +198,8 @@ func oracleGateNames(filename string, src []byte) ([]string, error) {
 		value, err := strconv.Unquote(lit.Value)
 		// These name compile-time CUDA macros, not environment controls.
 		switch value {
-		case "DS4_MOE_GATHER_TILE", "DS4_MOE_MAX_EXPERTS":
+		case "DS4_MOE_GATHER_TILE", "DS4_MOE_IQ2_GATHER_TILE", "DS4_MOE_Q2_GATHER_TILE", "DS4_MOE_MAX_EXPERTS",
+			"DS4_BENCH_MOE_TILES", "DS4_BENCH_TOKENS", "DS4_CUDA_PC_PROFILE_PHASE":
 			return true
 		}
 		if err == nil && ds4EnvName.MatchString(value) {

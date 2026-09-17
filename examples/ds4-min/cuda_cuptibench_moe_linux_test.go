@@ -23,7 +23,7 @@ func BenchmarkCUDAMoEGather(b *testing.B) {
 	if os.Getenv("GPU_LOCK_HELD") == "" {
 		b.Fatal("gpu-lock is required")
 	}
-	for _, tile := range cudaBenchSizes(b, "DS4_BENCH_MOE_TILES", []int{16, 32}) {
+	for _, tile := range cudaBenchSizes(b, "DS4_BENCH_MOE_TILES", []int{4, 8, 16, 32}) {
 		for _, tokens := range cudaBenchSizes(b, "DS4_BENCH_TOKENS", []int{16, 64, 256}) {
 			b.Run(fmt.Sprintf("q2_k/tile=%d/tokens=%d", tile, tokens), func(b *testing.B) {
 				cudaCUPTIMoEGatherQ2K(b, tile, tokens)
@@ -37,22 +37,23 @@ func BenchmarkCUDAMoEGather(b *testing.B) {
 
 func cudaMoEGatherFunction(b *testing.B, r *cudaFoundation, tile int, symbol string) driver.Function {
 	b.Helper()
-	if tile == cudaMoEGatherTile {
+	if symbol == "ds4_q2_k_selected_q8_1_gather" && tile == cudaMoEQ2GatherTile {
 		if err := r.device.WithContext(r.loadMathKernels); err != nil {
 			b.Fatal(err)
 		}
-		switch symbol {
-		case "ds4_iq2_xxs_pair_selected_q8_1_gather":
-			return r.iq2GatherQ81Fn
-		case "ds4_q2_k_selected_q8_1_gather":
-			return r.q2KGatherQ81Fn
-		default:
-			b.Fatalf("unknown gather symbol: %s", symbol)
+		return r.q2KGatherQ81Fn
+	}
+	if symbol == "ds4_iq2_xxs_pair_selected_q8_1_gather" && tile == cudaMoEIQ2GatherTile {
+		if err := r.device.WithContext(r.loadMathKernels); err != nil {
+			b.Fatal(err)
 		}
+		return r.iq2GatherQ81Fn
 	}
 	program, err := nvrtcx.Compile(cudaMathSource,
 		nvrtcx.WithName(fmt.Sprintf("ds4_gather_tile%d.cu", tile)),
 		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", r.major, r.minor)),
+		nvrtcx.WithFlag(fmt.Sprintf("-DDS4_MOE_IQ2_GATHER_TILE=%d", tile)),
+		nvrtcx.WithFlag(fmt.Sprintf("-DDS4_MOE_Q2_GATHER_TILE=%d", tile)),
 		nvrtcx.WithFlag(fmt.Sprintf("-DDS4_MOE_GATHER_TILE=%d", tile)),
 		nvrtcx.WithFlag("--generate-line-info"),
 		nvrtcx.WithFlag("--extra-device-vectorization"),

@@ -3,13 +3,18 @@
 // wider tensors, so the bound is checked before a launch, not after.
 #define DS4_MOE_MAX_EXPERTS 256
 
-// DS4_MOE_GATHER_TILE is the number of (token, slot) pairs one warp keeps in
-// flight against a single expert weight row. The pigeonhole bound on a group
-// of W tokens is 6W selections over at most 256 experts, so a wide group
-// reads every selected row about 6W/min(6W,256) times when the pairs are
-// unbatched. Tiling reads it ceil(count/TILE) times instead. The Go constant
-// cudaMoEGatherTile mirrors this and TestCUDAMoEGatherTileConstant fails if
-// the two drift apart.
+// DS4_MOE_IQ2_GATHER_TILE is the number of (token, slot) pairs one warp keeps in
+// flight against a single expert weight row for IQ2_XXS gate and up projections.
+#ifndef DS4_MOE_IQ2_GATHER_TILE
+#define DS4_MOE_IQ2_GATHER_TILE 16
+#endif
+
+// DS4_MOE_Q2_GATHER_TILE is the number of (token, slot) pairs one warp keeps in
+// flight against a single expert weight row for Q2_K down projections.
+#ifndef DS4_MOE_Q2_GATHER_TILE
+#define DS4_MOE_Q2_GATHER_TILE 8
+#endif
+
 #ifndef DS4_MOE_GATHER_TILE
 #define DS4_MOE_GATHER_TILE 16
 #endif
@@ -67,7 +72,7 @@ extern "C" __global__ void ds4_moe_group_csr(
 }
 
 // ds4_iq2_xxs_pair_selected_q8_1_gather is ds4_iq2_xxs_pair_selected_q8_1 with
-// the expert weight row read once for DS4_MOE_GATHER_TILE pairs routed to that
+// the expert weight row read once for DS4_MOE_IQ2_GATHER_TILE pairs routed to that
 // expert instead of once per pair. blockIdx.y selects an active bin and
 // blockIdx.x a range of rows, so a block owns one (expert, rows) pair and
 // walks only the pairs the CSR listing routed there.
@@ -114,15 +119,15 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
 
   const unsigned blocks = cols / 256;
   const unsigned long long offset = ((unsigned long long)bin * rows + row) * blocks * 66;
-  for (int base = begin; base < end; base += DS4_MOE_GATHER_TILE) {
-    const unsigned n = unsigned(end - base) < DS4_MOE_GATHER_TILE ? unsigned(end - base) : DS4_MOE_GATHER_TILE;
-    const ds4_q8_1_activation *token[DS4_MOE_GATHER_TILE];
+  for (int base = begin; base < end; base += DS4_MOE_IQ2_GATHER_TILE) {
+    const unsigned n = unsigned(end - base) < DS4_MOE_IQ2_GATHER_TILE ? unsigned(end - base) : DS4_MOE_IQ2_GATHER_TILE;
+    const ds4_q8_1_activation *token[DS4_MOE_IQ2_GATHER_TILE];
     #pragma unroll
-    for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+    for (unsigned t = 0; t < DS4_MOE_IQ2_GATHER_TILE; t++) {
       unsigned p = t < n ? unsigned(pairs[base + t]) : 0;
       token[t] = x + (unsigned long long)(p / slots) * (cols / 32);
     }
-    float g[DS4_MOE_GATHER_TILE] = {0.0f}, u[DS4_MOE_GATHER_TILE] = {0.0f};
+    float g[DS4_MOE_IQ2_GATHER_TILE] = {0.0f}, u[DS4_MOE_IQ2_GATHER_TILE] = {0.0f};
     for (unsigned part = lane; part < cols / 32; part += 32) {
       const unsigned b = part / 8, sub = part % 8;
       const unsigned char *wg = gate + offset + (unsigned long long)b * 66;
@@ -131,7 +136,7 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
       ds4_iq2_hoist_part(wg, sub, s_grid_lo, s_grid_hi, s_ksigns, &hg);
       ds4_iq2_hoist_part(wu, sub, s_grid_lo, s_grid_hi, s_ksigns, &hu);
       #pragma unroll
-      for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+      for (unsigned t = 0; t < DS4_MOE_IQ2_GATHER_TILE; t++) {
         if (t < n) {
           g[t] += ds4_iq2_eval_hoisted(hg, token[t] + part);
           u[t] += ds4_iq2_eval_hoisted(hu, token[t] + part);
@@ -139,7 +144,7 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
       }
     }
     #pragma unroll
-    for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+    for (unsigned t = 0; t < DS4_MOE_IQ2_GATHER_TILE; t++) {
       if (t < n) {
         float gt = g[t], ut = u[t];
         for (unsigned stride = 16; stride; stride >>= 1) {
@@ -158,7 +163,7 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
 }
 
 // ds4_q2_k_selected_q8_1_gather is ds4_q2_k_selected_q8_1 with the expert
-// weight row read once for DS4_MOE_GATHER_TILE pairs instead of once per pair.
+// weight row read once for DS4_MOE_Q2_GATHER_TILE pairs instead of once per pair.
 // Q2 takes a per pair activation row, so tiling reuses the weight bytes only;
 // the activation reads stay one per pair, which is the small side of the
 // traffic. Each output keeps its own accumulator over the same lane/16 strided
@@ -193,28 +198,20 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
   const unsigned iqs_div_8 = 4 * (iqs / 8);
   const unsigned qs_off = (iqs % 8) * 4;
 
-  for (int base = begin; base < end; base += DS4_MOE_GATHER_TILE) {
-    const unsigned n = unsigned(end - base) < DS4_MOE_GATHER_TILE ? unsigned(end - base) : DS4_MOE_GATHER_TILE;
-    const ds4_q8_1_activation *cur_input[DS4_MOE_GATHER_TILE];
+  for (int base = begin; base < end; base += DS4_MOE_Q2_GATHER_TILE) {
+    const unsigned n = unsigned(end - base) < DS4_MOE_Q2_GATHER_TILE ? unsigned(end - base) : DS4_MOE_Q2_GATHER_TILE;
+    const ds4_q8_1_activation *token_x[DS4_MOE_Q2_GATHER_TILE];
     #pragma unroll
-    for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+    for (unsigned t = 0; t < DS4_MOE_Q2_GATHER_TILE; t++) {
       unsigned p = t < n ? unsigned(pairs[base + t]) : 0;
-      cur_input[t] = x + (unsigned long long)p * (cols / 32) + b_init * 8;
+      token_x[t] = x + (unsigned long long)p * (cols / 32);
     }
-    float sum[DS4_MOE_GATHER_TILE] = {0.0f};
+    float sum[DS4_MOE_Q2_GATHER_TILE] = {0.0f};
     const unsigned char *w = weights + offset + (unsigned long long)b_init * 84;
     for (unsigned b = b_init; b < blocks; b += 2) {
       unsigned v = *reinterpret_cast<const unsigned int *>(w + qoffset);
-      unsigned long long w_sc = reinterpret_cast<unsigned long long>(w + scale_base);
-      unsigned int sc0, sc1;
-      if ((w_sc & 7) == 0) {
-        uint2 sc_vec = *reinterpret_cast<const uint2 *>(w + scale_base);
-        sc0 = sc_vec.x;
-        sc1 = sc_vec.y;
-      } else {
-        sc0 = *reinterpret_cast<const unsigned int *>(w + scale_base);
-        sc1 = *reinterpret_cast<const unsigned int *>(w + scale_base + 4);
-      }
+      unsigned int sc0 = *reinterpret_cast<const unsigned int *>(w + scale_base);
+      unsigned int sc1 = *reinterpret_cast<const unsigned int *>(w + scale_base + 4);
       if (scale_offset & 1) {
         sc0 >>= 8;
         sc1 >>= 8;
@@ -223,37 +220,41 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
       float d = ds4_half_to_float(d_pair & 0xffff);
       float dm = ds4_half_to_float(d_pair >> 16);
 
+      int v_sub[4];
+      int s_lo[4];
+      int s_hi[4];
       #pragma unroll
-      for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+      for (unsigned i = 0; i < 4; i++) {
+        v_sub[i] = (v >> (2 * i)) & 0x03030303;
+        unsigned sc = (i < 2) ? sc0 : sc1;
+        unsigned sc_shift = (i & 1) ? 16 : 0;
+        s_lo[i] = int((sc >> sc_shift) & 0x0f);
+        s_hi[i] = int((sc >> (sc_shift + 4)) & 0x0f);
+      }
+
+      const unsigned act_off = b * 8 + iqs_div_8;
+      #pragma unroll
+      for (unsigned t = 0; t < DS4_MOE_Q2_GATHER_TILE; t++) {
         if (t < n) {
-          const ds4_q8_1_activation *q_base = cur_input[t] + iqs_div_8;
+          const ds4_q8_1_activation *q_base = token_x[t] + act_off;
           float sum_d = 0.0f, sum_m = 0.0f;
           #pragma unroll
           for (unsigned i = 0; i < 4; i++) {
             const ds4_q8_1_activation *q = q_base + i;
             int q_packed = *reinterpret_cast<const int *>(&q->qs[qs_off]);
-            int vi = (v >> (2 * i)) & 0x03030303;
-            unsigned sc = (i < 2) ? sc0 : sc1;
-            unsigned sc_shift = (i & 1) ? 16 : 0;
-            int s_lo = int((sc >> sc_shift) & 0x0f);
-            int s_hi = int((sc >> (sc_shift + 4)) & 0x0f);
-            int dot = __dp4a(vi, q_packed, 0);
-            int minimum = s_hi * __dp4a(0x01010101, q_packed, 0);
+            int dot = __dp4a(v_sub[i], q_packed, 0);
+            int minimum = s_hi[i] * __dp4a(0x01010101, q_packed, 0);
             float d8 = ds4_half_to_float(q->d);
-            sum_d += d8 * float(dot * s_lo);
+            sum_d += d8 * float(dot * s_lo[i]);
             sum_m += d8 * float(minimum);
           }
           sum[t] += d * sum_d - dm * sum_m;
         }
       }
       w += 168;
-      #pragma unroll
-      for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
-        cur_input[t] += 16;
-      }
     }
     #pragma unroll
-    for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
+    for (unsigned t = 0; t < DS4_MOE_Q2_GATHER_TILE; t++) {
       if (t < n) {
         float s = sum[t];
         for (unsigned stride = 16; stride; stride >>= 1)
