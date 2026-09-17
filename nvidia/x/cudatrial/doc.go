@@ -4,7 +4,12 @@
 // In hardware benchmarking and kernel optimization, comparing sequential blocks
 // (e.g. 100 runs of Arm A followed by 100 runs of Arm B) is vulnerable to thermal
 // throttling, power-state transitions, and memory fragmentation drift. Interleaving
-// arms in round-robin order balances background conditions across all candidates.
+// arms in ABBA order balances background conditions across all candidates.
+//
+// cudatrial also enforces non-additive latency decomposition (WallNs, DeviceNs,
+// QueueNs, and GpuIntervalUnionNs) and explicitly bars naive duration summation
+// across distinct timing channels. Optional hardware lock verification ensures
+// trials have exclusive GPU access.
 //
 // Basic usage:
 //

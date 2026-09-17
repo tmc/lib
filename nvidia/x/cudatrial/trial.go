@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -20,6 +21,33 @@ const (
 	TimingAPICall      TimingKind = "api_call"
 )
 
+// Unmeasured indicates an unmeasured or unavailable timing dimension.
+// It is returned instead of zero or host wall-clock time.Since fallbacks.
+const Unmeasured int64 = -1
+
+var (
+	// ErrNaiveSumDoubleCounts indicates an attempt to naively sum non-additive timing channels.
+	ErrNaiveSumDoubleCounts = errors.New("cudatrial: naive sum of host, device, queue, and API durations causes double-counting")
+	// ErrHardwareLockRequired indicates a trial requires exclusive GPU hardware access but no lock is held.
+	ErrHardwareLockRequired = errors.New("cudatrial: hardware lock required for physical trial but neither GPU_LOCK_HELD nor lock handle present")
+	// ErrTimingUnavailable indicates that the requested timing kind was not measured on the receipt.
+	ErrTimingUnavailable = errors.New("cudatrial: requested timing kind unavailable")
+)
+
+// LatencyDecomposition records non-additive latency channels for an execution.
+// Naive additions across these channels are explicitly barred to prevent double-counting.
+type LatencyDecomposition struct {
+	WallNs             int64 // Host CPU wall time from submission to synchronization (or Unmeasured)
+	DeviceNs           int64 // Active execution duration on streaming multiprocessors / summed kernel duration (or Unmeasured)
+	QueueNs            int64 // Enqueue and queue wait overhead (or Unmeasured)
+	GpuIntervalUnionNs int64 // Non-overlapping device busy duration across streams (or Unmeasured)
+}
+
+// TotalDuration returns an error to explicitly reject naive addition of overlapping timing channels.
+func (ld LatencyDecomposition) TotalDuration() (time.Duration, error) {
+	return 0, ErrNaiveSumDoubleCounts
+}
+
 // An Arm represents one experimental variant to be evaluated in a trial.
 type Arm struct {
 	Name string
@@ -29,21 +57,65 @@ type Arm struct {
 // A Receipt records the execution outcome, output digest, duration, and provenance
 // metadata of a single arm execution within a trial round.
 type Receipt struct {
-	Name           string
-	Round          int
-	Complete       bool
-	Digest         string
-	Started        time.Time
-	Finished       time.Time
-	DeviceDuration time.Duration // Deprecated: use TimingKind and specific duration fields
-	TimingKind     TimingKind
-	WallElapsed    time.Duration
-	SummedKernel   time.Duration
-	GPUBusy        time.Duration
-	APICall        time.Duration
-	Timings        map[TimingKind]time.Duration // Explicitly measured durations, distinguishing measured 0 from unmeasured
-	Provenance     map[string]string
-	Err            error
+	Name               string
+	Round              int
+	Complete           bool
+	Digest             string
+	Started            time.Time
+	Finished           time.Time
+	DeviceDuration     time.Duration // Deprecated: use TimingKind and specific duration fields
+	TimingKind         TimingKind
+	WallElapsed        time.Duration
+	SummedKernel       time.Duration
+	GPUBusy            time.Duration
+	APICall            time.Duration
+	WallNs             int64                        // Host CPU wall time in nanoseconds (or Unmeasured)
+	DeviceNs           int64                        // Summed device kernel execution duration in nanoseconds (or Unmeasured)
+	QueueNs            int64                        // Host queue submission wait duration in nanoseconds (or Unmeasured)
+	GpuIntervalUnionNs int64                        // Union of device busy intervals across streams in nanoseconds (or Unmeasured)
+	Timings            map[TimingKind]time.Duration // Explicitly measured durations, distinguishing measured 0 from unmeasured
+	Provenance         map[string]string
+	Err                error
+}
+
+// LatencyDecomposition returns the non-additive latency channels for the receipt.
+func (r Receipt) LatencyDecomposition() LatencyDecomposition {
+	wall := r.WallNs
+	if wall == 0 && r.WallElapsed > 0 {
+		wall = r.WallElapsed.Nanoseconds()
+	} else if wall == 0 && !r.Started.IsZero() && !r.Finished.IsZero() {
+		wall = r.Finished.Sub(r.Started).Nanoseconds()
+	} else if wall == 0 && !r.HasTiming(TimingWallElapsed) {
+		wall = Unmeasured
+	}
+
+	dev := r.DeviceNs
+	if dev == 0 && r.SummedKernel > 0 {
+		dev = r.SummedKernel.Nanoseconds()
+	} else if dev == 0 && r.DeviceDuration > 0 {
+		dev = r.DeviceDuration.Nanoseconds()
+	} else if dev == 0 && !r.HasTiming(TimingSummedKernel) {
+		dev = Unmeasured
+	}
+
+	queue := r.QueueNs
+	if queue == 0 {
+		queue = Unmeasured
+	}
+
+	union := r.GpuIntervalUnionNs
+	if union == 0 && r.GPUBusy > 0 {
+		union = r.GPUBusy.Nanoseconds()
+	} else if union == 0 && !r.HasTiming(TimingGPUBusy) {
+		union = Unmeasured
+	}
+
+	return LatencyDecomposition{
+		WallNs:             wall,
+		DeviceNs:           dev,
+		QueueNs:            queue,
+		GpuIntervalUnionNs: union,
+	}
 }
 
 // RecordTiming records a measured duration for the specified timing kind.
@@ -62,10 +134,13 @@ func (r *Receipt) RecordTiming(kind TimingKind, d time.Duration) error {
 	switch kind {
 	case TimingWallElapsed:
 		r.WallElapsed = d
+		r.WallNs = d.Nanoseconds()
 	case TimingSummedKernel:
 		r.SummedKernel = d
+		r.DeviceNs = d.Nanoseconds()
 	case TimingGPUBusy:
 		r.GPUBusy = d
+		r.GpuIntervalUnionNs = d.Nanoseconds()
 	case TimingAPICall:
 		r.APICall = d
 	}
@@ -162,6 +237,15 @@ type Options struct {
 	// When true, the error is recorded on the Receipt and execution proceeds.
 	// When false (default), Interleave halts immediately upon the first error.
 	ContinueOnError bool
+
+	// RequireHardwareLock enforces that exclusive GPU access is verified
+	// before running physical trials. It verifies either GPU_LOCK_HELD environment
+	// variable is set or HardwareLockChecker reports the lock is held.
+	RequireHardwareLock bool
+
+	// HardwareLockChecker is an optional custom predicate to check if the GPU lock is held.
+	// If nil and RequireHardwareLock is true, it defaults to checking os.Getenv("GPU_LOCK_HELD") != "".
+	HardwareLockChecker func() bool
 }
 
 // Interleave executes arms across the specified number of rounds using ABBA
@@ -175,6 +259,17 @@ func Interleave(ctx context.Context, arms []Arm, rounds int) ([]Receipt, error) 
 
 // InterleaveWithOptions executes arms with custom Options.
 func InterleaveWithOptions(ctx context.Context, arms []Arm, rounds int, opts Options) ([]Receipt, error) {
+	if opts.RequireHardwareLock {
+		locked := false
+		if opts.HardwareLockChecker != nil {
+			locked = opts.HardwareLockChecker()
+		} else {
+			locked = strings.TrimSpace(os.Getenv("GPU_LOCK_HELD")) != ""
+		}
+		if !locked {
+			return nil, ErrHardwareLockRequired
+		}
+	}
 	if rounds <= 0 {
 		return nil, fmt.Errorf("cudatrial: rounds must be positive, got %d", rounds)
 	}
@@ -225,6 +320,17 @@ func InterleaveWithOptions(ctx context.Context, arms []Arm, rounds int, opts Opt
 			wall := receipt.Finished.Sub(receipt.Started)
 			if !receipt.HasTiming(TimingWallElapsed) {
 				_ = receipt.RecordTiming(TimingWallElapsed, wall)
+			}
+			if receipt.WallNs == 0 && receipt.WallElapsed > 0 {
+				receipt.WallNs = receipt.WallElapsed.Nanoseconds()
+			}
+			if receipt.DeviceNs == 0 && receipt.SummedKernel > 0 {
+				receipt.DeviceNs = receipt.SummedKernel.Nanoseconds()
+			} else if receipt.DeviceNs == 0 && receipt.DeviceDuration > 0 {
+				receipt.DeviceNs = receipt.DeviceDuration.Nanoseconds()
+			}
+			if receipt.GpuIntervalUnionNs == 0 && receipt.GPUBusy > 0 {
+				receipt.GpuIntervalUnionNs = receipt.GPUBusy.Nanoseconds()
 			}
 			if receipt.TimingKind == "" {
 				if receipt.GPUBusy > 0 {
