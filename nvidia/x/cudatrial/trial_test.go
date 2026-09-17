@@ -312,3 +312,62 @@ func TestDurationPreferenceAndSummary(t *testing.T) {
 		t.Errorf("empty summary = %q, want 'no receipts\\n'", emptySummary)
 	}
 }
+
+func TestReceiptExplicitTiming(t *testing.T) {
+	r := Receipt{Name: "test_receipt"}
+
+	// Initially unmeasured
+	if r.HasTiming(TimingGPUBusy) {
+		t.Error("expected HasTiming(TimingGPUBusy) to be false")
+	}
+	if _, err := r.DurationFor(TimingGPUBusy); err == nil {
+		t.Error("expected error for unmeasured timing, got nil")
+	}
+
+	// Reject empty timing kind
+	if err := r.RecordTiming("", 10*time.Millisecond); err == nil {
+		t.Error("expected error for empty timing kind, got nil")
+	}
+
+	// Reject negative duration
+	if err := r.RecordTiming(TimingGPUBusy, -5*time.Millisecond); err == nil {
+		t.Error("expected error for negative duration, got nil")
+	}
+
+	// Measured zero must be distinguishable from unmeasured
+	if err := r.RecordTiming(TimingGPUBusy, 0); err != nil {
+		t.Fatalf("unexpected error recording zero duration: %v", err)
+	}
+	if !r.HasTiming(TimingGPUBusy) {
+		t.Error("expected HasTiming(TimingGPUBusy) to be true for measured zero")
+	}
+	d, err := r.DurationFor(TimingGPUBusy)
+	if err != nil {
+		t.Fatalf("DurationFor(TimingGPUBusy) failed for measured zero: %v", err)
+	}
+	if d != 0 {
+		t.Errorf("duration = %v, want 0", d)
+	}
+
+	// Record other timings
+	if err := r.RecordTiming(TimingSummedKernel, 15*time.Millisecond); err != nil {
+		t.Fatalf("RecordTiming failed: %v", err)
+	}
+	if err := r.RecordTiming(TimingWallElapsed, 20*time.Millisecond); err != nil {
+		t.Fatalf("RecordTiming failed: %v", err)
+	}
+
+	// Verify primary TimingKind is set to first recorded (TimingGPUBusy)
+	if r.TimingKind != TimingGPUBusy {
+		t.Errorf("TimingKind = %q, want %q", r.TimingKind, TimingGPUBusy)
+	}
+	if r.Duration() != 0 {
+		t.Errorf("r.Duration() = %v, want 0 (from primary TimingGPUBusy)", r.Duration())
+	}
+
+	// Switch primary TimingKind
+	r.TimingKind = TimingSummedKernel
+	if r.Duration() != 15*time.Millisecond {
+		t.Errorf("r.Duration() = %v, want 15ms", r.Duration())
+	}
+}

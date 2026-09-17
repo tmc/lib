@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+// TimingKind identifies the specific measurement mechanism used for a receipt duration.
+type TimingKind string
+
+const (
+	TimingUnspecified  TimingKind = ""
+	TimingWallElapsed  TimingKind = "wall_elapsed"
+	TimingSummedKernel TimingKind = "summed_kernel"
+	TimingGPUBusy      TimingKind = "gpu_busy"
+	TimingAPICall      TimingKind = "api_call"
+)
+
 // An Arm represents one experimental variant to be evaluated in a trial.
 type Arm struct {
 	Name string
@@ -24,16 +35,119 @@ type Receipt struct {
 	Digest         string
 	Started        time.Time
 	Finished       time.Time
-	DeviceDuration time.Duration // Caller-provided kernel/device duration if measured
+	DeviceDuration time.Duration // Deprecated: use TimingKind and specific duration fields
+	TimingKind     TimingKind
+	WallElapsed    time.Duration
+	SummedKernel   time.Duration
+	GPUBusy        time.Duration
+	APICall        time.Duration
+	Timings        map[TimingKind]time.Duration // Explicitly measured durations, distinguishing measured 0 from unmeasured
 	Provenance     map[string]string
 	Err            error
 }
 
-// Duration returns the measured execution duration. If DeviceDuration is non-zero,
-// it is returned directly; otherwise wall time (Finished - Started) is returned.
+// RecordTiming records a measured duration for the specified timing kind.
+// It returns an error if kind is empty or duration is negative.
+func (r *Receipt) RecordTiming(kind TimingKind, d time.Duration) error {
+	if kind == "" {
+		return errors.New("cudatrial: timing kind cannot be empty")
+	}
+	if d < 0 {
+		return fmt.Errorf("cudatrial: duration cannot be negative: %v", d)
+	}
+	if r.Timings == nil {
+		r.Timings = make(map[TimingKind]time.Duration)
+	}
+	r.Timings[kind] = d
+	switch kind {
+	case TimingWallElapsed:
+		r.WallElapsed = d
+	case TimingSummedKernel:
+		r.SummedKernel = d
+	case TimingGPUBusy:
+		r.GPUBusy = d
+	case TimingAPICall:
+		r.APICall = d
+	}
+	if r.TimingKind == "" {
+		r.TimingKind = kind
+	}
+	return nil
+}
+
+// HasTiming reports whether the specified timing kind was explicitly measured on this receipt.
+func (r Receipt) HasTiming(kind TimingKind) bool {
+	if kind == "" {
+		return false
+	}
+	if r.Timings != nil {
+		_, ok := r.Timings[kind]
+		return ok
+	}
+	switch kind {
+	case TimingWallElapsed:
+		return r.WallElapsed > 0 || (!r.Started.IsZero() && !r.Finished.IsZero())
+	case TimingSummedKernel:
+		return r.SummedKernel > 0
+	case TimingGPUBusy:
+		return r.GPUBusy > 0
+	case TimingAPICall:
+		return r.APICall > 0
+	default:
+		return false
+	}
+}
+
+// DurationFor returns the duration for the specified timing kind.
+// If the timing kind is empty or was not measured on this receipt, it returns an error.
+func (r Receipt) DurationFor(kind TimingKind) (time.Duration, error) {
+	if kind == "" {
+		return 0, errors.New("cudatrial: timing kind cannot be empty")
+	}
+	if r.Timings != nil {
+		if d, ok := r.Timings[kind]; ok {
+			return d, nil
+		}
+	}
+	switch kind {
+	case TimingWallElapsed:
+		if r.WallElapsed != 0 {
+			return r.WallElapsed, nil
+		}
+		if !r.Started.IsZero() && !r.Finished.IsZero() {
+			return r.Finished.Sub(r.Started), nil
+		}
+	case TimingSummedKernel:
+		if r.SummedKernel != 0 {
+			return r.SummedKernel, nil
+		}
+	case TimingGPUBusy:
+		if r.GPUBusy != 0 {
+			return r.GPUBusy, nil
+		}
+	case TimingAPICall:
+		if r.APICall != 0 {
+			return r.APICall, nil
+		}
+	}
+	return 0, fmt.Errorf("cudatrial: timing kind %q not available on receipt %q", kind, r.Name)
+}
+
+// Duration returns the measured execution duration.
+// If TimingKind is set and available, that duration is returned.
+// Otherwise, for backwards compatibility, if DeviceDuration > 0 it is returned;
+// otherwise wall time (Finished - Started or WallElapsed) is returned.
 func (r Receipt) Duration() time.Duration {
+	if r.TimingKind != "" {
+		if d, err := r.DurationFor(r.TimingKind); err == nil {
+			return d
+		}
+	}
 	if r.DeviceDuration > 0 {
 		return r.DeviceDuration
+	}
+	if r.WallElapsed > 0 {
+		return r.WallElapsed
 	}
 	if r.Started.IsZero() || r.Finished.IsZero() {
 		return 0
@@ -107,6 +221,21 @@ func InterleaveWithOptions(ctx context.Context, arms []Arm, rounds int, opts Opt
 			}
 			if receipt.Finished.IsZero() {
 				receipt.Finished = finish
+			}
+			wall := receipt.Finished.Sub(receipt.Started)
+			if !receipt.HasTiming(TimingWallElapsed) {
+				_ = receipt.RecordTiming(TimingWallElapsed, wall)
+			}
+			if receipt.TimingKind == "" {
+				if receipt.GPUBusy > 0 {
+					receipt.TimingKind = TimingGPUBusy
+				} else if receipt.SummedKernel > 0 {
+					receipt.TimingKind = TimingSummedKernel
+				} else if receipt.DeviceDuration > 0 {
+					receipt.TimingKind = TimingSummedKernel
+				} else {
+					receipt.TimingKind = TimingWallElapsed
+				}
 			}
 			if err != nil {
 				receipt.Err = err
@@ -209,16 +338,24 @@ func FormatSummary(receipts []Receipt) string {
 		var totalDur time.Duration
 		var durs []time.Duration
 		digestSet := make(map[string]bool)
-		hasDevice := false
-		hasWall := false
+		clocks := make(map[string]bool)
 		for _, r := range rs {
 			if r.Complete {
 				completeCount++
 			}
-			if r.DeviceDuration > 0 {
-				hasDevice = true
-			} else {
-				hasWall = true
+			switch r.TimingKind {
+			case TimingGPUBusy, TimingSummedKernel:
+				clocks["dev"] = true
+			case TimingAPICall:
+				clocks["api"] = true
+			case TimingWallElapsed:
+				clocks["wall"] = true
+			default:
+				if r.DeviceDuration > 0 {
+					clocks["dev"] = true
+				} else {
+					clocks["wall"] = true
+				}
 			}
 			d := r.Duration()
 			totalDur += d
@@ -228,10 +365,12 @@ func FormatSummary(receipts []Receipt) string {
 			}
 		}
 		clock := "wall"
-		if hasDevice && hasWall {
+		if len(clocks) > 1 {
 			clock = "mix"
-		} else if hasDevice {
-			clock = "dev"
+		} else {
+			for c := range clocks {
+				clock = c
+			}
 		}
 
 		var meanDur time.Duration
