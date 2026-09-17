@@ -14,22 +14,29 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cublasltx](cublasltx/) | Package cublasltx provides an owning cuBLASLt matrix multiplication engine. |
 | [cuda](cuda/) | Package cuda provides idiomatic, high-level Go abstractions over NVIDIA CUDA devices, execution contexts, streams, and events. |
 | [cudaattn](cudaattn/) | Package cudaattn provides causal attention CUDA source and JIT compilation. |
+| [cudaautograd](cudaautograd/) | Package cudaautograd implements reverse-mode automatic differentiation over authoritative cudair graphs, gradient checks, and offline training slices. |
+| [cudabatch](cudabatch/) | Package cudabatch provides continuous batch scheduling, admission control, token and memory budgeting, fairness policies, validated shape binding, and KV cache lifetime tracking for LLM inference. |
 | [cudabench](cudabench/) | Package cudabench provides precise GPU event-timed benchmarking utilities for Go testing. |
 | [cudablock](cudablock/) | Package cudablock provides high-performance CUDA thread-block and warp-level primitives for collective reductions, prefix scans, and cooperative tile staging into shared memory. |
+| [cudacache](cudacache/) | Package cudacache provides content-addressed local and remote caching for compiled CUDA kernel artifacts and search evaluation receipts. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
 | [cudacensus](cudacensus/) | Package cudacensus turns a GPU trace capture into a per-kernel census and, where the caller can supply a cost model, into roofline points. |
 | [cudacmp](cudacmp/) | Package cudacmp implements pure-Go differential CUDA performance analysis. |
+| [cudacollective](cudacollective/) | Package cudacollective defines collective communication plans, rank membership, communicator generations, multi-transport fallback resolution, and double-buffered pipelined transfers for distributed CUDA execution. |
 | [cudadevicetable](cudadevicetable/) | Package cudadevicetable holds GPU device facts that were read from a real device, separated from the ones that were not. |
 | [cudaflightrecorder](cudaflightrecorder/) | Package cudaflightrecorder coordinates continuous in-memory flight recording across host Go execution traces and GPU device observations. |
 | [cudafuse](cudafuse/) | Package cudafuse compiles sub-graphs of elementwise and reduction operations into single fused CUDA mega-kernels. |
 | [cudagrammar](cudagrammar/) | Package cudagrammar constrains language model generation to JSON that conforms to a schema. |
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
+| [cudagroup](cudagroup/) | Package cudagroup describes bounded CUDA execution-group contracts. |
 | [cudahf](cudahf/) | Package cudahf resolves model repositories and snapshot files from the local Hugging Face cache directory. |
-| [cudair](cudair/) | Package cudair provides a typed Intermediate Representation (IR) graph and waterfall memory arena planner for GPU tensor graphs. |
+| [cudair](cudair/) | Package cudair provides a typed Intermediate Representation (IR) graph, immutable validated snapshots, and waterfall memory arena planning for GPU tensor graphs. |
+| [cudakernel](cudakernel/) | Package cudakernel provides immutable kernel artifact descriptors, ABI parameter schemas, fixed-width argument packing, and hardware resource contracts for CUDA execution. |
 | [cudakv](cudakv/) | Package cudakv provides static and paged key-value caches for autoregressive transformer decoding, plus host-side residency and prefix bookkeeping. |
 | [cudakvrot](cudakvrot/) | Package cudakvrot provides advanced KV-cache management policies including sliding window attention (SWA) and chunked prefill scheduling. |
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
 | [cudalayer](cudalayer/) | Package cudalayer provides experimental CUDA decoder-layer kernels and JIT compilation for the llama inference example. |
+| [cudalayout](cudalayout/) | Package cudalayout describes checked physical tile layouts. |
 | [cudalmvet](cudalmvet/) | Package cudalmvet validates numerical accuracy and catches precision drift by comparing GPU activations against CPU reference implementations. |
 | [cudalock](cudalock/) | Package cudalock coordinates exclusive GPU access across processes and tests. |
 | [cudalowering](cudalowering/) | Package cudalowering compares the PTX for a kernel with the SASS it lowered to. |
@@ -41,22 +48,32 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudamtp](cudamtp/) | Package cudamtp implements Multi-Token Prediction (MTP) and speculative tree decoding optimized via fused CUDA C++ megakernels on NVIDIA GPUs. |
 | [cudaobjdump](cudaobjdump/) | Package cudaobjdump inspects CUDA code embedded in host binaries and cubins using the installed cuobjdump executable. |
 | [cudaoccupancy](cudaoccupancy/) | Package cudaoccupancy models GPU hardware resource limits and calculates theoretical warp occupancy directly from compiled CUDA binary (CUBIN) images. |
+| [cudapdl](cudapdl/) | Package cudapdl implements Programmatic Dependent Launch (PDL) region composition, eligibility evaluation, and hardware/software fallback policies for NVIDIA GPUs. |
 | [cudapipeline](cudapipeline/) | Package cudapipeline provides static verification and transaction-barrier analysis for asynchronous tensor copy pipelines. |
+| [cudaplan](cudaplan/) | Package cudaplan provides executable plans, resource ownership, and completion tracking for CUDA execution graphs and compiled kernels. |
 | [cudaprepack](cudaprepack/) | Package cudaprepack provides ahead-of-time (AOT) hardware layout transformations for NVIDIA Blackwell TMA (cp.async.bulk.tensor.2d) tensor boxes and microscaled sub-byte formats. |
 | [cudaprof](cudaprof/) | Package cudaprof writes caller-supplied CUDA execution observations as Go profiles, Perfetto traces, and bounded in-memory recordings. |
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
-| [cudaref](cudaref/) | Package cudaref provides pure Go CPU reference implementations of thread-block primitives, matrix arithmetic, reductions, and fused elementwise kernels. |
+| [cudarecipe](cudarecipe/) | Package cudarecipe inspects supplied CUDA artifacts and emits bounded, schema-versioned reports. |
+| [cudaref](cudaref/) | Package cudaref provides an independent CPU reference implementation and numerical oracle for validating GPU kernel operations and semantic IR execution graphs. |
+| [cudareg](cudareg/) | Package cudareg checks a bounded setmaxnreg producer-consumer protocol. |
 | [cudaroofline](cudaroofline/) | Package cudaroofline models kernel arithmetic intensity (FLOPs/byte) and evaluates a launch against device ceilings. |
 | [cudasafetensors](cudasafetensors/) | Package cudasafetensors reads Hugging Face .safetensors files and copies tensors into CUDA device memory. |
 | [cudasample](cudasample/) | Package cudasample provides a CUDA greedy-argmax kernel and its CPU reference. |
 | [cudasanitizer](cudasanitizer/) | Package cudasanitizer runs a program under the NVIDIA compute-sanitizer command-line tool and classifies what happened. |
 | [cudasass](cudasass/) | Package cudasass parses and inspects NVIDIA Streaming Multiprocessor (SASS) machine assembly. |
-| [cudaspec](cudaspec/) | Package cudaspec provides high-throughput speculative decoding algorithms, prompt-cache n-gram drafting, and batched multi-token GPU verification. |
+| [cudasearch](cudasearch/) | Package cudasearch provides workload-bound search strategies (Beam and MCTS) over e-graph program rewrite transitions for CUDA execution plans. |
+| [cudashape](cudashape/) | Package cudashape provides checked multi-dimensional tensor shapes, overflow-checked byte size calculation, stride and layout analysis, and bounded symbolic dimension binding with equality and divisibility constraints. |
+| [cudashared](cudashared/) | Package cudashared plans checked per-block shared-memory storage. |
+| [cudaspec](cudaspec/) | Package cudaspec provides high-throughput speculative decoding algorithms, explicit branch state, tree attention masks, proposal lifecycle management, prompt-cache n-gram drafting, and batched multi-token verification. |
 | [cudasrv](cudasrv/) | Package cudasrv provides an OpenAI-compatible HTTP inference server with Server-Sent Events (SSE) streaming, Prometheus metrics, and graceful cancellation. |
+| [cudataskgraph](cudataskgraph/) | Package cudataskgraph validates finite task DAGs and tracks epoch-scoped publication and abort state. |
 | [cudatemplate](cudatemplate/) | Package cudatemplate formats multi-turn chat messages into model-specific prompt strings. |
-| [cudatensor](cudatensor/) | Package cudatensor provides a high-level fluent mathematical tensor DSL that constructs, optimizes, and executes fused CUDA mega-kernel graphs. |
+| [cudatensor](cudatensor/) | Package cudatensor provides a fluent, checked tensor frontend for constructing computation graphs with deferred symbolic execution, shape verification, and frontend error propagation. |
 | [cudatest](cudatest/) | Package cudatest provides CUDA hardware requirements and scoped device-memory checks for tests. |
+| [cudatma](cudatma/) | Package cudatma describes checked tensor-map transfers and device-local multicast participation. |
+| [cudatmem](cudatmem/) | Package cudatmem models the checked device Tensor Memory allocation protocol for the sm_100a target family. |
 | [cudatrace](cudatrace/) | Package cudatrace records host-side CUDA submission regions and explicit timestamped GPU spans in Perfetto traces. |
 | [cudatrial](cudatrial/) | Package cudatrial runs interleaved, provenance-bearing multi-arm evaluation trials across rounds. |
 | [cuptiactivity](cuptiactivity/) | Package cuptiactivity collects bounded CUPTI activity records and exports complete records to Perfetto. |
