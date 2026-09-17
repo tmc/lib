@@ -517,11 +517,17 @@ func TestPTX94Keywords(t *testing.T) {
 	if inst.Mnemonic != "spcompress" {
 		t.Errorf("inst Mnemonic = %q, want spcompress", inst.Mnemonic)
 	}
-	if !inst.Loc.Intermediate {
-		t.Errorf("expected inst.Loc.Intermediate to be true")
+	// The intermediate position is reported as itself. With no .loc in scope
+	// the instruction has no source position, and the ISA does not let the
+	// intermediate one stand in for it (docs/ptx/11-directives.md:1819-1821).
+	if !inst.IntermediateLoc.Intermediate {
+		t.Errorf("expected inst.IntermediateLoc.Intermediate to be true")
 	}
-	if inst.Loc.Line != 42 || inst.Loc.Column != 8 {
-		t.Errorf("inst.Loc = %v, want line 42 col 8", inst.Loc)
+	if inst.IntermediateLoc.Line != 42 || inst.IntermediateLoc.Column != 8 {
+		t.Errorf("inst.IntermediateLoc = %v, want line 42 col 8", inst.IntermediateLoc)
+	}
+	if inst.Loc != (cudaptx.Location{}) {
+		t.Errorf("inst.Loc = %v, want no location", inst.Loc)
 	}
 
 	// 4. Check paired .loc and .loc_intermediate

@@ -61,7 +61,7 @@ type Instruction struct {
 	Mnemonic        string     // base mnemonic, e.g. "fma"
 	Operands        string     // comma-separated operand text, unparsed
 	Loc             Location   // nearest lexically preceding .loc; zero if none
-	IntermediateLoc Location   // nearest lexically preceding .loc_intermediate; zero if none
+	IntermediateLoc Location   // the .loc_intermediate bound to this instruction; zero if none
 	InlinedAt       []Location // .inlined_at chain, innermost first; nil if not inlined
 	Raw             string     // full raw statement text
 }

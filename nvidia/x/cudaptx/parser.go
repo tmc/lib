@@ -130,10 +130,18 @@ func Parse(r io.Reader) (*Module, error) {
 		if curKernel != nil {
 			inst := parseInstructionStatement(s, line, curLoc, curInlinedAt)
 			inst.IntermediateLoc = curIntermediateLoc
-			if inst.Loc.FileIndex == 0 && curIntermediateLoc.FileIndex != 0 {
-				inst.Loc = curIntermediateLoc
-			}
 			if inst.Opcode != "" {
+				// .loc_intermediate applies to the immediately following
+				// instruction and to at most one of them
+				// (docs/ptx/11-directives.md:1810,1816), so it is consumed
+				// here rather than left sticky like .loc. It is also kept out
+				// of Loc: it names a position in a compiler intermediate file,
+				// and the ISA does not merge it into the primary line table
+				// (11-directives.md:1819-1821). An instruction with no .loc in
+				// scope has no source position, and reporting the .ir path
+				// instead would give a consumer a file the SASS tier cannot
+				// agree with -- a wrong line, not a missing one.
+				curIntermediateLoc = Location{}
 				curKernel.Instructions = append(curKernel.Instructions, inst)
 			}
 		}
@@ -197,6 +205,10 @@ func Parse(r io.Reader) (*Module, error) {
 					curIntermediateLoc, _ = parseLocDirective(trimmed)
 				case strings.HasPrefix(trimmed, ".loc"):
 					curLoc, curInlinedAt = parseLocDirective(trimmed)
+					// A new source position starts here; an intermediate
+					// location that never reached an instruction does not
+					// carry across it.
+					curIntermediateLoc = Location{}
 				}
 				continue
 			}
