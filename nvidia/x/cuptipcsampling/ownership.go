@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/tmc/lib/nvidia/internal/cuptiowner"
+	"github.com/tmc/lib/nvidia/x/internal/cuptiowner"
 )
 
 // PC sampling keeps one process-wide session and shares device exclusion with

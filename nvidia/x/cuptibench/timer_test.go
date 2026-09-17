@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tmc/lib/nvidia/internal/cuptiowner"
+	"github.com/tmc/lib/nvidia/x/internal/cuptiowner"
 )
 
 type cleanupTimer struct{ failure error }

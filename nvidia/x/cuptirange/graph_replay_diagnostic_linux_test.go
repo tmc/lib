@@ -12,11 +12,11 @@ import (
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/driver"
-	"github.com/tmc/lib/nvidia/internal/cuptiowner"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
+	"github.com/tmc/lib/nvidia/x/internal/cuptiowner"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 

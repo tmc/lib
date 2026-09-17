@@ -7,8 +7,8 @@ import (
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/driver"
-	"github.com/tmc/lib/nvidia/internal/cuptiowner"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/internal/cuptiowner"
 )
 
 // Limits bounds counter storage and caller-controlled replay.

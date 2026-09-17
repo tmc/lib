@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/tmc/lib/nvidia/cupti"
-	"github.com/tmc/lib/nvidia/internal/cuptiowner"
+	"github.com/tmc/lib/nvidia/x/internal/cuptiowner"
 )
 
 // samplingSession joins control, configured output, and a distinct drain

@@ -3,7 +3,7 @@ package cuptibench
 import (
 	"errors"
 
-	"github.com/tmc/lib/nvidia/internal/cuptiowner"
+	"github.com/tmc/lib/nvidia/x/internal/cuptiowner"
 )
 
 // Timing must also exclude cooperating collectors: an uninstrumented timer

@@ -288,7 +288,7 @@ From the `nvidia` module:
 ```sh
 GOWORK=off GOFLAGS=-mod=readonly go test -race \
     ./x/cuptibench/... ./x/cuptirange ./x/cudaprof ./x/cuda \
-    ./internal/cuptiowner ./cmd/cuptibench-import
+    ./x/internal/cuptiowner ./cmd/cuptibench-import
 ```
 
 On an admitted Linux GPU host with an exclusive device lease and profiling

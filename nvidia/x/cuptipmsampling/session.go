@@ -8,7 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
-	"github.com/tmc/lib/nvidia/internal/cuptiowner"
+	"github.com/tmc/lib/nvidia/x/internal/cuptiowner"
 )
 
 type sessionAPI struct {
