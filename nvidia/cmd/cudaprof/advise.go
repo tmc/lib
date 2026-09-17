@@ -152,6 +152,10 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 	count := len(r.Items)
 	if limit > 0 && limit < count {
 		count = limit
+		// The Summary above counts findings this report does not print. Say
+		// so here, beside the count, rather than only in a footer the reader
+		// reaches after forming an impression of how much there was.
+		sb.WriteString(fmt.Sprintf("*Showing %d of %d findings (use --format=json for all, or -limit=0).*\n\n", count, len(r.Items)))
 	}
 	for i := 0; i < count; i++ {
 		item := r.Items[i]
@@ -181,7 +185,7 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 
 	if limit > 0 && len(r.Items) > limit {
 		omitted := len(r.Items) - limit
-		sb.WriteString(fmt.Sprintf("*... %d additional findings omitted (use -e to show all, or -limit=N).*\n", omitted))
+		sb.WriteString(fmt.Sprintf("*... %d additional findings omitted (use --format=json for all, -e, or -limit=N).*\n", omitted))
 	}
 
 	return sb.String()
@@ -718,11 +722,11 @@ func runAdviseCommand(rawArgs []string) error {
 	}
 
 	if format == "json" {
-		rep := report
-		if limit > 0 && len(report.Items) > limit {
-			rep = &AdviceReport{Items: report.Items[:limit]}
-		}
-		out, err := rep.JSON()
+		// -limit governs how much the markdown report prints, not how much
+		// the tool knows. The summary counts every finding, so one format has
+		// to be able to reach every finding; JSON is it. Truncating here left
+		// the counted remainder unreachable by any flag combination.
+		out, err := report.JSON()
 		if err != nil {
 			return err
 		}

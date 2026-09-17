@@ -2994,7 +2994,7 @@ func TestAdvice_OutputLimitAndFlags(t *testing.T) {
 	if strings.Contains(mdDefault, "### 11. [Warning]") {
 		t.Errorf("finding #11 should be truncated in default output: %s", mdDefault)
 	}
-	if !strings.Contains(mdDefault, "*... 5 additional findings omitted (use -e to show all, or -limit=N).*") {
+	if !strings.Contains(mdDefault, "*... 5 additional findings omitted (use --format=json for all, -e, or -limit=N).*") {
 		t.Errorf("missing truncation notice: %s", mdDefault)
 	}
 
@@ -3015,7 +3015,7 @@ func TestAdvice_OutputLimitAndFlags(t *testing.T) {
 	if strings.Contains(md5, "### 6. [Warning]") {
 		t.Errorf("finding #6 should be truncated in limit 5 output: %s", md5)
 	}
-	if !strings.Contains(md5, "*... 10 additional findings omitted (use -e to show all, or -limit=N).*") {
+	if !strings.Contains(md5, "*... 10 additional findings omitted (use --format=json for all, -e, or -limit=N).*") {
 		t.Errorf("missing 10 omitted notice in limit 5 output: %s", md5)
 	}
 }
