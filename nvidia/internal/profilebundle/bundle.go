@@ -132,11 +132,21 @@ func ParseCode(cubin []byte, ptx, sass, source string) (*Code, error) {
 	if err != nil {
 		return nil, err
 	}
-	lineNumbers := make(map[string]int)
+	// Instructions are located by (kernel, address); see the same key in
+	// x/cudacapture.parseCode for why the raw text is not an identity.
+	type instKey struct {
+		kernel string
+		addr   uint64
+	}
+	lineNumbers := make(map[instKey]int)
 	cuLines := make(map[int]int)
 	cuLine := 0
 	currentKernel := ""
 	for i, line := range strings.Split(sass, "\n") {
+		// cudasass scans with a bufio.Scanner, which drops a trailing "\r".
+		// Without this the kernel name captured below would keep one and
+		// match no function.
+		line = strings.TrimSuffix(line, "\r")
 		if m := textSection.FindStringSubmatch(line); m != nil {
 			currentKernel, cuLine = m[1], 0
 		}
@@ -146,7 +156,9 @@ func ParseCode(cubin []byte, ptx, sass, source string) (*Code, error) {
 				cuLine, _ = strconv.Atoi(m[2])
 			}
 		}
-		lineNumbers[currentKernel+"\x00"+line] = i + 1
+		if inst, ok := cudasass.ParseInstructionLine(line); ok {
+			lineNumbers[instKey{currentKernel, inst.Address}] = i + 1
+		}
 		cuLines[i+1] = cuLine
 	}
 	var code Code
@@ -172,7 +184,7 @@ func ParseCode(cubin []byte, ptx, sass, source string) (*Code, error) {
 			if len(k.Instructions) > 0 && inst.Address <= k.Instructions[len(k.Instructions)-1].Offset {
 				return nil, fmt.Errorf("%s: unordered SASS offsets", fn.Name)
 			}
-			line := lineNumbers[fn.Name+"\x00"+inst.Raw]
+			line := lineNumbers[instKey{fn.Name, inst.Address}]
 			if line == 0 {
 				return nil, fmt.Errorf("%s: missing SASS source line", fn.Name)
 			}

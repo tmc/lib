@@ -118,7 +118,18 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 		return nil, fmt.Errorf("cudacapture: parse sass: %w", err)
 	}
 
-	lineNumbers := make(map[string]int)
+	// An instruction is located in the disassembly text by (kernel, address).
+	// Keying on the instruction's text instead happens to be unique, because
+	// nvdisasm prints the offset into the line, but that is a property of the
+	// printer rather than a guarantee: the two sides also have to agree on
+	// the exact bytes, and they do not on a CRLF disassembly, where cudasass's
+	// scanner drops the "\r" this split keeps. The address on both sides comes
+	// from cudasass's own line parser, so the two cannot drift apart.
+	type instKey struct {
+		kernel string
+		addr   uint64
+	}
+	lineNumbers := make(map[instKey]int)
 	// cuLines carries the location a "//## File" comment establishes for every
 	// SASS line until the next one, which is nvdisasm's own convention. The
 	// file travels with the line: an instruction inlined from a header is
@@ -134,6 +145,10 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 	sourceBase := filepath.Base(sourceFilename)
 
 	for i, line := range strings.Split(sass, "\n") {
+		// cudasass scans with a bufio.Scanner, which drops a trailing "\r".
+		// Without this the kernel name captured below would keep one and
+		// match no function.
+		line = strings.TrimSuffix(line, "\r")
 		if m := textSection.FindStringSubmatch(line); m != nil {
 			currentKernel, cur = m[1], cuLoc{}
 		}
@@ -144,7 +159,9 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			n, _ := strconv.Atoi(m[2])
 			cur = cuLoc{file: filepath.Base(m[1]), line: n}
 		}
-		lineNumbers[currentKernel+"\x00"+line] = i + 1
+		if inst, ok := cudasass.ParseInstructionLine(line); ok {
+			lineNumbers[instKey{currentKernel, inst.Address}] = i + 1
+		}
 		cuLines[i+1] = cur
 	}
 
@@ -190,7 +207,7 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			if len(k.Instructions) > 0 && inst.Address <= k.Instructions[len(k.Instructions)-1].Offset {
 				return nil, fmt.Errorf("cudacapture: %s: unordered SASS offsets", fn.Name)
 			}
-			line := lineNumbers[fn.Name+"\x00"+inst.Raw]
+			line := lineNumbers[instKey{fn.Name, inst.Address}]
 			if line == 0 {
 				return nil, fmt.Errorf("cudacapture: %s: missing SASS source line", fn.Name)
 			}
