@@ -1,0 +1,6 @@
+commit: e082b81f086e3264d946a3efa0c070878a12fce0
+date: 2026-09-17T05:13:29Z
+agent: antigravity
+subagent_id: df737f92-539a-4524-8e4a-591dd1afb949
+lane: 16-autograd-and-offline-training
+status: host-verified; analytical derivatives vs finite difference, activation retention, offline training step passed
