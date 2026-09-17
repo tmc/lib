@@ -88,7 +88,7 @@ func (r *cudaFoundation) encodeF16PairOrdered(a, b cudaModelTensor, in, outA, ou
 
 // cudaF16PairMaxBatch is the compile-time maximum batch width processed per thread block by
 // ds4_f16_pair_ordered_chunks_batch in cuda_f16_default.cu. Larger batches are tiled across gridDim.y.
-const cudaF16PairMaxBatch = 32
+const cudaF16PairMaxBatch = 16
 
 // encodeF16PairOrderedBatch projects batch token-major activation rows against
 // one weight pair with a single launch, reading the weights once for all
