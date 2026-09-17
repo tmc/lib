@@ -542,11 +542,7 @@ func TestEncodeTensorMap(t *testing.T) {
 		Interleave:     InterleaveNone,
 	}
 
-	encoded, err := desc.EncodeTensorMap()
-	if err != nil {
-		t.Fatalf("EncodeTensorMap failed: %v", err)
-	}
-	if encoded[0] != 0x8000 {
-		t.Errorf("expected address 0x8000, got 0x%x", encoded[0])
+	if _, err := desc.EncodeTensorMap(); err == nil {
+		t.Fatal("EncodeTensorMap unexpectedly accepted a hand-packed descriptor")
 	}
 }

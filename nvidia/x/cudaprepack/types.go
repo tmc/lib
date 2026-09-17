@@ -48,7 +48,7 @@ func (d DataType) BitsPerElement() int {
 	case TypeFloat32:
 		return 32
 	default:
-		return 8
+		return 0
 	}
 }
 
@@ -193,24 +193,10 @@ func (b *BoxDescriptor) TotalSizeBytes() int64 {
 	return b.GlobalStrides[1] * int64(b.GlobalDims[2])
 }
 
-// EncodeTensorMap encodes the box descriptor into a 128-byte CUtensorMap representation.
+// EncodeTensorMap returns an error because tensor maps require opaque
+// descriptor construction through the CUDA Driver API.
 func (b *BoxDescriptor) EncodeTensorMap() ([16]uint64, error) {
-	var desc [16]uint64
-	desc[0] = b.GlobalAddress
-	desc[1] = b.GlobalDims[0] | (b.GlobalDims[1] << 32)
-	desc[2] = b.GlobalDims[2]
-	desc[3] = uint64(b.GlobalStrides[0])
-	desc[4] = uint64(b.GlobalStrides[1])
-	desc[5] = uint64(b.BoxDims[0]) | (uint64(b.BoxDims[1]) << 32)
-	desc[6] = uint64(b.BoxDims[2]) |
-		(uint64(b.ElementStrides[0]&0xFF) << 32) |
-		(uint64(b.ElementStrides[1]&0xFF) << 40) |
-		(uint64(b.ElementStrides[2]&0xFF) << 48)
-	desc[7] = uint64(len(b.DataType)) |
-		(uint64(b.Rank&0xFF) << 8) |
-		(uint64(b.Swizzle&0xFF) << 16) |
-		(uint64(b.Interleave&0xFF) << 24)
-	return desc, nil
+	return [16]uint64{}, fmt.Errorf("cudaprepack: tensor-map encoding requires the CUDA Driver API")
 }
 
 // PrepackedTensor contains the pre-packed weights, optional scale factors,
