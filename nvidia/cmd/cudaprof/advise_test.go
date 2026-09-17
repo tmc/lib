@@ -19,6 +19,7 @@ import (
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
+	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
 const sampleHighPressureSASS = `
@@ -2680,6 +2681,11 @@ fchk_kernel:
 			if item.Category != CategoryArchitectureCompute {
 				t.Errorf("category = %s, want %s", item.Category, CategoryArchitectureCompute)
 			}
+			if !strings.Contains(item.ActionableRecommendation, "changes division and transcendental rounding") ||
+				!strings.Contains(item.ActionableRecommendation, "flushes denormals") ||
+				!strings.Contains(item.ActionableRecommendation, "bit-exact logit invariants") {
+				t.Errorf("fast-math recommendation lacks bit-exactness warning: %q", item.ActionableRecommendation)
+			}
 			break
 		}
 	}
@@ -2912,6 +2918,20 @@ Function : ds4_q2_k_selected_q8_1_gather
 	}
 	if !scoreboard || !branch {
 		t.Fatalf("missing scoreboard=%v branch=%v findings: %+v", scoreboard, branch, report.Items)
+	}
+}
+
+func TestPrecedingControlFlowBranchIncludesZeroAndWarpSync(t *testing.T) {
+	fn := &cudasass.Function{Instructions: []cudasass.Instruction{
+		{Address: 0x00, Opcode: "BRA"},
+		{Address: 0x10, Opcode: "WARPSYNC"},
+		{Address: 0x20, Opcode: "FADD"},
+	}}
+	if pc, opcode := precedingControlFlowBranch(fn, 0x10); pc != 0 || opcode != "BRA" {
+		t.Fatalf("branch at zero = (0x%x, %q), want (0x0, BRA)", pc, opcode)
+	}
+	if pc, opcode := precedingControlFlowBranch(fn, 0x20); pc != 0x10 || opcode != "WARPSYNC" {
+		t.Fatalf("WARPSYNC = (0x%x, %q), want (0x10, WARPSYNC)", pc, opcode)
 	}
 }
 
