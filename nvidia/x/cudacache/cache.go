@@ -1,0 +1,435 @@
+package cudacache
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/tmc/lib/nvidia/x/cudakernel"
+)
+
+var (
+	// ErrNotFound is returned when an artifact or receipt is not found in the cache.
+	ErrNotFound = errors.New("cudacache: entry not found")
+
+	// ErrCorruptArtifact is returned when an artifact's payload fails SHA-256 digest verification.
+	ErrCorruptArtifact = errors.New("cudacache: corrupt artifact")
+
+	// ErrIncompatibleTarget is returned when an artifact cannot run on the requested target architecture.
+	ErrIncompatibleTarget = errors.New("cudacache: incompatible target architecture")
+
+	// ErrUnqualifiedOutcome is returned when an artifact or receipt lacks valid qualification.
+	ErrUnqualifiedOutcome = errors.New("cudacache: unqualified outcome")
+
+	// ErrCorruptReceipt is returned when a receipt cannot be deserialized or validated.
+	ErrCorruptReceipt = errors.New("cudacache: corrupt receipt")
+)
+
+const (
+	// DefaultMaxArtifactBytes is the default maximum size of an artifact file (128 MB).
+	DefaultMaxArtifactBytes int64 = 128 << 20
+
+	// DefaultMaxRemoteDownloadBytes is the default maximum size for remote downloads (64 MB).
+	DefaultMaxRemoteDownloadBytes int64 = 64 << 20
+)
+
+// Config configures the local and optional remote cache.
+type Config struct {
+	// RootDir is the local filesystem directory for storing cached artifacts and receipts.
+	RootDir string
+
+	// MaxArtifactBytes limits the maximum size in bytes of an artifact stored or read locally.
+	MaxArtifactBytes int64
+
+	// MaxRemoteDownloadBytes limits the maximum size in bytes of a download from RemoteSource.
+	MaxRemoteDownloadBytes int64
+
+	// Remote is an optional remote artifact and receipt provider.
+	Remote RemoteSource
+
+	// Trust specifies the trust policy applied to remote artifacts.
+	Trust TrustPolicy
+}
+
+// Cache provides content-addressed storage and retrieval for compiled artifacts and receipts.
+type Cache struct {
+	rootDir          string
+	artifactsDir     string
+	receiptsDir      string
+	quarantineDir    string
+	maxArtifactBytes int64
+	maxRemoteBytes   int64
+	remote           RemoteSource
+	trust            TrustPolicy
+
+	// flightMu guards concurrent writes/downloads for identical keys.
+	flightMu sync.Mutex
+	flight   map[string]*flightCall
+
+	// memMu caches validated artifacts in memory for fast lookup.
+	memMu        sync.RWMutex
+	memArtifacts map[string]*cudakernel.Artifact
+	memReceipts  map[string]*SearchReceipt
+}
+
+type flightCall struct {
+	wg  sync.WaitGroup
+	val any
+	err error
+}
+
+// New creates a new Cache rooted at cfg.RootDir.
+func New(cfg Config) (*Cache, error) {
+	if cfg.RootDir == "" {
+		return nil, errors.New("cudacache: root directory cannot be empty")
+	}
+
+	maxArt := cfg.MaxArtifactBytes
+	if maxArt <= 0 {
+		maxArt = DefaultMaxArtifactBytes
+	}
+	maxRemote := cfg.MaxRemoteDownloadBytes
+	if maxRemote <= 0 {
+		maxRemote = DefaultMaxRemoteDownloadBytes
+	}
+
+	c := &Cache{
+		rootDir:          cfg.RootDir,
+		artifactsDir:     filepath.Join(cfg.RootDir, "artifacts"),
+		receiptsDir:      filepath.Join(cfg.RootDir, "receipts"),
+		quarantineDir:    filepath.Join(cfg.RootDir, "quarantine"),
+		maxArtifactBytes: maxArt,
+		maxRemoteBytes:   maxRemote,
+		remote:           cfg.Remote,
+		trust:            cfg.Trust,
+		flight:           make(map[string]*flightCall),
+		memArtifacts:     make(map[string]*cudakernel.Artifact),
+		memReceipts:      make(map[string]*SearchReceipt),
+	}
+
+	for _, dir := range []string{c.artifactsDir, c.receiptsDir, c.quarantineDir} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, fmt.Errorf("cudacache: create directory %q: %w", dir, err)
+		}
+	}
+
+	return c, nil
+}
+
+// PutArtifact stores an artifact in the local content-addressed cache under key.
+// The write is atomic and verified by SHA-256 digest before final rename.
+func (c *Cache) PutArtifact(ctx context.Context, key string, art *cudakernel.Artifact) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if art == nil {
+		return errors.New("cudacache: nil artifact")
+	}
+	if key == "" {
+		return errors.New("cudacache: empty cache key")
+	}
+	if err := art.Validate(); err != nil {
+		return fmt.Errorf("cudacache: invalid artifact: %w", err)
+	}
+
+	data, err := json.Marshal(art)
+	if err != nil {
+		return fmt.Errorf("cudacache: marshal artifact: %w", err)
+	}
+
+	if int64(len(data)) > c.maxArtifactBytes {
+		return fmt.Errorf("cudacache: artifact size (%d bytes) exceeds limit (%d bytes)", len(data), c.maxArtifactBytes)
+	}
+
+	destPath := c.artifactPath(key)
+	if err := c.atomicWrite(destPath, data); err != nil {
+		return fmt.Errorf("cudacache: write artifact: %w", err)
+	}
+
+	c.memMu.Lock()
+	c.memArtifacts[key] = art
+	c.memMu.Unlock()
+
+	return nil
+}
+
+// GetArtifact retrieves an artifact by key. It checks in-memory cache, local disk CAS,
+// and finally the remote source if configured.
+// It verifies the SHA-256 digest and validates the artifact structure. If corruption
+// is detected, the corrupted payload is moved to quarantine and ErrCorruptArtifact is returned.
+func (c *Cache) GetArtifact(ctx context.Context, key string) (*cudakernel.Artifact, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if key == "" {
+		return nil, errors.New("cudacache: empty cache key")
+	}
+
+	// 1. Fast memory check
+	c.memMu.RLock()
+	art, ok := c.memArtifacts[key]
+	c.memMu.RUnlock()
+	if ok {
+		return art, nil
+	}
+
+	// Single flight deduplication for disk/remote load
+	c.flightMu.Lock()
+	if fc, inFlight := c.flight[key]; inFlight {
+		c.flightMu.Unlock()
+		fc.wg.Wait()
+		if fc.err != nil {
+			return nil, fc.err
+		}
+		if a, ok := fc.val.(*cudakernel.Artifact); ok {
+			return a, nil
+		}
+		return nil, ErrNotFound
+	}
+	fc := &flightCall{}
+	fc.wg.Add(1)
+	c.flight[key] = fc
+	c.flightMu.Unlock()
+
+	art, err := c.loadArtifact(ctx, key)
+	fc.val = art
+	fc.err = err
+	fc.wg.Done()
+
+	c.flightMu.Lock()
+	delete(c.flight, key)
+	c.flightMu.Unlock()
+
+	return art, err
+}
+
+func (c *Cache) loadArtifact(ctx context.Context, key string) (*cudakernel.Artifact, error) {
+	destPath := c.artifactPath(key)
+
+	// 2. Local disk check
+	data, err := os.ReadFile(destPath)
+	if err == nil {
+		art, err := c.validateAndDecodeArtifact(key, data, destPath)
+		if err != nil {
+			return nil, err
+		}
+		c.memMu.Lock()
+		c.memArtifacts[key] = art
+		c.memMu.Unlock()
+		return art, nil
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("cudacache: read artifact file: %w", err)
+	}
+
+	// 3. Remote source lookup
+	if c.remote == nil {
+		return nil, ErrNotFound
+	}
+
+	rc, size, err := c.remote.FetchArtifact(ctx, key)
+	if err != nil {
+		if errors.Is(err, ErrRemoteNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("%w: %v", ErrRemoteUnavailable, err)
+	}
+	defer rc.Close()
+
+	if size > c.maxRemoteBytes {
+		return nil, fmt.Errorf("%w: remote size %d exceeds limit %d", ErrDownloadLimitExceeded, size, c.maxRemoteBytes)
+	}
+
+	// Bounded reading to guard against malicious/unbounded streams
+	limitReader := io.LimitReader(rc, c.maxRemoteBytes+1)
+	remoteData, err := io.ReadAll(limitReader)
+	if err != nil {
+		return nil, fmt.Errorf("cudacache: read remote stream: %w", err)
+	}
+	if int64(len(remoteData)) > c.maxRemoteBytes {
+		return nil, fmt.Errorf("%w: downloaded %d bytes, exceeds limit %d", ErrDownloadLimitExceeded, len(remoteData), c.maxRemoteBytes)
+	}
+
+	art, err := c.validateAndDecodeArtifact(key, remoteData, "")
+	if err != nil {
+		return nil, err
+	}
+
+	// Write verified artifact to local CAS
+	if err := c.atomicWrite(destPath, remoteData); err != nil {
+		// Non-fatal write error: still return artifact
+	}
+
+	c.memMu.Lock()
+	c.memArtifacts[key] = art
+	c.memMu.Unlock()
+
+	return art, nil
+}
+
+func (c *Cache) validateAndDecodeArtifact(key string, data []byte, localFilePath string) (*cudakernel.Artifact, error) {
+	if int64(len(data)) > c.maxArtifactBytes {
+		c.quarantine(key, data, localFilePath)
+		return nil, fmt.Errorf("%w: artifact bytes %d exceed limit", ErrCorruptArtifact, len(data))
+	}
+
+	var art cudakernel.Artifact
+	if err := json.Unmarshal(data, &art); err != nil {
+		c.quarantine(key, data, localFilePath)
+		return nil, fmt.Errorf("%w: unmarshal failed: %v", ErrCorruptArtifact, err)
+	}
+
+	// Verify SHA-256 of Raw bytes against art.Digest
+	computed := sha256.Sum256(art.Raw)
+	computedHex := hex.EncodeToString(computed[:])
+	if art.Digest != computedHex {
+		c.quarantine(key, data, localFilePath)
+		return nil, fmt.Errorf("%w: digest mismatch (want %s, got %s)", ErrCorruptArtifact, art.Digest, computedHex)
+	}
+
+	if err := art.Validate(); err != nil {
+		c.quarantine(key, data, localFilePath)
+		return nil, fmt.Errorf("%w: validation failed: %v", ErrCorruptArtifact, err)
+	}
+
+	return &art, nil
+}
+
+func (c *Cache) quarantine(key string, data []byte, localFilePath string) {
+	if localFilePath != "" {
+		_ = os.Remove(localFilePath)
+	}
+	if len(data) == 0 {
+		return
+	}
+	qPath := filepath.Join(c.quarantineDir, fmt.Sprintf("%s.%d.corrupt", key, time.Now().UnixNano()))
+	_ = os.WriteFile(qPath, data, 0o644)
+}
+
+// PutReceipt writes a SearchReceipt under policyID and workloadKey.
+func (c *Cache) PutReceipt(ctx context.Context, receipt *SearchReceipt) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if receipt == nil {
+		return errors.New("cudacache: nil receipt")
+	}
+	if err := receipt.Validate(); err != nil {
+		return fmt.Errorf("cudacache: invalid receipt: %w", err)
+	}
+
+	key := SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey)
+	data, err := json.Marshal(receipt)
+	if err != nil {
+		return fmt.Errorf("cudacache: marshal receipt: %w", err)
+	}
+
+	destPath := c.receiptPath(key)
+	if err := c.atomicWrite(destPath, data); err != nil {
+		return fmt.Errorf("cudacache: write receipt: %w", err)
+	}
+
+	c.memMu.Lock()
+	c.memReceipts[key] = receipt
+	c.memMu.Unlock()
+
+	return nil
+}
+
+// GetReceipt retrieves a SearchReceipt for a policy and workload.
+func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloadKey string) (*SearchReceipt, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	key := SearchReceiptKey(policyID, workloadKey)
+
+	// Memory check
+	c.memMu.RLock()
+	r, ok := c.memReceipts[key]
+	c.memMu.RUnlock()
+	if ok {
+		return r, nil
+	}
+
+	// Disk check
+	destPath := c.receiptPath(key)
+	data, err := os.ReadFile(destPath)
+	if err == nil {
+		var receipt SearchReceipt
+		if err := json.Unmarshal(data, &receipt); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+		}
+		if err := receipt.Validate(); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+		}
+		c.memMu.Lock()
+		c.memReceipts[key] = &receipt
+		c.memMu.Unlock()
+		return &receipt, nil
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("cudacache: read receipt file: %w", err)
+	}
+
+	// Remote check
+	if c.remote != nil {
+		rData, err := c.remote.FetchReceipt(ctx, key)
+		if err == nil {
+			var receipt SearchReceipt
+			if err := json.Unmarshal(rData, &receipt); err != nil {
+				return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+			}
+			if err := receipt.Validate(); err != nil {
+				return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+			}
+			_ = c.atomicWrite(destPath, rData)
+			c.memMu.Lock()
+			c.memReceipts[key] = &receipt
+			c.memMu.Unlock()
+			return &receipt, nil
+		}
+	}
+
+	return nil, ErrNotFound
+}
+
+func (c *Cache) artifactPath(key string) string {
+	return filepath.Join(c.artifactsDir, key+".artifact")
+}
+
+func (c *Cache) receiptPath(key string) string {
+	return filepath.Join(c.receiptsDir, key+".receipt")
+}
+
+func (c *Cache) atomicWrite(targetPath string, data []byte) error {
+	dir := filepath.Dir(targetPath)
+	f, err := os.CreateTemp(dir, ".tmp-*")
+	if err != nil {
+		return fmt.Errorf("create temp file: %w", err)
+	}
+	tmpName := f.Name()
+	defer os.Remove(tmpName)
+
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return fmt.Errorf("write data: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return fmt.Errorf("sync temp file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close temp file: %w", err)
+	}
+
+	if err := os.Rename(tmpName, targetPath); err != nil {
+		return fmt.Errorf("rename to target: %w", err)
+	}
+	return nil
+}
