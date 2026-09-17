@@ -67,6 +67,7 @@ type cudaSessionLayer struct {
 }
 
 type cudaBatchDense struct {
+	hc                                   [2]cudamem.Slice[float32]
 	attnPre, qLora, qHeads, kvRaw, kvCur cudamem.Slice[float32]
 	attnNorm                             cudamem.Slice[float32]
 	compressorKV, compressorGate         cudamem.Slice[float32]
@@ -101,6 +102,7 @@ type cudaBatchResources struct {
 	denseArena *cudamem.Arena
 	rows       []cudaTokenState
 	hc         []*cudaHC
+	hcBatch    *cudaHCBatch
 	dense      cudaBatchDense
 	grouping   *cudaMoEGrouping
 }
@@ -376,6 +378,10 @@ func (b *cudaBatchResources) Close() error {
 		errs = append(errs, b.grouping.Free())
 		b.grouping = nil
 	}
+	if b.hcBatch != nil {
+		errs = append(errs, b.hcBatch.Close())
+		b.hcBatch = nil
+	}
 	for _, h := range b.hc {
 		errs = append(errs, h.Close())
 	}
@@ -441,6 +447,15 @@ func (r *cudaRuntime) EvalBatch(tokens []int, position int) error {
 	return nil
 }
 
+// activeHCBatch keeps qualification fallbacks on their scalar HC path even
+// when a previous evaluation allocated batch resources.
+func (r *cudaRuntime) activeHCBatch() *cudaHCBatch {
+	if r.batch == nil || r.disableGatherExperts || r.disableSIMDExperts || r.disableBlockDiagAttnOut {
+		return nil
+	}
+	return r.batch.hcBatch
+}
+
 // evalBatch spans the chunk rather than each token in it: the batched
 // front end evaluates all of them together, so a per-token interval here
 // would report the chunk's duration once per token.
@@ -467,6 +482,18 @@ func (r *cudaRuntime) evalBatch(tokens []int, position int, logits bool) (err er
 		rows[i], hc[i] = &r.batch.rows[i], r.batch.hc[i]
 	}
 	rows[len(tokens)-1], hc[len(tokens)-1] = &r.state.cudaTokenState, r.hcMath
+	if r.activeHCBatch() != nil {
+		// Rebind only local states. The persistent decode buffers retain their
+		// addresses, including any addresses captured by a decode graph.
+		local := make([]cudaTokenState, len(rows))
+		for i := range rows {
+			local[i] = *rows[i]
+			for j := range 2 {
+				local[i].hc[j] = r.batch.dense.hc[j].Slice(i*cudaHCWidth, (i+1)*cudaHCWidth)
+			}
+			rows[i] = &local[i]
+		}
+	}
 	tokensU32 := make([]uint32, len(tokens))
 	for i, token := range tokens {
 		tokensU32[i] = uint32(token)
@@ -485,6 +512,14 @@ func (r *cudaRuntime) evalBatch(tokens []int, position int, logits bool) (err er
 		}
 	}
 	last := rows[len(rows)-1]
+	if r.activeHCBatch() != nil {
+		// Subsequent scalar decode starts from the terminal token's HC state.
+		for j := range 2 {
+			if err := r.state.hc[j].CopyDeviceToDeviceAsync(last.hc[j], r.stream()); err != nil {
+				return fmt.Errorf("cuda runtime: copy terminal HC state: %w", err)
+			}
+		}
+	}
 	if err := r.markCUDAPhase("group-tail", position+len(tokens)-1, -1); err != nil {
 		return err
 	}
@@ -574,6 +609,18 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		tokenNComp:        cudamem.AllocIn[uint32](b.denseArena, "batch-dense-token-ncomp", width),
 		mixedScores:       alloc("batch-dense-mixed-scores", width*scoreStride),
 		mixedDenominators: alloc("batch-dense-mixed-denominators", width*64),
+	}
+	// This qualification switch leaves the scalar path and diagnostic fallbacks
+	// available. The first candidate batches HC only with gathered experts and
+	// batched attention output, whose block outputs are already contiguous.
+	if os.Getenv("DS4_CUDA_HC_BATCH") == "1" {
+		for j := range 2 {
+			b.dense.hc[j] = alloc(fmt.Sprintf("batch-dense-hc-%d", j), width*cudaHCWidth)
+		}
+		b.hcBatch, err = newCUDAHCBatch(r.cudaFoundation, width)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := errors.Join(b.arena.Err(), b.denseArena.Err()); err != nil {
 		return nil, fmt.Errorf("cuda runtime: allocate batch rows: %w", err)
@@ -689,11 +736,18 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 				rows[i].indexerGate = d.indexerGate.Slice(i*iw, (i+1)*iw)
 			}
 		}
-		if err := hc[i].pre(rows[i].hc[0], l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, rows[i].attnPre, false); err != nil {
-			return fmt.Errorf("token %d attention pre: %w", i, err)
+		if r.activeHCBatch() == nil {
+			if err := hc[i].pre(rows[i].hc[0], l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, rows[i].attnPre, false); err != nil {
+				return fmt.Errorf("token %d attention pre: %w", i, err)
+			}
 		}
 	}
 	n := len(rows)
+	if b := r.activeHCBatch(); b != nil {
+		if err := b.pre(d.hc[0].Slice(0, n*cudaHCWidth), l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, d.attnPre.Slice(0, n*2*cudaWidth), n); err != nil {
+			return err
+		}
+	}
 	if err := chunkRows(n, cudaPrefillQ81Chunk, func(lo, hi int) error {
 		m := hi - lo
 		attnNorm := d.attnPre.Slice(lo*2*cudaWidth+cudaWidth, hi*2*cudaWidth)
@@ -831,9 +885,21 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 			return err
 		}
 	}
-	for i := range rows {
-		if err := r.evalLayerFFNPre(hc[i], &rows[i], index, tokens[i], position+i, heads[i], projected); err != nil {
-			return fmt.Errorf("token %d: %w", i, err)
+	if b := r.activeHCBatch(); b != nil {
+		if err := b.post(d.hc[0].Slice(0, n*cudaHCWidth), d.attnOut.Slice(0, n*cudaWidth), d.hc[1].Slice(0, n*cudaHCWidth), n); err != nil {
+			return err
+		}
+		if err := r.markCUDAPhase("ffn-pre", position, index); err != nil {
+			return err
+		}
+		if err := b.pre(d.hc[1].Slice(0, n*cudaHCWidth), l.hcFFNFn, l.hcFFNScale, l.hcFFNBase, l.ffnNorm, d.ffnPre.Slice(0, n*2*cudaWidth), n); err != nil {
+			return err
+		}
+	} else {
+		for i := range rows {
+			if err := r.evalLayerFFNPre(hc[i], &rows[i], index, tokens[i], position+i, heads[i], projected); err != nil {
+				return fmt.Errorf("token %d: %w", i, err)
+			}
 		}
 	}
 	if err := chunkRows(n, cudaPrefillGroupWidth, func(lo, hi int) error {
@@ -898,8 +964,15 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 			if err := r.markCUDAPhase("ffn-post", position+i, index); err != nil {
 				return err
 			}
-			if err := hc[i].post(rows[i].hc[1], rows[i].ffnOut, rows[i].hc[0]); err != nil {
-				return fmt.Errorf("token %d: %w", i, err)
+			if r.activeHCBatch() == nil {
+				if err := hc[i].post(rows[i].hc[1], rows[i].ffnOut, rows[i].hc[0]); err != nil {
+					return fmt.Errorf("token %d: %w", i, err)
+				}
+			}
+		}
+		if b := r.activeHCBatch(); b != nil {
+			if err := b.post(d.hc[1].Slice(0, n*cudaHCWidth), d.ffnOut.Slice(0, n*cudaWidth), d.hc[0].Slice(0, n*cudaHCWidth), n); err != nil {
+				return err
 			}
 		}
 	} else {

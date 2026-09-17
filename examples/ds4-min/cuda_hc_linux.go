@@ -3,8 +3,8 @@
 package main
 
 import (
-	_ "embed"
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"runtime"
@@ -19,6 +19,7 @@ import (
 // The projection follows pinned ds4_cuda.cu:15887-15927. The full 24-row mix
 // feeds both HC transforms (ds4.c:24675-24704,25468-25482). Output HC uses a
 // separate four-row call (26281-26305); cuBLAS reduction depends on that shape.
+//
 //go:embed cuda_hc.cu
 var cudaHCSource string
 
@@ -173,6 +174,157 @@ func (h *cudaHC) post(state, block, out cudamem.Slice[float32]) error {
 	return h.r.device.WithContext(func() error {
 		if err := cudalaunch.Kernel(h.r.hcExpandFn).Grid(64).Block(256).On(h.r.stream()).Launch(state, block, h.split, out); err != nil {
 			return fmt.Errorf("cuda hc: expand: %w", err)
+		}
+		return nil
+	})
+}
+
+// cudaHCBatch holds token-major scratch for a resident group. Projection keeps
+// the scalar cuBLAS shape: changing GemmEx N can change its reduction order.
+// A successful pre must be followed by post on the same state and row count.
+type cudaHCBatch struct {
+	h                                             *cudaHC
+	capacity                                      int
+	normalized                                    cudamem.Slice[float32]
+	half                                          cudamem.Slice[uint16]
+	mix, split, collapsed, norm                   cudamem.Slice[float32]
+	halfFn, splitFn, collapseFn, expandFn, packFn driver.Function
+	residual                                      driver.DevicePtr
+	ready                                         int
+	preCalls                                      uint64 // successful batched pre dispatches, for qualification reach checks
+}
+
+func newCUDAHCBatch(r *cudaFoundation, capacity int) (_ *cudaHCBatch, err error) {
+	if capacity < 1 || capacity > cudaPrefillGroupWidth {
+		return nil, errors.New("cuda hc batch: invalid capacity")
+	}
+	h, err := newCUDAHC(r)
+	if err != nil {
+		return nil, err
+	}
+	b := &cudaHCBatch{h: h, capacity: capacity}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, b.Close())
+		}
+	}()
+	b.normalized = cudamem.AllocIn[float32](h.arena, "hc-batch-normalized", capacity*16384)
+	b.half = cudamem.AllocIn[uint16](h.arena, "hc-batch-half", capacity*16384)
+	b.mix = cudamem.AllocIn[float32](h.arena, "hc-batch-mix", capacity*24)
+	b.split = cudamem.AllocIn[float32](h.arena, "hc-batch-split", capacity*24)
+	b.collapsed = cudamem.AllocIn[float32](h.arena, "hc-batch-collapsed", capacity*4096)
+	b.norm = cudamem.AllocIn[float32](h.arena, "hc-batch-norm", capacity*4096)
+	if err := h.arena.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		for _, f := range []struct {
+			name string
+			dst  *driver.Function
+		}{
+			{"ds4_hc_half_input_batch", &b.halfFn},
+			{"ds4_hc_cached_split_batch", &b.splitFn},
+			{"ds4_hc_cached_collapse_batch", &b.collapseFn},
+			{"ds4_hc_cached_expand_batch", &b.expandFn},
+			{"ds4_hc_pack_batch", &b.packFn},
+		} {
+			fn, err := r.matrixMod.GetFunction(f.name)
+			if err != nil {
+				return fmt.Errorf("cuda hc batch: find %s: %w", f.name, err)
+			}
+			*f.dst = fn
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func (b *cudaHCBatch) Close() error {
+	if b == nil {
+		return nil
+	}
+	b.ready = 0
+	return b.h.Close()
+}
+
+// pre writes n interleaved [collapsed, normalized] rows of 8192 floats.
+// State contains n adjacent rows of 16384 floats. Output-head HC stays scalar.
+func (b *cudaHCBatch) pre(state cudamem.Slice[float32], fn, scale, base, norm cudaModelTensor, out cudamem.Slice[float32], n int) error {
+	if b == nil || b.h == nil || b.h.blas == 0 {
+		return errors.New("cuda hc batch: closed")
+	}
+	b.ready = 0
+	if n < 1 || n > b.capacity || state.Len() != n*16384 || out.Len() != n*8192 ||
+		fn.typeID != 1 || fn.device == 0 || len(fn.dimensions) != 2 || fn.dimensions[0] != 16384 || fn.dimensions[1] != 24 || fn.bytes < 24*16384*2 ||
+		scale.typeID != 0 || scale.device == 0 || len(scale.dimensions) != 1 || scale.dimensions[0] != 3 || scale.bytes < 3*4 ||
+		base.typeID != 0 || base.device == 0 || len(base.dimensions) != 1 || base.dimensions[0] != 24 || base.bytes < 24*4 ||
+		norm.typeID != 0 || norm.device == 0 || len(norm.dimensions) != 1 || norm.dimensions[0] != 4096 || norm.bytes < 4096*4 {
+		return errors.New("cuda hc batch: invalid transform profile")
+	}
+	r := b.h.r
+	if err := r.encodeRMS(state, cudaModelTensor{}, b.normalized.Slice(0, n*16384), n, false); err != nil {
+		return err
+	}
+	if err := r.device.WithContext(func() error {
+		if err := cudalaunch.Kernel(b.halfFn).Grid(64, uint32(n)).Block(256).On(r.stream()).Launch(b.normalized, b.half); err != nil {
+			return fmt.Errorf("cuda hc batch: convert activation: %w", err)
+		}
+		var pin runtime.Pinner
+		defer pin.Unpin()
+		alpha, beta := float32(1), float32(0)
+		pin.Pin(&alpha)
+		pin.Pin(&beta)
+		// Preserve each scalar GEMM's M=24,N=1,K=16384 and leading dimensions.
+		for row := range n {
+			in := b.half.Slice(row*16384, (row+1)*16384)
+			out := b.mix.Slice(row*24, (row+1)*24)
+			if err := b.h.blas.GemmEx(cublas.OpT, cublas.OpN, 24, 1, 16384,
+				uintptr(unsafe.Pointer(&alpha)), uintptr(fn.device), cublas.R16F, 16384,
+				uintptr(in.Ptr()), cublas.R16F, 16384,
+				uintptr(unsafe.Pointer(&beta)), uintptr(out.Ptr()), cublas.R32F, 24, cublas.Compute32F, cublas.GemmDefault); err != nil {
+				return fmt.Errorf("cuda hc batch: project row %d: %w", row, err)
+			}
+		}
+		if err := cudalaunch.Kernel(b.splitFn).Grid(1, uint32(n)).Block(1).On(r.stream()).Launch(b.mix, scale.device, base.device, b.split, uint32(0)); err != nil {
+			return fmt.Errorf("cuda hc batch: split: %w", err)
+		}
+		if err := cudalaunch.Kernel(b.collapseFn).Grid(16, uint32(n)).Block(256).On(r.stream()).Launch(state, b.split, b.collapsed); err != nil {
+			return fmt.Errorf("cuda hc batch: collapse: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if err := r.encodeRMS(b.collapsed.Slice(0, n*4096), norm, b.norm.Slice(0, n*4096), n, true); err != nil {
+		return err
+	}
+	if err := r.device.WithContext(func() error {
+		return cudalaunch.Kernel(b.packFn).Grid(16, uint32(n)).Block(256).On(r.stream()).Launch(b.collapsed, b.norm, out)
+	}); err != nil {
+		return fmt.Errorf("cuda hc batch: pack: %w", err)
+	}
+	b.ready, b.residual = n, state.Ptr()
+	b.preCalls++
+	return nil
+}
+
+func (b *cudaHCBatch) post(state, block, out cudamem.Slice[float32], n int) error {
+	if b == nil || b.h == nil || b.h.blas == 0 || b.ready == 0 {
+		return errors.New("cuda hc batch: missing cached layer projection")
+	}
+	ready := b.ready
+	b.ready = 0
+	if n != ready || state.Len() != n*16384 || state.Ptr() != b.residual || block.Len() != n*4096 || out.Len() != n*16384 {
+		return errors.New("cuda hc batch: invalid residual or output")
+	}
+	return b.h.r.device.WithContext(func() error {
+		if err := cudalaunch.Kernel(b.expandFn).Grid(64, uint32(n)).Block(256).On(b.h.r.stream()).Launch(state, block, b.split, out); err != nil {
+			return fmt.Errorf("cuda hc batch: expand: %w", err)
 		}
 		return nil
 	})

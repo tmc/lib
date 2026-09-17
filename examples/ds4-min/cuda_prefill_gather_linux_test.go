@@ -85,8 +85,25 @@ func TestCUDAPrefillGather(t *testing.T) {
 				if err := r.Reset(); err != nil {
 					t.Fatal(err)
 				}
+				var hcCalls uint64
+				if r.batch != nil && r.batch.hcBatch != nil {
+					hcCalls = r.batch.hcBatch.preCalls
+				}
 				if err := r.EvalBatch(tokens[:n], 0); err != nil {
 					t.Fatalf("arm %d prefill: %v", arm, err)
+				}
+				if os.Getenv("DS4_CUDA_HC_BATCH") == "1" {
+					if r.batch == nil || r.batch.hcBatch == nil {
+						t.Fatal("HC batch qualification did not allocate the candidate")
+					}
+					calls := r.batch.hcBatch.preCalls - hcCalls
+					if arm == 0 && calls != 0 {
+						t.Fatalf("scalar reference dispatched %d HC batch calls", calls)
+					}
+					if arm == 1 && calls == 0 {
+						t.Fatal("candidate arm did not dispatch HC batch")
+					}
+					t.Logf("arm %d: %d HC batch pre calls", arm, calls)
 				}
 				for step := range 3 {
 					if step != 0 {
