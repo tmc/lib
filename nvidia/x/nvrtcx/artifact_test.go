@@ -140,3 +140,17 @@ func ExampleCompiledModule_LoadOutput() {
 	fmt.Println(err)
 	// Output: nvrtcx: output 1 is unavailable
 }
+
+func TestPTXTextDropsTrailingNUL(t *testing.T) {
+	const ptx = ".version 9.0\n.target sm_121\n"
+	// nvrtcGetPTXSize counts the trailing NUL, so the buffer carries it.
+	if got := ptxText([]byte(ptx + "\x00")); got != ptx {
+		t.Errorf("ptxText kept the terminator: %q", got)
+	}
+	if got := ptxText([]byte(ptx)); got != ptx {
+		t.Errorf("ptxText altered unterminated PTX: %q", got)
+	}
+	if got := ptxText(nil); got != "" {
+		t.Errorf("ptxText(nil) = %q, want empty", got)
+	}
+}
