@@ -27,11 +27,6 @@ type LatencyDecomposition struct {
 	DeviceNs     uint64 // Active execution duration on streaming multiprocessors (End - Start)
 }
 
-// TotalNs reports the sum of launch latency, queue wait time, and device execution.
-func (l LatencyDecomposition) TotalNs() uint64 {
-	return l.HostLaunchNs + l.QueueNs + l.WaitNs + l.DeviceNs
-}
-
 // KernelMetric stores aggregated metrics for a single kernel or family.
 type KernelMetric struct {
 	Name       string
@@ -50,28 +45,56 @@ func (k KernelMetric) Duration() time.Duration {
 
 // PhaseCensus stores the census partitioned by workload phase.
 type PhaseCensus struct {
-	Phase    Phase
-	TotalNs  int64
-	Families map[string]KernelMetric
-	Entries  []cudacensus.Entry
+	Phase          Phase
+	SummedKernelNs int64 // Sum of individual kernel launch durations
+	GPUBusyNs      int64 // Duration of the union of GPU execution intervals
+	Families       map[string]KernelMetric
+	Entries        []cudacensus.Entry
 }
 
-// Duration returns the total device execution duration for this phase.
-func (p PhaseCensus) Duration() time.Duration {
-	return time.Duration(p.TotalNs)
+// SummedKernelDuration returns the sum of kernel launch execution durations for this phase.
+func (p PhaseCensus) SummedKernelDuration() time.Duration {
+	return time.Duration(p.SummedKernelNs)
 }
+
+// GPUBusyDuration returns the duration of the union of GPU execution intervals for this phase.
+func (p PhaseCensus) GPUBusyDuration() time.Duration {
+	return time.Duration(p.GPUBusyNs)
+}
+
+// Duration returns the summed kernel execution duration for this phase.
+func (p PhaseCensus) Duration() time.Duration {
+	return p.SummedKernelDuration()
+}
+
+// Availability indicates whether an architectural family was observed in both comparison arms.
+type Availability string
+
+const (
+	// AvailableBoth indicates the family was observed in both C and Go arms.
+	AvailableBoth Availability = "both"
+	// AvailableCOnly indicates the family was observed only in the C baseline.
+	AvailableCOnly Availability = "c_only"
+	// AvailableGoOnly indicates the family was observed only in the Go candidate.
+	AvailableGoOnly Availability = "go_only"
+)
 
 // DifferentialReport holds pairwise comparison results across arms and control baselines.
 type DifferentialReport struct {
 	Phase              Phase
 	Family             string
-	CDurationNs        int64
-	GoDurationNs       int64
-	DeltaNs            int64   // Go - C
-	Speedup            float64 // C / Go
-	LaunchDeltaNs      int64   // Host launch overhead difference
-	NullDriftNs        int64   // Noise floor from null control basket
-	StatisticallyValid bool    // true if |DeltaNs| > NullDriftNs
+	Availability       Availability // Availability status: "both", "c_only", or "go_only"
+	Available          bool         // true if observed in both arms and comparable
+	CObserved          bool         // true if observed in C arm
+	GoObserved         bool         // true if observed in Go arm
+	CDurationNs        int64        // C baseline device duration (if CObserved)
+	GoDurationNs       int64        // Go candidate device duration (if GoObserved)
+	DeltaNs            int64        // Go - C (only computed when Available is true)
+	Speedup            float64      // C / Go (only computed when Available is true)
+	LaunchDeltaNs      int64        // Host launch overhead difference (only computed when Available is true)
+	NullDriftNs        int64        // Noise floor from null control basket
+	ExceedsDrift       bool         // true if |DeltaNs| > NullDriftNs (only computed when Available is true)
+	StatisticallyValid bool         // true if ExceedsDrift is true; exceeding drift threshold alone does not establish statistical validity
 	RooflineGo         *cudaroofline.KernelPoint
 	RooflineC          *cudaroofline.KernelPoint
 }
@@ -144,27 +167,59 @@ func (t *Trial) Run(ctx context.Context) ([]DifferentialReport, error) {
 // Render writes a human-readable ANSI terminal summary to w.
 func Render(w io.Writer, reports []DifferentialReport) error {
 	tw := tabwriter.NewWriter(w, 0, 8, 2, ' ', 0)
-	fmt.Fprintln(tw, "PHASE\tFAMILY\tC TIME\tGO TIME\tDELTA\tSPEEDUP\tDRIFT FLOOR\tVALID?")
+	fmt.Fprintln(tw, "PHASE\tFAMILY\tC TIME\tGO TIME\tDELTA\tSPEEDUP\tDRIFT FLOOR\tEXCEEDS DRIFT?")
 	for _, r := range reports {
-		validStr := "YES"
-		if !r.StatisticallyValid {
-			validStr = "NOISE"
-		}
+		var statusStr string
+		var cTimeStr string
+		var goTimeStr string
+		var deltaStr string
 		var speedupStr string
-		if r.Speedup > 0 {
-			speedupStr = fmt.Sprintf("%.2fx", r.Speedup)
+
+		if r.CObserved {
+			cTimeStr = formatDurationNs(r.CDurationNs)
 		} else {
-			speedupStr = "n/a"
+			cTimeStr = "n/a"
 		}
+
+		if r.GoObserved {
+			goTimeStr = formatDurationNs(r.GoDurationNs)
+		} else {
+			goTimeStr = "n/a"
+		}
+
+		if !r.Available {
+			deltaStr = "n/a"
+			speedupStr = "n/a"
+			if r.Availability == AvailableCOnly {
+				statusStr = "UNAVAILABLE (C only)"
+			} else if r.Availability == AvailableGoOnly {
+				statusStr = "UNAVAILABLE (Go only)"
+			} else {
+				statusStr = "UNAVAILABLE"
+			}
+		} else {
+			deltaStr = formatDeltaNs(r.DeltaNs)
+			if r.Speedup > 0 {
+				speedupStr = fmt.Sprintf("%.2fx", r.Speedup)
+			} else {
+				speedupStr = "n/a"
+			}
+			if r.ExceedsDrift {
+				statusStr = "YES"
+			} else {
+				statusStr = "NOISE"
+			}
+		}
+
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			r.Phase,
 			r.Family,
-			formatDurationNs(r.CDurationNs),
-			formatDurationNs(r.GoDurationNs),
-			formatDeltaNs(r.DeltaNs),
+			cTimeStr,
+			goTimeStr,
+			deltaStr,
 			speedupStr,
 			formatDurationNs(r.NullDriftNs),
-			validStr,
+			statusStr,
 		)
 	}
 	return tw.Flush()
