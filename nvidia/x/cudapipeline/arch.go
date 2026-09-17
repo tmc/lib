@@ -9,6 +9,7 @@ import (
 const (
 	ArchSM90   = "sm_90"
 	ArchSM100  = "sm_100"
+	ArchSM100a = "sm_100a"
 	ArchSM121a = "sm_121a"
 )
 
@@ -72,6 +73,23 @@ var knownProfiles = map[string]ArchProfile{
 	},
 	ArchSM100: {
 		Name:                 ArchSM100,
+		SupportsTMA:          true,
+		SupportsMBarrier:     true,
+		SupportsMultimem:     true,
+		SupportsWGMMA:        false,
+		SupportsTCGen05:      true,
+		SupportsTMEM:         true,
+		MinBufferAlignBytes:  16,
+		MinBarrierAlignBytes: 8,
+		MaxBoxWidthBytes:     128,
+		MaxTMEMCapacityBytes: BlackwellTMEMCapacityBytes,
+		MinTMEMAlignBytes:    BlackwellTMEMMinAlignBytes,
+		TMEMBytesPerColumn:   BlackwellTMEMBytesPerCol,
+		TMEMColumnsPerSM:     BlackwellTMEMColumns,
+		TMEMAllocColUnit:     BlackwellTMEMAllocUnitCols,
+	},
+	ArchSM100a: {
+		Name:                 ArchSM100a,
 		SupportsTMA:          true,
 		SupportsMBarrier:     true,
 		SupportsMultimem:     true,
@@ -155,7 +173,7 @@ func (p ArchProfile) ValidateFeature(feature string) error {
 	}
 	switch feat {
 	case FeatureTMEM:
-		return fmt.Errorf("target %s does not support tmem: Tensor Memory is addressable only via tcgen05, which requires sm_100", p.Name)
+		return fmt.Errorf("target %s does not support tmem: Tensor Memory is addressable only via tcgen05, which requires sm_100 or sm_100a", p.Name)
 	case FeatureWGMMA:
 		if p.Name == ArchSM121a {
 			return fmt.Errorf("target %s rejects wgmma: Hopper warp-group MMA instructions are not supported on Blackwell sm_121a", p.Name)

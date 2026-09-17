@@ -39,6 +39,7 @@ type BarrierTracker struct {
 	regSyms           map[string]string
 	targetArch        string
 	tmemAllocatedCols int
+	allowLegacyTMEM   bool
 }
 
 // NewBarrierTracker constructs an initialized BarrierTracker configured with opts.

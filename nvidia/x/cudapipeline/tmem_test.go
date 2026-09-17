@@ -515,6 +515,7 @@ func TestValidatePTX_TMEM_Table(t *testing.T) {
 `,
 			opts: []cudapipeline.Option{
 				cudapipeline.WithTensorSize("tmap", 2048),
+				cudapipeline.WithAllowLegacyTMEM(true),
 			},
 			wantCount: 0,
 		},
@@ -550,6 +551,7 @@ func TestValidatePTX_TMEM_Table(t *testing.T) {
 `,
 			opts: []cudapipeline.Option{
 				cudapipeline.WithTensorSize("tmap", 2048),
+				cudapipeline.WithAllowLegacyTMEM(true),
 			},
 			wantViolation: cudapipeline.ErrMismatchedTxBytes,
 			wantCount:     1,
