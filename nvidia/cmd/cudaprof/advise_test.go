@@ -2613,15 +2613,18 @@ func TestAdvice_PCSamplingRankingAndDurationFallback(t *testing.T) {
 		},
 	}
 
+	// The capture's 100 ms is wall clock. Spreading it across the samples
+	// would yield a per-kernel nanosecond figure nothing measured, so the
+	// counts stay counts and the ranking below works off their share.
 	times, totalTime := computeProfileTimes(cap)
-	if totalTime != 100_000_000 { // 100 ms in ns
-		t.Errorf("totalTime = %d, want 100000000", totalTime)
+	if totalTime != 1000 {
+		t.Errorf("totalTime = %d, want 1000 samples", totalTime)
 	}
-	if times["heavy_kernel"] != 90_000_000 {
-		t.Errorf("heavy_kernel time = %d, want 90000000", times["heavy_kernel"])
+	if times["heavy_kernel"] != 900 {
+		t.Errorf("heavy_kernel = %d, want its 900 samples", times["heavy_kernel"])
 	}
-	if times["light_kernel"] != 10_000_000 {
-		t.Errorf("light_kernel time = %d, want 10000000", times["light_kernel"])
+	if times["light_kernel"] != 100 {
+		t.Errorf("light_kernel = %d, want its 100 samples", times["light_kernel"])
 	}
 
 	report := &AdviceReport{
@@ -2754,7 +2757,11 @@ func TestAdvice_RepeatedHostLoopDispatch(t *testing.T) {
 	}
 }
 
-func TestAdvice_NativeProfileDuration(t *testing.T) {
+// TestAdvice_WallDurationIsNotDeviceTime pins the case that made the advisor
+// print a fabricated millisecond figure: a profile whose only sample type is
+// pc_samples, carrying a wall-clock duration. Scaling the samples by it gave
+// this single kernel a "device time" equal to the entire capture.
+func TestAdvice_WallDurationIsNotDeviceTime(t *testing.T) {
 	cap := &cudacapture.Capture{
 		Profile: &profile.Profile{
 			DurationNanos: 250_000_000,
@@ -2770,11 +2777,14 @@ func TestAdvice_NativeProfileDuration(t *testing.T) {
 		},
 	}
 	times, totalTime := computeProfileTimes(cap)
-	if totalTime != 250_000_000 {
-		t.Errorf("totalTime = %d, want 250000000", totalTime)
+	if totalTime != 100 {
+		t.Errorf("totalTime = %d, want 100 samples", totalTime)
 	}
-	if times["k1"] != 250_000_000 {
-		t.Errorf("times[k1] = %d, want 250000000", times["k1"])
+	if times["k1"] != 100 {
+		t.Errorf("times[k1] = %d, want its 100 samples, not the 250 ms wall duration", times["k1"])
+	}
+	if hasDeviceTiming(cap) {
+		t.Error("a wall-clock duration was accepted as device timing")
 	}
 }
 
@@ -3096,8 +3106,8 @@ func TestAdvice_PurePCSampleProfileShareFormatting(t *testing.T) {
 	}
 
 	times, totalTime := computeProfileTimes(purePCCap)
-	if hasProfileDurationOrTime(purePCCap) {
-		t.Fatal("hasProfileDurationOrTime returned true for pure PC-sample capture")
+	if hasDeviceTiming(purePCCap) {
+		t.Fatal("hasDeviceTiming returned true for pure PC-sample capture")
 	}
 
 	report := &AdviceReport{
@@ -3142,7 +3152,10 @@ func TestAdvice_PurePCSampleProfileShareFormatting(t *testing.T) {
 		t.Errorf("Markdown output improperly claims '0.00 ms' on pure PC-sample profile:\n%s", md)
 	}
 
-	// Compare with profile with native duration.
+	// A wall-clock duration on a sample-only profile is not device time. This
+	// half of the test used to assert the opposite -- that 800 of 1000 samples
+	// over a 100 ms capture should render as "80.00 ms of GPU time" -- which is
+	// the fabrication itself, written down as intent.
 	durCap := &cudacapture.Capture{
 		Profile: &profile.Profile{
 			DurationNanos: 100_000_000, // 100 ms
@@ -3166,11 +3179,14 @@ func TestAdvice_PurePCSampleProfileShareFormatting(t *testing.T) {
 		},
 	}
 
-	if !hasProfileDurationOrTime(durCap) {
-		t.Fatal("hasProfileDurationOrTime returned false for capture with DurationNanos")
+	if hasDeviceTiming(durCap) {
+		t.Fatal("hasDeviceTiming returned true for a sample-only capture with a wall duration")
 	}
 
 	durTimes, durTotalTime := computeProfileTimes(durCap)
+	if got := durTimes["heavy_kernel"]; got != 800 {
+		t.Errorf("heavy_kernel = %d, want its 800 samples unscaled by the 100 ms duration", got)
+	}
 	durReport := &AdviceReport{
 		Items: []AdviceItem{
 			{
@@ -3181,14 +3197,17 @@ func TestAdvice_PurePCSampleProfileShareFormatting(t *testing.T) {
 			},
 		},
 	}
-	finalizeAndRankFindingsWithTiming(durReport, durTimes, durTotalTime, true)
+	finalizeAndRankFindingsWithTiming(durReport, durTimes, durTotalTime, hasDeviceTiming(durCap))
 
-	if durReport.Items[0].DeviceTimeNanos == 0 {
-		t.Errorf("expected non-zero DeviceTimeNanos on timed capture")
+	if got := durReport.Items[0].DeviceTimeNanos; got != 0 {
+		t.Errorf("DeviceTimeNanos = %d on a sample-only capture, want 0", got)
 	}
 	durMd := durReport.Markdown()
-	if !strings.Contains(durMd, "80.00% of GPU time") || !strings.Contains(durMd, "80.00 ms") {
-		t.Errorf("Markdown output missing duration formatting on timed capture:\n%s", durMd)
+	if strings.Contains(durMd, "GPU time") || strings.Contains(durMd, " ms)") {
+		t.Errorf("Markdown claims device time from a wall-clock duration:\n%s", durMd)
+	}
+	if !strings.Contains(durMd, "80.00% of observed samples") {
+		t.Errorf("Markdown missing sample-share formatting:\n%s", durMd)
 	}
 }
 
@@ -3375,5 +3394,3 @@ uncoalesced_load:
 		}
 	})
 }
-
-

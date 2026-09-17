@@ -632,7 +632,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 
 	// 8. Kernel Family Dominance Audit (Macro Architectural Bottlenecks)
 	kernelTimes, totalTime := computeProfileTimes(cap)
-	hasTiming := hasProfileDurationOrTime(cap)
+	hasTiming := hasDeviceTiming(cap)
 	auditKernelFamilyDominance(cap, report, kernelTimes, totalTime, hasTiming)
 
 	// Finalize device times and rank findings by device time
@@ -2552,9 +2552,9 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 							rec = "Idle device time here is not explained by host launch submission; look for stream dependencies, synchronization, or concurrent work on other streams."
 						}
 						report.Items = append(report.Items, AdviceItem{
-							Severity:                 sev,
-							Category:                 CategoryArchitectureDispatch,
-							EvidenceLevel:            evLevel,
+							Severity:      sev,
+							Category:      CategoryArchitectureDispatch,
+							EvidenceLevel: evLevel,
 							Location: Location{
 								Kernel: kernelSeq[0].Name,
 							},
@@ -3140,12 +3140,13 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 	}
 }
 
-func hasProfileDurationOrTime(cap *cudacapture.Capture) bool {
+// hasDeviceTiming reports whether the capture carries measured device time.
+// A wall-clock duration is not device time: every sample-only profile has one,
+// and treating it as timing is what let a share of PC samples be rendered as a
+// millisecond figure. Only a kernel_time or gpu_time sample type counts.
+func hasDeviceTiming(cap *cudacapture.Capture) bool {
 	if cap == nil {
 		return false
-	}
-	if parseDurationNanosFromCapture(cap) > 0 {
-		return true
 	}
 	if cap.Profile != nil {
 		for i, vt := range cap.Profile.SampleType {
@@ -3159,58 +3160,6 @@ func hasProfileDurationOrTime(cap *cudacapture.Capture) bool {
 		}
 	}
 	return false
-}
-
-func parseDurationNanosFromCapture(cap *cudacapture.Capture) int64 {
-	if cap == nil {
-		return 0
-	}
-	if cap.Profile != nil && cap.Profile.DurationNanos > 0 {
-		return cap.Profile.DurationNanos
-	}
-	parseMap := func(m map[string]any) int64 {
-		for _, k := range []string{"duration_ns", "duration_nanos", "durationNs"} {
-			if v, ok := m[k]; ok {
-				if f, ok := v.(float64); ok && f > 0 {
-					return int64(f)
-				}
-			}
-		}
-		for _, k := range []string{"duration_ms", "duration_millis", "durationMs"} {
-			if v, ok := m[k]; ok {
-				if f, ok := v.(float64); ok && f > 0 {
-					return int64(f * 1e6)
-				}
-			}
-		}
-		for _, k := range []string{"duration_s", "duration_seconds", "duration"} {
-			if v, ok := m[k]; ok {
-				if f, ok := v.(float64); ok && f > 0 {
-					return int64(f * 1e9)
-				}
-			}
-		}
-		return 0
-	}
-	if len(cap.Metadata) > 0 {
-		var m map[string]any
-		if json.Unmarshal(cap.Metadata, &m) == nil {
-			if d := parseMap(m); d > 0 {
-				return d
-			}
-		}
-	}
-	for _, name := range []string{"capture-provenance.json", "capture-status.json", "status.json", "manifest.json", "provenance.json"} {
-		if data, ok := cap.Files[name]; ok && len(data) > 0 {
-			var m map[string]any
-			if json.Unmarshal(data, &m) == nil {
-				if d := parseMap(m); d > 0 {
-					return d
-				}
-			}
-		}
-	}
-	return 0
 }
 
 func computeProfileTimes(cap *cudacapture.Capture) (map[string]int64, int64) {
@@ -3264,17 +3213,13 @@ func computeProfileTimes(cap *cudacapture.Capture) (map[string]int64, int64) {
 				}
 			}
 			if totalSamples > 0 {
-				durNanos := parseDurationNanosFromCapture(cap)
-				if durNanos > 0 {
-					totalTime = durNanos
-					for k, sc := range sampleCounts {
-						kernelTimes[k] = sc * durNanos / totalSamples
-					}
-				} else {
-					totalTime = totalSamples
-					for k, sc := range sampleCounts {
-						kernelTimes[k] = sc
-					}
+				// Sample counts, not times. Scaling them by the capture's
+				// wall-clock duration produces a per-kernel nanosecond figure
+				// that was never measured; the caller distinguishes the two by
+				// hasDeviceTiming and labels the share accordingly.
+				totalTime = totalSamples
+				for k, sc := range sampleCounts {
+					kernelTimes[k] = sc
 				}
 			}
 		}
