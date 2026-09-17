@@ -35,11 +35,16 @@ func ExampleRender() {
 		{
 			Phase:              cudacmp.PhasePrefill,
 			Family:             cudacmp.FamilyExperts,
+			Availability:       cudacmp.AvailableBoth,
+			Available:          true,
+			CObserved:          true,
+			GoObserved:         true,
 			CDurationNs:        12_000_000,
 			GoDurationNs:       10_000_000,
 			DeltaNs:            -2_000_000,
 			Speedup:            1.20,
 			NullDriftNs:        50_000,
+			ExceedsDrift:       true,
 			StatisticallyValid: true,
 		},
 	}
@@ -47,6 +52,6 @@ func ExampleRender() {
 	_ = cudacmp.Render(os.Stdout, reports)
 
 	// Output:
-	// PHASE    FAMILY   C TIME    GO TIME   DELTA     SPEEDUP  DRIFT FLOOR  VALID?
+	// PHASE    FAMILY   C TIME    GO TIME   DELTA     SPEEDUP  DRIFT FLOOR  EXCEEDS DRIFT?
 	// prefill  experts  12.00 ms  10.00 ms  -2.00 ms  1.20x    50.00 µs     YES
 }

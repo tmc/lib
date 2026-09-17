@@ -80,22 +80,42 @@ func TestRender(t *testing.T) {
 		{
 			Phase:              PhasePrefill,
 			Family:             FamilyExperts,
+			Availability:       AvailableBoth,
+			Available:          true,
+			CObserved:          true,
+			GoObserved:         true,
 			CDurationNs:        12_500_000,
 			GoDurationNs:       10_000_000,
 			DeltaNs:            -2_500_000,
 			Speedup:            1.25,
 			NullDriftNs:        50_000,
+			ExceedsDrift:       true,
 			StatisticallyValid: true,
 		},
 		{
 			Phase:              PhaseDecode,
 			Family:             FamilyDenseQ8,
+			Availability:       AvailableBoth,
+			Available:          true,
+			CObserved:          true,
+			GoObserved:         true,
 			CDurationNs:        8_000_000,
 			GoDurationNs:       8_020_000,
 			DeltaNs:            20_000,
 			Speedup:            0.9975,
 			NullDriftNs:        50_000,
+			ExceedsDrift:       false,
 			StatisticallyValid: false,
+		},
+		{
+			Phase:        PhaseDecode,
+			Family:       FamilyResidual,
+			Availability: AvailableCOnly,
+			Available:    false,
+			CObserved:    true,
+			GoObserved:   false,
+			CDurationNs:  1_000_000,
+			NullDriftNs:  50_000,
 		},
 	}
 
@@ -114,19 +134,12 @@ func TestRender(t *testing.T) {
 	if !strings.Contains(out, "YES") || !strings.Contains(out, "NOISE") {
 		t.Errorf("missing validity flags in output: %s", out)
 	}
+	if !strings.Contains(out, "UNAVAILABLE") {
+		t.Errorf("expected UNAVAILABLE in output, got: %s", out)
+	}
 }
 
 func TestHelperMethods(t *testing.T) {
-	ld := LatencyDecomposition{
-		HostLaunchNs: 100,
-		QueueNs:      200,
-		WaitNs:       300,
-		DeviceNs:     400,
-	}
-	if got := ld.TotalNs(); got != 1000 {
-		t.Errorf("TotalNs() = %d, want 1000", got)
-	}
-
 	km := KernelMetric{
 		Timing: LatencyDecomposition{DeviceNs: 5_000_000},
 	}
@@ -135,7 +148,14 @@ func TestHelperMethods(t *testing.T) {
 	}
 
 	pc := PhaseCensus{
-		TotalNs: 10_000_000,
+		SummedKernelNs: 10_000_000,
+		GPUBusyNs:      8_000_000,
+	}
+	if got := pc.SummedKernelDuration(); got != 10*time.Millisecond {
+		t.Errorf("pc.SummedKernelDuration() = %v, want 10ms", got)
+	}
+	if got := pc.GPUBusyDuration(); got != 8*time.Millisecond {
+		t.Errorf("pc.GPUBusyDuration() = %v, want 8ms", got)
 	}
 	if got := pc.Duration(); got != 10*time.Millisecond {
 		t.Errorf("pc.Duration() = %v, want 10ms", got)
