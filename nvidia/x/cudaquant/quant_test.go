@@ -7,6 +7,31 @@ import (
 	"testing"
 )
 
+func TestNormQuantReference(t *testing.T) {
+	in := make([]float32, 32)
+	for i := range in {
+		in[i] = float32(i)
+	}
+	got, e := RMSNormQ8_1(in, nil, 1, 32, 1e-5, false)
+	if e != nil || len(got) != 1 {
+		t.Fatalf("quant=%v err=%v", got, e)
+	}
+}
+func TestWeightedNormSemantics(t *testing.T) {
+	_, e := RMSNormQ8_1(make([]float32, 32), make([]float32, 31), 1, 32, 1e-5, true)
+	if e == nil {
+		t.Fatal("accepted short weight")
+	}
+}
+func TestQuantRoundingAndSaturation(t *testing.T) {
+	in := make([]float32, 32)
+	in[0] = 100
+	got, e := RMSNormQ8_1(in, nil, 1, 32, 0, false)
+	if e != nil || got[0].Quants[0] != 127 {
+		t.Fatalf("quant=%v err=%v", got, e)
+	}
+}
+
 func TestDequantizeQ4_0(t *testing.T) {
 	data := make([]byte, 18)
 	binary.LittleEndian.PutUint16(data[0:2], 0x3C00) // 1.0
