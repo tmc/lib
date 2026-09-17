@@ -2869,6 +2869,78 @@ func TestAdvice_ScoreboardAndBranchStalls(t *testing.T) {
 	}
 }
 
+func TestAdvice_StallAttributionAndDefUseDistance(t *testing.T) {
+	cap := &cudacapture.Capture{
+		Files: map[string][]byte{"kernel.sass": []byte(`
+Function : ds4_q2_k_selected_q8_1_gather
+        /*0000*/ LDG.E R1, [R2] ;
+        /*0010*/ BRA 0x30 ;
+        /*0020*/ FADD R3, R1, R4 ;
+        /*0030*/ EXIT ;
+`)},
+		Code: cudacapture.CodeFiles{SASS: "kernel.sass"},
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "stall_scoreboard", Unit: "count"},
+				{Type: "stall_branch", Unit: "count"},
+				{Type: "stall_math", Unit: "count"},
+			},
+			Sample: []*profile.Sample{
+				{Location: []*profile.Location{{Address: 0x20, Line: []profile.Line{{Function: &profile.Function{Name: "ds4_q2_k_selected_q8_1_gather"}}}}}, Value: []int64{80, 0, 20}},
+				{Location: []*profile.Location{{Address: 0x20, Line: []profile.Line{{Function: &profile.Function{Name: "ds4_q2_k_selected_q8_1_gather"}}}}}, Value: []int64{0, 80, 20}},
+			},
+		},
+	}
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scoreboard, branch bool
+	for _, item := range report.Items {
+		if strings.Contains(item.Finding, "Register scoreboard latency stall") {
+			scoreboard = true
+			if !strings.Contains(item.Finding, "instructions later") {
+				t.Errorf("scoreboard finding lacks measured def-use distance: %s", item.Finding)
+			}
+		}
+		if strings.Contains(item.Finding, "Warp branch divergence") {
+			branch = true
+			if item.Location.PC != 0x10 || !strings.Contains(item.Finding, "preceding BRA") {
+				t.Errorf("branch stall was not attributed to preceding branch: %+v", item)
+			}
+		}
+	}
+	if !scoreboard || !branch {
+		t.Fatalf("missing scoreboard=%v branch=%v findings: %+v", scoreboard, branch, report.Items)
+	}
+}
+
+func TestAdvice_HostDispatchOverhead(t *testing.T) {
+	cap := &cudacapture.Capture{
+		Files: map[string][]byte{"capture-status.json": apiRecordsFile(t, map[int]uint64{1: 100, 2: 100100})},
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+			Sample: []*profile.Sample{
+				microKernelSample("gather", 1, 100, 200, 1),
+				microKernelSample("gather", 1, 100100, 100200, 2),
+			},
+		},
+	}
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range report.Items {
+		if strings.Contains(item.Finding, "Host dispatch overhead accounts for") {
+			if item.EvidenceLevel != EvidenceObserved || item.Severity != SeverityCritical {
+				t.Fatalf("dispatch finding = %+v", item)
+			}
+			return
+		}
+	}
+	t.Fatal("missing host dispatch overhead finding")
+}
+
 func TestAdvice_PTXScalarSuppressedWhenSASS(t *testing.T) {
 	ptxText := `.version 8.0
 .target sm_90
@@ -3375,5 +3447,3 @@ uncoalesced_load:
 		}
 	})
 }
-
-
