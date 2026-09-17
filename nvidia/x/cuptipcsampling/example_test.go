@@ -237,3 +237,20 @@ func ExampleAttributePCSamples() {
 	// Output:
 	// vec_add: 2000ns dominant=long_scoreboard (100.0%)
 }
+
+func ExampleCapturePhase() {
+	// CapturePhase executes a workload under bounded PC sampling with explicit limits,
+	// device synchronization, final draining, and cleanup.
+	cfg := cuptipcsampling.PhaseConfig{
+		Limits: cuptipcsampling.PhaseLimits{
+			MaxBatches:   2,
+			DrainTimeout: 100,
+		},
+	}
+	// Invalid zero context is rejected before any native calls.
+	_, err := cuptipcsampling.CapturePhase(context.Background(), 0, cfg, nil, nil)
+	fmt.Println(err)
+	// Output:
+	// cuptipcsampling: invalid context
+}
+
