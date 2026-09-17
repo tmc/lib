@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -431,6 +432,71 @@ func runExplainCommand(args []string) error {
 	return fmt.Errorf("no PTX documentation found for %q", stmt)
 }
 
+// sourceCandidate is a file that might define a profiled function, named so
+// that a resolved location can be reported against a stable path.
+type sourceCandidate struct {
+	path    string
+	content []byte
+}
+
+// captureSources returns the capture's embedded sources in a fixed order. The
+// map iterates randomly, which previously let two runs of the same capture
+// attribute one function to two different files.
+func captureSources(files map[string][]byte) []sourceCandidate {
+	names := make([]string, 0, len(files))
+	for name := range files {
+		switch filepath.Ext(name) {
+		case ".cu", ".cpp", ".c", ".go":
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	out := make([]sourceCandidate, 0, len(names))
+	for _, name := range names {
+		out = append(out, sourceCandidate{path: name, content: files[name]})
+	}
+	return out
+}
+
+// neighbouringSources returns the .cu files stored alongside the capture. The
+// process working directory is deliberately not searched: a file that merely
+// happens to be in the directory cudaprof was launched from has no established
+// relationship to the compiled artifact.
+func neighbouringSources(dir string) []sourceCandidate {
+	if dir == "" {
+		return nil
+	}
+	matches, _ := filepath.Glob(filepath.Join(dir, "*.cu"))
+	sort.Strings(matches)
+	var out []sourceCandidate
+	for _, m := range matches {
+		data, err := os.ReadFile(m)
+		if err != nil {
+			continue
+		}
+		out = append(out, sourceCandidate{path: m, content: data})
+	}
+	return out
+}
+
+// uniqueDefinition returns the single candidate that defines name. If several
+// do, the name does not identify a location and ok is false: reporting the
+// first match would attribute samples to whichever file happened to sort or
+// hash first, which is the guess this function exists to refuse.
+func uniqueDefinition(candidates []sourceCandidate, name string) (path string, line int, ok bool) {
+	for _, c := range candidates {
+		n := findFunctionLine(string(c.content), name)
+		if n == 0 {
+			continue
+		}
+		if ok {
+			return "", 0, false
+		}
+		path, line, ok = c.path, n, true
+	}
+	return path, line, ok
+}
+
 func resolveSourceLocations(p *profile.Profile, files map[string][]byte, dir string) {
 	if p == nil {
 		return
@@ -439,44 +505,26 @@ func resolveSourceLocations(p *profile.Profile, files map[string][]byte, dir str
 		if fn.Filename != "" && filepath.IsAbs(fn.Filename) && fn.StartLine > 0 {
 			continue
 		}
-		found := false
-		for fname, data := range files {
-			ext := filepath.Ext(fname)
-			if ext != ".cu" && ext != ".cpp" && ext != ".c" && ext != ".go" {
-				continue
+		// Search the capture's own files first: those are the sources the
+		// artifact was built from. Only if none of them defines the function
+		// do we look at .cu files sitting next to the capture.
+		if path, line, ok := uniqueDefinition(captureSources(files), fn.Name); ok {
+			if dir != "" {
+				fn.Filename = filepath.Join(dir, path)
+			} else {
+				fn.Filename = path
 			}
-			if line := findFunctionLine(string(data), fn.Name); line > 0 {
-				if dir != "" {
-					fn.Filename = filepath.Join(dir, fname)
-				} else {
-					fn.Filename = fname
-				}
-				fn.StartLine = int64(line)
-				found = true
-				break
-			}
+			fn.StartLine = int64(line)
+			continue
 		}
-		if !found {
-			matches, _ := filepath.Glob("*.cu")
-			if len(matches) == 0 && dir != "" {
-				matches, _ = filepath.Glob(filepath.Join(dir, "*.cu"))
+		if path, line, ok := uniqueDefinition(neighbouringSources(dir), fn.Name); ok {
+			if abs, err := filepath.Abs(path); err == nil {
+				path = abs
 			}
-			for _, m := range matches {
-				data, err := os.ReadFile(m)
-				if err != nil {
-					continue
-				}
-				if line := findFunctionLine(string(data), fn.Name); line > 0 {
-					if abs, err := filepath.Abs(m); err == nil {
-						fn.Filename = abs
-					} else {
-						fn.Filename = m
-					}
-					fn.StartLine = int64(line)
-					break
-				}
-			}
+			fn.Filename = path
+			fn.StartLine = int64(line)
 		}
+		// Otherwise the location stays unset: unknown, rather than a guess.
 	}
 	for _, loc := range p.Location {
 		for i := range loc.Line {
@@ -487,15 +535,55 @@ func resolveSourceLocations(p *profile.Profile, files map[string][]byte, dir str
 	}
 }
 
+// findFunctionLine returns the 1-based line in content that defines name, or 0
+// if content does not appear to define it. Reporting a line requires evidence
+// that name is defined there: a comment mentioning the function, a forward
+// declaration, and a call site all name it without being its source location,
+// and attributing samples to one of those misplaces every line in the profile.
+// Callers must treat 0 as unknown rather than falling back to a guess.
 func findFunctionLine(content, name string) int {
 	if name == "" {
 		return 0
 	}
-	lines := strings.Split(content, "\n")
-	for i, line := range lines {
-		if strings.Contains(line, name+"(") || strings.Contains(line, name+" (") {
-			return i + 1
+	for i, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "*") || strings.HasPrefix(trimmed, "/*") {
+			continue
 		}
+		// A line ending in ';' declares or calls the function; it does not
+		// define it. A definition ends with '{', or continues onto the next
+		// line with its parameter list still open.
+		if strings.HasSuffix(trimmed, ";") {
+			continue
+		}
+		if !namesFunction(trimmed, name) {
+			continue
+		}
+		return i + 1
 	}
 	return 0
+}
+
+// namesFunction reports whether line applies the call syntax to exactly the
+// identifier name. Matching a bare substring would accept my_saxpy for saxpy.
+func namesFunction(line, name string) bool {
+	for off := 0; ; {
+		i := strings.Index(line[off:], name)
+		if i < 0 {
+			return false
+		}
+		i += off
+		off = i + len(name)
+		if i > 0 && isIdentByte(line[i-1]) {
+			continue
+		}
+		rest := strings.TrimLeft(line[off:], " \t")
+		if strings.HasPrefix(rest, "(") {
+			return true
+		}
+	}
+}
+
+func isIdentByte(c byte) bool {
+	return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
 }
