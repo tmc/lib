@@ -1,0 +1,1 @@
+Commit eb3d182c; date 2026-09-17T08:xxZ; coordinator takeover; added compile/runtime inspection helpers; full GOWORK=off go test ./x/... passed after integration.
