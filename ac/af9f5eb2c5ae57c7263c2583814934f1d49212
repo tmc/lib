@@ -1,0 +1,15 @@
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 19993; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Gap 9 was verified rather than recalled before writing it down:
+
+  $ grep -n '\.file' ~/tmp/nvrtcx-qual/fixture/ref.ptx (on dgx)
+  110: .file 1 "/home/tmc/tmp/nvrtcx-qual/fixture/types.cuh"
+  111: .file 2 "/home/tmc/tmp/nvrtcx-qual/fixture/kernel.cu"
+
+The committed testdata/kernels.ptx by contrast reads .file 1 "kernels.cu",
+so the absolute path is a property of how the fixture was compiled, not of
+NVRTC. The filepath.Base join is what lets attribution work against either.
+
+While relocating the two items a splice deleted the claim table; caught by
+git diff --stat showing a deletion where only insertions were intended, and
+redone. Final diff is +17/-1, the one deletion being a blank line.
