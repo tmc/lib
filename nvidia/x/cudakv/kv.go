@@ -406,6 +406,17 @@ func (pc *PagedCache) BlockTable(seqID int64) []int {
 	return pc.blocks.table(seqID)
 }
 
+// Table returns a copy of the block table for sequence seqID.
+func (pc *PagedCache) Table(seqID int64) []int {
+	return pc.BlockTable(seqID)
+}
+
+// BlockSize returns the token capacity per block.
+func (pc *PagedCache) BlockSize() int {
+	return pc.blockSize
+}
+
+
 // Page returns the storage for layer and physical slot. The returned views are
 // valid until Close and must not be freed.
 func (pc *PagedCache) Page(layer, slot int) (Page, error) {

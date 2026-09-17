@@ -12,8 +12,11 @@ type ChatCompletionRequest struct {
 	Messages    []ChatMessage `json:"messages"`
 	Stream      bool          `json:"stream"`
 	Temperature float32       `json:"temperature,omitempty"`
-	TopP        float32       `json:"top_p,omitempty"`
-	MaxTokens   int           `json:"max_tokens,omitempty"`
+	TopP             float32       `json:"top_p,omitempty"`
+	MaxTokens        int           `json:"max_tokens,omitempty"`
+	SessionID        string        `json:"session_id,omitempty"`
+	ResponsesVisible bool          `json:"responses_visible,omitempty"`
+	ThinkingVisible  bool          `json:"thinking_visible,omitempty"`
 }
 
 // ChatChoice represents a single completion choice.
