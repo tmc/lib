@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -81,13 +82,19 @@ type Cache struct {
 }
 
 type flightCall struct {
-	wg  sync.WaitGroup
-	val any
-	err error
+	done chan struct{}
+	val  any
+	err  error
 }
 
 // New creates a new Cache rooted at cfg.RootDir.
 func New(cfg Config) (*Cache, error) {
+	if cfg.MaxArtifactBytes < 0 || cfg.MaxRemoteDownloadBytes < 0 || cfg.MaxArtifactBytes == math.MaxInt64 || cfg.MaxRemoteDownloadBytes == math.MaxInt64 {
+		return nil, errors.New("cudacache: invalid byte limit")
+	}
+	if cfg.Remote != nil && (cfg.Trust.RequireSigned || len(cfg.Trust.AllowedOrigins) != 0) {
+		return nil, fmt.Errorf("%w: remote authentication is not implemented", ErrUntrustedSource)
+	}
 	if cfg.RootDir == "" {
 		return nil, errors.New("cudacache: root directory cannot be empty")
 	}
@@ -114,6 +121,11 @@ func New(cfg Config) (*Cache, error) {
 		memArtifacts:     make(map[string]*cudakernel.Artifact),
 		memReceipts:      make(map[string]*SearchReceipt),
 	}
+	if remote, ok := cfg.Remote.(*HTTPRemoteSource); ok && remote != nil {
+		copy := *remote
+		copy.maxDownloadBytes = maxRemote
+		c.remote = &copy
+	}
 
 	for _, dir := range []string{c.artifactsDir, c.receiptsDir, c.quarantineDir} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -133,8 +145,8 @@ func (c *Cache) PutArtifact(ctx context.Context, key string, art *cudakernel.Art
 	if art == nil {
 		return errors.New("cudacache: nil artifact")
 	}
-	if key == "" {
-		return errors.New("cudacache: empty cache key")
+	if err := validateKey(key); err != nil {
+		return err
 	}
 	if err := art.Validate(); err != nil {
 		return fmt.Errorf("cudacache: invalid artifact: %w", err)
@@ -147,6 +159,10 @@ func (c *Cache) PutArtifact(ctx context.Context, key string, art *cudakernel.Art
 
 	if int64(len(data)) > c.maxArtifactBytes {
 		return fmt.Errorf("cudacache: artifact size (%d bytes) exceeds limit (%d bytes)", len(data), c.maxArtifactBytes)
+	}
+	art, err = c.validateAndDecodeArtifact(key, data, "")
+	if err != nil {
+		return err
 	}
 
 	destPath := c.artifactPath(key)
@@ -169,8 +185,8 @@ func (c *Cache) GetArtifact(ctx context.Context, key string) (*cudakernel.Artifa
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if key == "" {
-		return nil, errors.New("cudacache: empty cache key")
+	if err := validateKey(key); err != nil {
+		return nil, err
 	}
 
 	// 1. Fast memory check
@@ -178,44 +194,50 @@ func (c *Cache) GetArtifact(ctx context.Context, key string) (*cudakernel.Artifa
 	art, ok := c.memArtifacts[key]
 	c.memMu.RUnlock()
 	if ok {
-		return art, nil
+		return cloneArtifact(art)
 	}
 
 	// Single flight deduplication for disk/remote load
 	c.flightMu.Lock()
 	if fc, inFlight := c.flight[key]; inFlight {
 		c.flightMu.Unlock()
-		fc.wg.Wait()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-fc.done:
+		}
 		if fc.err != nil {
 			return nil, fc.err
 		}
 		if a, ok := fc.val.(*cudakernel.Artifact); ok {
-			return a, nil
+			return cloneArtifact(a)
 		}
 		return nil, ErrNotFound
 	}
-	fc := &flightCall{}
-	fc.wg.Add(1)
+	fc := &flightCall{done: make(chan struct{})}
 	c.flight[key] = fc
 	c.flightMu.Unlock()
 
 	art, err := c.loadArtifact(ctx, key)
 	fc.val = art
 	fc.err = err
-	fc.wg.Done()
+	close(fc.done)
 
 	c.flightMu.Lock()
 	delete(c.flight, key)
 	c.flightMu.Unlock()
 
-	return art, err
+	if err != nil {
+		return nil, err
+	}
+	return cloneArtifact(art)
 }
 
 func (c *Cache) loadArtifact(ctx context.Context, key string) (*cudakernel.Artifact, error) {
 	destPath := c.artifactPath(key)
 
 	// 2. Local disk check
-	data, err := os.ReadFile(destPath)
+	data, err := readFileBounded(destPath, c.maxArtifactBytes)
 	if err == nil {
 		art, err := c.validateAndDecodeArtifact(key, data, destPath)
 		if err != nil {
@@ -236,10 +258,16 @@ func (c *Cache) loadArtifact(ctx context.Context, key string) (*cudakernel.Artif
 
 	rc, size, err := c.remote.FetchArtifact(ctx, key)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		if errors.Is(err, ErrRemoteNotFound) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("%w: %v", ErrRemoteUnavailable, err)
+	}
+	if rc == nil {
+		return nil, fmt.Errorf("%w: nil artifact stream", ErrRemoteUnavailable)
 	}
 	defer rc.Close()
 
@@ -330,6 +358,13 @@ func (c *Cache) PutReceipt(ctx context.Context, receipt *SearchReceipt) error {
 	if err != nil {
 		return fmt.Errorf("cudacache: marshal receipt: %w", err)
 	}
+	if int64(len(data)) > c.maxArtifactBytes {
+		return ErrDownloadLimitExceeded
+	}
+	var snapshot SearchReceipt
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return err
+	}
 
 	destPath := c.receiptPath(key)
 	if err := c.atomicWrite(destPath, data); err != nil {
@@ -337,7 +372,7 @@ func (c *Cache) PutReceipt(ctx context.Context, receipt *SearchReceipt) error {
 	}
 
 	c.memMu.Lock()
-	c.memReceipts[key] = receipt
+	c.memReceipts[key] = &snapshot
 	c.memMu.Unlock()
 
 	return nil
@@ -355,12 +390,12 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 	r, ok := c.memReceipts[key]
 	c.memMu.RUnlock()
 	if ok {
-		return r, nil
+		return cloneReceipt(r)
 	}
 
 	// Disk check
 	destPath := c.receiptPath(key)
-	data, err := os.ReadFile(destPath)
+	data, err := readFileBounded(destPath, c.maxArtifactBytes)
 	if err == nil {
 		var receipt SearchReceipt
 		if err := json.Unmarshal(data, &receipt); err != nil {
@@ -369,10 +404,13 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 		if err := receipt.Validate(); err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
 		}
+		if SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey) != key {
+			return nil, fmt.Errorf("%w: identity mismatch", ErrCorruptReceipt)
+		}
 		c.memMu.Lock()
 		c.memReceipts[key] = &receipt
 		c.memMu.Unlock()
-		return &receipt, nil
+		return cloneReceipt(&receipt)
 	} else if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("cudacache: read receipt file: %w", err)
 	}
@@ -381,6 +419,9 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 	if c.remote != nil {
 		rData, err := c.remote.FetchReceipt(ctx, key)
 		if err == nil {
+			if int64(len(rData)) > c.maxRemoteBytes || int64(len(rData)) > c.maxArtifactBytes {
+				return nil, ErrDownloadLimitExceeded
+			}
 			var receipt SearchReceipt
 			if err := json.Unmarshal(rData, &receipt); err != nil {
 				return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
@@ -388,15 +429,72 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 			if err := receipt.Validate(); err != nil {
 				return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
 			}
+			if SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey) != key {
+				return nil, fmt.Errorf("%w: identity mismatch", ErrCorruptReceipt)
+			}
 			_ = c.atomicWrite(destPath, rData)
 			c.memMu.Lock()
 			c.memReceipts[key] = &receipt
 			c.memMu.Unlock()
-			return &receipt, nil
+			return cloneReceipt(&receipt)
+		}
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if !errors.Is(err, ErrRemoteNotFound) {
+			return nil, fmt.Errorf("cudacache: fetch receipt: %w", err)
 		}
 	}
 
 	return nil, ErrNotFound
+}
+
+func validateKey(key string) error {
+	if key == "" || len(key) > 200 || key == "." || key == ".." {
+		return errors.New("cudacache: invalid cache key")
+	}
+	for _, r := range key {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.') {
+			return errors.New("cudacache: invalid cache key")
+		}
+	}
+	return nil
+}
+
+func readFileBounded(path string, limit int64) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > limit {
+		return nil, ErrDownloadLimitExceeded
+	}
+	return b, nil
+}
+
+func cloneArtifact(a *cudakernel.Artifact) (*cudakernel.Artifact, error) {
+	b, err := json.Marshal(a)
+	if err != nil {
+		return nil, err
+	}
+	var copy cudakernel.Artifact
+	err = json.Unmarshal(b, &copy)
+	return &copy, err
+}
+
+func cloneReceipt(r *SearchReceipt) (*SearchReceipt, error) {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return nil, err
+	}
+	var copy SearchReceipt
+	err = json.Unmarshal(b, &copy)
+	return &copy, err
 }
 
 func (c *Cache) artifactPath(key string) string {
