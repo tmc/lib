@@ -484,7 +484,34 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			return o, fmt.Errorf("injection library is a directory: %s", o.Inject)
 		}
 	}
+	if err := rejectUnimplementedPolicy(o); err != nil {
+		return o, err
+	}
 	return o, nil
+}
+
+// rejectUnimplementedPolicy refuses a collector policy the capture path does
+// not implement, while it is still an argument. runCapture refuses the same
+// set, but it does so after the caller has a zero-valued result in hand, and
+// runCaptureCommand writes its artifact before it consults that error -- so a
+// flag nothing implements produced a capture file describing nothing. The
+// argument is the last point at which refusing costs nothing.
+func rejectUnimplementedPolicy(o captureOptions) error {
+	switch {
+	// --exhaustive implies --deep, so it is tested first or its rejection
+	// names a flag the user did not type.
+	case o.Exhaustive:
+		return errors.New("--exhaustive is not implemented")
+	case o.Deep:
+		return errors.New("--deep is not implemented")
+	case o.FollowChildren:
+		return errors.New("--follow-children is not implemented")
+	case len(o.Collect) > 0:
+		return errors.New("--collect is not implemented")
+	case len(o.Exclude) > 0:
+		return errors.New("--exclude is not implemented")
+	}
+	return nil
 }
 
 func captureValue(args []string, i int, value string, hasValue bool) (string, int, error) {

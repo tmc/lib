@@ -14,11 +14,14 @@ import (
 )
 
 func TestParseCaptureArgsPreservesTargetArgv(t *testing.T) {
-	o, err := parseCaptureArgs([]string{"--deep", "--collect", "runtime", "--", "sh", "-c", "printf '%s\\n' \"$1\"", "sh", "-value with spaces"})
+	// The subject here is argv preservation past --, so the leading options
+	// are implemented ones: --deep and --collect are now refused during
+	// parsing, and a rejected parse would say nothing about argv.
+	o, err := parseCaptureArgs([]string{"--trace", "--max-records=5000000", "--", "sh", "-c", "printf '%s\\n' \"$1\"", "sh", "-value with spaces"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !o.Deep || !o.Trace || !reflect.DeepEqual(o.Collect, []string{"runtime"}) {
+	if !o.Trace || o.MaxJournalRecords != 5000000 {
 		t.Fatalf("options = %+v", o)
 	}
 	if !reflect.DeepEqual(o.command, []string{"sh", "-c", "printf '%s\\n' \"$1\"", "sh", "-value with spaces"}) {
