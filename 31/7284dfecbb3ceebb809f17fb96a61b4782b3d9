@@ -1,0 +1,1 @@
+date=2026-09-17 agent=Codex model=GPT-5 takeover from Antigravity; validation=HC batch focused exact n=1,2,7,8,9,15,16,17,255,256 PASS; integrated 48-snapshot receipt SHA256=e71aae91efff7363ed82dcf6081caaf865a1a95f4b58fa1ec4b5a35129465e15 PASS; clean prefill 65.45,65.47,65.04 t/s; baseline 53.68,53.86,54.20 t/s; GPU lock held; no binary staged
