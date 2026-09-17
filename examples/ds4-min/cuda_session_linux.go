@@ -610,10 +610,9 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		mixedScores:       alloc("batch-dense-mixed-scores", width*scoreStride),
 		mixedDenominators: alloc("batch-dense-mixed-denominators", width*64),
 	}
-	// This qualification switch leaves the scalar path and diagnostic fallbacks
-	// available. The first candidate batches HC only with gathered experts and
-	// batched attention output, whose block outputs are already contiguous.
-	if os.Getenv("DS4_CUDA_HC_BATCH") == "1" {
+	// Batch HC by default. DS4_CUDA_HC_BATCH=0 retains the scalar path for
+	// diagnosis and rollback; diagnostic fallbacks below remain scalar.
+	if os.Getenv("DS4_CUDA_HC_BATCH") != "0" {
 		for j := range 2 {
 			b.dense.hc[j] = alloc(fmt.Sprintf("batch-dense-hc-%d", j), width*cudaHCWidth)
 		}
