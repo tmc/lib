@@ -1,6 +1,12 @@
 package egraph
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudacollective"
+	"github.com/tmc/lib/nvidia/x/cudair"
+)
 
 var collectiveOperations = map[string]bool{
 	"allgather":     true,
@@ -40,6 +46,60 @@ func (c CollectiveIntent) Validate() error {
 		return fmt.Errorf("egraph: dtype, count, and effect token required")
 	}
 	return nil
+}
+
+// OperationDescriptor converts a validated intent into the existing
+// collective runtime contract. It does not select a transport or make the
+// effectful operation eligible for algebraic reordering.
+func (c CollectiveIntent) OperationDescriptor() (cudacollective.OperationDescriptor, error) {
+	if err := c.Validate(); err != nil {
+		return cudacollective.OperationDescriptor{}, err
+	}
+	kind, ok := collectiveKinds[c.Operation]
+	if !ok {
+		return cudacollective.OperationDescriptor{}, fmt.Errorf("egraph: unsupported collective %q", c.Operation)
+	}
+	dtype, ok := collectiveDataTypes[strings.ToLower(c.DType)]
+	if !ok {
+		return cudacollective.OperationDescriptor{}, fmt.Errorf("egraph: unsupported dtype %q", c.DType)
+	}
+	if c.Count > uint64(^uint(0)>>1) {
+		return cudacollective.OperationDescriptor{}, fmt.Errorf("egraph: collective count %d overflows runtime int", c.Count)
+	}
+	return cudacollective.OperationDescriptor{
+		Kind:      kind,
+		DataType:  dtype,
+		Count:     int(c.Count),
+		InPlace:   c.InPlace,
+		Topology:  cudacollective.TopologyAny,
+		Root:      0,
+		Reduction: cudacollective.ReductionSum,
+	}, nil
+}
+
+var collectiveKinds = map[string]cudacollective.Kind{
+	"allgather":     cudacollective.KindAllGather,
+	"allreduce":     cudacollective.KindAllReduce,
+	"alltoall":      cudacollective.KindAllToAll,
+	"broadcast":     cudacollective.KindBroadcast,
+	"reducescatter": cudacollective.KindReduceScatter,
+}
+
+var collectiveDataTypes = map[string]cudair.DataType{
+	"f32":      cudair.Float32,
+	"float32":  cudair.Float32,
+	"f16":      cudair.Float16,
+	"float16":  cudair.Float16,
+	"bf16":     cudair.BFloat16,
+	"bfloat16": cudair.BFloat16,
+	"i32":      cudair.Int32,
+	"int32":    cudair.Int32,
+	"i64":      cudair.Int64,
+	"int64":    cudair.Int64,
+	"u8":       cudair.Uint8,
+	"uint8":    cudair.Uint8,
+	"i8":       cudair.Int8,
+	"int8":     cudair.Int8,
 }
 
 // SameEpoch reports whether two intents can participate in one ordered epoch.
