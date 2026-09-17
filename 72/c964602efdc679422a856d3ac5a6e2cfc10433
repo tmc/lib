@@ -1,0 +1,11 @@
+tool: claude-code 2.1.257
+model: claude-opus-5[1m]
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+date: 2026-09-17T14:50:42-07:00
+host: spark-31db (NVIDIA GB10, sm_121, driver 580.173.02), linux/arm64, go1.27.1
+toolchain: CUDA 13.4 (V13.4.59) at /usr/local/cuda-13.4
+before: --- FAIL: TestCompileToolkitIncludesDefault, 'expected missing toolkit
+error, got nvrtcx: compile: nvrtc: NVRTC_ERROR_COMPILATION (6)'
+after: --- PASS; full package ok 0.862s on the same host.
+darwin/arm64 continues to pass; it passed before only because no toolkit is
+installed at /usr/local/cuda there.
