@@ -371,3 +371,65 @@ func TestReceiptExplicitTiming(t *testing.T) {
 		t.Errorf("r.Duration() = %v, want 15ms", r.Duration())
 	}
 }
+
+func TestNonAdditiveLatencyDecomposition(t *testing.T) {
+	r := Receipt{
+		Name: "test_decomp",
+	}
+	_ = r.RecordTiming(TimingWallElapsed, 100*time.Microsecond)
+	_ = r.RecordTiming(TimingSummedKernel, 60*time.Microsecond)
+	_ = r.RecordTiming(TimingGPUBusy, 50*time.Microsecond)
+	r.QueueNs = 15000 // 15µs
+
+	decomp := r.LatencyDecomposition()
+	if decomp.WallNs != 100000 {
+		t.Errorf("WallNs = %d, want 100000", decomp.WallNs)
+	}
+	if decomp.DeviceNs != 60000 {
+		t.Errorf("DeviceNs = %d, want 60000", decomp.DeviceNs)
+	}
+	if decomp.GpuIntervalUnionNs != 50000 {
+		t.Errorf("GpuIntervalUnionNs = %d, want 50000", decomp.GpuIntervalUnionNs)
+	}
+	if decomp.QueueNs != 15000 {
+		t.Errorf("QueueNs = %d, want 15000", decomp.QueueNs)
+	}
+
+	// Naive sum must be explicitly rejected
+	_, err := decomp.TotalDuration()
+	if !errors.Is(err, ErrNaiveSumDoubleCounts) {
+		t.Fatalf("TotalDuration err = %v, want %v", err, ErrNaiveSumDoubleCounts)
+	}
+}
+
+func TestHardwareLockVerification(t *testing.T) {
+	arms := []Arm{
+		{
+			Name: "a",
+			Run: func(ctx context.Context) (Receipt, error) {
+				return Receipt{Complete: true, Digest: "abc"}, nil
+			},
+		},
+	}
+
+	// Without lock, should fail with ErrHardwareLockRequired
+	_, err := InterleaveWithOptions(context.Background(), arms, 1, Options{
+		RequireHardwareLock: true,
+		HardwareLockChecker: func() bool { return false },
+	})
+	if !errors.Is(err, ErrHardwareLockRequired) {
+		t.Fatalf("expected %v, got %v", ErrHardwareLockRequired, err)
+	}
+
+	// With lock held, should succeed
+	receipts, err := InterleaveWithOptions(context.Background(), arms, 1, Options{
+		RequireHardwareLock: true,
+		HardwareLockChecker: func() bool { return true },
+	})
+	if err != nil {
+		t.Fatalf("unexpected error with lock held: %v", err)
+	}
+	if len(receipts) != 1 {
+		t.Errorf("receipts len = %d, want 1", len(receipts))
+	}
+}
