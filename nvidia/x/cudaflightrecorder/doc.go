@@ -1,9 +1,11 @@
 // Package cudaflightrecorder coordinates continuous in-memory flight recording
 // across host Go execution traces and GPU device observations.
 //
-// It produces self-contained, multi-modal diagnostic bundles (.tar) upon application
-// crashes, watchdog triggers, or explicit snapshot requests without touching GPU
-// hardware during failure paths (zero-device crash dump).
+// Snapshots preserve recent observations and configured artifacts in tar bundles
+// for performance analysis, workload comparison, and debugging. Applications choose
+// when to snapshot, such as at a workload boundary, on a latency regression,
+// periodically, or while investigating a failure. The snapshot reason is a
+// caller-supplied label.
 //
 // # Basic Usage
 //
@@ -26,7 +28,7 @@
 //
 // Capture an in-memory snapshot to a diagnostic bundle:
 //
-//	manifest, err := rec.Snapshot(ctx, f, "watchdog_timeout")
+//	manifest, err := rec.Snapshot(ctx, f, "workload_boundary")
 //	if err != nil {
 //		log.Fatal(err)
 //	}

@@ -45,7 +45,8 @@ type Record struct {
 	Labels        map[string]string // Contextual attributes (e.g. layer, expert, op)
 }
 
-// Recorder coordinates continuous, zero-device circular flight recording in host DRAM.
+// Recorder retains recent GPU observations in a host-memory ring buffer and
+// combines them with configured artifact providers when taking a snapshot.
 type Recorder struct {
 	cfg     Config
 	mu      sync.Mutex
@@ -298,11 +299,12 @@ func calibrateWith(read func() (uint64, error)) (hostNs, deviceNs, uncertaintyNs
 	return before + (after-before)/2, int64(device), (after - before) / 2, nil
 }
 
-// Snapshot writes a multi-modal diagnostic bundle (.tar) to w containing
-// the in-memory flight records and manifest.
-//
-// It reads strictly from host DRAM and does not interact with GPU hardware,
-// ensuring it never hangs or crashes during failure states.
+// Snapshot writes a tar bundle to w containing recent flight records, a manifest,
+// and artifacts supplied by configured providers. The reason labels the snapshot
+// for later analysis.
+// Record extraction reads host memory. Snapshot also calls configured providers
+// and writes to w; their behavior determines whether those operations block or
+// access GPU hardware.
 func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*Manifest, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
