@@ -1,7 +1,9 @@
 package tileirdisasm_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"strings"
 	"testing"
 
@@ -133,5 +135,93 @@ func TestDisassembleEmpty(t *testing.T) {
 	_, err := tileirdisasm.Disassemble(ctx, nil)
 	if err == nil {
 		t.Error("expected error on nil bytecode")
+	}
+}
+
+func TestTileDisasmBytecodeExtraction(t *testing.T) {
+	// Build a valid synthetic ELF64 containing a .nv.tileir section
+	expectedPayload := []byte{0x7F, 'T', 'i', 'l', 'e', 'I', 'R', 0x00, 13, 4, 0, 0, 0x00}
+	var buf bytes.Buffer
+
+	// ELF Header (64-bit little endian)
+	// e_ident
+	ident := [16]byte{0x7F, 'E', 'L', 'F', 2, 1, 1, 0}
+	buf.Write(ident[:])
+	binary.Write(&buf, binary.LittleEndian, uint16(1))  // e_type = ET_REL
+	binary.Write(&buf, binary.LittleEndian, uint16(62)) // e_machine = EM_X86_64
+	binary.Write(&buf, binary.LittleEndian, uint32(1))  // e_version
+	binary.Write(&buf, binary.LittleEndian, uint64(0))  // e_entry
+	binary.Write(&buf, binary.LittleEndian, uint64(0))  // e_phoff
+	// e_shoff will be updated: 64 header + payload + shstrtab
+	shoffOffset := buf.Len()
+	binary.Write(&buf, binary.LittleEndian, uint64(0))  // placeholder e_shoff
+	binary.Write(&buf, binary.LittleEndian, uint32(0))  // e_flags
+	binary.Write(&buf, binary.LittleEndian, uint16(64)) // e_ehsize
+	binary.Write(&buf, binary.LittleEndian, uint16(0))  // e_phentsize
+	binary.Write(&buf, binary.LittleEndian, uint16(0))  // e_phnum
+	binary.Write(&buf, binary.LittleEndian, uint16(64)) // e_shentsize
+	binary.Write(&buf, binary.LittleEndian, uint16(3))  // e_shnum: 0(null), 1(.shstrtab), 2(.nv.tileir)
+	binary.Write(&buf, binary.LittleEndian, uint16(1))  // e_shstrndx = 1
+
+	// Section 2 data: .nv.tileir payload
+	payloadOffset := uint64(buf.Len())
+	buf.Write(expectedPayload)
+
+	// Section 1 data: .shstrtab
+	// Strings: "\x00.shstrtab\x00.nv.tileir\x00"
+	shstrtabData := []byte("\x00.shstrtab\x00.nv.tileir\x00")
+	shstrtabOffset := uint64(buf.Len())
+	buf.Write(shstrtabData)
+
+	// Align to 8 bytes for section headers
+	for buf.Len()%8 != 0 {
+		buf.WriteByte(0)
+	}
+	shoff := uint64(buf.Len())
+
+	// Write section headers
+	// 0: Null section
+	buf.Write(make([]byte, 64))
+
+	// 1: .shstrtab (offset 1 in shstrtabData)
+	binary.Write(&buf, binary.LittleEndian, uint32(1))               // sh_name (".shstrtab")
+	binary.Write(&buf, binary.LittleEndian, uint32(3))               // sh_type (SHT_STRTAB)
+	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_flags
+	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_addr
+	binary.Write(&buf, binary.LittleEndian, shstrtabOffset)          // sh_offset
+	binary.Write(&buf, binary.LittleEndian, uint64(len(shstrtabData)))// sh_size
+	binary.Write(&buf, binary.LittleEndian, uint32(0))               // sh_link
+	binary.Write(&buf, binary.LittleEndian, uint32(0))               // sh_info
+	binary.Write(&buf, binary.LittleEndian, uint64(1))               // sh_addralign
+	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_entsize
+
+	// 2: .nv.tileir (offset 11 in shstrtabData)
+	binary.Write(&buf, binary.LittleEndian, uint32(11))              // sh_name (".nv.tileir")
+	binary.Write(&buf, binary.LittleEndian, uint32(1))               // sh_type (SHT_PROGBITS)
+	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_flags
+	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_addr
+	binary.Write(&buf, binary.LittleEndian, payloadOffset)           // sh_offset
+	binary.Write(&buf, binary.LittleEndian, uint64(len(expectedPayload))) // sh_size
+	binary.Write(&buf, binary.LittleEndian, uint32(0))               // sh_link
+	binary.Write(&buf, binary.LittleEndian, uint32(0))               // sh_info
+	binary.Write(&buf, binary.LittleEndian, uint64(1))               // sh_addralign
+	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_entsize
+
+	// Backpatch e_shoff
+	elfBytes := buf.Bytes()
+	binary.LittleEndian.PutUint64(elfBytes[shoffOffset:], shoff)
+
+	// Stage 1: ExtractFromELF extracts raw bytecode []byte
+	extracted, err := tileirdisasm.ExtractFromELF(elfBytes)
+	if err != nil {
+		t.Fatalf("ExtractFromELF failed: %v", err)
+	}
+	if !bytes.Equal(extracted, expectedPayload) {
+		t.Fatalf("ExtractFromELF got %x, want %x", extracted, expectedPayload)
+	}
+
+	// Stage 2: Verification that extracted bytecode is verified independently and separate from CUBIN
+	if len(extracted) < 8 || string(extracted[1:7]) != "TileIR" {
+		t.Errorf("extracted bytecode magic invalid: %x", extracted)
 	}
 }

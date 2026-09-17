@@ -62,6 +62,22 @@ func (e ShapeError) String() string {
 	return fmt.Sprintf("tileir: %sshape error: %s (expected %s, got %s)", loc, e.Reason, e.Expected, e.Actual)
 }
 
+// TypeError represents an element or tile type incompatibility.
+type TypeError struct {
+	Op       *Operation
+	Expected string
+	Actual   string
+	Reason   string
+}
+
+func (e TypeError) String() string {
+	loc := ""
+	if e.Op != nil && e.Op.Line > 0 {
+		loc = fmt.Sprintf("line %d: ", e.Op.Line)
+	}
+	return fmt.Sprintf("tileir: %stype error: %s (expected %s, got %s)", loc, e.Reason, e.Expected, e.Actual)
+}
+
 // VerifyTokens verifies token lifetimes, DAG dependencies, and memory coherence.
 func (f *Function) VerifyTokens() []TokenHazard {
 	if f == nil || len(f.Operations) == 0 {
@@ -368,6 +384,16 @@ func (f *Function) VerifyShapes() []ShapeError {
 							Expected: fmt.Sprintf("inner dimension K to match (%d)", kA),
 							Actual:   fmt.Sprintf("A inner K=%d, B inner K=%d (A: %v, B: %v)", kA, kB, tileA.Shape, tileB.Shape),
 							Reason:   fmt.Sprintf("MMA inner dimension mismatch: %d != %d", kA, kB),
+						})
+					}
+
+					// Verify tile element types match (or compatible precision)
+					if tileA.ElementType != nil && tileB.ElementType != nil && tileA.ElementType.Kind() != tileB.ElementType.Kind() {
+						errors = append(errors, ShapeError{
+							Op:       op,
+							Expected: fmt.Sprintf("operand element types to match (%s)", tileA.ElementType),
+							Actual:   fmt.Sprintf("A is %s, B is %s", tileA.ElementType, tileB.ElementType),
+							Reason:   fmt.Sprintf("MMA operand tile type mismatch: %s != %s", tileA.ElementType, tileB.ElementType),
 						})
 					}
 
