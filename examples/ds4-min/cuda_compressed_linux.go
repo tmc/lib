@@ -214,7 +214,7 @@ func (r *cudaFoundation) mixedAttentionTileScoresBatch(raw, comp cudamem.Slice[f
 	if numTokens <= 0 || raw.Len() == 0 || comp.Len()%512 != 0 || allowed.Len() < numTokens*maxComp || scores.Len() < numTokens*scoreStride || out.Len() < numTokens*cudaAttentionStride || tokenNComp.Len() < numTokens {
 		return fmt.Errorf("cuda: mixed attention tile scores batch: invalid shape")
 	}
-	tileGridX := uint32((maxTotal + 15) / 16)
+	tileGridX := uint32((maxTotal + 31) / 32)
 	if tileGridX == 0 {
 		tileGridX = 1
 	}
@@ -224,8 +224,8 @@ func (r *cudaFoundation) mixedAttentionTileScoresBatch(raw, comp cudamem.Slice[f
 		}
 		if err := cudalaunch.Kernel(r.mixedAttentionTileScoresBatchFn).
 			Grid(tileGridX, 4, uint32(numTokens)).
-			Block(256).
-			SharedMem(66048).
+			Block(512).
+			SharedMem(99072).
 			On(r.stream()).
 			Launch(raw, comp, allowed, scores, out, tokenNComp, uint32(basePosition), uint32(rawCap), uint32(maxComp), uint32(scoreStride), uint32(numTokens)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention tile scores batch: %w", err)

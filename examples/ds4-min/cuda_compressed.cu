@@ -858,14 +858,18 @@ extern "C" __global__ void ds4_attention_mixed_scores_tile_batch(
   const unsigned int total = n_raw + n_comp;
   if (total == 0u) return;
 
-  const unsigned int g_base = blockIdx.x * DS4_SCORE_TILE_ROWS;
+  const unsigned int g_base = blockIdx.x * 32u;
   const unsigned int h_base = blockIdx.y * DS4_SCORE_TILE_HEADS;
   if (g_base >= total || h_base >= 64u) return;
 
   extern __shared__ float s_tile_mem[];
   float *sh_q = s_tile_mem;
   float *sh_kv = sh_q + DS4_SCORE_TILE_HEADS * DS4_SCORE_TILE_STRIDE;
-  __shared__ float sh_add[DS4_SCORE_TILE_ROWS];
+  // The batch path uses twice as many key rows per block as the single-token
+  // path.  Each thread still owns one (head,row) dot product, so the FP32
+  // accumulation order is unchanged; the wider tile only reduces redundant
+  // global/shared-memory staging and block scheduling overhead.
+  __shared__ float sh_add[32];
 
   const float *token_out = out + (unsigned long long)t * 66048u;
   const unsigned int *token_allowed = allowed + (unsigned long long)t * max_comp;
@@ -883,7 +887,7 @@ extern "C" __global__ void ds4_attention_mixed_scores_tile_batch(
     dst[3] = ds4_half_round(v.w);
   }
 
-  if (threadIdx.x < DS4_SCORE_TILE_ROWS) {
+  if (threadIdx.x < 32u) {
     const unsigned int g = g_base + threadIdx.x;
     float add = -1.0e30f;
     if (g < total) {
@@ -898,9 +902,9 @@ extern "C" __global__ void ds4_attention_mixed_scores_tile_batch(
   }
   __syncthreads();
 
-  const unsigned int rr0 = threadIdx.x >> 7u;
+  const unsigned int rr0 = (threadIdx.x >> 7u) * 8u;
   const unsigned int dd = threadIdx.x & 127u;
-  for (unsigned int r = rr0; r < DS4_SCORE_TILE_ROWS; r += 2u) {
+  for (unsigned int r = rr0; r < rr0 + 8u; r++) {
     const unsigned int g = g_base + r;
     if (g >= total) continue;
     if (sh_add[r] <= -1.0e20f) continue;
@@ -924,8 +928,8 @@ extern "C" __global__ void ds4_attention_mixed_scores_tile_batch(
   }
   __syncthreads();
 
-  const unsigned int r = threadIdx.x & 15u;
-  const unsigned int hh = threadIdx.x >> 4u;
+  const unsigned int r = threadIdx.x & 31u;
+  const unsigned int hh = threadIdx.x >> 5u;
   const unsigned int h = h_base + hh;
   const unsigned int g = g_base + r;
   if (h >= 64u || g >= total) return;
@@ -1065,4 +1069,3 @@ extern "C" __global__ void ds4_attention_mixed_commit_raw(
     dst[i] = src[i];
   }
 }
-

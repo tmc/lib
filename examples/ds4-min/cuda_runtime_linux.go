@@ -1080,7 +1080,7 @@ func (r *cudaFoundation) loadMathKernels() error {
 		_ = r.mixedAttentionFinalizeFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 66048)
 	}
 	if r.mixedAttentionTileScoresBatchFn != 0 {
-		if err := r.mixedAttentionTileScoresBatchFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 66048); err != nil {
+		if err := r.mixedAttentionTileScoresBatchFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 99072); err != nil {
 			return fmt.Errorf("cuda: set tile scores batch shmem: %w", err)
 		}
 	}
