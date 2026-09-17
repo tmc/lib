@@ -1,9 +1,9 @@
 package cudaplan
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -28,6 +28,12 @@ type planConfig struct {
 	injectResourceCleanupHook       func()
 }
 
+// ErrExecutionUnavailable indicates that native execution has no device or stream.
+var ErrExecutionUnavailable = errors.New("cudaplan: native execution requires a device and stream")
+
+// ErrUnsupportedBackend indicates an operation without an executable lowering.
+var ErrUnsupportedBackend = errors.New("cudaplan: backend is unsupported")
+
 // WithDevice sets the target CUDA execution device.
 func WithDevice(dev *cuda.Device) PlanOption {
 	return func(c *planConfig) error {
@@ -47,7 +53,7 @@ func WithPeakWorkspaceBudget(bytes int) PlanOption {
 	}
 }
 
-// WithGraphReplay enables CUDA Graph capture and replay for supported kernel sequences.
+// WithGraphReplay requests graph replay. Compile currently rejects an enabled request.
 func WithGraphReplay(enable bool) PlanOption {
 	return func(c *planConfig) error {
 		c.enableGraph = enable
@@ -76,21 +82,22 @@ func WithInjectedCompileFailure(inject bool, onResourceAcquired func()) PlanOpti
 // ExecutablePlan represents an instantiated execution plan with explicit ownership
 // of modules, workspace buffers, and graph executables.
 type ExecutablePlan struct {
-	mu              sync.Mutex
-	dev             *cuda.Device
-	snap            *cudair.Snapshot
-	steps           []StepPlan
-	workspace       *WorkspaceManager
-	modules         map[*cudakernel.Artifact]*cuda.Module
-	cublasEngine    *cublasltx.Engine
-	graphExec       *cudagraph.Exec
-	graphObj        *cudagraph.Graph
-	requiredInputs  map[string]int
-	requiredOutputs map[string]int
-	intermediateLoc map[string]int // intermediate node name -> workspace offset
-	inFlight        bool
-	closed          bool
-	staleGraph      bool
+	mu               sync.Mutex
+	dev              *cuda.Device
+	snap             *cudair.Snapshot
+	steps            []StepPlan
+	workspace        *WorkspaceManager
+	modules          map[*cudakernel.Artifact]*cuda.Module
+	cublasEngine     *cublasltx.Engine
+	graphExec        *cudagraph.Exec
+	graphObj         *cudagraph.Graph
+	requiredInputs   map[string]int
+	requiredOutputs  map[string]int
+	intermediateLoc  map[string]int // intermediate node name -> workspace offset
+	inFlight         bool
+	failedInvocation *Completion
+	closed           bool
+	staleGraph       bool
 }
 
 // Compile builds an ExecutablePlan from a validated cudair.Snapshot.
@@ -110,6 +117,9 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 				return nil, err
 			}
 		}
+	}
+	if cfg.enableGraph {
+		return nil, fmt.Errorf("%w: graph replay is not implemented", ErrUnsupportedBackend)
 	}
 
 	plan := &ExecutablePlan{
@@ -142,7 +152,13 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 	totalScratchBytes := 0
 	if arena != nil {
 		totalScratchBytes = arena.TotalBytes
+		if totalScratchBytes < 0 || totalScratchBytes > cfg.peakBudget {
+			return nil, fmt.Errorf("%w: required %d bytes exceeds peak budget %d bytes", ErrWorkspaceBudgetExceeded, totalScratchBytes, cfg.peakBudget)
+		}
 		for node, offset := range arena.Offsets {
+			if offset < 0 || node.SizeBytes() < 0 || offset > int(^uint(0)>>1)-node.SizeBytes() || offset+node.SizeBytes() > totalScratchBytes {
+				return nil, fmt.Errorf("cudaplan: invalid workspace range for %s", node.Name)
+			}
 			plan.intermediateLoc[node.Name] = offset
 		}
 	}
@@ -209,6 +225,19 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 			art = cfg.registry.Get(n.Op)
 			if art == nil {
 				art = cfg.registry.Get(n.Name)
+			}
+		}
+		if cfg.dev != nil && backend == BackendLaunch && art == nil {
+			return nil, fmt.Errorf("%w: no kernel artifact for %s", ErrUnsupportedBackend, n.Name)
+		}
+		if cfg.dev != nil && art != nil && backend == BackendLaunch {
+			if len(art.Schema.Params) != len(n.Inputs)+1 {
+				return nil, fmt.Errorf("%w: artifact schema for %s has %d parameters, want %d", ErrUnsupportedBackend, n.Name, len(art.Schema.Params), len(n.Inputs)+1)
+			}
+			for i, param := range art.Schema.Params {
+				if !param.IsPointer || param.Type != "ptr" {
+					return nil, fmt.Errorf("%w: artifact schema for %s parameter %d is not a device pointer", ErrUnsupportedBackend, n.Name, i)
+				}
 			}
 		}
 
@@ -295,7 +324,9 @@ func (p *ExecutablePlan) RequiredOutputs() map[string]int {
 // leases until stream execution has completed.
 //
 // Invariant: An ExecutablePlan admits only one active invocation at a time.
-func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Completion, error) {
+// A submission error may return a non-nil Completion for work already queued.
+// Wait on that completion or call Close to drain it before releasing bindings.
+func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (completion *Completion, retErr error) {
 	if p == nil {
 		return nil, errors.New("cudaplan: nil plan")
 	}
@@ -314,31 +345,13 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 	if bindings == nil {
 		return nil, errors.New("cudaplan: nil bindings passed to Execute")
 	}
+	if p.dev == nil || stream == nil {
+		return nil, ErrExecutionUnavailable
+	}
 
 	// Validate bindings against plan requirements
 	if err := bindings.Validate(p.dev, p.requiredInputs, p.requiredOutputs); err != nil {
 		return nil, fmt.Errorf("cudaplan: validate bindings: %w", err)
-	}
-
-	if p.dev == nil || stream == nil {
-		// Test double execution path for host-only verification
-		p.inFlight = true
-		releaseInFlight := func() {
-			p.mu.Lock()
-			p.inFlight = false
-			p.mu.Unlock()
-		}
-		comp := newHostCompletion(
-			func(ctx context.Context) error {
-				if ctx != nil && ctx.Err() != nil {
-					return ctx.Err()
-				}
-				return nil
-			},
-			func() error { return nil },
-			releaseInFlight,
-		)
-		return comp, nil
 	}
 
 	// Retain borrowed buffers
@@ -350,7 +363,6 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 	}
 
 	var releases []func()
-	releases = append(releases, releasePlan)
 	for _, b := range bindings.inputs {
 		if b.Release != nil {
 			releases = append(releases, b.Release)
@@ -361,6 +373,7 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 			releases = append(releases, b.Release)
 		}
 	}
+	releases = append(releases, releasePlan)
 
 	// Resolve buffer pointers for all nodes (inputs, outputs, and intermediates)
 	nodePointers := make(map[string]driver.DevicePtr)
@@ -376,8 +389,16 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 		for name, offset := range p.intermediateLoc {
 			if _, ok := nodePointers[name]; !ok {
 				// Allocate in workspace
-				ptr, err := p.workspace.SliceAt(offset, 0)
+				size := 0
+				for _, step := range p.steps {
+					if step.NodeName == name {
+						size = step.WorkspaceBytes
+						break
+					}
+				}
+				ptr, err := p.workspace.SliceAt(offset, size)
 				if err != nil {
+					p.inFlight = false
 					return nil, fmt.Errorf("cudaplan: resolve workspace for %s: %w", name, err)
 				}
 				nodePointers[name] = ptr
@@ -388,9 +409,18 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 	// Record completion event
 	event, err := p.dev.NewEvent()
 	if err != nil {
-		releasePlan()
+		p.inFlight = false
 		return nil, fmt.Errorf("cudaplan: create completion event: %w", err)
 	}
+	// A failed enqueue can leave earlier work on the stream. Preserve all
+	// leases until that stream has drained, even if event recording failed.
+	defer func() {
+		if retErr != nil {
+			p.inFlight = true
+			completion = newHostCompletion(stream.Synchronize, nil, releases...)
+			p.failedInvocation = completion
+		}
+	}()
 
 	// Enqueue operations
 	for _, step := range p.steps {
@@ -398,7 +428,7 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 		case BackendCuBLASLt:
 			if p.cublasEngine == nil {
 				_ = event.Destroy()
-				releasePlan()
+				p.inFlight = false
 				return nil, errors.New("cudaplan: cuBLASLt engine not initialized for matmul")
 			}
 			// Dispatch matmul
@@ -411,8 +441,13 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 			node := p.snap.NodeByID(step.NodeID)
 			if node == nil {
 				_ = event.Destroy()
-				releasePlan()
+				p.inFlight = false
 				return nil, fmt.Errorf("cudaplan: node %d not found in snapshot", step.NodeID)
+			}
+			if err := validateMatMulNode(node); err != nil {
+				_ = event.Destroy()
+				p.inFlight = false
+				return nil, err
 			}
 			m := node.Inputs[0].Shape[0]
 			k := node.Inputs[0].Shape[1]
@@ -429,7 +464,7 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 			// dRows = n, dCols = m, ldd = n (from D)
 			if err := p.cublasEngine.MatMulRaw(stream, cfg, bPtr, n, k, n, aPtr, k, m, k, dPtr, n, m, n); err != nil {
 				_ = event.Destroy()
-				releasePlan()
+				p.inFlight = false
 				return nil, fmt.Errorf("cudaplan: execute matmul for %s: %w", step.NodeName, err)
 			}
 
@@ -438,13 +473,13 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 				mod := p.modules[step.Artifact]
 				if mod == nil {
 					_ = event.Destroy()
-					releasePlan()
+					p.inFlight = false
 					return nil, fmt.Errorf("cudaplan: module not loaded for %s", step.NodeName)
 				}
 				kernel, err := mod.Function(step.Artifact.EntryPoint)
 				if err != nil {
 					_ = event.Destroy()
-					releasePlan()
+					p.inFlight = false
 					return nil, fmt.Errorf("cudaplan: get function %s: %w", step.Artifact.EntryPoint, err)
 				}
 
@@ -458,19 +493,17 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 				node := p.snap.NodeByID(step.NodeID)
 				numElems := uint32(1024)
 				if node != nil {
+					if node.NumElements() < 0 || uint64(node.NumElements()) > math.MaxUint32 {
+						_ = event.Destroy()
+						p.inFlight = false
+						return nil, fmt.Errorf("%w: node %s element count overflows launch dimensions", ErrUnsupportedBackend, step.NodeName)
+					}
 					numElems = uint32(node.NumElements())
 				}
-				// If schema has scalar parameters, pack appropriately
-				// For affine kernel schema: (y, x, a, b, n)
-				if len(step.Artifact.Schema.Params) == 5 {
-					// Specific affine signature: y (ptr), x (ptr), a (f32), b (f32), n (u32)
-					args = []any{
-						nodePointers[step.OutputName],
-						nodePointers[step.InputNames[0]],
-						float32(1.0),
-						float32(0.0),
-						numElems,
-					}
+				if len(step.Artifact.Schema.Params) != len(step.InputNames)+1 {
+					_ = event.Destroy()
+					p.inFlight = false
+					return nil, fmt.Errorf("%w: kernel %s parameter schema has %d parameters, graph supplies %d pointers", ErrUnsupportedBackend, step.NodeName, len(step.Artifact.Schema.Params), len(step.InputNames)+1)
 				}
 
 				threads := uint32(256)
@@ -486,7 +519,7 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 
 				if err := launcher.Launch(args...); err != nil {
 					_ = event.Destroy()
-					releasePlan()
+					p.inFlight = false
 					return nil, fmt.Errorf("cudaplan: launch %s: %w", step.NodeName, err)
 				}
 			}
@@ -495,11 +528,27 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (*Comp
 
 	if err := event.Record(stream); err != nil {
 		_ = event.Destroy()
-		releasePlan()
+		p.inFlight = false
 		return nil, fmt.Errorf("cudaplan: record completion event: %w", err)
 	}
 
 	return newEventCompletion(p.dev, stream, event, releases)
+}
+
+func validateMatMulNode(node *cudair.Node) error {
+	if node == nil || len(node.Inputs) != 2 || node.Inputs[0] == nil || node.Inputs[1] == nil || len(node.Inputs[0].Shape) != 2 || len(node.Inputs[1].Shape) != 2 || len(node.Shape) != 2 {
+		return fmt.Errorf("%w: matmul requires two rank-2 inputs and output", ErrUnsupportedBackend)
+	}
+	if node.Inputs[0].Shape[1] != node.Inputs[1].Shape[0] || node.Shape[0] != node.Inputs[0].Shape[0] || node.Shape[1] != node.Inputs[1].Shape[1] {
+		return fmt.Errorf("%w: matmul dimensions do not conform", ErrUnsupportedBackend)
+	}
+	if node.Inputs[0].Type != node.Inputs[1].Type || node.Type != node.Inputs[0].Type {
+		return fmt.Errorf("%w: matmul dtypes do not match", ErrUnsupportedBackend)
+	}
+	if node.Type != cudair.Float32 {
+		return fmt.Errorf("%w: matmul requires float32", ErrUnsupportedBackend)
+	}
+	return nil
 }
 
 // InvalidateGraphBindings marks instantiated CUDA Graph bindings as stale.
@@ -529,10 +578,24 @@ func (p *ExecutablePlan) Close() error {
 		return nil
 	}
 	p.mu.Lock()
-	defer p.mu.Unlock()
+	if pending := p.failedInvocation; pending != nil {
+		p.mu.Unlock()
+		if err := pending.Close(); err != nil {
+			return fmt.Errorf("cudaplan: drain failed invocation: %w", err)
+		}
+		p.mu.Lock()
+		if p.failedInvocation == pending {
+			p.failedInvocation = nil
+		}
+	}
 
 	if p.closed {
+		p.mu.Unlock()
 		return nil
+	}
+	if p.inFlight {
+		p.mu.Unlock()
+		return ErrInvocationInFlight
 	}
 	p.closed = true
 
@@ -576,5 +639,6 @@ func (p *ExecutablePlan) Close() error {
 		p.modules = nil
 	}
 
+	p.mu.Unlock()
 	return errors.Join(errs...)
 }

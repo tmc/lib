@@ -3,6 +3,7 @@ package cudaplan
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -24,7 +25,7 @@ type WorkspaceManager struct {
 }
 
 // NewWorkspaceManager creates a WorkspaceManager with a configured peak budget.
-// If peakBudget <= 0, MaxByteLimit is used as the default budget.
+// A zero peakBudget selects a 1 GiB budget. A negative budget is rejected.
 func NewWorkspaceManager(dev *cuda.Device, peakBudget int) (*WorkspaceManager, error) {
 	if dev == nil {
 		return nil, errors.New("cudaplan: nil device passed to NewWorkspaceManager")
@@ -63,15 +64,16 @@ func (wm *WorkspaceManager) EnsureSize(requiredBytes int) error {
 	if wm.closed {
 		return ErrClosed
 	}
+	if requiredBytes < 0 || requiredBytes > math.MaxInt-255 {
+		return errors.New("cudaplan: invalid workspace size")
+	}
+	if rem := requiredBytes % 256; rem != 0 {
+		requiredBytes += 256 - rem
+	}
 
 	if requiredBytes > wm.peakBudget {
 		return fmt.Errorf("%w: required %d bytes exceeds peak budget %d bytes",
 			ErrWorkspaceBudgetExceeded, requiredBytes, wm.peakBudget)
-	}
-
-	// Pad to 256-byte alignment boundary
-	if rem := requiredBytes % 256; rem != 0 {
-		requiredBytes += (256 - rem)
 	}
 
 	if wm.buffer.Len() >= requiredBytes {
@@ -80,7 +82,9 @@ func (wm *WorkspaceManager) EnsureSize(requiredBytes int) error {
 
 	// Free existing buffer if owned
 	if wm.ownedBuffer && wm.buffer.Len() > 0 {
-		_ = wm.buffer.Free()
+		if err := wm.buffer.Free(); err != nil {
+			return fmt.Errorf("cudaplan: release previous workspace: %w", err)
+		}
 		wm.buffer = cudamem.Slice[byte]{}
 		wm.ownedBuffer = false
 	}
@@ -102,15 +106,19 @@ func (wm *WorkspaceManager) EnsureSize(requiredBytes int) error {
 	return nil
 }
 
-// SliceAt returns a 256-byte aligned subslice at the specified offset.
+// SliceAt returns a checked byte range within the workspace. The base is
+// aligned to 256 bytes; the caller must choose an appropriately aligned offset.
 func (wm *WorkspaceManager) SliceAt(offset, size int) (driver.DevicePtr, error) {
+	if wm == nil {
+		return 0, errors.New("cudaplan: nil workspace manager")
+	}
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 
 	if wm.closed {
 		return 0, ErrClosed
 	}
-	if offset < 0 || size < 0 || offset+size > wm.totalBytes {
+	if offset < 0 || size < 0 || offset > wm.totalBytes || size > wm.totalBytes-offset {
 		return 0, fmt.Errorf("cudaplan: workspace offset [%d, %d) out of bounds (%d total)",
 			offset, offset+size, wm.totalBytes)
 	}
@@ -126,6 +134,9 @@ func (wm *WorkspaceManager) SliceAt(offset, size int) (driver.DevicePtr, error) 
 
 // Buffer returns the underlying allocated workspace buffer.
 func (wm *WorkspaceManager) Buffer() cudamem.Slice[byte] {
+	if wm == nil {
+		return cudamem.Slice[byte]{}
+	}
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 	return wm.buffer

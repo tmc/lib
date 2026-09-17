@@ -1,7 +1,6 @@
 package cudaplan_test
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -38,18 +37,8 @@ func ExampleCompile() {
 	_ = bindings.SetInput("W", driver.DevicePtr(0x2000), 4*2*4, nil)
 	_ = bindings.SetOutput("matmul_2", driver.DevicePtr(0x3000), 2*2*4, nil)
 
-	// 4. Execute plan (host simulation path when stream is nil)
-	comp, err := plan.Execute(nil, bindings)
-	if err != nil {
-		log.Fatalf("Execute: %v", err)
-	}
-
-	// 5. Await completion
-	if err := comp.Wait(context.Background()); err != nil {
-		log.Fatalf("Wait: %v", err)
-	}
-
-	fmt.Println("Plan compiled and executed successfully")
+	// Execution requires an authorized CUDA device and stream.
+	fmt.Println("Plan compiled; native execution requires a CUDA device and stream")
 	// Output:
-	// Plan compiled and executed successfully
+	// Plan compiled; native execution requires a CUDA device and stream
 }
