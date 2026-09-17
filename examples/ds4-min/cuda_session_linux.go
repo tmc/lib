@@ -72,6 +72,9 @@ type cudaBatchDense struct {
 	compressorKV, compressorGate         cudamem.Slice[float32]
 	indexerKV, indexerGate               cudamem.Slice[float32]
 	attnLow, attnOut                     cudamem.Slice[float32]
+	ffnPre                               cudamem.Slice[float32]
+	router, probs                        cudamem.Slice[float32]
+	tokens                               cudamem.Slice[uint32]
 	sharedGate, sharedUp, sharedOut      cudamem.Slice[float32]
 	q81Attn, q81QLora, q81FFN            cudamem.Slice[byte]
 	q80Heads, q80Low, q80Shared          cudamem.Slice[byte]
@@ -468,12 +471,17 @@ func (r *cudaRuntime) evalBatch(tokens []int, position int, logits bool) (err er
 		rows[i], hc[i] = &r.batch.rows[i], r.batch.hc[i]
 	}
 	rows[len(tokens)-1], hc[len(tokens)-1] = &r.state.cudaTokenState, r.hcMath
+	tokensU32 := make([]uint32, len(tokens))
 	for i, token := range tokens {
+		tokensU32[i] = uint32(token)
 		for stream := range 4 {
 			if err := r.encodeEmbeddingRow(r.model.output.embedding, uint32(token), rows[i].hc[0].Slice(stream*cudaWidth, (stream+1)*cudaWidth)); err != nil {
 				return err
 			}
 		}
+	}
+	if err := r.batch.dense.tokens.Slice(0, len(tokens)).CopyFromHost(tokensU32); err != nil {
+		return err
 	}
 	for layer := range r.model.layers {
 		if err := r.evalLayerBatch(rows, hc, layer, tokens, position); err != nil {
@@ -543,6 +551,10 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		indexerGate:    alloc("batch-dense-indexer-gate", width*256),
 		attnLow:        alloc("batch-dense-attention-low", width*8192),
 		attnOut:        alloc("batch-dense-attention-output", width*cudaWidth),
+		ffnPre:         alloc("batch-dense-ffn-pre", width*2*cudaWidth),
+		router:         alloc("batch-dense-router", width*256),
+		probs:          alloc("batch-dense-probs", width*256),
+		tokens:         cudamem.AllocIn[uint32](b.denseArena, "batch-dense-tokens", width),
 		sharedGate:     alloc("batch-dense-shared-gate", width*cudaSharedFFNWidth),
 		sharedUp:       alloc("batch-dense-shared-up", width*cudaSharedFFNWidth),
 		sharedOut:      alloc("batch-dense-shared-output", width*cudaWidth),
@@ -635,13 +647,17 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		// them with one launch per weight.
 		rows[i].attnLow = d.attnLow.Slice(i*8192, (i+1)*8192)
 		rows[i].attnOut = d.attnOut.Slice(i*cudaWidth, (i+1)*cudaWidth)
+		rows[i].ffnPre = d.ffnPre.Slice(i*2*cudaWidth, (i+1)*2*cudaWidth)
+		rows[i].ffnNorm = rows[i].ffnPre.Slice(cudaWidth, 2*cudaWidth)
+		rows[i].router = d.router.Slice(i*256, (i+1)*256)
+		rows[i].probs = d.probs.Slice(i*256, (i+1)*256)
+		rows[i].expertIDs = d.expertIDs.Slice(i*6, (i+1)*6)
+		rows[i].expertW = d.expertW.Slice(i*6, (i+1)*6)
 		rows[i].q81Input = d.q81FFN.Slice(i*cudaWidth/32*36, (i+1)*cudaWidth/32*36)
 		rows[i].sharedGate = d.sharedGate.Slice(i*cudaSharedFFNWidth, (i+1)*cudaSharedFFNWidth)
 		rows[i].sharedUp = d.sharedUp.Slice(i*cudaSharedFFNWidth, (i+1)*cudaSharedFFNWidth)
 		rows[i].sharedOut = d.sharedOut.Slice(i*cudaWidth, (i+1)*cudaWidth)
 		if gather {
-			rows[i].expertIDs = d.expertIDs.Slice(i*6, (i+1)*6)
-			rows[i].expertW = d.expertW.Slice(i*6, (i+1)*6)
 			rows[i].expertGate = d.expertGate.Slice(i*6*2048, (i+1)*6*2048)
 			rows[i].expertUp = d.expertUp.Slice(i*6*2048, (i+1)*6*2048)
 			rows[i].expertDown = d.expertDown.Slice(i*6*cudaWidth, (i+1)*6*cudaWidth)
@@ -737,6 +753,36 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		if err := r.evalLayerFFNPre(hc[i], &rows[i], index, tokens[i], position+i, heads[i], projected); err != nil {
 			return fmt.Errorf("token %d: %w", i, err)
 		}
+	}
+	if err := chunkRows(n, cudaPrefillGroupWidth, func(lo, hi int) error {
+		m := hi - lo
+		ffnNorm := d.ffnPre.Slice(lo*2*cudaWidth+cudaWidth, hi*2*cudaWidth)
+		routerOut := d.router.Slice(lo*256, hi*256)
+		return r.encodeF16MatvecDefaultBatch(l.router, ffnNorm, 2*cudaWidth, routerOut, m)
+	}); err != nil {
+		return err
+	}
+	if index < 3 {
+		if err := r.encodeRouterHashBatch(d.router.Slice(0, n*256), l.expertMap, d.probs.Slice(0, n*256), d.expertIDs.Slice(0, n*6), d.expertW.Slice(0, n*6), d.tokens.Slice(0, n), n); err != nil {
+			return err
+		}
+	} else {
+		if err := r.encodeRouterBiasedBatch(d.router.Slice(0, n*256), l.expertBias, d.probs.Slice(0, n*256), d.expertIDs.Slice(0, n*6), d.expertW.Slice(0, n*6), n); err != nil {
+			return err
+		}
+	}
+	for i := range rows {
+		if err := r.markCUDAPhase("shared-ffn", position+i, index); err != nil {
+			return err
+		}
+	}
+	if err := chunkRows(n, cudaPrefillQ81Chunk, func(lo, hi int) error {
+		m := hi - lo
+		ffnNorm := d.ffnPre.Slice(lo*2*cudaWidth+cudaWidth, hi*2*cudaWidth)
+		q81FFN := d.q81FFN.Slice(lo*cudaWidth/32*36, hi*cudaWidth/32*36)
+		return r.encodeQuantQ81Batch(ffnNorm, q81FFN, cudaWidth, 2*cudaWidth, m)
+	}); err != nil {
+		return err
 	}
 	// The shared expert's weights do not depend on the token, and each token's
 	// projection reads only its own activation row, so the group streams each
@@ -1039,17 +1085,33 @@ func (r *cudaRuntime) evalLayerFFN(hc *cudaHC, s *cudaTokenState, index, token, 
 	if err := r.evalLayerFFNPre(hc, s, index, token, position, heads, false); err != nil {
 		return err
 	}
+	l := &r.model.layers[index]
+	if err := r.encodeF16MatvecDefault(l.router, s.ffnNorm, s.router); err != nil {
+		return err
+	}
+	if index < 3 {
+		if err := r.encodeRouterHash(s.router, l.expertMap, s.probs, s.expertIDs, s.expertW, uint32(token)); err != nil {
+			return err
+		}
+	} else {
+		if err := r.encodeRouterBiased(s.router, l.expertBias, s.probs, s.expertIDs, s.expertW); err != nil {
+			return err
+		}
+	}
+	if err := r.markCUDAPhase("shared-ffn", position, index); err != nil {
+		return err
+	}
+	if err := r.encodeQuantQ81(s.ffnNorm, s.q81Input, cudaWidth); err != nil {
+		return err
+	}
 	if err := r.evalLayerFFNShared(s, index); err != nil {
 		return err
 	}
 	return r.evalLayerFFNPost(hc, s, index, position, false)
 }
 
-// evalLayerFFNPre encodes the attention output projection, the FFN norm and the
-// router, ending with this token's Q8_1 activation quantization. It writes only
-// this token's state; nothing here reads another token in the group. projected
-// reports that the caller already encoded this token's attention output, which
-// the batched front end hoists into one launch per weight matrix.
+// evalLayerFFNPre encodes the attention output projection, the residual add and
+// the FFN RMSNorm expand.
 func (r *cudaRuntime) evalLayerFFNPre(hc *cudaHC, s *cudaTokenState, index, token, position int, heads cudamem.Slice[float32], projected bool) error {
 	l := &r.model.layers[index]
 	if !projected {
@@ -1082,25 +1144,7 @@ func (r *cudaRuntime) evalLayerFFNPre(hc *cudaHC, s *cudaTokenState, index, toke
 	if err := r.markCUDAPhase("ffn-pre", position, index); err != nil {
 		return err
 	}
-	if err := hc.pre(s.hc[1], l.hcFFNFn, l.hcFFNScale, l.hcFFNBase, l.ffnNorm, s.ffnPre, false); err != nil {
-		return err
-	}
-	if err := r.encodeF16MatvecDefault(l.router, s.ffnNorm, s.router); err != nil {
-		return err
-	}
-	if index < 3 {
-		if err := r.encodeRouterHash(s.router, l.expertMap, s.probs, s.expertIDs, s.expertW, uint32(token)); err != nil {
-			return err
-		}
-	} else {
-		if err := r.encodeRouterBiased(s.router, l.expertBias, s.probs, s.expertIDs, s.expertW); err != nil {
-			return err
-		}
-	}
-	if err := r.markCUDAPhase("shared-ffn", position, index); err != nil {
-		return err
-	}
-	return r.encodeQuantQ81(s.ffnNorm, s.q81Input, cudaWidth)
+	return hc.pre(s.hc[1], l.hcFFNFn, l.hcFFNScale, l.hcFFNBase, l.ffnNorm, s.ffnPre, false)
 }
 
 // evalLayerFFNShared projects one token through the shared expert. Each launch

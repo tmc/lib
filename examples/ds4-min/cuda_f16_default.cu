@@ -295,3 +295,27 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
     }
   }
 }
+
+extern "C" __global__ void ds4_f16_matvec_half_input_batch(
+    const unsigned short *weights, const float *x, float *out,
+    unsigned cols, unsigned stride, unsigned rows, unsigned batch) {
+  const unsigned row = blockIdx.x;
+  const unsigned t = blockIdx.y;
+  const unsigned tid = threadIdx.x;
+  if (row >= rows || t >= batch) return;
+
+  const unsigned long long offset = (unsigned long long)row * cols;
+  const float *token_x = x + (unsigned long long)t * stride;
+  double sum = 0.0;
+  for (unsigned i = tid; i < cols; i += blockDim.x)
+    sum += double(ds4_half_to_float(weights[offset + i])) * double(ds4_half_round(token_x[i]));
+  __shared__ double partial[256];
+  partial[tid] = sum;
+  __syncthreads();
+  for (unsigned s = 128; s; s >>= 1) {
+    if (tid < s) partial[tid] += partial[tid + s];
+    __syncthreads();
+  }
+  if (tid == 0) out[(unsigned long long)t * rows + row] = float(partial[0]);
+}
+

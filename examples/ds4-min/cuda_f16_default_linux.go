@@ -39,6 +39,31 @@ func (r *cudaFoundation) encodeF16MatvecDefault(t cudaModelTensor, in, out cudam
 	})
 }
 
+// encodeF16MatvecDefaultBatch projects F16 weights against batch input vectors
+// separated by stride elements, matching ds4_f16_matvec_half_input bit-identically.
+func (r *cudaFoundation) encodeF16MatvecDefaultBatch(t cudaModelTensor, in cudamem.Slice[float32], stride int, out cudamem.Slice[float32], batch int) error {
+	if t.typeID != 1 || len(t.dimensions) != 2 || t.device == 0 {
+		return fmt.Errorf("cuda: default F16 matvec batch %q: invalid tensor", t.name)
+	}
+	cols, rows := t.dimensions[0], t.dimensions[1]
+	if cols == 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 || batch <= 0 || stride < int(cols) {
+		return fmt.Errorf("cuda: default F16 matvec batch %q: invalid shape", t.name)
+	}
+	if uint64(in.Len()) < uint64(batch-1)*uint64(stride)+cols || uint64(out.Len()) < uint64(batch)*rows || rows > t.bytes/(cols*2) {
+		return fmt.Errorf("cuda: default F16 matvec batch %q: invalid extent", t.name)
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.f16DefaultBatchFn).Grid(uint32(rows), uint32(batch)).Block(256).On(r.stream()).Launch(
+			t.device, in, out, uint32(cols), uint32(stride), uint32(rows), uint32(batch)); err != nil {
+			return fmt.Errorf("cuda: launch default F16 matvec batch %q: %w", t.name, err)
+		}
+		return nil
+	})
+}
+
 // encodeF16PairOrdered follows the raw-F32-input single-token pair dispatch in
 // pinned ds4_cuda.cu:16194. Thirty-two contiguous partials are summed serially.
 func (r *cudaFoundation) encodeF16PairOrdered(a, b cudaModelTensor, in, outA, outB cudamem.Slice[float32]) error {

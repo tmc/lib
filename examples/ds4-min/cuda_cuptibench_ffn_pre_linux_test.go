@@ -112,12 +112,7 @@ func cudaCUPTIFFNRouterGEMV(b *testing.B, tokens int) {
 	out := cudaCUPTIUpload(b, r, makeNaNs(tokens*rows))
 
 	launch := func() error {
-		for t := 0; t < tokens; t++ {
-			if err := r.encodeF16MatvecDefault(weightTensor, in.Slice(t*cols, (t+1)*cols), out.Slice(t*rows, (t+1)*rows)); err != nil {
-				return err
-			}
-		}
-		return nil
+		return r.encodeF16MatvecDefaultBatch(weightTensor, in, cols, out, tokens)
 	}
 
 	ref := cudaCUPTIUpload(b, r, makeNaNs(tokens*rows))
@@ -162,18 +157,7 @@ func cudaCUPTIFFNRouterBiased(b *testing.B, tokens int) {
 	weights := cudaCUPTIUpload(b, r, makeNaNs(tokens*topK))
 
 	launch := func() error {
-		for t := 0; t < tokens; t++ {
-			if err := r.encodeRouterBiased(
-				logits.Slice(t*experts, (t+1)*experts),
-				biasTensor,
-				scores.Slice(t*experts, (t+1)*experts),
-				selected.Slice(t*topK, (t+1)*topK),
-				weights.Slice(t*topK, (t+1)*topK),
-			); err != nil {
-				return err
-			}
-		}
-		return nil
+		return r.encodeRouterBiasedBatch(logits, biasTensor, scores, selected, weights, tokens)
 	}
 
 	refScores := cudaCUPTIUpload(b, r, makeNaNs(tokens*experts))

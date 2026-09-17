@@ -86,6 +86,7 @@ type cudaFoundation struct {
 	rmsPairFn               driver.Function
 	f16Fn                   driver.Function
 	f16DefaultFn            driver.Function
+	f16DefaultBatchFn       driver.Function
 	f16PairOrderedFn        driver.Function
 	f16PairOrderedBatchFn   driver.Function
 	hcPreFn                 driver.Function
@@ -101,7 +102,9 @@ type cudaFoundation struct {
 	rawAttentionEvalFn        driver.Function
 	disableRawAttentionFused  bool
 	routerHashFn              driver.Function
+	routerHashBatchFn         driver.Function
 	routerBiasedFn            driver.Function
+	routerBiasedBatchFn       driver.Function
 	swigluFn                  driver.Function
 	swigluQuantQ80Fn          driver.Function
 	swigluQuantQ81Fn          driver.Function
@@ -802,6 +805,42 @@ func (r *cudaFoundation) encodeRouterBiased(logits cudamem.Slice[float32], bias 
 	})
 }
 
+// encodeRouterHashBatch appends the dense-layer expert selection across batch tokens.
+func (r *cudaFoundation) encodeRouterHashBatch(logits cudamem.Slice[float32], table cudaModelTensor, scores cudamem.Slice[float32], selected cudamem.Slice[int32], weights cudamem.Slice[float32], tokens cudamem.Slice[uint32], batch int) error {
+	if batch <= 0 || logits.Len() < batch*256 || scores.Len() < batch*256 || selected.Len() < batch*6 || weights.Len() < batch*6 || tokens.Len() < batch ||
+		table.typeID != 26 || len(table.dimensions) != 2 || table.dimensions[0] != 6 {
+		return fmt.Errorf("cuda: router hash batch: invalid profile")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.routerHashBatchFn).Grid(uint32(batch)).Block(1).On(r.stream()).Launch(
+			logits, table.device, scores, selected, weights, tokens, uint32(batch)); err != nil {
+			return fmt.Errorf("cuda: launch router hash batch: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeRouterBiasedBatch appends the routed-layer expert selection across batch tokens.
+func (r *cudaFoundation) encodeRouterBiasedBatch(logits cudamem.Slice[float32], bias cudaModelTensor, scores cudamem.Slice[float32], selected cudamem.Slice[int32], weights cudamem.Slice[float32], batch int) error {
+	if batch <= 0 || logits.Len() < batch*256 || scores.Len() < batch*256 || selected.Len() < batch*6 || weights.Len() < batch*6 ||
+		bias.typeID != 0 || len(bias.dimensions) != 1 || bias.dimensions[0] != 256 {
+		return fmt.Errorf("cuda: router biased batch: invalid profile")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.routerBiasedBatchFn).Grid(uint32(batch)).Block(256).On(r.stream()).Launch(
+			logits, bias.device, scores, selected, weights, uint32(batch)); err != nil {
+			return fmt.Errorf("cuda: launch router biased batch: %w", err)
+		}
+		return nil
+	})
+}
+
 // encodeSwiGLU appends the clamped SwiGLU activation scaled by one weight.
 func (r *cudaFoundation) encodeSwiGLU(gate, up, out cudamem.Slice[float32], weight float32) error {
 	return r.encodeSwiGLUSlots(gate, up, cudamem.Slice[float32]{}, out, 1, weight)
@@ -940,6 +979,7 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_rms_pair", &r.rmsPairFn},
 		{"ds4_f16_matvec", &r.f16Fn},
 		{"ds4_f16_matvec_half_input", &r.f16DefaultFn},
+		{"ds4_f16_matvec_half_input_batch", &r.f16DefaultBatchFn},
 		{"ds4_f16_pair_ordered_chunks", &r.f16PairOrderedFn},
 		{"ds4_f16_pair_ordered_chunks_batch", &r.f16PairOrderedBatchFn},
 		{"ds4_hc_pre", &r.hcPreFn},
@@ -953,7 +993,9 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_raw_attention_prepare", &r.rawAttentionPrepareFn},
 		{"ds4_raw_attention_eval", &r.rawAttentionEvalFn},
 		{"ds4_router_hash", &r.routerHashFn},
+		{"ds4_router_hash_batch", &r.routerHashBatchFn},
 		{"ds4_router_biased", &r.routerBiasedFn},
+		{"ds4_router_biased_batch", &r.routerBiasedBatchFn},
 		{"ds4_swiglu", &r.swigluFn},
 		{"ds4_swiglu_quant_q8_0", &r.swigluQuantQ80Fn},
 		{"ds4_swiglu_quant_q8_1", &r.swigluQuantQ81Fn},
