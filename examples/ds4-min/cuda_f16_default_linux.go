@@ -14,6 +14,7 @@ import (
 // cudaF16DefaultSource reproduces the binary16 activation boundary in the
 // default single-token cuBLAS dispatch in pinned antirez/ds4 b0a147a,
 // ds4_cuda.cu:15887-15927. Float64 accumulation avoids cancellation loss; it is not cuBLAS's implementation.
+//
 //go:embed cuda_f16_default.cu
 var cudaF16DefaultSource string
 
@@ -87,7 +88,7 @@ func (r *cudaFoundation) encodeF16PairOrdered(a, b cudaModelTensor, in, outA, ou
 
 // cudaF16PairMaxBatch is the compile-time maximum batch width processed per thread block by
 // ds4_f16_pair_ordered_chunks_batch in cuda_f16_default.cu. Larger batches are tiled across gridDim.y.
-const cudaF16PairMaxBatch = 8
+const cudaF16PairMaxBatch = 16
 
 // encodeF16PairOrderedBatch projects batch token-major activation rows against
 // one weight pair with a single launch, reading the weights once for all

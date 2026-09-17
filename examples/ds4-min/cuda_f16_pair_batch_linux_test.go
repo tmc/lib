@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/lm/quant"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
@@ -192,4 +193,31 @@ func TestCUDAF16PairMaxBatchConstantSync(t *testing.T) {
 	if !strings.Contains(cudaF16DefaultSource, needle) {
 		t.Fatalf("cuda_f16_default.cu does not contain %q", needle)
 	}
+}
+
+// TestCUDAF16PairBatchRegisters reports device register counts and local memory usage
+// for ds4_f16_pair_ordered_chunks_batch.
+func TestCUDAF16PairBatchRegisters(t *testing.T) {
+	r := cudaSynthFoundation(t)
+	if err := r.device.WithContext(r.loadMathKernels); err != nil {
+		t.Fatal(err)
+	}
+	regs, err := r.f16PairOrderedBatchFn.GetAttribute(driver.FuncAttributeNumRegs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	localMem, err := r.f16PairOrderedBatchFn.GetAttribute(driver.FuncAttributeLocalSizeBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sharedMem, err := r.f16PairOrderedBatchFn.GetAttribute(driver.FuncAttributeSharedSizeBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	maxThreads, err := r.f16PairOrderedBatchFn.GetAttribute(driver.FuncAttributeMaxThreadsPerBlock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("ds4_f16_pair_ordered_chunks_batch: %d registers, %d bytes local memory, %d bytes shared memory, %d max threads per block",
+		regs, localMem, sharedMem, maxThreads)
 }

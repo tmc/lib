@@ -132,7 +132,7 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
 
 // DS4_F16_PAIR_MAX_BATCH bounds the batched pair kernel below. The Go side
 // mirrors it as cudaF16PairMaxBatch; a test asserts the two agree.
-#define DS4_F16_PAIR_MAX_BATCH 8
+#define DS4_F16_PAIR_MAX_BATCH 16
 
 // ds4_f16_pair_ordered_chunks_batch projects batch token-major activation rows
 // against the same weight pair with one launch, reading each weight element
@@ -140,27 +140,10 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
 // within-chunk order, and the ascending chunk-partial sum of the single-token
 // kernel above, so each output is bit-identical to a single-token launch.
 //
-// One warp owns one token: lane l of the warp owns chunk l, exactly the
-// partition the single-token kernel gives thread l, walked in the same
-// ascending order and reduced by the same ascending sum of 32 partials. The
-// batch therefore spreads across warps instead of serializing inside one, and
-// the weights each warp reads are staged once for the whole block.
-//
-// The launcher passes Block(256), so warp t owns token t_base + t. Grid is
-// (rows, ceil(batch/8)), so gridDim.x is the row count and gridDim.y is the
-// batch tiles; out_a and out_b are token-major, row-minor.
-//
-// Measured on GB10 over the 2048-token prefill, nsys kernel summary, matched
-// ABBA census of this exact body against the single-warp baseline, 15872
-// launches in every arm: 11.07 s -> 4.68 s, 697.4 -> 294.9 us/launch. One warp
-// per token without the float tiles gets only to ~6.5 s, because sharing the
-// weight LOAD across warps makes each warp repeat the software half-to-float
-// conversion over the same halves. No other kernel clears the 0.15 s
-// threshold; the non-target deltas sum to -0.15 s and -0.02 s across two clean
-// captures. Whole program: 30.5 t/s prefill and 59.8 s of device time at the
-// baseline, 33.9 t/s and 53.2 s here. Bit-exactness is not a digest comparison
-// but a byte-for-byte one: diff -r over the retained prefill capture trees for
-// n=2,64,65,66,128,129,2048 differs only in identity.json.
+// The launcher passes Block(256), so 8 warps process tokens in strided pairs
+// (tok0 = warp, tok1 = warp + 8). Grid is (rows, ceil(batch/16)), so
+// gridDim.x is the row count and gridDim.y is the batch tiles; out_a and out_b
+// are token-major, row-minor.
 extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
     const unsigned short *a, const unsigned short *b, const float *x,
     float *out_a, float *out_b, unsigned cols, unsigned batch) {
@@ -176,14 +159,7 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
   const float *batch_x = x + (unsigned long long)t_base * cols;
   float *batch_out_a = out_a + (unsigned long long)t_base * rows;
   float *batch_out_b = out_b + (unsigned long long)t_base * rows;
-  const unsigned long long token_off = (unsigned long long)warp * cols;
 
-  // One shared buffer per matrix, aliased two ways. The cols <= 4096 branches
-  // stage raw halves through it; the cols == 4096 branch stages a tile of
-  // already-converted floats through the same bytes. Sharing the storage is
-  // what keeps the float tiles free: ptxas reports 18688 bytes of smem and 40
-  // registers for this kernel either way, so residency per SM is unchanged and
-  // the surrounding kernels are untouched.
   __shared__ float s_raw_a[32 * 130 / 2], s_raw_b[32 * 130 / 2];
   unsigned short (*s_a)[130] = (unsigned short (*)[130])s_raw_a;
   unsigned short (*s_b)[130] = (unsigned short (*)[130])s_raw_b;
@@ -192,16 +168,15 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
   __shared__ float partial_a[DS4_F16_PAIR_MAX_BATCH][32];
   __shared__ float partial_b[DS4_F16_PAIR_MAX_BATCH][32];
 
+  const unsigned tok0 = warp;
+  const unsigned tok1 = warp + 8;
+
   if (cols == 4096) {
-    // Hot path. Each weight element is converted to float ONCE per block and
-    // staged as float, so the warps share the software half-to-float
-    // conversion rather than each of them repeating it. Staging walks a tile
-    // of 32 elements per chunk at a time so the float tile fits inside the
-    // buffer the half staging already used.
-    // Each lane still walks its own 128-element chunk in ascending order: the
-    // tiles split that walk, they do not reorder it.
-    float sum_a = 0.0f, sum_b = 0.0f;
-    const float *xk = (warp < cur_batch) ? (batch_x + token_off + (lane << 7)) : nullptr;
+    float sum0_a = 0.0f, sum0_b = 0.0f;
+    float sum1_a = 0.0f, sum1_b = 0.0f;
+    const float *xk0 = (tok0 < cur_batch) ? (batch_x + (unsigned long long)tok0 * cols + (lane << 7)) : nullptr;
+    const float *xk1 = (tok1 < cur_batch) ? (batch_x + (unsigned long long)tok1 * cols + (lane << 7)) : nullptr;
+
     for (unsigned t0 = 0; t0 < 128; t0 += 32) {
       __syncthreads();
       for (unsigned idx = tid; idx < 32 * 32; idx += blockDim.x) {
@@ -211,27 +186,50 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
         s_bf[c][j] = ds4_half_to_float(b[e]);
       }
       __syncthreads();
-      if (warp < cur_batch) {
-        for (unsigned j = 0; j < 32; j++) {
-          sum_a += s_af[lane][j] * xk[t0 + j];
-          sum_b += s_bf[lane][j] * xk[t0 + j];
+      for (unsigned j = 0; j < 32; j++) {
+        const float wa = s_af[lane][j];
+        const float wb = s_bf[lane][j];
+        if (xk0) {
+          const float x0 = xk0[t0 + j];
+          sum0_a += wa * x0;
+          sum0_b += wb * x0;
+        }
+        if (xk1) {
+          const float x1 = xk1[t0 + j];
+          sum1_a += wa * x1;
+          sum1_b += wb * x1;
         }
       }
     }
-    if (warp < cur_batch) {
-      partial_a[warp][lane] = sum_a;
-      partial_b[warp][lane] = sum_b;
+    if (tok0 < cur_batch) {
+      partial_a[tok0][lane] = sum0_a;
+      partial_b[tok0][lane] = sum0_b;
+    }
+    if (tok1 < cur_batch) {
+      partial_a[tok1][lane] = sum1_a;
+      partial_b[tok1][lane] = sum1_b;
     }
     __syncthreads();
 
-    if (lane == 0 && warp < cur_batch) {
-      float total_a = 0.0f, total_b = 0.0f;
-      for (unsigned i = 0; i < 32; i++) {
-        total_a += partial_a[warp][i];
-        total_b += partial_b[warp][i];
+    if (lane == 0) {
+      if (tok0 < cur_batch) {
+        float total_a = 0.0f, total_b = 0.0f;
+        for (unsigned i = 0; i < 32; i++) {
+          total_a += partial_a[tok0][i];
+          total_b += partial_b[tok0][i];
+        }
+        batch_out_a[(unsigned long long)tok0 * rows + row] = total_a;
+        batch_out_b[(unsigned long long)tok0 * rows + row] = total_b;
       }
-      batch_out_a[(unsigned long long)warp * rows + row] = total_a;
-      batch_out_b[(unsigned long long)warp * rows + row] = total_b;
+      if (tok1 < cur_batch) {
+        float total_a = 0.0f, total_b = 0.0f;
+        for (unsigned i = 0; i < 32; i++) {
+          total_a += partial_a[tok1][i];
+          total_b += partial_b[tok1][i];
+        }
+        batch_out_a[(unsigned long long)tok1 * rows + row] = total_a;
+        batch_out_b[(unsigned long long)tok1 * rows + row] = total_b;
+      }
     }
   } else if (cols <= 4096) {
     const unsigned chunk = (cols + 31) / 32;
@@ -245,53 +243,58 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
     }
     __syncthreads();
 
-    if (warp < cur_batch) {
+    for (unsigned tok = warp; tok < cur_batch; tok += 8) {
       unsigned start = lane * chunk;
       unsigned count = (cols > start) ? (cols - start) : 0;
       if (count > chunk) count = chunk;
-      const float *xk = batch_x + token_off + start;
+      const float *xk = batch_x + (unsigned long long)tok * cols + start;
       float sum_a = 0.0f, sum_b = 0.0f;
       for (unsigned k = 0; k < count; k++) {
         sum_a += ds4_half_to_float(s_a[lane][k]) * xk[k];
         sum_b += ds4_half_to_float(s_b[lane][k]) * xk[k];
       }
-      partial_a[warp][lane] = sum_a;
-      partial_b[warp][lane] = sum_b;
+      partial_a[tok][lane] = sum_a;
+      partial_b[tok][lane] = sum_b;
     }
     __syncthreads();
 
-    if (lane == 0 && warp < cur_batch) {
-      float total_a = 0.0f, total_b = 0.0f;
-      for (unsigned i = 0; i < 32; i++) {
-        total_a += partial_a[warp][i];
-        total_b += partial_b[warp][i];
+    if (lane == 0) {
+      for (unsigned tok = warp; tok < cur_batch; tok += 8) {
+        float total_a = 0.0f, total_b = 0.0f;
+        for (unsigned i = 0; i < 32; i++) {
+          total_a += partial_a[tok][i];
+          total_b += partial_b[tok][i];
+        }
+        batch_out_a[(unsigned long long)tok * rows + row] = total_a;
+        batch_out_b[(unsigned long long)tok * rows + row] = total_b;
       }
-      batch_out_a[(unsigned long long)warp * rows + row] = total_a;
-      batch_out_b[(unsigned long long)warp * rows + row] = total_b;
     }
   } else {
-    if (warp < cur_batch) {
+    for (unsigned tok = warp; tok < cur_batch; tok += 8) {
       unsigned long long chunk = ((unsigned long long)cols + 31) / 32;
       unsigned long long start = lane * chunk, end = start + chunk;
       if (end > cols) end = cols;
       float sum_a = 0.0f, sum_b = 0.0f;
+      const float *xk = batch_x + (unsigned long long)tok * cols;
       for (unsigned long long i = start; i < end; i++) {
-        sum_a += ds4_half_to_float(a[offset + i]) * batch_x[token_off + i];
-        sum_b += ds4_half_to_float(b[offset + i]) * batch_x[token_off + i];
+        sum_a += ds4_half_to_float(a[offset + i]) * xk[i];
+        sum_b += ds4_half_to_float(b[offset + i]) * xk[i];
       }
-      partial_a[warp][lane] = sum_a;
-      partial_b[warp][lane] = sum_b;
+      partial_a[tok][lane] = sum_a;
+      partial_b[tok][lane] = sum_b;
     }
     __syncthreads();
 
-    if (lane == 0 && warp < cur_batch) {
-      float total_a = 0.0f, total_b = 0.0f;
-      for (unsigned i = 0; i < 32; i++) {
-        total_a += partial_a[warp][i];
-        total_b += partial_b[warp][i];
+    if (lane == 0) {
+      for (unsigned tok = warp; tok < cur_batch; tok += 8) {
+        float total_a = 0.0f, total_b = 0.0f;
+        for (unsigned i = 0; i < 32; i++) {
+          total_a += partial_a[tok][i];
+          total_b += partial_b[tok][i];
+        }
+        batch_out_a[(unsigned long long)tok * rows + row] = total_a;
+        batch_out_b[(unsigned long long)tok * rows + row] = total_b;
       }
-      batch_out_a[(unsigned long long)warp * rows + row] = total_a;
-      batch_out_b[(unsigned long long)warp * rows + row] = total_b;
     }
   }
 }

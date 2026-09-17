@@ -48,6 +48,24 @@ func BenchmarkCUDAKernels(b *testing.B) {
 
 // BenchmarkCUDAQ80BatchWidth compares batch tiles on the attention projections.
 // Each timed launch must match independent per-token launches bit for bit.
+
+// BenchmarkCUDAF16PairBatchWidth compares inner tile batches across row dimensions and token counts.
+func BenchmarkCUDAF16PairBatchWidth(b *testing.B) {
+	if !*ds4CUPTIBench {
+		b.Skip("enable with -ds4-cuptibench under gpu-lock")
+	}
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		b.Fatal("gpu-lock is required")
+	}
+	for _, rows := range []int{256, 512, 1024} {
+		for _, batch := range []int{8, 16, 32, 64, 256} {
+			b.Run(fmt.Sprintf("rows=%d/tokens=%d", rows, batch), func(b *testing.B) {
+				cudaCUPTIF16(b, rows, batch)
+			})
+		}
+	}
+}
+
 func BenchmarkCUDAQ80BatchWidth(b *testing.B) {
 	if !*ds4CUPTIBench {
 		b.Skip("enable with -ds4-cuptibench under gpu-lock")
