@@ -3,20 +3,12 @@ extern "C" __global__ void ds4_probe(float *p) {
   if (blockIdx.x == 0 && threadIdx.x == 0) p[0] = 4.0f;
 }
 
-__device__ float ds4_half_to_float(unsigned short h) {
-  const unsigned int sign = unsigned(h & 0x8000) << 16;
-  unsigned int exp = (h >> 10) & 0x1f;
-  unsigned int frac = h & 0x03ff;
-  if (exp == 0) {
-    if (frac == 0) return __uint_as_float(sign);
-    int e = -14;
-    while ((frac & 0x0400) == 0) { frac <<= 1; e--; }
-    frac &= 0x03ff;
-    return __uint_as_float(sign | unsigned(e + 127) << 23 | frac << 13);
-  }
-  if (exp == 0x1f)
-    return __uint_as_float(sign | 0x7f800000 | frac << 13);
-  return __uint_as_float(sign | (exp - 15 + 127) << 23 | frac << 13);
+#include <cuda_fp16.h>
+
+__device__ __forceinline__ float ds4_half_to_float(unsigned short h) {
+  __half_raw hr;
+  hr.x = h;
+  return __half2float(__half(hr));
 }
 
 extern "C" __global__ void ds4_read_u16(const unsigned short *p, unsigned int *out) {
