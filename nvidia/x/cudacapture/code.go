@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -131,6 +132,10 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 		}
 		lineNumbers[currentKernel+"\x00"+line] = i + 1
 		cuLines[i+1] = cuLine
+	}
+
+	if err := verifyLineBinding(p, d, sourceBase); err != nil {
+		return nil, err
 	}
 
 	var code Code
@@ -303,4 +308,61 @@ func isArithmeticPTXOpcode(op string) bool {
 		}
 	}
 	return false
+}
+
+// verifyLineBinding reports whether the PTX and the SASS can have come from one
+// compilation of the file named by sourceBase.
+//
+// Nothing else in this package binds the two tiers: they are matched by
+// filename, so a PTX and a SASS produced by separate compilations of different
+// files that happen to share a name fuse into a plausible table with no signal.
+// The line tables are the evidence at hand. SASS line info is derived from the
+// same debug information the PTX .loc directives were written from, so every
+// source line the SASS claims must also be claimed somewhere in the PTX; a line
+// the SASS claims and the PTX never does cannot have come from this PTX.
+//
+// Measured on the GB10 host with CUDA 13.0 and sm_121: ten matched pairs --
+// the qualification fixture, a constant mutation of it, a two-kernel module, a
+// module of templates, unrolled loops and a __forceinline__ helper, and the
+// fixture at -O0 through -O3 -- each report zero unclaimed lines. Crossing two
+// compilations of one filename whose line numbers differ reports 8, 8 and 13.
+//
+// The check is blind by construction to a fusion that preserves line numbers:
+// crossing the fixture with a mutation that changed only a constant reports
+// zero, because the two line tables really are identical. Closing that case
+// needs a content digest recorded at compile time, which no producer here
+// writes yet.
+func verifyLineBinding(p *cudaptx.Module, d *cudasass.Disassembly, sourceBase string) error {
+	claimed := make(map[int]bool)
+	for _, k := range p.Kernels {
+		for _, inst := range k.Instructions {
+			for _, l := range append([]cudaptx.Location{inst.Loc}, inst.InlinedAt...) {
+				if l.Line > 0 && filepath.Base(l.File) == sourceBase {
+					claimed[l.Line] = true
+				}
+			}
+		}
+	}
+	var unclaimed []int
+	seen := make(map[int]bool)
+	for _, fn := range d.Functions {
+		for _, inst := range fn.Instructions {
+			for _, l := range []struct {
+				file string
+				line int
+			}{{inst.SourceFile, inst.SourceLine}, {inst.InlinedFile, inst.InlinedLine}} {
+				if l.line <= 0 || filepath.Base(l.file) != sourceBase || claimed[l.line] || seen[l.line] {
+					continue
+				}
+				seen[l.line] = true
+				unclaimed = append(unclaimed, l.line)
+			}
+		}
+	}
+	if len(unclaimed) == 0 {
+		return nil
+	}
+	sort.Ints(unclaimed)
+	return fmt.Errorf("cudacapture: PTX and SASS are not from one compilation of %s: the SASS attributes instructions to %d source line(s) the PTX never names (%v); the PTX names %d line(s) of that file",
+		sourceBase, len(unclaimed), unclaimed, len(claimed))
 }

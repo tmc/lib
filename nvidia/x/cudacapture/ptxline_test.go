@@ -84,7 +84,7 @@ func TestPTXLineUnknownWhenSourceLineIsAmbiguous(t *testing.T) {
 	}
 }
 
-// unmappedRetPTX leaves source line 3, where the RET sits, with no PTX
+// unmappedRetPTX leaves source line 3, where the SASS RET sits, with no PTX
 // instruction at all.
 const unmappedRetPTX = `.version 8.0
 .target sm_90
@@ -102,19 +102,53 @@ const unmappedRetPTX = `.version 8.0
 }
 `
 
-func TestRetIsNotAttributedByWalkingBack(t *testing.T) {
-	code, err := cudacapture.LoadCode(loadFixtureCapture(t, unmappedRetPTX, ""))
-	if err != nil {
-		t.Fatalf("LoadCode: %v", err)
+func TestUnclaimedSourceLineIsRefused(t *testing.T) {
+	// The PTX names only line 2; the SASS attributes its RET to line 3. The
+	// two cannot be one compilation, and the previous behaviour was to fuse
+	// them and report the RET at the PTX line of the last "ret" it could find.
+	_, err := cudacapture.LoadCode(loadFixtureCapture(t, unmappedRetPTX, ""))
+	if err == nil {
+		t.Fatal("LoadCode accepted a SASS claiming a source line the PTX never names")
 	}
-	inst := code.Kernels[0].Instruction(0x10)
-	if inst == nil {
-		t.Fatal("no instruction at offset 0x10")
+	for _, want := range []string{"not from one compilation", "kernels.cu", "[3]"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
 	}
-	// The PTX ret is at line 13 but claims source line 2, not 3. Scanning back
-	// for the last "ret" would report line 13 on the strength of the opcode
-	// alone.
-	if inst.PTXLine != 0 {
-		t.Errorf("PTXLine = %d, want 0 (unknown)", inst.PTXLine)
+}
+
+// shiftedPTX is the fixture PTX with every source line moved by two, as a
+// second compilation of a file of the same name would have.
+const shiftedPTX = `.version 8.0
+.target sm_90
+.address_size 64
+
+.file 1 "kernels.cu"
+
+.visible .entry compute(
+	.param .u64 a
+)
+{
+	.loc 1 4 0;
+	mov.u64 %rd1, %rd2;
+	.loc 1 5 0;
+	ret;
+}
+`
+
+func TestFusedPairIsRefused(t *testing.T) {
+	_, err := cudacapture.LoadCode(loadFixtureCapture(t, shiftedPTX, ""))
+	if err == nil {
+		t.Fatal("LoadCode fused a PTX and SASS whose line tables disagree")
+	}
+	if !strings.Contains(err.Error(), "not from one compilation") {
+		t.Errorf("error = %v, want a binding failure", err)
+	}
+}
+
+func TestMatchedPairLoads(t *testing.T) {
+	// The gate must not refuse the pair it is meant to admit.
+	if _, err := cudacapture.LoadCode(loadFixtureCapture(t, "", "")); err != nil {
+		t.Fatalf("LoadCode on the matched fixture: %v", err)
 	}
 }
