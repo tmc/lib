@@ -1,0 +1,1 @@
+commit=b89a207fae2916837cdd68b6a40153a52c9f563d; date=2026-09-17T00:57:17Z; agent=antigravity; model=gemini; tty=/dev/ttys508; pid=28621; ITERM_SESSION_ID=; Validation: BenchmarkCUDAFFNPre, TestCUDAExpertsQ81GatherDifferential, TestCUDAPrefillGather (lengths 2, 64, 256, 2048) bit-exact digest 3c190c73110cec7aed9f22916a1c84216eb7338071040846cc1d0bd992456aa5
