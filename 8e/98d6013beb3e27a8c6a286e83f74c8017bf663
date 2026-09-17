@@ -1,0 +1,9 @@
+commit: 8e98d6013beb3e27a8c6a286e83f74c8017bf663
+date: 2026-09-17T08:47:33Z
+model: GPT-6 Codex
+claude-code-version: unavailable
+ tty: unavailable
+pid: 73184
+ITERM_SESSION_ID: unavailable
+qualification: DGX GB10 sm_121 under gpu-lock; full 16-prefix receipt passed; canonical digest preserved
+profiles: /Users/tmc/tmp/ds4-attn-rows32-20260917/candidate-prefill-pcsampled.pprof and base-prefill-pcsampled.pprof
