@@ -15,17 +15,67 @@ type Expr struct {
 
 func (e *Expr) String() string {
 	if len(e.Children) == 0 {
+		if e.Data != nil && fmt.Sprint(e.Data) != e.Op {
+			return fmt.Sprintf("%s{%v}", e.Op, e.Data)
+		}
 		return e.Op
 	}
 	var sb strings.Builder
 	sb.WriteString("(")
 	sb.WriteString(e.Op)
+	if e.Data != nil && fmt.Sprint(e.Data) != e.Op {
+		sb.WriteString(fmt.Sprintf("{%v}", e.Data))
+	}
 	for _, c := range e.Children {
 		sb.WriteString(" ")
 		sb.WriteString(c.String())
 	}
 	sb.WriteString(")")
 	return sb.String()
+}
+
+// Fingerprint returns an unambiguous structural representation preserving Op, Data, and child structure.
+func (e *Expr) Fingerprint() string {
+	if e == nil {
+		return "<nil>"
+	}
+	if len(e.Children) == 0 {
+		if e.Data != nil {
+			return fmt.Sprintf("%s{%T:%v}", e.Op, e.Data, e.Data)
+		}
+		return e.Op
+	}
+	var sb strings.Builder
+	sb.WriteString("(")
+	sb.WriteString(e.Op)
+	if e.Data != nil {
+		sb.WriteString(fmt.Sprintf("{%T:%v}", e.Data, e.Data))
+	}
+	for _, c := range e.Children {
+		sb.WriteString(" ")
+		sb.WriteString(c.Fingerprint())
+	}
+	sb.WriteString(")")
+	return sb.String()
+}
+
+// Equal returns true if e and other have identical tree structure, operations, and data values.
+func (e *Expr) Equal(other *Expr) bool {
+	if e == other {
+		return true
+	}
+	if e == nil || other == nil {
+		return false
+	}
+	if e.Op != other.Op || e.Data != other.Data || len(e.Children) != len(other.Children) {
+		return false
+	}
+	for i := range e.Children {
+		if !e.Children[i].Equal(other.Children[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // CostModel calculates the cost of an ENode given the best costs of its child e-classes.
@@ -68,11 +118,18 @@ func NewExtractor(g *EGraph, costModel CostModel) *Extractor {
 }
 
 func (ext *Extractor) computeCosts() {
-	// Fixed-point iteration to compute optimal bottom-up costs
+	// Fixed-point iteration to compute optimal bottom-up costs.
+	// Bounded iteration limit: at most len(classes) + 2 passes to prevent infinite loop on cyclic dependencies.
+	classes := ext.g.Classes()
+	maxIters := len(classes) + 2
+	if maxIters < 10 {
+		maxIters = 10
+	}
+
 	changed := true
-	for changed {
+	for iter := 0; iter < maxIters && changed; iter++ {
 		changed = false
-		for _, eclass := range ext.g.Classes() {
+		for _, eclass := range classes {
 			canonicalID := ext.g.Find(eclass.ID)
 
 			for _, node := range eclass.Nodes {
@@ -81,7 +138,7 @@ func (ext *Extractor) computeCosts() {
 				for i, c := range node.Children {
 					childID := ext.g.Find(c)
 					cost, ok := ext.costs[childID]
-					if !ok {
+					if !ok || math.IsNaN(cost) || math.IsInf(cost, 0) {
 						allChildrenKnown = false
 						break
 					}
@@ -93,6 +150,11 @@ func (ext *Extractor) computeCosts() {
 				}
 
 				nodeCost := ext.costModel.NodeCost(node, childCosts)
+				// Reject non-finite costs (NaN or +/-Inf)
+				if math.IsNaN(nodeCost) || math.IsInf(nodeCost, 0) {
+					continue
+				}
+
 				currentBest, exists := ext.costs[canonicalID]
 				if !exists || nodeCost < currentBest {
 					ext.costs[canonicalID] = nodeCost
@@ -108,31 +170,53 @@ func (ext *Extractor) computeCosts() {
 func (ext *Extractor) Extract(root Id) (*Expr, float64, error) {
 	canonicalRoot := ext.g.Find(root)
 	cost, ok := ext.costs[canonicalRoot]
-	if !ok {
-		return nil, 0, fmt.Errorf("egraph: unable to extract e-class %d (cyclic or ungrounded)", root)
+	if !ok || math.IsNaN(cost) || math.IsInf(cost, 0) {
+		return nil, 0, fmt.Errorf("egraph: unable to extract e-class %d (cyclic, ungrounded, or nonfinite cost)", root)
 	}
 
-	expr := ext.buildExpr(canonicalRoot)
+	visited := make(map[Id]bool)
+	expr, err := ext.buildExprChecked(canonicalRoot, visited)
+	if err != nil {
+		return nil, 0, fmt.Errorf("egraph: extract e-class %d: %w", root, err)
+	}
 	return expr, cost, nil
 }
 
 func (ext *Extractor) buildExpr(id Id) *Expr {
+	expr, _ := ext.buildExprChecked(id, make(map[Id]bool))
+	if expr == nil {
+		return &Expr{Op: fmt.Sprintf("<unextracted:%d>", ext.g.Find(id))}
+	}
+	return expr
+}
+
+func (ext *Extractor) buildExprChecked(id Id, visited map[Id]bool) (*Expr, error) {
 	canonicalID := ext.g.Find(id)
+	if visited[canonicalID] {
+		return nil, fmt.Errorf("cyclic extraction detected at e-class %d", canonicalID)
+	}
 	bestNode, ok := ext.bestNodes[canonicalID]
 	if !ok {
-		return &Expr{Op: fmt.Sprintf("<unextracted:%d>", canonicalID)}
+		return nil, fmt.Errorf("no extracted node for e-class %d", canonicalID)
 	}
+
+	visited[canonicalID] = true
+	defer delete(visited, canonicalID)
 
 	children := make([]*Expr, len(bestNode.Children))
 	for i, childID := range bestNode.Children {
-		children[i] = ext.buildExpr(childID)
+		child, err := ext.buildExprChecked(childID, visited)
+		if err != nil {
+			return nil, err
+		}
+		children[i] = child
 	}
 
 	return &Expr{
 		Op:       bestNode.Op,
 		Data:     bestNode.Data,
 		Children: children,
-	}
+	}, nil
 }
 
 // ExtractBest is a convenience function that initializes an Extractor and extracts the best expression.
@@ -281,7 +365,7 @@ type CandidateAST struct {
 }
 
 // ExtractTopK extracts up to k structurally unique candidate ASTs from the root e-class,
-// ordered by cost.
+// exploring combinations across both root-level alternatives and nested child alternatives, ordered by cost.
 func (ext *Extractor) ExtractTopK(root Id, k int) ([]CandidateAST, error) {
 	if k <= 0 {
 		k = 1
@@ -299,36 +383,125 @@ func (ext *Extractor) ExtractTopK(root Id, k int) ([]CandidateAST, error) {
 	var candidates []nodeCandidate
 	seen := make(map[string]bool)
 
+	// Memoized table for top child alternatives per e-class (limit branching per child e-class to min(k, 4))
+	childLimit := k
+	if childLimit > 4 {
+		childLimit = 4
+	}
+	childCandMemo := make(map[Id][]nodeCandidate)
+
+	var getChildCands func(cid Id, depth int) []nodeCandidate
+	getChildCands = func(cid Id, depth int) []nodeCandidate {
+		cCanon := ext.g.Find(cid)
+		if cached, ok := childCandMemo[cCanon]; ok {
+			return cached
+		}
+		cClass, ok := ext.g.classes[cCanon]
+		if !ok || len(cClass.Nodes) == 0 || depth > 4 {
+			// Fallback to best single expression
+			if _, hasCost := ext.costs[cCanon]; hasCost {
+				expr := ext.buildExpr(cCanon)
+				return []nodeCandidate{{expr: expr, cost: ext.costs[cCanon]}}
+			}
+			return nil
+		}
+
+		var cands []nodeCandidate
+		cSeen := make(map[string]bool)
+		for _, n := range cClass.Nodes {
+			valid := true
+			childCosts := make([]float64, len(n.Children))
+			childExprs := make([]*Expr, len(n.Children))
+			for i, ch := range n.Children {
+				chID := ext.g.Find(ch)
+				cCost, ok := ext.costs[chID]
+				if !ok {
+					valid = false
+					break
+				}
+				childCosts[i] = cCost
+				childExprs[i] = ext.buildExpr(chID)
+			}
+			if !valid {
+				continue
+			}
+			expr := &Expr{Op: n.Op, Data: n.Data, Children: childExprs}
+			fp := expr.Fingerprint()
+			if cSeen[fp] {
+				continue
+			}
+			cSeen[fp] = true
+			cost := ext.costModel.NodeCost(n, childCosts)
+			cands = append(cands, nodeCandidate{expr: expr, cost: cost})
+		}
+		// Sort ascending
+		for i := 0; i < len(cands); i++ {
+			for j := i + 1; j < len(cands); j++ {
+				if cands[j].cost < cands[i].cost {
+					cands[i], cands[j] = cands[j], cands[i]
+				}
+			}
+		}
+		if len(cands) > childLimit {
+			cands = cands[:childLimit]
+		}
+		childCandMemo[cCanon] = cands
+		return cands
+	}
+
 	for _, node := range eclass.Nodes {
-		childCosts := make([]float64, len(node.Children))
-		childExprs := make([]*Expr, len(node.Children))
-		valid := true
+		if len(node.Children) == 0 {
+			cost := ext.costModel.NodeCost(node, nil)
+			expr := &Expr{Op: node.Op, Data: node.Data}
+			fp := expr.Fingerprint()
+			if !seen[fp] {
+				seen[fp] = true
+				candidates = append(candidates, nodeCandidate{expr: expr, cost: cost})
+			}
+			continue
+		}
+
+		// Enumerate child candidate combinations for this node
+		childOptions := make([][]nodeCandidate, len(node.Children))
+		hasValidOptions := true
 		for i, c := range node.Children {
-			childID := ext.g.Find(c)
-			cost, ok := ext.costs[childID]
-			if !ok {
-				valid = false
+			opts := getChildCands(c, 0)
+			if len(opts) == 0 {
+				hasValidOptions = false
 				break
 			}
-			childCosts[i] = cost
-			childExprs[i] = ext.buildExpr(childID)
+			childOptions[i] = opts
 		}
-		if !valid {
+		if !hasValidOptions {
 			continue
 		}
-		expr := &Expr{
-			Op:       node.Op,
-			Data:     node.Data,
-			Children: childExprs,
-		}
-		exprStr := expr.String()
-		if seen[exprStr] {
-			continue
-		}
-		seen[exprStr] = true
 
-		cost := ext.costModel.NodeCost(node, childCosts)
-		candidates = append(candidates, nodeCandidate{expr: expr, cost: cost})
+		// Cartesian product over child options (bounded)
+		var generateCombos func(idx int, currentExprs []*Expr, currentCosts []float64)
+		generateCombos = func(idx int, currentExprs []*Expr, currentCosts []float64) {
+			if idx == len(childOptions) {
+				expr := &Expr{
+					Op:       node.Op,
+					Data:     node.Data,
+					Children: append([]*Expr(nil), currentExprs...),
+				}
+				fp := expr.Fingerprint()
+				if !seen[fp] {
+					seen[fp] = true
+					cost := ext.costModel.NodeCost(node, currentCosts)
+					candidates = append(candidates, nodeCandidate{expr: expr, cost: cost})
+				}
+				return
+			}
+			for _, opt := range childOptions[idx] {
+				generateCombos(idx+1, append(currentExprs, opt.expr), append(currentCosts, opt.cost))
+				if len(candidates) >= k*4 {
+					return
+				}
+			}
+		}
+
+		generateCombos(0, nil, nil)
 	}
 
 	if len(candidates) == 0 {

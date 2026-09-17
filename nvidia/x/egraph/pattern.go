@@ -1,10 +1,13 @@
 package egraph
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
 )
+
+var ErrMatchWorkLimit = errors.New("egraph: pattern match work limit exceeded")
 
 // Subst maps pattern variable names (e.g. "?x") to canonical E-Class IDs.
 type Subst map[string]Id
@@ -147,8 +150,49 @@ func (p *Pattern) Search(g *EGraph) []MatchMatch {
 	return matches
 }
 
+// SearchBounded searches in class order and stops once limit matches have
+// been produced. This bounds the candidate pool exposed to search policies.
+func (p *Pattern) SearchBounded(g *EGraph, limit int) ([]MatchMatch, bool) {
+	if limit <= 0 {
+		return nil, false
+	}
+	var matches []MatchMatch
+	work := 0
+	for _, c := range g.Classes() {
+		for _, s := range p.matchEClassBudget(g, c.ID, make(Subst), &work, limit) {
+			if len(matches) >= limit {
+				return matches, true
+			}
+			matches = append(matches, MatchMatch{ClassID: c.ID, Subst: s})
+		}
+	}
+	return matches, work > limit
+}
+
 // MatchEClass checks if this pattern matches against a specific e-class.
 func (p *Pattern) MatchEClass(g *EGraph, classID Id, current Subst) []Subst {
+	work := 0
+	return p.matchEClassBudget(g, classID, current, &work, 100000)
+}
+
+// MatchEClassBounded matches with a finite recursive work budget.
+func (p *Pattern) MatchEClassBounded(g *EGraph, classID Id, current Subst, limit int) ([]Subst, error) {
+	if limit <= 0 {
+		return nil, ErrMatchWorkLimit
+	}
+	work := 0
+	result := p.matchEClassBudget(g, classID, current, &work, limit)
+	if work > limit {
+		return nil, ErrMatchWorkLimit
+	}
+	return result, nil
+}
+
+func (p *Pattern) matchEClassBudget(g *EGraph, classID Id, current Subst, work *int, limit int) []Subst {
+	(*work)++
+	if *work > limit {
+		return nil
+	}
 	canonicalID := g.Find(classID)
 
 	if p.IsVar {
@@ -181,7 +225,7 @@ func (p *Pattern) MatchEClass(g *EGraph, classID Id, current Subst) []Subst {
 			childClassID := node.Children[i]
 			var nextSubsts []Subst
 			for _, sub := range currentSubsts {
-				res := childPat.MatchEClass(g, childClassID, sub)
+				res := childPat.matchEClassBudget(g, childClassID, sub, work, limit)
 				nextSubsts = append(nextSubsts, res...)
 			}
 			currentSubsts = nextSubsts
