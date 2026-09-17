@@ -84,9 +84,13 @@ func StripOfflineFlags(flags []string) ([]string, cudakernel.JITOptions) {
 	return src, jit
 }
 
-// resolveExternalDependencies scans source for #include directives and attempts
-// to resolve them against search paths, hashing their contents.
-// If any external header cannot be resolved, allTracked is false.
+// resolveExternalDependencies walks the #include closure of src and hashes the
+// contents of every header it can resolve, so that editing any of them changes
+// the compilation cache identity. Headers reached through another header count:
+// scanning only src leaves a transitive include un-hashed, and a cache keyed on
+// an incomplete input set returns an artifact that no longer matches the source.
+// If any header in the closure cannot be resolved, allTracked is false and the
+// caller must not cache.
 func resolveExternalDependencies(src string, flags []string, inMemoryHeaders map[string]string) (deps []cudakernel.Dependency, allTracked bool) {
 	allTracked = true
 	var searchPaths []string
@@ -98,9 +102,71 @@ func resolveExternalDependencies(src string, flags []string, inMemoryHeaders map
 		}
 	}
 
-	scanner := bufio.NewScanner(strings.NewReader(src))
+	// Breadth-first over include names so deps stays in a deterministic order:
+	// computeDependencyKey hashes the sequence, not a set.
+	queue := []string{src}
 	seen := make(map[string]bool)
 
+	for len(queue) > 0 {
+		text := queue[0]
+		queue = queue[1:]
+
+		for _, headerName := range scanIncludes(text) {
+			if seen[headerName] {
+				continue
+			}
+			seen[headerName] = true
+
+			// In-memory headers are hashed already as part of cfg.headers, but
+			// what they include is not, so they still have to be walked.
+			if content, ok := inMemoryHeaders[headerName]; ok {
+				queue = append(queue, content)
+				continue
+			}
+
+			var foundPath string
+			for _, sp := range searchPaths {
+				candidate := filepath.Join(sp, headerName)
+				if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
+					foundPath = candidate
+					break
+				}
+			}
+
+			if foundPath != "" {
+				if data, err := os.ReadFile(foundPath); err == nil {
+					h := sha256.Sum256(data)
+					deps = append(deps, cudakernel.Dependency{
+						Path:    foundPath,
+						Digest:  hex.EncodeToString(h[:]),
+						Tracked: true,
+					})
+					queue = append(queue, string(data))
+					continue
+				}
+			}
+
+			// Unresolved external header: record explicit inability to validate.
+			deps = append(deps, cudakernel.Dependency{
+				Path:     headerName,
+				Tracked:  false,
+				ErrorMsg: "unable to validate external header",
+			})
+			allTracked = false
+		}
+	}
+
+	return deps, allTracked
+}
+
+// scanIncludes returns the header names named by #include directives in src, in
+// order of appearance. It is a line scan, not a preprocessor: it does not
+// evaluate conditionals, so a header behind a false #if is still reported.
+// Over-reporting costs a cache miss; under-reporting would cost a stale hit.
+func scanIncludes(src string) []string {
+	var names []string
+	scanner := bufio.NewScanner(strings.NewReader(src))
+	scanner.Buffer(make([]byte, 0, 64*1024), maxIncludeLineSize)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if !strings.HasPrefix(line, "#include") {
@@ -110,64 +176,26 @@ func resolveExternalDependencies(src string, flags []string, inMemoryHeaders map
 		if len(rest) < 3 {
 			continue
 		}
-
-		var headerName string
-		if rest[0] == '"' {
-			end := strings.IndexByte(rest[1:], '"')
-			if end >= 0 {
-				headerName = rest[1 : end+1]
-			}
-		} else if rest[0] == '<' {
-			end := strings.IndexByte(rest[1:], '>')
-			if end >= 0 {
-				headerName = rest[1 : end+1]
-			}
-		}
-
-		if headerName == "" || seen[headerName] {
+		var closer byte
+		switch rest[0] {
+		case '"':
+			closer = '"'
+		case '<':
+			closer = '>'
+		default:
 			continue
 		}
-		seen[headerName] = true
-
-		// In-memory headers are already tracked in cfg.headers
-		if _, ok := inMemoryHeaders[headerName]; ok {
-			continue
+		if end := strings.IndexByte(rest[1:], closer); end > 0 {
+			names = append(names, rest[1:end+1])
 		}
-
-		// Search include paths on disk
-		var foundPath string
-		for _, sp := range searchPaths {
-			candidate := filepath.Join(sp, headerName)
-			if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
-				foundPath = candidate
-				break
-			}
-		}
-
-		if foundPath != "" {
-			data, err := os.ReadFile(foundPath)
-			if err == nil {
-				h := sha256.Sum256(data)
-				deps = append(deps, cudakernel.Dependency{
-					Path:    foundPath,
-					Digest:  hex.EncodeToString(h[:]),
-					Tracked: true,
-				})
-				continue
-			}
-		}
-
-		// Unresolved external header: record explicit inability to validate
-		deps = append(deps, cudakernel.Dependency{
-			Path:     headerName,
-			Tracked:  false,
-			ErrorMsg: "unable to validate external header",
-		})
-		allTracked = false
 	}
-
-	return deps, allTracked
+	return names
 }
+
+// maxIncludeLineSize bounds a single line during the include scan. Generated
+// CUDA sources can carry lines far longer than bufio.Scanner allows by default,
+// and a scan that stops early silently under-reports dependencies.
+const maxIncludeLineSize = 1 << 20
 
 func computeDependencyKey(deps []cudakernel.Dependency) string {
 	var sb strings.Builder
