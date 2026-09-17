@@ -12,8 +12,9 @@ import (
 
 // HTTPRemoteSource implements RemoteSource using HTTP GET/PUT requests against a remote registry.
 type HTTPRemoteSource struct {
-	client  *http.Client
-	baseURL string
+	client           *http.Client
+	baseURL          string
+	maxDownloadBytes int64
 }
 
 // NewHTTPRemoteSource creates an HTTPRemoteSource pointing at baseURL.
@@ -22,8 +23,9 @@ func NewHTTPRemoteSource(baseURL string, client *http.Client) *HTTPRemoteSource 
 		client = http.DefaultClient
 	}
 	return &HTTPRemoteSource{
-		client:  client,
-		baseURL: baseURL,
+		client:           client,
+		baseURL:          baseURL,
+		maxDownloadBytes: DefaultMaxRemoteDownloadBytes,
 	}
 }
 
@@ -71,7 +73,17 @@ func (h *HTTPRemoteSource) FetchReceipt(ctx context.Context, key string) ([]byte
 		return nil, fmt.Errorf("remote returned HTTP %d", resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	if h.maxDownloadBytes > 0 && resp.ContentLength > h.maxDownloadBytes {
+		return nil, ErrDownloadLimitExceeded
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, h.maxDownloadBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if h.maxDownloadBytes > 0 && int64(len(data)) > h.maxDownloadBytes {
+		return nil, ErrDownloadLimitExceeded
+	}
+	return data, nil
 }
 
 // PublishArtifact uploads an artifact payload to the remote server.
