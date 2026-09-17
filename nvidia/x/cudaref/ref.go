@@ -33,11 +33,11 @@ func MatMul(a, b []float32, M, N, K int) ([]float32, error) {
 	c := make([]float32, M*N)
 	for i := 0; i < M; i++ {
 		for j := 0; j < N; j++ {
-			var acc float32
+			var acc float64
 			for k := 0; k < K; k++ {
-				acc += a[i*K+k] * b[k*N+j]
+				acc += float64(a[i*K+k]) * float64(b[k*N+j])
 			}
-			c[i*N+j] = acc
+			c[i*N+j] = float32(acc)
 		}
 	}
 	return c, nil
@@ -51,38 +51,58 @@ func Softmax(src []float32) []float32 {
 
 	maxVal := src[0]
 	for _, v := range src {
+		if math.IsNaN(float64(v)) {
+			dst := make([]float32, len(src))
+			for i := range dst {
+				dst[i] = float32(math.NaN())
+			}
+			return dst
+		}
 		if v > maxVal {
 			maxVal = v
 		}
 	}
 
 	dst := make([]float32, len(src))
-	var sumExp float32
+	var sumExp float64
 	for i, v := range src {
-		e := float32(math.Exp(float64(v - maxVal)))
-		dst[i] = e
+		e := math.Exp(float64(v - maxVal))
+		dst[i] = float32(e)
 		sumExp += e
 	}
 
 	for i := range dst {
-		dst[i] /= sumExp
+		dst[i] = float32(float64(dst[i]) / sumExp)
 	}
 	return dst
 }
 
-// ElementwiseUnary evaluates unary operations on CPU.
+// ElementwiseUnary evaluates unary operations on CPU with explicit IEEE-754 adherence.
 func ElementwiseUnary(src []float32, op string) ([]float32, error) {
 	dst := make([]float32, len(src))
 	for i, v := range src {
+		if math.IsNaN(float64(v)) {
+			dst[i] = float32(math.NaN())
+			continue
+		}
 		switch op {
 		case "relu":
 			if v > 0 {
 				dst[i] = v
 			} else {
-				dst[i] = 0
+				dst[i] = 0.0
 			}
+		case "gelu":
+			// Exact erf formulation: 0.5 * x * (1 + erf(x / sqrt(2)))
+			x := float64(v)
+			dst[i] = float32(0.5 * x * (1.0 + math.Erf(x/math.Sqrt2)))
+		case "silu":
+			x := float64(v)
+			dst[i] = float32(x / (1.0 + math.Exp(-x)))
 		case "exp":
 			dst[i] = float32(math.Exp(float64(v)))
+		case "log":
+			dst[i] = float32(math.Log(float64(v)))
 		case "sqrt":
 			dst[i] = float32(math.Sqrt(float64(v)))
 		case "neg":
@@ -94,7 +114,7 @@ func ElementwiseUnary(src []float32, op string) ([]float32, error) {
 	return dst, nil
 }
 
-// ElementwiseBinary evaluates binary operations on CPU.
+// ElementwiseBinary evaluates binary operations on CPU with explicit IEEE-754 adherence.
 func ElementwiseBinary(a, b []float32, op string) ([]float32, error) {
 	if len(a) != len(b) {
 		return nil, fmt.Errorf("cudaref: length mismatch (%d vs %d)", len(a), len(b))
@@ -106,7 +126,7 @@ func ElementwiseBinary(a, b []float32, op string) ([]float32, error) {
 			dst[i] = a[i] + b[i]
 		case "sub":
 			dst[i] = a[i] - b[i]
-		case "mul":
+		case "mul", "multiply":
 			dst[i] = a[i] * b[i]
 		case "div":
 			dst[i] = a[i] / b[i]
