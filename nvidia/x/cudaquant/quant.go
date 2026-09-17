@@ -5,6 +5,7 @@ package cudaquant
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"math"
 )
 
@@ -26,6 +27,143 @@ type BlockQ4_0 struct {
 type BlockQ8_0 struct {
 	Scale  uint16   // float16 scale factor
 	Quants [32]int8 // 32 8-bit integers
+}
+
+// BlockQ8_1 stores a normalized 32-element row block with fp16 d and s.
+type BlockQ8_1 struct {
+	D      uint16
+	S      uint16
+	Quants [32]int8
+}
+
+// RMSNormQ8_1 computes row-wise RMS normalization and Q8_1 quantization.
+// When weighted is true, weight must contain one value per column and is
+// applied after normalization. Quantization rounds to nearest integer and
+// saturates to [-127,127].
+func RMSNormQ8_1(input, weight []float32, rows, cols int, epsilon float32, weighted bool) ([]BlockQ8_1, error) {
+	if rows <= 0 || cols <= 0 || rows > math.MaxInt/cols || cols%32 != 0 || epsilon < 0 || math.IsNaN(float64(epsilon)) || math.IsInf(float64(epsilon), 0) {
+		return nil, fmt.Errorf("cudaquant: invalid RMSNorm dimensions or epsilon")
+	}
+	if len(input) != rows*cols {
+		return nil, fmt.Errorf("cudaquant: input length mismatch")
+	}
+	if weighted && len(weight) != cols {
+		return nil, fmt.Errorf("cudaquant: weight length mismatch")
+	}
+	for _, v := range input {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return nil, fmt.Errorf("cudaquant: nonfinite input")
+		}
+	}
+	if weighted {
+		for _, v := range weight {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				return nil, fmt.Errorf("cudaquant: nonfinite weight")
+			}
+		}
+	}
+	out := make([]BlockQ8_1, rows*cols/32)
+	for r := 0; r < rows; r++ {
+		var ss float64
+		for c := 0; c < cols; c++ {
+			v := input[r*cols+c]
+			ss += float64(v) * float64(v)
+		}
+		denom := ss/float64(cols) + float64(epsilon)
+		if denom == 0 {
+			return nil, fmt.Errorf("cudaquant: zero normalization denominator")
+		}
+		inv := float32(1 / math.Sqrt(denom))
+		for b := 0; b < cols/32; b++ {
+			var max float32
+			vals := [32]float32{}
+			for i := 0; i < 32; i++ {
+				v := input[r*cols+b*32+i] * inv
+				if weighted {
+					v *= weight[b*32+i]
+				}
+				if math.IsInf(float64(v), 0) || math.IsNaN(float64(v)) {
+					return nil, fmt.Errorf("cudaquant: normalized value is nonfinite")
+				}
+				vals[i] = v
+				if math.Abs(float64(v)) > float64(max) {
+					max = float32(math.Abs(float64(v)))
+				}
+			}
+			qscale := max / 127
+			q := &out[r*cols/32+b]
+			q.D = float32ToFloat16(qscale)
+			if qscale == 0 {
+				continue
+			}
+			sum := 0
+			for i, v := range vals {
+				qv := int(math.Round(float64(v / qscale)))
+				if qv > 127 {
+					qv = 127
+				}
+				if qv < -127 {
+					qv = -127
+				}
+				q.Quants[i] = int8(qv)
+				sum += qv
+			}
+			q.S = float32ToFloat16(float32(sum) * qscale)
+		}
+	}
+	return out, nil
+}
+
+// RMSNormQ8_1Source emits the fused CUDA kernel for the declared fixture.
+func RMSNormQ8_1Source() string {
+	return `#include <cuda_fp16.h>
+#include <stdint.h>
+#include <math.h>
+struct Q8_1 { __half d, s; int8_t q[32]; };
+static_assert(sizeof(Q8_1) == 36, "q8_1 layout");
+// Bounded correctness implementation: one serial thread per row. Input and
+// weights must be finite, cols positive and divisible by 32, epsilon nonnegative.
+extern "C" __global__ void ds4_rms_quant_q8(const float* in, const float* weight,
+    Q8_1* out, unsigned rows, unsigned cols, float eps, unsigned weighted) {
+  unsigned r = blockIdx.x;
+  if (r >= rows || threadIdx.x != 0) return;
+  double ss = 0;
+  for (unsigned c=0; c<cols; ++c) { double v=in[(size_t)r*cols+c]; ss += v*v; }
+  float inv = (float)(1.0 / sqrt(ss/cols + (double)eps));
+  for (unsigned b=0; b<cols/32; ++b) {
+    float values[32], maximum=0;
+    for (unsigned i=0; i<32; ++i) {
+      unsigned c=b*32+i;
+      float v=in[(size_t)r*cols+c]*inv;
+      if (weighted) v*=weight[c];
+      values[i]=v; maximum=fmaxf(maximum,fabsf(v));
+    }
+    float d=maximum/127.0f;
+    Q8_1* dst=out+(size_t)r*(cols/32)+b;
+    dst->d=__float2half_rn(d);
+    int sum=0;
+    for (unsigned i=0; i<32; ++i) {
+      int q=d == 0 ? 0 : (int)roundf(values[i]/d);
+      q=q>127 ? 127 : (q < -127 ? -127 : q);
+      dst->q[i]=(int8_t)q; sum+=q;
+    }
+    dst->s=__float2half_rn((float)sum*d);
+  }
+}`
+}
+
+// RMSNormQ8_1Artifact describes the generated kernel and its fixed ABI.
+func RMSNormQ8_1Artifact(target string) (*cudakernel.Artifact, error) {
+	schema, err := cudakernel.NewSchema(
+		cudakernel.Param{Name: "in", Type: "ptr", IsPointer: true}, cudakernel.Param{Name: "weight", Type: "ptr", IsPointer: true}, cudakernel.Param{Name: "out", Type: "ptr", IsPointer: true},
+		cudakernel.Param{Name: "rows", Type: "u32"}, cudakernel.Param{Name: "cols", Type: "u32"}, cudakernel.Param{Name: "eps", Type: "f32"}, cudakernel.Param{Name: "weighted", Type: "u32"})
+	if err != nil {
+		return nil, err
+	}
+	if target == "" {
+		return nil, fmt.Errorf("cudaquant: empty target")
+	}
+	return cudakernel.NewArtifact(cudakernel.KindPTX, []byte(RMSNormQ8_1Source()), "ds4_rms_quant_q8", schema, target, cudakernel.WithCompilerOptions([]string{"--std=c++17"}))
 }
 
 // DequantizeQ4_0 unpacks Q4_0 blocks into a float32 slice.
@@ -128,4 +266,34 @@ func float16ToFloat32(h uint16) float32 {
 	exp = exp + (127 - 15)
 	mant = mant << 13
 	return math.Float32frombits(sign | (exp << 23) | mant)
+}
+
+func float32ToFloat16(f float32) uint16 {
+	bits := math.Float32bits(f)
+	sign := uint16((bits >> 16) & 0x8000)
+	exp := int((bits>>23)&0xff) - 127 + 15
+	mant := bits & 0x7fffff
+	if exp <= 0 {
+		if exp < -10 {
+			return sign
+		}
+		mant |= 0x800000
+		shift := uint(14 - exp)
+		q := mant >> shift
+		rem := mant & ((uint32(1) << shift) - 1)
+		half := uint32(1) << (shift - 1)
+		if rem > half || rem == half && q&1 != 0 {
+			q++
+		}
+		return sign | uint16(q)
+	}
+	if exp >= 31 {
+		return sign | 0x7c00
+	}
+	q := uint32(exp<<10) | mant>>13
+	rem := mant & 0x1fff
+	if rem > 0x1000 || rem == 0x1000 && q&1 != 0 {
+		q++
+	}
+	return sign | uint16(q)
 }

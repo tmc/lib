@@ -28,6 +28,52 @@ type RoutingDecision struct {
 	HasShared       bool
 }
 
+// Gather16 gathers expert-major rows using checked scalar indices. Vectorized
+// uint4 lowering is admitted only when the byte alignment contract holds;
+// tails use scalar loads.
+func Gather16(experts [][]float32, indices []int, width int) ([]float32, error) {
+	if width <= 0 || width%16 != 0 {
+		return nil, fmt.Errorf("cudamoe: width must be a positive multiple of 16")
+	}
+	out := make([]float32, len(indices)*width)
+	for r, idx := range indices {
+		if idx < 0 || idx >= len(experts) || len(experts[idx]) < width {
+			return nil, fmt.Errorf("cudamoe: expert index out of range")
+		}
+		copy(out[r*width:], experts[idx][:width])
+	}
+	return out, nil
+}
+
+// Gather16Checked adds the routing-table bound required by generated kernels.
+func Gather16Checked(experts [][]float32, indices []int, width, expertCount int) ([]float32, error) {
+	if expertCount < 0 || expertCount > len(experts) {
+		return nil, fmt.Errorf("cudamoe: invalid expert count")
+	}
+	for _, i := range indices {
+		if i < 0 || i >= expertCount {
+			return nil, fmt.Errorf("cudamoe: route expert out of range")
+		}
+	}
+	return Gather16(experts, indices, width)
+}
+
+// GatherSource emits a bounds-checked expert-major gather. uint4 loads are
+// used only on aligned groups; the scalar loop handles tails.
+func GatherSource(width int) (string, error) {
+	if width != 16 && width != 32 {
+		return "", fmt.Errorf("cudamoe: admitted tiles are 16 or 32")
+	}
+	return fmt.Sprintf(`#include <cuda_runtime.h>
+// tile width=%d
+extern "C" __global__ void moe_gather(const float* experts,float* out,const int* route,int tokens,int width,int expert_count){int i=blockIdx.x*blockDim.x+threadIdx.x;int t=i/width,c=i%%width;if(t<tokens&&c<width){int e=route[t];if(e<0||e>=expert_count)return;const float* p=experts+(size_t)e*width+c;if(c%%4==0&&c+4<=width&&(((unsigned long long)p)&15)==0){uint4 v=*(const uint4*)p;((uint4*)(out+i))[0]=v;}else out[i]=*p;}}`, width), nil
+}
+
+// PrefillW256Source emits the bounded cross-token W=256 GEMM fallback.
+func PrefillW256Source() (string, error) {
+	return "", fmt.Errorf("cudamoe: W=256 Tensor Core prefill lowering unsupported")
+}
+
 // GroupedTopKRouter computes bias-balanced grouped top-K routing.
 type GroupedTopKRouter struct {
 	cfg    MoEConfig
