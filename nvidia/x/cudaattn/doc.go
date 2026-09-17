@@ -8,4 +8,7 @@
 // must satisfy [Config.Validate], use a positive power-of-two thread block size,
 // allocate [PagedSharedMemoryBytes], and inspect the device status after
 // synchronization. The llama-infer CUDA serving path does not use this kernel.
+//
+// TreeAttentionCUDA and TreeAttentionReference execute 2D Causal Tree Attention
+// with 64-bit row bitmasks for speculative candidate tree verification.
 package cudaattn
