@@ -116,12 +116,11 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
   const unsigned long long offset = ((unsigned long long)bin * rows + row) * blocks * 66;
   for (int base = begin; base < end; base += DS4_MOE_GATHER_TILE) {
     const unsigned n = unsigned(end - base) < DS4_MOE_GATHER_TILE ? unsigned(end - base) : DS4_MOE_GATHER_TILE;
-    unsigned pair[DS4_MOE_GATHER_TILE];
     const ds4_q8_1_activation *token[DS4_MOE_GATHER_TILE];
     #pragma unroll
     for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
-      pair[t] = t < n ? unsigned(pairs[base + t]) : 0;
-      token[t] = x + (unsigned long long)(pair[t] / slots) * (cols / 32);
+      unsigned p = t < n ? unsigned(pairs[base + t]) : 0;
+      token[t] = x + (unsigned long long)(p / slots) * (cols / 32);
     }
     float g[DS4_MOE_GATHER_TILE] = {0.0f}, u[DS4_MOE_GATHER_TILE] = {0.0f};
     for (unsigned part = lane; part < cols / 32; part += 32) {
@@ -148,7 +147,8 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1_gather(
           ut += __shfl_down_sync(0xffffffff, ut, stride);
         }
         if (lane == 0) {
-          unsigned long long o = (unsigned long long)pair[t] * rows + row;
+          unsigned p = unsigned(pairs[base + t]);
+          unsigned long long o = (unsigned long long)p * rows + row;
           gate_out[o] = gt;
           up_out[o] = ut;
         }
@@ -185,27 +185,24 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
 
   const unsigned blocks = cols / 256;
   const unsigned long long offset = ((unsigned long long)bin * rows + row) * blocks * 84;
+  const unsigned b_init = lane / 16;
+  const unsigned iqs = lane % 16;
+  const unsigned qoffset = 16 + iqs * 4;
+  const unsigned scale_offset = iqs - iqs % 8 + (iqs % 8) / 4;
+  const unsigned scale_base = scale_offset & ~1;
+  const unsigned iqs_div_8 = 4 * (iqs / 8);
+  const unsigned qs_off = (iqs % 8) * 4;
+
   for (int base = begin; base < end; base += DS4_MOE_GATHER_TILE) {
     const unsigned n = unsigned(end - base) < DS4_MOE_GATHER_TILE ? unsigned(end - base) : DS4_MOE_GATHER_TILE;
-    unsigned pair[DS4_MOE_GATHER_TILE];
-    const ds4_q8_1_activation *input[DS4_MOE_GATHER_TILE];
-    #pragma unroll
-    for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
-      pair[t] = t < n ? unsigned(pairs[base + t]) : 0;
-      input[t] = x + (unsigned long long)pair[t] * (cols / 32);
-    }
-    float sum[DS4_MOE_GATHER_TILE] = {0.0f};
-    const unsigned iqs = lane % 16;
-    const unsigned qoffset = 16 + iqs * 4;
-    const unsigned scale_offset = iqs - iqs % 8 + (iqs % 8) / 4;
-    const unsigned scale_base = scale_offset & ~1;
-    const unsigned b_init = lane / 16;
-    const unsigned char *w = weights + offset + (unsigned long long)b_init * 84;
     const ds4_q8_1_activation *cur_input[DS4_MOE_GATHER_TILE];
     #pragma unroll
     for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
-      cur_input[t] = input[t] + b_init * 8;
+      unsigned p = t < n ? unsigned(pairs[base + t]) : 0;
+      cur_input[t] = x + (unsigned long long)p * (cols / 32) + b_init * 8;
     }
+    float sum[DS4_MOE_GATHER_TILE] = {0.0f};
+    const unsigned char *w = weights + offset + (unsigned long long)b_init * 84;
     for (unsigned b = b_init; b < blocks; b += 2) {
       unsigned v = *reinterpret_cast<const unsigned int *>(w + qoffset);
       unsigned long long w_sc = reinterpret_cast<unsigned long long>(w + scale_base);
@@ -218,31 +215,13 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
         sc0 = *reinterpret_cast<const unsigned int *>(w + scale_base);
         sc1 = *reinterpret_cast<const unsigned int *>(w + scale_base + 4);
       }
-      unsigned char scales[4];
-      if ((scale_offset & 1) == 0) {
-        scales[0] = (unsigned char)(sc0 & 0xff);
-        scales[1] = (unsigned char)((sc0 >> 16) & 0xff);
-        scales[2] = (unsigned char)(sc1 & 0xff);
-        scales[3] = (unsigned char)((sc1 >> 16) & 0xff);
-      } else {
-        scales[0] = (unsigned char)((sc0 >> 8) & 0xff);
-        scales[1] = (unsigned char)((sc0 >> 24) & 0xff);
-        scales[2] = (unsigned char)((sc1 >> 8) & 0xff);
-        scales[3] = (unsigned char)((sc1 >> 24) & 0xff);
+      if (scale_offset & 1) {
+        sc0 >>= 8;
+        sc1 >>= 8;
       }
       unsigned d_pair = *reinterpret_cast<const unsigned int *>(w + 80);
       float d = ds4_half_to_float(d_pair & 0xffff);
       float dm = ds4_half_to_float(d_pair >> 16);
-
-      int vi[4], scale_lo[4], scale_hi[4];
-      #pragma unroll
-      for (unsigned i = 0; i < 4; i++) {
-        vi[i] = (v >> (2 * i)) & 0x03030303;
-        scale_lo[i] = int(scales[i] & 15);
-        scale_hi[i] = int(scales[i] >> 4);
-      }
-      const unsigned iqs_div_8 = 4 * (iqs / 8);
-      const unsigned qs_off = (iqs % 8) * 4;
 
       #pragma unroll
       for (unsigned t = 0; t < DS4_MOE_GATHER_TILE; t++) {
@@ -253,10 +232,15 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
           for (unsigned i = 0; i < 4; i++) {
             const ds4_q8_1_activation *q = q_base + i;
             int q_packed = *reinterpret_cast<const int *>(&q->qs[qs_off]);
-            int dot = __dp4a(vi[i], q_packed, 0);
-            int minimum = scale_hi[i] * __dp4a(0x01010101, q_packed, 0);
+            int vi = (v >> (2 * i)) & 0x03030303;
+            unsigned sc = (i < 2) ? sc0 : sc1;
+            unsigned sc_shift = (i & 1) ? 16 : 0;
+            int s_lo = int((sc >> sc_shift) & 0x0f);
+            int s_hi = int((sc >> (sc_shift + 4)) & 0x0f);
+            int dot = __dp4a(vi, q_packed, 0);
+            int minimum = s_hi * __dp4a(0x01010101, q_packed, 0);
             float d8 = ds4_half_to_float(q->d);
-            sum_d += d8 * float(dot * scale_lo[i]);
+            sum_d += d8 * float(dot * s_lo);
             sum_m += d8 * float(minimum);
           }
           sum[t] += d * sum_d - dm * sum_m;
@@ -274,8 +258,12 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1_gather(
         float s = sum[t];
         for (unsigned stride = 16; stride; stride >>= 1)
           s += __shfl_xor_sync(0xffffffff, s, stride);
-        if (lane == 0) out[(unsigned long long)pair[t] * rows + row] = s;
+        if (lane == 0) {
+          unsigned p = unsigned(pairs[base + t]);
+          out[(unsigned long long)p * rows + row] = s;
+        }
       }
     }
   }
 }
+

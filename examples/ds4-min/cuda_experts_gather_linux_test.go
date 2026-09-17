@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
@@ -429,5 +430,31 @@ func TestCUDAMoEGatherShapeRejection(t *testing.T) {
 	}
 	if _, err := newCUDAMoEGrouping(r.device, cudaMoEMaxExperts+1, pairs); err == nil {
 		t.Error("accepted a grouping wider than the counting sort's bins")
+	}
+}
+
+// TestCUDAMoEGatherRegisters reports device register counts and local memory usage
+// for the MoE gather kernels.
+func TestCUDAMoEGatherRegisters(t *testing.T) {
+	r := cudaSynthFoundation(t)
+	if err := r.device.WithContext(r.loadMathKernels); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []struct {
+		name string
+		fn   driver.Function
+	}{
+		{"ds4_q2_k_selected_q8_1_gather", r.q2KGatherQ81Fn},
+		{"ds4_iq2_xxs_pair_selected_q8_1_gather", r.iq2GatherQ81Fn},
+	} {
+		regs, err := k.fn.GetAttribute(driver.FuncAttributeNumRegs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		localMem, err := k.fn.GetAttribute(driver.FuncAttributeLocalSizeBytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("kernel %s: %d registers, %d bytes local memory", k.name, regs, localMem)
 	}
 }
