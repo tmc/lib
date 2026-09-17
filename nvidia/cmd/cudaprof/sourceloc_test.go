@@ -90,3 +90,19 @@ func TestInferCodeFilesPrefersCanonicalNames(t *testing.T) {
 		t.Errorf("PTX = %q, want kernels.ptx", got)
 	}
 }
+
+func TestFindFunctionLineIgnoresTrailingComment(t *testing.T) {
+	// The ';' test runs on the raw line, so a declaration annotated with a
+	// trailing comment does not end in ';' and was accepted as a definition.
+	const content = `#include <cuda.h>
+
+__global__ void saxpy(int n, float a);   // forward declaration
+
+__global__ void saxpy(int n, float a) {
+    (void)n;
+}
+`
+	if got := findFunctionLine(content, "saxpy"); got != 5 {
+		t.Errorf("findFunctionLine = %d, want 5 (the definition, not the commented declaration)", got)
+	}
+}

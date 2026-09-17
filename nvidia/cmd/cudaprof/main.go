@@ -546,8 +546,15 @@ func findFunctionLine(content, name string) int {
 		return 0
 	}
 	for i, line := range strings.Split(content, "\n") {
+		// Drop a trailing line comment before anything else: the ';' test
+		// below runs on the line's last byte, so a declaration written as
+		// "void saxpy(int n);   // forward declaration" no longer ends in ';'
+		// and would read as a definition.
+		if j := strings.Index(line, "//"); j >= 0 {
+			line = line[:j]
+		}
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "*") || strings.HasPrefix(trimmed, "/*") {
+		if trimmed == "" || strings.HasPrefix(trimmed, "*") || strings.HasPrefix(trimmed, "/*") {
 			continue
 		}
 		// A line ending in ';' declares or calls the function; it does not
