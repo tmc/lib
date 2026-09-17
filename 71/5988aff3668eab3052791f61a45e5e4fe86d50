@@ -1,0 +1,6 @@
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 5752; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Doc follows 4d050107. Written after the user asked whether this session
+was adding defect descriptions where fixes belong -- it was, and the two
+remaining prose-only gaps were the inferred mappings (fixed in a0ae4659)
+and this gate.
