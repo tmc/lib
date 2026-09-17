@@ -16,6 +16,11 @@
 // asynchronous non-blocking handoffs and concurrent background draining during
 // high-rate profiling without stopping sampling.
 //
+// CapturePhase composes the PC sampling lifecycle into a bounded phase operation
+// with explicit limits, workload completion and device synchronization, final
+// draining, and cleanup, reporting loss, remaining samples, consumer failure,
+// and cancellation separately.
+//
 // Collection is restricted to Linux amd64/arm64 and CUPTI 13.x layouts.
 // This layout restriction is not native hardware qualification. Native reason
 // counts are not legacy stall enums or inferred instruction metrics.
