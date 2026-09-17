@@ -2275,6 +2275,7 @@ func precedingControlFlowBranch(fn *cudasass.Function, pc uint64) (uint64, strin
 		return 0, ""
 	}
 	var best cudasass.Instruction
+	found := false
 	for _, inst := range fn.Instructions {
 		if inst.Address >= pc {
 			break
@@ -2282,9 +2283,10 @@ func precedingControlFlowBranch(fn *cudasass.Function, pc uint64) (uint64, strin
 		base := strings.ToUpper(cudasass.BaseOpcode(inst.Opcode))
 		if base == "BRA" || base == "BRX" || base == "CBRA" {
 			best = inst
+			found = true
 		}
 	}
-	if best.Address == 0 || pc-best.Address > 0x200 {
+	if !found || pc-best.Address > 0x200 {
 		return 0, ""
 	}
 	return best.Address, best.Opcode

@@ -37,28 +37,21 @@ func TestCUDAEmbeddedSources(t *testing.T) {
 	}
 }
 
-func TestCUDAMathSourceUsesLexicalEmbedOrder(t *testing.T) {
-	entries, err := cudaSourceFS.ReadDir(".")
-	if err != nil {
-		t.Fatalf("ReadDir: %v", err)
+
+func TestCUDAMathSourceUsesDependencyOrder(t *testing.T) {
+	if len(cudaMathFiles) == 0 {
+		t.Fatal("cudaMathFiles is empty")
 	}
-	previous := ""
-	marked := 0
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".cu") {
-			continue
+	for _, name := range cudaMathFiles {
+		if _, err := cudaSourceFS.ReadFile(name); err != nil {
+			t.Errorf("cudaMathFiles entry %q is not embedded: %v", name, err)
 		}
-		if previous >= entry.Name() {
-			t.Fatalf("embed.FS entries are not lexical: %q before %q", previous, entry.Name())
-		}
-		previous = entry.Name()
-		marked++
-		marker := `#line 1 "` + entry.Name() + `"`
+		marker := `#line 1 "` + name + `"`
 		if !strings.Contains(cudaMathSource, marker) {
 			t.Errorf("cudaMathSource missing source marker %q", marker)
 		}
 	}
-	if marked == 0 {
-		t.Fatal("embed.FS contained no CUDA sources")
+	if strings.Contains(cudaMathSource, `#line 1 "cuda_q80_quant.cu"`) {
+		t.Error("separately compiled cuda_q80_quant.cu was included in cudaMathSource")
 	}
 }

@@ -37,17 +37,26 @@ func cudaSourceChunk(name, source string) string {
 	return fmt.Sprintf("#line 1 %q\n%s\n", name, strings.TrimSuffix(source, "\n"))
 }
 
+// cudaMathFiles is ordered by declaration dependencies. These are embedded
+// source fragments for one NVRTC translation unit, not independently linked
+// CUDA compilation units. cuda_q80_quant.cu is intentionally absent: it is
+// compiled as a separate module with its own options.
+var cudaMathFiles = [...]string{
+	"cuda_probe.cu",
+	"cuda_experts.cu",
+	"cuda_compressed.cu",
+	"cuda_q80_layout.cu",
+	"cuda_q80_matvec.cu",
+	"cuda_q81.cu",
+	"cuda_f16_default.cu",
+	"cuda_experts_q81.cu",
+	"cuda_hc.cu",
+	"cuda_experts_gather.cu",
+}
+
 func cudaMathSourceFromFS() string {
-	entries, err := cudaSourceFS.ReadDir(".")
-	if err != nil {
-		panic(fmt.Sprintf("ds4-min: read embedded CUDA sources: %v", err))
-	}
-	chunks := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".cu") {
-			continue
-		}
-		name := entry.Name()
+	chunks := make([]string, 0, len(cudaMathFiles))
+	for _, name := range cudaMathFiles {
 		data, err := cudaSourceFS.ReadFile(name)
 		if err != nil {
 			panic(fmt.Sprintf("ds4-min: embedded CUDA source %q: %v", name, err))
