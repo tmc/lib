@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -151,6 +153,8 @@ const sampleOnlyCaveat = "> **This capture is PC samples only.** A share of obse
 	"device idle between launches; capture with activity tracing to measure that.\n\n"
 
 const defaultAdviceLimit = 10
+
+var sassRegisterRE = regexp.MustCompile(`\bR[0-9]+\b`)
 
 // Markdown formats the advice report as human-readable Markdown with the default limit of findings.
 func (r *AdviceReport) Markdown() string {
@@ -434,7 +438,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 						Line:   first.SourceLine,
 					},
 					Finding:                  fmt.Sprintf("Kernel %q appears compiled without --use_fast_math: %d IEEE compliance check instructions (FCHK) detected in arithmetic paths", fn.Name, len(fchkInsts)),
-					ActionableRecommendation: "If strict IEEE 754 bit-exact rounding is not required, compile with --use_fast_math to substitute hardware approximations (e.g. MUFU.RCP) and eliminate FCHK branches. If bit-exact zero-drift invariants are required, keep IEEE math and enable --extra-device-vectorization.",
+					ActionableRecommendation: "If strict IEEE 754 bit-exact rounding is not required, compile with --use_fast_math to substitute hardware approximations (e.g. MUFU.RCP) and eliminate FCHK branches. NOTE: --use_fast_math changes division and transcendental rounding and flushes denormals to zero; if the workload enforces bit-exact logit invariants, keep IEEE math and prefer --extra-device-vectorization or explicit fast reciprocal intrinsics (__fdividef) over the global flag.",
 					NextMeasurement:          "A/B wall-clock timing with --use_fast_math",
 				})
 			}
@@ -686,6 +690,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 
 	// 7. Stream Kernel Sequences (CUDA Graph Candidates & Pointwise Fusion)
 	auditStreamKernelSequences(cap, report)
+	auditHostDispatchOverhead(cap, report)
 
 	// 7a. Whole-capture duty cycle. This runs before the dominance audit so
 	// that an idle-dominated capture says so above every kernel-time finding.
@@ -2027,13 +2032,19 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			}
 
 			type stallCand struct {
-				pc     uint64
-				opcode string
-				file   string
-				line   int
-				ratio  float64
-				stalls int64
-				sev    Severity
+				pc             uint64
+				opcode         string
+				file           string
+				line           int
+				branchPC       uint64
+				branchOpcode   string
+				defPC          uint64
+				usePC          uint64
+				defUseDistance int
+				defRegister    string
+				ratio          float64
+				stalls         int64
+				sev            Severity
 			}
 			var memCands []stallCand
 			var sbCands []stallCand
@@ -2087,8 +2098,10 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						if sbRatio >= 0.50 {
 							sev = SeverityCritical
 						}
+						defPC, usePC, distance, register := nearestLoadUse(fn, pc)
 						sbCands = append(sbCands, stallCand{
 							pc: pc, opcode: opcode, file: file, line: line,
+							defPC: defPC, usePC: usePC, defUseDistance: distance, defRegister: register,
 							ratio: sbRatio, stalls: stat.scoreboardStalls, sev: sev,
 						})
 					}
@@ -2102,8 +2115,10 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						if brRatio >= 0.50 {
 							sev = SeverityCritical
 						}
+						branchPC, branchOpcode := precedingControlFlowBranch(fn, pc)
 						brCands = append(brCands, stallCand{
 							pc: pc, opcode: opcode, file: file, line: line,
+							branchPC: branchPC, branchOpcode: branchOpcode,
 							ratio: brRatio, stalls: stat.branchStalls, sev: sev,
 						})
 					}
@@ -2125,9 +2140,18 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			sort.Slice(memCands, func(i, j int) bool { return memCands[i].stalls > memCands[j].stalls })
 			limit := len(memCands)
 			if limit > 3 {
-				limit = 3
+				// Many adjacent PCs in an unrolled loop are one diagnosis, not
+				// separate optimization opportunities. Keep the detailed rows only
+				// when the sample set is small enough to remain interpretable.
+				limit = 0
 			}
 			for _, c := range memCands[:limit] {
+				recommendation := "Check whether adjacent lane IDs access contiguous bytes within a single 128B cache line; if they already do, the stall is memory latency or bandwidth rather than transaction count, and the fix is reuse or a wider access, not realignment."
+				nextMeasurement := "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions"
+				if reduction, ok := reductionLayoutAdvice(kName, fn); ok {
+					recommendation = reduction
+					nextMeasurement = "measure sectors per request and compare a transposed/SoA tile against shared-memory or Tensor Core MMA staging"
+				}
 				locKey := fmt.Sprintf("%s:0x%x", kName, c.pc)
 				reportedLocations[locKey] = true
 				report.Items = append(report.Items, AdviceItem{
@@ -2141,17 +2165,24 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						Line:   c.line,
 					},
 					Finding:                  fmt.Sprintf("Memory stalls dominate this load: %s is %.1f%% of stalls (over 35%%) on %s at PC 0x%04x in kernel %q", memSource, c.ratio*100, instructionName(c.opcode), c.pc, kName),
-					ActionableRecommendation: "Check whether adjacent lane IDs access contiguous bytes within a single 128B cache line; if they already do, the stall is memory latency or bandwidth rather than transaction count, and the fix is reuse or a wider access, not realignment.",
-					NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
+					ActionableRecommendation: recommendation,
+					NextMeasurement:          nextMeasurement,
 				})
 			}
 			if len(memCands) > 3 {
 				var remainingStalls int64
 				var maxRatio float64
-				for _, c := range memCands[3:] {
+				var minPC, maxPC uint64
+				for i, c := range memCands {
 					remainingStalls += c.stalls
 					if c.ratio > maxRatio {
 						maxRatio = c.ratio
+					}
+					if i == 0 || c.pc < minPC {
+						minPC = c.pc
+					}
+					if c.pc > maxPC {
+						maxPC = c.pc
 					}
 				}
 				report.Items = append(report.Items, AdviceItem{
@@ -2161,7 +2192,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					Location: Location{
 						Kernel: kName,
 					},
-					Finding:                  fmt.Sprintf("Memory stalls dominate %d additional load instructions in kernel %q (up to %.1f%% of stalls, %d total stall cycles)", len(memCands)-3, kName, maxRatio*100, remainingStalls),
+					Finding:                  fmt.Sprintf("Loop/control-flow region PC 0x%04x-0x%04x: %d load instructions share memory stalls in kernel %q (up to %.1f%% of stalls, %d total stall cycles)", minPC, maxPC, len(memCands), kName, maxRatio*100, remainingStalls),
 					ActionableRecommendation: "If memory access is contiguous and aligned, vectorize memory loads to 128-bit (uint4/v4), unroll loops, and pipeline global memory loads across iterations to overlap transfer latency.",
 					NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
 				})
@@ -2171,9 +2202,13 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			sort.Slice(sbCands, func(i, j int) bool { return sbCands[i].stalls > sbCands[j].stalls })
 			sbLimit := len(sbCands)
 			if sbLimit > 3 {
-				sbLimit = 3
+				sbLimit = 0
 			}
 			for _, c := range sbCands[:sbLimit] {
+				distance := ""
+				if c.defUseDistance > 0 {
+					distance = fmt.Sprintf("; %s loaded at PC 0x%04x is first consumed at PC 0x%04x (%d instructions later)", c.defRegister, c.defPC, c.usePC, c.defUseDistance)
+				}
 				report.Items = append(report.Items, AdviceItem{
 					Severity:      c.sev,
 					Category:      CategoryMemoryCompute,
@@ -2184,9 +2219,35 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						File:   c.file,
 						Line:   c.line,
 					},
-					Finding:                  fmt.Sprintf("Register scoreboard latency stall: stall_scoreboard is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, instructionName(c.opcode), c.pc, kName, c.stalls),
-					ActionableRecommendation: "Instruction is stalled waiting for register data from a pending memory load or high-latency operation. Increase instruction-level parallelism (ILP), hoist memory loads further ahead of first use, or use double buffering / software pipelining.",
+					Finding:                  fmt.Sprintf("Register scoreboard latency stall: stall_scoreboard is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)%s", c.ratio*100, instructionName(c.opcode), c.pc, kName, c.stalls, distance),
+					ActionableRecommendation: "Instruction is stalled waiting for register data from a pending memory load or high-latency operation. Use the measured def-use distance to increase instruction-level parallelism (ILP), hoist memory loads further ahead of first use, or use double buffering / software pipelining. Treat the distance as a diagnostic, not a universal architecture threshold.",
 					NextMeasurement:          "stall_scoreboard sample reduction or A/B wall-clock timing",
+				})
+			}
+			if len(sbCands) > 3 {
+				var total int64
+				var minPC, maxPC uint64
+				var maxRatio float64
+				for i, c := range sbCands {
+					total += c.stalls
+					if i == 0 || c.pc < minPC {
+						minPC = c.pc
+					}
+					if c.pc > maxPC {
+						maxPC = c.pc
+					}
+					if c.ratio > maxRatio {
+						maxRatio = c.ratio
+					}
+				}
+				report.Items = append(report.Items, AdviceItem{
+					Severity:                 SeverityWarning,
+					Category:                 CategoryMemoryCompute,
+					EvidenceLevel:            EvidenceSuspected,
+					Location:                 Location{Kernel: kName, PC: minPC},
+					Finding:                  fmt.Sprintf("Loop/control-flow region PC 0x%04x-0x%04x: %d instructions share register scoreboard stalls in kernel %q (up to %.1f%% of stalls, %d total stall cycles)", minPC, maxPC, len(sbCands), kName, maxRatio*100, total),
+					ActionableRecommendation: "Treat these repeated PCs as one dependency pattern: increase the distance between independent loads and uses, double-buffer the tile, or software-pipeline the loop before optimizing individual instructions.",
+					NextMeasurement:          "compare grouped stall cycles and def-use distances before and after loop pipelining",
 				})
 			}
 
@@ -2197,18 +2258,24 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 				brLimit = 3
 			}
 			for _, c := range brCands[:brLimit] {
+				locationPC := c.pc
+				attribution := fmt.Sprintf("sampled at %s", c.opcode)
+				if c.branchPC != 0 {
+					locationPC = c.branchPC
+					attribution = fmt.Sprintf("created by preceding %s at PC 0x%04x; sampled at %s at PC 0x%04x, which is awaiting warp reconvergence", c.branchOpcode, c.branchPC, c.opcode, c.pc)
+				}
 				report.Items = append(report.Items, AdviceItem{
 					Severity:      c.sev,
 					Category:      CategoryArchitectureCompute,
 					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: kName,
-						PC:     c.pc,
+						PC:     locationPC,
 						File:   c.file,
 						Line:   c.line,
 					},
-					Finding:                  fmt.Sprintf("Warp branch divergence: stall_branch is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, instructionName(c.opcode), c.pc, kName, c.stalls),
-					ActionableRecommendation: "Warp execution path divergence detected. Replace conditional branches with branchless predicated selects (e.g. SELP / fmaxf) or ensure branch conditions are uniform across threads in each warp.",
+					Finding:                  fmt.Sprintf("Warp branch divergence: stall_branch is %.1f%% of stalls in kernel %q (%d stall cycles), %s", c.ratio*100, kName, c.stalls, attribution),
+					ActionableRecommendation: "Warp execution path divergence is attributed to the control-flow branch, not the sampled successor instruction. Replace the branch with branchless predicated selects (e.g. SELP / fmaxf) only when the condition is semantically safe, or make the branch condition uniform across each warp.",
 					NextMeasurement:          "sm__branch_targets_threads_divergent.sum or A/B wall-clock timing",
 				})
 			}
@@ -2310,6 +2377,90 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			}
 		}
 	}
+}
+
+// precedingControlFlowBranch identifies the static branch that most likely
+// created a sampled reconvergence stall. PC sampling reports the instruction
+// being issued while the warp waits; that instruction is commonly the branch
+// successor, not the branch itself. Keep the correlation conservative: only a
+// nearby branch in the same function is used, otherwise the sample remains
+// un-attributed rather than inventing a control-flow cause.
+func precedingControlFlowBranch(fn *cudasass.Function, pc uint64) (uint64, string) {
+	if fn == nil {
+		return 0, ""
+	}
+	var best cudasass.Instruction
+	for _, inst := range fn.Instructions {
+		if inst.Address >= pc {
+			break
+		}
+		base := strings.ToUpper(cudasass.BaseOpcode(inst.Opcode))
+		if base == "BRA" || base == "BRX" || base == "CBRA" {
+			best = inst
+		}
+	}
+	if best.Address == 0 || pc-best.Address > 0x200 {
+		return 0, ""
+	}
+	return best.Address, best.Opcode
+}
+
+// nearestLoadUse reports the first use of a register defined by a global load
+// before the sampled PC. It is intentionally a small SASS def-use heuristic:
+// predication, reuse flags, and memory-level parallelism can make a raw
+// instruction distance insufficient to establish causality.
+func nearestLoadUse(fn *cudasass.Function, pc uint64) (defPC, usePC uint64, distance int, register string) {
+	if fn == nil {
+		return 0, 0, 0, ""
+	}
+	for i, inst := range fn.Instructions {
+		if inst.Address >= pc {
+			break
+		}
+		base := strings.ToUpper(cudasass.BaseOpcode(inst.Opcode))
+		if base != "LDG" && base != "LD" {
+			continue
+		}
+		regs := sassRegisterRE.FindAllString(inst.Operands, -1)
+		if len(regs) == 0 {
+			continue
+		}
+		reg := regs[0]
+		for j := i + 1; j < len(fn.Instructions); j++ {
+			next := fn.Instructions[j]
+			if next.Address > pc {
+				break
+			}
+			if slices.Contains(sassRegisterRE.FindAllString(next.Operands, -1), reg) {
+				return inst.Address, next.Address, j - i, reg
+			}
+		}
+	}
+	return 0, 0, 0, ""
+}
+
+func reductionLayoutAdvice(kernel string, fn *cudasass.Function) (string, bool) {
+	name := strings.ToLower(kernel)
+	if !strings.Contains(name, "gather") && !strings.Contains(name, "reduce") && !strings.Contains(name, "dot") {
+		return "", false
+	}
+	if fn == nil {
+		return "", false
+	}
+	loads, reductions := 0, 0
+	for _, inst := range fn.Instructions {
+		base := strings.ToUpper(cudasass.BaseOpcode(inst.Opcode))
+		if base == "LDG" || base == "LD" {
+			loads++
+		}
+		if base == "FADD" || base == "FFMA" || base == "FMUL" || base == "IADD3" {
+			reductions++
+		}
+	}
+	if loads < 2 || reductions < 2 {
+		return "", false
+	}
+	return "This looks like an inner-product reduction with strided expert/channel loads, not proof of a coalescing bug. Compare transposed or SoA-repacked weights, direct-to-register tile layouts, shared-memory double buffering, and Tensor Core MMA before recommending lane realignment.", true
 }
 
 type streamEvent struct {
@@ -2931,6 +3082,64 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 			}
 		}
 	}
+}
+
+// auditHostDispatchOverhead compares a complete host API dispatch span with
+// the corresponding device kernel work. It requires both correlation-matched
+// API timestamps and device activity timestamps; a launch count or a summed
+// kernel duration alone cannot establish host overhead.
+func auditHostDispatchOverhead(cap *cudacapture.Capture, report *AdviceReport) {
+	if cap == nil {
+		return
+	}
+	apis := extractAPIRecords(cap)
+	if len(apis) == 0 {
+		return
+	}
+	events := extractStreamEvents(cap)
+	var hostStart, hostEnd, deviceNanos uint64
+	seen := make(map[uint32]bool)
+	measured := 0
+	for _, stream := range events {
+		for _, ev := range stream {
+			if strings.ToLower(ev.Subtype) != "kernel" && ev.Subtype != "" {
+				continue
+			}
+			if ev.Correlation == 0 || seen[ev.Correlation] || ev.Start == 0 || ev.End <= ev.Start {
+				continue
+			}
+			api, ok := apis[ev.Correlation]
+			if !ok || api.Start == 0 || api.End < api.Start {
+				continue
+			}
+			seen[ev.Correlation] = true
+			measured++
+			deviceNanos += ev.End - ev.Start
+			if hostStart == 0 || api.Start < hostStart {
+				hostStart = api.Start
+			}
+			if api.End > hostEnd {
+				hostEnd = api.End
+			}
+		}
+	}
+	if measured == 0 || hostEnd <= hostStart || hostEnd-hostStart <= deviceNanos {
+		return
+	}
+	span := hostEnd - hostStart
+	overhead := span - deviceNanos
+	if float64(overhead)/float64(span) <= 0.15 {
+		return
+	}
+	report.Items = append(report.Items, AdviceItem{
+		Severity:      SeverityCritical,
+		Category:      CategoryArchitectureDispatch,
+		EvidenceLevel: EvidenceObserved,
+		Finding: fmt.Sprintf("Host dispatch overhead accounts for %.1f%% of the correlation-matched dispatch span (%d launches, %s host span, %s summed GPU execution)",
+			100*float64(overhead)/float64(span), measured, time.Duration(span), time.Duration(deviceNanos)),
+		ActionableRecommendation: "Batch fine-grained launches or capture the dispatch loop in a CUDA Graph and compare end-to-end wall-clock time; the measured gap is host/driver span, not device kernel time.",
+		NextMeasurement:          "repeat with CUDA Graph capture or batched launches and retain correlation-matched host/API and device timestamps",
+	})
 }
 
 func isElementwise(ev streamEvent) bool {
