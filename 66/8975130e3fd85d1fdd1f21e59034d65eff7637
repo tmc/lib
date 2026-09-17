@@ -1,0 +1,6 @@
+commit: 668975130e3fd85d1fdd1f21e59034d65eff7637
+date: 2026-09-17T05:01:25Z
+agent: antigravity
+subagent_id: 8c6cb0de-cbbd-46d9-880b-43f777a7102f
+lane: 15-speculative-and-sparse-attention
+status: host-verified; branch state, tree mask dense reference, KV release on rollback checked
