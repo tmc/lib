@@ -50,6 +50,11 @@ func (cm *CompiledModule) LoadOutputWithLog(dev *cuda.Device, kind OutputKind) (
 	info, errors := make([]byte, 16<<10), make([]byte, 16<<10)
 	options := []driver.JITOption{driver.JITInfoLogBuffer, driver.JITInfoLogBufferSizeBytes, driver.JITErrorLogBuffer, driver.JITErrorLogBufferSizeBytes, driver.JITLogVerbose}
 	values := []uintptr{uintptr(unsafe.Pointer(&info[0])), uintptr(len(info)), uintptr(unsafe.Pointer(&errors[0])), uintptr(len(errors)), 1}
+	if kind == OutputPTX {
+		jitOpts, jitVals := cm.jitOptions.DriverOptions()
+		options = append(options, jitOpts...)
+		values = append(values, jitVals...)
+	}
 	err = dev.WithContext(func() error {
 		var loadErr error
 		mod, loadErr = driver.NewModuleLoadDataEx(unsafe.Pointer(&image[0]), uint32(len(options)), &options[0], &values[0])
