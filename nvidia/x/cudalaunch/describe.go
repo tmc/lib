@@ -74,3 +74,17 @@ func (l *Launcher) Describe() (Description, error) {
 		kernel:    l.owned,
 	}, nil
 }
+
+// PrepareSharedMem validates and configures dynamic shared memory opt-in on the kernel
+// described by d, ensuring graph node execution will have sufficient shared memory.
+func (d Description) PrepareSharedMem(targetDev ...*cuda.Device) error {
+	if d.SharedMem == 0 {
+		return nil
+	}
+	l := Launcher{
+		fn:    d.Function,
+		owned: d.kernel,
+		shmem: d.SharedMem,
+	}
+	return l.PrepareSharedMem(targetDev...)
+}

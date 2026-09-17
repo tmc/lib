@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/nvjitlink"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
@@ -83,6 +84,29 @@ func InputFromArtifact(name string, cm *nvrtcx.CompiledModule) (Input, error) {
 	}
 	if len(in.Data) == 0 {
 		return Input{}, fmt.Errorf("nvjitlinkx: artifact has no linkable output")
+	}
+	return in, nil
+}
+
+// InputFromKernelArtifact selects the linkable input from a cudakernel.Artifact.
+func InputFromKernelArtifact(name string, a *cudakernel.Artifact) (Input, error) {
+	if name == "" || strings.ContainsRune(name, 0) || a == nil {
+		return Input{}, fmt.Errorf("nvjitlinkx: invalid kernel artifact")
+	}
+	var in Input
+	in.Name = name
+	switch a.Kind {
+	case cudakernel.KindLTOIR:
+		in.Kind, in.Data = nvjitlink.InputLtoir, a.Bytes()
+	case cudakernel.KindCUBIN:
+		in.Kind, in.Data = nvjitlink.InputCubin, a.Bytes()
+	case cudakernel.KindPTX:
+		in.Kind, in.Data = nvjitlink.InputPtx, a.Bytes()
+	default:
+		return Input{}, fmt.Errorf("nvjitlinkx: artifact kind %s cannot be linked", a.Kind)
+	}
+	if len(in.Data) == 0 {
+		return Input{}, fmt.Errorf("nvjitlinkx: artifact has no data")
 	}
 	return in, nil
 }

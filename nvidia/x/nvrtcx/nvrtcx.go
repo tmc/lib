@@ -14,20 +14,23 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 )
 
 // CompiledModule represents the compiled output of an NVRTC JIT compilation.
 type CompiledModule struct {
-	lowered map[string]string
-	output  OutputKind
-	ltoir   []byte
-	tileir  []byte
-	optixir []byte
-	ptx     string
-	cubin   []byte
-	log     string
-	key     string
+	lowered      map[string]string
+	output       OutputKind
+	ltoir        []byte
+	tileir       []byte
+	optixir      []byte
+	ptx          string
+	cubin        []byte
+	log          string
+	key          string
+	jitOptions   cudakernel.JITOptions
+	dependencies []cudakernel.Dependency
 }
 
 // PTX returns the compiled PTX assembly text.
@@ -96,7 +99,14 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 		// Fallback to loading PTX string
 		if cm.ptx != "" {
 			cstr := append([]byte(cm.ptx), 0)
-			m, err := driver.NewModuleLoadData(unsafe.Pointer(&cstr[0]))
+			jitOpts, jitVals := cm.jitOptions.DriverOptions()
+			var m driver.Module
+			var err error
+			if len(jitOpts) > 0 {
+				m, err = driver.NewModuleLoadDataEx(unsafe.Pointer(&cstr[0]), uint32(len(jitOpts)), &jitOpts[0], &jitVals[0])
+			} else {
+				m, err = driver.NewModuleLoadData(unsafe.Pointer(&cstr[0]))
+			}
 			if err != nil {
 				return err
 			}
@@ -121,6 +131,101 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 	})
 }
 
+// JITOptions returns the driver JIT compiler options attached to the module.
+func (cm *CompiledModule) JITOptions() cudakernel.JITOptions {
+	if cm == nil {
+		return cudakernel.JITOptions{}
+	}
+	return cm.jitOptions
+}
+
+// SetJITOptions updates the driver JIT compiler options attached to the module.
+func (cm *CompiledModule) SetJITOptions(opts cudakernel.JITOptions) {
+	if cm != nil {
+		cm.jitOptions = opts
+	}
+}
+
+// Dependencies returns recorded external compilation dependencies.
+func (cm *CompiledModule) Dependencies() []cudakernel.Dependency {
+	if cm == nil {
+		return nil
+	}
+	return append([]cudakernel.Dependency(nil), cm.dependencies...)
+}
+
+// ToArtifact converts the CompiledModule into a validated cudakernel.Artifact.
+// It distinguishes PTX, CUBIN, LTOIR, and TileIR, and marks unlinked formats.
+func (cm *CompiledModule) ToArtifact(entryPoint string, schema cudakernel.Schema, target string) (*cudakernel.Artifact, error) {
+	if cm == nil {
+		return nil, fmt.Errorf("nvrtcx: nil compiled module")
+	}
+
+	var kind cudakernel.Kind
+	var raw []byte
+
+	switch cm.output {
+	case OutputPTX:
+		kind = cudakernel.KindPTX
+		raw = []byte(cm.ptx)
+	case OutputCUBIN:
+		kind = cudakernel.KindCUBIN
+		raw = cm.cubin
+	case OutputLTOIR:
+		kind = cudakernel.KindLTOIR
+		raw = cm.ltoir
+	case OutputTileIR:
+		kind = cudakernel.KindTileIR
+		raw = cm.tileir
+	case OutputAuto:
+		if len(cm.cubin) > 0 {
+			kind = cudakernel.KindCUBIN
+			raw = cm.cubin
+		} else if cm.ptx != "" {
+			kind = cudakernel.KindPTX
+			raw = []byte(cm.ptx)
+		}
+	case OutputPTXTileIR:
+		if len(cm.tileir) > 0 {
+			kind = cudakernel.KindTileIR
+			raw = cm.tileir
+		} else {
+			kind = cudakernel.KindPTX
+			raw = []byte(cm.ptx)
+		}
+	default:
+		return nil, fmt.Errorf("nvrtcx: unsupported output kind %d for artifact conversion", cm.output)
+	}
+
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("nvrtcx: compiled module contains no %s data", kind)
+	}
+
+	var res cudakernel.ResourceRequirements
+	if kind == cudakernel.KindCUBIN {
+		if elfInfo, err := cudakernel.ParseCUBIN(raw); err == nil {
+			if regs, ok := elfInfo.AllocatedRegisters[entryPoint]; ok {
+				res.AllocatedRegisters = regs
+			}
+			if smem, ok := elfInfo.StaticSharedMemory[entryPoint]; ok {
+				res.StaticSharedMemory = smem
+			}
+		}
+	}
+
+	return cudakernel.NewArtifact(
+		kind,
+		raw,
+		entryPoint,
+		schema,
+		target,
+		cudakernel.WithResources(res),
+		cudakernel.WithJIT(cm.jitOptions),
+		cudakernel.WithToolchain("nvrtc"),
+		cudakernel.WithDependencies(cm.dependencies),
+	)
+}
+
 type options struct {
 	expressions       []string
 	output            OutputKind
@@ -139,6 +244,8 @@ type options struct {
 	bundledHeaders    bool
 	bundledHeadersDir string
 	ctx               context.Context
+	jitOptions        cudakernel.JITOptions
+	strictNVRTC       bool
 }
 
 // Option configures JIT compilation.
@@ -199,11 +306,11 @@ func WithArch(major, minor int) Option {
 }
 
 // WithPhysicalArch configures the target physical GPU architecture (for example,
-// sm_80 for major=8, minor=0). When compiled with default OutputAuto, this generates
-// native CUBIN machine code while retaining PTX for inspection. Load automatically
-// loads the CUBIN onto the device, avoiding driver-side JIT compilation and
-// preventing PTX version incompatibilities.
-func WithPhysicalArch(major, minor int) Option {
+// sm_80 for major=8, minor=0, or sm_121a for major=12, minor=1, suffix="a").
+// When compiled with default OutputAuto, this generates native CUBIN machine code
+// while retaining PTX for inspection. Load automatically loads the CUBIN onto the
+// device, avoiding driver-side JIT compilation and preventing PTX version incompatibilities.
+func WithPhysicalArch(major, minor int, suffix ...string) Option {
 	return func(o *options) {
 		if major <= 0 || minor < 0 {
 			o.err = fmt.Errorf("nvrtcx: invalid compute architecture %d.%d", major, minor)
@@ -213,8 +320,48 @@ func WithPhysicalArch(major, minor int) Option {
 			o.err = fmt.Errorf("nvrtcx: physical architecture cannot combine with WithOutput(%s)", outputKindName(o.output))
 			return
 		}
-		o.flags = append(o.flags, nvrtc.FlagGpuArchitecture+"="+nvrtc.SmArch(major, minor))
+		target := nvrtc.SmArch(major, minor)
+		if len(suffix) > 0 && suffix[0] != "" {
+			target += suffix[0]
+		}
+		o.flags = append(o.flags, nvrtc.FlagGpuArchitecture+"="+target)
 		o.physicalArch = true
+	}
+}
+
+// WithPhysicalArchTarget configures the target physical GPU architecture by name
+// (for example, "sm_121a" or "sm_100a").
+func WithPhysicalArchTarget(target string) Option {
+	return func(o *options) {
+		target = strings.TrimSpace(target)
+		if target == "" {
+			o.err = fmt.Errorf("nvrtcx: empty physical architecture target")
+			return
+		}
+		if !strings.HasPrefix(target, "sm_") {
+			target = "sm_" + target
+		}
+		if o.outputSet && (o.output == OutputLTOIR || o.output == OutputTileIR || o.output == OutputPTXTileIR) {
+			o.err = fmt.Errorf("nvrtcx: physical architecture cannot combine with WithOutput(%s)", outputKindName(o.output))
+			return
+		}
+		o.flags = append(o.flags, nvrtc.FlagGpuArchitecture+"="+target)
+		o.physicalArch = true
+	}
+}
+
+// WithJITOptions configures driver JIT compilation options for PTX loading.
+func WithJITOptions(jit cudakernel.JITOptions) Option {
+	return func(o *options) {
+		o.jitOptions = jit
+	}
+}
+
+// WithStrictNVRTC enforces strict source-level option validation,
+// explicitly rejecting offline nvcc/ptxas flags.
+func WithStrictNVRTC() Option {
+	return func(o *options) {
+		o.strictNVRTC = true
 	}
 }
 
@@ -469,6 +616,30 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	}
 	cfg.flags = flags
 
+	// Two-tier option separation:
+	// NVRTC Phase strictly accepts source-level options.
+	// Offline flags (-maxrregcount, -Xptxas, -O3, etc.) are stripped from
+	// the compilation flags and translated into Driver JIT options.
+	sourceFlags, offlineFlags, extractedJIT, _ := SeparateFlags(cfg.flags)
+	if cfg.strictNVRTC && len(offlineFlags) > 0 {
+		return nil, fmt.Errorf("nvrtcx: strict NVRTC rejected offline flags: %s", strings.Join(offlineFlags, ", "))
+	}
+	if cfg.jitOptions.MaxRegisters == 0 && extractedJIT.MaxRegisters > 0 {
+		cfg.jitOptions.MaxRegisters = extractedJIT.MaxRegisters
+	}
+	if cfg.jitOptions.OptLevel == 0 && extractedJIT.OptLevel > 0 {
+		cfg.jitOptions.OptLevel = extractedJIT.OptLevel
+	}
+
+	// External dependency tracking:
+	// Check external headers included via #include and hash their contents.
+	// If any external dependency cannot be validated, disable cache to prevent
+	// silent reuse of stale cache entries when untracked inputs change.
+	deps, allTracked := resolveExternalDependencies(src, cfg.flags, cfg.headers)
+	if !allTracked {
+		cfg.useCache = false
+	}
+
 	// Resolve the loaded compiler before looking up any compiled artifact.
 	// A cache hit must not bypass a missing or incompatible compiler installation.
 	major, minor, err := nvrtc.Version()
@@ -478,6 +649,10 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	identity := fmt.Sprintf("nvrtc %d.%d %s output=%d cache=%q", major, minor, nvrtc.Path(), cfg.output, cacheMagic)
 	inputKey := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
 	inputKey = computeCacheKey(inputKey, "name-expressions-v1", cfg.expressions, nil)
+	if len(deps) > 0 && allTracked {
+		depKey := computeDependencyKey(deps)
+		inputKey = computeCacheKey(inputKey, "external-deps-v1", []string{depKey}, nil)
+	}
 	key := compilerCacheKey(inputKey, identity)
 	if cfg.useCache {
 		if cached, ok := lookupCache(key); ok {
@@ -526,7 +701,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 					return prog, "", nil, fmt.Errorf("nvrtcx: set flow callback: %w", err)
 				}
 			}
-			compileErr := prog.Compile(cfg.flags)
+			compileErr := prog.Compile(sourceFlags)
 			log, logErr := prog.GetProgramLog()
 			return prog, log, compileErr, logErr
 		}
@@ -605,6 +780,8 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 			}
 			res.lowered[expression] = string(copied)
 		}
+		res.jitOptions = cfg.jitOptions
+		res.dependencies = deps
 		res.log = log
 		res.key = key
 

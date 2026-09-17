@@ -1,6 +1,8 @@
 // Package cudaspec provides high-throughput speculative decoding algorithms,
-// prompt-cache n-gram drafting, and batched multi-token GPU verification.
+// explicit branch state, tree attention masks, proposal lifecycle management,
+// prompt-cache n-gram drafting, and batched multi-token verification.
 //
-// Speculative decoding drafts K candidate tokens cheaply and verifies them
-// in a single batched target model forward pass, achieving a 2-3x wall-clock speedup.
+// Speculative decoding drafts candidate tokens cheaply and verifies them
+// in a single batched target model forward pass. Candidate branches and KV blocks
+// follow explicit commit and rollback invariants preserving reference counts.
 package cudaspec

@@ -4,6 +4,7 @@ package cudaprepack
 
 import (
 	"fmt"
+	"math"
 )
 
 // Option configures a LayoutTransformer.
@@ -64,6 +65,9 @@ func NewLayoutTransformer(arch string, dt DataType, opts ...Option) (*LayoutTran
 	if arch != ArchSM121a && arch != ArchSM100a {
 		return nil, fmt.Errorf("cudaprepack: unsupported architecture %q", arch)
 	}
+	if dt.BitsPerElement() == 0 {
+		return nil, fmt.Errorf("cudaprepack: unsupported data type %q", dt)
+	}
 
 	lt := &LayoutTransformer{
 		arch:       arch,
@@ -93,8 +97,15 @@ func (lt *LayoutTransformer) Transform2D(src []byte, rows, cols int) (*Prepacked
 	}
 
 	bitsPerElem := lt.dataType.BitsPerElement()
-	rawRowBytes := (cols*bitsPerElem + 7) / 8
-	expectedLen := rows * rawRowBytes
+	bits, ok := checkedMul(cols, bitsPerElem)
+	if !ok || bits > math.MaxInt-7 {
+		return nil, fmt.Errorf("cudaprepack: row extent overflows")
+	}
+	rawRowBytes := (bits + 7) / 8
+	expectedLen, ok := checkedMul(rows, rawRowBytes)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: source extent overflows")
+	}
 	if len(src) < expectedLen {
 		return nil, fmt.Errorf("cudaprepack: source buffer too short (got %d bytes, want at least %d)", len(src), expectedLen)
 	}
@@ -104,7 +115,10 @@ func (lt *LayoutTransformer) Transform2D(src []byte, rows, cols int) (*Prepacked
 	if strideAlign < MinAddressAlignment {
 		strideAlign = MinAddressAlignment
 	}
-	paddedRowStride := ((rawRowBytes + strideAlign - 1) / strideAlign) * strideAlign
+	paddedRowStride, ok := roundUpInt(rawRowBytes, strideAlign)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: row stride overflows")
+	}
 
 	// Determine TMA box dimensions
 	boxDims := lt.boxDims
@@ -129,7 +143,11 @@ func (lt *LayoutTransformer) Transform2D(src []byte, rows, cols int) (*Prepacked
 	}
 
 	// Allocate contiguous padded buffer
-	paddedBuf := make([]byte, rows*paddedRowStride)
+	paddedSize, ok := checkedMul(rows, paddedRowStride)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: padded extent overflows")
+	}
+	paddedBuf := make([]byte, paddedSize)
 	for r := 0; r < rows; r++ {
 		srcOffset := r * rawRowBytes
 		dstOffset := r * paddedRowStride
@@ -167,16 +185,32 @@ func (lt *LayoutTransformer) Transform3D(src []byte, depth, rows, cols int) (*Pr
 	}
 
 	bitsPerElem := lt.dataType.BitsPerElement()
-	rawRowBytes := (cols*bitsPerElem + 7) / 8
+	bits, ok := checkedMul(cols, bitsPerElem)
+	if !ok || bits > math.MaxInt-7 {
+		return nil, fmt.Errorf("cudaprepack: row extent overflows")
+	}
+	rawRowBytes := (bits + 7) / 8
 	strideAlign := lt.alignBytes
 	if strideAlign < MinAddressAlignment {
 		strideAlign = MinAddressAlignment
 	}
-	paddedRowStride := ((rawRowBytes + strideAlign - 1) / strideAlign) * strideAlign
-	rawPlaneBytes := rows * paddedRowStride
-	paddedPlaneStride := ((rawPlaneBytes + strideAlign - 1) / strideAlign) * strideAlign
+	paddedRowStride, ok := roundUpInt(rawRowBytes, strideAlign)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: row stride overflows")
+	}
+	rawPlaneBytes, ok := checkedMul(rows, paddedRowStride)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: plane extent overflows")
+	}
+	paddedPlaneStride, ok := roundUpInt(rawPlaneBytes, strideAlign)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: plane stride overflows")
+	}
 
-	expectedLen := depth * rows * rawRowBytes
+	expectedLen, ok := checkedMul(depth, rows, rawRowBytes)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: source extent overflows")
+	}
 	if len(src) < expectedLen {
 		return nil, fmt.Errorf("cudaprepack: source buffer too short (got %d bytes, want at least %d)", len(src), expectedLen)
 	}
@@ -199,7 +233,11 @@ func (lt *LayoutTransformer) Transform3D(src []byte, depth, rows, cols int) (*Pr
 		boxDims = [3]uint32{box0, box1, box2}
 	}
 
-	paddedBuf := make([]byte, depth*paddedPlaneStride)
+	paddedSize, ok := checkedMul(depth, paddedPlaneStride)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: padded extent overflows")
+	}
+	paddedBuf := make([]byte, paddedSize)
 	srcIdx := 0
 	for d := 0; d < depth; d++ {
 		planeOffset := d * paddedPlaneStride
@@ -232,4 +270,30 @@ func (lt *LayoutTransformer) Transform3D(src []byte, depth, rows, cols int) (*Pr
 		BoxDesc: desc,
 		Payload: paddedBuf,
 	}, nil
+}
+
+func checkedMul(values ...int) (int, bool) {
+	result := 1
+	for _, value := range values {
+		if value < 0 || value != 0 && result > math.MaxInt/value {
+			return 0, false
+		}
+		result *= value
+	}
+	return result, true
+}
+
+func roundUpInt(value, alignment int) (int, bool) {
+	if value < 0 || alignment <= 0 {
+		return 0, false
+	}
+	rem := value % alignment
+	if rem == 0 {
+		return value, true
+	}
+	inc := alignment - rem
+	if value > math.MaxInt-inc {
+		return 0, false
+	}
+	return value + inc, true
 }

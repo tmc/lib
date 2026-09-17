@@ -34,6 +34,9 @@ func (t *BarrierTracker) Validate(mod *cudaptx.Module) ([]ValidationError, error
 	if mod == nil {
 		return nil, fmt.Errorf("cudapipeline: nil module")
 	}
+	if t.targetArch == "" && mod.Target != "" {
+		t.targetArch = mod.Target
+	}
 	var violations []ValidationError
 	for _, k := range mod.Kernels {
 		if !k.Body {
@@ -56,6 +59,40 @@ func (t *BarrierTracker) ValidateKernel(k *cudaptx.Kernel) ([]ValidationError, e
 	}
 	t.Reset()
 	var violations []ValidationError
+
+	// Control-flow audit: unstructured branches, loops, or backward jumps across
+	// barrier protocol sequences cannot guarantee static phase parity or transaction balance,
+	// and must be reported as unsupported/unverified control flow.
+	hasBarrierOps := false
+	for _, inst := range k.Instructions {
+		if strings.HasPrefix(inst.Opcode, "mbarrier.") || strings.HasPrefix(inst.Opcode, "cp.async.bulk") {
+			hasBarrierOps = true
+			break
+		}
+	}
+	if hasBarrierOps {
+		for idx, inst := range k.Instructions {
+			// Check for branches/jumps across barrier sequences
+			if strings.HasPrefix(inst.Opcode, "bra") || strings.HasPrefix(inst.Opcode, "call") || (strings.HasPrefix(inst.Opcode, "ret") && idx < len(k.Instructions)-1) {
+				// We permit spin-wait loops like @!p bra wait_loop, but arbitrary control flow around
+				// stages or barrier transitions is unsupported.
+				if strings.HasPrefix(inst.Opcode, "bra") {
+					operands := cudaptx.SplitOperands(inst.Operands)
+					if len(operands) > 0 {
+						target := strings.TrimSpace(operands[0])
+						if !strings.Contains(target, "wait") && !strings.Contains(target, "spin") {
+							violations = append(violations, ValidationError{
+								Line:      inst.Line,
+								Opcode:    inst.Opcode,
+								Violation: ErrUnsupportedControlFlow,
+								Message:   fmt.Sprintf("branch to %q introduces unsupported control flow across pipeline barrier protocol", target),
+							})
+						}
+					}
+				}
+			}
+		}
+	}
 
 	for _, inst := range k.Instructions {
 		errs := t.processInstruction(inst)
@@ -88,11 +125,11 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 		return nil
 	}
 
-	// tcgen05.alloc
-	if strings.HasPrefix(inst.Opcode, "tcgen05.alloc") {
+	// tcgen05 instructions validation against target architecture
+	if strings.HasPrefix(inst.Opcode, "tcgen05.") {
 		if t.targetArch != "" {
 			arch, err := ArchProfileFor(t.targetArch)
-			if err == nil && !arch.SupportsTMEM {
+			if err == nil && !arch.SupportsTCGen05 {
 				violations = append(violations, ValidationError{
 					Line:      inst.Line,
 					Opcode:    inst.Opcode,
@@ -101,6 +138,10 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 				})
 			}
 		}
+	}
+
+	// tcgen05.alloc
+	if strings.HasPrefix(inst.Opcode, "tcgen05.alloc") {
 		if len(operands) >= 2 {
 			if cols, ok := t.resolveInt(operands[1]); ok {
 				if cols < 32 || cols > 512 || cols%32 != 0 {
@@ -128,6 +169,7 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 		return violations
 	}
 
+
 	// tcgen05.dealloc
 	if strings.HasPrefix(inst.Opcode, "tcgen05.dealloc") {
 		if len(operands) >= 2 {
@@ -138,7 +180,7 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 				}
 			}
 		}
-		return nil
+		return violations
 	}
 
 	// 1. mbarrier.init
@@ -400,8 +442,17 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 
 	// 7. cp.async.bulk.tensor
 	if strings.HasPrefix(inst.Opcode, "cp.async.bulk.tensor") {
+		// Audit and reject invalid/unverified bulk TMEM forms like cp.async.bulk.tensor.*.tmem.global
+		if !t.allowLegacyTMEM && (strings.Contains(inst.Opcode, ".tmem.") || strings.Contains(inst.Opcode, ".tmem")) {
+			violations = append(violations, ValidationError{
+				Line:      inst.Line,
+				Opcode:    inst.Opcode,
+				Violation: ErrInvalidBulkTMEMPTX,
+				Message:   fmt.Sprintf("invalid bulk tensor copy targeting TMEM directly: %s (direct global-to-TMEM transfer is unverified/unsupported; requires staged global-to-shared transfer)", inst.Opcode),
+			})
+		}
 		if !strings.Contains(inst.Opcode, "mbarrier::complete_tx::bytes") || len(operands) < 3 {
-			return nil
+			return violations
 		}
 		addr := t.resolveSymbol(cleanAddress(operands[2]))
 		b := t.Barrier(addr)
@@ -456,8 +507,17 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 
 	// 8. cp.async.bulk (non-tensor bulk)
 	if strings.HasPrefix(inst.Opcode, "cp.async.bulk.") && !strings.HasPrefix(inst.Opcode, "cp.async.bulk.tensor") {
+		// Audit and reject invalid/unverified bulk TMEM forms like cp.async.bulk.tmem.global
+		if !t.allowLegacyTMEM && (strings.Contains(inst.Opcode, ".tmem.") || strings.Contains(inst.Opcode, ".tmem")) {
+			violations = append(violations, ValidationError{
+				Line:      inst.Line,
+				Opcode:    inst.Opcode,
+				Violation: ErrInvalidBulkTMEMPTX,
+				Message:   fmt.Sprintf("invalid bulk copy targeting TMEM directly: %s (direct global-to-TMEM transfer is unverified/unsupported; requires staged global-to-shared transfer)", inst.Opcode),
+			})
+		}
 		if !strings.Contains(inst.Opcode, "mbarrier::complete_tx::bytes") || len(operands) < 4 {
-			return nil
+			return violations
 		}
 		addr := t.resolveSymbol(cleanAddress(operands[3]))
 		b := t.Barrier(addr)

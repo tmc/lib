@@ -28,3 +28,27 @@ func ExampleMatMulConfig() {
 	// TransA: true
 	// Alpha: 1
 }
+
+func ExampleWithWorkspaceBytes() {
+	opt := cublasltx.WithWorkspaceBytes(0)
+	fmt.Println("configured option:", opt != nil)
+
+	// Output:
+	// configured option: true
+}
+
+func ExampleMatMulConfig_workspace() {
+	cfg := cublasltx.MatMulConfig{
+		ComputeType:   cublaslt.Compute32F,
+		ScaleType:     cublaslt.R32F,
+		AType:         cublaslt.R32F,
+		BType:         cublaslt.R32F,
+		DType:         cublaslt.R32F,
+		WorkspaceSize: 1024 * 1024,
+	}
+
+	fmt.Println("WorkspaceSize:", cfg.WorkspaceSize)
+
+	// Output:
+	// WorkspaceSize: 1048576
+}

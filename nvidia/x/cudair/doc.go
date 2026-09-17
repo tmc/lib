@@ -1,15 +1,28 @@
-// Package cudair provides a typed Intermediate Representation (IR) graph and waterfall
-// memory arena planner for GPU tensor graphs.
+// Package cudair provides a typed Intermediate Representation (IR) graph,
+// immutable validated snapshots, and waterfall memory arena planning for GPU tensor graphs.
 //
 // # Graph Representation
 //
-// Computation graphs are constructed from elementary tensor operations (Elementwise,
-// MatMul, Reduce). The topological structure allows compiler passes such as dead-code
-// elimination, kernel fusion ([github.com/tmc/lib/nvidia/x/cudafuse]), and optimal
-// memory buffer reuse planning.
+// Computation graphs are constructed from an authoritative operation set:
+// Input, Constant, Add, Multiply, Sub, Div, Neg, Exp, Log, Sqrt, Relu, Gelu,
+// Matmul, ReduceSum, ReduceMax, Reshape, Transpose, Slice, and Concat.
+//
+// Every node carries explicit metadata including [DataType], shape extents,
+// [cudashape.Layout], strides, and storage effects ([StorageEffect]).
+//
+// # Immutable Validated Snapshots
+//
+// A mutable [Graph] can be frozen and validated using [Graph.Snapshot].
+// Validation ensures:
+//   - The graph is a directed acyclic graph (no cycles).
+//   - Nodes have unmixed single-graph ownership (cross-graph inputs are rejected).
+//   - All operations conform to the authoritative semantic registry.
+//   - Shapes, ranks, reduction axes, permutations, and dtypes are strictly compatible.
+//   - Graph outputs are valid and reachable.
 //
 // # Arena Allocation Planning
 //
-// The [ArenaPlanner] calculates tensor live ranges and overlays non-overlapping intermediate
-// tensor buffers into a single contiguous device memory scratchpad, minimizing GPU VRAM allocations.
+// The [PlanMemory] function calculates tensor live ranges and overlays non-overlapping
+// intermediate tensor buffers into a single contiguous device memory scratchpad,
+// minimizing GPU VRAM allocations while respecting storage aliases and memory limits.
 package cudair

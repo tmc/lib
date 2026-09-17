@@ -328,7 +328,7 @@ func (e *Exec) SetKernelNodeGrid(node *Node, grid cudalaunch.Dim3) error {
 // UpdateKernelNode updates the grid dimensions and kernel arguments of node in the
 // instantiated graph without re-instantiating or validating topology.
 // If grid.X is non-zero, grid dimensions are updated. If args are provided,
-// they are packed and updated.
+// they are packed, updated, and retained on e to protect them against garbage collection.
 func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) error {
 	if e == nil || e.raw == 0 {
 		return errors.New("cudagraph: executable graph is closed")
@@ -353,16 +353,76 @@ func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) e
 		if err != nil {
 			return fmt.Errorf("cudagraph: pack args: %w", err)
 		}
-		// KernelParams is a uintptr, which the garbage collector does not
-		// trace, so kernelParams must be kept alive explicitly until the
-		// driver has read through it. See x/cudamlx.CommandEncoder.AddKernelNode.
 		defer runtime.KeepAlive(kernelParams)
 		params.KernelParams = uintptr(unsafe.Pointer(&kernelParams[0]))
 		params.Extra = 0
-		return e.SetKernelNodeParams(node, &params)
+		if err := e.SetKernelNodeParams(node, &params); err != nil {
+			return err
+		}
+		// Retain storage on e to guarantee lifetime through subsequent executions.
+		e.retained = append(e.retained, &launchArgs{
+			params: kernelParams,
+			desc: cudalaunch.Description{
+				Function: params.Func,
+				Grid:     cudalaunch.Dims(params.GridDimX, params.GridDimY, params.GridDimZ),
+				Block:    cudalaunch.Dims(params.BlockDimX, params.BlockDimY, params.BlockDimZ),
+			},
+		})
+		return nil
 	}
 	return e.SetKernelNodeParams(node, &params)
 }
+
+// HotSwapNode updates the kernel function, grid dimensions, and arguments of an
+// existing kernel node in the instantiated graph without re-instantiating the CUDA Graph.
+// The packed argument storage is retained on e for the lifetime of the Exec.
+func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid cudalaunch.Dim3, args ...any) error {
+	if e == nil || e.raw == 0 {
+		return errors.New("cudagraph: executable graph is closed")
+	}
+	if node == nil || node.raw == 0 {
+		return errors.New("cudagraph: nil or closed node")
+	}
+	if fn == 0 {
+		return errors.New("cudagraph: nil kernel function")
+	}
+	params, err := node.Params()
+	if err != nil {
+		return err
+	}
+	params.Func = fn
+	if grid.X != 0 {
+		if grid.Y == 0 || grid.Z == 0 {
+			return errors.New("cudagraph: invalid zero grid dimension")
+		}
+		params.GridDimX = grid.X
+		params.GridDimY = grid.Y
+		params.GridDimZ = grid.Z
+	}
+	if len(args) > 0 {
+		kernelParams, err := cudalaunch.PackArgs(args...)
+		if err != nil {
+			return fmt.Errorf("cudagraph: pack args: %w", err)
+		}
+		defer runtime.KeepAlive(kernelParams)
+		params.KernelParams = uintptr(unsafe.Pointer(&kernelParams[0]))
+		params.Extra = 0
+		if err := e.SetKernelNodeParams(node, &params); err != nil {
+			return err
+		}
+		e.retained = append(e.retained, &launchArgs{
+			params: kernelParams,
+			desc: cudalaunch.Description{
+				Function: fn,
+				Grid:     cudalaunch.Dims(params.GridDimX, params.GridDimY, params.GridDimZ),
+				Block:    cudalaunch.Dims(params.BlockDimX, params.BlockDimY, params.BlockDimZ),
+			},
+		})
+		return nil
+	}
+	return e.SetKernelNodeParams(node, &params)
+}
+
 
 // ApplyKernelNodeUpdate applies a typed KernelNodeUpdate to node in the executable graph.
 func (e *Exec) ApplyKernelNodeUpdate(node *Node, update KernelNodeUpdate) error {

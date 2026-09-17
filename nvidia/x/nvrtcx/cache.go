@@ -13,9 +13,19 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 )
 
-const cacheMagic = "nvrtcx\x00\x07"
+const (
+	cacheMagic       = "nvrtcx\x00\x08"
+	legacyCacheMagic = "nvrtcx\x00\x07"
+)
+
+type cacheMeta struct {
+	JIT  cudakernel.JITOptions   `json:"jit,omitempty"`
+	Deps []cudakernel.Dependency `json:"deps,omitempty"`
+}
 
 var (
 	memCacheMu sync.RWMutex
@@ -142,10 +152,14 @@ func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	metaBytes, err := json.Marshal(cacheMeta{JIT: cm.jitOptions, Deps: cm.dependencies})
+	if err != nil {
+		return nil, err
+	}
 	var b bytes.Buffer
 	b.WriteString(cacheMagic)
 	b.WriteByte(byte(cm.output))
-	fields := [][]byte{[]byte(cm.ptx), cm.cubin, cm.ltoir, cm.tileir, cm.optixir, []byte(cm.log), names}
+	fields := [][]byte{[]byte(cm.ptx), cm.cubin, cm.ltoir, cm.tileir, cm.optixir, []byte(cm.log), names, metaBytes}
 	for _, field := range fields {
 		var length [8]byte
 		binary.LittleEndian.PutUint64(length[:], uint64(len(field)))
@@ -160,23 +174,34 @@ func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
 }
 
 func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
-	const headerSize = len(cacheMagic) + 1 + 7*8
-	if len(data) < headerSize+sha256.Size || string(data[:len(cacheMagic)]) != cacheMagic {
+	isV8 := len(data) >= len(cacheMagic) && string(data[:len(cacheMagic)]) == cacheMagic
+	isV7 := len(data) >= len(legacyCacheMagic) && string(data[:len(legacyCacheMagic)]) == legacyCacheMagic
+	if !isV8 && !isV7 {
 		return nil, fmt.Errorf("nvrtcx: invalid cache entry")
+	}
+	numFields := 7
+	magicLen := len(legacyCacheMagic)
+	if isV8 {
+		numFields = 8
+		magicLen = len(cacheMagic)
+	}
+	headerSize := magicLen + 1 + numFields*8
+	if len(data) < headerSize+sha256.Size {
+		return nil, fmt.Errorf("nvrtcx: invalid cache entry size")
 	}
 	want := data[len(data)-sha256.Size:]
 	got := sha256.Sum256(data[:len(data)-sha256.Size])
 	if !bytes.Equal(got[:], want) {
 		return nil, fmt.Errorf("nvrtcx: corrupt cache entry")
 	}
-	kind := OutputKind(data[len(cacheMagic)])
+	kind := OutputKind(data[magicLen])
 	if kind > OutputOptiXIR {
 		return nil, fmt.Errorf("nvrtcx: invalid cached output kind")
 	}
 	payload := data[headerSize : len(data)-sha256.Size]
-	var fields [7][]byte
+	fields := make([][]byte, numFields)
 	for i := range fields {
-		offset := len(cacheMagic) + 1 + i*8
+		offset := magicLen + 1 + i*8
 		size := binary.LittleEndian.Uint64(data[offset : offset+8])
 		if size > uint64(len(payload)) {
 			return nil, fmt.Errorf("nvrtcx: invalid cache entry lengths")
@@ -203,6 +228,13 @@ func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
 	for expression, name := range cm.lowered {
 		if expression == "" || name == "" || strings.ContainsRune(expression, 0) || strings.ContainsRune(name, 0) {
 			return nil, fmt.Errorf("nvrtcx: invalid cached lowered name")
+		}
+	}
+	if isV8 && len(fields) > 7 && len(fields[7]) > 0 {
+		var meta cacheMeta
+		if err := json.Unmarshal(fields[7], &meta); err == nil {
+			cm.jitOptions = meta.JIT
+			cm.dependencies = meta.Deps
 		}
 	}
 	if !cm.validArtifact() {

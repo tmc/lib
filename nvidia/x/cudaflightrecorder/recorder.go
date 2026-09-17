@@ -1,7 +1,9 @@
 package cudaflightrecorder
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -32,8 +34,12 @@ type Config struct {
 	GoTraceMaxBytes    uint64          // Upper bound on in-memory Go execution trace size in bytes (0 = runtime default)
 	GoTraceStandard    bool            // If true, use standard trace.Start/Stop adapter instead of trace.FlightRecorder
 	GoTracer           GoTraceRecorder // Optional custom Go execution trace flight recorder
-	RecordGPUPprof     bool            // Whether to capture GPU pprof profile in snapshots (gpu.pprof)
-	RecordPerfetto     bool            // Whether to capture Perfetto timeline in snapshots (timeline.pftrace)
+	RecordGPUPprof         bool            // Whether to capture GPU pprof profile in snapshots (gpu.pprof)
+	RecordPerfetto         bool            // Whether to capture Perfetto timeline in snapshots (timeline.pftrace)
+	MaxProviderOutputBytes int64           // Max bytes allowed per provider output (default: 64 MiB)
+	MaxSnapshotBytes       int64           // Max bytes allowed for snapshot bundle (default: 256 MiB)
+	MaxQueuedJobs          int             // Max pending async snapshot jobs (default: 16)
+	MaxDiskRetentionBytes  int64           // Max total disk bytes for retained snapshots (default: 1 GiB)
 }
 
 // Record represents a single timestamped GPU execution observation in the ring buffer.
@@ -45,12 +51,14 @@ type Record struct {
 	Labels        map[string]string // Contextual attributes (e.g. layer, expert, op)
 }
 
-// Recorder coordinates continuous, zero-device circular flight recording in host DRAM.
+// Recorder retains recent GPU observations in a host-memory ring buffer and
+// combines them with configured artifact providers when taking a snapshot.
 type Recorder struct {
-	cfg     Config
-	mu      sync.Mutex
-	running bool
-	closed  bool
+	cfg        Config
+	mu         sync.Mutex
+	running    bool
+	closed     bool
+	cleanupErr error
 
 	// Circular ring buffer
 	records []Record
@@ -82,6 +90,18 @@ func New(cfg Config) (*Recorder, error) {
 	}
 	if cfg.Capacity <= 0 {
 		cfg.Capacity = DefaultCapacity
+	}
+	if cfg.MaxProviderOutputBytes <= 0 {
+		cfg.MaxProviderOutputBytes = 64 << 20
+	}
+	if cfg.MaxSnapshotBytes <= 0 {
+		cfg.MaxSnapshotBytes = 256 << 20
+	}
+	if cfg.MaxQueuedJobs <= 0 {
+		cfg.MaxQueuedJobs = 16
+	}
+	if cfg.MaxDiskRetentionBytes <= 0 {
+		cfg.MaxDiskRetentionBytes = 1 << 30
 	}
 
 	r := &Recorder{
@@ -186,6 +206,28 @@ func (r *Recorder) Stop() {
 
 	r.running = false
 	r.closed = true
+}
+
+// Close halts flight recording and returns any cleanup or collector shutdown errors.
+func (r *Recorder) Close() error {
+	r.Stop()
+	return r.CleanupErr()
+}
+
+// CleanupErr returns any error encountered during collector shutdown or resource cleanup.
+func (r *Recorder) CleanupErr() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.cleanupErr
+}
+
+// SetCleanupErr records a collector or cleanup error explicitly.
+func (r *Recorder) SetCleanupErr(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.cleanupErr == nil {
+		r.cleanupErr = err
+	}
 }
 
 // Push adds an observation to the in-memory circular buffer.
@@ -298,11 +340,12 @@ func calibrateWith(read func() (uint64, error)) (hostNs, deviceNs, uncertaintyNs
 	return before + (after-before)/2, int64(device), (after - before) / 2, nil
 }
 
-// Snapshot writes a multi-modal diagnostic bundle (.tar) to w containing
-// the in-memory flight records and manifest.
-//
-// It reads strictly from host DRAM and does not interact with GPU hardware,
-// ensuring it never hangs or crashes during failure states.
+// Snapshot writes a tar bundle to w containing recent flight records, a manifest,
+// and artifacts supplied by configured providers. The reason labels the snapshot
+// for later analysis.
+// Record extraction reads host memory. Snapshot also calls configured providers
+// and writes to w; their behavior determines whether those operations block or
+// access GPU hardware.
 func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*Manifest, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -356,42 +399,103 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	}
 	bundle.Files["gpu_records.txt"] = recBuf
 
+	maxProviderBytes := cfg.MaxProviderOutputBytes
+	if maxProviderBytes <= 0 {
+		maxProviderBytes = 64 << 20
+	}
+
+	providerStatus := make(map[string]string)
+	var lossReasons []string
+
 	// 1. go.trace
 	var goTraceBytes int64
 	var goHasData bool
 	if goProvider != nil {
-		if data, err := goProvider(ctx); err == nil && len(data) > 0 {
+		data, err := goProvider(ctx)
+		if err != nil {
+			providerStatus["go.trace"] = fmt.Sprintf("unavailable: %v", err)
+			lossReasons = append(lossReasons, fmt.Sprintf("go.trace provider unavailable: %v", err))
+		} else if len(data) == 0 {
+			providerStatus["go.trace"] = "empty"
+		} else if int64(len(data)) > maxProviderBytes {
+			providerStatus["go.trace"] = fmt.Sprintf("rejected: output %d bytes exceeds budget %d bytes", len(data), maxProviderBytes)
+			lossReasons = append(lossReasons, "go.trace exceeded output budget")
+		} else if err := validateGoTrace(data); err != nil {
+			providerStatus["go.trace"] = fmt.Sprintf("rejected: %v", err)
+			lossReasons = append(lossReasons, fmt.Sprintf("go.trace invalid: %v", err))
+		} else {
 			bundle.Files["go.trace"] = data
 			goTraceBytes = int64(len(data))
 			goHasData = true
+			providerStatus["go.trace"] = fmt.Sprintf("valid (%d bytes)", len(data))
 		}
 	} else if cfg.GoTraceEnabled {
-		bundle.Files["go.trace"] = []byte("go_trace_v2\x00")
-		goTraceBytes = int64(len(bundle.Files["go.trace"]))
-		goHasData = true
+		providerStatus["go.trace"] = "unavailable: provider not configured"
+		lossReasons = append(lossReasons, "go.trace provider not configured")
 	}
 
 	// 2. gpu.ppprof
 	if gpuProvider != nil {
-		if data, err := gpuProvider(ctx); err == nil && len(data) > 0 {
+		data, err := gpuProvider(ctx)
+		if err != nil {
+			providerStatus["gpu.pprof"] = fmt.Sprintf("unavailable: %v", err)
+			lossReasons = append(lossReasons, fmt.Sprintf("gpu.pprof provider unavailable: %v", err))
+		} else if len(data) == 0 {
+			providerStatus["gpu.pprof"] = "empty"
+		} else if int64(len(data)) > maxProviderBytes {
+			providerStatus["gpu.pprof"] = fmt.Sprintf("rejected: output %d bytes exceeds budget %d bytes", len(data), maxProviderBytes)
+			lossReasons = append(lossReasons, "gpu.pprof exceeded output budget")
+		} else if err := validateGPUPprof(data); err != nil {
+			providerStatus["gpu.pprof"] = fmt.Sprintf("rejected: %v", err)
+			lossReasons = append(lossReasons, fmt.Sprintf("gpu.pprof invalid: %v", err))
+		} else {
 			bundle.Files["gpu.pprof"] = data
+			providerStatus["gpu.pprof"] = fmt.Sprintf("valid (%d bytes)", len(data))
 		}
 	} else if cfg.RecordGPUPprof {
-		bundle.Files["gpu.pprof"] = []byte("\x1f\x8b\x08gpu_pprof\x00")
+		providerStatus["gpu.pprof"] = "unavailable: provider not configured"
+		lossReasons = append(lossReasons, "gpu.pprof provider not configured")
 	}
 
 	// 3. timeline.pftrace
 	if perfettoProvider != nil {
-		if data, err := perfettoProvider(ctx); err == nil && len(data) > 0 {
+		data, err := perfettoProvider(ctx)
+		if err != nil {
+			providerStatus["timeline.pftrace"] = fmt.Sprintf("unavailable: %v", err)
+			lossReasons = append(lossReasons, fmt.Sprintf("timeline.pftrace provider unavailable: %v", err))
+		} else if len(data) == 0 {
+			providerStatus["timeline.pftrace"] = "empty"
+		} else if int64(len(data)) > maxProviderBytes {
+			providerStatus["timeline.pftrace"] = fmt.Sprintf("rejected: output %d bytes exceeds budget %d bytes", len(data), maxProviderBytes)
+			lossReasons = append(lossReasons, "timeline.pftrace exceeded output budget")
+		} else if err := validatePerfetto(data); err != nil {
+			providerStatus["timeline.pftrace"] = fmt.Sprintf("rejected: %v", err)
+			lossReasons = append(lossReasons, fmt.Sprintf("timeline.pftrace invalid: %v", err))
+		} else {
 			bundle.Files["timeline.pftrace"] = data
+			providerStatus["timeline.pftrace"] = fmt.Sprintf("valid (%d bytes)", len(data))
 		}
 	} else if cfg.RecordPerfetto {
-		bundle.Files["timeline.pftrace"] = []byte("timeline_pftrace\x00")
+		providerStatus["timeline.pftrace"] = "unavailable: provider not configured"
+		lossReasons = append(lossReasons, "timeline.pftrace provider not configured")
 	}
 
 	// 4. Attach extra user files
 	for name, data := range extraFiles {
 		bundle.Files[name] = data
+	}
+
+	// Check total snapshot size budget
+	var totalBytes int64
+	for _, f := range bundle.Files {
+		totalBytes += int64(len(f))
+	}
+	maxSnapBytes := cfg.MaxSnapshotBytes
+	if maxSnapBytes <= 0 {
+		maxSnapBytes = 256 << 20
+	}
+	if totalBytes > maxSnapBytes {
+		return nil, fmt.Errorf("%w: bundle size %d bytes exceeds budget %d bytes", ErrSnapshotBudgetExceeded, totalBytes, maxSnapBytes)
 	}
 
 	// 5. Align host clock and device timestamps to compute spans
@@ -434,11 +538,164 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 		ClockUncertaintyNs:     clockUncertaintyNs,
 		ClockUncertaintySource: clockUncertaintySource,
 		OverlapReliable:        overlapReliable,
+		ProviderStatus:         providerStatus,
+		LossReasons:            lossReasons,
 	}
 	bundle.Manifest = manifest
 
 	if err := WriteBundle(w, bundle); err != nil {
 		return nil, fmt.Errorf("cudaflightrecorder: write snapshot bundle: %w", err)
+	}
+
+	return &manifest, nil
+}
+
+func isPlaceholderPayload(data []byte) bool {
+	if bytes.Equal(data, []byte("go_trace_v2\x00")) ||
+		bytes.Equal(data, []byte("\x1f\x8b\x08gpu_pprof\x00")) ||
+		bytes.Equal(data, []byte("timeline_pftrace\x00")) ||
+		bytes.Equal(data, []byte("fake_go_trace_v2")) {
+		return true
+	}
+	return false
+}
+
+func validateGoTrace(data []byte) error {
+	if isPlaceholderPayload(data) {
+		return fmt.Errorf("%w: go.trace contains placeholder string", ErrPlaceholderRejected)
+	}
+	if len(data) < 4 {
+		return fmt.Errorf("%w: go.trace too short (%d bytes)", ErrArtifactInvalid, len(data))
+	}
+	if !bytes.HasPrefix(data, []byte("go 1.")) &&
+		!bytes.HasPrefix(data, []byte("\x16go 1.")) &&
+		!bytes.HasPrefix(data, []byte("go_trace")) {
+		return fmt.Errorf("%w: invalid go.trace magic header", ErrArtifactInvalid)
+	}
+	return nil
+}
+
+func validateGPUPprof(data []byte) error {
+	if isPlaceholderPayload(data) {
+		return fmt.Errorf("%w: gpu.pprof contains placeholder string", ErrPlaceholderRejected)
+	}
+	if len(data) < 4 {
+		return fmt.Errorf("%w: gpu.pprof too short (%d bytes)", ErrArtifactInvalid, len(data))
+	}
+	if !bytes.HasPrefix(data, []byte{0x1f, 0x8b}) {
+		return fmt.Errorf("%w: gpu.pprof missing gzip magic header", ErrArtifactInvalid)
+	}
+	return nil
+}
+
+func validatePerfetto(data []byte) error {
+	if isPlaceholderPayload(data) {
+		return fmt.Errorf("%w: timeline.pftrace contains placeholder string", ErrPlaceholderRejected)
+	}
+	if len(data) < 4 {
+		return fmt.Errorf("%w: timeline.pftrace too short (%d bytes)", ErrArtifactInvalid, len(data))
+	}
+	return nil
+}
+
+// FaultSnapshot writes a zero-device crash dump TAR archive to w using exclusively
+// host DRAM circular buffer records and host-side telemetry, without contacting
+// the GPU or driver. It embeds fault metadata and negative rewrite rules for egraph.
+func (r *Recorder) FaultSnapshot(ctx context.Context, w io.Writer, fault FaultInfo) (*Manifest, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	r.mu.Lock()
+	capacity := len(r.records)
+	records := make([]Record, 0, r.count)
+	now := time.Now()
+	nowNs := now.UnixNano()
+	windowNs := r.cfg.Window.Nanoseconds()
+	cutoffNs := nowNs - windowNs
+
+	outsideWindow := 0
+	startIdx := (r.head - r.count + capacity) % capacity
+	for i := 0; i < r.count; i++ {
+		idx := (startIdx + i) % capacity
+		rec := r.records[idx]
+		if rec.TimestampNs >= cutoffNs {
+			records = append(records, rec)
+		} else {
+			outsideWindow++
+		}
+	}
+	dropped := r.dropped
+	extraFiles := make(map[string][]byte, len(r.extraFiles))
+	for k, v := range r.extraFiles {
+		extraFiles[k] = v
+	}
+	r.mu.Unlock()
+
+	bundle := &Bundle{
+		Files: make(map[string][]byte),
+	}
+
+	// Format GPU records as a human-readable text dump inside the bundle
+	var recBuf []byte
+	for _, rec := range records {
+		recBuf = append(recBuf, fmt.Sprintf("%d %s dur=%dns corr=%d\n",
+			rec.TimestampNs, rec.KernelName, rec.DurationNs, rec.CorrelationID)...)
+	}
+	bundle.Files["gpu_records.txt"] = recBuf
+
+	// 1. Serialize fault.json
+	faultBytes, err := json.MarshalIndent(fault, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("cudaflightrecorder: marshal fault info: %w", err)
+	}
+	bundle.Files["fault.json"] = faultBytes
+
+	// 2. Serialize negative_rules.json to feed negative rewrite constraints to egraph
+	rules := fault.FailedRuleNames
+	if len(rules) == 0 && fault.OffendingKernel != "" {
+		rules = []string{"ban_kernel:" + fault.OffendingKernel}
+	}
+	negConstraint := NegativeRewriteConstraint{
+		CandidateDigest:  fault.ModuleDigest,
+		OffendingKernel:  fault.OffendingKernel,
+		QuarantinedRules: rules,
+		Reason:           fmt.Sprintf("gpu_fault: %s (%d): %s", fault.ErrorName, fault.ErrorCode, fault.ErrorMessage),
+		PruneSubtree:     true,
+		Timestamp:        now,
+	}
+	negBytes, err := json.MarshalIndent(negConstraint, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("cudaflightrecorder: marshal negative constraints: %w", err)
+	}
+	bundle.Files["negative_rules.json"] = negBytes
+
+	// 3. Attach static extra files
+	for name, data := range extraFiles {
+		bundle.Files[name] = data
+	}
+
+	reason := "fault:" + fault.ErrorName
+	if fault.ErrorName == "" {
+		reason = fmt.Sprintf("fault:code_%d", fault.ErrorCode)
+	}
+
+	manifest := Manifest{
+		Timestamp:              now,
+		Reason:                 reason,
+		WindowRequestedNs:      windowNs,
+		GPURecords:             len(records),
+		GPUDropped:             dropped,
+		GPUOutsideWindow:       outsideWindow,
+		ClockUncertaintyNs:     -1,
+		ClockUncertaintySource: "host_only",
+		OverlapReliable:        false,
+		LossReasons:            []string{fmt.Sprintf("fault_occurred: %s", fault.ErrorMessage)},
+	}
+	bundle.Manifest = manifest
+
+	if err := WriteBundle(w, bundle); err != nil {
+		return nil, fmt.Errorf("cudaflightrecorder: write fault snapshot bundle: %w", err)
 	}
 
 	return &manifest, nil

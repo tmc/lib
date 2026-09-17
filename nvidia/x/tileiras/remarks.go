@@ -3,10 +3,14 @@ package tileiras
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 )
+
+// ErrMalformedRemark is returned when a compiler remark format is invalid or malformed.
+var ErrMalformedRemark = errors.New("tileiras: malformed compiler remark")
 
 // Remark represents a compiler optimization remark emitted by tileiras.
 type Remark struct {
@@ -100,6 +104,9 @@ func ParseRemarksYAML(data []byte) ([]Remark, error) {
 			if idx := strings.Index(trimmed, "!"); idx >= 0 {
 				kind = strings.TrimSpace(trimmed[idx+1:])
 			}
+			if kind == "" {
+				return nil, fmt.Errorf("%w: missing remark kind in %q", ErrMalformedRemark, trimmed)
+			}
 			cur = &Remark{
 				Kind: kind,
 				Args: make(map[string]string),
@@ -113,7 +120,7 @@ func ParseRemarksYAML(data []byte) ([]Remark, error) {
 		}
 
 		if cur == nil {
-			continue
+			return nil, fmt.Errorf("%w: remark content before document header: %q", ErrMalformedRemark, trimmed)
 		}
 
 		// Check for top-level keys vs Args items
@@ -127,10 +134,18 @@ func ParseRemarksYAML(data []byte) ([]Remark, error) {
 			cur.Function = strings.TrimSpace(strings.TrimPrefix(line, "Function:"))
 			inArgs = false
 		} else if strings.HasPrefix(line, "DebugLoc:") {
-			parseDebugLoc(line, cur)
+			if !parseDebugLoc(line, cur) {
+				return nil, fmt.Errorf("%w: invalid DebugLoc format: %q", ErrMalformedRemark, line)
+			}
 			inArgs = false
 		} else if strings.HasPrefix(line, "Args:") {
 			inArgs = true
+		} else if !inArgs && strings.Contains(line, ":") {
+			if k, v, ok := parseKeyValue(trimmed); ok {
+				cur.Args[k] = v
+			} else {
+				return nil, fmt.Errorf("%w: unparseable line: %q", ErrMalformedRemark, line)
+			}
 		} else if inArgs && strings.HasPrefix(trimmed, "-") {
 			// Argument item e.g. "- RemarkId: 4" or "- Remark: Load instruction selected"
 			argLine := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
@@ -148,6 +163,8 @@ func ParseRemarksYAML(data []byte) ([]Remark, error) {
 				case "Reason":
 					cur.Reason = v
 				}
+			} else {
+				return nil, fmt.Errorf("%w: unparseable argument item: %q", ErrMalformedRemark, trimmed)
 			}
 		} else if inArgs && strings.Contains(trimmed, ":") {
 			// Continuation argument key: value
@@ -165,7 +182,11 @@ func ParseRemarksYAML(data []byte) ([]Remark, error) {
 				case "Reason":
 					cur.Reason = v
 				}
+			} else {
+				return nil, fmt.Errorf("%w: unparseable continuation argument: %q", ErrMalformedRemark, trimmed)
 			}
+		} else {
+			return nil, fmt.Errorf("%w: unrecognized syntax in remark body: %q", ErrMalformedRemark, trimmed)
 		}
 	}
 
@@ -177,16 +198,18 @@ func ParseRemarksYAML(data []byte) ([]Remark, error) {
 	return remarks, nil
 }
 
-func parseDebugLoc(line string, r *Remark) {
+func parseDebugLoc(line string, r *Remark) bool {
 	// DebugLoc: { File: '/tmp/tile_matrix.cu', Line: 10, Column: 37 }
 	idx := strings.Index(line, "{")
 	if idx < 0 {
-		return
+		return false
 	}
 	content := line[idx+1:]
-	if end := strings.Index(content, "}"); end >= 0 {
-		content = content[:end]
+	end := strings.Index(content, "}")
+	if end < 0 {
+		return false
 	}
+	content = content[:end]
 	parts := strings.Split(content, ",")
 	for _, p := range parts {
 		k, v, ok := parseKeyValue(strings.TrimSpace(p))
@@ -202,6 +225,7 @@ func parseDebugLoc(line string, r *Remark) {
 			r.Column, _ = strconv.Atoi(v)
 		}
 	}
+	return true
 }
 
 func parseKeyValue(s string) (key, value string, ok bool) {

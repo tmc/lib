@@ -5,7 +5,9 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/cublaslt"
 	"github.com/tmc/lib/nvidia/x/cublasltx"
+	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 )
@@ -663,6 +665,250 @@ func TestLinearRowMajorF16(t *testing.T) {
 	for i := range want {
 		if math.Abs(float64(got[i]-want[i])) > 0.5 {
 			t.Fatalf("LinearRowMajorF16[%d] = %v, want %v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestWorkspaceOptionsValidation(t *testing.T) {
+	_, err := cublasltx.NewEngine(nil, cublasltx.WithWorkspaceBytes(-1))
+	if err == nil {
+		t.Fatal("expected error for negative workspace size, got nil")
+	}
+
+	_, err = cublasltx.NewEngine(nil, cublasltx.WithWorkspace(cudamem.Slice[byte]{}), cublasltx.WithWorkspaceBytes(1024))
+	if err == nil {
+		t.Fatal("expected error when specifying both WithWorkspace and WithWorkspaceBytes, got nil")
+	}
+}
+
+func TestWithWorkspaceBytesZero(t *testing.T) {
+	dev := cudatest.Require(t)
+	engine, err := cublasltx.NewEngine(dev, cublasltx.WithWorkspaceBytes(0))
+	if err != nil {
+		t.Fatalf("NewEngine with 0 workspace: %v", err)
+	}
+	defer engine.Close()
+
+	if engine.WorkspaceSize() != 0 {
+		t.Fatalf("WorkspaceSize = %d, want 0", engine.WorkspaceSize())
+	}
+	if engine.Workspace().Len() != 0 {
+		t.Fatalf("Workspace().Len() = %d, want 0", engine.Workspace().Len())
+	}
+}
+
+func TestWithWorkspaceCustom(t *testing.T) {
+	dev := cudatest.Require(t)
+	const wsBytes = 4 * 1024 * 1024
+	ws, err := cudamem.Alloc[byte](dev, wsBytes)
+	if err != nil {
+		t.Fatalf("alloc custom workspace: %v", err)
+	}
+	defer ws.Free()
+
+	engine, err := cublasltx.NewEngine(dev, cublasltx.WithWorkspace(ws))
+	if err != nil {
+		t.Fatalf("NewEngine with custom workspace: %v", err)
+	}
+
+	if engine.WorkspaceSize() != uint(wsBytes) {
+		t.Fatalf("WorkspaceSize = %d, want %d", engine.WorkspaceSize(), wsBytes)
+	}
+	if engine.Workspace().Ptr() != ws.Ptr() {
+		t.Fatalf("Workspace().Ptr() = %v, want %v", engine.Workspace().Ptr(), ws.Ptr())
+	}
+
+	// Close must not free caller-owned custom workspace.
+	if err := engine.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// Verify ws is still valid and not freed by copying a byte to it.
+	if err := ws.Slice(0, 1).CopyFromHost([]byte{42}); err != nil {
+		t.Fatalf("custom workspace freed prematurely by Close: %v", err)
+	}
+}
+
+func TestEngineWithWorkspaceConcurrentStreams(t *testing.T) {
+	dev := cudatest.Require(t)
+	engine, err := cublasltx.NewEngine(dev)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	defer engine.Close()
+
+	const numStreams = 4
+	const m, k, n = 32, 32, 32
+	var streams []*cuda.Stream
+	var streamEngines []*cublasltx.Engine
+	var workspaces []cudamem.Slice[byte]
+	var aSlices, bSlices, dSlices []cudamem.Slice[float32]
+
+	for i := 0; i < numStreams; i++ {
+		s, err := dev.NewStream()
+		if err != nil {
+			t.Fatalf("NewStream %d: %v", i, err)
+		}
+		defer s.Destroy()
+		streams = append(streams, s)
+
+		// Allocate dedicated workspace per stream (1MB each)
+		ws, err := cudamem.Alloc[byte](dev, 1024*1024)
+		if err != nil {
+			t.Fatalf("alloc ws %d: %v", i, err)
+		}
+		defer ws.Free()
+		workspaces = append(workspaces, ws)
+
+		se, err := engine.WithWorkspace(ws)
+		if err != nil {
+			t.Fatalf("WithWorkspace %d: %v", i, err)
+		}
+		defer se.Close()
+		streamEngines = append(streamEngines, se)
+
+		a, err := cudamem.Alloc[float32](dev, m*k)
+		if err != nil {
+			t.Fatalf("alloc A %d: %v", i, err)
+		}
+		defer a.Free()
+		aSlices = append(aSlices, a)
+
+		b, err := cudamem.Alloc[float32](dev, k*n)
+		if err != nil {
+			t.Fatalf("alloc B %d: %v", i, err)
+		}
+		defer b.Free()
+		bSlices = append(bSlices, b)
+
+		d, err := cudamem.Alloc[float32](dev, m*n)
+		if err != nil {
+			t.Fatalf("alloc D %d: %v", i, err)
+		}
+		defer d.Free()
+		dSlices = append(dSlices, d)
+
+		// Populate A and B
+		aHost := make([]float32, m*k)
+		bHost := make([]float32, k*n)
+		for j := range aHost {
+			aHost[j] = float32(i + 1)
+		}
+		for j := range bHost {
+			bHost[j] = 1.0
+		}
+		if err := a.CopyFromHost(aHost); err != nil {
+			t.Fatalf("copy A %d: %v", i, err)
+		}
+		if err := b.CopyFromHost(bHost); err != nil {
+			t.Fatalf("copy B %d: %v", i, err)
+		}
+	}
+
+	// Dispatch concurrently on multiple streams using their respective stream-bound engines
+	for i := 0; i < numStreams; i++ {
+		if err := streamEngines[i].MatMul(streams[i], aSlices[i], m, k, bSlices[i], n, dSlices[i]); err != nil {
+			t.Fatalf("MatMul stream %d: %v", i, err)
+		}
+	}
+
+	for i := 0; i < numStreams; i++ {
+		if err := streams[i].Synchronize(nil); err != nil {
+			t.Fatalf("Synchronize %d: %v", i, err)
+		}
+		dHost := make([]float32, m*n)
+		if err := dSlices[i].CopyToHost(dHost); err != nil {
+			t.Fatalf("copy D %d: %v", i, err)
+		}
+		// Each element is sum_k (i+1)*1 = k*(i+1)
+		wantVal := float32(k * (i + 1))
+		for idx, v := range dHost {
+			if v != wantVal {
+				t.Fatalf("stream %d output[%d] = %v, want %v", i, idx, v, wantVal)
+			}
+		}
+	}
+}
+
+func TestMatMulRawPerOperationWorkspace(t *testing.T) {
+	dev := cudatest.Require(t)
+	// Create engine with 0 default workspace
+	engine, err := cublasltx.NewEngine(dev, cublasltx.WithWorkspaceBytes(0))
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	defer engine.Close()
+
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatalf("NewStream: %v", err)
+	}
+	defer stream.Destroy()
+
+	const m, k, n = 8, 8, 8
+	a, err := cudamem.Alloc[float32](dev, m*k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Free()
+	b, err := cudamem.Alloc[float32](dev, k*n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Free()
+	d, err := cudamem.Alloc[float32](dev, m*n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Free()
+
+	ws, err := cudamem.Alloc[byte](dev, 1024*1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ws.Free()
+
+	aHost := make([]float32, m*k)
+	bHost := make([]float32, k*n)
+	for i := range aHost {
+		aHost[i] = 1.0
+	}
+	for i := range bHost {
+		bHost[i] = 2.0
+	}
+	if err := a.CopyFromHost(aHost); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.CopyFromHost(bHost); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := cublasltx.MatMulConfig{
+		ComputeType:   cublaslt.Compute32F,
+		ScaleType:     cublaslt.R32F,
+		AType:         cublaslt.R32F,
+		BType:         cublaslt.R32F,
+		DType:         cublaslt.R32F,
+		Alpha:         1.0,
+		Workspace:     ws,
+		WorkspaceSize: uint(ws.Len()),
+	}
+
+	if err := engine.MatMulRaw(stream, cfg, a.Ptr(), m, k, m, b.Ptr(), k, n, k, d.Ptr(), m, n, m); err != nil {
+		t.Fatalf("MatMulRaw: %v", err)
+	}
+	if err := stream.Synchronize(nil); err != nil {
+		t.Fatalf("Synchronize: %v", err)
+	}
+
+	dHost := make([]float32, m*n)
+	if err := d.CopyToHost(dHost); err != nil {
+		t.Fatal(err)
+	}
+	wantVal := float32(k * 2.0)
+	for i, v := range dHost {
+		if v != wantVal {
+			t.Fatalf("dHost[%d] = %v, want %v", i, v, wantVal)
 		}
 	}
 }

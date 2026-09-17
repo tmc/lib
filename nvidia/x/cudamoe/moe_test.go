@@ -5,8 +5,36 @@ package cudamoe
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 )
+
+func TestGatherGeneratedSources(t *testing.T) {
+	s, err := GatherSource(16)
+	if err != nil || !strings.Contains(s, "moe_gather") {
+		t.Fatal(err)
+	}
+	if _, err := PrefillW256Source(); err == nil {
+		t.Fatal("accepted unsupported W256 lowering")
+	}
+}
+
+func TestMoEGatherReference(t *testing.T) {
+	in := make([]float32, 16)
+	in[3] = 7
+	x, e := Gather16([][]float32{in}, []int{0}, 16)
+	if e != nil || x[3] != 7 {
+		t.Fatalf("gather=%v err=%v", x, e)
+	}
+}
+func TestGatherAlignmentAndTails(t *testing.T) {
+	if _, e := Gather16([][]float32{{1}}, []int{0}, 15); e == nil {
+		t.Fatal("accepted unaligned tile width")
+	}
+	if _, e := Gather16([][]float32{{1, 2}}, []int{2}, 16); e == nil {
+		t.Fatal("accepted bad expert")
+	}
+}
 
 func TestGroupedTopKRouter(t *testing.T) {
 	cfg := MoEConfig{

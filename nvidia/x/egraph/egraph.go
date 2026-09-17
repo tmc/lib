@@ -2,6 +2,7 @@ package egraph
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -34,11 +35,16 @@ func NewLeaf(val any) ENode {
 
 // Key returns the canonical hash-consing key for an ENode given canonicalized child IDs.
 func (n ENode) Key() string {
+	dataKey := ""
+	if n.Data != nil {
+		dataKey = fmt.Sprintf("{%T:%s}", n.Data, dataValueKey(reflect.ValueOf(n.Data), make(map[visit]bool)))
+	}
 	if len(n.Children) == 0 {
-		return n.Op
+		return n.Op + dataKey
 	}
 	var sb strings.Builder
 	sb.WriteString(n.Op)
+	sb.WriteString(dataKey)
 	sb.WriteByte('(')
 	for i, c := range n.Children {
 		if i > 0 {
@@ -50,13 +56,71 @@ func (n ENode) Key() string {
 	return sb.String()
 }
 
+// dataValueKey is bounded for reference graphs so a legacy cyclic payload
+// cannot make hash-consing recurse forever.  Non-reference values retain the
+// usual Go representation used by the key.
+func dataValueKey(v reflect.Value, seen map[visit]bool) string {
+	if !v.IsValid() {
+		return "<nil>"
+	}
+	if v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return "<nil>"
+		}
+		return dataValueKey(v.Elem(), seen)
+	}
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice:
+		if v.IsNil() {
+			return "nil"
+		}
+		key := visit{v.Type(), v.Pointer()}
+		if seen[key] {
+			return "<cycle>"
+		}
+		seen[key] = true
+		defer delete(seen, key)
+		if v.Kind() == reflect.Map {
+			parts := make([]string, 0, v.Len())
+			for _, k := range v.MapKeys() {
+				parts = append(parts, dataValueKey(k, seen)+":"+dataValueKey(v.MapIndex(k), seen))
+			}
+			sort.Strings(parts)
+			return strings.Join(parts, ",")
+		}
+		if v.Kind() == reflect.Slice {
+			parts := make([]string, v.Len())
+			for i := range parts {
+				parts[i] = dataValueKey(v.Index(i), seen)
+			}
+			return strings.Join(parts, ",")
+		}
+		return dataValueKey(v.Elem(), seen)
+	case reflect.Struct:
+		parts := make([]string, v.NumField())
+		for i := range parts {
+			if v.Field(i).CanInterface() {
+				parts[i] = dataValueKey(v.Field(i), seen)
+			} else {
+				parts[i] = "<unexported>"
+			}
+		}
+		return strings.Join(parts, ",")
+	default:
+		if v.CanInterface() {
+			return fmt.Sprintf("%#v", v.Interface())
+		}
+		return "<opaque>"
+	}
+}
+
 func (n ENode) String() string {
 	return n.Key()
 }
 
 // Equal returns true if two ENodes have identical operator, data, and children.
 func (n ENode) Equal(other ENode) bool {
-	if n.Op != other.Op || len(n.Children) != len(other.Children) || n.Data != other.Data {
+	if n.Op != other.Op || len(n.Children) != len(other.Children) || !reflect.DeepEqual(n.Data, other.Data) {
 		return false
 	}
 	for i := range n.Children {
@@ -154,6 +218,18 @@ func (g *EGraph) Add(node ENode) Id {
 	}
 
 	return newID
+}
+
+// AddChecked rejects mutable payloads containing reference cycles before
+// insertion. Legacy Add remains available for immutable/scalar payloads.
+func (g *EGraph) AddChecked(node ENode) (Id, error) {
+	if payloadHasCycle(node.Data, make(map[visit]bool)) {
+		return 0, fmt.Errorf("egraph: cyclic mutable payload is unsupported")
+	}
+	if payloadHasUnexportedMutable(reflect.ValueOf(node.Data), make(map[visit]bool)) {
+		return 0, fmt.Errorf("egraph: unexported mutable payload is unsupported")
+	}
+	return g.Add(node), nil
 }
 
 // Union merges two equivalence classes, returning the canonical merged Id and whether a merge occurred.
@@ -259,4 +335,241 @@ func (g *EGraph) Size() (numClasses int, numNodes int) {
 		numNodes += len(c.Nodes)
 	}
 	return numClasses, numNodes
+}
+
+// Clone creates an independent deep copy of the EGraph.
+func (g *EGraph) Clone() *EGraph {
+	clone := &EGraph{
+		unionFind: make([]Id, len(g.unionFind)),
+		classes:   make(map[Id]*EClass, len(g.classes)),
+		memo:      make(map[string]Id, len(g.memo)),
+		worklist:  make([]Id, len(g.worklist)),
+	}
+
+	copy(clone.unionFind, g.unionFind)
+	copy(clone.worklist, g.worklist)
+
+	for k, v := range g.memo {
+		clone.memo[k] = v
+	}
+
+	for id, c := range g.classes {
+		nodesCopy := make([]ENode, len(c.Nodes))
+		for i, n := range c.Nodes {
+			childrenCopy := make([]Id, len(n.Children))
+			copy(childrenCopy, n.Children)
+			nodesCopy[i] = ENode{
+				Op:       n.Op,
+				Children: childrenCopy,
+				Data:     cloneData(n.Data),
+			}
+		}
+		parentsCopy := make([]parentRef, len(c.parents))
+		for i, p := range c.parents {
+			chCopy := make([]Id, len(p.node.Children))
+			copy(chCopy, p.node.Children)
+			parentsCopy[i] = parentRef{
+				node: ENode{
+					Op:       p.node.Op,
+					Children: chCopy,
+					Data:     cloneData(p.node.Data),
+				},
+				classID: p.classID,
+			}
+		}
+		clone.classes[id] = &EClass{
+			ID:      c.ID,
+			Nodes:   nodesCopy,
+			parents: parentsCopy,
+		}
+	}
+
+	return clone
+}
+
+func cloneData(value any) (out any) {
+	defer func() {
+		if recover() != nil {
+			out = value
+		}
+	}()
+	v := cloneReflect(reflect.ValueOf(value), make(map[visit]reflect.Value))
+	if !v.IsValid() {
+		return nil
+	}
+	return v.Interface()
+}
+
+type visit struct {
+	typ reflect.Type
+	ptr uintptr
+}
+
+func payloadHasCycle(v any, seen map[visit]bool) bool { return payloadCycle(reflect.ValueOf(v), seen) }
+func payloadCycle(v reflect.Value, seen map[visit]bool) bool {
+	if !v.IsValid() {
+		return false
+	}
+	if v.Kind() == reflect.Interface {
+		return v.IsNil() || payloadCycle(v.Elem(), seen)
+	}
+	var key visit
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice:
+		if v.IsNil() {
+			return false
+		}
+		key = visit{v.Type(), v.Pointer()}
+		if seen[key] {
+			return true
+		}
+		seen[key] = true
+		defer delete(seen, key)
+	}
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		return payloadCycle(v.Elem(), seen)
+	case reflect.Map:
+		for _, k := range v.MapKeys() {
+			if payloadCycle(k, seen) || payloadCycle(v.MapIndex(k), seen) {
+				return true
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			if payloadCycle(v.Index(i), seen) {
+				return true
+			}
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if v.Field(i).CanInterface() && payloadCycle(v.Field(i), seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func payloadHasUnexportedMutable(v reflect.Value, seen map[visit]bool) bool {
+	if !v.IsValid() {
+		return false
+	}
+	if v.Kind() == reflect.Interface {
+		return !v.IsNil() && payloadHasUnexportedMutable(v.Elem(), seen)
+	}
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice:
+		if v.IsNil() {
+			return false
+		}
+		key := visit{v.Type(), v.Pointer()}
+		if seen[key] {
+			return false
+		}
+		seen[key] = true
+		defer delete(seen, key)
+	}
+	switch v.Kind() {
+	case reflect.Pointer:
+		return payloadHasUnexportedMutable(v.Elem(), seen)
+	case reflect.Map:
+		for _, k := range v.MapKeys() {
+			if payloadHasUnexportedMutable(k, seen) || payloadHasUnexportedMutable(v.MapIndex(k), seen) {
+				return true
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			if payloadHasUnexportedMutable(v.Index(i), seen) {
+				return true
+			}
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			if !field.CanInterface() {
+				switch field.Kind() {
+				case reflect.Map, reflect.Slice, reflect.Pointer, reflect.Interface:
+					return true
+				}
+				continue
+			}
+			if payloadHasUnexportedMutable(field, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func cloneReflect(v reflect.Value, memo map[visit]reflect.Value) reflect.Value {
+	if !v.IsValid() {
+		return v
+	}
+	switch v.Kind() {
+	case reflect.Interface:
+		if v.IsNil() {
+			return reflect.Zero(v.Type())
+		}
+		out := reflect.New(v.Type()).Elem()
+		out.Set(cloneReflect(v.Elem(), memo))
+		return out
+	case reflect.Pointer:
+		if v.IsNil() {
+			return reflect.Zero(v.Type())
+		}
+		key := visit{v.Type(), v.Pointer()}
+		if prior, ok := memo[key]; ok {
+			return prior
+		}
+		out := reflect.New(v.Type().Elem())
+		memo[key] = out
+		out.Elem().Set(cloneReflect(v.Elem(), memo))
+		return out
+	case reflect.Map:
+		if v.IsNil() {
+			return reflect.Zero(v.Type())
+		}
+		key := visit{v.Type(), v.Pointer()}
+		if prior, ok := memo[key]; ok {
+			return prior
+		}
+		out := reflect.MakeMapWithSize(v.Type(), v.Len())
+		memo[key] = out
+		for _, k := range v.MapKeys() {
+			out.SetMapIndex(cloneReflect(k, memo), cloneReflect(v.MapIndex(k), memo))
+		}
+		return out
+	case reflect.Slice:
+		if v.IsNil() {
+			return reflect.Zero(v.Type())
+		}
+		key := visit{v.Type(), v.Pointer()}
+		if prior, ok := memo[key]; ok {
+			return prior
+		}
+		out := reflect.MakeSlice(v.Type(), v.Len(), v.Len())
+		memo[key] = out
+		for i := 0; i < v.Len(); i++ {
+			out.Index(i).Set(cloneReflect(v.Index(i), memo))
+		}
+		return out
+	case reflect.Array:
+		out := reflect.New(v.Type()).Elem()
+		for i := 0; i < v.Len(); i++ {
+			out.Index(i).Set(cloneReflect(v.Index(i), memo))
+		}
+		return out
+	case reflect.Struct:
+		out := reflect.New(v.Type()).Elem()
+		for i := 0; i < v.NumField(); i++ {
+			if out.Field(i).CanSet() {
+				out.Field(i).Set(cloneReflect(v.Field(i), memo))
+			}
+		}
+		return out
+	default:
+		return v
+	}
 }

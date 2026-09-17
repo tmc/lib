@@ -94,6 +94,9 @@ func compile(inputs []Input, options []string, create func() (program, error)) (
 		if option == "" || strings.ContainsRune(option, 0) {
 			return nil, errors.New("nvvmx: invalid option")
 		}
+		if err := nvvm.ValidateOption(option); err != nil {
+			return nil, fmt.Errorf("nvvmx: %w", err)
+		}
 		lto = lto || option == "-gen-lto"
 	}
 	nonlazy := false

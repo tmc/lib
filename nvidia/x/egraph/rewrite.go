@@ -13,6 +13,15 @@ type Rewrite struct {
 	RHS  *Pattern
 }
 
+// Identity identifies the complete rule definition, including both patterns.
+// Names alone are intentionally insufficient for replay across rule sets.
+func (r *Rewrite) Identity() string {
+	if r == nil {
+		return "<nil>"
+	}
+	return r.Name + "|" + r.LHS.String() + "=>" + r.RHS.String()
+}
+
 // NewRewrite parses left-hand and right-hand pattern strings and creates a Rewrite rule.
 func NewRewrite(name, lhsStr, rhsStr string) (*Rewrite, error) {
 	lhs, err := ParsePattern(lhsStr)
@@ -66,6 +75,12 @@ func MustRewrite(name, lhsStr, rhsStr string) *Rewrite {
 // Apply searches the E-Graph for matches of LHS and unifies them with RHS instantiations.
 func (r *Rewrite) Apply(g *EGraph) int {
 	matches := r.LHS.Search(g)
+	// Apply has no typed proof state.  Hardware-sensitive rules must go
+	// through SearchState.ApplyAction, where their operand contracts are
+	// checked, so the legacy entry point always fails closed.
+	if isMandatoryRule(r.Name) || isMandatoryRewrite(r) {
+		return 0
+	}
 	merges := 0
 
 	for _, m := range matches {
@@ -79,6 +94,28 @@ func (r *Rewrite) Apply(g *EGraph) int {
 		g.Rebuild()
 	}
 	return merges
+}
+
+func isMandatoryRule(name string) bool {
+	switch name {
+	case "hoist_q2k_scales_weights", "hoist_iq2xxs_scales_weights", "fuse_rmsnorm_quant_q8", "fuse_rmsnorm_quant_q8_default_eps", "fuse_swiglu_quant_q8_1", "vectorize_moe_gather_w16", "vectorize_moe_gather_w32", "prefill_group_expand_w256":
+		return true
+	default:
+		return false
+	}
+}
+
+func isMandatoryRewrite(r *Rewrite) bool {
+	if r == nil || r.LHS == nil || r.RHS == nil {
+		return false
+	}
+	sig := r.LHS.String() + "=>" + r.RHS.String()
+	for _, known := range MandatoryRewriteRules() {
+		if known.LHS.String()+"=>"+known.RHS.String() == sig {
+			return true
+		}
+	}
+	return false
 }
 
 // Saturate repeatedly applies rewrite rules until no more unions occur or maxIterations is reached.

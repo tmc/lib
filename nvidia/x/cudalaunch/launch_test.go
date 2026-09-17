@@ -132,16 +132,35 @@ func TestLaunchAttributes(t *testing.T) {
 		Grid(64, 2).
 		Block(128).
 		WithProgrammaticStreamSerialization(true).
-		WithCooperative(true)
+		WithCooperative(true).
+		WithClusterDim(cudalaunch.Dims(2, 2, 1))
 
 	attrs := l.Attrs()
-	if len(attrs) != 2 {
-		t.Fatalf("Attrs len = %d, want 2", len(attrs))
+	if len(attrs) != 3 {
+		t.Fatalf("Attrs len = %d, want 3", len(attrs))
 	}
 	if attrs[0].Id != driver.LaunchAttributeProgrammaticStreamSerialization {
 		t.Errorf("attrs[0].Id = %v, want %v", attrs[0].Id, driver.LaunchAttributeProgrammaticStreamSerialization)
 	}
 	if attrs[1].Id != driver.LaunchAttributeCooperative {
 		t.Errorf("attrs[1].Id = %v, want %v", attrs[1].Id, driver.LaunchAttributeCooperative)
+	}
+	if attrs[2].Id != driver.LaunchAttributeClusterDimension {
+		t.Errorf("attrs[2].Id = %v, want %v", attrs[2].Id, driver.LaunchAttributeClusterDimension)
+	}
+}
+
+func TestClusterDimAttr(t *testing.T) {
+	attr := cudalaunch.ClusterDimAttr(cudalaunch.Dims(2, 4, 1))
+	if attr.Id != driver.LaunchAttributeClusterDimension {
+		t.Fatalf("attr.Id = %v, want %v", attr.Id, driver.LaunchAttributeClusterDimension)
+	}
+	val0 := attr.Value[0]
+	val1 := attr.Value[1]
+	x := uint32(val0 & 0xFFFFFFFF)
+	y := uint32(val0 >> 32)
+	z := uint32(val1 & 0xFFFFFFFF)
+	if x != 2 || y != 4 || z != 1 {
+		t.Errorf("unpacked clusterDim = (%d, %d, %d), want (2, 4, 1)", x, y, z)
 	}
 }
