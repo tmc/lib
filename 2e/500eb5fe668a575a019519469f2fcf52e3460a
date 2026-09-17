@@ -1,0 +1,3 @@
+Merged main (acaf9f5e, 29 commits) into codex/ds4-min. Conflicts in nvidia/internal/profilebundle/bundle.go and nvidia/x/cudacapture/code.go resolved to main's cudalowering.DefinitionLine; HEAD's isArithmeticPTXOpcode PTXLine selection dropped per a0ae4659.
+Verified: go build ./nvidia/... clean; go test ./nvidia/internal/profilebundle/... ./nvidia/x/cudacapture/... ./nvidia/x/cudalowering/... ./nvidia/x/cudaptx/... ./nvidia/cmd/cudaprof/... all ok.
+claude-code: 2.1.257 (Claude Code) model=claude-opus-5[1m] tty=not a tty pid=43389 ITERM_SESSION_ID=unset session=0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc date=2026-09-17T23:05:36Z
