@@ -52,6 +52,7 @@ var cudaMathFiles = [...]string{
 	"cuda_experts_q81.cu",
 	"cuda_hc.cu",
 	"cuda_experts_gather.cu",
+	"cuda_moe_d2r.cu",
 }
 
 func cudaMathSourceFromFS() string {
@@ -184,6 +185,15 @@ type cudaFoundation struct {
 	moeGroupCSRFn                   driver.Function
 	iq2GatherQ81Fn                  driver.Function
 	q2KGatherQ81Fn                  driver.Function
+	quantMMQFn                      driver.Function
+	d2rMakeIdsSrcFn                 driver.Function
+	d2rBuild32Fn                    driver.Function
+	d2rBuild64Fn                    driver.Function
+	gateupD2RFn                     driver.Function
+	downD2RFn                       driver.Function
+	repackIQ2Fn                     driver.Function
+	repackQ2KFn                     driver.Function
+	enableD2RExperts                bool
 	compressorPoolFn                driver.Function
 	compressorAttentionFn           driver.Function
 	compressorIndexerFn             driver.Function
@@ -1078,6 +1088,14 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_moe_group_csr", &r.moeGroupCSRFn},
 		{"ds4_iq2_xxs_pair_selected_q8_1_gather", &r.iq2GatherQ81Fn},
 		{"ds4_q2_k_selected_q8_1_gather", &r.q2KGatherQ81Fn},
+		{"ds4_quantize_mmq_q8_1", &r.quantMMQFn},
+		{"ds4_d2r_make_ids_src", &r.d2rMakeIdsSrcFn},
+		{"ds4_d2r_build_worklist_32", &r.d2rBuild32Fn},
+		{"ds4_d2r_build_worklist_64", &r.d2rBuild64Fn},
+		{"ds4_gateup_iq2_swiglu_q8_d2r", &r.gateupD2RFn},
+		{"ds4_down_q2k_d2r", &r.downD2RFn},
+		{"ds4_repack_iq2_xxs_aligned", &r.repackIQ2Fn},
+		{"ds4_repack_q2_k_aligned", &r.repackQ2KFn},
 		{"ds4_compressor_pool", &r.compressorPoolFn},
 		{"ds4_compressor_attention", &r.compressorAttentionFn},
 		{"ds4_compressor_indexer", &r.compressorIndexerFn},

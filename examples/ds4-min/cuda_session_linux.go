@@ -83,6 +83,13 @@ type cudaBatchDense struct {
 	expertIDs                            cudamem.Slice[int32]
 	expertW                              cudamem.Slice[float32]
 	expertGate, expertUp, expertDown     cudamem.Slice[float32]
+	d2rGate, d2rUp, d2rDown              cudamem.Slice[byte]
+	d2rLayer                             int
+	q81MMQ                               cudamem.Slice[byte]
+	downQ8                               cudamem.Slice[byte]
+	d2rWork                              cudamem.Slice[int32]
+	d2rNItems                            cudamem.Slice[int32]
+	idsSrc                               cudamem.Slice[int32]
 	ffnOut                               cudamem.Slice[float32]
 	q81Experts                           cudamem.Slice[byte]
 	allowed                              cudamem.Slice[uint32]
@@ -385,6 +392,18 @@ func (b *cudaBatchResources) Close() error {
 	for _, h := range b.hc {
 		errs = append(errs, h.Close())
 	}
+	if b.dense.d2rGate.Len() > 0 {
+		errs = append(errs, b.dense.d2rGate.Free())
+		b.dense.d2rGate = cudamem.Slice[byte]{}
+	}
+	if b.dense.d2rUp.Len() > 0 {
+		errs = append(errs, b.dense.d2rUp.Free())
+		b.dense.d2rUp = cudamem.Slice[byte]{}
+	}
+	if b.dense.d2rDown.Len() > 0 {
+		errs = append(errs, b.dense.d2rDown.Free())
+		b.dense.d2rDown = cudamem.Slice[byte]{}
+	}
 	if b.arena != nil {
 		errs = append(errs, b.arena.Free())
 		b.arena = nil
@@ -454,6 +473,10 @@ func (r *cudaRuntime) activeHCBatch() *cudaHCBatch {
 		return nil
 	}
 	return r.batch.hcBatch
+}
+
+func (r *cudaRuntime) d2rEnabled() bool {
+	return r.enableD2RExperts || os.Getenv("DS4_CUDA_MOE_D2R") == "1"
 }
 
 // evalBatch spans the chunk rather than each token in it: the batched
@@ -603,6 +626,11 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		expertGate:        alloc("batch-expert-gate", width*6*2048),
 		expertUp:          alloc("batch-expert-up", width*6*2048),
 		expertDown:        alloc("batch-expert-down", width*6*cudaWidth),
+		q81MMQ:            cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-mmq", (cudaWidth/128)*width*144),
+		downQ8:            cudamem.AllocIn[byte](b.denseArena, "batch-dense-down-q8", (2048/128)*width*6*144),
+		d2rWork:           cudamem.AllocIn[int32](b.denseArena, "batch-dense-d2r-work", (width*6+31)/32+256),
+		d2rNItems:         cudamem.AllocIn[int32](b.denseArena, "batch-dense-d2r-nitems", 1),
+		idsSrc:            cudamem.AllocIn[int32](b.denseArena, "batch-dense-ids-src", width*6),
 		ffnOut:            alloc("batch-dense-ffn-output", width*cudaWidth),
 		q81Experts:        cudamem.AllocIn[byte](b.denseArena, "batch-q81-experts", width*6*2048/32*36),
 		allowed:           cudamem.AllocIn[uint32](b.denseArena, "batch-dense-allowed", width*maxComp),
@@ -641,6 +669,24 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 	for i := range b.rows {
 		if err := b.rows[i].allowed.CopyFromHost(allowed); err != nil {
 			return nil, fmt.Errorf("cuda runtime: initialize batch allowed %d: %w", i, err)
+		}
+	}
+	b.dense.d2rLayer = -1
+	if r.d2rEnabled() {
+		b.dense.d2rGate, err = cudamem.Alloc[byte](r.device, cudaIQ2XXSRepackedBytes)
+		if err != nil {
+			_ = b.Close()
+			return nil, fmt.Errorf("cuda runtime: allocate d2rGate: %w", err)
+		}
+		b.dense.d2rUp, err = cudamem.Alloc[byte](r.device, cudaIQ2XXSRepackedBytes)
+		if err != nil {
+			_ = b.Close()
+			return nil, fmt.Errorf("cuda runtime: allocate d2rUp: %w", err)
+		}
+		b.dense.d2rDown, err = cudamem.Alloc[byte](r.device, cudaQ2KRepackedBytes)
+		if err != nil {
+			_ = b.Close()
+			return nil, fmt.Errorf("cuda runtime: allocate d2rDown: %w", err)
 		}
 	}
 	return b, nil
@@ -934,6 +980,13 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	}); err != nil {
 		return err
 	}
+	if gather && r.d2rEnabled() && d.d2rGate.Len() > 0 {
+		ffnNormAll := d.ffnPre.Slice(cudaWidth, n*2*cudaWidth)
+		q81MMQAll := d.q81MMQ.Slice(0, (cudaWidth/128)*n*144)
+		if err := r.encodeQuantMMQ(ffnNormAll, q81MMQAll, 2*cudaWidth, cudaWidth, n); err != nil {
+			return err
+		}
+	}
 	// The shared expert's weights do not depend on the token, and each token's
 	// projection reads only its own activation row, so the group streams each
 	// weight matrix once instead of n times. This is the same amortization the
@@ -999,6 +1052,47 @@ func (r *cudaRuntime) evalBatchExperts(rows []cudaTokenState, index int) error {
 	g.pairs = g.pairs.Slice(0, g.npairs)
 	if err := r.encodeMoEGroupCSR(d.expertIDs.Slice(0, g.npairs), &g); err != nil {
 		return err
+	}
+	if r.d2rEnabled() && d.d2rGate.Len() > 0 {
+		if d.d2rLayer != index {
+			if err := r.repackLayerMoE(l, d.d2rGate, d.d2rUp, d.d2rDown); err != nil {
+				return fmt.Errorf("repack layer %d: %w", index, err)
+			}
+			d.d2rLayer = index
+		}
+		if err := r.encodeD2RMakeIdsSrc(g.pairs, d.idsSrc.Slice(0, g.npairs), g.npairs); err != nil {
+			return err
+		}
+		capacity32 := (g.npairs+31)/32 + 256
+		if err := r.encodeD2RBuildWorklist32(g.offsets, d.d2rWork.Slice(0, capacity32), d.d2rNItems, 256); err != nil {
+			return err
+		}
+		q81MMQ := d.q81MMQ.Slice(0, (cudaWidth/128)*n*144)
+		downQ8 := d.downQ8.Slice(0, (2048/128)*g.npairs*144)
+		if err := r.encodeGateUpD2R(
+			d.d2rGate, d.d2rUp,
+			q81MMQ, d.idsSrc.Slice(0, g.npairs), g.pairs, g.offsets,
+			d.expertW.Slice(0, g.npairs),
+			d.d2rWork.Slice(0, capacity32), d.d2rNItems,
+			downQ8,
+			2048, cudaWidth, g.npairs, n, 256, 10.0,
+		); err != nil {
+			return fmt.Errorf("d2r gateup: %w", err)
+		}
+		capacity64 := (g.npairs+63)/64 + 256
+		if err := r.encodeD2RBuildWorklist64(g.offsets, d.d2rWork.Slice(0, capacity64), d.d2rNItems, 256); err != nil {
+			return err
+		}
+		if err := r.encodeDownD2R(
+			d.d2rDown, downQ8,
+			g.pairs, g.offsets,
+			d.d2rWork.Slice(0, capacity64), d.d2rNItems,
+			d.expertDown.Slice(0, g.npairs*cudaWidth),
+			cudaWidth, 2048, g.npairs, 256,
+		); err != nil {
+			return fmt.Errorf("d2r down: %w", err)
+		}
+		return nil
 	}
 	if err := r.encodeMatvecIQ2SelectedQ81Gather(l.expertGate, l.expertUp, &g, 6,
 		d.q81FFN.Slice(0, n*cudaWidth/32*36), d.expertGate.Slice(0, n*6*2048), d.expertUp.Slice(0, n*6*2048)); err != nil {
