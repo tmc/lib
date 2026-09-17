@@ -53,6 +53,7 @@ var cudaMathFiles = [...]string{
 	"cuda_hc.cu",
 	"cuda_experts_gather.cu",
 	"cuda_moe_d2r.cu",
+	"cuda_attention_hmma.cu",
 }
 
 func cudaMathSourceFromFS() string {
@@ -214,6 +215,11 @@ type cudaFoundation struct {
 	indexerScoreFn                  driver.Function
 	indexerSelectFn                 driver.Function
 	fillU32Fn                       driver.Function
+	tokentileDenseBuildFn           driver.Function
+	tokentileUnionBuildFn           driver.Function
+	tokentileRawMirrorFn            driver.Function
+	tokentileCompMirrorFn           driver.Function
+	tokentileHMMAFn                 driver.Function
 
 	phaseMark func(name string, position, layer int) error
 }
@@ -1115,6 +1121,11 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_indexer_score", &r.indexerScoreFn},
 		{"ds4_indexer_select", &r.indexerSelectFn},
 		{"ds4_fill_u32", &r.fillU32Fn},
+		{"ds4_attention_tokentile_dense_build", &r.tokentileDenseBuildFn},
+		{"ds4_attention_tokentile_union_build", &r.tokentileUnionBuildFn},
+		{"ds4_attention_tokentile_raw_mirror", &r.tokentileRawMirrorFn},
+		{"ds4_attention_tokentile_comp_mirror", &r.tokentileCompMirrorFn},
+		{"ds4_attention_tokentile_hmma", &r.tokentileHMMAFn},
 	}
 }
 
@@ -1166,6 +1177,14 @@ func (r *cudaFoundation) loadMathKernels() error {
 	}
 	if r.mixedAttentionFinalizeBatchFn != 0 {
 		_ = r.mixedAttentionFinalizeBatchFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 66048)
+	}
+	if r.tokentileUnionBuildFn != 0 {
+		_ = r.tokentileUnionBuildFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 65540)
+	}
+	if r.tokentileHMMAFn != 0 {
+		if err := r.tokentileHMMAFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 88576); err != nil {
+			return fmt.Errorf("cuda: set tokentile hmma shmem: %w", err)
+		}
 	}
 	r.matrixMod = mod
 	return nil

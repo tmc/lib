@@ -88,6 +88,10 @@ var oracleGates = []oracleGate{
 	{"DS4_CUDA_PREFILL_GATHER_RECEIPT", "optional output path for successful gather comparison snapshots"},
 	{"DS4_CUDA_HC_MATH_DIAGNOSTIC", "the CUDA HC mathematical diagnostic"},
 	{"DS4_CUDA_HC_BATCH", "batched HC pre and post operations across tokens"},
+	{"DS4_CUDA_MOE_D2R", "fused Direct-to-Register (D2R) MoE expert execution"},
+	{"DS4_CUDA_PREFILL_D2R_GATE", "fused Direct-to-Register (D2R) MoE prefill regression under the GPU lock"},
+	{"DS4_CUDA_ATTENTION_HMMA", "fused token-tile HMMA attention execution"},
+	{"DS4_CUDA_PREFILL_HMMA_GATE", "fused token-tile HMMA attention prefill regression under the GPU lock"},
 	{"DS4_DISABLE_CUDA_GRAPH", "disabling CUDA graph capture and replay in decode"},
 
 	{"DS4_BENCH_CONTEXT", "how much context the Metal workload benchmarks allocate"},

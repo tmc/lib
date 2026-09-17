@@ -32,6 +32,7 @@ type cudaRuntime struct {
 	disableSIMDExperts      bool
 	disableGatherExperts    bool
 	disableGraphs           bool
+	enableAttentionHMMA     bool
 }
 
 type cudaLayerGraphs struct {
@@ -96,6 +97,10 @@ type cudaBatchDense struct {
 	tokenNComp                           cudamem.Slice[uint32]
 	mixedScores                          cudamem.Slice[float32]
 	mixedDenominators                    cudamem.Slice[float32]
+	ttRecords                            cudamem.Slice[byte]
+	ttCounts                             cudamem.Slice[uint32]
+	ttRawMirror                          cudamem.Slice[byte]
+	ttCompMirror                         cudamem.Slice[byte]
 }
 
 // cudaSharedFFNWidth is the shared expert's intermediate width, matching the
@@ -479,6 +484,13 @@ func (r *cudaRuntime) d2rEnabled() bool {
 	return r.enableD2RExperts || os.Getenv("DS4_CUDA_MOE_D2R") == "1"
 }
 
+func (r *cudaRuntime) attentionHMMAEnabled() bool {
+	if r == nil {
+		return false
+	}
+	return r.enableAttentionHMMA || os.Getenv("DS4_CUDA_ATTENTION_HMMA") == "1"
+}
+
 // evalBatch spans the chunk rather than each token in it: the batched
 // front end evaluates all of them together, so a per-token interval here
 // would report the chunk's duration once per token.
@@ -637,6 +649,10 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		tokenNComp:        cudamem.AllocIn[uint32](b.denseArena, "batch-dense-token-ncomp", width),
 		mixedScores:       alloc("batch-dense-mixed-scores", width*scoreStride),
 		mixedDenominators: alloc("batch-dense-mixed-denominators", width*64),
+		ttRecords:         cudamem.AllocIn[byte](b.denseArena, "batch-dense-tt-records", ((width+3)/4)*maxComp*8),
+		ttCounts:          cudamem.AllocIn[uint32](b.denseArena, "batch-dense-tt-counts", (width+3)/4),
+		ttRawMirror:       cudamem.AllocIn[byte](b.denseArena, "batch-dense-tt-raw-mirror", (width+128)*512*2),
+		ttCompMirror:      cudamem.AllocIn[byte](b.denseArena, "batch-dense-tt-comp-mirror", maxComp*512*2),
 	}
 	// Batch HC by default. DS4_CUDA_HC_BATCH=0 retains the scalar path for
 	// diagnosis and rollback; diagnostic fallbacks below remain scalar.
@@ -886,42 +902,81 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		if err := r.mixedAttentionPrepareBatch(qHeadsAll, kvCurAll, outAll, position, rawCap, n); err != nil {
 			return fmt.Errorf("batch mixed attention prepare: %w", err)
 		}
-		if err := r.mixedAttentionTileScoresBatch(
-			state.rawKV,
-			state.attn.cache,
-			d.allowed.Slice(0, n*maxComp),
-			d.mixedScores.Slice(0, n*scoreStride),
-			outAll,
-			d.tokenNComp.Slice(0, n),
-			maxTotal,
-			position,
-			rawCap,
-			maxComp,
-			scoreStride,
-			n,
-		); err != nil {
-			return fmt.Errorf("batch mixed attention tile scores: %w", err)
-		}
-		if err := r.mixedAttentionFinalizeBatch(
-			l.attnSinks,
-			state.rawKV,
-			state.attn.cache,
-			d.allowed.Slice(0, n*maxComp),
-			d.mixedScores.Slice(0, n*scoreStride),
-			d.mixedDenominators.Slice(0, n*64),
-			outAll,
-			d.tokenNComp.Slice(0, n),
-			maxTotal,
-			position,
-			rawCap,
-			maxComp,
-			scoreStride,
-			n,
-		); err != nil {
-			return fmt.Errorf("batch mixed attention finalize: %w", err)
-		}
-		if err := r.mixedAttentionCommitRaw(state.rawKV, outAll, position, rawCap, n); err != nil {
-			return fmt.Errorf("batch mixed attention commit raw: %w", err)
+		if r.attentionHMMAEnabled() && n >= 4 {
+			recStride := max(int(state.attn.n), 1)
+			if err := r.encodeTokentileDenseBuild(d.ttRecords, d.ttCounts, position, n, state.attn.ratio, state.attn.n, recStride); err != nil {
+				return fmt.Errorf("batch tokentile dense build: %w", err)
+			}
+			availableBefore := min(position, 127)
+			rawRowMin := 127 - availableBefore
+			if err := r.encodeTokentileRawMirror(d.ttRawMirror, state.rawKV, outAll, position, n, rawCap, rawRowMin); err != nil {
+				return fmt.Errorf("batch tokentile raw mirror: %w", err)
+			}
+			if state.attn.n > 0 {
+				if err := r.encodeTokentileCompMirror(d.ttCompMirror, state.attn.cache.Slice(0, state.attn.n*512), state.attn.n); err != nil {
+					return fmt.Errorf("batch tokentile comp mirror: %w", err)
+				}
+			}
+			headsOut := outAll.Slice(cudaAttentionScratch, outAll.Len())
+			if err := r.encodeTokentileHMMA(
+				headsOut,
+				l.attnSinks,
+				outAll,
+				d.ttRawMirror,
+				d.ttCompMirror,
+				d.ttRecords,
+				d.ttCounts,
+				position,
+				cudaAttentionStride,
+				cudaAttentionStride,
+				recStride,
+				n,
+				64,
+				rawRowMin,
+			); err != nil {
+				return fmt.Errorf("batch tokentile hmma: %w", err)
+			}
+			if err := r.mixedAttentionCommitRaw(state.rawKV, outAll, position, rawCap, n); err != nil {
+				return fmt.Errorf("batch mixed attention commit raw: %w", err)
+			}
+		} else {
+			if err := r.mixedAttentionTileScoresBatch(
+				state.rawKV,
+				state.attn.cache,
+				d.allowed.Slice(0, n*maxComp),
+				d.mixedScores.Slice(0, n*scoreStride),
+				outAll,
+				d.tokenNComp.Slice(0, n),
+				maxTotal,
+				position,
+				rawCap,
+				maxComp,
+				scoreStride,
+				n,
+			); err != nil {
+				return fmt.Errorf("batch mixed attention tile scores: %w", err)
+			}
+			if err := r.mixedAttentionFinalizeBatch(
+				l.attnSinks,
+				state.rawKV,
+				state.attn.cache,
+				d.allowed.Slice(0, n*maxComp),
+				d.mixedScores.Slice(0, n*scoreStride),
+				d.mixedDenominators.Slice(0, n*64),
+				outAll,
+				d.tokenNComp.Slice(0, n),
+				maxTotal,
+				position,
+				rawCap,
+				maxComp,
+				scoreStride,
+				n,
+			); err != nil {
+				return fmt.Errorf("batch mixed attention finalize: %w", err)
+			}
+			if err := r.mixedAttentionCommitRaw(state.rawKV, outAll, position, rawCap, n); err != nil {
+				return fmt.Errorf("batch mixed attention commit raw: %w", err)
+			}
 		}
 	}
 	// The attention output weights do not depend on the token either. The
