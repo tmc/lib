@@ -37,7 +37,6 @@ func TestCUDAEmbeddedSources(t *testing.T) {
 	}
 }
 
-
 func TestCUDAMathSourceUsesDependencyOrder(t *testing.T) {
 	if len(cudaMathFiles) == 0 {
 		t.Fatal("cudaMathFiles is empty")
@@ -53,5 +52,21 @@ func TestCUDAMathSourceUsesDependencyOrder(t *testing.T) {
 	}
 	if strings.Contains(cudaMathSource, `#line 1 "cuda_q80_quant.cu"`) {
 		t.Error("separately compiled cuda_q80_quant.cu was included in cudaMathSource")
+	}
+}
+
+func TestCUDAMathCompilationUsesVirtualHeaders(t *testing.T) {
+	source := cudaMathCompilationSource()
+	if strings.Contains(source, "#line") {
+		t.Fatal("NVRTC compilation source should use virtual headers, not synthetic concatenated line offsets")
+	}
+	for _, name := range cudaMathFiles {
+		header := strings.TrimSuffix(name, ".cu") + ".cuh"
+		if !strings.Contains(source, `#include "`+header+`"`) {
+			t.Errorf("compilation source missing virtual header %q", header)
+		}
+	}
+	if got := len(cudaMathHeaderOptions()); got != len(cudaMathFiles) {
+		t.Fatalf("virtual header options = %d, want %d", got, len(cudaMathFiles))
 	}
 }

@@ -68,6 +68,31 @@ func cudaMathSourceFromFS() string {
 
 var cudaMathSource = cudaMathSourceFromFS()
 
+// cudaMathCompilationSource is the small NVRTC translation unit. The CUDA
+// fragments are supplied as virtual headers below, so NVRTC can preserve their
+// logical file names without requiring them to exist on the host filesystem.
+func cudaMathCompilationSource() string {
+	var b strings.Builder
+	for _, name := range cudaMathFiles {
+		header := strings.TrimSuffix(name, ".cu") + ".cuh"
+		fmt.Fprintf(&b, "#include %q\n", header)
+	}
+	return b.String()
+}
+
+func cudaMathHeaderOptions() []nvrtcx.Option {
+	opts := make([]nvrtcx.Option, 0, len(cudaMathFiles))
+	for _, name := range cudaMathFiles {
+		data, err := cudaSourceFS.ReadFile(name)
+		if err != nil {
+			panic(fmt.Sprintf("ds4-min: embedded CUDA header %q: %v", name, err))
+		}
+		header := strings.TrimSuffix(name, ".cu") + ".cuh"
+		opts = append(opts, nvrtcx.WithHeader(header, string(data)))
+	}
+	return opts
+}
+
 const (
 	cudaMemHostRegisterDeviceMap = 2
 	cudaMaxRegisteredModelRange  = 8 << 20
@@ -1088,12 +1113,14 @@ func (r *cudaFoundation) loadMathKernels() error {
 	if r.matrixMod != 0 {
 		return nil
 	}
-	compiled, err := nvrtcx.Compile(cudaMathSource,
+	compileOpts := cudaMathHeaderOptions()
+	compileOpts = append(compileOpts,
 		nvrtcx.WithName("ds4_math.cu"),
 		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", r.major, r.minor)),
 		nvrtcx.WithFlag("--generate-line-info"),
 		nvrtcx.WithFlag("--extra-device-vectorization"),
 	)
+	compiled, err := nvrtcx.Compile(cudaMathCompilationSource(), compileOpts...)
 	if err != nil {
 		return fmt.Errorf("cuda: compile math kernels: %w", err)
 	}
