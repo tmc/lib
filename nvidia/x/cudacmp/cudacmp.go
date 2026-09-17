@@ -2,13 +2,17 @@ package cudacmp
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"text/tabwriter"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudacensus"
 	"github.com/tmc/lib/nvidia/x/cudaroofline"
+	"github.com/tmc/lib/nvidia/x/cudatrial"
 )
 
 // Phase distinguishes the inference execution phase.
@@ -114,6 +118,9 @@ func (r DifferentialReport) Delta() time.Duration {
 	return time.Duration(r.DeltaNs)
 }
 
+// ArmRunner executes a workload phase and returns a receipt with measured timings and output digest.
+type ArmRunner func(ctx context.Context, phase Phase) (cudatrial.Receipt, error)
+
 // TrialConfig specifies parameters for an interleaved comparison trial.
 type TrialConfig struct {
 	WorkloadTokensPath string
@@ -122,10 +129,35 @@ type TrialConfig struct {
 	DecodeTokens       int
 	InterleavedRuns    int
 	WarmupRuns         int
-	COraclePath        string
-	COracleArgs        []string
+	TimingKind         cudatrial.TimingKind
 	DeviceIndex        int
 	Residency          cudaroofline.Residency
+
+	// BaselineArm provides the execution function for the baseline (e.g. C oracle).
+	BaselineArm ArmRunner
+	// CandidateArm provides the execution function for the candidate (e.g. Go implementation).
+	CandidateArm ArmRunner
+	// BaselineControlArm provides an independent baseline instance for baseline-vs-baseline null control.
+	// If nil, BaselineArm is reused for the null control basket.
+	BaselineControlArm ArmRunner
+
+	// ValidateOutput verifies that the output digest produced by an arm is correct.
+	// When nil, exact digest equality between baseline and candidate is required.
+	ValidateOutput func(phase Phase, digest string) error
+
+	COraclePath string
+	COracleArgs []string
+}
+
+// TrialResult records the comprehensive results of a completed trial,
+// preserving individual receipts, warmups, and null drift controls.
+type TrialResult struct {
+	Reports             []DifferentialReport
+	BaselineReceipts    []cudatrial.Receipt
+	CandidateReceipts   []cudatrial.Receipt
+	NullControlReceipts []cudatrial.Receipt
+	WarmupReceipts      []cudatrial.Receipt
+	NullDrift           time.Duration
 }
 
 // Trial runs an interleaved differential comparison and produces a Report.
@@ -156,12 +188,256 @@ func (t *Trial) Config() TrialConfig {
 	return t.cfg
 }
 
-// Run executes the trial across all interleaved blocks and computes the differential report.
+// Run executes the trial across all interleaved blocks and computes the differential reports.
 func (t *Trial) Run(ctx context.Context) ([]DifferentialReport, error) {
-	if t.cfg.COraclePath == "" {
-		return nil, fmt.Errorf("cudacmp: oracle path not configured")
+	res, err := t.RunTrial(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("cudacmp: trial runner not yet implemented for %s", t.cfg.COraclePath)
+	return res.Reports, nil
+}
+
+// RunTrial executes the trial, running warmup passes, establishing the null drift noise floor
+// via baseline-versus-baseline controls, executing interleaved baseline-versus-candidate trials,
+// and preserving all receipts.
+func (t *Trial) RunTrial(ctx context.Context) (*TrialResult, error) {
+	baselineArm := t.cfg.BaselineArm
+	if baselineArm == nil && t.cfg.COraclePath != "" {
+		baselineArm = CommandArmRunner(t.cfg.COraclePath, t.cfg.COracleArgs...)
+	}
+	if baselineArm == nil {
+		return nil, errors.New("cudacmp: baseline arm not configured")
+	}
+	if t.cfg.CandidateArm == nil {
+		return nil, errors.New("cudacmp: candidate arm not configured")
+	}
+	if t.cfg.InterleavedRuns <= 0 {
+		return nil, fmt.Errorf("cudacmp: interleaved runs must be positive: %d", t.cfg.InterleavedRuns)
+	}
+
+	timingKind := t.cfg.TimingKind
+	if timingKind == "" {
+		timingKind = cudatrial.TimingWallElapsed
+	}
+
+	var phases []Phase
+	if t.cfg.PrefillTokens > 0 {
+		phases = append(phases, PhasePrefill)
+	}
+	if t.cfg.DecodeTokens > 0 {
+		phases = append(phases, PhaseDecode)
+	}
+	if len(phases) == 0 {
+		phases = []Phase{PhasePrefill, PhaseDecode}
+	}
+
+	result := &TrialResult{}
+
+	// 1. Warmup passes
+	if t.cfg.WarmupRuns > 0 {
+		for _, p := range phases {
+			for w := 0; w < t.cfg.WarmupRuns; w++ {
+				if err := ctx.Err(); err != nil {
+					return nil, fmt.Errorf("cudacmp: %w", err)
+				}
+				rBase, err := baselineArm(ctx, p)
+				if err != nil {
+					return nil, fmt.Errorf("cudacmp: warmup baseline failed for phase %s: %w", p, err)
+				}
+				rBase.Round = -(w + 1)
+				result.WarmupReceipts = append(result.WarmupReceipts, rBase)
+
+				rCand, err := t.cfg.CandidateArm(ctx, p)
+				if err != nil {
+					return nil, fmt.Errorf("cudacmp: warmup candidate failed for phase %s: %w", p, err)
+				}
+				rCand.Round = -(w + 1)
+				result.WarmupReceipts = append(result.WarmupReceipts, rCand)
+			}
+		}
+	}
+
+	// 2. Baseline-vs-baseline null control to establish repeatable noise floor
+	controlArm := t.cfg.BaselineControlArm
+	if controlArm == nil {
+		controlArm = baselineArm
+	}
+
+	var maxDrift time.Duration
+	for _, p := range phases {
+		phase := p
+		nullArms := []cudatrial.Arm{
+			{Name: "baseline_a", Run: func(ctx context.Context) (cudatrial.Receipt, error) { return baselineArm(ctx, phase) }},
+			{Name: "baseline_b", Run: func(ctx context.Context) (cudatrial.Receipt, error) { return controlArm(ctx, phase) }},
+		}
+		nullReceipts, err := cudatrial.InterleaveWithOptions(ctx, nullArms, t.cfg.InterleavedRuns, cudatrial.Options{ContinueOnError: false})
+		if err != nil {
+			return nil, fmt.Errorf("cudacmp: null control failed for phase %s: %w", phase, err)
+		}
+		result.NullControlReceipts = append(result.NullControlReceipts, nullReceipts...)
+
+		for _, r := range nullReceipts {
+			if !r.Complete {
+				return nil, fmt.Errorf("cudacmp: null control arm %q round %d incomplete", r.Name, r.Round)
+			}
+		}
+
+		byArm := cudatrial.ByArm(nullReceipts)
+		armA := byArm["baseline_a"]
+		armB := byArm["baseline_b"]
+		for i := 0; i < len(armA) && i < len(armB); i++ {
+			dA, errA := armA[i].DurationFor(timingKind)
+			if errA != nil {
+				return nil, fmt.Errorf("cudacmp: null control baseline_a: %w", errA)
+			}
+			dB, errB := armB[i].DurationFor(timingKind)
+			if errB != nil {
+				return nil, fmt.Errorf("cudacmp: null control baseline_b: %w", errB)
+			}
+			diff := dA - dB
+			if diff < 0 {
+				diff = -diff
+			}
+			if diff > maxDrift {
+				maxDrift = diff
+			}
+		}
+	}
+	result.NullDrift = maxDrift
+
+	// 3. Baseline-vs-candidate interleaved evaluation
+	for _, p := range phases {
+		phase := p
+		trialArms := []cudatrial.Arm{
+			{Name: "baseline", Run: func(ctx context.Context) (cudatrial.Receipt, error) { return baselineArm(ctx, phase) }},
+			{Name: "candidate", Run: func(ctx context.Context) (cudatrial.Receipt, error) { return t.cfg.CandidateArm(ctx, phase) }},
+		}
+		receipts, err := cudatrial.InterleaveWithOptions(ctx, trialArms, t.cfg.InterleavedRuns, cudatrial.Options{ContinueOnError: false})
+		if err != nil {
+			return nil, fmt.Errorf("cudacmp: trial failed for phase %s: %w", phase, err)
+		}
+
+		byArm := cudatrial.ByArm(receipts)
+		result.BaselineReceipts = append(result.BaselineReceipts, byArm["baseline"]...)
+		result.CandidateReceipts = append(result.CandidateReceipts, byArm["candidate"]...)
+
+		// Verify completions
+		for _, r := range receipts {
+			if !r.Complete {
+				return nil, fmt.Errorf("cudacmp: arm %q round %d incomplete: cannot yield accepted speedup", r.Name, r.Round)
+			}
+		}
+
+		// Verify correctness
+		if t.cfg.ValidateOutput != nil {
+			for _, r := range receipts {
+				if err := t.cfg.ValidateOutput(phase, r.Digest); err != nil {
+					return nil, fmt.Errorf("cudacmp: output validation failed for arm %q round %d: %w", r.Name, r.Round, err)
+				}
+			}
+		} else {
+			exact, msg := cudatrial.SameArmExact(receipts)
+			if !exact {
+				return nil, fmt.Errorf("cudacmp: candidate execution divergence: %s", msg)
+			}
+			baseDigests := cudatrial.DistinctDigests(byArm["baseline"])
+			candDigests := cudatrial.DistinctDigests(byArm["candidate"])
+			if len(baseDigests) == 1 && len(candDigests) == 1 && baseDigests[0] != candDigests[0] {
+				return nil, fmt.Errorf("cudacmp: output digest mismatch between baseline (%q) and candidate (%q)", baseDigests[0], candDigests[0])
+			}
+		}
+
+		// Compute metrics for the phase
+		var baseDurs, candDurs []time.Duration
+		for _, r := range byArm["baseline"] {
+			d, err := r.DurationFor(timingKind)
+			if err != nil {
+				return nil, fmt.Errorf("cudacmp: baseline: %w", err)
+			}
+			baseDurs = append(baseDurs, d)
+		}
+		for _, r := range byArm["candidate"] {
+			d, err := r.DurationFor(timingKind)
+			if err != nil {
+				return nil, fmt.Errorf("cudacmp: candidate: %w", err)
+			}
+			candDurs = append(candDurs, d)
+		}
+
+		sortDurations(baseDurs)
+		sortDurations(candDurs)
+
+		baseMed := baseDurs[len(baseDurs)/2]
+		candMed := candDurs[len(candDurs)/2]
+		delta := candMed - baseMed
+
+		var speedup float64
+		if candMed > 0 {
+			speedup = float64(baseMed) / float64(candMed)
+		}
+
+		absDelta := delta
+		if absDelta < 0 {
+			absDelta = -absDelta
+		}
+		exceedsDrift := absDelta > maxDrift
+
+		result.Reports = append(result.Reports, DifferentialReport{
+			Phase:              phase,
+			Family:             "aggregate",
+			Availability:       AvailableBoth,
+			Available:          true,
+			CObserved:          true,
+			GoObserved:         true,
+			CDurationNs:        int64(baseMed),
+			GoDurationNs:       int64(candMed),
+			DeltaNs:            int64(delta),
+			Speedup:            speedup,
+			NullDriftNs:        int64(maxDrift),
+			ExceedsDrift:       exceedsDrift,
+			StatisticallyValid: exceedsDrift,
+		})
+	}
+
+	return result, nil
+}
+
+func sortDurations(d []time.Duration) {
+	for i := 0; i < len(d); i++ {
+		for j := i + 1; j < len(d); j++ {
+			if d[j] < d[i] {
+				d[i], d[j] = d[j], d[i]
+			}
+		}
+	}
+}
+
+// CommandArmRunner returns an ArmRunner that executes an external binary with the specified arguments.
+func CommandArmRunner(binPath string, args ...string) ArmRunner {
+	return func(ctx context.Context, phase Phase) (cudatrial.Receipt, error) {
+		cmdArgs := append(args, string(phase))
+		cmd := exec.CommandContext(ctx, binPath, cmdArgs...)
+		start := time.Now()
+		out, err := cmd.Output()
+		finish := time.Now()
+		if err != nil {
+			return cudatrial.Receipt{
+				Complete: false,
+				Err:      err,
+				Started:  start,
+				Finished: finish,
+			}, err
+		}
+		digest := fmt.Sprintf("%x", sha256.Sum256(out))
+		r := cudatrial.Receipt{
+			Complete: true,
+			Digest:   digest,
+			Started:  start,
+			Finished: finish,
+		}
+		_ = r.RecordTiming(cudatrial.TimingWallElapsed, finish.Sub(start))
+		return r, nil
+	}
 }
 
 // Render writes a human-readable ANSI terminal summary to w.
