@@ -290,10 +290,26 @@ func report(b *testing.B, r *Result) error {
 // numbers rather than in the package documentation. Each line names a term a
 // reader could otherwise take the output to cover.
 func reportLimits(b *testing.B, r *Result) {
+	for _, s := range benchLimits(r) {
+		b.Logf("cuptibench: not included: %s", s)
+	}
+}
+
+// benchLimits returns the caveats reportLimits prints. It is separate so the
+// set can be asserted without running a benchmark on a device.
+func benchLimits(r *Result) []string {
 	var limits []string
 	if r.Timing != nil && r.Timing.Method == "cuda-events" {
 		limits = append(limits, "gpu-ns/op is a device span around the whole sequence, so it contains "+
 			"inter-kernel gaps and cannot be differenced against wall time to yield idle")
+		// The line above says what is inside the span. This one says what the
+		// span is: a reader who takes gpu-ns/op for a per-launch figure and
+		// compares it against a timer that spans each launch separately is
+		// comparing two forms, and the difference is the span's fixed cost,
+		// which one operation pays in full and many amortize.
+		limits = append(limits, fmt.Sprintf("gpu-ns/op divides one span over %d operation(s) by that "+
+			"count, so it carries the span's fixed cost once per sequence and is not comparable to a "+
+			"timing that spans each operation separately", r.Operations))
 	}
 	switch r.Metadata["mode"] {
 	case "kernels":
@@ -307,9 +323,7 @@ func reportLimits(b *testing.B, r *Result) {
 			r.Metadata["traffic_cache_metrics"]+")")
 	}
 	limits = append(limits, idleIsNotDerivable)
-	for _, s := range limits {
-		b.Logf("cuptibench: not included: %s", s)
-	}
+	return limits
 }
 
 func measureSequence(timer benchmarkTimer, w Workload, operations int) (duration time.Duration, err error) {
