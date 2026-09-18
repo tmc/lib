@@ -153,6 +153,12 @@ func decodeRecord(data []byte, kind cupti.ActivityKind, name func(uintptr) (stri
 		}
 		r = k.Record()
 	case cupti.ActivityKindMemcpy:
+		// The record may be wider than ActivityMemcpy6 -- CUDA 13.4 appends a
+		// source-graph tail this decoder does not read -- but it must never be
+		// narrower than the struct being cast over it.
+		if len(data) < cupti.ActivityMemcpy6Size {
+			return Record{}, fmt.Errorf("cuptiactivity: buffer too small for ActivityMemcpy6: %d bytes (want %d)", len(data), cupti.ActivityMemcpy6Size)
+		}
 		a := *(*cupti.ActivityMemcpy6)(unsafe.Pointer(&data[0]))
 		r.Start, r.End, r.CorrelationID = a.Start, a.End, a.CorrelationId
 		r.DeviceID, r.ContextID, r.StreamID, r.Bytes = a.DeviceId, a.ContextId, a.StreamId, a.Bytes
@@ -161,6 +167,9 @@ func decodeRecord(data []byte, kind cupti.ActivityKind, name func(uintptr) (stri
 		r.SourceMemoryKind, r.DestinationMemoryKind = cupti.ActivityMemoryKind(a.SrcKind), cupti.ActivityMemoryKind(a.DstKind)
 		r.GraphID, r.GraphNodeID, r.DeviceLaunched = a.GraphId, a.GraphNodeId, a.IsDeviceLaunched != 0
 	case cupti.ActivityKindMemset:
+		if len(data) < cupti.ActivityMemset4Size {
+			return Record{}, fmt.Errorf("cuptiactivity: buffer too small for ActivityMemset4: %d bytes (want %d)", len(data), cupti.ActivityMemset4Size)
+		}
 		a := *(*cupti.ActivityMemset4)(unsafe.Pointer(&data[0]))
 		r.Start, r.End, r.CorrelationID = a.Start, a.End, a.CorrelationId
 		r.DeviceID, r.ContextID, r.StreamID, r.Bytes = a.DeviceId, a.ContextId, a.StreamId, a.Bytes

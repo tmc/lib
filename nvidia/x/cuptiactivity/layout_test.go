@@ -114,3 +114,122 @@ func TestRecordBytes(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordLayoutsCUDA134 covers the toolkit this package previously refused.
+// CUDA 13.4 widened the Memcpy record to 112 bytes and the Memset record to
+// 104, so a session that asked only for kernels was rejected over a Memcpy
+// layout. The sizes here are measured, not derived: compiled with gcc against
+// /usr/local/cuda-13.4/targets/sbsa-linux/include on an sbsa-linux host.
+func TestRecordLayoutsCUDA134(t *testing.T) {
+	native := func(kind cupti.ActivityKind) uint {
+		switch kind {
+		case cupti.ActivityKindMemcpy:
+			return cupti.ActivityMemcpy7Size
+		case cupti.ActivityKindMemset:
+			return cupti.ActivityMemset5Size
+		case cupti.ActivityKindConcurrentKernel:
+			return cupti.ActivityKernel13Size
+		case cupti.ActivityKindDriver, cupti.ActivityKindRuntime:
+			return uint(unsafe.Sizeof(cupti.ActivityAPI{}))
+		case cupti.ActivityKindExternalCorrelation:
+			return uint(unsafe.Sizeof(cupti.ActivityExternalCorrelation{}))
+		case cupti.ActivityKindMemory2:
+			return uint(unsafe.Sizeof(cupti.ActivityMemory4{}))
+		default:
+			return uint(unsafe.Sizeof(cupti.ActivitySynchronization2{}))
+		}
+	}
+	got, err := recordLayouts(130400, func(kind cupti.ActivityKind, _ uint32) (uint, error) {
+		return native(kind), nil
+	})
+	if err != nil {
+		t.Fatalf("refused a CUDA 13.4 layout set: %v", err)
+	}
+	// The stride must be what CUPTI emits, not what Go lays out. A map holding
+	// 96 here would advance the buffer walk 16 bytes short on every memcpy and
+	// desynchronize every record after the first one.
+	if got[cupti.ActivityKindMemcpy] != cupti.ActivityMemcpy7Size {
+		t.Errorf("memcpy stride = %d, want %d", got[cupti.ActivityKindMemcpy], cupti.ActivityMemcpy7Size)
+	}
+	if got[cupti.ActivityKindMemset] != cupti.ActivityMemset5Size {
+		t.Errorf("memset stride = %d, want %d", got[cupti.ActivityKindMemset], cupti.ActivityMemset5Size)
+	}
+
+	// The near-miss half: a 13.4-only record size reported by a CUPTI that
+	// predates it. Each kind is widened ALONE, with every other kind at its
+	// 13.0-13.3 size, because widening them all together lets the kernel gate
+	// do the refusing -- and then this passes just as happily with the memcpy
+	// and memset gates deleted, which is a control that proves nothing.
+	for _, tt := range []struct {
+		kind cupti.ActivityKind
+		size uint
+	}{
+		{cupti.ActivityKindMemcpy, cupti.ActivityMemcpy7Size},
+		{cupti.ActivityKindMemset, cupti.ActivityMemset5Size},
+		{cupti.ActivityKindConcurrentKernel, cupti.ActivityKernel13Size},
+	} {
+		for _, version := range []uint32{130000, 130200, 130300} {
+			_, err := recordLayouts(version, func(kind cupti.ActivityKind, _ uint32) (uint, error) {
+				if kind == tt.kind {
+					return tt.size, nil
+				}
+				return baseline132(kind), nil
+			})
+			var layout *LayoutError
+			if !errors.As(err, &layout) {
+				t.Errorf("version %d accepted a 13.4-only %s layout: %v", version, tt.kind, err)
+				continue
+			}
+			if layout.Kind != tt.kind {
+				t.Errorf("version %d refused %s, want the refusal to name %s", version, layout.Kind, tt.kind)
+			}
+		}
+	}
+}
+
+// TestLayoutErrorIsTyped pins the refusal callers match on. A caller that has to
+// parse the message cannot be told apart from one that matches the type, until
+// the wording changes and only the first breaks.
+func TestLayoutErrorIsTyped(t *testing.T) {
+	// Only Memcpy disagrees. Every other kind reports the size this build
+	// expects, so the refusal cannot be some other kind surfacing first --
+	// recordLayouts walks a map, and map order would otherwise decide which
+	// error the caller sees.
+	_, err := recordLayouts(130200, func(kind cupti.ActivityKind, _ uint32) (uint, error) {
+		if kind == cupti.ActivityKindMemcpy {
+			return cupti.ActivityMemcpy7Size, nil
+		}
+		return baseline132(kind), nil
+	})
+	var layout *LayoutError
+	if !errors.As(err, &layout) {
+		t.Fatalf("refusal is not a *LayoutError: %v", err)
+	}
+	if layout.Kind != cupti.ActivityKindMemcpy || layout.NativeSize != cupti.ActivityMemcpy7Size {
+		t.Errorf("LayoutError = %+v, want Memcpy at %d", layout, cupti.ActivityMemcpy7Size)
+	}
+	if layout.GoSize != cupti.ActivityMemcpy6Size {
+		t.Errorf("GoSize = %d, want %d", layout.GoSize, cupti.ActivityMemcpy6Size)
+	}
+}
+
+// baseline132 is the record size each kind has under CUDA 13.0-13.3, which is
+// what this build's Go structs are laid out for.
+func baseline132(kind cupti.ActivityKind) uint {
+	switch kind {
+	case cupti.ActivityKindMemcpy:
+		return cupti.ActivityMemcpy6Size
+	case cupti.ActivityKindMemset:
+		return cupti.ActivityMemset4Size
+	case cupti.ActivityKindConcurrentKernel:
+		return uint(unsafe.Sizeof(cupti.ActivityKernel11{}))
+	case cupti.ActivityKindDriver, cupti.ActivityKindRuntime:
+		return uint(unsafe.Sizeof(cupti.ActivityAPI{}))
+	case cupti.ActivityKindExternalCorrelation:
+		return uint(unsafe.Sizeof(cupti.ActivityExternalCorrelation{}))
+	case cupti.ActivityKindMemory2:
+		return uint(unsafe.Sizeof(cupti.ActivityMemory4{}))
+	default:
+		return uint(unsafe.Sizeof(cupti.ActivitySynchronization2{}))
+	}
+}

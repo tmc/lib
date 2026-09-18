@@ -57,18 +57,56 @@ func recordLayouts(version uint32, size func(cupti.ActivityKind, uint32) (uint, 
 		if err != nil {
 			return nil, fmt.Errorf("cuptiactivity: query %s layout: %w", kind, err)
 		}
-		if kind == cupti.ActivityKindConcurrentKernel {
-			if !validKernelLayout(version, got) {
-				return nil, &LayoutError{Kind: kind, NativeSize: got, GoSize: want}
-			}
-			layouts[kind] = got
-			continue
+		// Kinds whose record gained a field in a 13.x minor release are admitted
+		// at any size this build knows, and the native size is recorded so the
+		// buffer walk strides by what CUPTI actually emitted rather than by what
+		// Go would have laid out. Every kind not listed here is pinned to an
+		// exact size: a version that grew a record this package still decodes at
+		// the old width is precisely the mis-stride the check exists to catch.
+		var ok bool
+		switch kind {
+		case cupti.ActivityKindConcurrentKernel:
+			ok = validKernelLayout(version, got)
+		case cupti.ActivityKindMemcpy:
+			ok = validMemcpyLayout(version, got)
+		case cupti.ActivityKindMemset:
+			ok = validMemsetLayout(version, got)
+		default:
+			ok = got == want
 		}
-		if got != want {
+		if !ok {
 			return nil, &LayoutError{Kind: kind, NativeSize: got, GoSize: want}
 		}
+		layouts[kind] = got
 	}
 	return layouts, nil
+}
+
+// validMemcpyLayout and validMemsetLayout admit the record versions CUDA 13.x
+// has shipped. Both records gained the same 16-byte CUDA-graph source-node tail
+// in 13.4, appended with no shared field moved, which is why the decoder can go
+// on reading the older struct out of the newer record. cupti's prefix-identity
+// tests assert that "no shared field moved" rather than assuming it.
+func validMemcpyLayout(version uint32, size uint) bool {
+	switch size {
+	case cupti.ActivityMemcpy6Size: // 96 bytes: CUDA 13.0–13.4
+		return version >= 130000 && version < 140000
+	case cupti.ActivityMemcpy7Size: // 112 bytes: CUDA 13.4
+		return version >= 130400 && version < 140000
+	default:
+		return false
+	}
+}
+
+func validMemsetLayout(version uint32, size uint) bool {
+	switch size {
+	case cupti.ActivityMemset4Size: // 88 bytes: CUDA 13.0–13.4
+		return version >= 130000 && version < 140000
+	case cupti.ActivityMemset5Size: // 104 bytes: CUDA 13.4
+		return version >= 130400 && version < 140000
+	default:
+		return false
+	}
 }
 
 func validKernelLayout(version uint32, size uint) bool {
