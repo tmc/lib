@@ -26,6 +26,7 @@ type timerAPI struct {
 	event         func(bool) (*Event, error)
 	record        func(*Event, *Stream) error
 	wait          func(*Stream, *Event) error
+	query         func(*Stream) (bool, error)
 	syncEvent     func(*Event) error
 	syncStream    func(*Stream) error
 	elapsed       func(*Event, *Event) (time.Duration, error)
@@ -60,6 +61,7 @@ func NewEventTimer(dev *Device, streams []*Stream) (*EventTimer, error) {
 			return dev.NewEventWithFlags(uint32(driver.EventDisableTiming))
 		},
 		record: (*Event).Record, wait: (*Stream).WaitEvent,
+		query:      streamQueryIfAvailable(),
 		syncEvent:  func(e *Event) error { return e.Synchronize(nil) },
 		syncStream: func(s *Stream) error { return s.Synchronize(nil) },
 		elapsed:    (*Event).ElapsedSince, destroyEvent: (*Event).Destroy, destroyStream: (*Stream).Destroy,
@@ -97,11 +99,62 @@ func newEventTimer(streams []*Stream, api timerAPI) (t *EventTimer, err error) {
 	return t, nil
 }
 
+// streamQueryIfAvailable returns a stream-readiness probe, or nil when the
+// loaded driver did not resolve cuStreamQuery. A nil probe disables the entry
+// check in Measure; Checked reports which of the two a timer got.
+func streamQueryIfAvailable() func(*Stream) (bool, error) {
+	if !driver.HasStreamQuery() {
+		return nil
+	}
+	return (*Stream).Query
+}
+
+// Checked reports whether Measure verifies its precondition. It is false when
+// the loaded driver did not resolve cuStreamQuery, in which case a Measure that
+// returns no error means the contract was not checked rather than that it held.
+// Callers that depend on the interval excluding prior work should treat a false
+// here as they would a failed check.
+func (t *EventTimer) Checked() bool {
+	return t != nil && t.api.query != nil
+}
+
+// checkIdle enforces Measure's precondition: every stream the interval spans
+// must be idle before start is recorded. The control stream is included because
+// start is recorded on it, so pending work there delays start itself and moves
+// the interval's left edge; a declared stream is included because it only waits
+// on start, so work already enqueued on it is ordered after start and lands
+// inside the interval. Both produce a plausible duration rather than an error,
+// which is why this is a check and not a doc line.
+func (t *EventTimer) checkIdle() error {
+	if t.api.query == nil {
+		return nil
+	}
+	for i, s := range append([]*Stream{t.control}, t.streams...) {
+		idle, err := t.api.query(s)
+		if err != nil {
+			return fmt.Errorf("cuda: timer precondition: %w", err)
+		}
+		if !idle {
+			if i == 0 {
+				return errors.New("cuda: event timer control stream has pending work; synchronize before Measure")
+			}
+			return fmt.Errorf("cuda: event timer stream %d has pending work; synchronize before Measure", i-1)
+		}
+	}
+	return nil
+}
+
 // Measure runs fn once and measures the event interval covering its GPU work.
-// Synchronize prior work and preparation before calling Measure. fn must submit
-// all measured work to the declared streams before returning. The timer joins
-// completion even when fn fails or panics. Duration is usable only without an
-// error; zero means the device clock did not resolve the interval.
+// fn must submit all measured work to the declared streams before returning.
+// The timer joins completion even when fn fails or panics. Duration is usable
+// only without an error; zero means the device clock did not resolve the
+// interval.
+//
+// Synchronize prior work and preparation before calling Measure. The start
+// event is recorded on the control stream and each declared stream waits on
+// it, so work already enqueued on a declared stream is ordered after start and
+// is measured: unsynchronized prior work is not excluded from the interval, it
+// is included in it.
 func (t *EventTimer) Measure(fn func() error) (duration time.Duration, err error) {
 	if t == nil || fn == nil {
 		return 0, errors.New("cuda: invalid event timer measurement")
@@ -112,6 +165,9 @@ func (t *EventTimer) Measure(fn func() error) (duration time.Duration, err error
 	defer t.mu.Unlock()
 	if t.closed || t.start == nil || t.stop == nil || len(t.ends) != len(t.streams) {
 		return 0, errors.New("cuda: event timer is not open")
+	}
+	if err = t.checkIdle(); err != nil {
+		return 0, err
 	}
 	if err = t.api.record(t.start, t.control); err != nil {
 		return 0, fmt.Errorf("cuda: timer start: %w", err)

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -179,4 +180,95 @@ func ExampleEventTimer_Close() {
 	var timer *EventTimer
 	fmt.Println(timer.Close())
 	// Output: <nil>
+}
+
+// TestEventTimerRejectsBusyStreams covers Measure's entry check. The contract
+// it enforces was previously documentation only, and a caller who violated it
+// got a plausible duration rather than an error -- the interval silently
+// included whatever was already pending. Nothing downstream can tell such a
+// number from a correct one, which is why this is checked and not just stated.
+//
+// The assertion that matters is not only the error: it is that NOTHING was
+// recorded. A check that ran after the start event would still report the
+// violation while having already moved the clock.
+func TestEventTimerRejectsBusyStreams(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		busy string // which stream reports pending work
+		want string
+	}{
+		{"control", "control", "control stream has pending work"},
+		{"declared", "a", "stream 0 has pending work"},
+		{"second declared", "b", "stream 1 has pending work"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			timer, log, api := timerFixture(t)
+			names := map[*Stream]string{timer.control: "control", timer.streams[0]: "a", timer.streams[1]: "b"}
+			api.query = func(s *Stream) (bool, error) {
+				*log = append(*log, "query "+names[s])
+				return names[s] != tt.busy, nil
+			}
+			_, err := timer.Measure(func() error { *log = append(*log, "work"); return nil })
+			if err == nil {
+				t.Fatalf("Measure succeeded with %s busy: a violated precondition produced a number", tt.busy)
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("error = %q, want it to name the stream (%q)", err, tt.want)
+			}
+			for _, e := range *log {
+				if strings.HasPrefix(e, "record") || e == "work" {
+					t.Fatalf("log = %v: the check ran too late, %q already happened", *log, e)
+				}
+			}
+		})
+	}
+}
+
+// TestEventTimerChecksEveryStreamBeforeStarting pins that a passing check costs
+// one query per stream and still produces the unchanged measurement sequence.
+func TestEventTimerChecksEveryStreamBeforeStarting(t *testing.T) {
+	timer, log, api := timerFixture(t)
+	api.query = func(*Stream) (bool, error) { *log = append(*log, "query"); return true, nil }
+	if !timer.Checked() {
+		t.Error("Checked = false with a query available")
+	}
+	if _, err := timer.Measure(func() error { *log = append(*log, "work"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"query", "query", "query", "record 0 control", "wait a 0", "wait b 0", "work",
+		"record 2 a", "wait control 2", "record 3 b", "wait control 3", "record 1 control", "sync 1"}
+	if !reflect.DeepEqual(*log, want) {
+		t.Fatalf("events = %v; want %v", *log, want)
+	}
+}
+
+// TestEventTimerUncheckedIsNotTheSameAsPassing pins the degradation. When the
+// loaded driver has no cuStreamQuery the timer cannot check, and Measure then
+// returns no error whether or not the contract held. Reporting that as success
+// would rebuild the original defect one level up, so Checked distinguishes them.
+func TestEventTimerUncheckedIsNotTheSameAsPassing(t *testing.T) {
+	timer, _, api := timerFixture(t)
+	api.query = nil
+	if timer.Checked() {
+		t.Error("Checked = true with no query available")
+	}
+	if _, err := timer.Measure(func() error { return nil }); err != nil {
+		t.Fatalf("Measure failed with the check unavailable: %v", err)
+	}
+	var nilTimer *EventTimer
+	if nilTimer.Checked() {
+		t.Error("Checked = true on a nil timer")
+	}
+}
+
+// TestEventTimerReportsQueryFailure separates "the stream is busy" from "the
+// query itself failed". Treating a broken query as idle would make the guard
+// pass in exactly the case where it knows least.
+func TestEventTimerReportsQueryFailure(t *testing.T) {
+	timer, _, api := timerFixture(t)
+	api.query = func(*Stream) (bool, error) { return false, errors.New("driver exploded") }
+	_, err := timer.Measure(func() error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "driver exploded") {
+		t.Fatalf("Measure error = %v, want the query failure surfaced", err)
+	}
 }
