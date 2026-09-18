@@ -287,7 +287,10 @@ func buildSinglePipelineViewData(cap *cudacapture.Capture, capName, activeKernel
 	data.Kernels = kernelNames
 
 	// 4. Extract stall metrics from PC sampling data in profile (gpu.pprof)
-	stallMap := extractSASSStallMap(cap, kernelNames)
+	stallMap, fusion := extractSASSStallMap(cap, kernelNames)
+	if fusion != nil {
+		data.Diagnostics = append(data.Diagnostics, sourceFusionCaveat(fusion))
+	}
 
 	// 5. Extract live register pressure if available
 	var pressureMap map[string]map[uint64]cudasass.RegisterPressure
@@ -349,10 +352,19 @@ type pcStallInfo struct {
 	breakdown   map[string]int64
 }
 
-func extractSASSStallMap(cap *cudacapture.Capture, knownKernels []string) *sassStallMap {
+// extractSASSStallMap returns the per-PC stall map and the source-fusion
+// failure the capture's code was loaded through, if any. The failure travels
+// with the map because the tiers this view renders beside it -- CUDA C++, Tile
+// IR, PTX -- are the ones it invalidates, and an unannotated view of them is
+// indistinguishable from a compilation that carried no line information.
+func extractSASSStallMap(cap *cudacapture.Capture, knownKernels []string) (*sassStallMap, *cudacapture.SourceFusionError) {
 	if cap == nil {
-		return nil
+		return nil, nil
 	}
+	// Loaded before the early returns below, so a capture with no samples still
+	// reports the failure: an empty stall map is not a reason to stop saying
+	// that the source binding was refused.
+	code, fusion, _ := loadCodeTiered(cap)
 	prof := cap.Profile
 	if prof == nil && cap.Files != nil && len(cap.Files["gpu.pprof"]) > 0 {
 		if p, err := profile.ParseData(cap.Files["gpu.pprof"]); err == nil {
@@ -360,7 +372,7 @@ func extractSASSStallMap(cap *cudacapture.Capture, knownKernels []string) *sassS
 		}
 	}
 	if prof == nil || len(prof.Sample) == 0 {
-		return nil
+		return nil, fusion
 	}
 
 	var stallIndices []int
@@ -370,7 +382,6 @@ func extractSASSStallMap(cap *cudacapture.Capture, knownKernels []string) *sassS
 		}
 	}
 
-	code, _ := cudacapture.LoadCode(cap)
 	var disasm *cudasass.Disassembly
 	if sassBytes, ok := cap.Files[cap.Code.SASS]; ok && len(sassBytes) > 0 {
 		disasm, _ = cudasass.Parse(bytes.NewReader(sassBytes))
@@ -457,7 +468,7 @@ func extractSASSStallMap(cap *cudacapture.Capture, knownKernels []string) *sassS
 		}
 	}
 
-	return m
+	return m, fusion
 }
 
 func (m *sassStallMap) lookup(kernel string, pc uint64) (*pcStallInfo, int64) {

@@ -137,8 +137,12 @@ func buildDiffViewData(baseFile, targetFile, kernelFilter string, limits cudacap
 		return nil, fmt.Errorf("cudasass diff: %w", err)
 	}
 
-	baseStalls := extractSASSStallMap(baseCap, nil)
-	targetStalls := extractSASSStallMap(targetCap, nil)
+	// A source-fusion failure is discarded here deliberately: this view diffs
+	// SASS against SASS, and neither the instruction text nor the PC offsets it
+	// compares depend on the source binding that failed. The pipeline view,
+	// which does render the invalidated tiers, reports it.
+	baseStalls, _ := extractSASSStallMap(baseCap, nil)
+	targetStalls, _ := extractSASSStallMap(targetCap, nil)
 
 	basePressure := extractPressureMap(baseDisasm)
 	targetPressure := extractPressureMap(targetDisasm)

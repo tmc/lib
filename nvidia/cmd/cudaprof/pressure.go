@@ -92,7 +92,16 @@ func printCapturePressure(w io.Writer, cap *cudacapture.Capture, kernel string) 
 		return errors.New("no functions found in disassembly")
 	}
 
-	code, _ := cudacapture.LoadCode(cap)
+	// The load failure is stated rather than discarded. A source-fusion failure
+	// leaves the kernel offsets this table is built from intact, so the table is
+	// still correct, but it is the same capture whose source and PTX views are
+	// empty and a reader moving between them needs to know why.
+	code, fusion, loadErr := loadCodeTiered(cap)
+	if fusion != nil {
+		fmt.Fprintf(w, "note: %s\n\n", sourceFusionCaveat(fusion))
+	} else if loadErr != nil {
+		fmt.Fprintf(w, "note: kernel offsets unavailable, resolving addresses from the disassembly alone: %v\n\n", loadErr)
+	}
 	stalls := extractStallMetrics(cap, code, disasm)
 
 	for i, fn := range targets {

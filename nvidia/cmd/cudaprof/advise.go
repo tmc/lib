@@ -120,6 +120,12 @@ type AdviceReport struct {
 	// but it has to be stated: a reader who does not know it reads
 	// "17.66% of observed samples" as "17.66% of elapsed time".
 	SampleOnly bool `json:"sample_only,omitempty"`
+
+	// SourceFusion reports that the capture's PTX and SASS are not from one
+	// compilation, so LoadCode refused the source binding and every finding
+	// below carries an empty file and a zero line. Without this a reader cannot
+	// tell a refused binding from a compiler that emitted no line information.
+	SourceFusion string `json:"source_fusion_failure,omitempty"`
 }
 
 // sampleOnlyCaveat names what PC sampling cannot see. Activity tracing is the
@@ -139,7 +145,7 @@ func (r *AdviceReport) Markdown() string {
 // MarkdownWithLimit formats up to limit findings as human-readable Markdown.
 // If limit <= 0, all findings are printed without truncation.
 func (r *AdviceReport) MarkdownWithLimit(limit int) string {
-	if r == nil || len(r.Items) == 0 {
+	if r == nil {
 		return "# CUDA Kernel Advice Report\n\nNo optimization issues or architecture fallbacks identified.\n"
 	}
 
@@ -147,6 +153,17 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 	sb.WriteString("# CUDA Kernel Advice Report\n\n")
 	if r.SampleOnly {
 		sb.WriteString(sampleOnlyCaveat)
+	}
+	if r.SourceFusion != "" {
+		sb.WriteString(sourceFusionMarkdownCaveat(r.SourceFusion))
+	}
+	// The caveats above are written before this return, not after it: a report
+	// with no findings on a capture that refused its source binding is not the
+	// same as a clean report, and rendering them identically is how a refusal
+	// reads as an all-clear.
+	if len(r.Items) == 0 {
+		sb.WriteString("No optimization issues or architecture fallbacks identified.\n")
+		return sb.String()
 	}
 
 	var criticals, warnings, infos int
@@ -1767,7 +1784,14 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 		return
 	}
 
-	code, _ := cudacapture.LoadCode(cap)
+	// A source-fusion failure zeroes every instruction's SourceFile and
+	// SourceLine, which are exactly the fields the findings below cite. Left
+	// undeclared, each finding reads as a location the analysis could not
+	// determine rather than one the capture refused to bind.
+	code, fusion, _ := loadCodeTiered(cap)
+	if fusion != nil {
+		report.SourceFusion = fusion.Error()
+	}
 	disasm, _ := loadDisassemblyWithPressure(cap)
 	if disasm == nil {
 		if sassData, ok := findSASS(cap); ok && len(sassData) > 0 {
