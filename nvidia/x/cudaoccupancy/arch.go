@@ -3,6 +3,8 @@ package cudaoccupancy
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 )
 
 // DeviceProperties defines hardware execution limits and allocation granularities
@@ -19,6 +21,17 @@ type DeviceProperties struct {
 	MaxSharedMemoryOptin    int    // Opt-in maximum shared memory per block in bytes
 	RegAllocationUnit       int    // Register allocation granularity in registers per warp
 	SmemAllocationUnit      int    // Shared memory allocation granularity in bytes
+
+	// Source names the device these values were read from, or is empty when
+	// they were hand-entered from a datasheet and no device has confirmed
+	// them. Every field above renders identically either way, which is the
+	// problem: an occupancy figure computed from an unconfirmed capacity is
+	// wrong in the way that reads as right. [LookupProbedDevice] refuses the
+	// unconfirmed rows for callers that cannot afford one.
+	//
+	// It is filled at startup from cudadevicetable, so it cannot be set by
+	// editing this file.
+	Source string
 }
 
 // Predefined device specifications for modern NVIDIA GPU architectures.
@@ -181,6 +194,38 @@ var knownArchitectures = map[string]DeviceProperties{
 	"sm_121a": SM121,
 	"sm121a":  SM121,
 	"gb10":    SM121,
+}
+
+// init records which architectures have a probed device behind them.
+// TestHandTableAgreesWithProbedDevices checks that the values themselves
+// match; this records that somebody looked.
+func init() {
+	for arch, dev := range knownArchitectures {
+		rec, ok := cudadevicetable.Lookup(arch)
+		if !ok || rec.Probe == nil {
+			continue
+		}
+		dev.Source = fmt.Sprintf("%s (%s, %s)", rec.Probe.Device, rec.Probe.Host, rec.Probe.ProbedAt)
+		knownArchitectures[arch] = dev
+	}
+}
+
+// LookupProbedDevice returns device properties only for an architecture a real
+// device has been probed for. Use it where a wrong value would flow onward
+// silently -- an occupancy ceiling, a launch geometry, a headline ratio --
+// because it turns a plausible datasheet number into an error.
+//
+// [LookupDevice] remains the right call for advisory output, which is honest
+// about being advisory.
+func LookupProbedDevice(arch string) (DeviceProperties, error) {
+	dev, err := LookupDevice(arch)
+	if err != nil {
+		return DeviceProperties{}, err
+	}
+	if dev.Source == "" {
+		return DeviceProperties{}, fmt.Errorf("cudaoccupancy: %s has not been probed: its properties are hand-entered and no device has confirmed them", arch)
+	}
+	return dev, nil
 }
 
 // LookupDevice returns device properties for the requested architecture string.

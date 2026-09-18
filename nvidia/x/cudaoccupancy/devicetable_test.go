@@ -113,3 +113,43 @@ func TestProbedArchitectureIsNotAliasedToAnother(t *testing.T) {
 		}
 	}
 }
+
+// TestProbedLookupRefusesDatasheetRows is the gate the Source field exists to
+// support. sm_90 and sm_121 render identically through LookupDevice -- same
+// fields, same types, no marker -- and exactly one of them has been confirmed
+// by hardware. A caller that cannot tell them apart will compute an H100
+// occupancy ceiling from numbers nobody measured and report it beside a
+// measured one.
+func TestProbedLookupRefusesDatasheetRows(t *testing.T) {
+	probed, unprobed := 0, 0
+	for _, arch := range []string{"sm_70", "sm_75", "sm_80", "sm_86", "sm_89", "sm_90", "sm_90a", "sm_100", "sm_121", "sm_121a"} {
+		plain, err := cudaoccupancy.LookupDevice(arch)
+		if err != nil {
+			t.Fatalf("LookupDevice(%q): %v", arch, err)
+		}
+		strict, strictErr := cudaoccupancy.LookupProbedDevice(arch)
+		if _, ok := cudadevicetable.Lookup(arch); ok {
+			probed++
+			if strictErr != nil {
+				t.Errorf("LookupProbedDevice(%q) = %v, want the probed record", arch, strictErr)
+			}
+			if strict.Source == "" {
+				t.Errorf("%s is probed but carries no Source", arch)
+			}
+			continue
+		}
+		unprobed++
+		if plain.Source != "" {
+			t.Errorf("%s has no probed device but claims Source %q", arch, plain.Source)
+		}
+		if strictErr == nil {
+			t.Errorf("LookupProbedDevice(%q) succeeded for an unprobed architecture", arch)
+		}
+	}
+	// Both populations must be non-empty or the test proves nothing: all
+	// probed would never exercise the refusal, all unprobed would never
+	// exercise the acceptance.
+	if probed == 0 || unprobed == 0 {
+		t.Fatalf("probed=%d unprobed=%d; the comparison needs both to discriminate", probed, unprobed)
+	}
+}
