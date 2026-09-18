@@ -169,3 +169,22 @@ func TestMalformedRemarksRejected(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRemarksYAMLSkipsComments(t *testing.T) {
+	const commented = `# tileiras remarks
+# target: sm_90
+--- !Passed
+Pass:            Memory
+Name:            RemarkMemoryLoadInstructionSelected
+Function:        matrix
+Args:
+  - Remark:      Load instruction selected
+`
+	remarks, err := tileiras.ParseRemarksYAML([]byte(commented))
+	if err != nil {
+		t.Fatalf("ParseRemarksYAML: %v", err)
+	}
+	if len(remarks) != 1 || remarks[0].Function != "matrix" {
+		t.Fatalf("remarks = %+v, want 1 remark for matrix", remarks)
+	}
+}

@@ -99,6 +99,11 @@ func ParseRemarksYAML(data []byte) ([]Remark, error) {
 		if trimmed == "" {
 			continue
 		}
+		// Comments carry the producer's provenance header, which real remark
+		// files lead with; they are not remark content.
+		if strings.HasPrefix(trimmed, "#") {
+			continue
+		}
 
 		// Document header: "--- !Passed", "--- !Failure", etc.
 		if strings.HasPrefix(trimmed, "---") {
