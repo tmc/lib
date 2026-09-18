@@ -30,6 +30,14 @@ type Range struct {
 
 // Timing records a separate, uninstrumented execution, normalized by logical
 // operations rather than replay passes or Go benchmark iterations.
+//
+// Uninstrumented means no capture is open across the timed work. It does not
+// mean the process is in the state it was in before any profiling: the timed
+// loop runs before Run's collection, but CUPTI profiler initialization is
+// process-wide and is never undone, so the first Timing in a process may be
+// the only one taken before the profiler was initialized. Timings from one
+// process are comparable to each other only if every one of them was taken on
+// the same side of that first initialization.
 type Timing struct {
 	Operations int64
 	Total      time.Duration
