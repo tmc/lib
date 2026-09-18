@@ -141,25 +141,18 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			continue
 		}
 
-		if m := sourceLocationPattern.FindStringSubmatch(trimmed); m != nil {
-			if m[1] == ".nv_debug_ptx_txt" {
-				if lineNum, err := strconv.Atoi(m[2]); err == nil {
-					curPTXLine = lineNum
-				}
+		if dir, ok := ParseSourceDirective(trimmed); ok {
+			// The PTX tier names the same instructions as the source tier but
+			// in its own line namespace, so it updates PTXLine and leaves the
+			// source location standing rather than overwriting it.
+			if dir.Kind == PTXText {
+				curPTXLine = dir.Line
 				continue
 			}
-			curSourceFile = m[1]
-			if lineNum, err := strconv.Atoi(m[2]); err == nil {
-				curSourceLine = lineNum
-			}
-			curInlinedFile = ""
-			curInlinedLine = 0
-			if mInline := inlineLocationPattern.FindStringSubmatch(trimmed); mInline != nil {
-				curInlinedFile = mInline[1]
-				if inlinedNum, err := strconv.Atoi(mInline[2]); err == nil {
-					curInlinedLine = inlinedNum
-				}
-			}
+			curSourceFile = dir.File
+			curSourceLine = dir.Line
+			curInlinedFile = dir.InlinedFile
+			curInlinedLine = dir.InlinedLine
 			continue
 		}
 
