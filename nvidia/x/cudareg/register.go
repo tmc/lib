@@ -3,10 +3,15 @@ package cudareg
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/cudagroup"
 )
+
+// targetPattern matches an exact PTX target such as "sm_90a".
+var targetPattern = regexp.MustCompile(`^sm_[0-9]+[a-z]*$`)
 
 // Action is a register ownership change.
 type Action uint8
@@ -33,19 +38,45 @@ type Target struct {
 	LegalCounts []uint32
 }
 
+// The setmaxnreg operand range and granularity. These were measured rather
+// than copied from a document: on ptxas 13.0.88 both .dec and .inc accept 24
+// and 256 and reject 23, 25, 28 and 264, identically at sm_90a and sm_121a.
+// TestLegalCountBoundaries re-runs that check wherever a ptxas is available.
+const (
+	minRegisterCount  = 24
+	maxRegisterCount  = 256
+	registerCountStep = 8
+)
+
 // TargetFor returns the setmaxnreg capability for an exact target. Family
-// names and unsuffixed names are intentionally rejected.
+// names are rejected, and so are unsuffixed targets that the table records a
+// rejection for: sm_90 is real silicon that ptxas refuses setmaxnreg on.
+//
+// Which targets those are is read from the probed feature table rather than
+// listed here. The list this replaced named sm_90a, sm_100a, sm_110a and
+// sm_120a and omitted sm_121a, so the package that models setmaxnreg refused
+// the only architecture this project has ever attached -- while ptxas accepts
+// setmaxnreg there.
 func TargetFor(name string) (Target, error) {
-	switch name {
-	case "sm_90a", "sm_100a", "sm_110a", "sm_120a":
-		counts := make([]uint32, 0, 30)
-		for n := uint32(24); n <= 256; n += 8 {
-			counts = append(counts, n)
-		}
-		return Target{Name: name, LegalCounts: counts}, nil
-	default:
-		return Target{}, fmt.Errorf("unsupported setmaxnreg target %q", name)
+	if !targetPattern.MatchString(strings.ToLower(strings.TrimSpace(name))) {
+		return Target{}, fmt.Errorf("unsupported setmaxnreg target %q: want an exact target such as \"sm_90a\"", name)
 	}
+	// A target the table does not cover is admitted, not refused. setmaxnreg
+	// is an instruction: if a future part lacks it, ptxas says so at assembly
+	// time with a better message than this package could invent. Refusing on
+	// silence had the opposite failure -- it would make each new GPU less
+	// capable than its predecessor until someone regenerated a table, and the
+	// unsuffixed rejection below is the case that actually needs enforcing.
+	// See [cudadevicetable.AssumeSupported].
+	a := cudadevicetable.Ask(name, "setmaxnreg")
+	if !a.Or(cudadevicetable.AssumeSupported) {
+		return Target{}, fmt.Errorf("unsupported setmaxnreg target %q: %s", name, a.Why())
+	}
+	counts := make([]uint32, 0, 30)
+	for n := uint32(minRegisterCount); n <= maxRegisterCount; n += registerCountStep {
+		counts = append(counts, n)
+	}
+	return Target{Name: name, LegalCounts: counts}, nil
 }
 
 // Budget separates compiler allocation facts from dynamic ownership.
