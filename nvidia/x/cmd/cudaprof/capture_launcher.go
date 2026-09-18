@@ -813,7 +813,80 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 		}
 		env = setCaptureEnv(env, key, o.Inject)
 	}
+	env = setNVTXInjection(env)
 	return env
+}
+
+// setNVTXInjection points NVTX_INJECTION64_PATH at a CUPTI library so that an
+// in-process NVTX provider in the target actually emits.
+//
+// LD_PRELOAD above gets CUPTI collecting, and the producer then reports
+// nvtx_markers:true -- but that bit only says cuptiActivityEnable(
+// CUPTI_ACTIVITY_KIND_MARKER) succeeded, which is a claim about the collector,
+// not about anything emitting. A Go target using nvidia/x/nvtx returns from
+// initInjection with enabled still false when this variable is unset
+// (nvtx/nvtx.go:259), and says nothing about it, so the capture collects zero
+// markers while reporting that markers are on. That combination cost a full
+// capture cycle on 2026-09-18 before the cause was found.
+//
+// An existing value is never overridden: the caller has then already chosen an
+// injection library, and NVIDIA's own tooling sets this variable too.
+//
+// Only a path that stats is exported. Handing the target a name the loader
+// cannot resolve reaches the same silent return through a different door, and
+// would read as a landed fix. Setting the variable is still only a
+// producer-side claim in exactly the way nvtx_markers is: the honest check is
+// that a capture collected markers, not that this function found a file.
+func setNVTXInjection(env []string) []string {
+	const key = "NVTX_INJECTION64_PATH"
+	if runtime.GOOS != "linux" {
+		return env
+	}
+	if lookupEnv(env, key) != "" {
+		return env
+	}
+	if path := findCUPTILibrary(); path != "" {
+		env = setCaptureEnv(env, key, path)
+	}
+	return env
+}
+
+// findCUPTILibrary returns a CUPTI library that exists on disk, or "".
+//
+// This repeats nvidia/cupti's toolkit search rather than calling it, because
+// that package resolves the path by dlopening the library into the calling
+// process, and the launcher must not load CUPTI to profile something else. It
+// also covers targets/<arch>-linux/lib for the running architecture, which the
+// generated resolver in nvidia/cupti/init.gen.go does not: on aarch64 hosts
+// libcupti lives in targets/sbsa-linux/lib, and that resolver finds it only
+// when ldconfig already has the soname.
+func findCUPTILibrary() string {
+	if p := os.Getenv("CUDAPROF_NVTX_INJECTION"); p != "" {
+		return p
+	}
+	arch := "x86_64-linux"
+	if runtime.GOARCH == "arm64" {
+		arch = "sbsa-linux"
+	}
+	var roots []string
+	for _, dir := range []string{os.Getenv("CUDA_HOME"), os.Getenv("CUDA_PATH"), "/usr/local/cuda"} {
+		if dir != "" {
+			roots = append(roots, dir)
+		}
+	}
+	subs := []string{"extras/CUPTI/lib64", "extras/CUPTI/lib", filepath.Join("targets", arch, "lib")}
+	names := []string{"libcupti.so.13", "libcupti.so.12", "libcupti.so"}
+	for _, root := range roots {
+		for _, sub := range subs {
+			for _, name := range names {
+				p := filepath.Join(root, sub, name)
+				if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+					return p
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func setCaptureEnv(env []string, key, value string) []string {
