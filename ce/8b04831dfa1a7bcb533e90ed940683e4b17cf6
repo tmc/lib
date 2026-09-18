@@ -1,0 +1,10 @@
+Claude Code (Opus 5, claude-opus-5) 2026-09-18T03:18:17Z
+session=0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url=https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Evidence: ~/tmp/abba.log (ABBA stock vs pinned), ~/tmp/tile.log (tile ladder
+16/32/64, canonical digest on all six arms), ~/tmp/tileprof.log (per-kernel
+device time, the measurement that refuted the tile), ~/tmp/final.log (full
+suite: 197 pass, 18 skip, 4 fail, the same 4 as baseline).
+
+Cumulative with 2bef7f75: prefill 88.4 -> 132.0 tok/s, 1.49x, bit-exact.
