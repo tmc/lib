@@ -743,3 +743,70 @@ func TestGapsIgnoresNVTXMarkers(t *testing.T) {
 		t.Errorf("active/idle = %d/%d with markers, %d/%d without", g.ActiveNanos, g.IdleNanos, w.ActiveNanos, w.IdleNanos)
 	}
 }
+
+// TestGapsIgnoresCaptureRangeEdges guards the capture-range half of the same
+// filter. A range edge says when the producer started and stopped collecting;
+// it is not device work, and counting one would inflate Activities and move
+// the ends of the device timeline.
+//
+// The fixture marks the edges valid and gives them a span on purpose. The
+// producer does not emit them that way today, and a fixture that copied it
+// would be caught by the validity check above and would pass with the subtype
+// filter deleted -- a test of nothing. Recording a range's extent is the
+// obvious next thing to put in this record, and the filter has to be what
+// holds when that happens, not the absence of a field.
+func TestGapsIgnoresCaptureRangeEdges(t *testing.T) {
+	kernels := func(b *journalBuilder) {
+		b.activity("kernel", 0, 1_000, 3_000, 1)
+		b.activity("kernel", 0, 6_000, 7_000, 2)
+	}
+
+	plain := newJournalBuilder()
+	kernels(plain)
+
+	ranged := newJournalBuilder()
+	kernels(ranged)
+	// Before the device window, inside the 3000..6000 gap, and after it:
+	// each placement corrupts a different statistic.
+	for _, e := range []struct {
+		edge  string
+		start uint64
+		end   uint64
+	}{
+		{"start", 100, 200},
+		{"stop", 4_400, 4_600},
+		{"start", 9_000, 9_500},
+	} {
+		ranged.append(recordActivity, map[string]any{
+			"kind": "activity", "subtype": "capture_range", "valid": true,
+			"edge": e.edge, "api": "cudaProfilerStart", "index": 0,
+			"toggle_failures": 0, "start": e.start, "end": e.end,
+		})
+	}
+
+	opts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords}
+	want, err := analyzeGaps(testCapture(map[string][]byte{"capture.journal": plain.finalize()}, completeStatus()), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := analyzeGaps(testCapture(map[string][]byte{"capture.journal": ranged.finalize()}, completeStatus()), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(want.Devices) != 1 || len(got.Devices) != 1 {
+		t.Fatalf("devices = %d with range edges, %d without; want 1 each", len(got.Devices), len(want.Devices))
+	}
+	w, g := want.Devices[0].Overall, got.Devices[0].Overall
+	if g.Activities != w.Activities {
+		t.Errorf("activities = %d with range edges, %d without", g.Activities, w.Activities)
+	}
+	if g.SpanNanos != w.SpanNanos {
+		t.Errorf("span = %d with range edges, %d without: an edge moved an end of the device timeline", g.SpanNanos, w.SpanNanos)
+	}
+	if g.MergedIntervals != w.MergedIntervals {
+		t.Errorf("merged intervals = %d with range edges, %d without: an edge split a device gap", g.MergedIntervals, w.MergedIntervals)
+	}
+	if g.ActiveNanos != w.ActiveNanos || g.IdleNanos != w.IdleNanos {
+		t.Errorf("active/idle = %d/%d with range edges, %d/%d without", g.ActiveNanos, g.IdleNanos, w.ActiveNanos, w.IdleNanos)
+	}
+}

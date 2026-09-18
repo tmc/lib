@@ -403,3 +403,34 @@ func TestBuildActivityProfileSkipsNVTXMarkers(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildActivityProfileSkipsCaptureRangeEdges guards the capture-range half
+// of the same filter. A range edge records when the producer started and
+// stopped collecting; it contributes to the activity count dimension and to
+// neither duration beside it, so admitting one inflates the count alone.
+//
+// The edges are marked valid deliberately: a fixture matching what the
+// producer emits today carries no Valid field, would be dropped by the
+// validity check before the subtype is ever consulted, and would pass with the
+// filter deleted.
+func TestBuildActivityProfileSkipsCaptureRangeEdges(t *testing.T) {
+	activities := []cudacapture.ActivityRecord{
+		{Subtype: "kernel", Name: "k", Valid: true, Start: 1000, End: 3000},
+		{Subtype: "capture_range", Name: "cudaProfilerStart", Valid: true, Start: 500, End: 600},
+		{Subtype: "capture_range", Name: "cudaProfilerStop", Valid: true, Start: 9000, End: 9100},
+	}
+	p := cudacapture.BuildActivityProfile("session", 4242, activities)
+	if len(p.Sample) != 1 {
+		t.Fatalf("got %d samples, want 1: only the kernel is device activity", len(p.Sample))
+	}
+	if got := p.Sample[0].Value[3]; got != 1 {
+		t.Errorf("activity count = %d, want 1", got)
+	}
+	for _, s := range p.Sample {
+		for _, v := range s.Label["subtype"] {
+			if v == "capture_range" {
+				t.Errorf("a capture-range edge reached the profile as a sample; it is the producer's own bookkeeping, not device work")
+			}
+		}
+	}
+}

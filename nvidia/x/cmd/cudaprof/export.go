@@ -416,6 +416,14 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 			if !p.Valid || p.Start == 0 || p.End < p.Start {
 				continue
 			}
+			if p.Subtype == "capture_range" {
+				// The producer's own bookkeeping: when it started and
+				// stopped collecting. It is not device work and it is not an
+				// NVTX marker, so it neither becomes a slice nor enters the
+				// pairing below, where its edge would be matched against a
+				// marker id it does not have.
+				continue
+			}
 			if p.Subtype == "marker" {
 				// Held back: a marker alone is a point in time, and the range
 				// it belongs to does not exist until its partner arrives.

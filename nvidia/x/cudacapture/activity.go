@@ -150,7 +150,7 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 		// annotations, not device work. They contribute no device or copy
 		// time, so including them would leave the count dimension counting a
 		// different population than the two duration dimensions beside it.
-		if activity.Subtype == "marker" {
+		if activity.Subtype == "marker" || activity.Subtype == "capture_range" {
 			continue
 		}
 		value := []int64{0, 0, 0, 1}

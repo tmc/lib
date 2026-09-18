@@ -358,3 +358,48 @@ func TestExportNestsNVTXRangesByInnermost(t *testing.T) {
 		t.Errorf("outer range spans %v, want 1000..9000: the END at 3000 closed the innermost open range, not this one", got)
 	}
 }
+
+// TestExportKeepsCaptureRangeOutOfTheNVTXPairing is the gate for a mistake the
+// rest of this suite cannot see. A capture-range edge is a producer record
+// that shares the activity stream with NVTX markers, and the natural way to
+// filter it -- adding its subtype to the marker branch -- puts it into the
+// slice that feeds pairMarkers instead of dropping it. Nothing else here
+// notices: the edge carries no marker id, so it pairs with nothing, and the
+// only visible symptom is the unpaired count, which no other test reads on a
+// fixture that also contains range edges.
+//
+// The fixture pairs one real NVTX range alongside the edges. Without it the
+// assertions would hold on an exporter that dropped NVTX entirely.
+func TestExportKeepsCaptureRangeOutOfTheNVTXPairing(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceActivity("kernel", "k", 0, 7, 5_000, 6_000, 1)
+	b.traceMarker("prefill", "ds4", 1, markerFlagStart, 100, 200, 4_000)
+	b.traceMarker("prefill", "ds4", 1, markerFlagEnd, 100, 200, 7_000)
+	for _, e := range []struct {
+		edge string
+		ts   uint64
+	}{{"start", 3_000}, {"stop", 8_000}} {
+		b.append(recordActivity, map[string]any{
+			"kind": "activity", "subtype": "capture_range", "valid": true,
+			"edge": e.edge, "api": "cudaProfilerStart", "index": 0,
+			"toggle_failures": 0, "start": e.ts, "end": e.ts,
+		})
+	}
+
+	records, nvtx := decodeFixtureNVTX(t, b.finalize())
+	if nvtx.ranges != 1 {
+		t.Errorf("nvtx ranges = %d, want 1: the one real marker pair", nvtx.ranges)
+	}
+	if nvtx.unpaired != 0 || nvtx.points != 0 || nvtx.unknown != 0 {
+		t.Errorf("capture-range edges reached the NVTX pairing: unpaired=%d points=%d unknown=%d", nvtx.unpaired, nvtx.points, nvtx.unknown)
+	}
+	for _, r := range records {
+		if got := r.rec.Name; got == "cudaProfilerStart" || strings.Contains(got, "capture_range") {
+			t.Errorf("a capture-range edge became a trace slice named %q", got)
+		}
+	}
+	// One kernel plus one NVTX range, and nothing else.
+	if len(records) != 2 {
+		t.Errorf("got %d trace records, want 2 (one kernel, one NVTX range)", len(records))
+	}
+}
