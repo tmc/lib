@@ -2,8 +2,8 @@
 // type models, textual MLIR parsing, and binary bytecode decoding
 // for CUDA Tile IR (.tilebc / .tileirbc).
 //
-// Decoding reads NVIDIA's files. Encoding does not produce them; see
-// [Module.EncodeBytecode] before relying on its output.
+// Decoding reads NVIDIA's files. There are two encoding paths and only one
+// of them does: see the Bytecode Encoding section before relying on either.
 //
 // Tile IR represents computations at the tile and tensor-core abstraction level,
 // modeling multidimensional tiles, asynchronous TMA memory transfers, token-ordered
@@ -38,7 +38,13 @@
 //
 // # Bytecode Encoding
 //
-// [Module.EncodeBytecode] writes the header, string, type and signature
+// [EncodeBytecode] serializes a [BytecodeModule] and is faithful: it
+// reproduces each vendor golden byte for byte, because a decoded function
+// keeps its body bytes and the serializer writes them back unchanged. Use it
+// to rewrite bytecode that NVIDIA produced.
+//
+// [Module.EncodeBytecode] builds a body from an AST instead, and that path is
+// the broken one. It writes the header, string, type and signature
 // sections, but a function body it writes is not Tile IR: it holds one opcode
 // varint per operation, with a result type for the constant opcode and nothing
 // for any other. Operands, result types and attributes are absent. The real
@@ -49,10 +55,14 @@
 //	input does not correspond to Tile IR bytecode
 //
 // [DecodeBytecode] reads that body back, because it reads exactly what the
-// encoder writes. A round trip through this package therefore proves nothing
-// about the format; x/tileiras's TestAssembleNative is the gate that does, and
-// it is expected to fail until the body encoding is written against NVIDIA's
-// specification rather than against this package's own reader.
+// encoder writes, and it does not reject an opcode it does not know. A round
+// trip through this package therefore proves nothing about the format: both
+// round-trip tests stay green when the encoder is made to write every opcode
+// as opcode+1. The golden re-encode test cannot see this path at all, since it
+// starts from vendor bytes and never builds a body. x/tileiras's
+// TestAssembleNative is the only gate that can, and it is expected to fail
+// until the body encoding is written against NVIDIA's specification rather
+// than against this package's own reader.
 //
 // See https://go.dev/doc/comment for formatting references.
 package tileir

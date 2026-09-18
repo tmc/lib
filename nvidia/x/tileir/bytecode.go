@@ -1283,6 +1283,8 @@ func (m *Module) ToBytecode() (*BytecodeModule, error) {
 
 // EncodeBytecode serializes the Module to this package's bytecode.
 //
+// This is the AST path, not the faithful [EncodeBytecode] serializer.
+//
 // The output is not accepted by NVIDIA's Tile IR assembler. Function bodies
 // carry one opcode varint per operation and no operands or result types, so
 // the assembler fails at the first operation whose result type it needs.
