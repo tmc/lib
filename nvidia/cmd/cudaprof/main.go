@@ -213,13 +213,26 @@ func run() error {
 
 	code, err := cudacapture.LoadCode(cap)
 	if err != nil {
-		// A v3 capture can be useful as an ordinary pprof profile even when
-		// source, PTX, CUBIN, or SASS was unavailable. Object navigation then
-		// fails explicitly, while duration and typed profile views remain usable.
-		if len(cap.CodeUnavailable) == 0 {
-			return err
+		// A source-fusion failure invalidates the source tier and nothing else.
+		// The kernel ranking a reader comes here for is built from the CUBIN
+		// sections and the disassembly, so refusing the whole profile made the
+		// tool unusable exactly when it was most needed: on a fresh profile of
+		// code that was just changed. Degrade to the intact tier and say so on
+		// stderr, where it travels with the ranking rather than sitting in a
+		// document someone has to remember to read.
+		var fusion *cudacapture.SourceFusionError
+		if errors.As(err, &fusion) && code != nil {
+			fmt.Fprintf(os.Stderr, "cudaprof: %v\n", fusion)
+			fmt.Fprintf(os.Stderr, "cudaprof: rendering the kernel-level ranking without source attribution; source and PTX views of this capture are unavailable\n")
+		} else {
+			// A v3 capture can be useful as an ordinary pprof profile even when
+			// source, PTX, CUBIN, or SASS was unavailable. Object navigation then
+			// fails explicitly, while duration and typed profile views remain usable.
+			if len(cap.CodeUnavailable) == 0 {
+				return err
+			}
+			code = &cudacapture.Code{}
 		}
-		code = &cudacapture.Code{}
 	}
 	tool, err := newObjectTool(cap, code, extractDir)
 	if err != nil && len(cap.CodeUnavailable) == 0 {

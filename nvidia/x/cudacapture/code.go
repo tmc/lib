@@ -91,13 +91,15 @@ func LoadCode(c *Capture) (*Code, error) {
 	}
 
 	code, err := parseCode(cubinBytes, string(ptxBytes), string(sassBytes), string(sourceBytes), c.Code.Source)
-	if err != nil {
+	if code == nil {
 		return nil, err
 	}
 	code.SourceFile = c.Code.Source
 	code.PTXFile = c.Code.PTX
 	code.SASSFile = c.Code.SASS
-	return code, nil
+	// err is a *SourceFusionError here and code is the intact kernel tier; see
+	// that type for what a caller may still read from it.
+	return code, err
 }
 
 func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, error) {
@@ -165,9 +167,12 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 		cuLines[i+1] = cur
 	}
 
-	if err := verifyLineBinding(p, d, sourceBase); err != nil {
-		return nil, err
-	}
+	// A fusion failure is not a reason to withhold the kernel tier: kernel
+	// names, offsets, sizes and instruction text are read from the CUBIN and
+	// the disassembly, neither of which the PTX participates in. Refusing here
+	// made the tool unusable on profiles that pprof itself reads correctly.
+	// Carry on without source attribution and report the failure to the caller.
+	fused := verifyLineBinding(p, d, sourceBase)
 
 	var code Code
 	for _, fn := range d.Functions {
@@ -211,12 +216,15 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			if line == 0 {
 				return nil, fmt.Errorf("cudacapture: %s: missing SASS source line", fn.Name)
 			}
-			loc := cuLoc{line: inst.SourceLine}
-			if inst.SourceFile != "" {
-				loc.file = filepath.Base(inst.SourceFile)
-			}
-			if loc.line == 0 {
-				loc = cuLines[line]
+			var loc cuLoc
+			if fused == nil {
+				loc = cuLoc{line: inst.SourceLine}
+				if inst.SourceFile != "" {
+					loc.file = filepath.Base(inst.SourceFile)
+				}
+				if loc.line == 0 {
+					loc = cuLines[line]
+				}
 			}
 
 			// PTXLine is set only where the PTX instruction is identified.
@@ -230,13 +238,17 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			// already tests for.
 			var ptxLine int
 			var inlinedAt []cudaptx.Location
-			if inst.InlinedLine > 0 {
+			if fused == nil && inst.InlinedLine > 0 {
 				inlinedAt = []cudaptx.Location{{
 					File: filepath.Base(inst.InlinedFile),
 					Line: inst.InlinedLine,
 				}}
 			}
-			if inst.PTXLine > 0 {
+			if fused != nil {
+				// Both branches below read a binding the two tiers do not
+				// share; either would report a guess in the shape of a
+				// measurement.
+			} else if inst.PTXLine > 0 {
 				ptxLine = inst.PTXLine
 			} else if candidates := ptxByLine[loc]; len(candidates) == 1 {
 				ptxLine = candidates[0].Line
@@ -279,6 +291,9 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 		if code.Kernels[i].Offset < code.Kernels[i-1].Offset+code.Kernels[i-1].Size {
 			return nil, errors.New("cudacapture: overlapping CUBIN sections")
 		}
+	}
+	if fused != nil {
+		return &code, fused
 	}
 	return &code, nil
 }
@@ -328,7 +343,31 @@ func (k *Kernel) Instruction(offset uint64) *Instruction {
 	return nil
 }
 
-func verifyLineBinding(p *cudaptx.Module, d *cudasass.Disassembly, sourceBase string) error {
+// SourceFusionError reports that a capture's PTX and SASS are not from one
+// compilation of the same source, so no instruction in it can be attributed to
+// a source line.
+//
+// LoadCode returns it alongside a usable Code. Kernel names, offsets, sizes and
+// instruction text come from the CUBIN and the disassembly alone and do not
+// depend on the two tiers agreeing, so a ranking over kernels remains correct;
+// what the failure invalidates is the source and PTX attribution, and every
+// Instruction in that Code has SourceFile, SourceLine, PTXLine and InlinedAt
+// left at their zero values for exactly that reason. A caller that needs source
+// attribution must treat this as fatal. A caller that does not must say in its
+// output that attribution is missing, since a zero SourceLine is otherwise
+// indistinguishable from an instruction the compiler never located.
+type SourceFusionError struct {
+	Source    string // base name of the source file the two tiers disagree about
+	Unclaimed []int  // lines of it the SASS names and the PTX never does, sorted
+	Claimed   int    // how many lines of it the PTX does name
+}
+
+func (e *SourceFusionError) Error() string {
+	return fmt.Sprintf("cudacapture: PTX and SASS are not from one compilation of %s: the SASS attributes instructions to %d source line(s) the PTX never names (%s); the PTX names %d line(s) of that file",
+		e.Source, len(e.Unclaimed), sampleLines(e.Unclaimed, maxReportedLines), e.Claimed)
+}
+
+func verifyLineBinding(p *cudaptx.Module, d *cudasass.Disassembly, sourceBase string) *SourceFusionError {
 	claimed := make(map[int]bool)
 	for _, k := range p.Kernels {
 		for _, inst := range k.Instructions {
@@ -359,8 +398,7 @@ func verifyLineBinding(p *cudaptx.Module, d *cudasass.Disassembly, sourceBase st
 		return nil
 	}
 	sort.Ints(unclaimed)
-	return fmt.Errorf("cudacapture: PTX and SASS are not from one compilation of %s: the SASS attributes instructions to %d source line(s) the PTX never names (%s); the PTX names %d line(s) of that file",
-		sourceBase, len(unclaimed), sampleLines(unclaimed, maxReportedLines), len(claimed))
+	return &SourceFusionError{Source: sourceBase, Unclaimed: unclaimed, Claimed: len(claimed)}
 }
 
 // maxReportedLines bounds how many unclaimed line numbers an error names. A
