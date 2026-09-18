@@ -1,0 +1,8 @@
+claude-code, model: Claude Opus 5
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+date: 2026-09-17
+pid: 52215
+Verified on GB10 spark-31db: with this gate set, the same capture that
+previously produced a 584-byte journal produced 548,145 activity records,
+0 dropped, run_completeness complete.
