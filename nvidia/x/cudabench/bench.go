@@ -1,6 +1,7 @@
 package cudabench
 
 import (
+	"fmt"
 	"runtime"
 	"testing"
 	"time"
@@ -16,6 +17,8 @@ type B struct {
 	stream     *cuda.Stream
 	bytesPerOp int64
 	flopsPerOp int64
+	evict      func(*cuda.Stream) error
+	evictName  string
 }
 
 // SetBytes configures the number of bytes processed per benchmark iteration.
@@ -72,25 +75,52 @@ func (b *B) Time(fn func(stream *cuda.Stream)) {
 
 	b.tb.ResetTimer()
 
-	if err := start.Record(b.stream); err != nil {
-		b.tb.Fatalf("cudabench: record start: %v", err)
-	}
-
-	for i := 0; i < b.tb.N; i++ {
-		fn(b.stream)
-	}
-
-	if err := stop.Record(b.stream); err != nil {
-		b.tb.Fatalf("cudabench: record stop: %v", err)
-	}
-
-	if err := stop.Synchronize(nil); err != nil {
-		b.tb.Fatalf("cudabench: stop synchronize: %v", err)
-	}
-
-	elapsed, err := stop.ElapsedSince(start)
-	if err != nil {
-		b.tb.Fatalf("cudabench: elapsed time calculation: %v", err)
+	var elapsed time.Duration
+	if b.evict == nil {
+		// One event pair around the whole loop. The reported per-iteration time
+		// is therefore a mean over N, not a median: a single scheduling hiccup
+		// moves it by its full size divided by N.
+		if err := start.Record(b.stream); err != nil {
+			b.tb.Fatalf("cudabench: record start: %v", err)
+		}
+		for i := 0; i < b.tb.N; i++ {
+			fn(b.stream)
+		}
+		if err := stop.Record(b.stream); err != nil {
+			b.tb.Fatalf("cudabench: record stop: %v", err)
+		}
+		if err := stop.Synchronize(nil); err != nil {
+			b.tb.Fatalf("cudabench: stop synchronize: %v", err)
+		}
+		var err error
+		if elapsed, err = stop.ElapsedSince(start); err != nil {
+			b.tb.Fatalf("cudabench: elapsed time calculation: %v", err)
+		}
+	} else {
+		// An evictor must not be timed, so each iteration gets its own span and
+		// the eviction runs between them. The sum excludes eviction but also
+		// excludes the launch gaps the single-span form includes, so the two
+		// forms are not interchangeable and must not be compared to each other.
+		for i := 0; i < b.tb.N; i++ {
+			if err := b.evict(b.stream); err != nil {
+				b.tb.Fatalf("cudabench: evict before iteration %d: %v", i, err)
+			}
+			if err := start.Record(b.stream); err != nil {
+				b.tb.Fatalf("cudabench: record start: %v", err)
+			}
+			fn(b.stream)
+			if err := stop.Record(b.stream); err != nil {
+				b.tb.Fatalf("cudabench: record stop: %v", err)
+			}
+			if err := stop.Synchronize(nil); err != nil {
+				b.tb.Fatalf("cudabench: stop synchronize: %v", err)
+			}
+			d, err := stop.ElapsedSince(start)
+			if err != nil {
+				b.tb.Fatalf("cudabench: elapsed time calculation: %v", err)
+			}
+			elapsed += d
+		}
 	}
 
 	m, ok := computeMetrics(elapsed, b.tb.N, b.bytesPerOp, b.flopsPerOp)
@@ -109,6 +139,38 @@ func (b *B) Time(fn func(stream *cuda.Stream)) {
 	if b.flopsPerOp > 0 {
 		b.tb.ReportMetric(m.tflops, "TFLOPS")
 	}
+	b.reportLimits()
+}
+
+// reportLimits states what the reported numbers do not include, next to the
+// numbers.
+func (b *B) reportLimits() {
+	for _, s := range b.limits() {
+		b.tb.Logf("cudabench: %s", s)
+	}
+}
+
+// limits returns the caveats that apply to this run's reported numbers. Each
+// names a term a reader could otherwise take them to cover. It is separate from
+// reporting so the set can be asserted without running a benchmark.
+func (b *B) limits() []string {
+	out := []string{"not included: host dispatch cost; these are device event spans, " +
+		"so a workload bound by launch overhead will look faster here than it is"}
+	if b.evict == nil {
+		out = append(out, "cache state: uncontrolled across iterations, so a working set "+
+			"that fits in cache is measured progressively warmer; see B.Evict and EvictL2")
+		if b.bytesPerOp > 0 {
+			// The declared-bytes caveat only bites when a rate is derived from it.
+			out = append(out, "GB/s is SetBytes divided by measured time, so it is the traffic "+
+				"the workload requires, not the traffic it performed, and it was measured against "+
+				"an uncontrolled cache")
+		}
+	} else {
+		out = append(out, fmt.Sprintf("cache state: %s between iterations; timing is the sum of "+
+			"per-iteration spans and excludes both the eviction and the inter-launch gaps",
+			b.evictName))
+	}
+	return out
 }
 
 // metrics holds the rates derived from one event-timed run.
