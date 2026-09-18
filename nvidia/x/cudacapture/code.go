@@ -359,6 +359,22 @@ func verifyLineBinding(p *cudaptx.Module, d *cudasass.Disassembly, sourceBase st
 		return nil
 	}
 	sort.Ints(unclaimed)
-	return fmt.Errorf("cudacapture: PTX and SASS are not from one compilation of %s: the SASS attributes instructions to %d source line(s) the PTX never names (%v); the PTX names %d line(s) of that file",
-		sourceBase, len(unclaimed), unclaimed, len(claimed))
+	return fmt.Errorf("cudacapture: PTX and SASS are not from one compilation of %s: the SASS attributes instructions to %d source line(s) the PTX never names (%s); the PTX names %d line(s) of that file",
+		sourceBase, len(unclaimed), sampleLines(unclaimed, maxReportedLines), len(claimed))
+}
+
+// maxReportedLines bounds how many unclaimed line numbers an error names. A
+// mismatch of this kind runs to tens of thousands of lines -- one observed
+// failure listed 67741 of them, roughly 400 KB of error text -- and the count
+// plus a sample identifies the problem as well as the set does while staying
+// readable in a terminal and a log.
+const maxReportedLines = 16
+
+// sampleLines renders at most n of lines, noting how many it withheld. The
+// count is already in the caller's message, so this says only what it dropped.
+func sampleLines(lines []int, n int) string {
+	if len(lines) <= n {
+		return fmt.Sprint(lines)
+	}
+	return fmt.Sprintf("%v and %d more", lines[:n], len(lines)-n)
 }
