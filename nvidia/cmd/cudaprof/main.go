@@ -107,7 +107,7 @@ func run() error {
 		return pack(os.Args[2], os.Args[3])
 	}
 	if len(os.Args) == 1 || len(os.Args) == 2 && slices.Contains([]string{"-h", "-help", "--help"}, os.Args[1]) {
-		fmt.Println("Usage: cudaprof [pprof flags] capture.pprof\n\n  -http=127.0.0.1:8087  open interactive pprof\n  -no_browser          serve without opening a browser\n  -top                 show kernel totals\n  -list=compute        show annotated source\n  -disasm=compute      show PTX and SASS\n  -cfg[=kernel]        print control flow graph (DOT format)\n  -bbcfg[=kernel]      print basic block control flow graph (DOT format)\n  -pressure[=kernel]   print live register pressure and stall metrics\n\nTo capture a GPU profile from a command:\n  cudaprof capture [-o profile.pprof] [--max-records=N] -- command [args...]\n\nTo view 5-tier pipeline (Go -> CUDA C++ -> Tile IR -> PTX -> SASS):\n  cudaprof view [-http=:8088] [-html=report.html] [kernel] capture.pprof\n\nTo explain a PTX instruction, directive, register, or modifier:\n  cudaprof explain <ptx-statement-or-keyword>\n\nTo diff SASS disassembly between captures or assembly files:\n  cudaprof diff [flags] <base.pprof|base.sass> <target.pprof|target.sass>\n\nTo embed an existing capture's files:\n  cudaprof -pack output.pprof path/to/gpu.pprof\n\nTo extract source, assembly, control flow graphs, and Go trace:\n  cudaprof -extract new-directory capture.pprof\n\nTo view or render control flow graphs:\n  cudaprof cfg [kernel] capture.pprof | dot -Tsvg -o graph.svg\n  cudaprof inspect --cfg [kernel] capture.pprof\n\nTo view register pressure:\n  cudaprof pressure [kernel] capture.pprof\n  cudaprof inspect --pressure [kernel] capture.pprof\n\nTo view automated kernel optimization advice:\n  cudaprof advise [-e] [-limit N] capture.pprof\n  cudaprof inspect --advise capture.pprof\n\nTo analyze GPU idle gaps and duty cycle from the capture journal:\n  cudaprof gaps [--warmup-ms=N] [--json] capture.pprof\n\nTo diff the GPU idle gaps of two captures (the axis summed kernel time cannot see):\n  cudaprof gaps --diff_base=base.pprof [--json] target.pprof")
+		fmt.Println("Usage: cudaprof [pprof flags] capture.pprof\n\n  -http=127.0.0.1:8087  open interactive pprof\n  -no_browser          serve without opening a browser\n  -top                 show kernel totals\n  -allow_unknown_coverage  rank a profile that carries no device time\n  -list=compute        show annotated source\n  -disasm=compute      show PTX and SASS\n  -cfg[=kernel]        print control flow graph (DOT format)\n  -bbcfg[=kernel]      print basic block control flow graph (DOT format)\n  -pressure[=kernel]   print live register pressure and stall metrics\n\nTo capture a GPU profile from a command:\n  cudaprof capture [-o profile.pprof] [--max-records=N] -- command [args...]\n\nTo view 5-tier pipeline (Go -> CUDA C++ -> Tile IR -> PTX -> SASS):\n  cudaprof view [-http=:8088] [-html=report.html] [kernel] capture.pprof\n\nTo explain a PTX instruction, directive, register, or modifier:\n  cudaprof explain <ptx-statement-or-keyword>\n\nTo diff SASS disassembly between captures or assembly files:\n  cudaprof diff [flags] <base.pprof|base.sass> <target.pprof|target.sass>\n\nTo embed an existing capture's files:\n  cudaprof -pack output.pprof path/to/gpu.pprof\n\nTo extract source, assembly, control flow graphs, and Go trace:\n  cudaprof -extract new-directory capture.pprof\n\nTo view or render control flow graphs:\n  cudaprof cfg [kernel] capture.pprof | dot -Tsvg -o graph.svg\n  cudaprof inspect --cfg [kernel] capture.pprof\n\nTo view register pressure:\n  cudaprof pressure [kernel] capture.pprof\n  cudaprof inspect --pressure [kernel] capture.pprof\n\nTo view automated kernel optimization advice:\n  cudaprof advise [-e] [-limit N] capture.pprof\n  cudaprof inspect --advise capture.pprof\n\nTo analyze GPU idle gaps and duty cycle from the capture journal:\n  cudaprof gaps [--warmup-ms=N] [--json] capture.pprof\n\nTo diff the GPU idle gaps of two captures (the axis summed kernel time cannot see):\n  cudaprof gaps --diff_base=base.pprof [--json] target.pprof")
 		return nil
 	}
 	path, err := filepath.Abs(os.Args[len(os.Args)-1])
@@ -243,7 +243,8 @@ func run() error {
 	}
 	var limits cudacapture.Limits
 	fetch := &fetcher{path: path, dir: extractDir, cap: cap, tool: tool, limits: limits}
-	if handled, err := retainedDisasm(os.Stdout, os.Args[1:], cap.Profile, tool); handled {
+	args, allowUnknownCoverage := stripCoverageFlag(os.Args[1:])
+	if handled, err := retainedDisasm(os.Stdout, args, cap.Profile, tool); handled {
 		return err
 	}
 	// Refuse an artifact that records its own failure before handing it to
@@ -251,6 +252,13 @@ func run() error {
 	if err := preflightCapture(cap); err != nil {
 		return err
 	}
+	// State what the shares below are shares of, and refuse to rank by a total
+	// the profile cannot relate to elapsed time.
+	if err := preflightCoverage(os.Stderr, cap, args, allowUnknownCoverage); err != nil {
+		return err
+	}
+	reportProvenance(os.Stderr, cap)
+	os.Args = append(os.Args[:1], args...)
 	return driver.PProf(&driver.Options{Obj: tool, Fetch: fetch})
 }
 
