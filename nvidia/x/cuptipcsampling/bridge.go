@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"runtime/pprof"
+	"strconv"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof"
@@ -69,6 +70,12 @@ type ProfileBridge struct {
 }
 
 // RecordBatch records all valid PC samples and stall reasons in batch into the profile session.
+//
+// Every sample carries a "kernel" label. A sample whose PC did not resolve also
+// carries "pc_offset", the function-relative offset in hex, because an
+// unresolved location is identical for every address sampled in a kernel and
+// the offset would otherwise be dropped. Resolved samples carry no "pc_offset":
+// their leaf frame's address already locates the PC.
 func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 	if b == nil || b.Session == nil {
 		return errors.New("cuptipcsampling: nil profile session")
@@ -222,10 +229,27 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 		}
 
 		sampleCtx := ctx
-		if loc.KernelName != "" || b.LabelFunc != nil {
+		if loc.KernelName != "" || !loc.Resolved || b.LabelFunc != nil {
 			var pairs []string
 			if loc.KernelName != "" {
 				pairs = append(pairs, "kernel", loc.KernelName)
+			}
+			// An unresolved leaf carries address 0 and line 0, so every
+			// unresolved PC in a kernel is the same pprof location however many
+			// distinct addresses were sampled: the sample count stays honest
+			// and the distinctness is silently gone. Measured on a ds4-min
+			// prefill, 649,032 unique PCs collapsed to one location per kernel.
+			//
+			// The offset is the one datum the hardware gave, so it is carried
+			// as a label rather than dropped. It does not go in the leaf's
+			// Address: a function-relative offset in a field a consumer
+			// resolves against a mapping would resolve cleanly against the
+			// wrong thing instead of announcing itself, and nothing records a
+			// kernel load base that would make it a real address. A label
+			// makes no claim about addressing. A resolved sample needs none,
+			// since its leaf address already carries the PC.
+			if !loc.Resolved {
+				pairs = append(pairs, "pc_offset", "0x"+strconv.FormatUint(pc.Offset, 16))
 			}
 			if b.LabelFunc != nil {
 				for k, v := range b.LabelFunc(loc) {
