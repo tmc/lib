@@ -11,3 +11,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 Running this end to end found cuptipcsampling/resolver.go:67
 taking the line from the instruction and the filename from the translation unit.
 Reported to F76EF7EB; not patched here.
+
+The caveat in this message is resolved upstream by 291755ac (cuptipcsampling:
+take the source file and line from one tier), merged here. Locations now name
+the defining file. The gate that fix ships was verified independently by
+reverting resolver.go and re-running: both multisource tests fail on the old
+code and the single-source regression guard passes on both.
