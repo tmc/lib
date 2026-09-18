@@ -4,11 +4,28 @@ package nccl
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
+	fngetCftDeviceLeInfo          func(Window, uint, int32, Team, *CftLeId, *uint) Result
 	fngetLsaDevicePointer         func(Window, uint, int32, *uintptr) Result
 	fngetLsaMultimemDevicePointer func(Window, uint, *uintptr) Result
+	fngetMultimemDeviceLeInfo     func(Window, uint, *CftLeId, *uint) Result
 	fngetMultimemDevicePointer    func(Window, uint, MultimemHandle, *uintptr) Result
+	fngetPeerDeviceLeInfo         func(Window, uint, int32, *CftLeId, *uint) Result
 	fngetPeerDevicePointer        func(Window, uint, int32, *uintptr) Result
 )
+
+// getCftDeviceLeInfo wraps ncclGetCftDeviceLeInfo.
+func getCftDeviceLeInfo(window Window, offset uint, peerCft int32, cftTeam Team, leOffset *uint) (CftLeId, error) {
+	if err := checkLibSym("ncclGetCftDeviceLeInfo"); err != nil {
+		var zero CftLeId
+		return zero, err
+	}
+	var out CftLeId
+	if err := toError(fngetCftDeviceLeInfo(window, offset, peerCft, cftTeam, &out, leOffset)); err != nil {
+		var zero CftLeId
+		return zero, err
+	}
+	return out, nil
+}
 
 // getLsaDevicePointer wraps ncclGetLsaDevicePointer.
 func getLsaDevicePointer(window Window, offset uint, lsaRank int32) (Buffer, error) {
@@ -38,6 +55,20 @@ func getLsaMultimemDevicePointer(window Window, offset uint) (Buffer, error) {
 	return Buffer(out), nil
 }
 
+// getMultimemDeviceLeInfo wraps ncclGetMultimemDeviceLeInfo.
+func getMultimemDeviceLeInfo(window Window, offset uint, leOffset *uint) (CftLeId, error) {
+	if err := checkLibSym("ncclGetMultimemDeviceLeInfo"); err != nil {
+		var zero CftLeId
+		return zero, err
+	}
+	var out CftLeId
+	if err := toError(fngetMultimemDeviceLeInfo(window, offset, &out, leOffset)); err != nil {
+		var zero CftLeId
+		return zero, err
+	}
+	return out, nil
+}
+
 // getMultimemDevicePointer wraps ncclGetMultimemDevicePointer.
 func getMultimemDevicePointer(window Window, offset uint, multimem MultimemHandle) (Buffer, error) {
 	if err := checkLibSym("ncclGetMultimemDevicePointer"); err != nil {
@@ -50,6 +81,20 @@ func getMultimemDevicePointer(window Window, offset uint, multimem MultimemHandl
 		return zero, err
 	}
 	return Buffer(out), nil
+}
+
+// getPeerDeviceLeInfo wraps ncclGetPeerDeviceLeInfo.
+func getPeerDeviceLeInfo(window Window, offset uint, peerWorld int32, leOffset *uint) (CftLeId, error) {
+	if err := checkLibSym("ncclGetPeerDeviceLeInfo"); err != nil {
+		var zero CftLeId
+		return zero, err
+	}
+	var out CftLeId
+	if err := toError(fngetPeerDeviceLeInfo(window, offset, peerWorld, &out, leOffset)); err != nil {
+		var zero CftLeId
+		return zero, err
+	}
+	return out, nil
 }
 
 // getPeerDevicePointer wraps ncclGetPeerDevicePointer.
@@ -66,6 +111,11 @@ func getPeerDevicePointer(window Window, offset uint, peer int32) (Buffer, error
 	return Buffer(out), nil
 }
 
+// GetCftDeviceLeInfo wraps ncclGetCftDeviceLeInfo.
+func (w Window) GetCftDeviceLeInfo(offset uint, peerCft int32, cftTeam Team, leOffset *uint) (CftLeId, error) {
+	return getCftDeviceLeInfo(w, offset, peerCft, cftTeam, leOffset)
+}
+
 // GetLsaDevicePointer wraps ncclGetLsaDevicePointer.
 func (w Window) GetLsaDevicePointer(offset uint, lsaRank int32) (Buffer, error) {
 	return getLsaDevicePointer(w, offset, lsaRank)
@@ -76,9 +126,19 @@ func (w Window) GetLsaMultimemDevicePointer(offset uint) (Buffer, error) {
 	return getLsaMultimemDevicePointer(w, offset)
 }
 
+// GetMultimemDeviceLeInfo wraps ncclGetMultimemDeviceLeInfo.
+func (w Window) GetMultimemDeviceLeInfo(offset uint, leOffset *uint) (CftLeId, error) {
+	return getMultimemDeviceLeInfo(w, offset, leOffset)
+}
+
 // GetMultimemDevicePointer wraps ncclGetMultimemDevicePointer.
 func (w Window) GetMultimemDevicePointer(offset uint, multimem MultimemHandle) (Buffer, error) {
 	return getMultimemDevicePointer(w, offset, multimem)
+}
+
+// GetPeerDeviceLeInfo wraps ncclGetPeerDeviceLeInfo.
+func (w Window) GetPeerDeviceLeInfo(offset uint, peerWorld int32, leOffset *uint) (CftLeId, error) {
+	return getPeerDeviceLeInfo(w, offset, peerWorld, leOffset)
 }
 
 // GetPeerDevicePointer wraps ncclGetPeerDevicePointer.

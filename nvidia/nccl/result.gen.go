@@ -24,7 +24,8 @@ const (
 	ErrInvalidUsage       Result = 5
 	ErrRemoteError        Result = 6
 	ErrInProgress         Result = 7
-	ErrNumResults         Result = 8
+	ErrTimeout            Result = 8
+	ErrNumResults         Result = 9
 )
 
 // Error implements the error interface. When the library is loaded,
@@ -84,5 +85,6 @@ var resultNames = map[Result]string{
 	ErrInvalidUsage:       "ErrInvalidUsage",
 	ErrRemoteError:        "ErrRemoteError",
 	ErrInProgress:         "ErrInProgress",
+	ErrTimeout:            "ErrTimeout",
 	ErrNumResults:         "ErrNumResults",
 }

@@ -11,7 +11,7 @@ import "unsafe"
 // version to decide which fields it may write. Set workload fields on the
 // result rather than building a CommProperties literal.
 func NewCommProperties() CommProperties {
-	return CommProperties{Size: uint(unsafe.Sizeof(CommProperties{})), Magic: 0xcafebeef, Version: 22907}
+	return CommProperties{Size: uint(unsafe.Sizeof(CommProperties{})), Magic: 0xcafebeef, Version: 23102}
 }
 
 // NewConfig returns a Config initialized the way NCCL_CONFIG_INITIALIZER does.
@@ -21,7 +21,7 @@ func NewCommProperties() CommProperties {
 // version to decide which fields it may write. Set workload fields on the
 // result rather than building a Config literal.
 func NewConfig() Config {
-	return Config{Size: uint(unsafe.Sizeof(Config{})), Magic: 0xcafebeef, Version: 22907, Blocking: -2147483648, CgaClusterSize: -2147483648, MinCTAs: -2147483648, MaxCTAs: -2147483648, SplitShare: -2147483648, TrafficClass: -2147483648, CollnetEnable: -2147483648, CTAPolicy: -2147483648, ShrinkShare: -2147483648, NvlsCTAs: -2147483648, NChannelsPerNetPeer: -2147483648, NvlinkCentricSched: -2147483648, GraphUsageMode: -2147483648, NumRmaCtx: -2147483648}
+	return Config{Size: uint(unsafe.Sizeof(Config{})), Magic: 0xcafebeef, Version: 23102, Blocking: -2147483648, CgaClusterSize: -2147483648, MinCTAs: -2147483648, MaxCTAs: -2147483648, SplitShare: -2147483648, TrafficClass: -2147483648, CollnetEnable: -2147483648, CTAPolicy: -2147483648, ShrinkShare: -2147483648, NvlsCTAs: -2147483648, NChannelsPerNetPeer: -2147483648, NvlinkCentricSched: -2147483648, GraphUsageMode: -2147483648, NumRmaCtx: -2147483648, MaxP2pPeers: -2147483648, GraphStreamOrdering: -2147483648, LaunchOrderImplicit: -2147483648, NumRmaSig: -2147483648, RmaEagerInit: -2147483648, HostCftMode: -2147483648}
 }
 
 // NewDevCommRequirements returns a DevCommRequirements initialized the way NCCL_DEV_COMM_REQUIREMENTS_INITIALIZER does.
@@ -31,7 +31,7 @@ func NewConfig() Config {
 // version to decide which fields it may write. Set workload fields on the
 // result rather than building a DevCommRequirements literal.
 func NewDevCommRequirements() DevCommRequirements {
-	return DevCommRequirements{Size: uint(unsafe.Sizeof(DevCommRequirements{})), Magic: 0xcafebeef, Version: 22907, GinContextCount: 4}
+	return DevCommRequirements{Size: uint(unsafe.Sizeof(DevCommRequirements{})), Magic: 0xcafebeef, Version: 23102, GinContextCount: 4, GinTrafficClass: -2147483648, GinStrongSignalsRequired: true, GinVaSignalsRequired: true, GinCustomStride: 1}
 }
 
 // NewSimInfo returns a SimInfo initialized the way NCCL_SIM_INFO_INITIALIZER does.
@@ -41,6 +41,6 @@ func NewDevCommRequirements() DevCommRequirements {
 // version to decide which fields it may write. Set workload fields on the
 // result rather than building a SimInfo literal.
 func NewSimInfo() SimInfo {
-	return SimInfo{Size: uint(unsafe.Sizeof(SimInfo{})), Magic: 0x74685283, Version: 22907, EstimatedTime: -1.0}
+	return SimInfo{Size: uint(unsafe.Sizeof(SimInfo{})), Magic: 0x74685283, Version: 23102, EstimatedTime: -1.0}
 }
 

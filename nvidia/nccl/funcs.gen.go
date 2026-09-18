@@ -4,53 +4,75 @@ package nccl
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnallGather            func(uintptr, uintptr, uint, DataType, Comm, uintptr) Result
-	fnallReduce            func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr) Result
-	fnalltoAll             func(uintptr, uintptr, uint, DataType, Comm, uintptr) Result
-	fnbroadcast            func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr) Result
-	fncommAbort            func(Comm) Result
-	fncommCount            func(Comm, *int32) Result
-	fncommCuDevice         func(Comm, *int32) Result
-	fncommDeregister       func(Comm, uintptr) Result
-	fncommDestroy          func(Comm) Result
-	fncommFinalize         func(Comm) Result
-	fncommGetAsyncError    func(Comm, *Result) Result
-	fncommGetUniqueId      func(Comm, *UniqueId) Result
-	fncommGrow             func(Comm, int32, *UniqueId, int32, *Comm, *Config) Result
-	fnCommInitAll          func(*Comm, int32, *int32) Result
-	fncommInitRank         func(*Comm, int32, UniqueId, int32) Result
-	fncommInitRankConfig   func(*Comm, int32, UniqueId, int32, *Config) Result
-	fncommInitRankScalable func(*Comm, int32, int32, int32, *UniqueId, *Config) Result
-	fncommMemStats         func(Comm, CommMemStat, *uint64) Result
-	fncommRegister         func(Comm, uintptr, uint, *uintptr) Result
-	fncommResume           func(Comm) Result
-	fncommRevoke           func(Comm, int32) Result
-	fncommShrink           func(Comm, *int32, int32, *Comm, *Config, int32) Result
-	fncommSplit            func(Comm, int32, int32, *Comm, *Config) Result
-	fncommSuspend          func(Comm, int32) Result
-	fncommUserRank         func(Comm, *int32) Result
-	fncommWindowDeregister func(Comm, Window) Result
-	fncommWindowRegister   func(Comm, uintptr, uint, *Window, int32) Result
-	fngather               func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr) Result
-	fngetLastError         func(Comm) *byte
-	fnGetUniqueId          func(*UniqueId) Result
-	fnGetVersion           func(*int32) Result
-	fnGroupEnd             func() Result
-	fnGroupSimulateEnd     func(*SimInfo) Result
-	fnGroupStart           func() Result
-	fnMemAlloc             func(*uintptr, uint) Result
-	fnMemFree              func(uintptr) Result
-	fnputSignal            func(uintptr, uint, DataType, int32, Window, uint, int32, int32, uint32, Comm, uintptr) Result
-	fnrecv                 func(uintptr, uint, DataType, int32, Comm, uintptr) Result
-	fnredOpCreatePreMulSum func(*RedOp, uintptr, DataType, ScalarResidence, Comm) Result
-	fnredOpDestroy         func(RedOp, Comm) Result
-	fnreduce               func(uintptr, uintptr, uint, DataType, RedOp, int32, Comm, uintptr) Result
-	fnreduceScatter        func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr) Result
-	fnscatter              func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr) Result
-	fnsend                 func(uintptr, uint, DataType, int32, Comm, uintptr) Result
-	fnsignal               func(int32, int32, int32, uint32, Comm, uintptr) Result
-	fnwaitSignal           func(int32, *WaitSignalDesc, Comm, uintptr) Result
-	fnwinGetUserPtr        func(Comm, Window, *uintptr) Result
+	fnallGather                func(uintptr, uintptr, uint, DataType, Comm, uintptr) Result
+	fnallGatherConfig          func(uintptr, uintptr, uint, DataType, Comm, uintptr, *CollConfig) Result
+	fnallReduce                func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr) Result
+	fnallReduceConfig          func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr, *CollConfig) Result
+	fnalltoAll                 func(uintptr, uintptr, uint, DataType, Comm, uintptr) Result
+	fnalltoAllConfig           func(uintptr, uintptr, uint, DataType, Comm, uintptr, *CollConfig) Result
+	fnbroadcast                func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr) Result
+	fnbroadcastConfig          func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr, *CollConfig) Result
+	fncommAbort                func(Comm) Result
+	fncommCount                func(Comm, *int32) Result
+	fncommCuDevice             func(Comm, *int32) Result
+	fncommDeregister           func(Comm, uintptr) Result
+	fncommDestroy              func(Comm) Result
+	fncommFinalize             func(Comm) Result
+	fncommGetAsyncError        func(Comm, *Result) Result
+	fncommGetUniqueId          func(Comm, *UniqueId) Result
+	fncommGrow                 func(Comm, int32, *UniqueId, int32, *Comm, *Config) Result
+	fnCommInitAll              func(*Comm, int32, *int32) Result
+	fncommInitRank             func(*Comm, int32, UniqueId, int32) Result
+	fncommInitRankConfig       func(*Comm, int32, UniqueId, int32, *Config) Result
+	fncommInitRankScalable     func(*Comm, int32, int32, int32, *UniqueId, *Config) Result
+	fncommMemStats             func(Comm, CommMemStat, *uint64) Result
+	fncommRegister             func(Comm, uintptr, uint, *uintptr) Result
+	fncommResume               func(Comm) Result
+	fncommRevoke               func(Comm, int32) Result
+	fncommShrink               func(Comm, *int32, int32, *Comm, *Config, int32) Result
+	fncommSplit                func(Comm, int32, int32, *Comm, *Config) Result
+	fncommSuspend              func(Comm, int32) Result
+	fncommUserRank             func(Comm, *int32) Result
+	fncommWindowDeregister     func(Comm, Window) Result
+	fncommWindowRegister       func(Comm, uintptr, uint, *Window, int32) Result
+	fngather                   func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr) Result
+	fngatherConfig             func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr, *CollConfig) Result
+	fngetLastError             func(Comm) *byte
+	fnGetUniqueId              func(*UniqueId) Result
+	fnGetVersion               func(*int32) Result
+	fnGroupEnd                 func() Result
+	fnGroupSimulateEnd         func(*SimInfo) Result
+	fnGroupStart               func() Result
+	fnMemAlloc                 func(*uintptr, uint) Result
+	fnMemFree                  func(uintptr) Result
+	fnParamBind                func(*ParamHandle, *byte) Result
+	fnParamDumpAll             func()
+	fnparamGet                 func(ParamHandle, uintptr, int32, *int32) Result
+	fnParamGetAllParameterKeys func(**byte, *int32) Result
+	fnparamGetI16              func(ParamHandle, *int16) Result
+	fnparamGetI32              func(ParamHandle, *int32) Result
+	fnparamGetI64              func(ParamHandle, *int64) Result
+	fnparamGetI8               func(ParamHandle, *int8) Result
+	fnParamGetParameter        func(*byte, **byte, *int32) Result
+	fnparamGetStr              func(ParamHandle, **byte) Result
+	fnparamGetU16              func(ParamHandle, *uint16) Result
+	fnparamGetU32              func(ParamHandle, *uint32) Result
+	fnparamGetU64              func(ParamHandle, *uint64) Result
+	fnparamGetU8               func(ParamHandle, *uint8) Result
+	fnputSignal                func(uintptr, uint, DataType, int32, Window, uint, int32, int32, uint32, Comm, uintptr) Result
+	fnrecv                     func(uintptr, uint, DataType, int32, Comm, uintptr) Result
+	fnredOpCreatePreMulSum     func(*RedOp, uintptr, DataType, ScalarResidence, Comm) Result
+	fnredOpDestroy             func(RedOp, Comm) Result
+	fnreduce                   func(uintptr, uintptr, uint, DataType, RedOp, int32, Comm, uintptr) Result
+	fnreduceConfig             func(uintptr, uintptr, uint, DataType, RedOp, int32, Comm, uintptr, *CollConfig) Result
+	fnreduceScatter            func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr) Result
+	fnreduceScatterConfig      func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr, *CollConfig) Result
+	fnscatter                  func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr) Result
+	fnscatterConfig            func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr, *CollConfig) Result
+	fnsend                     func(uintptr, uint, DataType, int32, Comm, uintptr) Result
+	fnsignal                   func(int32, int32, int32, uint32, Comm, uintptr) Result
+	fnwaitSignal               func(int32, *WaitSignalDesc, Comm, uintptr) Result
+	fnwinGetUserPtr            func(Comm, Window, *uintptr) Result
 )
 
 // allGather Gathers sendcount values from all GPUs and leaves identical copies of the result in each recvbuff, receiving data from rank i at offset i*sendcount.
@@ -65,6 +87,14 @@ func allGather(sendbuff Buffer, recvbuff Buffer, sendcount uint, datatype DataTy
 	return toError(fnallGather(uintptr(sendbuff), uintptr(recvbuff), sendcount, datatype, comm, uintptr(stream)))
 }
 
+// allGatherConfig wraps ncclAllGatherConfig.
+func allGatherConfig(sendbuff uintptr, recvbuff uintptr, sendcount uint, datatype DataType, comm Comm, stream uintptr, config *CollConfig) error {
+	if err := checkLibSym("ncclAllGatherConfig"); err != nil {
+		return err
+	}
+	return toError(fnallGatherConfig(sendbuff, recvbuff, sendcount, datatype, comm, stream, config))
+}
+
 // allReduce Reduces data arrays of length count in sendbuff using the op operation and leaves identical copies of the result in each recvbuff.
 //
 // In-place operation will happen if sendbuff == recvbuff.
@@ -75,6 +105,14 @@ func allReduce(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, 
 		return err
 	}
 	return toError(fnallReduce(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, comm, uintptr(stream)))
+}
+
+// allReduceConfig wraps ncclAllReduceConfig.
+func allReduceConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, op RedOp, comm Comm, stream uintptr, config *CollConfig) error {
+	if err := checkLibSym("ncclAllReduceConfig"); err != nil {
+		return err
+	}
+	return toError(fnallReduceConfig(sendbuff, recvbuff, count, datatype, op, comm, stream, config))
 }
 
 // alltoAll Each rank sends count values to all other ranks and receives count values from all other ranks.
@@ -89,6 +127,14 @@ func alltoAll(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, c
 	return toError(fnalltoAll(uintptr(sendbuff), uintptr(recvbuff), count, datatype, comm, uintptr(stream)))
 }
 
+// alltoAllConfig wraps ncclAlltoAllConfig.
+func alltoAllConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, comm Comm, stream uintptr, config *CollConfig) error {
+	if err := checkLibSym("ncclAlltoAllConfig"); err != nil {
+		return err
+	}
+	return toError(fnalltoAllConfig(sendbuff, recvbuff, count, datatype, comm, stream, config))
+}
+
 // broadcast Copies count elements from sendbuff on the root rank to all ranks’ recvbuff.
 //
 // In-place operation will happen if sendbuff == recvbuff.
@@ -99,6 +145,14 @@ func broadcast(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, 
 		return err
 	}
 	return toError(fnbroadcast(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, uintptr(stream)))
+}
+
+// broadcastConfig wraps ncclBroadcastConfig.
+func broadcastConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, root int32, comm Comm, stream uintptr, config *CollConfig) error {
+	if err := checkLibSym("ncclBroadcastConfig"); err != nil {
+		return err
+	}
+	return toError(fnbroadcastConfig(sendbuff, recvbuff, count, datatype, root, comm, stream, config))
 }
 
 // commAbort [Comm.Abort] frees resources that are allocated to a communicator object comm and aborts any uncompleted operations before destroying the communicator.
@@ -465,6 +519,14 @@ func gather(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, roo
 	return toError(fngather(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, uintptr(stream)))
 }
 
+// gatherConfig wraps ncclGatherConfig.
+func gatherConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, root int32, comm Comm, stream uintptr, config *CollConfig) error {
+	if err := checkLibSym("ncclGatherConfig"); err != nil {
+		return err
+	}
+	return toError(fngatherConfig(sendbuff, recvbuff, count, datatype, root, comm, stream, config))
+}
+
 // getLastError constchar*[Comm.GetLastError]( [Comm] comm) 
 //
 // Returns a human-readable string corresponding to the last error that occurred in NCCL. Note: The error is not cleared by calling this function. Please note that the string returned by [Comm.GetLastError] could be unrelated to the current call and can be a result of previously launched asynchronous operations, if any.
@@ -575,6 +637,139 @@ func MemFree(ptr Buffer) error {
 	return toError(fnMemFree(uintptr(ptr)))
 }
 
+// ParamBind wraps ncclParamBind.
+func ParamBind(out *ParamHandle, key *byte) error {
+	if err := checkLibSym("ncclParamBind"); err != nil {
+		return err
+	}
+	return toError(fnParamBind(out, key))
+}
+
+// ParamDumpAll wraps ncclParamDumpAll.
+func ParamDumpAll() {
+	fnParamDumpAll()
+}
+
+// paramGet wraps ncclParamGet.
+func paramGet(h ParamHandle, out uintptr, maxLen int32, len_ *int32) error {
+	if err := checkLibSym("ncclParamGet"); err != nil {
+		return err
+	}
+	return toError(fnparamGet(h, out, maxLen, len_))
+}
+
+// ParamGetAllParameterKeys wraps ncclParamGetAllParameterKeys.
+func ParamGetAllParameterKeys(table **byte, tableLen *int32) error {
+	if err := checkLibSym("ncclParamGetAllParameterKeys"); err != nil {
+		return err
+	}
+	return toError(fnParamGetAllParameterKeys(table, tableLen))
+}
+
+// paramGetI16 wraps ncclParamGetI16.
+func paramGetI16(h ParamHandle, out *int16) error {
+	if err := checkLibSym("ncclParamGetI16"); err != nil {
+		return err
+	}
+	return toError(fnparamGetI16(h, out))
+}
+
+// paramGetI32 wraps ncclParamGetI32.
+func paramGetI32(h ParamHandle) (int32, error) {
+	if err := checkLibSym("ncclParamGetI32"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	var out int32
+	if err := toError(fnparamGetI32(h, &out)); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return out, nil
+}
+
+// paramGetI64 wraps ncclParamGetI64.
+func paramGetI64(h ParamHandle) (int64, error) {
+	if err := checkLibSym("ncclParamGetI64"); err != nil {
+		var zero int64
+		return zero, err
+	}
+	var out int64
+	if err := toError(fnparamGetI64(h, &out)); err != nil {
+		var zero int64
+		return zero, err
+	}
+	return out, nil
+}
+
+// paramGetI8 wraps ncclParamGetI8.
+func paramGetI8(h ParamHandle, out *int8) error {
+	if err := checkLibSym("ncclParamGetI8"); err != nil {
+		return err
+	}
+	return toError(fnparamGetI8(h, out))
+}
+
+// ParamGetParameter wraps ncclParamGetParameter.
+func ParamGetParameter(key *byte, value **byte, valueLen *int32) error {
+	if err := checkLibSym("ncclParamGetParameter"); err != nil {
+		return err
+	}
+	return toError(fnParamGetParameter(key, value, valueLen))
+}
+
+// paramGetStr wraps ncclParamGetStr.
+func paramGetStr(h ParamHandle, out **byte) error {
+	if err := checkLibSym("ncclParamGetStr"); err != nil {
+		return err
+	}
+	return toError(fnparamGetStr(h, out))
+}
+
+// paramGetU16 wraps ncclParamGetU16.
+func paramGetU16(h ParamHandle, out *uint16) error {
+	if err := checkLibSym("ncclParamGetU16"); err != nil {
+		return err
+	}
+	return toError(fnparamGetU16(h, out))
+}
+
+// paramGetU32 wraps ncclParamGetU32.
+func paramGetU32(h ParamHandle) (uint32, error) {
+	if err := checkLibSym("ncclParamGetU32"); err != nil {
+		var zero uint32
+		return zero, err
+	}
+	var out uint32
+	if err := toError(fnparamGetU32(h, &out)); err != nil {
+		var zero uint32
+		return zero, err
+	}
+	return out, nil
+}
+
+// paramGetU64 wraps ncclParamGetU64.
+func paramGetU64(h ParamHandle) (uint64, error) {
+	if err := checkLibSym("ncclParamGetU64"); err != nil {
+		var zero uint64
+		return zero, err
+	}
+	var out uint64
+	if err := toError(fnparamGetU64(h, &out)); err != nil {
+		var zero uint64
+		return zero, err
+	}
+	return out, nil
+}
+
+// paramGetU8 wraps ncclParamGetU8.
+func paramGetU8(h ParamHandle, out *uint8) error {
+	if err := checkLibSym("ncclParamGetU8"); err != nil {
+		return err
+	}
+	return toError(fnparamGetU8(h, out))
+}
+
 // putSignal Write data from localbuff to rank peer’s registered memory window peerWin at offset peerWinOffset and subsequently updating a remote signal.
 //
 // The target memory window peerWin must be registered using [Comm.WindowRegister]. The sigIdx is the signal index identifier for the operation. It must be set to 0 for now. The ctx is the context identifier for the operation. It must be set to 0 for now. The flags parameter is reserved for future use. It must be set to 0 for now. The return of [Window.PutSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Window.PutSignal] on the CUDA stream, the localbuff is safe to reuse or modify. When a signal is updated on the remote peer, it guarantees that the data from the corresponding [Window.PutSignal] operation has been delivered to the remote memory. All prior [Window.PutSignal] and [Comm.Signal] operations to the same peer and context have also completed their signal updates.
@@ -641,6 +836,14 @@ func reduce(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, op 
 	return toError(fnreduce(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, root, comm, uintptr(stream)))
 }
 
+// reduceConfig wraps ncclReduceConfig.
+func reduceConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, op RedOp, root int32, comm Comm, stream uintptr, config *CollConfig) error {
+	if err := checkLibSym("ncclReduceConfig"); err != nil {
+		return err
+	}
+	return toError(fnreduceConfig(sendbuff, recvbuff, count, datatype, op, root, comm, stream, config))
+}
+
 // reduceScatter Reduce data in sendbuff from all GPUs using the op operation and leave the reduced result scattered over the devices so that the recvbuff on rank i will contain the i-th block of the result.
 //
 // Note: This assumes the send count is equal to nranks*recvcount, which means that sendbuff should have a size of at least nranks*recvcount elements. In-place operation will happen if recvbuff == sendbuff + rank * recvcount.
@@ -653,6 +856,14 @@ func reduceScatter(sendbuff Buffer, recvbuff Buffer, recvcount uint, datatype Da
 	return toError(fnreduceScatter(uintptr(sendbuff), uintptr(recvbuff), recvcount, datatype, op, comm, uintptr(stream)))
 }
 
+// reduceScatterConfig wraps ncclReduceScatterConfig.
+func reduceScatterConfig(sendbuff uintptr, recvbuff uintptr, recvcount uint, datatype DataType, op RedOp, comm Comm, stream uintptr, config *CollConfig) error {
+	if err := checkLibSym("ncclReduceScatterConfig"); err != nil {
+		return err
+	}
+	return toError(fnreduceScatterConfig(sendbuff, recvbuff, recvcount, datatype, op, comm, stream, config))
+}
+
 // scatter Each rank receives count elements from the root rank.
 //
 // Note: This assumes the send count is equal to nranks*count, which means that sendbuff should have a size of at least nranks*count elements. In-place operation will happen if recvbuff == sendbuff + root * count.
@@ -663,6 +874,14 @@ func scatter(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, ro
 		return err
 	}
 	return toError(fnscatter(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, uintptr(stream)))
+}
+
+// scatterConfig wraps ncclScatterConfig.
+func scatterConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, root int32, comm Comm, stream uintptr, config *CollConfig) error {
+	if err := checkLibSym("ncclScatterConfig"); err != nil {
+		return err
+	}
+	return toError(fnscatterConfig(sendbuff, recvbuff, count, datatype, root, comm, stream, config))
 }
 
 // send Send data from sendbuff to rank peer.

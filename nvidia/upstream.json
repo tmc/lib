@@ -5654,7 +5654,7 @@
           "-api",
           "nccl",
           "-header",
-          "${HEADERS_REPO}/nccl/nccl.h",
+          "${HEADERS_REPO}/pinned/nccl/2.31.2-1/nccl.h",
           "-headers-dir",
           "${HEADERS_REPO}",
           "-output",
@@ -5665,10 +5665,10 @@
           "-docs-dir",
           "${DOCS_DIR}"
         ],
-        "comparison": "All 18 generated Go files replayed from the recorded committed generator and matched the reviewed output byte-for-byte. The presence predicates were renamed from Has\u003clower\u003e to Has\u003cUpper\u003e after this generation was recorded; the recorded digests are the renamed files, and the rename is the only difference in the exported surface.",
+        "comparison": "Regenerated from pinned/nccl/2.31.2-1 rather than the fetched nccl/ tree, which cuda-headers expands from nccl.h.in at fetch time and which carried 2.29.7. The recorded argv was replayed into a scratch directory after the move and all 20 generated Go files matched the committed output byte-for-byte; provenance.json is excluded from outputs because it records the invocation and so varies with -output and -docs-dir. 2.31.2 adds 33 exported declarations, all of them upstream's: a worktree control at the prior generator commit produced the same exported set as the package previously shipped, so none of the 33 is generator drift. Six of the eight new entry points are bound; ncclGinWindowRegister and ncclGinWindowDeregister are declared only in nccl_device/gin_win_stub.h, which is #error-guarded to Windows, and are not bound. No runtime or GPU claim: this host has no libnccl 2.31.2.",
         "cwd": "${CODEGEN_REPO}",
         "dependency_inventory": {
-          "method": "Primary-header clang -M closure plus conservative complete NCCL .h/.hpp tree for nine separately selected device siblings and layout probes; includes all selected inputs, may include unused device headers.",
+          "method": "Primary-header clang -M closure over the pinned 2.31.2-1 nccl.h plus the complete .h tree of that pin, which supplies every merged device sibling and layout probe; includes all selected inputs, may include unused device headers.",
           "system_headers": [
             {
               "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/_types/_intmax_t.h",
@@ -5835,24 +5835,25 @@
           "Tracked docs selected explicitly now; original historical docs identity unknown.",
           "Host SDK paths/hashes recorded, not hermetic cross-host qualification.",
           "Vendor archive source unverified in this offline pass.",
-          "No runtime/GPU claim."
+          "No runtime/GPU claim; the four versioned-struct constructors are unqualified against a real libnccl.",
+          "ncclGinWindowRegister and ncclGinWindowDeregister are unbound: their only declarations are in a Windows-only stub header."
         ],
         "outputs": [
           {
             "path": "nvidia/nccl/comm.gen.go",
-            "sha256": "e3433ee4d7d39211a84d6bcbfca627a3f6326c0f6c8adab0264ec04bb8a7ec0b"
+            "sha256": "ac13b190adffb604ee5bb98fa062c4f7f4824b311be06bbab1db0ce930d49eef"
           },
           {
             "path": "nvidia/nccl/defaults.gen.go",
-            "sha256": "4f4850e70cee83e5bd48d2715a6a119e5673169b380ce8045d0a52be25300e0f"
+            "sha256": "5dd5664759f369819a96cbc1db53d213806ee529fd2cd1245036313603982ef7"
           },
           {
             "path": "nvidia/nccl/devcomm.gen.go",
-            "sha256": "f2d4ac7403f9dc55ad8c5332fe098e63a5ac062a8dcdf7cb72a55f1e358e46c8"
+            "sha256": "59c0e7651e949c28127746c828ab84e489ee3174c6118f619b201d38c66cdd04"
           },
           {
             "path": "nvidia/nccl/devptr.gen.go",
-            "sha256": "3770612cf6b3330f422e448e64e9d456a5503f8c3ad577f8eeda3662b4c77c91"
+            "sha256": "e9c575a0206d43e4958efd8b2c1510fce6d79b866624d52dab3970e7c1530703"
           },
           {
             "documentation_refresh": "documentation-generation.json",
@@ -5861,27 +5862,27 @@
           },
           {
             "path": "nvidia/nccl/enums.gen.go",
-            "sha256": "c9db1dd91aefb1f4476565124f6385b874fa6d9578e51df8b2f4476d8185031d"
+            "sha256": "26872ebe4bcc14642afdc349cd30f301491a649fa5a29e559affd99e7ca06aeb"
           },
           {
             "path": "nvidia/nccl/funcs.gen.go",
-            "sha256": "c2d2373540ecdd433ebfe976589905b79bfe8b97e0260c003d4fe1d8f05fbcda"
+            "sha256": "9930cdfbd301e563bfd1f81c8bfa171a455f5dfbbd8d7951d61c855c0ff9fe46"
           },
           {
             "path": "nvidia/nccl/gin.gen.go",
-            "sha256": "698a55f0d91438e1fe61afaf98c855c888f84ea2b7fc81e3d2636b81a0b70aed"
+            "sha256": "b1b481257a822e6edf81fbd4e2ba43d6c45e414466ec043af5c3a2d50e9a5d6d"
           },
           {
             "path": "nvidia/nccl/handles.gen.go",
-            "sha256": "c60a57d6c00c17611781b1caad091e295b53a7a2a6916d512b5c1080bba4c9ce"
+            "sha256": "1ea3f97f55644deec8cacab0288cad6750797438430589ea304f16d974df7f9d"
           },
           {
             "path": "nvidia/nccl/init.gen.go",
-            "sha256": "d7b7b6ac8500822ae2c13e4543c948179799f227859a2ad54b7f5a61c5fb3f7d"
+            "sha256": "510e8f9045e0c03b2108b47e156cde14270bbb7eac0113db8d5e9764a2ab9a64"
           },
           {
             "path": "nvidia/nccl/layout.gen_test.go",
-            "sha256": "8e00386a0e954d7a6399796ccb5548b585e7224f8fc20a3c0142f98a8662d18b"
+            "sha256": "4a88a7ccef49a5dceacdac92686b3ec91eeb0fa32de611a44fa5d16b316b82ba"
           },
           {
             "path": "nvidia/nccl/loader.gen_test.go",
@@ -5896,16 +5897,24 @@
             "sha256": "2fad8d2359cea4b7bcce6a177714b7668d68f05e7941a7d1ae5338c86a1183e9"
           },
           {
+            "path": "nvidia/nccl/param_handle.gen.go",
+            "sha256": "3d2774cbbdb590896f9498f614284b6299695238f8f5b7c8ff6ab0e9d534173e"
+          },
+          {
             "path": "nvidia/nccl/provenance.gen.go",
-            "sha256": "3afce5f30d70b05825951bdf00531624da0dc7d1387f95e6adaf21ee1d9d75a0"
+            "sha256": "e2ce7e398f80256bb892ef662c963864f526734fd289a53f741abfdc854ccc3c"
           },
           {
             "path": "nvidia/nccl/result.gen.go",
-            "sha256": "246267b2a08c63f388b8176ad481165cd6ba3d7fbc06b0635b83e7ae5ff0d0c3"
+            "sha256": "920b173d9d6928718d7be7dcac72a9404adcee27b219718b3ce63cda5c49fdd8"
           },
           {
             "path": "nvidia/nccl/structs.gen.go",
-            "sha256": "e014fca9f3ef3375017240566b3ee60ad430b5aae9a3f7a6aaf32050ba855131"
+            "sha256": "1d7706d6f7277bf80044c7334a6073f0d3607eceb9d2d793bce308ac55e276c6"
+          },
+          {
+            "path": "nvidia/nccl/types.gen.go",
+            "sha256": "a50566db08815a8daa467555065e8c8baeb1f4fb635ee84f34f9c6ddbf0fc132"
           },
           {
             "path": "nvidia/nccl/window.gen.go",
@@ -5918,9 +5927,9 @@
         }
       },
       "header": {
-        "path": "nccl/nccl.h",
+        "path": "pinned/nccl/2.31.2-1/nccl.h",
         "repository": "headers",
-        "sha256": "fc9720fe6d8b45a62775a2f9d13c43ed6e88b0e01fd771081d6f665e6df94bfb"
+        "sha256": "e80038b44f95d81cad88205e580e2b746bf5946e150697c8a9859a308f097382"
       },
       "header_dependencies": [
         {
@@ -5956,42 +5965,42 @@
         {
           "path": "cuda_cudart/channel_descriptor.h",
           "repository": "headers",
-          "sha256": "d1328f86c1db2d71f5957429db69cf72dba98354ee0d265915825002e43bbe0c"
+          "sha256": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a"
         },
         {
           "path": "cuda_cudart/cuda_bf16.h",
           "repository": "headers",
-          "sha256": "905c517a564d1405d613ee9faffaa6ca6203c2573d9f1fb459e83e26b64b3bff"
+          "sha256": "5d5a824f1d4401189b501cd934067d3e5a20e58c6d5176ad99665a4843fa8e03"
         },
         {
           "path": "cuda_cudart/cuda_bf16.hpp",
           "repository": "headers",
-          "sha256": "fc0682200420e37d644af24e509ef495f3d67eee5e708f21f6778f359b159f63"
+          "sha256": "c71f7902fc526861db301028ad8966dfd93a97dd9be802e5962821a73f373e27"
         },
         {
           "path": "cuda_cudart/cuda_device_runtime_api.h",
           "repository": "headers",
-          "sha256": "d3110e08d9dbe604058dfae1d5c54c58b9385ce54b32b941b79b850eadc4765f"
+          "sha256": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c"
         },
         {
           "path": "cuda_cudart/cuda_fp16.h",
           "repository": "headers",
-          "sha256": "8632b2ec00cbc8b216b4ae239eaa959beebc0f433536b07def62dfc324210696"
+          "sha256": "2e34ed9c273f569a4600cfe30694a9c5a980b183fbcb33262fd6f1150c7f4927"
         },
         {
           "path": "cuda_cudart/cuda_fp16.hpp",
           "repository": "headers",
-          "sha256": "a7daa0cf6a63efb4a7aea5fc33399416911d184e7701ce2ebdb1b4f637d9c2c1"
+          "sha256": "016ce919f3c729be3ae2df385941dabc0a48b8861a75fe3fe880134914b9bbbb"
         },
         {
           "path": "cuda_cudart/cuda_runtime.h",
           "repository": "headers",
-          "sha256": "945153fa0671b3a5015ce258a63972816a426309a12c4828146cf8e8b836336b"
+          "sha256": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae"
         },
         {
           "path": "cuda_cudart/cuda_runtime_api.h",
           "repository": "headers",
-          "sha256": "42da3b0dc8fe60bf8730a9f8689668df9f44e5f955ce31ed9b05bb1ef7a3a342"
+          "sha256": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d"
         },
         {
           "path": "cuda_cudart/device_types.h",
@@ -6006,7 +6015,7 @@
         {
           "path": "cuda_cudart/driver_types.h",
           "repository": "headers",
-          "sha256": "915f0a66b668944cf34f6e2c1f88b4507789ffdc7905c98ec792e7c184cd12f2"
+          "sha256": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4"
         },
         {
           "path": "cuda_cudart/library_types.h",
@@ -6039,250 +6048,285 @@
           "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
         },
         {
-          "path": "nccl/nccl.h",
+          "path": "pinned/nccl/2.31.2-1/nccl.h",
           "repository": "headers",
-          "sha256": "fc9720fe6d8b45a62775a2f9d13c43ed6e88b0e01fd771081d6f665e6df94bfb"
+          "sha256": "e80038b44f95d81cad88205e580e2b746bf5946e150697c8a9859a308f097382"
         },
         {
-          "path": "nccl/nccl_device/barrier.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device.h",
           "repository": "headers",
-          "sha256": "d4d2167cdabf3ec4422e3771ea99a9ba2e27cbd8d69c294757fc36d53912b286"
+          "sha256": "35ea931f9616fafb61cd05372ea18b17d4cdcebcf6c346b0c19353ddd2004898"
         },
         {
-          "path": "nccl/nccl_device/comm.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/barrier.h",
+          "repository": "headers",
+          "sha256": "871e13f4e3f0ecf1bf57b938bf6e78dba454f3acadc1183fb5a45121d2eb9e77"
+        },
+        {
+          "path": "pinned/nccl/2.31.2-1/nccl_device/cft.h",
+          "repository": "headers",
+          "sha256": "3242d81a0d4ecd00c2eeed268a13b47323a25d6f520b46762f056edcc1ba0d16"
+        },
+        {
+          "path": "pinned/nccl/2.31.2-1/nccl_device/cft_barrier.h",
+          "repository": "headers",
+          "sha256": "ea7f2162ebbd5101421cfd7b77ad6d18cddc218eda83bf6174d36454deed929f"
+        },
+        {
+          "path": "pinned/nccl/2.31.2-1/nccl_device/comm.h",
           "repository": "headers",
           "sha256": "f63b256c4fe3e59285babbb69f4be630aaea8ef3f83ad67614c98d33cadc6cbe"
         },
         {
-          "path": "nccl/nccl_device/coop.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/coop.h",
           "repository": "headers",
-          "sha256": "e7ea2afd348c8b808038a65041ce18bfb1ffe98d07e3a845a403fa4243406a29"
+          "sha256": "e7daf21c7ab26ccf548d61a5316c157113ccb9f4def5c24dba1103df2b2faf1c"
         },
         {
-          "path": "nccl/nccl_device/core.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/core.h",
           "repository": "headers",
-          "sha256": "309cea58b4558f1f419a060b332df716939e6dbae41097747800dbf67f557a57"
+          "sha256": "7d83ec3655442f5967b3867fc73ded83711fa7ea9989b4c7bbfd70b75a7c7b17"
         },
         {
-          "path": "nccl/nccl_device/gin/gdaki/doca_gpunetio/common/doca_gpunetio_verbs_def.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin.h",
           "repository": "headers",
-          "sha256": "922f9a44183125f5d749936b1d0d2aa92067d5cf116982a1abad97fb368c5c77"
+          "sha256": "61023ea85113c4772a5e8b2fac27575a2f4f7438859dcab0e1a5942333194521"
         },
         {
-          "path": "nccl/nccl_device/gin/gdaki/doca_gpunetio/common/doca_gpunetio_verbs_dev.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/efa_gda/gin_efa_gda.h",
           "repository": "headers",
-          "sha256": "056c83334b776089f2490542550a40f1a7ca82ff9ad4b7a3ca3e8169c65f392d"
+          "sha256": "0be381dfd7e2b57013800a86c72141b55909b34e9fce4a01dd24f93ced69e4fc"
         },
         {
-          "path": "nccl/nccl_device/gin/gdaki/doca_gpunetio/doca_gpunetio_device.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/efa_gda/gin_efa_gda_dev.h",
           "repository": "headers",
-          "sha256": "93e1c02a7c920baac5d5ad55799e61438242a601d45a7190c087e02a12658a3b"
+          "sha256": "26b9a549ef7059183eb778e65f263e2e53c0ef2a5c4dd24f6834ad1fb2029e0b"
         },
         {
-          "path": "nccl/nccl_device/gin/gdaki/gin_gdaki.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/gdaki/gin_gdaki.h",
           "repository": "headers",
-          "sha256": "6fef78da2261da1027eb1d89adfa4079d1dbb91c3fc2867f5078257697d4f9c8"
+          "sha256": "839a19999a52fc944b7959213008095ed2efcd8e069d9b3284131dd1960cea98"
         },
         {
-          "path": "nccl/nccl_device/gin/gdaki/gin_gdaki_device_host_common.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/gdaki/gin_gdaki_device_host_common.h",
           "repository": "headers",
-          "sha256": "5b9d6c6eda1bf5434475defef49527336a4556ca8a5a28f3eb8b4c3851b80627"
+          "sha256": "d90485d466115781c508c67c93a622ffab25046826c68f36c9f2d03bef2ec4e2"
         },
         {
-          "path": "nccl/nccl_device/gin/gin_device_api.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/gin_device_api.h",
           "repository": "headers",
-          "sha256": "2c4707b2109e308bdc3191e1bd1092d3073dd6524571b90feb9ebfca3d45f8f6"
+          "sha256": "0677e00adb06a54f6f5100028a2647e04ed378da064a8c1d495bb2c4e9516837"
         },
         {
-          "path": "nccl/nccl_device/gin/gin_device_common.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/gin_device_common.h",
           "repository": "headers",
-          "sha256": "8abbc56047d65cc83161686322cd4f48e6d2925cf1b29a12711a5545ae1a6843"
+          "sha256": "7de1225854283dbf46cd981eaa09b2af743a6fd242f9b3b5fb66e6003cfa62da"
         },
         {
-          "path": "nccl/nccl_device/gin/gin_device_host_common.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/gin_device_host_common.h",
           "repository": "headers",
-          "sha256": "9ea73045696e1b4029e2b3d565a0d8d1a89b45764d55e461615466a2d7faeb06"
+          "sha256": "a7e2ede62d824a5116c8bdf4ba8998fde7376959e5236f39bc032d3dc47736c1"
         },
         {
-          "path": "nccl/nccl_device/gin/proxy/gin_proxy.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/gpi/gin_gpi.h",
           "repository": "headers",
-          "sha256": "19691f22de53b7af514e80bdad4a7209f69e7799e1019c059213fb39fa895562"
+          "sha256": "51745e7b5827ba86319ac4a81a804f2d984b8912ca64ac744d233b0697b335e4"
         },
         {
-          "path": "nccl/nccl_device/gin/proxy/gin_proxy_device_host_common.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/gpi/gin_gpi_device_host_common.h",
           "repository": "headers",
-          "sha256": "d59c456bd6fa068ca0e19bf50f5b386de37a652d6b81d97ebbf8b2bc18b3e92d"
+          "sha256": "2c22dc63cd2788cac024bbaec0fbf082f0aaeab5686c5b214f8c9437f9c1e50c"
         },
         {
-          "path": "nccl/nccl_device/gin.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/proxy/gin_proxy.h",
           "repository": "headers",
-          "sha256": "631c1ccff2443c8f8162902b715ec9dc3fbb6dd3e92418d2a37835f12a2656ee"
+          "sha256": "dc5d6b59edf6ed7813913204ee4422fb1a9b43f879dc78ada4a9e8ca35ead0ef"
         },
         {
-          "path": "nccl/nccl_device/gin_barrier.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin/proxy/gin_proxy_device_host_common.h",
           "repository": "headers",
-          "sha256": "a610f3adbeeeaba9fe6fe8d3904cc989f31ef095223b256201a80e4211db6f37"
+          "sha256": "8e354ef061e4f778f4e56a4b5306c5cf67526f0440ea28d4587f2f6754a647e9"
         },
         {
-          "path": "nccl/nccl_device/impl/barrier__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin_barrier.h",
           "repository": "headers",
-          "sha256": "00d801d6ff65645c33b56a42324ba9c4266d5fa7d2f10b8f965833c3310e39bd"
+          "sha256": "d28a60c4ef1156861c38855ef3a13e1a069effa52850dafa9695ac485c3e74f5"
         },
         {
-          "path": "nccl/nccl_device/impl/barrier__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/gin_win_stub.h",
           "repository": "headers",
-          "sha256": "329ebc2617c6ded627b690f68e9f5eff0540c9ca100b71d1eb460a051f856eb0"
+          "sha256": "4f66bb0dcca7b32bf8208e4918cb78d3b75c029254ce9a0d4a68277fa45e315b"
         },
         {
-          "path": "nccl/nccl_device/impl/comm__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/barrier__funcs.h",
+          "repository": "headers",
+          "sha256": "eedddff4c63c628819e23018912b6779f985ec83fbcb410f29895721a37b5662"
+        },
+        {
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/barrier__types.h",
+          "repository": "headers",
+          "sha256": "d759fe180da7045e4c2e20a03c45503b66be550fe00cd613d1a18b8aa105115b"
+        },
+        {
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/cft__funcs.h",
+          "repository": "headers",
+          "sha256": "c7fc17534d8e9caa02fe1d598904fc6685e4d939ae22ae4dd04ed43d721694a1"
+        },
+        {
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/cft__types.h",
+          "repository": "headers",
+          "sha256": "b1a7b58d04650974db1c5bd1a03e0a7a2c6249362f1a9c8eea2a7c42161a099a"
+        },
+        {
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/cft_barrier__funcs.h",
+          "repository": "headers",
+          "sha256": "82e68931b4d54f561668cdd3e450cdf15bc0a43a361624d121b4732167c85e82"
+        },
+        {
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/cft_barrier__types.h",
+          "repository": "headers",
+          "sha256": "4c3fe6284cecb1a4dbb0ba0dce919220b8120047f6bd9e519ccced484438dcb6"
+        },
+        {
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/comm__funcs.h",
           "repository": "headers",
           "sha256": "cf492173f3d9f867b79f578cc39bdb59ab399b58950ba44285a0979e2e094064"
         },
         {
-          "path": "nccl/nccl_device/impl/comm__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/comm__types.h",
           "repository": "headers",
-          "sha256": "592ce87ef4cde398120282e583496401ee164ccc6d3508f5e3be5c8032c0cc1e"
+          "sha256": "839e1f0211f2f173cfbade14173588becea27e567ca64e0f8de78901aa0b52c1"
         },
         {
-          "path": "nccl/nccl_device/impl/core__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/core__funcs.h",
           "repository": "headers",
-          "sha256": "77c1c207c50d4098dd8e08c7c8bd76a85e4a04efec66621ecdf9f3732857f663"
+          "sha256": "d1ffb2496a296f5b28f9052fbbad6bb94e49b399f3139ff3b9930ea244906462"
         },
         {
-          "path": "nccl/nccl_device/impl/core__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/core__types.h",
           "repository": "headers",
-          "sha256": "e709297f473bbc7789af8d90253568d8ba198159564f0d5b48a8a54ba5738155"
+          "sha256": "548b690a421c8743a2cc33bc9faea4d5a274f9f92219b0eab99a734513c8f747"
         },
         {
-          "path": "nccl/nccl_device/impl/gin__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/gin__funcs.h",
           "repository": "headers",
-          "sha256": "4a17dc45e21a4616d5561ad0c9032fbed31b4ce0b6b0b4a8f83fe2b64f0ca225"
+          "sha256": "f8fb3bac8526d6727079f5fa79de2ebb1b64b3a63b7cc3f4c62eb8414c8763a3"
         },
         {
-          "path": "nccl/nccl_device/impl/gin__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/gin__types.h",
           "repository": "headers",
-          "sha256": "d0d46c603292b361ea8c4c2d7464eefa8caf58ac6fa7f7da904b0a8aec20cea4"
+          "sha256": "66d4644f3b8ad31430d86d2c2b5efb55702bced89aa7e5d8bec5a2b99c214326"
         },
         {
-          "path": "nccl/nccl_device/impl/gin_barrier__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/gin_barrier__funcs.h",
           "repository": "headers",
-          "sha256": "3d161a35250124ed45e3e8bf45578131d2b6b34363db6868ab2aceed0bb47fbc"
+          "sha256": "bea2811ba641c4191037ba4aa0ab1ae8dd900eabe0894b0b74ffe7a50bde8146"
         },
         {
-          "path": "nccl/nccl_device/impl/gin_barrier__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/gin_barrier__types.h",
           "repository": "headers",
-          "sha256": "4bb1d075be74dd3e461889ecd9305ed16856222209fc6701d8cd43f786dfe597"
+          "sha256": "74bde1bb5bfb33f71130a74736c4f358433c94de640d4bab9fbd2ef160e3d4db"
         },
         {
-          "path": "nccl/nccl_device/impl/ll_a2a__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/ll_a2a__funcs.h",
           "repository": "headers",
-          "sha256": "47c18fac3dcb0ae051374a99f59e72c393a1c5a87264e423f3c12438989eeb8d"
+          "sha256": "655816b0fc45176ba9ac38d03583c63cc44dc178c5e829937f8c29c33087193d"
         },
         {
-          "path": "nccl/nccl_device/impl/ll_a2a__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/ll_a2a__types.h",
           "repository": "headers",
-          "sha256": "78057a7c9c5a8674ba33c7a46c11499e18a7ca044975f676a35c206e7bc33331"
+          "sha256": "9609adcf192f9722b6f726a0f6ab7502cba8b006ef4e23ea716259c2c9f6d6f7"
         },
         {
-          "path": "nccl/nccl_device/impl/lsa_barrier__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/lsa_barrier__funcs.h",
           "repository": "headers",
-          "sha256": "cbc7e5a576cc2344a3207058f054060c9426bc981727cb85af89cea59ae5e8e9"
+          "sha256": "a5785c9c3b3d637ee706ce25d1d960f2eabe270349fe982cdeb820a9562b9012"
         },
         {
-          "path": "nccl/nccl_device/impl/lsa_barrier__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/lsa_barrier__types.h",
           "repository": "headers",
-          "sha256": "74b05656f01d5e192c7f12eeba8c9c7f60cb3668a5a698344ad1253bd9267f50"
+          "sha256": "d8c992b72bbe3c068276cb7211e1104960e0c35350a522b21dd1b8d89669425c"
         },
         {
-          "path": "nccl/nccl_device/impl/multimem__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/multimem__funcs.h",
           "repository": "headers",
-          "sha256": "ad50e8e2db053a07a672a8d9750bfb5aed014bca8b48746980a5afbf1319bfc1"
+          "sha256": "0469ab94cbeac9ee39114b69721ae736bc61b0cd52918f54e23db142807f037a"
         },
         {
-          "path": "nccl/nccl_device/impl/ptr__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/ptr__funcs.h",
           "repository": "headers",
-          "sha256": "3b1f06648a846690c0eb0784550824f6145068961695b00049b6db8b98982ea8"
+          "sha256": "b80e6e9d67dae1eb099fecb11f14def2fba108dbd54b4c807452399073c53104"
         },
         {
-          "path": "nccl/nccl_device/impl/ptr__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/ptr__types.h",
           "repository": "headers",
           "sha256": "ff3211542d1ac92ea722324080372d313b663350dd4a73fea8160492052f1e9a"
         },
         {
-          "path": "nccl/nccl_device/impl/reduce_copy__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/reduce_copy__funcs.h",
           "repository": "headers",
-          "sha256": "1a2f4b58cde064331a84a7da18d219814d4c4a97cb16ea81c8ce379ed1ab16ec"
+          "sha256": "4be89ff4b876b8232951c590d3847d3946520364fd83068f1afda224598d0820"
         },
         {
-          "path": "nccl/nccl_device/impl/reduce_copy__impl.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/reduce_copy__impl.h",
           "repository": "headers",
-          "sha256": "be26d186e9695a9f0281b1be46d7df66039a7e80a3106027c7f0ba2adecd1366"
+          "sha256": "64a849057b8178c796f60d6fdf003e84c8495ee48bd67dd7a4fd1a88013e673e"
         },
         {
-          "path": "nccl/nccl_device/impl/reduce_copy__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/reduce_copy__types.h",
           "repository": "headers",
-          "sha256": "792a12301b884ea4343892d66582abe998792989463cdc30b833ee3042bab996"
+          "sha256": "e38cac6617434ab586bb85bb0c6255a6c571a692b805cd12ae85fa8eb0a24ee0"
         },
         {
-          "path": "nccl/nccl_device/impl/vector__funcs.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/vector__funcs.h",
           "repository": "headers",
-          "sha256": "5abfb7b5466cb545b9f317621583f1c5a4cc329e06937ab9565883d7c02172b0"
+          "sha256": "46611583ccdeef6484984965062df86d106d9893cc8d0cb97c32158c99aa7142"
         },
         {
-          "path": "nccl/nccl_device/impl/vector__types.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/impl/vector__types.h",
           "repository": "headers",
-          "sha256": "6a11c3d132f0aae87ea43d93def1311d9f6ecdae9e3d4d92568f1a882c9b9d39"
+          "sha256": "7c27263d5c9309eaa9c94d5071a3c754cf91e9f9f9a99b65d6547b5b6bdb758e"
         },
         {
-          "path": "nccl/nccl_device/ll_a2a.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/ll_a2a.h",
           "repository": "headers",
-          "sha256": "97a94c435b85e715332059efe49f00e251924089f4bbec2566bc298a8e043879"
+          "sha256": "845334e7a91aa02df65def90b71d235deb583e77dfcf68c197954b04947d2ca6"
         },
         {
-          "path": "nccl/nccl_device/lsa_barrier.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/lsa_barrier.h",
           "repository": "headers",
-          "sha256": "f35c6cc2a351d97e04aac8236ffd4bd5a0b6dd70ce97087a16fcb86b2f1d3534"
+          "sha256": "f0deae71d8ab1138c959f209b7dd6bc225edc729530f0b934e034e0606b5f4d9"
         },
         {
-          "path": "nccl/nccl_device/net_device.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/net_device.h",
           "repository": "headers",
-          "sha256": "4f22510bd7e541e9ce38bbdc5788e731af0924237e89461148d737fefe5604f7"
+          "sha256": "64ae0e1b11e9848a53177ed667761963a3b5082fcaa5902b1a5b3b3779280e8d"
         },
         {
-          "path": "nccl/nccl_device/ptr.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/ptr.h",
           "repository": "headers",
-          "sha256": "8d3adaa8ab658c8f3aaff748b248e5e75d51eb29234264571c417b8b43766942"
+          "sha256": "c67da886f17bed732bf81130c00b7348e2922901b9dd7fba2c28c2293e83044e"
         },
         {
-          "path": "nccl/nccl_device/reduce_copy.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/reduce_copy.h",
           "repository": "headers",
-          "sha256": "917868fa9f171e051c58b95e3e48420624037a164005251e0f6f4ecf4f2ae925"
+          "sha256": "5e980000ea5a1405d734f58ab46e5810c5059d1e9c08e4bbbbacb48e149b1537"
         },
         {
-          "path": "nccl/nccl_device/utility.h",
+          "path": "pinned/nccl/2.31.2-1/nccl_device/utility.h",
           "repository": "headers",
-          "sha256": "9127bd81d5e04f17f09f2fcb95c5114d524324a50b28231dd2f86dc52b7bb864"
-        },
-        {
-          "path": "nccl/nccl_device.h",
-          "repository": "headers",
-          "sha256": "5df1b42993864696a147d036c72be8470b97b5e99c8f90c9ff2bcb95e6f27ce7"
-        },
-        {
-          "path": "nccl/nccl_device_wrapper.h",
-          "repository": "headers",
-          "sha256": "c1614d7421548220d269292a2afb0dd9ae2378fd93a82d47887fe3fbc05a421f"
+          "sha256": "d2516096a43414feb7768790a6d8e0b59042b084191aea42c85df0bdaa32751b"
         }
       ],
       "package": "github.com/tmc/lib/nvidia/nccl",
       "repositories": {
         "codegen": {
-          "commit": "b4564946a2d0d1ba49bed73415c19caa8149a213",
-          "tree": "730cb9b7fe6f9922c94bbe98ef9c8e9a520eeada",
-          "url": "https://github.com/tmc/codegen.git"
+          "commit": "8e770d3e586072502141c703675f77e650ee11d3",
+          "tree": "f8e587270536a2d0154b32a91cf81be903b35bc0",
+          "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
-          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "commit": "0187274c798507606df855dfe4ec17f99d8ffe97",
           "url": "https://github.com/tmc/cuda-headers.git"
         }
       },

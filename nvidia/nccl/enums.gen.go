@@ -4,6 +4,31 @@ package nccl
 
 import "fmt"
 
+// HostCftMode specifies the host cft mode (ncclHostCftMode_t).
+type HostCftMode int32
+
+const (
+	HostCftDefault  HostCftMode = -2147483648
+	HostCftEnable   HostCftMode = 1
+	HostCftDisable  HostCftMode = 2
+	HostCftFallback HostCftMode = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e HostCftMode) String() string {
+	switch e {
+	case HostCftDefault:
+		return "HostCftDefault"
+	case HostCftEnable:
+		return "HostCftEnable"
+	case HostCftDisable:
+		return "HostCftDisable"
+	case HostCftFallback:
+		return "HostCftFallback"
+	}
+	return fmt.Sprintf("HostCftMode(%d)", e)
+}
+
 // CommMemStat Memory statistic selectors for [Comm.MemStats].
 type CommMemStat int32
 
@@ -143,9 +168,10 @@ func (e ScalarResidence) String() string {
 type GinConnectionType int32
 
 const (
-	GinConnectionNone GinConnectionType = 0
-	GinConnectionFull GinConnectionType = 1
-	GinConnectionRail GinConnectionType = 2
+	GinConnectionNone         GinConnectionType = 0
+	GinConnectionFull         GinConnectionType = 1
+	GinConnectionRail         GinConnectionType = 2
+	GinConnectionCustomStride GinConnectionType = 3
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -157,6 +183,8 @@ func (e GinConnectionType) String() string {
 		return "GinConnectionFull"
 	case GinConnectionRail:
 		return "GinConnectionRail"
+	case GinConnectionCustomStride:
+		return "GinConnectionCustomStride"
 	}
 	return fmt.Sprintf("GinConnectionType(%d)", e)
 }
@@ -165,11 +193,16 @@ func (e GinConnectionType) String() string {
 type GinType int32
 
 const (
+	// GinTypeNone: Sentinel: accept any available backend (used in ncclDevCommRequirements)
 	GinTypeNone GinType = 0
-	// GinTypeProxy: intentially not 1. Must match NCCL_NET_DEVICE_GIN_PROXY for backward compatibility
+	// GinTypeProxy: intentionally not 1. Must match NCCL_NET_DEVICE_GIN_PROXY for backward compatibility
 	GinTypeProxy GinType = 2
-	// GinTypeGdaki: intentially not 2. Must match NCCL_NET_DEVICE_GIN_GDAKI for backward compatibility
+	// GinTypeGdaki: intentionally not 2. Must match NCCL_NET_DEVICE_GIN_GDAKI for backward compatibility
 	GinTypeGdaki GinType = 3
+	GinTypeGpi   GinType = 4 // Must match NCCL_NET_DEVICE_GIN_GPI
+	// GinTypeEfaGda: Must match NCCL_NET_DEVICE_GIN_EFA_GDA for backward compatibility
+	GinTypeEfaGda GinType = 5
+	GinMaxTypes   GinType = 6
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -181,6 +214,56 @@ func (e GinType) String() string {
 		return "GinTypeProxy"
 	case GinTypeGdaki:
 		return "GinTypeGdaki"
+	case GinTypeGpi:
+		return "GinTypeGpi"
+	case GinTypeEfaGda:
+		return "GinTypeEfaGda"
+	case GinMaxTypes:
+		return "GinMaxTypes"
 	}
 	return fmt.Sprintf("GinType(%d)", e)
+}
+
+// CftTeamMode specifies the cft team mode (ncclCftTeamMode_t).
+type CftTeamMode int32
+
+const (
+	CftTeamFlat         CftTeamMode = 0
+	CftTeamHierMultimem CftTeamMode = 1
+	CftTeamHierLsa      CftTeamMode = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CftTeamMode) String() string {
+	switch e {
+	case CftTeamFlat:
+		return "CftTeamFlat"
+	case CftTeamHierMultimem:
+		return "CftTeamHierMultimem"
+	case CftTeamHierLsa:
+		return "CftTeamHierLsa"
+	}
+	return fmt.Sprintf("CftTeamMode(%d)", e)
+}
+
+// CftCap specifies the cft cap (ncclCftCap_t).
+type CftCap int32
+
+const (
+	CftNone     CftCap = 0x0
+	Cft         CftCap = 0x1
+	CftMultimem CftCap = 0x2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CftCap) String() string {
+	switch e {
+	case CftNone:
+		return "CftNone"
+	case Cft:
+		return "Cft"
+	case CftMultimem:
+		return "CftMultimem"
+	}
+	return fmt.Sprintf("CftCap(%d)", e)
 }

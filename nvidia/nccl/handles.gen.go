@@ -11,6 +11,9 @@ type CPtr uintptr
 // CString is the address of a NUL-terminated C string. It is not a Go pointer and does not keep the string storage alive.
 type CString uintptr
 
+// CftLeId identifies a CFT logical endpoint.
+type CftLeId uint32
+
 // DevResourceHandle identifies storage allocated for a device communicator.
 type DevResourceHandle uint32
 
@@ -37,3 +40,9 @@ type Comm uintptr
 
 // Window is NCCL window object for window registration and deregistration.
 type Window uintptr
+
+// ParamHandle is an opaque handle for ncclParamHandle_t.
+type ParamHandle uintptr
+
+// DevCommWindowTable is an opaque handle for ncclDevCommWindowTable_t.
+type DevCommWindowTable uintptr

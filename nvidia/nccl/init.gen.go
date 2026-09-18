@@ -329,9 +329,14 @@ func checkLibSym(symbol string) error {
 func registerFuncs() {
 	register(&fnGetErrorString, "ncclGetErrorString")
 	register(&fnallGather, "ncclAllGather")
+	register(&fnallGatherConfig, "ncclAllGatherConfig")
 	register(&fnallReduce, "ncclAllReduce")
+	register(&fnallReduceConfig, "ncclAllReduceConfig")
 	register(&fnalltoAll, "ncclAlltoAll")
+	register(&fnalltoAllConfig, "ncclAlltoAllConfig")
 	register(&fnbroadcast, "ncclBroadcast")
+	register(&fnbroadcastConfig, "ncclBroadcastConfig")
+	register(&fnCftBarrierCreateRequirement, "ncclCftBarrierCreateRequirement")
 	register(&fncommAbort, "ncclCommAbort")
 	register(&fncommCount, "ncclCommCount")
 	register(&fncommCuDevice, "ncclCommCuDevice")
@@ -359,10 +364,14 @@ func registerFuncs() {
 	register(&fndevCommCreate, "ncclDevCommCreate")
 	register(&fndevCommDestroy, "ncclDevCommDestroy")
 	register(&fngather, "ncclGather")
+	register(&fngatherConfig, "ncclGatherConfig")
+	register(&fngetCftDeviceLeInfo, "ncclGetCftDeviceLeInfo")
 	register(&fngetLastError, "ncclGetLastError")
 	register(&fngetLsaDevicePointer, "ncclGetLsaDevicePointer")
 	register(&fngetLsaMultimemDevicePointer, "ncclGetLsaMultimemDevicePointer")
+	register(&fngetMultimemDeviceLeInfo, "ncclGetMultimemDeviceLeInfo")
 	register(&fngetMultimemDevicePointer, "ncclGetMultimemDevicePointer")
+	register(&fngetPeerDeviceLeInfo, "ncclGetPeerDeviceLeInfo")
 	register(&fngetPeerDevicePointer, "ncclGetPeerDevicePointer")
 	register(&fnGetUniqueId, "ncclGetUniqueId")
 	register(&fnGetVersion, "ncclGetVersion")
@@ -375,15 +384,34 @@ func registerFuncs() {
 	register(&fnLsaBarrierCreateRequirement, "ncclLsaBarrierCreateRequirement")
 	register(&fnMemAlloc, "ncclMemAlloc")
 	register(&fnMemFree, "ncclMemFree")
+	register(&fnParamBind, "ncclParamBind")
+	register(&fnParamDumpAll, "ncclParamDumpAll")
+	register(&fnparamGet, "ncclParamGet")
+	register(&fnParamGetAllParameterKeys, "ncclParamGetAllParameterKeys")
+	register(&fnparamGetI16, "ncclParamGetI16")
+	register(&fnparamGetI32, "ncclParamGetI32")
+	register(&fnparamGetI64, "ncclParamGetI64")
+	register(&fnparamGetI8, "ncclParamGetI8")
+	register(&fnParamGetParameter, "ncclParamGetParameter")
+	register(&fnparamGetStr, "ncclParamGetStr")
+	register(&fnparamGetU16, "ncclParamGetU16")
+	register(&fnparamGetU32, "ncclParamGetU32")
+	register(&fnparamGetU64, "ncclParamGetU64")
+	register(&fnparamGetU8, "ncclParamGetU8")
 	register(&fnputSignal, "ncclPutSignal")
 	register(&fnrecv, "ncclRecv")
 	register(&fnredOpCreatePreMulSum, "ncclRedOpCreatePreMulSum")
 	register(&fnredOpDestroy, "ncclRedOpDestroy")
 	register(&fnreduce, "ncclReduce")
+	register(&fnreduceConfig, "ncclReduceConfig")
 	register(&fnreduceScatter, "ncclReduceScatter")
+	register(&fnreduceScatterConfig, "ncclReduceScatterConfig")
 	register(&fnscatter, "ncclScatter")
+	register(&fnscatterConfig, "ncclScatterConfig")
 	register(&fnsend, "ncclSend")
 	register(&fnsignal, "ncclSignal")
+	register(&fnteamCft, "ncclTeamCft")
+	register(&fnteamCftMultimem, "ncclTeamCftMultimem")
 	register(&fnteamLsa, "ncclTeamLsa")
 	register(&fnteamRail, "ncclTeamRail")
 	register(&fnteamWorld, "ncclTeamWorld")
@@ -395,9 +423,14 @@ func registerFuncs() {
 func clearFuncs() {
 	fnGetErrorString = nil
 	fnallGather = nil
+	fnallGatherConfig = nil
 	fnallReduce = nil
+	fnallReduceConfig = nil
 	fnalltoAll = nil
+	fnalltoAllConfig = nil
 	fnbroadcast = nil
+	fnbroadcastConfig = nil
+	fnCftBarrierCreateRequirement = nil
 	fncommAbort = nil
 	fncommCount = nil
 	fncommCuDevice = nil
@@ -425,10 +458,14 @@ func clearFuncs() {
 	fndevCommCreate = nil
 	fndevCommDestroy = nil
 	fngather = nil
+	fngatherConfig = nil
+	fngetCftDeviceLeInfo = nil
 	fngetLastError = nil
 	fngetLsaDevicePointer = nil
 	fngetLsaMultimemDevicePointer = nil
+	fngetMultimemDeviceLeInfo = nil
 	fngetMultimemDevicePointer = nil
+	fngetPeerDeviceLeInfo = nil
 	fngetPeerDevicePointer = nil
 	fnGetUniqueId = nil
 	fnGetVersion = nil
@@ -441,15 +478,34 @@ func clearFuncs() {
 	fnLsaBarrierCreateRequirement = nil
 	fnMemAlloc = nil
 	fnMemFree = nil
+	fnParamBind = nil
+	fnParamDumpAll = nil
+	fnparamGet = nil
+	fnParamGetAllParameterKeys = nil
+	fnparamGetI16 = nil
+	fnparamGetI32 = nil
+	fnparamGetI64 = nil
+	fnparamGetI8 = nil
+	fnParamGetParameter = nil
+	fnparamGetStr = nil
+	fnparamGetU16 = nil
+	fnparamGetU32 = nil
+	fnparamGetU64 = nil
+	fnparamGetU8 = nil
 	fnputSignal = nil
 	fnrecv = nil
 	fnredOpCreatePreMulSum = nil
 	fnredOpDestroy = nil
 	fnreduce = nil
+	fnreduceConfig = nil
 	fnreduceScatter = nil
+	fnreduceScatterConfig = nil
 	fnscatter = nil
+	fnscatterConfig = nil
 	fnsend = nil
 	fnsignal = nil
+	fnteamCft = nil
+	fnteamCftMultimem = nil
 	fnteamLsa = nil
 	fnteamRail = nil
 	fnteamWorld = nil
@@ -467,9 +523,19 @@ func HasAllGather() bool {
 	return Has("ncclAllGather")
 }
 
+// HasAllGatherConfig reports whether ncclAllGatherConfig resolved in the loaded library.
+func HasAllGatherConfig() bool {
+	return Has("ncclAllGatherConfig")
+}
+
 // HasAllReduce reports whether ncclAllReduce resolved in the loaded library.
 func HasAllReduce() bool {
 	return Has("ncclAllReduce")
+}
+
+// HasAllReduceConfig reports whether ncclAllReduceConfig resolved in the loaded library.
+func HasAllReduceConfig() bool {
+	return Has("ncclAllReduceConfig")
 }
 
 // HasAlltoAll reports whether ncclAlltoAll resolved in the loaded library.
@@ -477,9 +543,24 @@ func HasAlltoAll() bool {
 	return Has("ncclAlltoAll")
 }
 
+// HasAlltoAllConfig reports whether ncclAlltoAllConfig resolved in the loaded library.
+func HasAlltoAllConfig() bool {
+	return Has("ncclAlltoAllConfig")
+}
+
 // HasBroadcast reports whether ncclBroadcast resolved in the loaded library.
 func HasBroadcast() bool {
 	return Has("ncclBroadcast")
+}
+
+// HasBroadcastConfig reports whether ncclBroadcastConfig resolved in the loaded library.
+func HasBroadcastConfig() bool {
+	return Has("ncclBroadcastConfig")
+}
+
+// HasCftBarrierCreateRequirement reports whether ncclCftBarrierCreateRequirement resolved in the loaded library.
+func HasCftBarrierCreateRequirement() bool {
+	return Has("ncclCftBarrierCreateRequirement")
 }
 
 // HasCommAbort reports whether ncclCommAbort resolved in the loaded library.
@@ -617,6 +698,16 @@ func HasGather() bool {
 	return Has("ncclGather")
 }
 
+// HasGatherConfig reports whether ncclGatherConfig resolved in the loaded library.
+func HasGatherConfig() bool {
+	return Has("ncclGatherConfig")
+}
+
+// HasGetCftDeviceLeInfo reports whether ncclGetCftDeviceLeInfo resolved in the loaded library.
+func HasGetCftDeviceLeInfo() bool {
+	return Has("ncclGetCftDeviceLeInfo")
+}
+
 // HasGetLastError reports whether ncclGetLastError resolved in the loaded library.
 func HasGetLastError() bool {
 	return Has("ncclGetLastError")
@@ -632,9 +723,19 @@ func HasGetLsaMultimemDevicePointer() bool {
 	return Has("ncclGetLsaMultimemDevicePointer")
 }
 
+// HasGetMultimemDeviceLeInfo reports whether ncclGetMultimemDeviceLeInfo resolved in the loaded library.
+func HasGetMultimemDeviceLeInfo() bool {
+	return Has("ncclGetMultimemDeviceLeInfo")
+}
+
 // HasGetMultimemDevicePointer reports whether ncclGetMultimemDevicePointer resolved in the loaded library.
 func HasGetMultimemDevicePointer() bool {
 	return Has("ncclGetMultimemDevicePointer")
+}
+
+// HasGetPeerDeviceLeInfo reports whether ncclGetPeerDeviceLeInfo resolved in the loaded library.
+func HasGetPeerDeviceLeInfo() bool {
+	return Has("ncclGetPeerDeviceLeInfo")
 }
 
 // HasGetPeerDevicePointer reports whether ncclGetPeerDevicePointer resolved in the loaded library.
@@ -697,6 +798,76 @@ func HasMemFree() bool {
 	return Has("ncclMemFree")
 }
 
+// HasParamBind reports whether ncclParamBind resolved in the loaded library.
+func HasParamBind() bool {
+	return Has("ncclParamBind")
+}
+
+// HasParamDumpAll reports whether ncclParamDumpAll resolved in the loaded library.
+func HasParamDumpAll() bool {
+	return Has("ncclParamDumpAll")
+}
+
+// HasParamGet reports whether ncclParamGet resolved in the loaded library.
+func HasParamGet() bool {
+	return Has("ncclParamGet")
+}
+
+// HasParamGetAllParameterKeys reports whether ncclParamGetAllParameterKeys resolved in the loaded library.
+func HasParamGetAllParameterKeys() bool {
+	return Has("ncclParamGetAllParameterKeys")
+}
+
+// HasParamGetI16 reports whether ncclParamGetI16 resolved in the loaded library.
+func HasParamGetI16() bool {
+	return Has("ncclParamGetI16")
+}
+
+// HasParamGetI32 reports whether ncclParamGetI32 resolved in the loaded library.
+func HasParamGetI32() bool {
+	return Has("ncclParamGetI32")
+}
+
+// HasParamGetI64 reports whether ncclParamGetI64 resolved in the loaded library.
+func HasParamGetI64() bool {
+	return Has("ncclParamGetI64")
+}
+
+// HasParamGetI8 reports whether ncclParamGetI8 resolved in the loaded library.
+func HasParamGetI8() bool {
+	return Has("ncclParamGetI8")
+}
+
+// HasParamGetParameter reports whether ncclParamGetParameter resolved in the loaded library.
+func HasParamGetParameter() bool {
+	return Has("ncclParamGetParameter")
+}
+
+// HasParamGetStr reports whether ncclParamGetStr resolved in the loaded library.
+func HasParamGetStr() bool {
+	return Has("ncclParamGetStr")
+}
+
+// HasParamGetU16 reports whether ncclParamGetU16 resolved in the loaded library.
+func HasParamGetU16() bool {
+	return Has("ncclParamGetU16")
+}
+
+// HasParamGetU32 reports whether ncclParamGetU32 resolved in the loaded library.
+func HasParamGetU32() bool {
+	return Has("ncclParamGetU32")
+}
+
+// HasParamGetU64 reports whether ncclParamGetU64 resolved in the loaded library.
+func HasParamGetU64() bool {
+	return Has("ncclParamGetU64")
+}
+
+// HasParamGetU8 reports whether ncclParamGetU8 resolved in the loaded library.
+func HasParamGetU8() bool {
+	return Has("ncclParamGetU8")
+}
+
 // HasPutSignal reports whether ncclPutSignal resolved in the loaded library.
 func HasPutSignal() bool {
 	return Has("ncclPutSignal")
@@ -722,14 +893,29 @@ func HasReduce() bool {
 	return Has("ncclReduce")
 }
 
+// HasReduceConfig reports whether ncclReduceConfig resolved in the loaded library.
+func HasReduceConfig() bool {
+	return Has("ncclReduceConfig")
+}
+
 // HasReduceScatter reports whether ncclReduceScatter resolved in the loaded library.
 func HasReduceScatter() bool {
 	return Has("ncclReduceScatter")
 }
 
+// HasReduceScatterConfig reports whether ncclReduceScatterConfig resolved in the loaded library.
+func HasReduceScatterConfig() bool {
+	return Has("ncclReduceScatterConfig")
+}
+
 // HasScatter reports whether ncclScatter resolved in the loaded library.
 func HasScatter() bool {
 	return Has("ncclScatter")
+}
+
+// HasScatterConfig reports whether ncclScatterConfig resolved in the loaded library.
+func HasScatterConfig() bool {
+	return Has("ncclScatterConfig")
 }
 
 // HasSend reports whether ncclSend resolved in the loaded library.
@@ -740,6 +926,16 @@ func HasSend() bool {
 // HasSignal reports whether ncclSignal resolved in the loaded library.
 func HasSignal() bool {
 	return Has("ncclSignal")
+}
+
+// HasTeamCft reports whether ncclTeamCft resolved in the loaded library.
+func HasTeamCft() bool {
+	return Has("ncclTeamCft")
+}
+
+// HasTeamCftMultimem reports whether ncclTeamCftMultimem resolved in the loaded library.
+func HasTeamCftMultimem() bool {
+	return Has("ncclTeamCftMultimem")
 }
 
 // HasTeamLsa reports whether ncclTeamLsa resolved in the loaded library.

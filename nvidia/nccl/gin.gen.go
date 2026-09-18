@@ -4,11 +4,20 @@ package nccl
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
+	fnCftBarrierCreateRequirement func(Team, int32, *CftBarrierHandle, *DevResourceRequirements) Result
 	fnginBarrierCreateRequirement func(Comm, Team, int32, *GinBarrierHandle, *DevResourceRequirements) Result
 	fnLLA2ACalcSlots              func(int32, int32) int32
 	fnLLA2ACreateRequirement      func(int32, int32, *LLA2AHandle, *DevResourceRequirements) Result
 	fnLsaBarrierCreateRequirement func(Team, int32, *LsaBarrierHandle, *DevResourceRequirements) Result
 )
+
+// CftBarrierCreateRequirement wraps ncclCftBarrierCreateRequirement.
+func CftBarrierCreateRequirement(team Team, nBarriers int32, outHandle *CftBarrierHandle, outReq *DevResourceRequirements) error {
+	if err := checkLibSym("ncclCftBarrierCreateRequirement"); err != nil {
+		return err
+	}
+	return toError(fnCftBarrierCreateRequirement(team, nBarriers, outHandle, outReq))
+}
 
 // ginBarrierCreateRequirement wraps ncclGinBarrierCreateRequirement.
 func ginBarrierCreateRequirement(comm Comm, team Team, nBarriers int32, outHandle *GinBarrierHandle, outReq *DevResourceRequirements) error {

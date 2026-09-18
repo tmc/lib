@@ -7,25 +7,27 @@ var (
 	fncommQueryProperties func(Comm, *CommProperties) Result
 	fndevCommCreate       func(Comm, *DevCommRequirements, *DevComm) Result
 	fndevCommDestroy      func(Comm, *DevComm) Result
+	fnteamCft             func(Comm, CftTeamMode) Team
+	fnteamCftMultimem     func(Comm) Team
 	fnteamLsa             func(Comm) Team
 	fnteamRail            func(Comm) Team
 	fnteamWorld           func(Comm) Team
 )
 
 // commQueryProperties wraps ncclCommQueryProperties.
-func commQueryProperties(comm Comm, properties *CommProperties) error {
+func commQueryProperties(comm Comm, props *CommProperties) error {
 	if err := checkLibSym("ncclCommQueryProperties"); err != nil {
 		return err
 	}
-	return toError(fncommQueryProperties(comm, properties))
+	return toError(fncommQueryProperties(comm, props))
 }
 
 // devCommCreate wraps ncclDevCommCreate.
-func devCommCreate(comm Comm, requirements *DevCommRequirements, outDevComm *DevComm) error {
+func devCommCreate(comm Comm, reqs *DevCommRequirements, outDevComm *DevComm) error {
 	if err := checkLibSym("ncclDevCommCreate"); err != nil {
 		return err
 	}
-	return toError(fndevCommCreate(comm, requirements, outDevComm))
+	return toError(fndevCommCreate(comm, reqs, outDevComm))
 }
 
 // devCommDestroy wraps ncclDevCommDestroy.
@@ -34,6 +36,16 @@ func devCommDestroy(comm Comm, devComm *DevComm) error {
 		return err
 	}
 	return toError(fndevCommDestroy(comm, devComm))
+}
+
+// teamCft wraps ncclTeamCft.
+func teamCft(comm Comm, mode CftTeamMode) Team {
+	return fnteamCft(comm, mode)
+}
+
+// teamCftMultimem wraps ncclTeamCftMultimem.
+func teamCftMultimem(comm Comm) Team {
+	return fnteamCftMultimem(comm)
 }
 
 // teamLsa wraps ncclTeamLsa.
@@ -52,18 +64,28 @@ func teamWorld(comm Comm) Team {
 }
 
 // QueryProperties wraps ncclCommQueryProperties.
-func (c Comm) QueryProperties(properties *CommProperties) error {
-	return commQueryProperties(c, properties)
+func (c Comm) QueryProperties(props *CommProperties) error {
+	return commQueryProperties(c, props)
 }
 
 // DevCommCreate wraps ncclDevCommCreate.
-func (c Comm) DevCommCreate(requirements *DevCommRequirements, outDevComm *DevComm) error {
-	return devCommCreate(c, requirements, outDevComm)
+func (c Comm) DevCommCreate(reqs *DevCommRequirements, outDevComm *DevComm) error {
+	return devCommCreate(c, reqs, outDevComm)
 }
 
 // DevCommDestroy wraps ncclDevCommDestroy.
 func (c Comm) DevCommDestroy(devComm *DevComm) error {
 	return devCommDestroy(c, devComm)
+}
+
+// TeamCft wraps ncclTeamCft.
+func (c Comm) TeamCft(mode CftTeamMode) Team {
+	return teamCft(c, mode)
+}
+
+// TeamCftMultimem wraps ncclTeamCftMultimem.
+func (c Comm) TeamCftMultimem() Team {
+	return teamCftMultimem(c)
 }
 
 // TeamLsa wraps ncclTeamLsa.

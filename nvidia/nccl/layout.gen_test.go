@@ -20,8 +20,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(UniqueId{}.Internal); got != 0 {
 		t.Errorf("offsetof(UniqueId.Internal) = %d, want 0", got)
 	}
-	if got := unsafe.Sizeof(Config{}); got != 88 {
-		t.Errorf("sizeof(Config) = %d, want 88", got)
+	if got := unsafe.Sizeof(Config{}); got != 112 {
+		t.Errorf("sizeof(Config) = %d, want 112", got)
 	}
 	if got := unsafe.Alignof(Config{}); got != 8 {
 		t.Errorf("alignof(Config) = %d, want 8", got)
@@ -83,6 +83,81 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(Config{}.NumRmaCtx); got != 84 {
 		t.Errorf("offsetof(Config.NumRmaCtx) = %d, want 84", got)
 	}
+	if got := unsafe.Offsetof(Config{}.MaxP2pPeers); got != 88 {
+		t.Errorf("offsetof(Config.MaxP2pPeers) = %d, want 88", got)
+	}
+	if got := unsafe.Offsetof(Config{}.GraphStreamOrdering); got != 92 {
+		t.Errorf("offsetof(Config.GraphStreamOrdering) = %d, want 92", got)
+	}
+	if got := unsafe.Offsetof(Config{}.LaunchOrderImplicit); got != 96 {
+		t.Errorf("offsetof(Config.LaunchOrderImplicit) = %d, want 96", got)
+	}
+	if got := unsafe.Offsetof(Config{}.NumRmaSig); got != 100 {
+		t.Errorf("offsetof(Config.NumRmaSig) = %d, want 100", got)
+	}
+	if got := unsafe.Offsetof(Config{}.RmaEagerInit); got != 104 {
+		t.Errorf("offsetof(Config.RmaEagerInit) = %d, want 104", got)
+	}
+	if got := unsafe.Offsetof(Config{}.HostCftMode); got != 108 {
+		t.Errorf("offsetof(Config.HostCftMode) = %d, want 108", got)
+	}
+	if got := unsafe.Sizeof(ConfigExt{}); got != 24 {
+		t.Errorf("sizeof(ConfigExt) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(ConfigExt{}); got != 8 {
+		t.Errorf("alignof(ConfigExt) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ConfigExt{}.Next); got != 0 {
+		t.Errorf("offsetof(ConfigExt.Next) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ConfigExt{}.Key); got != 8 {
+		t.Errorf("offsetof(ConfigExt.Key) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ConfigExt{}.Val); got != 16 {
+		t.Errorf("offsetof(ConfigExt.Val) = %d, want 16", got)
+	}
+	if got := unsafe.Sizeof(CollConfig{}); got != 64 {
+		t.Errorf("sizeof(CollConfig) = %d, want 64", got)
+	}
+	if got := unsafe.Alignof(CollConfig{}); got != 8 {
+		t.Errorf("alignof(CollConfig) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.Size); got != 0 {
+		t.Errorf("offsetof(CollConfig.Size) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.Magic); got != 8 {
+		t.Errorf("offsetof(CollConfig.Magic) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.Version); got != 12 {
+		t.Errorf("offsetof(CollConfig.Version) = %d, want 12", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.Ext); got != 16 {
+		t.Errorf("offsetof(CollConfig.Ext) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.MinCTAs); got != 24 {
+		t.Errorf("offsetof(CollConfig.MinCTAs) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.MaxCTAs); got != 28 {
+		t.Errorf("offsetof(CollConfig.MaxCTAs) = %d, want 28", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.NvlsCTAs); got != 32 {
+		t.Errorf("offsetof(CollConfig.NvlsCTAs) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.CgaClusterSize); got != 36 {
+		t.Errorf("offsetof(CollConfig.CgaClusterSize) = %d, want 36", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.AlgSelection); got != 40 {
+		t.Errorf("offsetof(CollConfig.AlgSelection) = %d, want 40", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.ForceAlgSelection); got != 48 {
+		t.Errorf("offsetof(CollConfig.ForceAlgSelection) = %d, want 48", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.CTAPolicy); got != 52 {
+		t.Errorf("offsetof(CollConfig.CTAPolicy) = %d, want 52", got)
+	}
+	if got := unsafe.Offsetof(CollConfig{}.UserProfilerTag); got != 56 {
+		t.Errorf("offsetof(CollConfig.UserProfilerTag) = %d, want 56", got)
+	}
 	if got := unsafe.Sizeof(SimInfo{}); got != 24 {
 		t.Errorf("sizeof(SimInfo) = %d, want 24", got)
 	}
@@ -119,6 +194,15 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(WaitSignalDesc{}.Ctx); got != 12 {
 		t.Errorf("offsetof(WaitSignalDesc.Ctx) = %d, want 12", got)
 	}
+	if got := unsafe.Sizeof(GinRequest{}); got != 16 {
+		t.Errorf("sizeof(GinRequest) = %d, want 16", got)
+	}
+	if got := unsafe.Alignof(GinRequest{}); got != 8 {
+		t.Errorf("alignof(GinRequest) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(GinRequest{}.Opaque); got != 0 {
+		t.Errorf("offsetof(GinRequest.Opaque) = %d, want 0", got)
+	}
 	if got := unsafe.Sizeof(Team{}); got != 12 {
 		t.Errorf("sizeof(Team) = %d, want 12", got)
 	}
@@ -134,8 +218,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(Team{}.Stride); got != 8 {
 		t.Errorf("offsetof(Team.Stride) = %d, want 8", got)
 	}
-	if got := unsafe.Sizeof(DevCommRequirements{}); got != 88 {
-		t.Errorf("sizeof(DevCommRequirements) = %d, want 88", got)
+	if got := unsafe.Sizeof(DevCommRequirements{}); got != 120 {
+		t.Errorf("sizeof(DevCommRequirements) = %d, want 120", got)
 	}
 	if got := unsafe.Alignof(DevCommRequirements{}); got != 8 {
 		t.Errorf("alignof(DevCommRequirements) = %d, want 8", got)
@@ -194,6 +278,33 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(DevCommRequirements{}.GinQueueDepth); got != 80 {
 		t.Errorf("offsetof(DevCommRequirements.GinQueueDepth) = %d, want 80", got)
 	}
+	if got := unsafe.Offsetof(DevCommRequirements{}.GinTrafficClass); got != 84 {
+		t.Errorf("offsetof(DevCommRequirements.GinTrafficClass) = %d, want 84", got)
+	}
+	if got := unsafe.Offsetof(DevCommRequirements{}.WorldGinBarrierCount); got != 88 {
+		t.Errorf("offsetof(DevCommRequirements.WorldGinBarrierCount) = %d, want 88", got)
+	}
+	if got := unsafe.Offsetof(DevCommRequirements{}.GinStrongSignalsRequired); got != 92 {
+		t.Errorf("offsetof(DevCommRequirements.GinStrongSignalsRequired) = %d, want 92", got)
+	}
+	if got := unsafe.Offsetof(DevCommRequirements{}.GinVaSignalsRequired); got != 93 {
+		t.Errorf("offsetof(DevCommRequirements.GinVaSignalsRequired) = %d, want 93", got)
+	}
+	if got := unsafe.Offsetof(DevCommRequirements{}.GinCustomStride); got != 96 {
+		t.Errorf("offsetof(DevCommRequirements.GinCustomStride) = %d, want 96", got)
+	}
+	if got := unsafe.Offsetof(DevCommRequirements{}.GinType); got != 100 {
+		t.Errorf("offsetof(DevCommRequirements.GinType) = %d, want 100", got)
+	}
+	if got := unsafe.Offsetof(DevCommRequirements{}.UseRuntimeVersion); got != 104 {
+		t.Errorf("offsetof(DevCommRequirements.UseRuntimeVersion) = %d, want 104", got)
+	}
+	if got := unsafe.Offsetof(DevCommRequirements{}.CftCaps); got != 108 {
+		t.Errorf("offsetof(DevCommRequirements.CftCaps) = %d, want 108", got)
+	}
+	if got := unsafe.Offsetof(DevCommRequirements{}.CftBarrierCount); got != 112 {
+		t.Errorf("offsetof(DevCommRequirements.CftBarrierCount) = %d, want 112", got)
+	}
 	if got := unsafe.Sizeof(DevResourceRequirements{}); got != 56 {
 		t.Errorf("sizeof(DevResourceRequirements) = %d, want 56", got)
 	}
@@ -242,8 +353,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(TeamRequirements{}.OutMultimemHandle); got != 24 {
 		t.Errorf("offsetof(TeamRequirements.OutMultimemHandle) = %d, want 24", got)
 	}
-	if got := unsafe.Sizeof(CommProperties{}); got != 56 {
-		t.Errorf("sizeof(CommProperties) = %d, want 56", got)
+	if got := unsafe.Sizeof(CommProperties{}); got != 144 {
+		t.Errorf("sizeof(CommProperties) = %d, want 144", got)
 	}
 	if got := unsafe.Alignof(CommProperties{}); got != 8 {
 		t.Errorf("alignof(CommProperties) = %d, want 8", got)
@@ -287,8 +398,38 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(CommProperties{}.RailedGinType); got != 48 {
 		t.Errorf("offsetof(CommProperties.RailedGinType) = %d, want 48", got)
 	}
-	if got := unsafe.Sizeof(WindowVidmem{}); got != 72 {
-		t.Errorf("sizeof(WindowVidmem) = %d, want 72", got)
+	if got := unsafe.Offsetof(CommProperties{}.CommHash); got != 56 {
+		t.Errorf("offsetof(CommProperties.CommHash) = %d, want 56", got)
+	}
+	if got := unsafe.Offsetof(CommProperties{}.GinMinStride); got != 64 {
+		t.Errorf("offsetof(CommProperties.GinMinStride) = %d, want 64", got)
+	}
+	if got := unsafe.Offsetof(CommProperties{}.GinConnectionType); got != 68 {
+		t.Errorf("offsetof(CommProperties.GinConnectionType) = %d, want 68", got)
+	}
+	if got := unsafe.Offsetof(CommProperties{}.GinSupport); got != 72 {
+		t.Errorf("offsetof(CommProperties.GinSupport) = %d, want 72", got)
+	}
+	if got := unsafe.Offsetof(CommProperties{}.DevCommRuntimeVersionSize); got != 136 {
+		t.Errorf("offsetof(CommProperties.DevCommRuntimeVersionSize) = %d, want 136", got)
+	}
+	if got := unsafe.Sizeof(SegmentWindow{}); got != 48 {
+		t.Errorf("sizeof(SegmentWindow) = %d, want 48", got)
+	}
+	if got := unsafe.Alignof(SegmentWindow{}); got != 8 {
+		t.Errorf("alignof(SegmentWindow) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(SegmentWindow{}.GinWins); got != 0 {
+		t.Errorf("offsetof(SegmentWindow.GinWins) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(SegmentWindow{}.SegmentSize); got != 32 {
+		t.Errorf("offsetof(SegmentWindow.SegmentSize) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(SegmentWindow{}.MemType); got != 40 {
+		t.Errorf("offsetof(SegmentWindow.MemType) = %d, want 40", got)
+	}
+	if got := unsafe.Sizeof(WindowVidmem{}); got != 88 {
+		t.Errorf("sizeof(WindowVidmem) = %d, want 88", got)
 	}
 	if got := unsafe.Alignof(WindowVidmem{}); got != 8 {
 		t.Errorf("alignof(WindowVidmem) = %d, want 8", got)
@@ -314,8 +455,32 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(WindowVidmem{}.GinOffset4K); got != 32 {
 		t.Errorf("offsetof(WindowVidmem.GinOffset4K) = %d, want 32", got)
 	}
-	if got := unsafe.Offsetof(WindowVidmem{}.GinWins); got != 40 {
-		t.Errorf("offsetof(WindowVidmem.GinWins) = %d, want 40", got)
+	if got := unsafe.Offsetof(WindowVidmem{}.GinWinsDefaultBackend); got != 40 {
+		t.Errorf("offsetof(WindowVidmem.GinWinsDefaultBackend) = %d, want 40", got)
+	}
+	if got := unsafe.Offsetof(WindowVidmem{}.GinMultiSegmentWins); got != 72 {
+		t.Errorf("offsetof(WindowVidmem.GinMultiSegmentWins) = %d, want 72", got)
+	}
+	if got := unsafe.Offsetof(WindowVidmem{}.NumSegments); got != 80 {
+		t.Errorf("offsetof(WindowVidmem.NumSegments) = %d, want 80", got)
+	}
+	if got := unsafe.Offsetof(WindowVidmem{}.CftFlatRank); got != 84 {
+		t.Errorf("offsetof(WindowVidmem.CftFlatRank) = %d, want 84", got)
+	}
+	if got := unsafe.Sizeof(ResourcewindowVidmem{}); got != 16 {
+		t.Errorf("sizeof(ResourcewindowVidmem) = %d, want 16", got)
+	}
+	if got := unsafe.Alignof(ResourcewindowVidmem{}); got != 8 {
+		t.Errorf("alignof(ResourcewindowVidmem) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ResourcewindowVidmem{}.LsaFlatBase); got != 0 {
+		t.Errorf("offsetof(ResourcewindowVidmem.LsaFlatBase) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(ResourcewindowVidmem{}.Stride4G); got != 8 {
+		t.Errorf("offsetof(ResourcewindowVidmem.Stride4G) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(ResourcewindowVidmem{}.McOffset4K); got != 12 {
+		t.Errorf("offsetof(ResourcewindowVidmem.McOffset4K) = %d, want 12", got)
 	}
 	if got := unsafe.Sizeof(MultimemHandle{}); got != 8 {
 		t.Errorf("sizeof(MultimemHandle) = %d, want 8", got)
@@ -326,83 +491,131 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(MultimemHandle{}.McBasePtr); got != 0 {
 		t.Errorf("offsetof(MultimemHandle.McBasePtr) = %d, want 0", got)
 	}
-	if got := unsafe.Sizeof(DevComm{}); got != 224 {
-		t.Errorf("sizeof(DevComm) = %d, want 224", got)
+	if got := unsafe.Sizeof(DevComm{}); got != 248 {
+		t.Errorf("sizeof(DevComm) = %d, want 248", got)
 	}
 	if got := unsafe.Alignof(DevComm{}); got != 8 {
 		t.Errorf("alignof(DevComm) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.Rank); got != 0 {
-		t.Errorf("offsetof(DevComm.Rank) = %d, want 0", got)
+	if got := unsafe.Offsetof(DevComm{}.Magic); got != 0 {
+		t.Errorf("offsetof(DevComm.Magic) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.NRanks); got != 4 {
-		t.Errorf("offsetof(DevComm.NRanks) = %d, want 4", got)
+	if got := unsafe.Offsetof(DevComm{}.Version); got != 4 {
+		t.Errorf("offsetof(DevComm.Version) = %d, want 4", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.NRanksRcp32); got != 8 {
-		t.Errorf("offsetof(DevComm.NRanksRcp32) = %d, want 8", got)
+	if got := unsafe.Offsetof(DevComm{}.Rank); got != 8 {
+		t.Errorf("offsetof(DevComm.Rank) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.LsaRank); got != 12 {
-		t.Errorf("offsetof(DevComm.LsaRank) = %d, want 12", got)
+	if got := unsafe.Offsetof(DevComm{}.NRanks); got != 12 {
+		t.Errorf("offsetof(DevComm.NRanks) = %d, want 12", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.LsaSize); got != 16 {
-		t.Errorf("offsetof(DevComm.LsaSize) = %d, want 16", got)
+	if got := unsafe.Offsetof(DevComm{}.NRanksRcp32); got != 16 {
+		t.Errorf("offsetof(DevComm.NRanksRcp32) = %d, want 16", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.LsaSizeRcp32); got != 20 {
-		t.Errorf("offsetof(DevComm.LsaSizeRcp32) = %d, want 20", got)
+	if got := unsafe.Offsetof(DevComm{}.LsaRank); got != 20 {
+		t.Errorf("offsetof(DevComm.LsaRank) = %d, want 20", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.WindowTable); got != 24 {
-		t.Errorf("offsetof(DevComm.WindowTable) = %d, want 24", got)
+	if got := unsafe.Offsetof(DevComm{}.LsaSize); got != 24 {
+		t.Errorf("offsetof(DevComm.LsaSize) = %d, want 24", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.ResourceWindow); got != 32 {
-		t.Errorf("offsetof(DevComm.ResourceWindow) = %d, want 32", got)
+	if got := unsafe.Offsetof(DevComm{}.LsaSizeRcp32); got != 28 {
+		t.Errorf("offsetof(DevComm.LsaSizeRcp32) = %d, want 28", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.ResourceWindowInlined); got != 40 {
-		t.Errorf("offsetof(DevComm.ResourceWindowInlined) = %d, want 40", got)
+	if got := unsafe.Offsetof(DevComm{}.WindowTable); got != 32 {
+		t.Errorf("offsetof(DevComm.WindowTable) = %d, want 32", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.LsaMultimem); got != 112 {
-		t.Errorf("offsetof(DevComm.LsaMultimem) = %d, want 112", got)
+	if got := unsafe.Offsetof(DevComm{}.ResourceWindow); got != 40 {
+		t.Errorf("offsetof(DevComm.ResourceWindow) = %d, want 40", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.LsaBarrier); got != 120 {
-		t.Errorf("offsetof(DevComm.LsaBarrier) = %d, want 120", got)
+	if got := unsafe.Offsetof(DevComm{}.ResourceWindowInlined); got != 48 {
+		t.Errorf("offsetof(DevComm.ResourceWindowInlined) = %d, want 48", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.RailGinBarrier); got != 128 {
-		t.Errorf("offsetof(DevComm.RailGinBarrier) = %d, want 128", got)
+	if got := unsafe.Offsetof(DevComm{}.HybridDenseGinBarrier); got != 64 {
+		t.Errorf("offsetof(DevComm.HybridDenseGinBarrier) = %d, want 64", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinConnectionCount); got != 136 {
-		t.Errorf("offsetof(DevComm.GinConnectionCount) = %d, want 136", got)
+	if got := unsafe.Offsetof(DevComm{}.LsaMultimem); got != 72 {
+		t.Errorf("offsetof(DevComm.LsaMultimem) = %d, want 72", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinNetDeviceTypes); got != 137 {
-		t.Errorf("offsetof(DevComm.GinNetDeviceTypes) = %d, want 137", got)
+	if got := unsafe.Offsetof(DevComm{}.LsaBarrier); got != 80 {
+		t.Errorf("offsetof(DevComm.LsaBarrier) = %d, want 80", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinHandles); got != 144 {
-		t.Errorf("offsetof(DevComm.GinHandles) = %d, want 144", got)
+	if got := unsafe.Offsetof(DevComm{}.RailGinBarrier); got != 88 {
+		t.Errorf("offsetof(DevComm.RailGinBarrier) = %d, want 88", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinSignalBase); got != 176 {
-		t.Errorf("offsetof(DevComm.GinSignalBase) = %d, want 176", got)
+	if got := unsafe.Offsetof(DevComm{}.GinConnectionCount); got != 96 {
+		t.Errorf("offsetof(DevComm.GinConnectionCount) = %d, want 96", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinSignalCount); got != 180 {
-		t.Errorf("offsetof(DevComm.GinSignalCount) = %d, want 180", got)
+	if got := unsafe.Offsetof(DevComm{}.BackendIndex); got != 97 {
+		t.Errorf("offsetof(DevComm.BackendIndex) = %d, want 97", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinCounterBase); got != 184 {
-		t.Errorf("offsetof(DevComm.GinCounterBase) = %d, want 184", got)
+	if got := unsafe.Offsetof(DevComm{}.GinNetDeviceTypes); got != 98 {
+		t.Errorf("offsetof(DevComm.GinNetDeviceTypes) = %d, want 98", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinCounterCount); got != 188 {
-		t.Errorf("offsetof(DevComm.GinCounterCount) = %d, want 188", got)
+	if got := unsafe.Offsetof(DevComm{}.GinHandles); got != 104 {
+		t.Errorf("offsetof(DevComm.GinHandles) = %d, want 104", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinSignalShadows); got != 192 {
-		t.Errorf("offsetof(DevComm.GinSignalShadows) = %d, want 192", got)
+	if got := unsafe.Offsetof(DevComm{}.GinSignalCount); got != 136 {
+		t.Errorf("offsetof(DevComm.GinSignalCount) = %d, want 136", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinContextCount); got != 200 {
-		t.Errorf("offsetof(DevComm.GinContextCount) = %d, want 200", got)
+	if got := unsafe.Offsetof(DevComm{}.GinCounterCount); got != 140 {
+		t.Errorf("offsetof(DevComm.GinCounterCount) = %d, want 140", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinContextBase); got != 204 {
-		t.Errorf("offsetof(DevComm.GinContextBase) = %d, want 204", got)
+	if got := unsafe.Offsetof(DevComm{}.GinSignalShadows); got != 144 {
+		t.Errorf("offsetof(DevComm.GinSignalShadows) = %d, want 144", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.GinIsRailed); got != 208 {
-		t.Errorf("offsetof(DevComm.GinIsRailed) = %d, want 208", got)
+	if got := unsafe.Offsetof(DevComm{}.GinContextCount); got != 152 {
+		t.Errorf("offsetof(DevComm.GinContextCount) = %d, want 152", got)
 	}
-	if got := unsafe.Offsetof(DevComm{}.AbortFlag); got != 216 {
-		t.Errorf("offsetof(DevComm.AbortFlag) = %d, want 216", got)
+	if got := unsafe.Offsetof(DevComm{}.GinConnectionStride); got != 156 {
+		t.Errorf("offsetof(DevComm.GinConnectionStride) = %d, want 156", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.GinContextStride); got != 160 {
+		t.Errorf("offsetof(DevComm.GinContextStride) = %d, want 160", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.GinStrongLegacySignals); got != 164 {
+		t.Errorf("offsetof(DevComm.GinStrongLegacySignals) = %d, want 164", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.AbortFlag); got != 168 {
+		t.Errorf("offsetof(DevComm.AbortFlag) = %d, want 168", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.HybridLsaBarrier); got != 176 {
+		t.Errorf("offsetof(DevComm.HybridLsaBarrier) = %d, want 176", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.HybridRailGinBarrier); got != 184 {
+		t.Errorf("offsetof(DevComm.HybridRailGinBarrier) = %d, want 184", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.WorldGinBarrier); got != 192 {
+		t.Errorf("offsetof(DevComm.WorldGinBarrier) = %d, want 192", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.GinConnectionStrideRcp32); got != 200 {
+		t.Errorf("offsetof(DevComm.GinConnectionStrideRcp32) = %d, want 200", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.CftRank); got != 204 {
+		t.Errorf("offsetof(DevComm.CftRank) = %d, want 204", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.CftSize); got != 208 {
+		t.Errorf("offsetof(DevComm.CftSize) = %d, want 208", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.CftMultimemRank); got != 212 {
+		t.Errorf("offsetof(DevComm.CftMultimemRank) = %d, want 212", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.CftMultimemSize); got != 216 {
+		t.Errorf("offsetof(DevComm.CftMultimemSize) = %d, want 216", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.CftMultimemSizeRcp32); got != 220 {
+		t.Errorf("offsetof(DevComm.CftMultimemSizeRcp32) = %d, want 220", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.UcLeId); got != 224 {
+		t.Errorf("offsetof(DevComm.UcLeId) = %d, want 224", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.McLeId); got != 228 {
+		t.Errorf("offsetof(DevComm.McLeId) = %d, want 228", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.CftBarrier); got != 232 {
+		t.Errorf("offsetof(DevComm.CftBarrier) = %d, want 232", got)
+	}
+	if got := unsafe.Offsetof(DevComm{}.CftMultimemBarrier); got != 240 {
+		t.Errorf("offsetof(DevComm.CftMultimemBarrier) = %d, want 240", got)
 	}
 	if got := unsafe.Sizeof(GinBarrierHandle{}); got != 8 {
 		t.Errorf("sizeof(GinBarrierHandle) = %d, want 8", got)
@@ -439,5 +652,17 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(LLA2AHandle{}.NSlots); got != 4 {
 		t.Errorf("offsetof(LLA2AHandle.NSlots) = %d, want 4", got)
+	}
+	if got := unsafe.Sizeof(CftBarrierHandle{}); got != 8 {
+		t.Errorf("sizeof(CftBarrierHandle) = %d, want 8", got)
+	}
+	if got := unsafe.Alignof(CftBarrierHandle{}); got != 4 {
+		t.Errorf("alignof(CftBarrierHandle) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(CftBarrierHandle{}.BufHandle); got != 0 {
+		t.Errorf("offsetof(CftBarrierHandle.BufHandle) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(CftBarrierHandle{}.NBarriers); got != 4 {
+		t.Errorf("offsetof(CftBarrierHandle.NBarriers) = %d, want 4", got)
 	}
 }

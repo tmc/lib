@@ -174,6 +174,11 @@ func (c Comm) AllGather(sendbuff Buffer, recvbuff Buffer, sendcount uint, dataty
 	return allGather(sendbuff, recvbuff, sendcount, datatype, c, stream)
 }
 
+// AllGatherConfig wraps ncclAllGatherConfig.
+func (c Comm) AllGatherConfig(sendbuff uintptr, recvbuff uintptr, sendcount uint, datatype DataType, stream uintptr, config *CollConfig) error {
+	return allGatherConfig(sendbuff, recvbuff, sendcount, datatype, c, stream, config)
+}
+
 // AllReduce Reduces data arrays of length count in sendbuff using the op operation and leaves identical copies of the result in each recvbuff.
 //
 // In-place operation will happen if sendbuff == recvbuff.
@@ -181,6 +186,11 @@ func (c Comm) AllGather(sendbuff Buffer, recvbuff Buffer, sendcount uint, dataty
 // Wraps ncclAllReduce.
 func (c Comm) AllReduce(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, op RedOp, stream Stream) error {
 	return allReduce(sendbuff, recvbuff, count, datatype, op, c, stream)
+}
+
+// AllReduceConfig wraps ncclAllReduceConfig.
+func (c Comm) AllReduceConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, op RedOp, stream uintptr, config *CollConfig) error {
+	return allReduceConfig(sendbuff, recvbuff, count, datatype, op, c, stream, config)
 }
 
 // AlltoAll Each rank sends count values to all other ranks and receives count values from all other ranks.
@@ -192,6 +202,11 @@ func (c Comm) AlltoAll(sendbuff Buffer, recvbuff Buffer, count uint, datatype Da
 	return alltoAll(sendbuff, recvbuff, count, datatype, c, stream)
 }
 
+// AlltoAllConfig wraps ncclAlltoAllConfig.
+func (c Comm) AlltoAllConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, stream uintptr, config *CollConfig) error {
+	return alltoAllConfig(sendbuff, recvbuff, count, datatype, c, stream, config)
+}
+
 // Broadcast Copies count elements from sendbuff on the root rank to all ranks’ recvbuff.
 //
 // In-place operation will happen if sendbuff == recvbuff.
@@ -201,6 +216,11 @@ func (c Comm) Broadcast(sendbuff Buffer, recvbuff Buffer, count uint, datatype D
 	return broadcast(sendbuff, recvbuff, count, datatype, root, c, stream)
 }
 
+// BroadcastConfig wraps ncclBroadcastConfig.
+func (c Comm) BroadcastConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, root int32, stream uintptr, config *CollConfig) error {
+	return broadcastConfig(sendbuff, recvbuff, count, datatype, root, c, stream, config)
+}
+
 // Gather Each rank sends count elements from sendbuff to the root rank.
 //
 // Note: This assumes the receive count is equal to nranks*count, which means that recvbuff should have a size of at least nranks*count elements. In-place operation will happen if sendbuff == recvbuff + root * count.
@@ -208,6 +228,11 @@ func (c Comm) Broadcast(sendbuff Buffer, recvbuff Buffer, count uint, datatype D
 // Wraps ncclGather.
 func (c Comm) Gather(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, root int32, stream Stream) error {
 	return gather(sendbuff, recvbuff, count, datatype, root, c, stream)
+}
+
+// GatherConfig wraps ncclGatherConfig.
+func (c Comm) GatherConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, root int32, stream uintptr, config *CollConfig) error {
+	return gatherConfig(sendbuff, recvbuff, count, datatype, root, c, stream, config)
 }
 
 // GetLastError constchar*[Comm.GetLastError]( [Comm] comm) 
@@ -255,6 +280,11 @@ func (c Comm) Reduce(sendbuff Buffer, recvbuff Buffer, count uint, datatype Data
 	return reduce(sendbuff, recvbuff, count, datatype, op, root, c, stream)
 }
 
+// ReduceConfig wraps ncclReduceConfig.
+func (c Comm) ReduceConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, op RedOp, root int32, stream uintptr, config *CollConfig) error {
+	return reduceConfig(sendbuff, recvbuff, count, datatype, op, root, c, stream, config)
+}
+
 // ReduceScatter Reduce data in sendbuff from all GPUs using the op operation and leave the reduced result scattered over the devices so that the recvbuff on rank i will contain the i-th block of the result.
 //
 // Note: This assumes the send count is equal to nranks*recvcount, which means that sendbuff should have a size of at least nranks*recvcount elements. In-place operation will happen if recvbuff == sendbuff + rank * recvcount.
@@ -264,6 +294,11 @@ func (c Comm) ReduceScatter(sendbuff Buffer, recvbuff Buffer, recvcount uint, da
 	return reduceScatter(sendbuff, recvbuff, recvcount, datatype, op, c, stream)
 }
 
+// ReduceScatterConfig wraps ncclReduceScatterConfig.
+func (c Comm) ReduceScatterConfig(sendbuff uintptr, recvbuff uintptr, recvcount uint, datatype DataType, op RedOp, stream uintptr, config *CollConfig) error {
+	return reduceScatterConfig(sendbuff, recvbuff, recvcount, datatype, op, c, stream, config)
+}
+
 // Scatter Each rank receives count elements from the root rank.
 //
 // Note: This assumes the send count is equal to nranks*count, which means that sendbuff should have a size of at least nranks*count elements. In-place operation will happen if recvbuff == sendbuff + root * count.
@@ -271,6 +306,11 @@ func (c Comm) ReduceScatter(sendbuff Buffer, recvbuff Buffer, recvcount uint, da
 // Wraps ncclScatter.
 func (c Comm) Scatter(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, root int32, stream Stream) error {
 	return scatter(sendbuff, recvbuff, count, datatype, root, c, stream)
+}
+
+// ScatterConfig wraps ncclScatterConfig.
+func (c Comm) ScatterConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, root int32, stream uintptr, config *CollConfig) error {
+	return scatterConfig(sendbuff, recvbuff, count, datatype, root, c, stream, config)
 }
 
 // Send Send data from sendbuff to rank peer.

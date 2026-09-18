@@ -28,6 +28,35 @@ type Config struct {
 	NvlinkCentricSched  int32
 	GraphUsageMode      int32
 	NumRmaCtx           int32
+	MaxP2pPeers         int32
+	GraphStreamOrdering int32
+	LaunchOrderImplicit int32
+	NumRmaSig           int32
+	RmaEagerInit        int32
+	HostCftMode         int32
+}
+
+// ConfigExt represents a single vendor-specific option expressed as a key-value pair.
+type ConfigExt struct {
+	Next uintptr
+	Key  [2]uint32
+	Val  [1]uint64
+}
+
+// CollConfig represents Per-collective configuration.
+type CollConfig struct {
+	Size              uint
+	Magic             uint32
+	Version           uint32
+	Ext               uintptr
+	MinCTAs           int32
+	MaxCTAs           int32
+	NvlsCTAs          int32
+	CgaClusterSize    int32
+	AlgSelection      uintptr
+	ForceAlgSelection int32
+	CTAPolicy         int32
+	UserProfilerTag   uint64
 }
 
 // SimInfo represents This struct will be used by [GroupSimulateEnd] to return information about the calls.
@@ -49,6 +78,11 @@ type WaitSignalDesc struct {
 	Peer   int32
 	SigIdx int32
 	Ctx    int32
+}
+
+// GinRequest represents ncclGinRequest_t.
+type GinRequest struct {
+	Opaque [2]uint64
 }
 
 // Team represents ncclTeam_t.
@@ -83,6 +117,15 @@ type DevCommRequirements struct {
 	GinConnectionType        GinConnectionType
 	GinExclusiveContexts     bool
 	GinQueueDepth            int32
+	GinTrafficClass          int32
+	WorldGinBarrierCount     int32
+	GinStrongSignalsRequired bool
+	GinVaSignalsRequired     bool
+	GinCustomStride          int32
+	GinType                  GinType
+	UseRuntimeVersion        bool
+	CftCaps                  int32
+	CftBarrierCount          int32
 }
 
 // DevResourceRequirements represents ncclDevResourceRequirements_t.
@@ -112,31 +155,53 @@ type TeamRequirements struct {
 // result. A CommProperties written as a composite literal is rejected by the
 // library or silently misread.
 type CommProperties struct {
-	Size             uint
-	Magic            uint32
-	Version          uint32
-	Rank             int32
-	NRanks           int32
-	CudaDev          int32
-	NvmlDev          int32
-	DeviceApiSupport bool
-	MultimemSupport  bool
-	GinType          GinType
-	NLsaTeams        int32
-	HostRmaSupport   bool
-	RailedGinType    GinType
+	Size                      uint
+	Magic                     uint32
+	Version                   uint32
+	Rank                      int32
+	NRanks                    int32
+	CudaDev                   int32
+	NvmlDev                   int32
+	DeviceApiSupport          bool
+	MultimemSupport           bool
+	GinType                   GinType
+	NLsaTeams                 int32
+	HostRmaSupport            bool
+	RailedGinType             GinType
+	CommHash                  uint64
+	GinMinStride              int32
+	GinConnectionType         GinConnectionType
+	GinSupport                [64]bool
+	DevCommRuntimeVersionSize uint
 }
 
-// WindowVidmem represents ncclWindow_vidmem.
+// SegmentWindow represents ncclSegmentWindow.
+type SegmentWindow struct {
+	GinWins     [4]uintptr
+	SegmentSize uint
+	MemType     MemLocationType
+}
+
+// WindowVidmem represents ncclWindow_vidmem_t.
 type WindowVidmem struct {
-	WinHost     Buffer
-	LsaFlatBase Buffer
-	LsaRank     int32
-	WorldRank   int32
+	WinHost               Buffer
+	LsaFlatBase           Buffer
+	LsaRank               int32
+	WorldRank             int32
+	Stride4G              uint32
+	McOffset4K            uint32
+	GinOffset4K           uint32
+	GinWinsDefaultBackend [4]GinWindow
+	GinMultiSegmentWins   uintptr
+	NumSegments           int32
+	CftFlatRank           int32
+}
+
+// ResourcewindowVidmem represents ncclResourceWindow_vidmem_t.
+type ResourcewindowVidmem struct {
+	LsaFlatBase uintptr
 	Stride4G    uint32
 	McOffset4K  uint32
-	GinOffset4K uint32
-	GinWins     [4]GinWindow
 }
 
 // MultimemHandle represents ncclMultimemHandle_t.
@@ -146,30 +211,46 @@ type MultimemHandle struct {
 
 // DevComm represents ncclDevComm_t.
 type DevComm struct {
-	Rank                  int32
-	NRanks                int32
-	NRanksRcp32           uint32
-	LsaRank               int32
-	LsaSize               int32
-	LsaSizeRcp32          uint32
-	WindowTable           CPtr
-	ResourceWindow        Window
-	ResourceWindowInlined WindowVidmem
-	LsaMultimem           MultimemHandle
-	LsaBarrier            LsaBarrierHandle
-	RailGinBarrier        GinBarrierHandle
-	GinConnectionCount    uint8
-	GinNetDeviceTypes     [4]uint8
-	GinHandles            [4]CPtr
-	GinSignalBase         uint32
-	GinSignalCount        int32
-	GinCounterBase        uint32
-	GinCounterCount       int32
-	GinSignalShadows      CPtr
-	GinContextCount       uint32
-	GinContextBase        uint32
-	GinIsRailed           bool
-	AbortFlag             CPtr
+	Magic                    uint32
+	Version                  uint32
+	Rank                     int32
+	NRanks                   int32
+	NRanksRcp32              uint32
+	LsaRank                  int32
+	LsaSize                  int32
+	LsaSizeRcp32             uint32
+	WindowTable              CPtr
+	ResourceWindow           Window
+	ResourceWindowInlined    ResourcewindowVidmem
+	HybridDenseGinBarrier    GinBarrierHandle
+	LsaMultimem              MultimemHandle
+	LsaBarrier               LsaBarrierHandle
+	RailGinBarrier           GinBarrierHandle
+	GinConnectionCount       uint8
+	BackendIndex             uint8
+	GinNetDeviceTypes        [4]uint8
+	GinHandles               [4]CPtr
+	GinSignalCount           int32
+	GinCounterCount          int32
+	GinSignalShadows         CPtr
+	GinContextCount          uint32
+	GinConnectionStride      int32
+	GinContextStride         int32
+	GinStrongLegacySignals   bool
+	AbortFlag                CPtr
+	HybridLsaBarrier         LsaBarrierHandle
+	HybridRailGinBarrier     GinBarrierHandle
+	WorldGinBarrier          GinBarrierHandle
+	GinConnectionStrideRcp32 uint32
+	CftRank                  int32
+	CftSize                  int32
+	CftMultimemRank          int32
+	CftMultimemSize          int32
+	CftMultimemSizeRcp32     uint32
+	UcLeId                   CftLeId
+	McLeId                   CftLeId
+	CftBarrier               CftBarrierHandle
+	CftMultimemBarrier       CftBarrierHandle
 }
 
 // GinBarrierHandle represents ncclGinBarrierHandle_t.
@@ -188,4 +269,10 @@ type LsaBarrierHandle struct {
 type LLA2AHandle struct {
 	BufHandle DevResourceHandle
 	NSlots    uint32
+}
+
+// CftBarrierHandle represents ncclCftBarrierHandle_t.
+type CftBarrierHandle struct {
+	BufHandle DevResourceHandle
+	NBarriers int32
 }
