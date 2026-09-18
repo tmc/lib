@@ -28,7 +28,7 @@ const MaxRank = 5
 //
 // Dims, Strides and Box carry MaxRank entries; only the first Rank of each
 // are read. Strides holds the Rank-1 global strides the driver expects, so
-// Strides[Rank-1] is unused.
+// Strides[Rank-1] is unused and [Descriptor.Validate] requires it to be zero.
 //
 // The zero values of Interleave, L2Promotion and OOBFill select the driver's
 // None for each, which is what the descriptor used before they were
@@ -110,6 +110,12 @@ func (d Descriptor) Validate() error {
 		if d.Strides[i] == 0 || d.Strides[i]%16 != 0 {
 			return fmt.Errorf("stride %d must be a nonzero 16-byte multiple", i)
 		}
+	}
+	// Reject a stride the driver will never read rather than ignore it: a
+	// caller who filled every entry believes it is describing the innermost
+	// dimension, and nothing downstream would ever say otherwise.
+	if d.Strides[d.Rank-1] != 0 {
+		return fmt.Errorf("stride %d is unused at rank %d and must be zero", d.Rank-1, d.Rank)
 	}
 	width := uint64(d.Box[0]) * uint64(d.ElementBytes)
 	if width > 128 || width == 0 || width%16 != 0 {

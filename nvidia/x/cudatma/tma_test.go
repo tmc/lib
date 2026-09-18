@@ -115,7 +115,26 @@ func higherRank(rank int) Descriptor {
 		d.Strides[i] = 128
 	}
 	d.Box[0] = 64
+	// The innermost dimension carries no stride; Validate requires the unused
+	// slot to be zero. A valid rank leaves it zero, an out-of-range rank is
+	// still rejected by Validate rather than by indexing here.
+	if rank >= 1 && rank <= MaxRank {
+		d.Strides[rank-1] = 0
+	}
 	return d
+}
+
+func TestValidateRejectsUnusedStride(t *testing.T) {
+	for rank := 2; rank <= MaxRank; rank++ {
+		d := higherRank(rank)
+		if err := d.Validate(); err != nil {
+			t.Fatalf("rank %d: Validate() = %v, want nil", rank, err)
+		}
+		d.Strides[rank-1] = 128
+		if err := d.Validate(); err == nil {
+			t.Errorf("rank %d: Validate() with a nonzero unused stride = nil, want an error", rank)
+		}
+	}
 }
 
 func TestValidateRank(t *testing.T) {
