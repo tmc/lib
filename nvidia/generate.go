@@ -30,13 +30,22 @@ package nvidia
 //
 //	nvgen -diff -output .
 //
-// A clean -diff means every committed package matches its inputs. This is the
+// A clean -diff means every file nvgen owns matches its inputs. This is the
 // check to run in CI; it is not run by go generate. nvgen -list prints all 35
 // recipes, marking one whose gate is unset as skipped rather than omitting it.
 //
-// Two packages are not generated from here. x/cudamlx and x/cudaptx carry
-// their own go:generate directives, because their inputs are not the CUDA
-// profile. nvgen neither generates nor checks them; see their package docs.
+// What nvgen does not cover. Two packages are generated entirely elsewhere:
+// x/cudamlx and x/cudaptx carry their own go:generate directives, because
+// their inputs are not the CUDA profile. See their package docs.
+//
+// Three more packages are generated from here but hold one file that is not.
+// nvjitlink, nvrtc and nvvm each take flags.gen.go from genoptions, whose
+// input is optiondata rather than the CUDA profile. nvgen neither writes nor
+// diffs those three files, so -diff reports a clean package while one of them
+// has drifted; regenerate with go generate in the package itself. genoptions
+// lives under x, so that regeneration needs the workspace: outside it the
+// nvidia module cannot reach the command, and it must stay that way, because
+// a require on x would put the staging module in every consumer's graph.
 
 //go:generate -command nvgen nvgen -output .
 
