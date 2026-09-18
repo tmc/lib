@@ -1,0 +1,17 @@
+commit: 596b2445
+date: 2026-09-18T17:32:02Z
+claude-code: 2.1.257
+model: claude-opus-5
+tty: not a tty
+pid: 53607
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Correction: this message says a 13.4 host needs LD_LIBRARY_PATH at
+13.2 because cuptiactivity fails closed on the ConcurrentKernel layout. This tree
+already had the kernel decoders; under 13.4 the refusing kind is Memcpy, which
+the caller never requests. The claim was read out of doc.go and never observed --
+the override was set before the first run, so no refusal was produced to read.
+After merging 2aa159be (in 4dfa0377) the override is unnecessary, measured: 18733
+launches on both toolkits, device busy within 0.05%.
