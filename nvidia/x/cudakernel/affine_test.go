@@ -112,9 +112,9 @@ func TestNativeAffineArtifact(t *testing.T) {
 	packed, err := art.Schema.Pack(
 		driver.DevicePtr(0x1000), // y
 		driver.DevicePtr(0x2000), // x
-		float32(2.5),            // a
-		float32(1.0),            // b
-		uint32(1024),            // n
+		float32(2.5),             // a
+		float32(1.0),             // b
+		uint32(1024),             // n
 	)
 	if err != nil {
 		t.Fatalf("Pack failed: %v", err)

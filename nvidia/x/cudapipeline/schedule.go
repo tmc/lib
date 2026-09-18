@@ -42,8 +42,8 @@ type StageOwnership struct {
 	StageIndex int
 	Owner      Role
 	State      StageState
-	Epoch      int  // 0-indexed epoch counter; stage can only advance after consumer release
-	Parity     int  // Phase parity (Epoch & 1)
+	Epoch      int // 0-indexed epoch counter; stage can only advance after consumer release
+	Parity     int // Phase parity (Epoch & 1)
 }
 
 // BarrierExpectation models static mbarrier transaction and arrival counts
@@ -59,13 +59,13 @@ type BarrierExpectation struct {
 type StepKind string
 
 const (
-	StepInit            StepKind = "init"             // mbarrier.init
-	StepAcquireStage    StepKind = "acquire_stage"    // Producer acquires idle stage for epoch
-	StepArriveExpectTx  StepKind = "arrive_expect_tx" // mbarrier.arrive.expect_tx
-	StepIssueTMA        StepKind = "issue_tma"        // cp.async.bulk.tensor
-	StepWaitParity      StepKind = "wait_parity"      // mbarrier.try_wait.parity
-	StepConsumeStage    StepKind = "consume_stage"    // Consumer processes stage data
-	StepReleaseStage    StepKind = "release_stage"    // Consumer releases stage; epoch advances
+	StepInit           StepKind = "init"             // mbarrier.init
+	StepAcquireStage   StepKind = "acquire_stage"    // Producer acquires idle stage for epoch
+	StepArriveExpectTx StepKind = "arrive_expect_tx" // mbarrier.arrive.expect_tx
+	StepIssueTMA       StepKind = "issue_tma"        // cp.async.bulk.tensor
+	StepWaitParity     StepKind = "wait_parity"      // mbarrier.try_wait.parity
+	StepConsumeStage   StepKind = "consume_stage"    // Consumer processes stage data
+	StepReleaseStage   StepKind = "release_stage"    // Consumer releases stage; epoch advances
 )
 
 // ScheduleStep records a single protocol step executed by a role.

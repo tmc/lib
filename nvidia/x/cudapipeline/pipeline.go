@@ -169,7 +169,6 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 		return violations
 	}
 
-
 	// tcgen05.dealloc
 	if strings.HasPrefix(inst.Opcode, "tcgen05.dealloc") {
 		if len(operands) >= 2 {

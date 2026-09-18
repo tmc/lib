@@ -351,4 +351,3 @@ func TestKernelResource_Evidence(t *testing.T) {
 		t.Errorf("Occupancy.Occupancy = %f, want > 0", ev.Occupancy.Occupancy)
 	}
 }
-

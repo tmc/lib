@@ -56,4 +56,3 @@ func ExampleKernelResource_Evidence() {
 	// Output:
 	// gemv_q8: 48 regs, 0 bytes local, 40 warps/SM
 }
-
