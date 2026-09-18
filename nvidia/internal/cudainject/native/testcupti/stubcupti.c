@@ -10,6 +10,7 @@
 #include <stdatomic.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #if CUPTI_API_VERSION >= 130000
@@ -98,8 +99,33 @@ CUptiResult cuptiUnsubscribe(CUpti_SubscriberHandle subscriber) {
 	return CUPTI_SUCCESS;
 }
 
+/* refuses_cbid reports whether the test asked this stub to refuse arming a
+   particular callback. CUDAPROF_TEST_REFUSE_CBIDS is a comma-separated list of
+   decimal cbids, matched in any domain.
+
+   A partial arming failure is not otherwise reachable: real CUPTI refuses a
+   cbid only on a version or permission mismatch, and a producer that treats
+   "some triggers armed" as "the gate is established" can close a gate around a
+   range nothing is able to open. That state is invisible from outside -- the
+   journal is byte-identical to a correctly gated run whose target never
+   profiled -- so it needs an injected refusal to be tested at all. */
+static int refuses_cbid(unsigned cbid) {
+	const char *list = getenv("CUDAPROF_TEST_REFUSE_CBIDS");
+	if (list == NULL || *list == '\0') return 0;
+	for (const char *p = list; *p != '\0';) {
+		char *end = NULL;
+		unsigned long v = strtoul(p, &end, 10);
+		if (end == p) break;
+		if (v == cbid) return 1;
+		p = (*end == ',') ? end + 1 : end;
+		if (*end != ',' && *end != '\0') break;
+	}
+	return 0;
+}
+
 CUptiResult cuptiEnableCallback(uint32_t enable, CUpti_SubscriberHandle subscriber, CUpti_CallbackDomain domain, CUpti_CallbackId cbid) {
 	if (!subscriber_live || subscriber != (CUpti_SubscriberHandle)&subscriber_live) return CUPTI_ERROR_INVALID_PARAMETER;
+	if (enable && refuses_cbid((unsigned)cbid)) return CUPTI_ERROR_INVALID_PARAMETER;
 	for (unsigned i = 0; i < enabled_cbid_count; i++) {
 		if (enabled_cbids[i].domain != (unsigned)domain || enabled_cbids[i].cbid != (unsigned)cbid) continue;
 		if (enable) return CUPTI_SUCCESS;

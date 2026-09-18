@@ -957,18 +957,54 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 	   themselves. Taking both edges at the same site would put one of the two
 	   profiler API calls inside every range. */
 	if (data->callbackSite != (start ? CUPTI_API_EXIT : CUPTI_API_ENTER)) return;
+	/* Past this point the callback mutates agent state and writes the journal,
+	   so finalize has to be able to wait for it. buffer_completed carries the
+	   same accounting; range_callback did not, which left finalize's two
+	   quiescence loops structurally blind to it -- a range edge descheduled
+	   after the shutdown check above could resume once teardown had flushed,
+	   disabled and unsubscribed, re-enable every activity kind, and write into
+	   a journal_fd that close(2) had already released to another thread's
+	   open(2). Re-reading the flag after the increment is what closes that
+	   window: finalize stores shutdown_started before it waits, so a callback
+	   that gets counted either sees the flag or is seen by the loop. */
+	atomic_fetch_add(&callback_active, 1);
+	if (atomic_load(&shutdown_started)) {
+		atomic_fetch_sub(&callback_active, 1);
+		return;
+	}
 	/* A target may call Start twice, or Stop without Start. Collection is a
 	   level, not a counter: a redundant edge is recorded and otherwise
 	   ignored, because toggling on an already-open range would make the
-	   journal claim a boundary the hardware never saw. */
-	if (atomic_load(&collecting) == start) {
-		write_range_edge(start ? "redundant_start" : "redundant_stop", api, atomic_load(&range_opens), 0);
+	   journal claim a boundary the hardware never saw.
+
+	   Claiming the level and testing it must be one step. set_activity_collection
+	   does not publish `collecting` until after its enable loop -- seven CUPTI
+	   calls on a real library -- so a load-then-act leaves that whole window
+	   open: a Stop arriving inside a concurrent Start's loop reads the old
+	   level, calls itself redundant, and returns, after which the Start
+	   publishes 1 and collection stays on for the rest of the process. The
+	   journal then blames the target for a Stop it did issue. The mirror
+	   holds too, leaving the gate shut for the rest of a run. The exchange
+	   below is what makes the level a gate rather than a hint; on failure the
+	   edge really is redundant, because some other thread owns the transition. */
+	int expected = start ? 0 : 1;
+	if (!atomic_compare_exchange_strong(&collecting, &expected, start)) {
+		/* A redundant edge belongs to no range of its own, so it carries the
+		   index of the range it was talking about: the open one for a second
+		   Start, and for a Stop with nothing open the index the next Start
+		   will take. Reporting the raw count instead invents a range one past
+		   the end, which a consumer grouping edges by index reads as a range
+		   that opened and never closed. */
+		unsigned opens = atomic_load(&range_opens);
+		write_range_edge(start ? "redundant_start" : "redundant_stop", api, start && opens > 0 ? opens - 1 : opens, 0);
+		atomic_fetch_sub(&callback_active, 1);
 		return;
 	}
 	unsigned index = start ? atomic_fetch_add(&range_opens, 1) : atomic_load(&range_opens) - 1;
 	int failures = set_activity_collection(start);
 	if (!start) (void)cuptiActivityFlushAll(0);
 	write_range_edge(start ? "start" : "stop", api, index, failures);
+	atomic_fetch_sub(&callback_active, 1);
 }
 
 __attribute__((constructor)) static void cudaprof_cupti_init(void) {
@@ -1160,23 +1196,28 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			range_gated = RANGE_UNAVAILABLE;
 		} else {
 			range_subscribed = 1;
-			static const struct { CUpti_CallbackDomain domain; CUpti_CallbackId cbid; const char *what; } triggers[] = {
-				{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStart_v4000, "cuptiEnableCallback(cudaProfilerStart)"},
-				{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000, "cuptiEnableCallback(cudaProfilerStop)"},
-				{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuProfilerStart, "cuptiEnableCallback(cuProfilerStart)"},
-				{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuProfilerStop, "cuptiEnableCallback(cuProfilerStop)"},
+			static const struct { CUpti_CallbackDomain domain; CUpti_CallbackId cbid; int opens; const char *what; } triggers[] = {
+				{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStart_v4000, 1, "cuptiEnableCallback(cudaProfilerStart)"},
+				{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000, 0, "cuptiEnableCallback(cudaProfilerStop)"},
+				{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuProfilerStart, 1, "cuptiEnableCallback(cuProfilerStart)"},
+				{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuProfilerStop, 0, "cuptiEnableCallback(cuProfilerStop)"},
 			};
-			int enabled = 0;
+			int opens_armed = 0, closes_armed = 0;
 			for (size_t i = 0; i < sizeof(triggers) / sizeof(triggers[0]); i++) {
 				CUptiResult r = cuptiEnableCallback(1, range_subscriber, triggers[i].domain, triggers[i].cbid);
-				if (r == CUPTI_SUCCESS) { enabled++; continue; }
+				if (r == CUPTI_SUCCESS) { if (triggers[i].opens) opens_armed++; else closes_armed++; continue; }
 				record_cupti_failure(triggers[i].what, r);
 			}
-			/* One surviving trigger is enough to gate: a target calls either
-			   the runtime pair or the driver pair, not both. Zero means no
-			   edge can ever arrive, which is the fail-closed case this must
-			   not enter silently. */
-			if (enabled == 0) {
+			/* One surviving trigger of each kind is enough to gate: a target
+			   calls either the runtime pair or the driver pair, not both.
+			   Counting triggers without regard to direction is not the same
+			   test. If both Start cbids fail and both Stop cbids arm, the
+			   count is 2 and the gate closes around a range nothing can ever
+			   open -- a journal byte-identical to a correctly gated run whose
+			   target simply never profiled, which is exactly the
+			   indistinguishable-empty-journal state this gating exists to
+			   refuse. Treat an unpaired arm as no gate at all. */
+			if (opens_armed == 0 || closes_armed == 0) {
 				(void)cuptiUnsubscribe(range_subscriber);
 				range_subscribed = 0;
 				range_gated = RANGE_UNAVAILABLE;

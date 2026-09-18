@@ -122,7 +122,20 @@ type capture struct {
 	capability capabilityRecord
 	failures   []string
 	markers    []markerRecord
+	ranges     []rangeEdgeRecord
 	truncated  bool
+}
+
+// rangeEdgeRecord is one capture-range edge as the producer wrote it. These are
+// the producer's own bookkeeping rather than device work: they are what lets a
+// consumer tell an empty journal from one whose range never opened, so their
+// presence and their fields have to be asserted from the journal itself.
+type rangeEdgeRecord struct {
+	Subtype        string `json:"subtype"`
+	Edge           string `json:"edge"`
+	API            string `json:"api"`
+	Index          uint   `json:"index"`
+	ToggleFailures int    `json:"toggle_failures"`
 }
 
 // markerRecord is one NVTX marker as the producer transcribed it. A range
@@ -322,6 +335,13 @@ func decode(t *testing.T, path string) capture {
 			// Only markers are decoded here. The high-volume scenarios offer
 			// millions of activity records and a JSON unmarshal per record
 			// would make the decode, not the producer, the thing under test.
+			if bytes.Contains(r.Payload, []byte(`"subtype":"capture_range"`)) {
+				var e rangeEdgeRecord
+				if err := json.Unmarshal(r.Payload, &e); err != nil {
+					t.Fatalf("capture_range payload %q: %v", r.Payload, err)
+				}
+				c.ranges = append(c.ranges, e)
+			}
 			if bytes.Contains(r.Payload, []byte(`"subtype":"marker"`)) {
 				var m markerRecord
 				if err := json.Unmarshal(r.Payload, &m); err != nil {
@@ -1127,15 +1147,18 @@ type rangeResult struct {
 	BeforeKinds  uint `json:"before_kinds"`
 	InsideKinds  uint `json:"inside_kinds"`
 	AfterKinds   uint `json:"after_kinds"`
+
+	// Edges is what the producer actually wrote to the journal, which the
+	// harness's own counters cannot speak to.
+	Edges []rangeEdgeRecord `json:"-"`
 }
 
 // runRange executes the capture-range scenario and decodes its line.
 func runRange(t *testing.T, env []string, domain string) rangeResult {
 	t.Helper()
 	dir := t.TempDir()
-	session := strings.Repeat("a", 32)
 	cmd := exec.Command(controlBinary(t), "capture-range", "1", "4", "0", "0", domain)
-	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+session)
+	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex)
 	cmd.Env = append(cmd.Env, env...)
 	out, err := cmd.Output()
 	if err != nil {
@@ -1148,6 +1171,13 @@ func runRange(t *testing.T, env []string, domain string) rangeResult {
 	}
 	if err := json.Unmarshal(line, &got); err != nil {
 		t.Fatalf("decode capture-range line %q: %v", line, err)
+	}
+	// The harness's stdout reports what the stub observed; the journal reports
+	// what the producer wrote. Only the second can say whether the edge records
+	// exist, and they are the records a consumer reads to tell an unopened
+	// range from an empty one.
+	for _, c := range decodeAll(t, dir) {
+		got.Edges = append(got.Edges, c.ranges...)
 	}
 	return got
 }
@@ -1215,6 +1245,82 @@ func TestCaptureRangeGatesCollection(t *testing.T) {
 			}
 			if got.InsideKinds != open.InsideKinds {
 				t.Errorf("enabled %d kinds inside the range, want %d: %+v", got.InsideKinds, open.InsideKinds, got)
+			}
+
+			// Everything above reads the harness's counters, which say what
+			// CUPTI was told and nothing about what the producer wrote. The
+			// edge records are the journal's own account of where the range
+			// opened and closed, and a consumer needs them to tell a journal
+			// whose range never opened from one that collected nothing. They
+			// were asserted nowhere: deleting write_range_edge's write left
+			// this whole file green.
+			if len(got.Edges) != 2 {
+				t.Fatalf("journal holds %d capture-range edges, want a start and a stop: %+v", len(got.Edges), got.Edges)
+			}
+			start, stop := got.Edges[0], got.Edges[1]
+			if start.Edge != "start" || stop.Edge != "stop" {
+				t.Errorf("edges are %q then %q, want start then stop", start.Edge, stop.Edge)
+			}
+			// One range opened, so both edges name range 0. An index taken from
+			// the open count rather than the range would put the stop at 1.
+			if start.Index != 0 || stop.Index != 0 {
+				t.Errorf("edge indices are %d and %d, want both 0 for a single range", start.Index, stop.Index)
+			}
+			if start.ToggleFailures != 0 || stop.ToggleFailures != 0 {
+				t.Errorf("toggling activity kinds failed at an edge: %+v", got.Edges)
+			}
+			wantAPI := map[string][2]string{
+				"2": {"cudaProfilerStart", "cudaProfilerStop"},
+				"1": {"cuProfilerStart", "cuProfilerStop"},
+			}[d.domain]
+			if start.API != wantAPI[0] || stop.API != wantAPI[1] {
+				t.Errorf("edges name %q/%q, want %q/%q: the record must say which API opened the range", start.API, stop.API, wantAPI[0], wantAPI[1])
+			}
+
+			// The ungated arm must write no edges at all -- otherwise the
+			// assertions above would pass on a producer that records edges
+			// whether or not it gates anything.
+			if len(open.Edges) != 0 {
+				t.Errorf("ungated run wrote %d capture-range edges, want none: %+v", len(open.Edges), open.Edges)
+			}
+		})
+	}
+}
+
+// TestCaptureRangeRefusesUnpairedTriggers covers the arming failure that fails
+// CLOSED and says nothing: both cudaProfilerStart cbids refuse while both Stop
+// cbids arm. Counting surviving triggers without regard to direction reads that
+// as a working gate, shuts collection off, and waits for an edge that no
+// surviving callback can ever deliver.
+//
+// The resulting journal is byte-identical to a correctly gated run whose target
+// simply never called cudaProfilerStart -- same "initialized_no_activity", same
+// "capture_range":"cudaProfilerApi" -- which is precisely the
+// indistinguishable-empty-journal state this gating exists to refuse. The only
+// honest answer is to decline the gate and say so in the capability record.
+func TestCaptureRangeRefusesUnpairedTriggers(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		refuse string
+		domain string
+	}{
+		{"no_start_trigger", "171,308", "2"},
+		{"no_stop_trigger", "172,309", "2"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := runRange(t, []string{
+				"CUDAPROF_CAPTURE_RANGE=cudaProfilerApi",
+				"CUDAPROF_TEST_REFUSE_CBIDS=" + tt.refuse,
+			}, tt.domain)
+
+			// Collection must be ON: an ungated capture is a worse capture,
+			// but it is an honest one, and the capability record says the
+			// request could not be met. A gate that cannot open is neither.
+			if got.BeforeKinds == 0 {
+				t.Errorf("activity kinds are off with no usable gate, so the run collects nothing and nothing says why: %+v", got)
+			}
+			if len(got.Edges) != 0 {
+				t.Errorf("wrote %d range edges with an unpaired trigger set: %+v", len(got.Edges), got.Edges)
 			}
 		})
 	}
