@@ -36,6 +36,16 @@ func (l FragmentLayout) String() string {
 // model; a register tile that must agree with an MMA fragment uses a
 // Fragment.
 //
+// A Fragment is the logical mapping, which is what a load emitter must end
+// up with, not the sequence it takes to get there. ThunderKittens reaches it
+// by permuting the shared addresses of half the lanes for bank reasons and
+// swapping the register halves back afterwards
+// (include/ops/group/memory/tile/shared_to_register.cuh:79 and 100-104).
+// An emitter must reproduce both steps or neither: doing the address
+// permutation without the compensating swap transposes the pairs on half
+// the lanes, and no comparison against this model can detect that, because
+// the model is right.
+//
 // The zero Fragment is invalid. Construct one with [NewFragment].
 type Fragment struct {
 	elemBytes int
@@ -79,8 +89,13 @@ func (f Fragment) ElementBytes() int { return f.elemBytes }
 // count divided over the warp's 32 lanes.
 func (f Fragment) ElementsPerThread() int { return f.Rows() * f.Cols() / 32 }
 
-// ElementsPerSlot returns the elements in one packed slot. An MMA slot is a
-// pair along the layout's packed axis, whatever the element width.
+// ElementsPerSlot returns the elements in one packed slot: a pair along the
+// layout's packed axis for every width [NewFragment] admits.
+//
+// It is 2 rather than a function of the element width only because one-byte
+// elements are rejected. Their packing is four elements per slot while the
+// slot count stays 4, so a one-byte Fragment would keep
+// [Fragment.PackedPerThread] at 4 and silently break this.
 func (f Fragment) ElementsPerSlot() int { return 2 }
 
 // PackedPerThread returns the packed slots one lane holds.

@@ -184,3 +184,61 @@ func TestFragmentOutOfBounds(t *testing.T) {
 		t.Errorf("zero Fragment Owner error = %v, want ErrUnsupported", err)
 	}
 }
+
+// TestFragmentSlotQuadrants pins each slot to the quadrant of the base tile
+// it reads, which neither the bijection test nor a single transcription of
+// the source can establish on its own.
+//
+// TestFragmentIsABijection passes under all 24 orderings of the four slots,
+// 23 of which are wrong, so it cannot witness the slot order at all.
+// TestFragmentMatchesThunderKittens does pin the order, but tkElement and
+// the implementation were transcribed from the same lines by the same
+// author, so it is one witness, not two.
+//
+// This table is the second witness: it comes from the 32-bit path at
+// ThunderKittens include/ops/group/memory/tile/shared_to_register.cuh:84-99,
+// which spells addresses out rather than relying on ldmatrix's implicit
+// register semantics. Lines 84-85 send addr_1 to row+0 and addr_2 to row+8;
+// lines 96-99 assign tmp[0] and tmp[2] from addr_1 at byte offsets 0 and 32,
+// tmp[1] and tmp[3] from addr_2 at the same offsets. That is slot 1 in the
+// lower row half and slot 2 in the right column half, and it is derived
+// independently of the mapping under test. Swapping two rows of this table
+// must fail.
+func TestFragmentSlotQuadrants(t *testing.T) {
+	tests := []struct {
+		layout                 FragmentLayout
+		slot, rowHalf, colHalf int
+	}{
+		{FragmentRow, 0, 0, 0},
+		{FragmentRow, 1, 1, 0},
+		{FragmentRow, 2, 0, 1},
+		{FragmentRow, 3, 1, 1},
+		// The column layout is the transpose, reached through the argument
+		// swap in the ldsm4t call at line 64: tmp[0], tmp[2], tmp[1], tmp[3].
+		// It rests on that one line; there is no explicit-address 32-bit
+		// column path to cross-check it against.
+		{FragmentCol, 0, 0, 0},
+		{FragmentCol, 1, 0, 1},
+		{FragmentCol, 2, 1, 0},
+		{FragmentCol, 3, 1, 1},
+	}
+	for _, tt := range tests {
+		f, err := NewFragment(4, tt.layout)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for lane := 0; lane < 32; lane++ {
+			for index := 0; index < f.ElementsPerSlot(); index++ {
+				o := FragmentOwner{Lane: lane, Slot: tt.slot, Index: index}
+				row, col, err := f.Element(o)
+				if err != nil {
+					t.Fatalf("Element(%+v): %v", o, err)
+				}
+				if row/8 != tt.rowHalf || col/8 != tt.colHalf {
+					t.Fatalf("%v Element(%+v) = (%d,%d), in quadrant (%d,%d), want (%d,%d)",
+						tt.layout, o, row, col, row/8, col/8, tt.rowHalf, tt.colHalf)
+				}
+			}
+		}
+	}
+}
