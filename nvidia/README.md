@@ -49,6 +49,29 @@ cuFile, for example, is a Linux-only package.
 | [fabricmanager](fabricmanager/) | NVIDIA Fabric Manager | NVSwitch fabric partitions |
 | x/... | — | idiomatic layer over the raw bindings; see the [generated package inventory](x/README.md) |
 
+## Depending on this module
+
+There is no tagged release yet, so `go get` records a pseudo-version:
+
+    github.com/tmc/lib/nvidia v0.0.0-20260914015501-97aa6ff78c23
+
+On a host that cannot reach GitHub, that is enough to fail the build even
+when the module is checked out locally and listed in a `go.work` file. A
+`use` directive does not stop the toolchain resolving the recorded version's
+`go.mod`:
+
+    github.com/tmc/lib/nvidia@v0.0.0-...: invalid version: git ls-remote ...
+    fatal: could not read Username for 'https://github.com': terminal prompts disabled
+
+An unversioned `replace` is rejected outright ("workspace module is replaced
+at all versions"). The form that works names the same version the build
+already recorded:
+
+    replace github.com/tmc/lib/nvidia v0.0.0-20260914015501-97aa6ff78c23 => ../lib/nvidia
+
+Substitute the pseudo-version your own `go.mod` records. This goes away when
+the module is tagged.
+
 ## Loading libraries
 
 The direct binding packages expose `Load(path)`, `Loaded()`, `Path()` and
