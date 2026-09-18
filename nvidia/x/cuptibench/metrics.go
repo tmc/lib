@@ -32,6 +32,34 @@ var metricSets = map[string][]string{
 	"launches":     {"sm__ctas_launched.sum", "sm__warps_launched.sum"},
 	"l2":           {"lts__t_sectors_srcunit_tex_op_read.sum", "lts__t_sectors_srcunit_tex_op_write.sum"},
 	"l2-read":      {"lts__t_sectors_srcunit_tex_op_read.sum"},
+	TimeSet: {
+		"gpu__time_duration.sum",
+		"sm__cycles_active.avg",
+		"sm__cycles_elapsed.avg",
+		"sm__cycles_active.sum",
+	},
+}
+
+// trafficMetrics names the counters whose value depends on cache state. A run
+// that measures these against a warm cache answers a different question than
+// the one the counter's name suggests, so New refuses the combination unless
+// the caller acknowledges it. See Config.AllowWarmCacheTraffic.
+var trafficMetrics = map[string]bool{
+	"lts__t_sectors_srcunit_tex_op_read.sum":             true,
+	"lts__t_sectors_srcunit_tex_op_write.sum":            true,
+	"lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum": true,
+	"l1tex__t_sectors.sum":                               true,
+}
+
+// trafficMetric reports whether name is cache-state dependent. The curated
+// table covers the sets this package ships; the prefix test catches a native
+// name a caller passed directly, since every L2 and L1 sector counter carries
+// the same hazard whatever its filters.
+func trafficMetric(name string) bool {
+	return trafficMetrics[name] ||
+		strings.HasPrefix(name, "lts__t_sectors") ||
+		strings.HasPrefix(name, "l1tex__t_sectors") ||
+		strings.HasPrefix(name, "dram__")
 }
 
 // additiveUnits records the dimension each curated metric must carry. A metric
@@ -71,6 +99,11 @@ func additiveMetric(name, unit string, kind cupti.MetricType) bool {
 // so adding them across ranges counts overlapping wall-clock twice. On GB10 this
 // excludes 222 of the 3271 counter rollups that would otherwise qualify,
 // leaving 3049.
+//
+// This rule is about summing a duration across sibling ranges. It does not
+// forbid reading one range's duration: a Whole collection opens exactly one
+// range, so nothing is summed and TimeSet's members are meaningful there. That
+// is why Result.Budget requires Whole rather than rejecting time metrics.
 func timeDimension(unit string) bool {
 	return strings.Contains(unit, "cycle") || strings.Contains(unit, "second")
 }

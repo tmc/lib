@@ -44,6 +44,37 @@ type Config struct {
 	MaxConfigBytes int
 	// MaxDepth bounds nested Regions, including the operation root; zero uses 16.
 	MaxDepth uint16
+	// AllowWarmCacheTraffic acknowledges collecting cache-state-dependent
+	// counters (L1/L2/DRAM sectors) without a CUPTI cache reset. New refuses
+	// that combination by default, because a traffic measurement taken against
+	// a warm cache understates the traffic the workload performs in situ and
+	// nothing downstream can detect it.
+	//
+	// Setting this does not make the measurement comparable; it records that
+	// the caller knows it is not. The measurement is labelled warm in Result
+	// metadata and in benchmark output wherever the counters appear.
+	//
+	// There is currently no way to avoid this acknowledgement: CachePolicySupport
+	// rejects CacheFlushL2 and CacheFlushAll on every version it admits, so no
+	// flush policy is reachable and cold traffic must be arranged by the
+	// application, by evicting between passes with its own work.
+	AllowWarmCacheTraffic bool
+}
+
+// warmCacheTraffic reports the cache-state-dependent metrics in c that are
+// being collected without a cache reset, in configuration order. A flush
+// policy, once one is reachable, removes them all.
+func (c Config) warmCacheTraffic() []string {
+	if c.CachePolicy != cuptirange.CacheDefault && c.CachePolicy != cuptirange.CachePreserve {
+		return nil
+	}
+	var names []string
+	for _, name := range c.Metrics {
+		if trafficMetric(name) {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 func (c Config) validate() error {
@@ -186,6 +217,18 @@ func New(dev *cuda.Device, c Config) (p *Plan, err error) {
 		p.metadata["cache_control_effective"] = "none"
 		p.metadata["cache_control_basis"] = "CUPTI documented default and pre-13.4 behavior; not a cache-content measurement"
 		p.metadata["cache_control_reference"] = "https://docs.nvidia.com/cupti/13.4.0/main/main.html#cache-state-reset"
+		if warm := c.warmCacheTraffic(); len(warm) > 0 {
+			if !c.AllowWarmCacheTraffic {
+				return fmt.Errorf("cuptibench: cache policy %s collects %s against an uncontrolled cache: "+
+					"a traffic counter measured on a warm cache understates traffic and reads identically to a cold one. "+
+					"No flush policy is reachable (CachePolicySupport rejects flush-l2 and flush-all on CUPTI %d), so either "+
+					"evict in the workload's own preparation or set Config.AllowWarmCacheTraffic to record that the "+
+					"measurement is warm",
+					c.CachePolicy, strings.Join(warm, ", "), cv)
+			}
+			p.metadata["traffic_cache_state"] = "warm, acknowledged by caller"
+			p.metadata["traffic_cache_metrics"] = strings.Join(warm, ",")
+		}
 
 		for i, name := range c.Metrics {
 			prop, e := backend.Properties(name, 1<<20)

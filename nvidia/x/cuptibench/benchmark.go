@@ -268,12 +268,48 @@ func report(b *testing.B, r *Result) error {
 		b.ReportMetric(float64(r.Timing.Total)/float64(r.Timing.Operations), "gpu-ns/op")
 	}
 	b.ReportMetric(float64(r.Operations), "profile-ops")
+	// Report the collected range count as a column so a run that measured
+	// nothing is visibly different from one that measured something. Without
+	// it, a capture that produced no ranges still prints gpu-ns/op and
+	// profile-ops and reads exactly like a successful benchmark.
+	b.ReportMetric(float64(len(counters.Ranges)), "ranges")
+	if len(counters.Ranges) == 0 {
+		b.Logf("cuptibench: NO RANGES COLLECTED -- this benchmark reported timing but measured no counters; "+
+			"quality=%+v mode=%s", r.Quality, r.Metadata["mode"])
+	}
 	if root != nil {
 		for _, m := range root.Metrics {
 			b.ReportMetric(m.Value, m.Name)
 		}
 	}
+	reportLimits(b, r)
 	return nil
+}
+
+// reportLimits states what the reported numbers do not include, next to the
+// numbers rather than in the package documentation. Each line names a term a
+// reader could otherwise take the output to cover.
+func reportLimits(b *testing.B, r *Result) {
+	var limits []string
+	if r.Timing != nil && r.Timing.Method == "cuda-events" {
+		limits = append(limits, "gpu-ns/op is a device span around the whole sequence, so it contains "+
+			"inter-kernel gaps and cannot be differenced against wall time to yield idle")
+	}
+	switch r.Metadata["mode"] {
+	case "kernels":
+		limits = append(limits, "kernels mode sums isolated kernel ranges, which does not preserve "+
+			"cache state, launch gaps, or stream overlap between them")
+	case "whole", "regions":
+		limits = append(limits, "counters cover only the profiled range; host dispatch outside it is not measured")
+	}
+	if state := r.Metadata["traffic_cache_state"]; state != "" {
+		limits = append(limits, "traffic counters were collected against a "+state+" cache ("+
+			r.Metadata["traffic_cache_metrics"]+")")
+	}
+	limits = append(limits, idleIsNotDerivable)
+	for _, s := range limits {
+		b.Logf("cuptibench: not included: %s", s)
+	}
 }
 
 func measureSequence(timer benchmarkTimer, w Workload, operations int) (duration time.Duration, err error) {

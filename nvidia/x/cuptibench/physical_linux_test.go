@@ -693,7 +693,12 @@ func TestPhysicalFilteredL2Traffic(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			words := uint32(target.Len() / tc.divisor)
 			expectedPerOp := float64(words) / 8 // Eight contiguous uint32 elements per sector.
-			plan, err := cuptibench.New(p.dev, cuptibench.Config{CachePolicy: cuptirange.CachePreserve, Metrics: []string{physicalTrafficRead, physicalTrafficMiss}, Mode: cuptibench.Whole, Operations: tc.ops, MaxConfigBytes: 16 << 20, Limits: cuptirange.Limits{MaxRanges: 4, MaxRangeTreeNodes: 4, MaxCounterBytes: 16 << 20, MaxPasses: 64}})
+			// Cache state is this fixture's independent variable: it evicts with
+			// its own 4xL2 sweep and reads traffic under both states, so CUPTI
+			// must not reset anything between passes. That is the case
+			// AllowWarmCacheTraffic exists to distinguish from an accidental
+			// warm measurement.
+			plan, err := cuptibench.New(p.dev, cuptibench.Config{CachePolicy: cuptirange.CachePreserve, AllowWarmCacheTraffic: true, Metrics: []string{physicalTrafficRead, physicalTrafficMiss}, Mode: cuptibench.Whole, Operations: tc.ops, MaxConfigBytes: 16 << 20, Limits: cuptirange.Limits{MaxRanges: 4, MaxRangeTreeNodes: 4, MaxCounterBytes: 16 << 20, MaxPasses: 64}})
 			if plan != nil {
 				physicalClose(t, plan.Close)
 			}

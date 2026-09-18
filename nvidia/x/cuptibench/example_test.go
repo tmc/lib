@@ -42,5 +42,5 @@ func ExampleResolve() {
 	fmt.Println(err)
 	// Output:
 	// [sm__ctas_launched.sum sm__warps_launched.sum l1tex__t_sectors.sum] <nil>
-	// cuptibench: unknown metric set "unknown", have default, instructions, l2, l2-read, launches
+	// cuptibench: unknown metric set "unknown", have default, instructions, l2, l2-read, launches, time
 }

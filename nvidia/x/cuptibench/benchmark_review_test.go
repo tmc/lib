@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -284,6 +285,25 @@ func BenchmarkCuptiExportOverrideFailure(b *testing.B) {
 	}
 }
 
+// resultRow matches a Go benchmark result line reporting gpu-ns/op: the
+// benchmark name, its iteration count, then the metric.
+var resultRow = regexp.MustCompile(`(?m)^Benchmark\S*\s+\d+\s.*\bgpu-ns/op\b`)
+
+// TestResultRowMatchesRowsNotProse is the control on resultRow: it must fire on
+// a real benchmark result line and stay silent on the package's own prose. A
+// pattern that did only one of the two would make the suppression check above
+// either vacuous or permanently red.
+func TestResultRowMatchesRowsNotProse(t *testing.T) {
+	row := "BenchmarkCuptiExport-48   \t       1\t   1234 ns/op\t   5.00 gpu-ns/op\n"
+	if !resultRow.MatchString(row) {
+		t.Errorf("resultRow missed a real result row: %q", row)
+	}
+	prose := "    benchmark.go:311: cuptibench: not included: gpu-ns/op is a device span\n"
+	if resultRow.MatchString(prose) {
+		t.Errorf("resultRow fired on prose: %q", prose)
+	}
+}
+
 func TestOverrideFailureAfterReportSuppressesOutput(t *testing.T) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -296,7 +316,11 @@ func TestOverrideFailureAfterReportSuppressesOutput(t *testing.T) {
 	if err == nil || !strings.Contains(string(out), "injected override cleanup failure") {
 		t.Fatalf("expected override cleanup failure: %v\n%s", err, out)
 	}
-	if strings.Contains(string(out), "gpu-ns/op") {
+	// Match a benchmark result row, not the bare metric name: the package also
+	// logs what its numbers exclude, and those lines name gpu-ns/op in prose.
+	// A substring test cannot tell the two apart and would pass on a real row
+	// that happened to be worded differently.
+	if resultRow.MatchString(string(out)) {
 		t.Fatalf("failed benchmark printed metric row:\n%s", out)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
