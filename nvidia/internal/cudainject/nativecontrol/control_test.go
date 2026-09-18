@@ -192,6 +192,8 @@ type capabilityRecord struct {
 	AtforkGuard     bool   `json:"atfork_guard"`
 	NVTXMarkers     bool   `json:"nvtx_markers"`
 	Memsets         bool   `json:"memsets"`
+	ClocksUnified   bool   `json:"clocks_unified"`
+	CUPTIClock      string `json:"cupti_clock"`
 	CaptureRange    string `json:"capture_range"`
 	DrainBatch      int    `json:"drain_batch"`
 	QueueCapacity   int    `json:"queue_capacity"`
@@ -237,19 +239,22 @@ func controlBinary(t *testing.T, defines ...string) string {
 	}
 	out := filepath.Join(dir, "cupti-agent-control")
 	const src = "../native"
-	// The stub CUPTI exports cuptiActivityGetStructSize, so in this build the
-	// producer's dlsym(RTLD_DEFAULT, ...) must find it. On ELF a symbol
-	// defined in the executable is not in the dynamic symbol table unless the
-	// link asks for it, so without -rdynamic the lookup returns NULL, every
-	// layout check is skipped, and the scenarios pass having covered none of
-	// that code. -Werror is the same bargain for the compiler; this is it for
-	// the loader. CUDAPROF_REQUIRE_STRUCT_SIZE_FN makes the producer refuse
-	// rather than degrade if it ever stops resolving, so the flag cannot be
-	// dropped silently. Mach-O exports these by default and needs neither.
-	args := []string{"-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-DCUDAPROF_REQUIRE_STRUCT_SIZE_FN=1", "-I", filepath.Join(src, "testcupti")}
-	if runtime.GOOS != "darwin" {
-		args = append(args, "-rdynamic")
-	}
+	// -rdynamic exports the stub's symbols to dlsym(RTLD_DEFAULT). The
+	// producer resolves two symbols that way: cuptiActivityGetStructSize,
+	// which arrived in CUDA 13.2, and cuptiActivityRegisterTimestampCallback,
+	// which an older libcupti does not export. In the field both live in a
+	// shared object where RTLD_DEFAULT finds them unaided; here they are
+	// linked into the executable, which on ELF is not in the dynamic symbol
+	// table unless the link asks. Without this every probe returns NULL, the
+	// degraded path is the only one any control runs, and the layout checks
+	// are skipped entirely -- all while the suite passes. -Werror is that
+	// bargain for the compiler; this is it for the loader.
+	//
+	// CUDAPROF_REQUIRE_STRUCT_SIZE_FN makes the producer refuse rather than
+	// degrade when a build that links the symbol fails to resolve it, so the
+	// flag cannot be dropped silently. Production still degrades: there an
+	// unresolved symbol means an old runtime, which is a real case.
+	args := []string{"-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-rdynamic", "-DCUDAPROF_REQUIRE_STRUCT_SIZE_FN=1", "-I", filepath.Join(src, "testcupti")}
 	args = append(args, defines...)
 	args = append(args,
 		filepath.Join(src, "cupti_agent.c"),
@@ -1474,5 +1479,214 @@ func TestUndecodedActivityKindIsReported(t *testing.T) {
 	}
 	if !status.Exited() || status.ExitStatus() != 0 {
 		t.Errorf("status = %v, want clean exit: an unknown kind is reported, not fatal", status)
+	}
+}
+
+// clockResult is the clock scenario's line. The stub numbers the CUPTI calls
+// it receives, so the ordering CUPTI's timestamp-callback contract turns on is
+// read back as two sequence numbers rather than inferred from a journal that
+// looks identical either way.
+type clockResult struct {
+	TimestampRegisteredAt uint   `json:"timestamp_registered_at"`
+	FirstEnableAt         uint   `json:"first_enable_at"`
+	CallbackNanos         uint64 `json:"callback_ns"`
+	MonotonicNanos        uint64 `json:"monotonic_ns"`
+	RealtimeNanos         uint64 `json:"realtime_ns"`
+
+	// Capability is what the producer told the journal about its clocks. The
+	// harness line says what the stub saw; this says what a consumer is told.
+	Capability capabilityRecord `json:"-"`
+
+	// Failures is every failure record the run wrote, so an arm can assert
+	// both that a refusal is reported and that an unsupported runtime is not
+	// reported as one.
+	Failures []string `json:"-"`
+}
+
+// runClock executes the clock scenario against a specific harness build.
+func runClock(t *testing.T, bin string, env []string) clockResult {
+	t.Helper()
+	dir := t.TempDir()
+	cmd := exec.Command(bin, "clock")
+	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex)
+	cmd.Env = append(cmd.Env, env...)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("clock scenario: %v", err)
+	}
+	var got clockResult
+	line := bytes.TrimSpace(out)
+	if i := bytes.LastIndexByte(line, '\n'); i >= 0 {
+		line = line[i+1:]
+	}
+	if err := json.Unmarshal(line, &got); err != nil {
+		t.Fatalf("decode clock line %q: %v", line, err)
+	}
+	c := only(t, decodeAll(t, dir))
+	got.Capability = c.capability
+	got.Failures = c.failures
+	return got
+}
+
+// TestTimestampCallbackPrecedesEveryEnable is the control for the producer's
+// one clock.
+//
+// The journal carries two timestamp origins. A kernel or memcpy record's
+// header carries CUPTI's timestamp; a capture-range edge, a failure and the
+// capability record carry one the producer took itself, from CLOCK_MONOTONIC.
+// CUPTI's platform default on Linux is CLOCK_REALTIME, so those two are
+// separated by the wall-clock time the host booted: a consumer subtracting one
+// from the other gets decades, and nothing in the record says so. Registering
+// a timestamp callback is what removes that difference.
+//
+// Two things have to hold and neither implies the other:
+//
+//   - The callback must read the producer's own clock. A registration of some
+//     other monotonic-looking source would satisfy any "did we register one"
+//     check while leaving the offset in place, so the control calls what was
+//     registered and reads the result against this process's CLOCK_MONOTONIC
+//     and CLOCK_REALTIME. Those two are separated by boot time; no scheduling
+//     delay comes near that, so the comparison is not a timing race.
+//
+//   - The registration must precede the first cuptiActivityEnable. NVIDIA
+//     documents that records produced before it keep CUPTI's previous
+//     timestamp method, so a late registration yields a journal straddling two
+//     bases. That is an ordering property: a journal from a late registration
+//     is byte-identical here, and differs in the field only by an offset no
+//     field names. So the stub numbers its calls and this asserts the order.
+func TestTimestampCallbackPrecedesEveryEnable(t *testing.T) {
+	got := runClock(t, controlBinary(t), nil)
+
+	if got.TimestampRegisteredAt == 0 {
+		t.Fatalf("producer registered no timestamp callback: %+v", got)
+	}
+	if got.FirstEnableAt == 0 {
+		t.Fatalf("producer enabled no activity kind, so the ordering is vacuous: %+v", got)
+	}
+	if got.TimestampRegisteredAt >= got.FirstEnableAt {
+		t.Errorf("timestamp callback registered at call %d, first cuptiActivityEnable at call %d; registration must come first or earlier records keep CUPTI's previous clock",
+			got.TimestampRegisteredAt, got.FirstEnableAt)
+	}
+
+	// The registered callback must be on the producer's clock. A window this
+	// wide cannot mistake CLOCK_MONOTONIC for CLOCK_REALTIME: the gap between
+	// them is the host's uptime offset from the epoch, currently decades.
+	const window = 60 * 1e9
+	if diff := absDiff(got.CallbackNanos, got.MonotonicNanos); diff > window {
+		t.Errorf("registered callback returned %d, %d ns from this process's CLOCK_MONOTONIC (%d); want the same clock",
+			got.CallbackNanos, diff, got.MonotonicNanos)
+	}
+	// The discriminating half: the same reading must NOT match CUPTI's own
+	// default. Without this the assertion above would pass on a host where the
+	// two clocks happened to agree, and the defect being fixed is precisely
+	// that they do not.
+	if diff := absDiff(got.CallbackNanos, got.RealtimeNanos); diff <= window {
+		t.Errorf("registered callback returned %d, only %d ns from CLOCK_REALTIME (%d); the two clocks are supposed to differ by boot time, so this fixture cannot tell them apart",
+			got.CallbackNanos, diff, got.RealtimeNanos)
+	}
+
+	if !got.Capability.ClocksUnified {
+		t.Errorf("capability record reports clocks_unified=false on a run that unified them: %+v", got.Capability)
+	}
+	if got.Capability.CUPTIClock != "monotonic" {
+		t.Errorf("capability cupti_clock = %q, want %q", got.Capability.CUPTIClock, "monotonic")
+	}
+}
+
+func absDiff(a, b uint64) uint64 {
+	if a > b {
+		return a - b
+	}
+	return b - a
+}
+
+// TestTimestampCallbackDegradesVisibly is the control for the other half of
+// the contract: a CUPTI that will not unify the clocks must still produce a
+// capture, and must not let the consumer read "no error" as "one clock".
+//
+// Both refusals are covered because they are different failures with the same
+// consequence. A runtime predating the API exports no symbol, so there is no
+// call and no CUptiResult. A runtime that exports it and rejects the callback
+// answers a call this producer made, and is recorded the way every other
+// refused CUPTI call is. Either way the journal has to arrive and the
+// capability record has to say the timestamps are not comparable.
+func TestTimestampCallbackDegradesVisibly(t *testing.T) {
+	tests := []struct {
+		name      string
+		defines   []string
+		env       []string
+		clock     string
+		wantFails int
+	}{{
+		name:    "symbol absent",
+		defines: []string{"-DCUDAPROF_TEST_NO_TIMESTAMP_CALLBACK"},
+		clock:   "platform_default_callback_unsupported",
+		// No call was made, so there is no CUPTI result to record.
+		wantFails: 0,
+	}, {
+		name:  "cupti refuses",
+		env:   []string{"CUDAPROF_TEST_REFUSE_TIMESTAMP=1"},
+		clock: "platform_default_callback_refused",
+		// A refused call is recorded, and names the operation.
+		wantFails: 1,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bin := controlBinary(t, tt.defines...)
+			got := runClock(t, bin, tt.env)
+
+			if got.TimestampRegisteredAt != 0 {
+				t.Fatalf("a refusing CUPTI still recorded a registration at call %d: %+v", got.TimestampRegisteredAt, got)
+			}
+			if got.FirstEnableAt == 0 {
+				t.Errorf("degraded run enabled no activity kind; the capture was lost, not degraded: %+v", got)
+			}
+			if got.Capability.ClocksUnified {
+				t.Errorf("capability record claims clocks_unified=true after the registration failed: %+v", got.Capability)
+			}
+			if got.Capability.CUPTIClock != tt.clock {
+				t.Errorf("capability cupti_clock = %q, want %q", got.Capability.CUPTIClock, tt.clock)
+			}
+			var clockFails int
+			for _, f := range got.Failures {
+				if strings.Contains(f, "cuptiActivityRegisterTimestampCallback") {
+					clockFails++
+				}
+			}
+			if clockFails != tt.wantFails {
+				t.Errorf("got %d failure records naming the registration, want %d: %q", clockFails, tt.wantFails, got.Failures)
+			}
+			// The capture still has to be a capture: everything the producer
+			// reports independently of the clocks must be unchanged.
+			if !got.Capability.Activity || !got.Capability.APIRecords {
+				t.Errorf("degraded run lost collection it was not asked to give up: %+v", got.Capability)
+			}
+		})
+	}
+}
+
+// TestTimestampCallbackDegradationIsRecorded checks the failure record that
+// accompanies a refusal, separately from the capability record, because a
+// consumer reading only one of the two must not be misled by the other.
+func TestTimestampCallbackDegradationIsRecorded(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command(controlBinary(t), "clock")
+	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex,
+		"CUDAPROF_TEST_REFUSE_TIMESTAMP=1")
+	if _, err := cmd.Output(); err != nil {
+		t.Fatalf("clock scenario: %v", err)
+	}
+	c := only(t, decodeAll(t, dir))
+	var found string
+	for _, f := range c.failures {
+		if strings.Contains(f, "cuptiActivityRegisterTimestampCallback") {
+			found = f
+		}
+	}
+	if found == "" {
+		t.Fatalf("no failure record names the refused registration: %q", c.failures)
+	}
+	if !strings.Contains(found, `"state":"cupti_unavailable"`) {
+		t.Errorf("failure record %q does not carry the cupti_unavailable state", found)
 	}
 }

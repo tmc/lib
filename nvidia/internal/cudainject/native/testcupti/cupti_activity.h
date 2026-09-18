@@ -141,10 +141,16 @@ typedef struct {
 	const char *domain;
 } CUpti_ActivityMarker2;
 
+typedef uint64_t (CUPTIAPI *CUpti_TimestampCallbackFunc)(void);
 typedef void (CUPTIAPI *CUpti_BuffersCallbackRequestFunc)(uint8_t **buffer, size_t *size, size_t *maxNumRecords);
 typedef void (CUPTIAPI *CUpti_BuffersCallbackCompleteFunc)(CUcontext context, uint32_t streamId, uint8_t *buffer, size_t size, size_t validSize);
 
 CUptiResult cuptiActivityRegisterCallbacks(CUpti_BuffersCallbackRequestFunc, CUpti_BuffersCallbackCompleteFunc);
+/* Declared even when CUDAPROF_TEST_NO_TIMESTAMP_CALLBACK suppresses the
+   definition: the producer resolves this one through dlsym and never
+   references the declaration, so the absence under test is the absence of the
+   symbol at link time, not of the prototype. */
+CUptiResult cuptiActivityRegisterTimestampCallback(CUpti_TimestampCallbackFunc);
 CUptiResult cuptiActivityEnable(CUpti_ActivityKind);
 CUptiResult cuptiActivityDisable(CUpti_ActivityKind);
 CUptiResult cuptiActivityFlushAll(uint32_t flag);

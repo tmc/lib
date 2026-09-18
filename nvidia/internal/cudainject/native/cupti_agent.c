@@ -242,6 +242,24 @@ static int sigterm_installed;
    run never silently assumes it. */
 static int atfork_guard;
 
+/* Which clock CUPTI stamped its records with, and therefore whether a CUPTI
+   timestamp and an agent timestamp name the same instant. CUPTI's platform
+   default on Linux is clock_gettime(CLOCK_REALTIME) while every timestamp this
+   agent takes itself is CLOCK_MONOTONIC, so the two are separated by the
+   wall-clock time the host booted: subtracting one from the other yields
+   decades, not a skew. Registering a
+   timestamp callback replaces CUPTI's source with this agent's, which is the
+   only way to make the journal's two timestamp origins comparable. A CUPTI
+   that cannot do it is a supported configuration; a capture that silently
+   pretends otherwise is not, so the outcome is named in the capability
+   record. */
+enum {
+	AGENT_CLOCK_UNIFIED = 0,    /* CUPTI stamps through cupti_timestamp */
+	AGENT_CLOCK_UNSUPPORTED,    /* runtime CUPTI does not export the API */
+	AGENT_CLOCK_REFUSED,        /* CUPTI exports it and rejected the callback */
+};
+static int clock_state = AGENT_CLOCK_UNSUPPORTED;
+
 static uint64_t now_ns(void);
 static int write_record(uint16_t, uint64_t, const char *, size_t);
 static void cudaprof_cupti_atexit(void);
@@ -477,6 +495,19 @@ static uint64_t now_ns(void) {
 	struct timespec ts;
 	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) return 0;
 	return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+}
+
+/* The timestamp source handed to CUPTI. It must be now_ns itself and not
+   merely another monotonic reading: the point of the callback is that a
+   record's CUPTI timestamp and the record header this agent stamps around it
+   come from one clock, and any second source reintroduces the offset the
+   callback exists to remove. CUPTI calls this from its own threads and, for
+   GPU-side activities, during post-processing while it interpolates device
+   timestamps into the CPU base. It is safe in both: clock_gettime is
+   reentrant and this function takes no lock, allocates nothing and writes no
+   journal. */
+static uint64_t CUPTIAPI cupti_timestamp(void) {
+	return now_ns();
 }
 
 static int parse_session(const char *s) {
@@ -1059,6 +1090,42 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	}
 	if (pthread_create(&worker, NULL, drain_worker, NULL) != 0) { close(journal_fd); journal_fd = -1; return; }
 	install_sigterm();
+	/* Unify the clocks before the first cuptiActivityEnable below. NVIDIA's
+	   documentation makes that an ordering requirement, not a preference:
+	   records produced before the callback is installed keep CUPTI's previous
+	   timestamp method, so a late registration yields a journal straddling two
+	   bases -- worse than never registering, because nothing in the record
+	   says which base it is on. This is placed ahead of every CUPTI activity
+	   call rather than immediately before the first enable so that an enable
+	   added later cannot land in front of it.
+
+	   The API is resolved through dlsym rather than called directly. A direct
+	   call makes the symbol a load-time dependency of this library, so a
+	   runtime libcupti that does not export it would fail to load the agent
+	   into the target process at all -- losing the whole capture to gain a
+	   clock. Same reason and same shape as the cuptiActivityGetStructSize
+	   probe further down. The typedef is local rather than CUPTI's own
+	   because a toolkit whose headers predate the API would not compile a
+	   reference to it. */
+	typedef uint64_t (CUPTIAPI *pfn_timestamp_callback)(void);
+	typedef CUptiResult (*pfn_register_timestamp)(pfn_timestamp_callback);
+	pfn_register_timestamp fn_register_timestamp = NULL;
+	*(void **)(&fn_register_timestamp) = dlsym(RTLD_DEFAULT, "cuptiActivityRegisterTimestampCallback");
+	if (fn_register_timestamp == NULL) {
+		clock_state = AGENT_CLOCK_UNSUPPORTED;
+	} else {
+		CUptiResult clock_result = fn_register_timestamp(cupti_timestamp);
+		if (clock_result == CUPTI_SUCCESS) {
+			clock_state = AGENT_CLOCK_UNIFIED;
+		} else {
+			/* A refusal is CUPTI answering a call this agent made, so it is
+			   recorded the way every other refused CUPTI call is. Absence is
+			   not: there is no call and no result, only a runtime older than
+			   the API, which the capability record states. */
+			clock_state = AGENT_CLOCK_REFUSED;
+			record_cupti_failure("cuptiActivityRegisterTimestampCallback", clock_result);
+		}
+	}
 	CUptiResult result = cuptiActivityRegisterCallbacks(buffer_requested, buffer_completed);
 	if (result != CUPTI_SUCCESS) {
 		record_cupti_failure("cuptiActivityRegisterCallbacks", result);
@@ -1222,7 +1289,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	}
 	cupti_ready = 1;
 	const char *bootstrap = "{\"kind\":\"bootstrap\"}";
-	char capability[1280];
+	char capability[1536];
 	if (api_requested) {
 		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_DRIVER);
 		if (result != CUPTI_SUCCESS) {
@@ -1283,7 +1350,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		}
 	}
 	if (range_gated != RANGE_GATED) atomic_store(&collecting, 1);
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability)) (void)write_record(KIND_CAPABILITY, now_ns(), capability, (size_t)capability_len);
 	write_handshake(NULL);

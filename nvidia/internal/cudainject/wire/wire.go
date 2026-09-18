@@ -66,6 +66,29 @@ type Identity struct {
 
 // Record is one independently framed observation. Sequence numbers start at
 // one within each process generation. Dropped is cumulative producer loss.
+//
+// Timestamp is nanoseconds on CLOCK_MONOTONIC in the producing process, and
+// says when the observation happened rather than when the record was framed.
+// A record carrying a CUPTI activity is stamped with that activity's own
+// start, which CUPTI takes on the same clock because the agent registers
+// itself as CUPTI's timestamp source; a record the agent originates -- the
+// bootstrap, the capability, a capture-range edge, a failure, the finalized
+// record -- is stamped when the agent wrote it. The guarantee is that those
+// are one clock, so within a process generation a capture-range edge really
+// does bracket the device activity recorded between its edges and the
+// interval between any two records is a duration. External-correlation
+// records are the exception: they observe an identifier and not an instant,
+// and carry zero.
+//
+// Three limits come with that clock. It is not comparable across processes
+// generally, and Identity is what separates the streams. It has no relation
+// to wall-clock time, so it cannot be joined to anything timestamped by a
+// clock outside the process. And an agent whose CUPTI could not accept the
+// timestamp callback leaves CUPTI on its platform default -- CLOCK_REALTIME
+// on Linux -- which differs from CLOCK_MONOTONIC by the host's boot time;
+// such an agent says so in its capability record (clocks_unified), and a
+// consumer that compares timestamps across kinds must read it, because
+// nothing in this header distinguishes the two cases.
 type Record struct {
 	Kind uint16
 	Identity

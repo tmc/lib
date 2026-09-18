@@ -182,6 +182,31 @@ int main(int argc, char **argv) {
 	   kind count separates them. Which cbid to trigger on is an argument so
 	   one scenario covers the runtime pair and the driver pair; a target calls
 	   one or the other and the gate has to open for either. */
+	/* clock reports what the stub observed about the producer's timestamp
+	   callback: the order of the registration against the first activity
+	   enable, and what the registered callback returns read against this
+	   process's own CLOCK_MONOTONIC and CLOCK_REALTIME. Both halves are
+	   needed. The order alone would pass a producer that registered a
+	   REALTIME callback; the value alone would pass one that registered the
+	   right function too late for any record to use it.
+
+	   The readings are taken here, after the producer's constructor has run,
+	   so they bracket nothing -- they only have to name the clocks, and the
+	   two are separated by boot time, which no scheduling delay approaches. */
+	if (strcmp(scenario, "clock") == 0) {
+		struct timespec mono, real;
+		uint64_t mono_ns = 0, real_ns = 0;
+		if (clock_gettime(CLOCK_MONOTONIC, &mono) == 0) mono_ns = (uint64_t)mono.tv_sec * 1000000000ull + (uint64_t)mono.tv_nsec;
+		if (clock_gettime(CLOCK_REALTIME, &real) == 0) real_ns = (uint64_t)real.tv_sec * 1000000000ull + (uint64_t)real.tv_nsec;
+		printf("{\"scenario\":\"clock\",\"timestamp_registered_at\":%u,\"first_enable_at\":%u,"
+			"\"callback_ns\":%llu,\"monotonic_ns\":%llu,\"realtime_ns\":%llu}\n",
+			cudaprof_test_timestamp_registered_at(), cudaprof_test_first_enable_at(),
+			(unsigned long long)cudaprof_test_timestamp(),
+			(unsigned long long)mono_ns, (unsigned long long)real_ns);
+		fflush(stdout);
+		return 0;
+	}
+
 	if (strcmp(scenario, "capture-range") == 0) {
 		unsigned domain = arg_uint(argc, argv, 6, 2);  /* RUNTIME_API */
 		unsigned start_cbid = domain == 2 ? 171u : 308u;

@@ -38,6 +38,17 @@ unsigned cudaprof_test_enabled_kind_count(void);
    needs to ask without also delivering a completed buffer. */
 int cudaprof_test_request_buffer(void);
 
+/* Reports the call ordering CUPTI's timestamp-callback contract turns on: the
+   sequence number of the cuptiActivityRegisterTimestampCallback that stuck and
+   of the first cuptiActivityEnable, or zero for a call that never happened.
+   The registration must come first, or records produced before it keep CUPTI's
+   previous timestamp method and the journal straddles two clock bases.
+   cudaprof_test_timestamp() invokes the registered callback, which is how a
+   control tells a callback on the producer's own clock from any other. */
+unsigned cudaprof_test_timestamp_registered_at(void);
+unsigned cudaprof_test_first_enable_at(void);
+uint64_t cudaprof_test_timestamp(void);
+
 /* Mock struct size functions for layout compatibility test injection. */
 CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, size_t *size);
 CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size);

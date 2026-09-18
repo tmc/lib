@@ -51,6 +51,20 @@ CUptiResult cuptiActivityRegisterCallbacks(CUpti_BuffersCallbackRequestFunc requ
 	return CUPTI_SUCCESS;
 }
 
+/* Call ordering. CUPTI requires the timestamp callback to be registered before
+   any activity kind is enabled, because records produced earlier keep the
+   previous timestamp method. That is a property of the order of two calls and
+   nothing else -- a journal from a late registration is byte-indistinguishable
+   from a correct one on this stub, and on a real host it differs only by an
+   offset no field names. So the stub numbers the calls as they arrive and the
+   control reads the two numbers back. A control that only asked "was it
+   registered" would pass on the broken order. */
+static _Atomic unsigned call_sequence;
+static _Atomic unsigned timestamp_registered_at;
+static _Atomic unsigned first_enable_at;
+
+static unsigned next_call_sequence(void) { return atomic_fetch_add(&call_sequence, 1u) + 1u; }
+
 /* Tracks which kinds the producer enabled, so an activity-only configuration
    really does stop API records from being delivered, as CUPTI would. */
 static _Atomic int enabled_kinds[16];
@@ -61,9 +75,46 @@ static int kind_enabled(CUpti_ActivityKind kind) {
 }
 
 CUptiResult cuptiActivityEnable(CUpti_ActivityKind kind) {
+	unsigned at = next_call_sequence();
+	unsigned unset = 0;
+	/* Only the FIRST enable matters: the requirement is that no record can be
+	   produced before the callback is installed, and the first enable is when
+	   that becomes possible. */
+	(void)atomic_compare_exchange_strong(&first_enable_at, &unset, at);
 	if ((unsigned)kind >= 16) return CUPTI_ERROR_INVALID_PARAMETER;
 	atomic_store(&enabled_kinds[(unsigned)kind], 1);
 	return CUPTI_SUCCESS;
+}
+
+/* The timestamp source the producer registered, retained so the control can
+   read what it returns. Registering a callback is not the property under test;
+   registering one that reads the same clock as the producer's own record
+   headers is, and only calling it can tell those apart. */
+static _Atomic(CUpti_TimestampCallbackFunc) timestamp_cb;
+
+#ifndef CUDAPROF_TEST_NO_TIMESTAMP_CALLBACK
+/* Defining this symbol is what makes the producer's dlsym probe succeed; a
+   build with CUDAPROF_TEST_NO_TIMESTAMP_CALLBACK omits the definition and
+   stands for a CUPTI predating the API. CUDAPROF_TEST_REFUSE_TIMESTAMP stands
+   for one that exports it and rejects the callback. */
+CUptiResult cuptiActivityRegisterTimestampCallback(CUpti_TimestampCallbackFunc callback) {
+	unsigned at = next_call_sequence();
+	if (callback == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
+	const char *refuse = getenv("CUDAPROF_TEST_REFUSE_TIMESTAMP");
+	if (refuse != NULL && *refuse != '\0' && strcmp(refuse, "0") != 0) return CUPTI_ERROR_NOT_SUPPORTED;
+	atomic_store(&timestamp_cb, callback);
+	atomic_store(&timestamp_registered_at, at);
+	return CUPTI_SUCCESS;
+}
+#endif
+
+unsigned cudaprof_test_timestamp_registered_at(void) { return atomic_load(&timestamp_registered_at); }
+unsigned cudaprof_test_first_enable_at(void) { return atomic_load(&first_enable_at); }
+
+uint64_t cudaprof_test_timestamp(void) {
+	CUpti_TimestampCallbackFunc fn = atomic_load(&timestamp_cb);
+	if (fn == NULL) return 0;
+	return fn();
 }
 
 CUptiResult cuptiActivityDisable(CUpti_ActivityKind kind) {
