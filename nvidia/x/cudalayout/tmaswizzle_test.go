@@ -208,3 +208,63 @@ func TestSwizzledTileOutOfBounds(t *testing.T) {
 		t.Errorf("zero tile ByteOffset error = %v, want ErrUnsupported", err)
 	}
 }
+
+// cuteSwizzleApply transcribes CUTLASS CuTe's Swizzle<BBits,MBase,SShift>
+// from include/cute/swizzle.hpp:
+//
+//	bit_msk = (1 << BBits) - 1
+//	yyy_msk = bit_msk << (MBase + max(0, SShift))
+//	apply(offset) = offset ^ shiftr(offset & yyy_msk, SShift)
+//
+// CuTe's get_tma_swizzle_bits (include/cute/atom/copy_traits_sm90_tma_swizzle.hpp)
+// pins the triple for each tensor-map mode: MBase is 4 and SShift is 3, and
+// BBits is 3 for 128B, 2 for 64B, 1 for 32B and 0 for none.
+func cuteSwizzleApply(offset, bbits int) int {
+	const mbase, sshift = 4, 3
+	bitMsk := (1 << bbits) - 1
+	yyyMsk := bitMsk << (mbase + sshift)
+	return offset ^ ((offset & yyyMsk) >> sshift)
+}
+
+// TestSwizzleXORMatchesCuTe is the second witness for the swizzle step.
+//
+// TestSwizzledTileMatchesThunderKittens compares against tkByteOffset, which
+// this package's author transcribed from the same source the implementation
+// was written from. That is one reading spelled twice, not two witnesses, and
+// it is the weakness [TestFragmentSlotQuadrants] closes for the fragment
+// mapping. CuTe is the independent route: a different project, a different
+// author, and a different parameterization -- bit masks and a shift rather
+// than modulo and divide arithmetic -- reaching the same permutation.
+//
+// It witnesses the XOR step only. CuTe expresses the column grouping as a
+// separate Layout composed with the Swizzle, so the group ordering in
+// [SwizzledTile.ByteOffset] still rests on the ThunderKittens reading alone.
+func TestSwizzleXORMatchesCuTe(t *testing.T) {
+	tests := []struct {
+		swizzle TMASwizzle
+		bbits   int
+	}{
+		{TMASwizzleNone, 0},
+		{TMASwizzle32B, 1},
+		{TMASwizzle64B, 2},
+		{TMASwizzle128B, 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.swizzle.String(), func(t *testing.T) {
+			span := tt.swizzle.Bytes()
+			// Sweep well past the eight-span repeat so a pattern that
+			// restarts at the wrong period is caught.
+			for offset := 0; offset < 4096; offset += swizzleChunk {
+				var got int
+				if span == 0 {
+					got = offset
+				} else {
+					got = offset ^ swizzleXOR(offset, span)
+				}
+				if want := cuteSwizzleApply(offset, tt.bbits); got != want {
+					t.Fatalf("offset %d: this package gives %d, CuTe gives %d", offset, got, want)
+				}
+			}
+		})
+	}
+}
