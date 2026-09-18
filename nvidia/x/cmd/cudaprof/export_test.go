@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/cupti"
 )
 
 // traceActivity appends one activity with an explicit stream and name, which
@@ -401,5 +403,44 @@ func TestExportKeepsCaptureRangeOutOfTheNVTXPairing(t *testing.T) {
 	// One kernel plus one NVTX range, and nothing else.
 	if len(records) != 2 {
 		t.Errorf("got %d trace records, want 2 (one kernel, one NVTX range)", len(records))
+	}
+}
+
+// TestExportKeepsMemsetsOutOfTheKernelKind covers the arm in activityRecord
+// that claims the memset subtype.
+//
+// The switch there has a permissive default -- the kernel arm -- so a subtype
+// it does not name is not rejected, it is relabelled. Before the memset case
+// existed, a memset would have been exported as a CONCURRENT_KERNEL carrying a
+// zero grid and block, and the export would have been complete, well formed,
+// and wrong in a way no count would show. The assertion is therefore on the
+// kind, not on the record's presence.
+func TestExportKeepsMemsetsOutOfTheKernelKind(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceActivity("kernel", "k", 0, 7, 1_000, 2_000, 1)
+	b.traceActivity("memset", "", 0, 7, 3_000, 4_000, 2)
+	records := decodeFixture(t, b.finalize())
+
+	var kinds []cupti.ActivityKind
+	for _, r := range records {
+		if r.kind != trackDevice {
+			continue
+		}
+		kinds = append(kinds, r.rec.Kind)
+	}
+	if len(kinds) != 2 {
+		t.Fatalf("device records = %d (%v), want 2: the memset never reached the trace", len(kinds), kinds)
+	}
+	var memsets, kernels int
+	for _, k := range kinds {
+		switch k {
+		case cupti.ActivityKindMemset:
+			memsets++
+		case cupti.ActivityKindConcurrentKernel:
+			kernels++
+		}
+	}
+	if memsets != 1 || kernels != 1 {
+		t.Errorf("kinds = %v, want one MEMSET and one CONCURRENT_KERNEL: the memset was exported under another activity kind", kinds)
 	}
 }

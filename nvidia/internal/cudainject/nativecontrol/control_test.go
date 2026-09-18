@@ -122,6 +122,7 @@ type capture struct {
 	capability capabilityRecord
 	failures   []string
 	markers    []markerRecord
+	memsets    []memsetRecord
 	ranges     []rangeEdgeRecord
 	truncated  bool
 }
@@ -155,6 +156,24 @@ type markerRecord struct {
 	End        uint64 `json:"end"`
 }
 
+// memsetRecord is one CUPTI_ACTIVITY_KIND_MEMSET activity as the producer
+// transcribed it. A memset is device work with a duration: before the kind was
+// collected, the device time it occupied was absent from the journal entirely,
+// and every consumer that derives idle time from this stream reported that
+// time as idle.
+type memsetRecord struct {
+	Subtype     string `json:"subtype"`
+	Valid       bool   `json:"valid"`
+	Start       uint64 `json:"start"`
+	End         uint64 `json:"end"`
+	Bytes       uint64 `json:"bytes"`
+	Value       uint32 `json:"value"`
+	Device      uint32 `json:"device"`
+	Context     uint32 `json:"context"`
+	Stream      uint32 `json:"stream"`
+	Correlation uint32 `json:"correlation"`
+}
+
 // Marker flags, mirroring CUpti_ActivityFlag in native/testcupti.
 const (
 	markerFlagInstantaneous = 1 << 0
@@ -171,6 +190,7 @@ type capabilityRecord struct {
 	SigtermFinalize bool   `json:"sigterm_finalize"`
 	AtforkGuard     bool   `json:"atfork_guard"`
 	NVTXMarkers     bool   `json:"nvtx_markers"`
+	Memsets         bool   `json:"memsets"`
 	CaptureRange    string `json:"capture_range"`
 	DrainBatch      int    `json:"drain_batch"`
 	QueueCapacity   int    `json:"queue_capacity"`
@@ -348,6 +368,13 @@ func decode(t *testing.T, path string) capture {
 					t.Fatalf("marker payload %q: %v", r.Payload, err)
 				}
 				c.markers = append(c.markers, m)
+			}
+			if bytes.Contains(r.Payload, []byte(`"subtype":"memset"`)) {
+				var m memsetRecord
+				if err := json.Unmarshal(r.Payload, &m); err != nil {
+					t.Fatalf("memset payload %q: %v", r.Payload, err)
+				}
+				c.memsets = append(c.memsets, m)
 			}
 		}
 	}
@@ -1323,5 +1350,106 @@ func TestCaptureRangeRefusesUnpairedTriggers(t *testing.T) {
 				t.Errorf("wrote %d range edges with an unpaired trigger set: %+v", len(got.Edges), got.Edges)
 			}
 		})
+	}
+}
+
+// TestMemsetsReachTheJournal covers CUPTI_ACTIVITY_KIND_MEMSET end to end: the
+// producer's enable, the buffer-completed decode, and the journal record a
+// consumer reads.
+//
+// It exists because the kind was absent from the producer entirely -- not
+// enabled, not decoded -- and nothing failed. CUPTI offered no memset records
+// because none were asked for, the decode loop had no branch that would have
+// missed them, and the journal was complete by its own accounting. The device
+// time a cudaMemsetAsync occupied simply was not in the stream, so every
+// consumer that derives idle time from it charged that time to idle.
+//
+// The assertions are on the values the stub wrote, not merely on a count: a
+// record that arrives with a zero span or zero bytes would still be a record,
+// and it is the span that has to be there for the idle arithmetic to change.
+func TestMemsetsReachTheJournal(t *testing.T) {
+	// One thread, one buffer, no kernels/memcpys/apis of interest, six memsets.
+	// argv: scenario threads buffers per_buffer pause_micros _ markers memsets
+	_, status, captures := run(t, "sustained", "1", "1", "8", "0", "0", "0", "6")
+	c := only(t, captures)
+	if !c.capability.Memsets {
+		t.Fatal("capability reports memsets = false: the producer never enabled CUPTI_ACTIVITY_KIND_MEMSET, so every assertion below would be about an empty set")
+	}
+	if len(c.memsets) != 6 {
+		t.Fatalf("got %d memset records, want 6", len(c.memsets))
+	}
+	for i, m := range c.memsets {
+		if m.Subtype != "memset" {
+			t.Errorf("memset %d: subtype=%q, want \"memset\"", i, m.Subtype)
+		}
+		if !m.Valid {
+			t.Errorf("memset %d: valid=false, want true: the stub wrote a well-ordered span", i)
+		}
+		// The span is the whole point. A memset carried with start == end
+		// would leave the idle arithmetic exactly where it was.
+		if m.End <= m.Start {
+			t.Errorf("memset %d spans %d..%d, want a positive duration", i, m.Start, m.End)
+		}
+		if got := m.End - m.Start; got != 40 {
+			t.Errorf("memset %d duration = %d ns, want 40 as the stub wrote it", i, got)
+		}
+		if m.Bytes != 8192 {
+			t.Errorf("memset %d: bytes=%d, want 8192", i, m.Bytes)
+		}
+		if m.Stream != 7 || m.Context != 1 {
+			t.Errorf("memset %d: context=%d stream=%d, want 1/7 from the stub record", i, m.Context, m.Stream)
+		}
+		if m.Correlation == 0 {
+			t.Errorf("memset %d has correlation 0, so it can never be joined to the API call that launched it", i)
+		}
+	}
+	if len(c.failures) != 0 {
+		t.Errorf("producer reported failures: %q", c.failures)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestUndecodedActivityKindIsReported covers the silence that let the memset
+// gap persist. The decode loop recognizes a fixed set of kinds; every other
+// anomaly in that loop -- a short record, a malformed buffer -- queues a
+// producer failure, but an unrecognized kind was skipped with no record at
+// all. A consumer then cannot distinguish a kind that produced nothing from a
+// kind whose records this producer threw away.
+//
+// The control offers a kind the producer has no branch for and never will,
+// which is the real shape of this case: a runtime newer than the build
+// delivering something the build does not know. Reaching the arm by removing a
+// decode branch instead would have tested a binary that is not the production
+// one, and would have left a define that silently disables memset collection
+// if it ever leaked into a real build -- the same fail-open this arm exists to
+// close.
+func TestUndecodedActivityKindIsReported(t *testing.T) {
+	// argv: scenario threads buffers per_buffer pause_micros _ markers memsets undecoded
+	_, status, captures := run(t, "sustained", "1", "1", "8", "0", "0", "0", "0", "4")
+	c := only(t, captures)
+	var undecoded int
+	for _, f := range c.failures {
+		if strings.Contains(f, "undecoded CUPTI activity kind") {
+			undecoded++
+		}
+	}
+	if undecoded == 0 {
+		t.Fatalf("producer skipped a kind it cannot decode and said nothing; failures = %q", c.failures)
+	}
+	// The kind is named, not merely counted. A failure that says only "an
+	// activity was dropped" tells a reader nothing they can act on, and the
+	// whole point of the arm is to name what the build did not understand.
+	if !strings.Contains(c.failures[0], "9000000") {
+		t.Errorf("failure %q does not name the kind that was dropped", c.failures[0])
+	}
+	// The record is skipped either way -- there is nothing to decode -- so the
+	// arm must not fabricate an activity to go with its complaint.
+	if len(c.memsets) != 0 {
+		t.Errorf("got %d memset records from a run that offered none", len(c.memsets))
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit: an unknown kind is reported, not fatal", status)
 	}
 }

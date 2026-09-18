@@ -970,3 +970,80 @@ func TestObserveJournalCarriesMarkersToNVTXLabels(t *testing.T) {
 		t.Errorf("kernel after the range closed has nvtx = %v, want none", got["outside"])
 	}
 }
+
+// TestObserveJournalCarriesMemsets covers the consumer half of the MEMSET
+// tier. The subtype check in observeJournal is an allowlist, so the producer
+// side cannot ship without this one: a capture of any target that calls
+// cudaMemsetAsync would be rejected outright rather than degraded.
+//
+// The payload is the producer's, field for field, including the fields a
+// memset does not have. A memset carries no name and no launch geometry, and a
+// fixture that omitted them would not show that the zero grid and block survive
+// the hop without being mistaken for a kernel's.
+func TestObserveJournalCarriesMemsets(t *testing.T) {
+	dir := t.TempDir()
+	sessionHex := "0123456789abcdef0123456789abcdef"
+	raw, err := hex.DecodeString(sessionHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	copy(sid[:], raw)
+
+	journalPath := filepath.Join(dir, "capture.journal")
+	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"memset","name":"","valid":true,"start":300,"end":420,"bytes":8192,"queued":0,"submitted":0,"copy_kind":0,"value":7,"runtime_correlation":0,"device":1,"context":1,"stream":7,"correlation":9,"grid":[0,0,0],"block":[0,0,0],"registers_per_thread":0,"dynamic_shared_memory":0,"graph_id":0,"graph_node_id":0}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+	})
+
+	_, _, metrics, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
+	if err != nil {
+		t.Fatalf("a memset record cost the whole capture: %v", err)
+	}
+	if len(activities) != 2 {
+		t.Fatalf("got %d activities, want 2", len(activities))
+	}
+	var memset captureActivity
+	var found bool
+	for _, a := range activities {
+		if a.Subtype == "memset" {
+			memset, found = a, true
+		}
+	}
+	if !found {
+		t.Fatal("no memset in the activity slice")
+	}
+	if !memset.Valid {
+		t.Error("memset valid = false")
+	}
+	// The span is what moves idle time into busy time downstream. Everything
+	// else on this record is detail; this is the reason the tier exists.
+	if memset.Start != 300 || memset.End != 420 {
+		t.Errorf("memset span = %d..%d, want 300..420", memset.Start, memset.End)
+	}
+	if memset.Bytes != 8192 {
+		t.Errorf("memset bytes = %d, want 8192", memset.Bytes)
+	}
+	if memset.Value != 7 {
+		t.Errorf("memset value = %d, want 7: the fill byte was dropped between the producer and the record", memset.Value)
+	}
+	if memset.Device != 1 || memset.Stream != 7 || memset.Correlation != 9 {
+		t.Errorf("memset device/stream/correlation = %d/%d/%d, want 1/7/9", memset.Device, memset.Stream, memset.Correlation)
+	}
+	if memset.GridDim != [3]uint32{0, 0, 0} || memset.BlockDim != [3]uint32{0, 0, 0} {
+		t.Errorf("memset grid/block = %v/%v, want zero: a memset has no launch geometry", memset.GridDim, memset.BlockDim)
+	}
+	// A memset writes bytes; it does not copy them. Charging them to the copy
+	// total would inflate a figure that names a transfer.
+	if metrics.copyBytes != 0 {
+		t.Errorf("copy bytes = %d, want 0: a memset is not a transfer", metrics.copyBytes)
+	}
+	// It is device work with a duration, so its time belongs in the duration
+	// total beside the kernel's: 120 for the memset, 100 for the kernel.
+	if metrics.duration != 220 {
+		t.Errorf("duration = %d, want 220 (100 kernel + 120 memset)", metrics.duration)
+	}
+}

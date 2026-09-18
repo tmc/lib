@@ -34,6 +34,12 @@ type ActivityRecord struct {
 	GraphID             uint32    `json:"graph_id,omitempty"`
 	GraphNodeID         uint64    `json:"graph_node_id,omitempty"`
 
+	// Value is the byte a memset wrote, set only when Subtype is "memset".
+	// It carries omitempty like its neighbours, so a memset of zero -- the
+	// common case -- is indistinguishable from an absent value; the subtype
+	// is what says the field means anything.
+	Value uint32 `json:"value,omitempty"`
+
 	// NVTX marker fields, set only when Subtype is "marker". A range is two
 	// records sharing MarkerID on one thread: CUPTI reports the open and the
 	// close separately, so no single record holds a duration. Pairing needs
@@ -277,7 +283,7 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 		value := []int64{0, 0, 0, 1}
 		if activity.Subtype == "kernel" {
 			value[0] = int64(activity.End - activity.Start)
-		} else if activity.Subtype == "memcpy" {
+		} else if activity.Subtype == "memcpy" || activity.Subtype == "memset" {
 			value[1] = int64(activity.End - activity.Start)
 			value[2] = int64(activity.Bytes)
 		}
@@ -311,6 +317,9 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 		name := activity.Name
 		if activity.Subtype == "memcpy" && name == "" {
 			name = "cudaMemcpy"
+		}
+		if activity.Subtype == "memset" && name == "" {
+			name = "cudaMemset"
 		}
 		fn := functions[name]
 		if fn == nil {

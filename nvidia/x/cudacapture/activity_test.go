@@ -558,3 +558,42 @@ func TestNVTXRangesIgnoreUnpairedMarkers(t *testing.T) {
 		t.Errorf("nvtx = %v, want none: neither an unclosed open nor an unopened close is a window", got)
 	}
 }
+
+// TestBuildActivityProfileCountsMemsetTime pins the memset arm of the sample
+// value. The arms are a chain with no default: a subtype none of them names
+// still produces a sample, with a count of one and both duration dimensions
+// left at zero. A memset would then appear in the profile as device work that
+// took no time and moved no bytes -- present, countable, and invisible to
+// every `-sample_index` a reader would use to find it.
+func TestBuildActivityProfileCountsMemsetTime(t *testing.T) {
+	p := cudacapture.BuildActivityProfile("session-42", 100, []cudacapture.ActivityRecord{
+		{Subtype: "memset", Valid: true, Start: 3000, End: 3500, Bytes: 8192, Value: 0, Device: 0},
+	})
+	if p == nil || len(p.Sample) != 1 {
+		t.Fatalf("samples = %d, want 1", len(p.Sample))
+	}
+	s := p.Sample[0]
+	if len(s.Value) != 4 {
+		t.Fatalf("value dimensions = %d, want 4", len(s.Value))
+	}
+	if s.Value[0] != 0 {
+		t.Errorf("kernel time = %d, want 0: a memset is not a kernel", s.Value[0])
+	}
+	if s.Value[1] != 500 {
+		t.Errorf("memory time = %d, want 500: the memset contributed no device time", s.Value[1])
+	}
+	if s.Value[2] != 8192 {
+		t.Errorf("bytes = %d, want 8192", s.Value[2])
+	}
+	if s.Value[3] != 1 {
+		t.Errorf("count = %d, want 1", s.Value[3])
+	}
+	// A memset carries no symbol, so the profile has to name it something a
+	// reader can find; an empty function name is not one.
+	if got := s.Location[0].Line[0].Function.Name; got != "cudaMemset" {
+		t.Errorf("function name = %q, want %q", got, "cudaMemset")
+	}
+	if got := s.Label["subtype"]; len(got) != 1 || got[0] != "memset" {
+		t.Errorf("subtype label = %v, want [memset]", got)
+	}
+}

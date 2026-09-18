@@ -20,12 +20,20 @@ typedef enum {
 typedef enum {
 	CUPTI_ACTIVITY_KIND_INVALID = 0,
 	CUPTI_ACTIVITY_KIND_MEMCPY = 1,
+	CUPTI_ACTIVITY_KIND_MEMSET = 2,
 	CUPTI_ACTIVITY_KIND_KERNEL = 3,
 	CUPTI_ACTIVITY_KIND_DRIVER = 4,
 	CUPTI_ACTIVITY_KIND_RUNTIME = 5,
 	CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL = 6,
 	CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION = 7,
-	CUPTI_ACTIVITY_KIND_MARKER = 12
+	CUPTI_ACTIVITY_KIND_MARKER = 12,
+	/* A kind the producer has no decode branch for, and never will. CUPTI's
+	   own kinds are a dense enum -- CUDA 13 reaches the low nineties -- so a
+	   value five orders of magnitude above the top of that range cannot
+	   collide with a real kind this agent later learns to decode. That
+	   non-collision is the point: the control has to stay a control after
+	   MEMSET, SYNCHRONIZATION and whatever follows them are all handled. */
+	CUPTI_ACTIVITY_KIND_TEST_UNDECODED = 9000000
 } CUpti_ActivityKind;
 
 /* NVTX reaches CUPTI as three separate marker records rather than as one
@@ -90,6 +98,17 @@ typedef struct {
 	uint8_t copyKind;
 	uint32_t runtimeCorrelationId, deviceId, contextId, streamId, correlationId;
 } CUpti_ActivityMemcpy6;
+
+/* Only the prefix cupti_agent.c reads. The real CUpti_ActivityMemset4 carries
+   flags, memoryKind, graph attribution and channel fields after these; the
+   agent reads none of them, and a stub that invented their offsets would be
+   asserting a layout nothing here checks. */
+typedef struct {
+	CUpti_ActivityKind kind;
+	uint32_t value;
+	uint64_t bytes, start, end;
+	uint32_t deviceId, contextId, streamId, correlationId;
+} CUpti_ActivityMemset4;
 
 typedef struct {
 	CUpti_ActivityKind kind;

@@ -464,6 +464,12 @@ func activityRecord(p tracePayload) cuptiactivity.Record {
 		r.Kind = cupti.ActivityKindMemcpy
 		r.CopyKind = cupti.ActivityMemcpyKind(p.CopyKind)
 		r.RuntimeCorrelationID = p.RuntimeCorr
+	case "memset":
+		// Without this arm a memset falls to the default below and is
+		// exported as a kernel, carrying whatever the zero grid and block
+		// decode to. The default is deliberately permissive -- it is the
+		// kernel arm -- so a new device subtype has to claim itself here.
+		r.Kind = cupti.ActivityKindMemset
 	default:
 		r.Kind = cupti.ActivityKindConcurrentKernel
 		r.Queued, r.Submitted = p.Queued, p.Submitted

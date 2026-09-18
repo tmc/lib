@@ -181,6 +181,7 @@ static int cupti_ready;
 static int concurrent_enabled;
 static int legacy_enabled;
 static int memcpy_enabled;
+static int memset_enabled;
 static int external_enabled;
 static int marker_enabled;
 static int runtime_enabled;
@@ -502,7 +503,7 @@ static void write_handshake(const char *failure) {
 }
 
 static int append_activity(const char *kind, const char *name, uint64_t start, uint64_t end, uint64_t bytes,
-	uint64_t queued, uint64_t submitted, uint8_t copy_kind,
+	uint64_t queued, uint64_t submitted, uint8_t copy_kind, uint32_t memset_value,
 	uint32_t runtime_correlation, uint32_t device, uint32_t context, uint32_t stream, uint32_t correlation,
 	uint32_t grid_x, uint32_t grid_y, uint32_t grid_z,
 	uint32_t block_x, uint32_t block_y, uint32_t block_z,
@@ -523,8 +524,8 @@ static int append_activity(const char *kind, const char *name, uint64_t start, u
 	}
 	int valid = start != CUPTI_TIMESTAMP_UNKNOWN && end != CUPTI_TIMESTAMP_UNKNOWN && end >= start;
 	n += snprintf(payload + n, sizeof(payload) - (size_t)n,
-		"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"bytes\":%" PRIu64 ",\"queued\":%" PRIu64 ",\"submitted\":%" PRIu64 ",\"copy_kind\":%u,\"runtime_correlation\":%u,\"device\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u,\"grid\":[%u,%u,%u],\"block\":[%u,%u,%u],\"grid_x\":%u,\"grid_y\":%u,\"grid_z\":%u,\"block_x\":%u,\"block_y\":%u,\"block_z\":%u,\"registers_per_thread\":%u,\"dynamic_shared_memory\":%u,\"graph_id\":%u,\"graph_node_id\":%" PRIu64 "}",
-		valid ? "true" : "false", start, end, bytes, queued, submitted, copy_kind, runtime_correlation, device, context, stream, correlation,
+		"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"bytes\":%" PRIu64 ",\"queued\":%" PRIu64 ",\"submitted\":%" PRIu64 ",\"copy_kind\":%u,\"value\":%u,\"runtime_correlation\":%u,\"device\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u,\"grid\":[%u,%u,%u],\"block\":[%u,%u,%u],\"grid_x\":%u,\"grid_y\":%u,\"grid_z\":%u,\"block_x\":%u,\"block_y\":%u,\"block_z\":%u,\"registers_per_thread\":%u,\"dynamic_shared_memory\":%u,\"graph_id\":%u,\"graph_node_id\":%" PRIu64 "}",
+		valid ? "true" : "false", start, end, bytes, queued, submitted, copy_kind, memset_value, runtime_correlation, device, context, stream, correlation,
 		grid_x, grid_y, grid_z, block_x, block_y, block_z,
 		grid_x, grid_y, grid_z, block_x, block_y, block_z,
 		registers_per_thread, dynamic_shared_memory, graph_id, graph_node_id);
@@ -695,7 +696,7 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 		if (record->kind == CUPTI_ACTIVITY_KIND_KERNEL || record->kind == CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL) {
 			if (rp + sizeof(CUDAPROF_KERNEL_TYPE) < rp || rp + sizeof(CUDAPROF_KERNEL_TYPE) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short kernel record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUDAPROF_KERNEL_TYPE *k = (const CUDAPROF_KERNEL_TYPE *)record;
-			(void)append_activity("kernel", k->name, k->start, k->end, 0, k->queued, k->submitted, 0, 0, k->deviceId, k->contextId, k->streamId, k->correlationId,
+			(void)append_activity("kernel", k->name, k->start, k->end, 0, k->queued, k->submitted, 0, 0, 0, k->deviceId, k->contextId, k->streamId, k->correlationId,
 				(uint32_t)(k->gridX > 0 ? k->gridX : 0),
 				(uint32_t)(k->gridY > 0 ? k->gridY : 0),
 				(uint32_t)(k->gridZ > 0 ? k->gridZ : 0),
@@ -708,7 +709,12 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_MEMCPY) {
 			if (rp + sizeof(CUpti_ActivityMemcpy6) < rp || rp + sizeof(CUpti_ActivityMemcpy6) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Memcpy6 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityMemcpy6 *m6 = (const CUpti_ActivityMemcpy6 *)record;
-			(void)append_activity("memcpy", "", m6->start, m6->end, m6->bytes, 0, 0, m6->copyKind, m6->runtimeCorrelationId, m6->deviceId, m6->contextId, m6->streamId, m6->correlationId,
+			(void)append_activity("memcpy", "", m6->start, m6->end, m6->bytes, 0, 0, m6->copyKind, 0, m6->runtimeCorrelationId, m6->deviceId, m6->contextId, m6->streamId, m6->correlationId,
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+		} else if (record->kind == CUPTI_ACTIVITY_KIND_MEMSET) {
+			if (rp + sizeof(CUpti_ActivityMemset4) < rp || rp + sizeof(CUpti_ActivityMemset4) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Memset4 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
+			const CUpti_ActivityMemset4 *ms = (const CUpti_ActivityMemset4 *)record;
+			(void)append_activity("memset", "", ms->start, ms->end, ms->bytes, 0, 0, 0, ms->value, 0, ms->deviceId, ms->contextId, ms->streamId, ms->correlationId,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_DRIVER || record->kind == CUPTI_ACTIVITY_KIND_RUNTIME) {
 			if (rp + sizeof(CUpti_ActivityAPI) < rp || rp + sizeof(CUpti_ActivityAPI) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short API record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
@@ -721,6 +727,16 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_MARKER) {
 			if (rp + sizeof(CUpti_ActivityMarker2) < rp || rp + sizeof(CUpti_ActivityMarker2) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Marker2 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			(void)append_marker((const CUpti_ActivityMarker2 *)record);
+		} else {
+			/* Every other anomaly in this loop is recorded; a kind nobody
+			   decodes was not. That silence is what let an unenabled MEMSET
+			   read as idle device time for as long as it did: the consumer
+			   cannot tell a kind that produced no records from a kind whose
+			   records were dropped here. The record is skipped either way --
+			   there is nothing to decode -- but the reader is told. */
+			char failure[128];
+			int fn = snprintf(failure, sizeof(failure), "{\"state\":\"producer_failure\",\"error\":\"undecoded CUPTI activity kind %u\"}", (unsigned)record->kind);
+			if (fn > 0 && fn < (int)sizeof(failure)) (void)queue_pending(KIND_FAILURE, now_ns(), failure, (size_t)fn);
 		}
 	}
 	if (next != CUPTI_ERROR_MAX_LIMIT_REACHED && next != CUPTI_SUCCESS) {
@@ -903,13 +919,14 @@ static int set_activity_collection(int on) {
 		CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL,
 		CUPTI_ACTIVITY_KIND_KERNEL,
 		CUPTI_ACTIVITY_KIND_MEMCPY,
+		CUPTI_ACTIVITY_KIND_MEMSET,
 		CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION,
 		CUPTI_ACTIVITY_KIND_MARKER,
 		CUPTI_ACTIVITY_KIND_RUNTIME,
 		CUPTI_ACTIVITY_KIND_DRIVER,
 	};
 	const int *flags[] = {
-		&concurrent_enabled, &legacy_enabled, &memcpy_enabled, &external_enabled,
+		&concurrent_enabled, &legacy_enabled, &memcpy_enabled, &memset_enabled, &external_enabled,
 		&marker_enabled, &runtime_enabled, &driver_enabled,
 	};
 	int failures = 0;
@@ -1095,6 +1112,15 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	pfn_get_struct_size fn_get_struct_size = NULL;
 	*(void **)(&fn_get_struct_size) = dlsym(RTLD_DEFAULT, "cuptiActivityGetStructSize");
 #endif
+	/* A runtime whose memset record is shorter than the layout this agent
+	   reads would be read past its end. That is a reason not to collect the
+	   kind, not a reason to fail the capture, so unlike the kernel and memcpy
+	   checks below it degrades: the capability record says memsets are off. */
+	int memset_layout_ok = 1;
+	if (fn_get_struct_size != NULL) {
+		size_t memset_sz = 0;
+		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_MEMSET, 0, &memset_sz) != CUPTI_SUCCESS || memset_sz < sizeof(CUpti_ActivityMemset4)) memset_layout_ok = 0;
+	}
 	if (fn_get_struct_size != NULL) {
 		size_t kernel_sz = 0, memcpy_sz = 0;
 		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL, 0, &kernel_sz) != CUPTI_SUCCESS ||
@@ -1133,6 +1159,16 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		return;
 	}
 	memcpy_enabled = 1;
+	/* A memset is device work with a duration, and until it was collected the
+	   time a cudaMemsetAsync spent on the device was reported as idle by every
+	   consumer that reads this journal. It is enabled on the MARKER policy
+	   rather than the MEMCPY one: a CUPTI too old to offer the kind is a
+	   supported configuration recorded in the capability record, whereas
+	   failing the capture would lose the kernels and copies as well. */
+	if (memset_layout_ok) {
+		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MEMSET);
+		if (result == CUPTI_SUCCESS) memset_enabled = 1;
+	}
 	result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION);
 	if (result != CUPTI_SUCCESS) {
 		record_cupti_failure("cuptiActivityEnable(EXTERNAL_CORRELATION)", result);
@@ -1228,7 +1264,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		}
 	}
 	if (range_gated != RANGE_GATED) atomic_store(&collecting, 1);
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, kernel_mode, CUDAPROF_KERNEL_LAYOUT, sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability)) (void)write_record(KIND_CAPABILITY, now_ns(), capability, (size_t)capability_len);
 	write_handshake(NULL);

@@ -15,6 +15,8 @@ CUptiResult cuptiGetResultString(CUptiResult, const char **message);
 void cudaprof_test_set_native_dropped(size_t dropped);
 int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals);
 int cudaprof_test_offer_markers(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers);
+int cudaprof_test_offer_mix(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets);
+int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets, unsigned undecoded);
 int cudaprof_test_callbacks_registered(void);
 
 /* Drives the Callback API surface capture-range gating subscribes to. fire()

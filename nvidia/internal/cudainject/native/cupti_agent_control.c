@@ -74,6 +74,8 @@ struct offer_plan {
 	unsigned buffers;       /* buffers this thread offers */
 	unsigned per_buffer;    /* records per buffer */
 	unsigned markers;       /* NVTX markers per buffer, above per_buffer */
+	unsigned memsets;       /* memsets per buffer, above per_buffer */
+	unsigned undecoded;     /* records of a kind nobody decodes, above per_buffer */
 	unsigned pause_micros;  /* pause between buffers, 0 for a burst */
 	long offered;           /* out: records accepted into buffers */
 	long exhausted;         /* out: offers refused because the pool was busy */
@@ -85,7 +87,7 @@ static void *offer_thread(void *arg) {
 	unsigned memcpys = plan->per_buffer / 4;
 	unsigned apis = plan->per_buffer - kernels - memcpys;
 	for (unsigned i = 0; i < plan->buffers; i++) {
-		int placed = cudaprof_test_offer_markers(kernels, memcpys, apis, 0, plan->markers);
+		int placed = cudaprof_test_offer_undecoded(kernels, memcpys, apis, 0, plan->markers, plan->memsets, plan->undecoded);
 		if (placed < 0) break;
 		if (placed == 0) { plan->exhausted++; continue; }
 		plan->offered += placed;
@@ -152,6 +154,8 @@ int main(int argc, char **argv) {
 	   so adding them to a scenario does not change the kernel/memcpy/api mix
 	   the scenario was calibrated against. */
 	unsigned markers = arg_uint(argc, argv, 7, 0);
+	unsigned memsets = arg_uint(argc, argv, 8, 0);
+	unsigned undecoded = arg_uint(argc, argv, 9, 0);
 	if (threads == 0) threads = 1;
 	if (threads > 64) threads = 64;
 
@@ -161,6 +165,8 @@ int main(int argc, char **argv) {
 		plans[i].buffers = buffers;
 		plans[i].per_buffer = per_buffer;
 		plans[i].markers = markers;
+		plans[i].memsets = memsets;
+		plans[i].undecoded = undecoded;
 		plans[i].pause_micros = pause_micros;
 	}
 
@@ -181,13 +187,13 @@ int main(int argc, char **argv) {
 		unsigned start_cbid = domain == 2 ? 171u : 308u;
 		unsigned stop_cbid = domain == 2 ? 172u : 309u;
 		unsigned before_kinds = cudaprof_test_enabled_kind_count();
-		int before = cudaprof_test_offer_markers(buffers, buffers, buffers, 0, markers);
+		int before = cudaprof_test_offer_undecoded(buffers, buffers, buffers, 0, markers, memsets, undecoded);
 		int fired_start = cudaprof_test_fire_callback(domain, start_cbid, 1 /* API_EXIT */);
 		unsigned inside_kinds = cudaprof_test_enabled_kind_count();
-		int inside = cudaprof_test_offer_markers(buffers, buffers, buffers, 0, markers);
+		int inside = cudaprof_test_offer_undecoded(buffers, buffers, buffers, 0, markers, memsets, undecoded);
 		int fired_stop = cudaprof_test_fire_callback(domain, stop_cbid, 0 /* API_ENTER */);
 		unsigned after_kinds = cudaprof_test_enabled_kind_count();
-		int after = cudaprof_test_offer_markers(buffers, buffers, buffers, 0, markers);
+		int after = cudaprof_test_offer_undecoded(buffers, buffers, buffers, 0, markers, memsets, undecoded);
 		printf("{\"scenario\":\"capture-range\",\"subscribed\":%d,\"domain\":%u,"
 			"\"start_enabled\":%d,\"stop_enabled\":%d,\"fired_start\":%d,\"fired_stop\":%d,"
 			"\"before\":%d,\"inside\":%d,\"after\":%d,"

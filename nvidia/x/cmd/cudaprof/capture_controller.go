@@ -49,6 +49,7 @@ type captureRecordPayload struct {
 	Queued              uint64     `json:"queued"`
 	Submitted           uint64     `json:"submitted"`
 	CopyKind            uint8      `json:"copy_kind"`
+	Value               uint32     `json:"value"`
 	Device              uint32     `json:"device"`
 	Context             uint32     `json:"context"`
 	Stream              uint32     `json:"stream"`
@@ -602,7 +603,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			if payload.Subtype == "capture_range" {
 				continue
 			}
-			if payload.Subtype != "kernel" && payload.Subtype != "memcpy" {
+			if payload.Subtype != "kernel" && payload.Subtype != "memcpy" && payload.Subtype != "memset" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown activity subtype")
 			}
 			valid := payload.Valid && payload.Start != 0 && payload.End >= payload.Start && payload.End-payload.Start <= math.MaxInt64
@@ -642,6 +643,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				Queued:              payload.Queued,
 				Submitted:           payload.Submitted,
 				CopyKind:            payload.CopyKind,
+				Value:               payload.Value,
 				Device:              payload.Device,
 				Context:             payload.Context,
 				Stream:              payload.Stream,

@@ -30,10 +30,15 @@ static size_t record_size(CUpti_ActivityKind kind) {
 	case CUPTI_ACTIVITY_KIND_KERNEL:
 	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL: n = sizeof(TEST_KERNEL_TYPE); break;
 	case CUPTI_ACTIVITY_KIND_MEMCPY: n = sizeof(CUpti_ActivityMemcpy6); break;
+	case CUPTI_ACTIVITY_KIND_MEMSET: n = sizeof(CUpti_ActivityMemset4); break;
 	case CUPTI_ACTIVITY_KIND_DRIVER:
 	case CUPTI_ACTIVITY_KIND_RUNTIME: n = sizeof(CUpti_ActivityAPI); break;
 	case CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION: n = sizeof(CUpti_ActivityExternalCorrelation); break;
 	case CUPTI_ACTIVITY_KIND_MARKER: n = sizeof(CUpti_ActivityMarker2); break;
+	/* Only the kind prefix: a record nothing decodes is read for its kind and
+	   nothing else, so inventing a body for it would assert a layout no code
+	   on either side looks at. */
+	case CUPTI_ACTIVITY_KIND_TEST_UNDECODED: n = sizeof(CUpti_Activity); break;
 	default: return 0;
 	}
 	return (n + 7u) & ~(size_t)7u;
@@ -226,6 +231,21 @@ int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsig
    count gets a trailing START with no END, which is the open-range case a
    consumer has to survive rather than a malformed input. */
 int cudaprof_test_offer_markers(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers) {
+	return cudaprof_test_offer_mix(kernels, memcpys, apis, externals, markers, 0);
+}
+
+/* Memsets are offered above the other counts for the same reason markers are:
+   a scenario calibrated on a kernel/memcpy/api mix keeps that mix when a
+   memset count is added to it. */
+int cudaprof_test_offer_mix(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets) {
+	return cudaprof_test_offer_undecoded(kernels, memcpys, apis, externals, markers, memsets, 0);
+}
+
+/* undecoded records carry a kind the producer has no branch for. CUPTI
+   delivers only kinds that were enabled, so this shape does not arise from a
+   cuptiActivityEnable the agent made; it is what a runtime newer than the
+   build delivers, and what the decode loop's final else has to answer for. */
+int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets, unsigned undecoded) {
 	if (request_cb == NULL || complete_cb == NULL) return -1;
 	uint8_t *buffer = NULL;
 	size_t size = 0, max_records = 0;
@@ -241,8 +261,10 @@ int cudaprof_test_offer_markers(unsigned kernels, unsigned memcpys, unsigned api
 		else if (apis) { kind = CUPTI_ACTIVITY_KIND_RUNTIME; apis--; }
 		else if (externals) { kind = CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION; externals--; }
 		else if (markers) { kind = CUPTI_ACTIVITY_KIND_MARKER; markers--; }
+		else if (memsets) { kind = CUPTI_ACTIVITY_KIND_MEMSET; memsets--; }
+		else if (undecoded) { kind = CUPTI_ACTIVITY_KIND_TEST_UNDECODED; undecoded--; }
 		else break;
-		if (!kind_enabled(kind)) continue;
+		if (kind != CUPTI_ACTIVITY_KIND_TEST_UNDECODED && !kind_enabled(kind)) continue;
 		size_t n = record_size(kind);
 		if (offset + n > size) break;
 		uint8_t *slot = buffer + offset;
@@ -287,6 +309,22 @@ int cudaprof_test_offer_markers(unsigned kernels, unsigned memcpys, unsigned api
 			m->contextId = 1;
 			m->streamId = 7;
 			m->correlationId = correlation;
+			break;
+		}
+		case CUPTI_ACTIVITY_KIND_TEST_UNDECODED:
+			((CUpti_Activity *)slot)->kind = kind;
+			break;
+		case CUPTI_ACTIVITY_KIND_MEMSET: {
+			CUpti_ActivityMemset4 *ms = (CUpti_ActivityMemset4 *)slot;
+			ms->kind = kind;
+			ms->start = 5000 + correlation;
+			ms->end = ms->start + 40;
+			ms->bytes = 8192;
+			ms->value = 0;
+			ms->deviceId = correlation & 1u;
+			ms->contextId = 1;
+			ms->streamId = 7;
+			ms->correlationId = correlation;
 			break;
 		}
 		case CUPTI_ACTIVITY_KIND_RUNTIME: {
@@ -342,6 +380,10 @@ CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind,
 		*size = sizeof(CUpti_ActivityMemcpy6);
 		return CUPTI_SUCCESS;
 	}
+	if (kind == CUPTI_ACTIVITY_KIND_MEMSET) {
+		*size = sizeof(CUpti_ActivityMemset4);
+		return CUPTI_SUCCESS;
+	}
 	return CUPTI_ERROR_NOT_SUPPORTED;
 }
 
@@ -354,6 +396,10 @@ CUptiResult cudaprof_test_mock_short_memcpy_struct_size(CUpti_ActivityKind kind,
 	}
 	if (kind == CUPTI_ACTIVITY_KIND_MEMCPY) {
 		*size = sizeof(CUpti_ActivityMemcpy6) > 8 ? sizeof(CUpti_ActivityMemcpy6) - 8 : 1;
+		return CUPTI_SUCCESS;
+	}
+	if (kind == CUPTI_ACTIVITY_KIND_MEMSET) {
+		*size = sizeof(CUpti_ActivityMemset4);
 		return CUPTI_SUCCESS;
 	}
 	return CUPTI_ERROR_NOT_SUPPORTED;

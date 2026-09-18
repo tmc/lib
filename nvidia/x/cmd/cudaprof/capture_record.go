@@ -372,8 +372,8 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	// projection cannot represent it.
 	const maxInt64 = uint64(^uint64(0) >> 1)
 	for i, activity := range result.Activities {
-		if activity.Valid && activity.Subtype == "memcpy" && activity.Bytes > maxInt64 {
-			return fmt.Errorf("activity %d copy bytes %d exceed pprof int64 range", i, activity.Bytes)
+		if activity.Valid && (activity.Subtype == "memcpy" || activity.Subtype == "memset") && activity.Bytes > maxInt64 {
+			return fmt.Errorf("activity %d byte count %d exceeds pprof int64 range", i, activity.Bytes)
 		}
 	}
 	budget = budget.effective()

@@ -841,3 +841,71 @@ func TestGapsSpanCoversContainedActivities(t *testing.T) {
 		t.Errorf("active+idle = %d, span = %d: the two must agree", o.ActiveNanos+o.IdleNanos, o.SpanNanos)
 	}
 }
+
+// TestGapsCountsMemsetsAsBusy pins the consequence the MEMSET tier exists for.
+//
+// The subtype filter in decodeJournals is a denylist -- markers and capture
+// range edges are dropped and everything else is device work -- so this passes
+// the moment memsets reach the journal at all. That is exactly why it is here:
+// the whole defect was upstream of any filter. CUPTI was never asked for the
+// kind, the stream therefore contained no memsets, and the time one occupied
+// on the device was charged to idle by arithmetic that was working correctly
+// on the records it had.
+//
+// The numbers are asserted absolutely, not just compared to the memset-free
+// run, because "different from the baseline" would also be satisfied by a
+// memset that landed on the wrong device or with the wrong span.
+func TestGapsCountsMemsetsAsBusy(t *testing.T) {
+	// Two kernels with one 3000 ns hole between them.
+	kernels := func(b *journalBuilder) {
+		b.activity("kernel", 0, 1_000, 3_000, 1)
+		b.activity("kernel", 0, 6_000, 7_000, 2)
+	}
+
+	plain := newJournalBuilder()
+	kernels(plain)
+
+	withMemset := newJournalBuilder()
+	kernels(withMemset)
+	// Squarely inside the hole, touching neither kernel, so it splits the one
+	// gap into two and removes exactly its own duration from idle.
+	withMemset.activity("memset", 0, 4_000, 5_000, 3)
+
+	opts := gapOptions{warmupMS: 0, maxRecords: controllerMaxJournalRecords}
+	before, err := analyzeGaps(testCapture(map[string][]byte{"capture.journal": plain.finalize()}, completeStatus()), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := analyzeGaps(testCapture(map[string][]byte{"capture.journal": withMemset.finalize()}, completeStatus()), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(before.Devices) != 1 || len(after.Devices) != 1 {
+		t.Fatalf("devices = %d without the memset, %d with; want 1 each", len(before.Devices), len(after.Devices))
+	}
+	b, a := before.Devices[0].Overall, after.Devices[0].Overall
+	if b.IdleNanos != 3_000 {
+		t.Fatalf("baseline idle = %d ns, want 3000: the fixture no longer has the hole this test is about", b.IdleNanos)
+	}
+	if b.ActiveNanos != 3_000 {
+		t.Fatalf("baseline active = %d ns, want 3000 (2000+1000)", b.ActiveNanos)
+	}
+	// The memset is 1000 ns of device work that used to be reported as idle.
+	if a.IdleNanos != 2_000 {
+		t.Errorf("idle = %d ns with the memset, want 2000: %d ns of memset time is still charged to idle", a.IdleNanos, a.IdleNanos-2_000)
+	}
+	if a.ActiveNanos != 4_000 {
+		t.Errorf("active = %d ns with the memset, want 4000", a.ActiveNanos)
+	}
+	if a.Activities != b.Activities+1 {
+		t.Errorf("activities = %d with the memset, %d without: the record never reached the timeline", a.Activities, b.Activities)
+	}
+	// One hole became two, which is what makes the memset visible in the gap
+	// report rather than merely subtracted from a total.
+	if b.GapCount != 1 || a.GapCount != 2 {
+		t.Errorf("gaps = %d without the memset, %d with; want 1 and 2", b.GapCount, a.GapCount)
+	}
+	if a.SpanNanos != b.SpanNanos {
+		t.Errorf("span = %d with the memset, %d without: a contained record moved an end of the timeline", a.SpanNanos, b.SpanNanos)
+	}
+}
