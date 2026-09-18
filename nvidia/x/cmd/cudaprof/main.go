@@ -66,6 +66,9 @@ func run() error {
 	if len(os.Args) > 1 && os.Args[1] == "inspect" {
 		return runInspectCommand(os.Args[2:])
 	}
+	if len(os.Args) > 1 && os.Args[1] == "export" {
+		return runExportCommand(os.Args[2:])
+	}
 	if len(os.Args) > 1 && os.Args[1] == "explain" {
 		return runExplainCommand(os.Args[2:])
 	}
