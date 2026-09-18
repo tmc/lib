@@ -42,10 +42,13 @@ package nvidia
 // nvjitlink, nvrtc and nvvm each take flags.gen.go from genoptions, whose
 // input is optiondata rather than the CUDA profile. nvgen neither writes nor
 // diffs those three files, so -diff reports a clean package while one of them
-// has drifted; regenerate with go generate in the package itself. genoptions
-// lives under x, so that regeneration needs the workspace: outside it the
-// nvidia module cannot reach the command, and it must stay that way, because
-// a require on x would put the staging module in every consumer's graph.
+// has drifted; regenerate with go generate in the package itself, or run
+// TestFlagsGenUpToDate, which regenerates all three and compares.
+//
+// Today x is part of this module, so that regeneration needs nothing special.
+// When x becomes its own module it will need the workspace: the command is then
+// in another module, go.work is what lets this one reach it, and it must stay
+// that way, because a require on x would put x in every consumer's graph.
 
 //go:generate -command nvgen nvgen -output .
 
