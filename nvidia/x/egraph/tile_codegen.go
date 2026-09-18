@@ -414,6 +414,10 @@ func ToTileIR(expr *Expr, opts CodegenOptions) (*tileir.Module, error) {
 // AssembleTileIR returns an error wrapping [tileiras.ErrNotFound]; callers that
 // want the unassembled bytecode in that case must ask for it explicitly with
 // [ToTileIR] and Module.EncodeBytecode.
+//
+// This does not presently succeed against a real assembler: tileir's bytecode
+// encoder omits result types and operands, and the assembler rejects the body.
+// See that package's documentation.
 func AssembleTileIR(ctx context.Context, expr *Expr, opts CodegenOptions, asm ...tileiras.Option) ([]byte, error) {
 	mod, err := ToTileIR(expr, opts)
 	if err != nil {

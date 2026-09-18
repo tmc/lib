@@ -1185,7 +1185,9 @@ func registerString(pool *[]string, s string) int {
 	return idx
 }
 
-// ToBytecode converts an AST Module into a BytecodeModule suitable for binary serialization.
+// ToBytecode converts an AST Module into a BytecodeModule.
+//
+// Operation encoding is incomplete; see [Module.EncodeBytecode].
 func (m *Module) ToBytecode() (*BytecodeModule, error) {
 	if m == nil {
 		return nil, errors.New("tileir: nil module")
@@ -1279,7 +1281,13 @@ func (m *Module) ToBytecode() (*BytecodeModule, error) {
 	return bm, nil
 }
 
-// EncodeBytecode serializes the Module directly to binary Tile IR bytecode.
+// EncodeBytecode serializes the Module to this package's bytecode.
+//
+// The output is not accepted by NVIDIA's Tile IR assembler. Function bodies
+// carry one opcode varint per operation and no operands or result types, so
+// the assembler fails at the first operation whose result type it needs.
+// [DecodeBytecode] reads the output because the two agree with each other;
+// neither agrees with the format. See the package documentation.
 func (m *Module) EncodeBytecode() ([]byte, error) {
 	bm, err := m.ToBytecode()
 	if err != nil {
