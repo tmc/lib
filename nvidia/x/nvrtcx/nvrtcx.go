@@ -693,7 +693,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 					return prog, "", nil, fmt.Errorf("nvrtcx: register %q: %w", expression, err)
 				}
 			}
-			if cfg.ctx != nil && nvrtc.HassetFlowCallback() {
+			if cfg.ctx != nil && nvrtc.HasSetFlowCallback() {
 				token, unregister := registerFlowContext(cfg.ctx)
 				defer unregister()
 				if err := prog.SetFlowCallback(getFlowCallback(), token); err != nil {
@@ -714,12 +714,12 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 
 		// Handle PCH heap exhaustion retry
 		isHeapExhausted := errors.Is(compileErr, nvrtc.ErrPchCreateHeapExhausted)
-		if !isHeapExhausted && compileErr == nil && nvrtc.HasgetPCHCreateStatus() {
+		if !isHeapExhausted && compileErr == nil && nvrtc.HasGetPCHCreateStatus() {
 			if errors.Is(prog.GetPCHCreateStatus(), nvrtc.ErrPchCreateHeapExhausted) {
 				isHeapExhausted = true
 			}
 		}
-		if isHeapExhausted && nvrtc.HasgetPCHHeapSizeRequired() && nvrtc.HasSetPCHHeapSize() {
+		if isHeapExhausted && nvrtc.HasGetPCHHeapSizeRequired() && nvrtc.HasSetPCHHeapSize() {
 			reqSize, reqErr := prog.GetPCHHeapSizeRequired()
 			if reqErr == nil && reqSize > 0 {
 				if setErr := nvrtc.SetPCHHeapSize(reqSize); setErr == nil {

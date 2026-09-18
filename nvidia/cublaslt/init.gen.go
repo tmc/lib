@@ -529,33 +529,33 @@ func HasCreate() bool {
 	return Has("cublasLtCreate")
 }
 
-// Hasdestroy reports whether cublasLtDestroy resolved in the loaded library.
-func Hasdestroy() bool {
+// HasDestroy reports whether cublasLtDestroy resolved in the loaded library.
+func HasDestroy() bool {
 	return Has("cublasLtDestroy")
 }
 
-// HasemulationDescCreate reports whether cublasLtEmulationDescCreate resolved in the loaded library.
-func HasemulationDescCreate() bool {
+// HasEmulationDescCreate reports whether cublasLtEmulationDescCreate resolved in the loaded library.
+func HasEmulationDescCreate() bool {
 	return Has("cublasLtEmulationDescCreate")
 }
 
-// HasemulationDescDestroy reports whether cublasLtEmulationDescDestroy resolved in the loaded library.
-func HasemulationDescDestroy() bool {
+// HasEmulationDescDestroy reports whether cublasLtEmulationDescDestroy resolved in the loaded library.
+func HasEmulationDescDestroy() bool {
 	return Has("cublasLtEmulationDescDestroy")
 }
 
-// HasemulationDescGetAttribute reports whether cublasLtEmulationDescGetAttribute resolved in the loaded library.
-func HasemulationDescGetAttribute() bool {
+// HasEmulationDescGetAttribute reports whether cublasLtEmulationDescGetAttribute resolved in the loaded library.
+func HasEmulationDescGetAttribute() bool {
 	return Has("cublasLtEmulationDescGetAttribute")
 }
 
-// HasemulationDescInit_internal reports whether cublasLtEmulationDescInit_internal resolved in the loaded library.
-func HasemulationDescInit_internal() bool {
+// HasEmulationDescInit_internal reports whether cublasLtEmulationDescInit_internal resolved in the loaded library.
+func HasEmulationDescInit_internal() bool {
 	return Has("cublasLtEmulationDescInit_internal")
 }
 
-// HasemulationDescSetAttribute reports whether cublasLtEmulationDescSetAttribute resolved in the loaded library.
-func HasemulationDescSetAttribute() bool {
+// HasEmulationDescSetAttribute reports whether cublasLtEmulationDescSetAttribute resolved in the loaded library.
+func HasEmulationDescSetAttribute() bool {
 	return Has("cublasLtEmulationDescSetAttribute")
 }
 
@@ -569,8 +569,8 @@ func HasGroupedMatrixLayoutCreate() bool {
 	return Has("cublasLtGroupedMatrixLayoutCreate")
 }
 
-// HasgroupedMatrixLayoutInit_internal reports whether cublasLtGroupedMatrixLayoutInit_internal resolved in the loaded library.
-func HasgroupedMatrixLayoutInit_internal() bool {
+// HasGroupedMatrixLayoutInit_internal reports whether cublasLtGroupedMatrixLayoutInit_internal resolved in the loaded library.
+func HasGroupedMatrixLayoutInit_internal() bool {
 	return Has("cublasLtGroupedMatrixLayoutInit_internal")
 }
 
@@ -614,8 +614,8 @@ func HasLoggerSetMask() bool {
 	return Has("cublasLtLoggerSetMask")
 }
 
-// Hasmatmul reports whether cublasLtMatmul resolved in the loaded library.
-func Hasmatmul() bool {
+// HasMatmul reports whether cublasLtMatmul resolved in the loaded library.
+func HasMatmul() bool {
 	return Has("cublasLtMatmul")
 }
 
@@ -624,8 +624,8 @@ func HasMatmulAlgoCapGetAttribute() bool {
 	return Has("cublasLtMatmulAlgoCapGetAttribute")
 }
 
-// HasmatmulAlgoCheck reports whether cublasLtMatmulAlgoCheck resolved in the loaded library.
-func HasmatmulAlgoCheck() bool {
+// HasMatmulAlgoCheck reports whether cublasLtMatmulAlgoCheck resolved in the loaded library.
+func HasMatmulAlgoCheck() bool {
 	return Has("cublasLtMatmulAlgoCheck")
 }
 
@@ -639,122 +639,122 @@ func HasMatmulAlgoConfigSetAttribute() bool {
 	return Has("cublasLtMatmulAlgoConfigSetAttribute")
 }
 
-// HasmatmulAlgoGetHeuristic reports whether cublasLtMatmulAlgoGetHeuristic resolved in the loaded library.
-func HasmatmulAlgoGetHeuristic() bool {
+// HasMatmulAlgoGetHeuristic reports whether cublasLtMatmulAlgoGetHeuristic resolved in the loaded library.
+func HasMatmulAlgoGetHeuristic() bool {
 	return Has("cublasLtMatmulAlgoGetHeuristic")
 }
 
-// HasmatmulAlgoGetIds reports whether cublasLtMatmulAlgoGetIds resolved in the loaded library.
-func HasmatmulAlgoGetIds() bool {
+// HasMatmulAlgoGetIds reports whether cublasLtMatmulAlgoGetIds resolved in the loaded library.
+func HasMatmulAlgoGetIds() bool {
 	return Has("cublasLtMatmulAlgoGetIds")
 }
 
-// HasmatmulAlgoInit reports whether cublasLtMatmulAlgoInit resolved in the loaded library.
-func HasmatmulAlgoInit() bool {
+// HasMatmulAlgoInit reports whether cublasLtMatmulAlgoInit resolved in the loaded library.
+func HasMatmulAlgoInit() bool {
 	return Has("cublasLtMatmulAlgoInit")
 }
 
-// HasmatmulDescCreate reports whether cublasLtMatmulDescCreate resolved in the loaded library.
-func HasmatmulDescCreate() bool {
+// HasMatmulDescCreate reports whether cublasLtMatmulDescCreate resolved in the loaded library.
+func HasMatmulDescCreate() bool {
 	return Has("cublasLtMatmulDescCreate")
 }
 
-// HasmatmulDescDestroy reports whether cublasLtMatmulDescDestroy resolved in the loaded library.
-func HasmatmulDescDestroy() bool {
+// HasMatmulDescDestroy reports whether cublasLtMatmulDescDestroy resolved in the loaded library.
+func HasMatmulDescDestroy() bool {
 	return Has("cublasLtMatmulDescDestroy")
 }
 
-// HasmatmulDescGetAttribute reports whether cublasLtMatmulDescGetAttribute resolved in the loaded library.
-func HasmatmulDescGetAttribute() bool {
+// HasMatmulDescGetAttribute reports whether cublasLtMatmulDescGetAttribute resolved in the loaded library.
+func HasMatmulDescGetAttribute() bool {
 	return Has("cublasLtMatmulDescGetAttribute")
 }
 
-// HasmatmulDescInit_internal reports whether cublasLtMatmulDescInit_internal resolved in the loaded library.
-func HasmatmulDescInit_internal() bool {
+// HasMatmulDescInit_internal reports whether cublasLtMatmulDescInit_internal resolved in the loaded library.
+func HasMatmulDescInit_internal() bool {
 	return Has("cublasLtMatmulDescInit_internal")
 }
 
-// HasmatmulDescSetAttribute reports whether cublasLtMatmulDescSetAttribute resolved in the loaded library.
-func HasmatmulDescSetAttribute() bool {
+// HasMatmulDescSetAttribute reports whether cublasLtMatmulDescSetAttribute resolved in the loaded library.
+func HasMatmulDescSetAttribute() bool {
 	return Has("cublasLtMatmulDescSetAttribute")
 }
 
-// HasmatmulPreferenceCreate reports whether cublasLtMatmulPreferenceCreate resolved in the loaded library.
-func HasmatmulPreferenceCreate() bool {
+// HasMatmulPreferenceCreate reports whether cublasLtMatmulPreferenceCreate resolved in the loaded library.
+func HasMatmulPreferenceCreate() bool {
 	return Has("cublasLtMatmulPreferenceCreate")
 }
 
-// HasmatmulPreferenceDestroy reports whether cublasLtMatmulPreferenceDestroy resolved in the loaded library.
-func HasmatmulPreferenceDestroy() bool {
+// HasMatmulPreferenceDestroy reports whether cublasLtMatmulPreferenceDestroy resolved in the loaded library.
+func HasMatmulPreferenceDestroy() bool {
 	return Has("cublasLtMatmulPreferenceDestroy")
 }
 
-// HasmatmulPreferenceGetAttribute reports whether cublasLtMatmulPreferenceGetAttribute resolved in the loaded library.
-func HasmatmulPreferenceGetAttribute() bool {
+// HasMatmulPreferenceGetAttribute reports whether cublasLtMatmulPreferenceGetAttribute resolved in the loaded library.
+func HasMatmulPreferenceGetAttribute() bool {
 	return Has("cublasLtMatmulPreferenceGetAttribute")
 }
 
-// HasmatmulPreferenceInit_internal reports whether cublasLtMatmulPreferenceInit_internal resolved in the loaded library.
-func HasmatmulPreferenceInit_internal() bool {
+// HasMatmulPreferenceInit_internal reports whether cublasLtMatmulPreferenceInit_internal resolved in the loaded library.
+func HasMatmulPreferenceInit_internal() bool {
 	return Has("cublasLtMatmulPreferenceInit_internal")
 }
 
-// HasmatmulPreferenceSetAttribute reports whether cublasLtMatmulPreferenceSetAttribute resolved in the loaded library.
-func HasmatmulPreferenceSetAttribute() bool {
+// HasMatmulPreferenceSetAttribute reports whether cublasLtMatmulPreferenceSetAttribute resolved in the loaded library.
+func HasMatmulPreferenceSetAttribute() bool {
 	return Has("cublasLtMatmulPreferenceSetAttribute")
 }
 
-// HasmatrixLayoutCreate reports whether cublasLtMatrixLayoutCreate resolved in the loaded library.
-func HasmatrixLayoutCreate() bool {
+// HasMatrixLayoutCreate reports whether cublasLtMatrixLayoutCreate resolved in the loaded library.
+func HasMatrixLayoutCreate() bool {
 	return Has("cublasLtMatrixLayoutCreate")
 }
 
-// HasmatrixLayoutDestroy reports whether cublasLtMatrixLayoutDestroy resolved in the loaded library.
-func HasmatrixLayoutDestroy() bool {
+// HasMatrixLayoutDestroy reports whether cublasLtMatrixLayoutDestroy resolved in the loaded library.
+func HasMatrixLayoutDestroy() bool {
 	return Has("cublasLtMatrixLayoutDestroy")
 }
 
-// HasmatrixLayoutGetAttribute reports whether cublasLtMatrixLayoutGetAttribute resolved in the loaded library.
-func HasmatrixLayoutGetAttribute() bool {
+// HasMatrixLayoutGetAttribute reports whether cublasLtMatrixLayoutGetAttribute resolved in the loaded library.
+func HasMatrixLayoutGetAttribute() bool {
 	return Has("cublasLtMatrixLayoutGetAttribute")
 }
 
-// HasmatrixLayoutInit_internal reports whether cublasLtMatrixLayoutInit_internal resolved in the loaded library.
-func HasmatrixLayoutInit_internal() bool {
+// HasMatrixLayoutInit_internal reports whether cublasLtMatrixLayoutInit_internal resolved in the loaded library.
+func HasMatrixLayoutInit_internal() bool {
 	return Has("cublasLtMatrixLayoutInit_internal")
 }
 
-// HasmatrixLayoutSetAttribute reports whether cublasLtMatrixLayoutSetAttribute resolved in the loaded library.
-func HasmatrixLayoutSetAttribute() bool {
+// HasMatrixLayoutSetAttribute reports whether cublasLtMatrixLayoutSetAttribute resolved in the loaded library.
+func HasMatrixLayoutSetAttribute() bool {
 	return Has("cublasLtMatrixLayoutSetAttribute")
 }
 
-// HasmatrixTransform reports whether cublasLtMatrixTransform resolved in the loaded library.
-func HasmatrixTransform() bool {
+// HasMatrixTransform reports whether cublasLtMatrixTransform resolved in the loaded library.
+func HasMatrixTransform() bool {
 	return Has("cublasLtMatrixTransform")
 }
 
-// HasmatrixTransformDescCreate reports whether cublasLtMatrixTransformDescCreate resolved in the loaded library.
-func HasmatrixTransformDescCreate() bool {
+// HasMatrixTransformDescCreate reports whether cublasLtMatrixTransformDescCreate resolved in the loaded library.
+func HasMatrixTransformDescCreate() bool {
 	return Has("cublasLtMatrixTransformDescCreate")
 }
 
-// HasmatrixTransformDescDestroy reports whether cublasLtMatrixTransformDescDestroy resolved in the loaded library.
-func HasmatrixTransformDescDestroy() bool {
+// HasMatrixTransformDescDestroy reports whether cublasLtMatrixTransformDescDestroy resolved in the loaded library.
+func HasMatrixTransformDescDestroy() bool {
 	return Has("cublasLtMatrixTransformDescDestroy")
 }
 
-// HasmatrixTransformDescGetAttribute reports whether cublasLtMatrixTransformDescGetAttribute resolved in the loaded library.
-func HasmatrixTransformDescGetAttribute() bool {
+// HasMatrixTransformDescGetAttribute reports whether cublasLtMatrixTransformDescGetAttribute resolved in the loaded library.
+func HasMatrixTransformDescGetAttribute() bool {
 	return Has("cublasLtMatrixTransformDescGetAttribute")
 }
 
-// HasmatrixTransformDescInit_internal reports whether cublasLtMatrixTransformDescInit_internal resolved in the loaded library.
-func HasmatrixTransformDescInit_internal() bool {
+// HasMatrixTransformDescInit_internal reports whether cublasLtMatrixTransformDescInit_internal resolved in the loaded library.
+func HasMatrixTransformDescInit_internal() bool {
 	return Has("cublasLtMatrixTransformDescInit_internal")
 }
 
-// HasmatrixTransformDescSetAttribute reports whether cublasLtMatrixTransformDescSetAttribute resolved in the loaded library.
-func HasmatrixTransformDescSetAttribute() bool {
+// HasMatrixTransformDescSetAttribute reports whether cublasLtMatrixTransformDescSetAttribute resolved in the loaded library.
+func HasMatrixTransformDescSetAttribute() bool {
 	return Has("cublasLtMatrixTransformDescSetAttribute")
 }

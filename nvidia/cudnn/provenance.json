@@ -3,47 +3,49 @@
   "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$HOME/go/src/github.com/tmc/libgen",
+  "cwd": ".",
   "argv": [
-    "$GOCACHE/12/121d1cd7b70ed635f78a1b5d9906a4c1e9dc900ac1e7fa08aaf68687ab8c6261-d/gen-nvidia",
+    "gen-nvidia",
+    "-allow-api-removal",
     "-api",
     "cudnn",
     "-headers-dir",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
+    "cuda-headers",
     "-output",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/cudnn",
+    "cudnn",
     "-package",
     "cudnn"
   ],
   "inputs": [
     {
-      "path": "$HOME/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_adv.h",
+      "path": "cudnn_adv.h",
       "sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e"
     },
     {
-      "path": "$HOME/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_cnn.h",
+      "path": "cudnn_cnn.h",
       "sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a"
     },
     {
-      "path": "$HOME/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_combined.h",
+      "path": "cudnn_combined.h",
       "sha256": "b62a86b7e43495cc7829cc2d26983993e289bc20a6d092fa8c1c91c07d4789b1"
     },
     {
-      "path": "$HOME/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_graph.h",
+      "path": "cudnn_graph.h",
       "sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308"
     },
     {
-      "path": "$HOME/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_ops.h",
+      "path": "cudnn_ops.h",
       "sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8"
     },
     {
-      "path": "$HOME/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_version.h",
+      "path": "cudnn_version.h",
       "sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528"
     }
   ],
-  "source_hash": "c8d31368aad945fc0d2f19d29acf2e0d696ceab5134728610b87e1cf77b1aabc",
+  "source_hash": "fdf7950b94d5a77943eb983d04c76809766ac167cfdda41725b9ce9c1f1201cb",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
-    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
   ]
 }

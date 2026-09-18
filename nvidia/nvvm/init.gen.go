@@ -450,13 +450,13 @@ func HasGetErrorString() bool {
 	return Has("nvvmGetErrorString")
 }
 
-// HasaddModuleToProgram reports whether nvvmAddModuleToProgram resolved in the loaded library.
-func HasaddModuleToProgram() bool {
+// HasAddModuleToProgram reports whether nvvmAddModuleToProgram resolved in the loaded library.
+func HasAddModuleToProgram() bool {
 	return Has("nvvmAddModuleToProgram")
 }
 
-// HascompileProgram reports whether nvvmCompileProgram resolved in the loaded library.
-func HascompileProgram() bool {
+// HasCompileProgram reports whether nvvmCompileProgram resolved in the loaded library.
+func HasCompileProgram() bool {
 	return Has("nvvmCompileProgram")
 }
 
@@ -470,23 +470,23 @@ func HasDestroyProgram() bool {
 	return Has("nvvmDestroyProgram")
 }
 
-// HasgetCompiledResult reports whether nvvmGetCompiledResult resolved in the loaded library.
-func HasgetCompiledResult() bool {
+// HasGetCompiledResult reports whether nvvmGetCompiledResult resolved in the loaded library.
+func HasGetCompiledResult() bool {
 	return Has("nvvmGetCompiledResult")
 }
 
-// HasgetCompiledResultSize reports whether nvvmGetCompiledResultSize resolved in the loaded library.
-func HasgetCompiledResultSize() bool {
+// HasGetCompiledResultSize reports whether nvvmGetCompiledResultSize resolved in the loaded library.
+func HasGetCompiledResultSize() bool {
 	return Has("nvvmGetCompiledResultSize")
 }
 
-// HasgetProgramLog reports whether nvvmGetProgramLog resolved in the loaded library.
-func HasgetProgramLog() bool {
+// HasGetProgramLog reports whether nvvmGetProgramLog resolved in the loaded library.
+func HasGetProgramLog() bool {
 	return Has("nvvmGetProgramLog")
 }
 
-// HasgetProgramLogSize reports whether nvvmGetProgramLogSize resolved in the loaded library.
-func HasgetProgramLogSize() bool {
+// HasGetProgramLogSize reports whether nvvmGetProgramLogSize resolved in the loaded library.
+func HasGetProgramLogSize() bool {
 	return Has("nvvmGetProgramLogSize")
 }
 
@@ -500,13 +500,13 @@ func HasLLVMVersion() bool {
 	return Has("nvvmLLVMVersion")
 }
 
-// HaslazyAddModuleToProgram reports whether nvvmLazyAddModuleToProgram resolved in the loaded library.
-func HaslazyAddModuleToProgram() bool {
+// HasLazyAddModuleToProgram reports whether nvvmLazyAddModuleToProgram resolved in the loaded library.
+func HasLazyAddModuleToProgram() bool {
 	return Has("nvvmLazyAddModuleToProgram")
 }
 
-// HasverifyProgram reports whether nvvmVerifyProgram resolved in the loaded library.
-func HasverifyProgram() bool {
+// HasVerifyProgram reports whether nvvmVerifyProgram resolved in the loaded library.
+func HasVerifyProgram() bool {
 	return Has("nvvmVerifyProgram")
 }
 

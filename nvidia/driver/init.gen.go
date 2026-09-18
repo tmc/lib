@@ -1362,43 +1362,43 @@ func HasGetErrorString() bool {
 	return Has("cuGetErrorString")
 }
 
-// Hasarray3DCreate reports whether cuArray3DCreate_v2 resolved in the loaded library.
-func Hasarray3DCreate() bool {
+// HasArray3DCreate reports whether cuArray3DCreate_v2 resolved in the loaded library.
+func HasArray3DCreate() bool {
 	return Has("cuArray3DCreate_v2")
 }
 
-// Hasarray3DGetDescriptor reports whether cuArray3DGetDescriptor_v2 resolved in the loaded library.
-func Hasarray3DGetDescriptor() bool {
+// HasArray3DGetDescriptor reports whether cuArray3DGetDescriptor_v2 resolved in the loaded library.
+func HasArray3DGetDescriptor() bool {
 	return Has("cuArray3DGetDescriptor_v2")
 }
 
-// HasarrayCreate reports whether cuArrayCreate_v2 resolved in the loaded library.
-func HasarrayCreate() bool {
+// HasArrayCreate reports whether cuArrayCreate_v2 resolved in the loaded library.
+func HasArrayCreate() bool {
 	return Has("cuArrayCreate_v2")
 }
 
-// HasarrayDestroy reports whether cuArrayDestroy resolved in the loaded library.
-func HasarrayDestroy() bool {
+// HasArrayDestroy reports whether cuArrayDestroy resolved in the loaded library.
+func HasArrayDestroy() bool {
 	return Has("cuArrayDestroy")
 }
 
-// HasarrayGetDescriptor reports whether cuArrayGetDescriptor_v2 resolved in the loaded library.
-func HasarrayGetDescriptor() bool {
+// HasArrayGetDescriptor reports whether cuArrayGetDescriptor_v2 resolved in the loaded library.
+func HasArrayGetDescriptor() bool {
 	return Has("cuArrayGetDescriptor_v2")
 }
 
-// HasarrayGetMemoryRequirements reports whether cuArrayGetMemoryRequirements resolved in the loaded library.
-func HasarrayGetMemoryRequirements() bool {
+// HasArrayGetMemoryRequirements reports whether cuArrayGetMemoryRequirements resolved in the loaded library.
+func HasArrayGetMemoryRequirements() bool {
 	return Has("cuArrayGetMemoryRequirements")
 }
 
-// HasarrayGetPlane reports whether cuArrayGetPlane resolved in the loaded library.
-func HasarrayGetPlane() bool {
+// HasArrayGetPlane reports whether cuArrayGetPlane resolved in the loaded library.
+func HasArrayGetPlane() bool {
 	return Has("cuArrayGetPlane")
 }
 
-// HasarrayGetSparseProperties reports whether cuArrayGetSparseProperties resolved in the loaded library.
-func HasarrayGetSparseProperties() bool {
+// HasArrayGetSparseProperties reports whether cuArrayGetSparseProperties resolved in the loaded library.
+func HasArrayGetSparseProperties() bool {
 	return Has("cuArrayGetSparseProperties")
 }
 
@@ -1432,13 +1432,13 @@ func HasCheckpointProcessUnlock() bool {
 	return Has("cuCheckpointProcessUnlock")
 }
 
-// HascoredumpDeregisterCompleteCallback reports whether cuCoredumpDeregisterCompleteCallback resolved in the loaded library.
-func HascoredumpDeregisterCompleteCallback() bool {
+// HasCoredumpDeregisterCompleteCallback reports whether cuCoredumpDeregisterCompleteCallback resolved in the loaded library.
+func HasCoredumpDeregisterCompleteCallback() bool {
 	return Has("cuCoredumpDeregisterCompleteCallback")
 }
 
-// HascoredumpDeregisterStartCallback reports whether cuCoredumpDeregisterStartCallback resolved in the loaded library.
-func HascoredumpDeregisterStartCallback() bool {
+// HasCoredumpDeregisterStartCallback reports whether cuCoredumpDeregisterStartCallback resolved in the loaded library.
+func HasCoredumpDeregisterStartCallback() bool {
 	return Has("cuCoredumpDeregisterStartCallback")
 }
 
@@ -1472,43 +1472,43 @@ func HasCoredumpSetAttributeGlobal() bool {
 	return Has("cuCoredumpSetAttributeGlobal")
 }
 
-// HasctxAttach reports whether cuCtxAttach resolved in the loaded library.
-func HasctxAttach() bool {
+// HasCtxAttach reports whether cuCtxAttach resolved in the loaded library.
+func HasCtxAttach() bool {
 	return Has("cuCtxAttach")
 }
 
-// HasctxCreate reports whether cuCtxCreate_v4 resolved in the loaded library.
-func HasctxCreate() bool {
+// HasCtxCreate reports whether cuCtxCreate_v4 resolved in the loaded library.
+func HasCtxCreate() bool {
 	return Has("cuCtxCreate_v4")
 }
 
-// HasctxDestroy reports whether cuCtxDestroy_v2 resolved in the loaded library.
-func HasctxDestroy() bool {
+// HasCtxDestroy reports whether cuCtxDestroy_v2 resolved in the loaded library.
+func HasCtxDestroy() bool {
 	return Has("cuCtxDestroy_v2")
 }
 
-// HasctxDetach reports whether cuCtxDetach resolved in the loaded library.
-func HasctxDetach() bool {
+// HasCtxDetach reports whether cuCtxDetach resolved in the loaded library.
+func HasCtxDetach() bool {
 	return Has("cuCtxDetach")
 }
 
-// HasctxDisablePeerAccess reports whether cuCtxDisablePeerAccess resolved in the loaded library.
-func HasctxDisablePeerAccess() bool {
+// HasCtxDisablePeerAccess reports whether cuCtxDisablePeerAccess resolved in the loaded library.
+func HasCtxDisablePeerAccess() bool {
 	return Has("cuCtxDisablePeerAccess")
 }
 
-// HasctxEnablePeerAccess reports whether cuCtxEnablePeerAccess resolved in the loaded library.
-func HasctxEnablePeerAccess() bool {
+// HasCtxEnablePeerAccess reports whether cuCtxEnablePeerAccess resolved in the loaded library.
+func HasCtxEnablePeerAccess() bool {
 	return Has("cuCtxEnablePeerAccess")
 }
 
-// HasctxFromGreenCtx reports whether cuCtxFromGreenCtx resolved in the loaded library.
-func HasctxFromGreenCtx() bool {
+// HasCtxFromGreenCtx reports whether cuCtxFromGreenCtx resolved in the loaded library.
+func HasCtxFromGreenCtx() bool {
 	return Has("cuCtxFromGreenCtx")
 }
 
-// HasctxGetApiVersion reports whether cuCtxGetApiVersion resolved in the loaded library.
-func HasctxGetApiVersion() bool {
+// HasCtxGetApiVersion reports whether cuCtxGetApiVersion resolved in the loaded library.
+func HasCtxGetApiVersion() bool {
 	return Has("cuCtxGetApiVersion")
 }
 
@@ -1517,13 +1517,13 @@ func HasCtxGetCacheConfig() bool {
 	return Has("cuCtxGetCacheConfig")
 }
 
-// HasctxGetCurrent reports whether cuCtxGetCurrent resolved in the loaded library.
-func HasctxGetCurrent() bool {
+// HasCtxGetCurrent reports whether cuCtxGetCurrent resolved in the loaded library.
+func HasCtxGetCurrent() bool {
 	return Has("cuCtxGetCurrent")
 }
 
-// HasctxGetDevResource reports whether cuCtxGetDevResource resolved in the loaded library.
-func HasctxGetDevResource() bool {
+// HasCtxGetDevResource reports whether cuCtxGetDevResource resolved in the loaded library.
+func HasCtxGetDevResource() bool {
 	return Has("cuCtxGetDevResource")
 }
 
@@ -1532,8 +1532,8 @@ func HasCtxGetDevice() bool {
 	return Has("cuCtxGetDevice")
 }
 
-// HasctxGetDeviceV2 reports whether cuCtxGetDevice_v2 resolved in the loaded library.
-func HasctxGetDeviceV2() bool {
+// HasCtxGetDeviceV2 reports whether cuCtxGetDevice_v2 resolved in the loaded library.
+func HasCtxGetDeviceV2() bool {
 	return Has("cuCtxGetDevice_v2")
 }
 
@@ -1547,8 +1547,8 @@ func HasCtxGetFlags() bool {
 	return Has("cuCtxGetFlags")
 }
 
-// HasctxGetId reports whether cuCtxGetId resolved in the loaded library.
-func HasctxGetId() bool {
+// HasCtxGetId reports whether cuCtxGetId resolved in the loaded library.
+func HasCtxGetId() bool {
 	return Has("cuCtxGetId")
 }
 
@@ -1567,18 +1567,18 @@ func HasCtxGetStreamPriorityRange() bool {
 	return Has("cuCtxGetStreamPriorityRange")
 }
 
-// HasctxPopCurrent reports whether cuCtxPopCurrent_v2 resolved in the loaded library.
-func HasctxPopCurrent() bool {
+// HasCtxPopCurrent reports whether cuCtxPopCurrent_v2 resolved in the loaded library.
+func HasCtxPopCurrent() bool {
 	return Has("cuCtxPopCurrent_v2")
 }
 
-// HasctxPushCurrent reports whether cuCtxPushCurrent_v2 resolved in the loaded library.
-func HasctxPushCurrent() bool {
+// HasCtxPushCurrent reports whether cuCtxPushCurrent_v2 resolved in the loaded library.
+func HasCtxPushCurrent() bool {
 	return Has("cuCtxPushCurrent_v2")
 }
 
-// HasctxRecordEvent reports whether cuCtxRecordEvent resolved in the loaded library.
-func HasctxRecordEvent() bool {
+// HasCtxRecordEvent reports whether cuCtxRecordEvent resolved in the loaded library.
+func HasCtxRecordEvent() bool {
 	return Has("cuCtxRecordEvent")
 }
 
@@ -1592,8 +1592,8 @@ func HasCtxSetCacheConfig() bool {
 	return Has("cuCtxSetCacheConfig")
 }
 
-// HasctxSetCurrent reports whether cuCtxSetCurrent resolved in the loaded library.
-func HasctxSetCurrent() bool {
+// HasCtxSetCurrent reports whether cuCtxSetCurrent resolved in the loaded library.
+func HasCtxSetCurrent() bool {
 	return Has("cuCtxSetCurrent")
 }
 
@@ -1617,23 +1617,23 @@ func HasCtxSynchronize() bool {
 	return Has("cuCtxSynchronize")
 }
 
-// HasctxSynchronizeV2 reports whether cuCtxSynchronize_v2 resolved in the loaded library.
-func HasctxSynchronizeV2() bool {
+// HasCtxSynchronizeV2 reports whether cuCtxSynchronize_v2 resolved in the loaded library.
+func HasCtxSynchronizeV2() bool {
 	return Has("cuCtxSynchronize_v2")
 }
 
-// HasctxWaitEvent reports whether cuCtxWaitEvent resolved in the loaded library.
-func HasctxWaitEvent() bool {
+// HasCtxWaitEvent reports whether cuCtxWaitEvent resolved in the loaded library.
+func HasCtxWaitEvent() bool {
 	return Has("cuCtxWaitEvent")
 }
 
-// HasdestroyExternalMemory reports whether cuDestroyExternalMemory resolved in the loaded library.
-func HasdestroyExternalMemory() bool {
+// HasDestroyExternalMemory reports whether cuDestroyExternalMemory resolved in the loaded library.
+func HasDestroyExternalMemory() bool {
 	return Has("cuDestroyExternalMemory")
 }
 
-// HasdestroyExternalSemaphore reports whether cuDestroyExternalSemaphore resolved in the loaded library.
-func HasdestroyExternalSemaphore() bool {
+// HasDestroyExternalSemaphore reports whether cuDestroyExternalSemaphore resolved in the loaded library.
+func HasDestroyExternalSemaphore() bool {
 	return Has("cuDestroyExternalSemaphore")
 }
 
@@ -1652,28 +1652,28 @@ func HasDevSmResourceSplitByCount() bool {
 	return Has("cuDevSmResourceSplitByCount")
 }
 
-// HasdeviceCanAccessPeer reports whether cuDeviceCanAccessPeer resolved in the loaded library.
-func HasdeviceCanAccessPeer() bool {
+// HasDeviceCanAccessPeer reports whether cuDeviceCanAccessPeer resolved in the loaded library.
+func HasDeviceCanAccessPeer() bool {
 	return Has("cuDeviceCanAccessPeer")
 }
 
-// HasdeviceComputeCapability reports whether cuDeviceComputeCapability resolved in the loaded library.
-func HasdeviceComputeCapability() bool {
+// HasDeviceComputeCapability reports whether cuDeviceComputeCapability resolved in the loaded library.
+func HasDeviceComputeCapability() bool {
 	return Has("cuDeviceComputeCapability")
 }
 
-// HasdeviceGet reports whether cuDeviceGet resolved in the loaded library.
-func HasdeviceGet() bool {
+// HasDeviceGet reports whether cuDeviceGet resolved in the loaded library.
+func HasDeviceGet() bool {
 	return Has("cuDeviceGet")
 }
 
-// HasdeviceGetAttribute reports whether cuDeviceGetAttribute resolved in the loaded library.
-func HasdeviceGetAttribute() bool {
+// HasDeviceGetAttribute reports whether cuDeviceGetAttribute resolved in the loaded library.
+func HasDeviceGetAttribute() bool {
 	return Has("cuDeviceGetAttribute")
 }
 
-// HasdeviceGetByPCIBusId reports whether cuDeviceGetByPCIBusId resolved in the loaded library.
-func HasdeviceGetByPCIBusId() bool {
+// HasDeviceGetByPCIBusId reports whether cuDeviceGetByPCIBusId resolved in the loaded library.
+func HasDeviceGetByPCIBusId() bool {
 	return Has("cuDeviceGetByPCIBusId")
 }
 
@@ -1682,133 +1682,133 @@ func HasDeviceGetCount() bool {
 	return Has("cuDeviceGetCount")
 }
 
-// HasdeviceGetDefaultMemPool reports whether cuDeviceGetDefaultMemPool resolved in the loaded library.
-func HasdeviceGetDefaultMemPool() bool {
+// HasDeviceGetDefaultMemPool reports whether cuDeviceGetDefaultMemPool resolved in the loaded library.
+func HasDeviceGetDefaultMemPool() bool {
 	return Has("cuDeviceGetDefaultMemPool")
 }
 
-// HasdeviceGetDevResource reports whether cuDeviceGetDevResource resolved in the loaded library.
-func HasdeviceGetDevResource() bool {
+// HasDeviceGetDevResource reports whether cuDeviceGetDevResource resolved in the loaded library.
+func HasDeviceGetDevResource() bool {
 	return Has("cuDeviceGetDevResource")
 }
 
-// HasdeviceGetExecAffinitySupport reports whether cuDeviceGetExecAffinitySupport resolved in the loaded library.
-func HasdeviceGetExecAffinitySupport() bool {
+// HasDeviceGetExecAffinitySupport reports whether cuDeviceGetExecAffinitySupport resolved in the loaded library.
+func HasDeviceGetExecAffinitySupport() bool {
 	return Has("cuDeviceGetExecAffinitySupport")
 }
 
-// HasdeviceGetGraphMemAttribute reports whether cuDeviceGetGraphMemAttribute resolved in the loaded library.
-func HasdeviceGetGraphMemAttribute() bool {
+// HasDeviceGetGraphMemAttribute reports whether cuDeviceGetGraphMemAttribute resolved in the loaded library.
+func HasDeviceGetGraphMemAttribute() bool {
 	return Has("cuDeviceGetGraphMemAttribute")
 }
 
-// HasdeviceGetHostAtomicCapabilities reports whether cuDeviceGetHostAtomicCapabilities resolved in the loaded library.
-func HasdeviceGetHostAtomicCapabilities() bool {
+// HasDeviceGetHostAtomicCapabilities reports whether cuDeviceGetHostAtomicCapabilities resolved in the loaded library.
+func HasDeviceGetHostAtomicCapabilities() bool {
 	return Has("cuDeviceGetHostAtomicCapabilities")
 }
 
-// HasdeviceGetLuid reports whether cuDeviceGetLuid resolved in the loaded library.
-func HasdeviceGetLuid() bool {
+// HasDeviceGetLuid reports whether cuDeviceGetLuid resolved in the loaded library.
+func HasDeviceGetLuid() bool {
 	return Has("cuDeviceGetLuid")
 }
 
-// HasdeviceGetMemPool reports whether cuDeviceGetMemPool resolved in the loaded library.
-func HasdeviceGetMemPool() bool {
+// HasDeviceGetMemPool reports whether cuDeviceGetMemPool resolved in the loaded library.
+func HasDeviceGetMemPool() bool {
 	return Has("cuDeviceGetMemPool")
 }
 
-// HasdeviceGetName reports whether cuDeviceGetName resolved in the loaded library.
-func HasdeviceGetName() bool {
+// HasDeviceGetName reports whether cuDeviceGetName resolved in the loaded library.
+func HasDeviceGetName() bool {
 	return Has("cuDeviceGetName")
 }
 
-// HasdeviceGetNvSciSyncAttributes reports whether cuDeviceGetNvSciSyncAttributes resolved in the loaded library.
-func HasdeviceGetNvSciSyncAttributes() bool {
+// HasDeviceGetNvSciSyncAttributes reports whether cuDeviceGetNvSciSyncAttributes resolved in the loaded library.
+func HasDeviceGetNvSciSyncAttributes() bool {
 	return Has("cuDeviceGetNvSciSyncAttributes")
 }
 
-// HasdeviceGetP2PAtomicCapabilities reports whether cuDeviceGetP2PAtomicCapabilities resolved in the loaded library.
-func HasdeviceGetP2PAtomicCapabilities() bool {
+// HasDeviceGetP2PAtomicCapabilities reports whether cuDeviceGetP2PAtomicCapabilities resolved in the loaded library.
+func HasDeviceGetP2PAtomicCapabilities() bool {
 	return Has("cuDeviceGetP2PAtomicCapabilities")
 }
 
-// HasdeviceGetP2PAttribute reports whether cuDeviceGetP2PAttribute resolved in the loaded library.
-func HasdeviceGetP2PAttribute() bool {
+// HasDeviceGetP2PAttribute reports whether cuDeviceGetP2PAttribute resolved in the loaded library.
+func HasDeviceGetP2PAttribute() bool {
 	return Has("cuDeviceGetP2PAttribute")
 }
 
-// HasdeviceGetPCIBusId reports whether cuDeviceGetPCIBusId resolved in the loaded library.
-func HasdeviceGetPCIBusId() bool {
+// HasDeviceGetPCIBusId reports whether cuDeviceGetPCIBusId resolved in the loaded library.
+func HasDeviceGetPCIBusId() bool {
 	return Has("cuDeviceGetPCIBusId")
 }
 
-// HasdeviceGetProperties reports whether cuDeviceGetProperties resolved in the loaded library.
-func HasdeviceGetProperties() bool {
+// HasDeviceGetProperties reports whether cuDeviceGetProperties resolved in the loaded library.
+func HasDeviceGetProperties() bool {
 	return Has("cuDeviceGetProperties")
 }
 
-// HasdeviceGetTexture1DLinearMaxWidth reports whether cuDeviceGetTexture1DLinearMaxWidth resolved in the loaded library.
-func HasdeviceGetTexture1DLinearMaxWidth() bool {
+// HasDeviceGetTexture1DLinearMaxWidth reports whether cuDeviceGetTexture1DLinearMaxWidth resolved in the loaded library.
+func HasDeviceGetTexture1DLinearMaxWidth() bool {
 	return Has("cuDeviceGetTexture1DLinearMaxWidth")
 }
 
-// HasdeviceGetUuid reports whether cuDeviceGetUuid_v2 resolved in the loaded library.
-func HasdeviceGetUuid() bool {
+// HasDeviceGetUuid reports whether cuDeviceGetUuid_v2 resolved in the loaded library.
+func HasDeviceGetUuid() bool {
 	return Has("cuDeviceGetUuid_v2")
 }
 
-// HasdeviceGraphMemTrim reports whether cuDeviceGraphMemTrim resolved in the loaded library.
-func HasdeviceGraphMemTrim() bool {
+// HasDeviceGraphMemTrim reports whether cuDeviceGraphMemTrim resolved in the loaded library.
+func HasDeviceGraphMemTrim() bool {
 	return Has("cuDeviceGraphMemTrim")
 }
 
-// HasdevicePrimaryCtxGetState reports whether cuDevicePrimaryCtxGetState resolved in the loaded library.
-func HasdevicePrimaryCtxGetState() bool {
+// HasDevicePrimaryCtxGetState reports whether cuDevicePrimaryCtxGetState resolved in the loaded library.
+func HasDevicePrimaryCtxGetState() bool {
 	return Has("cuDevicePrimaryCtxGetState")
 }
 
-// HasdevicePrimaryCtxRelease reports whether cuDevicePrimaryCtxRelease_v2 resolved in the loaded library.
-func HasdevicePrimaryCtxRelease() bool {
+// HasDevicePrimaryCtxRelease reports whether cuDevicePrimaryCtxRelease_v2 resolved in the loaded library.
+func HasDevicePrimaryCtxRelease() bool {
 	return Has("cuDevicePrimaryCtxRelease_v2")
 }
 
-// HasdevicePrimaryCtxReset reports whether cuDevicePrimaryCtxReset_v2 resolved in the loaded library.
-func HasdevicePrimaryCtxReset() bool {
+// HasDevicePrimaryCtxReset reports whether cuDevicePrimaryCtxReset_v2 resolved in the loaded library.
+func HasDevicePrimaryCtxReset() bool {
 	return Has("cuDevicePrimaryCtxReset_v2")
 }
 
-// HasdevicePrimaryCtxRetain reports whether cuDevicePrimaryCtxRetain resolved in the loaded library.
-func HasdevicePrimaryCtxRetain() bool {
+// HasDevicePrimaryCtxRetain reports whether cuDevicePrimaryCtxRetain resolved in the loaded library.
+func HasDevicePrimaryCtxRetain() bool {
 	return Has("cuDevicePrimaryCtxRetain")
 }
 
-// HasdevicePrimaryCtxSetFlags reports whether cuDevicePrimaryCtxSetFlags_v2 resolved in the loaded library.
-func HasdevicePrimaryCtxSetFlags() bool {
+// HasDevicePrimaryCtxSetFlags reports whether cuDevicePrimaryCtxSetFlags_v2 resolved in the loaded library.
+func HasDevicePrimaryCtxSetFlags() bool {
 	return Has("cuDevicePrimaryCtxSetFlags_v2")
 }
 
-// HasdeviceRegisterAsyncNotification reports whether cuDeviceRegisterAsyncNotification resolved in the loaded library.
-func HasdeviceRegisterAsyncNotification() bool {
+// HasDeviceRegisterAsyncNotification reports whether cuDeviceRegisterAsyncNotification resolved in the loaded library.
+func HasDeviceRegisterAsyncNotification() bool {
 	return Has("cuDeviceRegisterAsyncNotification")
 }
 
-// HasdeviceSetGraphMemAttribute reports whether cuDeviceSetGraphMemAttribute resolved in the loaded library.
-func HasdeviceSetGraphMemAttribute() bool {
+// HasDeviceSetGraphMemAttribute reports whether cuDeviceSetGraphMemAttribute resolved in the loaded library.
+func HasDeviceSetGraphMemAttribute() bool {
 	return Has("cuDeviceSetGraphMemAttribute")
 }
 
-// HasdeviceSetMemPool reports whether cuDeviceSetMemPool resolved in the loaded library.
-func HasdeviceSetMemPool() bool {
+// HasDeviceSetMemPool reports whether cuDeviceSetMemPool resolved in the loaded library.
+func HasDeviceSetMemPool() bool {
 	return Has("cuDeviceSetMemPool")
 }
 
-// HasdeviceTotalMem reports whether cuDeviceTotalMem_v2 resolved in the loaded library.
-func HasdeviceTotalMem() bool {
+// HasDeviceTotalMem reports whether cuDeviceTotalMem_v2 resolved in the loaded library.
+func HasDeviceTotalMem() bool {
 	return Has("cuDeviceTotalMem_v2")
 }
 
-// HasdeviceUnregisterAsyncNotification reports whether cuDeviceUnregisterAsyncNotification resolved in the loaded library.
-func HasdeviceUnregisterAsyncNotification() bool {
+// HasDeviceUnregisterAsyncNotification reports whether cuDeviceUnregisterAsyncNotification resolved in the loaded library.
+func HasDeviceUnregisterAsyncNotification() bool {
 	return Has("cuDeviceUnregisterAsyncNotification")
 }
 
@@ -1817,48 +1817,48 @@ func HasDriverGetVersion() bool {
 	return Has("cuDriverGetVersion")
 }
 
-// HaseventCreate reports whether cuEventCreate resolved in the loaded library.
-func HaseventCreate() bool {
+// HasEventCreate reports whether cuEventCreate resolved in the loaded library.
+func HasEventCreate() bool {
 	return Has("cuEventCreate")
 }
 
-// HaseventDestroy reports whether cuEventDestroy_v2 resolved in the loaded library.
-func HaseventDestroy() bool {
+// HasEventDestroy reports whether cuEventDestroy_v2 resolved in the loaded library.
+func HasEventDestroy() bool {
 	return Has("cuEventDestroy_v2")
 }
 
-// HaseventElapsedTime reports whether cuEventElapsedTime_v2 resolved in the loaded library.
-func HaseventElapsedTime() bool {
+// HasEventElapsedTime reports whether cuEventElapsedTime_v2 resolved in the loaded library.
+func HasEventElapsedTime() bool {
 	return Has("cuEventElapsedTime_v2")
 }
 
-// HaseventQuery reports whether cuEventQuery resolved in the loaded library.
-func HaseventQuery() bool {
+// HasEventQuery reports whether cuEventQuery resolved in the loaded library.
+func HasEventQuery() bool {
 	return Has("cuEventQuery")
 }
 
-// HaseventRecord reports whether cuEventRecord resolved in the loaded library.
-func HaseventRecord() bool {
+// HasEventRecord reports whether cuEventRecord resolved in the loaded library.
+func HasEventRecord() bool {
 	return Has("cuEventRecord")
 }
 
-// HaseventRecordWithFlags reports whether cuEventRecordWithFlags resolved in the loaded library.
-func HaseventRecordWithFlags() bool {
+// HasEventRecordWithFlags reports whether cuEventRecordWithFlags resolved in the loaded library.
+func HasEventRecordWithFlags() bool {
 	return Has("cuEventRecordWithFlags")
 }
 
-// HaseventSynchronize reports whether cuEventSynchronize resolved in the loaded library.
-func HaseventSynchronize() bool {
+// HasEventSynchronize reports whether cuEventSynchronize resolved in the loaded library.
+func HasEventSynchronize() bool {
 	return Has("cuEventSynchronize")
 }
 
-// HasexternalMemoryGetMappedBuffer reports whether cuExternalMemoryGetMappedBuffer resolved in the loaded library.
-func HasexternalMemoryGetMappedBuffer() bool {
+// HasExternalMemoryGetMappedBuffer reports whether cuExternalMemoryGetMappedBuffer resolved in the loaded library.
+func HasExternalMemoryGetMappedBuffer() bool {
 	return Has("cuExternalMemoryGetMappedBuffer")
 }
 
-// HasexternalMemoryGetMappedMipmappedArray reports whether cuExternalMemoryGetMappedMipmappedArray resolved in the loaded library.
-func HasexternalMemoryGetMappedMipmappedArray() bool {
+// HasExternalMemoryGetMappedMipmappedArray reports whether cuExternalMemoryGetMappedMipmappedArray resolved in the loaded library.
+func HasExternalMemoryGetMappedMipmappedArray() bool {
 	return Has("cuExternalMemoryGetMappedMipmappedArray")
 }
 
@@ -1867,63 +1867,63 @@ func HasFlushGPUDirectRDMAWrites() bool {
 	return Has("cuFlushGPUDirectRDMAWrites")
 }
 
-// HasfuncGetAttribute reports whether cuFuncGetAttribute resolved in the loaded library.
-func HasfuncGetAttribute() bool {
+// HasFuncGetAttribute reports whether cuFuncGetAttribute resolved in the loaded library.
+func HasFuncGetAttribute() bool {
 	return Has("cuFuncGetAttribute")
 }
 
-// HasfuncGetModule reports whether cuFuncGetModule resolved in the loaded library.
-func HasfuncGetModule() bool {
+// HasFuncGetModule reports whether cuFuncGetModule resolved in the loaded library.
+func HasFuncGetModule() bool {
 	return Has("cuFuncGetModule")
 }
 
-// HasfuncGetName reports whether cuFuncGetName resolved in the loaded library.
-func HasfuncGetName() bool {
+// HasFuncGetName reports whether cuFuncGetName resolved in the loaded library.
+func HasFuncGetName() bool {
 	return Has("cuFuncGetName")
 }
 
-// HasfuncGetParamCount reports whether cuFuncGetParamCount resolved in the loaded library.
-func HasfuncGetParamCount() bool {
+// HasFuncGetParamCount reports whether cuFuncGetParamCount resolved in the loaded library.
+func HasFuncGetParamCount() bool {
 	return Has("cuFuncGetParamCount")
 }
 
-// HasfuncGetParamInfo reports whether cuFuncGetParamInfo resolved in the loaded library.
-func HasfuncGetParamInfo() bool {
+// HasFuncGetParamInfo reports whether cuFuncGetParamInfo resolved in the loaded library.
+func HasFuncGetParamInfo() bool {
 	return Has("cuFuncGetParamInfo")
 }
 
-// HasfuncIsLoaded reports whether cuFuncIsLoaded resolved in the loaded library.
-func HasfuncIsLoaded() bool {
+// HasFuncIsLoaded reports whether cuFuncIsLoaded resolved in the loaded library.
+func HasFuncIsLoaded() bool {
 	return Has("cuFuncIsLoaded")
 }
 
-// HasfuncLoad reports whether cuFuncLoad resolved in the loaded library.
-func HasfuncLoad() bool {
+// HasFuncLoad reports whether cuFuncLoad resolved in the loaded library.
+func HasFuncLoad() bool {
 	return Has("cuFuncLoad")
 }
 
-// HasfuncSetAttribute reports whether cuFuncSetAttribute resolved in the loaded library.
-func HasfuncSetAttribute() bool {
+// HasFuncSetAttribute reports whether cuFuncSetAttribute resolved in the loaded library.
+func HasFuncSetAttribute() bool {
 	return Has("cuFuncSetAttribute")
 }
 
-// HasfuncSetBlockShape reports whether cuFuncSetBlockShape resolved in the loaded library.
-func HasfuncSetBlockShape() bool {
+// HasFuncSetBlockShape reports whether cuFuncSetBlockShape resolved in the loaded library.
+func HasFuncSetBlockShape() bool {
 	return Has("cuFuncSetBlockShape")
 }
 
-// HasfuncSetCacheConfig reports whether cuFuncSetCacheConfig resolved in the loaded library.
-func HasfuncSetCacheConfig() bool {
+// HasFuncSetCacheConfig reports whether cuFuncSetCacheConfig resolved in the loaded library.
+func HasFuncSetCacheConfig() bool {
 	return Has("cuFuncSetCacheConfig")
 }
 
-// HasfuncSetSharedMemConfig reports whether cuFuncSetSharedMemConfig resolved in the loaded library.
-func HasfuncSetSharedMemConfig() bool {
+// HasFuncSetSharedMemConfig reports whether cuFuncSetSharedMemConfig resolved in the loaded library.
+func HasFuncSetSharedMemConfig() bool {
 	return Has("cuFuncSetSharedMemConfig")
 }
 
-// HasfuncSetSharedSize reports whether cuFuncSetSharedSize resolved in the loaded library.
-func HasfuncSetSharedSize() bool {
+// HasFuncSetSharedSize reports whether cuFuncSetSharedSize resolved in the loaded library.
+func HasFuncSetSharedSize() bool {
 	return Has("cuFuncSetSharedSize")
 }
 
@@ -1937,483 +1937,483 @@ func HasGetProcAddress() bool {
 	return Has("cuGetProcAddress_v2")
 }
 
-// HasgraphAddBatchMemOpNode reports whether cuGraphAddBatchMemOpNode resolved in the loaded library.
-func HasgraphAddBatchMemOpNode() bool {
+// HasGraphAddBatchMemOpNode reports whether cuGraphAddBatchMemOpNode resolved in the loaded library.
+func HasGraphAddBatchMemOpNode() bool {
 	return Has("cuGraphAddBatchMemOpNode")
 }
 
-// HasgraphAddChildGraphNode reports whether cuGraphAddChildGraphNode resolved in the loaded library.
-func HasgraphAddChildGraphNode() bool {
+// HasGraphAddChildGraphNode reports whether cuGraphAddChildGraphNode resolved in the loaded library.
+func HasGraphAddChildGraphNode() bool {
 	return Has("cuGraphAddChildGraphNode")
 }
 
-// HasgraphAddDependencies reports whether cuGraphAddDependencies_v2 resolved in the loaded library.
-func HasgraphAddDependencies() bool {
+// HasGraphAddDependencies reports whether cuGraphAddDependencies_v2 resolved in the loaded library.
+func HasGraphAddDependencies() bool {
 	return Has("cuGraphAddDependencies_v2")
 }
 
-// HasgraphAddEmptyNode reports whether cuGraphAddEmptyNode resolved in the loaded library.
-func HasgraphAddEmptyNode() bool {
+// HasGraphAddEmptyNode reports whether cuGraphAddEmptyNode resolved in the loaded library.
+func HasGraphAddEmptyNode() bool {
 	return Has("cuGraphAddEmptyNode")
 }
 
-// HasgraphAddEventRecordNode reports whether cuGraphAddEventRecordNode resolved in the loaded library.
-func HasgraphAddEventRecordNode() bool {
+// HasGraphAddEventRecordNode reports whether cuGraphAddEventRecordNode resolved in the loaded library.
+func HasGraphAddEventRecordNode() bool {
 	return Has("cuGraphAddEventRecordNode")
 }
 
-// HasgraphAddEventWaitNode reports whether cuGraphAddEventWaitNode resolved in the loaded library.
-func HasgraphAddEventWaitNode() bool {
+// HasGraphAddEventWaitNode reports whether cuGraphAddEventWaitNode resolved in the loaded library.
+func HasGraphAddEventWaitNode() bool {
 	return Has("cuGraphAddEventWaitNode")
 }
 
-// HasgraphAddExternalSemaphoresSignalNode reports whether cuGraphAddExternalSemaphoresSignalNode resolved in the loaded library.
-func HasgraphAddExternalSemaphoresSignalNode() bool {
+// HasGraphAddExternalSemaphoresSignalNode reports whether cuGraphAddExternalSemaphoresSignalNode resolved in the loaded library.
+func HasGraphAddExternalSemaphoresSignalNode() bool {
 	return Has("cuGraphAddExternalSemaphoresSignalNode")
 }
 
-// HasgraphAddExternalSemaphoresWaitNode reports whether cuGraphAddExternalSemaphoresWaitNode resolved in the loaded library.
-func HasgraphAddExternalSemaphoresWaitNode() bool {
+// HasGraphAddExternalSemaphoresWaitNode reports whether cuGraphAddExternalSemaphoresWaitNode resolved in the loaded library.
+func HasGraphAddExternalSemaphoresWaitNode() bool {
 	return Has("cuGraphAddExternalSemaphoresWaitNode")
 }
 
-// HasgraphAddHostNode reports whether cuGraphAddHostNode resolved in the loaded library.
-func HasgraphAddHostNode() bool {
+// HasGraphAddHostNode reports whether cuGraphAddHostNode resolved in the loaded library.
+func HasGraphAddHostNode() bool {
 	return Has("cuGraphAddHostNode")
 }
 
-// HasgraphAddKernelNode reports whether cuGraphAddKernelNode_v2 resolved in the loaded library.
-func HasgraphAddKernelNode() bool {
+// HasGraphAddKernelNode reports whether cuGraphAddKernelNode_v2 resolved in the loaded library.
+func HasGraphAddKernelNode() bool {
 	return Has("cuGraphAddKernelNode_v2")
 }
 
-// HasgraphAddMemAllocNode reports whether cuGraphAddMemAllocNode resolved in the loaded library.
-func HasgraphAddMemAllocNode() bool {
+// HasGraphAddMemAllocNode reports whether cuGraphAddMemAllocNode resolved in the loaded library.
+func HasGraphAddMemAllocNode() bool {
 	return Has("cuGraphAddMemAllocNode")
 }
 
-// HasgraphAddMemFreeNode reports whether cuGraphAddMemFreeNode resolved in the loaded library.
-func HasgraphAddMemFreeNode() bool {
+// HasGraphAddMemFreeNode reports whether cuGraphAddMemFreeNode resolved in the loaded library.
+func HasGraphAddMemFreeNode() bool {
 	return Has("cuGraphAddMemFreeNode")
 }
 
-// HasgraphAddMemcpyNode reports whether cuGraphAddMemcpyNode resolved in the loaded library.
-func HasgraphAddMemcpyNode() bool {
+// HasGraphAddMemcpyNode reports whether cuGraphAddMemcpyNode resolved in the loaded library.
+func HasGraphAddMemcpyNode() bool {
 	return Has("cuGraphAddMemcpyNode")
 }
 
-// HasgraphAddMemsetNode reports whether cuGraphAddMemsetNode resolved in the loaded library.
-func HasgraphAddMemsetNode() bool {
+// HasGraphAddMemsetNode reports whether cuGraphAddMemsetNode resolved in the loaded library.
+func HasGraphAddMemsetNode() bool {
 	return Has("cuGraphAddMemsetNode")
 }
 
-// HasgraphAddNode reports whether cuGraphAddNode_v2 resolved in the loaded library.
-func HasgraphAddNode() bool {
+// HasGraphAddNode reports whether cuGraphAddNode_v2 resolved in the loaded library.
+func HasGraphAddNode() bool {
 	return Has("cuGraphAddNode_v2")
 }
 
-// HasgraphBatchMemOpNodeGetParams reports whether cuGraphBatchMemOpNodeGetParams resolved in the loaded library.
-func HasgraphBatchMemOpNodeGetParams() bool {
+// HasGraphBatchMemOpNodeGetParams reports whether cuGraphBatchMemOpNodeGetParams resolved in the loaded library.
+func HasGraphBatchMemOpNodeGetParams() bool {
 	return Has("cuGraphBatchMemOpNodeGetParams")
 }
 
-// HasgraphBatchMemOpNodeSetParams reports whether cuGraphBatchMemOpNodeSetParams resolved in the loaded library.
-func HasgraphBatchMemOpNodeSetParams() bool {
+// HasGraphBatchMemOpNodeSetParams reports whether cuGraphBatchMemOpNodeSetParams resolved in the loaded library.
+func HasGraphBatchMemOpNodeSetParams() bool {
 	return Has("cuGraphBatchMemOpNodeSetParams")
 }
 
-// HasgraphChildGraphNodeGetGraph reports whether cuGraphChildGraphNodeGetGraph resolved in the loaded library.
-func HasgraphChildGraphNodeGetGraph() bool {
+// HasGraphChildGraphNodeGetGraph reports whether cuGraphChildGraphNodeGetGraph resolved in the loaded library.
+func HasGraphChildGraphNodeGetGraph() bool {
 	return Has("cuGraphChildGraphNodeGetGraph")
 }
 
-// HasgraphClone reports whether cuGraphClone resolved in the loaded library.
-func HasgraphClone() bool {
+// HasGraphClone reports whether cuGraphClone resolved in the loaded library.
+func HasGraphClone() bool {
 	return Has("cuGraphClone")
 }
 
-// HasgraphConditionalHandleCreate reports whether cuGraphConditionalHandleCreate resolved in the loaded library.
-func HasgraphConditionalHandleCreate() bool {
+// HasGraphConditionalHandleCreate reports whether cuGraphConditionalHandleCreate resolved in the loaded library.
+func HasGraphConditionalHandleCreate() bool {
 	return Has("cuGraphConditionalHandleCreate")
 }
 
-// HasgraphCreate reports whether cuGraphCreate resolved in the loaded library.
-func HasgraphCreate() bool {
+// HasGraphCreate reports whether cuGraphCreate resolved in the loaded library.
+func HasGraphCreate() bool {
 	return Has("cuGraphCreate")
 }
 
-// HasgraphDebugDotPrint reports whether cuGraphDebugDotPrint resolved in the loaded library.
-func HasgraphDebugDotPrint() bool {
+// HasGraphDebugDotPrint reports whether cuGraphDebugDotPrint resolved in the loaded library.
+func HasGraphDebugDotPrint() bool {
 	return Has("cuGraphDebugDotPrint")
 }
 
-// HasgraphDestroy reports whether cuGraphDestroy resolved in the loaded library.
-func HasgraphDestroy() bool {
+// HasGraphDestroy reports whether cuGraphDestroy resolved in the loaded library.
+func HasGraphDestroy() bool {
 	return Has("cuGraphDestroy")
 }
 
-// HasgraphDestroyNode reports whether cuGraphDestroyNode resolved in the loaded library.
-func HasgraphDestroyNode() bool {
+// HasGraphDestroyNode reports whether cuGraphDestroyNode resolved in the loaded library.
+func HasGraphDestroyNode() bool {
 	return Has("cuGraphDestroyNode")
 }
 
-// HasgraphEventRecordNodeGetEvent reports whether cuGraphEventRecordNodeGetEvent resolved in the loaded library.
-func HasgraphEventRecordNodeGetEvent() bool {
+// HasGraphEventRecordNodeGetEvent reports whether cuGraphEventRecordNodeGetEvent resolved in the loaded library.
+func HasGraphEventRecordNodeGetEvent() bool {
 	return Has("cuGraphEventRecordNodeGetEvent")
 }
 
-// HasgraphEventRecordNodeSetEvent reports whether cuGraphEventRecordNodeSetEvent resolved in the loaded library.
-func HasgraphEventRecordNodeSetEvent() bool {
+// HasGraphEventRecordNodeSetEvent reports whether cuGraphEventRecordNodeSetEvent resolved in the loaded library.
+func HasGraphEventRecordNodeSetEvent() bool {
 	return Has("cuGraphEventRecordNodeSetEvent")
 }
 
-// HasgraphEventWaitNodeGetEvent reports whether cuGraphEventWaitNodeGetEvent resolved in the loaded library.
-func HasgraphEventWaitNodeGetEvent() bool {
+// HasGraphEventWaitNodeGetEvent reports whether cuGraphEventWaitNodeGetEvent resolved in the loaded library.
+func HasGraphEventWaitNodeGetEvent() bool {
 	return Has("cuGraphEventWaitNodeGetEvent")
 }
 
-// HasgraphEventWaitNodeSetEvent reports whether cuGraphEventWaitNodeSetEvent resolved in the loaded library.
-func HasgraphEventWaitNodeSetEvent() bool {
+// HasGraphEventWaitNodeSetEvent reports whether cuGraphEventWaitNodeSetEvent resolved in the loaded library.
+func HasGraphEventWaitNodeSetEvent() bool {
 	return Has("cuGraphEventWaitNodeSetEvent")
 }
 
-// HasgraphExecBatchMemOpNodeSetParams reports whether cuGraphExecBatchMemOpNodeSetParams resolved in the loaded library.
-func HasgraphExecBatchMemOpNodeSetParams() bool {
+// HasGraphExecBatchMemOpNodeSetParams reports whether cuGraphExecBatchMemOpNodeSetParams resolved in the loaded library.
+func HasGraphExecBatchMemOpNodeSetParams() bool {
 	return Has("cuGraphExecBatchMemOpNodeSetParams")
 }
 
-// HasgraphExecChildGraphNodeSetParams reports whether cuGraphExecChildGraphNodeSetParams resolved in the loaded library.
-func HasgraphExecChildGraphNodeSetParams() bool {
+// HasGraphExecChildGraphNodeSetParams reports whether cuGraphExecChildGraphNodeSetParams resolved in the loaded library.
+func HasGraphExecChildGraphNodeSetParams() bool {
 	return Has("cuGraphExecChildGraphNodeSetParams")
 }
 
-// HasgraphExecDestroy reports whether cuGraphExecDestroy resolved in the loaded library.
-func HasgraphExecDestroy() bool {
+// HasGraphExecDestroy reports whether cuGraphExecDestroy resolved in the loaded library.
+func HasGraphExecDestroy() bool {
 	return Has("cuGraphExecDestroy")
 }
 
-// HasgraphExecEventRecordNodeSetEvent reports whether cuGraphExecEventRecordNodeSetEvent resolved in the loaded library.
-func HasgraphExecEventRecordNodeSetEvent() bool {
+// HasGraphExecEventRecordNodeSetEvent reports whether cuGraphExecEventRecordNodeSetEvent resolved in the loaded library.
+func HasGraphExecEventRecordNodeSetEvent() bool {
 	return Has("cuGraphExecEventRecordNodeSetEvent")
 }
 
-// HasgraphExecEventWaitNodeSetEvent reports whether cuGraphExecEventWaitNodeSetEvent resolved in the loaded library.
-func HasgraphExecEventWaitNodeSetEvent() bool {
+// HasGraphExecEventWaitNodeSetEvent reports whether cuGraphExecEventWaitNodeSetEvent resolved in the loaded library.
+func HasGraphExecEventWaitNodeSetEvent() bool {
 	return Has("cuGraphExecEventWaitNodeSetEvent")
 }
 
-// HasgraphExecExternalSemaphoresSignalNodeSetParams reports whether cuGraphExecExternalSemaphoresSignalNodeSetParams resolved in the loaded library.
-func HasgraphExecExternalSemaphoresSignalNodeSetParams() bool {
+// HasGraphExecExternalSemaphoresSignalNodeSetParams reports whether cuGraphExecExternalSemaphoresSignalNodeSetParams resolved in the loaded library.
+func HasGraphExecExternalSemaphoresSignalNodeSetParams() bool {
 	return Has("cuGraphExecExternalSemaphoresSignalNodeSetParams")
 }
 
-// HasgraphExecExternalSemaphoresWaitNodeSetParams reports whether cuGraphExecExternalSemaphoresWaitNodeSetParams resolved in the loaded library.
-func HasgraphExecExternalSemaphoresWaitNodeSetParams() bool {
+// HasGraphExecExternalSemaphoresWaitNodeSetParams reports whether cuGraphExecExternalSemaphoresWaitNodeSetParams resolved in the loaded library.
+func HasGraphExecExternalSemaphoresWaitNodeSetParams() bool {
 	return Has("cuGraphExecExternalSemaphoresWaitNodeSetParams")
 }
 
-// HasgraphExecGetFlags reports whether cuGraphExecGetFlags resolved in the loaded library.
-func HasgraphExecGetFlags() bool {
+// HasGraphExecGetFlags reports whether cuGraphExecGetFlags resolved in the loaded library.
+func HasGraphExecGetFlags() bool {
 	return Has("cuGraphExecGetFlags")
 }
 
-// HasgraphExecGetId reports whether cuGraphExecGetId resolved in the loaded library.
-func HasgraphExecGetId() bool {
+// HasGraphExecGetId reports whether cuGraphExecGetId resolved in the loaded library.
+func HasGraphExecGetId() bool {
 	return Has("cuGraphExecGetId")
 }
 
-// HasgraphExecHostNodeSetParams reports whether cuGraphExecHostNodeSetParams resolved in the loaded library.
-func HasgraphExecHostNodeSetParams() bool {
+// HasGraphExecHostNodeSetParams reports whether cuGraphExecHostNodeSetParams resolved in the loaded library.
+func HasGraphExecHostNodeSetParams() bool {
 	return Has("cuGraphExecHostNodeSetParams")
 }
 
-// HasgraphExecKernelNodeSetParams reports whether cuGraphExecKernelNodeSetParams_v2 resolved in the loaded library.
-func HasgraphExecKernelNodeSetParams() bool {
+// HasGraphExecKernelNodeSetParams reports whether cuGraphExecKernelNodeSetParams_v2 resolved in the loaded library.
+func HasGraphExecKernelNodeSetParams() bool {
 	return Has("cuGraphExecKernelNodeSetParams_v2")
 }
 
-// HasgraphExecMemcpyNodeSetParams reports whether cuGraphExecMemcpyNodeSetParams resolved in the loaded library.
-func HasgraphExecMemcpyNodeSetParams() bool {
+// HasGraphExecMemcpyNodeSetParams reports whether cuGraphExecMemcpyNodeSetParams resolved in the loaded library.
+func HasGraphExecMemcpyNodeSetParams() bool {
 	return Has("cuGraphExecMemcpyNodeSetParams")
 }
 
-// HasgraphExecMemsetNodeSetParams reports whether cuGraphExecMemsetNodeSetParams resolved in the loaded library.
-func HasgraphExecMemsetNodeSetParams() bool {
+// HasGraphExecMemsetNodeSetParams reports whether cuGraphExecMemsetNodeSetParams resolved in the loaded library.
+func HasGraphExecMemsetNodeSetParams() bool {
 	return Has("cuGraphExecMemsetNodeSetParams")
 }
 
-// HasgraphExecNodeSetParams reports whether cuGraphExecNodeSetParams resolved in the loaded library.
-func HasgraphExecNodeSetParams() bool {
+// HasGraphExecNodeSetParams reports whether cuGraphExecNodeSetParams resolved in the loaded library.
+func HasGraphExecNodeSetParams() bool {
 	return Has("cuGraphExecNodeSetParams")
 }
 
-// HasgraphExecUpdate reports whether cuGraphExecUpdate_v2 resolved in the loaded library.
-func HasgraphExecUpdate() bool {
+// HasGraphExecUpdate reports whether cuGraphExecUpdate_v2 resolved in the loaded library.
+func HasGraphExecUpdate() bool {
 	return Has("cuGraphExecUpdate_v2")
 }
 
-// HasgraphExternalSemaphoresSignalNodeGetParams reports whether cuGraphExternalSemaphoresSignalNodeGetParams resolved in the loaded library.
-func HasgraphExternalSemaphoresSignalNodeGetParams() bool {
+// HasGraphExternalSemaphoresSignalNodeGetParams reports whether cuGraphExternalSemaphoresSignalNodeGetParams resolved in the loaded library.
+func HasGraphExternalSemaphoresSignalNodeGetParams() bool {
 	return Has("cuGraphExternalSemaphoresSignalNodeGetParams")
 }
 
-// HasgraphExternalSemaphoresSignalNodeSetParams reports whether cuGraphExternalSemaphoresSignalNodeSetParams resolved in the loaded library.
-func HasgraphExternalSemaphoresSignalNodeSetParams() bool {
+// HasGraphExternalSemaphoresSignalNodeSetParams reports whether cuGraphExternalSemaphoresSignalNodeSetParams resolved in the loaded library.
+func HasGraphExternalSemaphoresSignalNodeSetParams() bool {
 	return Has("cuGraphExternalSemaphoresSignalNodeSetParams")
 }
 
-// HasgraphExternalSemaphoresWaitNodeGetParams reports whether cuGraphExternalSemaphoresWaitNodeGetParams resolved in the loaded library.
-func HasgraphExternalSemaphoresWaitNodeGetParams() bool {
+// HasGraphExternalSemaphoresWaitNodeGetParams reports whether cuGraphExternalSemaphoresWaitNodeGetParams resolved in the loaded library.
+func HasGraphExternalSemaphoresWaitNodeGetParams() bool {
 	return Has("cuGraphExternalSemaphoresWaitNodeGetParams")
 }
 
-// HasgraphExternalSemaphoresWaitNodeSetParams reports whether cuGraphExternalSemaphoresWaitNodeSetParams resolved in the loaded library.
-func HasgraphExternalSemaphoresWaitNodeSetParams() bool {
+// HasGraphExternalSemaphoresWaitNodeSetParams reports whether cuGraphExternalSemaphoresWaitNodeSetParams resolved in the loaded library.
+func HasGraphExternalSemaphoresWaitNodeSetParams() bool {
 	return Has("cuGraphExternalSemaphoresWaitNodeSetParams")
 }
 
-// HasgraphGetEdges reports whether cuGraphGetEdges_v2 resolved in the loaded library.
-func HasgraphGetEdges() bool {
+// HasGraphGetEdges reports whether cuGraphGetEdges_v2 resolved in the loaded library.
+func HasGraphGetEdges() bool {
 	return Has("cuGraphGetEdges_v2")
 }
 
-// HasgraphGetId reports whether cuGraphGetId resolved in the loaded library.
-func HasgraphGetId() bool {
+// HasGraphGetId reports whether cuGraphGetId resolved in the loaded library.
+func HasGraphGetId() bool {
 	return Has("cuGraphGetId")
 }
 
-// HasgraphGetNodes reports whether cuGraphGetNodes resolved in the loaded library.
-func HasgraphGetNodes() bool {
+// HasGraphGetNodes reports whether cuGraphGetNodes resolved in the loaded library.
+func HasGraphGetNodes() bool {
 	return Has("cuGraphGetNodes")
 }
 
-// HasgraphGetRootNodes reports whether cuGraphGetRootNodes resolved in the loaded library.
-func HasgraphGetRootNodes() bool {
+// HasGraphGetRootNodes reports whether cuGraphGetRootNodes resolved in the loaded library.
+func HasGraphGetRootNodes() bool {
 	return Has("cuGraphGetRootNodes")
 }
 
-// HasgraphHostNodeGetParams reports whether cuGraphHostNodeGetParams resolved in the loaded library.
-func HasgraphHostNodeGetParams() bool {
+// HasGraphHostNodeGetParams reports whether cuGraphHostNodeGetParams resolved in the loaded library.
+func HasGraphHostNodeGetParams() bool {
 	return Has("cuGraphHostNodeGetParams")
 }
 
-// HasgraphHostNodeSetParams reports whether cuGraphHostNodeSetParams resolved in the loaded library.
-func HasgraphHostNodeSetParams() bool {
+// HasGraphHostNodeSetParams reports whether cuGraphHostNodeSetParams resolved in the loaded library.
+func HasGraphHostNodeSetParams() bool {
 	return Has("cuGraphHostNodeSetParams")
 }
 
-// HasgraphInstantiate reports whether cuGraphInstantiateWithFlags resolved in the loaded library.
-func HasgraphInstantiate() bool {
+// HasGraphInstantiate reports whether cuGraphInstantiateWithFlags resolved in the loaded library.
+func HasGraphInstantiate() bool {
 	return Has("cuGraphInstantiateWithFlags")
 }
 
-// HasgraphInstantiateWithParams reports whether cuGraphInstantiateWithParams resolved in the loaded library.
-func HasgraphInstantiateWithParams() bool {
+// HasGraphInstantiateWithParams reports whether cuGraphInstantiateWithParams resolved in the loaded library.
+func HasGraphInstantiateWithParams() bool {
 	return Has("cuGraphInstantiateWithParams")
 }
 
-// HasgraphKernelNodeCopyAttributes reports whether cuGraphKernelNodeCopyAttributes resolved in the loaded library.
-func HasgraphKernelNodeCopyAttributes() bool {
+// HasGraphKernelNodeCopyAttributes reports whether cuGraphKernelNodeCopyAttributes resolved in the loaded library.
+func HasGraphKernelNodeCopyAttributes() bool {
 	return Has("cuGraphKernelNodeCopyAttributes")
 }
 
-// HasgraphKernelNodeGetAttribute reports whether cuGraphKernelNodeGetAttribute resolved in the loaded library.
-func HasgraphKernelNodeGetAttribute() bool {
+// HasGraphKernelNodeGetAttribute reports whether cuGraphKernelNodeGetAttribute resolved in the loaded library.
+func HasGraphKernelNodeGetAttribute() bool {
 	return Has("cuGraphKernelNodeGetAttribute")
 }
 
-// HasgraphKernelNodeGetParams reports whether cuGraphKernelNodeGetParams_v2 resolved in the loaded library.
-func HasgraphKernelNodeGetParams() bool {
+// HasGraphKernelNodeGetParams reports whether cuGraphKernelNodeGetParams_v2 resolved in the loaded library.
+func HasGraphKernelNodeGetParams() bool {
 	return Has("cuGraphKernelNodeGetParams_v2")
 }
 
-// HasgraphKernelNodeSetAttribute reports whether cuGraphKernelNodeSetAttribute resolved in the loaded library.
-func HasgraphKernelNodeSetAttribute() bool {
+// HasGraphKernelNodeSetAttribute reports whether cuGraphKernelNodeSetAttribute resolved in the loaded library.
+func HasGraphKernelNodeSetAttribute() bool {
 	return Has("cuGraphKernelNodeSetAttribute")
 }
 
-// HasgraphKernelNodeSetParams reports whether cuGraphKernelNodeSetParams_v2 resolved in the loaded library.
-func HasgraphKernelNodeSetParams() bool {
+// HasGraphKernelNodeSetParams reports whether cuGraphKernelNodeSetParams_v2 resolved in the loaded library.
+func HasGraphKernelNodeSetParams() bool {
 	return Has("cuGraphKernelNodeSetParams_v2")
 }
 
-// HasgraphLaunch reports whether cuGraphLaunch resolved in the loaded library.
-func HasgraphLaunch() bool {
+// HasGraphLaunch reports whether cuGraphLaunch resolved in the loaded library.
+func HasGraphLaunch() bool {
 	return Has("cuGraphLaunch")
 }
 
-// HasgraphMemAllocNodeGetParams reports whether cuGraphMemAllocNodeGetParams resolved in the loaded library.
-func HasgraphMemAllocNodeGetParams() bool {
+// HasGraphMemAllocNodeGetParams reports whether cuGraphMemAllocNodeGetParams resolved in the loaded library.
+func HasGraphMemAllocNodeGetParams() bool {
 	return Has("cuGraphMemAllocNodeGetParams")
 }
 
-// HasgraphMemFreeNodeGetParams reports whether cuGraphMemFreeNodeGetParams resolved in the loaded library.
-func HasgraphMemFreeNodeGetParams() bool {
+// HasGraphMemFreeNodeGetParams reports whether cuGraphMemFreeNodeGetParams resolved in the loaded library.
+func HasGraphMemFreeNodeGetParams() bool {
 	return Has("cuGraphMemFreeNodeGetParams")
 }
 
-// HasgraphMemcpyNodeGetParams reports whether cuGraphMemcpyNodeGetParams resolved in the loaded library.
-func HasgraphMemcpyNodeGetParams() bool {
+// HasGraphMemcpyNodeGetParams reports whether cuGraphMemcpyNodeGetParams resolved in the loaded library.
+func HasGraphMemcpyNodeGetParams() bool {
 	return Has("cuGraphMemcpyNodeGetParams")
 }
 
-// HasgraphMemcpyNodeSetParams reports whether cuGraphMemcpyNodeSetParams resolved in the loaded library.
-func HasgraphMemcpyNodeSetParams() bool {
+// HasGraphMemcpyNodeSetParams reports whether cuGraphMemcpyNodeSetParams resolved in the loaded library.
+func HasGraphMemcpyNodeSetParams() bool {
 	return Has("cuGraphMemcpyNodeSetParams")
 }
 
-// HasgraphMemsetNodeGetParams reports whether cuGraphMemsetNodeGetParams resolved in the loaded library.
-func HasgraphMemsetNodeGetParams() bool {
+// HasGraphMemsetNodeGetParams reports whether cuGraphMemsetNodeGetParams resolved in the loaded library.
+func HasGraphMemsetNodeGetParams() bool {
 	return Has("cuGraphMemsetNodeGetParams")
 }
 
-// HasgraphMemsetNodeSetParams reports whether cuGraphMemsetNodeSetParams resolved in the loaded library.
-func HasgraphMemsetNodeSetParams() bool {
+// HasGraphMemsetNodeSetParams reports whether cuGraphMemsetNodeSetParams resolved in the loaded library.
+func HasGraphMemsetNodeSetParams() bool {
 	return Has("cuGraphMemsetNodeSetParams")
 }
 
-// HasgraphNodeFindInClone reports whether cuGraphNodeFindInClone resolved in the loaded library.
-func HasgraphNodeFindInClone() bool {
+// HasGraphNodeFindInClone reports whether cuGraphNodeFindInClone resolved in the loaded library.
+func HasGraphNodeFindInClone() bool {
 	return Has("cuGraphNodeFindInClone")
 }
 
-// HasgraphNodeGetContainingGraph reports whether cuGraphNodeGetContainingGraph resolved in the loaded library.
-func HasgraphNodeGetContainingGraph() bool {
+// HasGraphNodeGetContainingGraph reports whether cuGraphNodeGetContainingGraph resolved in the loaded library.
+func HasGraphNodeGetContainingGraph() bool {
 	return Has("cuGraphNodeGetContainingGraph")
 }
 
-// HasgraphNodeGetDependencies reports whether cuGraphNodeGetDependencies_v2 resolved in the loaded library.
-func HasgraphNodeGetDependencies() bool {
+// HasGraphNodeGetDependencies reports whether cuGraphNodeGetDependencies_v2 resolved in the loaded library.
+func HasGraphNodeGetDependencies() bool {
 	return Has("cuGraphNodeGetDependencies_v2")
 }
 
-// HasgraphNodeGetDependentNodes reports whether cuGraphNodeGetDependentNodes_v2 resolved in the loaded library.
-func HasgraphNodeGetDependentNodes() bool {
+// HasGraphNodeGetDependentNodes reports whether cuGraphNodeGetDependentNodes_v2 resolved in the loaded library.
+func HasGraphNodeGetDependentNodes() bool {
 	return Has("cuGraphNodeGetDependentNodes_v2")
 }
 
-// HasgraphNodeGetEnabled reports whether cuGraphNodeGetEnabled resolved in the loaded library.
-func HasgraphNodeGetEnabled() bool {
+// HasGraphNodeGetEnabled reports whether cuGraphNodeGetEnabled resolved in the loaded library.
+func HasGraphNodeGetEnabled() bool {
 	return Has("cuGraphNodeGetEnabled")
 }
 
-// HasgraphNodeGetLocalId reports whether cuGraphNodeGetLocalId resolved in the loaded library.
-func HasgraphNodeGetLocalId() bool {
+// HasGraphNodeGetLocalId reports whether cuGraphNodeGetLocalId resolved in the loaded library.
+func HasGraphNodeGetLocalId() bool {
 	return Has("cuGraphNodeGetLocalId")
 }
 
-// HasgraphNodeGetParams reports whether cuGraphNodeGetParams resolved in the loaded library.
-func HasgraphNodeGetParams() bool {
+// HasGraphNodeGetParams reports whether cuGraphNodeGetParams resolved in the loaded library.
+func HasGraphNodeGetParams() bool {
 	return Has("cuGraphNodeGetParams")
 }
 
-// HasgraphNodeGetToolsId reports whether cuGraphNodeGetToolsId resolved in the loaded library.
-func HasgraphNodeGetToolsId() bool {
+// HasGraphNodeGetToolsId reports whether cuGraphNodeGetToolsId resolved in the loaded library.
+func HasGraphNodeGetToolsId() bool {
 	return Has("cuGraphNodeGetToolsId")
 }
 
-// HasgraphNodeGetType reports whether cuGraphNodeGetType resolved in the loaded library.
-func HasgraphNodeGetType() bool {
+// HasGraphNodeGetType reports whether cuGraphNodeGetType resolved in the loaded library.
+func HasGraphNodeGetType() bool {
 	return Has("cuGraphNodeGetType")
 }
 
-// HasgraphNodeSetEnabled reports whether cuGraphNodeSetEnabled resolved in the loaded library.
-func HasgraphNodeSetEnabled() bool {
+// HasGraphNodeSetEnabled reports whether cuGraphNodeSetEnabled resolved in the loaded library.
+func HasGraphNodeSetEnabled() bool {
 	return Has("cuGraphNodeSetEnabled")
 }
 
-// HasgraphNodeSetParams reports whether cuGraphNodeSetParams resolved in the loaded library.
-func HasgraphNodeSetParams() bool {
+// HasGraphNodeSetParams reports whether cuGraphNodeSetParams resolved in the loaded library.
+func HasGraphNodeSetParams() bool {
 	return Has("cuGraphNodeSetParams")
 }
 
-// HasgraphReleaseUserObject reports whether cuGraphReleaseUserObject resolved in the loaded library.
-func HasgraphReleaseUserObject() bool {
+// HasGraphReleaseUserObject reports whether cuGraphReleaseUserObject resolved in the loaded library.
+func HasGraphReleaseUserObject() bool {
 	return Has("cuGraphReleaseUserObject")
 }
 
-// HasgraphRemoveDependencies reports whether cuGraphRemoveDependencies_v2 resolved in the loaded library.
-func HasgraphRemoveDependencies() bool {
+// HasGraphRemoveDependencies reports whether cuGraphRemoveDependencies_v2 resolved in the loaded library.
+func HasGraphRemoveDependencies() bool {
 	return Has("cuGraphRemoveDependencies_v2")
 }
 
-// HasgraphRetainUserObject reports whether cuGraphRetainUserObject resolved in the loaded library.
-func HasgraphRetainUserObject() bool {
+// HasGraphRetainUserObject reports whether cuGraphRetainUserObject resolved in the loaded library.
+func HasGraphRetainUserObject() bool {
 	return Has("cuGraphRetainUserObject")
 }
 
-// HasgraphUpload reports whether cuGraphUpload resolved in the loaded library.
-func HasgraphUpload() bool {
+// HasGraphUpload reports whether cuGraphUpload resolved in the loaded library.
+func HasGraphUpload() bool {
 	return Has("cuGraphUpload")
 }
 
-// HasgraphicsMapResources reports whether cuGraphicsMapResources resolved in the loaded library.
-func HasgraphicsMapResources() bool {
+// HasGraphicsMapResources reports whether cuGraphicsMapResources resolved in the loaded library.
+func HasGraphicsMapResources() bool {
 	return Has("cuGraphicsMapResources")
 }
 
-// HasgraphicsResourceGetMappedMipmappedArray reports whether cuGraphicsResourceGetMappedMipmappedArray resolved in the loaded library.
-func HasgraphicsResourceGetMappedMipmappedArray() bool {
+// HasGraphicsResourceGetMappedMipmappedArray reports whether cuGraphicsResourceGetMappedMipmappedArray resolved in the loaded library.
+func HasGraphicsResourceGetMappedMipmappedArray() bool {
 	return Has("cuGraphicsResourceGetMappedMipmappedArray")
 }
 
-// HasgraphicsResourceGetMappedPointer reports whether cuGraphicsResourceGetMappedPointer_v2 resolved in the loaded library.
-func HasgraphicsResourceGetMappedPointer() bool {
+// HasGraphicsResourceGetMappedPointer reports whether cuGraphicsResourceGetMappedPointer_v2 resolved in the loaded library.
+func HasGraphicsResourceGetMappedPointer() bool {
 	return Has("cuGraphicsResourceGetMappedPointer_v2")
 }
 
-// HasgraphicsResourceSetMapFlags reports whether cuGraphicsResourceSetMapFlags_v2 resolved in the loaded library.
-func HasgraphicsResourceSetMapFlags() bool {
+// HasGraphicsResourceSetMapFlags reports whether cuGraphicsResourceSetMapFlags_v2 resolved in the loaded library.
+func HasGraphicsResourceSetMapFlags() bool {
 	return Has("cuGraphicsResourceSetMapFlags_v2")
 }
 
-// HasgraphicsSubResourceGetMappedArray reports whether cuGraphicsSubResourceGetMappedArray resolved in the loaded library.
-func HasgraphicsSubResourceGetMappedArray() bool {
+// HasGraphicsSubResourceGetMappedArray reports whether cuGraphicsSubResourceGetMappedArray resolved in the loaded library.
+func HasGraphicsSubResourceGetMappedArray() bool {
 	return Has("cuGraphicsSubResourceGetMappedArray")
 }
 
-// HasgraphicsUnmapResources reports whether cuGraphicsUnmapResources resolved in the loaded library.
-func HasgraphicsUnmapResources() bool {
+// HasGraphicsUnmapResources reports whether cuGraphicsUnmapResources resolved in the loaded library.
+func HasGraphicsUnmapResources() bool {
 	return Has("cuGraphicsUnmapResources")
 }
 
-// HasgraphicsUnregisterResource reports whether cuGraphicsUnregisterResource resolved in the loaded library.
-func HasgraphicsUnregisterResource() bool {
+// HasGraphicsUnregisterResource reports whether cuGraphicsUnregisterResource resolved in the loaded library.
+func HasGraphicsUnregisterResource() bool {
 	return Has("cuGraphicsUnregisterResource")
 }
 
-// HasgreenCtxCreate reports whether cuGreenCtxCreate resolved in the loaded library.
-func HasgreenCtxCreate() bool {
+// HasGreenCtxCreate reports whether cuGreenCtxCreate resolved in the loaded library.
+func HasGreenCtxCreate() bool {
 	return Has("cuGreenCtxCreate")
 }
 
-// HasgreenCtxDestroy reports whether cuGreenCtxDestroy resolved in the loaded library.
-func HasgreenCtxDestroy() bool {
+// HasGreenCtxDestroy reports whether cuGreenCtxDestroy resolved in the loaded library.
+func HasGreenCtxDestroy() bool {
 	return Has("cuGreenCtxDestroy")
 }
 
-// HasgreenCtxGetDevResource reports whether cuGreenCtxGetDevResource resolved in the loaded library.
-func HasgreenCtxGetDevResource() bool {
+// HasGreenCtxGetDevResource reports whether cuGreenCtxGetDevResource resolved in the loaded library.
+func HasGreenCtxGetDevResource() bool {
 	return Has("cuGreenCtxGetDevResource")
 }
 
-// HasgreenCtxGetId reports whether cuGreenCtxGetId resolved in the loaded library.
-func HasgreenCtxGetId() bool {
+// HasGreenCtxGetId reports whether cuGreenCtxGetId resolved in the loaded library.
+func HasGreenCtxGetId() bool {
 	return Has("cuGreenCtxGetId")
 }
 
-// HasgreenCtxRecordEvent reports whether cuGreenCtxRecordEvent resolved in the loaded library.
-func HasgreenCtxRecordEvent() bool {
+// HasGreenCtxRecordEvent reports whether cuGreenCtxRecordEvent resolved in the loaded library.
+func HasGreenCtxRecordEvent() bool {
 	return Has("cuGreenCtxRecordEvent")
 }
 
-// HasgreenCtxStreamCreate reports whether cuGreenCtxStreamCreate resolved in the loaded library.
-func HasgreenCtxStreamCreate() bool {
+// HasGreenCtxStreamCreate reports whether cuGreenCtxStreamCreate resolved in the loaded library.
+func HasGreenCtxStreamCreate() bool {
 	return Has("cuGreenCtxStreamCreate")
 }
 
-// HasgreenCtxWaitEvent reports whether cuGreenCtxWaitEvent resolved in the loaded library.
-func HasgreenCtxWaitEvent() bool {
+// HasGreenCtxWaitEvent reports whether cuGreenCtxWaitEvent resolved in the loaded library.
+func HasGreenCtxWaitEvent() bool {
 	return Has("cuGreenCtxWaitEvent")
 }
 
@@ -2432,18 +2432,18 @@ func HasInit() bool {
 	return Has("cuInit")
 }
 
-// HasipcCloseMemHandle reports whether cuIpcCloseMemHandle resolved in the loaded library.
-func HasipcCloseMemHandle() bool {
+// HasIpcCloseMemHandle reports whether cuIpcCloseMemHandle resolved in the loaded library.
+func HasIpcCloseMemHandle() bool {
 	return Has("cuIpcCloseMemHandle")
 }
 
-// HasipcGetEventHandle reports whether cuIpcGetEventHandle resolved in the loaded library.
-func HasipcGetEventHandle() bool {
+// HasIpcGetEventHandle reports whether cuIpcGetEventHandle resolved in the loaded library.
+func HasIpcGetEventHandle() bool {
 	return Has("cuIpcGetEventHandle")
 }
 
-// HasipcGetMemHandle reports whether cuIpcGetMemHandle resolved in the loaded library.
-func HasipcGetMemHandle() bool {
+// HasIpcGetMemHandle reports whether cuIpcGetMemHandle resolved in the loaded library.
+func HasIpcGetMemHandle() bool {
 	return Has("cuIpcGetMemHandle")
 }
 
@@ -2457,53 +2457,53 @@ func HasIpcOpenMemHandle() bool {
 	return Has("cuIpcOpenMemHandle_v2")
 }
 
-// HaskernelGetAttribute reports whether cuKernelGetAttribute resolved in the loaded library.
-func HaskernelGetAttribute() bool {
+// HasKernelGetAttribute reports whether cuKernelGetAttribute resolved in the loaded library.
+func HasKernelGetAttribute() bool {
 	return Has("cuKernelGetAttribute")
 }
 
-// HaskernelGetFunction reports whether cuKernelGetFunction resolved in the loaded library.
-func HaskernelGetFunction() bool {
+// HasKernelGetFunction reports whether cuKernelGetFunction resolved in the loaded library.
+func HasKernelGetFunction() bool {
 	return Has("cuKernelGetFunction")
 }
 
-// HaskernelGetLibrary reports whether cuKernelGetLibrary resolved in the loaded library.
-func HaskernelGetLibrary() bool {
+// HasKernelGetLibrary reports whether cuKernelGetLibrary resolved in the loaded library.
+func HasKernelGetLibrary() bool {
 	return Has("cuKernelGetLibrary")
 }
 
-// HaskernelGetName reports whether cuKernelGetName resolved in the loaded library.
-func HaskernelGetName() bool {
+// HasKernelGetName reports whether cuKernelGetName resolved in the loaded library.
+func HasKernelGetName() bool {
 	return Has("cuKernelGetName")
 }
 
-// HaskernelGetParamCount reports whether cuKernelGetParamCount resolved in the loaded library.
-func HaskernelGetParamCount() bool {
+// HasKernelGetParamCount reports whether cuKernelGetParamCount resolved in the loaded library.
+func HasKernelGetParamCount() bool {
 	return Has("cuKernelGetParamCount")
 }
 
-// HaskernelGetParamInfo reports whether cuKernelGetParamInfo resolved in the loaded library.
-func HaskernelGetParamInfo() bool {
+// HasKernelGetParamInfo reports whether cuKernelGetParamInfo resolved in the loaded library.
+func HasKernelGetParamInfo() bool {
 	return Has("cuKernelGetParamInfo")
 }
 
-// HaskernelSetAttribute reports whether cuKernelSetAttribute resolved in the loaded library.
-func HaskernelSetAttribute() bool {
+// HasKernelSetAttribute reports whether cuKernelSetAttribute resolved in the loaded library.
+func HasKernelSetAttribute() bool {
 	return Has("cuKernelSetAttribute")
 }
 
-// HaskernelSetCacheConfig reports whether cuKernelSetCacheConfig resolved in the loaded library.
-func HaskernelSetCacheConfig() bool {
+// HasKernelSetCacheConfig reports whether cuKernelSetCacheConfig resolved in the loaded library.
+func HasKernelSetCacheConfig() bool {
 	return Has("cuKernelSetCacheConfig")
 }
 
-// Haslaunch reports whether cuLaunch resolved in the loaded library.
-func Haslaunch() bool {
+// HasLaunch reports whether cuLaunch resolved in the loaded library.
+func HasLaunch() bool {
 	return Has("cuLaunch")
 }
 
-// HaslaunchCooperativeKernel reports whether cuLaunchCooperativeKernel resolved in the loaded library.
-func HaslaunchCooperativeKernel() bool {
+// HasLaunchCooperativeKernel reports whether cuLaunchCooperativeKernel resolved in the loaded library.
+func HasLaunchCooperativeKernel() bool {
 	return Has("cuLaunchCooperativeKernel")
 }
 
@@ -2512,93 +2512,93 @@ func HasLaunchCooperativeKernelMultiDevice() bool {
 	return Has("cuLaunchCooperativeKernelMultiDevice")
 }
 
-// HaslaunchGrid reports whether cuLaunchGrid resolved in the loaded library.
-func HaslaunchGrid() bool {
+// HasLaunchGrid reports whether cuLaunchGrid resolved in the loaded library.
+func HasLaunchGrid() bool {
 	return Has("cuLaunchGrid")
 }
 
-// HaslaunchGridAsync reports whether cuLaunchGridAsync resolved in the loaded library.
-func HaslaunchGridAsync() bool {
+// HasLaunchGridAsync reports whether cuLaunchGridAsync resolved in the loaded library.
+func HasLaunchGridAsync() bool {
 	return Has("cuLaunchGridAsync")
 }
 
-// HaslaunchHostFunc reports whether cuLaunchHostFunc_v2 resolved in the loaded library.
-func HaslaunchHostFunc() bool {
+// HasLaunchHostFunc reports whether cuLaunchHostFunc_v2 resolved in the loaded library.
+func HasLaunchHostFunc() bool {
 	return Has("cuLaunchHostFunc_v2")
 }
 
-// HaslaunchKernel reports whether cuLaunchKernel resolved in the loaded library.
-func HaslaunchKernel() bool {
+// HasLaunchKernel reports whether cuLaunchKernel resolved in the loaded library.
+func HasLaunchKernel() bool {
 	return Has("cuLaunchKernel")
 }
 
-// HaslaunchKernelEx reports whether cuLaunchKernelEx resolved in the loaded library.
-func HaslaunchKernelEx() bool {
+// HasLaunchKernelEx reports whether cuLaunchKernelEx resolved in the loaded library.
+func HasLaunchKernelEx() bool {
 	return Has("cuLaunchKernelEx")
 }
 
-// HaslibraryEnumerateKernels reports whether cuLibraryEnumerateKernels resolved in the loaded library.
-func HaslibraryEnumerateKernels() bool {
+// HasLibraryEnumerateKernels reports whether cuLibraryEnumerateKernels resolved in the loaded library.
+func HasLibraryEnumerateKernels() bool {
 	return Has("cuLibraryEnumerateKernels")
 }
 
-// HaslibraryGetGlobal reports whether cuLibraryGetGlobal resolved in the loaded library.
-func HaslibraryGetGlobal() bool {
+// HasLibraryGetGlobal reports whether cuLibraryGetGlobal resolved in the loaded library.
+func HasLibraryGetGlobal() bool {
 	return Has("cuLibraryGetGlobal")
 }
 
-// HaslibraryGetKernel reports whether cuLibraryGetKernel resolved in the loaded library.
-func HaslibraryGetKernel() bool {
+// HasLibraryGetKernel reports whether cuLibraryGetKernel resolved in the loaded library.
+func HasLibraryGetKernel() bool {
 	return Has("cuLibraryGetKernel")
 }
 
-// HaslibraryGetKernelCount reports whether cuLibraryGetKernelCount resolved in the loaded library.
-func HaslibraryGetKernelCount() bool {
+// HasLibraryGetKernelCount reports whether cuLibraryGetKernelCount resolved in the loaded library.
+func HasLibraryGetKernelCount() bool {
 	return Has("cuLibraryGetKernelCount")
 }
 
-// HaslibraryGetManaged reports whether cuLibraryGetManaged resolved in the loaded library.
-func HaslibraryGetManaged() bool {
+// HasLibraryGetManaged reports whether cuLibraryGetManaged resolved in the loaded library.
+func HasLibraryGetManaged() bool {
 	return Has("cuLibraryGetManaged")
 }
 
-// HaslibraryGetModule reports whether cuLibraryGetModule resolved in the loaded library.
-func HaslibraryGetModule() bool {
+// HasLibraryGetModule reports whether cuLibraryGetModule resolved in the loaded library.
+func HasLibraryGetModule() bool {
 	return Has("cuLibraryGetModule")
 }
 
-// HaslibraryGetUnifiedFunction reports whether cuLibraryGetUnifiedFunction resolved in the loaded library.
-func HaslibraryGetUnifiedFunction() bool {
+// HasLibraryGetUnifiedFunction reports whether cuLibraryGetUnifiedFunction resolved in the loaded library.
+func HasLibraryGetUnifiedFunction() bool {
 	return Has("cuLibraryGetUnifiedFunction")
 }
 
-// HaslibraryLoadData reports whether cuLibraryLoadData resolved in the loaded library.
-func HaslibraryLoadData() bool {
+// HasLibraryLoadData reports whether cuLibraryLoadData resolved in the loaded library.
+func HasLibraryLoadData() bool {
 	return Has("cuLibraryLoadData")
 }
 
-// HaslibraryLoadFromFile reports whether cuLibraryLoadFromFile resolved in the loaded library.
-func HaslibraryLoadFromFile() bool {
+// HasLibraryLoadFromFile reports whether cuLibraryLoadFromFile resolved in the loaded library.
+func HasLibraryLoadFromFile() bool {
 	return Has("cuLibraryLoadFromFile")
 }
 
-// HaslibraryUnload reports whether cuLibraryUnload resolved in the loaded library.
-func HaslibraryUnload() bool {
+// HasLibraryUnload reports whether cuLibraryUnload resolved in the loaded library.
+func HasLibraryUnload() bool {
 	return Has("cuLibraryUnload")
 }
 
-// HaslinkAddData reports whether cuLinkAddData_v2 resolved in the loaded library.
-func HaslinkAddData() bool {
+// HasLinkAddData reports whether cuLinkAddData_v2 resolved in the loaded library.
+func HasLinkAddData() bool {
 	return Has("cuLinkAddData_v2")
 }
 
-// HaslinkAddFile reports whether cuLinkAddFile_v2 resolved in the loaded library.
-func HaslinkAddFile() bool {
+// HasLinkAddFile reports whether cuLinkAddFile_v2 resolved in the loaded library.
+func HasLinkAddFile() bool {
 	return Has("cuLinkAddFile_v2")
 }
 
-// HaslinkComplete reports whether cuLinkComplete resolved in the loaded library.
-func HaslinkComplete() bool {
+// HasLinkComplete reports whether cuLinkComplete resolved in the loaded library.
+func HasLinkComplete() bool {
 	return Has("cuLinkComplete")
 }
 
@@ -2607,8 +2607,8 @@ func HasLinkCreate() bool {
 	return Has("cuLinkCreate_v2")
 }
 
-// HaslinkDestroy reports whether cuLinkDestroy resolved in the loaded library.
-func HaslinkDestroy() bool {
+// HasLinkDestroy reports whether cuLinkDestroy resolved in the loaded library.
+func HasLinkDestroy() bool {
 	return Has("cuLinkDestroy")
 }
 
@@ -2632,23 +2632,23 @@ func HasLogsRegisterCallback() bool {
 	return Has("cuLogsRegisterCallback")
 }
 
-// HaslogsUnregisterCallback reports whether cuLogsUnregisterCallback resolved in the loaded library.
-func HaslogsUnregisterCallback() bool {
+// HasLogsUnregisterCallback reports whether cuLogsUnregisterCallback resolved in the loaded library.
+func HasLogsUnregisterCallback() bool {
 	return Has("cuLogsUnregisterCallback")
 }
 
-// HasmemAddressFree reports whether cuMemAddressFree resolved in the loaded library.
-func HasmemAddressFree() bool {
+// HasMemAddressFree reports whether cuMemAddressFree resolved in the loaded library.
+func HasMemAddressFree() bool {
 	return Has("cuMemAddressFree")
 }
 
-// HasmemAddressReserve reports whether cuMemAddressReserve resolved in the loaded library.
-func HasmemAddressReserve() bool {
+// HasMemAddressReserve reports whether cuMemAddressReserve resolved in the loaded library.
+func HasMemAddressReserve() bool {
 	return Has("cuMemAddressReserve")
 }
 
-// HasmemAdvise reports whether cuMemAdvise_v2 resolved in the loaded library.
-func HasmemAdvise() bool {
+// HasMemAdvise reports whether cuMemAdvise_v2 resolved in the loaded library.
+func HasMemAdvise() bool {
 	return Has("cuMemAdvise_v2")
 }
 
@@ -2657,13 +2657,13 @@ func HasMemAlloc() bool {
 	return Has("cuMemAlloc_v2")
 }
 
-// HasmemAllocAsync reports whether cuMemAllocAsync resolved in the loaded library.
-func HasmemAllocAsync() bool {
+// HasMemAllocAsync reports whether cuMemAllocAsync resolved in the loaded library.
+func HasMemAllocAsync() bool {
 	return Has("cuMemAllocAsync")
 }
 
-// HasmemAllocFromPoolAsync reports whether cuMemAllocFromPoolAsync resolved in the loaded library.
-func HasmemAllocFromPoolAsync() bool {
+// HasMemAllocFromPoolAsync reports whether cuMemAllocFromPoolAsync resolved in the loaded library.
+func HasMemAllocFromPoolAsync() bool {
 	return Has("cuMemAllocFromPoolAsync")
 }
 
@@ -2682,8 +2682,8 @@ func HasMemAllocPitch() bool {
 	return Has("cuMemAllocPitch_v2")
 }
 
-// HasmemBatchDecompressAsync reports whether cuMemBatchDecompressAsync resolved in the loaded library.
-func HasmemBatchDecompressAsync() bool {
+// HasMemBatchDecompressAsync reports whether cuMemBatchDecompressAsync resolved in the loaded library.
+func HasMemBatchDecompressAsync() bool {
 	return Has("cuMemBatchDecompressAsync")
 }
 
@@ -2692,13 +2692,13 @@ func HasMemCreate() bool {
 	return Has("cuMemCreate")
 }
 
-// HasmemDiscardAndPrefetchBatchAsync reports whether cuMemDiscardAndPrefetchBatchAsync resolved in the loaded library.
-func HasmemDiscardAndPrefetchBatchAsync() bool {
+// HasMemDiscardAndPrefetchBatchAsync reports whether cuMemDiscardAndPrefetchBatchAsync resolved in the loaded library.
+func HasMemDiscardAndPrefetchBatchAsync() bool {
 	return Has("cuMemDiscardAndPrefetchBatchAsync")
 }
 
-// HasmemDiscardBatchAsync reports whether cuMemDiscardBatchAsync resolved in the loaded library.
-func HasmemDiscardBatchAsync() bool {
+// HasMemDiscardBatchAsync reports whether cuMemDiscardBatchAsync resolved in the loaded library.
+func HasMemDiscardBatchAsync() bool {
 	return Has("cuMemDiscardBatchAsync")
 }
 
@@ -2707,13 +2707,13 @@ func HasMemExportToShareableHandle() bool {
 	return Has("cuMemExportToShareableHandle")
 }
 
-// HasmemFree reports whether cuMemFree_v2 resolved in the loaded library.
-func HasmemFree() bool {
+// HasMemFree reports whether cuMemFree_v2 resolved in the loaded library.
+func HasMemFree() bool {
 	return Has("cuMemFree_v2")
 }
 
-// HasmemFreeAsync reports whether cuMemFreeAsync resolved in the loaded library.
-func HasmemFreeAsync() bool {
+// HasMemFreeAsync reports whether cuMemFreeAsync resolved in the loaded library.
+func HasMemFreeAsync() bool {
 	return Has("cuMemFreeAsync")
 }
 
@@ -2722,13 +2722,13 @@ func HasMemFreeHost() bool {
 	return Has("cuMemFreeHost")
 }
 
-// HasmemGetAccess reports whether cuMemGetAccess resolved in the loaded library.
-func HasmemGetAccess() bool {
+// HasMemGetAccess reports whether cuMemGetAccess resolved in the loaded library.
+func HasMemGetAccess() bool {
 	return Has("cuMemGetAccess")
 }
 
-// HasmemGetAddressRange reports whether cuMemGetAddressRange_v2 resolved in the loaded library.
-func HasmemGetAddressRange() bool {
+// HasMemGetAddressRange reports whether cuMemGetAddressRange_v2 resolved in the loaded library.
+func HasMemGetAddressRange() bool {
 	return Has("cuMemGetAddressRange_v2")
 }
 
@@ -2747,8 +2747,8 @@ func HasMemGetDefaultMemPool() bool {
 	return Has("cuMemGetDefaultMemPool")
 }
 
-// HasmemGetHandleForAddressRange reports whether cuMemGetHandleForAddressRange resolved in the loaded library.
-func HasmemGetHandleForAddressRange() bool {
+// HasMemGetHandleForAddressRange reports whether cuMemGetHandleForAddressRange resolved in the loaded library.
+func HasMemGetHandleForAddressRange() bool {
 	return Has("cuMemGetHandleForAddressRange")
 }
 
@@ -2792,88 +2792,88 @@ func HasMemImportFromShareableHandle() bool {
 	return Has("cuMemImportFromShareableHandle")
 }
 
-// HasmemMap reports whether cuMemMap resolved in the loaded library.
-func HasmemMap() bool {
+// HasMemMap reports whether cuMemMap resolved in the loaded library.
+func HasMemMap() bool {
 	return Has("cuMemMap")
 }
 
-// HasmemMapArrayAsync reports whether cuMemMapArrayAsync resolved in the loaded library.
-func HasmemMapArrayAsync() bool {
+// HasMemMapArrayAsync reports whether cuMemMapArrayAsync resolved in the loaded library.
+func HasMemMapArrayAsync() bool {
 	return Has("cuMemMapArrayAsync")
 }
 
-// HasmemPoolCreate reports whether cuMemPoolCreate resolved in the loaded library.
-func HasmemPoolCreate() bool {
+// HasMemPoolCreate reports whether cuMemPoolCreate resolved in the loaded library.
+func HasMemPoolCreate() bool {
 	return Has("cuMemPoolCreate")
 }
 
-// HasmemPoolDestroy reports whether cuMemPoolDestroy resolved in the loaded library.
-func HasmemPoolDestroy() bool {
+// HasMemPoolDestroy reports whether cuMemPoolDestroy resolved in the loaded library.
+func HasMemPoolDestroy() bool {
 	return Has("cuMemPoolDestroy")
 }
 
-// HasmemPoolExportPointer reports whether cuMemPoolExportPointer resolved in the loaded library.
-func HasmemPoolExportPointer() bool {
+// HasMemPoolExportPointer reports whether cuMemPoolExportPointer resolved in the loaded library.
+func HasMemPoolExportPointer() bool {
 	return Has("cuMemPoolExportPointer")
 }
 
-// HasmemPoolExportToShareableHandle reports whether cuMemPoolExportToShareableHandle resolved in the loaded library.
-func HasmemPoolExportToShareableHandle() bool {
+// HasMemPoolExportToShareableHandle reports whether cuMemPoolExportToShareableHandle resolved in the loaded library.
+func HasMemPoolExportToShareableHandle() bool {
 	return Has("cuMemPoolExportToShareableHandle")
 }
 
-// HasmemPoolGetAccess reports whether cuMemPoolGetAccess resolved in the loaded library.
-func HasmemPoolGetAccess() bool {
+// HasMemPoolGetAccess reports whether cuMemPoolGetAccess resolved in the loaded library.
+func HasMemPoolGetAccess() bool {
 	return Has("cuMemPoolGetAccess")
 }
 
-// HasmemPoolGetAttribute reports whether cuMemPoolGetAttribute resolved in the loaded library.
-func HasmemPoolGetAttribute() bool {
+// HasMemPoolGetAttribute reports whether cuMemPoolGetAttribute resolved in the loaded library.
+func HasMemPoolGetAttribute() bool {
 	return Has("cuMemPoolGetAttribute")
 }
 
-// HasmemPoolImportFromShareableHandle reports whether cuMemPoolImportFromShareableHandle resolved in the loaded library.
-func HasmemPoolImportFromShareableHandle() bool {
+// HasMemPoolImportFromShareableHandle reports whether cuMemPoolImportFromShareableHandle resolved in the loaded library.
+func HasMemPoolImportFromShareableHandle() bool {
 	return Has("cuMemPoolImportFromShareableHandle")
 }
 
-// HasmemPoolImportPointer reports whether cuMemPoolImportPointer resolved in the loaded library.
-func HasmemPoolImportPointer() bool {
+// HasMemPoolImportPointer reports whether cuMemPoolImportPointer resolved in the loaded library.
+func HasMemPoolImportPointer() bool {
 	return Has("cuMemPoolImportPointer")
 }
 
-// HasmemPoolSetAccess reports whether cuMemPoolSetAccess resolved in the loaded library.
-func HasmemPoolSetAccess() bool {
+// HasMemPoolSetAccess reports whether cuMemPoolSetAccess resolved in the loaded library.
+func HasMemPoolSetAccess() bool {
 	return Has("cuMemPoolSetAccess")
 }
 
-// HasmemPoolSetAttribute reports whether cuMemPoolSetAttribute resolved in the loaded library.
-func HasmemPoolSetAttribute() bool {
+// HasMemPoolSetAttribute reports whether cuMemPoolSetAttribute resolved in the loaded library.
+func HasMemPoolSetAttribute() bool {
 	return Has("cuMemPoolSetAttribute")
 }
 
-// HasmemPoolTrimTo reports whether cuMemPoolTrimTo resolved in the loaded library.
-func HasmemPoolTrimTo() bool {
+// HasMemPoolTrimTo reports whether cuMemPoolTrimTo resolved in the loaded library.
+func HasMemPoolTrimTo() bool {
 	return Has("cuMemPoolTrimTo")
 }
 
-// HasmemPrefetchAsync reports whether cuMemPrefetchAsync_v2 resolved in the loaded library.
-func HasmemPrefetchAsync() bool {
+// HasMemPrefetchAsync reports whether cuMemPrefetchAsync_v2 resolved in the loaded library.
+func HasMemPrefetchAsync() bool {
 	return Has("cuMemPrefetchAsync_v2")
 }
 
-// HasmemPrefetchBatchAsync reports whether cuMemPrefetchBatchAsync resolved in the loaded library.
-func HasmemPrefetchBatchAsync() bool {
+// HasMemPrefetchBatchAsync reports whether cuMemPrefetchBatchAsync resolved in the loaded library.
+func HasMemPrefetchBatchAsync() bool {
 	return Has("cuMemPrefetchBatchAsync")
 }
 
-// HasmemRangeGetAttribute reports whether cuMemRangeGetAttribute resolved in the loaded library.
-func HasmemRangeGetAttribute() bool {
+// HasMemRangeGetAttribute reports whether cuMemRangeGetAttribute resolved in the loaded library.
+func HasMemRangeGetAttribute() bool {
 	return Has("cuMemRangeGetAttribute")
 }
 
-// HasmemRangeGetAttributes reports whether cuMemRangeGetAttributes resolved in the loaded library.
-func HasmemRangeGetAttributes() bool {
+// HasMemRangeGetAttributes reports whether cuMemRangeGetAttributes resolved in the loaded library.
+func HasMemRangeGetAttributes() bool {
 	return Has("cuMemRangeGetAttributes")
 }
 
@@ -2887,23 +2887,23 @@ func HasMemRetainAllocationHandle() bool {
 	return Has("cuMemRetainAllocationHandle")
 }
 
-// HasmemSetAccess reports whether cuMemSetAccess resolved in the loaded library.
-func HasmemSetAccess() bool {
+// HasMemSetAccess reports whether cuMemSetAccess resolved in the loaded library.
+func HasMemSetAccess() bool {
 	return Has("cuMemSetAccess")
 }
 
-// HasmemSetMemPool reports whether cuMemSetMemPool resolved in the loaded library.
-func HasmemSetMemPool() bool {
+// HasMemSetMemPool reports whether cuMemSetMemPool resolved in the loaded library.
+func HasMemSetMemPool() bool {
 	return Has("cuMemSetMemPool")
 }
 
-// HasmemUnmap reports whether cuMemUnmap resolved in the loaded library.
-func HasmemUnmap() bool {
+// HasMemUnmap reports whether cuMemUnmap resolved in the loaded library.
+func HasMemUnmap() bool {
 	return Has("cuMemUnmap")
 }
 
-// Hasmemcpy reports whether cuMemcpy resolved in the loaded library.
-func Hasmemcpy() bool {
+// HasMemcpy reports whether cuMemcpy resolved in the loaded library.
+func HasMemcpy() bool {
 	return Has("cuMemcpy")
 }
 
@@ -2912,8 +2912,8 @@ func HasMemcpy2D() bool {
 	return Has("cuMemcpy2D_v2")
 }
 
-// Hasmemcpy2DAsync reports whether cuMemcpy2DAsync_v2 resolved in the loaded library.
-func Hasmemcpy2DAsync() bool {
+// HasMemcpy2DAsync reports whether cuMemcpy2DAsync_v2 resolved in the loaded library.
+func HasMemcpy2DAsync() bool {
 	return Has("cuMemcpy2DAsync_v2")
 }
 
@@ -2927,13 +2927,13 @@ func HasMemcpy3D() bool {
 	return Has("cuMemcpy3D_v2")
 }
 
-// Hasmemcpy3DAsync reports whether cuMemcpy3DAsync_v2 resolved in the loaded library.
-func Hasmemcpy3DAsync() bool {
+// HasMemcpy3DAsync reports whether cuMemcpy3DAsync_v2 resolved in the loaded library.
+func HasMemcpy3DAsync() bool {
 	return Has("cuMemcpy3DAsync_v2")
 }
 
-// Hasmemcpy3DBatchAsync reports whether cuMemcpy3DBatchAsync_v2 resolved in the loaded library.
-func Hasmemcpy3DBatchAsync() bool {
+// HasMemcpy3DBatchAsync reports whether cuMemcpy3DBatchAsync_v2 resolved in the loaded library.
+func HasMemcpy3DBatchAsync() bool {
 	return Has("cuMemcpy3DBatchAsync_v2")
 }
 
@@ -2942,208 +2942,208 @@ func HasMemcpy3DPeer() bool {
 	return Has("cuMemcpy3DPeer")
 }
 
-// Hasmemcpy3DPeerAsync reports whether cuMemcpy3DPeerAsync resolved in the loaded library.
-func Hasmemcpy3DPeerAsync() bool {
+// HasMemcpy3DPeerAsync reports whether cuMemcpy3DPeerAsync resolved in the loaded library.
+func HasMemcpy3DPeerAsync() bool {
 	return Has("cuMemcpy3DPeerAsync")
 }
 
-// Hasmemcpy3DWithAttributesAsync reports whether cuMemcpy3DWithAttributesAsync resolved in the loaded library.
-func Hasmemcpy3DWithAttributesAsync() bool {
+// HasMemcpy3DWithAttributesAsync reports whether cuMemcpy3DWithAttributesAsync resolved in the loaded library.
+func HasMemcpy3DWithAttributesAsync() bool {
 	return Has("cuMemcpy3DWithAttributesAsync")
 }
 
-// HasmemcpyAsync reports whether cuMemcpyAsync resolved in the loaded library.
-func HasmemcpyAsync() bool {
+// HasMemcpyAsync reports whether cuMemcpyAsync resolved in the loaded library.
+func HasMemcpyAsync() bool {
 	return Has("cuMemcpyAsync")
 }
 
-// HasmemcpyAtoA reports whether cuMemcpyAtoA_v2 resolved in the loaded library.
-func HasmemcpyAtoA() bool {
+// HasMemcpyAtoA reports whether cuMemcpyAtoA_v2 resolved in the loaded library.
+func HasMemcpyAtoA() bool {
 	return Has("cuMemcpyAtoA_v2")
 }
 
-// HasmemcpyAtoD reports whether cuMemcpyAtoD_v2 resolved in the loaded library.
-func HasmemcpyAtoD() bool {
+// HasMemcpyAtoD reports whether cuMemcpyAtoD_v2 resolved in the loaded library.
+func HasMemcpyAtoD() bool {
 	return Has("cuMemcpyAtoD_v2")
 }
 
-// HasmemcpyAtoH reports whether cuMemcpyAtoH_v2 resolved in the loaded library.
-func HasmemcpyAtoH() bool {
+// HasMemcpyAtoH reports whether cuMemcpyAtoH_v2 resolved in the loaded library.
+func HasMemcpyAtoH() bool {
 	return Has("cuMemcpyAtoH_v2")
 }
 
-// HasmemcpyAtoHAsync reports whether cuMemcpyAtoHAsync_v2 resolved in the loaded library.
-func HasmemcpyAtoHAsync() bool {
+// HasMemcpyAtoHAsync reports whether cuMemcpyAtoHAsync_v2 resolved in the loaded library.
+func HasMemcpyAtoHAsync() bool {
 	return Has("cuMemcpyAtoHAsync_v2")
 }
 
-// HasmemcpyBatchAsync reports whether cuMemcpyBatchAsync_v2 resolved in the loaded library.
-func HasmemcpyBatchAsync() bool {
+// HasMemcpyBatchAsync reports whether cuMemcpyBatchAsync_v2 resolved in the loaded library.
+func HasMemcpyBatchAsync() bool {
 	return Has("cuMemcpyBatchAsync_v2")
 }
 
-// HasmemcpyDtoA reports whether cuMemcpyDtoA_v2 resolved in the loaded library.
-func HasmemcpyDtoA() bool {
+// HasMemcpyDtoA reports whether cuMemcpyDtoA_v2 resolved in the loaded library.
+func HasMemcpyDtoA() bool {
 	return Has("cuMemcpyDtoA_v2")
 }
 
-// HasmemcpyDtoD reports whether cuMemcpyDtoD_v2 resolved in the loaded library.
-func HasmemcpyDtoD() bool {
+// HasMemcpyDtoD reports whether cuMemcpyDtoD_v2 resolved in the loaded library.
+func HasMemcpyDtoD() bool {
 	return Has("cuMemcpyDtoD_v2")
 }
 
-// HasmemcpyDtoDAsync reports whether cuMemcpyDtoDAsync_v2 resolved in the loaded library.
-func HasmemcpyDtoDAsync() bool {
+// HasMemcpyDtoDAsync reports whether cuMemcpyDtoDAsync_v2 resolved in the loaded library.
+func HasMemcpyDtoDAsync() bool {
 	return Has("cuMemcpyDtoDAsync_v2")
 }
 
-// HasmemcpyDtoH reports whether cuMemcpyDtoH_v2 resolved in the loaded library.
-func HasmemcpyDtoH() bool {
+// HasMemcpyDtoH reports whether cuMemcpyDtoH_v2 resolved in the loaded library.
+func HasMemcpyDtoH() bool {
 	return Has("cuMemcpyDtoH_v2")
 }
 
-// HasmemcpyDtoHAsync reports whether cuMemcpyDtoHAsync_v2 resolved in the loaded library.
-func HasmemcpyDtoHAsync() bool {
+// HasMemcpyDtoHAsync reports whether cuMemcpyDtoHAsync_v2 resolved in the loaded library.
+func HasMemcpyDtoHAsync() bool {
 	return Has("cuMemcpyDtoHAsync_v2")
 }
 
-// HasmemcpyHtoA reports whether cuMemcpyHtoA_v2 resolved in the loaded library.
-func HasmemcpyHtoA() bool {
+// HasMemcpyHtoA reports whether cuMemcpyHtoA_v2 resolved in the loaded library.
+func HasMemcpyHtoA() bool {
 	return Has("cuMemcpyHtoA_v2")
 }
 
-// HasmemcpyHtoAAsync reports whether cuMemcpyHtoAAsync_v2 resolved in the loaded library.
-func HasmemcpyHtoAAsync() bool {
+// HasMemcpyHtoAAsync reports whether cuMemcpyHtoAAsync_v2 resolved in the loaded library.
+func HasMemcpyHtoAAsync() bool {
 	return Has("cuMemcpyHtoAAsync_v2")
 }
 
-// HasmemcpyHtoD reports whether cuMemcpyHtoD_v2 resolved in the loaded library.
-func HasmemcpyHtoD() bool {
+// HasMemcpyHtoD reports whether cuMemcpyHtoD_v2 resolved in the loaded library.
+func HasMemcpyHtoD() bool {
 	return Has("cuMemcpyHtoD_v2")
 }
 
-// HasmemcpyHtoDAsync reports whether cuMemcpyHtoDAsync_v2 resolved in the loaded library.
-func HasmemcpyHtoDAsync() bool {
+// HasMemcpyHtoDAsync reports whether cuMemcpyHtoDAsync_v2 resolved in the loaded library.
+func HasMemcpyHtoDAsync() bool {
 	return Has("cuMemcpyHtoDAsync_v2")
 }
 
-// HasmemcpyPeer reports whether cuMemcpyPeer resolved in the loaded library.
-func HasmemcpyPeer() bool {
+// HasMemcpyPeer reports whether cuMemcpyPeer resolved in the loaded library.
+func HasMemcpyPeer() bool {
 	return Has("cuMemcpyPeer")
 }
 
-// HasmemcpyPeerAsync reports whether cuMemcpyPeerAsync resolved in the loaded library.
-func HasmemcpyPeerAsync() bool {
+// HasMemcpyPeerAsync reports whether cuMemcpyPeerAsync resolved in the loaded library.
+func HasMemcpyPeerAsync() bool {
 	return Has("cuMemcpyPeerAsync")
 }
 
-// HasmemcpyWithAttributesAsync reports whether cuMemcpyWithAttributesAsync resolved in the loaded library.
-func HasmemcpyWithAttributesAsync() bool {
+// HasMemcpyWithAttributesAsync reports whether cuMemcpyWithAttributesAsync resolved in the loaded library.
+func HasMemcpyWithAttributesAsync() bool {
 	return Has("cuMemcpyWithAttributesAsync")
 }
 
-// HasmemsetD16 reports whether cuMemsetD16_v2 resolved in the loaded library.
-func HasmemsetD16() bool {
+// HasMemsetD16 reports whether cuMemsetD16_v2 resolved in the loaded library.
+func HasMemsetD16() bool {
 	return Has("cuMemsetD16_v2")
 }
 
-// HasmemsetD16Async reports whether cuMemsetD16Async resolved in the loaded library.
-func HasmemsetD16Async() bool {
+// HasMemsetD16Async reports whether cuMemsetD16Async resolved in the loaded library.
+func HasMemsetD16Async() bool {
 	return Has("cuMemsetD16Async")
 }
 
-// HasmemsetD2D16 reports whether cuMemsetD2D16_v2 resolved in the loaded library.
-func HasmemsetD2D16() bool {
+// HasMemsetD2D16 reports whether cuMemsetD2D16_v2 resolved in the loaded library.
+func HasMemsetD2D16() bool {
 	return Has("cuMemsetD2D16_v2")
 }
 
-// HasmemsetD2D16Async reports whether cuMemsetD2D16Async resolved in the loaded library.
-func HasmemsetD2D16Async() bool {
+// HasMemsetD2D16Async reports whether cuMemsetD2D16Async resolved in the loaded library.
+func HasMemsetD2D16Async() bool {
 	return Has("cuMemsetD2D16Async")
 }
 
-// HasmemsetD2D32 reports whether cuMemsetD2D32_v2 resolved in the loaded library.
-func HasmemsetD2D32() bool {
+// HasMemsetD2D32 reports whether cuMemsetD2D32_v2 resolved in the loaded library.
+func HasMemsetD2D32() bool {
 	return Has("cuMemsetD2D32_v2")
 }
 
-// HasmemsetD2D32Async reports whether cuMemsetD2D32Async resolved in the loaded library.
-func HasmemsetD2D32Async() bool {
+// HasMemsetD2D32Async reports whether cuMemsetD2D32Async resolved in the loaded library.
+func HasMemsetD2D32Async() bool {
 	return Has("cuMemsetD2D32Async")
 }
 
-// HasmemsetD2D8 reports whether cuMemsetD2D8_v2 resolved in the loaded library.
-func HasmemsetD2D8() bool {
+// HasMemsetD2D8 reports whether cuMemsetD2D8_v2 resolved in the loaded library.
+func HasMemsetD2D8() bool {
 	return Has("cuMemsetD2D8_v2")
 }
 
-// HasmemsetD2D8Async reports whether cuMemsetD2D8Async resolved in the loaded library.
-func HasmemsetD2D8Async() bool {
+// HasMemsetD2D8Async reports whether cuMemsetD2D8Async resolved in the loaded library.
+func HasMemsetD2D8Async() bool {
 	return Has("cuMemsetD2D8Async")
 }
 
-// HasmemsetD32 reports whether cuMemsetD32_v2 resolved in the loaded library.
-func HasmemsetD32() bool {
+// HasMemsetD32 reports whether cuMemsetD32_v2 resolved in the loaded library.
+func HasMemsetD32() bool {
 	return Has("cuMemsetD32_v2")
 }
 
-// HasmemsetD32Async reports whether cuMemsetD32Async resolved in the loaded library.
-func HasmemsetD32Async() bool {
+// HasMemsetD32Async reports whether cuMemsetD32Async resolved in the loaded library.
+func HasMemsetD32Async() bool {
 	return Has("cuMemsetD32Async")
 }
 
-// HasmemsetD8 reports whether cuMemsetD8_v2 resolved in the loaded library.
-func HasmemsetD8() bool {
+// HasMemsetD8 reports whether cuMemsetD8_v2 resolved in the loaded library.
+func HasMemsetD8() bool {
 	return Has("cuMemsetD8_v2")
 }
 
-// HasmemsetD8Async reports whether cuMemsetD8Async resolved in the loaded library.
-func HasmemsetD8Async() bool {
+// HasMemsetD8Async reports whether cuMemsetD8Async resolved in the loaded library.
+func HasMemsetD8Async() bool {
 	return Has("cuMemsetD8Async")
 }
 
-// HasmipmappedArrayCreate reports whether cuMipmappedArrayCreate resolved in the loaded library.
-func HasmipmappedArrayCreate() bool {
+// HasMipmappedArrayCreate reports whether cuMipmappedArrayCreate resolved in the loaded library.
+func HasMipmappedArrayCreate() bool {
 	return Has("cuMipmappedArrayCreate")
 }
 
-// HasmipmappedArrayDestroy reports whether cuMipmappedArrayDestroy resolved in the loaded library.
-func HasmipmappedArrayDestroy() bool {
+// HasMipmappedArrayDestroy reports whether cuMipmappedArrayDestroy resolved in the loaded library.
+func HasMipmappedArrayDestroy() bool {
 	return Has("cuMipmappedArrayDestroy")
 }
 
-// HasmipmappedArrayGetLevel reports whether cuMipmappedArrayGetLevel resolved in the loaded library.
-func HasmipmappedArrayGetLevel() bool {
+// HasMipmappedArrayGetLevel reports whether cuMipmappedArrayGetLevel resolved in the loaded library.
+func HasMipmappedArrayGetLevel() bool {
 	return Has("cuMipmappedArrayGetLevel")
 }
 
-// HasmipmappedArrayGetMemoryRequirements reports whether cuMipmappedArrayGetMemoryRequirements resolved in the loaded library.
-func HasmipmappedArrayGetMemoryRequirements() bool {
+// HasMipmappedArrayGetMemoryRequirements reports whether cuMipmappedArrayGetMemoryRequirements resolved in the loaded library.
+func HasMipmappedArrayGetMemoryRequirements() bool {
 	return Has("cuMipmappedArrayGetMemoryRequirements")
 }
 
-// HasmipmappedArrayGetSparseProperties reports whether cuMipmappedArrayGetSparseProperties resolved in the loaded library.
-func HasmipmappedArrayGetSparseProperties() bool {
+// HasMipmappedArrayGetSparseProperties reports whether cuMipmappedArrayGetSparseProperties resolved in the loaded library.
+func HasMipmappedArrayGetSparseProperties() bool {
 	return Has("cuMipmappedArrayGetSparseProperties")
 }
 
-// HasmoduleEnumerateFunctions reports whether cuModuleEnumerateFunctions resolved in the loaded library.
-func HasmoduleEnumerateFunctions() bool {
+// HasModuleEnumerateFunctions reports whether cuModuleEnumerateFunctions resolved in the loaded library.
+func HasModuleEnumerateFunctions() bool {
 	return Has("cuModuleEnumerateFunctions")
 }
 
-// HasmoduleGetFunction reports whether cuModuleGetFunction resolved in the loaded library.
-func HasmoduleGetFunction() bool {
+// HasModuleGetFunction reports whether cuModuleGetFunction resolved in the loaded library.
+func HasModuleGetFunction() bool {
 	return Has("cuModuleGetFunction")
 }
 
-// HasmoduleGetFunctionCount reports whether cuModuleGetFunctionCount resolved in the loaded library.
-func HasmoduleGetFunctionCount() bool {
+// HasModuleGetFunctionCount reports whether cuModuleGetFunctionCount resolved in the loaded library.
+func HasModuleGetFunctionCount() bool {
 	return Has("cuModuleGetFunctionCount")
 }
 
-// HasmoduleGetGlobal reports whether cuModuleGetGlobal_v2 resolved in the loaded library.
-func HasmoduleGetGlobal() bool {
+// HasModuleGetGlobal reports whether cuModuleGetGlobal_v2 resolved in the loaded library.
+func HasModuleGetGlobal() bool {
 	return Has("cuModuleGetGlobal_v2")
 }
 
@@ -3152,53 +3152,53 @@ func HasModuleGetLoadingMode() bool {
 	return Has("cuModuleGetLoadingMode")
 }
 
-// HasmoduleGetSurfRef reports whether cuModuleGetSurfRef resolved in the loaded library.
-func HasmoduleGetSurfRef() bool {
+// HasModuleGetSurfRef reports whether cuModuleGetSurfRef resolved in the loaded library.
+func HasModuleGetSurfRef() bool {
 	return Has("cuModuleGetSurfRef")
 }
 
-// HasmoduleGetTexRef reports whether cuModuleGetTexRef resolved in the loaded library.
-func HasmoduleGetTexRef() bool {
+// HasModuleGetTexRef reports whether cuModuleGetTexRef resolved in the loaded library.
+func HasModuleGetTexRef() bool {
 	return Has("cuModuleGetTexRef")
 }
 
-// HasmoduleLoad reports whether cuModuleLoad resolved in the loaded library.
-func HasmoduleLoad() bool {
+// HasModuleLoad reports whether cuModuleLoad resolved in the loaded library.
+func HasModuleLoad() bool {
 	return Has("cuModuleLoad")
 }
 
-// HasmoduleLoadData reports whether cuModuleLoadData resolved in the loaded library.
-func HasmoduleLoadData() bool {
+// HasModuleLoadData reports whether cuModuleLoadData resolved in the loaded library.
+func HasModuleLoadData() bool {
 	return Has("cuModuleLoadData")
 }
 
-// HasmoduleLoadDataEx reports whether cuModuleLoadDataEx resolved in the loaded library.
-func HasmoduleLoadDataEx() bool {
+// HasModuleLoadDataEx reports whether cuModuleLoadDataEx resolved in the loaded library.
+func HasModuleLoadDataEx() bool {
 	return Has("cuModuleLoadDataEx")
 }
 
-// HasmoduleLoadFatBinary reports whether cuModuleLoadFatBinary resolved in the loaded library.
-func HasmoduleLoadFatBinary() bool {
+// HasModuleLoadFatBinary reports whether cuModuleLoadFatBinary resolved in the loaded library.
+func HasModuleLoadFatBinary() bool {
 	return Has("cuModuleLoadFatBinary")
 }
 
-// HasmoduleUnload reports whether cuModuleUnload resolved in the loaded library.
-func HasmoduleUnload() bool {
+// HasModuleUnload reports whether cuModuleUnload resolved in the loaded library.
+func HasModuleUnload() bool {
 	return Has("cuModuleUnload")
 }
 
-// HasmulticastAddDevice reports whether cuMulticastAddDevice resolved in the loaded library.
-func HasmulticastAddDevice() bool {
+// HasMulticastAddDevice reports whether cuMulticastAddDevice resolved in the loaded library.
+func HasMulticastAddDevice() bool {
 	return Has("cuMulticastAddDevice")
 }
 
-// HasmulticastBindAddr reports whether cuMulticastBindAddr resolved in the loaded library.
-func HasmulticastBindAddr() bool {
+// HasMulticastBindAddr reports whether cuMulticastBindAddr resolved in the loaded library.
+func HasMulticastBindAddr() bool {
 	return Has("cuMulticastBindAddr")
 }
 
-// HasmulticastBindAddrV2 reports whether cuMulticastBindAddr_v2 resolved in the loaded library.
-func HasmulticastBindAddrV2() bool {
+// HasMulticastBindAddrV2 reports whether cuMulticastBindAddr_v2 resolved in the loaded library.
+func HasMulticastBindAddrV2() bool {
 	return Has("cuMulticastBindAddr_v2")
 }
 
@@ -3207,8 +3207,8 @@ func HasMulticastBindMem() bool {
 	return Has("cuMulticastBindMem")
 }
 
-// HasmulticastBindMemV2 reports whether cuMulticastBindMem_v2 resolved in the loaded library.
-func HasmulticastBindMemV2() bool {
+// HasMulticastBindMemV2 reports whether cuMulticastBindMem_v2 resolved in the loaded library.
+func HasMulticastBindMemV2() bool {
 	return Has("cuMulticastBindMem_v2")
 }
 
@@ -3222,243 +3222,243 @@ func HasMulticastGetGranularity() bool {
 	return Has("cuMulticastGetGranularity")
 }
 
-// HasmulticastUnbind reports whether cuMulticastUnbind resolved in the loaded library.
-func HasmulticastUnbind() bool {
+// HasMulticastUnbind reports whether cuMulticastUnbind resolved in the loaded library.
+func HasMulticastUnbind() bool {
 	return Has("cuMulticastUnbind")
 }
 
-// HasoccupancyAvailableDynamicSMemPerBlock reports whether cuOccupancyAvailableDynamicSMemPerBlock resolved in the loaded library.
-func HasoccupancyAvailableDynamicSMemPerBlock() bool {
+// HasOccupancyAvailableDynamicSMemPerBlock reports whether cuOccupancyAvailableDynamicSMemPerBlock resolved in the loaded library.
+func HasOccupancyAvailableDynamicSMemPerBlock() bool {
 	return Has("cuOccupancyAvailableDynamicSMemPerBlock")
 }
 
-// HasoccupancyMaxActiveBlocksPerMultiprocessor reports whether cuOccupancyMaxActiveBlocksPerMultiprocessor resolved in the loaded library.
-func HasoccupancyMaxActiveBlocksPerMultiprocessor() bool {
+// HasOccupancyMaxActiveBlocksPerMultiprocessor reports whether cuOccupancyMaxActiveBlocksPerMultiprocessor resolved in the loaded library.
+func HasOccupancyMaxActiveBlocksPerMultiprocessor() bool {
 	return Has("cuOccupancyMaxActiveBlocksPerMultiprocessor")
 }
 
-// HasoccupancyMaxActiveBlocksPerMultiprocessorWithFlags reports whether cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags resolved in the loaded library.
-func HasoccupancyMaxActiveBlocksPerMultiprocessorWithFlags() bool {
+// HasOccupancyMaxActiveBlocksPerMultiprocessorWithFlags reports whether cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags resolved in the loaded library.
+func HasOccupancyMaxActiveBlocksPerMultiprocessorWithFlags() bool {
 	return Has("cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags")
 }
 
-// HasoccupancyMaxActiveClusters reports whether cuOccupancyMaxActiveClusters resolved in the loaded library.
-func HasoccupancyMaxActiveClusters() bool {
+// HasOccupancyMaxActiveClusters reports whether cuOccupancyMaxActiveClusters resolved in the loaded library.
+func HasOccupancyMaxActiveClusters() bool {
 	return Has("cuOccupancyMaxActiveClusters")
 }
 
-// HasoccupancyMaxPotentialBlockSize reports whether cuOccupancyMaxPotentialBlockSize resolved in the loaded library.
-func HasoccupancyMaxPotentialBlockSize() bool {
+// HasOccupancyMaxPotentialBlockSize reports whether cuOccupancyMaxPotentialBlockSize resolved in the loaded library.
+func HasOccupancyMaxPotentialBlockSize() bool {
 	return Has("cuOccupancyMaxPotentialBlockSize")
 }
 
-// HasoccupancyMaxPotentialBlockSizeWithFlags reports whether cuOccupancyMaxPotentialBlockSizeWithFlags resolved in the loaded library.
-func HasoccupancyMaxPotentialBlockSizeWithFlags() bool {
+// HasOccupancyMaxPotentialBlockSizeWithFlags reports whether cuOccupancyMaxPotentialBlockSizeWithFlags resolved in the loaded library.
+func HasOccupancyMaxPotentialBlockSizeWithFlags() bool {
 	return Has("cuOccupancyMaxPotentialBlockSizeWithFlags")
 }
 
-// HasoccupancyMaxPotentialClusterSize reports whether cuOccupancyMaxPotentialClusterSize resolved in the loaded library.
-func HasoccupancyMaxPotentialClusterSize() bool {
+// HasOccupancyMaxPotentialClusterSize reports whether cuOccupancyMaxPotentialClusterSize resolved in the loaded library.
+func HasOccupancyMaxPotentialClusterSize() bool {
 	return Has("cuOccupancyMaxPotentialClusterSize")
 }
 
-// HasparamSetSize reports whether cuParamSetSize resolved in the loaded library.
-func HasparamSetSize() bool {
+// HasParamSetSize reports whether cuParamSetSize resolved in the loaded library.
+func HasParamSetSize() bool {
 	return Has("cuParamSetSize")
 }
 
-// HasparamSetTexRef reports whether cuParamSetTexRef resolved in the loaded library.
-func HasparamSetTexRef() bool {
+// HasParamSetTexRef reports whether cuParamSetTexRef resolved in the loaded library.
+func HasParamSetTexRef() bool {
 	return Has("cuParamSetTexRef")
 }
 
-// HasparamSetf reports whether cuParamSetf resolved in the loaded library.
-func HasparamSetf() bool {
+// HasParamSetf reports whether cuParamSetf resolved in the loaded library.
+func HasParamSetf() bool {
 	return Has("cuParamSetf")
 }
 
-// HasparamSeti reports whether cuParamSeti resolved in the loaded library.
-func HasparamSeti() bool {
+// HasParamSeti reports whether cuParamSeti resolved in the loaded library.
+func HasParamSeti() bool {
 	return Has("cuParamSeti")
 }
 
-// HasparamSetv reports whether cuParamSetv resolved in the loaded library.
-func HasparamSetv() bool {
+// HasParamSetv reports whether cuParamSetv resolved in the loaded library.
+func HasParamSetv() bool {
 	return Has("cuParamSetv")
 }
 
-// HaspointerGetAttribute reports whether cuPointerGetAttribute resolved in the loaded library.
-func HaspointerGetAttribute() bool {
+// HasPointerGetAttribute reports whether cuPointerGetAttribute resolved in the loaded library.
+func HasPointerGetAttribute() bool {
 	return Has("cuPointerGetAttribute")
 }
 
-// HaspointerGetAttributes reports whether cuPointerGetAttributes resolved in the loaded library.
-func HaspointerGetAttributes() bool {
+// HasPointerGetAttributes reports whether cuPointerGetAttributes resolved in the loaded library.
+func HasPointerGetAttributes() bool {
 	return Has("cuPointerGetAttributes")
 }
 
-// HaspointerSetAttribute reports whether cuPointerSetAttribute resolved in the loaded library.
-func HaspointerSetAttribute() bool {
+// HasPointerSetAttribute reports whether cuPointerSetAttribute resolved in the loaded library.
+func HasPointerSetAttribute() bool {
 	return Has("cuPointerSetAttribute")
 }
 
-// HassignalExternalSemaphoresAsync reports whether cuSignalExternalSemaphoresAsync resolved in the loaded library.
-func HassignalExternalSemaphoresAsync() bool {
+// HasSignalExternalSemaphoresAsync reports whether cuSignalExternalSemaphoresAsync resolved in the loaded library.
+func HasSignalExternalSemaphoresAsync() bool {
 	return Has("cuSignalExternalSemaphoresAsync")
 }
 
-// HasstreamAddCallback reports whether cuStreamAddCallback resolved in the loaded library.
-func HasstreamAddCallback() bool {
+// HasStreamAddCallback reports whether cuStreamAddCallback resolved in the loaded library.
+func HasStreamAddCallback() bool {
 	return Has("cuStreamAddCallback")
 }
 
-// HasstreamAttachMemAsync reports whether cuStreamAttachMemAsync resolved in the loaded library.
-func HasstreamAttachMemAsync() bool {
+// HasStreamAttachMemAsync reports whether cuStreamAttachMemAsync resolved in the loaded library.
+func HasStreamAttachMemAsync() bool {
 	return Has("cuStreamAttachMemAsync")
 }
 
-// HasstreamBatchMemOp reports whether cuStreamBatchMemOp_v2 resolved in the loaded library.
-func HasstreamBatchMemOp() bool {
+// HasStreamBatchMemOp reports whether cuStreamBatchMemOp_v2 resolved in the loaded library.
+func HasStreamBatchMemOp() bool {
 	return Has("cuStreamBatchMemOp_v2")
 }
 
-// HasstreamBeginCapture reports whether cuStreamBeginCapture_v2 resolved in the loaded library.
-func HasstreamBeginCapture() bool {
+// HasStreamBeginCapture reports whether cuStreamBeginCapture_v2 resolved in the loaded library.
+func HasStreamBeginCapture() bool {
 	return Has("cuStreamBeginCapture_v2")
 }
 
-// HasstreamBeginCaptureToCig reports whether cuStreamBeginCaptureToCig resolved in the loaded library.
-func HasstreamBeginCaptureToCig() bool {
+// HasStreamBeginCaptureToCig reports whether cuStreamBeginCaptureToCig resolved in the loaded library.
+func HasStreamBeginCaptureToCig() bool {
 	return Has("cuStreamBeginCaptureToCig")
 }
 
-// HasstreamBeginCaptureToGraph reports whether cuStreamBeginCaptureToGraph resolved in the loaded library.
-func HasstreamBeginCaptureToGraph() bool {
+// HasStreamBeginCaptureToGraph reports whether cuStreamBeginCaptureToGraph resolved in the loaded library.
+func HasStreamBeginCaptureToGraph() bool {
 	return Has("cuStreamBeginCaptureToGraph")
 }
 
-// HasstreamCopyAttributes reports whether cuStreamCopyAttributes resolved in the loaded library.
-func HasstreamCopyAttributes() bool {
+// HasStreamCopyAttributes reports whether cuStreamCopyAttributes resolved in the loaded library.
+func HasStreamCopyAttributes() bool {
 	return Has("cuStreamCopyAttributes")
 }
 
-// HasstreamCreate reports whether cuStreamCreate resolved in the loaded library.
-func HasstreamCreate() bool {
+// HasStreamCreate reports whether cuStreamCreate resolved in the loaded library.
+func HasStreamCreate() bool {
 	return Has("cuStreamCreate")
 }
 
-// HasstreamCreateWithPriority reports whether cuStreamCreateWithPriority resolved in the loaded library.
-func HasstreamCreateWithPriority() bool {
+// HasStreamCreateWithPriority reports whether cuStreamCreateWithPriority resolved in the loaded library.
+func HasStreamCreateWithPriority() bool {
 	return Has("cuStreamCreateWithPriority")
 }
 
-// HasstreamDestroy reports whether cuStreamDestroy_v2 resolved in the loaded library.
-func HasstreamDestroy() bool {
+// HasStreamDestroy reports whether cuStreamDestroy_v2 resolved in the loaded library.
+func HasStreamDestroy() bool {
 	return Has("cuStreamDestroy_v2")
 }
 
-// HasstreamEndCapture reports whether cuStreamEndCapture resolved in the loaded library.
-func HasstreamEndCapture() bool {
+// HasStreamEndCapture reports whether cuStreamEndCapture resolved in the loaded library.
+func HasStreamEndCapture() bool {
 	return Has("cuStreamEndCapture")
 }
 
-// HasstreamEndCaptureToCig reports whether cuStreamEndCaptureToCig resolved in the loaded library.
-func HasstreamEndCaptureToCig() bool {
+// HasStreamEndCaptureToCig reports whether cuStreamEndCaptureToCig resolved in the loaded library.
+func HasStreamEndCaptureToCig() bool {
 	return Has("cuStreamEndCaptureToCig")
 }
 
-// HasstreamGetAttribute reports whether cuStreamGetAttribute resolved in the loaded library.
-func HasstreamGetAttribute() bool {
+// HasStreamGetAttribute reports whether cuStreamGetAttribute resolved in the loaded library.
+func HasStreamGetAttribute() bool {
 	return Has("cuStreamGetAttribute")
 }
 
-// HasstreamGetCaptureInfo reports whether cuStreamGetCaptureInfo_v3 resolved in the loaded library.
-func HasstreamGetCaptureInfo() bool {
+// HasStreamGetCaptureInfo reports whether cuStreamGetCaptureInfo_v3 resolved in the loaded library.
+func HasStreamGetCaptureInfo() bool {
 	return Has("cuStreamGetCaptureInfo_v3")
 }
 
-// HasstreamGetCtx reports whether cuStreamGetCtx_v2 resolved in the loaded library.
-func HasstreamGetCtx() bool {
+// HasStreamGetCtx reports whether cuStreamGetCtx_v2 resolved in the loaded library.
+func HasStreamGetCtx() bool {
 	return Has("cuStreamGetCtx_v2")
 }
 
-// HasstreamGetDevResource reports whether cuStreamGetDevResource resolved in the loaded library.
-func HasstreamGetDevResource() bool {
+// HasStreamGetDevResource reports whether cuStreamGetDevResource resolved in the loaded library.
+func HasStreamGetDevResource() bool {
 	return Has("cuStreamGetDevResource")
 }
 
-// HasstreamGetDevice reports whether cuStreamGetDevice resolved in the loaded library.
-func HasstreamGetDevice() bool {
+// HasStreamGetDevice reports whether cuStreamGetDevice resolved in the loaded library.
+func HasStreamGetDevice() bool {
 	return Has("cuStreamGetDevice")
 }
 
-// HasstreamGetFlags reports whether cuStreamGetFlags resolved in the loaded library.
-func HasstreamGetFlags() bool {
+// HasStreamGetFlags reports whether cuStreamGetFlags resolved in the loaded library.
+func HasStreamGetFlags() bool {
 	return Has("cuStreamGetFlags")
 }
 
-// HasstreamGetGreenCtx reports whether cuStreamGetGreenCtx resolved in the loaded library.
-func HasstreamGetGreenCtx() bool {
+// HasStreamGetGreenCtx reports whether cuStreamGetGreenCtx resolved in the loaded library.
+func HasStreamGetGreenCtx() bool {
 	return Has("cuStreamGetGreenCtx")
 }
 
-// HasstreamGetId reports whether cuStreamGetId resolved in the loaded library.
-func HasstreamGetId() bool {
+// HasStreamGetId reports whether cuStreamGetId resolved in the loaded library.
+func HasStreamGetId() bool {
 	return Has("cuStreamGetId")
 }
 
-// HasstreamGetPriority reports whether cuStreamGetPriority resolved in the loaded library.
-func HasstreamGetPriority() bool {
+// HasStreamGetPriority reports whether cuStreamGetPriority resolved in the loaded library.
+func HasStreamGetPriority() bool {
 	return Has("cuStreamGetPriority")
 }
 
-// HasstreamIsCapturing reports whether cuStreamIsCapturing resolved in the loaded library.
-func HasstreamIsCapturing() bool {
+// HasStreamIsCapturing reports whether cuStreamIsCapturing resolved in the loaded library.
+func HasStreamIsCapturing() bool {
 	return Has("cuStreamIsCapturing")
 }
 
-// HasstreamQuery reports whether cuStreamQuery resolved in the loaded library.
-func HasstreamQuery() bool {
+// HasStreamQuery reports whether cuStreamQuery resolved in the loaded library.
+func HasStreamQuery() bool {
 	return Has("cuStreamQuery")
 }
 
-// HasstreamSetAttribute reports whether cuStreamSetAttribute resolved in the loaded library.
-func HasstreamSetAttribute() bool {
+// HasStreamSetAttribute reports whether cuStreamSetAttribute resolved in the loaded library.
+func HasStreamSetAttribute() bool {
 	return Has("cuStreamSetAttribute")
 }
 
-// HasstreamSynchronize reports whether cuStreamSynchronize resolved in the loaded library.
-func HasstreamSynchronize() bool {
+// HasStreamSynchronize reports whether cuStreamSynchronize resolved in the loaded library.
+func HasStreamSynchronize() bool {
 	return Has("cuStreamSynchronize")
 }
 
-// HasstreamUpdateCaptureDependencies reports whether cuStreamUpdateCaptureDependencies_v2 resolved in the loaded library.
-func HasstreamUpdateCaptureDependencies() bool {
+// HasStreamUpdateCaptureDependencies reports whether cuStreamUpdateCaptureDependencies_v2 resolved in the loaded library.
+func HasStreamUpdateCaptureDependencies() bool {
 	return Has("cuStreamUpdateCaptureDependencies_v2")
 }
 
-// HasstreamWaitEvent reports whether cuStreamWaitEvent resolved in the loaded library.
-func HasstreamWaitEvent() bool {
+// HasStreamWaitEvent reports whether cuStreamWaitEvent resolved in the loaded library.
+func HasStreamWaitEvent() bool {
 	return Has("cuStreamWaitEvent")
 }
 
-// HasstreamWaitValue32 reports whether cuStreamWaitValue32_v2 resolved in the loaded library.
-func HasstreamWaitValue32() bool {
+// HasStreamWaitValue32 reports whether cuStreamWaitValue32_v2 resolved in the loaded library.
+func HasStreamWaitValue32() bool {
 	return Has("cuStreamWaitValue32_v2")
 }
 
-// HasstreamWaitValue64 reports whether cuStreamWaitValue64_v2 resolved in the loaded library.
-func HasstreamWaitValue64() bool {
+// HasStreamWaitValue64 reports whether cuStreamWaitValue64_v2 resolved in the loaded library.
+func HasStreamWaitValue64() bool {
 	return Has("cuStreamWaitValue64_v2")
 }
 
-// HasstreamWriteValue32 reports whether cuStreamWriteValue32_v2 resolved in the loaded library.
-func HasstreamWriteValue32() bool {
+// HasStreamWriteValue32 reports whether cuStreamWriteValue32_v2 resolved in the loaded library.
+func HasStreamWriteValue32() bool {
 	return Has("cuStreamWriteValue32_v2")
 }
 
-// HasstreamWriteValue64 reports whether cuStreamWriteValue64_v2 resolved in the loaded library.
-func HasstreamWriteValue64() bool {
+// HasStreamWriteValue64 reports whether cuStreamWriteValue64_v2 resolved in the loaded library.
+func HasStreamWriteValue64() bool {
 	return Has("cuStreamWriteValue64_v2")
 }
 
@@ -3477,13 +3477,13 @@ func HasSurfObjectGetResourceDesc() bool {
 	return Has("cuSurfObjectGetResourceDesc")
 }
 
-// HassurfRefGetArray reports whether cuSurfRefGetArray resolved in the loaded library.
-func HassurfRefGetArray() bool {
+// HasSurfRefGetArray reports whether cuSurfRefGetArray resolved in the loaded library.
+func HasSurfRefGetArray() bool {
 	return Has("cuSurfRefGetArray")
 }
 
-// HassurfRefSetArray reports whether cuSurfRefSetArray resolved in the loaded library.
-func HassurfRefSetArray() bool {
+// HasSurfRefSetArray reports whether cuSurfRefSetArray resolved in the loaded library.
+func HasSurfRefSetArray() bool {
 	return Has("cuSurfRefSetArray")
 }
 
@@ -3532,138 +3532,138 @@ func HasTexObjectGetTextureDesc() bool {
 	return Has("cuTexObjectGetTextureDesc")
 }
 
-// HastexRefCreate reports whether cuTexRefCreate resolved in the loaded library.
-func HastexRefCreate() bool {
+// HasTexRefCreate reports whether cuTexRefCreate resolved in the loaded library.
+func HasTexRefCreate() bool {
 	return Has("cuTexRefCreate")
 }
 
-// HastexRefDestroy reports whether cuTexRefDestroy resolved in the loaded library.
-func HastexRefDestroy() bool {
+// HasTexRefDestroy reports whether cuTexRefDestroy resolved in the loaded library.
+func HasTexRefDestroy() bool {
 	return Has("cuTexRefDestroy")
 }
 
-// HastexRefGetAddress reports whether cuTexRefGetAddress_v2 resolved in the loaded library.
-func HastexRefGetAddress() bool {
+// HasTexRefGetAddress reports whether cuTexRefGetAddress_v2 resolved in the loaded library.
+func HasTexRefGetAddress() bool {
 	return Has("cuTexRefGetAddress_v2")
 }
 
-// HastexRefGetAddressMode reports whether cuTexRefGetAddressMode resolved in the loaded library.
-func HastexRefGetAddressMode() bool {
+// HasTexRefGetAddressMode reports whether cuTexRefGetAddressMode resolved in the loaded library.
+func HasTexRefGetAddressMode() bool {
 	return Has("cuTexRefGetAddressMode")
 }
 
-// HastexRefGetArray reports whether cuTexRefGetArray resolved in the loaded library.
-func HastexRefGetArray() bool {
+// HasTexRefGetArray reports whether cuTexRefGetArray resolved in the loaded library.
+func HasTexRefGetArray() bool {
 	return Has("cuTexRefGetArray")
 }
 
-// HastexRefGetBorderColor reports whether cuTexRefGetBorderColor resolved in the loaded library.
-func HastexRefGetBorderColor() bool {
+// HasTexRefGetBorderColor reports whether cuTexRefGetBorderColor resolved in the loaded library.
+func HasTexRefGetBorderColor() bool {
 	return Has("cuTexRefGetBorderColor")
 }
 
-// HastexRefGetFilterMode reports whether cuTexRefGetFilterMode resolved in the loaded library.
-func HastexRefGetFilterMode() bool {
+// HasTexRefGetFilterMode reports whether cuTexRefGetFilterMode resolved in the loaded library.
+func HasTexRefGetFilterMode() bool {
 	return Has("cuTexRefGetFilterMode")
 }
 
-// HastexRefGetFlags reports whether cuTexRefGetFlags resolved in the loaded library.
-func HastexRefGetFlags() bool {
+// HasTexRefGetFlags reports whether cuTexRefGetFlags resolved in the loaded library.
+func HasTexRefGetFlags() bool {
 	return Has("cuTexRefGetFlags")
 }
 
-// HastexRefGetFormat reports whether cuTexRefGetFormat resolved in the loaded library.
-func HastexRefGetFormat() bool {
+// HasTexRefGetFormat reports whether cuTexRefGetFormat resolved in the loaded library.
+func HasTexRefGetFormat() bool {
 	return Has("cuTexRefGetFormat")
 }
 
-// HastexRefGetMaxAnisotropy reports whether cuTexRefGetMaxAnisotropy resolved in the loaded library.
-func HastexRefGetMaxAnisotropy() bool {
+// HasTexRefGetMaxAnisotropy reports whether cuTexRefGetMaxAnisotropy resolved in the loaded library.
+func HasTexRefGetMaxAnisotropy() bool {
 	return Has("cuTexRefGetMaxAnisotropy")
 }
 
-// HastexRefGetMipmapFilterMode reports whether cuTexRefGetMipmapFilterMode resolved in the loaded library.
-func HastexRefGetMipmapFilterMode() bool {
+// HasTexRefGetMipmapFilterMode reports whether cuTexRefGetMipmapFilterMode resolved in the loaded library.
+func HasTexRefGetMipmapFilterMode() bool {
 	return Has("cuTexRefGetMipmapFilterMode")
 }
 
-// HastexRefGetMipmapLevelBias reports whether cuTexRefGetMipmapLevelBias resolved in the loaded library.
-func HastexRefGetMipmapLevelBias() bool {
+// HasTexRefGetMipmapLevelBias reports whether cuTexRefGetMipmapLevelBias resolved in the loaded library.
+func HasTexRefGetMipmapLevelBias() bool {
 	return Has("cuTexRefGetMipmapLevelBias")
 }
 
-// HastexRefGetMipmapLevelClamp reports whether cuTexRefGetMipmapLevelClamp resolved in the loaded library.
-func HastexRefGetMipmapLevelClamp() bool {
+// HasTexRefGetMipmapLevelClamp reports whether cuTexRefGetMipmapLevelClamp resolved in the loaded library.
+func HasTexRefGetMipmapLevelClamp() bool {
 	return Has("cuTexRefGetMipmapLevelClamp")
 }
 
-// HastexRefGetMipmappedArray reports whether cuTexRefGetMipmappedArray resolved in the loaded library.
-func HastexRefGetMipmappedArray() bool {
+// HasTexRefGetMipmappedArray reports whether cuTexRefGetMipmappedArray resolved in the loaded library.
+func HasTexRefGetMipmappedArray() bool {
 	return Has("cuTexRefGetMipmappedArray")
 }
 
-// HastexRefSetAddress reports whether cuTexRefSetAddress_v2 resolved in the loaded library.
-func HastexRefSetAddress() bool {
+// HasTexRefSetAddress reports whether cuTexRefSetAddress_v2 resolved in the loaded library.
+func HasTexRefSetAddress() bool {
 	return Has("cuTexRefSetAddress_v2")
 }
 
-// HastexRefSetAddress2D reports whether cuTexRefSetAddress2D_v3 resolved in the loaded library.
-func HastexRefSetAddress2D() bool {
+// HasTexRefSetAddress2D reports whether cuTexRefSetAddress2D_v3 resolved in the loaded library.
+func HasTexRefSetAddress2D() bool {
 	return Has("cuTexRefSetAddress2D_v3")
 }
 
-// HastexRefSetAddressMode reports whether cuTexRefSetAddressMode resolved in the loaded library.
-func HastexRefSetAddressMode() bool {
+// HasTexRefSetAddressMode reports whether cuTexRefSetAddressMode resolved in the loaded library.
+func HasTexRefSetAddressMode() bool {
 	return Has("cuTexRefSetAddressMode")
 }
 
-// HastexRefSetArray reports whether cuTexRefSetArray resolved in the loaded library.
-func HastexRefSetArray() bool {
+// HasTexRefSetArray reports whether cuTexRefSetArray resolved in the loaded library.
+func HasTexRefSetArray() bool {
 	return Has("cuTexRefSetArray")
 }
 
-// HastexRefSetBorderColor reports whether cuTexRefSetBorderColor resolved in the loaded library.
-func HastexRefSetBorderColor() bool {
+// HasTexRefSetBorderColor reports whether cuTexRefSetBorderColor resolved in the loaded library.
+func HasTexRefSetBorderColor() bool {
 	return Has("cuTexRefSetBorderColor")
 }
 
-// HastexRefSetFilterMode reports whether cuTexRefSetFilterMode resolved in the loaded library.
-func HastexRefSetFilterMode() bool {
+// HasTexRefSetFilterMode reports whether cuTexRefSetFilterMode resolved in the loaded library.
+func HasTexRefSetFilterMode() bool {
 	return Has("cuTexRefSetFilterMode")
 }
 
-// HastexRefSetFlags reports whether cuTexRefSetFlags resolved in the loaded library.
-func HastexRefSetFlags() bool {
+// HasTexRefSetFlags reports whether cuTexRefSetFlags resolved in the loaded library.
+func HasTexRefSetFlags() bool {
 	return Has("cuTexRefSetFlags")
 }
 
-// HastexRefSetFormat reports whether cuTexRefSetFormat resolved in the loaded library.
-func HastexRefSetFormat() bool {
+// HasTexRefSetFormat reports whether cuTexRefSetFormat resolved in the loaded library.
+func HasTexRefSetFormat() bool {
 	return Has("cuTexRefSetFormat")
 }
 
-// HastexRefSetMaxAnisotropy reports whether cuTexRefSetMaxAnisotropy resolved in the loaded library.
-func HastexRefSetMaxAnisotropy() bool {
+// HasTexRefSetMaxAnisotropy reports whether cuTexRefSetMaxAnisotropy resolved in the loaded library.
+func HasTexRefSetMaxAnisotropy() bool {
 	return Has("cuTexRefSetMaxAnisotropy")
 }
 
-// HastexRefSetMipmapFilterMode reports whether cuTexRefSetMipmapFilterMode resolved in the loaded library.
-func HastexRefSetMipmapFilterMode() bool {
+// HasTexRefSetMipmapFilterMode reports whether cuTexRefSetMipmapFilterMode resolved in the loaded library.
+func HasTexRefSetMipmapFilterMode() bool {
 	return Has("cuTexRefSetMipmapFilterMode")
 }
 
-// HastexRefSetMipmapLevelBias reports whether cuTexRefSetMipmapLevelBias resolved in the loaded library.
-func HastexRefSetMipmapLevelBias() bool {
+// HasTexRefSetMipmapLevelBias reports whether cuTexRefSetMipmapLevelBias resolved in the loaded library.
+func HasTexRefSetMipmapLevelBias() bool {
 	return Has("cuTexRefSetMipmapLevelBias")
 }
 
-// HastexRefSetMipmapLevelClamp reports whether cuTexRefSetMipmapLevelClamp resolved in the loaded library.
-func HastexRefSetMipmapLevelClamp() bool {
+// HasTexRefSetMipmapLevelClamp reports whether cuTexRefSetMipmapLevelClamp resolved in the loaded library.
+func HasTexRefSetMipmapLevelClamp() bool {
 	return Has("cuTexRefSetMipmapLevelClamp")
 }
 
-// HastexRefSetMipmappedArray reports whether cuTexRefSetMipmappedArray resolved in the loaded library.
-func HastexRefSetMipmappedArray() bool {
+// HasTexRefSetMipmappedArray reports whether cuTexRefSetMipmappedArray resolved in the loaded library.
+func HasTexRefSetMipmappedArray() bool {
 	return Has("cuTexRefSetMipmappedArray")
 }
 
@@ -3672,22 +3672,22 @@ func HasThreadExchangeStreamCaptureMode() bool {
 	return Has("cuThreadExchangeStreamCaptureMode")
 }
 
-// HasuserObjectCreate reports whether cuUserObjectCreate resolved in the loaded library.
-func HasuserObjectCreate() bool {
+// HasUserObjectCreate reports whether cuUserObjectCreate resolved in the loaded library.
+func HasUserObjectCreate() bool {
 	return Has("cuUserObjectCreate")
 }
 
-// HasuserObjectRelease reports whether cuUserObjectRelease resolved in the loaded library.
-func HasuserObjectRelease() bool {
+// HasUserObjectRelease reports whether cuUserObjectRelease resolved in the loaded library.
+func HasUserObjectRelease() bool {
 	return Has("cuUserObjectRelease")
 }
 
-// HasuserObjectRetain reports whether cuUserObjectRetain resolved in the loaded library.
-func HasuserObjectRetain() bool {
+// HasUserObjectRetain reports whether cuUserObjectRetain resolved in the loaded library.
+func HasUserObjectRetain() bool {
 	return Has("cuUserObjectRetain")
 }
 
-// HaswaitExternalSemaphoresAsync reports whether cuWaitExternalSemaphoresAsync resolved in the loaded library.
-func HaswaitExternalSemaphoresAsync() bool {
+// HasWaitExternalSemaphoresAsync reports whether cuWaitExternalSemaphoresAsync resolved in the loaded library.
+func HasWaitExternalSemaphoresAsync() bool {
 	return Has("cuWaitExternalSemaphoresAsync")
 }

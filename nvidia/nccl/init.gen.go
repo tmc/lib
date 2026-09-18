@@ -462,183 +462,183 @@ func HasGetErrorString() bool {
 	return Has("ncclGetErrorString")
 }
 
-// HasallGather reports whether ncclAllGather resolved in the loaded library.
-func HasallGather() bool {
+// HasAllGather reports whether ncclAllGather resolved in the loaded library.
+func HasAllGather() bool {
 	return Has("ncclAllGather")
 }
 
-// HasallReduce reports whether ncclAllReduce resolved in the loaded library.
-func HasallReduce() bool {
+// HasAllReduce reports whether ncclAllReduce resolved in the loaded library.
+func HasAllReduce() bool {
 	return Has("ncclAllReduce")
 }
 
-// HasalltoAll reports whether ncclAlltoAll resolved in the loaded library.
-func HasalltoAll() bool {
+// HasAlltoAll reports whether ncclAlltoAll resolved in the loaded library.
+func HasAlltoAll() bool {
 	return Has("ncclAlltoAll")
 }
 
-// Hasbroadcast reports whether ncclBroadcast resolved in the loaded library.
-func Hasbroadcast() bool {
+// HasBroadcast reports whether ncclBroadcast resolved in the loaded library.
+func HasBroadcast() bool {
 	return Has("ncclBroadcast")
 }
 
-// HascommAbort reports whether ncclCommAbort resolved in the loaded library.
-func HascommAbort() bool {
+// HasCommAbort reports whether ncclCommAbort resolved in the loaded library.
+func HasCommAbort() bool {
 	return Has("ncclCommAbort")
 }
 
-// HascommCount reports whether ncclCommCount resolved in the loaded library.
-func HascommCount() bool {
+// HasCommCount reports whether ncclCommCount resolved in the loaded library.
+func HasCommCount() bool {
 	return Has("ncclCommCount")
 }
 
-// HascommCuDevice reports whether ncclCommCuDevice resolved in the loaded library.
-func HascommCuDevice() bool {
+// HasCommCuDevice reports whether ncclCommCuDevice resolved in the loaded library.
+func HasCommCuDevice() bool {
 	return Has("ncclCommCuDevice")
 }
 
-// HascommDeregister reports whether ncclCommDeregister resolved in the loaded library.
-func HascommDeregister() bool {
+// HasCommDeregister reports whether ncclCommDeregister resolved in the loaded library.
+func HasCommDeregister() bool {
 	return Has("ncclCommDeregister")
 }
 
-// HascommDestroy reports whether ncclCommDestroy resolved in the loaded library.
-func HascommDestroy() bool {
+// HasCommDestroy reports whether ncclCommDestroy resolved in the loaded library.
+func HasCommDestroy() bool {
 	return Has("ncclCommDestroy")
 }
 
-// HascommFinalize reports whether ncclCommFinalize resolved in the loaded library.
-func HascommFinalize() bool {
+// HasCommFinalize reports whether ncclCommFinalize resolved in the loaded library.
+func HasCommFinalize() bool {
 	return Has("ncclCommFinalize")
 }
 
-// HascommGetAsyncError reports whether ncclCommGetAsyncError resolved in the loaded library.
-func HascommGetAsyncError() bool {
+// HasCommGetAsyncError reports whether ncclCommGetAsyncError resolved in the loaded library.
+func HasCommGetAsyncError() bool {
 	return Has("ncclCommGetAsyncError")
 }
 
-// HascommGetUniqueId reports whether ncclCommGetUniqueId resolved in the loaded library.
-func HascommGetUniqueId() bool {
+// HasCommGetUniqueId reports whether ncclCommGetUniqueId resolved in the loaded library.
+func HasCommGetUniqueId() bool {
 	return Has("ncclCommGetUniqueId")
 }
 
-// HascommGrow reports whether ncclCommGrow resolved in the loaded library.
-func HascommGrow() bool {
+// HasCommGrow reports whether ncclCommGrow resolved in the loaded library.
+func HasCommGrow() bool {
 	return Has("ncclCommGrow")
 }
 
-// HascommInitAll reports whether ncclCommInitAll resolved in the loaded library.
-func HascommInitAll() bool {
+// HasCommInitAll reports whether ncclCommInitAll resolved in the loaded library.
+func HasCommInitAll() bool {
 	return Has("ncclCommInitAll")
 }
 
-// HascommInitRank reports whether ncclCommInitRank resolved in the loaded library.
-func HascommInitRank() bool {
+// HasCommInitRank reports whether ncclCommInitRank resolved in the loaded library.
+func HasCommInitRank() bool {
 	return Has("ncclCommInitRank")
 }
 
-// HascommInitRankConfig reports whether ncclCommInitRankConfig resolved in the loaded library.
-func HascommInitRankConfig() bool {
+// HasCommInitRankConfig reports whether ncclCommInitRankConfig resolved in the loaded library.
+func HasCommInitRankConfig() bool {
 	return Has("ncclCommInitRankConfig")
 }
 
-// HascommInitRankScalable reports whether ncclCommInitRankScalable resolved in the loaded library.
-func HascommInitRankScalable() bool {
+// HasCommInitRankScalable reports whether ncclCommInitRankScalable resolved in the loaded library.
+func HasCommInitRankScalable() bool {
 	return Has("ncclCommInitRankScalable")
 }
 
-// HascommMemStats reports whether ncclCommMemStats resolved in the loaded library.
-func HascommMemStats() bool {
+// HasCommMemStats reports whether ncclCommMemStats resolved in the loaded library.
+func HasCommMemStats() bool {
 	return Has("ncclCommMemStats")
 }
 
-// HascommQueryProperties reports whether ncclCommQueryProperties resolved in the loaded library.
-func HascommQueryProperties() bool {
+// HasCommQueryProperties reports whether ncclCommQueryProperties resolved in the loaded library.
+func HasCommQueryProperties() bool {
 	return Has("ncclCommQueryProperties")
 }
 
-// HascommRegister reports whether ncclCommRegister resolved in the loaded library.
-func HascommRegister() bool {
+// HasCommRegister reports whether ncclCommRegister resolved in the loaded library.
+func HasCommRegister() bool {
 	return Has("ncclCommRegister")
 }
 
-// HascommResume reports whether ncclCommResume resolved in the loaded library.
-func HascommResume() bool {
+// HasCommResume reports whether ncclCommResume resolved in the loaded library.
+func HasCommResume() bool {
 	return Has("ncclCommResume")
 }
 
-// HascommRevoke reports whether ncclCommRevoke resolved in the loaded library.
-func HascommRevoke() bool {
+// HasCommRevoke reports whether ncclCommRevoke resolved in the loaded library.
+func HasCommRevoke() bool {
 	return Has("ncclCommRevoke")
 }
 
-// HascommShrink reports whether ncclCommShrink resolved in the loaded library.
-func HascommShrink() bool {
+// HasCommShrink reports whether ncclCommShrink resolved in the loaded library.
+func HasCommShrink() bool {
 	return Has("ncclCommShrink")
 }
 
-// HascommSplit reports whether ncclCommSplit resolved in the loaded library.
-func HascommSplit() bool {
+// HasCommSplit reports whether ncclCommSplit resolved in the loaded library.
+func HasCommSplit() bool {
 	return Has("ncclCommSplit")
 }
 
-// HascommSuspend reports whether ncclCommSuspend resolved in the loaded library.
-func HascommSuspend() bool {
+// HasCommSuspend reports whether ncclCommSuspend resolved in the loaded library.
+func HasCommSuspend() bool {
 	return Has("ncclCommSuspend")
 }
 
-// HascommUserRank reports whether ncclCommUserRank resolved in the loaded library.
-func HascommUserRank() bool {
+// HasCommUserRank reports whether ncclCommUserRank resolved in the loaded library.
+func HasCommUserRank() bool {
 	return Has("ncclCommUserRank")
 }
 
-// HascommWindowDeregister reports whether ncclCommWindowDeregister resolved in the loaded library.
-func HascommWindowDeregister() bool {
+// HasCommWindowDeregister reports whether ncclCommWindowDeregister resolved in the loaded library.
+func HasCommWindowDeregister() bool {
 	return Has("ncclCommWindowDeregister")
 }
 
-// HascommWindowRegister reports whether ncclCommWindowRegister resolved in the loaded library.
-func HascommWindowRegister() bool {
+// HasCommWindowRegister reports whether ncclCommWindowRegister resolved in the loaded library.
+func HasCommWindowRegister() bool {
 	return Has("ncclCommWindowRegister")
 }
 
-// HasdevCommCreate reports whether ncclDevCommCreate resolved in the loaded library.
-func HasdevCommCreate() bool {
+// HasDevCommCreate reports whether ncclDevCommCreate resolved in the loaded library.
+func HasDevCommCreate() bool {
 	return Has("ncclDevCommCreate")
 }
 
-// HasdevCommDestroy reports whether ncclDevCommDestroy resolved in the loaded library.
-func HasdevCommDestroy() bool {
+// HasDevCommDestroy reports whether ncclDevCommDestroy resolved in the loaded library.
+func HasDevCommDestroy() bool {
 	return Has("ncclDevCommDestroy")
 }
 
-// Hasgather reports whether ncclGather resolved in the loaded library.
-func Hasgather() bool {
+// HasGather reports whether ncclGather resolved in the loaded library.
+func HasGather() bool {
 	return Has("ncclGather")
 }
 
-// HasgetLastError reports whether ncclGetLastError resolved in the loaded library.
-func HasgetLastError() bool {
+// HasGetLastError reports whether ncclGetLastError resolved in the loaded library.
+func HasGetLastError() bool {
 	return Has("ncclGetLastError")
 }
 
-// HasgetLsaDevicePointer reports whether ncclGetLsaDevicePointer resolved in the loaded library.
-func HasgetLsaDevicePointer() bool {
+// HasGetLsaDevicePointer reports whether ncclGetLsaDevicePointer resolved in the loaded library.
+func HasGetLsaDevicePointer() bool {
 	return Has("ncclGetLsaDevicePointer")
 }
 
-// HasgetLsaMultimemDevicePointer reports whether ncclGetLsaMultimemDevicePointer resolved in the loaded library.
-func HasgetLsaMultimemDevicePointer() bool {
+// HasGetLsaMultimemDevicePointer reports whether ncclGetLsaMultimemDevicePointer resolved in the loaded library.
+func HasGetLsaMultimemDevicePointer() bool {
 	return Has("ncclGetLsaMultimemDevicePointer")
 }
 
-// HasgetMultimemDevicePointer reports whether ncclGetMultimemDevicePointer resolved in the loaded library.
-func HasgetMultimemDevicePointer() bool {
+// HasGetMultimemDevicePointer reports whether ncclGetMultimemDevicePointer resolved in the loaded library.
+func HasGetMultimemDevicePointer() bool {
 	return Has("ncclGetMultimemDevicePointer")
 }
 
-// HasgetPeerDevicePointer reports whether ncclGetPeerDevicePointer resolved in the loaded library.
-func HasgetPeerDevicePointer() bool {
+// HasGetPeerDevicePointer reports whether ncclGetPeerDevicePointer resolved in the loaded library.
+func HasGetPeerDevicePointer() bool {
 	return Has("ncclGetPeerDevicePointer")
 }
 
@@ -652,8 +652,8 @@ func HasGetVersion() bool {
 	return Has("ncclGetVersion")
 }
 
-// HasginBarrierCreateRequirement reports whether ncclGinBarrierCreateRequirement resolved in the loaded library.
-func HasginBarrierCreateRequirement() bool {
+// HasGinBarrierCreateRequirement reports whether ncclGinBarrierCreateRequirement resolved in the loaded library.
+func HasGinBarrierCreateRequirement() bool {
 	return Has("ncclGinBarrierCreateRequirement")
 }
 
@@ -697,72 +697,72 @@ func HasMemFree() bool {
 	return Has("ncclMemFree")
 }
 
-// HasputSignal reports whether ncclPutSignal resolved in the loaded library.
-func HasputSignal() bool {
+// HasPutSignal reports whether ncclPutSignal resolved in the loaded library.
+func HasPutSignal() bool {
 	return Has("ncclPutSignal")
 }
 
-// Hasrecv reports whether ncclRecv resolved in the loaded library.
-func Hasrecv() bool {
+// HasRecv reports whether ncclRecv resolved in the loaded library.
+func HasRecv() bool {
 	return Has("ncclRecv")
 }
 
-// HasredOpCreatePreMulSum reports whether ncclRedOpCreatePreMulSum resolved in the loaded library.
-func HasredOpCreatePreMulSum() bool {
+// HasRedOpCreatePreMulSum reports whether ncclRedOpCreatePreMulSum resolved in the loaded library.
+func HasRedOpCreatePreMulSum() bool {
 	return Has("ncclRedOpCreatePreMulSum")
 }
 
-// HasredOpDestroy reports whether ncclRedOpDestroy resolved in the loaded library.
-func HasredOpDestroy() bool {
+// HasRedOpDestroy reports whether ncclRedOpDestroy resolved in the loaded library.
+func HasRedOpDestroy() bool {
 	return Has("ncclRedOpDestroy")
 }
 
-// Hasreduce reports whether ncclReduce resolved in the loaded library.
-func Hasreduce() bool {
+// HasReduce reports whether ncclReduce resolved in the loaded library.
+func HasReduce() bool {
 	return Has("ncclReduce")
 }
 
-// HasreduceScatter reports whether ncclReduceScatter resolved in the loaded library.
-func HasreduceScatter() bool {
+// HasReduceScatter reports whether ncclReduceScatter resolved in the loaded library.
+func HasReduceScatter() bool {
 	return Has("ncclReduceScatter")
 }
 
-// Hasscatter reports whether ncclScatter resolved in the loaded library.
-func Hasscatter() bool {
+// HasScatter reports whether ncclScatter resolved in the loaded library.
+func HasScatter() bool {
 	return Has("ncclScatter")
 }
 
-// Hassend reports whether ncclSend resolved in the loaded library.
-func Hassend() bool {
+// HasSend reports whether ncclSend resolved in the loaded library.
+func HasSend() bool {
 	return Has("ncclSend")
 }
 
-// Hassignal reports whether ncclSignal resolved in the loaded library.
-func Hassignal() bool {
+// HasSignal reports whether ncclSignal resolved in the loaded library.
+func HasSignal() bool {
 	return Has("ncclSignal")
 }
 
-// HasteamLsa reports whether ncclTeamLsa resolved in the loaded library.
-func HasteamLsa() bool {
+// HasTeamLsa reports whether ncclTeamLsa resolved in the loaded library.
+func HasTeamLsa() bool {
 	return Has("ncclTeamLsa")
 }
 
-// HasteamRail reports whether ncclTeamRail resolved in the loaded library.
-func HasteamRail() bool {
+// HasTeamRail reports whether ncclTeamRail resolved in the loaded library.
+func HasTeamRail() bool {
 	return Has("ncclTeamRail")
 }
 
-// HasteamWorld reports whether ncclTeamWorld resolved in the loaded library.
-func HasteamWorld() bool {
+// HasTeamWorld reports whether ncclTeamWorld resolved in the loaded library.
+func HasTeamWorld() bool {
 	return Has("ncclTeamWorld")
 }
 
-// HaswaitSignal reports whether ncclWaitSignal resolved in the loaded library.
-func HaswaitSignal() bool {
+// HasWaitSignal reports whether ncclWaitSignal resolved in the loaded library.
+func HasWaitSignal() bool {
 	return Has("ncclWaitSignal")
 }
 
-// HaswinGetUserPtr reports whether ncclWinGetUserPtr resolved in the loaded library.
-func HaswinGetUserPtr() bool {
+// HasWinGetUserPtr reports whether ncclWinGetUserPtr resolved in the loaded library.
+func HasWinGetUserPtr() bool {
 	return Has("ncclWinGetUserPtr")
 }

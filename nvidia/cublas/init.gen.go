@@ -1500,393 +1500,393 @@ func HasGetStatusString() bool {
 	return Has("cublasGetStatusString")
 }
 
-// HasasumEx reports whether cublasAsumEx resolved in the loaded library.
-func HasasumEx() bool {
+// HasAsumEx reports whether cublasAsumEx resolved in the loaded library.
+func HasAsumEx() bool {
 	return Has("cublasAsumEx")
 }
 
-// HasasumEx64 reports whether cublasAsumEx_64 resolved in the loaded library.
-func HasasumEx64() bool {
+// HasAsumEx64 reports whether cublasAsumEx_64 resolved in the loaded library.
+func HasAsumEx64() bool {
 	return Has("cublasAsumEx_64")
 }
 
-// HasaxpyEx reports whether cublasAxpyEx resolved in the loaded library.
-func HasaxpyEx() bool {
+// HasAxpyEx reports whether cublasAxpyEx resolved in the loaded library.
+func HasAxpyEx() bool {
 	return Has("cublasAxpyEx")
 }
 
-// HasaxpyEx64 reports whether cublasAxpyEx_64 resolved in the loaded library.
-func HasaxpyEx64() bool {
+// HasAxpyEx64 reports whether cublasAxpyEx_64 resolved in the loaded library.
+func HasAxpyEx64() bool {
 	return Has("cublasAxpyEx_64")
 }
 
-// Hascaxpy reports whether cublasCaxpy_v2 resolved in the loaded library.
-func Hascaxpy() bool {
+// HasCaxpy reports whether cublasCaxpy_v2 resolved in the loaded library.
+func HasCaxpy() bool {
 	return Has("cublasCaxpy_v2")
 }
 
-// Hascaxpy64 reports whether cublasCaxpy_v2_64 resolved in the loaded library.
-func Hascaxpy64() bool {
+// HasCaxpy64 reports whether cublasCaxpy_v2_64 resolved in the loaded library.
+func HasCaxpy64() bool {
 	return Has("cublasCaxpy_v2_64")
 }
 
-// Hasccopy reports whether cublasCcopy_v2 resolved in the loaded library.
-func Hasccopy() bool {
+// HasCcopy reports whether cublasCcopy_v2 resolved in the loaded library.
+func HasCcopy() bool {
 	return Has("cublasCcopy_v2")
 }
 
-// Hasccopy64 reports whether cublasCcopy_v2_64 resolved in the loaded library.
-func Hasccopy64() bool {
+// HasCcopy64 reports whether cublasCcopy_v2_64 resolved in the loaded library.
+func HasCcopy64() bool {
 	return Has("cublasCcopy_v2_64")
 }
 
-// Hascdgmm reports whether cublasCdgmm resolved in the loaded library.
-func Hascdgmm() bool {
+// HasCdgmm reports whether cublasCdgmm resolved in the loaded library.
+func HasCdgmm() bool {
 	return Has("cublasCdgmm")
 }
 
-// Hascdgmm64 reports whether cublasCdgmm_64 resolved in the loaded library.
-func Hascdgmm64() bool {
+// HasCdgmm64 reports whether cublasCdgmm_64 resolved in the loaded library.
+func HasCdgmm64() bool {
 	return Has("cublasCdgmm_64")
 }
 
-// Hascdotc reports whether cublasCdotc_v2 resolved in the loaded library.
-func Hascdotc() bool {
+// HasCdotc reports whether cublasCdotc_v2 resolved in the loaded library.
+func HasCdotc() bool {
 	return Has("cublasCdotc_v2")
 }
 
-// Hascdotc64 reports whether cublasCdotc_v2_64 resolved in the loaded library.
-func Hascdotc64() bool {
+// HasCdotc64 reports whether cublasCdotc_v2_64 resolved in the loaded library.
+func HasCdotc64() bool {
 	return Has("cublasCdotc_v2_64")
 }
 
-// Hascdotu reports whether cublasCdotu_v2 resolved in the loaded library.
-func Hascdotu() bool {
+// HasCdotu reports whether cublasCdotu_v2 resolved in the loaded library.
+func HasCdotu() bool {
 	return Has("cublasCdotu_v2")
 }
 
-// Hascdotu64 reports whether cublasCdotu_v2_64 resolved in the loaded library.
-func Hascdotu64() bool {
+// HasCdotu64 reports whether cublasCdotu_v2_64 resolved in the loaded library.
+func HasCdotu64() bool {
 	return Has("cublasCdotu_v2_64")
 }
 
-// Hascgbmv reports whether cublasCgbmv_v2 resolved in the loaded library.
-func Hascgbmv() bool {
+// HasCgbmv reports whether cublasCgbmv_v2 resolved in the loaded library.
+func HasCgbmv() bool {
 	return Has("cublasCgbmv_v2")
 }
 
-// Hascgbmv64 reports whether cublasCgbmv_v2_64 resolved in the loaded library.
-func Hascgbmv64() bool {
+// HasCgbmv64 reports whether cublasCgbmv_v2_64 resolved in the loaded library.
+func HasCgbmv64() bool {
 	return Has("cublasCgbmv_v2_64")
 }
 
-// Hascgeam reports whether cublasCgeam resolved in the loaded library.
-func Hascgeam() bool {
+// HasCgeam reports whether cublasCgeam resolved in the loaded library.
+func HasCgeam() bool {
 	return Has("cublasCgeam")
 }
 
-// Hascgeam64 reports whether cublasCgeam_64 resolved in the loaded library.
-func Hascgeam64() bool {
+// HasCgeam64 reports whether cublasCgeam_64 resolved in the loaded library.
+func HasCgeam64() bool {
 	return Has("cublasCgeam_64")
 }
 
-// HascgelsBatched reports whether cublasCgelsBatched resolved in the loaded library.
-func HascgelsBatched() bool {
+// HasCgelsBatched reports whether cublasCgelsBatched resolved in the loaded library.
+func HasCgelsBatched() bool {
 	return Has("cublasCgelsBatched")
 }
 
-// Hascgemm3m reports whether cublasCgemm3m resolved in the loaded library.
-func Hascgemm3m() bool {
+// HasCgemm3m reports whether cublasCgemm3m resolved in the loaded library.
+func HasCgemm3m() bool {
 	return Has("cublasCgemm3m")
 }
 
-// Hascgemm3mBatched reports whether cublasCgemm3mBatched resolved in the loaded library.
-func Hascgemm3mBatched() bool {
+// HasCgemm3mBatched reports whether cublasCgemm3mBatched resolved in the loaded library.
+func HasCgemm3mBatched() bool {
 	return Has("cublasCgemm3mBatched")
 }
 
-// Hascgemm3mBatched64 reports whether cublasCgemm3mBatched_64 resolved in the loaded library.
-func Hascgemm3mBatched64() bool {
+// HasCgemm3mBatched64 reports whether cublasCgemm3mBatched_64 resolved in the loaded library.
+func HasCgemm3mBatched64() bool {
 	return Has("cublasCgemm3mBatched_64")
 }
 
-// Hascgemm3mEx reports whether cublasCgemm3mEx resolved in the loaded library.
-func Hascgemm3mEx() bool {
+// HasCgemm3mEx reports whether cublasCgemm3mEx resolved in the loaded library.
+func HasCgemm3mEx() bool {
 	return Has("cublasCgemm3mEx")
 }
 
-// Hascgemm3mEx64 reports whether cublasCgemm3mEx_64 resolved in the loaded library.
-func Hascgemm3mEx64() bool {
+// HasCgemm3mEx64 reports whether cublasCgemm3mEx_64 resolved in the loaded library.
+func HasCgemm3mEx64() bool {
 	return Has("cublasCgemm3mEx_64")
 }
 
-// Hascgemm3mStridedBatched reports whether cublasCgemm3mStridedBatched resolved in the loaded library.
-func Hascgemm3mStridedBatched() bool {
+// HasCgemm3mStridedBatched reports whether cublasCgemm3mStridedBatched resolved in the loaded library.
+func HasCgemm3mStridedBatched() bool {
 	return Has("cublasCgemm3mStridedBatched")
 }
 
-// Hascgemm3mStridedBatched64 reports whether cublasCgemm3mStridedBatched_64 resolved in the loaded library.
-func Hascgemm3mStridedBatched64() bool {
+// HasCgemm3mStridedBatched64 reports whether cublasCgemm3mStridedBatched_64 resolved in the loaded library.
+func HasCgemm3mStridedBatched64() bool {
 	return Has("cublasCgemm3mStridedBatched_64")
 }
 
-// Hascgemm3m64 reports whether cublasCgemm3m_64 resolved in the loaded library.
-func Hascgemm3m64() bool {
+// HasCgemm3m64 reports whether cublasCgemm3m_64 resolved in the loaded library.
+func HasCgemm3m64() bool {
 	return Has("cublasCgemm3m_64")
 }
 
-// HascgemmBatched reports whether cublasCgemmBatched resolved in the loaded library.
-func HascgemmBatched() bool {
+// HasCgemmBatched reports whether cublasCgemmBatched resolved in the loaded library.
+func HasCgemmBatched() bool {
 	return Has("cublasCgemmBatched")
 }
 
-// HascgemmBatched64 reports whether cublasCgemmBatched_64 resolved in the loaded library.
-func HascgemmBatched64() bool {
+// HasCgemmBatched64 reports whether cublasCgemmBatched_64 resolved in the loaded library.
+func HasCgemmBatched64() bool {
 	return Has("cublasCgemmBatched_64")
 }
 
-// HascgemmEx reports whether cublasCgemmEx resolved in the loaded library.
-func HascgemmEx() bool {
+// HasCgemmEx reports whether cublasCgemmEx resolved in the loaded library.
+func HasCgemmEx() bool {
 	return Has("cublasCgemmEx")
 }
 
-// HascgemmEx64 reports whether cublasCgemmEx_64 resolved in the loaded library.
-func HascgemmEx64() bool {
+// HasCgemmEx64 reports whether cublasCgemmEx_64 resolved in the loaded library.
+func HasCgemmEx64() bool {
 	return Has("cublasCgemmEx_64")
 }
 
-// HascgemmStridedBatched reports whether cublasCgemmStridedBatched resolved in the loaded library.
-func HascgemmStridedBatched() bool {
+// HasCgemmStridedBatched reports whether cublasCgemmStridedBatched resolved in the loaded library.
+func HasCgemmStridedBatched() bool {
 	return Has("cublasCgemmStridedBatched")
 }
 
-// HascgemmStridedBatched64 reports whether cublasCgemmStridedBatched_64 resolved in the loaded library.
-func HascgemmStridedBatched64() bool {
+// HasCgemmStridedBatched64 reports whether cublasCgemmStridedBatched_64 resolved in the loaded library.
+func HasCgemmStridedBatched64() bool {
 	return Has("cublasCgemmStridedBatched_64")
 }
 
-// Hascgemm reports whether cublasCgemm_v2 resolved in the loaded library.
-func Hascgemm() bool {
+// HasCgemm reports whether cublasCgemm_v2 resolved in the loaded library.
+func HasCgemm() bool {
 	return Has("cublasCgemm_v2")
 }
 
-// Hascgemm64 reports whether cublasCgemm_v2_64 resolved in the loaded library.
-func Hascgemm64() bool {
+// HasCgemm64 reports whether cublasCgemm_v2_64 resolved in the loaded library.
+func HasCgemm64() bool {
 	return Has("cublasCgemm_v2_64")
 }
 
-// HascgemvBatched reports whether cublasCgemvBatched resolved in the loaded library.
-func HascgemvBatched() bool {
+// HasCgemvBatched reports whether cublasCgemvBatched resolved in the loaded library.
+func HasCgemvBatched() bool {
 	return Has("cublasCgemvBatched")
 }
 
-// HascgemvBatched64 reports whether cublasCgemvBatched_64 resolved in the loaded library.
-func HascgemvBatched64() bool {
+// HasCgemvBatched64 reports whether cublasCgemvBatched_64 resolved in the loaded library.
+func HasCgemvBatched64() bool {
 	return Has("cublasCgemvBatched_64")
 }
 
-// HascgemvStridedBatched reports whether cublasCgemvStridedBatched resolved in the loaded library.
-func HascgemvStridedBatched() bool {
+// HasCgemvStridedBatched reports whether cublasCgemvStridedBatched resolved in the loaded library.
+func HasCgemvStridedBatched() bool {
 	return Has("cublasCgemvStridedBatched")
 }
 
-// HascgemvStridedBatched64 reports whether cublasCgemvStridedBatched_64 resolved in the loaded library.
-func HascgemvStridedBatched64() bool {
+// HasCgemvStridedBatched64 reports whether cublasCgemvStridedBatched_64 resolved in the loaded library.
+func HasCgemvStridedBatched64() bool {
 	return Has("cublasCgemvStridedBatched_64")
 }
 
-// Hascgemv reports whether cublasCgemv_v2 resolved in the loaded library.
-func Hascgemv() bool {
+// HasCgemv reports whether cublasCgemv_v2 resolved in the loaded library.
+func HasCgemv() bool {
 	return Has("cublasCgemv_v2")
 }
 
-// Hascgemv64 reports whether cublasCgemv_v2_64 resolved in the loaded library.
-func Hascgemv64() bool {
+// HasCgemv64 reports whether cublasCgemv_v2_64 resolved in the loaded library.
+func HasCgemv64() bool {
 	return Has("cublasCgemv_v2_64")
 }
 
-// HascgeqrfBatched reports whether cublasCgeqrfBatched resolved in the loaded library.
-func HascgeqrfBatched() bool {
+// HasCgeqrfBatched reports whether cublasCgeqrfBatched resolved in the loaded library.
+func HasCgeqrfBatched() bool {
 	return Has("cublasCgeqrfBatched")
 }
 
-// Hascgerc reports whether cublasCgerc_v2 resolved in the loaded library.
-func Hascgerc() bool {
+// HasCgerc reports whether cublasCgerc_v2 resolved in the loaded library.
+func HasCgerc() bool {
 	return Has("cublasCgerc_v2")
 }
 
-// Hascgerc64 reports whether cublasCgerc_v2_64 resolved in the loaded library.
-func Hascgerc64() bool {
+// HasCgerc64 reports whether cublasCgerc_v2_64 resolved in the loaded library.
+func HasCgerc64() bool {
 	return Has("cublasCgerc_v2_64")
 }
 
-// Hascgeru reports whether cublasCgeru_v2 resolved in the loaded library.
-func Hascgeru() bool {
+// HasCgeru reports whether cublasCgeru_v2 resolved in the loaded library.
+func HasCgeru() bool {
 	return Has("cublasCgeru_v2")
 }
 
-// Hascgeru64 reports whether cublasCgeru_v2_64 resolved in the loaded library.
-func Hascgeru64() bool {
+// HasCgeru64 reports whether cublasCgeru_v2_64 resolved in the loaded library.
+func HasCgeru64() bool {
 	return Has("cublasCgeru_v2_64")
 }
 
-// HascgetrfBatched reports whether cublasCgetrfBatched resolved in the loaded library.
-func HascgetrfBatched() bool {
+// HasCgetrfBatched reports whether cublasCgetrfBatched resolved in the loaded library.
+func HasCgetrfBatched() bool {
 	return Has("cublasCgetrfBatched")
 }
 
-// HascgetriBatched reports whether cublasCgetriBatched resolved in the loaded library.
-func HascgetriBatched() bool {
+// HasCgetriBatched reports whether cublasCgetriBatched resolved in the loaded library.
+func HasCgetriBatched() bool {
 	return Has("cublasCgetriBatched")
 }
 
-// HascgetrsBatched reports whether cublasCgetrsBatched resolved in the loaded library.
-func HascgetrsBatched() bool {
+// HasCgetrsBatched reports whether cublasCgetrsBatched resolved in the loaded library.
+func HasCgetrsBatched() bool {
 	return Has("cublasCgetrsBatched")
 }
 
-// Haschbmv reports whether cublasChbmv_v2 resolved in the loaded library.
-func Haschbmv() bool {
+// HasChbmv reports whether cublasChbmv_v2 resolved in the loaded library.
+func HasChbmv() bool {
 	return Has("cublasChbmv_v2")
 }
 
-// Haschbmv64 reports whether cublasChbmv_v2_64 resolved in the loaded library.
-func Haschbmv64() bool {
+// HasChbmv64 reports whether cublasChbmv_v2_64 resolved in the loaded library.
+func HasChbmv64() bool {
 	return Has("cublasChbmv_v2_64")
 }
 
-// Haschemm reports whether cublasChemm_v2 resolved in the loaded library.
-func Haschemm() bool {
+// HasChemm reports whether cublasChemm_v2 resolved in the loaded library.
+func HasChemm() bool {
 	return Has("cublasChemm_v2")
 }
 
-// Haschemm64 reports whether cublasChemm_v2_64 resolved in the loaded library.
-func Haschemm64() bool {
+// HasChemm64 reports whether cublasChemm_v2_64 resolved in the loaded library.
+func HasChemm64() bool {
 	return Has("cublasChemm_v2_64")
 }
 
-// Haschemv reports whether cublasChemv_v2 resolved in the loaded library.
-func Haschemv() bool {
+// HasChemv reports whether cublasChemv_v2 resolved in the loaded library.
+func HasChemv() bool {
 	return Has("cublasChemv_v2")
 }
 
-// Haschemv64 reports whether cublasChemv_v2_64 resolved in the loaded library.
-func Haschemv64() bool {
+// HasChemv64 reports whether cublasChemv_v2_64 resolved in the loaded library.
+func HasChemv64() bool {
 	return Has("cublasChemv_v2_64")
 }
 
-// Hascher2 reports whether cublasCher2_v2 resolved in the loaded library.
-func Hascher2() bool {
+// HasCher2 reports whether cublasCher2_v2 resolved in the loaded library.
+func HasCher2() bool {
 	return Has("cublasCher2_v2")
 }
 
-// Hascher264 reports whether cublasCher2_v2_64 resolved in the loaded library.
-func Hascher264() bool {
+// HasCher264 reports whether cublasCher2_v2_64 resolved in the loaded library.
+func HasCher264() bool {
 	return Has("cublasCher2_v2_64")
 }
 
-// Hascher2k reports whether cublasCher2k_v2 resolved in the loaded library.
-func Hascher2k() bool {
+// HasCher2k reports whether cublasCher2k_v2 resolved in the loaded library.
+func HasCher2k() bool {
 	return Has("cublasCher2k_v2")
 }
 
-// Hascher2k64 reports whether cublasCher2k_v2_64 resolved in the loaded library.
-func Hascher2k64() bool {
+// HasCher2k64 reports whether cublasCher2k_v2_64 resolved in the loaded library.
+func HasCher2k64() bool {
 	return Has("cublasCher2k_v2_64")
 }
 
-// Hascher reports whether cublasCher_v2 resolved in the loaded library.
-func Hascher() bool {
+// HasCher reports whether cublasCher_v2 resolved in the loaded library.
+func HasCher() bool {
 	return Has("cublasCher_v2")
 }
 
-// Hascher64 reports whether cublasCher_v2_64 resolved in the loaded library.
-func Hascher64() bool {
+// HasCher64 reports whether cublasCher_v2_64 resolved in the loaded library.
+func HasCher64() bool {
 	return Has("cublasCher_v2_64")
 }
 
-// Hascherk3mEx reports whether cublasCherk3mEx resolved in the loaded library.
-func Hascherk3mEx() bool {
+// HasCherk3mEx reports whether cublasCherk3mEx resolved in the loaded library.
+func HasCherk3mEx() bool {
 	return Has("cublasCherk3mEx")
 }
 
-// Hascherk3mEx64 reports whether cublasCherk3mEx_64 resolved in the loaded library.
-func Hascherk3mEx64() bool {
+// HasCherk3mEx64 reports whether cublasCherk3mEx_64 resolved in the loaded library.
+func HasCherk3mEx64() bool {
 	return Has("cublasCherk3mEx_64")
 }
 
-// HascherkEx reports whether cublasCherkEx resolved in the loaded library.
-func HascherkEx() bool {
+// HasCherkEx reports whether cublasCherkEx resolved in the loaded library.
+func HasCherkEx() bool {
 	return Has("cublasCherkEx")
 }
 
-// HascherkEx64 reports whether cublasCherkEx_64 resolved in the loaded library.
-func HascherkEx64() bool {
+// HasCherkEx64 reports whether cublasCherkEx_64 resolved in the loaded library.
+func HasCherkEx64() bool {
 	return Has("cublasCherkEx_64")
 }
 
-// Hascherk reports whether cublasCherk_v2 resolved in the loaded library.
-func Hascherk() bool {
+// HasCherk reports whether cublasCherk_v2 resolved in the loaded library.
+func HasCherk() bool {
 	return Has("cublasCherk_v2")
 }
 
-// Hascherk64 reports whether cublasCherk_v2_64 resolved in the loaded library.
-func Hascherk64() bool {
+// HasCherk64 reports whether cublasCherk_v2_64 resolved in the loaded library.
+func HasCherk64() bool {
 	return Has("cublasCherk_v2_64")
 }
 
-// Hascherkx reports whether cublasCherkx resolved in the loaded library.
-func Hascherkx() bool {
+// HasCherkx reports whether cublasCherkx resolved in the loaded library.
+func HasCherkx() bool {
 	return Has("cublasCherkx")
 }
 
-// Hascherkx64 reports whether cublasCherkx_64 resolved in the loaded library.
-func Hascherkx64() bool {
+// HasCherkx64 reports whether cublasCherkx_64 resolved in the loaded library.
+func HasCherkx64() bool {
 	return Has("cublasCherkx_64")
 }
 
-// Haschpmv reports whether cublasChpmv_v2 resolved in the loaded library.
-func Haschpmv() bool {
+// HasChpmv reports whether cublasChpmv_v2 resolved in the loaded library.
+func HasChpmv() bool {
 	return Has("cublasChpmv_v2")
 }
 
-// Haschpmv64 reports whether cublasChpmv_v2_64 resolved in the loaded library.
-func Haschpmv64() bool {
+// HasChpmv64 reports whether cublasChpmv_v2_64 resolved in the loaded library.
+func HasChpmv64() bool {
 	return Has("cublasChpmv_v2_64")
 }
 
-// Haschpr2 reports whether cublasChpr2_v2 resolved in the loaded library.
-func Haschpr2() bool {
+// HasChpr2 reports whether cublasChpr2_v2 resolved in the loaded library.
+func HasChpr2() bool {
 	return Has("cublasChpr2_v2")
 }
 
-// Haschpr264 reports whether cublasChpr2_v2_64 resolved in the loaded library.
-func Haschpr264() bool {
+// HasChpr264 reports whether cublasChpr2_v2_64 resolved in the loaded library.
+func HasChpr264() bool {
 	return Has("cublasChpr2_v2_64")
 }
 
-// Haschpr reports whether cublasChpr_v2 resolved in the loaded library.
-func Haschpr() bool {
+// HasChpr reports whether cublasChpr_v2 resolved in the loaded library.
+func HasChpr() bool {
 	return Has("cublasChpr_v2")
 }
 
-// Haschpr64 reports whether cublasChpr_v2_64 resolved in the loaded library.
-func Haschpr64() bool {
+// HasChpr64 reports whether cublasChpr_v2_64 resolved in the loaded library.
+func HasChpr64() bool {
 	return Has("cublasChpr_v2_64")
 }
 
-// HascmatinvBatched reports whether cublasCmatinvBatched resolved in the loaded library.
-func HascmatinvBatched() bool {
+// HasCmatinvBatched reports whether cublasCmatinvBatched resolved in the loaded library.
+func HasCmatinvBatched() bool {
 	return Has("cublasCmatinvBatched")
 }
 
-// HascopyEx reports whether cublasCopyEx resolved in the loaded library.
-func HascopyEx() bool {
+// HasCopyEx reports whether cublasCopyEx resolved in the loaded library.
+func HasCopyEx() bool {
 	return Has("cublasCopyEx")
 }
 
-// HascopyEx64 reports whether cublasCopyEx_64 resolved in the loaded library.
-func HascopyEx64() bool {
+// HasCopyEx64 reports whether cublasCopyEx_64 resolved in the loaded library.
+func HasCopyEx64() bool {
 	return Has("cublasCopyEx_64")
 }
 
@@ -1895,818 +1895,818 @@ func HasCreate() bool {
 	return Has("cublasCreate_v2")
 }
 
-// Hascrot reports whether cublasCrot_v2 resolved in the loaded library.
-func Hascrot() bool {
+// HasCrot reports whether cublasCrot_v2 resolved in the loaded library.
+func HasCrot() bool {
 	return Has("cublasCrot_v2")
 }
 
-// Hascrot64 reports whether cublasCrot_v2_64 resolved in the loaded library.
-func Hascrot64() bool {
+// HasCrot64 reports whether cublasCrot_v2_64 resolved in the loaded library.
+func HasCrot64() bool {
 	return Has("cublasCrot_v2_64")
 }
 
-// Hascrotg reports whether cublasCrotg_v2 resolved in the loaded library.
-func Hascrotg() bool {
+// HasCrotg reports whether cublasCrotg_v2 resolved in the loaded library.
+func HasCrotg() bool {
 	return Has("cublasCrotg_v2")
 }
 
-// Hascscal reports whether cublasCscal_v2 resolved in the loaded library.
-func Hascscal() bool {
+// HasCscal reports whether cublasCscal_v2 resolved in the loaded library.
+func HasCscal() bool {
 	return Has("cublasCscal_v2")
 }
 
-// Hascscal64 reports whether cublasCscal_v2_64 resolved in the loaded library.
-func Hascscal64() bool {
+// HasCscal64 reports whether cublasCscal_v2_64 resolved in the loaded library.
+func HasCscal64() bool {
 	return Has("cublasCscal_v2_64")
 }
 
-// Hascsrot reports whether cublasCsrot_v2 resolved in the loaded library.
-func Hascsrot() bool {
+// HasCsrot reports whether cublasCsrot_v2 resolved in the loaded library.
+func HasCsrot() bool {
 	return Has("cublasCsrot_v2")
 }
 
-// Hascsrot64 reports whether cublasCsrot_v2_64 resolved in the loaded library.
-func Hascsrot64() bool {
+// HasCsrot64 reports whether cublasCsrot_v2_64 resolved in the loaded library.
+func HasCsrot64() bool {
 	return Has("cublasCsrot_v2_64")
 }
 
-// Hascsscal reports whether cublasCsscal_v2 resolved in the loaded library.
-func Hascsscal() bool {
+// HasCsscal reports whether cublasCsscal_v2 resolved in the loaded library.
+func HasCsscal() bool {
 	return Has("cublasCsscal_v2")
 }
 
-// Hascsscal64 reports whether cublasCsscal_v2_64 resolved in the loaded library.
-func Hascsscal64() bool {
+// HasCsscal64 reports whether cublasCsscal_v2_64 resolved in the loaded library.
+func HasCsscal64() bool {
 	return Has("cublasCsscal_v2_64")
 }
 
-// Hascswap reports whether cublasCswap_v2 resolved in the loaded library.
-func Hascswap() bool {
+// HasCswap reports whether cublasCswap_v2 resolved in the loaded library.
+func HasCswap() bool {
 	return Has("cublasCswap_v2")
 }
 
-// Hascswap64 reports whether cublasCswap_v2_64 resolved in the loaded library.
-func Hascswap64() bool {
+// HasCswap64 reports whether cublasCswap_v2_64 resolved in the loaded library.
+func HasCswap64() bool {
 	return Has("cublasCswap_v2_64")
 }
 
-// Hascsymm reports whether cublasCsymm_v2 resolved in the loaded library.
-func Hascsymm() bool {
+// HasCsymm reports whether cublasCsymm_v2 resolved in the loaded library.
+func HasCsymm() bool {
 	return Has("cublasCsymm_v2")
 }
 
-// Hascsymm64 reports whether cublasCsymm_v2_64 resolved in the loaded library.
-func Hascsymm64() bool {
+// HasCsymm64 reports whether cublasCsymm_v2_64 resolved in the loaded library.
+func HasCsymm64() bool {
 	return Has("cublasCsymm_v2_64")
 }
 
-// Hascsymv reports whether cublasCsymv_v2 resolved in the loaded library.
-func Hascsymv() bool {
+// HasCsymv reports whether cublasCsymv_v2 resolved in the loaded library.
+func HasCsymv() bool {
 	return Has("cublasCsymv_v2")
 }
 
-// Hascsymv64 reports whether cublasCsymv_v2_64 resolved in the loaded library.
-func Hascsymv64() bool {
+// HasCsymv64 reports whether cublasCsymv_v2_64 resolved in the loaded library.
+func HasCsymv64() bool {
 	return Has("cublasCsymv_v2_64")
 }
 
-// Hascsyr2 reports whether cublasCsyr2_v2 resolved in the loaded library.
-func Hascsyr2() bool {
+// HasCsyr2 reports whether cublasCsyr2_v2 resolved in the loaded library.
+func HasCsyr2() bool {
 	return Has("cublasCsyr2_v2")
 }
 
-// Hascsyr264 reports whether cublasCsyr2_v2_64 resolved in the loaded library.
-func Hascsyr264() bool {
+// HasCsyr264 reports whether cublasCsyr2_v2_64 resolved in the loaded library.
+func HasCsyr264() bool {
 	return Has("cublasCsyr2_v2_64")
 }
 
-// Hascsyr2k reports whether cublasCsyr2k_v2 resolved in the loaded library.
-func Hascsyr2k() bool {
+// HasCsyr2k reports whether cublasCsyr2k_v2 resolved in the loaded library.
+func HasCsyr2k() bool {
 	return Has("cublasCsyr2k_v2")
 }
 
-// Hascsyr2k64 reports whether cublasCsyr2k_v2_64 resolved in the loaded library.
-func Hascsyr2k64() bool {
+// HasCsyr2k64 reports whether cublasCsyr2k_v2_64 resolved in the loaded library.
+func HasCsyr2k64() bool {
 	return Has("cublasCsyr2k_v2_64")
 }
 
-// Hascsyr reports whether cublasCsyr_v2 resolved in the loaded library.
-func Hascsyr() bool {
+// HasCsyr reports whether cublasCsyr_v2 resolved in the loaded library.
+func HasCsyr() bool {
 	return Has("cublasCsyr_v2")
 }
 
-// Hascsyr64 reports whether cublasCsyr_v2_64 resolved in the loaded library.
-func Hascsyr64() bool {
+// HasCsyr64 reports whether cublasCsyr_v2_64 resolved in the loaded library.
+func HasCsyr64() bool {
 	return Has("cublasCsyr_v2_64")
 }
 
-// Hascsyrk3mEx reports whether cublasCsyrk3mEx resolved in the loaded library.
-func Hascsyrk3mEx() bool {
+// HasCsyrk3mEx reports whether cublasCsyrk3mEx resolved in the loaded library.
+func HasCsyrk3mEx() bool {
 	return Has("cublasCsyrk3mEx")
 }
 
-// Hascsyrk3mEx64 reports whether cublasCsyrk3mEx_64 resolved in the loaded library.
-func Hascsyrk3mEx64() bool {
+// HasCsyrk3mEx64 reports whether cublasCsyrk3mEx_64 resolved in the loaded library.
+func HasCsyrk3mEx64() bool {
 	return Has("cublasCsyrk3mEx_64")
 }
 
-// HascsyrkEx reports whether cublasCsyrkEx resolved in the loaded library.
-func HascsyrkEx() bool {
+// HasCsyrkEx reports whether cublasCsyrkEx resolved in the loaded library.
+func HasCsyrkEx() bool {
 	return Has("cublasCsyrkEx")
 }
 
-// HascsyrkEx64 reports whether cublasCsyrkEx_64 resolved in the loaded library.
-func HascsyrkEx64() bool {
+// HasCsyrkEx64 reports whether cublasCsyrkEx_64 resolved in the loaded library.
+func HasCsyrkEx64() bool {
 	return Has("cublasCsyrkEx_64")
 }
 
-// Hascsyrk reports whether cublasCsyrk_v2 resolved in the loaded library.
-func Hascsyrk() bool {
+// HasCsyrk reports whether cublasCsyrk_v2 resolved in the loaded library.
+func HasCsyrk() bool {
 	return Has("cublasCsyrk_v2")
 }
 
-// Hascsyrk64 reports whether cublasCsyrk_v2_64 resolved in the loaded library.
-func Hascsyrk64() bool {
+// HasCsyrk64 reports whether cublasCsyrk_v2_64 resolved in the loaded library.
+func HasCsyrk64() bool {
 	return Has("cublasCsyrk_v2_64")
 }
 
-// Hascsyrkx reports whether cublasCsyrkx resolved in the loaded library.
-func Hascsyrkx() bool {
+// HasCsyrkx reports whether cublasCsyrkx resolved in the loaded library.
+func HasCsyrkx() bool {
 	return Has("cublasCsyrkx")
 }
 
-// Hascsyrkx64 reports whether cublasCsyrkx_64 resolved in the loaded library.
-func Hascsyrkx64() bool {
+// HasCsyrkx64 reports whether cublasCsyrkx_64 resolved in the loaded library.
+func HasCsyrkx64() bool {
 	return Has("cublasCsyrkx_64")
 }
 
-// Hasctbmv reports whether cublasCtbmv_v2 resolved in the loaded library.
-func Hasctbmv() bool {
+// HasCtbmv reports whether cublasCtbmv_v2 resolved in the loaded library.
+func HasCtbmv() bool {
 	return Has("cublasCtbmv_v2")
 }
 
-// Hasctbmv64 reports whether cublasCtbmv_v2_64 resolved in the loaded library.
-func Hasctbmv64() bool {
+// HasCtbmv64 reports whether cublasCtbmv_v2_64 resolved in the loaded library.
+func HasCtbmv64() bool {
 	return Has("cublasCtbmv_v2_64")
 }
 
-// Hasctbsv reports whether cublasCtbsv_v2 resolved in the loaded library.
-func Hasctbsv() bool {
+// HasCtbsv reports whether cublasCtbsv_v2 resolved in the loaded library.
+func HasCtbsv() bool {
 	return Has("cublasCtbsv_v2")
 }
 
-// Hasctbsv64 reports whether cublasCtbsv_v2_64 resolved in the loaded library.
-func Hasctbsv64() bool {
+// HasCtbsv64 reports whether cublasCtbsv_v2_64 resolved in the loaded library.
+func HasCtbsv64() bool {
 	return Has("cublasCtbsv_v2_64")
 }
 
-// Hasctpmv reports whether cublasCtpmv_v2 resolved in the loaded library.
-func Hasctpmv() bool {
+// HasCtpmv reports whether cublasCtpmv_v2 resolved in the loaded library.
+func HasCtpmv() bool {
 	return Has("cublasCtpmv_v2")
 }
 
-// Hasctpmv64 reports whether cublasCtpmv_v2_64 resolved in the loaded library.
-func Hasctpmv64() bool {
+// HasCtpmv64 reports whether cublasCtpmv_v2_64 resolved in the loaded library.
+func HasCtpmv64() bool {
 	return Has("cublasCtpmv_v2_64")
 }
 
-// Hasctpsv reports whether cublasCtpsv_v2 resolved in the loaded library.
-func Hasctpsv() bool {
+// HasCtpsv reports whether cublasCtpsv_v2 resolved in the loaded library.
+func HasCtpsv() bool {
 	return Has("cublasCtpsv_v2")
 }
 
-// Hasctpsv64 reports whether cublasCtpsv_v2_64 resolved in the loaded library.
-func Hasctpsv64() bool {
+// HasCtpsv64 reports whether cublasCtpsv_v2_64 resolved in the loaded library.
+func HasCtpsv64() bool {
 	return Has("cublasCtpsv_v2_64")
 }
 
-// Hasctpttr reports whether cublasCtpttr resolved in the loaded library.
-func Hasctpttr() bool {
+// HasCtpttr reports whether cublasCtpttr resolved in the loaded library.
+func HasCtpttr() bool {
 	return Has("cublasCtpttr")
 }
 
-// Hasctrmm reports whether cublasCtrmm_v2 resolved in the loaded library.
-func Hasctrmm() bool {
+// HasCtrmm reports whether cublasCtrmm_v2 resolved in the loaded library.
+func HasCtrmm() bool {
 	return Has("cublasCtrmm_v2")
 }
 
-// Hasctrmm64 reports whether cublasCtrmm_v2_64 resolved in the loaded library.
-func Hasctrmm64() bool {
+// HasCtrmm64 reports whether cublasCtrmm_v2_64 resolved in the loaded library.
+func HasCtrmm64() bool {
 	return Has("cublasCtrmm_v2_64")
 }
 
-// Hasctrmv reports whether cublasCtrmv_v2 resolved in the loaded library.
-func Hasctrmv() bool {
+// HasCtrmv reports whether cublasCtrmv_v2 resolved in the loaded library.
+func HasCtrmv() bool {
 	return Has("cublasCtrmv_v2")
 }
 
-// Hasctrmv64 reports whether cublasCtrmv_v2_64 resolved in the loaded library.
-func Hasctrmv64() bool {
+// HasCtrmv64 reports whether cublasCtrmv_v2_64 resolved in the loaded library.
+func HasCtrmv64() bool {
 	return Has("cublasCtrmv_v2_64")
 }
 
-// HasctrsmBatched reports whether cublasCtrsmBatched resolved in the loaded library.
-func HasctrsmBatched() bool {
+// HasCtrsmBatched reports whether cublasCtrsmBatched resolved in the loaded library.
+func HasCtrsmBatched() bool {
 	return Has("cublasCtrsmBatched")
 }
 
-// HasctrsmBatched64 reports whether cublasCtrsmBatched_64 resolved in the loaded library.
-func HasctrsmBatched64() bool {
+// HasCtrsmBatched64 reports whether cublasCtrsmBatched_64 resolved in the loaded library.
+func HasCtrsmBatched64() bool {
 	return Has("cublasCtrsmBatched_64")
 }
 
-// Hasctrsm reports whether cublasCtrsm_v2 resolved in the loaded library.
-func Hasctrsm() bool {
+// HasCtrsm reports whether cublasCtrsm_v2 resolved in the loaded library.
+func HasCtrsm() bool {
 	return Has("cublasCtrsm_v2")
 }
 
-// Hasctrsm64 reports whether cublasCtrsm_v2_64 resolved in the loaded library.
-func Hasctrsm64() bool {
+// HasCtrsm64 reports whether cublasCtrsm_v2_64 resolved in the loaded library.
+func HasCtrsm64() bool {
 	return Has("cublasCtrsm_v2_64")
 }
 
-// Hasctrsv reports whether cublasCtrsv_v2 resolved in the loaded library.
-func Hasctrsv() bool {
+// HasCtrsv reports whether cublasCtrsv_v2 resolved in the loaded library.
+func HasCtrsv() bool {
 	return Has("cublasCtrsv_v2")
 }
 
-// Hasctrsv64 reports whether cublasCtrsv_v2_64 resolved in the loaded library.
-func Hasctrsv64() bool {
+// HasCtrsv64 reports whether cublasCtrsv_v2_64 resolved in the loaded library.
+func HasCtrsv64() bool {
 	return Has("cublasCtrsv_v2_64")
 }
 
-// Hasctrttp reports whether cublasCtrttp resolved in the loaded library.
-func Hasctrttp() bool {
+// HasCtrttp reports whether cublasCtrttp resolved in the loaded library.
+func HasCtrttp() bool {
 	return Has("cublasCtrttp")
 }
 
-// Hasdasum reports whether cublasDasum_v2 resolved in the loaded library.
-func Hasdasum() bool {
+// HasDasum reports whether cublasDasum_v2 resolved in the loaded library.
+func HasDasum() bool {
 	return Has("cublasDasum_v2")
 }
 
-// Hasdasum64 reports whether cublasDasum_v2_64 resolved in the loaded library.
-func Hasdasum64() bool {
+// HasDasum64 reports whether cublasDasum_v2_64 resolved in the loaded library.
+func HasDasum64() bool {
 	return Has("cublasDasum_v2_64")
 }
 
-// Hasdaxpy reports whether cublasDaxpy_v2 resolved in the loaded library.
-func Hasdaxpy() bool {
+// HasDaxpy reports whether cublasDaxpy_v2 resolved in the loaded library.
+func HasDaxpy() bool {
 	return Has("cublasDaxpy_v2")
 }
 
-// Hasdaxpy64 reports whether cublasDaxpy_v2_64 resolved in the loaded library.
-func Hasdaxpy64() bool {
+// HasDaxpy64 reports whether cublasDaxpy_v2_64 resolved in the loaded library.
+func HasDaxpy64() bool {
 	return Has("cublasDaxpy_v2_64")
 }
 
-// Hasdcopy reports whether cublasDcopy_v2 resolved in the loaded library.
-func Hasdcopy() bool {
+// HasDcopy reports whether cublasDcopy_v2 resolved in the loaded library.
+func HasDcopy() bool {
 	return Has("cublasDcopy_v2")
 }
 
-// Hasdcopy64 reports whether cublasDcopy_v2_64 resolved in the loaded library.
-func Hasdcopy64() bool {
+// HasDcopy64 reports whether cublasDcopy_v2_64 resolved in the loaded library.
+func HasDcopy64() bool {
 	return Has("cublasDcopy_v2_64")
 }
 
-// Hasddgmm reports whether cublasDdgmm resolved in the loaded library.
-func Hasddgmm() bool {
+// HasDdgmm reports whether cublasDdgmm resolved in the loaded library.
+func HasDdgmm() bool {
 	return Has("cublasDdgmm")
 }
 
-// Hasddgmm64 reports whether cublasDdgmm_64 resolved in the loaded library.
-func Hasddgmm64() bool {
+// HasDdgmm64 reports whether cublasDdgmm_64 resolved in the loaded library.
+func HasDdgmm64() bool {
 	return Has("cublasDdgmm_64")
 }
 
-// Hasddot reports whether cublasDdot_v2 resolved in the loaded library.
-func Hasddot() bool {
+// HasDdot reports whether cublasDdot_v2 resolved in the loaded library.
+func HasDdot() bool {
 	return Has("cublasDdot_v2")
 }
 
-// Hasddot64 reports whether cublasDdot_v2_64 resolved in the loaded library.
-func Hasddot64() bool {
+// HasDdot64 reports whether cublasDdot_v2_64 resolved in the loaded library.
+func HasDdot64() bool {
 	return Has("cublasDdot_v2_64")
 }
 
-// Hasdestroy reports whether cublasDestroy_v2 resolved in the loaded library.
-func Hasdestroy() bool {
+// HasDestroy reports whether cublasDestroy_v2 resolved in the loaded library.
+func HasDestroy() bool {
 	return Has("cublasDestroy_v2")
 }
 
-// Hasdgbmv reports whether cublasDgbmv_v2 resolved in the loaded library.
-func Hasdgbmv() bool {
+// HasDgbmv reports whether cublasDgbmv_v2 resolved in the loaded library.
+func HasDgbmv() bool {
 	return Has("cublasDgbmv_v2")
 }
 
-// Hasdgbmv64 reports whether cublasDgbmv_v2_64 resolved in the loaded library.
-func Hasdgbmv64() bool {
+// HasDgbmv64 reports whether cublasDgbmv_v2_64 resolved in the loaded library.
+func HasDgbmv64() bool {
 	return Has("cublasDgbmv_v2_64")
 }
 
-// Hasdgeam reports whether cublasDgeam resolved in the loaded library.
-func Hasdgeam() bool {
+// HasDgeam reports whether cublasDgeam resolved in the loaded library.
+func HasDgeam() bool {
 	return Has("cublasDgeam")
 }
 
-// Hasdgeam64 reports whether cublasDgeam_64 resolved in the loaded library.
-func Hasdgeam64() bool {
+// HasDgeam64 reports whether cublasDgeam_64 resolved in the loaded library.
+func HasDgeam64() bool {
 	return Has("cublasDgeam_64")
 }
 
-// HasdgelsBatched reports whether cublasDgelsBatched resolved in the loaded library.
-func HasdgelsBatched() bool {
+// HasDgelsBatched reports whether cublasDgelsBatched resolved in the loaded library.
+func HasDgelsBatched() bool {
 	return Has("cublasDgelsBatched")
 }
 
-// HasdgemmBatched reports whether cublasDgemmBatched resolved in the loaded library.
-func HasdgemmBatched() bool {
+// HasDgemmBatched reports whether cublasDgemmBatched resolved in the loaded library.
+func HasDgemmBatched() bool {
 	return Has("cublasDgemmBatched")
 }
 
-// HasdgemmBatched64 reports whether cublasDgemmBatched_64 resolved in the loaded library.
-func HasdgemmBatched64() bool {
+// HasDgemmBatched64 reports whether cublasDgemmBatched_64 resolved in the loaded library.
+func HasDgemmBatched64() bool {
 	return Has("cublasDgemmBatched_64")
 }
 
-// HasdgemmGroupedBatched reports whether cublasDgemmGroupedBatched resolved in the loaded library.
-func HasdgemmGroupedBatched() bool {
+// HasDgemmGroupedBatched reports whether cublasDgemmGroupedBatched resolved in the loaded library.
+func HasDgemmGroupedBatched() bool {
 	return Has("cublasDgemmGroupedBatched")
 }
 
-// HasdgemmGroupedBatched64 reports whether cublasDgemmGroupedBatched_64 resolved in the loaded library.
-func HasdgemmGroupedBatched64() bool {
+// HasDgemmGroupedBatched64 reports whether cublasDgemmGroupedBatched_64 resolved in the loaded library.
+func HasDgemmGroupedBatched64() bool {
 	return Has("cublasDgemmGroupedBatched_64")
 }
 
-// HasdgemmStridedBatched reports whether cublasDgemmStridedBatched resolved in the loaded library.
-func HasdgemmStridedBatched() bool {
+// HasDgemmStridedBatched reports whether cublasDgemmStridedBatched resolved in the loaded library.
+func HasDgemmStridedBatched() bool {
 	return Has("cublasDgemmStridedBatched")
 }
 
-// HasdgemmStridedBatched64 reports whether cublasDgemmStridedBatched_64 resolved in the loaded library.
-func HasdgemmStridedBatched64() bool {
+// HasDgemmStridedBatched64 reports whether cublasDgemmStridedBatched_64 resolved in the loaded library.
+func HasDgemmStridedBatched64() bool {
 	return Has("cublasDgemmStridedBatched_64")
 }
 
-// Hasdgemm reports whether cublasDgemm_v2 resolved in the loaded library.
-func Hasdgemm() bool {
+// HasDgemm reports whether cublasDgemm_v2 resolved in the loaded library.
+func HasDgemm() bool {
 	return Has("cublasDgemm_v2")
 }
 
-// Hasdgemm64 reports whether cublasDgemm_v2_64 resolved in the loaded library.
-func Hasdgemm64() bool {
+// HasDgemm64 reports whether cublasDgemm_v2_64 resolved in the loaded library.
+func HasDgemm64() bool {
 	return Has("cublasDgemm_v2_64")
 }
 
-// HasdgemvBatched reports whether cublasDgemvBatched resolved in the loaded library.
-func HasdgemvBatched() bool {
+// HasDgemvBatched reports whether cublasDgemvBatched resolved in the loaded library.
+func HasDgemvBatched() bool {
 	return Has("cublasDgemvBatched")
 }
 
-// HasdgemvBatched64 reports whether cublasDgemvBatched_64 resolved in the loaded library.
-func HasdgemvBatched64() bool {
+// HasDgemvBatched64 reports whether cublasDgemvBatched_64 resolved in the loaded library.
+func HasDgemvBatched64() bool {
 	return Has("cublasDgemvBatched_64")
 }
 
-// HasdgemvStridedBatched reports whether cublasDgemvStridedBatched resolved in the loaded library.
-func HasdgemvStridedBatched() bool {
+// HasDgemvStridedBatched reports whether cublasDgemvStridedBatched resolved in the loaded library.
+func HasDgemvStridedBatched() bool {
 	return Has("cublasDgemvStridedBatched")
 }
 
-// HasdgemvStridedBatched64 reports whether cublasDgemvStridedBatched_64 resolved in the loaded library.
-func HasdgemvStridedBatched64() bool {
+// HasDgemvStridedBatched64 reports whether cublasDgemvStridedBatched_64 resolved in the loaded library.
+func HasDgemvStridedBatched64() bool {
 	return Has("cublasDgemvStridedBatched_64")
 }
 
-// Hasdgemv reports whether cublasDgemv_v2 resolved in the loaded library.
-func Hasdgemv() bool {
+// HasDgemv reports whether cublasDgemv_v2 resolved in the loaded library.
+func HasDgemv() bool {
 	return Has("cublasDgemv_v2")
 }
 
-// Hasdgemv64 reports whether cublasDgemv_v2_64 resolved in the loaded library.
-func Hasdgemv64() bool {
+// HasDgemv64 reports whether cublasDgemv_v2_64 resolved in the loaded library.
+func HasDgemv64() bool {
 	return Has("cublasDgemv_v2_64")
 }
 
-// HasdgeqrfBatched reports whether cublasDgeqrfBatched resolved in the loaded library.
-func HasdgeqrfBatched() bool {
+// HasDgeqrfBatched reports whether cublasDgeqrfBatched resolved in the loaded library.
+func HasDgeqrfBatched() bool {
 	return Has("cublasDgeqrfBatched")
 }
 
-// Hasdger reports whether cublasDger_v2 resolved in the loaded library.
-func Hasdger() bool {
+// HasDger reports whether cublasDger_v2 resolved in the loaded library.
+func HasDger() bool {
 	return Has("cublasDger_v2")
 }
 
-// Hasdger64 reports whether cublasDger_v2_64 resolved in the loaded library.
-func Hasdger64() bool {
+// HasDger64 reports whether cublasDger_v2_64 resolved in the loaded library.
+func HasDger64() bool {
 	return Has("cublasDger_v2_64")
 }
 
-// HasdgetrfBatched reports whether cublasDgetrfBatched resolved in the loaded library.
-func HasdgetrfBatched() bool {
+// HasDgetrfBatched reports whether cublasDgetrfBatched resolved in the loaded library.
+func HasDgetrfBatched() bool {
 	return Has("cublasDgetrfBatched")
 }
 
-// HasdgetriBatched reports whether cublasDgetriBatched resolved in the loaded library.
-func HasdgetriBatched() bool {
+// HasDgetriBatched reports whether cublasDgetriBatched resolved in the loaded library.
+func HasDgetriBatched() bool {
 	return Has("cublasDgetriBatched")
 }
 
-// HasdgetrsBatched reports whether cublasDgetrsBatched resolved in the loaded library.
-func HasdgetrsBatched() bool {
+// HasDgetrsBatched reports whether cublasDgetrsBatched resolved in the loaded library.
+func HasDgetrsBatched() bool {
 	return Has("cublasDgetrsBatched")
 }
 
-// HasdmatinvBatched reports whether cublasDmatinvBatched resolved in the loaded library.
-func HasdmatinvBatched() bool {
+// HasDmatinvBatched reports whether cublasDmatinvBatched resolved in the loaded library.
+func HasDmatinvBatched() bool {
 	return Has("cublasDmatinvBatched")
 }
 
-// Hasdnrm2 reports whether cublasDnrm2_v2 resolved in the loaded library.
-func Hasdnrm2() bool {
+// HasDnrm2 reports whether cublasDnrm2_v2 resolved in the loaded library.
+func HasDnrm2() bool {
 	return Has("cublasDnrm2_v2")
 }
 
-// Hasdnrm264 reports whether cublasDnrm2_v2_64 resolved in the loaded library.
-func Hasdnrm264() bool {
+// HasDnrm264 reports whether cublasDnrm2_v2_64 resolved in the loaded library.
+func HasDnrm264() bool {
 	return Has("cublasDnrm2_v2_64")
 }
 
-// HasdotEx reports whether cublasDotEx resolved in the loaded library.
-func HasdotEx() bool {
+// HasDotEx reports whether cublasDotEx resolved in the loaded library.
+func HasDotEx() bool {
 	return Has("cublasDotEx")
 }
 
-// HasdotEx64 reports whether cublasDotEx_64 resolved in the loaded library.
-func HasdotEx64() bool {
+// HasDotEx64 reports whether cublasDotEx_64 resolved in the loaded library.
+func HasDotEx64() bool {
 	return Has("cublasDotEx_64")
 }
 
-// HasdotcEx reports whether cublasDotcEx resolved in the loaded library.
-func HasdotcEx() bool {
+// HasDotcEx reports whether cublasDotcEx resolved in the loaded library.
+func HasDotcEx() bool {
 	return Has("cublasDotcEx")
 }
 
-// HasdotcEx64 reports whether cublasDotcEx_64 resolved in the loaded library.
-func HasdotcEx64() bool {
+// HasDotcEx64 reports whether cublasDotcEx_64 resolved in the loaded library.
+func HasDotcEx64() bool {
 	return Has("cublasDotcEx_64")
 }
 
-// Hasdrot reports whether cublasDrot_v2 resolved in the loaded library.
-func Hasdrot() bool {
+// HasDrot reports whether cublasDrot_v2 resolved in the loaded library.
+func HasDrot() bool {
 	return Has("cublasDrot_v2")
 }
 
-// Hasdrot64 reports whether cublasDrot_v2_64 resolved in the loaded library.
-func Hasdrot64() bool {
+// HasDrot64 reports whether cublasDrot_v2_64 resolved in the loaded library.
+func HasDrot64() bool {
 	return Has("cublasDrot_v2_64")
 }
 
-// Hasdrotg reports whether cublasDrotg_v2 resolved in the loaded library.
-func Hasdrotg() bool {
+// HasDrotg reports whether cublasDrotg_v2 resolved in the loaded library.
+func HasDrotg() bool {
 	return Has("cublasDrotg_v2")
 }
 
-// Hasdrotm reports whether cublasDrotm_v2 resolved in the loaded library.
-func Hasdrotm() bool {
+// HasDrotm reports whether cublasDrotm_v2 resolved in the loaded library.
+func HasDrotm() bool {
 	return Has("cublasDrotm_v2")
 }
 
-// Hasdrotm64 reports whether cublasDrotm_v2_64 resolved in the loaded library.
-func Hasdrotm64() bool {
+// HasDrotm64 reports whether cublasDrotm_v2_64 resolved in the loaded library.
+func HasDrotm64() bool {
 	return Has("cublasDrotm_v2_64")
 }
 
-// Hasdrotmg reports whether cublasDrotmg_v2 resolved in the loaded library.
-func Hasdrotmg() bool {
+// HasDrotmg reports whether cublasDrotmg_v2 resolved in the loaded library.
+func HasDrotmg() bool {
 	return Has("cublasDrotmg_v2")
 }
 
-// Hasdsbmv reports whether cublasDsbmv_v2 resolved in the loaded library.
-func Hasdsbmv() bool {
+// HasDsbmv reports whether cublasDsbmv_v2 resolved in the loaded library.
+func HasDsbmv() bool {
 	return Has("cublasDsbmv_v2")
 }
 
-// Hasdsbmv64 reports whether cublasDsbmv_v2_64 resolved in the loaded library.
-func Hasdsbmv64() bool {
+// HasDsbmv64 reports whether cublasDsbmv_v2_64 resolved in the loaded library.
+func HasDsbmv64() bool {
 	return Has("cublasDsbmv_v2_64")
 }
 
-// Hasdscal reports whether cublasDscal_v2 resolved in the loaded library.
-func Hasdscal() bool {
+// HasDscal reports whether cublasDscal_v2 resolved in the loaded library.
+func HasDscal() bool {
 	return Has("cublasDscal_v2")
 }
 
-// Hasdscal64 reports whether cublasDscal_v2_64 resolved in the loaded library.
-func Hasdscal64() bool {
+// HasDscal64 reports whether cublasDscal_v2_64 resolved in the loaded library.
+func HasDscal64() bool {
 	return Has("cublasDscal_v2_64")
 }
 
-// Hasdspmv reports whether cublasDspmv_v2 resolved in the loaded library.
-func Hasdspmv() bool {
+// HasDspmv reports whether cublasDspmv_v2 resolved in the loaded library.
+func HasDspmv() bool {
 	return Has("cublasDspmv_v2")
 }
 
-// Hasdspmv64 reports whether cublasDspmv_v2_64 resolved in the loaded library.
-func Hasdspmv64() bool {
+// HasDspmv64 reports whether cublasDspmv_v2_64 resolved in the loaded library.
+func HasDspmv64() bool {
 	return Has("cublasDspmv_v2_64")
 }
 
-// Hasdspr2 reports whether cublasDspr2_v2 resolved in the loaded library.
-func Hasdspr2() bool {
+// HasDspr2 reports whether cublasDspr2_v2 resolved in the loaded library.
+func HasDspr2() bool {
 	return Has("cublasDspr2_v2")
 }
 
-// Hasdspr264 reports whether cublasDspr2_v2_64 resolved in the loaded library.
-func Hasdspr264() bool {
+// HasDspr264 reports whether cublasDspr2_v2_64 resolved in the loaded library.
+func HasDspr264() bool {
 	return Has("cublasDspr2_v2_64")
 }
 
-// Hasdspr reports whether cublasDspr_v2 resolved in the loaded library.
-func Hasdspr() bool {
+// HasDspr reports whether cublasDspr_v2 resolved in the loaded library.
+func HasDspr() bool {
 	return Has("cublasDspr_v2")
 }
 
-// Hasdspr64 reports whether cublasDspr_v2_64 resolved in the loaded library.
-func Hasdspr64() bool {
+// HasDspr64 reports whether cublasDspr_v2_64 resolved in the loaded library.
+func HasDspr64() bool {
 	return Has("cublasDspr_v2_64")
 }
 
-// Hasdswap reports whether cublasDswap_v2 resolved in the loaded library.
-func Hasdswap() bool {
+// HasDswap reports whether cublasDswap_v2 resolved in the loaded library.
+func HasDswap() bool {
 	return Has("cublasDswap_v2")
 }
 
-// Hasdswap64 reports whether cublasDswap_v2_64 resolved in the loaded library.
-func Hasdswap64() bool {
+// HasDswap64 reports whether cublasDswap_v2_64 resolved in the loaded library.
+func HasDswap64() bool {
 	return Has("cublasDswap_v2_64")
 }
 
-// Hasdsymm reports whether cublasDsymm_v2 resolved in the loaded library.
-func Hasdsymm() bool {
+// HasDsymm reports whether cublasDsymm_v2 resolved in the loaded library.
+func HasDsymm() bool {
 	return Has("cublasDsymm_v2")
 }
 
-// Hasdsymm64 reports whether cublasDsymm_v2_64 resolved in the loaded library.
-func Hasdsymm64() bool {
+// HasDsymm64 reports whether cublasDsymm_v2_64 resolved in the loaded library.
+func HasDsymm64() bool {
 	return Has("cublasDsymm_v2_64")
 }
 
-// Hasdsymv reports whether cublasDsymv_v2 resolved in the loaded library.
-func Hasdsymv() bool {
+// HasDsymv reports whether cublasDsymv_v2 resolved in the loaded library.
+func HasDsymv() bool {
 	return Has("cublasDsymv_v2")
 }
 
-// Hasdsymv64 reports whether cublasDsymv_v2_64 resolved in the loaded library.
-func Hasdsymv64() bool {
+// HasDsymv64 reports whether cublasDsymv_v2_64 resolved in the loaded library.
+func HasDsymv64() bool {
 	return Has("cublasDsymv_v2_64")
 }
 
-// Hasdsyr2 reports whether cublasDsyr2_v2 resolved in the loaded library.
-func Hasdsyr2() bool {
+// HasDsyr2 reports whether cublasDsyr2_v2 resolved in the loaded library.
+func HasDsyr2() bool {
 	return Has("cublasDsyr2_v2")
 }
 
-// Hasdsyr264 reports whether cublasDsyr2_v2_64 resolved in the loaded library.
-func Hasdsyr264() bool {
+// HasDsyr264 reports whether cublasDsyr2_v2_64 resolved in the loaded library.
+func HasDsyr264() bool {
 	return Has("cublasDsyr2_v2_64")
 }
 
-// Hasdsyr2k reports whether cublasDsyr2k_v2 resolved in the loaded library.
-func Hasdsyr2k() bool {
+// HasDsyr2k reports whether cublasDsyr2k_v2 resolved in the loaded library.
+func HasDsyr2k() bool {
 	return Has("cublasDsyr2k_v2")
 }
 
-// Hasdsyr2k64 reports whether cublasDsyr2k_v2_64 resolved in the loaded library.
-func Hasdsyr2k64() bool {
+// HasDsyr2k64 reports whether cublasDsyr2k_v2_64 resolved in the loaded library.
+func HasDsyr2k64() bool {
 	return Has("cublasDsyr2k_v2_64")
 }
 
-// Hasdsyr reports whether cublasDsyr_v2 resolved in the loaded library.
-func Hasdsyr() bool {
+// HasDsyr reports whether cublasDsyr_v2 resolved in the loaded library.
+func HasDsyr() bool {
 	return Has("cublasDsyr_v2")
 }
 
-// Hasdsyr64 reports whether cublasDsyr_v2_64 resolved in the loaded library.
-func Hasdsyr64() bool {
+// HasDsyr64 reports whether cublasDsyr_v2_64 resolved in the loaded library.
+func HasDsyr64() bool {
 	return Has("cublasDsyr_v2_64")
 }
 
-// Hasdsyrk reports whether cublasDsyrk_v2 resolved in the loaded library.
-func Hasdsyrk() bool {
+// HasDsyrk reports whether cublasDsyrk_v2 resolved in the loaded library.
+func HasDsyrk() bool {
 	return Has("cublasDsyrk_v2")
 }
 
-// Hasdsyrk64 reports whether cublasDsyrk_v2_64 resolved in the loaded library.
-func Hasdsyrk64() bool {
+// HasDsyrk64 reports whether cublasDsyrk_v2_64 resolved in the loaded library.
+func HasDsyrk64() bool {
 	return Has("cublasDsyrk_v2_64")
 }
 
-// Hasdsyrkx reports whether cublasDsyrkx resolved in the loaded library.
-func Hasdsyrkx() bool {
+// HasDsyrkx reports whether cublasDsyrkx resolved in the loaded library.
+func HasDsyrkx() bool {
 	return Has("cublasDsyrkx")
 }
 
-// Hasdsyrkx64 reports whether cublasDsyrkx_64 resolved in the loaded library.
-func Hasdsyrkx64() bool {
+// HasDsyrkx64 reports whether cublasDsyrkx_64 resolved in the loaded library.
+func HasDsyrkx64() bool {
 	return Has("cublasDsyrkx_64")
 }
 
-// Hasdtbmv reports whether cublasDtbmv_v2 resolved in the loaded library.
-func Hasdtbmv() bool {
+// HasDtbmv reports whether cublasDtbmv_v2 resolved in the loaded library.
+func HasDtbmv() bool {
 	return Has("cublasDtbmv_v2")
 }
 
-// Hasdtbmv64 reports whether cublasDtbmv_v2_64 resolved in the loaded library.
-func Hasdtbmv64() bool {
+// HasDtbmv64 reports whether cublasDtbmv_v2_64 resolved in the loaded library.
+func HasDtbmv64() bool {
 	return Has("cublasDtbmv_v2_64")
 }
 
-// Hasdtbsv reports whether cublasDtbsv_v2 resolved in the loaded library.
-func Hasdtbsv() bool {
+// HasDtbsv reports whether cublasDtbsv_v2 resolved in the loaded library.
+func HasDtbsv() bool {
 	return Has("cublasDtbsv_v2")
 }
 
-// Hasdtbsv64 reports whether cublasDtbsv_v2_64 resolved in the loaded library.
-func Hasdtbsv64() bool {
+// HasDtbsv64 reports whether cublasDtbsv_v2_64 resolved in the loaded library.
+func HasDtbsv64() bool {
 	return Has("cublasDtbsv_v2_64")
 }
 
-// Hasdtpmv reports whether cublasDtpmv_v2 resolved in the loaded library.
-func Hasdtpmv() bool {
+// HasDtpmv reports whether cublasDtpmv_v2 resolved in the loaded library.
+func HasDtpmv() bool {
 	return Has("cublasDtpmv_v2")
 }
 
-// Hasdtpmv64 reports whether cublasDtpmv_v2_64 resolved in the loaded library.
-func Hasdtpmv64() bool {
+// HasDtpmv64 reports whether cublasDtpmv_v2_64 resolved in the loaded library.
+func HasDtpmv64() bool {
 	return Has("cublasDtpmv_v2_64")
 }
 
-// Hasdtpsv reports whether cublasDtpsv_v2 resolved in the loaded library.
-func Hasdtpsv() bool {
+// HasDtpsv reports whether cublasDtpsv_v2 resolved in the loaded library.
+func HasDtpsv() bool {
 	return Has("cublasDtpsv_v2")
 }
 
-// Hasdtpsv64 reports whether cublasDtpsv_v2_64 resolved in the loaded library.
-func Hasdtpsv64() bool {
+// HasDtpsv64 reports whether cublasDtpsv_v2_64 resolved in the loaded library.
+func HasDtpsv64() bool {
 	return Has("cublasDtpsv_v2_64")
 }
 
-// Hasdtpttr reports whether cublasDtpttr resolved in the loaded library.
-func Hasdtpttr() bool {
+// HasDtpttr reports whether cublasDtpttr resolved in the loaded library.
+func HasDtpttr() bool {
 	return Has("cublasDtpttr")
 }
 
-// Hasdtrmm reports whether cublasDtrmm_v2 resolved in the loaded library.
-func Hasdtrmm() bool {
+// HasDtrmm reports whether cublasDtrmm_v2 resolved in the loaded library.
+func HasDtrmm() bool {
 	return Has("cublasDtrmm_v2")
 }
 
-// Hasdtrmm64 reports whether cublasDtrmm_v2_64 resolved in the loaded library.
-func Hasdtrmm64() bool {
+// HasDtrmm64 reports whether cublasDtrmm_v2_64 resolved in the loaded library.
+func HasDtrmm64() bool {
 	return Has("cublasDtrmm_v2_64")
 }
 
-// Hasdtrmv reports whether cublasDtrmv_v2 resolved in the loaded library.
-func Hasdtrmv() bool {
+// HasDtrmv reports whether cublasDtrmv_v2 resolved in the loaded library.
+func HasDtrmv() bool {
 	return Has("cublasDtrmv_v2")
 }
 
-// Hasdtrmv64 reports whether cublasDtrmv_v2_64 resolved in the loaded library.
-func Hasdtrmv64() bool {
+// HasDtrmv64 reports whether cublasDtrmv_v2_64 resolved in the loaded library.
+func HasDtrmv64() bool {
 	return Has("cublasDtrmv_v2_64")
 }
 
-// HasdtrsmBatched reports whether cublasDtrsmBatched resolved in the loaded library.
-func HasdtrsmBatched() bool {
+// HasDtrsmBatched reports whether cublasDtrsmBatched resolved in the loaded library.
+func HasDtrsmBatched() bool {
 	return Has("cublasDtrsmBatched")
 }
 
-// HasdtrsmBatched64 reports whether cublasDtrsmBatched_64 resolved in the loaded library.
-func HasdtrsmBatched64() bool {
+// HasDtrsmBatched64 reports whether cublasDtrsmBatched_64 resolved in the loaded library.
+func HasDtrsmBatched64() bool {
 	return Has("cublasDtrsmBatched_64")
 }
 
-// Hasdtrsm reports whether cublasDtrsm_v2 resolved in the loaded library.
-func Hasdtrsm() bool {
+// HasDtrsm reports whether cublasDtrsm_v2 resolved in the loaded library.
+func HasDtrsm() bool {
 	return Has("cublasDtrsm_v2")
 }
 
-// Hasdtrsm64 reports whether cublasDtrsm_v2_64 resolved in the loaded library.
-func Hasdtrsm64() bool {
+// HasDtrsm64 reports whether cublasDtrsm_v2_64 resolved in the loaded library.
+func HasDtrsm64() bool {
 	return Has("cublasDtrsm_v2_64")
 }
 
-// Hasdtrsv reports whether cublasDtrsv_v2 resolved in the loaded library.
-func Hasdtrsv() bool {
+// HasDtrsv reports whether cublasDtrsv_v2 resolved in the loaded library.
+func HasDtrsv() bool {
 	return Has("cublasDtrsv_v2")
 }
 
-// Hasdtrsv64 reports whether cublasDtrsv_v2_64 resolved in the loaded library.
-func Hasdtrsv64() bool {
+// HasDtrsv64 reports whether cublasDtrsv_v2_64 resolved in the loaded library.
+func HasDtrsv64() bool {
 	return Has("cublasDtrsv_v2_64")
 }
 
-// Hasdtrttp reports whether cublasDtrttp resolved in the loaded library.
-func Hasdtrttp() bool {
+// HasDtrttp reports whether cublasDtrttp resolved in the loaded library.
+func HasDtrttp() bool {
 	return Has("cublasDtrttp")
 }
 
-// Hasdzasum reports whether cublasDzasum_v2 resolved in the loaded library.
-func Hasdzasum() bool {
+// HasDzasum reports whether cublasDzasum_v2 resolved in the loaded library.
+func HasDzasum() bool {
 	return Has("cublasDzasum_v2")
 }
 
-// Hasdzasum64 reports whether cublasDzasum_v2_64 resolved in the loaded library.
-func Hasdzasum64() bool {
+// HasDzasum64 reports whether cublasDzasum_v2_64 resolved in the loaded library.
+func HasDzasum64() bool {
 	return Has("cublasDzasum_v2_64")
 }
 
-// Hasdznrm2 reports whether cublasDznrm2_v2 resolved in the loaded library.
-func Hasdznrm2() bool {
+// HasDznrm2 reports whether cublasDznrm2_v2 resolved in the loaded library.
+func HasDznrm2() bool {
 	return Has("cublasDznrm2_v2")
 }
 
-// Hasdznrm264 reports whether cublasDznrm2_v2_64 resolved in the loaded library.
-func Hasdznrm264() bool {
+// HasDznrm264 reports whether cublasDznrm2_v2_64 resolved in the loaded library.
+func HasDznrm264() bool {
 	return Has("cublasDznrm2_v2_64")
 }
 
-// HasgemmBatchedEx reports whether cublasGemmBatchedEx resolved in the loaded library.
-func HasgemmBatchedEx() bool {
+// HasGemmBatchedEx reports whether cublasGemmBatchedEx resolved in the loaded library.
+func HasGemmBatchedEx() bool {
 	return Has("cublasGemmBatchedEx")
 }
 
-// HasgemmBatchedEx64 reports whether cublasGemmBatchedEx_64 resolved in the loaded library.
-func HasgemmBatchedEx64() bool {
+// HasGemmBatchedEx64 reports whether cublasGemmBatchedEx_64 resolved in the loaded library.
+func HasGemmBatchedEx64() bool {
 	return Has("cublasGemmBatchedEx_64")
 }
 
-// HasgemmEx reports whether cublasGemmEx resolved in the loaded library.
-func HasgemmEx() bool {
+// HasGemmEx reports whether cublasGemmEx resolved in the loaded library.
+func HasGemmEx() bool {
 	return Has("cublasGemmEx")
 }
 
-// HasgemmEx64 reports whether cublasGemmEx_64 resolved in the loaded library.
-func HasgemmEx64() bool {
+// HasGemmEx64 reports whether cublasGemmEx_64 resolved in the loaded library.
+func HasGemmEx64() bool {
 	return Has("cublasGemmEx_64")
 }
 
-// HasgemmGroupedBatchedEx reports whether cublasGemmGroupedBatchedEx resolved in the loaded library.
-func HasgemmGroupedBatchedEx() bool {
+// HasGemmGroupedBatchedEx reports whether cublasGemmGroupedBatchedEx resolved in the loaded library.
+func HasGemmGroupedBatchedEx() bool {
 	return Has("cublasGemmGroupedBatchedEx")
 }
 
-// HasgemmGroupedBatchedEx64 reports whether cublasGemmGroupedBatchedEx_64 resolved in the loaded library.
-func HasgemmGroupedBatchedEx64() bool {
+// HasGemmGroupedBatchedEx64 reports whether cublasGemmGroupedBatchedEx_64 resolved in the loaded library.
+func HasGemmGroupedBatchedEx64() bool {
 	return Has("cublasGemmGroupedBatchedEx_64")
 }
 
-// HasgemmStridedBatchedEx reports whether cublasGemmStridedBatchedEx resolved in the loaded library.
-func HasgemmStridedBatchedEx() bool {
+// HasGemmStridedBatchedEx reports whether cublasGemmStridedBatchedEx resolved in the loaded library.
+func HasGemmStridedBatchedEx() bool {
 	return Has("cublasGemmStridedBatchedEx")
 }
 
-// HasgemmStridedBatchedEx64 reports whether cublasGemmStridedBatchedEx_64 resolved in the loaded library.
-func HasgemmStridedBatchedEx64() bool {
+// HasGemmStridedBatchedEx64 reports whether cublasGemmStridedBatchedEx_64 resolved in the loaded library.
+func HasGemmStridedBatchedEx64() bool {
 	return Has("cublasGemmStridedBatchedEx_64")
 }
 
-// HasgetAtomicsMode reports whether cublasGetAtomicsMode resolved in the loaded library.
-func HasgetAtomicsMode() bool {
+// HasGetAtomicsMode reports whether cublasGetAtomicsMode resolved in the loaded library.
+func HasGetAtomicsMode() bool {
 	return Has("cublasGetAtomicsMode")
 }
 
-// HasgetEmulationSpecialValuesSupport reports whether cublasGetEmulationSpecialValuesSupport resolved in the loaded library.
-func HasgetEmulationSpecialValuesSupport() bool {
+// HasGetEmulationSpecialValuesSupport reports whether cublasGetEmulationSpecialValuesSupport resolved in the loaded library.
+func HasGetEmulationSpecialValuesSupport() bool {
 	return Has("cublasGetEmulationSpecialValuesSupport")
 }
 
-// HasgetEmulationStrategy reports whether cublasGetEmulationStrategy resolved in the loaded library.
-func HasgetEmulationStrategy() bool {
+// HasGetEmulationStrategy reports whether cublasGetEmulationStrategy resolved in the loaded library.
+func HasGetEmulationStrategy() bool {
 	return Has("cublasGetEmulationStrategy")
 }
 
-// HasgetFixedPointEmulationMantissaBitCountPointer reports whether cublasGetFixedPointEmulationMantissaBitCountPointer resolved in the loaded library.
-func HasgetFixedPointEmulationMantissaBitCountPointer() bool {
+// HasGetFixedPointEmulationMantissaBitCountPointer reports whether cublasGetFixedPointEmulationMantissaBitCountPointer resolved in the loaded library.
+func HasGetFixedPointEmulationMantissaBitCountPointer() bool {
 	return Has("cublasGetFixedPointEmulationMantissaBitCountPointer")
 }
 
-// HasgetFixedPointEmulationMantissaBitOffset reports whether cublasGetFixedPointEmulationMantissaBitOffset resolved in the loaded library.
-func HasgetFixedPointEmulationMantissaBitOffset() bool {
+// HasGetFixedPointEmulationMantissaBitOffset reports whether cublasGetFixedPointEmulationMantissaBitOffset resolved in the loaded library.
+func HasGetFixedPointEmulationMantissaBitOffset() bool {
 	return Has("cublasGetFixedPointEmulationMantissaBitOffset")
 }
 
-// HasgetFixedPointEmulationMantissaControl reports whether cublasGetFixedPointEmulationMantissaControl resolved in the loaded library.
-func HasgetFixedPointEmulationMantissaControl() bool {
+// HasGetFixedPointEmulationMantissaControl reports whether cublasGetFixedPointEmulationMantissaControl resolved in the loaded library.
+func HasGetFixedPointEmulationMantissaControl() bool {
 	return Has("cublasGetFixedPointEmulationMantissaControl")
 }
 
-// HasgetFixedPointEmulationMaxMantissaBitCount reports whether cublasGetFixedPointEmulationMaxMantissaBitCount resolved in the loaded library.
-func HasgetFixedPointEmulationMaxMantissaBitCount() bool {
+// HasGetFixedPointEmulationMaxMantissaBitCount reports whether cublasGetFixedPointEmulationMaxMantissaBitCount resolved in the loaded library.
+func HasGetFixedPointEmulationMaxMantissaBitCount() bool {
 	return Has("cublasGetFixedPointEmulationMaxMantissaBitCount")
 }
 
@@ -2715,8 +2715,8 @@ func HasGetLoggerCallback() bool {
 	return Has("cublasGetLoggerCallback")
 }
 
-// HasgetMathMode reports whether cublasGetMathMode resolved in the loaded library.
-func HasgetMathMode() bool {
+// HasGetMathMode reports whether cublasGetMathMode resolved in the loaded library.
+func HasGetMathMode() bool {
 	return Has("cublasGetMathMode")
 }
 
@@ -2740,8 +2740,8 @@ func HasGetMatrix64() bool {
 	return Has("cublasGetMatrix_64")
 }
 
-// HasgetPointerMode reports whether cublasGetPointerMode_v2 resolved in the loaded library.
-func HasgetPointerMode() bool {
+// HasGetPointerMode reports whether cublasGetPointerMode_v2 resolved in the loaded library.
+func HasGetPointerMode() bool {
 	return Has("cublasGetPointerMode_v2")
 }
 
@@ -2750,13 +2750,13 @@ func HasGetProperty() bool {
 	return Has("cublasGetProperty")
 }
 
-// HasgetSmCountTarget reports whether cublasGetSmCountTarget resolved in the loaded library.
-func HasgetSmCountTarget() bool {
+// HasGetSmCountTarget reports whether cublasGetSmCountTarget resolved in the loaded library.
+func HasGetSmCountTarget() bool {
 	return Has("cublasGetSmCountTarget")
 }
 
-// HasgetStream reports whether cublasGetStream_v2 resolved in the loaded library.
-func HasgetStream() bool {
+// HasGetStream reports whether cublasGetStream_v2 resolved in the loaded library.
+func HasGetStream() bool {
 	return Has("cublasGetStream_v2")
 }
 
@@ -2780,178 +2780,178 @@ func HasGetVector64() bool {
 	return Has("cublasGetVector_64")
 }
 
-// HasgetVersion reports whether cublasGetVersion_v2 resolved in the loaded library.
-func HasgetVersion() bool {
+// HasGetVersion reports whether cublasGetVersion_v2 resolved in the loaded library.
+func HasGetVersion() bool {
 	return Has("cublasGetVersion_v2")
 }
 
-// HashSHgemvBatched reports whether cublasHSHgemvBatched resolved in the loaded library.
-func HashSHgemvBatched() bool {
+// HasHSHgemvBatched reports whether cublasHSHgemvBatched resolved in the loaded library.
+func HasHSHgemvBatched() bool {
 	return Has("cublasHSHgemvBatched")
 }
 
-// HashSHgemvBatched64 reports whether cublasHSHgemvBatched_64 resolved in the loaded library.
-func HashSHgemvBatched64() bool {
+// HasHSHgemvBatched64 reports whether cublasHSHgemvBatched_64 resolved in the loaded library.
+func HasHSHgemvBatched64() bool {
 	return Has("cublasHSHgemvBatched_64")
 }
 
-// HashSHgemvStridedBatched reports whether cublasHSHgemvStridedBatched resolved in the loaded library.
-func HashSHgemvStridedBatched() bool {
+// HasHSHgemvStridedBatched reports whether cublasHSHgemvStridedBatched resolved in the loaded library.
+func HasHSHgemvStridedBatched() bool {
 	return Has("cublasHSHgemvStridedBatched")
 }
 
-// HashSHgemvStridedBatched64 reports whether cublasHSHgemvStridedBatched_64 resolved in the loaded library.
-func HashSHgemvStridedBatched64() bool {
+// HasHSHgemvStridedBatched64 reports whether cublasHSHgemvStridedBatched_64 resolved in the loaded library.
+func HasHSHgemvStridedBatched64() bool {
 	return Has("cublasHSHgemvStridedBatched_64")
 }
 
-// HashSSgemvBatched reports whether cublasHSSgemvBatched resolved in the loaded library.
-func HashSSgemvBatched() bool {
+// HasHSSgemvBatched reports whether cublasHSSgemvBatched resolved in the loaded library.
+func HasHSSgemvBatched() bool {
 	return Has("cublasHSSgemvBatched")
 }
 
-// HashSSgemvBatched64 reports whether cublasHSSgemvBatched_64 resolved in the loaded library.
-func HashSSgemvBatched64() bool {
+// HasHSSgemvBatched64 reports whether cublasHSSgemvBatched_64 resolved in the loaded library.
+func HasHSSgemvBatched64() bool {
 	return Has("cublasHSSgemvBatched_64")
 }
 
-// HashSSgemvStridedBatched reports whether cublasHSSgemvStridedBatched resolved in the loaded library.
-func HashSSgemvStridedBatched() bool {
+// HasHSSgemvStridedBatched reports whether cublasHSSgemvStridedBatched resolved in the loaded library.
+func HasHSSgemvStridedBatched() bool {
 	return Has("cublasHSSgemvStridedBatched")
 }
 
-// HashSSgemvStridedBatched64 reports whether cublasHSSgemvStridedBatched_64 resolved in the loaded library.
-func HashSSgemvStridedBatched64() bool {
+// HasHSSgemvStridedBatched64 reports whether cublasHSSgemvStridedBatched_64 resolved in the loaded library.
+func HasHSSgemvStridedBatched64() bool {
 	return Has("cublasHSSgemvStridedBatched_64")
 }
 
-// Hashgemm reports whether cublasHgemm resolved in the loaded library.
-func Hashgemm() bool {
+// HasHgemm reports whether cublasHgemm resolved in the loaded library.
+func HasHgemm() bool {
 	return Has("cublasHgemm")
 }
 
-// HashgemmBatched reports whether cublasHgemmBatched resolved in the loaded library.
-func HashgemmBatched() bool {
+// HasHgemmBatched reports whether cublasHgemmBatched resolved in the loaded library.
+func HasHgemmBatched() bool {
 	return Has("cublasHgemmBatched")
 }
 
-// HashgemmBatched64 reports whether cublasHgemmBatched_64 resolved in the loaded library.
-func HashgemmBatched64() bool {
+// HasHgemmBatched64 reports whether cublasHgemmBatched_64 resolved in the loaded library.
+func HasHgemmBatched64() bool {
 	return Has("cublasHgemmBatched_64")
 }
 
-// HashgemmStridedBatched reports whether cublasHgemmStridedBatched resolved in the loaded library.
-func HashgemmStridedBatched() bool {
+// HasHgemmStridedBatched reports whether cublasHgemmStridedBatched resolved in the loaded library.
+func HasHgemmStridedBatched() bool {
 	return Has("cublasHgemmStridedBatched")
 }
 
-// HashgemmStridedBatched64 reports whether cublasHgemmStridedBatched_64 resolved in the loaded library.
-func HashgemmStridedBatched64() bool {
+// HasHgemmStridedBatched64 reports whether cublasHgemmStridedBatched_64 resolved in the loaded library.
+func HasHgemmStridedBatched64() bool {
 	return Has("cublasHgemmStridedBatched_64")
 }
 
-// Hashgemm64 reports whether cublasHgemm_64 resolved in the loaded library.
-func Hashgemm64() bool {
+// HasHgemm64 reports whether cublasHgemm_64 resolved in the loaded library.
+func HasHgemm64() bool {
 	return Has("cublasHgemm_64")
 }
 
-// HasiamaxEx reports whether cublasIamaxEx resolved in the loaded library.
-func HasiamaxEx() bool {
+// HasIamaxEx reports whether cublasIamaxEx resolved in the loaded library.
+func HasIamaxEx() bool {
 	return Has("cublasIamaxEx")
 }
 
-// HasiamaxEx64 reports whether cublasIamaxEx_64 resolved in the loaded library.
-func HasiamaxEx64() bool {
+// HasIamaxEx64 reports whether cublasIamaxEx_64 resolved in the loaded library.
+func HasIamaxEx64() bool {
 	return Has("cublasIamaxEx_64")
 }
 
-// HasiaminEx reports whether cublasIaminEx resolved in the loaded library.
-func HasiaminEx() bool {
+// HasIaminEx reports whether cublasIaminEx resolved in the loaded library.
+func HasIaminEx() bool {
 	return Has("cublasIaminEx")
 }
 
-// HasiaminEx64 reports whether cublasIaminEx_64 resolved in the loaded library.
-func HasiaminEx64() bool {
+// HasIaminEx64 reports whether cublasIaminEx_64 resolved in the loaded library.
+func HasIaminEx64() bool {
 	return Has("cublasIaminEx_64")
 }
 
-// Hasicamax reports whether cublasIcamax_v2 resolved in the loaded library.
-func Hasicamax() bool {
+// HasIcamax reports whether cublasIcamax_v2 resolved in the loaded library.
+func HasIcamax() bool {
 	return Has("cublasIcamax_v2")
 }
 
-// Hasicamax64 reports whether cublasIcamax_v2_64 resolved in the loaded library.
-func Hasicamax64() bool {
+// HasIcamax64 reports whether cublasIcamax_v2_64 resolved in the loaded library.
+func HasIcamax64() bool {
 	return Has("cublasIcamax_v2_64")
 }
 
-// Hasicamin reports whether cublasIcamin_v2 resolved in the loaded library.
-func Hasicamin() bool {
+// HasIcamin reports whether cublasIcamin_v2 resolved in the loaded library.
+func HasIcamin() bool {
 	return Has("cublasIcamin_v2")
 }
 
-// Hasicamin64 reports whether cublasIcamin_v2_64 resolved in the loaded library.
-func Hasicamin64() bool {
+// HasIcamin64 reports whether cublasIcamin_v2_64 resolved in the loaded library.
+func HasIcamin64() bool {
 	return Has("cublasIcamin_v2_64")
 }
 
-// Hasidamax reports whether cublasIdamax_v2 resolved in the loaded library.
-func Hasidamax() bool {
+// HasIdamax reports whether cublasIdamax_v2 resolved in the loaded library.
+func HasIdamax() bool {
 	return Has("cublasIdamax_v2")
 }
 
-// Hasidamax64 reports whether cublasIdamax_v2_64 resolved in the loaded library.
-func Hasidamax64() bool {
+// HasIdamax64 reports whether cublasIdamax_v2_64 resolved in the loaded library.
+func HasIdamax64() bool {
 	return Has("cublasIdamax_v2_64")
 }
 
-// Hasidamin reports whether cublasIdamin_v2 resolved in the loaded library.
-func Hasidamin() bool {
+// HasIdamin reports whether cublasIdamin_v2 resolved in the loaded library.
+func HasIdamin() bool {
 	return Has("cublasIdamin_v2")
 }
 
-// Hasidamin64 reports whether cublasIdamin_v2_64 resolved in the loaded library.
-func Hasidamin64() bool {
+// HasIdamin64 reports whether cublasIdamin_v2_64 resolved in the loaded library.
+func HasIdamin64() bool {
 	return Has("cublasIdamin_v2_64")
 }
 
-// Hasisamax reports whether cublasIsamax_v2 resolved in the loaded library.
-func Hasisamax() bool {
+// HasIsamax reports whether cublasIsamax_v2 resolved in the loaded library.
+func HasIsamax() bool {
 	return Has("cublasIsamax_v2")
 }
 
-// Hasisamax64 reports whether cublasIsamax_v2_64 resolved in the loaded library.
-func Hasisamax64() bool {
+// HasIsamax64 reports whether cublasIsamax_v2_64 resolved in the loaded library.
+func HasIsamax64() bool {
 	return Has("cublasIsamax_v2_64")
 }
 
-// Hasisamin reports whether cublasIsamin_v2 resolved in the loaded library.
-func Hasisamin() bool {
+// HasIsamin reports whether cublasIsamin_v2 resolved in the loaded library.
+func HasIsamin() bool {
 	return Has("cublasIsamin_v2")
 }
 
-// Hasisamin64 reports whether cublasIsamin_v2_64 resolved in the loaded library.
-func Hasisamin64() bool {
+// HasIsamin64 reports whether cublasIsamin_v2_64 resolved in the loaded library.
+func HasIsamin64() bool {
 	return Has("cublasIsamin_v2_64")
 }
 
-// Hasizamax reports whether cublasIzamax_v2 resolved in the loaded library.
-func Hasizamax() bool {
+// HasIzamax reports whether cublasIzamax_v2 resolved in the loaded library.
+func HasIzamax() bool {
 	return Has("cublasIzamax_v2")
 }
 
-// Hasizamax64 reports whether cublasIzamax_v2_64 resolved in the loaded library.
-func Hasizamax64() bool {
+// HasIzamax64 reports whether cublasIzamax_v2_64 resolved in the loaded library.
+func HasIzamax64() bool {
 	return Has("cublasIzamax_v2_64")
 }
 
-// Hasizamin reports whether cublasIzamin_v2 resolved in the loaded library.
-func Hasizamin() bool {
+// HasIzamin reports whether cublasIzamin_v2 resolved in the loaded library.
+func HasIzamin() bool {
 	return Has("cublasIzamin_v2")
 }
 
-// Hasizamin64 reports whether cublasIzamin_v2_64 resolved in the loaded library.
-func Hasizamin64() bool {
+// HasIzamin64 reports whether cublasIzamin_v2_64 resolved in the loaded library.
+func HasIzamin64() bool {
 	return Has("cublasIzamin_v2_64")
 }
 
@@ -2960,158 +2960,158 @@ func HasLoggerConfigure() bool {
 	return Has("cublasLoggerConfigure")
 }
 
-// Hasnrm2Ex reports whether cublasNrm2Ex resolved in the loaded library.
-func Hasnrm2Ex() bool {
+// HasNrm2Ex reports whether cublasNrm2Ex resolved in the loaded library.
+func HasNrm2Ex() bool {
 	return Has("cublasNrm2Ex")
 }
 
-// Hasnrm2Ex64 reports whether cublasNrm2Ex_64 resolved in the loaded library.
-func Hasnrm2Ex64() bool {
+// HasNrm2Ex64 reports whether cublasNrm2Ex_64 resolved in the loaded library.
+func HasNrm2Ex64() bool {
 	return Has("cublasNrm2Ex_64")
 }
 
-// HasrotEx reports whether cublasRotEx resolved in the loaded library.
-func HasrotEx() bool {
+// HasRotEx reports whether cublasRotEx resolved in the loaded library.
+func HasRotEx() bool {
 	return Has("cublasRotEx")
 }
 
-// HasrotEx64 reports whether cublasRotEx_64 resolved in the loaded library.
-func HasrotEx64() bool {
+// HasRotEx64 reports whether cublasRotEx_64 resolved in the loaded library.
+func HasRotEx64() bool {
 	return Has("cublasRotEx_64")
 }
 
-// HasrotgEx reports whether cublasRotgEx resolved in the loaded library.
-func HasrotgEx() bool {
+// HasRotgEx reports whether cublasRotgEx resolved in the loaded library.
+func HasRotgEx() bool {
 	return Has("cublasRotgEx")
 }
 
-// HasrotmEx reports whether cublasRotmEx resolved in the loaded library.
-func HasrotmEx() bool {
+// HasRotmEx reports whether cublasRotmEx resolved in the loaded library.
+func HasRotmEx() bool {
 	return Has("cublasRotmEx")
 }
 
-// HasrotmEx64 reports whether cublasRotmEx_64 resolved in the loaded library.
-func HasrotmEx64() bool {
+// HasRotmEx64 reports whether cublasRotmEx_64 resolved in the loaded library.
+func HasRotmEx64() bool {
 	return Has("cublasRotmEx_64")
 }
 
-// HasrotmgEx reports whether cublasRotmgEx resolved in the loaded library.
-func HasrotmgEx() bool {
+// HasRotmgEx reports whether cublasRotmgEx resolved in the loaded library.
+func HasRotmgEx() bool {
 	return Has("cublasRotmgEx")
 }
 
-// Hassasum reports whether cublasSasum_v2 resolved in the loaded library.
-func Hassasum() bool {
+// HasSasum reports whether cublasSasum_v2 resolved in the loaded library.
+func HasSasum() bool {
 	return Has("cublasSasum_v2")
 }
 
-// Hassasum64 reports whether cublasSasum_v2_64 resolved in the loaded library.
-func Hassasum64() bool {
+// HasSasum64 reports whether cublasSasum_v2_64 resolved in the loaded library.
+func HasSasum64() bool {
 	return Has("cublasSasum_v2_64")
 }
 
-// Hassaxpy reports whether cublasSaxpy_v2 resolved in the loaded library.
-func Hassaxpy() bool {
+// HasSaxpy reports whether cublasSaxpy_v2 resolved in the loaded library.
+func HasSaxpy() bool {
 	return Has("cublasSaxpy_v2")
 }
 
-// Hassaxpy64 reports whether cublasSaxpy_v2_64 resolved in the loaded library.
-func Hassaxpy64() bool {
+// HasSaxpy64 reports whether cublasSaxpy_v2_64 resolved in the loaded library.
+func HasSaxpy64() bool {
 	return Has("cublasSaxpy_v2_64")
 }
 
-// HasscalEx reports whether cublasScalEx resolved in the loaded library.
-func HasscalEx() bool {
+// HasScalEx reports whether cublasScalEx resolved in the loaded library.
+func HasScalEx() bool {
 	return Has("cublasScalEx")
 }
 
-// HasscalEx64 reports whether cublasScalEx_64 resolved in the loaded library.
-func HasscalEx64() bool {
+// HasScalEx64 reports whether cublasScalEx_64 resolved in the loaded library.
+func HasScalEx64() bool {
 	return Has("cublasScalEx_64")
 }
 
-// Hasscasum reports whether cublasScasum_v2 resolved in the loaded library.
-func Hasscasum() bool {
+// HasScasum reports whether cublasScasum_v2 resolved in the loaded library.
+func HasScasum() bool {
 	return Has("cublasScasum_v2")
 }
 
-// Hasscasum64 reports whether cublasScasum_v2_64 resolved in the loaded library.
-func Hasscasum64() bool {
+// HasScasum64 reports whether cublasScasum_v2_64 resolved in the loaded library.
+func HasScasum64() bool {
 	return Has("cublasScasum_v2_64")
 }
 
-// Hasscnrm2 reports whether cublasScnrm2_v2 resolved in the loaded library.
-func Hasscnrm2() bool {
+// HasScnrm2 reports whether cublasScnrm2_v2 resolved in the loaded library.
+func HasScnrm2() bool {
 	return Has("cublasScnrm2_v2")
 }
 
-// Hasscnrm264 reports whether cublasScnrm2_v2_64 resolved in the loaded library.
-func Hasscnrm264() bool {
+// HasScnrm264 reports whether cublasScnrm2_v2_64 resolved in the loaded library.
+func HasScnrm264() bool {
 	return Has("cublasScnrm2_v2_64")
 }
 
-// Hasscopy reports whether cublasScopy_v2 resolved in the loaded library.
-func Hasscopy() bool {
+// HasScopy reports whether cublasScopy_v2 resolved in the loaded library.
+func HasScopy() bool {
 	return Has("cublasScopy_v2")
 }
 
-// Hasscopy64 reports whether cublasScopy_v2_64 resolved in the loaded library.
-func Hasscopy64() bool {
+// HasScopy64 reports whether cublasScopy_v2_64 resolved in the loaded library.
+func HasScopy64() bool {
 	return Has("cublasScopy_v2_64")
 }
 
-// Hassdgmm reports whether cublasSdgmm resolved in the loaded library.
-func Hassdgmm() bool {
+// HasSdgmm reports whether cublasSdgmm resolved in the loaded library.
+func HasSdgmm() bool {
 	return Has("cublasSdgmm")
 }
 
-// Hassdgmm64 reports whether cublasSdgmm_64 resolved in the loaded library.
-func Hassdgmm64() bool {
+// HasSdgmm64 reports whether cublasSdgmm_64 resolved in the loaded library.
+func HasSdgmm64() bool {
 	return Has("cublasSdgmm_64")
 }
 
-// Hassdot reports whether cublasSdot_v2 resolved in the loaded library.
-func Hassdot() bool {
+// HasSdot reports whether cublasSdot_v2 resolved in the loaded library.
+func HasSdot() bool {
 	return Has("cublasSdot_v2")
 }
 
-// Hassdot64 reports whether cublasSdot_v2_64 resolved in the loaded library.
-func Hassdot64() bool {
+// HasSdot64 reports whether cublasSdot_v2_64 resolved in the loaded library.
+func HasSdot64() bool {
 	return Has("cublasSdot_v2_64")
 }
 
-// HassetAtomicsMode reports whether cublasSetAtomicsMode resolved in the loaded library.
-func HassetAtomicsMode() bool {
+// HasSetAtomicsMode reports whether cublasSetAtomicsMode resolved in the loaded library.
+func HasSetAtomicsMode() bool {
 	return Has("cublasSetAtomicsMode")
 }
 
-// HassetEmulationSpecialValuesSupport reports whether cublasSetEmulationSpecialValuesSupport resolved in the loaded library.
-func HassetEmulationSpecialValuesSupport() bool {
+// HasSetEmulationSpecialValuesSupport reports whether cublasSetEmulationSpecialValuesSupport resolved in the loaded library.
+func HasSetEmulationSpecialValuesSupport() bool {
 	return Has("cublasSetEmulationSpecialValuesSupport")
 }
 
-// HassetEmulationStrategy reports whether cublasSetEmulationStrategy resolved in the loaded library.
-func HassetEmulationStrategy() bool {
+// HasSetEmulationStrategy reports whether cublasSetEmulationStrategy resolved in the loaded library.
+func HasSetEmulationStrategy() bool {
 	return Has("cublasSetEmulationStrategy")
 }
 
-// HassetFixedPointEmulationMantissaBitCountPointer reports whether cublasSetFixedPointEmulationMantissaBitCountPointer resolved in the loaded library.
-func HassetFixedPointEmulationMantissaBitCountPointer() bool {
+// HasSetFixedPointEmulationMantissaBitCountPointer reports whether cublasSetFixedPointEmulationMantissaBitCountPointer resolved in the loaded library.
+func HasSetFixedPointEmulationMantissaBitCountPointer() bool {
 	return Has("cublasSetFixedPointEmulationMantissaBitCountPointer")
 }
 
-// HassetFixedPointEmulationMantissaBitOffset reports whether cublasSetFixedPointEmulationMantissaBitOffset resolved in the loaded library.
-func HassetFixedPointEmulationMantissaBitOffset() bool {
+// HasSetFixedPointEmulationMantissaBitOffset reports whether cublasSetFixedPointEmulationMantissaBitOffset resolved in the loaded library.
+func HasSetFixedPointEmulationMantissaBitOffset() bool {
 	return Has("cublasSetFixedPointEmulationMantissaBitOffset")
 }
 
-// HassetFixedPointEmulationMantissaControl reports whether cublasSetFixedPointEmulationMantissaControl resolved in the loaded library.
-func HassetFixedPointEmulationMantissaControl() bool {
+// HasSetFixedPointEmulationMantissaControl reports whether cublasSetFixedPointEmulationMantissaControl resolved in the loaded library.
+func HasSetFixedPointEmulationMantissaControl() bool {
 	return Has("cublasSetFixedPointEmulationMantissaControl")
 }
 
-// HassetFixedPointEmulationMaxMantissaBitCount reports whether cublasSetFixedPointEmulationMaxMantissaBitCount resolved in the loaded library.
-func HassetFixedPointEmulationMaxMantissaBitCount() bool {
+// HasSetFixedPointEmulationMaxMantissaBitCount reports whether cublasSetFixedPointEmulationMaxMantissaBitCount resolved in the loaded library.
+func HasSetFixedPointEmulationMaxMantissaBitCount() bool {
 	return Has("cublasSetFixedPointEmulationMaxMantissaBitCount")
 }
 
@@ -3120,8 +3120,8 @@ func HasSetLoggerCallback() bool {
 	return Has("cublasSetLoggerCallback")
 }
 
-// HassetMathMode reports whether cublasSetMathMode resolved in the loaded library.
-func HassetMathMode() bool {
+// HasSetMathMode reports whether cublasSetMathMode resolved in the loaded library.
+func HasSetMathMode() bool {
 	return Has("cublasSetMathMode")
 }
 
@@ -3145,18 +3145,18 @@ func HasSetMatrix64() bool {
 	return Has("cublasSetMatrix_64")
 }
 
-// HassetPointerMode reports whether cublasSetPointerMode_v2 resolved in the loaded library.
-func HassetPointerMode() bool {
+// HasSetPointerMode reports whether cublasSetPointerMode_v2 resolved in the loaded library.
+func HasSetPointerMode() bool {
 	return Has("cublasSetPointerMode_v2")
 }
 
-// HassetSmCountTarget reports whether cublasSetSmCountTarget resolved in the loaded library.
-func HassetSmCountTarget() bool {
+// HasSetSmCountTarget reports whether cublasSetSmCountTarget resolved in the loaded library.
+func HasSetSmCountTarget() bool {
 	return Has("cublasSetSmCountTarget")
 }
 
-// HassetStream reports whether cublasSetStream_v2 resolved in the loaded library.
-func HassetStream() bool {
+// HasSetStream reports whether cublasSetStream_v2 resolved in the loaded library.
+func HasSetStream() bool {
 	return Has("cublasSetStream_v2")
 }
 
@@ -3180,997 +3180,997 @@ func HasSetVector64() bool {
 	return Has("cublasSetVector_64")
 }
 
-// HassetWorkspace reports whether cublasSetWorkspace_v2 resolved in the loaded library.
-func HassetWorkspace() bool {
+// HasSetWorkspace reports whether cublasSetWorkspace_v2 resolved in the loaded library.
+func HasSetWorkspace() bool {
 	return Has("cublasSetWorkspace_v2")
 }
 
-// Hassgbmv reports whether cublasSgbmv_v2 resolved in the loaded library.
-func Hassgbmv() bool {
+// HasSgbmv reports whether cublasSgbmv_v2 resolved in the loaded library.
+func HasSgbmv() bool {
 	return Has("cublasSgbmv_v2")
 }
 
-// Hassgbmv64 reports whether cublasSgbmv_v2_64 resolved in the loaded library.
-func Hassgbmv64() bool {
+// HasSgbmv64 reports whether cublasSgbmv_v2_64 resolved in the loaded library.
+func HasSgbmv64() bool {
 	return Has("cublasSgbmv_v2_64")
 }
 
-// Hassgeam reports whether cublasSgeam resolved in the loaded library.
-func Hassgeam() bool {
+// HasSgeam reports whether cublasSgeam resolved in the loaded library.
+func HasSgeam() bool {
 	return Has("cublasSgeam")
 }
 
-// Hassgeam64 reports whether cublasSgeam_64 resolved in the loaded library.
-func Hassgeam64() bool {
+// HasSgeam64 reports whether cublasSgeam_64 resolved in the loaded library.
+func HasSgeam64() bool {
 	return Has("cublasSgeam_64")
 }
 
-// HassgelsBatched reports whether cublasSgelsBatched resolved in the loaded library.
-func HassgelsBatched() bool {
+// HasSgelsBatched reports whether cublasSgelsBatched resolved in the loaded library.
+func HasSgelsBatched() bool {
 	return Has("cublasSgelsBatched")
 }
 
-// HassgemmBatched reports whether cublasSgemmBatched resolved in the loaded library.
-func HassgemmBatched() bool {
+// HasSgemmBatched reports whether cublasSgemmBatched resolved in the loaded library.
+func HasSgemmBatched() bool {
 	return Has("cublasSgemmBatched")
 }
 
-// HassgemmBatched64 reports whether cublasSgemmBatched_64 resolved in the loaded library.
-func HassgemmBatched64() bool {
+// HasSgemmBatched64 reports whether cublasSgemmBatched_64 resolved in the loaded library.
+func HasSgemmBatched64() bool {
 	return Has("cublasSgemmBatched_64")
 }
 
-// HassgemmEx reports whether cublasSgemmEx resolved in the loaded library.
-func HassgemmEx() bool {
+// HasSgemmEx reports whether cublasSgemmEx resolved in the loaded library.
+func HasSgemmEx() bool {
 	return Has("cublasSgemmEx")
 }
 
-// HassgemmEx64 reports whether cublasSgemmEx_64 resolved in the loaded library.
-func HassgemmEx64() bool {
+// HasSgemmEx64 reports whether cublasSgemmEx_64 resolved in the loaded library.
+func HasSgemmEx64() bool {
 	return Has("cublasSgemmEx_64")
 }
 
-// HassgemmGroupedBatched reports whether cublasSgemmGroupedBatched resolved in the loaded library.
-func HassgemmGroupedBatched() bool {
+// HasSgemmGroupedBatched reports whether cublasSgemmGroupedBatched resolved in the loaded library.
+func HasSgemmGroupedBatched() bool {
 	return Has("cublasSgemmGroupedBatched")
 }
 
-// HassgemmGroupedBatched64 reports whether cublasSgemmGroupedBatched_64 resolved in the loaded library.
-func HassgemmGroupedBatched64() bool {
+// HasSgemmGroupedBatched64 reports whether cublasSgemmGroupedBatched_64 resolved in the loaded library.
+func HasSgemmGroupedBatched64() bool {
 	return Has("cublasSgemmGroupedBatched_64")
 }
 
-// HassgemmStridedBatched reports whether cublasSgemmStridedBatched resolved in the loaded library.
-func HassgemmStridedBatched() bool {
+// HasSgemmStridedBatched reports whether cublasSgemmStridedBatched resolved in the loaded library.
+func HasSgemmStridedBatched() bool {
 	return Has("cublasSgemmStridedBatched")
 }
 
-// HassgemmStridedBatched64 reports whether cublasSgemmStridedBatched_64 resolved in the loaded library.
-func HassgemmStridedBatched64() bool {
+// HasSgemmStridedBatched64 reports whether cublasSgemmStridedBatched_64 resolved in the loaded library.
+func HasSgemmStridedBatched64() bool {
 	return Has("cublasSgemmStridedBatched_64")
 }
 
-// Hassgemm reports whether cublasSgemm_v2 resolved in the loaded library.
-func Hassgemm() bool {
+// HasSgemm reports whether cublasSgemm_v2 resolved in the loaded library.
+func HasSgemm() bool {
 	return Has("cublasSgemm_v2")
 }
 
-// Hassgemm64 reports whether cublasSgemm_v2_64 resolved in the loaded library.
-func Hassgemm64() bool {
+// HasSgemm64 reports whether cublasSgemm_v2_64 resolved in the loaded library.
+func HasSgemm64() bool {
 	return Has("cublasSgemm_v2_64")
 }
 
-// HassgemvBatched reports whether cublasSgemvBatched resolved in the loaded library.
-func HassgemvBatched() bool {
+// HasSgemvBatched reports whether cublasSgemvBatched resolved in the loaded library.
+func HasSgemvBatched() bool {
 	return Has("cublasSgemvBatched")
 }
 
-// HassgemvBatched64 reports whether cublasSgemvBatched_64 resolved in the loaded library.
-func HassgemvBatched64() bool {
+// HasSgemvBatched64 reports whether cublasSgemvBatched_64 resolved in the loaded library.
+func HasSgemvBatched64() bool {
 	return Has("cublasSgemvBatched_64")
 }
 
-// HassgemvStridedBatched reports whether cublasSgemvStridedBatched resolved in the loaded library.
-func HassgemvStridedBatched() bool {
+// HasSgemvStridedBatched reports whether cublasSgemvStridedBatched resolved in the loaded library.
+func HasSgemvStridedBatched() bool {
 	return Has("cublasSgemvStridedBatched")
 }
 
-// HassgemvStridedBatched64 reports whether cublasSgemvStridedBatched_64 resolved in the loaded library.
-func HassgemvStridedBatched64() bool {
+// HasSgemvStridedBatched64 reports whether cublasSgemvStridedBatched_64 resolved in the loaded library.
+func HasSgemvStridedBatched64() bool {
 	return Has("cublasSgemvStridedBatched_64")
 }
 
-// Hassgemv reports whether cublasSgemv_v2 resolved in the loaded library.
-func Hassgemv() bool {
+// HasSgemv reports whether cublasSgemv_v2 resolved in the loaded library.
+func HasSgemv() bool {
 	return Has("cublasSgemv_v2")
 }
 
-// Hassgemv64 reports whether cublasSgemv_v2_64 resolved in the loaded library.
-func Hassgemv64() bool {
+// HasSgemv64 reports whether cublasSgemv_v2_64 resolved in the loaded library.
+func HasSgemv64() bool {
 	return Has("cublasSgemv_v2_64")
 }
 
-// HassgeqrfBatched reports whether cublasSgeqrfBatched resolved in the loaded library.
-func HassgeqrfBatched() bool {
+// HasSgeqrfBatched reports whether cublasSgeqrfBatched resolved in the loaded library.
+func HasSgeqrfBatched() bool {
 	return Has("cublasSgeqrfBatched")
 }
 
-// Hassger reports whether cublasSger_v2 resolved in the loaded library.
-func Hassger() bool {
+// HasSger reports whether cublasSger_v2 resolved in the loaded library.
+func HasSger() bool {
 	return Has("cublasSger_v2")
 }
 
-// Hassger64 reports whether cublasSger_v2_64 resolved in the loaded library.
-func Hassger64() bool {
+// HasSger64 reports whether cublasSger_v2_64 resolved in the loaded library.
+func HasSger64() bool {
 	return Has("cublasSger_v2_64")
 }
 
-// HassgetrfBatched reports whether cublasSgetrfBatched resolved in the loaded library.
-func HassgetrfBatched() bool {
+// HasSgetrfBatched reports whether cublasSgetrfBatched resolved in the loaded library.
+func HasSgetrfBatched() bool {
 	return Has("cublasSgetrfBatched")
 }
 
-// HassgetriBatched reports whether cublasSgetriBatched resolved in the loaded library.
-func HassgetriBatched() bool {
+// HasSgetriBatched reports whether cublasSgetriBatched resolved in the loaded library.
+func HasSgetriBatched() bool {
 	return Has("cublasSgetriBatched")
 }
 
-// HassgetrsBatched reports whether cublasSgetrsBatched resolved in the loaded library.
-func HassgetrsBatched() bool {
+// HasSgetrsBatched reports whether cublasSgetrsBatched resolved in the loaded library.
+func HasSgetrsBatched() bool {
 	return Has("cublasSgetrsBatched")
 }
 
-// HassmatinvBatched reports whether cublasSmatinvBatched resolved in the loaded library.
-func HassmatinvBatched() bool {
+// HasSmatinvBatched reports whether cublasSmatinvBatched resolved in the loaded library.
+func HasSmatinvBatched() bool {
 	return Has("cublasSmatinvBatched")
 }
 
-// Hassnrm2 reports whether cublasSnrm2_v2 resolved in the loaded library.
-func Hassnrm2() bool {
+// HasSnrm2 reports whether cublasSnrm2_v2 resolved in the loaded library.
+func HasSnrm2() bool {
 	return Has("cublasSnrm2_v2")
 }
 
-// Hassnrm264 reports whether cublasSnrm2_v2_64 resolved in the loaded library.
-func Hassnrm264() bool {
+// HasSnrm264 reports whether cublasSnrm2_v2_64 resolved in the loaded library.
+func HasSnrm264() bool {
 	return Has("cublasSnrm2_v2_64")
 }
 
-// Hassrot reports whether cublasSrot_v2 resolved in the loaded library.
-func Hassrot() bool {
+// HasSrot reports whether cublasSrot_v2 resolved in the loaded library.
+func HasSrot() bool {
 	return Has("cublasSrot_v2")
 }
 
-// Hassrot64 reports whether cublasSrot_v2_64 resolved in the loaded library.
-func Hassrot64() bool {
+// HasSrot64 reports whether cublasSrot_v2_64 resolved in the loaded library.
+func HasSrot64() bool {
 	return Has("cublasSrot_v2_64")
 }
 
-// Hassrotg reports whether cublasSrotg_v2 resolved in the loaded library.
-func Hassrotg() bool {
+// HasSrotg reports whether cublasSrotg_v2 resolved in the loaded library.
+func HasSrotg() bool {
 	return Has("cublasSrotg_v2")
 }
 
-// Hassrotm reports whether cublasSrotm_v2 resolved in the loaded library.
-func Hassrotm() bool {
+// HasSrotm reports whether cublasSrotm_v2 resolved in the loaded library.
+func HasSrotm() bool {
 	return Has("cublasSrotm_v2")
 }
 
-// Hassrotm64 reports whether cublasSrotm_v2_64 resolved in the loaded library.
-func Hassrotm64() bool {
+// HasSrotm64 reports whether cublasSrotm_v2_64 resolved in the loaded library.
+func HasSrotm64() bool {
 	return Has("cublasSrotm_v2_64")
 }
 
-// Hassrotmg reports whether cublasSrotmg_v2 resolved in the loaded library.
-func Hassrotmg() bool {
+// HasSrotmg reports whether cublasSrotmg_v2 resolved in the loaded library.
+func HasSrotmg() bool {
 	return Has("cublasSrotmg_v2")
 }
 
-// Hasssbmv reports whether cublasSsbmv_v2 resolved in the loaded library.
-func Hasssbmv() bool {
+// HasSsbmv reports whether cublasSsbmv_v2 resolved in the loaded library.
+func HasSsbmv() bool {
 	return Has("cublasSsbmv_v2")
 }
 
-// Hasssbmv64 reports whether cublasSsbmv_v2_64 resolved in the loaded library.
-func Hasssbmv64() bool {
+// HasSsbmv64 reports whether cublasSsbmv_v2_64 resolved in the loaded library.
+func HasSsbmv64() bool {
 	return Has("cublasSsbmv_v2_64")
 }
 
-// Hassscal reports whether cublasSscal_v2 resolved in the loaded library.
-func Hassscal() bool {
+// HasSscal reports whether cublasSscal_v2 resolved in the loaded library.
+func HasSscal() bool {
 	return Has("cublasSscal_v2")
 }
 
-// Hassscal64 reports whether cublasSscal_v2_64 resolved in the loaded library.
-func Hassscal64() bool {
+// HasSscal64 reports whether cublasSscal_v2_64 resolved in the loaded library.
+func HasSscal64() bool {
 	return Has("cublasSscal_v2_64")
 }
 
-// Hassspmv reports whether cublasSspmv_v2 resolved in the loaded library.
-func Hassspmv() bool {
+// HasSspmv reports whether cublasSspmv_v2 resolved in the loaded library.
+func HasSspmv() bool {
 	return Has("cublasSspmv_v2")
 }
 
-// Hassspmv64 reports whether cublasSspmv_v2_64 resolved in the loaded library.
-func Hassspmv64() bool {
+// HasSspmv64 reports whether cublasSspmv_v2_64 resolved in the loaded library.
+func HasSspmv64() bool {
 	return Has("cublasSspmv_v2_64")
 }
 
-// Hassspr2 reports whether cublasSspr2_v2 resolved in the loaded library.
-func Hassspr2() bool {
+// HasSspr2 reports whether cublasSspr2_v2 resolved in the loaded library.
+func HasSspr2() bool {
 	return Has("cublasSspr2_v2")
 }
 
-// Hassspr264 reports whether cublasSspr2_v2_64 resolved in the loaded library.
-func Hassspr264() bool {
+// HasSspr264 reports whether cublasSspr2_v2_64 resolved in the loaded library.
+func HasSspr264() bool {
 	return Has("cublasSspr2_v2_64")
 }
 
-// Hassspr reports whether cublasSspr_v2 resolved in the loaded library.
-func Hassspr() bool {
+// HasSspr reports whether cublasSspr_v2 resolved in the loaded library.
+func HasSspr() bool {
 	return Has("cublasSspr_v2")
 }
 
-// Hassspr64 reports whether cublasSspr_v2_64 resolved in the loaded library.
-func Hassspr64() bool {
+// HasSspr64 reports whether cublasSspr_v2_64 resolved in the loaded library.
+func HasSspr64() bool {
 	return Has("cublasSspr_v2_64")
 }
 
-// Hassswap reports whether cublasSswap_v2 resolved in the loaded library.
-func Hassswap() bool {
+// HasSswap reports whether cublasSswap_v2 resolved in the loaded library.
+func HasSswap() bool {
 	return Has("cublasSswap_v2")
 }
 
-// Hassswap64 reports whether cublasSswap_v2_64 resolved in the loaded library.
-func Hassswap64() bool {
+// HasSswap64 reports whether cublasSswap_v2_64 resolved in the loaded library.
+func HasSswap64() bool {
 	return Has("cublasSswap_v2_64")
 }
 
-// Hasssymm reports whether cublasSsymm_v2 resolved in the loaded library.
-func Hasssymm() bool {
+// HasSsymm reports whether cublasSsymm_v2 resolved in the loaded library.
+func HasSsymm() bool {
 	return Has("cublasSsymm_v2")
 }
 
-// Hasssymm64 reports whether cublasSsymm_v2_64 resolved in the loaded library.
-func Hasssymm64() bool {
+// HasSsymm64 reports whether cublasSsymm_v2_64 resolved in the loaded library.
+func HasSsymm64() bool {
 	return Has("cublasSsymm_v2_64")
 }
 
-// Hasssymv reports whether cublasSsymv_v2 resolved in the loaded library.
-func Hasssymv() bool {
+// HasSsymv reports whether cublasSsymv_v2 resolved in the loaded library.
+func HasSsymv() bool {
 	return Has("cublasSsymv_v2")
 }
 
-// Hasssymv64 reports whether cublasSsymv_v2_64 resolved in the loaded library.
-func Hasssymv64() bool {
+// HasSsymv64 reports whether cublasSsymv_v2_64 resolved in the loaded library.
+func HasSsymv64() bool {
 	return Has("cublasSsymv_v2_64")
 }
 
-// Hasssyr2 reports whether cublasSsyr2_v2 resolved in the loaded library.
-func Hasssyr2() bool {
+// HasSsyr2 reports whether cublasSsyr2_v2 resolved in the loaded library.
+func HasSsyr2() bool {
 	return Has("cublasSsyr2_v2")
 }
 
-// Hasssyr264 reports whether cublasSsyr2_v2_64 resolved in the loaded library.
-func Hasssyr264() bool {
+// HasSsyr264 reports whether cublasSsyr2_v2_64 resolved in the loaded library.
+func HasSsyr264() bool {
 	return Has("cublasSsyr2_v2_64")
 }
 
-// Hasssyr2k reports whether cublasSsyr2k_v2 resolved in the loaded library.
-func Hasssyr2k() bool {
+// HasSsyr2k reports whether cublasSsyr2k_v2 resolved in the loaded library.
+func HasSsyr2k() bool {
 	return Has("cublasSsyr2k_v2")
 }
 
-// Hasssyr2k64 reports whether cublasSsyr2k_v2_64 resolved in the loaded library.
-func Hasssyr2k64() bool {
+// HasSsyr2k64 reports whether cublasSsyr2k_v2_64 resolved in the loaded library.
+func HasSsyr2k64() bool {
 	return Has("cublasSsyr2k_v2_64")
 }
 
-// Hasssyr reports whether cublasSsyr_v2 resolved in the loaded library.
-func Hasssyr() bool {
+// HasSsyr reports whether cublasSsyr_v2 resolved in the loaded library.
+func HasSsyr() bool {
 	return Has("cublasSsyr_v2")
 }
 
-// Hasssyr64 reports whether cublasSsyr_v2_64 resolved in the loaded library.
-func Hasssyr64() bool {
+// HasSsyr64 reports whether cublasSsyr_v2_64 resolved in the loaded library.
+func HasSsyr64() bool {
 	return Has("cublasSsyr_v2_64")
 }
 
-// Hasssyrk reports whether cublasSsyrk_v2 resolved in the loaded library.
-func Hasssyrk() bool {
+// HasSsyrk reports whether cublasSsyrk_v2 resolved in the loaded library.
+func HasSsyrk() bool {
 	return Has("cublasSsyrk_v2")
 }
 
-// Hasssyrk64 reports whether cublasSsyrk_v2_64 resolved in the loaded library.
-func Hasssyrk64() bool {
+// HasSsyrk64 reports whether cublasSsyrk_v2_64 resolved in the loaded library.
+func HasSsyrk64() bool {
 	return Has("cublasSsyrk_v2_64")
 }
 
-// Hasssyrkx reports whether cublasSsyrkx resolved in the loaded library.
-func Hasssyrkx() bool {
+// HasSsyrkx reports whether cublasSsyrkx resolved in the loaded library.
+func HasSsyrkx() bool {
 	return Has("cublasSsyrkx")
 }
 
-// Hasssyrkx64 reports whether cublasSsyrkx_64 resolved in the loaded library.
-func Hasssyrkx64() bool {
+// HasSsyrkx64 reports whether cublasSsyrkx_64 resolved in the loaded library.
+func HasSsyrkx64() bool {
 	return Has("cublasSsyrkx_64")
 }
 
-// Hasstbmv reports whether cublasStbmv_v2 resolved in the loaded library.
-func Hasstbmv() bool {
+// HasStbmv reports whether cublasStbmv_v2 resolved in the loaded library.
+func HasStbmv() bool {
 	return Has("cublasStbmv_v2")
 }
 
-// Hasstbmv64 reports whether cublasStbmv_v2_64 resolved in the loaded library.
-func Hasstbmv64() bool {
+// HasStbmv64 reports whether cublasStbmv_v2_64 resolved in the loaded library.
+func HasStbmv64() bool {
 	return Has("cublasStbmv_v2_64")
 }
 
-// Hasstbsv reports whether cublasStbsv_v2 resolved in the loaded library.
-func Hasstbsv() bool {
+// HasStbsv reports whether cublasStbsv_v2 resolved in the loaded library.
+func HasStbsv() bool {
 	return Has("cublasStbsv_v2")
 }
 
-// Hasstbsv64 reports whether cublasStbsv_v2_64 resolved in the loaded library.
-func Hasstbsv64() bool {
+// HasStbsv64 reports whether cublasStbsv_v2_64 resolved in the loaded library.
+func HasStbsv64() bool {
 	return Has("cublasStbsv_v2_64")
 }
 
-// Hasstpmv reports whether cublasStpmv_v2 resolved in the loaded library.
-func Hasstpmv() bool {
+// HasStpmv reports whether cublasStpmv_v2 resolved in the loaded library.
+func HasStpmv() bool {
 	return Has("cublasStpmv_v2")
 }
 
-// Hasstpmv64 reports whether cublasStpmv_v2_64 resolved in the loaded library.
-func Hasstpmv64() bool {
+// HasStpmv64 reports whether cublasStpmv_v2_64 resolved in the loaded library.
+func HasStpmv64() bool {
 	return Has("cublasStpmv_v2_64")
 }
 
-// Hasstpsv reports whether cublasStpsv_v2 resolved in the loaded library.
-func Hasstpsv() bool {
+// HasStpsv reports whether cublasStpsv_v2 resolved in the loaded library.
+func HasStpsv() bool {
 	return Has("cublasStpsv_v2")
 }
 
-// Hasstpsv64 reports whether cublasStpsv_v2_64 resolved in the loaded library.
-func Hasstpsv64() bool {
+// HasStpsv64 reports whether cublasStpsv_v2_64 resolved in the loaded library.
+func HasStpsv64() bool {
 	return Has("cublasStpsv_v2_64")
 }
 
-// Hasstpttr reports whether cublasStpttr resolved in the loaded library.
-func Hasstpttr() bool {
+// HasStpttr reports whether cublasStpttr resolved in the loaded library.
+func HasStpttr() bool {
 	return Has("cublasStpttr")
 }
 
-// Hasstrmm reports whether cublasStrmm_v2 resolved in the loaded library.
-func Hasstrmm() bool {
+// HasStrmm reports whether cublasStrmm_v2 resolved in the loaded library.
+func HasStrmm() bool {
 	return Has("cublasStrmm_v2")
 }
 
-// Hasstrmm64 reports whether cublasStrmm_v2_64 resolved in the loaded library.
-func Hasstrmm64() bool {
+// HasStrmm64 reports whether cublasStrmm_v2_64 resolved in the loaded library.
+func HasStrmm64() bool {
 	return Has("cublasStrmm_v2_64")
 }
 
-// Hasstrmv reports whether cublasStrmv_v2 resolved in the loaded library.
-func Hasstrmv() bool {
+// HasStrmv reports whether cublasStrmv_v2 resolved in the loaded library.
+func HasStrmv() bool {
 	return Has("cublasStrmv_v2")
 }
 
-// Hasstrmv64 reports whether cublasStrmv_v2_64 resolved in the loaded library.
-func Hasstrmv64() bool {
+// HasStrmv64 reports whether cublasStrmv_v2_64 resolved in the loaded library.
+func HasStrmv64() bool {
 	return Has("cublasStrmv_v2_64")
 }
 
-// HasstrsmBatched reports whether cublasStrsmBatched resolved in the loaded library.
-func HasstrsmBatched() bool {
+// HasStrsmBatched reports whether cublasStrsmBatched resolved in the loaded library.
+func HasStrsmBatched() bool {
 	return Has("cublasStrsmBatched")
 }
 
-// HasstrsmBatched64 reports whether cublasStrsmBatched_64 resolved in the loaded library.
-func HasstrsmBatched64() bool {
+// HasStrsmBatched64 reports whether cublasStrsmBatched_64 resolved in the loaded library.
+func HasStrsmBatched64() bool {
 	return Has("cublasStrsmBatched_64")
 }
 
-// Hasstrsm reports whether cublasStrsm_v2 resolved in the loaded library.
-func Hasstrsm() bool {
+// HasStrsm reports whether cublasStrsm_v2 resolved in the loaded library.
+func HasStrsm() bool {
 	return Has("cublasStrsm_v2")
 }
 
-// Hasstrsm64 reports whether cublasStrsm_v2_64 resolved in the loaded library.
-func Hasstrsm64() bool {
+// HasStrsm64 reports whether cublasStrsm_v2_64 resolved in the loaded library.
+func HasStrsm64() bool {
 	return Has("cublasStrsm_v2_64")
 }
 
-// Hasstrsv reports whether cublasStrsv_v2 resolved in the loaded library.
-func Hasstrsv() bool {
+// HasStrsv reports whether cublasStrsv_v2 resolved in the loaded library.
+func HasStrsv() bool {
 	return Has("cublasStrsv_v2")
 }
 
-// Hasstrsv64 reports whether cublasStrsv_v2_64 resolved in the loaded library.
-func Hasstrsv64() bool {
+// HasStrsv64 reports whether cublasStrsv_v2_64 resolved in the loaded library.
+func HasStrsv64() bool {
 	return Has("cublasStrsv_v2_64")
 }
 
-// Hasstrttp reports whether cublasStrttp resolved in the loaded library.
-func Hasstrttp() bool {
+// HasStrttp reports whether cublasStrttp resolved in the loaded library.
+func HasStrttp() bool {
 	return Has("cublasStrttp")
 }
 
-// HasswapEx reports whether cublasSwapEx resolved in the loaded library.
-func HasswapEx() bool {
+// HasSwapEx reports whether cublasSwapEx resolved in the loaded library.
+func HasSwapEx() bool {
 	return Has("cublasSwapEx")
 }
 
-// HasswapEx64 reports whether cublasSwapEx_64 resolved in the loaded library.
-func HasswapEx64() bool {
+// HasSwapEx64 reports whether cublasSwapEx_64 resolved in the loaded library.
+func HasSwapEx64() bool {
 	return Has("cublasSwapEx_64")
 }
 
-// HastSSgemvBatched reports whether cublasTSSgemvBatched resolved in the loaded library.
-func HastSSgemvBatched() bool {
+// HasTSSgemvBatched reports whether cublasTSSgemvBatched resolved in the loaded library.
+func HasTSSgemvBatched() bool {
 	return Has("cublasTSSgemvBatched")
 }
 
-// HastSSgemvBatched64 reports whether cublasTSSgemvBatched_64 resolved in the loaded library.
-func HastSSgemvBatched64() bool {
+// HasTSSgemvBatched64 reports whether cublasTSSgemvBatched_64 resolved in the loaded library.
+func HasTSSgemvBatched64() bool {
 	return Has("cublasTSSgemvBatched_64")
 }
 
-// HastSSgemvStridedBatched reports whether cublasTSSgemvStridedBatched resolved in the loaded library.
-func HastSSgemvStridedBatched() bool {
+// HasTSSgemvStridedBatched reports whether cublasTSSgemvStridedBatched resolved in the loaded library.
+func HasTSSgemvStridedBatched() bool {
 	return Has("cublasTSSgemvStridedBatched")
 }
 
-// HastSSgemvStridedBatched64 reports whether cublasTSSgemvStridedBatched_64 resolved in the loaded library.
-func HastSSgemvStridedBatched64() bool {
+// HasTSSgemvStridedBatched64 reports whether cublasTSSgemvStridedBatched_64 resolved in the loaded library.
+func HasTSSgemvStridedBatched64() bool {
 	return Has("cublasTSSgemvStridedBatched_64")
 }
 
-// HastSTgemvBatched reports whether cublasTSTgemvBatched resolved in the loaded library.
-func HastSTgemvBatched() bool {
+// HasTSTgemvBatched reports whether cublasTSTgemvBatched resolved in the loaded library.
+func HasTSTgemvBatched() bool {
 	return Has("cublasTSTgemvBatched")
 }
 
-// HastSTgemvBatched64 reports whether cublasTSTgemvBatched_64 resolved in the loaded library.
-func HastSTgemvBatched64() bool {
+// HasTSTgemvBatched64 reports whether cublasTSTgemvBatched_64 resolved in the loaded library.
+func HasTSTgemvBatched64() bool {
 	return Has("cublasTSTgemvBatched_64")
 }
 
-// HastSTgemvStridedBatched reports whether cublasTSTgemvStridedBatched resolved in the loaded library.
-func HastSTgemvStridedBatched() bool {
+// HasTSTgemvStridedBatched reports whether cublasTSTgemvStridedBatched resolved in the loaded library.
+func HasTSTgemvStridedBatched() bool {
 	return Has("cublasTSTgemvStridedBatched")
 }
 
-// HastSTgemvStridedBatched64 reports whether cublasTSTgemvStridedBatched_64 resolved in the loaded library.
-func HastSTgemvStridedBatched64() bool {
+// HasTSTgemvStridedBatched64 reports whether cublasTSTgemvStridedBatched_64 resolved in the loaded library.
+func HasTSTgemvStridedBatched64() bool {
 	return Has("cublasTSTgemvStridedBatched_64")
 }
 
-// Hasuint8gemmBias reports whether cublasUint8gemmBias resolved in the loaded library.
-func Hasuint8gemmBias() bool {
+// HasUint8gemmBias reports whether cublasUint8gemmBias resolved in the loaded library.
+func HasUint8gemmBias() bool {
 	return Has("cublasUint8gemmBias")
 }
 
-// Haszaxpy reports whether cublasZaxpy_v2 resolved in the loaded library.
-func Haszaxpy() bool {
+// HasZaxpy reports whether cublasZaxpy_v2 resolved in the loaded library.
+func HasZaxpy() bool {
 	return Has("cublasZaxpy_v2")
 }
 
-// Haszaxpy64 reports whether cublasZaxpy_v2_64 resolved in the loaded library.
-func Haszaxpy64() bool {
+// HasZaxpy64 reports whether cublasZaxpy_v2_64 resolved in the loaded library.
+func HasZaxpy64() bool {
 	return Has("cublasZaxpy_v2_64")
 }
 
-// Haszcopy reports whether cublasZcopy_v2 resolved in the loaded library.
-func Haszcopy() bool {
+// HasZcopy reports whether cublasZcopy_v2 resolved in the loaded library.
+func HasZcopy() bool {
 	return Has("cublasZcopy_v2")
 }
 
-// Haszcopy64 reports whether cublasZcopy_v2_64 resolved in the loaded library.
-func Haszcopy64() bool {
+// HasZcopy64 reports whether cublasZcopy_v2_64 resolved in the loaded library.
+func HasZcopy64() bool {
 	return Has("cublasZcopy_v2_64")
 }
 
-// Haszdgmm reports whether cublasZdgmm resolved in the loaded library.
-func Haszdgmm() bool {
+// HasZdgmm reports whether cublasZdgmm resolved in the loaded library.
+func HasZdgmm() bool {
 	return Has("cublasZdgmm")
 }
 
-// Haszdgmm64 reports whether cublasZdgmm_64 resolved in the loaded library.
-func Haszdgmm64() bool {
+// HasZdgmm64 reports whether cublasZdgmm_64 resolved in the loaded library.
+func HasZdgmm64() bool {
 	return Has("cublasZdgmm_64")
 }
 
-// Haszdotc reports whether cublasZdotc_v2 resolved in the loaded library.
-func Haszdotc() bool {
+// HasZdotc reports whether cublasZdotc_v2 resolved in the loaded library.
+func HasZdotc() bool {
 	return Has("cublasZdotc_v2")
 }
 
-// Haszdotc64 reports whether cublasZdotc_v2_64 resolved in the loaded library.
-func Haszdotc64() bool {
+// HasZdotc64 reports whether cublasZdotc_v2_64 resolved in the loaded library.
+func HasZdotc64() bool {
 	return Has("cublasZdotc_v2_64")
 }
 
-// Haszdotu reports whether cublasZdotu_v2 resolved in the loaded library.
-func Haszdotu() bool {
+// HasZdotu reports whether cublasZdotu_v2 resolved in the loaded library.
+func HasZdotu() bool {
 	return Has("cublasZdotu_v2")
 }
 
-// Haszdotu64 reports whether cublasZdotu_v2_64 resolved in the loaded library.
-func Haszdotu64() bool {
+// HasZdotu64 reports whether cublasZdotu_v2_64 resolved in the loaded library.
+func HasZdotu64() bool {
 	return Has("cublasZdotu_v2_64")
 }
 
-// Haszdrot reports whether cublasZdrot_v2 resolved in the loaded library.
-func Haszdrot() bool {
+// HasZdrot reports whether cublasZdrot_v2 resolved in the loaded library.
+func HasZdrot() bool {
 	return Has("cublasZdrot_v2")
 }
 
-// Haszdrot64 reports whether cublasZdrot_v2_64 resolved in the loaded library.
-func Haszdrot64() bool {
+// HasZdrot64 reports whether cublasZdrot_v2_64 resolved in the loaded library.
+func HasZdrot64() bool {
 	return Has("cublasZdrot_v2_64")
 }
 
-// Haszdscal reports whether cublasZdscal_v2 resolved in the loaded library.
-func Haszdscal() bool {
+// HasZdscal reports whether cublasZdscal_v2 resolved in the loaded library.
+func HasZdscal() bool {
 	return Has("cublasZdscal_v2")
 }
 
-// Haszdscal64 reports whether cublasZdscal_v2_64 resolved in the loaded library.
-func Haszdscal64() bool {
+// HasZdscal64 reports whether cublasZdscal_v2_64 resolved in the loaded library.
+func HasZdscal64() bool {
 	return Has("cublasZdscal_v2_64")
 }
 
-// Haszgbmv reports whether cublasZgbmv_v2 resolved in the loaded library.
-func Haszgbmv() bool {
+// HasZgbmv reports whether cublasZgbmv_v2 resolved in the loaded library.
+func HasZgbmv() bool {
 	return Has("cublasZgbmv_v2")
 }
 
-// Haszgbmv64 reports whether cublasZgbmv_v2_64 resolved in the loaded library.
-func Haszgbmv64() bool {
+// HasZgbmv64 reports whether cublasZgbmv_v2_64 resolved in the loaded library.
+func HasZgbmv64() bool {
 	return Has("cublasZgbmv_v2_64")
 }
 
-// Haszgeam reports whether cublasZgeam resolved in the loaded library.
-func Haszgeam() bool {
+// HasZgeam reports whether cublasZgeam resolved in the loaded library.
+func HasZgeam() bool {
 	return Has("cublasZgeam")
 }
 
-// Haszgeam64 reports whether cublasZgeam_64 resolved in the loaded library.
-func Haszgeam64() bool {
+// HasZgeam64 reports whether cublasZgeam_64 resolved in the loaded library.
+func HasZgeam64() bool {
 	return Has("cublasZgeam_64")
 }
 
-// HaszgelsBatched reports whether cublasZgelsBatched resolved in the loaded library.
-func HaszgelsBatched() bool {
+// HasZgelsBatched reports whether cublasZgelsBatched resolved in the loaded library.
+func HasZgelsBatched() bool {
 	return Has("cublasZgelsBatched")
 }
 
-// Haszgemm3m reports whether cublasZgemm3m resolved in the loaded library.
-func Haszgemm3m() bool {
+// HasZgemm3m reports whether cublasZgemm3m resolved in the loaded library.
+func HasZgemm3m() bool {
 	return Has("cublasZgemm3m")
 }
 
-// Haszgemm3m64 reports whether cublasZgemm3m_64 resolved in the loaded library.
-func Haszgemm3m64() bool {
+// HasZgemm3m64 reports whether cublasZgemm3m_64 resolved in the loaded library.
+func HasZgemm3m64() bool {
 	return Has("cublasZgemm3m_64")
 }
 
-// HaszgemmBatched reports whether cublasZgemmBatched resolved in the loaded library.
-func HaszgemmBatched() bool {
+// HasZgemmBatched reports whether cublasZgemmBatched resolved in the loaded library.
+func HasZgemmBatched() bool {
 	return Has("cublasZgemmBatched")
 }
 
-// HaszgemmBatched64 reports whether cublasZgemmBatched_64 resolved in the loaded library.
-func HaszgemmBatched64() bool {
+// HasZgemmBatched64 reports whether cublasZgemmBatched_64 resolved in the loaded library.
+func HasZgemmBatched64() bool {
 	return Has("cublasZgemmBatched_64")
 }
 
-// HaszgemmStridedBatched reports whether cublasZgemmStridedBatched resolved in the loaded library.
-func HaszgemmStridedBatched() bool {
+// HasZgemmStridedBatched reports whether cublasZgemmStridedBatched resolved in the loaded library.
+func HasZgemmStridedBatched() bool {
 	return Has("cublasZgemmStridedBatched")
 }
 
-// HaszgemmStridedBatched64 reports whether cublasZgemmStridedBatched_64 resolved in the loaded library.
-func HaszgemmStridedBatched64() bool {
+// HasZgemmStridedBatched64 reports whether cublasZgemmStridedBatched_64 resolved in the loaded library.
+func HasZgemmStridedBatched64() bool {
 	return Has("cublasZgemmStridedBatched_64")
 }
 
-// Haszgemm reports whether cublasZgemm_v2 resolved in the loaded library.
-func Haszgemm() bool {
+// HasZgemm reports whether cublasZgemm_v2 resolved in the loaded library.
+func HasZgemm() bool {
 	return Has("cublasZgemm_v2")
 }
 
-// Haszgemm64 reports whether cublasZgemm_v2_64 resolved in the loaded library.
-func Haszgemm64() bool {
+// HasZgemm64 reports whether cublasZgemm_v2_64 resolved in the loaded library.
+func HasZgemm64() bool {
 	return Has("cublasZgemm_v2_64")
 }
 
-// HaszgemvBatched reports whether cublasZgemvBatched resolved in the loaded library.
-func HaszgemvBatched() bool {
+// HasZgemvBatched reports whether cublasZgemvBatched resolved in the loaded library.
+func HasZgemvBatched() bool {
 	return Has("cublasZgemvBatched")
 }
 
-// HaszgemvBatched64 reports whether cublasZgemvBatched_64 resolved in the loaded library.
-func HaszgemvBatched64() bool {
+// HasZgemvBatched64 reports whether cublasZgemvBatched_64 resolved in the loaded library.
+func HasZgemvBatched64() bool {
 	return Has("cublasZgemvBatched_64")
 }
 
-// HaszgemvStridedBatched reports whether cublasZgemvStridedBatched resolved in the loaded library.
-func HaszgemvStridedBatched() bool {
+// HasZgemvStridedBatched reports whether cublasZgemvStridedBatched resolved in the loaded library.
+func HasZgemvStridedBatched() bool {
 	return Has("cublasZgemvStridedBatched")
 }
 
-// HaszgemvStridedBatched64 reports whether cublasZgemvStridedBatched_64 resolved in the loaded library.
-func HaszgemvStridedBatched64() bool {
+// HasZgemvStridedBatched64 reports whether cublasZgemvStridedBatched_64 resolved in the loaded library.
+func HasZgemvStridedBatched64() bool {
 	return Has("cublasZgemvStridedBatched_64")
 }
 
-// Haszgemv reports whether cublasZgemv_v2 resolved in the loaded library.
-func Haszgemv() bool {
+// HasZgemv reports whether cublasZgemv_v2 resolved in the loaded library.
+func HasZgemv() bool {
 	return Has("cublasZgemv_v2")
 }
 
-// Haszgemv64 reports whether cublasZgemv_v2_64 resolved in the loaded library.
-func Haszgemv64() bool {
+// HasZgemv64 reports whether cublasZgemv_v2_64 resolved in the loaded library.
+func HasZgemv64() bool {
 	return Has("cublasZgemv_v2_64")
 }
 
-// HaszgeqrfBatched reports whether cublasZgeqrfBatched resolved in the loaded library.
-func HaszgeqrfBatched() bool {
+// HasZgeqrfBatched reports whether cublasZgeqrfBatched resolved in the loaded library.
+func HasZgeqrfBatched() bool {
 	return Has("cublasZgeqrfBatched")
 }
 
-// Haszgerc reports whether cublasZgerc_v2 resolved in the loaded library.
-func Haszgerc() bool {
+// HasZgerc reports whether cublasZgerc_v2 resolved in the loaded library.
+func HasZgerc() bool {
 	return Has("cublasZgerc_v2")
 }
 
-// Haszgerc64 reports whether cublasZgerc_v2_64 resolved in the loaded library.
-func Haszgerc64() bool {
+// HasZgerc64 reports whether cublasZgerc_v2_64 resolved in the loaded library.
+func HasZgerc64() bool {
 	return Has("cublasZgerc_v2_64")
 }
 
-// Haszgeru reports whether cublasZgeru_v2 resolved in the loaded library.
-func Haszgeru() bool {
+// HasZgeru reports whether cublasZgeru_v2 resolved in the loaded library.
+func HasZgeru() bool {
 	return Has("cublasZgeru_v2")
 }
 
-// Haszgeru64 reports whether cublasZgeru_v2_64 resolved in the loaded library.
-func Haszgeru64() bool {
+// HasZgeru64 reports whether cublasZgeru_v2_64 resolved in the loaded library.
+func HasZgeru64() bool {
 	return Has("cublasZgeru_v2_64")
 }
 
-// HaszgetrfBatched reports whether cublasZgetrfBatched resolved in the loaded library.
-func HaszgetrfBatched() bool {
+// HasZgetrfBatched reports whether cublasZgetrfBatched resolved in the loaded library.
+func HasZgetrfBatched() bool {
 	return Has("cublasZgetrfBatched")
 }
 
-// HaszgetriBatched reports whether cublasZgetriBatched resolved in the loaded library.
-func HaszgetriBatched() bool {
+// HasZgetriBatched reports whether cublasZgetriBatched resolved in the loaded library.
+func HasZgetriBatched() bool {
 	return Has("cublasZgetriBatched")
 }
 
-// HaszgetrsBatched reports whether cublasZgetrsBatched resolved in the loaded library.
-func HaszgetrsBatched() bool {
+// HasZgetrsBatched reports whether cublasZgetrsBatched resolved in the loaded library.
+func HasZgetrsBatched() bool {
 	return Has("cublasZgetrsBatched")
 }
 
-// Haszhbmv reports whether cublasZhbmv_v2 resolved in the loaded library.
-func Haszhbmv() bool {
+// HasZhbmv reports whether cublasZhbmv_v2 resolved in the loaded library.
+func HasZhbmv() bool {
 	return Has("cublasZhbmv_v2")
 }
 
-// Haszhbmv64 reports whether cublasZhbmv_v2_64 resolved in the loaded library.
-func Haszhbmv64() bool {
+// HasZhbmv64 reports whether cublasZhbmv_v2_64 resolved in the loaded library.
+func HasZhbmv64() bool {
 	return Has("cublasZhbmv_v2_64")
 }
 
-// Haszhemm reports whether cublasZhemm_v2 resolved in the loaded library.
-func Haszhemm() bool {
+// HasZhemm reports whether cublasZhemm_v2 resolved in the loaded library.
+func HasZhemm() bool {
 	return Has("cublasZhemm_v2")
 }
 
-// Haszhemm64 reports whether cublasZhemm_v2_64 resolved in the loaded library.
-func Haszhemm64() bool {
+// HasZhemm64 reports whether cublasZhemm_v2_64 resolved in the loaded library.
+func HasZhemm64() bool {
 	return Has("cublasZhemm_v2_64")
 }
 
-// Haszhemv reports whether cublasZhemv_v2 resolved in the loaded library.
-func Haszhemv() bool {
+// HasZhemv reports whether cublasZhemv_v2 resolved in the loaded library.
+func HasZhemv() bool {
 	return Has("cublasZhemv_v2")
 }
 
-// Haszhemv64 reports whether cublasZhemv_v2_64 resolved in the loaded library.
-func Haszhemv64() bool {
+// HasZhemv64 reports whether cublasZhemv_v2_64 resolved in the loaded library.
+func HasZhemv64() bool {
 	return Has("cublasZhemv_v2_64")
 }
 
-// Haszher2 reports whether cublasZher2_v2 resolved in the loaded library.
-func Haszher2() bool {
+// HasZher2 reports whether cublasZher2_v2 resolved in the loaded library.
+func HasZher2() bool {
 	return Has("cublasZher2_v2")
 }
 
-// Haszher264 reports whether cublasZher2_v2_64 resolved in the loaded library.
-func Haszher264() bool {
+// HasZher264 reports whether cublasZher2_v2_64 resolved in the loaded library.
+func HasZher264() bool {
 	return Has("cublasZher2_v2_64")
 }
 
-// Haszher2k reports whether cublasZher2k_v2 resolved in the loaded library.
-func Haszher2k() bool {
+// HasZher2k reports whether cublasZher2k_v2 resolved in the loaded library.
+func HasZher2k() bool {
 	return Has("cublasZher2k_v2")
 }
 
-// Haszher2k64 reports whether cublasZher2k_v2_64 resolved in the loaded library.
-func Haszher2k64() bool {
+// HasZher2k64 reports whether cublasZher2k_v2_64 resolved in the loaded library.
+func HasZher2k64() bool {
 	return Has("cublasZher2k_v2_64")
 }
 
-// Haszher reports whether cublasZher_v2 resolved in the loaded library.
-func Haszher() bool {
+// HasZher reports whether cublasZher_v2 resolved in the loaded library.
+func HasZher() bool {
 	return Has("cublasZher_v2")
 }
 
-// Haszher64 reports whether cublasZher_v2_64 resolved in the loaded library.
-func Haszher64() bool {
+// HasZher64 reports whether cublasZher_v2_64 resolved in the loaded library.
+func HasZher64() bool {
 	return Has("cublasZher_v2_64")
 }
 
-// Haszherk reports whether cublasZherk_v2 resolved in the loaded library.
-func Haszherk() bool {
+// HasZherk reports whether cublasZherk_v2 resolved in the loaded library.
+func HasZherk() bool {
 	return Has("cublasZherk_v2")
 }
 
-// Haszherk64 reports whether cublasZherk_v2_64 resolved in the loaded library.
-func Haszherk64() bool {
+// HasZherk64 reports whether cublasZherk_v2_64 resolved in the loaded library.
+func HasZherk64() bool {
 	return Has("cublasZherk_v2_64")
 }
 
-// Haszherkx reports whether cublasZherkx resolved in the loaded library.
-func Haszherkx() bool {
+// HasZherkx reports whether cublasZherkx resolved in the loaded library.
+func HasZherkx() bool {
 	return Has("cublasZherkx")
 }
 
-// Haszherkx64 reports whether cublasZherkx_64 resolved in the loaded library.
-func Haszherkx64() bool {
+// HasZherkx64 reports whether cublasZherkx_64 resolved in the loaded library.
+func HasZherkx64() bool {
 	return Has("cublasZherkx_64")
 }
 
-// Haszhpmv reports whether cublasZhpmv_v2 resolved in the loaded library.
-func Haszhpmv() bool {
+// HasZhpmv reports whether cublasZhpmv_v2 resolved in the loaded library.
+func HasZhpmv() bool {
 	return Has("cublasZhpmv_v2")
 }
 
-// Haszhpmv64 reports whether cublasZhpmv_v2_64 resolved in the loaded library.
-func Haszhpmv64() bool {
+// HasZhpmv64 reports whether cublasZhpmv_v2_64 resolved in the loaded library.
+func HasZhpmv64() bool {
 	return Has("cublasZhpmv_v2_64")
 }
 
-// Haszhpr2 reports whether cublasZhpr2_v2 resolved in the loaded library.
-func Haszhpr2() bool {
+// HasZhpr2 reports whether cublasZhpr2_v2 resolved in the loaded library.
+func HasZhpr2() bool {
 	return Has("cublasZhpr2_v2")
 }
 
-// Haszhpr264 reports whether cublasZhpr2_v2_64 resolved in the loaded library.
-func Haszhpr264() bool {
+// HasZhpr264 reports whether cublasZhpr2_v2_64 resolved in the loaded library.
+func HasZhpr264() bool {
 	return Has("cublasZhpr2_v2_64")
 }
 
-// Haszhpr reports whether cublasZhpr_v2 resolved in the loaded library.
-func Haszhpr() bool {
+// HasZhpr reports whether cublasZhpr_v2 resolved in the loaded library.
+func HasZhpr() bool {
 	return Has("cublasZhpr_v2")
 }
 
-// Haszhpr64 reports whether cublasZhpr_v2_64 resolved in the loaded library.
-func Haszhpr64() bool {
+// HasZhpr64 reports whether cublasZhpr_v2_64 resolved in the loaded library.
+func HasZhpr64() bool {
 	return Has("cublasZhpr_v2_64")
 }
 
-// HaszmatinvBatched reports whether cublasZmatinvBatched resolved in the loaded library.
-func HaszmatinvBatched() bool {
+// HasZmatinvBatched reports whether cublasZmatinvBatched resolved in the loaded library.
+func HasZmatinvBatched() bool {
 	return Has("cublasZmatinvBatched")
 }
 
-// Haszrot reports whether cublasZrot_v2 resolved in the loaded library.
-func Haszrot() bool {
+// HasZrot reports whether cublasZrot_v2 resolved in the loaded library.
+func HasZrot() bool {
 	return Has("cublasZrot_v2")
 }
 
-// Haszrot64 reports whether cublasZrot_v2_64 resolved in the loaded library.
-func Haszrot64() bool {
+// HasZrot64 reports whether cublasZrot_v2_64 resolved in the loaded library.
+func HasZrot64() bool {
 	return Has("cublasZrot_v2_64")
 }
 
-// Haszrotg reports whether cublasZrotg_v2 resolved in the loaded library.
-func Haszrotg() bool {
+// HasZrotg reports whether cublasZrotg_v2 resolved in the loaded library.
+func HasZrotg() bool {
 	return Has("cublasZrotg_v2")
 }
 
-// Haszscal reports whether cublasZscal_v2 resolved in the loaded library.
-func Haszscal() bool {
+// HasZscal reports whether cublasZscal_v2 resolved in the loaded library.
+func HasZscal() bool {
 	return Has("cublasZscal_v2")
 }
 
-// Haszscal64 reports whether cublasZscal_v2_64 resolved in the loaded library.
-func Haszscal64() bool {
+// HasZscal64 reports whether cublasZscal_v2_64 resolved in the loaded library.
+func HasZscal64() bool {
 	return Has("cublasZscal_v2_64")
 }
 
-// Haszswap reports whether cublasZswap_v2 resolved in the loaded library.
-func Haszswap() bool {
+// HasZswap reports whether cublasZswap_v2 resolved in the loaded library.
+func HasZswap() bool {
 	return Has("cublasZswap_v2")
 }
 
-// Haszswap64 reports whether cublasZswap_v2_64 resolved in the loaded library.
-func Haszswap64() bool {
+// HasZswap64 reports whether cublasZswap_v2_64 resolved in the loaded library.
+func HasZswap64() bool {
 	return Has("cublasZswap_v2_64")
 }
 
-// Haszsymm reports whether cublasZsymm_v2 resolved in the loaded library.
-func Haszsymm() bool {
+// HasZsymm reports whether cublasZsymm_v2 resolved in the loaded library.
+func HasZsymm() bool {
 	return Has("cublasZsymm_v2")
 }
 
-// Haszsymm64 reports whether cublasZsymm_v2_64 resolved in the loaded library.
-func Haszsymm64() bool {
+// HasZsymm64 reports whether cublasZsymm_v2_64 resolved in the loaded library.
+func HasZsymm64() bool {
 	return Has("cublasZsymm_v2_64")
 }
 
-// Haszsymv reports whether cublasZsymv_v2 resolved in the loaded library.
-func Haszsymv() bool {
+// HasZsymv reports whether cublasZsymv_v2 resolved in the loaded library.
+func HasZsymv() bool {
 	return Has("cublasZsymv_v2")
 }
 
-// Haszsymv64 reports whether cublasZsymv_v2_64 resolved in the loaded library.
-func Haszsymv64() bool {
+// HasZsymv64 reports whether cublasZsymv_v2_64 resolved in the loaded library.
+func HasZsymv64() bool {
 	return Has("cublasZsymv_v2_64")
 }
 
-// Haszsyr2 reports whether cublasZsyr2_v2 resolved in the loaded library.
-func Haszsyr2() bool {
+// HasZsyr2 reports whether cublasZsyr2_v2 resolved in the loaded library.
+func HasZsyr2() bool {
 	return Has("cublasZsyr2_v2")
 }
 
-// Haszsyr264 reports whether cublasZsyr2_v2_64 resolved in the loaded library.
-func Haszsyr264() bool {
+// HasZsyr264 reports whether cublasZsyr2_v2_64 resolved in the loaded library.
+func HasZsyr264() bool {
 	return Has("cublasZsyr2_v2_64")
 }
 
-// Haszsyr2k reports whether cublasZsyr2k_v2 resolved in the loaded library.
-func Haszsyr2k() bool {
+// HasZsyr2k reports whether cublasZsyr2k_v2 resolved in the loaded library.
+func HasZsyr2k() bool {
 	return Has("cublasZsyr2k_v2")
 }
 
-// Haszsyr2k64 reports whether cublasZsyr2k_v2_64 resolved in the loaded library.
-func Haszsyr2k64() bool {
+// HasZsyr2k64 reports whether cublasZsyr2k_v2_64 resolved in the loaded library.
+func HasZsyr2k64() bool {
 	return Has("cublasZsyr2k_v2_64")
 }
 
-// Haszsyr reports whether cublasZsyr_v2 resolved in the loaded library.
-func Haszsyr() bool {
+// HasZsyr reports whether cublasZsyr_v2 resolved in the loaded library.
+func HasZsyr() bool {
 	return Has("cublasZsyr_v2")
 }
 
-// Haszsyr64 reports whether cublasZsyr_v2_64 resolved in the loaded library.
-func Haszsyr64() bool {
+// HasZsyr64 reports whether cublasZsyr_v2_64 resolved in the loaded library.
+func HasZsyr64() bool {
 	return Has("cublasZsyr_v2_64")
 }
 
-// Haszsyrk reports whether cublasZsyrk_v2 resolved in the loaded library.
-func Haszsyrk() bool {
+// HasZsyrk reports whether cublasZsyrk_v2 resolved in the loaded library.
+func HasZsyrk() bool {
 	return Has("cublasZsyrk_v2")
 }
 
-// Haszsyrk64 reports whether cublasZsyrk_v2_64 resolved in the loaded library.
-func Haszsyrk64() bool {
+// HasZsyrk64 reports whether cublasZsyrk_v2_64 resolved in the loaded library.
+func HasZsyrk64() bool {
 	return Has("cublasZsyrk_v2_64")
 }
 
-// Haszsyrkx reports whether cublasZsyrkx resolved in the loaded library.
-func Haszsyrkx() bool {
+// HasZsyrkx reports whether cublasZsyrkx resolved in the loaded library.
+func HasZsyrkx() bool {
 	return Has("cublasZsyrkx")
 }
 
-// Haszsyrkx64 reports whether cublasZsyrkx_64 resolved in the loaded library.
-func Haszsyrkx64() bool {
+// HasZsyrkx64 reports whether cublasZsyrkx_64 resolved in the loaded library.
+func HasZsyrkx64() bool {
 	return Has("cublasZsyrkx_64")
 }
 
-// Hasztbmv reports whether cublasZtbmv_v2 resolved in the loaded library.
-func Hasztbmv() bool {
+// HasZtbmv reports whether cublasZtbmv_v2 resolved in the loaded library.
+func HasZtbmv() bool {
 	return Has("cublasZtbmv_v2")
 }
 
-// Hasztbmv64 reports whether cublasZtbmv_v2_64 resolved in the loaded library.
-func Hasztbmv64() bool {
+// HasZtbmv64 reports whether cublasZtbmv_v2_64 resolved in the loaded library.
+func HasZtbmv64() bool {
 	return Has("cublasZtbmv_v2_64")
 }
 
-// Hasztbsv reports whether cublasZtbsv_v2 resolved in the loaded library.
-func Hasztbsv() bool {
+// HasZtbsv reports whether cublasZtbsv_v2 resolved in the loaded library.
+func HasZtbsv() bool {
 	return Has("cublasZtbsv_v2")
 }
 
-// Hasztbsv64 reports whether cublasZtbsv_v2_64 resolved in the loaded library.
-func Hasztbsv64() bool {
+// HasZtbsv64 reports whether cublasZtbsv_v2_64 resolved in the loaded library.
+func HasZtbsv64() bool {
 	return Has("cublasZtbsv_v2_64")
 }
 
-// Hasztpmv reports whether cublasZtpmv_v2 resolved in the loaded library.
-func Hasztpmv() bool {
+// HasZtpmv reports whether cublasZtpmv_v2 resolved in the loaded library.
+func HasZtpmv() bool {
 	return Has("cublasZtpmv_v2")
 }
 
-// Hasztpmv64 reports whether cublasZtpmv_v2_64 resolved in the loaded library.
-func Hasztpmv64() bool {
+// HasZtpmv64 reports whether cublasZtpmv_v2_64 resolved in the loaded library.
+func HasZtpmv64() bool {
 	return Has("cublasZtpmv_v2_64")
 }
 
-// Hasztpsv reports whether cublasZtpsv_v2 resolved in the loaded library.
-func Hasztpsv() bool {
+// HasZtpsv reports whether cublasZtpsv_v2 resolved in the loaded library.
+func HasZtpsv() bool {
 	return Has("cublasZtpsv_v2")
 }
 
-// Hasztpsv64 reports whether cublasZtpsv_v2_64 resolved in the loaded library.
-func Hasztpsv64() bool {
+// HasZtpsv64 reports whether cublasZtpsv_v2_64 resolved in the loaded library.
+func HasZtpsv64() bool {
 	return Has("cublasZtpsv_v2_64")
 }
 
-// Hasztpttr reports whether cublasZtpttr resolved in the loaded library.
-func Hasztpttr() bool {
+// HasZtpttr reports whether cublasZtpttr resolved in the loaded library.
+func HasZtpttr() bool {
 	return Has("cublasZtpttr")
 }
 
-// Hasztrmm reports whether cublasZtrmm_v2 resolved in the loaded library.
-func Hasztrmm() bool {
+// HasZtrmm reports whether cublasZtrmm_v2 resolved in the loaded library.
+func HasZtrmm() bool {
 	return Has("cublasZtrmm_v2")
 }
 
-// Hasztrmm64 reports whether cublasZtrmm_v2_64 resolved in the loaded library.
-func Hasztrmm64() bool {
+// HasZtrmm64 reports whether cublasZtrmm_v2_64 resolved in the loaded library.
+func HasZtrmm64() bool {
 	return Has("cublasZtrmm_v2_64")
 }
 
-// Hasztrmv reports whether cublasZtrmv_v2 resolved in the loaded library.
-func Hasztrmv() bool {
+// HasZtrmv reports whether cublasZtrmv_v2 resolved in the loaded library.
+func HasZtrmv() bool {
 	return Has("cublasZtrmv_v2")
 }
 
-// Hasztrmv64 reports whether cublasZtrmv_v2_64 resolved in the loaded library.
-func Hasztrmv64() bool {
+// HasZtrmv64 reports whether cublasZtrmv_v2_64 resolved in the loaded library.
+func HasZtrmv64() bool {
 	return Has("cublasZtrmv_v2_64")
 }
 
-// HasztrsmBatched reports whether cublasZtrsmBatched resolved in the loaded library.
-func HasztrsmBatched() bool {
+// HasZtrsmBatched reports whether cublasZtrsmBatched resolved in the loaded library.
+func HasZtrsmBatched() bool {
 	return Has("cublasZtrsmBatched")
 }
 
-// HasztrsmBatched64 reports whether cublasZtrsmBatched_64 resolved in the loaded library.
-func HasztrsmBatched64() bool {
+// HasZtrsmBatched64 reports whether cublasZtrsmBatched_64 resolved in the loaded library.
+func HasZtrsmBatched64() bool {
 	return Has("cublasZtrsmBatched_64")
 }
 
-// Hasztrsm reports whether cublasZtrsm_v2 resolved in the loaded library.
-func Hasztrsm() bool {
+// HasZtrsm reports whether cublasZtrsm_v2 resolved in the loaded library.
+func HasZtrsm() bool {
 	return Has("cublasZtrsm_v2")
 }
 
-// Hasztrsm64 reports whether cublasZtrsm_v2_64 resolved in the loaded library.
-func Hasztrsm64() bool {
+// HasZtrsm64 reports whether cublasZtrsm_v2_64 resolved in the loaded library.
+func HasZtrsm64() bool {
 	return Has("cublasZtrsm_v2_64")
 }
 
-// Hasztrsv reports whether cublasZtrsv_v2 resolved in the loaded library.
-func Hasztrsv() bool {
+// HasZtrsv reports whether cublasZtrsv_v2 resolved in the loaded library.
+func HasZtrsv() bool {
 	return Has("cublasZtrsv_v2")
 }
 
-// Hasztrsv64 reports whether cublasZtrsv_v2_64 resolved in the loaded library.
-func Hasztrsv64() bool {
+// HasZtrsv64 reports whether cublasZtrsv_v2_64 resolved in the loaded library.
+func HasZtrsv64() bool {
 	return Has("cublasZtrsv_v2_64")
 }
 
-// Hasztrttp reports whether cublasZtrttp resolved in the loaded library.
-func Hasztrttp() bool {
+// HasZtrttp reports whether cublasZtrttp resolved in the loaded library.
+func HasZtrttp() bool {
 	return Has("cublasZtrttp")
 }

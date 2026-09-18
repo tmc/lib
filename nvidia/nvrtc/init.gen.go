@@ -460,13 +460,13 @@ func HasGetErrorString() bool {
 	return Has("nvrtcGetErrorString")
 }
 
-// HasaddNameExpression reports whether nvrtcAddNameExpression resolved in the loaded library.
-func HasaddNameExpression() bool {
+// HasAddNameExpression reports whether nvrtcAddNameExpression resolved in the loaded library.
+func HasAddNameExpression() bool {
 	return Has("nvrtcAddNameExpression")
 }
 
-// HascompileProgram reports whether nvrtcCompileProgram resolved in the loaded library.
-func HascompileProgram() bool {
+// HasCompileProgram reports whether nvrtcCompileProgram resolved in the loaded library.
+func HasCompileProgram() bool {
 	return Has("nvrtcCompileProgram")
 }
 
@@ -485,28 +485,28 @@ func HasGetBundledHeadersInfo() bool {
 	return Has("nvrtcGetBundledHeadersInfo")
 }
 
-// HasgetCUBIN reports whether nvrtcGetCUBIN resolved in the loaded library.
-func HasgetCUBIN() bool {
+// HasGetCUBIN reports whether nvrtcGetCUBIN resolved in the loaded library.
+func HasGetCUBIN() bool {
 	return Has("nvrtcGetCUBIN")
 }
 
-// HasgetCUBINSize reports whether nvrtcGetCUBINSize resolved in the loaded library.
-func HasgetCUBINSize() bool {
+// HasGetCUBINSize reports whether nvrtcGetCUBINSize resolved in the loaded library.
+func HasGetCUBINSize() bool {
 	return Has("nvrtcGetCUBINSize")
 }
 
-// HasgetLTOIR reports whether nvrtcGetLTOIR resolved in the loaded library.
-func HasgetLTOIR() bool {
+// HasGetLTOIR reports whether nvrtcGetLTOIR resolved in the loaded library.
+func HasGetLTOIR() bool {
 	return Has("nvrtcGetLTOIR")
 }
 
-// HasgetLTOIRSize reports whether nvrtcGetLTOIRSize resolved in the loaded library.
-func HasgetLTOIRSize() bool {
+// HasGetLTOIRSize reports whether nvrtcGetLTOIRSize resolved in the loaded library.
+func HasGetLTOIRSize() bool {
 	return Has("nvrtcGetLTOIRSize")
 }
 
-// HasgetLoweredName reports whether nvrtcGetLoweredName resolved in the loaded library.
-func HasgetLoweredName() bool {
+// HasGetLoweredName reports whether nvrtcGetLoweredName resolved in the loaded library.
+func HasGetLoweredName() bool {
 	return Has("nvrtcGetLoweredName")
 }
 
@@ -515,18 +515,18 @@ func HasGetNumSupportedArchs() bool {
 	return Has("nvrtcGetNumSupportedArchs")
 }
 
-// HasgetOptiXIR reports whether nvrtcGetOptiXIR resolved in the loaded library.
-func HasgetOptiXIR() bool {
+// HasGetOptiXIR reports whether nvrtcGetOptiXIR resolved in the loaded library.
+func HasGetOptiXIR() bool {
 	return Has("nvrtcGetOptiXIR")
 }
 
-// HasgetOptiXIRSize reports whether nvrtcGetOptiXIRSize resolved in the loaded library.
-func HasgetOptiXIRSize() bool {
+// HasGetOptiXIRSize reports whether nvrtcGetOptiXIRSize resolved in the loaded library.
+func HasGetOptiXIRSize() bool {
 	return Has("nvrtcGetOptiXIRSize")
 }
 
-// HasgetPCHCreateStatus reports whether nvrtcGetPCHCreateStatus resolved in the loaded library.
-func HasgetPCHCreateStatus() bool {
+// HasGetPCHCreateStatus reports whether nvrtcGetPCHCreateStatus resolved in the loaded library.
+func HasGetPCHCreateStatus() bool {
 	return Has("nvrtcGetPCHCreateStatus")
 }
 
@@ -535,28 +535,28 @@ func HasGetPCHHeapSize() bool {
 	return Has("nvrtcGetPCHHeapSize")
 }
 
-// HasgetPCHHeapSizeRequired reports whether nvrtcGetPCHHeapSizeRequired resolved in the loaded library.
-func HasgetPCHHeapSizeRequired() bool {
+// HasGetPCHHeapSizeRequired reports whether nvrtcGetPCHHeapSizeRequired resolved in the loaded library.
+func HasGetPCHHeapSizeRequired() bool {
 	return Has("nvrtcGetPCHHeapSizeRequired")
 }
 
-// HasgetPTX reports whether nvrtcGetPTX resolved in the loaded library.
-func HasgetPTX() bool {
+// HasGetPTX reports whether nvrtcGetPTX resolved in the loaded library.
+func HasGetPTX() bool {
 	return Has("nvrtcGetPTX")
 }
 
-// HasgetPTXSize reports whether nvrtcGetPTXSize resolved in the loaded library.
-func HasgetPTXSize() bool {
+// HasGetPTXSize reports whether nvrtcGetPTXSize resolved in the loaded library.
+func HasGetPTXSize() bool {
 	return Has("nvrtcGetPTXSize")
 }
 
-// HasgetProgramLog reports whether nvrtcGetProgramLog resolved in the loaded library.
-func HasgetProgramLog() bool {
+// HasGetProgramLog reports whether nvrtcGetProgramLog resolved in the loaded library.
+func HasGetProgramLog() bool {
 	return Has("nvrtcGetProgramLog")
 }
 
-// HasgetProgramLogSize reports whether nvrtcGetProgramLogSize resolved in the loaded library.
-func HasgetProgramLogSize() bool {
+// HasGetProgramLogSize reports whether nvrtcGetProgramLogSize resolved in the loaded library.
+func HasGetProgramLogSize() bool {
 	return Has("nvrtcGetProgramLogSize")
 }
 
@@ -565,13 +565,13 @@ func HasGetSupportedArchs() bool {
 	return Has("nvrtcGetSupportedArchs")
 }
 
-// HasgetTileIR reports whether nvrtcGetTileIR resolved in the loaded library.
-func HasgetTileIR() bool {
+// HasGetTileIR reports whether nvrtcGetTileIR resolved in the loaded library.
+func HasGetTileIR() bool {
 	return Has("nvrtcGetTileIR")
 }
 
-// HasgetTileIRSize reports whether nvrtcGetTileIRSize resolved in the loaded library.
-func HasgetTileIRSize() bool {
+// HasGetTileIRSize reports whether nvrtcGetTileIRSize resolved in the loaded library.
+func HasGetTileIRSize() bool {
 	return Has("nvrtcGetTileIRSize")
 }
 
@@ -585,8 +585,8 @@ func HasRemoveBundledHeaders() bool {
 	return Has("nvrtcRemoveBundledHeaders")
 }
 
-// HassetFlowCallback reports whether nvrtcSetFlowCallback resolved in the loaded library.
-func HassetFlowCallback() bool {
+// HasSetFlowCallback reports whether nvrtcSetFlowCallback resolved in the loaded library.
+func HasSetFlowCallback() bool {
 	return Has("nvrtcSetFlowCallback")
 }
 

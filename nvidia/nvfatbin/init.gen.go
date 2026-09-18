@@ -424,33 +424,33 @@ func HasGetErrorString() bool {
 	return Has("nvFatbinGetErrorString")
 }
 
-// HasaddCubin reports whether nvFatbinAddCubin resolved in the loaded library.
-func HasaddCubin() bool {
+// HasAddCubin reports whether nvFatbinAddCubin resolved in the loaded library.
+func HasAddCubin() bool {
 	return Has("nvFatbinAddCubin")
 }
 
-// HasaddIndex reports whether nvFatbinAddIndex resolved in the loaded library.
-func HasaddIndex() bool {
+// HasAddIndex reports whether nvFatbinAddIndex resolved in the loaded library.
+func HasAddIndex() bool {
 	return Has("nvFatbinAddIndex")
 }
 
-// HasaddLTOIR reports whether nvFatbinAddLTOIR resolved in the loaded library.
-func HasaddLTOIR() bool {
+// HasAddLTOIR reports whether nvFatbinAddLTOIR resolved in the loaded library.
+func HasAddLTOIR() bool {
 	return Has("nvFatbinAddLTOIR")
 }
 
-// HasaddPTX reports whether nvFatbinAddPTX resolved in the loaded library.
-func HasaddPTX() bool {
+// HasAddPTX reports whether nvFatbinAddPTX resolved in the loaded library.
+func HasAddPTX() bool {
 	return Has("nvFatbinAddPTX")
 }
 
-// HasaddReloc reports whether nvFatbinAddReloc resolved in the loaded library.
-func HasaddReloc() bool {
+// HasAddReloc reports whether nvFatbinAddReloc resolved in the loaded library.
+func HasAddReloc() bool {
 	return Has("nvFatbinAddReloc")
 }
 
-// HasaddTileIR reports whether nvFatbinAddTileIR resolved in the loaded library.
-func HasaddTileIR() bool {
+// HasAddTileIR reports whether nvFatbinAddTileIR resolved in the loaded library.
+func HasAddTileIR() bool {
 	return Has("nvFatbinAddTileIR")
 }
 
@@ -464,13 +464,13 @@ func HasDestroy() bool {
 	return Has("nvFatbinDestroy")
 }
 
-// Hasget reports whether nvFatbinGet resolved in the loaded library.
-func Hasget() bool {
+// HasGet reports whether nvFatbinGet resolved in the loaded library.
+func HasGet() bool {
 	return Has("nvFatbinGet")
 }
 
-// Hassize reports whether nvFatbinSize resolved in the loaded library.
-func Hassize() bool {
+// HasSize reports whether nvFatbinSize resolved in the loaded library.
+func HasSize() bool {
 	return Has("nvFatbinSize")
 }
 

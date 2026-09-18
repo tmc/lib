@@ -544,68 +544,68 @@ func HasCreatePoissonDistribution() bool {
 	return Has("curandCreatePoissonDistribution")
 }
 
-// HasdestroyDistribution reports whether curandDestroyDistribution resolved in the loaded library.
-func HasdestroyDistribution() bool {
+// HasDestroyDistribution reports whether curandDestroyDistribution resolved in the loaded library.
+func HasDestroyDistribution() bool {
 	return Has("curandDestroyDistribution")
 }
 
-// HasdestroyGenerator reports whether curandDestroyGenerator resolved in the loaded library.
-func HasdestroyGenerator() bool {
+// HasDestroyGenerator reports whether curandDestroyGenerator resolved in the loaded library.
+func HasDestroyGenerator() bool {
 	return Has("curandDestroyGenerator")
 }
 
-// Hasgenerate reports whether curandGenerate resolved in the loaded library.
-func Hasgenerate() bool {
+// HasGenerate reports whether curandGenerate resolved in the loaded library.
+func HasGenerate() bool {
 	return Has("curandGenerate")
 }
 
-// HasgenerateBinomial reports whether curandGenerateBinomial resolved in the loaded library.
-func HasgenerateBinomial() bool {
+// HasGenerateBinomial reports whether curandGenerateBinomial resolved in the loaded library.
+func HasGenerateBinomial() bool {
 	return Has("curandGenerateBinomial")
 }
 
-// HasgenerateLogNormal reports whether curandGenerateLogNormal resolved in the loaded library.
-func HasgenerateLogNormal() bool {
+// HasGenerateLogNormal reports whether curandGenerateLogNormal resolved in the loaded library.
+func HasGenerateLogNormal() bool {
 	return Has("curandGenerateLogNormal")
 }
 
-// HasgenerateLogNormalDouble reports whether curandGenerateLogNormalDouble resolved in the loaded library.
-func HasgenerateLogNormalDouble() bool {
+// HasGenerateLogNormalDouble reports whether curandGenerateLogNormalDouble resolved in the loaded library.
+func HasGenerateLogNormalDouble() bool {
 	return Has("curandGenerateLogNormalDouble")
 }
 
-// HasgenerateLongLong reports whether curandGenerateLongLong resolved in the loaded library.
-func HasgenerateLongLong() bool {
+// HasGenerateLongLong reports whether curandGenerateLongLong resolved in the loaded library.
+func HasGenerateLongLong() bool {
 	return Has("curandGenerateLongLong")
 }
 
-// HasgenerateNormal reports whether curandGenerateNormal resolved in the loaded library.
-func HasgenerateNormal() bool {
+// HasGenerateNormal reports whether curandGenerateNormal resolved in the loaded library.
+func HasGenerateNormal() bool {
 	return Has("curandGenerateNormal")
 }
 
-// HasgenerateNormalDouble reports whether curandGenerateNormalDouble resolved in the loaded library.
-func HasgenerateNormalDouble() bool {
+// HasGenerateNormalDouble reports whether curandGenerateNormalDouble resolved in the loaded library.
+func HasGenerateNormalDouble() bool {
 	return Has("curandGenerateNormalDouble")
 }
 
-// HasgeneratePoisson reports whether curandGeneratePoisson resolved in the loaded library.
-func HasgeneratePoisson() bool {
+// HasGeneratePoisson reports whether curandGeneratePoisson resolved in the loaded library.
+func HasGeneratePoisson() bool {
 	return Has("curandGeneratePoisson")
 }
 
-// HasgenerateSeeds reports whether curandGenerateSeeds resolved in the loaded library.
-func HasgenerateSeeds() bool {
+// HasGenerateSeeds reports whether curandGenerateSeeds resolved in the loaded library.
+func HasGenerateSeeds() bool {
 	return Has("curandGenerateSeeds")
 }
 
-// HasgenerateUniform reports whether curandGenerateUniform resolved in the loaded library.
-func HasgenerateUniform() bool {
+// HasGenerateUniform reports whether curandGenerateUniform resolved in the loaded library.
+func HasGenerateUniform() bool {
 	return Has("curandGenerateUniform")
 }
 
-// HasgenerateUniformDouble reports whether curandGenerateUniformDouble resolved in the loaded library.
-func HasgenerateUniformDouble() bool {
+// HasGenerateUniformDouble reports whether curandGenerateUniformDouble resolved in the loaded library.
+func HasGenerateUniformDouble() bool {
 	return Has("curandGenerateUniformDouble")
 }
 
@@ -639,27 +639,27 @@ func HasGetVersion() bool {
 	return Has("curandGetVersion")
 }
 
-// HassetGeneratorOffset reports whether curandSetGeneratorOffset resolved in the loaded library.
-func HassetGeneratorOffset() bool {
+// HasSetGeneratorOffset reports whether curandSetGeneratorOffset resolved in the loaded library.
+func HasSetGeneratorOffset() bool {
 	return Has("curandSetGeneratorOffset")
 }
 
-// HassetGeneratorOrdering reports whether curandSetGeneratorOrdering resolved in the loaded library.
-func HassetGeneratorOrdering() bool {
+// HasSetGeneratorOrdering reports whether curandSetGeneratorOrdering resolved in the loaded library.
+func HasSetGeneratorOrdering() bool {
 	return Has("curandSetGeneratorOrdering")
 }
 
-// HassetPseudoRandomGeneratorSeed reports whether curandSetPseudoRandomGeneratorSeed resolved in the loaded library.
-func HassetPseudoRandomGeneratorSeed() bool {
+// HasSetPseudoRandomGeneratorSeed reports whether curandSetPseudoRandomGeneratorSeed resolved in the loaded library.
+func HasSetPseudoRandomGeneratorSeed() bool {
 	return Has("curandSetPseudoRandomGeneratorSeed")
 }
 
-// HassetQuasiRandomGeneratorDimensions reports whether curandSetQuasiRandomGeneratorDimensions resolved in the loaded library.
-func HassetQuasiRandomGeneratorDimensions() bool {
+// HasSetQuasiRandomGeneratorDimensions reports whether curandSetQuasiRandomGeneratorDimensions resolved in the loaded library.
+func HasSetQuasiRandomGeneratorDimensions() bool {
 	return Has("curandSetQuasiRandomGeneratorDimensions")
 }
 
-// HassetStream reports whether curandSetStream resolved in the loaded library.
-func HassetStream() bool {
+// HasSetStream reports whether curandSetStream resolved in the loaded library.
+func HasSetStream() bool {
 	return Has("curandSetStream")
 }

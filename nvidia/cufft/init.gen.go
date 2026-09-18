@@ -550,8 +550,8 @@ func HasCreate() bool {
 	return Has("cufftCreate")
 }
 
-// Hasdestroy reports whether cufftDestroy resolved in the loaded library.
-func Hasdestroy() bool {
+// HasDestroy reports whether cufftDestroy resolved in the loaded library.
+func HasDestroy() bool {
 	return Has("cufftDestroy")
 }
 
@@ -575,38 +575,38 @@ func HasEstimateMany() bool {
 	return Has("cufftEstimateMany")
 }
 
-// HasexecC2C reports whether cufftExecC2C resolved in the loaded library.
-func HasexecC2C() bool {
+// HasExecC2C reports whether cufftExecC2C resolved in the loaded library.
+func HasExecC2C() bool {
 	return Has("cufftExecC2C")
 }
 
-// HasexecC2R reports whether cufftExecC2R resolved in the loaded library.
-func HasexecC2R() bool {
+// HasExecC2R reports whether cufftExecC2R resolved in the loaded library.
+func HasExecC2R() bool {
 	return Has("cufftExecC2R")
 }
 
-// HasexecD2Z reports whether cufftExecD2Z resolved in the loaded library.
-func HasexecD2Z() bool {
+// HasExecD2Z reports whether cufftExecD2Z resolved in the loaded library.
+func HasExecD2Z() bool {
 	return Has("cufftExecD2Z")
 }
 
-// HasexecR2C reports whether cufftExecR2C resolved in the loaded library.
-func HasexecR2C() bool {
+// HasExecR2C reports whether cufftExecR2C resolved in the loaded library.
+func HasExecR2C() bool {
 	return Has("cufftExecR2C")
 }
 
-// HasexecZ2D reports whether cufftExecZ2D resolved in the loaded library.
-func HasexecZ2D() bool {
+// HasExecZ2D reports whether cufftExecZ2D resolved in the loaded library.
+func HasExecZ2D() bool {
 	return Has("cufftExecZ2D")
 }
 
-// HasexecZ2Z reports whether cufftExecZ2Z resolved in the loaded library.
-func HasexecZ2Z() bool {
+// HasExecZ2Z reports whether cufftExecZ2Z resolved in the loaded library.
+func HasExecZ2Z() bool {
 	return Has("cufftExecZ2Z")
 }
 
-// HasgetPlanPropertyInt64 reports whether cufftGetPlanPropertyInt64 resolved in the loaded library.
-func HasgetPlanPropertyInt64() bool {
+// HasGetPlanPropertyInt64 reports whether cufftGetPlanPropertyInt64 resolved in the loaded library.
+func HasGetPlanPropertyInt64() bool {
 	return Has("cufftGetPlanPropertyInt64")
 }
 
@@ -615,33 +615,33 @@ func HasGetProperty() bool {
 	return Has("cufftGetProperty")
 }
 
-// HasgetSize reports whether cufftGetSize resolved in the loaded library.
-func HasgetSize() bool {
+// HasGetSize reports whether cufftGetSize resolved in the loaded library.
+func HasGetSize() bool {
 	return Has("cufftGetSize")
 }
 
-// HasgetSize1d reports whether cufftGetSize1d resolved in the loaded library.
-func HasgetSize1d() bool {
+// HasGetSize1d reports whether cufftGetSize1d resolved in the loaded library.
+func HasGetSize1d() bool {
 	return Has("cufftGetSize1d")
 }
 
-// HasgetSize2d reports whether cufftGetSize2d resolved in the loaded library.
-func HasgetSize2d() bool {
+// HasGetSize2d reports whether cufftGetSize2d resolved in the loaded library.
+func HasGetSize2d() bool {
 	return Has("cufftGetSize2d")
 }
 
-// HasgetSize3d reports whether cufftGetSize3d resolved in the loaded library.
-func HasgetSize3d() bool {
+// HasGetSize3d reports whether cufftGetSize3d resolved in the loaded library.
+func HasGetSize3d() bool {
 	return Has("cufftGetSize3d")
 }
 
-// HasgetSizeMany reports whether cufftGetSizeMany resolved in the loaded library.
-func HasgetSizeMany() bool {
+// HasGetSizeMany reports whether cufftGetSizeMany resolved in the loaded library.
+func HasGetSizeMany() bool {
 	return Has("cufftGetSizeMany")
 }
 
-// HasgetSizeMany64 reports whether cufftGetSizeMany64 resolved in the loaded library.
-func HasgetSizeMany64() bool {
+// HasGetSizeMany64 reports whether cufftGetSizeMany64 resolved in the loaded library.
+func HasGetSizeMany64() bool {
 	return Has("cufftGetSizeMany64")
 }
 
@@ -650,28 +650,28 @@ func HasGetVersion() bool {
 	return Has("cufftGetVersion")
 }
 
-// HasmakePlan1d reports whether cufftMakePlan1d resolved in the loaded library.
-func HasmakePlan1d() bool {
+// HasMakePlan1d reports whether cufftMakePlan1d resolved in the loaded library.
+func HasMakePlan1d() bool {
 	return Has("cufftMakePlan1d")
 }
 
-// HasmakePlan2d reports whether cufftMakePlan2d resolved in the loaded library.
-func HasmakePlan2d() bool {
+// HasMakePlan2d reports whether cufftMakePlan2d resolved in the loaded library.
+func HasMakePlan2d() bool {
 	return Has("cufftMakePlan2d")
 }
 
-// HasmakePlan3d reports whether cufftMakePlan3d resolved in the loaded library.
-func HasmakePlan3d() bool {
+// HasMakePlan3d reports whether cufftMakePlan3d resolved in the loaded library.
+func HasMakePlan3d() bool {
 	return Has("cufftMakePlan3d")
 }
 
-// HasmakePlanMany reports whether cufftMakePlanMany resolved in the loaded library.
-func HasmakePlanMany() bool {
+// HasMakePlanMany reports whether cufftMakePlanMany resolved in the loaded library.
+func HasMakePlanMany() bool {
 	return Has("cufftMakePlanMany")
 }
 
-// HasmakePlanMany64 reports whether cufftMakePlanMany64 resolved in the loaded library.
-func HasmakePlanMany64() bool {
+// HasMakePlanMany64 reports whether cufftMakePlanMany64 resolved in the loaded library.
+func HasMakePlanMany64() bool {
 	return Has("cufftMakePlanMany64")
 }
 
@@ -695,27 +695,27 @@ func HasPlanMany() bool {
 	return Has("cufftPlanMany")
 }
 
-// HasresetPlanProperty reports whether cufftResetPlanProperty resolved in the loaded library.
-func HasresetPlanProperty() bool {
+// HasResetPlanProperty reports whether cufftResetPlanProperty resolved in the loaded library.
+func HasResetPlanProperty() bool {
 	return Has("cufftResetPlanProperty")
 }
 
-// HassetAutoAllocation reports whether cufftSetAutoAllocation resolved in the loaded library.
-func HassetAutoAllocation() bool {
+// HasSetAutoAllocation reports whether cufftSetAutoAllocation resolved in the loaded library.
+func HasSetAutoAllocation() bool {
 	return Has("cufftSetAutoAllocation")
 }
 
-// HassetPlanPropertyInt64 reports whether cufftSetPlanPropertyInt64 resolved in the loaded library.
-func HassetPlanPropertyInt64() bool {
+// HasSetPlanPropertyInt64 reports whether cufftSetPlanPropertyInt64 resolved in the loaded library.
+func HasSetPlanPropertyInt64() bool {
 	return Has("cufftSetPlanPropertyInt64")
 }
 
-// HassetStream reports whether cufftSetStream resolved in the loaded library.
-func HassetStream() bool {
+// HasSetStream reports whether cufftSetStream resolved in the loaded library.
+func HasSetStream() bool {
 	return Has("cufftSetStream")
 }
 
-// HassetWorkArea reports whether cufftSetWorkArea resolved in the loaded library.
-func HassetWorkArea() bool {
+// HasSetWorkArea reports whether cufftSetWorkArea resolved in the loaded library.
+func HasSetWorkArea() bool {
 	return Has("cufftSetWorkArea")
 }

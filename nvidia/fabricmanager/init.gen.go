@@ -355,13 +355,13 @@ func clearFuncs() {
 	fnsetActivatedFabricPartitions = nil
 }
 
-// HasactivateFabricPartition reports whether fmActivateFabricPartition resolved in the loaded library.
-func HasactivateFabricPartition() bool {
+// HasActivateFabricPartition reports whether fmActivateFabricPartition resolved in the loaded library.
+func HasActivateFabricPartition() bool {
 	return Has("fmActivateFabricPartition")
 }
 
-// HasactivateFabricPartitionWithVFs reports whether fmActivateFabricPartitionWithVFs resolved in the loaded library.
-func HasactivateFabricPartitionWithVFs() bool {
+// HasActivateFabricPartitionWithVFs reports whether fmActivateFabricPartitionWithVFs resolved in the loaded library.
+func HasActivateFabricPartitionWithVFs() bool {
 	return Has("fmActivateFabricPartitionWithVFs")
 }
 
@@ -370,28 +370,28 @@ func HasConnect() bool {
 	return Has("fmConnect")
 }
 
-// HasdeactivateFabricPartition reports whether fmDeactivateFabricPartition resolved in the loaded library.
-func HasdeactivateFabricPartition() bool {
+// HasDeactivateFabricPartition reports whether fmDeactivateFabricPartition resolved in the loaded library.
+func HasDeactivateFabricPartition() bool {
 	return Has("fmDeactivateFabricPartition")
 }
 
-// Hasdisconnect reports whether fmDisconnect resolved in the loaded library.
-func Hasdisconnect() bool {
+// HasDisconnect reports whether fmDisconnect resolved in the loaded library.
+func HasDisconnect() bool {
 	return Has("fmDisconnect")
 }
 
-// HasgetNvlinkFailedDevices reports whether fmGetNvlinkFailedDevices resolved in the loaded library.
-func HasgetNvlinkFailedDevices() bool {
+// HasGetNvlinkFailedDevices reports whether fmGetNvlinkFailedDevices resolved in the loaded library.
+func HasGetNvlinkFailedDevices() bool {
 	return Has("fmGetNvlinkFailedDevices")
 }
 
-// HasgetSupportedFabricPartitions reports whether fmGetSupportedFabricPartitions resolved in the loaded library.
-func HasgetSupportedFabricPartitions() bool {
+// HasGetSupportedFabricPartitions reports whether fmGetSupportedFabricPartitions resolved in the loaded library.
+func HasGetSupportedFabricPartitions() bool {
 	return Has("fmGetSupportedFabricPartitions")
 }
 
-// HasgetUnsupportedFabricPartitions reports whether fmGetUnsupportedFabricPartitions resolved in the loaded library.
-func HasgetUnsupportedFabricPartitions() bool {
+// HasGetUnsupportedFabricPartitions reports whether fmGetUnsupportedFabricPartitions resolved in the loaded library.
+func HasGetUnsupportedFabricPartitions() bool {
 	return Has("fmGetUnsupportedFabricPartitions")
 }
 
@@ -405,7 +405,7 @@ func HasLibShutdown() bool {
 	return Has("fmLibShutdown")
 }
 
-// HassetActivatedFabricPartitions reports whether fmSetActivatedFabricPartitions resolved in the loaded library.
-func HassetActivatedFabricPartitions() bool {
+// HasSetActivatedFabricPartitions reports whether fmSetActivatedFabricPartitions resolved in the loaded library.
+func HasSetActivatedFabricPartitions() bool {
 	return Has("fmSetActivatedFabricPartitions")
 }

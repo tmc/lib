@@ -3,32 +3,34 @@
   "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$HOME/go/src/github.com/tmc/libgen",
+  "cwd": ".",
   "argv": [
-    "$GOCACHE/12/121d1cd7b70ed635f78a1b5d9906a4c1e9dc900ac1e7fa08aaf68687ab8c6261-d/gen-nvidia",
+    "gen-nvidia",
+    "-allow-api-removal",
     "-api",
     "nvjitlink",
     "-headers-dir",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
+    "cuda-headers",
     "-header",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/nvjitlink/nvJitLink.h",
+    "nvJitLink.h",
     "-output",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/nvjitlink",
+    "nvjitlink",
     "-package",
     "nvjitlink",
     "-deprecated=true",
     "-docs-dir",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/../../libgen/docs"
+    "docs"
   ],
   "inputs": [
     {
-      "path": "$HOME/go/src/github.com/tmc/cuda-headers/nvjitlink/nvJitLink.h",
+      "path": "nvJitLink.h",
       "sha256": "6bd4880984986486e2cee5ddfe848d82efcf2be8454dcad4499b3bc41939b871"
     }
   ],
-  "source_hash": "40f0c9959cac6eb26b6049af4100aee075109ee0d68ba679a26324045c1be000",
+  "source_hash": "8d2f0e22b938c6d5994585bfa2c7df638a7b3936a2d3176d010e42e5f0bac1dc",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
-    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
   ]
 }

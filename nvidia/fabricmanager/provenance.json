@@ -3,31 +3,33 @@
   "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$HOME/go/src/github.com/tmc/libgen",
+  "cwd": ".",
   "argv": [
-    "$GOCACHE/12/121d1cd7b70ed635f78a1b5d9906a4c1e9dc900ac1e7fa08aaf68687ab8c6261-d/gen-nvidia",
+    "gen-nvidia",
+    "-allow-api-removal",
     "-api",
     "fabricmanager",
     "-headers-dir",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
+    "cuda-headers",
     "-output",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/fabricmanager",
+    "fabricmanager",
     "-package",
     "fabricmanager"
   ],
   "inputs": [
     {
-      "path": "$HOME/go/src/github.com/tmc/cuda-headers/fabricmanager/nv_fm_agent.h",
+      "path": "nv_fm_agent.h",
       "sha256": "782af92a96b8395f4bc28363574900b7aef3b400933197820edce2976e46d049"
     },
     {
-      "path": "$HOME/go/src/github.com/tmc/cuda-headers/fabricmanager/nv_fm_types.h",
+      "path": "nv_fm_types.h",
       "sha256": "dc65e0ee253c8a8bc0db81163ffe54b19a6a57597687b2bf600e5db35177dc12"
     }
   ],
-  "source_hash": "31e9e9ddcd2f247d943dee34cb6f2e6acc1b6825023127c7e3d1ecfa4f35eba4",
+  "source_hash": "8593e98c13ff62fdee583ece6617e85d31fd52dbc67993ec6dd29c9da1c39882",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
-    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
   ]
 }

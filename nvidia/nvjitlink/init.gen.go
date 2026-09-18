@@ -434,68 +434,81 @@ func clearFuncs() {
 	fnVersion = nil
 }
 
-// HasaddData reports whether __nvJitLinkAddData_13_2 resolved in the loaded library.
-func HasaddData() bool {
+// HasAddData reports whether nvJitLinkAddData bound, through __nvJitLinkAddData_13_2 or the
+// unversioned nvJitLinkAddData that older libraries export in its place.
+func HasAddData() bool {
 	return Has("__nvJitLinkAddData_13_2")
 }
 
-// HasaddFile reports whether __nvJitLinkAddFile_13_2 resolved in the loaded library.
-func HasaddFile() bool {
+// HasAddFile reports whether nvJitLinkAddFile bound, through __nvJitLinkAddFile_13_2 or the
+// unversioned nvJitLinkAddFile that older libraries export in its place.
+func HasAddFile() bool {
 	return Has("__nvJitLinkAddFile_13_2")
 }
 
-// Hascomplete reports whether __nvJitLinkComplete_13_2 resolved in the loaded library.
-func Hascomplete() bool {
+// HasComplete reports whether nvJitLinkComplete bound, through __nvJitLinkComplete_13_2 or the
+// unversioned nvJitLinkComplete that older libraries export in its place.
+func HasComplete() bool {
 	return Has("__nvJitLinkComplete_13_2")
 }
 
-// HasCreate reports whether __nvJitLinkCreate_13_2 resolved in the loaded library.
+// HasCreate reports whether nvJitLinkCreate bound, through __nvJitLinkCreate_13_2 or the
+// unversioned nvJitLinkCreate that older libraries export in its place.
 func HasCreate() bool {
 	return Has("__nvJitLinkCreate_13_2")
 }
 
-// HasDestroy reports whether __nvJitLinkDestroy_13_2 resolved in the loaded library.
+// HasDestroy reports whether nvJitLinkDestroy bound, through __nvJitLinkDestroy_13_2 or the
+// unversioned nvJitLinkDestroy that older libraries export in its place.
 func HasDestroy() bool {
 	return Has("__nvJitLinkDestroy_13_2")
 }
 
-// HasgetErrorLog reports whether __nvJitLinkGetErrorLog_13_2 resolved in the loaded library.
-func HasgetErrorLog() bool {
+// HasGetErrorLog reports whether nvJitLinkGetErrorLog bound, through __nvJitLinkGetErrorLog_13_2 or the
+// unversioned nvJitLinkGetErrorLog that older libraries export in its place.
+func HasGetErrorLog() bool {
 	return Has("__nvJitLinkGetErrorLog_13_2")
 }
 
-// HasgetErrorLogSize reports whether __nvJitLinkGetErrorLogSize_13_2 resolved in the loaded library.
-func HasgetErrorLogSize() bool {
+// HasGetErrorLogSize reports whether nvJitLinkGetErrorLogSize bound, through __nvJitLinkGetErrorLogSize_13_2 or the
+// unversioned nvJitLinkGetErrorLogSize that older libraries export in its place.
+func HasGetErrorLogSize() bool {
 	return Has("__nvJitLinkGetErrorLogSize_13_2")
 }
 
-// HasgetInfoLog reports whether __nvJitLinkGetInfoLog_13_2 resolved in the loaded library.
-func HasgetInfoLog() bool {
+// HasGetInfoLog reports whether nvJitLinkGetInfoLog bound, through __nvJitLinkGetInfoLog_13_2 or the
+// unversioned nvJitLinkGetInfoLog that older libraries export in its place.
+func HasGetInfoLog() bool {
 	return Has("__nvJitLinkGetInfoLog_13_2")
 }
 
-// HasgetInfoLogSize reports whether __nvJitLinkGetInfoLogSize_13_2 resolved in the loaded library.
-func HasgetInfoLogSize() bool {
+// HasGetInfoLogSize reports whether nvJitLinkGetInfoLogSize bound, through __nvJitLinkGetInfoLogSize_13_2 or the
+// unversioned nvJitLinkGetInfoLogSize that older libraries export in its place.
+func HasGetInfoLogSize() bool {
 	return Has("__nvJitLinkGetInfoLogSize_13_2")
 }
 
-// HasgetLinkedCubin reports whether __nvJitLinkGetLinkedCubin_13_2 resolved in the loaded library.
-func HasgetLinkedCubin() bool {
+// HasGetLinkedCubin reports whether nvJitLinkGetLinkedCubin bound, through __nvJitLinkGetLinkedCubin_13_2 or the
+// unversioned nvJitLinkGetLinkedCubin that older libraries export in its place.
+func HasGetLinkedCubin() bool {
 	return Has("__nvJitLinkGetLinkedCubin_13_2")
 }
 
-// HasgetLinkedCubinSize reports whether __nvJitLinkGetLinkedCubinSize_13_2 resolved in the loaded library.
-func HasgetLinkedCubinSize() bool {
+// HasGetLinkedCubinSize reports whether nvJitLinkGetLinkedCubinSize bound, through __nvJitLinkGetLinkedCubinSize_13_2 or the
+// unversioned nvJitLinkGetLinkedCubinSize that older libraries export in its place.
+func HasGetLinkedCubinSize() bool {
 	return Has("__nvJitLinkGetLinkedCubinSize_13_2")
 }
 
-// HasgetLinkedPtx reports whether __nvJitLinkGetLinkedPtx_13_2 resolved in the loaded library.
-func HasgetLinkedPtx() bool {
+// HasGetLinkedPtx reports whether nvJitLinkGetLinkedPtx bound, through __nvJitLinkGetLinkedPtx_13_2 or the
+// unversioned nvJitLinkGetLinkedPtx that older libraries export in its place.
+func HasGetLinkedPtx() bool {
 	return Has("__nvJitLinkGetLinkedPtx_13_2")
 }
 
-// HasgetLinkedPtxSize reports whether __nvJitLinkGetLinkedPtxSize_13_2 resolved in the loaded library.
-func HasgetLinkedPtxSize() bool {
+// HasGetLinkedPtxSize reports whether nvJitLinkGetLinkedPtxSize bound, through __nvJitLinkGetLinkedPtxSize_13_2 or the
+// unversioned nvJitLinkGetLinkedPtxSize that older libraries export in its place.
+func HasGetLinkedPtxSize() bool {
 	return Has("__nvJitLinkGetLinkedPtxSize_13_2")
 }
 

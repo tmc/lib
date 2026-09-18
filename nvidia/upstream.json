@@ -85,7 +85,7 @@
           },
           {
             "path": "nvidia/cublas/init.gen.go",
-            "sha256": "7d58983d0c75bf5b68583d0a48d3f07cee0a00c8dc5ea13a3f909c1191e5cb74"
+            "sha256": "5b7335a8c00e8f73334098686a04b151314218103820535379c82ffc0a7712b9"
           },
           {
             "path": "nvidia/cublas/layout_test.go",
@@ -190,7 +190,7 @@
           },
           {
             "path": "nvidia/cublaslt/init.gen.go",
-            "sha256": "deba3a84ab0435615b97d026c6eace8d9d2a84bbdad1594788a7a2df13ca9c83"
+            "sha256": "88e76fb2fd976fd54e8fcb06c9500aba18a39bac3fa854dab318693912ec3466"
           },
           {
             "path": "nvidia/cublaslt/layout_test.go",
@@ -650,7 +650,7 @@
           },
           {
             "path": "nvidia/cudnn/init.gen.go",
-            "sha256": "c995ba6b378525206306852a7269436aa2c20765748a8dd9d0154b6bdc1862dc"
+            "sha256": "3287d9978ddfd71a6f212f5e8557e1b632b9167699e3445416f98b71b519752a"
           },
           {
             "path": "nvidia/cudnn/layout_test.go",
@@ -686,7 +686,7 @@
           },
           {
             "path": "nvidia/cudnn/provenance.gen.go",
-            "sha256": "52044a92dd989352cec0a01153bbf2fff4462365eb979afb9d5366e5159a3067"
+            "sha256": "9a742db4ba15d426234c8ab4e5f3c4fb073975291549a135c8d910a72ed26954"
           },
           {
             "path": "nvidia/cudnn/reduce_tensor_descriptor.gen.go",
@@ -1190,7 +1190,7 @@
           },
           {
             "path": "nvidia/cufft/init.gen.go",
-            "sha256": "042a0372777e490382713d9ceaaf19186e6cd9ffae58725bbf1b88d949922b21"
+            "sha256": "7721957a699f653e4d0cdcfd069bea5012cc7c8133bedd2529d24062b2562848"
           },
           {
             "path": "nvidia/cufft/layout_test.go",
@@ -1210,7 +1210,7 @@
           },
           {
             "path": "nvidia/cufft/provenance.gen.go",
-            "sha256": "834803781a221eff68f5e6ea6f19bb6f90d29aed86bc6ee1ffdcff6a55e31f90"
+            "sha256": "5e613212cfa78569ffdd68ff77a7be4094b9e70b37891ca795209e88dbe2e0a4"
           },
           {
             "path": "nvidia/cufft/result.gen.go",
@@ -2292,7 +2292,7 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "a33416996e0aa2578da5958eef980f42e6d485f8303daf0bff16fef66cb163a5"
+            "sha256": "842638263e51f38362a6572f178539da16ffbb8d7ac0c8c1366e148fb224332a"
           },
           {
             "path": "nvidia/cupti/layout_test.go",
@@ -2316,7 +2316,7 @@
           },
           {
             "path": "nvidia/cupti/provenance.gen.go",
-            "sha256": "12fdd0d630fe8b74ea3fddec8f23ea0351f43e1a770244f7d5f609f5a71e7a69"
+            "sha256": "94807549dece6517c176e033971a24c9f24d9ebbf3af838c1f693fd5e3747f16"
           },
           {
             "path": "nvidia/cupti/result.gen.go",
@@ -2446,7 +2446,7 @@
         "example_test.go",
         "physical_test.go"
       ],
-      "note": "All 15 generated outputs reproduced from the recorded generator and pinned headers using -clang=false and the tracked documentation inputs. Empty HandWrittenTypes mappings for four CUDA V1 placeholder records are excluded from generated layout assertions; real measured records and handwritten types retain checks. Full output was compared against the prior package: public declarations, values, signatures and function behavior are preserved, with documentation updates and equivalent enum switch ordering. Host package tests and vet passed; this is generation evidence, not native runtime qualification. Local generator commit is not published.",
+      "note": "All 15 generated outputs reproduced from the recorded generator and pinned headers using -clang=false and the tracked documentation inputs. Empty HandWrittenTypes mappings for four CUDA V1 placeholder records are excluded from generated layout assertions; real measured records and handwritten types retain checks. Full output was compared against the prior package: public declarations, values, signatures and function behavior are preserved, with documentation updates and equivalent enum switch ordering. The presence predicates were later renamed from Has\u003clower\u003e to Has\u003cUpper\u003e and the recorded digests are the renamed files. Host package tests and vet passed; this is generation evidence, not native runtime qualification. Local generator commit is not published.",
       "package": "github.com/tmc/lib/nvidia/cupti",
       "repositories": {
         "codegen": {
@@ -2633,7 +2633,7 @@
           },
           {
             "path": "nvidia/curand/init.gen.go",
-            "sha256": "7c01ac6d2732681466f4fdd671aac7170f128cd801b2416474ea50594236a469"
+            "sha256": "100f323d8842f6284d1eb79a1541bb186a9e1c62b59a8fd9c82b3ca0fc926a98"
           },
           {
             "path": "nvidia/curand/loader_test.go",
@@ -2649,7 +2649,7 @@
           },
           {
             "path": "nvidia/curand/provenance.gen.go",
-            "sha256": "00f1a9990a21fae5469df3be6ff0754b073149803c78f798fa5af2f66fa6d143"
+            "sha256": "67ff5af9a2cd3f9781619cb47276aecf3f2624a1ab441e1c102f4c45d5d89560"
           },
           {
             "path": "nvidia/curand/result.gen.go",
@@ -4944,7 +4944,7 @@
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/init.gen.go",
-            "sha256": "63b68b97ba5c6d40711f36c37dbb73fe4dc529d66414b37c4d46826c39a489ed"
+            "sha256": "8d8a655eceafc7449b44586a66daa934c1e4540a82f26ef06173c37524efa0ac"
           },
           {
             "path": "nvidia/driver/kernel.gen.go",
@@ -5102,7 +5102,7 @@
           },
           {
             "path": "nvidia/fabricmanager/init.gen.go",
-            "sha256": "4de181507c8cde4aa278b4134aa86ac899318ef1ebbb7dd5a8490c37dd194310"
+            "sha256": "93e9f8ced41713cf28c62278c6e6572a88240602153ffb1ee22204b6affc66c5"
           },
           {
             "path": "nvidia/fabricmanager/layout_test.go",
@@ -5122,7 +5122,7 @@
           },
           {
             "path": "nvidia/fabricmanager/provenance.gen.go",
-            "sha256": "18a00d96b03d7f6ee0b0e1d44d3816f8777fa05ae7600625a559fbac3c206d72"
+            "sha256": "1cb2106b9d3fc09c05c228a15659fe2d2061d59aaebc05afa86aae56abe74790"
           },
           {
             "path": "nvidia/fabricmanager/result.gen.go",
@@ -5664,7 +5664,7 @@
           "-docs-dir",
           "${DOCS_DIR}"
         ],
-        "comparison": "All 18 generated Go files replayed from the recorded committed generator and matched the reviewed output byte-for-byte. Existing public predicate HascommInitAll preserved.",
+        "comparison": "All 18 generated Go files replayed from the recorded committed generator and matched the reviewed output byte-for-byte. The presence predicates were renamed from Has\u003clower\u003e to Has\u003cUpper\u003e after this generation was recorded; the recorded digests are the renamed files, and the rename is the only difference in the exported surface.",
         "cwd": "${CODEGEN_REPO}",
         "dependency_inventory": {
           "method": "Primary-header clang -M closure plus conservative complete NCCL .h/.hpp tree for nine separately selected device siblings and layout probes; includes all selected inputs, may include unused device headers.",
@@ -5876,7 +5876,7 @@
           },
           {
             "path": "nvidia/nccl/init.gen.go",
-            "sha256": "7b8572ae4792041df891ad6437234fa398e62cc2d8f15e91e9a58349f4386f75"
+            "sha256": "d7b7b6ac8500822ae2c13e4543c948179799f227859a2ad54b7f5a61c5fb3f7d"
           },
           {
             "path": "nvidia/nccl/layout_test.go",
@@ -7189,7 +7189,7 @@
           },
           {
             "path": "nvidia/nvfatbin/init.gen.go",
-            "sha256": "9b5fe440afd9418cc760d5ee360ee6c8aa110164d3197ae7324941b773363690"
+            "sha256": "4e5ae7c616ec2a7b4c4dfeea87852abffe4a3708105fd6906fa433392a987186"
           },
           {
             "path": "nvidia/nvfatbin/loader_test.go",
@@ -7205,7 +7205,7 @@
           },
           {
             "path": "nvidia/nvfatbin/provenance.gen.go",
-            "sha256": "e9e5a94d555d2e618f7b2d0df1e7bc99a151ae59903d42d732b7f2c9f849779d"
+            "sha256": "5dda78879dc4f1e18bfe9718331cfb7d6296ef1f5b8febb42f0c422d8a5dc438"
           },
           {
             "path": "nvidia/nvfatbin/result.gen.go",
@@ -7342,7 +7342,7 @@
           },
           {
             "path": "nvidia/nvjitlink/init.gen.go",
-            "sha256": "734ac19b7d85358b0ec222e412ef497e2d81d34647b56ff4ca766cc749e3c9c7"
+            "sha256": "743f9846bc7b1eef298bab309e64b613e151967fa7c382f7756ff6dbfdec31f0"
           },
           {
             "path": "nvidia/nvjitlink/loader_test.go",
@@ -7358,7 +7358,7 @@
           },
           {
             "path": "nvidia/nvjitlink/provenance.gen.go",
-            "sha256": "c9539063f07a30591ab36ad5432679e63d49ae6c2953ce11930b93bcd5e80221"
+            "sha256": "863179ed2050ce6db08ea297d3e3191013a6964caebc09b60df49a15d4a80a6c"
           },
           {
             "path": "nvidia/nvjitlink/result.gen.go",
@@ -7838,7 +7838,7 @@
         "example_test.go",
         "physical_test.go"
       ],
-      "note": "The generator is cmd/nvml-survey, which is built on internal/ffigen and sets ExportLazyPredicates. It is NOT cmd/gen-nvidia -api nvml: that routes to the legacy contrib/cuda generator, loses 433 declarations against the committed package, and emits the lowercase Has\u003cname\u003e predicate spelling. The header is the pinned 13.3 nvml.h, which exists only at cuda-headers commit 3d5d12b and not at a524c5d; nvml-survey's -header flag already defaults to it. Reproduction at the recorded codegen commit: 16 of the 20 generated files are byte-identical; device.gen.go, enums.gen.go, funcs.gen.go and result.gen.go differ only in doc comments the generator gained after the committed bytes were written -- with comments and blank lines removed the four files are identical, and the declaration set matches exactly, none lost and none gained. The recorded output digests are the committed files.",
+      "note": "The generator is cmd/nvml-survey, which is built on internal/ffigen and sets ExportLazyPredicates. It is NOT cmd/gen-nvidia -api nvml: that routes to the legacy contrib/cuda generator, loses 433 declarations against the committed package (it no longer differs in the predicate spelling: both generators now capitalize). The header is the pinned 13.3 nvml.h, which exists only at cuda-headers commit 3d5d12b and not at a524c5d; nvml-survey's -header flag already defaults to it. Reproduction at the recorded codegen commit: 16 of the 20 generated files are byte-identical; device.gen.go, enums.gen.go, funcs.gen.go and result.gen.go differ only in doc comments the generator gained after the committed bytes were written -- with comments and blank lines removed the four files are identical, and the declaration set matches exactly, none lost and none gained. The recorded output digests are the committed files.",
       "package": "github.com/tmc/lib/nvidia/nvml",
       "repositories": {
         "codegen": {
@@ -7932,7 +7932,7 @@
           },
           {
             "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "ce7db8c577d7a53447a4e8d64b7067dd22a6746e8ef920dff345f167bd2e9533"
+            "sha256": "9f1db5c1aa618826d474f89e770fca7406145695c5fd93e60bb7eac0bd6bf4fb"
           },
           {
             "path": "nvidia/nvrtc/layout_test.go",
@@ -7956,7 +7956,7 @@
           },
           {
             "path": "nvidia/nvrtc/provenance.gen.go",
-            "sha256": "83f358e01b68ad2150cd8c9cdbd105567bf907ccc6656e4cee4ea1571637ae6b"
+            "sha256": "f5b5240fcea867d4fdc33e92dff1c82c4c74eda63d7fe0cc01fd25def645fcae"
           },
           {
             "path": "nvidia/nvrtc/result.gen.go",
@@ -8293,7 +8293,7 @@
           },
           {
             "path": "nvidia/nvvm/init.gen.go",
-            "sha256": "d9fd9d7fc083218a3941ec4fc10b1b406b79f91b27a2a367c7421e175056fdfc"
+            "sha256": "bf9009c3c07507e445b448f3aa3084eeb9ec66ce84567e2badd7a35fe9ca5dea"
           },
           {
             "path": "nvidia/nvvm/loader_test.go",
@@ -8313,7 +8313,7 @@
           },
           {
             "path": "nvidia/nvvm/provenance.gen.go",
-            "sha256": "fa2286fd2ac6cde8e9ed7bbeaa9c9c0e136e1998bc2609714726087793c70d9e"
+            "sha256": "66356d9b8adb653c22768efd3d9aa5996ed50f4d03a4fcbf4117c16db81ec860"
           },
           {
             "path": "nvidia/nvvm/result.gen.go",
@@ -8449,7 +8449,7 @@
           },
           {
             "path": "nvidia/sanitizer/init.gen.go",
-            "sha256": "18a1ee56fb719e0ac94ee2719f14ff4a506838644eb58cd40fd1faac78fa8d60"
+            "sha256": "b0590b59ecb8f499efff78505709c077ed72d356f0a1a6577765c24eb7283f37"
           },
           {
             "path": "nvidia/sanitizer/launch_handle.gen.go",
@@ -8473,7 +8473,7 @@
           },
           {
             "path": "nvidia/sanitizer/provenance.gen.go",
-            "sha256": "923617fbc0059fdff9e2de2b0003fa6879d62934aeff6cc5e089a9b262f5152f"
+            "sha256": "deb89a05229c553f5a01e812bc1d81413f98c435091530fdc28bc7603037138e"
           },
           {
             "path": "nvidia/sanitizer/result.gen.go",

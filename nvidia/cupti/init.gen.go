@@ -891,8 +891,8 @@ func HasActivityDisableContext() bool {
 	return Has("cuptiActivityDisableContext")
 }
 
-// HasactivityDisableV2 reports whether cuptiActivityDisable_v2 resolved in the loaded library.
-func HasactivityDisableV2() bool {
+// HasActivityDisableV2 reports whether cuptiActivityDisable_v2 resolved in the loaded library.
+func HasActivityDisableV2() bool {
 	return Has("cuptiActivityDisable_v2")
 }
 
@@ -916,8 +916,8 @@ func HasActivityEnableAndDump() bool {
 	return Has("cuptiActivityEnableAndDump")
 }
 
-// HasactivityEnableAndDumpV2 reports whether cuptiActivityEnableAndDump_v2 resolved in the loaded library.
-func HasactivityEnableAndDumpV2() bool {
+// HasActivityEnableAndDumpV2 reports whether cuptiActivityEnableAndDump_v2 resolved in the loaded library.
+func HasActivityEnableAndDumpV2() bool {
 	return Has("cuptiActivityEnableAndDump_v2")
 }
 
@@ -961,8 +961,8 @@ func HasActivityEnableRuntimeApi() bool {
 	return Has("cuptiActivityEnableRuntimeApi")
 }
 
-// HasactivityEnableV2 reports whether cuptiActivityEnable_v2 resolved in the loaded library.
-func HasactivityEnableV2() bool {
+// HasActivityEnableV2 reports whether cuptiActivityEnable_v2 resolved in the loaded library.
+func HasActivityEnableV2() bool {
 	return Has("cuptiActivityEnable_v2")
 }
 
@@ -986,13 +986,13 @@ func HasActivityGetAttribute() bool {
 	return Has("cuptiActivityGetAttribute")
 }
 
-// HasactivityGetAttributeV2 reports whether cuptiActivityGetAttribute_v2 resolved in the loaded library.
-func HasactivityGetAttributeV2() bool {
+// HasActivityGetAttributeV2 reports whether cuptiActivityGetAttribute_v2 resolved in the loaded library.
+func HasActivityGetAttributeV2() bool {
 	return Has("cuptiActivityGetAttribute_v2")
 }
 
-// HasactivityGetEnabledKinds reports whether cuptiActivityGetEnabledKinds resolved in the loaded library.
-func HasactivityGetEnabledKinds() bool {
+// HasActivityGetEnabledKinds reports whether cuptiActivityGetEnabledKinds resolved in the loaded library.
+func HasActivityGetEnabledKinds() bool {
 	return Has("cuptiActivityGetEnabledKinds")
 }
 
@@ -1026,8 +1026,8 @@ func HasActivityRegisterCallbacks() bool {
 	return Has("cuptiActivityRegisterCallbacks")
 }
 
-// HasactivityRegisterCallbacksV2 reports whether cuptiActivityRegisterCallbacks_v2 resolved in the loaded library.
-func HasactivityRegisterCallbacksV2() bool {
+// HasActivityRegisterCallbacksV2 reports whether cuptiActivityRegisterCallbacks_v2 resolved in the loaded library.
+func HasActivityRegisterCallbacksV2() bool {
 	return Has("cuptiActivityRegisterCallbacks_v2")
 }
 
@@ -1041,8 +1041,8 @@ func HasActivitySetAttribute() bool {
 	return Has("cuptiActivitySetAttribute")
 }
 
-// HasactivitySetAttributeV2 reports whether cuptiActivitySetAttribute_v2 resolved in the loaded library.
-func HasactivitySetAttributeV2() bool {
+// HasActivitySetAttributeV2 reports whether cuptiActivitySetAttribute_v2 resolved in the loaded library.
+func HasActivitySetAttributeV2() bool {
 	return Has("cuptiActivitySetAttribute_v2")
 }
 
@@ -1116,18 +1116,18 @@ func HasDisableKernelReplayMode() bool {
 	return Has("cuptiDisableKernelReplayMode")
 }
 
-// HasenableAllDomains reports whether cuptiEnableAllDomains resolved in the loaded library.
-func HasenableAllDomains() bool {
+// HasEnableAllDomains reports whether cuptiEnableAllDomains resolved in the loaded library.
+func HasEnableAllDomains() bool {
 	return Has("cuptiEnableAllDomains")
 }
 
-// HasenableCallback reports whether cuptiEnableCallback resolved in the loaded library.
-func HasenableCallback() bool {
+// HasEnableCallback reports whether cuptiEnableCallback resolved in the loaded library.
+func HasEnableCallback() bool {
 	return Has("cuptiEnableCallback")
 }
 
-// HasenableDomain reports whether cuptiEnableDomain resolved in the loaded library.
-func HasenableDomain() bool {
+// HasEnableDomain reports whether cuptiEnableDomain resolved in the loaded library.
+func HasEnableDomain() bool {
 	return Has("cuptiEnableDomain")
 }
 
@@ -1171,63 +1171,63 @@ func HasEventGetIdFromName() bool {
 	return Has("cuptiEventGetIdFromName")
 }
 
-// HaseventGroupAddEvent reports whether cuptiEventGroupAddEvent resolved in the loaded library.
-func HaseventGroupAddEvent() bool {
+// HasEventGroupAddEvent reports whether cuptiEventGroupAddEvent resolved in the loaded library.
+func HasEventGroupAddEvent() bool {
 	return Has("cuptiEventGroupAddEvent")
 }
 
-// HaseventGroupCreate reports whether cuptiEventGroupCreate resolved in the loaded library.
-func HaseventGroupCreate() bool {
+// HasEventGroupCreate reports whether cuptiEventGroupCreate resolved in the loaded library.
+func HasEventGroupCreate() bool {
 	return Has("cuptiEventGroupCreate")
 }
 
-// HaseventGroupDestroy reports whether cuptiEventGroupDestroy resolved in the loaded library.
-func HaseventGroupDestroy() bool {
+// HasEventGroupDestroy reports whether cuptiEventGroupDestroy resolved in the loaded library.
+func HasEventGroupDestroy() bool {
 	return Has("cuptiEventGroupDestroy")
 }
 
-// HaseventGroupDisable reports whether cuptiEventGroupDisable resolved in the loaded library.
-func HaseventGroupDisable() bool {
+// HasEventGroupDisable reports whether cuptiEventGroupDisable resolved in the loaded library.
+func HasEventGroupDisable() bool {
 	return Has("cuptiEventGroupDisable")
 }
 
-// HaseventGroupEnable reports whether cuptiEventGroupEnable resolved in the loaded library.
-func HaseventGroupEnable() bool {
+// HasEventGroupEnable reports whether cuptiEventGroupEnable resolved in the loaded library.
+func HasEventGroupEnable() bool {
 	return Has("cuptiEventGroupEnable")
 }
 
-// HaseventGroupGetAttribute reports whether cuptiEventGroupGetAttribute resolved in the loaded library.
-func HaseventGroupGetAttribute() bool {
+// HasEventGroupGetAttribute reports whether cuptiEventGroupGetAttribute resolved in the loaded library.
+func HasEventGroupGetAttribute() bool {
 	return Has("cuptiEventGroupGetAttribute")
 }
 
-// HaseventGroupReadAllEvents reports whether cuptiEventGroupReadAllEvents resolved in the loaded library.
-func HaseventGroupReadAllEvents() bool {
+// HasEventGroupReadAllEvents reports whether cuptiEventGroupReadAllEvents resolved in the loaded library.
+func HasEventGroupReadAllEvents() bool {
 	return Has("cuptiEventGroupReadAllEvents")
 }
 
-// HaseventGroupReadEvent reports whether cuptiEventGroupReadEvent resolved in the loaded library.
-func HaseventGroupReadEvent() bool {
+// HasEventGroupReadEvent reports whether cuptiEventGroupReadEvent resolved in the loaded library.
+func HasEventGroupReadEvent() bool {
 	return Has("cuptiEventGroupReadEvent")
 }
 
-// HaseventGroupRemoveAllEvents reports whether cuptiEventGroupRemoveAllEvents resolved in the loaded library.
-func HaseventGroupRemoveAllEvents() bool {
+// HasEventGroupRemoveAllEvents reports whether cuptiEventGroupRemoveAllEvents resolved in the loaded library.
+func HasEventGroupRemoveAllEvents() bool {
 	return Has("cuptiEventGroupRemoveAllEvents")
 }
 
-// HaseventGroupRemoveEvent reports whether cuptiEventGroupRemoveEvent resolved in the loaded library.
-func HaseventGroupRemoveEvent() bool {
+// HasEventGroupRemoveEvent reports whether cuptiEventGroupRemoveEvent resolved in the loaded library.
+func HasEventGroupRemoveEvent() bool {
 	return Has("cuptiEventGroupRemoveEvent")
 }
 
-// HaseventGroupResetAllEvents reports whether cuptiEventGroupResetAllEvents resolved in the loaded library.
-func HaseventGroupResetAllEvents() bool {
+// HasEventGroupResetAllEvents reports whether cuptiEventGroupResetAllEvents resolved in the loaded library.
+func HasEventGroupResetAllEvents() bool {
 	return Has("cuptiEventGroupResetAllEvents")
 }
 
-// HaseventGroupSetAttribute reports whether cuptiEventGroupSetAttribute resolved in the loaded library.
-func HaseventGroupSetAttribute() bool {
+// HasEventGroupSetAttribute reports whether cuptiEventGroupSetAttribute resolved in the loaded library.
+func HasEventGroupSetAttribute() bool {
 	return Has("cuptiEventGroupSetAttribute")
 }
 
@@ -1266,8 +1266,8 @@ func HasGetCallbackName() bool {
 	return Has("cuptiGetCallbackName")
 }
 
-// HasgetCallbackState reports whether cuptiGetCallbackState resolved in the loaded library.
-func HasgetCallbackState() bool {
+// HasGetCallbackState reports whether cuptiGetCallbackState resolved in the loaded library.
+func HasGetCallbackState() bool {
 	return Has("cuptiGetCallbackState")
 }
 
@@ -1286,8 +1286,8 @@ func HasGetDeviceId() bool {
 	return Has("cuptiGetDeviceId")
 }
 
-// HasgetEnabledCallbacks reports whether cuptiGetEnabledCallbacks resolved in the loaded library.
-func HasgetEnabledCallbacks() bool {
+// HasGetEnabledCallbacks reports whether cuptiGetEnabledCallbacks resolved in the loaded library.
+func HasGetEnabledCallbacks() bool {
 	return Has("cuptiGetEnabledCallbacks")
 }
 
@@ -1821,7 +1821,7 @@ func HasSupportedDomains() bool {
 	return Has("cuptiSupportedDomains")
 }
 
-// Hasunsubscribe reports whether cuptiUnsubscribe resolved in the loaded library.
-func Hasunsubscribe() bool {
+// HasUnsubscribe reports whether cuptiUnsubscribe resolved in the loaded library.
+func HasUnsubscribe() bool {
 	return Has("cuptiUnsubscribe")
 }

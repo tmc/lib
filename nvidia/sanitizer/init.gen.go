@@ -416,18 +416,18 @@ func HasAllocHost() bool {
 	return Has("sanitizerAllocHost")
 }
 
-// HasenableAllDomains reports whether sanitizerEnableAllDomains resolved in the loaded library.
-func HasenableAllDomains() bool {
+// HasEnableAllDomains reports whether sanitizerEnableAllDomains resolved in the loaded library.
+func HasEnableAllDomains() bool {
 	return Has("sanitizerEnableAllDomains")
 }
 
-// HasenableCallback reports whether sanitizerEnableCallback resolved in the loaded library.
-func HasenableCallback() bool {
+// HasEnableCallback reports whether sanitizerEnableCallback resolved in the loaded library.
+func HasEnableCallback() bool {
 	return Has("sanitizerEnableCallback")
 }
 
-// HasenableDomain reports whether sanitizerEnableDomain resolved in the loaded library.
-func HasenableDomain() bool {
+// HasEnableDomain reports whether sanitizerEnableDomain resolved in the loaded library.
+func HasEnableDomain() bool {
 	return Has("sanitizerEnableDomain")
 }
 
@@ -446,8 +446,8 @@ func HasGetCallbackPcAndSize() bool {
 	return Has("sanitizerGetCallbackPcAndSize")
 }
 
-// HasgetCallbackState reports whether sanitizerGetCallbackState resolved in the loaded library.
-func HasgetCallbackState() bool {
+// HasGetCallbackState reports whether sanitizerGetCallbackState resolved in the loaded library.
+func HasGetCallbackState() bool {
 	return Has("sanitizerGetCallbackState")
 }
 
@@ -466,8 +466,8 @@ func HasGetFunctionPcAndSize() bool {
 	return Has("sanitizerGetFunctionPcAndSize")
 }
 
-// HasgetStream reports whether sanitizerGetStream resolved in the loaded library.
-func HasgetStream() bool {
+// HasGetStream reports whether sanitizerGetStream resolved in the loaded library.
+func HasGetStream() bool {
 	return Has("sanitizerGetStream")
 }
 
@@ -481,18 +481,18 @@ func HasIsInsideRecursiveCallback() bool {
 	return Has("sanitizerIsInsideRecursiveCallback")
 }
 
-// HasmemcpyDeviceToHost reports whether sanitizerMemcpyDeviceToHost resolved in the loaded library.
-func HasmemcpyDeviceToHost() bool {
+// HasMemcpyDeviceToHost reports whether sanitizerMemcpyDeviceToHost resolved in the loaded library.
+func HasMemcpyDeviceToHost() bool {
 	return Has("sanitizerMemcpyDeviceToHost")
 }
 
-// HasmemcpyHostToDeviceAsync reports whether sanitizerMemcpyHostToDeviceAsync resolved in the loaded library.
-func HasmemcpyHostToDeviceAsync() bool {
+// HasMemcpyHostToDeviceAsync reports whether sanitizerMemcpyHostToDeviceAsync resolved in the loaded library.
+func HasMemcpyHostToDeviceAsync() bool {
 	return Has("sanitizerMemcpyHostToDeviceAsync")
 }
 
-// Hasmemset reports whether sanitizerMemset resolved in the loaded library.
-func Hasmemset() bool {
+// HasMemset reports whether sanitizerMemset resolved in the loaded library.
+func HasMemset() bool {
 	return Has("sanitizerMemset")
 }
 
@@ -511,18 +511,18 @@ func HasSetCallbackData() bool {
 	return Has("sanitizerSetCallbackData")
 }
 
-// HassetDeviceGraphData reports whether sanitizerSetDeviceGraphData resolved in the loaded library.
-func HassetDeviceGraphData() bool {
+// HasSetDeviceGraphData reports whether sanitizerSetDeviceGraphData resolved in the loaded library.
+func HasSetDeviceGraphData() bool {
 	return Has("sanitizerSetDeviceGraphData")
 }
 
-// HassetLaunchCallbackData reports whether sanitizerSetLaunchCallbackData resolved in the loaded library.
-func HassetLaunchCallbackData() bool {
+// HasSetLaunchCallbackData reports whether sanitizerSetLaunchCallbackData resolved in the loaded library.
+func HasSetLaunchCallbackData() bool {
 	return Has("sanitizerSetLaunchCallbackData")
 }
 
-// HasstreamSynchronize reports whether sanitizerStreamSynchronize resolved in the loaded library.
-func HasstreamSynchronize() bool {
+// HasStreamSynchronize reports whether sanitizerStreamSynchronize resolved in the loaded library.
+func HasStreamSynchronize() bool {
 	return Has("sanitizerStreamSynchronize")
 }
 
@@ -536,7 +536,7 @@ func HasUnpatchModule() bool {
 	return Has("sanitizerUnpatchModule")
 }
 
-// Hasunsubscribe reports whether sanitizerUnsubscribe resolved in the loaded library.
-func Hasunsubscribe() bool {
+// HasUnsubscribe reports whether sanitizerUnsubscribe resolved in the loaded library.
+func HasUnsubscribe() bool {
 	return Has("sanitizerUnsubscribe")
 }

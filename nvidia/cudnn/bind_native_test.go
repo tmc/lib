@@ -31,7 +31,7 @@ func TestNativeBindingRecovery(t *testing.T) {
 	if len(failures) != 0 {
 		t.Fatalf("unexpected native failures: %v", failures)
 	}
-	if !HasnormalizationBackward() || fnnormalizationBackward == nil {
+	if !HasNormalizationBackward() || fnnormalizationBackward == nil {
 		t.Fatal("real normalization signature did not bind")
 	}
 	var oversized func(uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr, uintptr)
@@ -63,7 +63,7 @@ func TestNativeBindingRecovery(t *testing.T) {
 	if oversized != nil {
 		t.Fatal("failed binding published function")
 	}
-	if HasnormalizationBackward() {
+	if HasNormalizationBackward() {
 		t.Fatal("failed binding reported present")
 	}
 	var symbolErr *SymbolError
