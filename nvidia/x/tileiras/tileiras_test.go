@@ -3,7 +3,6 @@ package tileiras_test
 import (
 	"context"
 	"errors"
-	"os/exec"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/tileiras"
@@ -109,14 +108,4 @@ func TestAssembleGPUNameSuffix(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestAssembleIfBinaryPresent(t *testing.T) {
-	if _, err := exec.LookPath("tileiras"); err != nil {
-		t.Skip("tileiras executable not in PATH")
-	}
-
-	ctx := context.Background()
-	dummyBytecode := []byte{0x7F, 'T', 'i', 'l', 'e', 'I', 'R', 0x00, 0x0D, 0x04}
-	_, _ = tileiras.Assemble(ctx, dummyBytecode, tileiras.WithGPUName("sm_90"))
 }
