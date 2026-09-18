@@ -14,6 +14,15 @@ import (
 // current primary context. It queries context-level counters only. The device
 // must be open. The returned image filters host metric configuration; it does
 // not establish permission to run a later collection.
+//
+// Calling this initializes the CUPTI profiler for the whole process, and
+// nothing here de-initializes it: no call to cuptiProfilerDeInitialize exists
+// in this module. The initialization outlives the query that needed it, so
+// every later execution in the process runs with the profiler initialized,
+// including work that no capture is open around. Whether that changes how the
+// device executes uninstrumented work is not measured here; what is certain is
+// that a measurement taken before the first call and one taken after it were
+// not taken under the same conditions.
 func CounterAvailability(dev *cuda.Device, maxBytes int) (image []byte, err error) {
 	if dev == nil || maxBytes <= 0 {
 		return nil, errors.New("cuptirange: invalid counter availability arguments")
