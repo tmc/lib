@@ -60,6 +60,9 @@ type captureRecordPayload struct {
 	CallbackID          uint32     `json:"callback_id"`
 	ProcessID           uint32     `json:"process_id"`
 	ThreadID            uint32     `json:"thread_id"`
+	MarkerDomain        string     `json:"marker_domain"`
+	MarkerID            uint32     `json:"marker_id"`
+	MarkerFlags         uint32     `json:"marker_flags"`
 	ReturnValue         uint32     `json:"return_value"`
 	GridDim             [3]uint32  `json:"grid"`
 	GridDimRaw          *[3]uint32 `json:"grid_dim"`
@@ -563,7 +566,40 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			// The check stays a whitelist: an unrecognized subtype is still a
 			// producer this consumer does not understand, and admitting it
 			// silently would let a record of unknown shape through.
-			if payload.Subtype == "marker" || payload.Subtype == "capture_range" {
+			//
+			// Markers are carried into the activity slice even though they are
+			// not device work, because BuildActivityProfile pairs them into
+			// NVTX ranges and labels the device activity that ran inside them.
+			// Dropping them here leaves that labelling permanently dead: the
+			// ranges are paired from this very slice, so an empty slice yields
+			// no ranges and no label, on every capture, with nothing failing.
+			// They still become no sample -- BuildActivityProfile skips them
+			// when it builds one -- and they are counted as neither activity
+			// nor valid activity below, which are counts of device work.
+			//
+			// Capture-range edges are not carried: they are the producer's own
+			// bookkeeping, ActivityRecord has no field for an edge, an api or
+			// an index, so carrying one would keep a record that has lost
+			// everything that made it meaningful.
+			if payload.Subtype == "marker" {
+				activities = append(activities, captureActivity{
+					Subtype:      payload.Subtype,
+					Name:         payload.Name,
+					Valid:        payload.Valid,
+					Start:        payload.Start,
+					End:          payload.End,
+					Device:       payload.Device,
+					Context:      payload.Context,
+					Stream:       payload.Stream,
+					ProcessID:    payload.ProcessID,
+					ThreadID:     payload.ThreadID,
+					MarkerDomain: payload.MarkerDomain,
+					MarkerID:     payload.MarkerID,
+					MarkerFlags:  payload.MarkerFlags,
+				})
+				continue
+			}
+			if payload.Subtype == "capture_range" {
 				continue
 			}
 			if payload.Subtype != "kernel" && payload.Subtype != "memcpy" {

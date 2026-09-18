@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -817,6 +818,12 @@ func TestRunCaptureCommandOutputsCompactStatusWithoutRecordArrays(t *testing.T) 
 // written to the same record stream as kernels and memcpys, and observeJournal
 // rejected the whole capture on the first one it saw.
 //
+// The two are not kept alike. A marker carries the name and the timestamps that
+// nvtxRanges pairs into a range, so it must reach the activity slice or NVTX
+// labelling has nothing to read. A capture-range edge is an edge, an api and an
+// index, none of which ActivityRecord has a field for, so carrying one would
+// keep a record that has lost everything that made it meaningful.
+//
 // The marker arm is not hypothetical. CUPTI's MARKER kind is enabled whenever
 // the runtime supports it (cupti_agent.c, cuptiActivityEnable(MARKER)) rather
 // than on request, and PyTorch, cuBLAS and NCCL all emit NVTX, so a capture of
@@ -830,9 +837,10 @@ func TestObserveJournalKeepsNonTimelineSubtypes(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
 		payload string
+		carried bool // the record reaches the activity slice
 	}{
-		{"marker", `{"kind":"activity","subtype":"marker","name":"iteration","marker_domain":"torch","valid":true,"start":150,"end":150,"marker_id":3,"marker_flags":2,"object_kind":2,"process_id":1234,"thread_id":5678,"device":0,"context":0,"stream":0}`},
-		{"capture_range", `{"kind":"activity","subtype":"capture_range","edge":"start","api":"cudaProfilerStart","index":0,"toggle_failures":0}`},
+		{"marker", `{"kind":"activity","subtype":"marker","name":"iteration","marker_domain":"torch","valid":true,"start":150,"end":150,"marker_id":3,"marker_flags":2,"object_kind":2,"process_id":1234,"thread_id":5678,"device":0,"context":0,"stream":0}`, true},
+		{"capture_range", `{"kind":"activity","subtype":"capture_range","edge":"start","api":"cudaProfilerStart","index":0,"toggle_failures":0}`, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -857,10 +865,33 @@ func TestObserveJournalKeepsNonTimelineSubtypes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("a %s record cost the whole capture: %v", tt.name, err)
 			}
-			// The record is not device work, so it must not become a timeline
-			// entry either -- the kernel beside it is the only activity.
-			if len(activities) != 1 {
-				t.Errorf("got %d activities, want 1: a %s record became a timeline entry", len(activities), tt.name)
+			want := 1
+			if tt.carried {
+				want = 2
+			}
+			if len(activities) != want {
+				t.Fatalf("got %d activities, want %d for a %s record", len(activities), want, tt.name)
+			}
+			if !tt.carried {
+				return
+			}
+			// Carried is not enough: the fields nvtxRanges pairs on must
+			// survive the hop through the controller's payload struct, which
+			// is where they were dropped.
+			var marker captureActivity
+			for _, a := range activities {
+				if a.Subtype == "marker" {
+					marker = a
+				}
+			}
+			if marker.Name != "iteration" || marker.MarkerDomain != "torch" {
+				t.Errorf("marker name/domain = %q/%q, want %q/%q", marker.Name, marker.MarkerDomain, "iteration", "torch")
+			}
+			if marker.MarkerID != 3 || marker.MarkerFlags != 2 {
+				t.Errorf("marker id/flags = %d/%d, want 3/2", marker.MarkerID, marker.MarkerFlags)
+			}
+			if marker.ProcessID != 1234 || marker.ThreadID != 5678 {
+				t.Errorf("marker pid/tid = %d/%d, want 1234/5678", marker.ProcessID, marker.ThreadID)
 			}
 		})
 	}
@@ -883,5 +914,59 @@ func TestObserveJournalStillRejectsUnknownSubtypes(t *testing.T) {
 	})
 	if _, _, _, _, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0); err == nil {
 		t.Error("an unrecognized activity subtype was accepted")
+	}
+}
+
+// TestObserveJournalCarriesMarkersToNVTXLabels walks the path production takes:
+// journal bytes -> observeJournal -> BuildActivityProfile -> pprof labels.
+//
+// The NVTX labelling unit tests hand BuildActivityProfile marker records
+// directly. That is the one thing the capture path does not do, so those tests
+// passed while the label could never fire on a real capture: the controller
+// dropped markers, the profile was built from what the controller returned, and
+// the ranges are paired from that same slice. Nothing failed anywhere -- the
+// label was simply always absent.
+func TestObserveJournalCarriesMarkersToNVTXLabels(t *testing.T) {
+	dir := t.TempDir()
+	sessionHex := "0123456789abcdef0123456789abcdef"
+	raw, err := hex.DecodeString(sessionHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	copy(sid[:], raw)
+
+	// markerFlags: 1<<1 opens a range, 1<<2 closes it.
+	journalPath := filepath.Join(dir, "capture.journal")
+	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"decode","marker_domain":"ds4","valid":true,"start":100,"end":100,"marker_id":1,"marker_flags":2,"process_id":1234,"thread_id":7}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"inside","valid":true,"start":200,"end":300,"device":0}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"decode","marker_domain":"ds4","valid":true,"start":400,"end":400,"marker_id":1,"marker_flags":4,"process_id":1234,"thread_id":7}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"outside","valid":true,"start":500,"end":600,"device":0}`)},
+		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":4}`)},
+	})
+
+	_, _, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
+	if err != nil {
+		t.Fatalf("observeJournal: %v", err)
+	}
+	p := cudacapture.BuildActivityProfile(sessionHex, 1234, activities)
+
+	got := map[string][]string{}
+	for _, s := range p.Sample {
+		if n := s.Label["name"]; len(n) == 1 {
+			got[n[0]] = s.Label["nvtx"]
+		}
+	}
+	if len(p.Sample) != 2 {
+		t.Fatalf("got %d samples, want 2: only the two kernels are device work", len(p.Sample))
+	}
+	if want := []string{"ds4/decode"}; !reflect.DeepEqual(got["inside"], want) {
+		t.Errorf("kernel inside the range has nvtx = %v, want %v", got["inside"], want)
+	}
+	if got["outside"] != nil {
+		t.Errorf("kernel after the range closed has nvtx = %v, want none", got["outside"])
 	}
 }

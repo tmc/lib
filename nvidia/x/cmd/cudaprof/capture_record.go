@@ -159,6 +159,13 @@ func compactCaptureStatus(result captureResult) captureStatus {
 	seen := make(map[uint32]bool)
 	kinds := make(map[string]uint64)
 	for _, activity := range result.Activities {
+		// A marker is a host annotation whose Device field names no device it
+		// ran on, so counting it here would report a device the capture saw no
+		// work on. Its subtype is still counted below.
+		if activity.Subtype == "marker" {
+			kinds[activity.Subtype]++
+			continue
+		}
 		if !seen[activity.Device] {
 			seen[activity.Device] = true
 			status.Devices = append(status.Devices, activity.Device)
