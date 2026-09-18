@@ -51,7 +51,11 @@ func CachePolicySupport(version uint32, policy CachePolicy) error {
 		return fmt.Errorf("cuptirange: unqualified cache policy version %d", version)
 	}
 	if policy == CacheFlushL2 || policy == CacheFlushAll {
-		return fmt.Errorf("cuptirange: cache reset ABI not qualified for CUPTI %d", version)
+		// Unconditional: no version reaches this and returns nil. Naming the
+		// version alone read as "this CUPTI is too old" and sent readers after
+		// an upgrade that cannot help, so say which of the two it is. The
+		// version stays in the message as the context it is.
+		return fmt.Errorf("cuptirange: %s is unimplemented: the cache reset ABI is unqualified for every CUPTI version, including %d", policy, version)
 	}
 	return nil
 }
