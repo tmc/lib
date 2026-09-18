@@ -70,6 +70,23 @@ type Config struct {
 	// flush policy is reachable and cold traffic must be arranged by the
 	// application, by evicting between passes with its own work.
 	AllowWarmCacheTraffic bool
+
+	// CacheEvictedBy names the mechanism the application used to evict the
+	// cache itself, and is the other way to satisfy the traffic-counter gate.
+	// It is for the caller who did the work AllowWarmCacheTraffic assumes was
+	// skipped: since no flush policy is reachable, application-level eviction
+	// is the only route to a cold traffic counter, and a caller taking it was
+	// previously forced to label the result warm.
+	//
+	// Give the mechanism, not a claim -- "4 MB streaming write between passes",
+	// not "evicted". It is recorded verbatim as traffic_cache_evicted_by, and
+	// traffic_cache_state then reads "cold, arranged by the application". This
+	// package cannot verify the eviction happened; the value is the caller's
+	// assertion, and naming the mechanism is what makes it reviewable.
+	//
+	// Setting both this and AllowWarmCacheTraffic is an error: they label the
+	// same measurement cold and warm.
+	CacheEvictedBy string
 }
 
 // warmCacheTraffic reports the cache-state-dependent metrics in c that are
@@ -91,6 +108,9 @@ func (c Config) warmCacheTraffic() []string {
 func (c Config) validate() error {
 	if c.ReplayMode < cuptirange.UserReplay || c.ReplayMode > cuptirange.KernelReplay || (c.ReplayMode == cuptirange.KernelReplay && c.Mode != Kernels) {
 		return errors.New("cuptibench: invalid replay mode for collection mode")
+	}
+	if c.CacheEvictedBy != "" && c.AllowWarmCacheTraffic {
+		return errors.New("cuptibench: CacheEvictedBy and AllowWarmCacheTraffic both set; they label the same measurement cold and warm")
 	}
 	if c.CachePolicy < cuptirange.CacheDefault || c.CachePolicy > cuptirange.CacheFlushAll {
 		return errors.New("cuptibench: invalid cache policy")
@@ -229,16 +249,21 @@ func New(dev *cuda.Device, c Config) (p *Plan, err error) {
 		p.metadata["cache_control_basis"] = "CUPTI documented default and pre-13.4 behavior; not a cache-content measurement"
 		p.metadata["cache_control_reference"] = "https://docs.nvidia.com/cupti/13.4.0/main/main.html#cache-state-reset"
 		if warm := c.warmCacheTraffic(); len(warm) > 0 {
-			if !c.AllowWarmCacheTraffic {
+			if c.CacheEvictedBy != "" {
+				p.metadata["traffic_cache_state"] = "cold, arranged by the application"
+				p.metadata["traffic_cache_evicted_by"] = c.CacheEvictedBy
+				p.metadata["traffic_cache_metrics"] = strings.Join(warm, ",")
+			} else if !c.AllowWarmCacheTraffic {
 				return fmt.Errorf("cuptibench: cache policy %s collects %s against an uncontrolled cache: "+
 					"a traffic counter measured on a warm cache understates traffic and reads identically to a cold one. "+
 					"No flush policy is reachable (CachePolicySupport rejects flush-l2 and flush-all on CUPTI %d), so either "+
-					"evict in the workload's own preparation or set Config.AllowWarmCacheTraffic to record that the "+
-					"measurement is warm",
+					"evict in the workload's own preparation and set Config.CacheEvictedBy to name how, or set "+
+					"Config.AllowWarmCacheTraffic to record that the measurement is warm",
 					c.CachePolicy, strings.Join(warm, ", "), cv)
+			} else {
+				p.metadata["traffic_cache_state"] = "warm, acknowledged by caller"
+				p.metadata["traffic_cache_metrics"] = strings.Join(warm, ",")
 			}
-			p.metadata["traffic_cache_state"] = "warm, acknowledged by caller"
-			p.metadata["traffic_cache_metrics"] = strings.Join(warm, ",")
 		}
 
 		for i, name := range c.Metrics {
