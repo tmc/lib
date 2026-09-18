@@ -23,6 +23,7 @@
       "gdrcopy",
       "nccl",
       "ncclep",
+      "ncclll",
       "ncclm2n",
       "nvcomp",
       "nvdec",
@@ -36,7 +37,7 @@
       "nvvm",
       "sanitizer"
     ],
-    "recorded_argv": 34,
+    "recorded_argv": 35,
     "missing_argv": null,
     "meaning": "Directory inventory and presence of recorded argv only; not a regeneration, provenance verification, or runtime qualification."
   },
@@ -6470,6 +6471,193 @@
         "codegen": {
           "commit": "a42e705bb0fb0182348d6ddd34fff86107feabc2",
           "tree": "1214384ddcf102daec82840513b9925b9c44bd7f",
+          "url": "https://github.com/tmc/codegen.git"
+        }
+      },
+      "status": "generation-reproduced"
+    },
+    "ncclll": {
+      "generation": {
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nccl-extensions",
+          "-api",
+          "ncclll",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "cwd": "${CODEGEN_REPO}",
+        "limitations": [
+          "The CUDA header root passed as -cuda-headers was a working tree with local modifications, so it is identified by the parsed header digests rather than by a commit.",
+          "ll_buffer.h includes core.h from that root rather than from a pinned file, so the nccl_device tree it resolves against is not pinned here either.",
+          "No GPU and no patched libnccl were available, so nothing in this package has been called."
+        ],
+        "note": "The recorded argv reproduces these outputs byte for byte from the pinned codegen commit. Only the host API is bound; the device-side ncclLLBuffer template has no ABI symbol and is out of scope.",
+        "outputs": [
+          {
+            "path": "nvidia/ncclll/defaults.gen.go",
+            "sha256": "06f1c363232b914867212f48fd477c826cf62d7e3a8db6d74dfdcc27bd488f7b"
+          },
+          {
+            "path": "nvidia/ncclll/doc.gen.go",
+            "sha256": "fb6bcbc8359defc0f1b9c4b2058282d4cb4def57a5871b4b34fdc58a79222232"
+          },
+          {
+            "path": "nvidia/ncclll/enums.gen.go",
+            "sha256": "cd6c780b7be08eb3707e56003f6853d837a16b8f2769ec4a127fe5c67dc191a9"
+          },
+          {
+            "path": "nvidia/ncclll/funcs.gen.go",
+            "sha256": "193a61f0fdbbe4f1062a0411745ec7ceba0a234db3aafe5cb47d5c2a902bcc06"
+          },
+          {
+            "path": "nvidia/ncclll/handles.gen.go",
+            "sha256": "9918905a22a29e40f44d99ab9edd6965e8c87ff3f68c8e9fb5acf4ec11a2eeae"
+          },
+          {
+            "path": "nvidia/ncclll/init.gen.go",
+            "sha256": "589d3e8354e97d19ce804cc28f11123dce0e9f70645d97aac26962c7d63b2936"
+          },
+          {
+            "path": "nvidia/ncclll/layout.gen_test.go",
+            "sha256": "06f1c363232b914867212f48fd477c826cf62d7e3a8db6d74dfdcc27bd488f7b"
+          },
+          {
+            "path": "nvidia/ncclll/loader.gen_test.go",
+            "sha256": "12c19a583ed522d3806794ecb6b9a9dcdae9a130535aec4e3dc02361f9ffa850"
+          },
+          {
+            "path": "nvidia/ncclll/loader_unix.gen.go",
+            "sha256": "c3672b52a996c30fbe0fdf2f4a9238bd45a24eddd7e704493c0b093756657635"
+          },
+          {
+            "path": "nvidia/ncclll/loader_windows.gen.go",
+            "sha256": "6b222d317f7b69abcf424bd6d5a77e231c6c7bf4345ee90ebd2586346f23b105"
+          },
+          {
+            "path": "nvidia/ncclll/result.gen.go",
+            "sha256": "0492f0f5632a77ae41529f9d833268e5403030f47e1fc021f4a26b044d4b65ea"
+          },
+          {
+            "path": "nvidia/ncclll/structs.gen.go",
+            "sha256": "06f1c363232b914867212f48fd477c826cf62d7e3a8db6d74dfdcc27bd488f7b"
+          },
+          {
+            "path": "nvidia/ncclll/types.gen.go",
+            "sha256": "06f1c363232b914867212f48fd477c826cf62d7e3a8db6d74dfdcc27bd488f7b"
+          }
+        ]
+      },
+      "generator_sources": [
+        {
+          "path": "cmd/gen-nccl-extensions/README.md",
+          "repository": "codegen",
+          "sha256": "973492ae3dbe9b4753c78987aa83ad4da3f00786710116d95112bdd2ba31bb03"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/config.go",
+          "repository": "codegen",
+          "sha256": "ccb174ad9097d8d49c18bfcfe8c9e4b0c67201e5ed76e4c5db63fc609366887f"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/defaults.go",
+          "repository": "codegen",
+          "sha256": "274ced73bd5aabe13fec3e49aefe12575204f7b741091f8b4a34b5c809ecec0d"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/docs.go",
+          "repository": "codegen",
+          "sha256": "b31c3ae714a5fa1c2a9517d0b8372a7600123f6eae442aae0624d8bec898e5a9"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/fields.go",
+          "repository": "codegen",
+          "sha256": "acc3e7b661b2364df2e3bcb08336c9146bb032394330666eeb383c2f976fefd7"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/README.md",
+          "repository": "codegen",
+          "sha256": "34340800560b30390f560db8b3c3d484c89d3857cfec9dbee824b2f7a4578ff7"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl/nccl.h",
+          "repository": "codegen",
+          "sha256": "1447f19c849c9a9f0f7ff2fd1ad2631e84a7ac2fb65cbe52102324c28a591997"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl_ep/ep_enums.h",
+          "repository": "codegen",
+          "sha256": "8c0ed44272623923a8bc018423ca93fdb9e27cb5da3ca2c345a5ce7c9bfb32fe"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl_ep/nccl_ep.h",
+          "repository": "codegen",
+          "sha256": "a9b23b78db72c5973b3ff79be2658f95c000cf31aa759e94599a1b349e09b208"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl_ll/ll_buffer.h",
+          "repository": "codegen",
+          "sha256": "40d79a8ff5cbd9f48ac067d66459ae6eed2e2ecd9c385005c04126492d0fdbc2"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl_m2n/nccl_m2n.h",
+          "repository": "codegen",
+          "sha256": "2ea1e425de4a2a4698407341d476771c2049882a624d5ae567a36c119d8c6e58"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/llpattern_test.go",
+          "repository": "codegen",
+          "sha256": "b04a6265543ebe1b96074b8bbdd4de054e783602edd242bfb0ed382f5e34fe2a"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/main.go",
+          "repository": "codegen",
+          "sha256": "4530c71b2ae5847e9cd23a386eb4d85b4e077e25dd22dc3c546e7661f020f8ca"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/main_test.go",
+          "repository": "codegen",
+          "sha256": "f387172f16c7dae19aeee1b57254908fedb64341362f13f0aa350e96cfec1b4b"
+        },
+        {
+          "path": "cmd/gen-nccl-extensions/testdata/probe.go",
+          "repository": "codegen",
+          "sha256": "1f3201d7b396e0db0bc9d005f62954e20368375fd0dbcb3f762980269357d64d"
+        },
+        {
+          "path": "go.mod",
+          "repository": "codegen",
+          "sha256": "51dd9da44e697201c9a6b137f5d7b49a2cdc1fdef6a85ee6f849b151640f88bb"
+        },
+        {
+          "path": "go.sum",
+          "repository": "codegen",
+          "sha256": "ec5e02d69647403fb5c9fffb4ec47ae0125042ed6877f79bf02730caeb526571"
+        },
+        {
+          "path": "internal/ffigen/generator.go",
+          "repository": "codegen",
+          "sha256": "527936b52a19988be448114d51304bf6c3c59f6a8fb39c9bc32553cc07f71c64"
+        },
+        {
+          "path": "internal/ffigen/platform_loader.go",
+          "repository": "codegen",
+          "sha256": "a7d467e8be768f089f4e201d81e455f9683f47820205c72a85034a9349c2daea"
+        }
+      ],
+      "headers": [
+        {
+          "path": "cmd/gen-nccl-extensions/headers/nccl_ll/ll_buffer.h",
+          "repository": "codegen",
+          "sha256": "40d79a8ff5cbd9f48ac067d66459ae6eed2e2ecd9c385005c04126492d0fdbc2"
+        }
+      ],
+      "package": "github.com/tmc/lib/nvidia/ncclll",
+      "repositories": {
+        "codegen": {
+          "commit": "b413581c8228b08a78e75c5665bf7abd26709ab2",
+          "tree": "5c3ce495ae59ba09597d716be8b29d1181c8d65e",
           "url": "https://github.com/tmc/codegen.git"
         }
       },
