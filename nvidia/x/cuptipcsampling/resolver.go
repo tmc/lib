@@ -62,10 +62,23 @@ func (r *CaptureResolver) ResolvePC(mod ModuleID, kernelName string, pcOffset ui
 		return CodeLocation{KernelName: kernelName}
 	}
 
+	// A source file and a source line are one fact and are taken from one
+	// tier together. Taking the line from the instruction while keeping the
+	// unit's file names a line that was measured in a different file, which is
+	// a location no tier ever reported: it is wrong in the direction that
+	// looks right, because the line is plausible and the reader has no way to
+	// see that the two halves came from different places.
+	//
+	// The unit's file is the last resort, used only for a kernel whose
+	// defining file is unknown. A single-file module makes all three the same
+	// file, which is why this went unnoticed until a module had fourteen.
+	sourceFile, sourceLine := r.Code.SourceFile, int64(k.SourceLine)
+	if k.SourceFile != "" {
+		sourceFile = k.SourceFile
+	}
+
 	loc := CodeLocation{
 		KernelName:  k.Name,
-		SourceFile:  r.Code.SourceFile,
-		SourceLine:  int64(k.SourceLine),
 		PTXFile:     r.Code.PTXFile,
 		PTXLine:     int64(k.PTXLine),
 		SASSFile:    r.Code.SASSFile,
@@ -74,8 +87,12 @@ func (r *CaptureResolver) ResolvePC(mod ModuleID, kernelName string, pcOffset ui
 	}
 
 	if inst := k.Instruction(pcOffset); inst != nil {
+		// cudacapture leaves Instruction.SourceFile empty exactly when
+		// SourceLine is zero, so this moves the pair or neither half. An
+		// instruction the compiler never located falls back to the kernel's
+		// definition, file and line alike.
 		if inst.SourceLine > 0 {
-			loc.SourceLine = int64(inst.SourceLine)
+			sourceFile, sourceLine = inst.SourceFile, int64(inst.SourceLine)
 		}
 		if inst.SASSLine > 0 {
 			loc.SASSLine = int64(inst.SASSLine)
@@ -85,5 +102,6 @@ func (r *CaptureResolver) ResolvePC(mod ModuleID, kernelName string, pcOffset ui
 		}
 		loc.InlinedAt = inst.InlinedAt
 	}
+	loc.SourceFile, loc.SourceLine = sourceFile, sourceLine
 	return loc
 }
