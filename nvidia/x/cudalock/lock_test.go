@@ -453,3 +453,58 @@ func TestChildProcessAncestorLock(t *testing.T) {
 		t.Fatalf("child process failed: %v\noutput: %s", err, string(out))
 	}
 }
+
+// TestAncestorInheritedLivePIDThatHoldsNothing covers the fail-open direction
+// the dead-PID tests cannot reach. PID 1 is alive on every Unix, so a caller who
+// sets GPU_LOCK_HELD=1 by hand -- the invocation "gpu-lock env GPU_LOCK_HELD=1
+// cmd", which circulated among agents -- passes the liveness check while no
+// ancestor holds anything. Before corroborating against the owner file, Acquire
+// returned a nested handle and the caller ran unlocked believing it was covered.
+func TestAncestorInheritedLivePIDThatHoldsNothing(t *testing.T) {
+	lockDir := filepath.Join(t.TempDir(), "lock")
+	t.Setenv("GPU_LOCKDIR", lockDir)
+	t.Setenv("GPU_LOCK_HELD", "1")
+	if !isAlive(1) {
+		t.Skip("PID 1 is not observable here, so the hazard cannot be reproduced")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	h, err := Acquire(ctx)
+	if err != nil {
+		t.Fatalf("Acquire failed: %v", err)
+	}
+	defer h.Release()
+	if h.IsNested() {
+		t.Fatal("a live PID that holds nothing was accepted as an ancestor holder; the caller would run unlocked")
+	}
+	if h.Owner().PID != os.Getpid() {
+		t.Errorf("expected to hold the lock ourselves (PID %d), got %d", os.Getpid(), h.Owner().PID)
+	}
+	if _, err := os.Stat(lockDir); err != nil {
+		t.Errorf("a non-nested acquire must create the lock directory: %v", err)
+	}
+}
+
+// TestAncestorInheritedLivePIDDisagreesWithOwner is the same hazard with a lock
+// that is genuinely held: the environment names a live PID, but the owner file
+// names someone else. The environment must not win.
+func TestAncestorInheritedLivePIDDisagreesWithOwner(t *testing.T) {
+	lockDir := filepath.Join(t.TempDir(), "lock")
+	if err := os.MkdirAll(lockDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	held := Owner{PID: os.Getppid(), Host: shortHostname(), Label: "real-holder", Epoch: time.Now().Unix(), At: time.Now()}
+	if err := os.WriteFile(filepath.Join(lockDir, "owner"), []byte(held.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GPU_LOCKDIR", lockDir)
+	t.Setenv("GPU_LOCK_HELD", "1")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	if _, err := Acquire(ctx, WithPollInterval(20*time.Millisecond)); err == nil {
+		t.Fatal("Acquire granted against a live foreign holder because the environment named a different live PID")
+	}
+}

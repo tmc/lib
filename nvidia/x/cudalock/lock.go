@@ -193,22 +193,25 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 	}
 	if envHeld != "" && processActiveDir == "" && cfg.dir == DefaultDir() {
 		if heldPID, err := strconv.Atoi(strings.TrimSpace(envHeld)); err == nil && heldPID > 0 {
-			if isAlive(heldPID) {
+			// A live PID in the environment is not evidence that the lock is
+			// held. PID 1 is alive on every Unix, and the invocation
+			// "gpu-lock env GPU_LOCK_HELD=1 cmd" circulated among agents, which
+			// would take this branch and run unlocked believing an ancestor
+			// covered it -- the fail-open direction. Corroborate against the
+			// lock itself: every holder that exports this variable also wrote
+			// its own PID to the owner file (this file's acquire path below,
+			// Run, and the host's gpu-lock alike), so the two must agree. A
+			// missing directory or a disagreeing owner falls through to a
+			// normal acquire, which blocks on a real holder.
+			if owner, ok := ownerHeldBy(cfg.dir, heldPID); ok && isAlive(heldPID) {
 				// Inherited from an ancestor process that ran us under gpu-lock
 				processHoldCount++
 				processActiveDir = cfg.dir
 				processHolderPID = heldPID
 				processMu.Unlock()
 
-				owner := Owner{
-					PID:   heldPID,
-					Host:  shortHostname(),
-					Label: cfg.label,
-				}
-				if data, err := os.ReadFile(filepath.Join(cfg.dir, "owner")); err == nil {
-					if parsed, err := ParseOwner(data); err == nil {
-						owner = parsed
-					}
+				if owner.Label == "" {
+					owner.Label = cfg.label
 				}
 				return &Handle{
 					dir:      cfg.dir,
@@ -327,6 +330,21 @@ func WithLock(ctx context.Context, fn func() error, opts ...Option) error {
 	}
 	defer handle.Release()
 	return fn()
+}
+
+// ownerHeldBy reports whether dir is a lock directory whose owner file names
+// pid. It is the corroboration for an inherited GPU_LOCK_HELD: the environment
+// says who holds the lock, and this says whether the lock agrees.
+func ownerHeldBy(dir string, pid int) (Owner, bool) {
+	data, err := os.ReadFile(filepath.Join(dir, "owner"))
+	if err != nil {
+		return Owner{}, false
+	}
+	owner, err := ParseOwner(data)
+	if err != nil || owner.PID != pid {
+		return Owner{}, false
+	}
+	return owner, true
 }
 
 // Run executes command args under the GPU lock, exporting GPU_LOCK_HELD.
