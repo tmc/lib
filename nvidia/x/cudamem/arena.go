@@ -28,6 +28,16 @@ type Arena struct {
 	chunk  int
 	block  Slice[byte]
 	offset int
+
+	// spans records each device allocation the arena made, so [Arena.Fill] can
+	// reach memory that AllocIn has handed out but nothing has written yet.
+	spans []arenaSpan
+}
+
+// arenaSpan is one device allocation an arena made, in bytes.
+type arenaSpan struct {
+	ptr   driver.DevicePtr
+	bytes int
 }
 
 // NewArena returns an empty Arena allocating from dev.
@@ -86,6 +96,7 @@ func AllocIn[T any](a *Arena, name string, length int) Slice[T] {
 		return Slice[T]{}
 	}
 	a.frees = append(a.frees, s.Free)
+	a.spans = append(a.spans, arenaSpan{s.ptr, length * int(unsafe.Sizeof(*new(T)))})
 	return s
 }
 
@@ -117,6 +128,7 @@ func allocInBlock[T any](a *Arena, length int) (Slice[T], error) {
 			return Slice[T]{}, err
 		}
 		a.frees = append(a.frees, block.Free)
+		a.spans = append(a.spans, arenaSpan{block.ptr, block.len})
 		a.block, a.offset = block, 0
 	}
 	s := Slice[T]{
@@ -130,6 +142,39 @@ func allocInBlock[T any](a *Arena, length int) (Slice[T], error) {
 	return s, nil
 }
 
+// Fill sets every byte the arena has allocated to the low byte of word. Device
+// memory comes back holding whatever the last owner left in it, so a buffer an
+// arena has handed out but nothing has written yet reads as that. Filling it
+// with a known value turns a read of uninitialized memory from something that
+// depends on the machine's history into something repeatable: zero makes the
+// buffer behave as if it had been cleared, and any other value makes a kernel
+// that depends on it fail the same way every time.
+//
+// Fill is not part of allocation. An arena whose buffers are all written before
+// they are read does not need it, and paying for it on every allocation would
+// charge that arena for a property it already has.
+func (a *Arena) Fill(word uint32) error {
+	if a.err != nil {
+		return a.err
+	}
+	return a.dev.WithContext(func() error {
+		for _, s := range a.spans {
+			if n := uint(s.bytes / 4); n > 0 {
+				if err := s.ptr.MemsetD32(word, n); err != nil {
+					return fmt.Errorf("cudamem: arena fill: %w", err)
+				}
+			}
+			if rem := s.bytes % 4; rem > 0 {
+				p := s.ptr + driver.DevicePtr(s.bytes-rem)
+				if err := p.MemsetD8(uint8(word), uint(rem)); err != nil {
+					return fmt.Errorf("cudamem: arena fill tail: %w", err)
+				}
+			}
+		}
+		return nil
+	})
+}
+
 // Err returns the first error from an allocation made through the arena, or nil if
 // every allocation succeeded.
 func (a *Arena) Err() error {
@@ -141,7 +186,7 @@ func (a *Arena) Err() error {
 // safe: the second call has nothing to release.
 func (a *Arena) Free() error {
 	frees := a.frees
-	a.frees = nil
+	a.frees, a.spans = nil, nil
 	var errs []error
 	for i := len(frees) - 1; i >= 0; i-- {
 		if err := frees[i](); err != nil {

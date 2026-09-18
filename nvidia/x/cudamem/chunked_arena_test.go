@@ -107,3 +107,68 @@ func TestChunkedArena(t *testing.T) {
 		t.Errorf("oversized pointer %v is not 256-byte aligned", big.Ptr())
 	}
 }
+
+func TestArenaFill(t *testing.T) {
+	if err := driver.Load(""); err != nil {
+		t.Skipf("CUDA driver not available: %v", err)
+	}
+	if err := cuda.Init(); err != nil {
+		t.Fatalf("cuInit failed with libcuda loaded from %q: %v", driver.Path(), err)
+	}
+	count, err := cuda.DeviceCount()
+	if err != nil || count == 0 {
+		t.Skip("no CUDA devices available")
+	}
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatalf("NewDevice: %v", err)
+	}
+
+	// Both arena shapes, because they record their allocations on different
+	// paths: the plain one per AllocIn, the chunked one per block.
+	tests := []struct {
+		name  string
+		chunk int
+		word  uint32
+		want  byte
+	}{
+		{"plain zero", 0, 0, 0},
+		{"plain ones", 0, 0xffffffff, 0xff},
+		{"chunked zero", 1 << 20, 0, 0},
+		{"chunked ones", 1 << 20, 0xffffffff, 0xff},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := cudamem.NewArena(dev)
+			if tt.chunk > 0 {
+				a = cudamem.NewChunkedArena(dev, tt.chunk)
+			}
+			defer a.Free()
+			s := cudamem.AllocIn[byte](a, "buf", 4096)
+			if err := a.Err(); err != nil {
+				t.Fatalf("AllocIn: %v", err)
+			}
+			// Write the opposite value first: a fill that reached nothing would
+			// otherwise pass against whatever the driver happened to hand back.
+			seed := make([]byte, s.Len())
+			for i := range seed {
+				seed[i] = ^tt.want
+			}
+			if err := s.CopyFromHost(seed); err != nil {
+				t.Fatalf("seed: %v", err)
+			}
+			if err := a.Fill(tt.word); err != nil {
+				t.Fatalf("Fill: %v", err)
+			}
+			got := make([]byte, s.Len())
+			if err := s.CopyToHost(got); err != nil {
+				t.Fatalf("CopyToHost: %v", err)
+			}
+			for i, b := range got {
+				if b != tt.want {
+					t.Fatalf("byte %d = %#02x, want %#02x", i, b, tt.want)
+				}
+			}
+		})
+	}
+}
