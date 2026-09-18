@@ -89,11 +89,11 @@
             "sha256": "5b7335a8c00e8f73334098686a04b151314218103820535379c82ffc0a7712b9"
           },
           {
-            "path": "nvidia/cublas/layout_test.go",
+            "path": "nvidia/cublas/layout.gen_test.go",
             "sha256": "7b88d94be2d48a056c8f8cd576d797ff51f1df7776b028f25d0f1ff2b21e835d"
           },
           {
-            "path": "nvidia/cublas/loader_test.go",
+            "path": "nvidia/cublas/loader.gen_test.go",
             "sha256": "227f23df06ac9ff5cb69a3e5242e53aba58ffa33c356f3fc8c19451b9a69583e"
           },
           {
@@ -194,11 +194,11 @@
             "sha256": "88e76fb2fd976fd54e8fcb06c9500aba18a39bac3fa854dab318693912ec3466"
           },
           {
-            "path": "nvidia/cublaslt/layout_test.go",
+            "path": "nvidia/cublaslt/layout.gen_test.go",
             "sha256": "57415eed91bc59dd19b346a78362d6c7dd554b0d4a5009e915a300f26b8ef0b6"
           },
           {
-            "path": "nvidia/cublaslt/loader_test.go",
+            "path": "nvidia/cublaslt/loader.gen_test.go",
             "sha256": "c9e4e532df00ff39667e3855d3fd768c70ecdb6d6e0ff296168e3f2535998486"
           },
           {
@@ -314,7 +314,7 @@
             "sha256": "67e79383d0d0ca5e00c5419b03304fa369f1af49bb27a9e7e384305042316a94"
           },
           {
-            "path": "nvidia/cublasmp/loader_test.go",
+            "path": "nvidia/cublasmp/loader.gen_test.go",
             "sha256": "d662fb2d799c7261bcd481cfea9c541f7f6f917ceaf6024bcbb2a26deb522bad"
           },
           {
@@ -455,11 +455,11 @@
             "sha256": "449985af75d22d8b2d089622fd52931536e7c999bb47af9b65160a8950e19f88"
           },
           {
-            "path": "nvidia/cudensitymat/layout_test.go",
+            "path": "nvidia/cudensitymat/layout.gen_test.go",
             "sha256": "ee6b2c924a01ff29431194d5ba0d121335f4dea4cc754906cf507f96d176b0b0"
           },
           {
-            "path": "nvidia/cudensitymat/loader_test.go",
+            "path": "nvidia/cudensitymat/loader.gen_test.go",
             "sha256": "3c43e37fe648271cb02aaaee5a68aac6a2f2b5d814083a543076939b67eaef30"
           },
           {
@@ -654,11 +654,11 @@
             "sha256": "3287d9978ddfd71a6f212f5e8557e1b632b9167699e3445416f98b71b519752a"
           },
           {
-            "path": "nvidia/cudnn/layout_test.go",
+            "path": "nvidia/cudnn/layout.gen_test.go",
             "sha256": "718ce2430f51daee0453efe442995d936300ab4573751bf76fb3b255ead420cd"
           },
           {
-            "path": "nvidia/cudnn/loader_test.go",
+            "path": "nvidia/cudnn/loader.gen_test.go",
             "sha256": "c6bf86ccc71366ca61f43fa8abe5d3a5e399c00af1b06e553020e86bd2b64759"
           },
           {
@@ -1036,11 +1036,11 @@
             "sha256": "e6502ffeeb78e6315d2ea2fa27804322a227b53b81257358fef8c797dce21eaf"
           },
           {
-            "path": "nvidia/cudss/layout_test.go",
+            "path": "nvidia/cudss/layout.gen_test.go",
             "sha256": "aeeaf5a6ffe4132baa973b3edaf51b7656b5aabed18733d85d0625b2bb74a1e3"
           },
           {
-            "path": "nvidia/cudss/loader_test.go",
+            "path": "nvidia/cudss/loader.gen_test.go",
             "sha256": "cb98e888c981825c1043f3909a88a281760f801bb333aabd44a7751eadc8ade7"
           },
           {
@@ -1052,7 +1052,7 @@
             "sha256": "124ac25cb3bd280f31be6d9a4e95951db7c1b5f2ddf18095b3271b38263a161c"
           },
           {
-            "path": "nvidia/cudss/params_abi_test.go",
+            "path": "nvidia/cudss/params_abi.gen_test.go",
             "sha256": "d37322445fb206a2746f8074ca6b7d4f3c38415a037c753d152d26706600a1ae"
           },
           {
@@ -1194,11 +1194,11 @@
             "sha256": "7721957a699f653e4d0cdcfd069bea5012cc7c8133bedd2529d24062b2562848"
           },
           {
-            "path": "nvidia/cufft/layout_test.go",
+            "path": "nvidia/cufft/layout.gen_test.go",
             "sha256": "94ed0d053efe3459ec4f163d485ba1f3dc60934d47f2e9ef1c81cc04edea9c0e"
           },
           {
-            "path": "nvidia/cufft/loader_test.go",
+            "path": "nvidia/cufft/loader.gen_test.go",
             "sha256": "91f48b183f275e326900e29467de175ead184a6fa4394b43cf6fcddd66f788c6"
           },
           {
@@ -1830,11 +1830,11 @@
             "sha256": "39296077a3e6347816deb771c4be30af45ca2a038dc58c69919a45bdf6414b19"
           },
           {
-            "path": "nvidia/cufile/layout_test.go",
+            "path": "nvidia/cufile/layout.gen_test.go",
             "sha256": "0dd1027050afbf21ea4cecd7dfb41d926b124af75e1cc3003f5588666e061359"
           },
           {
-            "path": "nvidia/cufile/loader_test.go",
+            "path": "nvidia/cufile/loader.gen_test.go",
             "sha256": "409c744238737a109b22f1d435e8fd0c0a4e02cf44f121c12fa0a4028b95adbb"
           },
           {
@@ -2296,11 +2296,11 @@
             "sha256": "842638263e51f38362a6572f178539da16ffbb8d7ac0c8c1366e148fb224332a"
           },
           {
-            "path": "nvidia/cupti/layout_test.go",
+            "path": "nvidia/cupti/layout.gen_test.go",
             "sha256": "bcde77e85b49b89c176fe69cce860a481ac77f0c70fbf7b24d908c073f0ae5ea"
           },
           {
-            "path": "nvidia/cupti/loader_test.go",
+            "path": "nvidia/cupti/loader.gen_test.go",
             "sha256": "f090fc4722ad70ed3527fa849b491bf4b8c6e920aaf435bf00f9394ede5b5692"
           },
           {
@@ -2637,7 +2637,7 @@
             "sha256": "100f323d8842f6284d1eb79a1541bb186a9e1c62b59a8fd9c82b3ca0fc926a98"
           },
           {
-            "path": "nvidia/curand/loader_test.go",
+            "path": "nvidia/curand/loader.gen_test.go",
             "sha256": "44bc8603efad612f3103ace88fd94dc4b5163f52a57ed5db1b273410cf911067"
           },
           {
@@ -3168,7 +3168,7 @@
             "sha256": "a54ff12af72037180cce27ee2b3ffa7246d7f17a45dbf306ecbbfe9e09b7e011"
           },
           {
-            "path": "nvidia/cusolver/loader_test.go",
+            "path": "nvidia/cusolver/loader.gen_test.go",
             "sha256": "d1f0204cfdc797da8ba5caa374a3c3c451708602ec104440061da159c68a4f20"
           },
           {
@@ -3273,7 +3273,7 @@
             "sha256": "b036ed27bdd6dc037a34c8d08d6578157b8cf79e5b70de7071429fbe26f2173a"
           },
           {
-            "path": "nvidia/cusolvermp/loader_test.go",
+            "path": "nvidia/cusolvermp/loader.gen_test.go",
             "sha256": "ff089b68b1aacadb96deaddaa2ae44fb0c0bd772707e61eac607281e2d5ad6b3"
           },
           {
@@ -3724,7 +3724,7 @@
             "sha256": "47b2e066a4ed57422dfeec21db45dc2cec556c78b8a8ea4184728551b7ab85e9"
           },
           {
-            "path": "nvidia/cusparse/loader_test.go",
+            "path": "nvidia/cusparse/loader.gen_test.go",
             "sha256": "7b8f2cfc7c08ace39f6195710ab6319873505a0368c305c6a949b55b3a7378d3"
           },
           {
@@ -4270,11 +4270,11 @@
             "sha256": "db453f4b3f98b3ea8eb6de94fa191c1d7c9bf0fed89d1d19c7f35bc8c0a58a7c"
           },
           {
-            "path": "nvidia/custatevec/layout_test.go",
+            "path": "nvidia/custatevec/layout.gen_test.go",
             "sha256": "004a087611d9dca4f308268c56ad18b7baf1bb29871b1f66f1208bd3d54fa671"
           },
           {
-            "path": "nvidia/custatevec/loader_test.go",
+            "path": "nvidia/custatevec/loader.gen_test.go",
             "sha256": "335c7a71312ece5c1045af2c8e58544863bb833508ea3e3b3b5f5cbf9b680a48"
           },
           {
@@ -4404,7 +4404,7 @@
             "sha256": "f49e5b81d15fcd0ecfceb7d20934baad761fdce83b188a5e1b68567db1455304"
           },
           {
-            "path": "nvidia/cutensor/loader_test.go",
+            "path": "nvidia/cutensor/loader.gen_test.go",
             "sha256": "d0bf66a28bb76f22bf5e82f3fae10dcc5335be042fbb20512024cd55364728c6"
           },
           {
@@ -4528,11 +4528,11 @@
             "sha256": "d453686e7380a2fa94dea4889d8a92e4d2aecb88d290115af92d3cb16012ce5c"
           },
           {
-            "path": "nvidia/cutensornet/layout_test.go",
+            "path": "nvidia/cutensornet/layout.gen_test.go",
             "sha256": "2c9fdddb5a4e74f71fb61a70f83618d038f1b8d1e2a54728d3e4d740989f95e1"
           },
           {
-            "path": "nvidia/cutensornet/loader_test.go",
+            "path": "nvidia/cutensornet/loader.gen_test.go",
             "sha256": "b0a7582e0cfcdee33b05cf705855b97d68a39ccae3594b647488386df204c19a"
           },
           {
@@ -4682,7 +4682,7 @@
             "sha256": "f4d48932d01365d60095fdc1ba034be2ede8d711008cf71b8b4fcb7d7b66e68c"
           },
           {
-            "path": "nvidia/dcgm/fields_test.go",
+            "path": "nvidia/dcgm/fields.gen_test.go",
             "sha256": "60ac4efd45bfa458fa936438ec00071984c0e704290dcd39730573c2552ec017"
           },
           {
@@ -4704,7 +4704,7 @@
             "sha256": "5f51fb800a8c8c68d7200d157e79c611538d98cb622ba90c4374e5f453aa955a"
           },
           {
-            "path": "nvidia/dcgm/layout_test.go",
+            "path": "nvidia/dcgm/layout.gen_test.go",
             "sha256": "b0d6206a149adb63c70a8f214e77678387ebe8fd0d72a634735b4f854f328f93"
           },
           {
@@ -4712,11 +4712,11 @@
             "sha256": "2986a6af401fc07497a370402f72cc78fb35bc7a0130c41a72c698b1ba94e589"
           },
           {
-            "path": "nvidia/dcgm/limits_test.go",
+            "path": "nvidia/dcgm/limits.gen_test.go",
             "sha256": "1403a6aea042ba3b1dad9a2a4dac5676bc27871a41409c92362e1c68a9d65ccd"
           },
           {
-            "path": "nvidia/dcgm/loader_test.go",
+            "path": "nvidia/dcgm/loader.gen_test.go",
             "sha256": "e2d0af495b0174a2b0216b191244887d4b65a2caef4d4c9d0895a4f6cfe7d5de"
           },
           {
@@ -4754,7 +4754,7 @@
             "sha256": "92a045e6692b2a8f4fd7206707db71015dcffc2ed4df3c33b7c11d2e90cad214"
           },
           {
-            "path": "nvidia/dcgm/versions_test.go",
+            "path": "nvidia/dcgm/versions.gen_test.go",
             "sha256": "1da01ce3c313d2412cabb18d03eedbaac65bfc50017a399a38aeb24e2c29b602"
           }
         ],
@@ -4952,7 +4952,7 @@
             "sha256": "3022327eb7ea994c001d985632a5d0b6819d438f46b0e9eb8f600fd6242e6b0c"
           },
           {
-            "path": "nvidia/driver/layout_test.go",
+            "path": "nvidia/driver/layout.gen_test.go",
             "sha256": "8ed5febdd76a89d16e2dbaadfa67d12f88d7254e6e179819e89efc892dc31600"
           },
           {
@@ -4965,7 +4965,7 @@
             "sha256": "99166999794b6341b417dcabe35ab9fe728c8c424a37f32311b7ae0b781a85fc"
           },
           {
-            "path": "nvidia/driver/loader_test.go",
+            "path": "nvidia/driver/loader.gen_test.go",
             "sha256": "5730fd10d6e2e244196048dabb4fcf690ba8a9ed091d49bd634851abb409ebc7"
           },
           {
@@ -5106,11 +5106,11 @@
             "sha256": "93e9f8ced41713cf28c62278c6e6572a88240602153ffb1ee22204b6affc66c5"
           },
           {
-            "path": "nvidia/fabricmanager/layout_test.go",
+            "path": "nvidia/fabricmanager/layout.gen_test.go",
             "sha256": "67439d58c631d804b0a1600d6308a9853fc5ad067d7f66c04ae8c5fd09c4dd1b"
           },
           {
-            "path": "nvidia/fabricmanager/loader_test.go",
+            "path": "nvidia/fabricmanager/loader.gen_test.go",
             "sha256": "53d1217f02f754b266cfbf3aaa6afec66025fa55d500eaa3219a06b85a52530f"
           },
           {
@@ -5206,7 +5206,7 @@
         },
         "outputs": [
           {
-            "path": "nvidia/gdrcopy/abi_test.go",
+            "path": "nvidia/gdrcopy/abi.gen_test.go",
             "sha256": "5e75964039f62faa8f1a23833bdf875c50a9f3d5b32571b33418ec918870ab2f"
           },
           {
@@ -5238,7 +5238,7 @@
             "sha256": "d6b63f4e656a836fe4a20bf1305279e9fb231960915036bee3203175947103a3"
           },
           {
-            "path": "nvidia/gdrcopy/loader_test.go",
+            "path": "nvidia/gdrcopy/loader.gen_test.go",
             "sha256": "018f312923a7bdb625445c26a3a95966f9c896000845182d1ff997b9bd5977fd"
           },
           {
@@ -5246,7 +5246,7 @@
             "sha256": "7f84cd563fd4c2cb37358b3d699f5c9954e19d7d2d482d00a36d50b39ca54091"
           },
           {
-            "path": "nvidia/gdrcopy/symbols_test.go",
+            "path": "nvidia/gdrcopy/symbols.gen_test.go",
             "sha256": "7f4c81125259d0bca5218cf77e979ba9cccc41a1203c558b526e3ba30dfcf17e"
           }
         ],
@@ -5880,11 +5880,11 @@
             "sha256": "d7b7b6ac8500822ae2c13e4543c948179799f227859a2ad54b7f5a61c5fb3f7d"
           },
           {
-            "path": "nvidia/nccl/layout_test.go",
+            "path": "nvidia/nccl/layout.gen_test.go",
             "sha256": "8e00386a0e954d7a6399796ccb5548b585e7224f8fc20a3c0142f98a8662d18b"
           },
           {
-            "path": "nvidia/nccl/loader_test.go",
+            "path": "nvidia/nccl/loader.gen_test.go",
             "sha256": "ae17d6601e5b62489e7a3b048b24da227332bbdb937b6245d84db829aaaed79e"
           },
           {
@@ -6338,11 +6338,11 @@
             "sha256": "ab7f8e4120e3d50c00c1eb8b98ed024e1a39d40bd56e5b2d4f912cfc36a0bd48"
           },
           {
-            "path": "nvidia/ncclep/layout_test.go",
+            "path": "nvidia/ncclep/layout.gen_test.go",
             "sha256": "f60d3afc8259b460ce22a6a39a914eac5604a18a254d316c72f4f5fdfed98d27"
           },
           {
-            "path": "nvidia/ncclep/loader_test.go",
+            "path": "nvidia/ncclep/loader.gen_test.go",
             "sha256": "a7c3846bad215b9fdd3c1346ccb55a7b923cfefba008ad449b228e24b15514e4"
           },
           {
@@ -6709,11 +6709,11 @@
             "sha256": "0f815840785674a887203fbcb8069e1bc0e3abf52412c0cd25681e7202b77daa"
           },
           {
-            "path": "nvidia/ncclm2n/layout_test.go",
+            "path": "nvidia/ncclm2n/layout.gen_test.go",
             "sha256": "6cc1a55ddb3d98e05c864b4caa116d8434708cb6a2628ea750bc34b2c9507758"
           },
           {
-            "path": "nvidia/ncclm2n/loader_test.go",
+            "path": "nvidia/ncclm2n/loader.gen_test.go",
             "sha256": "29268867cfcb7deeb32342a3ad1ac28e9d8000af94de3c84cfc09ea2b24de323"
           },
           {
@@ -7082,11 +7082,11 @@
             "sha256": "24b7da27910ef54172cc711c3e322810310cd10e8d2b2e7f88d670e9febffef6"
           },
           {
-            "path": "nvidia/nvdec/layout_test.go",
+            "path": "nvidia/nvdec/layout.gen_test.go",
             "sha256": "576f03bf7d0c1b6a05890cf4e85cd3aef11391993e9a6bb01a462697935381dc"
           },
           {
-            "path": "nvidia/nvdec/layout_windows_test.go",
+            "path": "nvidia/nvdec/layout_windows.gen_test.go",
             "sha256": "8a82d89b83ba613c7e466191f2e3ba6f133adc871e6a0c73425ef6e1c83a57d5"
           },
           {
@@ -7233,7 +7233,7 @@
             "sha256": "8d32fbdf56912591945a5f6ddde19c3d45b4f588affa313ca4016cc5c35edb6c"
           },
           {
-            "path": "nvidia/nvenc/layout_test.go",
+            "path": "nvidia/nvenc/layout.gen_test.go",
             "sha256": "0f3609c949c2ff0fc3d32bcaf179da0e515c1c91f1ceef5639d03f84d3ff9f1b"
           },
           {
@@ -7380,7 +7380,7 @@
             "sha256": "4e5ae7c616ec2a7b4c4dfeea87852abffe4a3708105fd6906fa433392a987186"
           },
           {
-            "path": "nvidia/nvfatbin/loader_test.go",
+            "path": "nvidia/nvfatbin/loader.gen_test.go",
             "sha256": "b2c152632c9d00d821f0c9d92fbbb328659e86d615b2488b691a491246e0e1b1"
           },
           {
@@ -7536,7 +7536,7 @@
             "sha256": "743f9846bc7b1eef298bab309e64b613e151967fa7c382f7756ff6dbfdec31f0"
           },
           {
-            "path": "nvidia/nvjitlink/loader_test.go",
+            "path": "nvidia/nvjitlink/loader.gen_test.go",
             "sha256": "51a632fc5862ca207eeb56e8216ce5d2eee61be8454d3446627df43ab60fadb6"
           },
           {
@@ -7706,11 +7706,11 @@
             "sha256": "2ce9c3f28b4f5d31a53e09aac0c50090bad749c3b43fdf3d73d5d6a3962a9b12"
           },
           {
-            "path": "nvidia/nvjpeg2k/layout_test.go",
+            "path": "nvidia/nvjpeg2k/layout.gen_test.go",
             "sha256": "acbec1c67bbf46285d7ccce0f9943682c40ab7c0150a12635b063b7f4b4216db"
           },
           {
-            "path": "nvidia/nvjpeg2k/loader_test.go",
+            "path": "nvidia/nvjpeg2k/loader.gen_test.go",
             "sha256": "d1a9026fff0fb3223b1bdbd05f86fb86566a13e3d5e88f9f19640397bc03a7d9"
           },
           {
@@ -7882,11 +7882,11 @@
             "sha256": "2a337168d7ee0b8e5bd55bb44a18b8b047374175fafcfa59c0487eded8d82662"
           },
           {
-            "path": "nvidia/nvml/layout_test.go",
+            "path": "nvidia/nvml/layout.gen_test.go",
             "sha256": "2df4152c1d91452db04fe1be052559048f3c262904a033af79371fa0b87c7133"
           },
           {
-            "path": "nvidia/nvml/loader_test.go",
+            "path": "nvidia/nvml/loader.gen_test.go",
             "sha256": "0e2b3485757132a5567267137c9cbfb08a98d4f66176fad2753df6887c857791"
           },
           {
@@ -8152,11 +8152,11 @@
             "sha256": "9f1db5c1aa618826d474f89e770fca7406145695c5fd93e60bb7eac0bd6bf4fb"
           },
           {
-            "path": "nvidia/nvrtc/layout_test.go",
+            "path": "nvidia/nvrtc/layout.gen_test.go",
             "sha256": "a7445db09eb86299a4c594b3cc64e425c4f912fd095d34895d299b956a9cb875"
           },
           {
-            "path": "nvidia/nvrtc/loader_test.go",
+            "path": "nvidia/nvrtc/loader.gen_test.go",
             "sha256": "d79e29631dab5fd5addbf07245cef2e252b3c9199f2da19f357dbc0af83257be"
           },
           {
@@ -8318,7 +8318,7 @@
             "sha256": "2b0e25131cdd0289fd88738ddafcac81c9c392a5eb465d647b1ceab4979cd741"
           },
           {
-            "path": "nvidia/nvshmem/layout_test.go",
+            "path": "nvidia/nvshmem/layout.gen_test.go",
             "sha256": "b50df32994562f1d98317a6be222c61161a9ae9e1e84b8d7bb08160f2f3a29c6"
           },
           {
@@ -8326,7 +8326,7 @@
             "sha256": "3a424198fc39a9c0e57bc6970465b4e4bc271445d5c7ef8ee9f6a57de77174a0"
           },
           {
-            "path": "nvidia/nvshmem/loader_test.go",
+            "path": "nvidia/nvshmem/loader.gen_test.go",
             "sha256": "7c6a4feea12777b581ccf3044fd45f5567dce3e1a06e9909c26549a0d787d2bf"
           },
           {
@@ -8539,7 +8539,7 @@
             "sha256": "bf9009c3c07507e445b448f3aa3084eeb9ec66ce84567e2badd7a35fe9ca5dea"
           },
           {
-            "path": "nvidia/nvvm/loader_test.go",
+            "path": "nvidia/nvvm/loader.gen_test.go",
             "sha256": "a6f4828ef30323958e208cb7894862315b9b3cbb4c5c7de17ff48bf98b092dc4"
           },
           {
@@ -8725,11 +8725,11 @@
             "sha256": "ce8cda04be1ec099f38b8868732b16ac69e228e705a85d556cd18873e6a07f7d"
           },
           {
-            "path": "nvidia/sanitizer/layout_test.go",
+            "path": "nvidia/sanitizer/layout.gen_test.go",
             "sha256": "9703479c2f68e23910e2ca1be59a216eca38be8b03adb46768a08a358b6a84d2"
           },
           {
-            "path": "nvidia/sanitizer/loader_test.go",
+            "path": "nvidia/sanitizer/loader.gen_test.go",
             "sha256": "497fcd046f8a1f696db35841acd178d9ce69059ae404afaf2e6b78f72bca5e08"
           },
           {
