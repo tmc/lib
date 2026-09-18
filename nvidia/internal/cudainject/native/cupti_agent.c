@@ -30,7 +30,17 @@
 #define WIRE_HEADER 80
 #define MAX_PAYLOAD 4096
 #define BUFFER_BYTES (8u << 20)
-#define BUFFER_POOL 4
+/* CUPTI asks for a buffer whenever every buffer it holds is full, and it drops
+   records outright -- counted in native_dropped, not in this agent's own
+   accounting -- for as long as the request goes unanswered. A pool of 4 is
+   enough only for a workload that launches slowly. A 2048-token ds4-min
+   prefill launches 548,145 activities in 23 s and lost 513,943 of them to
+   native_dropped at BUFFER_POOL 4; at 64 the same capture lost none. The ring
+   below was never the constraint in either run -- the agent retained 100% of
+   what it was offered even while CUPTI was dropping -- so PENDING_RECORDS
+   stays where it is. The pool is static BSS and demand-paged: only the buffers
+   CUPTI actually holds at once are ever touched. */
+#define BUFFER_POOL 64
 #define PENDING_RECORDS 2048
 /* Records drained per writev. CUPTI hands the buffer-completed callback a
    whole 8 MiB activity buffer in one burst; writing one record per write(2)

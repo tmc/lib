@@ -198,6 +198,8 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	var targetInjectionFailure string
 	var targetFailureState journalState
 	var targetJournalErr error
+	var targetObserved bool
+	var targetObservedState journalState
 	for i := range files {
 		f := &files[i]
 		if f.h.Process != uint64(result.TargetPID) {
@@ -266,6 +268,11 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		}
 		if err != nil {
 			targetJournalErr = err
+			// observeJournal returns errJournalNotFinalized together with
+			// everything it did decode. Keep those values for the diagnosis
+			// below; the capture is still refused, but it must not describe
+			// what it read as absent.
+			targetObserved, targetObservedState = true, state
 			failMsg := err.Error()
 			if state.failure != "" {
 				failMsg = state.failure
@@ -324,6 +331,13 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			}
 		} else {
 			result.Outcome, result.CaptureError = captureOutcomeTransport, "target journal incomplete"
+		}
+		// A refused journal is not an unread one. Reporting a recorded
+		// bootstrap as bootstrap_seen:false sends the reader hunting for an
+		// injection or transport fault that did not happen; the real fault is
+		// whatever kept the producer from finalizing.
+		if targetObserved {
+			result.BootstrapSeen = targetObservedState.bootstrap
 		}
 		return applyPartialRecovery(result)
 	}

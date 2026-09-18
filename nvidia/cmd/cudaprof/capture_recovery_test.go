@@ -264,3 +264,33 @@ func TestRecoverUnfinalizedPreservesLossDisposition(t *testing.T) {
 		t.Fatalf("loss disposition = %+v", w)
 	}
 }
+
+// TestUnfinalizedTargetStillReportsWhatItRead pins the diagnosis on a target
+// generation that decoded a bootstrap record and then stopped without
+// finalizing -- the shape a Go binary leaves behind, since runtime.exit issues
+// exit_group and runs neither the agent's atexit handler nor its ELF
+// destructor. The capture is still refused. What it must not do is describe the
+// bootstrap it just read as absent: bootstrap_seen:false on this journal reads
+// as "the agent never loaded" and sends the reader after an injection or
+// libcupti fault that did not happen.
+func TestUnfinalizedTargetStillReportsWhatItRead(t *testing.T) {
+	const session = "00112233445566778899aabbccddeeff"
+	dir := t.TempDir()
+	var sid [16]byte
+	raw, _ := hex.DecodeString(session)
+	copy(sid[:], raw)
+
+	writeHandshake(t, dir, session, 41, 2)
+	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+	})
+
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
+	if got.CaptureSuccess {
+		t.Fatalf("unfinalized target was published: %+v", got)
+	}
+	if !got.BootstrapSeen {
+		t.Fatalf("journal holds a bootstrap record but bootstrap_seen is false: %+v", got)
+	}
+}
