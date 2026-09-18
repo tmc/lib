@@ -694,6 +694,10 @@ func parseFunctionSection(payload []byte, strTable []string, typeTable []Type) (
 	return fns, nil
 }
 
+// parseBodyOperations decodes a function body. It returns no error and cannot
+// fail: an opcode it does not know becomes an operation named op_0xNN. That
+// makes it unusable as a check on anything that writes a body, which is why a
+// round trip through this package is not evidence about the format.
 func parseBodyOperations(body []byte, typeTable []Type) []*Operation {
 	var ops []*Operation
 	off := 0

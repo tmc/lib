@@ -279,6 +279,13 @@ func TestSubByteTypeAliases(t *testing.T) {
 	}
 }
 
+// TestEncodeBytecodeRoundTrip checks that this package can read back what it
+// writes. Its oracle is its own output, so it cannot show that the bytes are
+// Tile IR, and it does not: it stays green when the AST encoder is made to
+// write every opcode as opcode+1, because parseBodyOperations returns no error
+// and names an unknown opcode op_0xNN rather than rejecting it. Treat a pass
+// as evidence about framing only. x/tileiras's TestAssembleNative is the
+// oracle this package does not contain.
 func TestEncodeBytecodeRoundTrip(t *testing.T) {
 	const textSample = `cuda_tile.module @subbyte_kernels {
   cuda_tile.entry @gemm_fp4(%A: !cuda_tile.tile<ptr<f4E2M1FN>>, %B: !cuda_tile.tile<ptr<f4E2M1FN>>, %C: !cuda_tile.tile<ptr<f32>>) {

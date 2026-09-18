@@ -194,6 +194,9 @@ func TestTileTokenOrdering(t *testing.T) {
 	}
 }
 
+// TestTileBytecodeRoundTrip lowers, encodes and decodes. Like
+// TestEncodeBytecodeRoundTrip its oracle is its own output and it survives
+// wholesale corruption of the opcode stream; see that test's comment.
 func TestTileBytecodeRoundTrip(t *testing.T) {
 	g := cudair.NewGraph()
 	a := g.AddInput("A", []int{16, 16}, cudair.Float32)
