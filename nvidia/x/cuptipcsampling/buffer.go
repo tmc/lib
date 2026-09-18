@@ -13,11 +13,18 @@ import (
 // sampling and end native access before release. Names belong to the session's
 // shared native-name registry, not to this buffer.
 type samplingBuffer struct {
-	data     cupti.PCSamplingData
-	pcs      []cupti.PCSamplingPCData
-	reasons  [][]cupti.PCSamplingStallReason
-	pin      runtime.Pinner
-	released bool
+	data cupti.PCSamplingData
+	pcs  []cupti.PCSamplingPCData
+	// reasons holds one array per PC, each one entry LONGER than reasonCap.
+	// The extra entry is a canary: nothing tells CUPTI a per-PC array length,
+	// so the only bound on how many reasons it writes for a PC is the reason
+	// count given at configuration time, and a write past that lands in
+	// unrelated heap and surfaces later as a fault inside libcupti with no Go
+	// frame to blame. The canary turns that into an error at the boundary.
+	reasons   [][]cupti.PCSamplingStallReason
+	reasonCap int
+	pin       runtime.Pinner
+	released  bool
 }
 
 type pcSamples struct {
@@ -37,6 +44,9 @@ type samplingBatch struct {
 
 // The budget includes the output header, PC records and reason arrays. It
 // excludes Go bookkeeping and native buffers configured separately by CUPTI.
+// The per-PC canary entry is Go bookkeeping by that rule: CUPTI is never told
+// it exists and never stores a reason in it. Counting it would shrink every
+// caller's usable capacity for a byte CUPTI cannot use.
 func newSamplingBuffer(pcCount, reasonCount int, maxBytes uint64) (*samplingBuffer, error) {
 	if unsafe.Sizeof(uintptr(0)) != 8 || pcCount < 1 || reasonCount < 1 || reasonCount > 65536 {
 		return nil, errors.New("cuptipcsampling: invalid sampling buffer dimensions")
@@ -46,11 +56,11 @@ func newSamplingBuffer(pcCount, reasonCount int, maxBytes uint64) (*samplingBuff
 	if maxBytes < header || uint64(pcCount) > (maxBytes-header)/stride {
 		return nil, errors.New("cuptipcsampling: sampling buffer exceeds byte limit")
 	}
-	b := &samplingBuffer{pcs: make([]cupti.PCSamplingPCData, pcCount), reasons: make([][]cupti.PCSamplingStallReason, pcCount)}
+	b := &samplingBuffer{pcs: make([]cupti.PCSamplingPCData, pcCount), reasons: make([][]cupti.PCSamplingStallReason, pcCount), reasonCap: reasonCount}
 	b.pin.Pin(&b.data)
 	b.pin.Pin(&b.pcs[0])
 	for i := range b.pcs {
-		b.reasons[i] = make([]cupti.PCSamplingStallReason, reasonCount)
+		b.reasons[i] = make([]cupti.PCSamplingStallReason, reasonCount+1)
 		b.pin.Pin(&b.reasons[i][0])
 	}
 	b.reset()
@@ -112,8 +122,15 @@ func (b *samplingBuffer) snapshot(copyName func(uintptr) (string, error)) (sampl
 
 func (b *samplingBuffer) checkPC(i uint) error {
 	p := b.pcs[i]
-	if p.Size != uint(unsafe.Sizeof(p)) || p.StallReason != uintptr(unsafe.Pointer(&b.reasons[i][0])) || p.StallReasonCount > uint(len(b.reasons[i])) {
+	if p.Size != uint(unsafe.Sizeof(p)) || p.StallReason != uintptr(unsafe.Pointer(&b.reasons[i][0])) || p.StallReasonCount > uint(b.reasonCap) {
 		return fmt.Errorf("cuptipcsampling: invalid native PC buffer %d", i)
+	}
+	// A nonzero canary means CUPTI wrote more reasons for this PC than the
+	// count it was configured with, so the arrays are undersized and the write
+	// ran past the end of this one. Report it here rather than let the next
+	// drain fault somewhere with no Go frame naming the cause.
+	if b.reasons[i][b.reasonCap] != (cupti.PCSamplingStallReason{}) {
+		return fmt.Errorf("cuptipcsampling: native PC buffer %d overran %d configured reasons", i, b.reasonCap)
 	}
 	return nil
 }
