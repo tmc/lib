@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -35,6 +36,7 @@ const (
 	kindFailure    = 5
 	kindExternal   = 6
 	kindAPI        = 7
+	kindHost       = 8
 )
 
 const sessionHex = "00112233445566778899aabbccddeeff"
@@ -68,6 +70,13 @@ type finalizedRecord struct {
 	// it no loss statement about one kind is separable from the others: the
 	// ring admits every kind through one path.
 	ByKind map[string]kindCounts `json:"by_kind"`
+
+	// HostSamples counts intervals the host sampler completed;
+	// HostSampleRecords counts the journal records they became. They differ
+	// whenever a sample held more threads than one payload fits, which is the
+	// case the batching exists for.
+	HostSamples       uint64 `json:"host_samples"`
+	HostSampleRecords uint64 `json:"host_sample_records"`
 }
 
 // kindCounts is one kind's share of the producer's accounting.
@@ -123,8 +132,14 @@ type capture struct {
 	failures   []string
 	markers    []markerRecord
 	memsets    []memsetRecord
-	ranges     []rangeEdgeRecord
-	truncated  bool
+	hosts      []hostSampleRecord
+	// order is every record's kind in journal order. The producer's ordering
+	// invariant -- nothing before bootstrap and capability, nothing after
+	// finalized -- is a property of the sequence, not of the counts, so it
+	// can only be asserted from this.
+	order     []uint16
+	ranges    []rangeEdgeRecord
+	truncated bool
 }
 
 // rangeEdgeRecord is one capture-range edge as the producer wrote it. These are
@@ -174,6 +189,34 @@ type memsetRecord struct {
 	Correlation uint32 `json:"correlation"`
 }
 
+// hostSampleRecord is one part of one host run-state sample. A sample is one
+// or more of these: the payload is capped, a process can have more threads
+// than fit, and the parts carry the totals so a consumer can tell a complete
+// sample from a prefix of one. Truncating instead would report a subset of the
+// threads as the whole process.
+type hostSampleRecord struct {
+	Kind         string            `json:"kind"`
+	Sample       uint64            `json:"sample"`
+	Part         uint              `json:"part"`
+	Wall         uint64            `json:"wall"`
+	Last         bool              `json:"last"`
+	InPart       int               `json:"in_part"`
+	ThreadsTotal int               `json:"threads_total"`
+	Unreadable   uint64            `json:"unreadable"`
+	Overflowed   uint64            `json:"overflowed"`
+	Threads      []hostThreadState `json:"threads"`
+}
+
+// hostThreadState is one thread's run state as /proc reported it. The CPU
+// counters are in clock ticks, the unit the kernel writes; the tick rate
+// travels in the capability record so a consumer never has to assume 100.
+type hostThreadState struct {
+	TID   uint64 `json:"tid"`
+	State string `json:"state"`
+	UTime uint64 `json:"utime_ticks"`
+	STime uint64 `json:"stime_ticks"`
+}
+
 // Marker flags, mirroring CUpti_ActivityFlag in native/testcupti.
 const (
 	markerFlagInstantaneous = 1 << 0
@@ -194,6 +237,11 @@ type capabilityRecord struct {
 	Memsets         bool   `json:"memsets"`
 	ClocksUnified   bool   `json:"clocks_unified"`
 	CUPTIClock      string `json:"cupti_clock"`
+	HostSample      string `json:"host_sample"`
+	HostSampleHz    int    `json:"host_sample_hz"`
+	HostSampleRoot  string `json:"host_sample_root"`
+	RootOverride    bool   `json:"host_sample_root_override"`
+	ClockTicks      int64  `json:"clock_ticks_per_second"`
 	CaptureRange    string `json:"capture_range"`
 	DrainBatch      int    `json:"drain_batch"`
 	QueueCapacity   int    `json:"queue_capacity"`
@@ -356,6 +404,7 @@ func decode(t *testing.T, path string) capture {
 			t.Fatalf("decode %s after %d records: %v", path, d.Stats().Records, err)
 		}
 		c.counts[r.Kind]++
+		c.order = append(c.order, r.Kind)
 		switch r.Kind {
 		case kindFinalized:
 			var fin finalizedRecord
@@ -369,6 +418,12 @@ func decode(t *testing.T, path string) capture {
 			}
 		case kindFailure:
 			c.failures = append(c.failures, string(r.Payload))
+		case kindHost:
+			var h hostSampleRecord
+			if err := json.Unmarshal(r.Payload, &h); err != nil {
+				t.Fatalf("host sample payload %q: %v", r.Payload, err)
+			}
+			c.hosts = append(c.hosts, h)
 		case kindActivity:
 			// Only markers are decoded here. The high-volume scenarios offer
 			// millions of activity records and a JSON unmarshal per record
@@ -442,7 +497,7 @@ func checkReconcilesOutOfBand(t *testing.T, c capture, offered uint64, outOfBand
 	var queued uint64
 	for kind, n := range c.counts {
 		switch kind {
-		case kindActivity, kindAPI, kindExternal:
+		case kindActivity, kindAPI, kindExternal, kindHost:
 			queued += n
 		case kindFailure:
 			queued += n
@@ -469,7 +524,7 @@ func checkPerKindReconciles(t *testing.T, c capture, drops, outOfBand uint64) {
 	if fin.ByKind == nil {
 		t.Fatal("finalized record carries no by_kind accounting")
 	}
-	for _, kind := range []string{"activity", "api", "external", "failure"} {
+	for _, kind := range []string{"activity", "api", "external", "failure", "host"} {
 		if _, ok := fin.ByKind[kind]; !ok {
 			t.Errorf("by_kind is missing %q", kind)
 		}
@@ -508,6 +563,7 @@ func checkPerKindReconciles(t *testing.T, c capture, drops, outOfBand uint64) {
 		"api":      c.counts[kindAPI],
 		"external": c.counts[kindExternal],
 		"failure":  c.counts[kindFailure] - outOfBand,
+		"host":     c.counts[kindHost],
 	}
 	for kind, want := range journal {
 		if got := fin.ByKind[kind].Retained; got != want {
@@ -1688,5 +1744,380 @@ func TestTimestampCallbackDegradationIsRecorded(t *testing.T) {
 	}
 	if !strings.Contains(found, `"state":"cupti_unavailable"`) {
 		t.Errorf("failure record %q does not carry the cupti_unavailable state", found)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Host run-state sampling.
+//
+// The sampler reads a directory of task stat files. Its default root is
+// /proc/self/task, which exists only on Linux, so these controls point it at a
+// fixture tree instead. That is not a mock of the sampler: the producer thread
+// under test is the shipping one, it enumerates with the shipping code, parses
+// with the shipping parser and emits through the shipping ring and drain. What
+// the fixture replaces is the kernel, and only the kernel.
+//
+// NOT MEASURED here, and not measurable on this host: the cost of the sampler
+// against a real /proc on a real Linux target. Every timing claim in these
+// controls is about a fixture tree on darwin.
+
+// hostFixture writes a task tree the sampler can read: one directory per tid,
+// each holding a stat file with the exact bytes given.
+func hostFixture(t *testing.T, stats map[string]string) string {
+	t.Helper()
+	root := t.TempDir()
+	for name, text := range stats {
+		dir := filepath.Join(root, name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if text == "" {
+			continue // a task directory whose stat file cannot be read
+		}
+		if err := os.WriteFile(filepath.Join(dir, "stat"), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return root
+}
+
+// hostEnv is the producer configuration that turns sampling on against root.
+func hostEnv(hz int, root string) []string {
+	return []string{
+		fmt.Sprintf("CUDAPROF_HOST_SAMPLE=%d", hz),
+		"CUDAPROF_HOST_SAMPLE_ROOT=" + root,
+	}
+}
+
+// Real /proc/<pid>/stat lines. The comm fields are the point of two of them:
+// comm is the thread name, the kernel does not escape it, and it may contain
+// both spaces and parentheses. "(sd-pam)" ships with systemd; any program can
+// prctl its name to anything. A parser that scans "%d (%s) %c", or splits on
+// whitespace, or takes the FIRST ')' as the end of comm, reads the wrong
+// fields for these two lines -- and reads them as plausible numbers rather
+// than failing, so nothing downstream can tell.
+const (
+	statPlain     = "1234 (python3) R 1 1234 1234 0 -1 4194304 12345 0 0 0 512 128 0 0 20 0 8 0 987654 1234567890 4567 18446744073709551615 1 1 0 0 0 0 0\n"
+	statParenComm = "4102 (sd) pam (x) D 1 1234 1234 0 -1 1077936128 900 0 0 0 7 9 0 0 20 0 8 0 987655 1 2 3\n"
+	statSpaceComm = "4103 (cuda EvtHandlr) S 1 1234 1234 0 -1 1077936128 3 0 0 0 0 1 0 0 20 0 8 0 987656 1 2 3\n"
+	// The adversarial case, and the reason the other two are not enough. A
+	// parser that stops at the FIRST ')' reads state 'b' and then twelve
+	// perfectly well-formed integers out of the middle of the comm, so it
+	// returns success with utime 11 and stime 12 -- a plausible thread that
+	// never existed. Nothing downstream can tell. Only asserting the values
+	// catches it; asserting that the line parsed does not.
+	statDecoyComm = "4104 (a) b 1 2 3 4 5 6 7 8 9 10 11 12 (z) T 1 1234 1234 0 -1 1077936128 3 0 0 0 44 55 0 0 20 0 8 0 987657 1 2 3\n"
+)
+
+// TestHostSamplesReachTheJournal covers the tier end to end: configuration,
+// the sampling thread, the /proc stat parse, the record the drain writes, and
+// the producer's own accounting for it.
+//
+// The assertions are on the parsed values, not on a record count. A sample
+// that arrives with the right shape and the wrong fields is worse than no
+// sample: it answers "what was the host doing in this device gap" with a
+// confident wrong answer, and the gap analysis has no second witness.
+func TestHostSamplesReachTheJournal(t *testing.T) {
+	root := hostFixture(t, map[string]string{
+		"1234": statPlain,
+		"4102": statParenComm,
+		"4103": statSpaceComm,
+		"4104": statDecoyComm,
+	})
+	_, status, captures := runEnv(t, hostEnv(200, root), "host-sample", "120")
+	c := only(t, captures)
+
+	if c.capability.HostSample != "sampling" {
+		t.Fatalf("capability host_sample = %q, want \"sampling\": the sampler never ran, so every assertion below would be about an empty set", c.capability.HostSample)
+	}
+	if c.capability.HostSampleHz != 200 {
+		t.Errorf("capability host_sample_hz = %d, want 200", c.capability.HostSampleHz)
+	}
+	// A fixture run and a real one must never be indistinguishable: the root
+	// that was read is named, and the fact that it was overridden is its own
+	// field rather than something a reader has to infer from the path.
+	if !c.capability.RootOverride || c.capability.HostSampleRoot != root {
+		t.Errorf("capability root = %q override = %v, want %q and true", c.capability.HostSampleRoot, c.capability.RootOverride, root)
+	}
+	// The counters are in ticks. Without the rate a consumer has to assume
+	// 100, and a host configured otherwise makes every derived CPU-time
+	// figure wrong by a constant nobody can see.
+	if c.capability.ClockTicks <= 0 {
+		t.Errorf("capability clock_ticks_per_second = %d, want a positive tick rate", c.capability.ClockTicks)
+	}
+	if len(c.hosts) == 0 {
+		t.Fatal("no host sample records in the journal")
+	}
+
+	want := map[uint64]hostThreadState{
+		1234: {TID: 1234, State: "R", UTime: 512, STime: 128},
+		4102: {TID: 4102, State: "D", UTime: 7, STime: 9},
+		4103: {TID: 4103, State: "S", UTime: 0, STime: 1},
+		4104: {TID: 4104, State: "T", UTime: 44, STime: 55},
+	}
+	for i, h := range c.hosts {
+		if h.Kind != "host_sample" {
+			t.Errorf("record %d: kind=%q, want \"host_sample\"", i, h.Kind)
+		}
+		if !h.Last || h.Part != 0 {
+			t.Errorf("record %d: part=%d last=%v, want a single complete part for four threads", i, h.Part, h.Last)
+		}
+		if h.ThreadsTotal != 4 || h.InPart != 4 {
+			t.Errorf("record %d: in_part=%d threads_total=%d, want 4 and 4", i, h.InPart, h.ThreadsTotal)
+		}
+		if h.Unreadable != 0 || h.Overflowed != 0 {
+			t.Errorf("record %d: unreadable=%d overflowed=%d, want 0 and 0 from a fixture every entry of which parses", i, h.Unreadable, h.Overflowed)
+		}
+		if h.Wall == 0 {
+			t.Errorf("record %d has no timestamp, so it cannot be placed against a device gap", i)
+		}
+		// Not fatal: a wrong count and a wrong value are different defects
+		// and a parser can produce either, so the value comparison below has
+		// to run even when the count is already wrong.
+		if len(h.Threads) != 4 {
+			t.Errorf("record %d carries %d threads, want 4", i, len(h.Threads))
+		}
+		for _, got := range h.Threads {
+			w, ok := want[got.TID]
+			if !ok {
+				t.Errorf("record %d reports tid %d, which is not in the fixture: the parser read the wrong leading field", i, got.TID)
+				continue
+			}
+			if got != w {
+				t.Errorf("record %d tid %d = %+v, want %+v", i, got.TID, got, w)
+			}
+		}
+	}
+	// Samples advance. A sampler that ran once and then wedged, or that
+	// re-emitted one sample forever, produces records that all look right.
+	if len(c.hosts) > 1 && c.hosts[len(c.hosts)-1].Sample == c.hosts[0].Sample {
+		t.Errorf("every record carries sample index %d: the sampler took one sample and repeated it", c.hosts[0].Sample)
+	}
+	fin := c.finalized
+	if fin == nil {
+		t.Fatal("no finalized record")
+	}
+	if fin.HostSamples == 0 || fin.HostSampleRecords != uint64(len(c.hosts)) {
+		t.Errorf("finalized reports %d samples in %d records, journal holds %d", fin.HostSamples, fin.HostSampleRecords, len(c.hosts))
+	}
+	checkReconciles(t, c, fin.Offered)
+	if len(c.failures) != 0 {
+		t.Errorf("producer reported failures: %q", c.failures)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestHostSampleOrdering asserts the invariant the consumer enforces: a record
+// that arrives before bootstrap and capability is rejected, and the whole
+// capture fails with it.
+//
+// The sampler runs on its own timer, so nothing about its first record is
+// naturally ordered against the constructor's two. The producer starts the
+// thread only after both records have taken their sequence numbers, and this
+// is what says so -- from the journal's own order, not from reading the
+// constructor.
+func TestHostSampleOrdering(t *testing.T) {
+	root := hostFixture(t, map[string]string{"1234": statPlain})
+	_, _, captures := runEnv(t, hostEnv(500, root), "host-sample", "80")
+	c := only(t, captures)
+	if len(c.hosts) == 0 {
+		t.Fatal("no host sample records in the journal")
+	}
+	first, bootstrap, capability, finalized := -1, -1, -1, -1
+	for i, kind := range c.order {
+		switch kind {
+		case kindHost:
+			if first < 0 {
+				first = i
+			}
+		case kindBootstrap:
+			bootstrap = i
+		case kindCapability:
+			capability = i
+		case kindFinalized:
+			finalized = i
+		}
+	}
+	if bootstrap < 0 || capability < 0 || finalized < 0 {
+		t.Fatalf("journal order %v is missing one of bootstrap/capability/finalized", c.order)
+	}
+	if first < bootstrap || first < capability {
+		t.Errorf("first host sample is at index %d, bootstrap at %d and capability at %d: a consumer rejects the whole capture for this", first, bootstrap, capability)
+	}
+	last := -1
+	for i, kind := range c.order {
+		if kind == kindHost {
+			last = i
+		}
+	}
+	if last > finalized {
+		t.Errorf("a host sample at index %d follows the finalized record at %d: the sampler outlived finalization", last, finalized)
+	}
+}
+
+// TestHostSampleSplitsLargeThreadSets covers the payload cap. A record is
+// bounded at MAX_PAYLOAD and a serving worker can hold hundreds of threads, so
+// one sample becomes several records. What must not happen is a silent
+// truncation: a sample reporting 63 of 200 threads is not a smaller sample, it
+// is a wrong one, and nothing in a per-record view would show it.
+func TestHostSampleSplitsLargeThreadSets(t *testing.T) {
+	const threads = 200
+	stats := make(map[string]string, threads)
+	for i := 0; i < threads; i++ {
+		tid := 5000 + i
+		stats[fmt.Sprint(tid)] = fmt.Sprintf("%d (worker %d) S 1 1234 1234 0 -1 1077936128 3 0 0 0 %d %d 0 0 20 0 8 0 987656 1 2 3\n", tid, i, i, i*2)
+	}
+	root := hostFixture(t, stats)
+	_, status, captures := runEnv(t, hostEnv(50, root), "host-sample", "150")
+	c := only(t, captures)
+	if len(c.hosts) == 0 {
+		t.Fatal("no host sample records in the journal")
+	}
+
+	bySample := map[uint64][]hostSampleRecord{}
+	for _, h := range c.hosts {
+		bySample[h.Sample] = append(bySample[h.Sample], h)
+	}
+	split := 0
+	for index, parts := range bySample {
+		if len(parts) > 1 {
+			split++
+		}
+		seen := map[uint64]bool{}
+		var inPart int
+		for i, p := range parts {
+			if p.Part != uint(i) {
+				t.Errorf("sample %d: part %d carries index %d, so a consumer cannot tell which part is missing", index, i, p.Part)
+			}
+			if p.ThreadsTotal != threads {
+				t.Errorf("sample %d part %d: threads_total=%d, want %d on every part", index, p.Part, p.ThreadsTotal, threads)
+			}
+			if got := p.Last; got != (i == len(parts)-1) {
+				t.Errorf("sample %d part %d: last=%v at position %d of %d", index, p.Part, got, i, len(parts))
+			}
+			if p.InPart != len(p.Threads) {
+				t.Errorf("sample %d part %d: in_part=%d but carries %d threads", index, p.Part, p.InPart, len(p.Threads))
+			}
+			inPart += p.InPart
+			for _, th := range p.Threads {
+				if seen[th.TID] {
+					t.Errorf("sample %d reports tid %d twice across parts", index, th.TID)
+				}
+				seen[th.TID] = true
+			}
+		}
+		// The identity that makes the split lossless: the parts of one sample
+		// account for exactly the threads the sample claims, once each.
+		if !parts[len(parts)-1].Last {
+			t.Errorf("sample %d has no part marked last, so a consumer can never know it is complete", index)
+		}
+		if inPart != threads || len(seen) != threads {
+			t.Errorf("sample %d: parts carry %d threads (%d distinct), want %d", index, inPart, len(seen), threads)
+		}
+		if p := parts[0]; p.Overflowed != 0 {
+			t.Errorf("sample %d dropped %d threads: %d is under the sampler's own bound", index, p.Overflowed, threads)
+		}
+	}
+	if split == 0 {
+		t.Fatalf("%d threads fit in a single record: this control asserts nothing about batching", threads)
+	}
+	// The producer distinguishes intervals from records precisely so this is
+	// checkable rather than inferred.
+	fin := c.finalized
+	if fin == nil {
+		t.Fatal("no finalized record")
+	}
+	if fin.HostSampleRecords <= fin.HostSamples {
+		t.Errorf("finalized reports %d records for %d samples; a split sample must cost more records than intervals", fin.HostSampleRecords, fin.HostSamples)
+	}
+	checkReconciles(t, c, fin.Offered)
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestHostSampleCountsUnreadableTasks covers what a real /proc does constantly:
+// a thread exits between the directory scan and the open, and its stat file is
+// gone. That is the ordinary case, not a failure, but it must be counted --
+// otherwise a sample missing half the process looks exactly like a process
+// with half as many threads.
+func TestHostSampleCountsUnreadableTasks(t *testing.T) {
+	root := hostFixture(t, map[string]string{
+		"1234": statPlain,
+		"4102": statParenComm,
+		"7000": "",                  // a task directory with no stat file
+		"7001": "not a stat line\n", // present but unparseable
+	})
+	_, status, captures := runEnv(t, hostEnv(200, root), "host-sample", "100")
+	c := only(t, captures)
+	if len(c.hosts) == 0 {
+		t.Fatal("no host sample records in the journal")
+	}
+	for i, h := range c.hosts {
+		if h.ThreadsTotal != 2 {
+			t.Errorf("record %d: threads_total=%d, want the 2 tasks that parsed", i, h.ThreadsTotal)
+		}
+		if h.Unreadable != 2 {
+			t.Errorf("record %d: unreadable=%d, want 2 -- a task that vanishes mid-scan is counted, not silently dropped", i, h.Unreadable)
+		}
+		// The unparseable line must not become a thread with invented fields.
+		for _, th := range h.Threads {
+			if th.TID != 1234 && th.TID != 4102 {
+				t.Errorf("record %d reports tid %d, which no readable fixture entry names", i, th.TID)
+			}
+		}
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit: an unreadable task is counted, not fatal", status)
+	}
+}
+
+// TestHostSampleOffByDefault. The cost of this tier against a real /proc on a
+// real Linux target is NOT MEASURED -- it cannot be measured from this host --
+// so it is off unless asked for, and the capability record says which of
+// "off", "sampling" and a refusal this run was. An absent host record must
+// never be ambiguous between "not asked for" and "asked for and broken".
+func TestHostSampleOffByDefault(t *testing.T) {
+	_, status, captures := run(t, "host-sample", "40")
+	c := only(t, captures)
+	if c.capability.HostSample != "off" || c.capability.HostSampleHz != 0 {
+		t.Errorf("capability host_sample=%q hz=%d, want \"off\" and 0", c.capability.HostSample, c.capability.HostSampleHz)
+	}
+	if c.capability.RootOverride {
+		t.Errorf("capability claims a root override on a run that configured none")
+	}
+	if n := c.counts[kindHost]; n != 0 {
+		t.Errorf("%d host records from a run that never enabled sampling", n)
+	}
+	if fin := c.finalized; fin == nil || fin.HostSamples != 0 {
+		t.Errorf("finalized reports host samples on a run that never enabled sampling: %+v", fin)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestHostSampleRefusesUnreadableRoot. A root that cannot be opened is the
+// darwin default and any misconfiguration, and the failure mode to avoid is a
+// sampler that retries it every interval for the life of the process. It is
+// settled once, at configure time, and reported -- rather than producing a
+// journal with no host records that looks the same as sampling being off.
+func TestHostSampleRefusesUnreadableRoot(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "no-such-task-tree")
+	_, status, captures := runEnv(t, hostEnv(100, missing), "host-sample", "60")
+	c := only(t, captures)
+	if c.capability.HostSample != "root_unavailable" {
+		t.Errorf("capability host_sample = %q, want \"root_unavailable\"", c.capability.HostSample)
+	}
+	if c.capability.HostSampleHz != 0 {
+		t.Errorf("capability host_sample_hz = %d, want 0: the rate was asked for but no sampler runs", c.capability.HostSampleHz)
+	}
+	if n := c.counts[kindHost]; n != 0 {
+		t.Errorf("%d host records from a root that does not exist", n)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit: a missing root disables the tier, it does not fail the capture", status)
 	}
 }

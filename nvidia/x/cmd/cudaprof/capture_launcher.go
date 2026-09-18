@@ -222,22 +222,27 @@ type captureOptions struct {
 // captureResult keeps target termination independent from capture status.
 // A target may fail while the capture itself is complete, or vice versa.
 type captureResult struct {
-	Protocol           int             `json:"protocol"`
-	Session            string          `json:"session"`
-	State              string          `json:"state"`
-	Outcome            string          `json:"outcome"`
-	CaptureSuccess     bool            `json:"capture_success"`
-	TargetPID          int             `json:"target_pid"`
-	TargetExitCode     int             `json:"target_exit_code"`
-	TargetSignal       string          `json:"target_signal,omitempty"`
-	Cancelled          bool            `json:"cancelled,omitempty"`
-	TransportReady     bool            `json:"transport_ready"`
-	BootstrapSeen      bool            `json:"bootstrap_seen"`
-	CollectorFinalized bool            `json:"collector_finalized"`
-	ActivityRecords    uint64          `json:"activity_records"`
-	ExternalRecords    uint64          `json:"external_records,omitempty"`
-	APIRecords         []captureAPI    `json:"api_records,omitempty"`
-	WorkerGenerations  []captureWorker `json:"worker_generations,omitempty"`
+	Protocol           int    `json:"protocol"`
+	Session            string `json:"session"`
+	State              string `json:"state"`
+	Outcome            string `json:"outcome"`
+	CaptureSuccess     bool   `json:"capture_success"`
+	TargetPID          int    `json:"target_pid"`
+	TargetExitCode     int    `json:"target_exit_code"`
+	TargetSignal       string `json:"target_signal,omitempty"`
+	Cancelled          bool   `json:"cancelled,omitempty"`
+	TransportReady     bool   `json:"transport_ready"`
+	BootstrapSeen      bool   `json:"bootstrap_seen"`
+	CollectorFinalized bool   `json:"collector_finalized"`
+	ActivityRecords    uint64 `json:"activity_records"`
+	ExternalRecords    uint64 `json:"external_records,omitempty"`
+	// HostSampleRecords counts the producer's per-thread host run-state
+	// records. It is not device work and is deliberately separate from
+	// ActivityRecords: it is what says whether the host was running, blocked
+	// on I/O, or asleep during a device gap.
+	HostSampleRecords uint64          `json:"host_sample_records,omitempty"`
+	APIRecords        []captureAPI    `json:"api_records,omitempty"`
+	WorkerGenerations []captureWorker `json:"worker_generations,omitempty"`
 	// RecordLoss breaks down what the producer never wrote, when the agent
 	// reported it. It is nil when nothing was lost or when the capture came
 	// from a producer that does not publish the breakdown.

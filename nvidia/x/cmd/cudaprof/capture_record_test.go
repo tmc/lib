@@ -1226,3 +1226,110 @@ func TestCompactStatusKeepsExternalLinksOutOfTheDeviceList(t *testing.T) {
 		t.Errorf("activity_kinds = %v, want the link still counted by subtype", status.ActivityKinds)
 	}
 }
+
+// TestObserveJournalCarriesHostSamples covers the consumer half of the host
+// run-state tier. observeJournal's kind switch ends in a default that rejects
+// the whole capture, so the producer cannot ship without this: a capture of
+// any target run with CUDAPROF_HOST_SAMPLE would fail outright rather than be
+// read without the samples.
+//
+// A host sample is not device work and must not touch the activity totals.
+// Counting it as one would inflate ActivityRecords with records that have no
+// device, no stream and no duration, and the number named "activity" would
+// stop meaning what every consumer of it assumes.
+func TestObserveJournalCarriesHostSamples(t *testing.T) {
+	dir := t.TempDir()
+	sessionHex := "0123456789abcdef0123456789abcdef"
+	raw, err := hex.DecodeString(sessionHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	copy(sid[:], raw)
+
+	// Two parts of one sample, exactly as the producer splits a thread set
+	// that does not fit in one payload.
+	const partOne = `{"kind":"host_sample","sample":0,"part":0,"wall":1000,"threads":[{"tid":10,"state":"R","utime_ticks":5,"stime_ticks":1}],"last":false,"in_part":1,"threads_total":2,"unreadable":0,"overflowed":0}`
+	const partTwo = `{"kind":"host_sample","sample":0,"part":1,"wall":1000,"threads":[{"tid":11,"state":"D","utime_ticks":0,"stime_ticks":9}],"last":true,"in_part":1,"threads_total":2,"unreadable":0,"overflowed":0}`
+
+	journalPath := filepath.Join(dir, "capture.journal")
+	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordHost, Payload: []byte(partOne)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+		{Kind: recordHost, Payload: []byte(partTwo)},
+		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
+	})
+
+	_, _, metrics, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
+	if err != nil {
+		t.Fatalf("a host sample record cost the whole capture: %v", err)
+	}
+	if metrics.hostSamples != 2 {
+		t.Errorf("host sample records = %d, want 2", metrics.hostSamples)
+	}
+	if len(activities) != 1 {
+		t.Errorf("got %d activities, want 1: a host sample is not device work", len(activities))
+	}
+	if metrics.duration != 100 {
+		t.Errorf("activity duration = %d, want 100 from the single kernel", metrics.duration)
+	}
+}
+
+// TestObserveJournalRejectsEarlyHostSample. The sampler runs on its own timer,
+// so its ordering against bootstrap and capability is a property the producer
+// has to establish rather than one it gets for free. This is the check that
+// makes a producer which got it wrong fail loudly instead of writing a journal
+// whose first record is a sample.
+func TestObserveJournalRejectsEarlyHostSample(t *testing.T) {
+	sessionHex := "0123456789abcdef0123456789abcdef"
+	raw, err := hex.DecodeString(sessionHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	copy(sid[:], raw)
+
+	const sample = `{"kind":"host_sample","sample":0,"part":0,"wall":1000,"threads":[],"last":true,"in_part":0,"threads_total":0,"unreadable":0,"overflowed":0}`
+	for _, tt := range []struct {
+		name    string
+		records []wire.Record
+	}{
+		{"before bootstrap", []wire.Record{
+			{Kind: recordHost, Payload: []byte(sample)},
+			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+		}},
+		{"before capability", []wire.Record{
+			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: recordHost, Payload: []byte(sample)},
+			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+		}},
+		{"after finalized", []wire.Record{
+			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+			{Kind: recordHost, Payload: []byte(sample)},
+		}},
+		// A record carrying the host kind but another payload type is a
+		// producer/consumer disagreement about what kind 8 means, which is
+		// the failure a shared kind number makes possible.
+		{"mistyped payload", []wire.Record{
+			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: recordHost, Payload: []byte(`{"kind":"api","domain":"driver"}`)},
+			{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			journalPath := filepath.Join(t.TempDir(), "capture.journal")
+			appendRecords(t, journalPath, sid, 1234, 1, tt.records)
+			if _, _, _, _, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0); err == nil {
+				t.Fatal("observeJournal accepted an out-of-order host sample")
+			}
+		})
+	}
+}

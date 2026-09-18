@@ -32,6 +32,7 @@ const (
 	recordFailure    uint16 = 5
 	recordExternal   uint16 = 6
 	recordAPI        uint16 = 7
+	recordHost       uint16 = 8
 )
 
 type captureRecordPayload struct {
@@ -196,7 +197,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	var selectedAPIs []captureAPI
 	var workerActivities []captureActivity
 	var workerAPIs []captureAPI
-	var workerDuration, workerCopyBytes, workerExternal, workerDropped, workerRecords uint64
+	var workerDuration, workerCopyBytes, workerExternal, workerHostSamples, workerDropped, workerRecords uint64
 	workers := make([]captureWorker, 0)
 	var targetHandshakeSeen bool
 	var targetInjectionFailure string
@@ -228,6 +229,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 					workerDuration += metrics.duration
 					workerCopyBytes += metrics.copyBytes
 					workerExternal += metrics.external
+					workerHostSamples += metrics.hostSamples
 					workerDropped += records.Dropped
 					workerRecords += records.Records
 				}
@@ -349,6 +351,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	result.BootstrapSeen, result.CollectorFinalized = selectedState.bootstrap, selectedState.finalized
 	result.ActivityRecords, result.DroppedRecords = selectedRecords.Records, selectedRecords.Dropped
 	result.ExternalRecords = selectedMetrics.external
+	result.HostSampleRecords = selectedMetrics.hostSamples
 	result.RecordLoss = selectedMetrics.loss.orNil()
 	result.ActivityNanos, result.CopyBytes, result.Activities = selectedMetrics.duration, selectedMetrics.copyBytes, selectedActivities
 	result.APIRecords = selectedAPIs
@@ -359,6 +362,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		result.ActivityRecords += workerRecords
 		result.DroppedRecords += workerDropped
 		result.ExternalRecords += workerExternal
+		result.HostSampleRecords += workerHostSamples
 		result.APIRecords = append(result.APIRecords, workerAPIs...)
 	}
 	for i := range result.Activities {
@@ -430,8 +434,8 @@ type journalState struct {
 	failureError                                                    string
 }
 type journalMetrics struct {
-	duration, copyBytes, external uint64
-	loss                          captureLoss
+	duration, copyBytes, external, hostSamples uint64
+	loss                                       captureLoss
 }
 
 // errJournalNotFinalized reports a journal that decoded completely but whose
@@ -704,6 +708,17 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown API domain")
 			}
 			apis = append(apis, captureAPI{Domain: payload.Domain, CallbackID: payload.CallbackID, Start: payload.Start, End: payload.End, ProcessID: payload.ProcessID, ThreadID: payload.ThreadID, Correlation: payload.Correlation, ReturnValue: payload.ReturnValue})
+		case recordHost:
+			// Host run-state samples. They are not device work and never
+			// enter the activity totals: this stream says what the host was
+			// doing during a device gap, which is exactly the question the
+			// activity stream cannot answer. The ordering check is the same
+			// as every other ring-borne kind because the producer starts its
+			// sampler only after the capability record is on disk.
+			if terminal || !state.bootstrap || !state.capability || payload.Kind != "host_sample" {
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order host sample")
+			}
+			metrics.hostSamples++
 		case recordFinalized:
 			if terminal || !state.bootstrap || !state.capability {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid finalized ordering")

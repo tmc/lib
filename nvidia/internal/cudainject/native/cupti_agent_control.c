@@ -232,6 +232,20 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
+	/* host-sample idles while the producer's own host-state sampler runs.
+	   The sampler reads whatever CUDAPROF_HOST_SAMPLE_ROOT names, so this
+	   scenario deliberately does no CUPTI work: the thread set under test is
+	   the fixture's, not this process's, and offering activity records here
+	   would only add noise to the journal the control decodes. */
+	if (strcmp(scenario, "host-sample") == 0) {
+		unsigned millis = arg_uint(argc, argv, 2, 200);
+		struct timespec ts = {millis / 1000u, (long)(millis % 1000u) * 1000000L};
+		nanosleep(&ts, NULL);
+		printf("{\"scenario\":\"host-sample\",\"slept_millis\":%u}\n", millis);
+		fflush(stdout);
+		return 0;
+	}
+
 	pthread_t trigger_id = 0;
 	struct trigger t = {0, 0};
 	if (strcmp(scenario, "clobber") == 0 || strcmp(scenario, "fork-inert-clobber") == 0) {

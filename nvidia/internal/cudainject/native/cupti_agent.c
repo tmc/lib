@@ -7,6 +7,7 @@
 #include <cupti.h>
 #include <cupti_activity.h>
 #include <cupti_version.h>
+#include <dirent.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -76,6 +77,36 @@
 #define KIND_FAILURE 5
 #define KIND_EXTERNAL 6
 #define KIND_API 7
+#define KIND_HOST 8
+
+/* Host-state sampling. CUPTI can say the device was idle for 8 ms; it cannot
+   say what the host was doing during those 8 ms, so every device gap reads the
+   same whether the host was computing, blocked on a copy, or asleep on a
+   futex. This tier answers that question at the cheapest resolution that
+   answers it at all: a thread reads each of this process's /proc task stat
+   files on a timer and transcribes the run state and the two CPU-time
+   counters. No signals, no stack unwinding, no privilege. It cannot say WHICH
+   host code, only which of R/S/D/Z each thread was in, which -- joined against
+   the KIND_API stream this agent already collects -- localizes most gaps.
+
+   The alternative, a signal-based sampler with backtraces, is a different
+   project: glibc's backtrace() takes the loader lock through dl_iterate_phdr
+   and CUDA dlopens lazily throughout a run, so a sample landing inside a
+   dlopen can deadlock the target. Nothing here runs in signal context.
+
+   Off unless CUDAPROF_HOST_SAMPLE names a rate, because this agent has no
+   measurement of the cost on a Linux host and will not default something on
+   against an unmeasured budget. */
+#define HOST_SAMPLE_MAX_HZ 1000
+#define HOST_SAMPLE_MAX_THREADS 4096
+/* Room reserved at the end of a host-sample payload for the fields that follow
+   the thread array. Every part is closed with them, so admission of a thread
+   entry has to leave space for the close or the record cannot be terminated. */
+#define HOST_SAMPLE_SUFFIX_RESERVE 224
+/* A root longer than this is refused rather than truncated into the capability
+   record, which is a fixed 1024-byte buffer whose overflow would suppress the
+   capability record and with it the whole capture. */
+#define HOST_SAMPLE_ROOT_MAX 200
 
 /* CUDA 12.x exposes Kernel9; CUDA 13.0 exposes the compatible Kernel10
    extension. Keep the decoder tied to the headers used for this build. */
@@ -146,7 +177,7 @@ static _Atomic uint64_t offered_count;
    kind identity through admission and out to the finalized record so that a
    per-kind loss statement is derivable rather than inferred. Indexed by the
    KIND_ constants; only kinds that pass through the ring are ever nonzero. */
-#define KIND_COUNT 8
+#define KIND_COUNT 9
 static _Atomic uint64_t offered_by_kind[KIND_COUNT];
 static _Atomic uint64_t retained_by_kind[KIND_COUNT];
 static _Atomic uint64_t dropped_by_kind[KIND_COUNT];
@@ -658,6 +689,288 @@ static int append_api(const char *domain, const CUpti_ActivityAPI *api) {
 	return queue_pending(KIND_API, api->start, payload, (size_t)n);
 }
 
+/* ------------------------------------------------------------------------
+   Host run-state sampling.
+   ------------------------------------------------------------------------ */
+
+/* One thread's host run state, as its /proc stat file reported it. The CPU
+   counters are in clock ticks, which is the unit the kernel writes and the
+   unit this agent forwards: converting here would bake sysconf(_SC_CLK_TCK)
+   from the producing host into a number the consumer cannot re-derive, so the
+   tick rate travels in the capability record instead. */
+struct host_thread {
+	uint64_t tid;
+	uint64_t utime_ticks;
+	uint64_t stime_ticks;
+	char state;
+};
+
+static int host_sample_hz;
+static char host_sample_root[PATH_MAX];
+static int host_sample_root_override;
+/* "off", "sampling", "root_unavailable", "root_rejected" or "thread_failed".
+   A reader must never have to infer from an absent record whether sampling was
+   asked for, was refused, or simply found nothing. */
+static const char *host_sample_disposition = "off";
+static long host_sample_clk_tck = 100;
+static int host_sample_running;
+static pthread_t host_sampler;
+static pthread_mutex_t host_sample_mu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t host_sample_cond = PTHREAD_COND_INITIALIZER;
+static int host_sample_stop;
+static _Atomic uint64_t host_samples_taken;
+static _Atomic uint64_t host_sample_records;
+static struct host_thread host_sample_threads[HOST_SAMPLE_MAX_THREADS];
+
+/*
+ * Parses the four fields of a /proc/<pid>/stat line this sampler reports: the
+ * thread id, the run state, and the utime and stime counters.
+ *
+ * The comm field is the trap in this format. It is the thread's name, the
+ * kernel does not escape it, and it can hold spaces and parentheses -- systemd
+ * ships a process literally named "(sd-pam)", and any program may prctl its
+ * own name to "a ) b". So scanning "%d (%s) %c", splitting the line on
+ * whitespace, and searching for the first ')' all read the wrong fields for a
+ * whole class of ordinary names, and read them as plausible numbers rather
+ * than failing. The one guarantee the kernel does make is that comm is
+ * bracketed and that the LAST ')' on the line closes it; that is what is used
+ * here.
+ *
+ * Returns 0 on success and -1 on any malformed line, which the caller counts
+ * rather than guesses at.
+ */
+static int parse_proc_stat(const char *buf, size_t len, struct host_thread *out) {
+	if (buf == NULL || out == NULL || len == 0) return -1;
+	size_t i = 0;
+	while (i < len && buf[i] == ' ') i++;
+	if (i >= len || buf[i] < '0' || buf[i] > '9') return -1;
+	uint64_t tid = 0;
+	for (; i < len && buf[i] >= '0' && buf[i] <= '9'; i++) {
+		if (tid > (UINT64_MAX - (uint64_t)(buf[i] - '0')) / 10) return -1;
+		tid = tid * 10 + (uint64_t)(buf[i] - '0');
+	}
+	size_t close = len;
+	for (size_t j = len; j-- > 0;) if (buf[j] == ')') { close = j; break; }
+	if (close == len) return -1;
+	i = close + 1;
+	while (i < len && buf[i] == ' ') i++;
+	if (i >= len) return -1;
+	char state = buf[i];
+	if (!((state >= 'A' && state <= 'Z') || (state >= 'a' && state <= 'z'))) return -1;
+	i++;
+	/* utime and stime are the 11th and 12th fields after the state: ppid,
+	   pgrp, session, tty_nr, tpgid, flags, minflt, cminflt, majflt and
+	   cmajflt come between. tty_nr and tpgid are signed. */
+	const int skip = 10;
+	uint64_t times[2] = {0, 0};
+	for (int k = 0; k < skip + 2; k++) {
+		while (i < len && (buf[i] == ' ' || buf[i] == '\t')) i++;
+		int negative = 0;
+		if (i < len && buf[i] == '-') { negative = 1; i++; }
+		if (i >= len || buf[i] < '0' || buf[i] > '9') return -1;
+		uint64_t v = 0;
+		for (; i < len && buf[i] >= '0' && buf[i] <= '9'; i++) {
+			if (v > (UINT64_MAX - (uint64_t)(buf[i] - '0')) / 10) return -1;
+			v = v * 10 + (uint64_t)(buf[i] - '0');
+		}
+		if (k >= skip) {
+			if (negative) return -1;
+			times[k - skip] = v;
+		}
+	}
+	out->tid = tid;
+	out->state = state;
+	out->utime_ticks = times[0];
+	out->stime_ticks = times[1];
+	return 0;
+}
+
+/* Reads one task's stat file. Returns 0 on success, -1 if it could not be read
+   or did not parse -- a thread that exits between the directory scan and this
+   open is the ordinary case and is counted, not reported as a failure. */
+static int read_task_stat(const char *dir, const char *name, struct host_thread *out) {
+	char path[PATH_MAX];
+	if (snprintf(path, sizeof(path), "%s/%s/stat", dir, name) >= (int)sizeof(path)) return -1;
+	int fd = open(path, O_RDONLY | O_CLOEXEC);
+	if (fd < 0) return -1;
+	char buf[1024];
+	size_t n = 0;
+	for (;;) {
+		ssize_t m = read(fd, buf + n, sizeof(buf) - n);
+		if (m < 0 && errno == EINTR) continue;
+		if (m <= 0) break;
+		n += (size_t)m;
+		if (n == sizeof(buf)) break;
+	}
+	(void)close(fd);
+	if (n == 0) return -1;
+	return parse_proc_stat(buf, n, out);
+}
+
+/* Emits one sample as one or more KIND_HOST records. A payload is capped at
+   MAX_PAYLOAD and a process can have more threads than fit, so the thread
+   array is split across parts rather than truncated: every part carries its
+   sample index and its part index, the last part says so, and the totals ride
+   on every part so a consumer that receives a partial set can tell. Truncating
+   silently would report a subset of threads as the whole process, which is the
+   shape of error this stream exists to remove. */
+static void emit_host_sample(uint64_t index, uint64_t wall, size_t n,
+	uint64_t unreadable, uint64_t overflowed) {
+	size_t i = 0;
+	unsigned part = 0;
+	do {
+		char payload[MAX_PAYLOAD];
+		int p = snprintf(payload, sizeof(payload),
+			"{\"kind\":\"host_sample\",\"sample\":%" PRIu64 ",\"part\":%u,\"wall\":%" PRIu64 ",\"threads\":[",
+			index, part, wall);
+		if (p < 0 || (size_t)p >= sizeof(payload)) return;
+		size_t first = i;
+		while (i < n) {
+			char entry[128];
+			int e = snprintf(entry, sizeof(entry), "%s{\"tid\":%" PRIu64 ",\"state\":\"%c\",\"utime_ticks\":%" PRIu64 ",\"stime_ticks\":%" PRIu64 "}",
+				i > first ? "," : "", host_sample_threads[i].tid, host_sample_threads[i].state,
+				host_sample_threads[i].utime_ticks, host_sample_threads[i].stime_ticks);
+			if (e < 0 || (size_t)e >= sizeof(entry)) { i++; overflowed++; continue; }
+			if ((size_t)p + (size_t)e + HOST_SAMPLE_SUFFIX_RESERVE >= sizeof(payload)) break;
+			memcpy(payload + p, entry, (size_t)e);
+			p += e;
+			i++;
+		}
+		/* A part that admitted nothing while threads remain cannot make
+		   progress; charge the entry that does not fit and move on rather
+		   than spin. Unreachable at the current entry and reserve sizes, and
+		   kept so a future widening of either cannot hang the sampler. */
+		if (i == first && i < n) { i++; overflowed++; }
+		int w = snprintf(payload + p, sizeof(payload) - (size_t)p,
+			"],\"last\":%s,\"in_part\":%zu,\"threads_total\":%zu,\"unreadable\":%" PRIu64 ",\"overflowed\":%" PRIu64 "}",
+			i >= n ? "true" : "false", i - first, n, unreadable, overflowed);
+		if (w < 0 || (size_t)(p + w) >= sizeof(payload)) return;
+		p += w;
+		if (queue_pending(KIND_HOST, wall, payload, (size_t)p) == 0) atomic_fetch_add(&host_sample_records, 1);
+		part++;
+	} while (i < n);
+}
+
+/* Takes one sample of every task under the configured root. The sampler thread
+   is itself one of those tasks and is reported like any other: it is a real
+   thread of this process consuming real time, and omitting it would make the
+   sample disagree with the process it describes. */
+static int take_host_sample(uint64_t index) {
+	DIR *d = opendir(host_sample_root);
+	if (d == NULL) return -1;
+	size_t n = 0;
+	uint64_t unreadable = 0, overflowed = 0;
+	struct dirent *e;
+	while ((e = readdir(d)) != NULL) {
+		if (e->d_name[0] == '.') continue;
+		if (n == HOST_SAMPLE_MAX_THREADS) { overflowed++; continue; }
+		if (read_task_stat(host_sample_root, e->d_name, &host_sample_threads[n]) != 0) { unreadable++; continue; }
+		n++;
+	}
+	(void)closedir(d);
+	emit_host_sample(index, now_ns(), n, unreadable, overflowed);
+	atomic_fetch_add(&host_samples_taken, 1);
+	return 0;
+}
+
+static void *host_sample_worker(void *arg) {
+	(void)arg;
+	long period = 1000000000L / host_sample_hz;
+	for (uint64_t index = 0;; index++) {
+		if (take_host_sample(index) != 0) {
+			/* The root went away mid-run. Say so once and stop, rather than
+			   fail every interval for the rest of the process. */
+			const char *failure = "{\"state\":\"producer_failure\",\"error\":\"host sample root became unreadable\"}";
+			(void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure));
+			return NULL;
+		}
+		pthread_mutex_lock(&host_sample_mu);
+		if (!host_sample_stop) {
+			struct timespec deadline;
+			if (clock_gettime(CLOCK_REALTIME, &deadline) == 0) {
+				deadline.tv_nsec += period;
+				if (deadline.tv_nsec >= 1000000000L) { deadline.tv_nsec -= 1000000000L; deadline.tv_sec++; }
+				while (!host_sample_stop) {
+					if (pthread_cond_timedwait(&host_sample_cond, &host_sample_mu, &deadline) == ETIMEDOUT) break;
+				}
+			}
+		}
+		int stop = host_sample_stop;
+		pthread_mutex_unlock(&host_sample_mu);
+		if (stop) return NULL;
+	}
+}
+
+/* Reads the sampler's configuration and settles its disposition. Called before
+   the capability record is built so that record states the outcome. */
+static void configure_host_sampler(void) {
+	const char *rate = getenv("CUDAPROF_HOST_SAMPLE");
+	if (rate == NULL || *rate == '\0') return;
+	char *end = NULL;
+	long hz = strtol(rate, &end, 10);
+	if (end == rate || (end != NULL && *end != '\0') || hz <= 0) return;
+	if (hz > HOST_SAMPLE_MAX_HZ) hz = HOST_SAMPLE_MAX_HZ;
+	host_sample_hz = (int)hz;
+#if defined(_SC_CLK_TCK)
+	long tck = sysconf(_SC_CLK_TCK);
+	if (tck > 0) host_sample_clk_tck = tck;
+#endif
+	/* The root is overridable so the controls can drive the shipping sampler
+	   against a fixture tree on a host with no /proc. An overridden root is
+	   reported in the capability record: a fixture run and a real one must
+	   never be indistinguishable to a reader. */
+	const char *root = getenv("CUDAPROF_HOST_SAMPLE_ROOT");
+	if (root != NULL && *root != '\0') {
+		size_t len = strlen(root);
+		int printable = len <= HOST_SAMPLE_ROOT_MAX;
+		for (size_t i = 0; printable && i < len; i++) {
+			unsigned char c = (unsigned char)root[i];
+			if (c < 0x20 || c == '"' || c == '\\') printable = 0;
+		}
+		if (!printable) { host_sample_hz = 0; host_sample_disposition = "root_rejected"; return; }
+		memcpy(host_sample_root, root, len + 1);
+		host_sample_root_override = 1;
+	} else {
+		/* /proc is where this tier's data lives and it exists only on Linux.
+		   Elsewhere the sampler compiles and is inert, and the capability
+		   record says which. */
+#ifdef __linux__
+		memcpy(host_sample_root, "/proc/self/task", sizeof("/proc/self/task"));
+#else
+		host_sample_hz = 0;
+		host_sample_disposition = "root_unavailable";
+		return;
+#endif
+	}
+	DIR *probe = opendir(host_sample_root);
+	if (probe == NULL) { host_sample_hz = 0; host_sample_disposition = "root_unavailable"; return; }
+	(void)closedir(probe);
+	host_sample_disposition = "sampling";
+}
+
+static void start_host_sampler(void) {
+	if (host_sample_hz <= 0) return;
+	if (pthread_create(&host_sampler, NULL, host_sample_worker, NULL) != 0) {
+		host_sample_disposition = "thread_failed";
+		const char *failure = "{\"state\":\"producer_failure\",\"error\":\"host sampler thread creation failed\"}";
+		(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
+		return;
+	}
+	host_sample_running = 1;
+}
+
+/* Stopped and joined before the drain, so its last record is in the ring
+   before worker_stop and reaches the journal ahead of the finalized record. */
+static void stop_host_sampler(void) {
+	if (!host_sample_running) return;
+	pthread_mutex_lock(&host_sample_mu);
+	host_sample_stop = 1;
+	pthread_cond_signal(&host_sample_cond);
+	pthread_mutex_unlock(&host_sample_mu);
+	if (pthread_join(host_sampler, NULL) != 0) atomic_store(&producer_failed, 1);
+	host_sample_running = 0;
+}
+
 static void CUPTIAPI buffer_requested(uint8_t **buffer, size_t *size, size_t *max_records) {
 	*buffer = NULL; *size = 0;
 	if (atomic_load(&shutdown_started)) { *max_records = 0; return; }
@@ -902,6 +1215,10 @@ static void cudaprof_after_fork_child(void) {
 	marker_enabled = 0;
 	callback_registered = 0;
 	initialized = 0;
+	/* fork(2) copies only the calling thread, so the sampler does not exist
+	   here. Clearing this keeps any later finalize from joining a pthread_t
+	   that names no thread in the child. */
+	host_sample_running = 0;
 
 	/* Give the child back the disposition the target had before the producer
 	   installed its handler, so the child terminates on the target's own terms
@@ -1289,7 +1606,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	}
 	cupti_ready = 1;
 	const char *bootstrap = "{\"kind\":\"bootstrap\"}";
-	char capability[1536];
+	char capability[4096];
 	if (api_requested) {
 		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_DRIVER);
 		if (result != CUPTI_SUCCESS) {
@@ -1350,9 +1667,20 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		}
 	}
 	if (range_gated != RANGE_GATED) atomic_store(&collecting, 1);
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
+	configure_host_sampler();
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
-	if (capability_len > 0 && (size_t)capability_len < sizeof(capability)) (void)write_record(KIND_CAPABILITY, now_ns(), capability, (size_t)capability_len);
+	int capability_written = 0;
+	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
+		capability_written = write_record(KIND_CAPABILITY, now_ns(), capability, (size_t)capability_len) == 0;
+	/* The sampler starts here and nowhere earlier. A consumer rejects any
+	   record that arrives before bootstrap and capability, and both of those
+	   took their sequence numbers under the journal lock above, so a sampler
+	   created after this point cannot get ahead of them. Starting it at
+	   configure time instead would make the ordering a question of thread
+	   scheduling, and the failure would be a rejected capture rather than a
+	   missing sample. */
+	if (capability_written) start_host_sampler();
 	write_handshake(NULL);
 }
 
@@ -1391,15 +1719,18 @@ static void cudaprof_cupti_finalize(void) {
 	for (int i = 0; i < 1000 && (atomic_load(&callback_active) != 0 || buffers_in_use()); i++) { struct timespec ts = {0, 1000000}; nanosleep(&ts, NULL); }
 	if (atomic_load(&callback_active) != 0 || buffers_in_use()) flush_error = 1;
 	if (flush_error) atomic_store(&producer_failed, 1);
+	stop_host_sampler();
 	pthread_mutex_lock(&pending_mu); worker_stop = 1; pthread_cond_signal(&pending_cond); pthread_cond_broadcast(&pending_space_cond); pthread_mutex_unlock(&pending_mu);
 	if (pthread_join(worker, NULL) != 0) atomic_store(&producer_failed, 1);
 	char payload[MAX_PAYLOAD];
 	const char *state = atomic_load(&producer_failed) ? "producer_failure" : (atomic_load(&activity_count) ? "collected" : "initialized_no_activity");
-	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}}}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
+	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"host\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}},\"host_samples\":%" PRIu64 ",\"host_sample_records\":%" PRIu64 "}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
 		atomic_load(&offered_by_kind[KIND_ACTIVITY]), atomic_load(&retained_by_kind[KIND_ACTIVITY]), atomic_load(&dropped_by_kind[KIND_ACTIVITY]),
 		atomic_load(&offered_by_kind[KIND_API]), atomic_load(&retained_by_kind[KIND_API]), atomic_load(&dropped_by_kind[KIND_API]),
 		atomic_load(&offered_by_kind[KIND_EXTERNAL]), atomic_load(&retained_by_kind[KIND_EXTERNAL]), atomic_load(&dropped_by_kind[KIND_EXTERNAL]),
-		atomic_load(&offered_by_kind[KIND_FAILURE]), atomic_load(&retained_by_kind[KIND_FAILURE]), atomic_load(&dropped_by_kind[KIND_FAILURE]));
+		atomic_load(&offered_by_kind[KIND_FAILURE]), atomic_load(&retained_by_kind[KIND_FAILURE]), atomic_load(&dropped_by_kind[KIND_FAILURE]),
+		atomic_load(&offered_by_kind[KIND_HOST]), atomic_load(&retained_by_kind[KIND_HOST]), atomic_load(&dropped_by_kind[KIND_HOST]),
+		atomic_load(&host_samples_taken), atomic_load(&host_sample_records));
 	if (n < 0 || (size_t)n >= sizeof(payload) || write_record(KIND_FINALIZED, now_ns(), payload, (size_t)n) != 0) atomic_store(&producer_failed, 1);
 	if (fsync(journal_fd) != 0) atomic_store(&producer_failed, 1);
 	if (close(journal_fd) != 0) atomic_store(&producer_failed, 1);
