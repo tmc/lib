@@ -810,3 +810,34 @@ func TestGapsIgnoresCaptureRangeEdges(t *testing.T) {
 		t.Errorf("active/idle = %d/%d with range edges, %d/%d without", g.ActiveNanos, g.IdleNanos, w.ActiveNanos, w.IdleNanos)
 	}
 }
+
+// TestGapsSpanCoversContainedActivities pins the device span against the case
+// that breaks the obvious implementation: one activity wholly inside another.
+// Activities are sorted by (start, end), so the container sorts first and the
+// contained one is last -- taking the last element's end yields a span shorter
+// than the active time measured within it, and the report then prints a
+// percentage above 100.
+//
+// A non-overlapping fixture cannot see this, which is why the existing span
+// assertions did not: they compare two fixtures that both sort cleanly.
+func TestGapsSpanCoversContainedActivities(t *testing.T) {
+	b := newJournalBuilder()
+	b.activity("kernel", 0, 1_000, 5_000, 1)
+	b.activity("kernel", 0, 1_200, 1_400, 2)
+
+	opts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords}
+	got, err := analyzeGaps(testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus()), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := got.Devices[0].Overall
+	if want := int64(4_000); o.SpanNanos != want {
+		t.Errorf("span = %d, want %d: the span must reach the greatest end, not the end of the last activity by start order", o.SpanNanos, want)
+	}
+	if o.ActiveNanos > o.SpanNanos {
+		t.Errorf("active %d exceeds span %d, so the report would print more than 100%% of span", o.ActiveNanos, o.SpanNanos)
+	}
+	if o.ActiveNanos+o.IdleNanos != o.SpanNanos {
+		t.Errorf("active+idle = %d, span = %d: the two must agree", o.ActiveNanos+o.IdleNanos, o.SpanNanos)
+	}
+}

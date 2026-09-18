@@ -666,7 +666,13 @@ func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string) *
 	}
 	merged := mergeIntervals(acts)
 	stats := &GapStats{Label: label, Activities: len(acts), MergedIntervals: len(merged)}
-	stats.SpanNanos = acts[len(acts)-1].end - acts[0].start
+	// The span runs to the greatest end, which is not the end of the last
+	// activity by start order: acts is sorted by (start, end), so a long
+	// activity containing a shorter one sorts first and its end is the larger.
+	// Taking acts[len-1].end there reports a span shorter than the busy time
+	// measured inside it, and "% of span" then exceeds 100. merged already
+	// carries a running maximum, so its last end is the true one.
+	stats.SpanNanos = merged[len(merged)-1].end - merged[0].start
 	for _, m := range merged {
 		stats.ActiveNanos += m.end - m.start
 	}
