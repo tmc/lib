@@ -9,3 +9,6 @@ ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
 session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
 session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+Superseded in part by 8ebba998, which deletes the DS4_CUDA_PC_PROFILE_SOURCE
+workaround this commit added. The period and maxPCsPerBuffer findings stand.
