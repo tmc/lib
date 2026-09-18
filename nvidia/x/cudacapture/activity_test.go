@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/pprof/profile"
+
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
@@ -432,5 +434,127 @@ func TestBuildActivityProfileSkipsCaptureRangeEdges(t *testing.T) {
 				t.Errorf("a capture-range edge reached the profile as a sample; it is the producer's own bookkeeping, not device work")
 			}
 		}
+	}
+}
+
+// marker builds the two records CUPTI reports for one NVTX range. A range is
+// never a single record: the open and the close are separate, share a marker
+// id, and carry the timestamp in both Start and End.
+func nvtxOpen(id uint32, name string, at uint64) cudacapture.ActivityRecord {
+	return cudacapture.ActivityRecord{Subtype: "marker", Name: name, Valid: true, Start: at, End: at, MarkerID: id, MarkerFlags: 1 << 1, ThreadID: 7, ProcessID: 1}
+}
+
+func nvtxClose(id uint32, name string, at uint64) cudacapture.ActivityRecord {
+	return cudacapture.ActivityRecord{Subtype: "marker", Name: name, Valid: true, Start: at, End: at, MarkerID: id, MarkerFlags: 1 << 2, ThreadID: 7, ProcessID: 1}
+}
+
+func nvtxLabelOf(t *testing.T, p *profile.Profile, kernel string) []string {
+	t.Helper()
+	for _, s := range p.Sample {
+		if len(s.Label["name"]) == 1 && s.Label["name"][0] == kernel {
+			return s.Label["nvtx"]
+		}
+	}
+	t.Fatalf("no sample named %q", kernel)
+	return nil
+}
+
+// TestBuildActivityProfileLabelsEnclosingNVTXRanges covers nesting: a kernel
+// inside several ranges is labelled with all of them, outermost first, so that
+// focusing an outer range in pprof also finds the work inside its children.
+// Labelling only the innermost would make -tagfocus=train_step silently miss
+// every kernel that ran in a nested range.
+func TestBuildActivityProfileLabelsEnclosingNVTXRanges(t *testing.T) {
+	p := cudacapture.BuildActivityProfile("session", 1, []cudacapture.ActivityRecord{
+		nvtxOpen(1, "train_step", 100),
+		nvtxOpen(2, "forward", 200),
+		nvtxOpen(3, "attention", 300),
+		{Subtype: "kernel", Name: "inner", Valid: true, Start: 400, End: 450},
+		nvtxClose(3, "attention", 500),
+		{Subtype: "kernel", Name: "mid", Valid: true, Start: 520, End: 540},
+		nvtxClose(2, "forward", 600),
+		{Subtype: "kernel", Name: "outer", Valid: true, Start: 700, End: 750},
+		nvtxClose(1, "train_step", 1000),
+		{Subtype: "kernel", Name: "after", Valid: true, Start: 1100, End: 1200},
+	})
+	for _, tt := range []struct {
+		kernel string
+		want   []string
+	}{
+		{"inner", []string{"train_step", "forward", "attention"}},
+		{"mid", []string{"train_step", "forward"}},
+		{"outer", []string{"train_step"}},
+		{"after", nil},
+	} {
+		if got := nvtxLabelOf(t, p, tt.kernel); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("kernel %q: nvtx = %v, want %v", tt.kernel, got, tt.want)
+		}
+	}
+}
+
+// TestBuildActivityProfileAttributesNVTXByStartTime pins the containment rule
+// and the property it exists to buy: an activity belongs to the ranges open
+// when it STARTED, so every activity is attributed exactly once and the
+// per-range device time sums to the total.
+//
+// The kernel that straddles the close is the whole point. Attributing it by
+// overlap would count it under the range and again outside, making the parts
+// sum to more than the device ever spent; requiring full containment would
+// drop it from both, making them sum to less, with the shortfall invisible.
+func TestBuildActivityProfileAttributesNVTXByStartTime(t *testing.T) {
+	p := cudacapture.BuildActivityProfile("session", 1, []cudacapture.ActivityRecord{
+		{Subtype: "kernel", Name: "before", Valid: true, Start: 50, End: 80},
+		nvtxOpen(1, "forward", 100),
+		{Subtype: "kernel", Name: "straddles", Valid: true, Start: 200, End: 1000},
+		nvtxClose(1, "forward", 500),
+		{Subtype: "kernel", Name: "after", Valid: true, Start: 600, End: 700},
+	})
+	if got := nvtxLabelOf(t, p, "straddles"); !reflect.DeepEqual(got, []string{"forward"}) {
+		t.Errorf("a kernel that began inside the range is labelled %v, want [forward]", got)
+	}
+	for _, k := range []string{"before", "after"} {
+		if got := nvtxLabelOf(t, p, k); got != nil {
+			t.Errorf("kernel %q ran outside every range but is labelled %v", k, got)
+		}
+	}
+
+	var inRange, outside, total int64
+	for _, s := range p.Sample {
+		total += s.Value[0]
+		if len(s.Label["nvtx"]) > 0 {
+			inRange += s.Value[0]
+		} else {
+			outside += s.Value[0]
+		}
+	}
+	if want := int64(30 + 800 + 100); total != want {
+		t.Fatalf("total kernel time = %d, want %d", total, want)
+	}
+	if inRange+outside != total {
+		t.Errorf("in-range %d + outside %d = %d, want %d: an activity was attributed twice or not at all", inRange, outside, inRange+outside, total)
+	}
+	if inRange != 800 {
+		t.Errorf("in-range kernel time = %d, want 800: the straddling kernel counts wholly to the range it began in", inRange)
+	}
+}
+
+// TestNVTXRangesIgnoreUnpairedMarkers covers the half-open windows a real
+// capture ends with: a range the target never closed, and a close with no open
+// (its start fell outside the capture). Neither is a window, so neither can
+// enclose anything, and inventing an end for one would attribute work to a
+// range whose extent nothing recorded.
+func TestNVTXRangesIgnoreUnpairedMarkers(t *testing.T) {
+	// The kernel sits AFTER the orphan open and BEFORE the orphan close, so
+	// that either of the two tempting repairs -- running an unclosed open to
+	// the end of the capture, or backdating an unopened close to its start --
+	// would enclose it. A fixture where the kernel falls outside the invented
+	// window passes whether or not the window is invented.
+	p := cudacapture.BuildActivityProfile("session", 1, []cudacapture.ActivityRecord{
+		nvtxOpen(1, "never_closed", 100),
+		{Subtype: "kernel", Name: "k", Valid: true, Start: 200, End: 300},
+		nvtxClose(2, "never_opened", 400),
+	})
+	if got := nvtxLabelOf(t, p, "k"); got != nil {
+		t.Errorf("nvtx = %v, want none: neither an unclosed open nor an unopened close is a window", got)
 	}
 }

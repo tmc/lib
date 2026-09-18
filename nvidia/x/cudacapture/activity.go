@@ -3,6 +3,7 @@ package cudacapture
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/google/pprof/profile"
@@ -32,6 +33,122 @@ type ActivityRecord struct {
 	DynamicSharedMemory uint32    `json:"dynamic_shared_memory,omitempty"`
 	GraphID             uint32    `json:"graph_id,omitempty"`
 	GraphNodeID         uint64    `json:"graph_node_id,omitempty"`
+
+	// NVTX marker fields, set only when Subtype is "marker". A range is two
+	// records sharing MarkerID on one thread: CUPTI reports the open and the
+	// close separately, so no single record holds a duration. Pairing needs
+	// the process and thread as well as the id, because ids are unique only
+	// within the thread that emitted them.
+	ProcessID    uint32 `json:"process_id,omitempty"`
+	ThreadID     uint32 `json:"thread_id,omitempty"`
+	MarkerDomain string `json:"marker_domain,omitempty"`
+	MarkerID     uint32 `json:"marker_id,omitempty"`
+	MarkerFlags  uint32 `json:"marker_flags,omitempty"`
+}
+
+// NVTX marker flags, as CUPTI reports them in CUpti_ActivityMarker2.flags.
+const (
+	markerFlagInstantaneous = 1 << 0
+	markerFlagStart         = 1 << 1
+	markerFlagEnd           = 1 << 2
+)
+
+// nvtxRange is one paired NVTX range: a name and the window it was open.
+type nvtxRange struct {
+	name  string
+	start uint64
+	end   uint64
+}
+
+// nvtxRanges pairs the marker records in activities into ranges.
+//
+// Journal order is drain order, which several producer threads interleave, so
+// pairing sorts by time first. Opens are stacked per (process, thread, id,
+// domain): the same id reopened before its close is a legitimate nested range,
+// and matching the close to the most recent open is what keeps the nesting
+// right. An unpaired close, or an open the target never closed, contributes no
+// range -- a window with only one end is not a window.
+func nvtxRanges(activities []ActivityRecord) []nvtxRange {
+	var markers []ActivityRecord
+	for _, a := range activities {
+		if a.Subtype == "marker" && a.Valid {
+			markers = append(markers, a)
+		}
+	}
+	if len(markers) == 0 {
+		return nil
+	}
+	sort.SliceStable(markers, func(i, j int) bool { return markers[i].Start < markers[j].Start })
+
+	type key struct {
+		pid, tid, id uint32
+		domain       string
+	}
+	open := map[key][]ActivityRecord{}
+	var out []nvtxRange
+	for _, m := range markers {
+		k := key{pid: m.ProcessID, tid: m.ThreadID, id: m.MarkerID, domain: m.MarkerDomain}
+		switch {
+		case m.MarkerFlags&markerFlagStart != 0:
+			open[k] = append(open[k], m)
+		case m.MarkerFlags&markerFlagEnd != 0:
+			stack := open[k]
+			if len(stack) == 0 {
+				continue
+			}
+			start := stack[len(stack)-1]
+			open[k] = stack[:len(stack)-1]
+			out = append(out, nvtxRange{name: nvtxName(start), start: start.Start, end: m.End})
+		}
+		// An instantaneous marker is a point, not a window, so it encloses
+		// nothing and is not a range.
+	}
+	return out
+}
+
+// nvtxName qualifies a range name with its NVTX domain, because two domains
+// may use the same range name for unrelated work.
+func nvtxName(m ActivityRecord) string {
+	if m.MarkerDomain == "" {
+		return m.Name
+	}
+	return m.MarkerDomain + "/" + m.Name
+}
+
+// nvtxLabels returns the names of every range open at t, outermost first.
+//
+// An activity is attributed to the ranges that were open when it STARTED, so
+// every activity belongs to a well-defined set and the per-range times sum to
+// the total device time. A kernel still running when a range closes counts
+// wholly to the range it began in; attributing it by overlap instead would
+// count it under two ranges and make the per-range times sum to more than the
+// device ever spent.
+//
+// Every enclosing range is named, not just the innermost, so that focusing an
+// outer range in pprof also finds the work inside its nested children.
+func nvtxLabels(ranges []nvtxRange, t uint64) []string {
+	var open []nvtxRange
+	for _, r := range ranges {
+		if r.start <= t && t < r.end {
+			open = append(open, r)
+		}
+	}
+	if len(open) == 0 {
+		return nil
+	}
+	// Outermost first: an enclosing range opens no later than the range it
+	// encloses, and where two open together the longer one is the outer.
+	sort.SliceStable(open, func(i, j int) bool {
+		if open[i].start != open[j].start {
+			return open[i].start < open[j].start
+		}
+		return open[i].end > open[j].end
+	})
+	names := make([]string, 0, len(open))
+	for _, r := range open {
+		names = append(names, r.name)
+	}
+	return names
 }
 
 // UnmarshalJSON unmarshals an ActivityRecord from JSON. It supports array
@@ -136,6 +253,10 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 		// have to remember -sample_index=0 to see device time.
 		DefaultSampleType: "kernel_time",
 	}
+	// NVTX ranges are paired once for the whole capture: the marker records
+	// that define them are interleaved with the device work they enclose, so
+	// the windows have to be known before any activity can be placed in them.
+	ranges := nvtxRanges(activities)
 	functions := make(map[string]*profile.Function)
 	var nextFunctionID uint64 = 1
 	var nextLocationID uint64 = 1
@@ -176,6 +297,13 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 		}
 		if activity.Process != 0 {
 			labels["pid"] = []string{strconv.FormatUint(activity.Process, 10)}
+		}
+		// The NVTX ranges this activity ran inside, outermost first. The label
+		// is absent rather than empty when it ran inside none, so that pprof's
+		// -tagfocus separates "outside every range" from "inside a range whose
+		// name happens to be empty".
+		if names := nvtxLabels(ranges, activity.Start); len(names) > 0 {
+			labels["nvtx"] = names
 		}
 		if activity.Subtype == "kernel" {
 			AttachKernelLabels(labels, activity)
