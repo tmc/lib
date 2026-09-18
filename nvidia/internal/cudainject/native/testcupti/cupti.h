@@ -13,6 +13,7 @@ CUptiResult cuptiGetResultString(CUptiResult, const char **message);
    producer must attribute to CUPTI rather than to its own queue. */
 void cudaprof_test_set_native_dropped(size_t dropped);
 int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals);
+int cudaprof_test_offer_markers(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers);
 int cudaprof_test_callbacks_registered(void);
 
 /* Invokes only the producer's buffer-request callback and reports whether it

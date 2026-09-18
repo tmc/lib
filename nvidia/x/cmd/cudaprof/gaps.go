@@ -454,6 +454,13 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 			if !payload.Valid || payload.Start == 0 || payload.End < payload.Start || payload.End > math.MaxInt64 {
 				continue
 			}
+			// An NVTX marker is a host annotation, not device work. Counting
+			// one here would inflate Activities, stretch SpanNanos to
+			// whichever marker sits furthest from the device timeline, and
+			// split a real device gap in two at the marker's timestamp.
+			if payload.Subtype == "marker" {
+				continue
+			}
 			out.activities = append(out.activities, gapActivity{
 				device:      payload.Device,
 				start:       int64(payload.Start),

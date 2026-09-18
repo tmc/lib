@@ -101,6 +101,17 @@ _Static_assert(offsetof(CUpti_ActivityExternalCorrelation, externalId) == 8, "un
 _Static_assert(offsetof(CUpti_ActivityExternalCorrelation, correlationId) == 16, "unexpected CUDA correlation offset");
 _Static_assert(offsetof(CUpti_ActivityExternalCorrelation, reserved) == 20, "unexpected external reserved offset");
 
+/* An NVTX range is two records, not one: CUPTI reports the open and the close
+   separately, each carrying the range id and its own timestamp, so the agent
+   transcribes them as it receives them and the pairing happens downstream
+   where a map is affordable. */
+_Static_assert(sizeof(CUpti_ActivityMarker2) == 56, "unexpected marker size");
+_Static_assert(offsetof(CUpti_ActivityMarker2, flags) == 4, "unexpected marker flags offset");
+_Static_assert(offsetof(CUpti_ActivityMarker2, timestamp) == 8, "unexpected marker timestamp offset");
+_Static_assert(offsetof(CUpti_ActivityMarker2, id) == 16, "unexpected marker id offset");
+_Static_assert(offsetof(CUpti_ActivityMarker2, name) == 40, "unexpected marker name offset");
+_Static_assert(offsetof(CUpti_ActivityMarker2, domain) == 48, "unexpected marker domain offset");
+
 static int journal_fd = -1;
 static char worker_dir[PATH_MAX];
 static unsigned char session_id[16];
@@ -160,6 +171,7 @@ static int concurrent_enabled;
 static int legacy_enabled;
 static int memcpy_enabled;
 static int external_enabled;
+static int marker_enabled;
 static int runtime_enabled;
 static int driver_enabled;
 static int callback_registered;
@@ -492,6 +504,84 @@ static int append_external(uint32_t external_kind, uint64_t external_id, uint32_
 	return queue_pending(KIND_EXTERNAL, 0, payload, (size_t)n);
 }
 
+/* Appends text at payload[n] as the body of a JSON string, quotes excluded,
+   and returns the new length. A name that cannot be transcribed exactly is a
+   producer failure rather than a silently truncated one, on the same rule
+   append_activity applies to a kernel name: a truncated symbol resolves to a
+   different symbol, and nothing downstream can tell that happened. what names
+   the field in the failure record.
+*/
+static int append_escaped(char *payload, size_t cap, int n, const char *text, const char *what) {
+	for (const unsigned char *p = (const unsigned char *)(text ? text : ""); *p; p++) {
+		if (n < 0 || (size_t)(n + 8) >= cap) {
+			char failure[192];
+			int fn = snprintf(failure, sizeof(failure), "{\"state\":\"producer_failure\",\"error\":\"%s too long\"}", what);
+			if (fn > 0 && (size_t)fn < sizeof(failure)) (void)queue_pending(KIND_FAILURE, now_ns(), failure, (size_t)fn);
+			return -1;
+		}
+		if (*p < 0x20) {
+			char failure[192];
+			int fn = snprintf(failure, sizeof(failure), "{\"state\":\"producer_failure\",\"error\":\"%s contains control byte\"}", what);
+			if (fn > 0 && (size_t)fn < sizeof(failure)) (void)queue_pending(KIND_FAILURE, now_ns(), failure, (size_t)fn);
+			return -1;
+		}
+		if (*p == '"' || *p == '\\') payload[n++] = '\\';
+		payload[n++] = (char)*p;
+	}
+	return n;
+}
+
+/* Transcribes one NVTX marker. CUPTI reports a range as two records -- a
+   START and an END sharing an id -- so this emits exactly what it received
+   and leaves the pairing to a consumer that can afford a map. start and end
+   both carry the single timestamp the record reported: it is a point in
+   time, and "valid" says that timestamp is usable, not that a duration was
+   measured. Reading a duration off one marker reads zero, which is the
+   truth about one marker and a lie about the range it belongs to.
+
+   The object identity is recorded under the keys the union arm actually
+   names. A marker attributed to a thread has no stream, and filling one in
+   from the wrong arm of the union would put a host range on a device track. */
+static int append_marker(const CUpti_ActivityMarker2 *m) {
+	char payload[MAX_PAYLOAD];
+	int n = snprintf(payload, sizeof(payload), "{\"kind\":\"activity\",\"subtype\":\"marker\",\"name\":\"");
+	if (n < 0 || n >= (int)sizeof(payload)) return -1;
+	if ((n = append_escaped(payload, sizeof(payload), n, m->name, "marker name")) < 0) return -1;
+	int w = snprintf(payload + n, sizeof(payload) - (size_t)n, "\",\"marker_domain\":\"");
+	if (w < 0 || (size_t)(n + w) >= sizeof(payload)) return -1;
+	n += w;
+	if ((n = append_escaped(payload, sizeof(payload), n, m->domain, "marker domain")) < 0) return -1;
+	uint32_t process_id = 0, thread_id = 0, device = 0, context = 0, stream = 0;
+	switch (m->objectKind) {
+	case CUPTI_ACTIVITY_OBJECT_PROCESS:
+		process_id = m->objectId.pt.processId;
+		break;
+	case CUPTI_ACTIVITY_OBJECT_THREAD:
+		process_id = m->objectId.pt.processId;
+		thread_id = m->objectId.pt.threadId;
+		break;
+	case CUPTI_ACTIVITY_OBJECT_STREAM:
+		stream = m->objectId.dcs.streamId;
+		/* fallthrough */
+	case CUPTI_ACTIVITY_OBJECT_CONTEXT:
+		context = m->objectId.dcs.contextId;
+		/* fallthrough */
+	case CUPTI_ACTIVITY_OBJECT_DEVICE:
+		device = m->objectId.dcs.deviceId;
+		break;
+	default:
+		break;
+	}
+	w = snprintf(payload + n, sizeof(payload) - (size_t)n,
+		"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"marker_id\":%u,\"marker_flags\":%u,\"object_kind\":%u,\"process_id\":%u,\"thread_id\":%u,\"device\":%u,\"context\":%u,\"stream\":%u}",
+		m->timestamp != CUPTI_TIMESTAMP_UNKNOWN ? "true" : "false", m->timestamp, m->timestamp,
+		(unsigned)m->id, (unsigned)m->flags, (unsigned)m->objectKind,
+		process_id, thread_id, device, context, stream);
+	if (w < 0 || (size_t)(n + w) >= sizeof(payload)) return -1;
+	n += w;
+	return queue_pending(KIND_ACTIVITY, m->timestamp, payload, (size_t)n);
+}
+
 static int append_api(const char *domain, const CUpti_ActivityAPI *api) {
 	char payload[MAX_PAYLOAD];
 	int n = snprintf(payload, sizeof(payload),
@@ -593,6 +683,9 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 			if (rp + sizeof(CUpti_ActivityExternalCorrelation) < rp || rp + sizeof(CUpti_ActivityExternalCorrelation) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short external correlation record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityExternalCorrelation *x = (const CUpti_ActivityExternalCorrelation *)record;
 			(void)append_external((uint32_t)x->externalKind, x->externalId, x->correlationId);
+		} else if (record->kind == CUPTI_ACTIVITY_KIND_MARKER) {
+			if (rp + sizeof(CUpti_ActivityMarker2) < rp || rp + sizeof(CUpti_ActivityMarker2) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Marker2 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
+			(void)append_marker((const CUpti_ActivityMarker2 *)record);
 		}
 	}
 	if (next != CUPTI_ERROR_MAX_LIMIT_REACHED && next != CUPTI_SUCCESS) {
@@ -724,6 +817,7 @@ static void cudaprof_after_fork_child(void) {
 	atomic_store(&finalize_started, 1);
 	atomic_store(&finalize_done, 1);
 	external_enabled = 0;
+	marker_enabled = 0;
 	callback_registered = 0;
 	initialized = 0;
 
@@ -893,6 +987,14 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		return;
 	}
 	external_enabled = 1;
+	/* NVTX is the only tier here the target supplies rather than the driver.
+	   A target with no NVTX instrumentation is the ordinary case, and a CUPTI
+	   without marker support is a supported configuration, so a refusal here
+	   is recorded in the capability record and the capture continues. Every
+	   other enable above is a hard failure because losing it means losing
+	   activity the target did not have to ask for. */
+	result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MARKER);
+	if (result == CUPTI_SUCCESS) marker_enabled = 1;
 	/* Runtime and driver API attribution dominates journal volume: it was 92%
 	   of the records in the measured Dynamo worker journals. Now that the
 	   drain retains everything offered, that volume is real bytes on disk, so
@@ -922,7 +1024,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		}
 		driver_enabled = 1;
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"compile_cupti\":%d,\"runtime_cupti\":%u,\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", CUPTI_API_VERSION, runtime_version, kernel_mode, CUDAPROF_KERNEL_LAYOUT, sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"compile_cupti\":%d,\"runtime_cupti\":%u,\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", CUPTI_API_VERSION, runtime_version, kernel_mode, CUDAPROF_KERNEL_LAYOUT, sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability)) (void)write_record(KIND_CAPABILITY, now_ns(), capability, (size_t)capability_len);
 	write_handshake(NULL);
@@ -940,12 +1042,13 @@ static void cudaprof_cupti_finalize(void) {
 		return;
 	}
 	int flush_error = 0;
-	if (callback_registered && (concurrent_enabled || memcpy_enabled || external_enabled || runtime_enabled || driver_enabled)) {
+	if (callback_registered && (concurrent_enabled || memcpy_enabled || external_enabled || marker_enabled || runtime_enabled || driver_enabled)) {
 		if (cuptiActivityFlushAll(1) != CUPTI_SUCCESS) flush_error = 1;
 		if (concurrent_enabled) { if (cuptiActivityDisable(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL) != CUPTI_SUCCESS) flush_error = 1; }
 		if (legacy_enabled) { if (cuptiActivityDisable(CUPTI_ACTIVITY_KIND_KERNEL) != CUPTI_SUCCESS) flush_error = 1; }
 		if (memcpy_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_MEMCPY) != CUPTI_SUCCESS) flush_error = 1;
 		if (external_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION) != CUPTI_SUCCESS) flush_error = 1;
+		if (marker_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_MARKER) != CUPTI_SUCCESS) flush_error = 1;
 		if (runtime_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_RUNTIME) != CUPTI_SUCCESS) flush_error = 1;
 		if (driver_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_DRIVER) != CUPTI_SUCCESS) flush_error = 1;
 		atomic_store(&shutdown_started, 1);

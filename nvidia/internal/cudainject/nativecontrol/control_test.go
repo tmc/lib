@@ -9,6 +9,7 @@
 package nativecontrol_test
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -120,8 +121,33 @@ type capture struct {
 	finalized  *finalizedRecord
 	capability capabilityRecord
 	failures   []string
+	markers    []markerRecord
 	truncated  bool
 }
+
+// markerRecord is one NVTX marker as the producer transcribed it. A range
+// occupies two of these: CUPTI reports the open and the close separately, so
+// the duration is a property of a pair and of nothing in this struct.
+type markerRecord struct {
+	Subtype    string `json:"subtype"`
+	Name       string `json:"name"`
+	Domain     string `json:"marker_domain"`
+	ID         uint32 `json:"marker_id"`
+	Flags      uint32 `json:"marker_flags"`
+	ObjectKind uint32 `json:"object_kind"`
+	ProcessID  uint32 `json:"process_id"`
+	ThreadID   uint32 `json:"thread_id"`
+	Stream     uint32 `json:"stream"`
+	Start      uint64 `json:"start"`
+	End        uint64 `json:"end"`
+}
+
+// Marker flags, mirroring CUpti_ActivityFlag in native/testcupti.
+const (
+	markerFlagInstantaneous = 1 << 0
+	markerFlagStart         = 1 << 1
+	markerFlagEnd           = 1 << 2
+)
 
 // capabilityRecord is what the producer reports it enabled.
 type capabilityRecord struct {
@@ -131,6 +157,7 @@ type capabilityRecord struct {
 	RuntimeAPI      bool   `json:"runtime_api"`
 	SigtermFinalize bool   `json:"sigterm_finalize"`
 	AtforkGuard     bool   `json:"atfork_guard"`
+	NVTXMarkers     bool   `json:"nvtx_markers"`
 	DrainBatch      int    `json:"drain_batch"`
 	QueueCapacity   int    `json:"queue_capacity"`
 	KernelLayout    string `json:"kernel_layout"`
@@ -290,6 +317,17 @@ func decode(t *testing.T, path string) capture {
 			}
 		case kindFailure:
 			c.failures = append(c.failures, string(r.Payload))
+		case kindActivity:
+			// Only markers are decoded here. The high-volume scenarios offer
+			// millions of activity records and a JSON unmarshal per record
+			// would make the decode, not the producer, the thing under test.
+			if bytes.Contains(r.Payload, []byte(`"subtype":"marker"`)) {
+				var m markerRecord
+				if err := json.Unmarshal(r.Payload, &m); err != nil {
+					t.Fatalf("marker payload %q: %v", r.Payload, err)
+				}
+				c.markers = append(c.markers, m)
+			}
 		}
 	}
 	return c
@@ -1003,5 +1041,69 @@ func TestShortMemcpyActivityLayoutIsRejected(t *testing.T) {
 	}
 	if !status.Exited() || status.ExitStatus() != 0 {
 		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestNVTXMarkersArriveAsPairs covers the NVTX tier. CUPTI does not report a
+// range: it reports a START record and an END record that share an id, each
+// with one timestamp, and the duration exists only in the pair. The producer
+// transcribes what it received, so the control here is that both halves reach
+// the journal with the id intact and neither half claims a duration of its
+// own.
+//
+// One buffer, deliberately. The stub numbers marker ids from one within each
+// offer, so a second buffer would reuse ids 1 and 2 and pairing by id alone
+// would no longer identify a pair. That ambiguity is real in CUPTI too; this
+// control is about the producer's transcription, not about resolving it.
+func TestNVTXMarkersArriveAsPairs(t *testing.T) {
+	_, _, captures := run(t, "sustained", "1", "1", "8", "0", "0", "4")
+	c := only(t, captures)
+	if !c.capability.NVTXMarkers {
+		t.Fatal("capability reports nvtx_markers = false: the producer never enabled CUPTI_ACTIVITY_KIND_MARKER, so every assertion below would be about an empty set")
+	}
+	if len(c.markers) != 4 {
+		t.Fatalf("got %d markers, want 4 (two ranges)", len(c.markers))
+	}
+	starts := map[uint32]markerRecord{}
+	ends := map[uint32]markerRecord{}
+	for _, m := range c.markers {
+		if m.Name != "cudaprof_control_range" || m.Domain != "cudaprof" {
+			t.Errorf("marker %d: name=%q domain=%q, want the stub's name and domain", m.ID, m.Name, m.Domain)
+		}
+		// A marker is a point in time. Both timestamps carry the one value
+		// CUPTI reported so that a consumer reading a duration off a single
+		// record reads zero rather than a fabricated span.
+		if m.Start != m.End {
+			t.Errorf("marker %d spans %d..%d: one marker has one timestamp", m.ID, m.Start, m.End)
+		}
+		if m.ProcessID != 1 || m.ThreadID != 2 {
+			t.Errorf("marker %d: pid=%d tid=%d, want 1/2 from the thread arm of the object union", m.ID, m.ProcessID, m.ThreadID)
+		}
+		if m.Stream != 0 {
+			t.Errorf("marker %d: stream=%d, want 0: a thread-attributed marker has no stream, and filling one in would put a host range on a device track", m.ID, m.Stream)
+		}
+		switch m.Flags {
+		case markerFlagStart:
+			starts[m.ID] = m
+		case markerFlagEnd:
+			ends[m.ID] = m
+		default:
+			t.Errorf("marker %d: flags=%d, want START(%d) or END(%d)", m.ID, m.Flags, markerFlagStart, markerFlagEnd)
+		}
+	}
+	for _, id := range []uint32{1, 2} {
+		s, ok := starts[id]
+		if !ok {
+			t.Errorf("range %d has no START record", id)
+			continue
+		}
+		e, ok := ends[id]
+		if !ok {
+			t.Errorf("range %d has no END record: an unclosed range is the open-range case, not a lost record", id)
+			continue
+		}
+		if e.Start <= s.Start {
+			t.Errorf("range %d closes at %d, at or before its open at %d", id, e.Start, s.Start)
+		}
 	}
 }

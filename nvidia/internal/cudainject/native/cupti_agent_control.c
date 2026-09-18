@@ -73,6 +73,7 @@ struct child_probe {
 struct offer_plan {
 	unsigned buffers;       /* buffers this thread offers */
 	unsigned per_buffer;    /* records per buffer */
+	unsigned markers;       /* NVTX markers per buffer, above per_buffer */
 	unsigned pause_micros;  /* pause between buffers, 0 for a burst */
 	long offered;           /* out: records accepted into buffers */
 	long exhausted;         /* out: offers refused because the pool was busy */
@@ -84,7 +85,7 @@ static void *offer_thread(void *arg) {
 	unsigned memcpys = plan->per_buffer / 4;
 	unsigned apis = plan->per_buffer - kernels - memcpys;
 	for (unsigned i = 0; i < plan->buffers; i++) {
-		int placed = cudaprof_test_offer(kernels, memcpys, apis, 0);
+		int placed = cudaprof_test_offer_markers(kernels, memcpys, apis, 0, plan->markers);
 		if (placed < 0) break;
 		if (placed == 0) { plan->exhausted++; continue; }
 		plan->offered += placed;
@@ -147,6 +148,10 @@ int main(int argc, char **argv) {
 	unsigned buffers = arg_uint(argc, argv, 3, 8);
 	unsigned per_buffer = arg_uint(argc, argv, 4, 512);
 	unsigned pause_micros = arg_uint(argc, argv, 5, 0);
+	/* NVTX markers are offered above per_buffer rather than carved out of it,
+	   so adding them to a scenario does not change the kernel/memcpy/api mix
+	   the scenario was calibrated against. */
+	unsigned markers = arg_uint(argc, argv, 7, 0);
 	if (threads == 0) threads = 1;
 	if (threads > 64) threads = 64;
 
@@ -155,6 +160,7 @@ int main(int argc, char **argv) {
 	for (unsigned i = 0; i < threads; i++) {
 		plans[i].buffers = buffers;
 		plans[i].per_buffer = per_buffer;
+		plans[i].markers = markers;
 		plans[i].pause_micros = pause_micros;
 	}
 

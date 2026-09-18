@@ -16,13 +16,32 @@ func (b *journalBuilder) traceActivity(subtype, name string, device, stream uint
 	return b
 }
 
+// traceMarker appends one NVTX marker record. Markers are appended one at a
+// time, never as a pair, because that is how CUPTI delivers them: the range is
+// something a consumer reconstructs, not something the journal holds.
+func (b *journalBuilder) traceMarker(name, domain string, id, flags, pid, tid uint32, timestamp uint64) *journalBuilder {
+	b.append(recordActivity, map[string]any{
+		"kind": "activity", "subtype": "marker", "valid": true, "name": name,
+		"marker_domain": domain, "marker_id": id, "marker_flags": flags,
+		"process_id": pid, "thread_id": tid,
+		"start": timestamp, "end": timestamp,
+	})
+	return b
+}
+
 func decodeFixture(t *testing.T, data []byte) []traceRecord {
 	t.Helper()
-	records, err := decodeTraceJournals(map[string][]byte{"capture.journal": data}, controllerMaxJournalRecords, 1<<20)
+	records, _ := decodeFixtureNVTX(t, data)
+	return records
+}
+
+func decodeFixtureNVTX(t *testing.T, data []byte) ([]traceRecord, nvtxSummary) {
+	t.Helper()
+	records, nvtx, err := decodeTraceJournals(map[string][]byte{"capture.journal": data}, controllerMaxJournalRecords, 1<<20)
 	if err != nil {
 		t.Fatalf("decodeTraceJournals: %v", err)
 	}
-	return records
+	return records, nvtx
 }
 
 // TestExportLanesSplitOverlappingActivities is the property the whole track
@@ -129,7 +148,7 @@ func TestExportRefusesIncompleteJournals(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := decodeTraceJournals(map[string][]byte{"capture.journal": tt.data()}, controllerMaxJournalRecords, 1<<20)
+			_, _, err := decodeTraceJournals(map[string][]byte{"capture.journal": tt.data()}, controllerMaxJournalRecords, 1<<20)
 			if err == nil {
 				t.Fatal("exported a journal that cannot draw a complete timeline")
 			}
@@ -188,5 +207,154 @@ func TestParseExportArgs(t *testing.T) {
 	}
 	if _, err := parseExportArgs([]string{}); err == nil {
 		t.Error("accepted no capture path")
+	}
+}
+
+// TestExportPairsNVTXMarkersIntoRanges is the property the NVTX tier exists
+// for. CUPTI reports a range as two records sharing an id, each with one
+// timestamp, so the duration is a property of the pair. A consumer that drew
+// each record where it found it would draw two zero-length ticks and no range
+// at all.
+func TestExportPairsNVTXMarkersIntoRanges(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceActivity("kernel", "k", 0, 1, 5000, 6000, 1)
+	b.traceMarker("prefill", "ds4", 1, markerFlagStart, 100, 200, 4000)
+	b.traceMarker("prefill", "ds4", 1, markerFlagEnd, 100, 200, 7000)
+	records, nvtx := decodeFixtureNVTX(t, b.finalize())
+
+	if nvtx.ranges != 1 || nvtx.unpaired != 0 {
+		t.Fatalf("nvtx = %+v, want exactly one paired range", nvtx)
+	}
+	var found int
+	for _, r := range records {
+		if r.kind != trackNVTX {
+			continue
+		}
+		found++
+		if r.rec.Start != 4000 || r.rec.End != 7000 {
+			t.Errorf("range spans %d..%d, want 4000..7000 from the two markers", r.rec.Start, r.rec.End)
+		}
+		if r.rec.Name != "ds4/prefill" {
+			t.Errorf("range name = %q, want the domain-qualified name", r.rec.Name)
+		}
+		if r.group != [2]uint32{100, 200} {
+			t.Errorf("range group = %v, want the marker's pid/thread", r.group)
+		}
+	}
+	if found != 1 {
+		t.Fatalf("got %d NVTX slices, want 1", found)
+	}
+}
+
+// TestExportKeepsNVTXOffTheHostAPITrack covers the namespace collision. An
+// NVTX range and a runtime API call carry the same pid and thread, so one key
+// namespace would merge them onto a single track -- and because a Perfetto
+// track is a stack, a range that merely overlaps a call would be drawn as its
+// parent.
+//
+// The API call is disjoint from the range, and earlier than it, on purpose.
+// Overlapping records are split onto numbered lanes, which would separate them
+// whether or not the namespaces collided; the test would then pass on the
+// collapsed key, measuring lane assignment rather than namespacing. Earlier
+// and disjoint is the one arrangement in which a collapsed key puts both on
+// one lane, so the two records share a track uuid if and only if the
+// namespaces merged.
+func TestExportKeepsNVTXOffTheHostAPITrack(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceActivity("kernel", "k", 0, 1, 5000, 6000, 1)
+	b.append(recordAPI, map[string]any{
+		"kind": "api", "domain": "runtime", "start": 1000, "end": 1100,
+		"process_id": 100, "thread_id": 200, "correlation": 1,
+	})
+	b.traceMarker("prefill", "ds4", 1, markerFlagStart, 100, 200, 4000)
+	b.traceMarker("prefill", "ds4", 1, markerFlagEnd, 100, 200, 7000)
+	records := decodeFixture(t, b.finalize())
+
+	uuids, names := assignTracks(records)
+	var nvtxUUID, hostUUID uint64
+	for i, r := range records {
+		switch r.kind {
+		case trackNVTX:
+			nvtxUUID = uuids[i]
+		case trackHost:
+			hostUUID = uuids[i]
+		}
+	}
+	if nvtxUUID == 0 || hostUUID == 0 {
+		t.Fatalf("fixture did not produce both an NVTX and a host record (nvtx=%d host=%d)", nvtxUUID, hostUUID)
+	}
+	if nvtxUUID == hostUUID {
+		t.Errorf("NVTX and host API share track %d of %v: pid 100 thread 200 collided across namespaces", nvtxUUID, names)
+	}
+	var sawNVTXName bool
+	for _, n := range names {
+		if n == "nvtx pid 100 thread 200" {
+			sawNVTXName = true
+		}
+	}
+	if !sawNVTXName {
+		t.Errorf("track names = %v, want one naming the NVTX thread", names)
+	}
+}
+
+// TestExportCountsUnpairedNVTXMarkers covers the loss that would otherwise be
+// invisible. A START with no END is a range still open when the capture ended;
+// drawing it to any chosen end states a duration nobody measured, so it is
+// drawn as nothing -- which is only honest if the count says so.
+func TestExportCountsUnpairedNVTXMarkers(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceActivity("kernel", "k", 0, 1, 5000, 6000, 1)
+	b.traceMarker("open", "ds4", 1, markerFlagStart, 100, 200, 4000)
+	b.traceMarker("closed-first", "ds4", 2, markerFlagEnd, 100, 200, 4500)
+	b.traceMarker("point", "ds4", 3, markerFlagInstantaneous, 100, 200, 4800)
+	records, nvtx := decodeFixtureNVTX(t, b.finalize())
+
+	if nvtx.ranges != 0 {
+		t.Errorf("nvtx.ranges = %d, want 0: neither half had a partner", nvtx.ranges)
+	}
+	if nvtx.unpaired != 2 {
+		t.Errorf("nvtx.unpaired = %d, want 2 (one orphan START, one orphan END)", nvtx.unpaired)
+	}
+	if nvtx.points != 1 {
+		t.Errorf("nvtx.points = %d, want 1", nvtx.points)
+	}
+	var nvtxRecords int
+	for _, r := range records {
+		if r.kind == trackNVTX {
+			nvtxRecords++
+		}
+	}
+	if nvtxRecords != 1 {
+		t.Fatalf("drew %d NVTX slices, want 1: only the instantaneous marker is drawable", nvtxRecords)
+	}
+}
+
+// TestExportNestsNVTXRangesByInnermost covers the LIFO rule. NVTX ranges nest,
+// and a capture that reuses one id for an inner and an outer range would, under
+// first-match pairing, close the outer range at the inner one's end and leave
+// the outer end to pair with nothing.
+func TestExportNestsNVTXRangesByInnermost(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceActivity("kernel", "k", 0, 1, 5000, 6000, 1)
+	b.traceMarker("outer", "ds4", 1, markerFlagStart, 100, 200, 1000)
+	b.traceMarker("inner", "ds4", 1, markerFlagStart, 100, 200, 2000)
+	b.traceMarker("inner", "ds4", 1, markerFlagEnd, 100, 200, 3000)
+	b.traceMarker("outer", "ds4", 1, markerFlagEnd, 100, 200, 9000)
+	records, nvtx := decodeFixtureNVTX(t, b.finalize())
+
+	if nvtx.ranges != 2 || nvtx.unpaired != 0 {
+		t.Fatalf("nvtx = %+v, want two paired ranges", nvtx)
+	}
+	spans := map[string][2]uint64{}
+	for _, r := range records {
+		if r.kind == trackNVTX {
+			spans[r.rec.Name] = [2]uint64{r.rec.Start, r.rec.End}
+		}
+	}
+	if got := spans["ds4/inner"]; got != [2]uint64{2000, 3000} {
+		t.Errorf("inner range spans %v, want 2000..3000", got)
+	}
+	if got := spans["ds4/outer"]; got != [2]uint64{1000, 9000} {
+		t.Errorf("outer range spans %v, want 1000..9000: the END at 3000 closed the innermost open range, not this one", got)
 	}
 }

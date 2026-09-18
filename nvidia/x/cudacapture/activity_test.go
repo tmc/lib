@@ -374,3 +374,32 @@ func TestAttachKernelLabelsGraphAttribution(t *testing.T) {
 		})
 	}
 }
+
+// TestBuildActivityProfileSkipsNVTXMarkers covers the population boundary. The
+// profile's four sample types are three device measurements and a count of the
+// activities they were measured over, so the count has to count the same
+// population. An NVTX marker is a host annotation carried on the activity
+// record kind: it contributes zero to kernel_time, zero to copy_time and zero
+// to copy_bytes, so including it would leave "activity" counting a population
+// the three durations were never measured over.
+func TestBuildActivityProfileSkipsNVTXMarkers(t *testing.T) {
+	activities := []cudacapture.ActivityRecord{
+		{Subtype: "kernel", Name: "k", Valid: true, Start: 1000, End: 3000},
+		{Subtype: "marker", Name: "prefill", Valid: true, Start: 500, End: 500},
+		{Subtype: "marker", Name: "prefill", Valid: true, Start: 9000, End: 9000},
+	}
+	p := cudacapture.BuildActivityProfile("session", 4242, activities)
+	if len(p.Sample) != 1 {
+		t.Fatalf("got %d samples, want 1: only the kernel is device activity", len(p.Sample))
+	}
+	if got := p.Sample[0].Value[3]; got != 1 {
+		t.Errorf("activity count = %d, want 1", got)
+	}
+	for _, s := range p.Sample {
+		for _, v := range s.Label["subtype"] {
+			if v == "marker" {
+				t.Errorf("a marker reached the profile as a sample; it carries no device time, so it would count in the activity dimension and nowhere else")
+			}
+		}
+	}
+}

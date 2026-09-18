@@ -146,6 +146,13 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 		if activity.End < activity.Start || activity.End-activity.Start > uint64(^uint64(0)>>1) {
 			continue
 		}
+		// NVTX markers share the activity record kind but are host
+		// annotations, not device work. They contribute no device or copy
+		// time, so including them would leave the count dimension counting a
+		// different population than the two duration dimensions beside it.
+		if activity.Subtype == "marker" {
+			continue
+		}
 		value := []int64{0, 0, 0, 1}
 		if activity.Subtype == "kernel" {
 			value[0] = int64(activity.End - activity.Start)

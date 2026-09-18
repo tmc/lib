@@ -65,7 +65,7 @@ func runExportCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	records, err := decodeTraceJournals(journals, opts.maxRecords, opts.journalBytes)
+	records, nvtx, err := decodeTraceJournals(journals, opts.maxRecords, opts.journalBytes)
 	if err != nil {
 		return err
 	}
@@ -82,6 +82,15 @@ func runExportCommand(args []string) error {
 		return fmt.Errorf("close trace %s: %w", opts.outPath, err)
 	}
 	fmt.Printf("wrote %s: %d record(s) on %d track(s)\n", opts.outPath, len(records), n)
+	if nvtx != (nvtxSummary{}) {
+		fmt.Printf("nvtx: %d range(s), %d instantaneous marker(s)\n", nvtx.ranges, nvtx.points)
+		if nvtx.unpaired > 0 {
+			fmt.Printf("nvtx: %d marker(s) drawn as nothing: a START with no END is a range still open when the capture ended, and an END with no START opened before it began\n", nvtx.unpaired)
+		}
+		if nvtx.unknown > 0 {
+			fmt.Printf("nvtx: %d marker(s) carried none of the start/end/instantaneous flags and were skipped\n", nvtx.unknown)
+		}
+	}
 	return nil
 }
 
@@ -192,14 +201,41 @@ type tracePayload struct {
 	CallbackID  uint32 `json:"callback_id"`
 	ReturnValue uint32 `json:"return_value"`
 	Dropped     uint64 `json:"dropped"`
+
+	// NVTX. A marker record carries one timestamp in both Start and End; the
+	// duration of a range lives in the pair of records sharing MarkerID, not
+	// in either one.
+	MarkerDomain string `json:"marker_domain"`
+	MarkerID     uint32 `json:"marker_id"`
+	MarkerFlags  uint32 `json:"marker_flags"`
 }
+
+// NVTX marker flags, mirroring [cupti.ActivityFlagMarkerStart] and its
+// siblings. They are tested as bits: CUPTI may set others alongside.
+const (
+	markerFlagInstantaneous = 1 << 0
+	markerFlagStart         = 1 << 1
+	markerFlagEnd           = 1 << 2
+)
+
+// trackKind is the namespace a record's group belongs to. It exists because a
+// device stream id, a host thread id and an NVTX thread id are all small
+// integers: one shared key namespace would silently merge a device stream 1
+// with a host thread 1 onto a single track.
+type trackKind uint32
+
+const (
+	trackDevice trackKind = iota // device: group is (device, stream)
+	trackHost                    // host API: group is (pid, thread)
+	trackNVTX                    // NVTX range: group is (pid, thread)
+)
 
 // traceRecord is one activity with the track it belongs on. The track key is
 // separate from the record because a device stream and a host thread are
 // different namespaces that would otherwise collide on small integers.
 type traceRecord struct {
 	rec   cuptiactivity.Record
-	host  bool // true for an API record, which lives on a thread track
+	kind  trackKind
 	group [2]uint32
 }
 
@@ -207,39 +243,140 @@ type traceRecord struct {
 // calls. The refusals mirror decodeJournals: a journal that never finalized,
 // lost records, or decoded short leaves a timeline whose missing spans read as
 // idle device, which is a wrong answer rather than a partial one.
-func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64) ([]traceRecord, error) {
+func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64) ([]traceRecord, nvtxSummary, error) {
 	names := make([]string, 0, len(journals))
 	for name := range journals {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	var out []traceRecord
+	var nvtx nvtxSummary
 	for _, name := range names {
 		reader, _, err := decompressJournal(journals[name], maxBytes)
 		if err != nil {
-			return nil, fmt.Errorf("read journal %s: %w", name, err)
+			return nil, nvtx, fmt.Errorf("read journal %s: %w", name, err)
 		}
-		err = decodeTraceJournal(name, reader, maxRecords, &out)
+		err = decodeTraceJournal(name, reader, maxRecords, &out, &nvtx)
 		if cerr := reader.Close(); err == nil && cerr != nil {
 			err = fmt.Errorf("close journal %s: %w", name, cerr)
 		}
 		if err != nil {
-			return nil, err
+			return nil, nvtx, err
 		}
 	}
 	if len(out) == 0 {
-		return nil, errors.New("journals hold no complete activity records, so there is no timeline to draw")
+		return nil, nvtx, errors.New("journals hold no complete activity records, so there is no timeline to draw")
 	}
-	return out, nil
+	return out, nvtx, nil
 }
 
-func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]traceRecord) error {
+// nvtxSummary is what the NVTX tier contributed, reported alongside the trace
+// because an unpaired marker is drawn as nothing and would otherwise be an
+// invisible loss.
+type nvtxSummary struct {
+	ranges   int // START/END pairs drawn as ranges
+	points   int // instantaneous markers drawn as zero-length slices
+	unpaired int // halves with no partner, drawn as nothing
+	unknown  int // markers carrying none of the three flags
+}
+
+func (s *nvtxSummary) add(o nvtxSummary) {
+	s.ranges += o.ranges
+	s.points += o.points
+	s.unpaired += o.unpaired
+	s.unknown += o.unknown
+}
+
+// markerKey identifies the range an NVTX marker belongs to. The id alone is
+// not enough: NVTX ids are unique within a domain, and two threads pushing
+// ranges concurrently reuse them freely.
+type markerKey struct {
+	pid, tid, id uint32
+	domain       string
+}
+
+// pairMarkers turns one journal's marker records into NVTX slices.
+//
+// CUPTI never reports a range. It reports a START record and an END record
+// that share an id, each carrying one timestamp, so a range exists only as a
+// pair and neither half carries a duration. Reading a duration off a single
+// marker reads zero, which is the truth about that record and a lie about the
+// range it belongs to.
+//
+// Pairing is LIFO within a key because NVTX ranges nest: an inner range
+// closing must close the innermost open range, not the outermost one that
+// happens to share its id.
+//
+// An unpaired half is counted and not drawn. A START whose END never arrived
+// is a range that was still open when the process ended: extending it to any
+// chosen end would state a duration nobody measured, and drawing it as a point
+// would state that it closed immediately. Both are wrong answers where a
+// counted absence is a partial one.
+func pairMarkers(markers []tracePayload, out *[]traceRecord) nvtxSummary {
+	var s nvtxSummary
+	// Journal order is drain order, which several producer threads interleave.
+	// Pairing walks time, so it has to sort by it first.
+	sort.SliceStable(markers, func(i, j int) bool { return markers[i].Start < markers[j].Start })
+	open := map[markerKey][]tracePayload{}
+	for _, m := range markers {
+		k := markerKey{pid: m.ProcessID, tid: m.ThreadID, id: m.MarkerID, domain: m.MarkerDomain}
+		switch {
+		case m.MarkerFlags&markerFlagStart != 0:
+			open[k] = append(open[k], m)
+		case m.MarkerFlags&markerFlagEnd != 0:
+			stack := open[k]
+			if len(stack) == 0 {
+				s.unpaired++
+				continue
+			}
+			start := stack[len(stack)-1]
+			open[k] = stack[:len(stack)-1]
+			*out = append(*out, markerRange(start, m.End))
+			s.ranges++
+		case m.MarkerFlags&markerFlagInstantaneous != 0:
+			*out = append(*out, markerRange(m, m.Start))
+			s.points++
+		default:
+			s.unknown++
+		}
+	}
+	for _, stack := range open {
+		s.unpaired += len(stack)
+	}
+	return s
+}
+
+// markerRange builds the slice for a range that opened at start and closed at
+// end. The NVTX domain qualifies the name because two domains may use the same
+// range name for unrelated work.
+func markerRange(start tracePayload, end uint64) traceRecord {
+	name := start.Name
+	if start.MarkerDomain != "" {
+		name = start.MarkerDomain + "/" + name
+	}
+	return traceRecord{
+		rec: cuptiactivity.Record{
+			Kind:      cupti.ActivityKindMarker,
+			Name:      name,
+			Start:     start.Start,
+			End:       end,
+			Complete:  true,
+			ProcessID: start.ProcessID,
+			ThreadID:  start.ThreadID,
+		},
+		kind:  trackNVTX,
+		group: [2]uint32{start.ProcessID, start.ThreadID},
+	}
+}
+
+func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]traceRecord, nvtx *nvtxSummary) error {
 	limit := uint32(math.MaxUint32)
 	if maxRecords > 0 && maxRecords < math.MaxUint32 {
 		limit = uint32(maxRecords)
 	}
 	d := wire.NewDecoder(reader, wire.Limits{MaxRecords: limit})
 	first, finalized, decoded := true, false, 0
+	var markers []tracePayload
 	for {
 		r, err := d.Next()
 		if err != nil {
@@ -254,6 +391,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				if stats := d.Stats(); stats.Gaps > 0 || stats.Dropped > 0 {
 					return fmt.Errorf("journal %s lost records (%d sequence gap(s), %d dropped), so the timeline is missing spans that would draw as idle", name, stats.Gaps, stats.Dropped)
 				}
+				nvtx.add(pairMarkers(markers, out))
 				return nil
 			case errors.Is(err, io.ErrUnexpectedEOF):
 				return fmt.Errorf("journal %s is truncated after %d record(s): the timeline ends at an unknown point", name, decoded)
@@ -278,12 +416,18 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 			if !p.Valid || p.Start == 0 || p.End < p.Start {
 				continue
 			}
-			*out = append(*out, traceRecord{rec: activityRecord(p), group: [2]uint32{p.Device, p.Stream}})
+			if p.Subtype == "marker" {
+				// Held back: a marker alone is a point in time, and the range
+				// it belongs to does not exist until its partner arrives.
+				markers = append(markers, p)
+				continue
+			}
+			*out = append(*out, traceRecord{rec: activityRecord(p), kind: trackDevice, group: [2]uint32{p.Device, p.Stream}})
 		case recordAPI:
 			if p.Start == 0 || p.End < p.Start {
 				continue
 			}
-			*out = append(*out, traceRecord{rec: apiRecord(p), host: true, group: [2]uint32{p.ProcessID, p.ThreadID}})
+			*out = append(*out, traceRecord{rec: apiRecord(p), kind: trackHost, group: [2]uint32{p.ProcessID, p.ThreadID}})
 		case recordFinalized:
 			finalized = true
 			if p.Dropped > 0 {
@@ -388,8 +532,8 @@ func writeTrace(w io.Writer, records []traceRecord) (int, error) {
 func assignTracks(records []traceRecord) ([]uint64, []string) {
 	sort.SliceStable(records, func(i, j int) bool {
 		a, b := records[i], records[j]
-		if a.host != b.host {
-			return !a.host
+		if a.kind != b.kind {
+			return a.kind < b.kind
 		}
 		if a.group != b.group {
 			if a.group[0] != b.group[0] {
@@ -409,7 +553,7 @@ func assignTracks(records []traceRecord) ([]uint64, []string) {
 		names []string
 	)
 	for i, t := range records {
-		key := [3]uint32{boolUint(t.host), t.group[0], t.group[1]}
+		key := [3]uint32{uint32(t.kind), t.group[0], t.group[1]}
 		group := lanes[key]
 		slot := -1
 		for j := range group {
@@ -419,7 +563,7 @@ func assignTracks(records []traceRecord) ([]uint64, []string) {
 			}
 		}
 		if slot < 0 {
-			names = append(names, trackName(t.host, t.group, len(group)))
+			names = append(names, trackName(t.kind, t.group, len(group)))
 			group = append(group, lane{uuid: uint64(len(names))})
 			slot = len(group) - 1
 		}
@@ -430,22 +574,18 @@ func assignTracks(records []traceRecord) ([]uint64, []string) {
 	return uuids, names
 }
 
-func trackName(host bool, group [2]uint32, lane int) string {
+func trackName(kind trackKind, group [2]uint32, lane int) string {
 	var name string
-	if host {
+	switch kind {
+	case trackHost:
 		name = fmt.Sprintf("pid %d thread %d", group[0], group[1])
-	} else {
+	case trackNVTX:
+		name = fmt.Sprintf("nvtx pid %d thread %d", group[0], group[1])
+	default:
 		name = fmt.Sprintf("device %d stream %d", group[0], group[1])
 	}
 	if lane > 0 {
 		name += fmt.Sprintf(" (overlap %d)", lane)
 	}
 	return name
-}
-
-func boolUint(b bool) uint32 {
-	if b {
-		return 1
-	}
-	return 0
 }

@@ -677,3 +677,69 @@ func captureStdout(t *testing.T, fn func() error) string {
 	}
 	return out
 }
+
+// TestGapsIgnoresNVTXMarkers covers the tier boundary. NVTX markers share the
+// activity record kind with kernels and memcpys but are host annotations, not
+// device work: they carry no device time, they can be stamped anywhere on the
+// host timeline, and a range's two halves land at its ends rather than across
+// it.
+//
+// Counting one as device activity does three separate wrong things -- it
+// inflates Activities, it stretches SpanNanos to the outermost marker, and it
+// splits a real device gap in two at the marker's timestamp -- so the control
+// is that the same fixture with and without markers reports identically.
+func TestGapsIgnoresNVTXMarkers(t *testing.T) {
+	kernels := func(b *journalBuilder) {
+		b.activity("kernel", 0, 1_000, 3_000, 1)
+		b.activity("kernel", 0, 6_000, 7_000, 2)
+	}
+
+	plain := newJournalBuilder()
+	kernels(plain)
+
+	marked := newJournalBuilder()
+	kernels(marked)
+	// Well outside the device window on both sides, and squarely inside the
+	// 3000..6000 gap: each placement corrupts a different statistic.
+	for _, m := range []struct {
+		flags uint32
+		ts    uint64
+	}{
+		{markerFlagStart, 100},
+		{markerFlagEnd, 9_000},
+		{markerFlagInstantaneous, 4_500},
+	} {
+		marked.append(recordActivity, map[string]any{
+			"kind": "activity", "subtype": "marker", "valid": true, "name": "prefill",
+			"marker_domain": "ds4", "marker_id": 1, "marker_flags": m.flags,
+			"process_id": 100, "thread_id": 200,
+			"start": m.ts, "end": m.ts,
+		})
+	}
+
+	opts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords}
+	want, err := analyzeGaps(testCapture(map[string][]byte{"capture.journal": plain.finalize()}, completeStatus()), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := analyzeGaps(testCapture(map[string][]byte{"capture.journal": marked.finalize()}, completeStatus()), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(want.Devices) != 1 || len(got.Devices) != 1 {
+		t.Fatalf("devices = %d with markers, %d without; want 1 each: a marker created a device of its own", len(got.Devices), len(want.Devices))
+	}
+	w, g := want.Devices[0].Overall, got.Devices[0].Overall
+	if g.Activities != w.Activities {
+		t.Errorf("activities = %d with markers, %d without", g.Activities, w.Activities)
+	}
+	if g.SpanNanos != w.SpanNanos {
+		t.Errorf("span = %d with markers, %d without: a host marker moved an end of the device timeline", g.SpanNanos, w.SpanNanos)
+	}
+	if g.MergedIntervals != w.MergedIntervals {
+		t.Errorf("merged intervals = %d with markers, %d without: a marker split a device gap", g.MergedIntervals, w.MergedIntervals)
+	}
+	if g.ActiveNanos != w.ActiveNanos || g.IdleNanos != w.IdleNanos {
+		t.Errorf("active/idle = %d/%d with markers, %d/%d without", g.ActiveNanos, g.IdleNanos, w.ActiveNanos, w.IdleNanos)
+	}
+}

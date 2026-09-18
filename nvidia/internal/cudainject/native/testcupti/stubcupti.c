@@ -32,6 +32,7 @@ static size_t record_size(CUpti_ActivityKind kind) {
 	case CUPTI_ACTIVITY_KIND_DRIVER:
 	case CUPTI_ACTIVITY_KIND_RUNTIME: n = sizeof(CUpti_ActivityAPI); break;
 	case CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION: n = sizeof(CUpti_ActivityExternalCorrelation); break;
+	case CUPTI_ACTIVITY_KIND_MARKER: n = sizeof(CUpti_ActivityMarker2); break;
 	default: return 0;
 	}
 	return (n + 7u) & ~(size_t)7u;
@@ -113,6 +114,14 @@ int cudaprof_test_request_buffer(void) {
    buffer; a return of zero means the producer's buffer pool was exhausted and
    nothing was offered. */
 int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals) {
+	return cudaprof_test_offer_markers(kernels, memcpys, apis, externals, 0);
+}
+
+/* Markers are offered in START/END pairs sharing an id, because that is the
+   only shape CUPTI delivers an NVTX range in. A caller asking for an odd
+   count gets a trailing START with no END, which is the open-range case a
+   consumer has to survive rather than a malformed input. */
+int cudaprof_test_offer_markers(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers) {
 	if (request_cb == NULL || complete_cb == NULL) return -1;
 	uint8_t *buffer = NULL;
 	size_t size = 0, max_records = 0;
@@ -120,12 +129,14 @@ int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsig
 	if (buffer == NULL || size == 0) return 0;
 	size_t offset = 0;
 	int placed = 0;
+	unsigned markers_placed = 0;
 	for (;;) {
 		CUpti_ActivityKind kind;
 		if (kernels) { kind = CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL; kernels--; }
 		else if (memcpys) { kind = CUPTI_ACTIVITY_KIND_MEMCPY; memcpys--; }
 		else if (apis) { kind = CUPTI_ACTIVITY_KIND_RUNTIME; apis--; }
 		else if (externals) { kind = CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION; externals--; }
+		else if (markers) { kind = CUPTI_ACTIVITY_KIND_MARKER; markers--; }
 		else break;
 		if (!kind_enabled(kind)) continue;
 		size_t n = record_size(kind);
@@ -184,6 +195,20 @@ int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsig
 			a->threadId = 2;
 			a->correlationId = correlation;
 			a->returnValue = 0;
+			break;
+		}
+		case CUPTI_ACTIVITY_KIND_MARKER: {
+			CUpti_ActivityMarker2 *m = (CUpti_ActivityMarker2 *)slot;
+			m->kind = kind;
+			m->flags = (markers_placed % 2u) == 0u ? CUPTI_ACTIVITY_FLAG_MARKER_START : CUPTI_ACTIVITY_FLAG_MARKER_END;
+			m->id = (markers_placed / 2u) + 1u;
+			markers_placed++;
+			m->timestamp = 4000 + correlation;
+			m->objectKind = CUPTI_ACTIVITY_OBJECT_THREAD;
+			m->objectId.pt.processId = 1;
+			m->objectId.pt.threadId = 2;
+			m->name = "cudaprof_control_range";
+			m->domain = "cudaprof";
 			break;
 		}
 		default: {
