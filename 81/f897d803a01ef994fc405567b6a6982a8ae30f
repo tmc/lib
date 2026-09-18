@@ -1,0 +1,19 @@
+Commit: 46d0ab6bbba627932db6a22166f4ee5402f24cbe
+Date: 2026-09-18T10:33:30-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 38395
+ITERM_SESSION_ID: w17t0p0:154F7EA1-A987-4C0B-944A-0FC8FB91A24F
+session: 2b6d6b1f-7424-4bd2-93ae-b90691afac17
+session_url: https://claude.ai/code/session_01F5ShhVHPd9ninjizeEcyYc
+verification: censused "staging" across the tree: 38 occurrences, 34 of them the
+  unrelated CUDA sense (host staging buffers, shared-memory tile staging) and left
+  alone. 4 name x as a place; all 4 fixed. 03571A84 reported 2 and said main was
+  clean of the phrase; main is not -- VERSIONING.md:47 and :478 carry a stronger
+  form ("x/ is a staging area and goes", "leaves the published module"), and this
+  stack rewrites that file, superseding both. x/README.md checked directly for the
+  claim rather than taken on report. gofmt clean; both edited .go comments rewrapped
+  and no line over 79 introduced (all 10 such lines pre-existing). nvidia build rc=0,
+  TestNoImportsOfX PASS -count=1. git-auto-commit-message not attempted: cgpt has no
+  ANTHROPIC_API_KEY in this environment.
