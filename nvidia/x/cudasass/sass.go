@@ -15,6 +15,7 @@ import (
 type Disassembly struct {
 	Functions []*Function
 	funcMap   map[string]*Function
+	sections  []Section
 }
 
 // Function represents a disassembled GPU kernel with its instruction sequence.
@@ -120,9 +121,43 @@ func Parse(r io.Reader) (*Disassembly, error) {
 	// position because appending to Instructions may move the slice.
 	pendingFn, pendingIdx := (*Function)(nil), 0
 
+	// curSection indexes d.sections, or is -1 between kernels. An index rather
+	// than a pointer: appending to d.sections moves the backing array, and a
+	// pointer into it would then write to a stale copy.
+	curSection := -1
+	pendingBanner := ""
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
+
+		// Section accounting runs before the blank-line skip below so that a
+		// section's Text is the listing region byte for byte, blank lines and
+		// all, rather than a filtered rendering of it.
+		if bannerName, isBanner := sectionBanner(trimmed); isBanner {
+			curSection, pendingBanner = -1, ""
+			if bannerName != "" {
+				pendingBanner = line
+			}
+		} else if name := extractFunctionName(trimmed); name != "" && !(curSection >= 0 && d.sections[curSection].Name == name) {
+			// The guard is for a kernel's own label: nvdisasm prints both
+			// ".section .text.k4" and, further down, ".text.k4:" for one
+			// kernel, and both spellings read as a header. Splitting on the
+			// second would open a second region for a kernel the listing
+			// contains once -- and leave the first region holding only the
+			// kernel's header lines, with none of its instructions.
+			d.sections = append(d.sections, Section{Name: name})
+			curSection = len(d.sections) - 1
+			if pendingBanner != "" {
+				d.sections[curSection].Text = append(d.sections[curSection].Text, pendingBanner...)
+				d.sections[curSection].Text = append(d.sections[curSection].Text, '\n')
+			}
+			pendingBanner = ""
+		}
+		if curSection >= 0 {
+			d.sections[curSection].Text = append(d.sections[curSection].Text, line...)
+			d.sections[curSection].Text = append(d.sections[curSection].Text, '\n')
+		}
 
 		if trimmed == "" {
 			continue
