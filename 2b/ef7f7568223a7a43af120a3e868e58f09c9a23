@@ -1,0 +1,18 @@
+Claude Code (Opus 5, claude-opus-5) 2026-09-18T02:48:38Z
+tty=not a tty
+n/a pid=4581 ITERM_SESSION_ID=w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session=0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url=https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Measured on dgx GB10 sm_121 under gpu-lock. Evidence logs:
+  ~/tmp/hmma-dissoc.log   four arms, width x HMMA, the falsified hypothesis
+  ~/tmp/width-tile.log    determinism repeats and the tile/width separation
+  ~/tmp/width-push.log    the 256/512/1024/2048 ladder, canonical on every arm
+  ~/tmp/suite-2048.log    full suite at 2048
+  ~/tmp/suite-base2.log   baseline, my two files at HEAD: the same 7 failures
+
+The 7 suite failures are pre-existing and unchanged by this commit
+(TestCUDAExpertTableStorageMigrationBitIdentity NVRTC redeclaration,
+TestCUDAQualificationF16Default and TestCUDAHCOracleEquivalence
+CUBLAS_STATUS_INTERNAL_ERROR, TestCUDAPCProfile); three of the seven are
+fixed here.
