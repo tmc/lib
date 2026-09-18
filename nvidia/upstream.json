@@ -7461,7 +7461,7 @@
       }
     },
     "nvjitlink": {
-      "binding_policy": "Explicit pinned13.0header preserves __nvJitLink*_13_0 targets; top-level header is not this input.",
+      "binding_policy": "The bound symbols are __nvJitLink*_13_2, which come from the top-level headers/nvjitlink/nvJitLink.h. The earlier claim that the cuda-13.0 pin was the input asserted the opposite and was false: generating from that pin yields _13_0 targets and does not reproduce funcs.gen.go.",
       "documentation": {
         "note": "Generator merges all selected documentation files; upstream dates/versions are not fully recorded.",
         "path": "docs",
@@ -7480,7 +7480,7 @@
           "-headers-dir",
           "${HEADERS_REPO}",
           "-header",
-          "${HEADERS_REPO}/pinned/nvjitlink/cuda-13.0/nvJitLink.h",
+          "${HEADERS_REPO}/nvjitlink/nvJitLink.h",
           "-output",
           "${OUTPUT_DIR}",
           "-package",
@@ -7495,6 +7495,9 @@
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
+        "limitations": [
+          "The recorded header is the top-level nvjitlink/nvJitLink.h, which is not a pinned file: it tracks whatever CUDA release the headers repository last fetched. A pinned input exists at pinned/nvjitlink/cuda-13.0 but is a different header and does not produce these outputs."
+        ],
         "maintained_files_excluded": [
           "README.md",
           "example_cuda_test.go"
@@ -7558,6 +7561,32 @@
           }
         ],
         "source_state": "clean codegen checkout recorded after generation",
+        "supplemental_runs": [
+          {
+            "argv": [
+              "go",
+              "run",
+              "github.com/tmc/lib/nvidia/x/internal/cudatool/cmd/genoptions",
+              "-target=nvjitlink",
+              "-out=flags.gen.go"
+            ],
+            "cwd": "${OUTPUT_DIR}",
+            "note": "flags.gen.go is not a gen-nvidia output. It is written by genoptions, which lives in this repository rather than in codegen and is invoked by the go:generate directive in generate.go. The path remains in generation.outputs because that list is the package's enforced file inventory, which every generated file must appear in, not a claim about which tool wrote it.",
+            "outputs": [
+              {
+                "path": "nvidia/nvjitlink/flags.gen.go",
+                "sha256": "a0a5e6f7093fb660911e9bbf7739b811cdfe82a504ef5386a607bd2bed1e5ea8"
+              }
+            ],
+            "purpose": "Generate the compiler flag constants and option tables from the canonical option metadata, without regenerating any binding.",
+            "repository": {
+              "commit": "61a0ee9f42ac11dcd7c7d4dd8651fec883f71727",
+              "tree": "12b753cf179712b3633b1bae80bb5c0a4772051e",
+              "url": "ssh://gpu-host/home/user/go/src/github.com/tmc/lib"
+            },
+            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927."
+          }
+        ],
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -7574,9 +7603,9 @@
         }
       },
       "header": {
-        "path": "pinned/nvjitlink/cuda-13.0/nvJitLink.h",
+        "path": "nvjitlink/nvJitLink.h",
         "repository": "headers",
-        "sha256": "97d833dbfb3b17b1fbd76bbed72caf1eb4a638b40c39720fe2bfa5f5238bab98"
+        "sha256": "6bd4880984986486e2cee5ddfe848d82efcf2be8454dcad4499b3bc41939b871"
       },
       "note": "Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major.",
       "package": "github.com/tmc/lib/nvidia/nvjitlink",
@@ -8160,6 +8189,32 @@
           }
         ],
         "source_state": "codegen and headers checkouts clean at the recorded commits for every path reaching this generation; unrelated peer work in other products was present but is not an input",
+        "supplemental_runs": [
+          {
+            "argv": [
+              "go",
+              "run",
+              "github.com/tmc/lib/nvidia/x/internal/cudatool/cmd/genoptions",
+              "-target=nvrtc",
+              "-out=flags.gen.go"
+            ],
+            "cwd": "${OUTPUT_DIR}",
+            "note": "flags.gen.go is not a gen-nvidia output. It is written by genoptions, which lives in this repository rather than in codegen and is invoked by the go:generate directive in generate.go. The path remains in generation.outputs because that list is the package's enforced file inventory, which every generated file must appear in, not a claim about which tool wrote it.",
+            "outputs": [
+              {
+                "path": "nvidia/nvrtc/flags.gen.go",
+                "sha256": "0ff3530d51e291fa2e8cf7dc238c86a50e090da335fa02159253473c706c7d10"
+              }
+            ],
+            "purpose": "Generate the compiler flag constants and option tables from the canonical option metadata, without regenerating any binding.",
+            "repository": {
+              "commit": "61a0ee9f42ac11dcd7c7d4dd8651fec883f71727",
+              "tree": "12b753cf179712b3633b1bae80bb5c0a4772051e",
+              "url": "ssh://gpu-host/home/user/go/src/github.com/tmc/lib"
+            },
+            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927."
+          }
+        ],
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -8509,6 +8564,32 @@
           }
         ],
         "source_state": "clean codegen checkout recorded after generation",
+        "supplemental_runs": [
+          {
+            "argv": [
+              "go",
+              "run",
+              "github.com/tmc/lib/nvidia/x/internal/cudatool/cmd/genoptions",
+              "-target=nvvm",
+              "-out=flags.gen.go"
+            ],
+            "cwd": "${OUTPUT_DIR}",
+            "note": "flags.gen.go is not a gen-nvidia output. It is written by genoptions, which lives in this repository rather than in codegen and is invoked by the go:generate directive in generate.go. The path remains in generation.outputs because that list is the package's enforced file inventory, which every generated file must appear in, not a claim about which tool wrote it.",
+            "outputs": [
+              {
+                "path": "nvidia/nvvm/flags.gen.go",
+                "sha256": "dd197c2b6b440c601296a1dc72d8340d00abaebda7b10d0cebcc0674096a7053"
+              }
+            ],
+            "purpose": "Generate the compiler flag constants and option tables from the canonical option metadata, without regenerating any binding.",
+            "repository": {
+              "commit": "61a0ee9f42ac11dcd7c7d4dd8651fec883f71727",
+              "tree": "12b753cf179712b3633b1bae80bb5c0a4772051e",
+              "url": "ssh://gpu-host/home/user/go/src/github.com/tmc/lib"
+            },
+            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927."
+          }
+        ],
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
