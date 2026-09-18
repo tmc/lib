@@ -4,9 +4,18 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 )
 
 // TargetInfo defines hardware architecture limits, features, and capabilities.
+//
+// The Supports fields are not written here. They are derived at startup from
+// the probed feature table in [cudadevicetable], which records what ptxas
+// accepts for each exact target. They were hand-written once, and the two
+// copies of them in this module drifted: this table claimed sm_100a supports
+// wgmma and sm_121a does not support multicast, and ptxas contradicts both.
+// Deriving them means a disagreement of that kind cannot be written down.
 type TargetInfo struct {
 	Arch                 string
 	Major                int
@@ -17,10 +26,32 @@ type TargetInfo struct {
 	WarpsPerSM           uint32
 	MaxBlocksPerSM       uint32
 	RegisterQuantum      uint32
-	SupportsTCGen05      bool
-	SupportsWGMMA        bool
-	SupportsTMEM         bool
-	SupportsMulticast    bool
+
+	// SupportsTCGen05 and the fields below it report whether ptxas assembles
+	// the construct for this target. They say nothing about how fast it runs,
+	// and nothing about whether a device here has executed it.
+	SupportsTCGen05   bool
+	SupportsWGMMA     bool
+	SupportsTMEM      bool
+	SupportsMulticast bool
+
+	// FeatureSource names where the Supports fields came from, so a caller
+	// can tell a probed answer from a target nobody has probed. It is empty
+	// only in the latter case, where every Supports field is false because
+	// nothing was measured -- not because the answer is no.
+	FeatureSource string
+
+	// Estimated reports that the geometry fields above -- shared memory,
+	// warps, blocks, register quantum -- are defaults for an architecture
+	// this table does not describe, not facts about it.
+	//
+	// The defaults exist because refusing outright would make a new GPU
+	// unusable for everything, including the work that does not depend on
+	// geometry. They are dangerous for exactly the work that does: an
+	// occupancy or roofline figure computed from an invented 48 KB is wrong
+	// in the way that reads as right. Callers that consume the geometry must
+	// check this field, or use [ProbedTargetSM], which refuses instead.
+	Estimated bool
 }
 
 // Known target specifications.
@@ -35,10 +66,6 @@ var knownTargets = map[string]TargetInfo{
 		WarpsPerSM:           64,
 		MaxBlocksPerSM:       32,
 		RegisterQuantum:      256,
-		SupportsTCGen05:      false,
-		SupportsWGMMA:        true,
-		SupportsTMEM:         false,
-		SupportsMulticast:    true,
 	},
 	"sm_90a": {
 		Arch:                 "sm_90a",
@@ -50,10 +77,6 @@ var knownTargets = map[string]TargetInfo{
 		WarpsPerSM:           64,
 		MaxBlocksPerSM:       32,
 		RegisterQuantum:      256,
-		SupportsTCGen05:      false,
-		SupportsWGMMA:        true,
-		SupportsTMEM:         false,
-		SupportsMulticast:    true,
 	},
 
 	// Blackwell SM100 (DGX GB200 / B100)
@@ -66,10 +89,6 @@ var knownTargets = map[string]TargetInfo{
 		WarpsPerSM:           64,
 		MaxBlocksPerSM:       32,
 		RegisterQuantum:      256,
-		SupportsTCGen05:      true,
-		SupportsWGMMA:        true,
-		SupportsTMEM:         true,
-		SupportsMulticast:    true,
 	},
 	"sm_100a": {
 		Arch:                 "sm_100a",
@@ -81,10 +100,6 @@ var knownTargets = map[string]TargetInfo{
 		WarpsPerSM:           64,
 		MaxBlocksPerSM:       32,
 		RegisterQuantum:      256,
-		SupportsTCGen05:      true,
-		SupportsWGMMA:        true,
-		SupportsTMEM:         true,
-		SupportsMulticast:    true,
 	},
 
 	// Blackwell SM121 (DGX GB10)
@@ -97,10 +112,6 @@ var knownTargets = map[string]TargetInfo{
 		WarpsPerSM:           48,
 		MaxBlocksPerSM:       24,
 		RegisterQuantum:      256,
-		SupportsTCGen05:      false, // Strictly lacks 5th-gen Tensor Core tcgen05
-		SupportsWGMMA:        false, // Strictly lacks wgmma
-		SupportsTMEM:         false, // Strictly lacks TMEM
-		SupportsMulticast:    false,
 	},
 	"sm_121a": {
 		Arch:                 "sm_121a",
@@ -112,11 +123,41 @@ var knownTargets = map[string]TargetInfo{
 		WarpsPerSM:           48,
 		MaxBlocksPerSM:       24,
 		RegisterQuantum:      256,
-		SupportsTCGen05:      false, // Strictly lacks 5th-gen Tensor Core tcgen05
-		SupportsWGMMA:        false, // Strictly lacks wgmma
-		SupportsTMEM:         false, // Strictly lacks TMEM
-		SupportsMulticast:    false,
 	},
+}
+
+// featureNames maps a TargetInfo capability to the probed feature that answers
+// it. tmem has no entry: Tensor Memory is addressable only through tcgen05, so
+// probing a separate fixture for it would measure the same instruction twice.
+var featureNames = map[string]func(*TargetInfo, bool){
+	"tcgen05":      func(t *TargetInfo, v bool) { t.SupportsTCGen05, t.SupportsTMEM = v, v },
+	"wgmma":        func(t *TargetInfo, v bool) { t.SupportsWGMMA = v },
+	"tmamulticast": func(t *TargetInfo, v bool) { t.SupportsMulticast = v },
+}
+
+// init fills the capability fields from the probed table. A target the table
+// does not cover keeps its zero values and an empty FeatureSource, which is
+// the honest record of "not measured" rather than a row of confident falses.
+func init() {
+	for arch, info := range knownTargets {
+		tgt, ok := cudadevicetable.LookupTarget(arch)
+		if !ok {
+			continue
+		}
+		measured := false
+		for feature, set := range featureNames {
+			v, err := tgt.Supports(feature)
+			if err != nil {
+				continue
+			}
+			set(&info, v)
+			measured = true
+		}
+		if measured && tgt.Probe != nil {
+			info.FeatureSource = fmt.Sprintf("%s %s (%s, %s)", tgt.Probe.Tool, tgt.Probe.ToolVersion, tgt.Probe.Host, tgt.Probe.ProbedAt)
+		}
+		knownTargets[arch] = info
+	}
 }
 
 // ParseArch parses an architecture string (e.g. "sm_90", "sm_121a", "compute_100")
@@ -174,7 +215,13 @@ func TargetSM(target string) (TargetInfo, error) {
 		return info, nil
 	}
 
-	// Fallback to parsed numbers with default values.
+	// A target this table does not describe. The architecture number parses,
+	// so the identity fields are real; every geometry field below is a
+	// default standing in for a measurement nobody took, and Estimated says
+	// so. Returning these unmarked was this package's own version of the
+	// hallucination the feature table was built to remove: a GPU released
+	// after this code silently acquired 48 KB of shared memory and 16 blocks
+	// per SM, and nothing downstream could tell.
 	major, minor, suffix, err := ParseArch(target)
 	if err != nil {
 		return TargetInfo{}, err
@@ -189,7 +236,31 @@ func TargetSM(target string) (TargetInfo, error) {
 		WarpsPerSM:           32,
 		MaxBlocksPerSM:       16,
 		RegisterQuantum:      128,
+		Estimated:            true,
 	}, nil
+}
+
+// ProbedTargetSM is [TargetSM] without the estimated fallback: it returns an
+// error for a target whose geometry this table does not record.
+//
+// Use it wherever the geometry feeds a number a reader will believe --
+// occupancy, register budgeting, a roofline placement. The rule is the one
+// [cudadevicetable.AssumeAbsent] states: guess where the assembler will catch
+// the mistake, refuse where it will not.
+func ProbedTargetSM(target string) (TargetInfo, error) {
+	info, err := TargetSM(target)
+	if err != nil {
+		return TargetInfo{}, err
+	}
+	if info.Estimated {
+		return TargetInfo{}, fmt.Errorf("cudakernel: %s: no recorded geometry; %s", info.Arch, estimatedFrom(info))
+	}
+	return info, nil
+}
+
+// estimatedFrom names what a caller can do about a missing record.
+func estimatedFrom(info TargetInfo) string {
+	return fmt.Sprintf("probe a device with cmd/cudadevicetable and add sm_%d%d to the table", info.Major, info.Minor)
 }
 
 // ValidateTargetCompatibility checks whether an artifact compiled for artifactTarget

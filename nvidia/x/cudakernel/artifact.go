@@ -266,8 +266,16 @@ func (a *Artifact) Validate() error {
 	}
 
 	// Validate resource limits against target specifications.
+	//
+	// Both checks are skipped for a target nothing has measured. A limit
+	// invented for an unknown architecture does not become safe by being
+	// enforced: the estimated 48 KB would reject a kernel that a newer GPU
+	// runs comfortably, and the unmeasured TMEM flag would reject Tensor
+	// Memory on the first part that has more of it. Refusing to guess here
+	// costs a check that ptxas and the driver both repeat; guessing costs a
+	// false rejection nobody can explain.
 	targetInfo, err := TargetSM(a.Target)
-	if err == nil {
+	if err == nil && !targetInfo.Estimated {
 		if a.Resources.StaticSharedMemory > targetInfo.MaxSharedMemoryBytes {
 			return fmt.Errorf("cudakernel: static shared memory (%d B) exceeds target %s limit (%d B)",
 				a.Resources.StaticSharedMemory, a.Target, targetInfo.MaxSharedMemoryBytes)
