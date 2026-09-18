@@ -811,3 +811,77 @@ func TestRunCaptureCommandOutputsCompactStatusWithoutRecordArrays(t *testing.T) 
 		t.Errorf("compact status JSON missing activity_samples count: %s", str)
 	}
 }
+
+// TestObserveJournalKeepsNonTimelineSubtypes covers the two activity subtypes
+// that are not device work: NVTX markers and capture-range edges. Both are
+// written to the same record stream as kernels and memcpys, and observeJournal
+// rejected the whole capture on the first one it saw.
+//
+// The marker arm is not hypothetical. CUPTI's MARKER kind is enabled whenever
+// the runtime supports it (cupti_agent.c, cuptiActivityEnable(MARKER)) rather
+// than on request, and PyTorch, cuBLAS and NCCL all emit NVTX, so a capture of
+// any of them carries marker records.
+//
+// The payloads below are the producer's, field for field: subtype is tested
+// before validity, so a fixture that trimmed them would still exercise the
+// rejection, but it would stop proving that the records a real run emits are
+// the records this accepts.
+func TestObserveJournalKeepsNonTimelineSubtypes(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		payload string
+	}{
+		{"marker", `{"kind":"activity","subtype":"marker","name":"iteration","marker_domain":"torch","valid":true,"start":150,"end":150,"marker_id":3,"marker_flags":2,"object_kind":2,"process_id":1234,"thread_id":5678,"device":0,"context":0,"stream":0}`},
+		{"capture_range", `{"kind":"activity","subtype":"capture_range","edge":"start","api":"cudaProfilerStart","index":0,"toggle_failures":0}`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			sessionHex := "0123456789abcdef0123456789abcdef"
+			raw, err := hex.DecodeString(sessionHex)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var sid [16]byte
+			copy(sid[:], raw)
+
+			journalPath := filepath.Join(dir, "capture.journal")
+			appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
+				{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+				{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+				{Kind: recordActivity, Payload: []byte(tt.payload)},
+				{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+				{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+			})
+
+			_, _, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
+			if err != nil {
+				t.Fatalf("a %s record cost the whole capture: %v", tt.name, err)
+			}
+			// The record is not device work, so it must not become a timeline
+			// entry either -- the kernel beside it is the only activity.
+			if len(activities) != 1 {
+				t.Errorf("got %d activities, want 1: a %s record became a timeline entry", len(activities), tt.name)
+			}
+		})
+	}
+}
+
+// TestObserveJournalStillRejectsUnknownSubtypes pins the other half: admitting
+// the two subtypes above must not turn the check into one that admits anything.
+func TestObserveJournalStillRejectsUnknownSubtypes(t *testing.T) {
+	dir := t.TempDir()
+	sessionHex := "0123456789abcdef0123456789abcdef"
+	raw, _ := hex.DecodeString(sessionHex)
+	var sid [16]byte
+	copy(sid[:], raw)
+	journalPath := filepath.Join(dir, "capture.journal")
+	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"teleport","valid":true,"start":100,"end":200}`)},
+		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
+	})
+	if _, _, _, _, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0); err == nil {
+		t.Error("an unrecognized activity subtype was accepted")
+	}
+}

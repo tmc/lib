@@ -551,6 +551,21 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			if terminal || !state.bootstrap || !state.capability || payload.Kind != "activity" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order activity")
 			}
+			// Markers and capture-range edges share this record stream but are
+			// not device work: a marker is an NVTX range on the host, an edge
+			// is the producer's own note of where a capture range opened or
+			// closed. Neither can become a timeline entry, and neither is a
+			// reason to reject the capture that carries it. CUPTI's MARKER
+			// kind is enabled whenever the runtime supports it rather than on
+			// request, so any target that emits NVTX -- PyTorch, cuBLAS and
+			// NCCL all do -- produces marker records as a matter of course.
+			//
+			// The check stays a whitelist: an unrecognized subtype is still a
+			// producer this consumer does not understand, and admitting it
+			// silently would let a record of unknown shape through.
+			if payload.Subtype == "marker" || payload.Subtype == "capture_range" {
+				continue
+			}
 			if payload.Subtype != "kernel" && payload.Subtype != "memcpy" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown activity subtype")
 			}
