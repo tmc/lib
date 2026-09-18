@@ -8,6 +8,32 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 )
 
+// A LayoutError reports that the CUPTI on the loader path emits an activity
+// record whose size differs from the Go struct this build decodes it with.
+//
+// The check spans every kind this package can decode, not only the kinds a
+// session named in Config.Kinds. An activity buffer is walked by advancing a
+// pointer by each record's own size, so one understated size mis-strides the
+// walk and corrupts every record after it, whatever kind those are. A session
+// collecting nothing but kernels is therefore still refused over a Memcpy
+// record: the refusal is about the walk, not about what was requested.
+//
+// Callers that want to tell "a kind I asked for" from "a kind I did not" should
+// compare Kind against their own Config.Kinds. The package does not guess which
+// of those two the caller cares about.
+type LayoutError struct {
+	Kind       cupti.ActivityKind
+	NativeSize uint // record size reported by the loaded CUPTI
+	GoSize     uint // size of the Go struct this build would decode it with
+}
+
+func (e *LayoutError) Error() string {
+	return fmt.Sprintf("cuptiactivity: %s record size %d differs from Go layout %d "+
+		"(every decodable kind is checked, not only the requested ones, because a wrong "+
+		"size mis-strides the whole buffer walk; the likely cause is a CUPTI newer than "+
+		"these bindings)", e.Kind, e.NativeSize, e.GoSize)
+}
+
 // recordLayouts admits CUPTI 13.x and verifies the record sizes emitted by the
 // loaded library before decoding. A different major version remains
 // unqualified. Size checks are required for every admitted version because a
@@ -33,13 +59,13 @@ func recordLayouts(version uint32, size func(cupti.ActivityKind, uint32) (uint, 
 		}
 		if kind == cupti.ActivityKindConcurrentKernel {
 			if !validKernelLayout(version, got) {
-				return nil, fmt.Errorf("cuptiactivity: %s record size %d differs from Go layout %d", kind, got, want)
+				return nil, &LayoutError{Kind: kind, NativeSize: got, GoSize: want}
 			}
 			layouts[kind] = got
 			continue
 		}
 		if got != want {
-			return nil, fmt.Errorf("cuptiactivity: %s record size %d differs from Go layout %d", kind, got, want)
+			return nil, &LayoutError{Kind: kind, NativeSize: got, GoSize: want}
 		}
 	}
 	return layouts, nil
