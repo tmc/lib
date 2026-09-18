@@ -369,8 +369,6 @@ func (r *Result) classify(ctx context.Context, runErr error) {
 	}
 }
 
-// Summary returns a one-paragraph account of the run, suitable for a test log.
-// It never includes the full tool report; use [Result.Details] for that.
 // FoundDefect reports whether this run found something wrong in the program
 // under test. It is true only for [OutcomeSanitizerErrors] backed by a non-zero
 // count, so a run that produced no verdict at all is false.
@@ -395,6 +393,8 @@ func (r *Result) FoundDefect() bool {
 	return r.Log.Errors > 0 || r.Log.RaceErrors > 0 || r.Log.Hazards > 0
 }
 
+// Summary returns a one-paragraph account of the run, suitable for a test log.
+// It never includes the full tool report; use [Result.Details] for that.
 func (r *Result) Summary() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "compute-sanitizer --tool %s: %s", r.Config.Tool, r.Outcome)
