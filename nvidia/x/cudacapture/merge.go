@@ -56,7 +56,11 @@ func MergeRanks(inputs []RankCapture) (*Capture, error) {
 		Profile: &profile.Profile{}, Files: make(map[string][]byte),
 		CodeUnavailable: map[string]string{},
 	}
-	for _, role := range []string{"source", "ptx", "cubin", "sass"} {
+	// Every role CodeFiles can name, so a merged capture explains the absence
+	// of each one rather than reading as though it was never recorded. The
+	// roles are the ones Capture.check walks; a role left out here is a file
+	// silently reported as having never existed.
+	for _, role := range []string{"source", "ptx", "cubin", "sass", "tileir", "cfg", "bbcfg"} {
 		out.CodeUnavailable[role] = "rank-specific availability is retained in original recordings and modules"
 	}
 	type rankManifest struct {
@@ -118,7 +122,19 @@ func MergeRanks(inputs []RankCapture) (*Capture, error) {
 			}
 		}
 		code := func(v CodeFiles) CodeFiles {
-			out := CodeFiles{Source: fileName(v.Source), PTX: fileName(v.PTX), CUBIN: fileName(v.CUBIN), SASS: fileName(v.SASS)}
+			// Every name-bearing field of CodeFiles is rewritten. A field
+			// left out is not merely unprefixed, it is dropped: the merged
+			// capture names no file for that role and nothing reports the
+			// loss. See CodeFiles.Empty, which carries the same obligation.
+			out := CodeFiles{
+				Source: fileName(v.Source),
+				PTX:    fileName(v.PTX),
+				CUBIN:  fileName(v.CUBIN),
+				SASS:   fileName(v.SASS),
+				TileIR: fileName(v.TileIR),
+				CFG:    fileName(v.CFG),
+				BBCFG:  fileName(v.BBCFG),
+			}
 			for _, name := range v.Sources {
 				out.Sources = append(out.Sources, fileName(name))
 			}

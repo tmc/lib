@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/pprof/profile"
@@ -151,4 +153,73 @@ func ExampleRankCapture() {
 	r := cudacapture.RankCapture{Session: "training", Run: "step-1", Rank: 0}
 	fmt.Println(r.Session, r.Run, r.Rank)
 	// Output: training step-1 0
+}
+
+// TestMergeRanksKeepsEveryCodeRole walks CodeFiles by reflection rather than
+// naming the roles it expects, because the defect it covers is a role nobody
+// thought to name: MergeRanks rebuilt CodeFiles field by field and listed the
+// roles of CodeUnavailable literally, and both lists were written before
+// TileIR, CFG and BBCFG existed. A merged capture then named no file for those
+// three and gave no reason either, so the loss read as "never recorded".
+//
+// Enumerating the struct means a field added to CodeFiles fails here until
+// MergeRanks carries it, which is the obligation CodeFiles.Empty documents.
+func TestMergeRanksKeepsEveryCodeRole(t *testing.T) {
+	var code cudacapture.CodeFiles
+	files := map[string][]byte{"capture.journal": {0, 1, 2}}
+	v := reflect.ValueOf(&code).Elem()
+	roles := map[string]string{} // field name -> file name
+	for i := 0; i < v.NumField(); i++ {
+		if v.Type().Field(i).Type.Kind() != reflect.String {
+			continue
+		}
+		name := "role-" + strings.ToLower(v.Type().Field(i).Name) + ".txt"
+		files[name] = []byte(name)
+		v.Field(i).SetString(name)
+		roles[v.Type().Field(i).Name] = name
+	}
+	if len(roles) < 6 {
+		t.Fatalf("enumerated only %d roles, so the walk is not seeing CodeFiles", len(roles))
+	}
+
+	var b bytes.Buffer
+	if err := cudacapture.Write(&b, &cudacapture.Capture{
+		Profile: &profile.Profile{SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}}},
+		Files:   files,
+		Modules: []cudacapture.Module{{ID: "module", Generation: 1, Code: code}},
+		// The code under test lives on the module; the top level only has to
+		// account for the roles a capture is required to speak to.
+		CodeUnavailable: map[string]string{"source": "per module", "ptx": "per module", "cubin": "per module", "sass": "per module"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := cudacapture.MergeRanks([]cudacapture.RankCapture{{Session: "session", Run: "run", Rank: 0, Recording: b.Bytes()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Modules) != 1 {
+		t.Fatalf("modules = %d, want 1", len(got.Modules))
+	}
+
+	out := reflect.ValueOf(got.Modules[0].Code)
+	for field, input := range roles {
+		name := out.FieldByName(field).String()
+		if name == "" {
+			t.Errorf("role %s: merged capture names no file, but the input named %q", field, input)
+			continue
+		}
+		// The name is rewritten to keep ranks apart, so identity is the
+		// content: the merged role must still resolve to the input's bytes.
+		if data, ok := got.Files[name]; !ok {
+			t.Errorf("role %s names %q, which the merged capture does not contain", field, name)
+		} else if !bytes.Equal(data, files[input]) {
+			t.Errorf("role %s resolves to %q, whose content is not the input's", field, name)
+		}
+	}
+	// A role that is genuinely absent must say why, not read as never recorded.
+	for _, role := range []string{"source", "ptx", "cubin", "sass", "tileir", "cfg", "bbcfg"} {
+		if got.CodeUnavailable[role] == "" {
+			t.Errorf("role %s: merged capture gives no availability reason", role)
+		}
+	}
 }
