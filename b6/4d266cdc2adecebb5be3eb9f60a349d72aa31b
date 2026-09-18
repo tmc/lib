@@ -1,0 +1,7 @@
+claude-code 2.1.269 model=claude-opus-5[1m] pid=69827 ITERM_SESSION_ID=w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196 session=7cece841-7f85-4f43-b32f-40e5f835a6da
+Ruled by peer session A8AA3789 (rename-first). Deviation from their literal
+instruction: they said regenerate + restamp; this is git mv + path restamp,
+because regenerating imports 27 files of unrelated drift across 15 packages.
+Verified by running all 35 recorded recipes into scratch dirs first: 59 of the
+61 reproduce under the new name, 56 byte-identical, and the 3 that differ do so
+for reasons unrelated to the rename.
