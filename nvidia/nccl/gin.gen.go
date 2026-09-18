@@ -5,6 +5,7 @@ package nccl
 // Function pointer variables, registered by init via registerFuncs.
 var (
 	fnginBarrierCreateRequirement func(Comm, Team, int32, *GinBarrierHandle, *DevResourceRequirements) Result
+	fnLLA2ACalcSlots              func(int32, int32) int32
 	fnLLA2ACreateRequirement      func(int32, int32, *LLA2AHandle, *DevResourceRequirements) Result
 	fnLsaBarrierCreateRequirement func(Team, int32, *LsaBarrierHandle, *DevResourceRequirements) Result
 )
@@ -15,6 +16,11 @@ func ginBarrierCreateRequirement(comm Comm, team Team, nBarriers int32, outHandl
 		return err
 	}
 	return toError(fnginBarrierCreateRequirement(comm, team, nBarriers, outHandle, outReq))
+}
+
+// LLA2ACalcSlots wraps ncclLLA2ACalcSlots.
+func LLA2ACalcSlots(maxElts int32, maxEltSize int32) int32 {
+	return fnLLA2ACalcSlots(maxElts, maxEltSize)
 }
 
 // LLA2ACreateRequirement wraps ncclLLA2ACreateRequirement.

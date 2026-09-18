@@ -7,6 +7,9 @@ var (
 	fncommQueryProperties func(Comm, *CommProperties) Result
 	fndevCommCreate       func(Comm, *DevCommRequirements, *DevComm) Result
 	fndevCommDestroy      func(Comm, *DevComm) Result
+	fnteamLsa             func(Comm) Team
+	fnteamRail            func(Comm) Team
+	fnteamWorld           func(Comm) Team
 )
 
 // commQueryProperties wraps ncclCommQueryProperties.
@@ -33,6 +36,21 @@ func devCommDestroy(comm Comm, devComm *DevComm) error {
 	return toError(fndevCommDestroy(comm, devComm))
 }
 
+// teamLsa wraps ncclTeamLsa.
+func teamLsa(comm Comm) Team {
+	return fnteamLsa(comm)
+}
+
+// teamRail wraps ncclTeamRail.
+func teamRail(comm Comm) Team {
+	return fnteamRail(comm)
+}
+
+// teamWorld wraps ncclTeamWorld.
+func teamWorld(comm Comm) Team {
+	return fnteamWorld(comm)
+}
+
 // QueryProperties wraps ncclCommQueryProperties.
 func (c Comm) QueryProperties(properties *CommProperties) error {
 	return commQueryProperties(c, properties)
@@ -46,4 +64,19 @@ func (c Comm) DevCommCreate(requirements *DevCommRequirements, outDevComm *DevCo
 // DevCommDestroy wraps ncclDevCommDestroy.
 func (c Comm) DevCommDestroy(devComm *DevComm) error {
 	return devCommDestroy(c, devComm)
+}
+
+// TeamLsa wraps ncclTeamLsa.
+func (c Comm) TeamLsa() Team {
+	return teamLsa(c)
+}
+
+// TeamRail wraps ncclTeamRail.
+func (c Comm) TeamRail() Team {
+	return teamRail(c)
+}
+
+// TeamWorld wraps ncclTeamWorld.
+func (c Comm) TeamWorld() Team {
+	return teamWorld(c)
 }

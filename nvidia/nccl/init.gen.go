@@ -370,6 +370,7 @@ func registerFuncs() {
 	register(&fnGroupEnd, "ncclGroupEnd")
 	register(&fnGroupSimulateEnd, "ncclGroupSimulateEnd")
 	register(&fnGroupStart, "ncclGroupStart")
+	register(&fnLLA2ACalcSlots, "ncclLLA2ACalcSlots")
 	register(&fnLLA2ACreateRequirement, "ncclLLA2ACreateRequirement")
 	register(&fnLsaBarrierCreateRequirement, "ncclLsaBarrierCreateRequirement")
 	register(&fnMemAlloc, "ncclMemAlloc")
@@ -383,6 +384,9 @@ func registerFuncs() {
 	register(&fnscatter, "ncclScatter")
 	register(&fnsend, "ncclSend")
 	register(&fnsignal, "ncclSignal")
+	register(&fnteamLsa, "ncclTeamLsa")
+	register(&fnteamRail, "ncclTeamRail")
+	register(&fnteamWorld, "ncclTeamWorld")
 	register(&fnwaitSignal, "ncclWaitSignal")
 	register(&fnwinGetUserPtr, "ncclWinGetUserPtr")
 }
@@ -432,6 +436,7 @@ func clearFuncs() {
 	fnGroupEnd = nil
 	fnGroupSimulateEnd = nil
 	fnGroupStart = nil
+	fnLLA2ACalcSlots = nil
 	fnLLA2ACreateRequirement = nil
 	fnLsaBarrierCreateRequirement = nil
 	fnMemAlloc = nil
@@ -445,6 +450,9 @@ func clearFuncs() {
 	fnscatter = nil
 	fnsend = nil
 	fnsignal = nil
+	fnteamLsa = nil
+	fnteamRail = nil
+	fnteamWorld = nil
 	fnwaitSignal = nil
 	fnwinGetUserPtr = nil
 }
@@ -664,6 +672,11 @@ func HasGroupStart() bool {
 	return Has("ncclGroupStart")
 }
 
+// HasLLA2ACalcSlots reports whether ncclLLA2ACalcSlots resolved in the loaded library.
+func HasLLA2ACalcSlots() bool {
+	return Has("ncclLLA2ACalcSlots")
+}
+
 // HasLLA2ACreateRequirement reports whether ncclLLA2ACreateRequirement resolved in the loaded library.
 func HasLLA2ACreateRequirement() bool {
 	return Has("ncclLLA2ACreateRequirement")
@@ -727,6 +740,21 @@ func Hassend() bool {
 // Hassignal reports whether ncclSignal resolved in the loaded library.
 func Hassignal() bool {
 	return Has("ncclSignal")
+}
+
+// HasteamLsa reports whether ncclTeamLsa resolved in the loaded library.
+func HasteamLsa() bool {
+	return Has("ncclTeamLsa")
+}
+
+// HasteamRail reports whether ncclTeamRail resolved in the loaded library.
+func HasteamRail() bool {
+	return Has("ncclTeamRail")
+}
+
+// HasteamWorld reports whether ncclTeamWorld resolved in the loaded library.
+func HasteamWorld() bool {
+	return Has("ncclTeamWorld")
 }
 
 // HaswaitSignal reports whether ncclWaitSignal resolved in the loaded library.
