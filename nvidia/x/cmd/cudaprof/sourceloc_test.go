@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/pprof/profile"
+	"reflect"
 )
 
 func TestFindFunctionLineRejectsNonDefinitions(t *testing.T) {
@@ -78,7 +79,7 @@ func TestInferCodeFilesIsDeterministic(t *testing.T) {
 	// same bundle could disassemble one PTX and show another's source.
 	want := inferCodeFiles(files)
 	for i := 0; i < 50; i++ {
-		if got := inferCodeFiles(files); got != want {
+		if got := inferCodeFiles(files); !reflect.DeepEqual(got, want) {
 			t.Fatalf("run %d selected %+v, first run selected %+v", i, got, want)
 		}
 	}

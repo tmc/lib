@@ -118,9 +118,13 @@ func MergeRanks(inputs []RankCapture) (*Capture, error) {
 			}
 		}
 		code := func(v CodeFiles) CodeFiles {
-			return CodeFiles{Source: fileName(v.Source), PTX: fileName(v.PTX), CUBIN: fileName(v.CUBIN), SASS: fileName(v.SASS)}
+			out := CodeFiles{Source: fileName(v.Source), PTX: fileName(v.PTX), CUBIN: fileName(v.CUBIN), SASS: fileName(v.SASS)}
+			for _, name := range v.Sources {
+				out.Sources = append(out.Sources, fileName(name))
+			}
+			return out
 		}
-		if c.Code != (CodeFiles{}) {
+		if !c.Code.Empty() {
 			out.Modules = append(out.Modules, Module{ID: prefix + "primary", Code: code(c.Code)})
 		}
 		for _, module := range c.Modules {

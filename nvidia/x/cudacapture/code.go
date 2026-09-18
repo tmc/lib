@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudalowering"
@@ -27,10 +26,18 @@ type Code struct {
 
 // Kernel represents a disassembled GPU kernel function with its instruction sequence.
 type Kernel struct {
-	Name         string
-	Offset       uint64
-	Size         uint64
-	SourceLine   int
+	Name   string
+	Offset uint64
+	Size   uint64
+
+	// SourceFile is the base name of the CUDA file that defines this kernel,
+	// and SourceLine the line within it. For a module compiled from several
+	// files they differ from kernel to kernel, so a reader must take the file
+	// from the kernel rather than from [Code.SourceFile], which names only the
+	// unit's primary file.
+	SourceFile string
+	SourceLine int
+
 	PTXLine      int
 	Instructions []Instruction
 }
@@ -52,11 +59,14 @@ type Instruction struct {
 	InlinedAt  []cudaptx.Location
 }
 
-var sourceLocation = regexp.MustCompile(`//## File "([^"]+)", line ([0-9]+)`)
 var textSection = regexp.MustCompile(`^\s*\.section\s+\.text\.([^, \t]+)`)
 
 // LoadCode extracts and parses the CUBIN, PTX, SASS, and CUDA source files
 // identified by c.Code in the Capture.
+//
+// The CUDA files are those c.Code.Sources names, or c.Code.Source alone when it
+// names none. Every kernel in the disassembly must be defined in exactly one of
+// them.
 func LoadCode(c *Capture) (*Code, error) {
 	if c == nil {
 		return nil, errors.New("cudacapture: nil capture")
@@ -82,15 +92,12 @@ func LoadCode(c *Capture) (*Code, error) {
 		}
 		return nil, fmt.Errorf("cudacapture: missing SASS file %q", c.Code.SASS)
 	}
-	sourceBytes, ok := c.Files[c.Code.Source]
-	if !ok {
-		if reason := c.CodeUnavailable["source"]; reason != "" {
-			return nil, fmt.Errorf("cudacapture: source unavailable: %s", reason)
-		}
-		return nil, fmt.Errorf("cudacapture: missing source file %q", c.Code.Source)
+	sources, err := loadSources(c)
+	if err != nil {
+		return nil, err
 	}
 
-	code, err := parseCode(cubinBytes, string(ptxBytes), string(sassBytes), string(sourceBytes), c.Code.Source)
+	code, err := parseCode(cubinBytes, string(ptxBytes), string(sassBytes), sources)
 	if code == nil {
 		return nil, err
 	}
@@ -102,7 +109,42 @@ func LoadCode(c *Capture) (*Code, error) {
 	return code, err
 }
 
-func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, error) {
+// loadSources reads the CUDA files of the capture's translation unit, keyed by
+// the base name the PTX and the disassembly refer to them by. Those tiers carry
+// the path the compiler recorded, which is a build-host path, so the base name
+// is the only part that can be matched against what a capture bundles.
+func loadSources(c *Capture) (map[string]string, error) {
+	names := c.Code.Sources
+	if len(names) == 0 {
+		names = []string{c.Code.Source}
+	}
+	sources := make(map[string]string, len(names))
+	origin := make(map[string]string, len(names))
+	for _, name := range names {
+		b, ok := c.Files[name]
+		if !ok {
+			if reason := c.CodeUnavailable["source"]; reason != "" {
+				return nil, fmt.Errorf("cudacapture: source unavailable: %s", reason)
+			}
+			return nil, fmt.Errorf("cudacapture: missing source file %q", name)
+		}
+		base := filepath.Base(name)
+		if prev, dup := origin[base]; dup {
+			// Both would be addressed as the same file by every line
+			// directive, so one would silently shadow the other and half the
+			// unit's instructions would be attributed to lines of the wrong
+			// file. There is no correct choice to make here.
+			return nil, fmt.Errorf("cudacapture: sources %q and %q share the base name %q", prev, name, base)
+		}
+		origin[base] = name
+		sources[base] = string(b)
+	}
+	return sources, nil
+}
+
+// parseCode decodes one module. sources holds the CUDA files of its translation
+// unit keyed by base name; see [loadSources].
+func parseCode(cubin []byte, ptx, sass string, sources map[string]string) (*Code, error) {
 	e, err := elf.NewFile(bytes.NewReader(cubin))
 	if err != nil {
 		return nil, fmt.Errorf("cudacapture: read cubin: %w", err)
@@ -144,7 +186,6 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 	cuLines := make(map[int]cuLoc)
 	var cur cuLoc
 	currentKernel := ""
-	sourceBase := filepath.Base(sourceFilename)
 
 	for i, line := range strings.Split(sass, "\n") {
 		// cudasass scans with a bufio.Scanner, which drops a trailing "\r".
@@ -154,12 +195,12 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 		if m := textSection.FindStringSubmatch(line); m != nil {
 			currentKernel, cur = m[1], cuLoc{}
 		}
-		if m := sourceLocation.FindStringSubmatch(line); m != nil {
-			if m[1] == ".nv_debug_ptx_txt" {
-				continue
-			}
-			n, _ := strconv.Atoi(m[2])
-			cur = cuLoc{file: filepath.Base(m[1]), line: n}
+		// The PTX cross-reference tier names the same instructions in its own
+		// line namespace, with numbers that run past any real source's length.
+		// Its exclusion is by classification rather than by comparing against
+		// a literal here, so this call site cannot drift from the others.
+		if dir, ok := cudasass.ParseSourceDirective(line); ok && dir.Kind == cudasass.CUDASource {
+			cur = cuLoc{file: filepath.Base(dir.File), line: dir.Line}
 		}
 		if inst, ok := cudasass.ParseInstructionLine(line); ok {
 			lineNumbers[instKey{currentKernel, inst.Address}] = i + 1
@@ -172,7 +213,7 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 	// the disassembly, neither of which the PTX participates in. Refusing here
 	// made the tool unusable on profiles that pprof itself reads correctly.
 	// Carry on without source attribution and report the failure to the caller.
-	fused := verifyLineBinding(p, d, sourceBase)
+	fused := verifyLineBinding(p, d, sources)
 
 	var code Code
 	for _, fn := range d.Functions {
@@ -189,11 +230,11 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 		// which is a line derived from opcode spelling rather than from the
 		// PTX's own structure.
 		k := &Kernel{Name: fn.Name, Offset: section.Offset, Size: section.Size, PTXLine: pk.StartLine}
-		srcLine, err := cudalowering.DefinitionLine(source, fn.Name)
+		srcFile, srcLine, err := definitionIn(sources, fn.Name)
 		if err != nil {
 			return nil, fmt.Errorf("cudacapture: %s: %w", fn.Name, err)
 		}
-		k.SourceLine = srcLine
+		k.SourceFile, k.SourceLine = srcFile, srcLine
 
 		// Keyed on (file, line): two files can both have a line 12, and
 		// joining on the number alone fuses them.
@@ -298,6 +339,41 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 	return &code, nil
 }
 
+// definitionIn finds the one file of the translation unit that defines sym, and
+// the line within it.
+//
+// Every file is searched even after a match, rather than returning the first:
+// two files defining the same kernel is a real condition the unit cannot be
+// attributed under, and stopping early would report whichever happened to sort
+// first as though it were the only one. An ambiguity inside a single file is a
+// refusal for the same reason and is not resolved by another file's answer.
+func definitionIn(sources map[string]string, sym string) (file string, line int, err error) {
+	names := make([]string, 0, len(sources))
+	for name := range sources {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		n, err := cudalowering.DefinitionLine(sources[name], sym)
+		if errors.Is(err, cudalowering.ErrNoDefinition) {
+			continue
+		}
+		if err != nil {
+			return "", 0, fmt.Errorf("%s: %w", name, err)
+		}
+		if file != "" {
+			return "", 0, fmt.Errorf("%w of %s: %s:%d and %s:%d",
+				cudalowering.ErrAmbiguousDefinition, sym, file, line, name, n)
+		}
+		file, line = name, n
+	}
+	if file == "" {
+		return "", 0, fmt.Errorf("%w of %s in %s", cudalowering.ErrNoDefinition, sym, strings.Join(names, ", "))
+	}
+	return file, line, nil
+}
+
 // Kernel returns the kernel by name, or nil if not present.
 func (c *Code) Kernel(name string) *Kernel {
 	for _, k := range c.Kernels {
@@ -357,48 +433,109 @@ func (k *Kernel) Instruction(offset uint64) *Instruction {
 // output that attribution is missing, since a zero SourceLine is otherwise
 // indistinguishable from an instruction the compiler never located.
 type SourceFusionError struct {
+	// SourceFusionFile is the first disagreeing file in Files, by name. It is
+	// embedded so that Source, Unclaimed and Claimed read directly off the
+	// error, which is the whole truth for a single-source capture.
+	SourceFusionFile
+
+	// Files is every file of the translation unit the two tiers disagree
+	// about, sorted by name and never empty. Files[0] is the embedded one.
+	Files []SourceFusionFile
+}
+
+// A SourceFusionFile is one source file's share of a fusion failure.
+type SourceFusionFile struct {
 	Source    string // base name of the source file the two tiers disagree about
 	Unclaimed []int  // lines of it the SASS names and the PTX never does, sorted
 	Claimed   int    // how many lines of it the PTX does name
 }
 
 func (e *SourceFusionError) Error() string {
-	return fmt.Sprintf("cudacapture: PTX and SASS are not from one compilation of %s: the SASS attributes instructions to %d source line(s) the PTX never names (%s); the PTX names %d line(s) of that file",
+	msg := fmt.Sprintf("cudacapture: PTX and SASS are not from one compilation of %s: the SASS attributes instructions to %d source line(s) the PTX never names (%s); the PTX names %d line(s) of that file",
 		e.Source, len(e.Unclaimed), sampleLines(e.Unclaimed, maxReportedLines), e.Claimed)
+	if len(e.Files) > 1 {
+		msg += fmt.Sprintf(" (and %d more file(s) of the same unit disagree: %s)",
+			len(e.Files)-1, strings.Join(otherSourceNames(e.Files), ", "))
+	}
+	return msg
 }
 
-func verifyLineBinding(p *cudaptx.Module, d *cudasass.Disassembly, sourceBase string) *SourceFusionError {
-	claimed := make(map[int]bool)
+func otherSourceNames(files []SourceFusionFile) []string {
+	names := make([]string, 0, len(files)-1)
+	for _, f := range files[1:] {
+		names = append(names, f.Source)
+	}
+	return names
+}
+
+// verifyLineBinding checks, for each file of the translation unit the capture
+// supplies, that the PTX names every line of it the SASS attributes an
+// instruction to.
+//
+// The check is per file and keyed on (file, line) because two files of one unit
+// both have a line 12, and pooling their numbers lets one file's PTX coverage
+// vouch for another file's SASS lines. A file the SASS names but the capture
+// does not supply is not checked at all: the capture holds no line table to
+// check it against, so its lines are unknowable here rather than unclaimed, and
+// counting them would fail every multi-file unit that bundles a subset of its
+// headers.
+func verifyLineBinding(p *cudaptx.Module, d *cudasass.Disassembly, sources map[string]string) *SourceFusionError {
+	claimed := make(map[string]map[int]bool, len(sources))
+	for base := range sources {
+		claimed[base] = make(map[int]bool)
+	}
+	note := func(file string, line int) {
+		if line <= 0 {
+			return
+		}
+		if lines, ok := claimed[filepath.Base(file)]; ok {
+			lines[line] = true
+		}
+	}
 	for _, k := range p.Kernels {
 		for _, inst := range k.Instructions {
-			for _, l := range append([]cudaptx.Location{inst.Loc}, inst.InlinedAt...) {
-				if l.Line > 0 && filepath.Base(l.File) == sourceBase {
-					claimed[l.Line] = true
-				}
+			note(inst.Loc.File, inst.Loc.Line)
+			for _, l := range inst.InlinedAt {
+				note(l.File, l.Line)
 			}
 		}
 	}
-	var unclaimed []int
-	seen := make(map[int]bool)
+
+	unclaimed := make(map[string][]int, len(sources))
+	seen := make(map[string]map[int]bool, len(sources))
+	for base := range sources {
+		seen[base] = make(map[int]bool)
+	}
 	for _, fn := range d.Functions {
 		for _, inst := range fn.Instructions {
 			for _, l := range []struct {
 				file string
 				line int
 			}{{inst.SourceFile, inst.SourceLine}, {inst.InlinedFile, inst.InlinedLine}} {
-				if l.line <= 0 || filepath.Base(l.file) != sourceBase || claimed[l.line] || seen[l.line] {
+				if l.line <= 0 {
 					continue
 				}
-				seen[l.line] = true
-				unclaimed = append(unclaimed, l.line)
+				base := filepath.Base(l.file)
+				lines, supplied := claimed[base]
+				if !supplied || lines[l.line] || seen[base][l.line] {
+					continue
+				}
+				seen[base][l.line] = true
+				unclaimed[base] = append(unclaimed[base], l.line)
 			}
 		}
 	}
-	if len(unclaimed) == 0 {
+
+	var files []SourceFusionFile
+	for base, lines := range unclaimed {
+		sort.Ints(lines)
+		files = append(files, SourceFusionFile{Source: base, Unclaimed: lines, Claimed: len(claimed[base])})
+	}
+	if len(files) == 0 {
 		return nil
 	}
-	sort.Ints(unclaimed)
-	return &SourceFusionError{Source: sourceBase, Unclaimed: unclaimed, Claimed: len(claimed)}
+	sort.Slice(files, func(i, j int) bool { return files[i].Source < files[j].Source })
+	return &SourceFusionError{SourceFusionFile: files[0], Files: files}
 }
 
 // maxReportedLines bounds how many unclaimed line numbers an error names. A

@@ -1,8 +1,18 @@
 package cudalowering
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+)
+
+// Errors [DefinitionLine] reports, distinguished because a caller searching
+// several files must tell them apart: a file that does not define the kernel is
+// an ordinary miss to carry on past, while two definitions in one file are a
+// refusal that another file's answer must not paper over.
+var (
+	ErrNoDefinition        = errors.New("missing CUDA definition")
+	ErrAmbiguousDefinition = errors.New("ambiguous CUDA definition")
 )
 
 // DefinitionLine returns the 1-based line of source that defines the kernel
@@ -46,12 +56,12 @@ func DefinitionLine(source, sym string) (int, error) {
 			continue
 		}
 		if found != 0 {
-			return 0, fmt.Errorf("ambiguous CUDA definition of %s: lines %d and %d", name, found, i+1)
+			return 0, fmt.Errorf("%w of %s: lines %d and %d", ErrAmbiguousDefinition, name, found, i+1)
 		}
 		found = i + 1
 	}
 	if found == 0 {
-		return 0, fmt.Errorf("missing CUDA definition of %s", name)
+		return 0, fmt.Errorf("%w of %s", ErrNoDefinition, name)
 	}
 	return found, nil
 }

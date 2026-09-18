@@ -37,12 +37,34 @@ var reservedNames = []string{
 // the CUDA source, PTX, CUBIN, and SASS disassembly, and optional control flow graphs.
 type CodeFiles struct {
 	Source string `json:"source"`
+
+	// Sources names every CUDA file of the translation unit, for a module
+	// compiled from more than one. A single NVRTC compilation of a file that
+	// includes a dozen others is one module whose PTX and SASS name all of
+	// them, and attributing its instructions needs all of them present.
+	//
+	// Source stays the primary file and must also appear here when Sources is
+	// set; an empty Sources means the unit is Source alone, which is what
+	// every capture written before this field meant. Order is not significant.
+	Sources []string `json:"sources,omitempty"`
+
 	PTX    string `json:"ptx"`
 	CUBIN  string `json:"cubin"`
 	SASS   string `json:"sass"`
 	TileIR string `json:"tileir,omitempty"`
 	CFG    string `json:"cfg,omitempty"`
 	BBCFG  string `json:"bbcfg,omitempty"`
+}
+
+// Empty reports whether f names no files at all.
+//
+// CodeFiles stopped being comparable when Sources was added, and this replaces
+// the "== CodeFiles{}" that used to serve. A field added to CodeFiles must be
+// added here too; a field left out makes a capture that names only that file
+// read as having no code.
+func (f CodeFiles) Empty() bool {
+	return f.Source == "" && len(f.Sources) == 0 && f.PTX == "" && f.CUBIN == "" &&
+		f.SASS == "" && f.TileIR == "" && f.CFG == "" && f.BBCFG == ""
 }
 
 // Module identifies one loaded code image generation. File roles may be empty

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"reflect"
 )
 
 func validFixture() *cudacapture.Capture {
@@ -54,7 +55,7 @@ func TestRoundTripSingleFile(t *testing.T) {
 		t.Fatalf("Read failed: %v", err)
 	}
 
-	if got.Code != orig.Code {
+	if !reflect.DeepEqual(got.Code, orig.Code) {
 		t.Errorf("code files mismatch: got %+v, want %+v", got.Code, orig.Code)
 	}
 	if len(got.Files) != len(orig.Files) {
@@ -138,7 +139,7 @@ func TestRoundTripDirectory(t *testing.T) {
 		t.Fatalf("ReadDir failed: %v", err)
 	}
 
-	if got.Code != orig.Code {
+	if !reflect.DeepEqual(got.Code, orig.Code) {
 		t.Errorf("code files mismatch: got %+v, want %+v", got.Code, orig.Code)
 	}
 	if len(got.Files) != len(orig.Files) {

@@ -24,6 +24,15 @@
 // sources share a basename. RewriteSASSSources applies the map and retains
 // every path it does not cover.
 //
+// A module compiled from several files is one translation unit, which is what
+// a single NVRTC compilation of a file that includes others produces.
+// CodeFiles.Sources names every CUDA file that took part; LoadCode resolves
+// each kernel's definition against whichever of them defines it, and
+// Kernel.SourceFile reports which. The line-table check runs per file and only
+// over the files the capture supplies: a file the disassembly names but the
+// capture does not bundle has no line table to check against, so its lines are
+// unknowable rather than unclaimed.
+//
 // VerifyModule resolves a module generation against a required image digest
 // recomputed over the retained CUBIN. The digest is a producer record checked
 // against retained bytes, not a driver attestation, and a kernel name that
