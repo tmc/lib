@@ -1,0 +1,25 @@
+Commit: e861706f
+Date: 2026-09-18T14:11:16-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+none
+pid: 71567
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+Validated on dgx (GB10, sm_121) under gpu-lock, binary built from a clean
+rsync of this worktree at /home/tmc/tmp/ds4-parity-C6A7. Three draws per arm,
+9/9 clean. Draw 1 of the ship arm (331.26) was the cold-cache draw and is
+excluded from the median; its decode also read 10.49 against 13.1 elsewhere.
+
+Corruption rates are from a 120-draw characterization by a subagent, 30 per
+arm, ABCD/DCBA alternating, trend p=0.0077. Rounds 26-27 of that sweep were
+contended by my own gpu-lock intrusion; excluding them the trend strengthens
+to p=0.0059 and the headline is unchanged.
+
+Not established: the absolute corruption rate. 1/30 is [0.6%, 16.7%] at 95%
+confidence. What is established is that this configuration is no worse than
+the defaults it replaces, which were also 1/30, and that it is ~5x faster.
