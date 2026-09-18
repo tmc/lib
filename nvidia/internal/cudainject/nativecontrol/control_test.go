@@ -158,6 +158,7 @@ type capabilityRecord struct {
 	SigtermFinalize bool   `json:"sigterm_finalize"`
 	AtforkGuard     bool   `json:"atfork_guard"`
 	NVTXMarkers     bool   `json:"nvtx_markers"`
+	CaptureRange    string `json:"capture_range"`
 	DrainBatch      int    `json:"drain_batch"`
 	QueueCapacity   int    `json:"queue_capacity"`
 	KernelLayout    string `json:"kernel_layout"`
@@ -1105,5 +1106,116 @@ func TestNVTXMarkersArriveAsPairs(t *testing.T) {
 		if e.Start <= s.Start {
 			t.Errorf("range %d closes at %d, at or before its open at %d", id, e.Start, s.Start)
 		}
+	}
+}
+
+// rangeResult is the capture-range scenario's line. It reports record counts
+// and enabled-kind counts at the same three points, because a run that
+// collected nothing with the gate shut and a run that collected nothing
+// because every enable failed both report zero records, and only the kind
+// count tells them apart.
+type rangeResult struct {
+	Subscribed   int  `json:"subscribed"`
+	Domain       int  `json:"domain"`
+	StartEnabled int  `json:"start_enabled"`
+	StopEnabled  int  `json:"stop_enabled"`
+	FiredStart   int  `json:"fired_start"`
+	FiredStop    int  `json:"fired_stop"`
+	Before       int  `json:"before"`
+	Inside       int  `json:"inside"`
+	After        int  `json:"after"`
+	BeforeKinds  uint `json:"before_kinds"`
+	InsideKinds  uint `json:"inside_kinds"`
+	AfterKinds   uint `json:"after_kinds"`
+}
+
+// runRange executes the capture-range scenario and decodes its line.
+func runRange(t *testing.T, env []string, domain string) rangeResult {
+	t.Helper()
+	dir := t.TempDir()
+	session := strings.Repeat("a", 32)
+	cmd := exec.Command(controlBinary(t), "capture-range", "1", "4", "0", "0", domain)
+	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+session)
+	cmd.Env = append(cmd.Env, env...)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("capture-range domain %s: %v", domain, err)
+	}
+	var got rangeResult
+	line := bytes.TrimSpace(out)
+	if i := bytes.LastIndexByte(line, '\n'); i >= 0 {
+		line = line[i+1:]
+	}
+	if err := json.Unmarshal(line, &got); err != nil {
+		t.Fatalf("decode capture-range line %q: %v", line, err)
+	}
+	return got
+}
+
+// TestCaptureRangeGatesCollection is the gate for capture-range gating, and it
+// is crossed on purpose: neither arm alone proves anything.
+//
+// The ungated arm establishes that this fixture CAN deliver records at all
+// three points. Without it, a gated run reporting zero inside the range would
+// be indistinguishable from a fixture that delivers nothing ever, and the
+// gated assertions would pass on a producer that collects nothing at all.
+//
+// The gated arm then requires the counts to MOVE: shut before the range, open
+// inside it, shut again after. A gate that never opened and a gate that never
+// closed each fail exactly one of those three, so no single defect satisfies
+// all of them.
+//
+// Both callback domains are covered because a target calls either the runtime
+// pair or the driver pair and never both; a gate wired only to the runtime
+// domain would silently never open for a target that calls cuProfilerStart.
+func TestCaptureRangeGatesCollection(t *testing.T) {
+	const gate = "CUDAPROF_CAPTURE_RANGE=cudaProfilerApi"
+	for _, d := range []struct {
+		name   string
+		domain string
+	}{
+		{"runtime", "2"},
+		{"driver", "1"},
+	} {
+		t.Run(d.name, func(t *testing.T) {
+			// Control: no gate requested. Records must flow throughout, or
+			// the gated arm below is measuring a fixture that is simply mute.
+			open := runRange(t, nil, d.domain)
+			if open.Subscribed != 0 {
+				t.Errorf("ungated run subscribed to the callback API: %+v", open)
+			}
+			if open.Before == 0 || open.Inside == 0 || open.After == 0 {
+				t.Fatalf("ungated run collected nothing somewhere, so the gated arm cannot discriminate: %+v", open)
+			}
+			if open.BeforeKinds == 0 {
+				t.Fatalf("ungated run enabled no activity kinds: %+v", open)
+			}
+
+			got := runRange(t, []string{gate}, d.domain)
+			if got.Subscribed != 1 || got.StartEnabled != 1 || got.StopEnabled != 1 {
+				t.Fatalf("gated run did not subscribe to domain %s: %+v", d.domain, got)
+			}
+			if got.FiredStart != 1 || got.FiredStop != 1 {
+				t.Fatalf("callbacks were not delivered: %+v", got)
+			}
+			if got.Before != 0 {
+				t.Errorf("collected %d records before the range opened, want 0: %+v", got.Before, got)
+			}
+			if got.Inside != open.Inside {
+				t.Errorf("collected %d records inside the range, want %d as the ungated run delivered: %+v", got.Inside, open.Inside, got)
+			}
+			if got.After != 0 {
+				t.Errorf("collected %d records after the range closed, want 0: %+v", got.After, got)
+			}
+			// The kind counts separate "the gate is shut" from "nothing was
+			// ever enabled". Zero records with a nonzero kind count would mean
+			// the gate is not what suppressed them.
+			if got.BeforeKinds != 0 || got.AfterKinds != 0 {
+				t.Errorf("activity kinds stayed enabled outside the range (before %d, after %d): %+v", got.BeforeKinds, got.AfterKinds, got)
+			}
+			if got.InsideKinds != open.InsideKinds {
+				t.Errorf("enabled %d kinds inside the range, want %d: %+v", got.InsideKinds, open.InsideKinds, got)
+			}
+		})
 	}
 }

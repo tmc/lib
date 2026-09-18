@@ -112,6 +112,17 @@ _Static_assert(offsetof(CUpti_ActivityMarker2, id) == 16, "unexpected marker id 
 _Static_assert(offsetof(CUpti_ActivityMarker2, name) == 40, "unexpected marker name offset");
 _Static_assert(offsetof(CUpti_ActivityMarker2, domain) == 48, "unexpected marker domain offset");
 
+/* Capture-range gating reads callbackSite out of a CUpti_CallbackData the
+   library owns, so the two builds must agree on where it sits. The offsets
+   below are from CUDA 13.0 cupti_callbacks.h; the enumerator values the gate
+   compares against are carried independently by nvidia/cupti/enums.gen.go and
+   are unchanged across CUDA 12.6 through 13.1. */
+_Static_assert(offsetof(CUpti_CallbackData, callbackSite) == 0, "unexpected callback site offset");
+_Static_assert(offsetof(CUpti_CallbackData, functionName) == 8, "unexpected callback name offset");
+_Static_assert(offsetof(CUpti_CallbackData, correlationId) == 64, "unexpected callback correlation offset");
+_Static_assert(CUPTI_API_ENTER == 0 && CUPTI_API_EXIT == 1, "unexpected callback site values");
+_Static_assert(CUPTI_CB_DOMAIN_DRIVER_API == 1 && CUPTI_CB_DOMAIN_RUNTIME_API == 2, "unexpected callback domain values");
+
 static int journal_fd = -1;
 static char worker_dir[PATH_MAX];
 static unsigned char session_id[16];
@@ -175,6 +186,30 @@ static int marker_enabled;
 static int runtime_enabled;
 static int driver_enabled;
 static int callback_registered;
+
+/* Capture-range gating. When CUDAPROF_CAPTURE_RANGE names the profiler API,
+   the kinds above are enabled at init as usual -- that is how the agent learns
+   which of them this CUPTI supports, and a refusal must still be reported at
+   init rather than at the first range -- and then collection is switched off
+   until the target calls cudaProfilerStart. The *_enabled flags therefore mean
+   "this kind is ours to toggle", not "records are arriving right now";
+   collecting says which of those two states the agent is in.
+
+   Both the runtime and the driver pair are subscribed: a target that calls
+   cuProfilerStart directly never reaches the runtime entry point, and a gate
+   that watched only the runtime would silently never open for it. */
+static CUpti_SubscriberHandle range_subscriber;
+static int range_subscribed;
+#define RANGE_NONE 0
+#define RANGE_GATED 1
+#define RANGE_UNAVAILABLE 2
+static int range_gated;
+static atomic_int collecting;
+static atomic_uint range_opens;
+_Static_assert(CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStart_v4000 == 171, "unexpected cudaProfilerStart cbid");
+_Static_assert(CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000 == 172, "unexpected cudaProfilerStop cbid");
+_Static_assert(CUPTI_DRIVER_TRACE_CBID_cuProfilerStart == 308, "unexpected cuProfilerStart cbid");
+_Static_assert(CUPTI_DRIVER_TRACE_CBID_cuProfilerStop == 309, "unexpected cuProfilerStop cbid");
 static _Atomic int finalize_started;
 static _Atomic int finalize_done;
 static const char *finalize_trigger = "exit";
@@ -854,6 +889,88 @@ static void cudaprof_after_fork_child(void) {
 	worker_dir[0] = '\0';
 }
 
+/* set_activity_collection turns every kind this agent owns on or off in one
+   step and reports how many CUPTI refused. The set is taken from the *_enabled
+   flags rather than from a fixed list so a kind that was never enabled -- an
+   optional one like MARKER, or one whose enable failed -- is never disabled,
+   and so this stays correct when a kind is added above.
+
+   Teardown and capture-range gating share it because they want exactly the
+   same operation; keeping one copy is what stops a kind from being added to
+   the range path and forgotten in the teardown path. */
+static int set_activity_collection(int on) {
+	static const CUpti_ActivityKind owned[] = {
+		CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL,
+		CUPTI_ACTIVITY_KIND_KERNEL,
+		CUPTI_ACTIVITY_KIND_MEMCPY,
+		CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION,
+		CUPTI_ACTIVITY_KIND_MARKER,
+		CUPTI_ACTIVITY_KIND_RUNTIME,
+		CUPTI_ACTIVITY_KIND_DRIVER,
+	};
+	const int *flags[] = {
+		&concurrent_enabled, &legacy_enabled, &memcpy_enabled, &external_enabled,
+		&marker_enabled, &runtime_enabled, &driver_enabled,
+	};
+	int failures = 0;
+	for (size_t i = 0; i < sizeof(owned) / sizeof(owned[0]); i++) {
+		if (!*flags[i]) continue;
+		CUptiResult r = on ? cuptiActivityEnable(owned[i]) : cuptiActivityDisable(owned[i]);
+		if (r != CUPTI_SUCCESS) failures++;
+	}
+	atomic_store(&collecting, on ? 1 : 0);
+	return failures;
+}
+
+/* Records a capture-range edge. The consumer needs these to state what the
+   journal covers: without them an empty journal from a target that never
+   called cudaProfilerStart is indistinguishable from one whose work produced
+   no activity, which is the "complete means nothing dropped" trap this
+   producer already has elsewhere. */
+static void write_range_edge(const char *edge, const char *api, unsigned index, int failures) {
+	char payload[MAX_PAYLOAD];
+	int n = snprintf(payload, sizeof(payload),
+		"{\"kind\":\"activity\",\"subtype\":\"capture_range\",\"edge\":\"%s\",\"api\":\"%s\",\"index\":%u,\"toggle_failures\":%d}",
+		edge, api, index, failures);
+	if (n > 0 && (size_t)n < sizeof(payload)) (void)write_record(KIND_ACTIVITY, now_ns(), payload, (size_t)n);
+}
+
+static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const void *cbdata) {
+	(void)userdata;
+	const CUpti_CallbackData *data = (const CUpti_CallbackData *)cbdata;
+	if (data == NULL || atomic_load(&shutdown_started)) return;
+	int start;
+	const char *api;
+	if (domain == CUPTI_CB_DOMAIN_RUNTIME_API) {
+		if (cbid == CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStart_v4000) { start = 1; api = "cudaProfilerStart"; }
+		else if (cbid == CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000) { start = 0; api = "cudaProfilerStop"; }
+		else return;
+	} else if (domain == CUPTI_CB_DOMAIN_DRIVER_API) {
+		if (cbid == CUPTI_DRIVER_TRACE_CBID_cuProfilerStart) { start = 1; api = "cuProfilerStart"; }
+		else if (cbid == CUPTI_DRIVER_TRACE_CBID_cuProfilerStop) { start = 0; api = "cuProfilerStop"; }
+		else return;
+	} else {
+		return;
+	}
+	/* Open on the way out of Start and close on the way in to Stop, so the
+	   range covers the work between the two calls and not the calls
+	   themselves. Taking both edges at the same site would put one of the two
+	   profiler API calls inside every range. */
+	if (data->callbackSite != (start ? CUPTI_API_EXIT : CUPTI_API_ENTER)) return;
+	/* A target may call Start twice, or Stop without Start. Collection is a
+	   level, not a counter: a redundant edge is recorded and otherwise
+	   ignored, because toggling on an already-open range would make the
+	   journal claim a boundary the hardware never saw. */
+	if (atomic_load(&collecting) == start) {
+		write_range_edge(start ? "redundant_start" : "redundant_stop", api, atomic_load(&range_opens), 0);
+		return;
+	}
+	unsigned index = start ? atomic_fetch_add(&range_opens, 1) : atomic_load(&range_opens) - 1;
+	int failures = set_activity_collection(start);
+	if (!start) (void)cuptiActivityFlushAll(0);
+	write_range_edge(start ? "start" : "stop", api, index, failures);
+}
+
 __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	const char *dir = getenv("CUDAPROF_TRANSPORT");
 	const char *session = getenv("CUDAPROF_SESSION");
@@ -1024,7 +1141,53 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		}
 		driver_enabled = 1;
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"compile_cupti\":%d,\"runtime_cupti\":%u,\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", CUPTI_API_VERSION, runtime_version, kernel_mode, CUDAPROF_KERNEL_LAYOUT, sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
+	/* Capture-range gating is established last, after every enable above has
+	   reported whether its kind is available. Doing it here rather than before
+	   the enables keeps one meaning for an enable failure -- the kind is
+	   unavailable -- instead of two.
+
+	   If gating was asked for and cannot be established, collection stays ON
+	   and the capability record says so. The alternative, failing closed,
+	   would produce an empty journal that looks exactly like a target that
+	   never opened a range; the alternative of staying silent would hand the
+	   consumer an unscoped journal it believes is scoped. Neither is a state
+	   the reader can tell apart without being told, so it is told. */
+	const char *range_env = getenv("CUDAPROF_CAPTURE_RANGE");
+	if (range_env != NULL && strcmp(range_env, "cudaProfilerApi") == 0) {
+		CUptiResult sub = cuptiSubscribe(&range_subscriber, range_callback, NULL);
+		if (sub != CUPTI_SUCCESS) {
+			record_cupti_failure("cuptiSubscribe(capture range)", sub);
+			range_gated = RANGE_UNAVAILABLE;
+		} else {
+			range_subscribed = 1;
+			static const struct { CUpti_CallbackDomain domain; CUpti_CallbackId cbid; const char *what; } triggers[] = {
+				{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStart_v4000, "cuptiEnableCallback(cudaProfilerStart)"},
+				{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000, "cuptiEnableCallback(cudaProfilerStop)"},
+				{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuProfilerStart, "cuptiEnableCallback(cuProfilerStart)"},
+				{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuProfilerStop, "cuptiEnableCallback(cuProfilerStop)"},
+			};
+			int enabled = 0;
+			for (size_t i = 0; i < sizeof(triggers) / sizeof(triggers[0]); i++) {
+				CUptiResult r = cuptiEnableCallback(1, range_subscriber, triggers[i].domain, triggers[i].cbid);
+				if (r == CUPTI_SUCCESS) { enabled++; continue; }
+				record_cupti_failure(triggers[i].what, r);
+			}
+			/* One surviving trigger is enough to gate: a target calls either
+			   the runtime pair or the driver pair, not both. Zero means no
+			   edge can ever arrive, which is the fail-closed case this must
+			   not enter silently. */
+			if (enabled == 0) {
+				(void)cuptiUnsubscribe(range_subscriber);
+				range_subscribed = 0;
+				range_gated = RANGE_UNAVAILABLE;
+			} else {
+				range_gated = RANGE_GATED;
+				(void)set_activity_collection(0);
+			}
+		}
+	}
+	if (range_gated != RANGE_GATED) atomic_store(&collecting, 1);
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, kernel_mode, CUDAPROF_KERNEL_LAYOUT, sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability)) (void)write_record(KIND_CAPABILITY, now_ns(), capability, (size_t)capability_len);
 	write_handshake(NULL);
@@ -1044,13 +1207,15 @@ static void cudaprof_cupti_finalize(void) {
 	int flush_error = 0;
 	if (callback_registered && (concurrent_enabled || memcpy_enabled || external_enabled || marker_enabled || runtime_enabled || driver_enabled)) {
 		if (cuptiActivityFlushAll(1) != CUPTI_SUCCESS) flush_error = 1;
-		if (concurrent_enabled) { if (cuptiActivityDisable(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL) != CUPTI_SUCCESS) flush_error = 1; }
-		if (legacy_enabled) { if (cuptiActivityDisable(CUPTI_ACTIVITY_KIND_KERNEL) != CUPTI_SUCCESS) flush_error = 1; }
-		if (memcpy_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_MEMCPY) != CUPTI_SUCCESS) flush_error = 1;
-		if (external_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION) != CUPTI_SUCCESS) flush_error = 1;
-		if (marker_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_MARKER) != CUPTI_SUCCESS) flush_error = 1;
-		if (runtime_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_RUNTIME) != CUPTI_SUCCESS) flush_error = 1;
-		if (driver_enabled && cuptiActivityDisable(CUPTI_ACTIVITY_KIND_DRIVER) != CUPTI_SUCCESS) flush_error = 1;
+		/* A gated run whose range is still open is disabled here exactly as an
+		   ungated one is; a gated run already closed disables nothing, which
+		   CUPTI accepts and which set_activity_collection reports as zero
+		   failures because it skips kinds that were never enabled. */
+		if (set_activity_collection(0) != 0) flush_error = 1;
+		if (range_subscribed) {
+			if (cuptiUnsubscribe(range_subscriber) != CUPTI_SUCCESS) flush_error = 1;
+			range_subscribed = 0;
+		}
 		atomic_store(&shutdown_started, 1);
 		/* Disabling may release another CUPTI buffer; drain it before the
 		 * callback quiescence check. */

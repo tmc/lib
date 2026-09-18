@@ -65,6 +65,84 @@ CUptiResult cuptiActivityDisable(CUpti_ActivityKind kind) {
 	atomic_store(&enabled_kinds[(unsigned)kind], 0);
 	return CUPTI_SUCCESS;
 }
+/* Callback API, the surface capture-range gating subscribes to. CUPTI allows
+   one subscriber per process and returns CUPTI_ERROR_MAX_LIMIT_REACHED for a
+   second; the stub reproduces that so a producer that subscribes twice fails
+   here rather than silently in the field. */
+static CUpti_CallbackFunc subscriber_cb;
+static void *subscriber_data;
+static int subscriber_live;
+
+#define TEST_MAX_ENABLED_CBIDS 16
+static struct { unsigned domain, cbid; } enabled_cbids[TEST_MAX_ENABLED_CBIDS];
+static unsigned enabled_cbid_count;
+
+CUptiResult cuptiSubscribe(CUpti_SubscriberHandle *subscriber, CUpti_CallbackFunc callback, void *userdata) {
+	if (subscriber == NULL || callback == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
+	if (subscriber_live) return CUPTI_ERROR_MAX_LIMIT_REACHED;
+	subscriber_cb = callback;
+	subscriber_data = userdata;
+	subscriber_live = 1;
+	/* The handle is opaque to the producer and is only ever handed back to
+	   this stub, so a non-null distinguished value is the whole contract. */
+	*subscriber = (CUpti_SubscriberHandle)&subscriber_live;
+	return CUPTI_SUCCESS;
+}
+
+CUptiResult cuptiUnsubscribe(CUpti_SubscriberHandle subscriber) {
+	if (!subscriber_live || subscriber != (CUpti_SubscriberHandle)&subscriber_live) return CUPTI_ERROR_INVALID_PARAMETER;
+	subscriber_cb = NULL;
+	subscriber_data = NULL;
+	subscriber_live = 0;
+	enabled_cbid_count = 0;
+	return CUPTI_SUCCESS;
+}
+
+CUptiResult cuptiEnableCallback(uint32_t enable, CUpti_SubscriberHandle subscriber, CUpti_CallbackDomain domain, CUpti_CallbackId cbid) {
+	if (!subscriber_live || subscriber != (CUpti_SubscriberHandle)&subscriber_live) return CUPTI_ERROR_INVALID_PARAMETER;
+	for (unsigned i = 0; i < enabled_cbid_count; i++) {
+		if (enabled_cbids[i].domain != (unsigned)domain || enabled_cbids[i].cbid != (unsigned)cbid) continue;
+		if (enable) return CUPTI_SUCCESS;
+		enabled_cbids[i] = enabled_cbids[--enabled_cbid_count];
+		return CUPTI_SUCCESS;
+	}
+	if (!enable) return CUPTI_SUCCESS;
+	if (enabled_cbid_count == TEST_MAX_ENABLED_CBIDS) return CUPTI_ERROR_MAX_LIMIT_REACHED;
+	enabled_cbids[enabled_cbid_count].domain = (unsigned)domain;
+	enabled_cbids[enabled_cbid_count].cbid = (unsigned)cbid;
+	enabled_cbid_count++;
+	return CUPTI_SUCCESS;
+}
+
+int cudaprof_test_subscribed(void) { return subscriber_live; }
+
+int cudaprof_test_callback_enabled(unsigned domain, unsigned cbid) {
+	for (unsigned i = 0; i < enabled_cbid_count; i++) {
+		if (enabled_cbids[i].domain == domain && enabled_cbids[i].cbid == cbid) return 1;
+	}
+	return 0;
+}
+
+int cudaprof_test_fire_callback(unsigned domain, unsigned cbid, unsigned site) {
+	if (!subscriber_live || subscriber_cb == NULL) return 0;
+	if (!cudaprof_test_callback_enabled(domain, cbid)) return 0;
+	CUpti_CallbackData data;
+	memset(&data, 0, sizeof data);
+	data.callbackSite = (CUpti_ApiCallbackSite)site;
+	data.functionName = "cudaprof_control_profiler_api";
+	data.correlationId = 1;
+	subscriber_cb(subscriber_data, (CUpti_CallbackDomain)domain, (CUpti_CallbackId)cbid, &data);
+	return 1;
+}
+
+unsigned cudaprof_test_enabled_kind_count(void) {
+	unsigned n = 0;
+	for (unsigned i = 0; i < 16; i++) {
+		if (atomic_load(&enabled_kinds[i])) n++;
+	}
+	return n;
+}
+
 CUptiResult cuptiActivityFlushAll(uint32_t flag) { (void)flag; return CUPTI_SUCCESS; }
 
 CUptiResult cuptiActivityGetNextRecord(uint8_t *buffer, size_t valid_size, CUpti_Activity **record) {

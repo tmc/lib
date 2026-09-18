@@ -164,6 +164,43 @@ int main(int argc, char **argv) {
 		plans[i].pause_micros = pause_micros;
 	}
 
+	/* capture-range drives the gate the producer installs when
+	   CUDAPROF_CAPTURE_RANGE names the profiler API. It offers the same buffer
+	   three times -- before the range opens, inside it, and after it closes --
+	   and reports what the producer accepted at each point along with the
+	   number of activity kinds enabled there.
+
+	   Reporting the kind count as well as the record count matters: a run that
+	   collects nothing because the gate is shut and a run that collects
+	   nothing because every enable failed produce the same zero, and only the
+	   kind count separates them. Which cbid to trigger on is an argument so
+	   one scenario covers the runtime pair and the driver pair; a target calls
+	   one or the other and the gate has to open for either. */
+	if (strcmp(scenario, "capture-range") == 0) {
+		unsigned domain = arg_uint(argc, argv, 6, 2);  /* RUNTIME_API */
+		unsigned start_cbid = domain == 2 ? 171u : 308u;
+		unsigned stop_cbid = domain == 2 ? 172u : 309u;
+		unsigned before_kinds = cudaprof_test_enabled_kind_count();
+		int before = cudaprof_test_offer_markers(buffers, buffers, buffers, 0, markers);
+		int fired_start = cudaprof_test_fire_callback(domain, start_cbid, 1 /* API_EXIT */);
+		unsigned inside_kinds = cudaprof_test_enabled_kind_count();
+		int inside = cudaprof_test_offer_markers(buffers, buffers, buffers, 0, markers);
+		int fired_stop = cudaprof_test_fire_callback(domain, stop_cbid, 0 /* API_ENTER */);
+		unsigned after_kinds = cudaprof_test_enabled_kind_count();
+		int after = cudaprof_test_offer_markers(buffers, buffers, buffers, 0, markers);
+		printf("{\"scenario\":\"capture-range\",\"subscribed\":%d,\"domain\":%u,"
+			"\"start_enabled\":%d,\"stop_enabled\":%d,\"fired_start\":%d,\"fired_stop\":%d,"
+			"\"before\":%d,\"inside\":%d,\"after\":%d,"
+			"\"before_kinds\":%u,\"inside_kinds\":%u,\"after_kinds\":%u}\n",
+			cudaprof_test_subscribed(), domain,
+			cudaprof_test_callback_enabled(domain, start_cbid),
+			cudaprof_test_callback_enabled(domain, stop_cbid),
+			fired_start, fired_stop, before, inside, after,
+			before_kinds, inside_kinds, after_kinds);
+		fflush(stdout);
+		return 0;
+	}
+
 	pthread_t trigger_id = 0;
 	struct trigger t = {0, 0};
 	if (strcmp(scenario, "clobber") == 0 || strcmp(scenario, "fork-inert-clobber") == 0) {
