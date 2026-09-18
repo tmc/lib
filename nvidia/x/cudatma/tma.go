@@ -20,17 +20,31 @@ const (
 	GlobalToTMEM
 )
 
+// MaxRank is the greatest tensor rank a tiled tensor map admits.
+const MaxRank = 5
+
 // Descriptor is validated tensor metadata. The CUDA Driver API owns creation
 // of the eventual opaque CUtensorMap.
+//
+// Dims, Strides and Box carry MaxRank entries; only the first Rank of each
+// are read. Strides holds the Rank-1 global strides the driver expects, so
+// Strides[Rank-1] is unused.
+//
+// The zero values of Interleave, L2Promotion and OOBFill select the driver's
+// None for each, which is what the descriptor used before they were
+// selectable.
 type Descriptor struct {
 	Target       string
 	Rank         int
 	Base         uint64
-	Dims         [3]uint64
-	Strides      [3]uint64
-	Box          [3]uint32
+	Dims         [MaxRank]uint64
+	Strides      [MaxRank]uint64
+	Box          [MaxRank]uint32
 	ElementBytes uint32
 	Swizzle      uint32
+	Interleave   driver.TensorMapInterleave
+	L2Promotion  driver.TensorMapL2promotion
+	OOBFill      driver.TensorMapFloatOOBfill
 }
 
 // EncodeTiled asks the CUDA Driver API to construct the opaque descriptor.
@@ -56,7 +70,7 @@ func (d Descriptor) EncodeTiled() (*driver.TensorMap, error) {
 	dims := d.Dims
 	strides := d.Strides
 	box := d.Box
-	elems := [3]uint32{1, 1, 1}
+	elems := [MaxRank]uint32{1, 1, 1, 1, 1}
 	sw := driver.TensorMapSwizzleNone
 	switch d.Swizzle {
 	case 32:
@@ -66,7 +80,7 @@ func (d Descriptor) EncodeTiled() (*driver.TensorMap, error) {
 	case 128:
 		sw = driver.TensorMapSwizzle128B
 	}
-	if err := driver.TensorMapEncodeTiled(m, dt, uint32(d.Rank), uintptr(d.Base), &dims[0], &strides[0], &box[0], &elems[0], driver.TensorMapInterleaveNone, sw, driver.TensorMapL2PromotionNone, driver.TensorMapFloatOobFillNone); err != nil {
+	if err := driver.TensorMapEncodeTiled(m, dt, uint32(d.Rank), uintptr(d.Base), &dims[0], &strides[0], &box[0], &elems[0], d.Interleave, sw, d.L2Promotion, d.OOBFill); err != nil {
 		return nil, fmt.Errorf("encode tensor map: %w", err)
 	}
 	return m, nil
@@ -76,8 +90,8 @@ func (d Descriptor) Validate() error {
 	if d.Target != TargetSM100a && d.Target != TargetSM121a {
 		return fmt.Errorf("unsupported target %q", d.Target)
 	}
-	if d.Rank != 2 && d.Rank != 3 {
-		return fmt.Errorf("rank must be 2 or 3")
+	if d.Rank < 2 || d.Rank > MaxRank {
+		return fmt.Errorf("rank must be between 2 and %d", MaxRank)
 	}
 	if d.Base%16 != 0 {
 		return fmt.Errorf("base 0x%x is not 16-byte aligned", d.Base)
@@ -90,8 +104,12 @@ func (d Descriptor) Validate() error {
 			return fmt.Errorf("dimension %d is zero", i)
 		}
 	}
-	if d.Strides[0] == 0 || d.Strides[0]%16 != 0 || (d.Rank == 3 && (d.Strides[1] == 0 || d.Strides[1]%16 != 0)) {
-		return fmt.Errorf("strides must be nonzero 16-byte multiples")
+	// The driver reads Rank-1 global strides; the innermost dimension is
+	// implicitly contiguous and carries no stride.
+	for i := 0; i < d.Rank-1; i++ {
+		if d.Strides[i] == 0 || d.Strides[i]%16 != 0 {
+			return fmt.Errorf("stride %d must be a nonzero 16-byte multiple", i)
+		}
 	}
 	width := uint64(d.Box[0]) * uint64(d.ElementBytes)
 	if width > 128 || width == 0 || width%16 != 0 {
@@ -105,6 +123,28 @@ func (d Descriptor) Validate() error {
 	}
 	if d.ElementBytes != 2 && d.ElementBytes != 4 {
 		return fmt.Errorf("unsupported element size %d", d.ElementBytes)
+	}
+	switch d.Interleave {
+	case driver.TensorMapInterleaveNone:
+	case driver.TensorMapInterleave16B, driver.TensorMapInterleave32B:
+		// An interleaved layout addresses a trailing element axis, which a
+		// rank-2 tensor does not have.
+		if d.Rank < 3 {
+			return fmt.Errorf("interleaved layout requires rank 3 or more")
+		}
+	default:
+		return fmt.Errorf("unsupported interleave %d", d.Interleave)
+	}
+	switch d.L2Promotion {
+	case driver.TensorMapL2PromotionNone, driver.TensorMapL2PromotionL264B,
+		driver.TensorMapL2PromotionL2128B, driver.TensorMapL2PromotionL2256B:
+	default:
+		return fmt.Errorf("unsupported L2 promotion %d", d.L2Promotion)
+	}
+	switch d.OOBFill {
+	case driver.TensorMapFloatOobFillNone, driver.TensorMapFloatOobFillNanRequestZeroFma:
+	default:
+		return fmt.Errorf("unsupported out-of-bounds fill %d", d.OOBFill)
 	}
 	return nil
 }

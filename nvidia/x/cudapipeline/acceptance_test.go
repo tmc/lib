@@ -481,9 +481,9 @@ func TestUnsupportedTransferEmissionRejected(t *testing.T) {
 		Target:       cudatma.TargetSM121a,
 		Rank:         2,
 		Base:         0x1000,
-		Dims:         [3]uint64{64, 64, 0},
-		Strides:      [3]uint64{128, 0, 0},
-		Box:          [3]uint32{32, 16, 0},
+		Dims:         [cudatma.MaxRank]uint64{64, 64},
+		Strides:      [cudatma.MaxRank]uint64{128},
+		Box:          [cudatma.MaxRank]uint32{32, 16},
 		ElementBytes: 2,
 	}
 	tr := cudatma.Transfer{
