@@ -114,7 +114,13 @@ type FragmentOwner struct {
 	// Slot is the packed register slot, in [0,PackedPerThread).
 	Slot int
 	// Index is the element's position within the packed slot, in
-	// [0,ElementsPerSlot).
+	// [0,ElementsPerSlot). A slot is a 2-vector of the packed type --
+	// ThunderKittens stores dtype data[packed_per_thread] where dtype is
+	// bf16_2, half_2 or float2 (rt_base.cuh:64-66) -- so Index 0 is the .x
+	// component and 1 is .y, at both element widths. Whether a slot occupies
+	// one 32-bit register or two does not appear here; see
+	// [Fragment.RegistersPerThread], which answers that for occupancy and for
+	// declaring .reg .b32, not for addressing.
 	Index int
 }
 
