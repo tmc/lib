@@ -32,12 +32,17 @@ type Range struct {
 // operations rather than replay passes or Go benchmark iterations.
 //
 // Uninstrumented means no capture is open across the timed work. It does not
-// mean the process is in the state it was in before any profiling: the timed
-// loop runs before Run's collection, but CUPTI profiler initialization is
-// process-wide and is never undone, so the first Timing in a process may be
-// the only one taken before the profiler was initialized. Timings from one
-// process are comparable to each other only if every one of them was taken on
-// the same side of that first initialization.
+// mean the process is in the state it was in before any profiling: New calls
+// cuptirange.CounterAvailability, which initializes the CUPTI profiler for the
+// process, and nothing ever de-initializes it. So every Timing a Plan produces
+// is taken with the profiler already initialized, including the first, and
+// that much at least is uniform across a Plan's readings.
+//
+// Total is one device span per Loop iteration, summed, and Operations counts
+// the logical operations inside those spans. Dividing gives a per-operation
+// figure that carries each span's fixed cost once per sequence, not once per
+// operation, so it is not comparable to a timing that spans each operation
+// separately. See Config.Operations for what one sequence is.
 type Timing struct {
 	Operations int64
 	Total      time.Duration
