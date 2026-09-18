@@ -148,7 +148,7 @@ func ExampleNewPipeline_tmem() {
 	}
 
 	pipe, err := cudapipeline.NewPipeline(cudapipeline.PipelineConfig{
-		TargetArch:  cudapipeline.ArchSM100,
+		TargetArch:  cudapipeline.ArchSM100a,
 		NumStages:   3,
 		MemorySpace: cudapipeline.MemorySpaceTMEM,
 		Box:         box,

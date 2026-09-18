@@ -393,25 +393,47 @@ func TestArchConstraints(t *testing.T) {
 	if err := p121.ValidateFeature(FeatureTMEM); err == nil {
 		t.Errorf("expected sm_121a to reject TMEM, got nil error")
 	}
-	// Verify sm_121a hardware reality: rejects wgmma and tcgen05
-	if err := p121.ValidateFeature(FeatureWGMMA); err == nil {
-		t.Errorf("expected sm_121a to reject wgmma, got nil error")
-	} else if !strings.Contains(err.Error(), "rejects wgmma") {
-		t.Errorf("expected error to explain sm_121a rejects wgmma, got: %v", err)
-	}
-	if err := p121.ValidateFeature(FeatureTCGen05); err == nil {
-		t.Errorf("expected sm_121a to reject tcgen05, got nil error")
-	} else if !strings.Contains(err.Error(), "rejects tcgen05") {
-		t.Errorf("expected error to explain sm_121a rejects tcgen05, got: %v", err)
+	// sm_121a rejects both wgmma and tcgen05. The message must carry the
+	// assembler's own diagnostic rather than prose restating the table, and
+	// must name a target that does accept the feature: a caller told only
+	// "no" has to guess where to go next, and guessing is what put the wrong
+	// answers in these tables to begin with.
+	for _, tc := range []struct{ feature, instruction, accepted string }{
+		{FeatureWGMMA, "wgmma.fence", "sm_90a"},
+		{FeatureTCGen05, "tcgen05.alloc", "sm_100a"},
+	} {
+		err := p121.ValidateFeature(tc.feature)
+		if err == nil {
+			t.Errorf("expected sm_121a to reject %s, got nil error", tc.feature)
+			continue
+		}
+		if !strings.Contains(err.Error(), "not supported on .target 'sm_121a'") {
+			t.Errorf("%s error does not quote the assembler diagnostic: %v", tc.feature, err)
+		}
+		if !strings.Contains(err.Error(), tc.instruction) {
+			t.Errorf("%s error does not name the rejected instruction %q: %v", tc.feature, tc.instruction, err)
+		}
+		if !strings.Contains(err.Error(), "accepted at "+tc.accepted) {
+			t.Errorf("%s error does not name a target that accepts it (%s): %v", tc.feature, tc.accepted, err)
+		}
 	}
 
-	// sm_90 verification
+	// sm_90a verification. wgmma lives on the suffixed target: ptxas rejects
+	// it at sm_90 with "Instruction 'wgmma.fence' not supported on .target
+	// 'sm_90'", which is why this asks sm_90a for it.
+	p90a, err := ArchProfileFor(ArchSM90a)
+	if err != nil {
+		t.Fatalf("ArchProfileFor(sm_90a) error: %v", err)
+	}
+	if !p90a.SupportsWGMMA {
+		t.Errorf("sm_90a should support wgmma")
+	}
 	p90, err := ArchProfileFor(ArchSM90)
 	if err != nil {
 		t.Fatalf("ArchProfileFor(sm_90) error: %v", err)
 	}
-	if !p90.SupportsWGMMA {
-		t.Errorf("sm_90 should support wgmma")
+	if p90.SupportsWGMMA {
+		t.Errorf("sm_90 should not support wgmma; it requires the sm_90a target")
 	}
 	if p90.SupportsTCGen05 {
 		t.Errorf("sm_90 should not support tcgen05")
@@ -425,22 +447,30 @@ func TestArchConstraints(t *testing.T) {
 		t.Errorf("expected error to explain sm_90 does not support tmem, got: %v", err)
 	}
 
-	// sm_100 verification
+	// sm_100a verification. tcgen05 needs the suffix for the same reason
+	// wgmma does; the unsuffixed sm_100 target rejects it.
+	p100a, err := ArchProfileFor(ArchSM100a)
+	if err != nil {
+		t.Fatalf("ArchProfileFor(sm_100a) error: %v", err)
+	}
+	if !p100a.SupportsTCGen05 {
+		t.Errorf("sm_100a should support tcgen05")
+	}
+	if p100a.SupportsWGMMA {
+		t.Errorf("sm_100a should not support wgmma")
+	}
+	if !p100a.SupportsTMEM {
+		t.Errorf("sm_100a should support TMEM")
+	}
+	if err := p100a.ValidateFeature(FeatureTMEM); err != nil {
+		t.Errorf("sm_100a should validate TMEM, got: %v", err)
+	}
 	p100, err := ArchProfileFor(ArchSM100)
 	if err != nil {
 		t.Fatalf("ArchProfileFor(sm_100) error: %v", err)
 	}
-	if !p100.SupportsTCGen05 {
-		t.Errorf("sm_100 should support tcgen05")
-	}
-	if p100.SupportsWGMMA {
-		t.Errorf("sm_100 should not support wgmma")
-	}
-	if !p100.SupportsTMEM {
-		t.Errorf("sm_100 should support TMEM")
-	}
-	if err := p100.ValidateFeature(FeatureTMEM); err != nil {
-		t.Errorf("sm_100 should validate TMEM, got: %v", err)
+	if p100.SupportsTCGen05 {
+		t.Errorf("sm_100 should not support tcgen05; it requires the sm_100a target")
 	}
 }
 

@@ -1,5 +1,10 @@
 package cudapipeline_test
 
+// TMEM fixtures target sm_100a rather than sm_100. Tensor Memory is reachable
+// only through tcgen05, and ptxas rejects tcgen05 at the unsuffixed target:
+// "Instruction 'tcgen05.alloc' not supported on .target 'sm_100'". These tests
+// used sm_100 while the capability table claimed it worked there.
+
 import (
 	"strings"
 	"testing"
@@ -19,7 +24,7 @@ func TestTMEMPipelineConfigurations(t *testing.T) {
 		{
 			name: "double_buffering_sm100_fp16",
 			cfg: cudapipeline.PipelineConfig{
-				TargetArch:  cudapipeline.ArchSM100,
+				TargetArch:  cudapipeline.ArchSM100a,
 				NumStages:   2,
 				MemorySpace: cudapipeline.MemorySpaceTMEM,
 				Box: cudapipeline.TMABox{
@@ -38,7 +43,7 @@ func TestTMEMPipelineConfigurations(t *testing.T) {
 		{
 			name: "triple_buffering_sm100_fp8",
 			cfg: cudapipeline.PipelineConfig{
-				TargetArch:  cudapipeline.ArchSM100,
+				TargetArch:  cudapipeline.ArchSM100a,
 				NumStages:   3,
 				MemorySpace: cudapipeline.MemorySpaceTMEM,
 				Box: cudapipeline.TMABox{
@@ -57,7 +62,7 @@ func TestTMEMPipelineConfigurations(t *testing.T) {
 		{
 			name: "quad_buffering_sm100_tf32",
 			cfg: cudapipeline.PipelineConfig{
-				TargetArch:  cudapipeline.ArchSM100,
+				TargetArch:  cudapipeline.ArchSM100a,
 				NumStages:   4,
 				MemorySpace: cudapipeline.MemorySpaceTMEM,
 				Box: cudapipeline.TMABox{
@@ -166,7 +171,7 @@ func TestTMEMValidation_Errors(t *testing.T) {
 		{
 			name: "tmem_capacity_exceeded",
 			setup: func() *cudapipeline.Pipeline {
-				arch, _ := cudapipeline.ArchProfileFor(cudapipeline.ArchSM100)
+				arch, _ := cudapipeline.ArchProfileFor(cudapipeline.ArchSM100a)
 				// Create 4 stages of 70KB each = 280KB > 256KB capacity
 				stageSize := 70 * 1024
 				stages := make([]cudapipeline.Stage, 4)
@@ -185,7 +190,7 @@ func TestTMEMValidation_Errors(t *testing.T) {
 				return &cudapipeline.Pipeline{
 					Arch: arch,
 					Config: cudapipeline.PipelineConfig{
-						TargetArch:  cudapipeline.ArchSM100,
+						TargetArch:  cudapipeline.ArchSM100a,
 						NumStages:   4,
 						MemorySpace: cudapipeline.MemorySpaceTMEM,
 					},
@@ -199,12 +204,12 @@ func TestTMEMValidation_Errors(t *testing.T) {
 		{
 			name: "stage_buffer_boundary_exceeded",
 			setup: func() *cudapipeline.Pipeline {
-				arch, _ := cudapipeline.ArchProfileFor(cudapipeline.ArchSM100)
+				arch, _ := cudapipeline.ArchProfileFor(cudapipeline.ArchSM100a)
 				// Buffer offset near end of TMEM, overflowing 256KB limit
 				return &cudapipeline.Pipeline{
 					Arch: arch,
 					Config: cudapipeline.PipelineConfig{
-						TargetArch:  cudapipeline.ArchSM100,
+						TargetArch:  cudapipeline.ArchSM100a,
 						NumStages:   2,
 						MemorySpace: cudapipeline.MemorySpaceTMEM,
 					},
@@ -240,7 +245,7 @@ func TestTMEMValidation_Errors(t *testing.T) {
 			name: "tmem_buffer_unaligned",
 			setup: func() *cudapipeline.Pipeline {
 				pipe, _ := cudapipeline.NewPipeline(cudapipeline.PipelineConfig{
-					TargetArch:  cudapipeline.ArchSM100,
+					TargetArch:  cudapipeline.ArchSM100a,
 					NumStages:   2,
 					MemorySpace: cudapipeline.MemorySpaceTMEM,
 					Box:         cudapipeline.TMABox{DimX: 64, DimY: 16, ElementSize: 2},
@@ -256,7 +261,7 @@ func TestTMEMValidation_Errors(t *testing.T) {
 			name: "tmem_buffer_suboptimal_alignment_warning",
 			setup: func() *cudapipeline.Pipeline {
 				pipe, _ := cudapipeline.NewPipeline(cudapipeline.PipelineConfig{
-					TargetArch:  cudapipeline.ArchSM100,
+					TargetArch:  cudapipeline.ArchSM100a,
 					NumStages:   2,
 					MemorySpace: cudapipeline.MemorySpaceTMEM,
 					Box:         cudapipeline.TMABox{DimX: 64, DimY: 16, ElementSize: 2},
@@ -272,7 +277,7 @@ func TestTMEMValidation_Errors(t *testing.T) {
 			name: "tmem_buffer_capacity_smaller_than_payload",
 			setup: func() *cudapipeline.Pipeline {
 				pipe, _ := cudapipeline.NewPipeline(cudapipeline.PipelineConfig{
-					TargetArch:  cudapipeline.ArchSM100,
+					TargetArch:  cudapipeline.ArchSM100a,
 					NumStages:   2,
 					MemorySpace: cudapipeline.MemorySpaceTMEM,
 					Box:         cudapipeline.TMABox{DimX: 64, DimY: 16, ElementSize: 2},
@@ -288,7 +293,7 @@ func TestTMEMValidation_Errors(t *testing.T) {
 			name: "barrier_transaction_undercounting",
 			setup: func() *cudapipeline.Pipeline {
 				pipe, _ := cudapipeline.NewPipeline(cudapipeline.PipelineConfig{
-					TargetArch:  cudapipeline.ArchSM100,
+					TargetArch:  cudapipeline.ArchSM100a,
 					NumStages:   2,
 					MemorySpace: cudapipeline.MemorySpaceTMEM,
 					Box:         cudapipeline.TMABox{DimX: 64, DimY: 16, ElementSize: 2},
@@ -304,7 +309,7 @@ func TestTMEMValidation_Errors(t *testing.T) {
 			name: "barrier_transaction_overcounting",
 			setup: func() *cudapipeline.Pipeline {
 				pipe, _ := cudapipeline.NewPipeline(cudapipeline.PipelineConfig{
-					TargetArch:  cudapipeline.ArchSM100,
+					TargetArch:  cudapipeline.ArchSM100a,
 					NumStages:   2,
 					MemorySpace: cudapipeline.MemorySpaceTMEM,
 					Box:         cudapipeline.TMABox{DimX: 64, DimY: 16, ElementSize: 2},
@@ -320,7 +325,7 @@ func TestTMEMValidation_Errors(t *testing.T) {
 			name: "overlapping_tmem_buffers",
 			setup: func() *cudapipeline.Pipeline {
 				pipe, _ := cudapipeline.NewPipeline(cudapipeline.PipelineConfig{
-					TargetArch:  cudapipeline.ArchSM100,
+					TargetArch:  cudapipeline.ArchSM100a,
 					NumStages:   2,
 					MemorySpace: cudapipeline.MemorySpaceTMEM,
 					Box:         cudapipeline.TMABox{DimX: 64, DimY: 16, ElementSize: 2},
@@ -373,7 +378,7 @@ func TestNewPipeline_TMEM_Rejection(t *testing.T) {
 
 func TestTMEMPTXEmission(t *testing.T) {
 	pipe, err := cudapipeline.NewPipeline(cudapipeline.PipelineConfig{
-		TargetArch:  cudapipeline.ArchSM100,
+		TargetArch:  cudapipeline.ArchSM100a,
 		NumStages:   3,
 		MemorySpace: cudapipeline.MemorySpaceTMEM,
 		Box: cudapipeline.TMABox{
@@ -467,7 +472,7 @@ func TestValidatePTX_TMEM_Table(t *testing.T) {
 			name: "valid_2stage_tmem_pipeline",
 			ptx: `
 .version 8.8
-.target sm_100
+.target sm_100a
 .address_size 64
 
 .visible .entry valid_tmem_kernel(
@@ -523,7 +528,7 @@ func TestValidatePTX_TMEM_Table(t *testing.T) {
 			name: "tmem_copy_mismatched_tx_bytes",
 			ptx: `
 .version 8.8
-.target sm_100
+.target sm_100a
 .address_size 64
 
 .visible .entry mismatched_tmem_kernel(
@@ -560,7 +565,7 @@ func TestValidatePTX_TMEM_Table(t *testing.T) {
 			name: "tmem_invalid_column_count",
 			ptx: `
 .version 8.8
-.target sm_100
+.target sm_100a
 .address_size 64
 
 .visible .entry invalid_cols_kernel()
