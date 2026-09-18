@@ -5664,7 +5664,7 @@
           "-docs-dir",
           "${DOCS_DIR}"
         ],
-        "comparison": "All 16 generated Go files replayed from the recorded committed generator and matched the reviewed output byte-for-byte. Existing public predicate HascommInitAll preserved.",
+        "comparison": "All 18 generated Go files replayed from the recorded committed generator and matched the reviewed output byte-for-byte. Existing public predicate HascommInitAll preserved.",
         "cwd": "${CODEGEN_REPO}",
         "dependency_inventory": {
           "method": "Primary-header clang -M closure plus conservative complete NCCL .h/.hpp tree for nine separately selected device siblings and layout probes; includes all selected inputs, may include unused device headers.",
@@ -5842,8 +5842,12 @@
             "sha256": "e3433ee4d7d39211a84d6bcbfca627a3f6326c0f6c8adab0264ec04bb8a7ec0b"
           },
           {
+            "path": "nvidia/nccl/defaults.gen.go",
+            "sha256": "4f4850e70cee83e5bd48d2715a6a119e5673169b380ce8045d0a52be25300e0f"
+          },
+          {
             "path": "nvidia/nccl/devcomm.gen.go",
-            "sha256": "abf9788d14652c09b2ce1dead9afa0427c450e3eb841ba1889d02ee2c78f2260"
+            "sha256": "f2d4ac7403f9dc55ad8c5332fe098e63a5ac062a8dcdf7cb72a55f1e358e46c8"
           },
           {
             "path": "nvidia/nccl/devptr.gen.go",
@@ -5864,7 +5868,7 @@
           },
           {
             "path": "nvidia/nccl/gin.gen.go",
-            "sha256": "5566f120ac558abf7fb5bb04a52bd8afd9cc5ed4eaef9f30d03be8c797714f6c"
+            "sha256": "698a55f0d91438e1fe61afaf98c855c888f84ea2b7fc81e3d2636b81a0b70aed"
           },
           {
             "path": "nvidia/nccl/handles.gen.go",
@@ -5872,7 +5876,7 @@
           },
           {
             "path": "nvidia/nccl/init.gen.go",
-            "sha256": "663bc582ae25b62b135a8c3d3d7cc87e7ca07bcac09c9529dae7334f4bb5c9c4"
+            "sha256": "7b8572ae4792041df891ad6437234fa398e62cc2d8f15e91e9a58349f4386f75"
           },
           {
             "path": "nvidia/nccl/layout_test.go",
@@ -5892,7 +5896,7 @@
           },
           {
             "path": "nvidia/nccl/provenance.gen.go",
-            "sha256": "08e805db62c6601d359499e8e22c249bc6d0d93765393e3a69939991c1806935"
+            "sha256": "3afce5f30d70b05825951bdf00531624da0dc7d1387f95e6adaf21ee1d9d75a0"
           },
           {
             "path": "nvidia/nccl/result.gen.go",
@@ -5900,7 +5904,7 @@
           },
           {
             "path": "nvidia/nccl/structs.gen.go",
-            "sha256": "0a8e8a4696c485c188b248e73d03139c88863a8ad1a95410f2f6f6af689c5fe8"
+            "sha256": "e014fca9f3ef3375017240566b3ee60ad430b5aae9a3f7a6aaf32050ba855131"
           },
           {
             "path": "nvidia/nccl/window.gen.go",
