@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
 
 func layoutNativeTarget(t *testing.T) string {
@@ -42,25 +44,11 @@ func layoutScratch(t *testing.T, name string) string {
 	return dir
 }
 
-func layoutNVCC(t *testing.T) string {
-	t.Helper()
-	nvcc, err := exec.LookPath("nvcc")
-	if err != nil {
-		t.Fatal("qualification enabled but nvcc unavailable")
-	}
-	if out, err := exec.Command(nvcc, "--version").CombinedOutput(); err != nil {
-		t.Fatalf("nvcc --version: %v\n%s", err, out)
-	} else {
-		t.Logf("nvcc version:\n%s", out)
-	}
-	return nvcc
-}
-
 func TestCompileLayoutFixture(t *testing.T) {
 	if os.Getenv("CUDA_LAYOUT_COMPILE") != "1" {
 		t.Skip("compile qualification requires CUDA_LAYOUT_COMPILE=1")
 	}
-	nvcc := layoutNVCC(t)
+	nvcc, _ := cudatest.NVCC(t)
 	target := layoutNativeTarget(t)
 	tile, err := NewTile(8, 8, 2, WithStride(16), WithSwizzle(Swizzle32B))
 	if err != nil {
@@ -94,7 +82,7 @@ func TestNativeLayoutFixture(t *testing.T) {
 	if testing.Short() {
 		t.Skip("native layout fixture disabled in short mode")
 	}
-	nvcc := layoutNVCC(t)
+	nvcc, _ := cudatest.NVCC(t)
 	target := layoutNativeTarget(t)
 	tile, err := NewTile(8, 8, 2, WithStride(16), WithSwizzle(Swizzle32B))
 	if err != nil {

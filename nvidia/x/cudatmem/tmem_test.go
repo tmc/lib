@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
 
 func TestTMEMAllocationUnits(t *testing.T) {
@@ -173,9 +175,7 @@ func TestNativeTMEMReference(t *testing.T) {
 	if os.Getenv("CUDA_TMEM_TEST") == "1" && os.Getenv("GPU_LOCK_HELD") == "" {
 		t.Fatal("CUDA_TMEM_TEST=1 requires running under the GPU lock")
 	}
-	if _, err := exec.LookPath("nvcc"); err != nil {
-		t.Fatal("CUDA_TMEM_* requires nvcc: " + err.Error())
-	}
+	nvcc, _ := cudatest.NVCC(t)
 	dir := t.TempDir()
 	src := filepath.Join(dir, "fixture.cu")
 	if err := os.WriteFile(src, []byte(f.CUDA), 0600); err != nil {
@@ -186,7 +186,7 @@ func TestNativeTMEMReference(t *testing.T) {
 	if os.Getenv("CUDA_TMEM_TEST") != "1" {
 		args = []string{"-arch=sm_100a", "-cubin", src, "-o", outPath}
 	}
-	if out, err := exec.Command("nvcc", args...).CombinedOutput(); err != nil {
+	if out, err := exec.Command(nvcc, args...).CombinedOutput(); err != nil {
 		t.Fatalf("tcgen05 fixture compile: %v\n%s", err, out)
 	}
 	if os.Getenv("CUDA_TMEM_TEST") != "1" {

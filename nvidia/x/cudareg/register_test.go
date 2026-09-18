@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
 
 func fixture(t *testing.T) Schedule {
@@ -84,10 +86,7 @@ func TestNativeRegisterTransitionReference(t *testing.T) {
 	if os.Getenv("GPU_LOCK_HELD") == "" {
 		t.Fatal("CUDA_REGISTER_NATIVE=1 requires running under the GPU lock")
 	}
-	nvcc, err := exec.LookPath("nvcc")
-	if err != nil {
-		t.Fatal("CUDA_REGISTER_NATIVE=1 requires nvcc: ", err)
-	}
+	nvcc, _ := cudatest.NVCC(t)
 	if os.Getenv("CUDA_REGISTER_NATIVE_ARCH") != "sm_90a" {
 		t.Fatal("CUDA_REGISTER_NATIVE=1 requires CUDA_REGISTER_NATIVE_ARCH=sm_90a")
 	}
@@ -144,10 +143,7 @@ func TestCompileRegisterFixture(t *testing.T) {
 	if os.Getenv("CUDA_REGISTER_COMPILE") != "1" {
 		t.Skip("compile qualification pending: CUDA_REGISTER_COMPILE=1 required")
 	}
-	nvcc, err := exec.LookPath("nvcc")
-	if err != nil {
-		t.Fatalf("compile gate enabled but nvcc is unavailable: %v", err)
-	}
+	nvcc, _ := cudatest.NVCC(t)
 	_, dynamic, err := GenerateFixture()
 	if err != nil {
 		t.Fatal(err)

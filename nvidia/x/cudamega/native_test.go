@@ -2,14 +2,26 @@ package cudamega_test
 
 import (
 	"context"
-	"github.com/tmc/lib/nvidia/x/cudamega"
-	"github.com/tmc/lib/nvidia/x/cudataskgraph"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/cudamega"
+	"github.com/tmc/lib/nvidia/x/cudataskgraph"
+	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
+
+// megaTarget returns the architecture the program fixture is compiled for.
+// CUDA_MEGA_NATIVE_ARCH names another; sm_90 is what the generated program has
+// been qualified against.
+func megaTarget() string {
+	if target := os.Getenv("CUDA_MEGA_NATIVE_ARCH"); target != "" {
+		return target
+	}
+	return "sm_90"
+}
 
 func programFixture(t *testing.T) (cudataskgraph.Graph, map[string]cudamega.Operation) {
 	t.Helper()
@@ -31,10 +43,8 @@ func TestNativePersistentReference(t *testing.T) {
 	if os.Getenv("CUDA_MEGA_NATIVE_ARCH") != "sm_90" {
 		t.Fatal("CUDA_MEGA_NATIVE=1 requires CUDA_MEGA_NATIVE_ARCH=sm_90")
 	}
-	nvcc, err := exec.LookPath("nvcc")
-	if err != nil {
-		t.Fatal(err)
-	}
+	nvcc, _ := cudatest.NVCC(t)
+	target := megaTarget()
 	g, ops := programFixture(t)
 	src, err := cudamega.ProgramSource(g, ops)
 	if err != nil {
@@ -63,7 +73,7 @@ cudaFree(in);cudaFree(scratch);cudaFree(completed);cudaFree(abort);return 0; }
 	if err := os.WriteFile(cu, []byte(src), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command(nvcc, "-arch=sm_90", cu, "-o", exe).CombinedOutput(); err != nil {
+	if out, err := exec.Command(nvcc, "-arch="+target, cu, "-o", exe).CombinedOutput(); err != nil {
 		t.Fatalf("compile: %v\n%s", err, out)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -77,10 +87,8 @@ func TestCompileProgramSource(t *testing.T) {
 	if os.Getenv("CUDA_MEGA_COMPILE") != "1" {
 		t.Skip("compile qualification opt-in: CUDA_MEGA_COMPILE=1")
 	}
-	nvcc, err := exec.LookPath("nvcc")
-	if err != nil {
-		t.Fatal(err)
-	}
+	nvcc, _ := cudatest.NVCC(t)
+	target := megaTarget()
 	g, ops := programFixture(t)
 	src, err := cudamega.ProgramSource(g, ops)
 	if err != nil {
@@ -96,7 +104,7 @@ func TestCompileProgramSource(t *testing.T) {
 	if err := os.WriteFile(cu, []byte(src), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command(nvcc, "-arch=sm_90", "-c", cu, "-o", filepath.Join(dir, "fixture.o")).CombinedOutput(); err != nil {
+	if out, err := exec.Command(nvcc, "-arch="+target, "-c", cu, "-o", filepath.Join(dir, "fixture.o")).CombinedOutput(); err != nil {
 		t.Fatalf("compile: %v\n%s", err, out)
 	}
 }

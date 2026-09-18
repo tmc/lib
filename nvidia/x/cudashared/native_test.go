@@ -8,7 +8,18 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
+
+// stagedCopyTarget returns the architecture the staged-copy fixture is compiled
+// for. CUDA_STAGED_COPY_NATIVE_ARCH names another.
+func stagedCopyTarget() string {
+	if target := os.Getenv("CUDA_STAGED_COPY_NATIVE_ARCH"); target != "" {
+		return target
+	}
+	return "sm_100a"
+}
 
 func TestNativeStagedCopy(t *testing.T) {
 	if os.Getenv("CUDA_STAGED_COPY_NATIVE") != "1" {
@@ -21,10 +32,8 @@ func TestNativeStagedCopy(t *testing.T) {
 	if os.Getenv("GPU_LOCK_HELD") == "" {
 		t.Fatal("native gate enabled but no GPU_LOCK_HELD: run under gpu-lock")
 	}
-	nvcc, err := exec.LookPath("nvcc")
-	if err != nil {
-		t.Fatalf("native gate enabled but nvcc is unavailable: %v", err)
-	}
+	nvcc, _ := cudatest.NVCC(t)
+	target := stagedCopyTarget()
 	plan, err := NewPlan(Limits{StaticMax: 1024, DynamicMax: 1024, TotalMax: 1024, Source: "bounded fixture"})
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +44,7 @@ func TestNativeStagedCopy(t *testing.T) {
 	if _, err := plan.Add(Request{Name: "stage0", Size: 65 * 4, Alignment: 16, Dynamic: true}); err != nil {
 		t.Fatal(err)
 	}
-	src, launchBytes, err := StagedCopyFixture(plan, "sm_100a", 65)
+	src, launchBytes, err := StagedCopyFixture(plan, target, 65)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +77,7 @@ int main() {
 	if err := os.WriteFile(file, []byte(src), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(nvcc, "-std=c++17", "-arch=sm_100a", file, "-o", filepath.Join(dir, "staged"))
+	cmd := exec.Command(nvcc, "-std=c++17", "-arch="+target, file, "-o", filepath.Join(dir, "staged"))
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("nvcc staged fixture link: %v\n%s", err, out)
 	}
@@ -83,11 +92,9 @@ func TestCompileStagedCopy(t *testing.T) {
 	if os.Getenv("CUDA_STAGED_COPY_COMPILE") != "1" {
 		t.Skip("compile qualification pending: CUDA_STAGED_COPY_COMPILE=1 required")
 	}
-	nvcc, err := exec.LookPath("nvcc")
-	if err != nil {
-		t.Fatalf("compile gate enabled but nvcc is unavailable: %v", err)
-	}
-	src, err := StagedCopyFixtureSource("sm_100a", 32)
+	nvcc, _ := cudatest.NVCC(t)
+	target := stagedCopyTarget()
+	src, err := StagedCopyFixtureSource(target, 32)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +111,7 @@ func TestCompileStagedCopy(t *testing.T) {
 	if err := os.WriteFile(file, []byte(src), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command(nvcc, "-std=c++17", "-arch=sm_100a", "-c", file, "-o", filepath.Join(dir, "staged.o")).CombinedOutput(); err != nil {
+	if out, err := exec.Command(nvcc, "-std=c++17", "-arch="+target, "-c", file, "-o", filepath.Join(dir, "staged.o")).CombinedOutput(); err != nil {
 		t.Fatalf("nvcc staged fixture compile: %v\n%s", err, out)
 	}
 }

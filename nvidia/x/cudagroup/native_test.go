@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
 
 func nativeFixture(t *testing.T) Fixture {
@@ -58,26 +60,20 @@ func requireNative(t *testing.T) {
 	if os.Getenv("GPU_LOCK_HELD") == "" {
 		t.Fatal("CUDA_GROUP_NATIVE=1 requires running under the GPU lock")
 	}
-	if _, err := exec.LookPath("nvcc"); err != nil {
-		t.Fatalf("native qualification requested but nvcc is unavailable: %v", err)
-	}
 }
 
 func TestCompileReductionFixture(t *testing.T) {
 	if os.Getenv("CUDA_GROUP_COMPILE") != "1" {
 		t.Skip("compile qualification disabled: set CUDA_GROUP_COMPILE=1")
 	}
-	if _, err := exec.LookPath("nvcc"); err != nil {
-		t.Fatalf("compile qualification requested but nvcc is unavailable: %v", err)
-	}
+	nvcc, _ := cudatest.NVCC(t)
 	f := nativeFixture(t)
-	logCompiler(t)
 	dir := nativeDir(t)
 	src := filepath.Join(dir, "fixture.cu")
 	if err := os.WriteFile(src, []byte(f.Source), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("nvcc", "-c", "-O0", "-arch="+f.Target, src, "-o", filepath.Join(dir, "fixture.o"))
+	cmd := exec.Command(nvcc, "-c", "-O0", "-arch="+f.Target, src, "-o", filepath.Join(dir, "fixture.o"))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("nvcc compile: %v\n%s", err, out)
@@ -86,8 +82,8 @@ func TestCompileReductionFixture(t *testing.T) {
 
 func TestNativeGroupReference(t *testing.T) {
 	requireNative(t)
+	nvcc, _ := cudatest.NVCC(t)
 	f := nativeFixture(t)
-	logCompiler(t)
 	dir := nativeDir(t)
 	values := make([]float32, 32)
 	for i := range values {
@@ -120,7 +116,7 @@ int main() {
 		t.Fatal(err)
 	}
 	exe := filepath.Join(dir, "native")
-	build := exec.Command("nvcc", "-O0", "-arch="+f.Target, src, "-o", exe)
+	build := exec.Command(nvcc, "-O0", "-arch="+f.Target, src, "-o", exe)
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("nvcc build: %v\n%s", err, out)
 	}
@@ -140,13 +136,4 @@ int main() {
 	if float32(got) != want {
 		t.Fatalf("native reduction: got %v want %v", got, want)
 	}
-}
-
-func logCompiler(t *testing.T) {
-	t.Helper()
-	out, err := exec.Command("nvcc", "--version").CombinedOutput()
-	if err != nil {
-		t.Fatalf("compiler version: %v\n%s", err, out)
-	}
-	t.Logf("%s", out)
 }
