@@ -150,7 +150,7 @@ func (t SwizzledTile) BaseAlignment() int {
 // ByteOffset returns the byte offset of an element within the tile.
 func (t SwizzledTile) ByteOffset(row, col int) (int, error) {
 	if t.elemBytes == 0 {
-		return 0, ErrUnsupported
+		return 0, ErrUninitialized
 	}
 	if row < 0 || row >= t.rows || col < 0 || col >= t.cols {
 		return 0, ErrOutOfBounds

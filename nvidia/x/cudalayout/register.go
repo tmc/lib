@@ -17,7 +17,7 @@ func (t Tile) Owner(row, col int) (RegisterOwner, error) {
 // OwnerFor returns the logical element represented by an owner slot.
 func (t Tile) OwnerFor(lane, register int) (row, col int, err error) {
 	if t.rows == 0 || t.cols == 0 || t.stride == 0 {
-		return 0, 0, ErrUnsupported
+		return 0, 0, ErrUninitialized
 	}
 	if lane < 0 || lane >= 32 || register < 0 {
 		return 0, 0, ErrOutOfBounds

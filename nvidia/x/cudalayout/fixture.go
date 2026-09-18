@@ -18,7 +18,7 @@ func FixtureSourceForTarget(t Tile, target string) (string, error) {
 		return "", err
 	}
 	if target != TargetSM100a && target != TargetSM121a {
-		return "", fmt.Errorf("%w: target %q", ErrUnsupported, target)
+		return "", fmt.Errorf("%w: no fixture for target %q", ErrUnmodeled, target)
 	}
 	typeName := map[int]string{1: "unsigned char", 2: "half", 4: "float"}[t.elemBytes]
 	include := ""

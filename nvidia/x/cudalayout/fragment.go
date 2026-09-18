@@ -57,13 +57,13 @@ type Fragment struct {
 // Element widths of 2 and 4 bytes are modeled. One-byte elements are
 // rejected: their base tile is 16x32 rather than 16x16 and packs four
 // elements per slot, and this package has no verified mapping for that
-// distribution. [ErrUnsupported] there means unmodeled, not absent from the
-// hardware.
+// distribution, which is why that case returns [ErrUnmodeled] rather than
+// plain [ErrUnsupported].
 func NewFragment(elementBytes int, layout FragmentLayout) (Fragment, error) {
 	switch elementBytes {
 	case 2, 4:
 	case 1:
-		return Fragment{}, fmt.Errorf("one-byte fragment distribution is not modeled: %w", ErrUnsupported)
+		return Fragment{}, fmt.Errorf("one-byte fragment distribution: %w", ErrUnmodeled)
 	default:
 		return Fragment{}, fmt.Errorf("element size %d is not 2 or 4 bytes: %w", elementBytes, ErrUnsupported)
 	}
@@ -136,7 +136,7 @@ func (f Fragment) lanePosition(lane int) (row, col int) {
 // col.
 func (f Fragment) Owner(row, col int) (FragmentOwner, error) {
 	if f.elemBytes == 0 {
-		return FragmentOwner{}, ErrUnsupported
+		return FragmentOwner{}, ErrUninitialized
 	}
 	if row < 0 || row >= f.Rows() || col < 0 || col >= f.Cols() {
 		return FragmentOwner{}, ErrOutOfBounds
@@ -162,7 +162,7 @@ func (f Fragment) Owner(row, col int) (FragmentOwner, error) {
 // [Fragment.Owner].
 func (f Fragment) Element(o FragmentOwner) (row, col int, err error) {
 	if f.elemBytes == 0 {
-		return 0, 0, ErrUnsupported
+		return 0, 0, ErrUninitialized
 	}
 	if o.Lane < 0 || o.Lane >= 32 ||
 		o.Slot < 0 || o.Slot >= f.PackedPerThread() ||

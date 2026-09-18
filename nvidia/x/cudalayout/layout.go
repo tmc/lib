@@ -12,7 +12,24 @@ import (
 
 var (
 	// ErrUnsupported indicates an unsupported or invalid layout description.
+	//
+	// It is the general case. Two refinements wrap it, so a caller that does
+	// not care about the distinction can keep testing for ErrUnsupported
+	// alone: [ErrUnmodeled] and [ErrUninitialized].
 	ErrUnsupported = errors.New("unsupported layout")
+	// ErrUnmodeled indicates a layout the hardware has and this package does
+	// not describe. It is not the same as a layout that does not exist: the
+	// caller's description is fine and the work has not been done here.
+	//
+	// That is an actionable difference. A caller meeting ErrUnsupported has a
+	// bug; a caller meeting ErrUnmodeled has a dependency.
+	ErrUnmodeled = fmt.Errorf("%w: not modeled", ErrUnsupported)
+	// ErrUninitialized indicates a zero value that never passed through its
+	// constructor, so it describes no layout at all. Constructors are the only
+	// way to build a valid Tile, Fragment or SwizzledTile, and a zero value
+	// reaching a method is a programming error rather than an unsupported
+	// description.
+	ErrUninitialized = fmt.Errorf("%w: not constructed", ErrUnsupported)
 	// ErrOverflow indicates a host integer or shape address-limit overflow.
 	ErrOverflow = errors.New("layout arithmetic overflow")
 	// ErrOutOfBounds indicates a logical element or register slot outside a tile.
@@ -181,7 +198,7 @@ func (t Tile) Index(row, col int) (PhysicalIndex, error) {
 // padding. It is measured in bytes and is checked for host integer overflow.
 func (t Tile) FootprintBytes() (int, error) {
 	if t.rows == 0 || t.cols == 0 || t.elemBytes == 0 || t.stride == 0 {
-		return 0, ErrUnsupported
+		return 0, ErrUninitialized
 	}
 	if t.rows > math.MaxInt/(t.stride*t.elemBytes) {
 		return 0, ErrOverflow
