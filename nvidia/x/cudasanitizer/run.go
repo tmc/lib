@@ -97,11 +97,10 @@ type Result struct {
 	Outcome Outcome
 
 	// Err carries the reason for [OutcomeToolFailure]: [ErrToolNotFound],
-	// [ErrTimeout], [ErrNoVerdict], an option the resolved tool does not
-	// accept (wrapping [cudatool.ErrUnsupportedOption], reported by
-	// [ErrUnsupportedOption], reported by [Config.CheckOptions] before the
-	// run starts), or an error from
-	// starting or waiting on the process. It is nil for the other outcomes.
+	// [ErrTimeout], [ErrNoVerdict], [ErrUnsupportedOption] for an option the
+	// resolved tool does not accept, which [Config.CheckOptions] reports
+	// before the run starts, or an error from starting or waiting on the
+	// process. It is nil for the other outcomes.
 	Err error
 
 	// Args is the argument vector that was executed, starting with the
