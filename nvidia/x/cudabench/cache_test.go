@@ -71,3 +71,35 @@ func TestEvictL2RejectsABadMultiple(t *testing.T) {
 		t.Error("a rejected EvictL2 must not install an evictor")
 	}
 }
+
+// TestSpanPerIterationIsReachableWithoutAnEvictor is the point of the option:
+// before it, the per-iteration-span form could only be had by installing an
+// evictor, so the warm arm of a cache comparison was stuck in the other form
+// and the two arms were not comparable. Each configuration must state the form
+// it used and claim cache control only when it has it.
+func TestSpanPerIterationIsReachableWithoutAnEvictor(t *testing.T) {
+	const form = "sum of per-iteration spans"
+
+	single := &B{}
+	if single.spanPerIteration() {
+		t.Fatal("a run with no evictor and no request must use one span around the loop")
+	}
+	if strings.Contains(joined(single), form) {
+		t.Errorf("the single-span form must not claim the per-iteration one: %q", joined(single))
+	}
+
+	warm := &B{perIter: true}
+	if !warm.spanPerIteration() {
+		t.Fatal("SpanPerIteration was requested and not honored")
+	}
+	if got := joined(warm); !strings.Contains(got, form) {
+		t.Errorf("a per-iteration-span run must state the form: %q", got)
+	} else if !strings.Contains(got, "uncontrolled") {
+		t.Errorf("no evictor is installed, so cache state is still uncontrolled: %q", got)
+	}
+
+	evicted := &B{evict: func(*cuda.Stream) error { return nil }, evictName: "L2 overwrite"}
+	if got := joined(evicted); !strings.Contains(got, form) {
+		t.Errorf("an evictor forces the per-iteration form and must say so: %q", got)
+	}
+}

@@ -11,7 +11,9 @@ import (
 // Evict runs fn between timed iterations to disturb device cache state. Its
 // cost is excluded from the reported time: once an evictor is installed, each
 // iteration is timed with its own event pair and the reported total is the sum
-// of those spans, so the eviction happens in the gaps between them.
+// of those spans, so the eviction happens in the gaps between them. That form
+// is also available on its own: see B.SpanPerIteration, which is what lets an
+// uncontrolled-cache arm be compared to an evicted one in the same unit.
 //
 // Installing an evictor changes what the benchmark measures, and is meant to.
 // A tight repeat loop over a working set that fits in L2 measures a

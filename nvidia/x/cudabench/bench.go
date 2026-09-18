@@ -19,7 +19,27 @@ type B struct {
 	flopsPerOp int64
 	evict      func(*cuda.Stream) error
 	evictName  string
+	perIter    bool
 }
+
+// spanPerIteration reports whether the run is timed with one event pair per
+// iteration rather than one pair around the whole loop. An evictor requires
+// that form, because eviction must fall in the gaps between spans; a caller can
+// also ask for it alone. Run and limits must agree on the answer, so both ask
+// here rather than testing the fields themselves.
+func (b *B) spanPerIteration() bool { return b.perIter || b.evict != nil }
+
+// SpanPerIteration times each iteration with its own event pair and reports the
+// sum, which is the form an evictor forces. It exists so the two arms of a
+// cache-regime comparison can be expressed in one unit: without it the warm arm
+// is only reachable in the single-span form, which includes the inter-launch
+// gaps the per-iteration sum excludes, and the comment in Run is right that the
+// two must not be compared.
+//
+// The sum is not the cheaper number. Each iteration pays a stop synchronize, so
+// this form serializes submission where the single-span form pipelines it. Use
+// it when the comparison needs it, not by default.
+func (b *B) SpanPerIteration() { b.perIter = true }
 
 // SetBytes configures the number of bytes processed per benchmark iteration.
 func (b *B) SetBytes(n int64) {
@@ -76,7 +96,7 @@ func (b *B) Time(fn func(stream *cuda.Stream)) {
 	b.tb.ResetTimer()
 
 	var elapsed time.Duration
-	if b.evict == nil {
+	if !b.spanPerIteration() {
 		// One event pair around the whole loop. The reported per-iteration time
 		// is therefore a mean over N, not a median: a single scheduling hiccup
 		// moves it by its full size divided by N.
@@ -97,13 +117,15 @@ func (b *B) Time(fn func(stream *cuda.Stream)) {
 			b.tb.Fatalf("cudabench: elapsed time calculation: %v", err)
 		}
 	} else {
-		// An evictor must not be timed, so each iteration gets its own span and
-		// the eviction runs between them. The sum excludes eviction but also
+		// Each iteration gets its own span, so an evictor -- which must not be
+		// timed -- runs between them. The sum excludes eviction but also
 		// excludes the launch gaps the single-span form includes, so the two
 		// forms are not interchangeable and must not be compared to each other.
 		for i := 0; i < b.tb.N; i++ {
-			if err := b.evict(b.stream); err != nil {
-				b.tb.Fatalf("cudabench: evict before iteration %d: %v", i, err)
+			if b.evict != nil {
+				if err := b.evict(b.stream); err != nil {
+					b.tb.Fatalf("cudabench: evict before iteration %d: %v", i, err)
+				}
 			}
 			if err := start.Record(b.stream); err != nil {
 				b.tb.Fatalf("cudabench: record start: %v", err)
@@ -166,9 +188,13 @@ func (b *B) limits() []string {
 				"an uncontrolled cache")
 		}
 	} else {
-		out = append(out, fmt.Sprintf("cache state: %s between iterations; timing is the sum of "+
-			"per-iteration spans and excludes both the eviction and the inter-launch gaps",
-			b.evictName))
+		out = append(out, fmt.Sprintf("cache state: %s between iterations, and the eviction is "+
+			"outside the timed spans", b.evictName))
+	}
+	if b.spanPerIteration() {
+		out = append(out, "timing is the sum of per-iteration spans, which excludes the "+
+			"inter-launch gaps a single span around the loop includes; comparable only to "+
+			"other per-iteration-span runs")
 	}
 	return out
 }
