@@ -37,8 +37,9 @@ func TestNativeTMAReference(t *testing.T) {
 	if os.Getenv("CUDA_TMA_NATIVE") != "1" {
 		t.Skip("native qualification pending: CUDA_TMA_NATIVE=1 required")
 	}
-	if os.Getenv("GPU_LOCK_HELD") != "1" {
-		t.Fatal("CUDA_TMA_NATIVE=1 requires GPU_LOCK_HELD=1")
+	// See cudashared/native_test.go: the lock exports the holder's pid, not "1".
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		t.Fatal("CUDA_TMA_NATIVE=1 requires running under the GPU lock")
 	}
 	nvcc, e := exec.LookPath("nvcc")
 	if e != nil {

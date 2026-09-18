@@ -80,8 +80,9 @@ func TestNativeRegisterTransitionReference(t *testing.T) {
 	if os.Getenv("CUDA_REGISTER_NATIVE") != "1" {
 		t.Skip("native qualification opt-in: set CUDA_REGISTER_NATIVE=1")
 	}
-	if os.Getenv("GPU_LOCK_HELD") != "1" {
-		t.Fatal("CUDA_REGISTER_NATIVE=1 requires GPU_LOCK_HELD=1")
+	// See cudashared/native_test.go: the lock exports the holder's pid, not "1".
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		t.Fatal("CUDA_REGISTER_NATIVE=1 requires running under the GPU lock")
 	}
 	nvcc, err := exec.LookPath("nvcc")
 	if err != nil {

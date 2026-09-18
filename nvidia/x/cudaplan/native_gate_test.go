@@ -9,8 +9,9 @@ import (
 
 func requireNativePlanDevice(t *testing.T) *cuda.Device {
 	t.Helper()
-	if os.Getenv("GPU_LOCK_HELD") != "1" {
-		t.Fatal("enabled native plan test requires GPU_LOCK_HELD=1")
+	// See cudashared/native_test.go: the lock exports the holder's pid, not "1".
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		t.Fatal("enabled native plan test requires running under the GPU lock")
 	}
 	dev, err := cuda.NewDevice(0)
 	if err != nil {

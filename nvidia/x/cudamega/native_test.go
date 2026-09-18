@@ -24,8 +24,9 @@ func TestNativePersistentReference(t *testing.T) {
 	if os.Getenv("CUDA_MEGA_NATIVE") != "1" {
 		t.Skip("native qualification opt-in: CUDA_MEGA_NATIVE=1")
 	}
-	if os.Getenv("GPU_LOCK_HELD") != "1" {
-		t.Fatal("CUDA_MEGA_NATIVE=1 requires GPU_LOCK_HELD=1")
+	// See cudashared/native_test.go: the lock exports the holder's pid, not "1".
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		t.Fatal("CUDA_MEGA_NATIVE=1 requires running under the GPU lock")
 	}
 	if os.Getenv("CUDA_MEGA_NATIVE_ARCH") != "sm_90" {
 		t.Fatal("CUDA_MEGA_NATIVE=1 requires CUDA_MEGA_NATIVE_ARCH=sm_90")

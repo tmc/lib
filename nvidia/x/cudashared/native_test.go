@@ -14,8 +14,12 @@ func TestNativeStagedCopy(t *testing.T) {
 	if os.Getenv("CUDA_STAGED_COPY_NATIVE") != "1" {
 		t.Skip("native qualification pending: CUDA_STAGED_COPY_NATIVE=1 required")
 	}
-	if os.Getenv("GPU_LOCK_HELD") != "1" {
-		t.Fatalf("native gate enabled but GPU_LOCK_HELD=1 is absent")
+	// gpu-lock exports GPU_LOCK_HELD=$$, the holder's pid, so it is never the
+	// literal "1". Testing for "1" made this gate satisfiable only by someone
+	// who set the variable by hand -- that is, by the one caller not holding
+	// the lock. Test for a value, as cudatrial does.
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		t.Fatal("native gate enabled but no GPU_LOCK_HELD: run under gpu-lock")
 	}
 	nvcc, err := exec.LookPath("nvcc")
 	if err != nil {

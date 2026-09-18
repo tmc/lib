@@ -87,8 +87,9 @@ func TestNativeLayoutFixture(t *testing.T) {
 	if os.Getenv("CUDA_LAYOUT_NATIVE") != "1" {
 		t.Skip("native qualification requires CUDA_LAYOUT_NATIVE=1")
 	}
-	if os.Getenv("GPU_LOCK_HELD") != "1" {
-		t.Fatal("CUDA_LAYOUT_NATIVE=1 requires GPU_LOCK_HELD=1")
+	// See cudashared/native_test.go: gpu-lock exports the holder's pid, not "1".
+	if os.Getenv("GPU_LOCK_HELD") == "" {
+		t.Fatal("CUDA_LAYOUT_NATIVE=1 requires running under gpu-lock")
 	}
 	if testing.Short() {
 		t.Skip("native layout fixture disabled in short mode")
