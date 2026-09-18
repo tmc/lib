@@ -1,0 +1,17 @@
+// Feature: mbarrier -- shared-memory transaction barrier with a byte count.
+// The plain mbarrier.init/arrive pair exists from sm_80; the transaction-count
+// form (expect_tx) is what a TMA pipeline needs, so that is what is probed.
+.version 9.0
+.target TARGET
+.address_size 64
+.visible .entry probe(.param .u64 bar)
+{
+  .reg .b64 %rd<3>;
+  .reg .b32 %r<2>;
+  ld.param.u64 %rd1, [bar];
+  cvta.to.shared.u64 %rd1, %rd1;
+  mov.u32 %r1, 1024;
+  mbarrier.init.shared::cta.b64 [%rd1], 128;
+  mbarrier.expect_tx.relaxed.cta.shared::cta.b64 [%rd1], %r1;
+  ret;
+}

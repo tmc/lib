@@ -1,0 +1,28 @@
+// Feature: wgmma -- Hopper warp-group MMA.
+// Accepted where wgmma.mma_async can be assembled; the fence alone is enough
+// to make the target reject it.
+//
+// The matrix descriptors are loaded from parameters rather than set to a
+// constant: ptxas 13.0.88 segfaults on a constant-zero descriptor, and a
+// crash is not a rejection.
+.version 9.0
+.target TARGET
+.address_size 64
+.visible .entry probe(.param .u64 p, .param .u64 da, .param .u64 db)
+{
+  .reg .b64 %rd<4>;
+  .reg .f32 %f<5>;
+  ld.param.u64 %rd1, [p];
+  ld.param.u64 %rd2, [da];
+  ld.param.u64 %rd3, [db];
+  mov.f32 %f1, 0f00000000;
+  mov.f32 %f2, 0f00000000;
+  mov.f32 %f3, 0f00000000;
+  mov.f32 %f4, 0f00000000;
+  wgmma.fence.sync.aligned;
+  wgmma.mma_async.sync.aligned.m64n8k16.f32.bf16.bf16 {%f1,%f2,%f3,%f4}, %rd2, %rd3, 1, 1, 1, 0, 0;
+  wgmma.commit_group.sync.aligned;
+  wgmma.wait_group.sync.aligned 0;
+  st.global.f32 [%rd1], %f1;
+  ret;
+}

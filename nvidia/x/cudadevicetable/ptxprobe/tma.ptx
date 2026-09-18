@@ -1,0 +1,18 @@
+// Feature: tma -- bulk tensor copy driven by a tensor map descriptor.
+.version 9.0
+.target TARGET
+.address_size 64
+.visible .entry probe(.param .u64 tmap, .param .u64 smem, .param .u64 bar)
+{
+  .reg .b64 %rd<4>;
+  .reg .b32 %r<3>;
+  ld.param.u64 %rd1, [tmap];
+  ld.param.u64 %rd2, [smem];
+  ld.param.u64 %rd3, [bar];
+  cvta.to.shared.u64 %rd2, %rd2;
+  cvta.to.shared.u64 %rd3, %rd3;
+  mov.u32 %r1, 0;
+  mov.u32 %r2, 0;
+  cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes [%rd2], [%rd1, {%r1, %r2}], [%rd3];
+  ret;
+}

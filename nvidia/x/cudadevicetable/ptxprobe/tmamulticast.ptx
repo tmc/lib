@@ -1,0 +1,26 @@
+// Feature: tmamulticast -- TMA bulk tensor copy broadcast to a cluster.
+//
+// Probed separately from multimem. The two are different mechanisms that
+// packages in this module have referred to interchangeably: multimem is a
+// multicast address space for reductions, while this is a TMA copy delivered
+// to several CTAs of a cluster at once. A table that recorded one of them
+// under the other's name would answer the wrong question without failing.
+.version 9.0
+.target TARGET
+.address_size 64
+.visible .entry probe(.param .u64 tmap, .param .u64 smem, .param .u64 bar)
+{
+  .reg .b64 %rd<4>;
+  .reg .b32 %r<4>;
+  .reg .b16 %rs<2>;
+  ld.param.u64 %rd1, [tmap];
+  ld.param.u64 %rd2, [smem];
+  ld.param.u64 %rd3, [bar];
+  cvta.to.shared.u64 %rd2, %rd2;
+  cvta.to.shared.u64 %rd3, %rd3;
+  mov.u32 %r1, 0;
+  mov.u32 %r2, 0;
+  mov.u16 %rs1, 1;
+  cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes.multicast::cluster [%rd2], [%rd1, {%r1, %r2}], [%rd3], %rs1;
+  ret;
+}

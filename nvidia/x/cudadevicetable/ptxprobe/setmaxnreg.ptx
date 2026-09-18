@@ -1,0 +1,10 @@
+// Feature: setmaxnreg -- warpgroup-granular register redistribution.
+.version 9.0
+.target TARGET
+.address_size 64
+.visible .entry probe()
+{
+  setmaxnreg.dec.sync.aligned.u32 24;
+  setmaxnreg.inc.sync.aligned.u32 96;
+  ret;
+}

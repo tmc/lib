@@ -10,6 +10,12 @@
 //	cudadevicetable                                  print the record for device 0
 //	cudadevicetable -update x/cudadevicetable/devices.json
 //	cudadevicetable -device 1 -host gpu-host -update path
+//	cudadevicetable -ptxas /usr/local/cuda/bin/ptxas -update path
+//
+// With -ptxas the tool records instruction-set facts instead of device
+// attributes: it assembles the fixtures in x/cudadevicetable/ptxprobe for each
+// target and records what ptxas accepted. That needs no device, which is why
+// the table can describe targets this project cannot attach.
 //
 // With -update the device's architecture record is replaced and every other
 // architecture is left alone. Values that no instrument can read -- the
@@ -72,9 +78,17 @@ func main() {
 	ordinal := flag.Int("device", 0, "CUDA device ordinal to probe")
 	update := flag.String("update", "", "devices.json to update in place; empty prints to stdout")
 	host := flag.String("host", "", "host name to record in the probe (default: the system hostname)")
+	ptxas := flag.String("ptxas", "", "probe instruction-set features with this ptxas instead of reading a device")
+	targets := flag.String("targets", "sm_80,sm_90,sm_90a,sm_100,sm_100a,sm_120,sm_120a,sm_121,sm_121a", "comma-separated PTX targets for -ptxas")
 	flag.Parse()
 
-	if err := run(*ordinal, *update, *host); err != nil {
+	// The two modes read different instruments and share only the output
+	// file, so -ptxas replaces the device probe rather than adding to it.
+	run := func() error { return run(*ordinal, *update, *host) }
+	if *ptxas != "" {
+		run = func() error { return runFeatures(*ptxas, *targets, *update, *host) }
+	}
+	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "cudadevicetable:", err)
 		os.Exit(1)
 	}

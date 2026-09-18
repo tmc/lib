@@ -115,5 +115,695 @@
         }
       }
     }
+  },
+  "targets": {
+    "sm_100": {
+      "target": "sm_100",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx",
+          "diagnostic": "ptxas setmaxnreg.ptx, line 7; error   : Instruction 'setmaxnreg.dec' not supported on .target 'sm_100'"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_100'"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_100'"
+        }
+      }
+    },
+    "sm_100a": {
+      "target": "sm_100a",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx"
+        },
+        "tcgen05": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_100a'"
+        }
+      }
+    },
+    "sm_103a": {
+      "target": "sm_103a",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx"
+        },
+        "tcgen05": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_103a'"
+        }
+      }
+    },
+    "sm_110a": {
+      "target": "sm_110a",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx"
+        },
+        "tcgen05": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_110a'"
+        }
+      }
+    },
+    "sm_120": {
+      "target": "sm_120",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx",
+          "diagnostic": "ptxas setmaxnreg.ptx, line 7; error   : Instruction 'setmaxnreg.dec' not supported on .target 'sm_120'"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_120'"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_120'"
+        }
+      }
+    },
+    "sm_120a": {
+      "target": "sm_120a",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_120a'"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_120a'"
+        }
+      }
+    },
+    "sm_121": {
+      "target": "sm_121",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx",
+          "diagnostic": "ptxas setmaxnreg.ptx, line 7; error   : Instruction 'setmaxnreg.dec' not supported on .target 'sm_121'"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_121'"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_121'"
+        }
+      }
+    },
+    "sm_121a": {
+      "target": "sm_121a",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_121a'"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_121a'"
+        }
+      }
+    },
+    "sm_80": {
+      "target": "sm_80",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx",
+          "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
+        },
+        "mbarrier": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx",
+          "diagnostic": "ptxas mbarrier.ptx, line 15; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+        },
+        "multimem": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx",
+          "diagnostic": "ptxas multimem.ptx, line 10; error   : Feature 'multimem.ld_reduce' requires .target sm_90 or higher"
+        },
+        "setmaxnreg": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx",
+          "diagnostic": "ptxas setmaxnreg.ptx, line 7; error   : Instruction 'setmaxnreg.dec' not supported on .target 'sm_80'"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_80'"
+        },
+        "tma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 tma.ptx",
+          "fixture": "ptxprobe/tma.ptx",
+          "diagnostic": "ptxas tma.ptx, line 16; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "tmamulticast": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx",
+          "diagnostic": "ptxas tmamulticast.ptx, line 24; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_80'"
+        }
+      }
+    },
+    "sm_90": {
+      "target": "sm_90",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx",
+          "diagnostic": "ptxas setmaxnreg.ptx, line 7; error   : Instruction 'setmaxnreg.dec' not supported on .target 'sm_90'"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_90'"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_90'"
+        }
+      }
+    },
+    "sm_90a": {
+      "target": "sm_90a",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.0.88",
+        "ptxVersion": "9.0",
+        "host": "gpu-host",
+        "probedAt": "2026-09-18"
+      },
+      "features": {
+        "cluster": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "multimem": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx"
+        },
+        "setmaxnreg": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_90a'"
+        },
+        "tma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a tma.ptx",
+          "fixture": "ptxprobe/tma.ptx"
+        },
+        "tmamulticast": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx"
+        },
+        "wgmma": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx"
+        }
+      }
+    }
   }
 }

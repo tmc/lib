@@ -1,0 +1,11 @@
+// Feature: tcgen05 -- Blackwell 5th-generation tensor core allocation.
+.version 9.0
+.target TARGET
+.address_size 64
+.visible .entry probe(.param .u64 p)
+{
+  .reg .b64 %rd<2>;
+  ld.param.u64 %rd1, [p];
+  tcgen05.alloc.cta_group::1.sync.aligned.shared::cta.b32 [%rd1], 32;
+  ret;
+}

@@ -78,6 +78,12 @@ type Architecture struct {
 type Table struct {
 	Schema        int                     `json:"schema"`
 	Architectures map[string]Architecture `json:"architectures"`
+
+	// Targets holds instruction-set facts, keyed by exact PTX target. It is
+	// separate from Architectures because the two answer different
+	// questions: Architectures describes silicon, Targets describes what an
+	// assembler accepts for it. See [Feature].
+	Targets map[string]Target `json:"targets,omitempty"`
 }
 
 var table Table
@@ -226,5 +232,5 @@ func (t Table) Validate() error {
 			}
 		}
 	}
-	return nil
+	return t.validateTargets()
 }
