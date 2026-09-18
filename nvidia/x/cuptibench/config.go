@@ -24,6 +24,17 @@ const (
 	// Regions collects the operation and its named, inclusive regions.
 	Regions
 	// Kernels collects automatic kernel ranges.
+	//
+	// Kernels is qualified least. QUALIFICATION.md records it failing on the
+	// DS4 workload, where it "remains selectable, fails on this workload, and
+	// never falls back", and records kernel capture failing in the bounded
+	// prepared-replay row. Neither result generalizes to every workload, so
+	// this is not refused here; it is stated so a caller choosing Kernels from
+	// the doc comment knows the package has seen it fail, and can treat a
+	// failure as expected rather than as a defect to chase.
+	//
+	// Callers that need a mode known to work on an arbitrary workload should
+	// use Regions, which is what DS4 defaults to.
 	Kernels
 )
 
