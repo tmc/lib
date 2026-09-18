@@ -371,6 +371,30 @@ func (r *Result) classify(ctx context.Context, runErr error) {
 
 // Summary returns a one-paragraph account of the run, suitable for a test log.
 // It never includes the full tool report; use [Result.Details] for that.
+// FoundDefect reports whether this run found something wrong in the program
+// under test. It is true only for [OutcomeSanitizerErrors] backed by a non-zero
+// count, so a run that produced no verdict at all is false.
+//
+// Use this rather than negating a clean check. "Not clean" is the shorthand
+// every caller reaches for and it is wrong: [OutcomeToolFailure] is also not
+// clean, and it means the tool timed out, was not found, or never printed a
+// summary. A positive control asserting !clean therefore passes when the tool
+// never ran, which is the one way a control must not fail. On GB10 that is not
+// hypothetical: initcheck and racecheck each hit a 300s deadline and reported
+// no verdict, and a suite asserting !clean recorded both fixtures as caught.
+//
+// The three outcomes a caller needs are distinct and stay distinct:
+//
+//	r.FoundDefect()                        // the program is wrong
+//	r.Outcome == OutcomeClean              // the program is right
+//	r.Outcome == OutcomeToolFailure        // we do not know; see r.Err
+func (r *Result) FoundDefect() bool {
+	if r.Outcome != OutcomeSanitizerErrors || r.Log == nil {
+		return false
+	}
+	return r.Log.Errors > 0 || r.Log.RaceErrors > 0 || r.Log.Hazards > 0
+}
+
 func (r *Result) Summary() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "compute-sanitizer --tool %s: %s", r.Config.Tool, r.Outcome)
