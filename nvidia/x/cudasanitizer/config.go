@@ -238,6 +238,20 @@ type Config struct {
 	// Timeout bounds the whole run. Zero means the run is bounded only by
 	// the context passed to [Run]. Whichever deadline comes first applies,
 	// and either produces [OutcomeToolFailure], never a pass.
+	//
+	// One timeout rarely serves every tool. Instrumented cost varies by more
+	// than 100x across tools on the same workload; measured on GB10 over one
+	// chain of 1<<20 elements and two iterations:
+	//
+	//	memcheck    2.3s
+	//	initcheck   over 300s
+	//	racecheck   over 300s
+	//
+	// racecheck with --report all and initcheck with --track-unused-memory are
+	// the expensive ones. A timeout sized for memcheck turns the other two into
+	// [OutcomeToolFailure], which is not a pass but is easy to read as one if
+	// the caller tests for "not clean"; see [Result.FoundDefect]. Size this per
+	// tool, or large enough for the slowest one selected.
 	Timeout time.Duration
 
 	// KillDelay bounds waiting for output pipes after the process exits.
