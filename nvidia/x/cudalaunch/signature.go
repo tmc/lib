@@ -194,22 +194,15 @@ type argInfo struct {
 }
 
 func inspectArgument(arg any) (argInfo, error) {
-	if provider, ok := arg.(DevicePtrProvider); ok {
-		ptrVal := provider.Ptr()
-		if s, ok := arg.(DeviceSlice); ok && s.Len() == 0 {
-			ptrVal = 0
-		}
-		if uintptr(ptrVal)%8 != 0 {
-			return argInfo{}, fmt.Errorf("device pointer 0x%x is not 8-byte aligned", ptrVal)
-		}
+	// Every device pointer packs as an 8-byte slot regardless of its value;
+	// the address is not inspected. See the packing loop in launch.go for why
+	// no alignment rule belongs here.
+	if _, ok := arg.(DevicePtrProvider); ok {
 		return argInfo{size: 8, isPointer: true}, nil
 	}
 
-	switch v := arg.(type) {
+	switch arg.(type) {
 	case driver.DevicePtr:
-		if uintptr(v)%8 != 0 {
-			return argInfo{}, fmt.Errorf("device pointer 0x%x is not 8-byte aligned", v)
-		}
 		return argInfo{size: 8, isPointer: true}, nil
 	case int8, uint8:
 		return argInfo{size: 1, isInteger: true}, nil

@@ -262,7 +262,6 @@ func (l *Launcher) PrepareSharedMem(targetDev ...*cuda.Device) error {
 	return nil
 }
 
-
 // On assigns the CUDA stream for asynchronous execution.
 func (l *Launcher) On(s *cuda.Stream) *Launcher {
 	l.stream = s
@@ -490,13 +489,18 @@ func packArgs(args []any) ([]unsafe.Pointer, error) {
 		// Check if argument satisfies DevicePtrProvider (e.g. cudamem.Slice).
 		// An empty DeviceSlice packs as a null pointer so that optional kernel
 		// arguments can be passed as a zero slice.
+		//
+		// The device address itself is not checked for alignment, and must not
+		// be: cuLaunchKernel constrains the host side of the call, requiring
+		// each kernelParams entry to point at a region holding the parameter,
+		// and Go already aligns these slots. The pointee type is not knowable
+		// here, so any fixed rule is both too strict (a const float* needs 4)
+		// and too loose (a float4* needs 16). A 4-byte-aligned base pointer
+		// launches correctly on the device; an earlier %8 check refused it.
 		if provider, ok := arg.(DevicePtrProvider); ok {
 			ptrVal := provider.Ptr()
 			if s, ok := arg.(DeviceSlice); ok && s.Len() == 0 {
 				ptrVal = 0
-			}
-			if uintptr(ptrVal)%8 != 0 {
-				return nil, fmt.Errorf("arg %d: device pointer 0x%x is not 8-byte aligned", i, ptrVal)
 			}
 			params[i] = unsafe.Pointer(&ptrVal)
 			continue
@@ -504,9 +508,6 @@ func packArgs(args []any) ([]unsafe.Pointer, error) {
 
 		switch v := arg.(type) {
 		case driver.DevicePtr:
-			if uintptr(v)%8 != 0 {
-				return nil, fmt.Errorf("arg %d: device pointer 0x%x is not 8-byte aligned", i, v)
-			}
 			params[i] = unsafe.Pointer(&v)
 
 		case int8:
