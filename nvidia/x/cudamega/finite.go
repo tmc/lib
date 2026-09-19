@@ -2,17 +2,26 @@ package cudamega
 
 import (
 	"fmt"
+
 	"github.com/tmc/lib/nvidia/x/cudataskgraph"
 )
 
 // Admission is the measured worker residency contract supplied by the
 // compiled artifact and target record.
+//
+// It is an input, not a derivation: the numbers come from
+// cudaOccupancyMaxActiveBlocksPerMultiprocessor on the compiled worker for the
+// target device, multiplied by that device's multiprocessor count. Nothing in
+// this package can compute them, and a grid built from a guess is the
+// deadlock the contracts exist to prevent.
 type Admission struct {
 	ResidentCTAs  uint32
 	WorkerThreads uint32
 	SharedBytes   uint32
 }
 
+// Validate reports whether the admission is one a persistent grid can be
+// derived from.
 func (a Admission) Validate() error {
 	if a.ResidentCTAs == 0 || a.WorkerThreads == 0 {
 		return fmt.Errorf("worker admission is empty")
@@ -26,37 +35,48 @@ func (a Admission) Validate() error {
 	return nil
 }
 
+// A Scheduler is the finite task graph bound to one compiled worker's
+// admission.
+//
+// It holds no schedule of its own. The schedule is [ProgressArgument], which
+// the scheduler computes once at construction: there is one static
+// task-to-CTA mapping per (graph, admission) pair, and a scheduler that could
+// return a different one on a later call would be a second mapping the
+// generated source does not implement.
 type Scheduler struct {
 	graph     cudataskgraph.Graph
 	admission Admission
+	progress  ProgressArgument
 }
 
+// NewScheduler validates the graph against the admission and returns the
+// scheduler, or the reason the graph does not fit the compiled worker.
 func NewScheduler(g cudataskgraph.Graph, a Admission) (*Scheduler, error) {
-	if e := a.Validate(); e != nil {
-		return nil, e
+	p, err := Progress(g, a)
+	if err != nil {
+		return nil, err
 	}
-	if len(g.Tasks()) > int(a.ResidentCTAs)*1024 {
-		return nil, fmt.Errorf("finite graph exceeds admitted worker capacity")
-	}
-	for _, t := range g.Tasks() {
-		if t.Bytes > uint64(a.SharedBytes) {
-			return nil, fmt.Errorf("task %q exceeds admitted shared memory", t.ID)
-		}
-	}
-	return &Scheduler{graph: g.Clone(), admission: a}, nil
+	return &Scheduler{graph: g.Clone(), admission: a, progress: p}, nil
 }
-func (s *Scheduler) Assign() ([]cudataskgraph.Task, error) {
+
+// Assign returns the wave order the generated worker runs, which is the
+// static task-to-CTA mapping of contract 1: every admitted CTA takes a share
+// of every task's elements, and the tasks run in the order returned here.
+func (s *Scheduler) Assign() ([]Wave, error) {
 	if s == nil {
 		return nil, fmt.Errorf("nil scheduler")
 	}
-	ts := s.graph.Tasks()
-	for i, t := range ts {
-		if uint32(i) >= s.admission.ResidentCTAs && t.Rank == 0 {
-			return nil, fmt.Errorf("producer cannot be assigned to resident CTA")
-		}
-	}
-	return ts, nil
+	return append([]Wave(nil), s.progress.Waves...), nil
 }
+
+// Progress returns the argument that the schedule terminates.
+func (s *Scheduler) Progress() ProgressArgument { return s.progress }
+
+// Admission returns the compiled worker's residency the schedule was built
+// against.
+func (s *Scheduler) Admission() Admission { return s.admission }
+
+// Graph returns an independent snapshot of the scheduled graph.
 func (s *Scheduler) Graph() cudataskgraph.Graph { return s.graph.Clone() }
 
 // FiniteWorkerSource emits the legacy ordinary fallback for opcode 1
