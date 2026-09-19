@@ -443,9 +443,23 @@ type journalMetrics struct {
 }
 
 // errJournalNotFinalized reports a journal that decoded completely but whose
-// producer never wrote a finalized record, as happens when a serving framework
-// force-kills a worker. Unlike every other observeJournal error it is returned
-// together with the recovered values.
+// producer never wrote a finalized record. Unlike every other observeJournal
+// error it is returned together with the recovered values.
+//
+// A force-killed serving worker is one cause and was for a long time the only
+// one documented here. It is not the common one. A Go target that simply
+// returns from main exits through the runtime's own exit_group, which runs
+// neither the ELF destructor nor atexit and sends itself no signal, so all
+// three of the agent's finalization routes are bypassed and the journal ends
+// unfinalized while the target exits 0 and reports its own work as done.
+// Measured on GB10: a Go target collected zero records where a C++ target
+// doing the same device work under the same agent and the same cudaprof
+// collected cleanly.
+//
+// This matters to a reader because the two causes look identical here and
+// point opposite ways. A force-kill says something went wrong upstream; a
+// clean Go exit says nothing went wrong at all and the target simply cannot
+// finalize this producer as written.
 var errJournalNotFinalized = errors.New("capture journal missing finalized record")
 
 // Serving workers can legitimately emit more than the transport decoder's
