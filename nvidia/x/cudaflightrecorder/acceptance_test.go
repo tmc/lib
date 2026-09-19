@@ -234,12 +234,7 @@ func TestClockUncertainty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if manifest.ClockUncertaintyNs != 25000 {
-		t.Errorf("ClockUncertaintyNs = %d, want 25000", manifest.ClockUncertaintyNs)
-	}
-	if manifest.ClockUncertaintySource != "configured" {
-		t.Errorf("ClockUncertaintySource = %q, want configured", manifest.ClockUncertaintySource)
-	}
+	checkClockUncertainty(t, manifest, 25000)
 }
 
 func TestFaultSnapshotHostOnly(t *testing.T) {

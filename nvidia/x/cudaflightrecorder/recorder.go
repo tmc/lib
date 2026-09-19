@@ -194,6 +194,22 @@ func uncertaintyAfter(bracketNs int64, elapsed time.Duration) int64 {
 	return bracketNs + int64(elapsed)*clockDriftPPM/1e6
 }
 
+// clockUncertainty reports the host-to-device clock alignment error to record
+// with a snapshot, and where that number came from. A bracket measured at Start
+// takes precedence over a configured estimate, widened for the drift accrued
+// since it was taken. With neither, the uncertainty is unknown and is reported
+// as -1 rather than 0, so that a caller cannot mistake "not measured" for
+// "perfectly aligned".
+func clockUncertainty(calibrated bool, bracketNs int64, sinceCalibration time.Duration, configuredNs int64) (int64, string) {
+	switch {
+	case calibrated:
+		return uncertaintyAfter(bracketNs, sinceCalibration), "measured"
+	case configuredNs > 0:
+		return configuredNs, "configured"
+	}
+	return -1, "unavailable"
+}
+
 // Stop halts flight recording permanently. Later starts fail and pushes are
 // counted as dropped. Repeated stops are harmless; snapshots remain available.
 func (r *Recorder) Stop() {
@@ -505,16 +521,7 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	} else if timer, ok := gt.(interface{ StartTime() time.Time }); ok && !timer.StartTime().IsZero() {
 		goStartNs = timer.StartTime().UnixNano()
 	}
-	clockUncertaintyNs := int64(-1)
-	clockUncertaintySource := "unavailable"
-	switch {
-	case calibrated:
-		clockUncertaintyNs = uncertaintyAfter(calibratedBracketNs, now.Sub(calibratedAt))
-		clockUncertaintySource = "measured"
-	case cfg.ClockUncertaintyNs > 0:
-		clockUncertaintyNs = cfg.ClockUncertaintyNs
-		clockUncertaintySource = "configured"
-	}
+	clockUncertaintyNs, clockUncertaintySource := clockUncertainty(calibrated, calibratedBracketNs, now.Sub(calibratedAt), cfg.ClockUncertaintyNs)
 	goSpanNs, gpuSpanNs, overlapSpanNs, overlapReliable := AlignSpans(
 		nowNs,
 		windowNs,

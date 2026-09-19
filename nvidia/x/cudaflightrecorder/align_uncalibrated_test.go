@@ -9,16 +9,50 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaflightrecorder"
 )
 
+// checkClockUncertainty verifies a manifest's clock fields against each other
+// and against the configured estimate, where configuredNs is the recorder's
+// Config.ClockUncertaintyNs.
+//
+// It deliberately does not assert WHICH source won. Start calibrates against
+// CUPTI whenever a device is present, and a measurement supersedes a configured
+// estimate, so the source is a property of the host the test runs on. Asserting
+// a literal makes the test pass only where the capability is absent. The
+// precedence rule itself is covered by TestClockUncertaintyPrecedence and the
+// reliability rule by TestAlignSpansUncertaintyInputs; what is left to check
+// here is that Snapshot wires them together consistently.
+func checkClockUncertainty(t *testing.T, m *cudaflightrecorder.Manifest, configuredNs int64) {
+	t.Helper()
+	switch m.ClockUncertaintySource {
+	case "unavailable":
+		if configuredNs > 0 {
+			t.Errorf("source = unavailable with ClockUncertaintyNs = %d configured", configuredNs)
+		}
+		if m.ClockUncertaintyNs != -1 {
+			t.Errorf("unavailable uncertainty = %d, want -1", m.ClockUncertaintyNs)
+		}
+		if m.OverlapReliable {
+			t.Errorf("OverlapReliable = true with no clock uncertainty")
+		}
+	case "configured":
+		if m.ClockUncertaintyNs != configuredNs {
+			t.Errorf("configured uncertainty = %d, want %d", m.ClockUncertaintyNs, configuredNs)
+		}
+	case "measured":
+		if m.ClockUncertaintyNs <= 0 {
+			t.Errorf("measured uncertainty = %d, want > 0", m.ClockUncertaintyNs)
+		}
+	default:
+		t.Errorf("source = %q, want measured, configured or unavailable", m.ClockUncertaintySource)
+	}
+}
+
 func TestSnapshotClockUncertaintySource(t *testing.T) {
 	for _, tt := range []struct {
-		name            string
-		uncertainty     int64
-		wantSource      string
-		wantUncertainty int64
-		wantReliable    bool
+		name        string
+		uncertainty int64
 	}{
-		{"unavailable", 0, "unavailable", -1, false},
-		{"configured", 1000, "configured", 1000, true},
+		{"unconfigured", 0},
+		{"configured", 1000},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			r, err := cudaflightrecorder.New(cudaflightrecorder.Config{GoTraceEnabled: true, ClockUncertaintyNs: tt.uncertainty})
@@ -37,9 +71,10 @@ func TestSnapshotClockUncertaintySource(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if manifest.OverlapSpanNs <= 0 || manifest.ClockUncertaintySource != tt.wantSource || manifest.ClockUncertaintyNs != tt.wantUncertainty || manifest.OverlapReliable != tt.wantReliable {
-				t.Fatalf("manifest source=%q uncertainty=%d reliable=%t", manifest.ClockUncertaintySource, manifest.ClockUncertaintyNs, manifest.OverlapReliable)
+			if manifest.OverlapSpanNs <= 0 {
+				t.Fatalf("OverlapSpanNs = %d, want > 0", manifest.OverlapSpanNs)
 			}
+			checkClockUncertainty(t, manifest, tt.uncertainty)
 		})
 	}
 }

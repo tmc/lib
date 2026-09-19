@@ -59,3 +59,33 @@ func TestCalibrateWithPropagatesWarmUpError(t *testing.T) {
 		t.Errorf("err = %v, want %v", err, want)
 	}
 }
+
+// TestClockUncertaintyPrecedence exercises every branch of the source
+// precedence directly. The end-to-end tests cannot: Start calibrates against
+// CUPTI whenever a device is present, so on a GPU host a snapshot always
+// reports "measured" and the other two branches never run.
+func TestClockUncertaintyPrecedence(t *testing.T) {
+	for _, tt := range []struct {
+		name             string
+		calibrated       bool
+		bracketNs        int64
+		sinceCalibration time.Duration
+		configuredNs     int64
+		wantNs           int64
+		wantSource       string
+	}{
+		{"unavailable", false, 0, 0, 0, -1, "unavailable"},
+		{"negative configured is not a value", false, 0, 0, -1, -1, "unavailable"},
+		{"configured", false, 0, 0, 1000, 1000, "configured"},
+		{"measured", true, 5000, 0, 0, 5000, "measured"},
+		{"measured widens with drift", true, 5000, 10 * time.Second, 0, 5000 + 110000, "measured"},
+		{"measurement supersedes configured", true, 5000, 0, 25000, 5000, "measured"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gotNs, gotSource := clockUncertainty(tt.calibrated, tt.bracketNs, tt.sinceCalibration, tt.configuredNs)
+			if gotNs != tt.wantNs || gotSource != tt.wantSource {
+				t.Fatalf("clockUncertainty = (%d, %q), want (%d, %q)", gotNs, gotSource, tt.wantNs, tt.wantSource)
+			}
+		})
+	}
+}

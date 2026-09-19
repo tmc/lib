@@ -466,9 +466,7 @@ func TestGoTraceFlightRecording(t *testing.T) {
 			if manifest.OverlapSpanNs <= 0 {
 				t.Errorf("manifest.OverlapSpanNs = %d, want > 0", manifest.OverlapSpanNs)
 			}
-			if manifest.OverlapReliable {
-				t.Errorf("manifest.OverlapReliable = true, want false")
-			}
+			checkClockUncertainty(t, manifest, tt.cfg.ClockUncertaintyNs)
 
 			// Verify TAR bundle contents
 			bundle, err := cudaflightrecorder.ReadBundle(&buf)

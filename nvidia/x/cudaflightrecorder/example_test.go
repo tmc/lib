@@ -91,13 +91,20 @@ func ExampleRecorder_Snapshot_withGoTrace() {
 	fmt.Printf("Snapshot reason: %s\n", bundle.Manifest.Reason)
 	fmt.Printf("GPU records: %d\n", bundle.Manifest.GPURecords)
 	fmt.Printf("Has go.trace: %t\n", len(bundle.Files["go.trace"]) > 0)
-	fmt.Printf("Overlap reliable: %t\n", manifest.OverlapReliable)
+
+	// OverlapReliable says whether the Go and GPU spans were aligned with a
+	// clock uncertainty small enough to trust the overlap. Its value depends on
+	// whether the host could calibrate against CUPTI, so the example checks the
+	// rule it obeys rather than printing a number that would differ between a
+	// GPU host and a workstation.
+	if manifest.OverlapReliable && manifest.ClockUncertaintySource == "unavailable" {
+		log.Fatal("overlap reported reliable with no clock uncertainty")
+	}
 
 	// Output:
 	// Snapshot reason: latency_spike
 	// GPU records: 1
 	// Has go.trace: true
-	// Overlap reliable: false
 }
 
 func ExampleRecorder_PushSASSMetric() {
