@@ -1,0 +1,15 @@
+Commit: 7ee24c1a
+Date: 2026-09-19T02:47:55-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+not a tty
+pid: 97125
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Attribution: Claude Opus 5 (Claude Code)
+Source: subagent gemm-determinism, reading cuda_session_linux.go:2354 against the campaign's name for the arm
+Verified locally: constant is 0; Fisher tail recomputed as C(30,1)/C(60,1)=0.5
+Corrects: bdc71d60 (p=0.75), 7805dce7 (the E8 arm-A label)
+Errata: 21.178
