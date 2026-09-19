@@ -1,0 +1,11 @@
+Commit: 05319ce4
+Date: 2026-09-19T02:32:36-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Attribution: Claude Opus 5 (Claude Code)
+Source: peer session F76EF7EB, ~/tmp/agent-collab/lib/20260919-F76EF7EB-cublas-is-selection-or-splitk.md
+Verified locally: e7b-C6A7.sh probe() spawns one process per draw, so the 1-of-8 denominator is 8 independent processes
+Supersedes: the arm-swap design in the gemm-determinism harness brief
+Errata: 21.170 (retracted), 21.172
