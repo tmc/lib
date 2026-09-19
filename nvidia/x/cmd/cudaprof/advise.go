@@ -3145,12 +3145,23 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 	// source that carries per-activity timestamps. The pprof samples above
 	// are an aggregate, and a reader that stops there reports the capture as
 	// having no timestamps when the file it was handed has them.
-	if len(res) == 0 {
-		if events, _, err := journalStreamEvents(cap); err == nil && len(events) != 0 {
+	//
+	// The test is whether a timestamp was actually produced, not whether the
+	// projection produced anything. A projection yielding hundreds of samples
+	// that all carry Start == End == 0 is the case this exists for: it fills
+	// res, so a len(res) == 0 guard would never fire, and the reader would go
+	// on to announce that the capture has no timestamps while holding them.
+	if !anyStreamTimed(res) {
+		if events, _, err := journalStreamEvents(cap); err == nil && anyEventTimed(events) {
+			// Replaces what the projection produced rather than joining it.
+			// The two sources describe the same device work at different
+			// fidelities, and a union of them would double every activity the
+			// projection also carries.
+			timed := make(map[uint32][]streamEvent)
 			for _, ev := range events {
-				res[ev.Stream] = append(res[ev.Stream], ev)
+				timed[ev.Stream] = append(timed[ev.Stream], ev)
 			}
-			return res
+			return timed
 		}
 	}
 	if len(res) == 0 && len(cap.Files) > 0 {
@@ -3773,4 +3784,25 @@ func recaptureOrRead(cap *cudacapture.Capture) string {
 		return "Read the journal already in this capture rather than re-running the workload: cudaprof gaps <capture> reports the duty cycle, the idle attribution and the gap distribution from it."
 	}
 	return "Re-capture with activity timestamps and host launch API records so duty cycle and submission latency can be measured before restructuring dispatch."
+}
+
+// anyEventTimed reports whether any event carries a usable device interval.
+// End is the field tested, not Start: a timeline whose first activity begins
+// at zero is a legitimate one.
+func anyEventTimed(events []streamEvent) bool {
+	for _, ev := range events {
+		if ev.End != 0 && ev.End > ev.Start {
+			return true
+		}
+	}
+	return false
+}
+
+func anyStreamTimed(streams map[uint32][]streamEvent) bool {
+	for _, evs := range streams {
+		if anyEventTimed(evs) {
+			return true
+		}
+	}
+	return false
 }

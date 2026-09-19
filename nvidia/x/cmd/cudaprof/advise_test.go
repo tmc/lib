@@ -3786,13 +3786,24 @@ func TestAdviseReadsTheJournalItWasHanded(t *testing.T) {
 	b.kernelOn(0, 1, 6_000, 7_000, 2)
 	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
 
+	// The projection is present and useless: samples with names and no
+	// timestamps, which is what a real capture of this shape holds. A guard on
+	// "did the projection produce anything" never fires here.
+	cap.Profile = &profile.Profile{
+		SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+		Sample: []*profile.Sample{
+			{Value: []int64{2_000}, Label: map[string][]string{"subtype": {"kernel"}, "name": {"gemm"}}},
+			{Value: []int64{1_000}, Label: map[string][]string{"subtype": {"kernel"}, "name": {"softmax"}}},
+		},
+	}
+
 	streams := extractStreamEvents(cap)
 	var got []streamEvent
 	for _, evs := range streams {
 		got = append(got, evs...)
 	}
 	if len(got) != 2 {
-		t.Fatalf("stream events from the journal = %d, want 2", len(got))
+		t.Fatalf("stream events = %d, want the journal's 2: the untimed projection was kept, or the two sources were merged", len(got))
 	}
 	for _, ev := range got {
 		if ev.Start == 0 || ev.End == 0 {
@@ -3802,6 +3813,18 @@ func TestAdviseReadsTheJournalItWasHanded(t *testing.T) {
 	pct, span, busy, ok := profileDutyCycle(streams)
 	if !ok || span != 6_000 || busy != 3_000 {
 		t.Fatalf("duty = %.2f span/busy = %d/%d (ok %v), want 50.00 6000/3000", pct, span, busy, ok)
+	}
+
+	// The predicate is asserted directly on a zero-origin activity because no
+	// journal can supply one: the decoder treats start == 0 as unset and drops
+	// the record, so the only way to pin which field is the sentinel is here.
+	// Testing Start would read a device timeline that begins at zero as having
+	// no timestamps, and send the reader back to the projection.
+	if !anyEventTimed([]streamEvent{{Start: 0, End: 500}}) {
+		t.Error("an activity starting at 0 read as untimed: End is the sentinel, not Start")
+	}
+	if anyEventTimed([]streamEvent{{Start: 0, End: 0}, {Start: 100, End: 100}}) {
+		t.Error("an event with no interval read as timed")
 	}
 }
 
