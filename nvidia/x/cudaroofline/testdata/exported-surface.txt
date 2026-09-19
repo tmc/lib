@@ -1,0 +1,114 @@
+  field Ceiling.Architecture string
+  field Ceiling.ComputeProvenance Provenance
+  field Ceiling.L2BandwidthGBps float64
+  field Ceiling.MemoryProvenance Provenance
+  field Ceiling.PeakMemoryGBps float64
+  field Ceiling.PeakTFLOPS float64
+  field Ceiling.Residency Residency
+  field DeviceRecord.Architecture string
+  field DeviceRecord.ComputeProvenance string
+  field DeviceRecord.MemoryProvenance string
+  field DeviceRecord.PeakMemoryGBps float64
+  field DeviceRecord.PeakPrecision string
+  field DeviceRecord.PeakTFLOPS float64
+  field DeviceRecord.Residency string
+  field Judgment.Axis LimitingAxis
+  field Judgment.Basis FloorBasis
+  field Judgment.CeilingProvenance Provenance
+  field Judgment.ComputeFloorNs float64
+  field Judgment.DurationNs uint64
+  field Judgment.FloorNs float64
+  field Judgment.MemoryFloorNs float64
+  field Judgment.Operation Operation
+  field Judgment.Reason string
+  field Judgment.Verdict Verdict
+  field KernelPoint.AttainedGBps float64
+  field KernelPoint.AttainedTFLOPS float64
+  field KernelPoint.Bytes uint64
+  field KernelPoint.CeilingProvenance Provenance
+  field KernelPoint.Classification string
+  field KernelPoint.DurationNs uint64
+  field KernelPoint.Efficiency float64
+  field KernelPoint.FLOPs uint64
+  field KernelPoint.Intensity float64
+  field KernelPoint.LimitingAxis LimitingAxis
+  field KernelPoint.Name string
+  field Model.Ceiling Ceiling
+  field Operation.Bytes uint64
+  field Operation.FLOPs uint64
+  field Operation.Name string
+  field Operation.Precision Precision
+  field Record.Device DeviceRecord
+  field Record.Triples []Triple
+  field Record.Version int
+  field Triple.Axis string
+  field Triple.Basis string
+  field Triple.Bytes uint64
+  field Triple.CeilingProvenance string
+  field Triple.ComputeFloorNs float64
+  field Triple.DurationNs uint64
+  field Triple.FLOPs uint64
+  field Triple.FloorNs float64
+  field Triple.MemoryFloorNs float64
+  field Triple.Name string
+  field Triple.Precision string
+  field Triple.Reason string
+  field Triple.Verdict string
+const BF16Tensor
+const ClassAboveCeiling
+const ClassComputeBound
+const ClassMemoryBound
+const ClassUnconstrained
+const ComputeLimited
+const DeviceResident
+const FP16
+const FP16Tensor
+const FP32
+const FP64
+const FP8Tensor
+const FloorAbsent
+const FloorFromBothAxes
+const FloorFromComputeOnly
+const FloorFromMemoryOnly
+const FloorUnavailable
+const GoldenVectorPath
+const HostPageTableResident
+const INT8Tensor
+const Measured
+const MemoryLimited
+const NoLimit
+const RecordVersion
+const TF32Tensor
+const Unverified
+const VerdictAccepted
+const VerdictRejected
+const VerdictUnjudged
+func (*Model) CeilingAt(intensity float64) float64
+func (*Model) Evaluate(kernelName string, flops uint64, bytesTransferred uint64, durationNs uint64) KernelPoint
+func (*Model) Floor(op Operation) Judgment
+func (*Model) Judge(op Operation, durationNs uint64) Judgment
+func (*Model) KneeIntensity() float64
+func (*Model) RenderSVG(w io.Writer, points []KernelPoint) error
+func (Record) Encode(w io.Writer) error
+func (Record) Validate() error
+func DecodeRecord(rd io.Reader) (Record, error)
+func LookupCeiling(arch string, residency Residency) (Ceiling, error)
+func NewModel(arch string, residency Residency) (*Model, error)
+func NewModelWithCeiling(c Ceiling) *Model
+func NewRecord(m *Model, judgments []Judgment) Record
+func PeakTFLOPSFor(arch string, p Precision) (float64, Provenance, error)
+func ValidateCeiling(c Ceiling) error
+type Ceiling struct
+type DeviceRecord struct
+type FloorBasis string
+type Judgment struct
+type KernelPoint struct
+type LimitingAxis string
+type Model struct
+type Operation struct
+type Precision string
+type Provenance string
+type Record struct
+type Residency string
+type Triple struct
+type Verdict string
