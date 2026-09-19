@@ -92,13 +92,26 @@ func ExampleRecorder_Snapshot_withGoTrace() {
 	fmt.Printf("GPU records: %d\n", bundle.Manifest.GPURecords)
 	fmt.Printf("Has go.trace: %t\n", len(bundle.Files["go.trace"]) > 0)
 
-	// OverlapReliable says whether the Go and GPU spans were aligned with a
-	// clock uncertainty small enough to trust the overlap. Its value depends on
-	// whether the host could calibrate against CUPTI, so the example checks the
-	// rule it obeys rather than printing a number that would differ between a
-	// GPU host and a workstation.
-	if manifest.OverlapReliable && manifest.ClockUncertaintySource == "unavailable" {
-		log.Fatal("overlap reported reliable with no clock uncertainty")
+	// manifest.OverlapReliable reports whether the Go and GPU spans were
+	// aligned with a clock uncertainty small enough to trust the overlap, and a
+	// caller gates its own conclusions on it:
+	//
+	//	if manifest.OverlapReliable {
+	//		// compare the Go and GPU spans
+	//	}
+	//
+	// The example neither prints nor checks its value. That value depends on
+	// whether the host could calibrate against CUPTI, so any assertion on it
+	// here would be live on one kind of host and dead on the other. The rules
+	// behind it are tested directly and host-independently, by
+	// TestAlignSpansUncertaintyInputs and TestClockUncertaintyPrecedence.
+	//
+	// What does hold on every host is that the manifest Snapshot returns and
+	// the one inside the bundle are the same manifest.
+	if bundle.Manifest.OverlapReliable != manifest.OverlapReliable ||
+		bundle.Manifest.ClockUncertaintyNs != manifest.ClockUncertaintyNs ||
+		bundle.Manifest.ClockUncertaintySource != manifest.ClockUncertaintySource {
+		log.Fatal("bundle manifest disagrees with the returned manifest")
 	}
 
 	// Output:
