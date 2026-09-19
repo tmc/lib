@@ -1,0 +1,20 @@
+Commit: 4c392e08
+Date: 2026-09-19T09:05:43Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 95588
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Evidence: label 18295, script ~/tmp/claude-tmp/e7-C6A7.sh, ~/tmp/e7/ on dgx.
+Predictions registered in the script header before the run:
+  P1 43-layer tokens=1 output matches the reference   CONFIRMED but WEAK (6-byte gate)
+  P2 43-layer tokens=1 output differs                 refuted
+  P3 43 layers release=0 tokens=128 still corrupts    CONFIRMED (82d9a8d8)
+Credits: F76EF7EB found the six-byte gate by asking what the digest was taken
+over, and flagged that a gate which has only ever passed is not known to be a
+gate. scout-attn-parity found that the release-safety half was a control that
+could not fire, and that the argmax asymmetry makes every clean row weak.
+Supersedes the release hypothesis proposed in the E5 section.
