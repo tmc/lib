@@ -210,6 +210,9 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	var targetJournalErr error
 	var targetObserved bool
 	var targetObservedState journalState
+	// targetObservedTransport is the transport readiness the target itself
+	// reported in its handshake, kept for the refusal path below.
+	var targetObservedTransport bool
 	for i := range files {
 		f := &files[i]
 		if f.h.Process != uint64(result.TargetPID) {
@@ -285,6 +288,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			// below; the capture is still refused, but it must not describe
 			// what it read as absent.
 			targetObserved, targetObservedState = true, state
+			targetObservedTransport = f.h.TransportReady
 			failMsg := err.Error()
 			if state.failure != "" {
 				failMsg = state.failure
@@ -348,8 +352,19 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		// bootstrap as bootstrap_seen:false sends the reader hunting for an
 		// injection or transport fault that did not happen; the real fault is
 		// whatever kept the producer from finalizing.
+		//
+		// transport_ready is the same mistake in the field next to it. It was
+		// set only on the path that reaches a usable journal, so a target that
+		// handed over a handshake and wrote records still published
+		// transport_ready:false, and runCompletenessOf turned that into
+		// "unknown" -- whose own definition is "no transport was established".
+		// A reader is then told the channel never came up by two fields at
+		// once, about a run where it demonstrably did. Report what the target
+		// said instead, which leaves the failure where it belongs: transport
+		// up, collector not finalized, run_completeness "failed".
 		if targetObserved {
 			result.BootstrapSeen = targetObservedState.bootstrap
+			result.TransportReady = targetObservedTransport
 		}
 		return applyPartialRecovery(result)
 	}

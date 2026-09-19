@@ -294,3 +294,82 @@ func TestUnfinalizedTargetStillReportsWhatItRead(t *testing.T) {
 		t.Fatalf("journal holds a bootstrap record but bootstrap_seen is false: %+v", got)
 	}
 }
+
+// TestUnfinalizedTargetReportsTheTransportItUsed is the field next to the one
+// TestUnfinalizedTargetStillReportsWhatItRead covers, with the same defect.
+//
+// transport_ready was set only on the path that reaches a usable journal, so a
+// target that completed its handshake and wrote records published
+// transport_ready:false when it failed to finalize. runCompletenessOf turns
+// that into "unknown", documented as "no transport was established" -- so two
+// published fields told the reader the channel never came up, about a run
+// where it demonstrably had. A GB10 capture was diagnosed as a transport fault
+// on the strength of it; the transport was fine and the target had exited
+// through Go's runtime without finalizing.
+//
+// Three arms, because the obvious two do not discriminate. A session directory
+// with no handshake returns before the refusal path is ever reached, so it
+// cannot tell a reported value from a hardcoded one -- it only guards the
+// earlier path, where nothing observed the transport and "unknown" is right.
+// The arm that pins the value to its source is the one whose handshake says
+// transport_ready:false: the published field has to follow it.
+func TestUnfinalizedTargetReportsTheTransportItUsed(t *testing.T) {
+	const session = "00112233445566778899aabbccddeeff"
+	var sid [16]byte
+	raw, _ := hex.DecodeString(session)
+	copy(sid[:], raw)
+
+	dir := t.TempDir()
+	writeHandshake(t, dir, session, 41, 2)
+	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+	})
+
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
+	if got.CaptureSuccess {
+		t.Fatalf("unfinalized target was published: %+v", got)
+	}
+	if !got.TransportReady {
+		t.Errorf("target completed a handshake and wrote records but transport_ready is false: %+v", got)
+	}
+	// The point of the field is what it makes the classifier say. "unknown"
+	// claims no evidence either way; there is evidence, and it says the
+	// collector never closed the books.
+	if got.RunCompleteness != runFailed {
+		t.Errorf("run_completeness = %q, want %q: the transport carried a journal, the producer never finalized it", got.RunCompleteness, runFailed)
+	}
+
+	// No handshake at all: nothing observed the transport, so absence of
+	// evidence must still read as unknown rather than as failure. This arm
+	// returns before the refusal path above and so proves nothing about where
+	// the value came from; it guards the early path only.
+	empty := observeCaptureSession(captureResult{TargetPID: 41}, t.TempDir(), session, observeOptions{injectionRequested: true})
+	if empty.TransportReady {
+		t.Errorf("transport_ready true with no handshake on disk: %+v", empty)
+	}
+	if empty.RunCompleteness != runUnknown {
+		t.Errorf("run_completeness = %q, want %q with no transport observed", empty.RunCompleteness, runUnknown)
+	}
+
+	// A handshake that reports its transport as not ready. The agent writes
+	// the field as a literal true today, so this is not a shape it currently
+	// emits -- which is the point: it is the only arm that fails if the
+	// published field stops following the handshake and becomes a constant.
+	denied := t.TempDir()
+	b, err := json.Marshal(captureHandshake{Protocol: 1, Session: session, Process: 41, Generation: 2, TransportReady: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(denied, "handshake.json"), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	appendRecords(t, filepath.Join(denied, "capture.journal"), sid, 41, 2, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+	})
+	if got := observeCaptureSession(captureResult{TargetPID: 41}, denied, session, observeOptions{injectionRequested: true}); got.TransportReady {
+		t.Errorf("handshake said transport_ready:false and the capture published true: %+v", got)
+	}
+}
