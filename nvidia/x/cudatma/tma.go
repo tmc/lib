@@ -242,24 +242,48 @@ func FixtureSource(target string, elements int) (string, error) {
 // compile-gated because instruction availability and syntax are target and
 // toolkit specific; this source is never treated as native evidence by
 // itself.
+//
+// Two details of the emitted source are load-bearing and are easy to get
+// wrong in ways that do not announce themselves.
+//
+// The descriptor parameter is __grid_constant__. Without it the compiler
+// copies all 128 bytes out of parameter space onto the stack and hands
+// cp.async.bulk.tensor a generic address of that copy, which is not where
+// the instruction reads a tensor map from. That version still compiles, so
+// the compile gate cannot see it; [TestTMAFixturePassesTheMapInParamSpace]
+// reads the PTX instead and requires cvta.param.
+//
+// mbarrier.try_wait.parity writes a predicate, not a 32-bit register. The
+// inline asm therefore declares a .pred and moves it with selp. Naming an
+// "=r" operand as the destination is an arguments mismatch that ptxas
+// rejects outright.
 func TMAFixtureSource(target string) (string, error) {
 	if target != TargetSM100a && target != TargetSM121a {
 		return "", fmt.Errorf("unsupported target %q", target)
 	}
 	return fmt.Sprintf(`#include <cuda.h>
 // target=%s; requires PTX cp.async.bulk.tensor and mbarrier support
-extern "C" __global__ void tma_fixture(const CUtensorMap map) {
-  __shared__ __align__(16) unsigned char tile[128];
-  __shared__ unsigned long long bar;
+extern "C" __global__ void tma_fixture(__grid_constant__ const CUtensorMap map) {
+  __shared__ __align__(128) unsigned char tile[128];
+  __shared__ __align__(8) unsigned long long bar;
   unsigned smem = __cvta_generic_to_shared(tile);
   unsigned barr = __cvta_generic_to_shared(&bar);
   if (threadIdx.x == 0) {
-    asm volatile("mbarrier.init.shared.b64 [%%0], 1;" :: "r"(barr));
-    asm volatile("mbarrier.arrive.expect_tx.shared.b64 _, [%%0], 128;" :: "r"(barr));
-    asm volatile("cp.async.bulk.tensor.2d.shared::cta.global.mbarrier::complete_tx::bytes [%%0], [%%1, {0, 0}], [%%2];" :: "r"(smem), "l"(&map), "r"(barr));
+    asm volatile("mbarrier.init.shared::cta.b64 [%%0], 1;" :: "r"(barr));
+  }
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%%0], 128;" :: "r"(barr));
+    asm volatile("cp.async.bulk.tensor.2d.shared::cta.global.mbarrier::complete_tx::bytes"
+                 " [%%0], [%%1, {0, 0}], [%%2];" :: "r"(smem), "l"(&map), "r"(barr) : "memory");
   }
   int ready = 0;
-  while (!ready) asm volatile("mbarrier.try_wait.parity.shared.b64 %%0, [%%1], 0;" : "=r"(ready) : "r"(barr));
+  while (!ready) {
+    asm volatile("{\n\t.reg .pred p;\n\t"
+                 "mbarrier.try_wait.parity.shared::cta.b64 p, [%%1], %%2;\n\t"
+                 "selp.b32 %%0, 1, 0, p;\n\t}"
+                 : "=r"(ready) : "r"(barr), "r"(0));
+  }
 }
 `, target), nil
 }

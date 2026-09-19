@@ -74,6 +74,12 @@ func TestRejectUnverifiedTMEMTransfer(t *testing.T) {
 	}
 }
 
+// TestGeneratedTMAProtocol checks that the fixture names the four
+// instructions the protocol is built from. It is a presence check on text,
+// not a check that the text assembles: it stayed green for as long as the
+// fixture named mbarrier.try_wait.parity with a destination ptxas rejects.
+// TestCompileTMAInstructionFixture is the gate; this only catches an
+// instruction being dropped from the fixture entirely.
 func TestGeneratedTMAProtocol(t *testing.T) {
 	s, err := TMAFixtureSource(TargetSM121a)
 	if err != nil {

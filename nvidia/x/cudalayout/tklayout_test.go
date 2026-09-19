@@ -59,6 +59,25 @@ func loadTKLayout(t *testing.T) tkLayout {
 	return l
 }
 
+// tkPinnedCommit is the ThunderKittens commit testdata/tklayout.json was
+// recorded against. The fixture's author pins the same value on their side,
+// so a re-record against a different upstream fails here and there rather
+// than moving both gates at once and silently. Changing it is a deliberate
+// act: the mappings below are only claims about this commit.
+const tkPinnedCommit = "67845f5"
+
+// TestTKFixtureIsTheRecordingWeChecked pins what the vendored file is, so a
+// replacement cannot quietly redefine what the differentials below prove.
+func TestTKFixtureIsTheRecordingWeChecked(t *testing.T) {
+	l := loadTKLayout(t)
+	if l.TKCommit != tkPinnedCommit {
+		t.Errorf("fixture records ThunderKittens %q, this package's mappings were checked against %q", l.TKCommit, tkPinnedCommit)
+	}
+	if l.Arch != "sm_121a" {
+		t.Errorf("fixture records arch %q, want sm_121a", l.Arch)
+	}
+}
+
 // TestTKFixtureCoversTheWidths states the denominator the two differentials
 // below run against, and fails if the fixture stops covering a width this
 // package models. A fixture that quietly lost its one-byte shapes would
