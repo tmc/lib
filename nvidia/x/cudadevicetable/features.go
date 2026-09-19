@@ -198,6 +198,13 @@ func (t Table) validateTargets() error {
 	// classifier that read a non-zero exit as "unsupported" reported wgmma
 	// unsupported at sm_90a, the one target that does support it.
 	//
+	// That segfault is specific to 13.0.88. ptxas 13.4 assembles the
+	// constant-zero descriptor at sm_90a and exits 0, so reaching for it to
+	// exercise this rule on a current toolchain yields a green that means
+	// nothing -- the same shape of false pass the rule itself guards
+	// against. What assembles nowhere on 13.4 is an illegal shape: change
+	// wgmma.ptx's m64n8k16 to m64n7k16 and every target rejects it.
+	//
 	// Every offending feature is named, sorted, because map iteration order
 	// would otherwise pick a different one to blame on each run and a blame
 	// that moves between runs reads as a fact about that feature.
