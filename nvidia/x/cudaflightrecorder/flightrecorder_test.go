@@ -474,6 +474,13 @@ func TestGoTraceFlightRecording(t *testing.T) {
 				t.Fatalf("ReadBundle failed: %v", err)
 			}
 
+			if bundle.Manifest.ClockUncertaintyNs != manifest.ClockUncertaintyNs ||
+				bundle.Manifest.ClockUncertaintySource != manifest.ClockUncertaintySource ||
+				bundle.Manifest.OverlapReliable != manifest.OverlapReliable {
+				t.Errorf("bundle clock fields = (%d, %q, %t), want (%d, %q, %t)",
+					bundle.Manifest.ClockUncertaintyNs, bundle.Manifest.ClockUncertaintySource, bundle.Manifest.OverlapReliable,
+					manifest.ClockUncertaintyNs, manifest.ClockUncertaintySource, manifest.OverlapReliable)
+			}
 			if bundle.Manifest.GoTraceBytes != manifest.GoTraceBytes {
 				t.Errorf("bundle GoTraceBytes = %d, want %d", bundle.Manifest.GoTraceBytes, manifest.GoTraceBytes)
 			}

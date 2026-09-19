@@ -107,17 +107,20 @@ func ExampleRecorder_Snapshot_withGoTrace() {
 	// TestAlignSpansUncertaintyInputs and TestClockUncertaintyPrecedence.
 	//
 	// What does hold on every host is that the manifest Snapshot returns and
-	// the one inside the bundle are the same manifest.
-	if bundle.Manifest.OverlapReliable != manifest.OverlapReliable ||
-		bundle.Manifest.ClockUncertaintyNs != manifest.ClockUncertaintyNs ||
-		bundle.Manifest.ClockUncertaintySource != manifest.ClockUncertaintySource {
-		log.Fatal("bundle manifest disagrees with the returned manifest")
-	}
+	// the one inside the bundle are the same manifest, so that is what the
+	// example reports. It is printed rather than checked with log.Fatal:
+	// os.Exit from an example aborts the test binary and takes every other
+	// result in the package with it.
+	fmt.Printf("Bundle manifest agrees: %t\n",
+		bundle.Manifest.OverlapReliable == manifest.OverlapReliable &&
+			bundle.Manifest.ClockUncertaintyNs == manifest.ClockUncertaintyNs &&
+			bundle.Manifest.ClockUncertaintySource == manifest.ClockUncertaintySource)
 
 	// Output:
 	// Snapshot reason: latency_spike
 	// GPU records: 1
 	// Has go.trace: true
+	// Bundle manifest agrees: true
 }
 
 func ExampleRecorder_PushSASSMetric() {
