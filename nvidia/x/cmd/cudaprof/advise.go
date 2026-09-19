@@ -669,6 +669,10 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	// 7. Stream Kernel Sequences (CUDA Graph Candidates & Pointwise Fusion)
 	auditStreamKernelSequences(cap, report)
 
+	// 7a. Whole-capture duty cycle. This runs before the dominance audit so
+	// that an idle-dominated capture says so above every kernel-time finding.
+	auditDeviceDutyCycle(cap, report)
+
 	// 8. Kernel Family Dominance Audit (Macro Architectural Bottlenecks)
 	kernelTimes, totalTime := computeProfileTimes(cap)
 	hasTiming := hasDeviceTiming(cap)
@@ -3505,5 +3509,100 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 			return a.Category < b.Category
 		}
 		return a.Finding < b.Finding
+	})
+}
+
+// deviceIdleCriticalPct is the whole-capture duty cycle below which the idle
+// time outweighs everything a kernel-time ranking can see. It is deliberately
+// far below lowDutyCyclePct, which judges one short-kernel sequence: this one
+// decides whether the report's own ordering is misleading.
+const deviceIdleCriticalPct = 50.0
+
+// profileDutyCycle reports the fraction of the captured device span in which
+// any device work was running.
+//
+// Busy time is the UNION of the activity intervals, not their sum. Kernels on
+// different streams overlap, and summing durations across streams produces a
+// busy figure larger than the span it is divided by -- a duty cycle above
+// 100%, which is how this class of number announces that it was summed.
+func profileDutyCycle(streams map[uint32][]streamEvent) (pct float64, spanNs, busyNs uint64, ok bool) {
+	type iv struct{ start, end uint64 }
+	var ivs []iv
+	var first, last uint64
+	var haveFirst bool
+	for _, evs := range streams {
+		for _, ev := range evs {
+			// End is the sentinel for "this capture carries no activity
+			// timestamps", not Start: a device timeline that begins at zero is
+			// a legitimate one, and testing Start drops its first activity
+			// silently -- which changes both the span and the busy time.
+			if ev.End == 0 || ev.End <= ev.Start {
+				continue
+			}
+			ivs = append(ivs, iv{ev.Start, ev.End})
+			// Tracked with a flag, not a zero sentinel: a timeline whose
+			// first activity starts at 0 would otherwise keep re-taking the
+			// earliest start from every later activity, and the span would be
+			// measured from the second one.
+			if !haveFirst || ev.Start < first {
+				first, haveFirst = ev.Start, true
+			}
+			if ev.End > last {
+				last = ev.End
+			}
+		}
+	}
+	// One activity has no span worth calling a duty cycle: its span is its own
+	// duration and the answer is always 100%.
+	if len(ivs) < 2 || last <= first {
+		return 0, 0, 0, false
+	}
+	sort.Slice(ivs, func(i, j int) bool { return ivs[i].start < ivs[j].start })
+	cur := ivs[0]
+	for _, x := range ivs[1:] {
+		if x.start > cur.end {
+			busyNs += cur.end - cur.start
+			cur = x
+			continue
+		}
+		if x.end > cur.end {
+			cur.end = x.end
+		}
+	}
+	busyNs += cur.end - cur.start
+	spanNs = last - first
+	return float64(busyNs) * 100.0 / float64(spanNs), spanNs, busyNs, true
+}
+
+// auditDeviceDutyCycle states, before any kernel finding, when most of the
+// captured span was device idle.
+//
+// advise ranks by device time and launch count, so on an idle-dominated
+// capture every finding it emits is ranking the minority of the problem while
+// saying nothing about the majority. On one ds4 capture that ordering sent
+// three independent readers -- this tool, its operator, and an external
+// review -- to micro-kernel batching as the top parity fix, when the device
+// was idle 76% of the span and the oracle they were losing to launched 48%
+// MORE kernels per token. No count-based remedy could have touched it.
+//
+// This finding does not diagnose the idle time; it refuses to let the ranking
+// below it be read as the whole account, and names the command that does
+// attribute idle.
+func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
+	pct, spanNs, busyNs, ok := profileDutyCycle(extractStreamEvents(cap))
+	if !ok || pct >= deviceIdleCriticalPct {
+		return
+	}
+	idleNs := spanNs - busyNs
+	report.Items = append(report.Items, AdviceItem{
+		Severity:        SeverityCritical,
+		Category:        CategoryArchitectureDispatch,
+		EvidenceLevel:   EvidenceObserved,
+		DeviceTimeNanos: int64(busyNs),
+		ShareOfProfile:  pct,
+		Finding: fmt.Sprintf("The device was idle for %.2f%% of the captured span: %.3f ms idle of a %.3f ms span, with %.3f ms of device work. Every finding below this one ranks that %.2f%% -- none of them can see the idle time, and on this capture the idle time is the larger quantity.",
+			100.0-pct, float64(idleNs)/1e6, float64(spanNs)/1e6, float64(busyNs)/1e6, pct),
+		ActionableRecommendation: "Attribute the idle time before acting on any kernel finding below: run cudaprof gaps on this capture, which splits idle into host-behind, synchronization, and graph-replay time. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies.",
+		NextMeasurement:          "cudaprof gaps <capture> -- idle attribution and the gap distribution",
 	})
 }

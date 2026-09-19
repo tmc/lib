@@ -3485,3 +3485,130 @@ func accumulatedFromFinding(finding string) (time.Duration, bool) {
 	}
 	return d, true
 }
+
+// TestIdleDominatedCaptureSaysSoFirst pins the finding that keeps the rest of
+// the report honest.
+//
+// advise ranks by device time and launch count. On a capture where the device
+// is mostly idle, that ranking is complete and still misleading: it orders the
+// minority of the span and is silent about the majority. The quiet arm matters
+// as much -- a busy capture must not carry this finding, or it becomes a
+// banner readers learn to skip.
+func TestIdleDominatedCaptureSaysSoFirst(t *testing.T) {
+	// Two kernels per stream, 1 ms each, placed to make the duty cycle.
+	build := func(starts []uint64, durNs uint64) *cudacapture.Capture {
+		var samples []*profile.Sample
+		for i, st := range starts {
+			samples = append(samples, &profile.Sample{
+				Location: []*profile.Location{{ID: uint64(i + 1), Line: []profile.Line{
+					{Function: &profile.Function{ID: 1, Name: "work_kernel"}},
+				}}},
+				Value: []int64{int64(durNs)},
+				Label: map[string][]string{"name": {"work_kernel"}},
+				NumLabel: map[string][]int64{
+					"stream": {7},
+					"start":  {int64(st)},
+					"end":    {int64(st + durNs)},
+				},
+			})
+		}
+		return &cudacapture.Capture{Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+			Sample:     samples,
+		}}
+	}
+	idleFinding := func(t *testing.T, cap *cudacapture.Capture) *AdviceItem {
+		t.Helper()
+		report, err := AnalyzeCapture(cap)
+		if err != nil {
+			t.Fatalf("AnalyzeCapture: %v", err)
+		}
+		for i := range report.Items {
+			if strings.Contains(report.Items[i].Finding, "The device was idle for") {
+				// It has to be readable before the findings it qualifies.
+				for j := 0; j < i; j++ {
+					if report.Items[j].Severity != SeverityCritical {
+						t.Errorf("idle finding ranks below a %s finding: %s", report.Items[j].Severity, report.Items[j].Finding)
+					}
+				}
+				return &report.Items[i]
+			}
+		}
+		return nil
+	}
+
+	// 1 ms of work in every 10 ms.
+	idle := build([]uint64{0, 10e6, 20e6, 30e6}, 1e6)
+	got := idleFinding(t, idle)
+	if got == nil {
+		t.Fatal("a capture that is mostly device idle carried no idle finding")
+	}
+	if got.Severity != SeverityCritical {
+		t.Errorf("severity = %s, want Critical", got.Severity)
+	}
+	duty, _, _, ok := profileDutyCycle(extractStreamEvents(idle))
+	if !ok {
+		t.Fatal("duty cycle not computable for the fixture the finding fired on")
+	}
+	// The figure in the prose must be the IDLE share, not the duty cycle.
+	// Inverting those two is the one error this sentence can make and still
+	// read as sensible, so assert both: the idle number present, and the duty
+	// number not standing where it belongs.
+	if want := fmt.Sprintf("idle for %.2f%%", 100.0-duty); !strings.Contains(got.Finding, want) {
+		t.Errorf("finding does not state %q: %s", want, got.Finding)
+	}
+	if bad := fmt.Sprintf("idle for %.2f%%", duty); strings.Contains(got.Finding, bad) {
+		t.Errorf("finding reports the duty cycle as the idle share: %s", got.Finding)
+	}
+	if !strings.Contains(got.ActionableRecommendation, "cudaprof gaps") {
+		t.Errorf("recommendation does not name the command that attributes idle: %s", got.ActionableRecommendation)
+	}
+
+	// The control: back-to-back kernels leave no idle, and must not be told
+	// the device was idle.
+	if q := idleFinding(t, build([]uint64{0, 1e6, 2e6, 3e6}, 1e6)); q != nil {
+		t.Errorf("a fully busy capture reported idle: %s", q.Finding)
+	}
+}
+
+// TestProfileDutyCycleUnionsOverlappingStreams pins that busy time is a union.
+// Summing durations across concurrent streams produces more busy time than
+// there is span, which is how a duty cycle exceeds 100%.
+func TestProfileDutyCycleUnionsOverlappingStreams(t *testing.T) {
+	streams := map[uint32][]streamEvent{
+		7: {{Start: 100, End: 200, DurationNs: 100}, {Start: 300, End: 400, DurationNs: 100}},
+		9: {{Start: 100, End: 200, DurationNs: 100}, {Start: 150, End: 250, DurationNs: 100}},
+	}
+	pct, spanNs, busyNs, ok := profileDutyCycle(streams)
+	if !ok {
+		t.Fatal("duty cycle not computed for four timestamped activities")
+	}
+	if spanNs != 300 {
+		t.Errorf("span = %d, want 300", spanNs)
+	}
+	// 100-250 and 300-400: 250 ns of union, not the 400 ns the durations sum to.
+	if busyNs != 250 {
+		t.Errorf("busy = %d, want 250: concurrent intervals were summed, not unioned", busyNs)
+	}
+	if pct > 100 {
+		t.Errorf("duty cycle = %v, which is impossible and means busy was summed", pct)
+	}
+
+	// A timeline whose first activity starts at 0. Exact values, because the
+	// span is what a zero-start sentinel gets wrong, and deriving the
+	// expectation from the same function would hide it.
+	zero := map[uint32][]streamEvent{7: {
+		{Start: 0, End: 1000, DurationNs: 1000},
+		{Start: 9000, End: 10000, DurationNs: 1000},
+	}}
+	pct, spanNs, busyNs, ok = profileDutyCycle(zero)
+	if !ok {
+		t.Fatal("duty cycle not computed for a timeline starting at 0")
+	}
+	if spanNs != 10000 || busyNs != 2000 {
+		t.Errorf("span/busy = %d/%d, want 10000/2000: the span was measured from the second activity", spanNs, busyNs)
+	}
+	if pct != 20 {
+		t.Errorf("duty cycle = %v, want 20", pct)
+	}
+}
