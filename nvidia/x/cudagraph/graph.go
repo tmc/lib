@@ -3,6 +3,7 @@ package cudagraph
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"sort"
 	"sync"
 
@@ -55,6 +56,18 @@ func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
 	if fn == nil {
 		return nil, errors.New("cudagraph: nil capture function")
 	}
+
+	// A capture sequence belongs to the OS thread that began it: ending it
+	// from another thread fails with CUDA_ERROR_STREAM_CAPTURE_WRONG_THREAD.
+	// Pinning has to span all three steps because cuda.Context.Run locks the
+	// thread for one call and releases it on return, which leaves fn running
+	// unpinned -- and fn is where a capture spends its time, so it is where
+	// the scheduler has the most opportunity to move the goroutine. The
+	// failure needs that move to actually happen, so it presents as an
+	// intermittent flake in whatever the capture was recording rather than as
+	// a capture that never works.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	if err := s.Device().WithContext(func() error {
 		return s.Raw().BeginCapture(driver.StreamCaptureModeGlobal)
