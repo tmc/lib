@@ -1,0 +1,13 @@
+Commit: 0abe2cc3
+Date: 2026-09-19T09:09:14Z
+model: claude-opus-5
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Corrects a claim committed in 4c392e08 roughly an hour earlier.
+Credit: scout-attn-parity found that cuda_session_linux.go:276 builds dense
+artifacts unconditionally, so the zero-MoE-layer arm holds 5.62 GiB and is not
+the zero-byte control I read it as; and that logits_check.go:32-33 catches a
+non-finite value before the digest is formed, making the outcome space
+three-way rather than two-way.
+No GPU time: both are source reads against data already in the tree.
