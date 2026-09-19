@@ -1,0 +1,17 @@
+Commit: c2f10350
+Date: 2026-09-19T07:53:48Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 27927
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+iterm-sid: C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Evidence:
+  label 4083518  moesweep-C6A7.sh   12 cells, digest 665ac935 on all, 0 corruption
+  label 4089442  moecap-C6A7.sh     graphs-off capture at moe=8, ~/tmp/claude-tmp/caps/moe8.pprof
+  baseline       label 4082203      graphs-off moe=0 census, 3250.362 ms / 13520 launches
+Predictions registered in the capture script header before the run:
+  repack_iq2 86->70 HIT, repack_q2_k 43->35 HIT, kernel time ~3116 REFUTED (3364.241)
