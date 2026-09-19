@@ -1,0 +1,14 @@
+Commit: 29521ed3
+Date: 2026-09-19T02:51:56-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+not a tty
+pid: 9334
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Attribution: Claude Opus 5 (Claude Code)
+Source: subagent gemm-determinism, found while applying the E8 decomposition to its own harness
+Verified locally: logits_check.go:31 early return; cuda_prefill_graph_linux_test.go:190 hashes all logits
+Errata: 21.181
