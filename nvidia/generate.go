@@ -49,6 +49,41 @@ package nvidia
 // When x becomes its own module it will need the workspace: the command is then
 // in another module, go.work is what lets this one reach it, and it must stay
 // that way, because a require on x would put x in every consumer's graph.
+//
+// One package is generated and recorded but has no recipe here. ncclll has 13
+// generated files and a recorded argv in upstream.json, and no go:generate
+// line: go generate does not rebuild it and nvgen -list does not name it, so a
+// clean -diff says nothing about it. The counts agree by coincidence --
+// upstream.json holds 35 packages and this file holds 35 recipes -- but the two
+// sets differ, ncclll on one side and the gated vpi recipe on the other.
+//
+// What the committed packages were generated from. The vendor archives named
+// in upstream.json are the linux-x86_64 redistributables, and their versions
+// differ per package rather than coming from one toolkit release. That is the
+// platform of the INPUT headers. It is not the platform of the generation: the
+// recorded toolchains are darwin/arm64 throughout, and three entries -- ncclep,
+// ncclll and ncclm2n -- record no toolchain at all. So the committed API is
+// derived from Linux headers by a generator that has only ever been run on
+// Darwin, and upstream.json is the place that says so per package.
+//
+// Generated files are not edited. A file whose name ends in .gen.go or
+// .gen_test.go is written by nvgen, and nvgen overwrites it without reading it,
+// so an edit survives until the next regeneration and leaves no trace when it
+// goes. A defect in a generated file is a defect in the generator: fix it in
+// libgen and regenerate. That the fix is one character is not a reason to make
+// an exception. The cost is not the edit; it is that the file and its inputs
+// stop agreeing and nothing says so. The converse does not hold: x/cudamlx and
+// x/tileir each carry a generated file spelled _gen rather than .gen, and
+// neither is nvgen's.
+//
+// What a regeneration has to clear. Regenerating moves an exported API, and the
+// test suite is not the check for that: a constant whose value changes and a
+// parameter that is renamed both compile and both pass. api/nvidia.log, at the
+// repository root, is the reviewed set of incompatible changes against the last
+// nvidia/v* tag, and make version-check fails when a regeneration's set differs
+// from it. The order is regenerate, read what moved, then make api-update to
+// record it. Accepting an entry means having read it; the gate reports only
+// that the file and the tree agree.
 
 //go:generate -command nvgen nvgen -output .
 
