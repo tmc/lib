@@ -519,7 +519,7 @@
           },
           {
             "path": "nvidia/cudensitymat/provenance.gen.go",
-            "sha256": "61e33b6704b0f25bc51271f4adcb61ee9f8090f63f48df7d0e06cae83a507bfe"
+            "sha256": "a8e51f3a0b556885d30db27c953c21b772b112fcc2e4c6356e5e2ee756a6edfa"
           },
           {
             "path": "nvidia/cudensitymat/result.gen.go",

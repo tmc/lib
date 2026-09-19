@@ -3,25 +3,26 @@
   "generator": "github.com/tmc/libgen/cmd/gen-cudensitymat",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$HOME/go/src/github.com/tmc/libgen",
+  "cwd": ".",
   "argv": [
-    "$TMPDIR/go-build1672813177/b001/exe/gen-cudensitymat",
+    "gen-cudensitymat",
     "-headers",
     "cmd/gen-cudensitymat/headers",
     "-cuda-headers",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
+    "../cuda-headers",
     "-output",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/cudensitymat"
+    "cudensitymat"
   ],
   "inputs": [
     {
-      "path": "$HOME/go/src/github.com/tmc/libgen/cmd/gen-cudensitymat/headers/cudensitymat.h",
+      "path": "cudensitymat.h",
       "sha256": "50625556ef18505d3a9c427b01491952eeeecbd7440061f1b8d12f6c4885ae59"
     }
   ],
-  "source_hash": "bac6dce4987752a5439e2e8287236fd84c5117ca6130425e864c2b4b50d249ac",
+  "source_hash": "43897de98667988deeec106e9204aa0f597f94ee602971f29580c2c745d95d16",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
-    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
   ]
 }
