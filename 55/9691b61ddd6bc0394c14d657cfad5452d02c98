@@ -1,0 +1,15 @@
+Commit: 559691b6
+Date: 2026-09-19T08:27:15Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 1710
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+iterm-sid: C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Labels indexed: 4016301 4027530 4034661 4037664 4082203 4083518 4089442
+                4098372 4109833 4159561
+Artifacts live on dgx under ~/tmp/{graphvis,moecap,moesweep,rel2,lay2,n8}/;
+scripts under ~/tmp/claude-tmp/ on the Mac, uploaded to ~/tmp/ on dgx.
