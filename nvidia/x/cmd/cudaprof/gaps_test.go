@@ -1318,3 +1318,190 @@ func TestOpaqueGraphReplayIsNotIdle(t *testing.T) {
 		t.Errorf("report claims opaque replays where a node record names its graph:\n%s", out)
 	}
 }
+
+// namedKernel appends one kernel activity carrying its name, which is what the
+// per-kernel census counts by.
+func (b *journalBuilder) namedKernel(name string, start, end uint64, correlation uint32) *journalBuilder {
+	b.append(recordActivity, map[string]any{
+		"kind": "activity", "subtype": "kernel", "valid": true,
+		"name": name, "start": start, "end": end, "device": 0, "correlation": correlation,
+	})
+	return b
+}
+
+// namedActivity appends one named activity of any subtype.
+func (b *journalBuilder) namedActivity(subtype, name string, start, end uint64, correlation uint32) *journalBuilder {
+	b.append(recordActivity, map[string]any{
+		"kind": "activity", "subtype": subtype, "valid": true,
+		"name": name, "start": start, "end": end, "device": 0, "correlation": correlation,
+	})
+	return b
+}
+
+// censusReport builds a one-capture report from a run of named kernels.
+func censusReport(t *testing.T, kernels []struct {
+	name     string
+	duration uint64
+	count    int
+}) *GapReport {
+	t.Helper()
+	b := newJournalBuilder()
+	var at uint64 = 1_000
+	var corr uint32
+	for _, k := range kernels {
+		for i := 0; i < k.count; i++ {
+			corr++
+			b.namedKernel(k.name, at, at+k.duration, corr)
+			b.api(at-500, at-100, corr)
+			at += k.duration + 1_000
+		}
+	}
+	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
+	report, err := analyzeGaps(cap, gapOptions{maxRecords: controllerMaxJournalRecords})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return report
+}
+
+// TestKernelCensusSeparatesLaunchChangesFromPressure is the distinction the
+// census exists to make. A kernel whose launch count moved took a different
+// path: that is the change. A kernel with the identical launch count in both
+// arms was not touched, so device time that moved there came from elsewhere on
+// the device -- and ranking the two together by delta alone puts the untouched
+// kernel first.
+func TestKernelCensusSeparatesLaunchChangesFromPressure(t *testing.T) {
+	type row = struct {
+		name     string
+		duration uint64
+		count    int
+	}
+	base := censusReport(t, []row{
+		{"repack", 1_000, 10}, // removed by the change
+		{"dense", 1_000, 5},   // untouched, and slower afterwards
+		{"gone", 500, 2},      // absent from the target entirely
+	})
+	target := censusReport(t, []row{
+		{"repack", 1_000, 4},
+		{"dense", 3_000, 5},
+		{"added", 400, 3},
+	})
+	d := diffKernelCensus(base, target)
+	if d == nil {
+		t.Fatal("no census diff")
+	}
+	changed := map[string]KernelDelta{}
+	for _, r := range d.Changed {
+		changed[r.Name] = r
+	}
+	unchanged := map[string]KernelDelta{}
+	for _, r := range d.Unchanged {
+		unchanged[r.Name] = r
+	}
+	for _, name := range []string{"repack", "gone", "added"} {
+		if _, ok := changed[name]; !ok {
+			t.Errorf("%s is not in the launch-count-changed half: %+v", name, d.Changed)
+		}
+		if _, ok := unchanged[name]; ok {
+			t.Errorf("%s is reported as untouched, but its launch count moved", name)
+		}
+	}
+	// A kernel present in one arm only is a launch count change from or to
+	// zero, never an unchanged one: "the launch count did not move" would be
+	// a claim about a kernel that did not run.
+	if got := changed["gone"]; got.BaseLaunches != 2 || got.TargetLaunches != 0 {
+		t.Errorf("gone = %+v, want 2 -> 0 launches", got)
+	}
+	if got := changed["added"]; got.BaseLaunches != 0 || got.TargetLaunches != 3 {
+		t.Errorf("added = %+v, want 0 -> 3 launches", got)
+	}
+	dense, ok := unchanged["dense"]
+	if !ok {
+		t.Fatalf("dense is not in the untouched half: %+v", d.Unchanged)
+	}
+	if dense.BaseLaunches != 5 || dense.TargetLaunches != 5 {
+		t.Errorf("dense launches = %d -> %d, want 5 -> 5", dense.BaseLaunches, dense.TargetLaunches)
+	}
+	if dense.DeltaNanos != 10_000 {
+		t.Errorf("dense delta = %d ns, want +10000 (5 launches, 2000 ns slower each)", dense.DeltaNanos)
+	}
+	// The totals are the reading the two halves exist to give: work removed
+	// on one side, pressure paid on the other.
+	if d.UnchangedNanos != 10_000 {
+		t.Errorf("untouched total = %d ns, want 10000", d.UnchangedNanos)
+	}
+	if want := int64(-6_000 - 1_000 + 1_200); d.ChangedNanos != want {
+		t.Errorf("changed total = %d ns, want %d", d.ChangedNanos, want)
+	}
+	// Largest magnitude first, in each half independently: a -6000 ns row
+	// must not be outranked by a +1200 ns one because it is negative.
+	if d.Changed[0].Name != "repack" {
+		t.Errorf("changed rows are not ranked by magnitude: %+v", d.Changed)
+	}
+}
+
+// TestCensusCaveatFiresOnlyOnMixedOpacity guards the caveat in both
+// directions. Printed on a matched pair it is noise a reader learns to skip;
+// omitted on a mismatched one it lets a kernel whose records the capture did
+// not carry read as a launch the change removed.
+func TestCensusCaveatFiresOnlyOnMixedOpacity(t *testing.T) {
+	opaque := &GapReport{OpaqueGraphReplays: true, Kernels: []KernelCensus{{Name: "k", Launches: 1}}}
+	plain := &GapReport{Kernels: []KernelCensus{{Name: "k", Launches: 1}}}
+	if got := diffKernelCensus(plain, opaque); got.Caveat == "" {
+		t.Error("no caveat where only the target's replays are opaque")
+	} else if !strings.Contains(got.Caveat, "target capture's graph replays are opaque") {
+		t.Errorf("caveat names the wrong arm: %s", got.Caveat)
+	}
+	if got := diffKernelCensus(opaque, plain); !strings.Contains(got.Caveat, "base capture's graph replays are opaque") {
+		t.Errorf("caveat names the wrong arm: %s", got.Caveat)
+	}
+	for _, pair := range [][2]*GapReport{{plain, plain}, {opaque, opaque}} {
+		if got := diffKernelCensus(pair[0], pair[1]); got.Caveat != "" {
+			t.Errorf("caveat on a matched pair: %s", got.Caveat)
+		}
+	}
+}
+
+// TestKernelCensusCountsOnlyKernels keeps memcpy, sync and overhead spans out
+// of a per-kernel launch count: a census that counted them would report a
+// launch count that moved where no kernel launch did.
+func TestKernelCensusCountsOnlyKernels(t *testing.T) {
+	b := newJournalBuilder()
+	b.namedKernel("k", 1_000, 2_000, 1)
+	// Named on purpose: an unnamed memcpy is excluded by the name check
+	// rather than by the subtype check, so it cannot tell whether the subtype
+	// check does anything.
+	b.namedActivity("memcpy", "copyHtoD", 3_000, 4_000, 2)
+	b.overhead(5_000, 6_000, 1)
+	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
+	report, err := analyzeGaps(cap, gapOptions{maxRecords: controllerMaxJournalRecords})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Kernels) != 1 || report.Kernels[0].Name != "k" || report.Kernels[0].Launches != 1 {
+		t.Errorf("census = %+v, want one kernel k with one launch", report.Kernels)
+	}
+	if report.Kernels[0].DeviceNanos != 1_000 {
+		t.Errorf("device time = %d ns, want 1000", report.Kernels[0].DeviceNanos)
+	}
+}
+
+// TestUnnamedKernelRecordsAreCounted keeps a census total honest about what it
+// does not cover. A kernel record without a name cannot be a row, and dropping
+// it silently makes the rows look like the whole population.
+func TestUnnamedKernelRecordsAreCounted(t *testing.T) {
+	b := newJournalBuilder()
+	b.namedKernel("k", 1_000, 2_000, 1)
+	b.kernel(3_000, 4_000, 2)
+	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
+	report, err := analyzeGaps(cap, gapOptions{maxRecords: controllerMaxJournalRecords})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.UnnamedKernelRecords != 1 {
+		t.Errorf("unnamed kernel records = %d, want 1", report.UnnamedKernelRecords)
+	}
+	if len(report.Kernels) != 1 {
+		t.Errorf("census = %+v, want only the named kernel", report.Kernels)
+	}
+}

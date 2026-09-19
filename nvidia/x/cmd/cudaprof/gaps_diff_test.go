@@ -410,3 +410,48 @@ func TestGapsDiffMeasuredCase(t *testing.T) {
 		t.Errorf("verdict = %q, want both columns reported", d.Verdict)
 	}
 }
+
+// TestCensusTextMarksTheUntouchedHalf guards the rendering, which is the whole
+// deliverable: the two halves are only useful if a reader can tell which row
+// belongs to which. A column of deltas with no launch counts beside them is
+// the view that sent one A/B an hour down the wrong kernel.
+func TestCensusTextMarksTheUntouchedHalf(t *testing.T) {
+	type row = struct {
+		name     string
+		duration uint64
+		count    int
+	}
+	base := censusReport(t, []row{{"repack", 1_000, 10}, {"dense", 1_000, 5}})
+	target := censusReport(t, []row{{"repack", 1_000, 4}, {"dense", 3_000, 5}})
+	base.Capture, target.Capture = "base.pprof", "target.pprof"
+	diff, err := diffGapReports(base, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := diff.text()
+	for _, want := range []string{
+		"per-kernel census",
+		"launch count changed",
+		"launch count unchanged",
+		"these kernels were not touched",
+		"repack",
+		"dense",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("census text lacks %q:\n%s", want, text)
+		}
+	}
+	// The launch counts have to be printed, not only used to sort: the whole
+	// request was for a reader to be able to see that a count held still.
+	if !strings.Contains(text, "        5         5") {
+		t.Errorf("untouched kernel's launch counts are not printed:\n%s", text)
+	}
+	md := &strings.Builder{}
+	writeKernelCensusMarkdown(md, diff.Kernels)
+	if !strings.Contains(md.String(), "| `dense` | 5 -> 5 |") {
+		t.Errorf("markdown census lacks the untouched row:\n%s", md.String())
+	}
+	if !strings.Contains(md.String(), "unchanged |") {
+		t.Errorf("markdown census does not mark the untouched half:\n%s", md.String())
+	}
+}

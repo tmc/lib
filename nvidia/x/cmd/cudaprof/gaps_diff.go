@@ -50,10 +50,148 @@ func floatDelta(name string, base, target float64) GapFloatDelta {
 
 // GapDiff is the whole result of one "gaps --diff_base" run.
 type GapDiff struct {
-	Base     *GapReport      `json:"base"`
-	Target   *GapReport      `json:"target"`
-	WarmupMS float64         `json:"warmup_ms"`
-	Devices  []GapDeviceDiff `json:"devices"`
+	Base     *GapReport        `json:"base"`
+	Target   *GapReport        `json:"target"`
+	WarmupMS float64           `json:"warmup_ms"`
+	Devices  []GapDeviceDiff   `json:"devices"`
+	Kernels  *KernelCensusDiff `json:"kernels,omitempty"`
+}
+
+// KernelDelta is one kernel's launch count and device time in both arms.
+type KernelDelta struct {
+	Name              string `json:"name"`
+	BaseLaunches      int    `json:"base_launches"`
+	TargetLaunches    int    `json:"target_launches"`
+	BaseNanos         int64  `json:"base_device_ns"`
+	TargetNanos       int64  `json:"target_device_ns"`
+	DeltaNanos        int64  `json:"delta_device_ns"`
+	LaunchesUnchanged bool   `json:"launches_unchanged"`
+}
+
+// KernelCensusDiff splits the per-kernel device-time deltas by whether the
+// kernel's launch count moved.
+//
+// The two halves have opposite causes and only one of them is about the change
+// under test. A kernel whose launch count moved took a different path: that is
+// the change working, or failing to. A kernel whose launch count is identical
+// in both arms was not touched -- nothing about it changed -- so device time
+// that moved there is pressure the rest of the change put on the device:
+// clocks, cache, memory system, occupancy.
+//
+// Ranking the two together by delta alone hides this, and reliably puts the
+// untouched kernel on top: on one A/B that removed launches and got slower,
+// the largest single row was a kernel with the same 645 launches in both arms,
+// and the actual result -- 74 ms of removed work against 188 ms spread across
+// four kernels nobody had touched -- was invisible until launch count was held
+// constant.
+type KernelCensusDiff struct {
+	Changed        []KernelDelta `json:"launches_changed"`
+	Unchanged      []KernelDelta `json:"launches_unchanged"`
+	ChangedNanos   int64         `json:"launches_changed_delta_ns"`
+	UnchangedNanos int64         `json:"launches_unchanged_delta_ns"`
+	// Kernel records whose name the journal did not carry. They are in
+	// neither list and in no total, so they are counted here rather than
+	// leaving the lists to imply they cover every kernel record.
+	UnnamedBase   int `json:"unnamed_kernel_records_base,omitempty"`
+	UnnamedTarget int `json:"unnamed_kernel_records_target,omitempty"`
+
+	// Caveat is set when the two arms did not record kernels the same way,
+	// which makes a launch count difference a recording difference rather
+	// than a change in what ran.
+	Caveat string `json:"caveat,omitempty"`
+}
+
+// censusCaveat names a launch count difference the change did not cause.
+//
+// A capture whose graph replays are opaque holds no device record for the
+// kernels replayed inside them: they ran, and this census counts zero
+// launches for them. Diffed against an arm where the same kernels resolve
+// into records -- which is exactly what toggling CUDA graphs produces -- every
+// such kernel lands at the top of "launch count changed" with its whole device
+// time apparently removed. On the go_graph/go_nograph pair that is 36 of the
+// 45 changed rows and 2.9 seconds of device time that did not go anywhere.
+func censusCaveat(base, target *GapReport) string {
+	if base.OpaqueGraphReplays == target.OpaqueGraphReplays {
+		return ""
+	}
+	opaque, resolved := "base", "target"
+	if target.OpaqueGraphReplays {
+		opaque, resolved = "target", "base"
+	}
+	return fmt.Sprintf("the %s capture's graph replays are opaque and the %s capture's are not: kernels that ran inside a replay have no device record in the %s arm, so they show a launch count of zero there. A row that falls to or rises from zero is that difference in recording, not a launch the change removed",
+		opaque, resolved, opaque)
+}
+
+// diffKernelCensus pairs the two censuses by kernel name.
+//
+// A kernel present in one arm only is a launch count change from or to zero,
+// which is what it is: the change added or removed it. It belongs in Changed
+// and never in Unchanged, where "the launch count did not move" would be a
+// claim about a kernel that did not run.
+func diffKernelCensus(base, target *GapReport) *KernelCensusDiff {
+	if len(base.Kernels) == 0 && len(target.Kernels) == 0 {
+		return nil
+	}
+	index := func(rows []KernelCensus) map[string]KernelCensus {
+		m := make(map[string]KernelCensus, len(rows))
+		for _, r := range rows {
+			m[r.Name] = r
+		}
+		return m
+	}
+	b, t := index(base.Kernels), index(target.Kernels)
+	names := make([]string, 0, len(b)+len(t))
+	for n := range b {
+		names = append(names, n)
+	}
+	for n := range t {
+		if _, ok := b[n]; !ok {
+			names = append(names, n)
+		}
+	}
+	sort.Strings(names)
+	out := &KernelCensusDiff{
+		UnnamedBase:   base.UnnamedKernelRecords,
+		UnnamedTarget: target.UnnamedKernelRecords,
+		Caveat:        censusCaveat(base, target),
+	}
+	for _, n := range names {
+		bk, tk := b[n], t[n]
+		d := KernelDelta{
+			Name:              n,
+			BaseLaunches:      bk.Launches,
+			TargetLaunches:    tk.Launches,
+			BaseNanos:         bk.DeviceNanos,
+			TargetNanos:       tk.DeviceNanos,
+			DeltaNanos:        tk.DeviceNanos - bk.DeviceNanos,
+			LaunchesUnchanged: bk.Launches == tk.Launches,
+		}
+		if d.LaunchesUnchanged {
+			out.Unchanged = append(out.Unchanged, d)
+			out.UnchangedNanos += d.DeltaNanos
+			continue
+		}
+		out.Changed = append(out.Changed, d)
+		out.ChangedNanos += d.DeltaNanos
+	}
+	rank := func(rows []KernelDelta) {
+		sort.SliceStable(rows, func(i, j int) bool {
+			a, b := rows[i].DeltaNanos, rows[j].DeltaNanos
+			if a < 0 {
+				a = -a
+			}
+			if b < 0 {
+				b = -b
+			}
+			if a != b {
+				return a > b
+			}
+			return rows[i].Name < rows[j].Name
+		})
+	}
+	rank(out.Changed)
+	rank(out.Unchanged)
+	return out
 }
 
 // GapDeviceDiff compares the timelines of one device. A window is absent
@@ -114,6 +252,7 @@ func diffGapReports(base, target *GapReport) (*GapDiff, error) {
 	if len(diff.Devices) == 0 {
 		return nil, fmt.Errorf("neither capture holds a device timeline to compare")
 	}
+	diff.Kernels = diffKernelCensus(base, target)
 	return diff, nil
 }
 
@@ -186,6 +325,10 @@ func diffGapStats(base, target *GapStats) *GapStatsDiff {
 		intDelta("host behind", base.Attribution.HostBehindNanos, target.Attribution.HostBehindNanos),
 		intDelta("driver submission", base.Attribution.DriverSubmitNanos, target.Attribution.DriverSubmitNanos),
 		intDelta("hardware queue", base.Attribution.HardwareNanos, target.Attribution.HardwareNanos),
+		// The fourth arm is listed with the other three because the four
+		// partition idle. A diff that drops one prints rows that no longer
+		// sum to the idle delta above them.
+		intDelta("unattributed", base.Attribution.UnattributedNanos, target.Attribution.UnattributedNanos),
 	}
 	d.Verdict = gapVerdict(d.Span, d.Active, d.Idle)
 	return d
@@ -297,7 +440,56 @@ func (d *GapDiff) text() string {
 			fmt.Fprintf(&b, "\ndevice %d: %s\n", dev.Device, m)
 		}
 	}
+	writeKernelCensusDiff(&b, d.Kernels)
 	return b.String()
+}
+
+// kernelCensusRows is how many rows of each half are printed. The totals below
+// them are over every row, not over the printed ones.
+const kernelCensusRows = 10
+
+func writeKernelCensusDiff(b *strings.Builder, k *KernelCensusDiff) {
+	if k == nil {
+		return
+	}
+	b.WriteString("\nper-kernel census\n")
+	// Printed above the two halves, not below them: it says what the first
+	// half's largest rows mean, and a reader who has already read them has
+	// already drawn the conclusion it exists to prevent.
+	if k.Caveat != "" {
+		fmt.Fprintf(b, "  caveat: %s\n", k.Caveat)
+	}
+	section := func(title, note string, rows []KernelDelta, total int64) {
+		fmt.Fprintf(b, "  %s: %s (%s)\n", title, signedDuration(total), note)
+		if len(rows) == 0 {
+			b.WriteString("    none\n")
+			return
+		}
+		fmt.Fprintf(b, "    %-44s %9s %9s %12s %12s %12s\n", "kernel", "launches", "->", "device ms", "->", "delta")
+		for i, r := range rows {
+			if i == kernelCensusRows {
+				fmt.Fprintf(b, "    (%d more)\n", len(rows)-kernelCensusRows)
+				break
+			}
+			fmt.Fprintf(b, "    %-44s %9d %9d %12s %12s %12s\n",
+				truncateKernelName(r.Name, 44), r.BaseLaunches, r.TargetLaunches,
+				millis(r.BaseNanos), millis(r.TargetNanos), signedDuration(r.DeltaNanos))
+		}
+	}
+	section("launch count changed", "the code path moved: this is the change", k.Changed, k.ChangedNanos)
+	section("launch count unchanged", "these kernels were not touched: this is what the change cost elsewhere on the device", k.Unchanged, k.UnchangedNanos)
+	if k.UnnamedBase != 0 || k.UnnamedTarget != 0 {
+		fmt.Fprintf(b, "  %d -> %d kernel records carried no name and are in neither half\n", k.UnnamedBase, k.UnnamedTarget)
+	}
+}
+
+// truncateKernelName keeps the column aligned without hiding which kernel a
+// row is: mangled C++ names differ in their tail, so the tail is what is kept.
+func truncateKernelName(name string, width int) string {
+	if len(name) <= width {
+		return name
+	}
+	return "..." + name[len(name)-(width-3):]
 }
 
 func writeGapStatsDiff(b *strings.Builder, s *GapStatsDiff) {
@@ -392,5 +584,39 @@ func gapDecompositionMarkdown(baseCap, targetCap *cudacapture.Capture, basePath,
 		}
 	}
 	sb.WriteString("\n")
+	writeKernelCensusMarkdown(&sb, diff.Kernels)
 	return sb.String()
+}
+
+// writeKernelCensusMarkdown renders the census beside the duration delta,
+// where an A/B is actually read. The duration table above it ranks every
+// kernel together by delta, which puts a kernel the change never touched at
+// the top whenever the change cost more elsewhere than it saved.
+func writeKernelCensusMarkdown(sb *strings.Builder, k *KernelCensusDiff) {
+	if k == nil || (len(k.Changed) == 0 && len(k.Unchanged) == 0) {
+		return
+	}
+	sb.WriteString("## Per-Kernel Census\n\n")
+	sb.WriteString("A kernel whose launch count moved took a different path: that is the change. A kernel with the same launch count in both arms was not touched, so device time that moved there is what the change cost elsewhere on the device.\n\n")
+	if k.Caveat != "" {
+		sb.WriteString(fmt.Sprintf("**Caveat**: %s.\n\n", k.Caveat))
+	}
+	sb.WriteString(fmt.Sprintf("- **Launch count changed**: %s\n", signedDuration(k.ChangedNanos)))
+	sb.WriteString(fmt.Sprintf("- **Launch count unchanged**: %s\n\n", signedDuration(k.UnchangedNanos)))
+	sb.WriteString("| Kernel | Launches | Base | Target | Delta | Launch count |\n|---|---|---|---|---|---|\n")
+	for _, half := range [][]KernelDelta{k.Changed, k.Unchanged} {
+		for i, r := range half {
+			if i == kernelCensusRows {
+				sb.WriteString(fmt.Sprintf("| _(%d more)_ | | | | | |\n", len(half)-kernelCensusRows))
+				break
+			}
+			state := "changed"
+			if r.LaunchesUnchanged {
+				state = "unchanged"
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %d -> %d | %s | %s | %s | %s |\n",
+				r.Name, r.BaseLaunches, r.TargetLaunches, millis(r.BaseNanos), millis(r.TargetNanos), signedDuration(r.DeltaNanos), state))
+		}
+	}
+	sb.WriteString("\n")
 }

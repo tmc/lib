@@ -177,6 +177,14 @@ Summed per-kernel device time cannot see this axis: a change that moves work
 out of inter-kernel idle and into the kernels raises device-active time while
 the run gets faster, and a device-time-only diff scores that as a regression.
 
+A --diff_base run also prints a per-kernel census, split by whether each
+kernel's launch count moved. A kernel whose count changed took a different
+path: that is the change. A kernel with the same launch count in both arms was
+not touched, so device time that moved there is what the change cost elsewhere
+on the device. Ranked together by delta these are indistinguishable, and the
+untouched kernel is the one that sorts first whenever the change cost more
+than it saved.
+
 Options:
   --diff_base=FILE  compare against this capture and report deltas
   --warmup-ms=N     warmup window excluded from the steady-state section (default 200)
@@ -649,6 +657,16 @@ type GapReport struct {
 	UnresolvedSyncs     int   `json:"unresolved_sync_records"`
 	UnresolvedSyncNanos int64 `json:"unresolved_sync_ns"`
 
+	// Kernels is the per-kernel census: how many times each kernel ran and
+	// how much device time it held, both taken from the same records.
+	Kernels []KernelCensus `json:"kernels,omitempty"`
+
+	// UnnamedKernelRecords counts kernel activities the journal carried
+	// without a name. They are stated rather than dropped: a census whose
+	// rows silently omit a population reports a total that does not add up
+	// to the device-active time beside it.
+	UnnamedKernelRecords int `json:"unnamed_kernel_records,omitempty"`
+
 	// OpaqueGraphReplays reports that the capture held graph replay envelopes
 	// and no device record naming a graph id, so the replays are counted as
 	// device activity from their envelopes alone. The idle inside them is not
@@ -828,6 +846,7 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 		UnresolvedSyncs:     records.unresolvedSyncs,
 		UnresolvedSyncNanos: records.unresolvedNanos,
 	}
+	report.Kernels, report.UnnamedKernelRecords = kernelCensus(records.activities)
 	byDevice := make(map[uint32][]gapActivity)
 	for _, a := range records.activities {
 		byDevice[a.device] = append(byDevice[a.device], a)
@@ -861,6 +880,53 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 		report.Devices = append(report.Devices, entry)
 	}
 	return report, nil
+}
+
+// KernelCensus is one kernel's launch count and device time in one capture.
+type KernelCensus struct {
+	Name        string `json:"name"`
+	Launches    int    `json:"launches"`
+	DeviceNanos int64  `json:"device_ns"`
+}
+
+// kernelCensus counts launches and device time per kernel name.
+//
+// Both numbers come from the same records on purpose. A census that takes
+// counts from one source and durations from another can report a kernel whose
+// count held still while its time moved when what actually happened is that
+// the two sources disagree about which records exist -- and that reading is
+// the one a caller acts on, because a launch count that did not move says the
+// kernel itself did not change.
+func kernelCensus(acts []gapActivity) ([]KernelCensus, int) {
+	byName := make(map[string]*KernelCensus)
+	unnamed := 0
+	for _, a := range acts {
+		if !strings.EqualFold(a.subtype, "kernel") {
+			continue
+		}
+		if a.name == "" {
+			unnamed++
+			continue
+		}
+		c := byName[a.name]
+		if c == nil {
+			c = &KernelCensus{Name: a.name}
+			byName[a.name] = c
+		}
+		c.Launches++
+		c.DeviceNanos += a.end - a.start
+	}
+	out := make([]KernelCensus, 0, len(byName))
+	for _, c := range byName {
+		out = append(out, *c)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].DeviceNanos != out[j].DeviceNanos {
+			return out[i].DeviceNanos > out[j].DeviceNanos
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out, unnamed
 }
 
 // mergedInterval is one span of contiguous device occupancy. first is the
