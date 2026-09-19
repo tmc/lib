@@ -1,0 +1,12 @@
+Commit: 387764c8
+Date: 2026-09-18
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+none
+pid: $$
+ITERM_SESSION_ID: C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Measured: 1.366 -> 1.111 ms/token on ds4_attention_mixed_finalize; wrong-by-construction ceiling 1.108. Gates: TestCUDAAttentionFusedBits ok (its denominator mutant targets the literal line float denom = expf(sinks[h] - mx);, kept verbatim), compressed/attention suites ok, decode digest gate pending on the next ABBA.
