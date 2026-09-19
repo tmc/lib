@@ -10,6 +10,10 @@ import (
 // Parsed by: clang (5 of 5 merged headers from the translation unit)
 // Layouts: clang record dump for the host
 
+// The C layout oracle did not measure 1 type(s):
+//
+//	cudnnRuntimeTag_t: field has incomplete type 'cudnnRuntimeTag_t' (aka 'struct cudnnRuntimeTag_t')
+
 func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Sizeof(Debug{}); got != 120 {
 		t.Errorf("sizeof(Debug) = %d, want 120", got)

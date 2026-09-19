@@ -90,7 +90,7 @@
           },
           {
             "path": "nvidia/cublas/layout.gen_test.go",
-            "sha256": "7b88d94be2d48a056c8f8cd576d797ff51f1df7776b028f25d0f1ff2b21e835d"
+            "sha256": "c496bcd47c3b9b0d138d52c4b1bd02dbe9f312f50041264e30f2063093c42b88"
           },
           {
             "path": "nvidia/cublas/loader.gen_test.go",
@@ -111,6 +111,45 @@
           {
             "path": "nvidia/cublas/types.gen.go",
             "sha256": "381ad316f33acfdf36d6582a5b2ce25bced4e345649727ceb02316b3b8a491d5"
+          }
+        ],
+        "supplemental_runs": [
+          {
+            "argv": [
+              "go",
+              "run",
+              "./cmd/gen-nvidia",
+              "-api",
+              "cublas",
+              "-headers-dir",
+              "${HEADERS_REPO}",
+              "-output",
+              "${OUTPUT_DIR}",
+              "-package",
+              "cublas"
+            ],
+            "cwd": "${CODEGEN_REPO}",
+            "environment": {
+              "GOWORK": "off",
+              "TMPDIR": "${SCRATCH_DIR}"
+            },
+            "discarded_outputs": [
+              "nvidia/cublas/provenance.gen.go"
+            ],
+            "note": "layout.gen_test.go is not a cublas-survey output; its own header says gen-nvidia wrote it, and cmd/gen-nvidia/main.go preserves the other tool's files rather than sweeping them. This run also produces the bindings, which lib does not ship: cublas-survey's are the ones in the package. Only the layout test is listed here. The path stays in generation.outputs as well, which is the package file inventory rather than an attribution. This run also writes a provenance.gen.go, which the package does not keep: it would describe gen-nvidia's parse of cublas_api.h, not the bindings cublas-survey generated, and lib would then ship a provenance claim about files it does not describe. It is listed in discarded_outputs so that throwing it away is a recorded decision.",
+            "outputs": [
+              {
+                "path": "nvidia/cublas/layout.gen_test.go",
+                "sha256": "c496bcd47c3b9b0d138d52c4b1bd02dbe9f312f50041264e30f2063093c42b88"
+              }
+            ],
+            "purpose": "Generate the C layout assertions for the cublas types.",
+            "repository": {
+              "commit": "000d4ecfb9d2cbf833fe8efa7127d7f804c4b3e0",
+              "tree": "590829c5daf2a81a18fc01e468620e4fe1a3d3bb",
+              "url": "https://github.com/tmc/libgen.git"
+            },
+            "verification": "Reproduced byte for byte on 2026-09-18, after regenerating the file: the emitter had begun recording which parser and layout source it used, and the committed file predated that. The recorded libgen checkout had unrelated uncommitted work in other commands, none of it reaching this generation."
           }
         ],
         "toolchain": {
@@ -655,7 +694,7 @@
           },
           {
             "path": "nvidia/cudnn/layout.gen_test.go",
-            "sha256": "718ce2430f51daee0453efe442995d936300ab4573751bf76fb3b255ead420cd"
+            "sha256": "29089ba0eeafdf4a9f8a775f6df6b97920b2112ba581be397e0af653161b1600"
           },
           {
             "path": "nvidia/cudnn/loader.gen_test.go",
@@ -8043,7 +8082,7 @@
             "outputs": [
               {
                 "path": "nvidia/nvml/constants.gen.go",
-                "sha256": "6ba2cbdac44339fdb9a1428d1974c209c81502e5de24978e8b679af4e6323c9d"
+                "sha256": "b171f592b14a5ec3ed0a5925b082b7c94cd84eff45ad26bffc4e4d41e677d4ad"
               },
               {
                 "path": "nvidia/nvml/constants.provenance.json",
@@ -8099,7 +8138,7 @@
             "outputs": [
               {
                 "path": "nvidia/nvml/device.gen.go",
-                "sha256": "dc734075ff077378b274f21cdf51ce836a3152c4b170de1bb87e087d1eae771f"
+                "sha256": "e2789a9a4f0922389c52d442b05574b9a8f588847e61486ee15f12a4f8c28eb5"
               },
               {
                 "path": "nvidia/nvml/unit.gen.go",
