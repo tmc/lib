@@ -7954,7 +7954,7 @@
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
-        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files. A second supplemental run was recorded here until 2026-09-18 and has been removed. Its argv was the main argv plus -upstream-version 13.3.29 -- the full binding generation, recorded as a partial one -- and it claimed device.gen.go, unit.gen.go and vgpu_instance.gen.go, which the main recipe reproduces byte for byte from the unpinned header. Its output_selection named a patch and a promote.py inside a scratch directory that no longer exists, so the selection it describes cannot be re-derived. It produced no file this package carries, and a run that owns nothing is not a supplemental run.",
+        "note": "Regenerated 2026-09-18 by the recorded recipe, which closes the last of the lib 180ba308 absolute-path residue: provenance.gen.go and provenance.json held paths from the machine that wrote them and now hold the redacted portable form. No binding output changed; the full run reproduces all of them byte for byte from the unpinned header.\n\nThe same run deleted nvidia/nvml/constants.provenance.json, and the supplemental -constants-only run that was its only producer has been removed from this record. That receipt exists to say constants.gen.go came from a different header than the rest of the package, which is the state -constants-only creates and a full run ends; cmd/nvml-survey removes it for exactly that reason (clearConstantsReceipt). The divergence it described was already gone -- the full unpinned run reproduces constants.gen.go byte for byte -- so the file survived only because the run that should have swept it wrote to a scratch directory and was hand-applied. It also could not be reproduced anywhere: its inputs entry is an absolute path inside $TMPDIR/work/nvml, a tree that no longer exists, and internal/nvidiaprovenance digests the path along with the bytes, so its source_hash is a digest over that spelling and no other machine can recompute it.\n\nThe deleted receipt remains citable by content: git blob c00343a6c623768daa24228c0b93998a83930ba4, introduced by commit 391c6f4b \"nvidia/nvml: add public macro constants\", retrievable with git show 391c6f4b:nvidia/nvml/constants.provenance.json. The blob hash is the primary citation and the prose above is the belt to its braces: if that commit is ever rewritten out from under the reference, the hash still identifies the content and this note still says what it said.\n\nEarlier history, retained: the lazy loader was refined in the generator after this generation was first recorded, so the pinned codegen commit predates it. A second supplemental run was recorded here until 2026-09-18 and was removed then. Its argv was the main argv plus -upstream-version 13.3.29 -- the full binding generation, recorded as a partial one -- and it claimed device.gen.go, unit.gen.go and vgpu_instance.gen.go, which the main recipe reproduces byte for byte from the unpinned header. Its output_selection named a patch and a promote.py inside a scratch directory that no longer exists, so the selection it describes cannot be re-derived. It produced no file this package carries, and a run that owns nothing is not a supplemental run.",
         "outputs": [
           {
             "path": "nvidia/nvml/compute_instance.gen.go",
@@ -7963,10 +7963,6 @@
           {
             "path": "nvidia/nvml/constants.gen.go",
             "sha256": "b171f592b14a5ec3ed0a5925b082b7c94cd84eff45ad26bffc4e4d41e677d4ad"
-          },
-          {
-            "path": "nvidia/nvml/constants.provenance.json",
-            "sha256": "20d98d0228da8fc87afd699f99c042614d0446be2017c746b50ad6b3f7c703ce"
           },
           {
             "path": "nvidia/nvml/device.gen.go",
@@ -8024,7 +8020,7 @@
           },
           {
             "path": "nvidia/nvml/provenance.gen.go",
-            "sha256": "12284e9d984a71f6360fc9f9888e9905e9e28ce72cbd7cbafd5a9196af817643"
+            "sha256": "1ae1a5875c638e42a2d40609ccd50898228fa220761e4284ae22de800e28277e"
           },
           {
             "path": "nvidia/nvml/result.gen.go",
@@ -8050,55 +8046,6 @@
           {
             "path": "nvidia/nvml/vgpu_type_id.gen.go",
             "sha256": "ebab184317052394206c86e9913ad08004fc8dc723c53cbe1895b7856a080c09"
-          }
-        ],
-        "supplemental_runs": [
-          {
-            "argv": [
-              "go",
-              "run",
-              "./cmd/nvml-survey",
-              "-constants-only",
-              "-header",
-              "${HEADERS_REPO}/pinned/nvml/cuda-13.3/nvml.h",
-              "-headers-dir",
-              "${HEADERS_REPO}",
-              "-upstream-version",
-              "13.3.29",
-              "-output",
-              "${OUTPUT_DIR}"
-            ],
-            "cwd": "${CODEGEN_REPO}",
-            "environment": {
-              "GOWORK": "off",
-              "TMPDIR": "${SCRATCH_DIR}"
-            },
-            "header": {
-              "path": "pinned/nvml/cuda-13.3/nvml.h",
-              "repository": "headers",
-              "sha256": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
-            },
-            "note": "This supplemental run applies only the listed outputs. The original repository records and generation receipt describe the older binding outputs and are retained unchanged. No uncommitted documentation-rollout changes were used. Corrected 2026-09-18: constants.gen.go is no longer claimed here. This run did happen, but it ran against a copy of the pinned header inside its own scratch tree, $TMPDIR/work/nvml/, which no longer exists -- the path in constants.provenance.json is unresolvable, and its source_hash is a digest over that path rather than over either header. The constants.gen.go it wrote was later overwritten from the unpinned header: the shipped file says so in its own first line, and the main recipe reproduces it byte for byte. Only constants.provenance.json survives from this run, which is why it is the only output left here. The header block below records the pinned file's own digest, not the path this run read it from.",
-            "outputs": [
-              {
-                "path": "nvidia/nvml/constants.provenance.json",
-                "sha256": "20d98d0228da8fc87afd699f99c042614d0446be2017c746b50ad6b3f7c703ce"
-              }
-            ],
-            "purpose": "Add field, event and architecture constants without regenerating existing bindings, loaders, documentation or their original receipt.",
-            "repository": {
-              "commit": "91d0dee88577a6a4ce8e7682da95708fe8deefc7",
-              "tree": "29c6304aed2f75e45f71f28b966deb0ad1df99ca",
-              "url": "https://github.com/tmc/libgen.git"
-            },
-            "source_state": {
-              "kind": "clean-checkout",
-              "status_porcelain": ""
-            },
-            "toolchain": {
-              "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
-              "go": "go version go1.25.0 darwin/arm64"
-            }
           }
         ],
         "toolchain": {
