@@ -3,34 +3,27 @@ package cudadevicetable
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"sync"
-)
 
-// ptxasCandidates are the usual install locations, tried after $PTXAS and
-// $PATH. They are a convenience, not a contract: [FindPTXAS] reports what it
-// found so a caller can record which assembler answered.
-var ptxasCandidates = []string{
-	"/usr/local/cuda/bin/ptxas",
-	"/usr/local/cuda-13.0/bin/ptxas",
-}
+	"github.com/tmc/lib/nvidia/x/internal/cudatool"
+)
 
 // FindPTXAS locates an assembler to resolve unprobed targets with. It returns
 // an error rather than a guess when there is none, because a missing
 // assembler must degrade to "unmeasured" and not to a fabricated answer.
+//
+// $PTXAS names an assembler outright. Otherwise the CUDA toolkit installs are
+// tried before $PATH, because a distribution package can leave an older ptxas
+// earlier on PATH than the toolkit's own -- and an assembler that predates a
+// target does not report that it is too old, it reports that the target is
+// unsupported. Resolving through PATH first would record that answer as a
+// measurement. [cudatool.SearchPaths] lists what is tried.
 func FindPTXAS() (string, error) {
-	if p := os.Getenv("PTXAS"); p != "" {
-		return p, nil
+	p, err := cudatool.LookTool("ptxas", os.Getenv("PTXAS"))
+	if err != nil {
+		return "", fmt.Errorf("cudadevicetable: no ptxas: set $PTXAS or put it on $PATH: %w", err)
 	}
-	if p, err := exec.LookPath("ptxas"); err == nil {
-		return p, nil
-	}
-	for _, p := range ptxasCandidates {
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
-		}
-	}
-	return "", fmt.Errorf("cudadevicetable: no ptxas: set $PTXAS or put it on $PATH")
+	return p, nil
 }
 
 // A Resolver answers feature questions for targets the checked-in table does

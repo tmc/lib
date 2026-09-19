@@ -1,6 +1,9 @@
 package cudadevicetable
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -76,5 +79,73 @@ func TestResolverRejectsNonTargets(t *testing.T) {
 		if _, err := r.Resolve(bad); err == nil {
 			t.Errorf("Resolve(%q) succeeded", bad)
 		}
+	}
+}
+
+// TestFindPTXASPrefersTheToolkit builds a machine with two assemblers -- an
+// older one first on $PATH and the toolkit's own under $CUDA_HOME -- and
+// requires FindPTXAS to answer with the toolkit's.
+//
+// That is the arrangement a distribution ptxas package creates, and it is not
+// hypothetical: on the GPU host /usr/bin/ptxas is 12.0 while /usr/local/cuda
+// is 13.4. The consequence is specific to this package. CUDA 12.0's ptxas
+// does not know sm_121a, so a Resolver running it would record "unsupported"
+// for a target that the machine's real toolkit supports -- a fabricated
+// answer wearing the provenance of a measurement, which is the one outcome
+// FindPTXAS's doc comment promises not to produce.
+//
+// The toolkit search is Linux-only because the CUDA toolkit ships only there;
+// on other platforms $PATH is the only source and there is nothing to order.
+func TestFindPTXASPrefersTheToolkit(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skipf("toolkit search paths are empty on %s: nothing to prefer over $PATH", runtime.GOOS)
+	}
+	dir := t.TempDir()
+	pathDir := filepath.Join(dir, "usr", "bin")
+	toolkit := filepath.Join(dir, "toolkit")
+	toolkitBin := filepath.Join(toolkit, "bin")
+	for _, d := range []string{pathDir, toolkitBin} {
+		if err := os.MkdirAll(d, 0o777); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(d, "ptxas"), []byte("#!/bin/sh\nexit 0\n"), 0o777); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PTXAS", "")
+	t.Setenv("CUDA_HOME", toolkit)
+	t.Setenv("PATH", pathDir)
+
+	got, err := FindPTXAS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(toolkitBin, "ptxas"); got != want {
+		t.Errorf("FindPTXAS() = %q, want %q (the $PATH copy at %q shadowed the toolkit)", got, want, filepath.Join(pathDir, "ptxas"))
+	}
+}
+
+// TestFindPTXASNamedAssemblerWins checks that $PTXAS is used as given, with
+// a toolkit and a $PATH copy both present to be passed over.
+//
+// There is deliberately no arm for "no assembler anywhere": the toolkit roots
+// include the unconditional /usr/local/cuda, which no environment variable
+// can hide, so a machine with a real toolkit cannot be made to have none.
+// That case belongs to cudatool.LookTool, where the search paths are
+// injectable.
+func TestFindPTXASNamedAssemblerWins(t *testing.T) {
+	dir := t.TempDir()
+	named := filepath.Join(dir, "myptxas")
+	if err := os.WriteFile(named, []byte("#!/bin/sh\nexit 0\n"), 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ptxas"), []byte("#!/bin/sh\nexit 0\n"), 0o777); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CUDA_HOME", dir)
+	t.Setenv("PATH", dir)
+	t.Setenv("PTXAS", named)
+	if got, err := FindPTXAS(); err != nil || got != named {
+		t.Errorf("FindPTXAS() with $PTXAS = (%q, %v), want (%q, nil)", got, err, named)
 	}
 }

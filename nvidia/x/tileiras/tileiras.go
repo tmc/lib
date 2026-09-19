@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
 
 // Magic header identifying Tile IR bytecode.
@@ -366,43 +368,22 @@ func buildFatbinary(ctx context.Context, cfg config, tmpDir string, cubin, tileb
 	return os.ReadFile(fatbinPath)
 }
 
-func findTileiras(custom string) string {
-	if custom != "" {
-		return custom
-	}
-	if p, err := exec.LookPath("tileiras"); err == nil {
-		return p
-	}
-	candidates := []string{
-		"/usr/local/cuda-13.4/bin/tileiras",
-		"/usr/local/cuda-13.3/bin/tileiras",
-		"/usr/local/cuda-13.2/bin/tileiras",
-		"/usr/local/cuda-13.1/bin/tileiras",
-		"/usr/local/cuda/bin/tileiras",
-	}
-	for _, c := range candidates {
-		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
-			return c
-		}
-	}
-	return ""
-}
+// findTileiras returns the Tile IR assembler to run, or "" when there is
+// none. findFatbinary does the same for fatbinary.
+//
+// Both prefer a CUDA toolkit install over $PATH: a distribution package can
+// leave an older build of a tool earlier on PATH than the toolkit's own, and
+// an assembler that predates the dialect we emit rejects it as malformed
+// rather than as too new. [cudatool.SearchPaths] lists what is tried. A
+// non-empty custom path is a decision and is used as given.
+func findTileiras(custom string) string { return findTool("tileiras", custom) }
 
-func findFatbinary(custom string) string {
-	if custom != "" {
-		return custom
+func findFatbinary(custom string) string { return findTool("fatbinary", custom) }
+
+func findTool(name, custom string) string {
+	p, err := cudatool.LookTool(name, custom)
+	if err != nil {
+		return ""
 	}
-	if p, err := exec.LookPath("fatbinary"); err == nil {
-		return p
-	}
-	candidates := []string{
-		"/usr/local/cuda-13.4/bin/fatbinary",
-		"/usr/local/cuda/bin/fatbinary",
-	}
-	for _, c := range candidates {
-		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
-			return c
-		}
-	}
-	return ""
+	return p
 }
