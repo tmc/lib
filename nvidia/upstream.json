@@ -463,7 +463,7 @@
           },
           {
             "path": "nvidia/cudensitymat/doc.gen.go",
-            "sha256": "7bf6f6b16efe1b8274c2daaa956b81e794b098ddc1a8c8914da05f6bbd8a5f63"
+            "sha256": "d70c8210e7a543c119d7cb7177ac15334af7c781e0c719838161824ae7969064"
           },
           {
             "path": "nvidia/cudensitymat/elementary_operator.gen.go",
