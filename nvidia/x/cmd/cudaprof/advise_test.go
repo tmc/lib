@@ -3772,3 +3772,82 @@ func TestDutyCycleCountsAnUnrecordedGraphReplay(t *testing.T) {
 		t.Errorf("span/busy = %d/%d (ok %v), want 10000/3000: the envelope was counted on top of the node inside it", span, busy, ok)
 	}
 }
+
+// TestAdviseReadsTheJournalItWasHanded covers the reader that announced the
+// absence of data the same file carries.
+//
+// advise read the pprof projection, which is an aggregate and has no activity
+// timestamps by construction. On a capture whose journal was attached it
+// therefore reported that the capture carries no timestamps, and recommended a
+// re-capture -- a run under GPU lock to reproduce a file already on disk.
+func TestAdviseReadsTheJournalItWasHanded(t *testing.T) {
+	b := newJournalBuilder()
+	b.kernelOn(0, 1, 1_000, 3_000, 1)
+	b.kernelOn(0, 1, 6_000, 7_000, 2)
+	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
+
+	streams := extractStreamEvents(cap)
+	var got []streamEvent
+	for _, evs := range streams {
+		got = append(got, evs...)
+	}
+	if len(got) != 2 {
+		t.Fatalf("stream events from the journal = %d, want 2", len(got))
+	}
+	for _, ev := range got {
+		if ev.Start == 0 || ev.End == 0 {
+			t.Errorf("event %+v carries no timestamps: the journal has them", ev)
+		}
+	}
+	pct, span, busy, ok := profileDutyCycle(streams)
+	if !ok || span != 6_000 || busy != 3_000 {
+		t.Fatalf("duty = %.2f span/busy = %d/%d (ok %v), want 50.00 6000/3000", pct, span, busy, ok)
+	}
+}
+
+// TestCoverageSpanComesFromTheJournal pins the -top header half of the same
+// defect: "the capture records no measured span" was true of the projection
+// and false of the file.
+func TestCoverageSpanComesFromTheJournal(t *testing.T) {
+	b := newJournalBuilder()
+	b.kernelOn(0, 1, 1_000, 3_000, 1)
+	b.kernelOn(0, 1, 6_000, 7_000, 2)
+	cap := timedCapture(0, 3_000, 0) // a profile with device time and no span
+	status, err := json.Marshal(map[string]any{"status": completeStatus()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap.Files = map[string][]byte{"capture.journal": b.finalize(), "capture-status.json": status}
+
+	c := captureCoverage(cap)
+	if !c.Determined() {
+		t.Fatalf("coverage undetermined with a journal attached: %s", c.Reason)
+	}
+	if c.Span != 6_000 {
+		t.Errorf("span = %v, want 6000ns taken from the journal timeline", c.Span)
+	}
+}
+
+// TestNoRecaptureRecommendedWhenTheJournalIsAttached pins the recommendation
+// itself, which is the expensive half: a re-capture costs a run under GPU lock.
+func TestNoRecaptureRecommendedWhenTheJournalIsAttached(t *testing.T) {
+	withJournal := &cudacapture.Capture{Files: map[string][]byte{"capture.journal": []byte("x")}}
+	if got := recaptureOrRead(withJournal); strings.Contains(strings.ToLower(got), "re-capture") {
+		t.Errorf("recommends a re-capture for a capture holding its journal: %q", got)
+	} else if !strings.Contains(got, "cudaprof gaps") {
+		t.Errorf("does not point at the reader that decodes the journal: %q", got)
+	}
+	if got := journalRemedy(withJournal); !strings.Contains(got, "per-record journal") {
+		t.Errorf("finding does not say the journal is present: %q", got)
+	}
+
+	// A capture that genuinely has no journal must still be told to re-capture:
+	// the point is to stop the false claim, not to stop every claim.
+	none := &cudacapture.Capture{}
+	if got := recaptureOrRead(none); !strings.Contains(strings.ToLower(got), "re-capture") {
+		t.Errorf("no journal, and no re-capture recommended: %q", got)
+	}
+	if got := journalRemedy(none); got != "" {
+		t.Errorf("journalRemedy = %q for a capture with no journal", got)
+	}
+}

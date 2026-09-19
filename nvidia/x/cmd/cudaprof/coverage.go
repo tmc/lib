@@ -127,12 +127,37 @@ func captureCoverage(cap *cudacapture.Capture) coverage {
 			}
 		}
 	}
+	// A span of zero is a fact about the pprof projection, which is an
+	// aggregate, and not about the capture: the per-record journal carries
+	// every activity's start and end. Saying the capture records no span
+	// while holding the file that does is how a reader gets told to re-run
+	// work already on disk.
+	if c.Span <= 0 {
+		if events, _, err := journalStreamEvents(cap); err == nil {
+			var first, last uint64
+			var have bool
+			for _, ev := range events {
+				if ev.End == 0 || ev.End <= ev.Start {
+					continue
+				}
+				if !have || ev.Start < first {
+					first, have = ev.Start, true
+				}
+				if ev.End > last {
+					last = ev.End
+				}
+			}
+			if have && last > first {
+				c.Span = time.Duration(last - first)
+			}
+		}
+	}
 	switch {
 	case c.Busy <= 0:
 		c.Reason = "the profile carries no device time, only sample counts, and a sample count " +
 			"has no duration: it says where execution was, never for how long"
 	case c.Span <= 0:
-		c.Reason = "the capture records no measured span for the " + c.Busy.Round(time.Microsecond).String() +
+		c.Reason = "neither the profile nor a per-record journal gives a span for the " + c.Busy.Round(time.Microsecond).String() +
 			" of device time to be a fraction of"
 	}
 	return c

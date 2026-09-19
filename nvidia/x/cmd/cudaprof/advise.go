@@ -2632,8 +2632,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 								Location: Location{
 									Kernel: kernelSeq[0].Name,
 								},
-								Finding:                  fmt.Sprintf("Short-kernel dispatch sequence with unmeasured GPU duty cycle: %s, but this capture carries no activity start/end timestamps, so neither device idle time nor host submission was measured", detail),
-								ActionableRecommendation: "Re-capture with activity timestamps and host launch API records so duty cycle and submission latency can be measured before restructuring dispatch.",
+								Finding:                  fmt.Sprintf("Short-kernel dispatch sequence with unmeasured GPU duty cycle: %s, but the timestamps this reader could reach carry no activity start and end, so neither device idle time nor host submission was measured%s", detail, journalRemedy(cap)),
+								ActionableRecommendation: recaptureOrRead(cap),
 								NextMeasurement:          "activity start/end timestamps in profile or capture-status.json",
 							})
 						}
@@ -3141,6 +3141,18 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 		}
 	}
 
+	// The journal comes first among the fallbacks because it is the only
+	// source that carries per-activity timestamps. The pprof samples above
+	// are an aggregate, and a reader that stops there reports the capture as
+	// having no timestamps when the file it was handed has them.
+	if len(res) == 0 {
+		if events, _, err := journalStreamEvents(cap); err == nil && len(events) != 0 {
+			for _, ev := range events {
+				res[ev.Stream] = append(res[ev.Stream], ev)
+			}
+			return res
+		}
+	}
 	if len(res) == 0 && len(cap.Files) > 0 {
 		for _, fname := range []string{"activities.json", "capture-status.json", "status.json", "trace.json"} {
 			if data, ok := cap.Files[fname]; ok && len(data) > 0 {
@@ -3727,4 +3739,38 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
 		ActionableRecommendation: "Attribute the idle time before acting on any kernel finding below: run cudaprof gaps on this capture, which splits idle into host-behind, synchronization, and graph-replay time. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies.",
 		NextMeasurement:          "cudaprof gaps <capture> -- idle attribution and the gap distribution",
 	})
+}
+
+// journalRemedy and recaptureOrRead keep a diagnosis of missing timestamps
+// from turning into a recommendation to produce a file that already exists.
+//
+// A re-capture costs a run under GPU lock. Telling someone to pay it for a
+// capture whose journal is attached is the most expensive thing this tool can
+// say, and it was saying it whenever the pprof projection -- which is an
+// aggregate and carries no timestamps by construction -- was all that had been
+// read.
+func captureHasJournal(cap *cudacapture.Capture) bool {
+	if cap == nil {
+		return false
+	}
+	for name, data := range cap.Files {
+		if cudacapture.IsJournalName(name) && len(data) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func journalRemedy(cap *cudacapture.Capture) string {
+	if !captureHasJournal(cap) {
+		return ""
+	}
+	return ". This capture does carry a per-record journal, which holds them"
+}
+
+func recaptureOrRead(cap *cudacapture.Capture) string {
+	if captureHasJournal(cap) {
+		return "Read the journal already in this capture rather than re-running the workload: cudaprof gaps <capture> reports the duty cycle, the idle attribution and the gap distribution from it."
+	}
+	return "Re-capture with activity timestamps and host launch API records so duty cycle and submission latency can be measured before restructuring dispatch."
 }

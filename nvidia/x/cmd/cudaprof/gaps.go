@@ -335,6 +335,15 @@ type gapActivity struct {
 	device      uint32
 	start, end  int64
 	correlation uint32
+
+	// Carried for consumers that need the launch itself rather than only its
+	// place on the timeline. They are unset for the spans that are not kernel
+	// launches, and nothing in the gap analysis reads them.
+	subtype     string
+	name        string
+	stream      uint32
+	graphID     uint32
+	grid, block [3]int
 }
 
 // gapInterval is one span on one device's timeline. Overhead spans carry no
@@ -358,6 +367,14 @@ type gapAPI struct{ start, end int64 }
 type gapPayload struct {
 	Kind         string `json:"kind"`
 	Subtype      string `json:"subtype"`
+	Name         string `json:"name"`
+	Stream       uint32 `json:"stream"`
+	GridX        uint32 `json:"grid_x"`
+	GridY        uint32 `json:"grid_y"`
+	GridZ        uint32 `json:"grid_z"`
+	BlockX       uint32 `json:"block_x"`
+	BlockY       uint32 `json:"block_y"`
+	BlockZ       uint32 `json:"block_z"`
 	State        string `json:"state"`
 	Domain       string `json:"domain"`
 	Valid        bool   `json:"valid"`
@@ -563,6 +580,10 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 					start:       int64(payload.Start),
 					end:         int64(payload.End),
 					correlation: payload.Correlation,
+					subtype:     payload.Subtype,
+					name:        payload.Name,
+					stream:      payload.Stream,
+					graphID:     payload.GraphID,
 				})
 				continue
 			case "sync":
@@ -587,6 +608,12 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 				start:       int64(payload.Start),
 				end:         int64(payload.End),
 				correlation: payload.Correlation,
+				subtype:     payload.Subtype,
+				name:        payload.Name,
+				stream:      payload.Stream,
+				graphID:     payload.GraphID,
+				grid:        [3]int{int(payload.GridX), int(payload.GridY), int(payload.GridZ)},
+				block:       [3]int{int(payload.BlockX), int(payload.BlockY), int(payload.BlockZ)},
 			})
 		case recordAPI:
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {
@@ -1131,4 +1158,55 @@ func pct(part, whole int64) float64 {
 		return 0
 	}
 	return float64(part) / float64(whole) * 100
+}
+
+// journalStreamEvents reconstructs the device timeline from the per-record
+// journal, for consumers that otherwise read the pprof projection.
+//
+// The projection is an aggregate: it carries no activity timestamps, so a
+// reader built on it reports that the capture does not have them. On a capture
+// whose journal is attached that statement is false about the file, and the
+// recommendation it produced -- re-capture with timestamps -- sends someone
+// back under GPU lock for work already on disk. Everything needed is in the
+// member gaps reads by default.
+//
+// The second return says the replay envelopes are the only record of their
+// graphs (see analyzeGaps), so a caller can carry that caveat forward instead
+// of silently reporting envelope time as kernel time.
+func journalStreamEvents(cap *cudacapture.Capture) (events []streamEvent, graphsOpaque bool, err error) {
+	journals, _, err := requireJournals(cap)
+	if err != nil {
+		return nil, false, err
+	}
+	records, err := decodeJournals(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
+	if err != nil {
+		return nil, false, err
+	}
+	acts := records.activities
+	if len(records.graphs) != 0 && records.graphNodes == 0 {
+		graphsOpaque = true
+		acts = append(acts, records.graphs...)
+	}
+	for _, a := range acts {
+		if a.end <= a.start {
+			continue
+		}
+		subtype := a.subtype
+		if subtype == "" {
+			subtype = "kernel"
+		}
+		events = append(events, streamEvent{
+			Subtype:     subtype,
+			Name:        a.name,
+			Stream:      a.stream,
+			DurationNs:  uint64(a.end - a.start),
+			Start:       uint64(a.start),
+			End:         uint64(a.end),
+			Correlation: a.correlation,
+			GraphID:     a.graphID,
+			Grid:        a.grid,
+			Block:       a.block,
+		})
+	}
+	return events, graphsOpaque, nil
 }
