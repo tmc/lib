@@ -181,6 +181,15 @@ record naming only one still cannot say what it describes. An identity the
 build did not supply is written as an absent field rather than as `"unknown"`,
 because a reader will treat any present value as an answer.
 
+A capture that spans processes loads one agent per process and merges their
+activity records into one set, but publishes one capability record, taken from
+the target's journal. When the processes ran different agents that record
+describes part of the capture in the same words it would use for all of it, so
+`cudaprof` adds a `producer_scope` block naming the agent the record describes,
+the processes it does not, and how many records they contributed. The block is
+absent when every contributing process ran the same agent: a caveat present on
+every capture is one a reader learns to skip.
+
 **Version compatibility and layout gating**:
 The agent enforces major version compatibility between compile-time headers and the target's active runtime (e.g. CUDA 12 `Kernel9` vs CUDA 13 `Kernel10`). Within CUDA 13 (13.0 through 13.4+), activity record structures grow append-only; the agent dynamically verifies via `cuptiActivityGetStructSize` (on runtimes exporting it) that the active runtime's record sizes satisfy the compiled layout requirements (`sizeof(Kernel10) == 216` and `sizeof(Memcpy6) == 96`), allowing minor- and update-version skews to collect cleanly while safely rejecting genuine layout incompatibilities. Both `compile_cupti` and `runtime_cupti` versions are recorded in the capability record.
 

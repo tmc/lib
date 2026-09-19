@@ -199,6 +199,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	var selectedRecords wire.Stats
 	var selectedActivities []captureActivity
 	var selectedAPIs []captureAPI
+	var workerProducers []contributingProducer
 	var workerActivities []captureActivity
 	var workerAPIs []captureAPI
 	var workerDuration, workerCopyBytes, workerExternal, workerHostSamples, workerDropped, workerRecords uint64
@@ -228,6 +229,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 					for i := range activities {
 						activities[i].Process = f.h.Process
 					}
+					workerProducers = append(workerProducers, contributingProducer{process: f.h.Process, revision: state.agentRevision, records: records.Records})
 					workerActivities = append(workerActivities, activities...)
 					workerAPIs = append(workerAPIs, apis...)
 					workerDuration += metrics.duration
@@ -375,6 +377,10 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		}
 	}
 	result.Capability = stampProducer(selectedState.capabilityData, buildProducer())
+	// The capability record comes from the target's journal alone, but the
+	// activity records above it may have come from several processes, each with
+	// its own agent. Say so when they are not the same producer.
+	result.Capability = stampProducerScope(result.Capability, selectedState.agentRevision, workerProducers)
 	if selectedState.failure != "" {
 		errStr := selectedState.failure
 		if selectedState.failureError != "" {
@@ -434,8 +440,13 @@ type journalState struct {
 	generation                                                      uint64
 	records                                                         uint64
 	capabilityData                                                  json.RawMessage
-	failure                                                         string
-	failureError                                                    string
+	// agentRevision is the source revision the agent that wrote this journal
+	// stamped into its capability record, "" when it named none. A session
+	// merges journals from several processes and publishes one capability
+	// record; this is what says whether that record describes them all.
+	agentRevision string
+	failure       string
+	failureError  string
 }
 type journalMetrics struct {
 	duration, copyBytes, external, hostSamples uint64
@@ -573,6 +584,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			}
 			state.capability = true
 			state.capabilityData = append(json.RawMessage(nil), record.Payload...)
+			state.agentRevision = agentRevision(record.Payload)
 		case recordActivity:
 			if terminal || !state.bootstrap || !state.capability || payload.Kind != "activity" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order activity")

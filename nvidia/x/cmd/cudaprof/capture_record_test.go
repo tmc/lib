@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -406,6 +408,105 @@ func TestObserveCaptureSessionIsolatesWorkerGenerations(t *testing.T) {
 	}
 	if len(got.WorkerGenerations) != 1 || got.WorkerGenerations[0].Process != 42 || got.WorkerGenerations[0].Disposition != "finalized" {
 		t.Fatalf("worker manifest = %+v", got.WorkerGenerations)
+	}
+}
+
+// TestObserveCaptureSessionStatesTheProducersItDoesNotDescribe goes journal to
+// published record for the multi-process case.
+//
+// The session merges every process's activity records into one set and
+// publishes one capability record, taken from the target's journal. Whether
+// that record describes the merged work depends on whether the other processes
+// ran the same agent, and until producer_scope the published record said the
+// same thing either way. The .so is resolved next to each executable, so this
+// is not hypothetical: a capture that spawns a second binary can load a second
+// agent.
+//
+// Both arms run here because either alone is satisfiable by a wrong
+// implementation: an unconditional annotation passes the disagreement arm, and
+// no annotation at all passes the agreement arm.
+func TestObserveCaptureSessionStatesTheProducersItDoesNotDescribe(t *testing.T) {
+	session := "00112233445566778899aabbccddeeff"
+	var sid [16]byte
+	raw, _ := hex.DecodeString(session)
+	copy(sid[:], raw)
+	// observe writes one journal per process, each naming its own agent, and
+	// returns the capability record the session publishes.
+	observe := func(t *testing.T, targetRevision, workerRevision string) []byte {
+		t.Helper()
+		dir := t.TempDir()
+		writeStream := func(name string, process, generation uint64, revision string) {
+			streamDir := filepath.Join(dir, name)
+			if err := os.MkdirAll(streamDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			h := captureHandshake{Protocol: 1, Session: session, Process: process, Generation: generation, TransportReady: true}
+			b, _ := json.Marshal(h)
+			if err := os.WriteFile(filepath.Join(streamDir, "handshake.json"), b, 0600); err != nil {
+				t.Fatal(err)
+			}
+			j, err := journal.Create(filepath.Join(streamDir, "capture.journal"), sid, journal.Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			capability := `{"kind":"capability","memsets":true}`
+			if revision != "" {
+				capability = fmt.Sprintf(`{"kind":"capability","agent_revision":%q,"memsets":true}`, revision)
+			}
+			records := []wire.Record{
+				{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+				{Kind: recordCapability, Payload: []byte(capability)},
+				{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+				{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)},
+			}
+			for i := range records {
+				records[i].Identity = wire.Identity{Session: sid, Process: process, Generation: generation}
+				records[i].Sequence = uint64(i + 1)
+				if err := j.Append(records[i]); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := j.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		writeStream("process-41-2", 41, 2, targetRevision)
+		writeStream("process-42-3", 42, 3, workerRevision)
+		got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
+		if !got.CaptureSuccess || len(got.Activities) != 2 {
+			t.Fatalf("capture = %+v", got)
+		}
+		return got.Capability
+	}
+
+	same := observe(t, "c0ffee1", "c0ffee1")
+	if bytes.Contains(same, []byte("producer_scope")) {
+		t.Errorf("one agent across both processes, annotated anyway: %s\n\ta caveat on every capture is one a reader learns to skip", same)
+	}
+	if !bytes.Contains(same, []byte(`"agent_revision":"c0ffee1"`)) {
+		t.Fatalf("published capability lost the agent revision: %s", same)
+	}
+
+	mixed := observe(t, "c0ffee1", "deadbee")
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(mixed, &m); err != nil {
+		t.Fatalf("published capability does not parse: %v: %s", err, mixed)
+	}
+	var scope producerScope
+	if rawScope, ok := m["producer_scope"]; !ok {
+		t.Fatalf("two agents contributed records and the published capability says nothing: %s", mixed)
+	} else if err := json.Unmarshal(rawScope, &scope); err != nil {
+		t.Fatalf("producer_scope does not parse: %v", err)
+	}
+	if scope.Described != "c0ffee1" {
+		t.Errorf("described = %q, want the target's agent %q", scope.Described, "c0ffee1")
+	}
+	want := []otherProducer{{Process: 42, Revision: "deadbee", Records: 1}}
+	if !slices.Equal(scope.Others, want) {
+		t.Errorf("others = %+v, want %+v", scope.Others, want)
+	}
+	if !strings.Contains(scope.Note, "deadbee") {
+		t.Errorf("note does not name the agent it did not describe: %s", scope.Note)
 	}
 }
 

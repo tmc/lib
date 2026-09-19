@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -261,11 +262,72 @@ type capabilityRecord struct {
 var (
 	buildMu    sync.Mutex
 	buildCache = map[string]buildResult{}
+	// binRevisions maps a built harness to the agent revision its build was
+	// told, so a decode can check the journal against the agent that wrote it
+	// rather than assume they are the same. See producerMismatch.
+	binRevisions = map[string]string{}
 )
 
 type buildResult struct {
 	path string
 	err  error
+}
+
+// agentRevisionPrefix is how the build recipe names the agent's source
+// revision. controlBinary reads its own defines rather than being told twice:
+// a separately passed expectation could disagree with the define and the
+// disagreement would be invisible.
+const agentRevisionPrefix = "-DCUDAPROF_AGENT_REVISION="
+
+// agentRevisionOf is the revision a build with these defines stamps into its
+// capability record, or "" when the build was not told one.
+func agentRevisionOf(defines []string) string {
+	rev := ""
+	for _, d := range defines {
+		if after, ok := strings.CutPrefix(d, agentRevisionPrefix); ok {
+			rev = strings.Trim(after, `"`)
+		}
+	}
+	return rev
+}
+
+// binRevision is the agent revision a harness built by controlBinary stamps.
+func binRevision(bin string) string {
+	buildMu.Lock()
+	defer buildMu.Unlock()
+	return binRevisions[bin]
+}
+
+// producerMismatch reports why a journal was not written by the agent this
+// test built, or "" when it was.
+//
+// Every assertion about a capability record reads a claim about a producer.
+// Which producer was, until agent_revision existed, an assumption: the test
+// builds an agent, runs it, and decodes whatever journal is in the transport
+// directory. Nothing in the journal said the two were the same, so a journal
+// written by any other agent -- a stale build, a binary already on PATH, a
+// directory reused between runs -- would decode cleanly and every assertion
+// below it would describe a producer nobody was testing. That is the case
+// agent_revision was added for, one level down from where it was added.
+//
+// A journal with no capability record is not a mismatch. A producer that fails
+// before it can write one has nothing to be checked against, and the scenarios
+// that cover that failure assert on the failure records instead.
+func producerMismatch(c capture, want string) string {
+	if c.capabilityJSON == nil {
+		return ""
+	}
+	got := c.capability.AgentRevision
+	if got == want {
+		return ""
+	}
+	name := func(rev string) string {
+		if rev == "" {
+			return "no agent revision (an unstamped build)"
+		}
+		return "agent revision " + strconv.Quote(rev)
+	}
+	return fmt.Sprintf("journal reports %s, but this test built the agent with %s: every capability assertion against this journal would describe a producer that is not the one under test", name(got), name(want))
 }
 
 // controlBinary compiles the producer, the stub CUPTI, and the harness once
@@ -332,6 +394,7 @@ func controlBinary(t *testing.T, defines ...string) string {
 		t.Fatalf("build producer control harness %v: %v", defines, err)
 	}
 	buildCache[key] = buildResult{path: out}
+	binRevisions[out] = agentRevisionOf(defines)
 	return out
 }
 
@@ -370,10 +433,13 @@ func runBuilt(t *testing.T, bin string, env []string, args ...string) (harnessRe
 			t.Fatalf("harness output %q: %v", line, err)
 		}
 	}
-	return result, status, decodeAll(t, transport)
+	return result, status, decodeAll(t, transport, binRevision(bin))
 }
 
-func decodeAll(t *testing.T, transport string) []capture {
+// decodeAll decodes every journal in transport, checking each against
+// wantRevision -- the agent revision the build under test stamps, which
+// binRevision reports for a harness controlBinary built.
+func decodeAll(t *testing.T, transport, wantRevision string) []capture {
 	t.Helper()
 	dirs, err := filepath.Glob(filepath.Join(transport, "process-*"))
 	if err != nil {
@@ -381,12 +447,12 @@ func decodeAll(t *testing.T, transport string) []capture {
 	}
 	var out []capture
 	for _, dir := range dirs {
-		out = append(out, decode(t, filepath.Join(dir, "capture.journal")))
+		out = append(out, decode(t, filepath.Join(dir, "capture.journal"), wantRevision))
 	}
 	return out
 }
 
-func decode(t *testing.T, path string) capture {
+func decode(t *testing.T, path, wantRevision string) capture {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
@@ -490,6 +556,9 @@ func decode(t *testing.T, path string) capture {
 				c.syncs = append(c.syncs, y)
 			}
 		}
+	}
+	if why := producerMismatch(c, wantRevision); why != "" {
+		t.Fatalf("decode %s: %s", path, why)
 	}
 	return c
 }
@@ -855,7 +924,7 @@ func TestCapabilityDistinguishesUnverifiedFromVerified(t *testing.T) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("run without the struct-size symbol: %v: %s", err, out)
 	}
-	withoutProbe := only(t, decodeAll(t, dir))
+	withoutProbe := only(t, decodeAll(t, dir, binRevision(bin)))
 
 	if withProbe.capability.LayoutCheck != "cuptiActivityGetStructSize" {
 		t.Errorf("with the symbol: layout_check = %q, want %q", withProbe.capability.LayoutCheck, "cuptiActivityGetStructSize")
@@ -910,12 +979,77 @@ func TestCapabilityCarriesTheAgentRevision(t *testing.T) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("run with a stamped revision: %v: %s", err, out)
 	}
-	stamped := only(t, decodeAll(t, dir))
+	stamped := only(t, decodeAll(t, dir, binRevision(bin)))
 	if stamped.capability.AgentRevision != "c0ffee1" {
 		t.Errorf("stamped build: agent_revision = %q, want %q", stamped.capability.AgentRevision, "c0ffee1")
 	}
 	if stamped.capability.AgentRevision == plain.capability.AgentRevision {
 		t.Fatal("both builds report the same agent_revision: the field does not discriminate, which is the defect it was added to fix")
+	}
+}
+
+// TestDecodePinsEveryJournalToTheAgentUnderTest covers the check every other
+// capability assertion in this file now rests on.
+//
+// The assertions read a capability record and conclude something about the
+// producer. Which producer was an assumption -- the test builds an agent, runs
+// it, and decodes whatever journal appeared in the transport directory -- and
+// an assumption that held only because nothing in this suite had yet run two
+// different agents. TestCapabilityCarriesTheAgentRevision runs two, and a
+// journal from the wrong one decodes exactly as cleanly as a journal from the
+// right one. agent_revision is what makes the assumption checkable, so the
+// decode checks it.
+//
+// The mismatch arm is the one worth having. A check that only accepted
+// matching revisions would be satisfied by a producerMismatch that returned ""
+// for everything, which is the fail-open shape: it would report every journal
+// as the agent under test, including the ones that are not.
+func TestDecodePinsEveryJournalToTheAgentUnderTest(t *testing.T) {
+	_, _, plainCaptures := run(t, "sustained", "1", "4", "256", "100")
+	plain := only(t, plainCaptures)
+
+	bin := controlBinary(t, agentRevisionDefine)
+	if got := binRevision(bin); got != "c0ffee1" {
+		t.Fatalf("binRevision = %q, want %q: the build cache lost the identity it built with", got, "c0ffee1")
+	}
+	dir := t.TempDir()
+	cmd := exec.Command(bin, "sustained", "1", "4", "256", "100")
+	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("run with a stamped revision: %v: %s", err, out)
+	}
+	stamped := only(t, decodeAll(t, dir, "c0ffee1"))
+
+	// Each journal against the agent that wrote it.
+	if why := producerMismatch(plain, ""); why != "" {
+		t.Errorf("unstamped journal rejected by its own build: %s", why)
+	}
+	if why := producerMismatch(stamped, "c0ffee1"); why != "" {
+		t.Errorf("stamped journal rejected by its own build: %s", why)
+	}
+	// Each journal against the other agent. This is the situation the check
+	// exists for: both journals are well formed and neither says anything is
+	// wrong, and only the revision separates them.
+	for _, tc := range []struct {
+		name, want string
+		c          capture
+	}{
+		{"a stamped journal read as the default build's", "", stamped},
+		{"the default build's journal read as a stamped one", "c0ffee1", plain},
+	} {
+		if why := producerMismatch(tc.c, tc.want); why == "" {
+			t.Errorf("%s: accepted, want a mismatch", tc.name)
+		} else if !strings.Contains(why, "c0ffee1") {
+			t.Errorf("%s: mismatch does not name the revision it saw: %s", tc.name, why)
+		}
+	}
+
+	// A producer that failed before writing a capability record has no
+	// identity to check, and the scenarios covering that failure assert on the
+	// failure records instead. Refusing those journals here would turn this
+	// check into a second, worse assertion about the same thing.
+	if why := producerMismatch(capture{}, "c0ffee1"); why != "" {
+		t.Errorf("journal with no capability record rejected: %s", why)
 	}
 }
 
@@ -1425,7 +1559,7 @@ func runRange(t *testing.T, env []string, domain string) rangeResult {
 	// what the producer wrote. Only the second can say whether the edge records
 	// exist, and they are the records a consumer reads to tell an unopened
 	// range from an empty one.
-	for _, c := range decodeAll(t, dir) {
+	for _, c := range decodeAll(t, dir, binRevision(controlBinary(t))) {
 		got.Edges = append(got.Edges, c.ranges...)
 	}
 	return got
@@ -1716,7 +1850,7 @@ func runClock(t *testing.T, bin string, env []string) clockResult {
 	if err := json.Unmarshal(line, &got); err != nil {
 		t.Fatalf("decode clock line %q: %v", line, err)
 	}
-	c := only(t, decodeAll(t, dir))
+	c := only(t, decodeAll(t, dir, binRevision(bin)))
 	got.Capability = c.capability
 	got.Failures = c.failures
 	return got
@@ -1870,7 +2004,7 @@ func TestTimestampCallbackDegradationIsRecorded(t *testing.T) {
 	if _, err := cmd.Output(); err != nil {
 		t.Fatalf("clock scenario: %v", err)
 	}
-	c := only(t, decodeAll(t, dir))
+	c := only(t, decodeAll(t, dir, binRevision(controlBinary(t))))
 	var found string
 	for _, f := range c.failures {
 		if strings.Contains(f, "cuptiActivityRegisterTimestampCallback") {
