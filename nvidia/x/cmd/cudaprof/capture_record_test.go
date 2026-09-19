@@ -1047,3 +1047,182 @@ func TestObserveJournalCarriesMemsets(t *testing.T) {
 		t.Errorf("duration = %d, want 220 (100 kernel + 120 memset)", metrics.duration)
 	}
 }
+
+// externalJournal writes a journal holding one external-correlation record for
+// externalID against correlation 9, a kernel on that correlation, and a second
+// kernel on a correlation nothing pushed an ID for. It returns the activities
+// observeJournal decoded from it.
+func externalJournal(t *testing.T, sessionHex string, externals ...string) []captureActivity {
+	t.Helper()
+	raw, err := hex.DecodeString(sessionHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	copy(sid[:], raw)
+	records := []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+	}
+	for _, e := range externals {
+		records = append(records, wire.Record{Kind: recordExternal, Payload: []byte(e)})
+	}
+	records = append(records,
+		wire.Record{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"attributed","valid":true,"start":100,"end":200,"device":0,"correlation":9}`)},
+		wire.Record{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"unattributed","valid":true,"start":300,"end":400,"device":0,"correlation":11}`)},
+		wire.Record{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+	)
+	journalPath := filepath.Join(t.TempDir(), "capture.journal")
+	appendRecords(t, journalPath, sid, 1234, 1, records)
+	_, _, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
+	if err != nil {
+		t.Fatalf("observeJournal: %v", err)
+	}
+	return activities
+}
+
+// externalLabels reads the per-kernel external labels, and the profile
+// comments, out of a written capture.
+func externalLabels(t *testing.T, activities []captureActivity, sessionHex string) (map[string]map[string]string, []string) {
+	t.Helper()
+	out := filepath.Join(t.TempDir(), "capture.pprof")
+	result := captureResult{Session: sessionHex, TargetPID: 1234, Activities: activities, Outcome: captureOutcomeCollected, CaptureSuccess: true}
+	if err := writeCaptureStatus(out, result, captureArtifactBudget{}); err != nil {
+		t.Fatalf("writeCaptureStatus: %v", err)
+	}
+	c, _ := readWrittenCapture(t, out)
+	if c.Profile == nil {
+		t.Fatal("written capture holds no profile")
+	}
+	labels := map[string]map[string]string{}
+	for _, s := range c.Profile.Sample {
+		name := ""
+		if n := s.Label["name"]; len(n) == 1 {
+			name = n[0]
+		}
+		got := map[string]string{}
+		for k, v := range s.Label {
+			if strings.HasPrefix(k, "cupti.external.") || strings.HasPrefix(k, "cupti.collection.") {
+				got[k] = strings.Join(v, ",")
+			}
+		}
+		labels[name] = got
+	}
+	return labels, c.Profile.Comments
+}
+
+// TestCaptureProfileCarriesExternalCorrelation walks the whole path the
+// framework-attribution feature needs: journal bytes -> observeJournal ->
+// writeCaptureStatus -> the published pprof profile. The join it reaches
+// (cuptiactivity.MatchExternal, through cudaprof.LabelExternal) was written and
+// unit-tested with zero production callers, so every one of its own tests
+// passed while no capture ever carried an external ID to it: the controller
+// counted the records and dropped them.
+//
+// The second kernel is the control. Its correlation ID is one nothing pushed an
+// external ID for, so a capture that starts claiming a match for it is claiming
+// one the producer never recorded.
+func TestCaptureProfileCarriesExternalCorrelation(t *testing.T) {
+	const sessionHex = "0123456789abcdef0123456789abcdef"
+	activities := externalJournal(t, sessionHex, `{"kind":"external_correlation","external_kind":3,"external_id":770,"correlation":9}`)
+	labels, comments := externalLabels(t, activities, sessionHex)
+
+	if got := labels["attributed"]["cupti.external.id"]; got != "770" {
+		t.Errorf("kernel on the pushed correlation has cupti.external.id = %q, want %q", got, "770")
+	}
+	if got := labels["attributed"]["cupti.external.status"]; got != "matched" {
+		t.Errorf("kernel on the pushed correlation has status %q, want matched", got)
+	}
+	if got := labels["attributed"]["cupti.external.kind"]; got != "3" {
+		t.Errorf("labelled namespace = %q, want 3 (the kind the producer recorded)", got)
+	}
+	if got := labels["attributed"]["cupti.collection.session"]; got != sessionHex {
+		t.Errorf("cupti.collection.session = %q, want the capture session", got)
+	}
+	if got := labels["attributed"]["cupti.collection.process"]; got != "1234" {
+		t.Errorf("cupti.collection.process = %q, want the target PID", got)
+	}
+
+	if got, ok := labels["unattributed"]["cupti.external.id"]; ok {
+		t.Errorf("kernel on an unpushed correlation claims cupti.external.id = %q", got)
+	}
+	if got := labels["unattributed"]["cupti.external.status"]; got != "not_observed" {
+		t.Errorf("kernel on an unpushed correlation has status %q, want not_observed", got)
+	}
+	// Independence from the test below: a capture holding one namespace must
+	// carry no omission note, or the note is boilerplate rather than a
+	// warning and a reader stops reading it.
+	for _, c := range comments {
+		if strings.HasPrefix(c, "cupti: ") {
+			t.Errorf("single-namespace capture carries the omission note %q", c)
+		}
+	}
+}
+
+// TestCaptureProfileWithoutExternalIDsClaimsNothing is the negative control for
+// the test above: a capture whose target pushed no external IDs at all must
+// publish no external labels, rather than a namespace it invented or a match it
+// did not observe.
+func TestCaptureProfileWithoutExternalIDsClaimsNothing(t *testing.T) {
+	const sessionHex = "0123456789abcdef0123456789abcdef"
+	labels, _ := externalLabels(t, externalJournal(t, sessionHex), sessionHex)
+	if len(labels) != 2 {
+		t.Fatalf("got %d kernels in the profile, want 2", len(labels))
+	}
+	for name, got := range labels {
+		if len(got) != 0 {
+			t.Errorf("kernel %q carries external labels %v from a capture with no external records", name, got)
+		}
+	}
+}
+
+// TestCaptureProfileStatesTheNamespaceItDidNotJoin covers the omission. A
+// target that pushes into two external namespaces -- PyTorch pushes Custom0
+// and Custom1 -- gets one of them joined, because the profile holds one
+// cupti.external.kind per sample. The records in the other namespace are real
+// collected data that this tool chose not to attribute, and a reader who sees
+// only the coverage number reads that choice as work nothing was pushed for.
+//
+// The note is the difference between "nothing was pushed there" and "we did
+// not join it".
+func TestCaptureProfileStatesTheNamespaceItDidNotJoin(t *testing.T) {
+	const sessionHex = "0123456789abcdef0123456789abcdef"
+	activities := externalJournal(t, sessionHex,
+		`{"kind":"external_correlation","external_kind":3,"external_id":770,"correlation":9}`,
+		`{"kind":"external_correlation","external_kind":4,"external_id":880,"correlation":9}`,
+		`{"kind":"external_correlation","external_kind":4,"external_id":881,"correlation":11}`)
+	labels, comments := externalLabels(t, activities, sessionHex)
+
+	if got := labels["attributed"]["cupti.external.id"]; got != "770" {
+		t.Errorf("joined namespace = %q, want Custom0's id 770: the lowest-numbered namespace is the one joined", got)
+	}
+	want := "cupti: 2 external namespaces present (Custom0, Custom1); only Custom0 was joined, 2 record(s) in Custom1 left unattributed"
+	found := false
+	for _, c := range comments {
+		if c == want {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("profile comments = %q, want one reading %q", comments, want)
+	}
+}
+
+// TestCompactStatusKeepsExternalLinksOutOfTheDeviceList covers the aggregate
+// an external record would otherwise pollute. The link carries no device -- it
+// names a correlation id, not hardware -- so its zero Device field would
+// report device 0 on a capture whose device work all ran elsewhere. This is
+// the same rule the marker branch beside it applies, and it is only reachable
+// now that these records travel in the activity slice.
+func TestCompactStatusKeepsExternalLinksOutOfTheDeviceList(t *testing.T) {
+	status := compactCaptureStatus(captureResult{Activities: []captureActivity{
+		{Subtype: "kernel", Valid: true, Start: 100, End: 200, Device: 3, Correlation: 9},
+		{Subtype: "external_correlation", Correlation: 9, ExternalKind: 3, ExternalID: 770},
+	}})
+	if len(status.Devices) != 1 || status.Devices[0] != 3 {
+		t.Errorf("devices = %v, want [3]: an external correlation link names no device", status.Devices)
+	}
+	if status.ActivityKinds["external_correlation"] != 1 {
+		t.Errorf("activity_kinds = %v, want the link still counted by subtype", status.ActivityKinds)
+	}
+}

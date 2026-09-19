@@ -40,6 +40,14 @@ type ActivityRecord struct {
 	// is what says the field means anything.
 	Value uint32 `json:"value,omitempty"`
 
+	// External correlation fields, set only when Subtype is
+	// "external_correlation". Such a record is not device work: it is the
+	// producer reporting that the framework pushed ExternalID onto the
+	// ExternalKind stack while the native correlation ID in Correlation was
+	// live. It carries no interval, so it becomes no sample.
+	ExternalKind uint32 `json:"external_kind,omitempty"`
+	ExternalID   uint64 `json:"external_id,omitempty"`
+
 	// NVTX marker fields, set only when Subtype is "marker". A range is two
 	// records sharing MarkerID on one thread: CUPTI reports the open and the
 	// close separately, so no single record holds a duration. Pairing needs
@@ -247,6 +255,18 @@ func AttachKernelLabels(labels map[string][]string, rec ActivityRecord) {
 // ('grid', 'block', 'registers', 'smem'), and with 'graph_id' and
 // 'graph_node_id' when the kernel ran as a node of a CUDA graph.
 func BuildActivityProfile(session string, targetPID uint64, activities []ActivityRecord) *profile.Profile {
+	p, _ := BuildActivityProfileIndex(session, targetPID, activities)
+	return p
+}
+
+// BuildActivityProfileIndex builds the profile BuildActivityProfile builds and
+// additionally reports, for each sample, the index in activities the sample was
+// projected from. Callers that attribute samples back to native records need
+// that association from the projection itself: the profile holds fewer samples
+// than there are records, and which records were skipped is this function's
+// decision, not one a caller can safely re-derive.
+func BuildActivityProfileIndex(session string, targetPID uint64, activities []ActivityRecord) (*profile.Profile, []int) {
+	var indices []int
 	p := &profile.Profile{
 		SampleType: []*profile.ValueType{
 			{Type: "kernel_time", Unit: "nanoseconds"},
@@ -266,7 +286,7 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 	functions := make(map[string]*profile.Function)
 	var nextFunctionID uint64 = 1
 	var nextLocationID uint64 = 1
-	for _, activity := range activities {
+	for recordIndex, activity := range activities {
 		if !activity.Valid {
 			continue
 		}
@@ -278,6 +298,13 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 		// time, so including them would leave the count dimension counting a
 		// different population than the two duration dimensions beside it.
 		if activity.Subtype == "marker" || activity.Subtype == "capture_range" {
+			continue
+		}
+		// An external-correlation record is a link between a framework scope
+		// and a native correlation ID, with no interval of its own. It is
+		// carried alongside device work so the join can see both in one
+		// stream, and it is skipped here for the same reason a marker is.
+		if activity.Subtype == "external_correlation" {
 			continue
 		}
 		value := []int64{0, 0, 0, 1}
@@ -332,6 +359,7 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 		nextLocationID++
 		p.Location = append(p.Location, loc)
 		p.Sample = append(p.Sample, &profile.Sample{Value: value, Label: labels, Location: []*profile.Location{loc}})
+		indices = append(indices, recordIndex)
 	}
-	return p
+	return p, indices
 }

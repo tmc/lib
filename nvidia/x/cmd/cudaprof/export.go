@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,7 +66,7 @@ func runExportCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	records, nvtx, err := decodeTraceJournals(journals, opts.maxRecords, opts.journalBytes)
+	records, nvtx, ext, err := decodeTraceJournals(journals, opts.maxRecords, opts.journalBytes)
 	if err != nil {
 		return err
 	}
@@ -90,6 +91,9 @@ func runExportCommand(args []string) error {
 		if nvtx.unknown > 0 {
 			fmt.Printf("nvtx: %d marker(s) carried none of the start/end/instantaneous flags and were skipped\n", nvtx.unknown)
 		}
+	}
+	for _, line := range externalSummaryLines(ext) {
+		fmt.Println(line)
 	}
 	return nil
 }
@@ -202,6 +206,14 @@ type tracePayload struct {
 	ReturnValue uint32 `json:"return_value"`
 	Dropped     uint64 `json:"dropped"`
 
+	// External correlation. The producer emits these in their own frame kind:
+	// ExternalID is the framework scope -- a PyTorch operator, an NCCL
+	// collective -- that was on the stack while Correlation was the live
+	// native ID. The record has no interval and draws no slice; it is what
+	// lets the join say which scope a kernel ran under.
+	ExternalKind uint32 `json:"external_kind"`
+	ExternalID   uint64 `json:"external_id"`
+
 	// NVTX. A marker record carries one timestamp in both Start and End; the
 	// duration of a range lives in the pair of records sharing MarkerID, not
 	// in either one.
@@ -243,7 +255,7 @@ type traceRecord struct {
 // calls. The refusals mirror decodeJournals: a journal that never finalized,
 // lost records, or decoded short leaves a timeline whose missing spans read as
 // idle device, which is a wrong answer rather than a partial one.
-func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64) ([]traceRecord, nvtxSummary, error) {
+func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64) ([]traceRecord, nvtxSummary, externalSummary, error) {
 	names := make([]string, 0, len(journals))
 	for name := range journals {
 		names = append(names, name)
@@ -251,23 +263,123 @@ func decodeTraceJournals(journals map[string][]byte, maxRecords, maxBytes int64)
 	sort.Strings(names)
 	var out []traceRecord
 	var nvtx nvtxSummary
+	var ext externalSummary
 	for _, name := range names {
 		reader, _, err := decompressJournal(journals[name], maxBytes)
 		if err != nil {
-			return nil, nvtx, fmt.Errorf("read journal %s: %w", name, err)
+			return nil, nvtx, ext, fmt.Errorf("read journal %s: %w", name, err)
 		}
-		err = decodeTraceJournal(name, reader, maxRecords, &out, &nvtx)
+		err = decodeTraceJournal(name, reader, maxRecords, &out, &nvtx, &ext)
 		if cerr := reader.Close(); err == nil && cerr != nil {
 			err = fmt.Errorf("close journal %s: %w", name, cerr)
 		}
 		if err != nil {
-			return nil, nvtx, err
+			return nil, nvtx, ext, err
 		}
 	}
 	if len(out) == 0 {
-		return nil, nvtx, errors.New("journals hold no complete activity records, so there is no timeline to draw")
+		return nil, nvtx, ext, errors.New("journals hold no complete activity records, so there is no timeline to draw")
 	}
-	return out, nvtx, nil
+	return out, nvtx, ext, nil
+}
+
+// externalSummary is what the external-correlation tier contributed: how much
+// of the device work in the trace carries a framework scope. It is reported
+// because attribution coverage is not visible in the timeline itself -- a
+// kernel nothing pushed an ID for is drawn exactly like one that has a scope.
+type externalSummary struct {
+	kind                        cupti.ExternalCorrelationKind
+	records, matched, ambiguous uint64
+	duration, matchedNanos      uint64
+	// kinds counts the external-correlation records by namespace, including
+	// the namespaces that were not joined. Without it the coverage line
+	// reports the namespace it used and says nothing about the one it
+	// discarded, so a kernel we chose not to join reads as a kernel nothing
+	// was pushed for.
+	kinds externalKindCounts
+}
+
+// externalSummaryLines is what the export reports about attribution coverage.
+// It is a function rather than a run of Printf calls so a test can assert the
+// lines a user reads: the omission note below is worth nothing if it is
+// computed and never printed.
+func externalSummaryLines(ext externalSummary) []string {
+	if ext.records == 0 {
+		return nil
+	}
+	line := fmt.Sprintf("external: %d of %d device record(s) carry a framework scope in namespace %s", ext.matched, ext.records, ext.kind)
+	if ext.duration > 0 {
+		line += fmt.Sprintf(" (%d%% of device time)", 100*ext.matchedNanos/ext.duration)
+	}
+	lines := []string{line}
+	if ext.ambiguous > 0 {
+		lines = append(lines, fmt.Sprintf("external: %d device record(s) matched more than one external id and were left unattributed", ext.ambiguous))
+	}
+	if note := ext.kinds.note(); note != "" {
+		lines = append(lines, "external: "+note)
+	}
+	return lines
+}
+
+func (s *externalSummary) add(o externalSummary) {
+	if s.kind == cupti.ExternalCorrelationKindInvalid {
+		s.kind = o.kind
+	}
+	s.kinds = s.kinds.add(o.kinds)
+	s.records += o.records
+	s.matched += o.matched
+	s.ambiguous += o.ambiguous
+	s.duration += o.duration
+	s.matchedNanos += o.matchedNanos
+}
+
+// externalCoverage joins one journal's device records to its
+// external-correlation records and reports how much of the device work the
+// join covered. The join is cuptiactivity.ExternalCoverage, which applies
+// MatchExternal's exact rules; this function only supplies the scope.
+//
+// Scope: the capture session is both session and run, and the journal member
+// is the process generation -- one journal is written by one generation, which
+// is the identity a native correlation ID is unique within.
+//
+// One namespace is reported, the lowest-numbered one present, because
+// MatchExternal joins one namespace per call; externalKindCounts.chosen says
+// why the lowest. A target pushing into two -- as PyTorch does -- has the
+// second left out, and externalKindCounts.note states that it was, so a
+// record we did not join is not read as a record nothing was pushed for.
+func externalCoverage(session, process string, devices []traceRecord, externals []cuptiactivity.Record) externalSummary {
+	var counts externalKindCounts
+	for _, e := range externals {
+		counts.observe(e.ExternalKind)
+	}
+	kind := counts.chosen()
+	if kind == cupti.ExternalCorrelationKindInvalid {
+		return externalSummary{}
+	}
+	scoped := make([]cuptiactivity.ScopedRecord, 0, len(devices)+len(externals))
+	for _, d := range devices {
+		scoped = append(scoped, cuptiactivity.ScopedRecord{Session: session, Run: session, Process: process, Record: d.rec})
+	}
+	for _, e := range externals {
+		scoped = append(scoped, cuptiactivity.ScopedRecord{Session: session, Run: session, Process: process, Record: e})
+	}
+	rows, err := cuptiactivity.ExternalCoverage(scoped, kind)
+	if err != nil {
+		// Coverage is a report about the trace, never a condition on writing
+		// it. The identity above is supplied by this function, so the only
+		// way here is an overflow in the totals, which costs the summary line
+		// and nothing else.
+		return externalSummary{}
+	}
+	s := externalSummary{kind: kind, kinds: counts}
+	for _, r := range rows {
+		s.records += r.Total.Records
+		s.duration += r.Total.Duration
+		s.matched += r.Matched.Records
+		s.matchedNanos += r.Matched.Duration
+		s.ambiguous += r.Ambiguous.Records
+	}
+	return s
 }
 
 // nvtxSummary is what the NVTX tier contributed, reported alongside the trace
@@ -369,7 +481,7 @@ func markerRange(start tracePayload, end uint64) traceRecord {
 	}
 }
 
-func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]traceRecord, nvtx *nvtxSummary) error {
+func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]traceRecord, nvtx *nvtxSummary, ext *externalSummary) error {
 	limit := uint32(math.MaxUint32)
 	if maxRecords > 0 && maxRecords < math.MaxUint32 {
 		limit = uint32(maxRecords)
@@ -377,6 +489,9 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 	d := wire.NewDecoder(reader, wire.Limits{MaxRecords: limit})
 	first, finalized, decoded := true, false, 0
 	var markers []tracePayload
+	var externals []cuptiactivity.Record
+	var session string
+	base := len(*out)
 	for {
 		r, err := d.Next()
 		if err != nil {
@@ -391,6 +506,9 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				if stats := d.Stats(); stats.Gaps > 0 || stats.Dropped > 0 {
 					return fmt.Errorf("journal %s lost records (%d sequence gap(s), %d dropped), so the timeline is missing spans that would draw as idle", name, stats.Gaps, stats.Dropped)
 				}
+				// Before pairMarkers, so the slice holds this journal's
+				// device work and nothing else.
+				ext.add(externalCoverage(session, name, (*out)[base:], externals))
 				nvtx.add(pairMarkers(markers, out))
 				return nil
 			case errors.Is(err, io.ErrUnexpectedEOF):
@@ -401,6 +519,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 		}
 		if first {
 			d.ExpectSession(r.Session)
+			session = hex.EncodeToString(r.Session[:])
 			first = false
 		}
 		decoded++
@@ -436,6 +555,19 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				continue
 			}
 			*out = append(*out, traceRecord{rec: apiRecord(p), kind: trackHost, group: [2]uint32{p.ProcessID, p.ThreadID}})
+		case recordExternal:
+			// No interval, so no slice: this record is a link, not work. It
+			// is kept for the join below, which is the only thing that can
+			// say which framework scope the device records ran under.
+			if p.Correlation == 0 {
+				continue
+			}
+			externals = append(externals, cuptiactivity.Record{
+				Kind:          cupti.ActivityKindExternalCorrelation,
+				CorrelationID: p.Correlation,
+				ExternalKind:  cupti.ExternalCorrelationKind(p.ExternalKind),
+				ExternalID:    p.ExternalID,
+			})
 		case recordFinalized:
 			finalized = true
 			if p.Dropped > 0 {

@@ -676,6 +676,26 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order external correlation")
 			}
 			metrics.external++
+			// The payload, not only the count. An external-correlation record
+			// is the only thing that says which framework scope a kernel ran
+			// under, and the join that reads it (cuptiactivity.MatchExternal)
+			// wants the links and the device work in one stream. Carrying it
+			// in the activity slice is what gets it there: captureResult has
+			// exactly one channel for per-record data, and a record with no
+			// interval costs the profile nothing -- BuildActivityProfile skips
+			// this subtype the way it skips a marker.
+			//
+			// Correlation is the native ID the link is keyed on; a record
+			// without one links nothing, and keeping it would only add an
+			// unjoinable row to every capture.
+			if payload.Correlation != 0 {
+				activities = append(activities, captureActivity{
+					Subtype:      "external_correlation",
+					Correlation:  payload.Correlation,
+					ExternalKind: payload.ExternalKind,
+					ExternalID:   payload.ExternalID,
+				})
+			}
 		case recordAPI:
 			if terminal || !state.bootstrap || !state.capability || payload.Kind != "api" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order API record")

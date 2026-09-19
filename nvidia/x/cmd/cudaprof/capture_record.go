@@ -12,12 +12,17 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/google/pprof/profile"
+	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
+	"github.com/tmc/lib/nvidia/x/cudaprof"
+	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 )
 
 // runCaptureCommand is the command-level adapter for the launcher foundation.
@@ -160,9 +165,10 @@ func compactCaptureStatus(result captureResult) captureStatus {
 	kinds := make(map[string]uint64)
 	for _, activity := range result.Activities {
 		// A marker is a host annotation whose Device field names no device it
-		// ran on, so counting it here would report a device the capture saw no
-		// work on. Its subtype is still counted below.
-		if activity.Subtype == "marker" {
+		// ran on, and an external-correlation record is a link carrying no
+		// device at all, so counting either here would report a device the
+		// capture saw no work on. Their subtypes are still counted below.
+		if activity.Subtype == "marker" || activity.Subtype == "external_correlation" {
 			kinds[activity.Subtype]++
 			continue
 		}
@@ -361,6 +367,177 @@ func fileSHA256(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// externalKindCounts counts external-correlation records by namespace. It is a
+// fixed array rather than a map so it stays comparable and sums element-wise
+// across journals.
+type externalKindCounts [cupti.ExternalCorrelationKindSize]uint64
+
+func (c *externalKindCounts) observe(kind cupti.ExternalCorrelationKind) {
+	if kind > cupti.ExternalCorrelationKindInvalid && kind < cupti.ExternalCorrelationKindSize {
+		c[kind]++
+	}
+}
+
+func (c externalKindCounts) add(o externalKindCounts) externalKindCounts {
+	for i := range c {
+		c[i] += o[i]
+	}
+	return c
+}
+
+// chosen is the namespace that gets joined: the lowest-numbered one present,
+// or Invalid when the target pushed nothing.
+//
+// The minimum is not an arbitrary tiebreak. MatchExternal joins one namespace
+// per call and the profile holds one cupti.external.kind per sample, so one
+// has to be picked; picking the lowest makes the choice a property of which
+// namespaces the target used, not of which record the producer happened to
+// write first. Two captures of the same workload must not attribute to
+// different namespaces because a buffer flushed in a different order.
+func (c externalKindCounts) chosen() cupti.ExternalCorrelationKind {
+	for i, n := range c {
+		if n > 0 {
+			return cupti.ExternalCorrelationKind(i)
+		}
+	}
+	return cupti.ExternalCorrelationKindInvalid
+}
+
+// note states what was left unjoined when a target pushed into more than one
+// namespace, and is empty otherwise.
+//
+// It exists because the alternative is the fail-open shape: a reader who sees
+// "66% of device time carries a framework scope" and no note concludes the
+// remaining third had no scope, when part of it had a scope this tool chose
+// not to join. The note separates "nothing was pushed there" from "we did not
+// join it". It is conditional for the same reason: a caveat printed on every
+// capture is read as boilerplate, and then it is not a warning.
+func (c externalKindCounts) note() string {
+	var present []cupti.ExternalCorrelationKind
+	for i, n := range c {
+		if n > 0 {
+			present = append(present, cupti.ExternalCorrelationKind(i))
+		}
+	}
+	if len(present) <= 1 {
+		return ""
+	}
+	names := make([]string, len(present))
+	for i, k := range present {
+		names[i] = externalKindName(k)
+	}
+	chosen := c.chosen()
+	var unjoined uint64
+	var dropped []string
+	for _, k := range present {
+		if k != chosen {
+			unjoined += c[k]
+			dropped = append(dropped, externalKindName(k))
+		}
+	}
+	return fmt.Sprintf("%d external namespaces present (%s); only %s was joined, %d record(s) in %s left unattributed",
+		len(present), strings.Join(names, ", "), externalKindName(chosen), unjoined, strings.Join(dropped, ", "))
+}
+
+// externalKindName is the namespace without the enum's type prefix: Custom0
+// rather than ExternalCorrelationKindCustom0, which is what the framework
+// documentation calls it.
+func externalKindName(k cupti.ExternalCorrelationKind) string {
+	return strings.TrimPrefix(k.String(), "ExternalCorrelationKind")
+}
+
+// labelExternalCorrelation labels the samples of p with the native
+// external-correlation link of the record each was projected from, so a kernel
+// carries the ID of the framework scope -- a PyTorch operator, an NCCL
+// collective -- that was on the stack when it was launched. The join itself is
+// cuptiactivity.MatchExternal, reached through cudaprof.LabelExternal; this
+// function only supplies it the two things the capture path has and it does
+// not: the records, and which record each sample came from.
+//
+// A capture whose target pushed no external IDs is returned unlabelled rather
+// than labelled not_observed everywhere: nothing was joined, and paying five
+// labels per sample to say so on every capture ever taken is not worth it.
+//
+// One namespace is labelled, because the profile holds one
+// cupti.external.kind per sample. A target that pushes into more than one --
+// PyTorch uses two -- gets the lowest-numbered one, and the namespaces left
+// unjoined are stated in the profile's comments rather than left to look like
+// work nothing was pushed for. See externalKindCounts.chosen and .note.
+//
+// scoped identity: the capture session is both session and run, because one
+// capture is one run and the artifact retains no separate run ID. Process is
+// the process generation's PID. Two generations of one PID inside one capture
+// would share a scope and could collide on a correlation ID; MatchExternal
+// reports such a collision as ambiguous rather than picking one, so the
+// weakness costs attribution, never a wrong attribution.
+func labelExternalCorrelation(p *profile.Profile, session string, targetPID uint64, activities []captureActivity, sampleRecords []int) (*profile.Profile, error) {
+	var counts externalKindCounts
+	for _, a := range activities {
+		if a.Subtype == "external_correlation" {
+			counts.observe(cupti.ExternalCorrelationKind(a.ExternalKind))
+		}
+	}
+	kind := counts.chosen()
+	if kind == cupti.ExternalCorrelationKindInvalid {
+		return p, nil
+	}
+	scoped := func(a captureActivity, r cuptiactivity.Record) cuptiactivity.ScopedRecord {
+		pid := a.Process
+		if pid == 0 {
+			pid = targetPID
+		}
+		r.CorrelationID = a.Correlation
+		r.DeviceID = a.Device
+		return cuptiactivity.ScopedRecord{Session: session, Run: session, Process: strconv.FormatUint(pid, 10), Record: r}
+	}
+	records := make([]cuptiactivity.ScopedRecord, 0, len(sampleRecords))
+	indices := make([]int, len(sampleRecords))
+	for i, index := range sampleRecords {
+		a := activities[index]
+		var r cuptiactivity.Record
+		switch a.Subtype {
+		case "kernel":
+			r.Kind = cupti.ActivityKindConcurrentKernel
+		case "memcpy":
+			r.Kind = cupti.ActivityKindMemcpy
+			r.RuntimeCorrelationID = a.RuntimeCorrelation
+		case "memset":
+			r.Kind = cupti.ActivityKindMemset
+		default:
+			// Every subtype that becomes a sample must have a native kind, or
+			// the join sees a sample it cannot account for. Refusing here
+			// names the subtype; letting it through makes LabelExternal report
+			// a sample index instead.
+			return nil, fmt.Errorf("activity subtype %q has a sample but no native activity kind", a.Subtype)
+		}
+		r.Start, r.End, r.Bytes = a.Start, a.End, a.Bytes
+		indices[i] = len(records)
+		records = append(records, scoped(a, r))
+	}
+	for _, a := range activities {
+		if a.Subtype != "external_correlation" {
+			continue
+		}
+		records = append(records, scoped(a, cuptiactivity.Record{
+			Kind:         cupti.ActivityKindExternalCorrelation,
+			ExternalKind: cupti.ExternalCorrelationKind(a.ExternalKind),
+			ExternalID:   a.ExternalID,
+		}))
+	}
+	out, err := cudaprof.LabelExternal(p, records, indices, kind)
+	if err != nil {
+		return nil, err
+	}
+	// A namespace this capture held and did not join is stated in the
+	// profile, where the labels it is missing from are. pprof shows comments
+	// alongside the profile, so the reader who asks why a kernel has no
+	// cupti.external.id has the answer in the same artifact.
+	if note := counts.note(); note != "" {
+		out.Comments = append(out.Comments, "cupti: "+note)
+	}
+	return out, nil
+}
+
 // writeCaptureStatus publishes the capture recording under budget. The budget
 // is a policy applied to raw attachments before anything is written, so a
 // capture whose workload has already run is never lost to a size rejection at
@@ -446,7 +623,11 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 		}
 	}
 	limits := cudacapture.Limits{FileBytes: budget.FileBytes, TotalBytes: budget.TotalBytes}
-	p := cudacapture.BuildActivityProfile(result.Session, uint64(result.TargetPID), result.Activities)
+	p, sampleRecords := cudacapture.BuildActivityProfileIndex(result.Session, uint64(result.TargetPID), result.Activities)
+	p, err := labelExternalCorrelation(p, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords)
+	if err != nil {
+		return err
+	}
 	c := &cudacapture.Capture{
 		Profile: p,
 		Files:   map[string][]byte{"capture-status.json": metadata},

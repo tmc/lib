@@ -597,3 +597,26 @@ func TestBuildActivityProfileCountsMemsetTime(t *testing.T) {
 		t.Errorf("subtype label = %v, want [memset]", got)
 	}
 }
+
+// TestBuildActivityProfileSkipsExternalCorrelation pins the third population
+// boundary, beside the NVTX and capture-range ones. An external-correlation
+// record is a link between a framework scope and a native correlation ID: it
+// travels in the activity slice so the join can see it next to the device work
+// it explains, and it must never become a sample, which would count a link as
+// a launch in the activity dimension.
+//
+// Valid is deliberately true. The producer leaves it false, so the invalid
+// check above would skip such a record anyway and hide whether the subtype is
+// handled at all; a caller building the record itself gets no such accident.
+func TestBuildActivityProfileSkipsExternalCorrelation(t *testing.T) {
+	p := cudacapture.BuildActivityProfile("session", 1, []cudacapture.ActivityRecord{
+		{Subtype: "kernel", Name: "k", Valid: true, Start: 100, End: 200, Correlation: 9},
+		{Subtype: "external_correlation", Valid: true, Correlation: 9, ExternalKind: 3, ExternalID: 770},
+	})
+	if len(p.Sample) != 1 {
+		t.Fatalf("got %d samples, want 1: an external correlation link is not device work", len(p.Sample))
+	}
+	if got := p.Sample[0].Label["subtype"]; len(got) != 1 || got[0] != "kernel" {
+		t.Errorf("sample subtype = %v, want kernel", got)
+	}
+}

@@ -39,11 +39,17 @@ func decodeFixture(t *testing.T, data []byte) []traceRecord {
 
 func decodeFixtureNVTX(t *testing.T, data []byte) ([]traceRecord, nvtxSummary) {
 	t.Helper()
-	records, nvtx, err := decodeTraceJournals(map[string][]byte{"capture.journal": data}, controllerMaxJournalRecords, 1<<20)
+	records, nvtx, _ := decodeFixtureExternal(t, data)
+	return records, nvtx
+}
+
+func decodeFixtureExternal(t *testing.T, data []byte) ([]traceRecord, nvtxSummary, externalSummary) {
+	t.Helper()
+	records, nvtx, ext, err := decodeTraceJournals(map[string][]byte{"capture.journal": data}, controllerMaxJournalRecords, 1<<20)
 	if err != nil {
 		t.Fatalf("decodeTraceJournals: %v", err)
 	}
-	return records, nvtx
+	return records, nvtx, ext
 }
 
 // TestExportLanesSplitOverlappingActivities is the property the whole track
@@ -150,7 +156,7 @@ func TestExportRefusesIncompleteJournals(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := decodeTraceJournals(map[string][]byte{"capture.journal": tt.data()}, controllerMaxJournalRecords, 1<<20)
+			_, _, _, err := decodeTraceJournals(map[string][]byte{"capture.journal": tt.data()}, controllerMaxJournalRecords, 1<<20)
 			if err == nil {
 				t.Fatal("exported a journal that cannot draw a complete timeline")
 			}
@@ -442,5 +448,97 @@ func TestExportKeepsMemsetsOutOfTheKernelKind(t *testing.T) {
 	}
 	if memsets != 1 || kernels != 1 {
 		t.Errorf("kinds = %v, want one MEMSET and one CONCURRENT_KERNEL: the memset was exported under another activity kind", kinds)
+	}
+}
+
+// traceExternal appends one external-correlation record: the producer stating
+// that externalID was the framework scope on the stack while correlation was
+// the live native ID.
+func (b *journalBuilder) traceExternal(kind uint32, externalID uint64, correlation uint32) *journalBuilder {
+	b.append(recordExternal, map[string]any{
+		"kind": "external_correlation", "external_kind": kind, "external_id": externalID, "correlation": correlation,
+	})
+	return b
+}
+
+// TestExportReportsExternalCoverage covers the export half of the external
+// tier. Before this the frame kind had no case at all in decodeTraceJournal:
+// the records were on disk in every capture, the join that reads them was
+// written and tested, and the two never met.
+//
+// The second kernel is the control. Its correlation is one nothing pushed a
+// scope for, so it must lower coverage rather than inherit the first kernel's.
+func TestExportReportsExternalCoverage(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceExternal(3, 770, 1)
+	b.traceActivity("kernel", "attributed", 0, 7, 1_000, 3_000, 1)
+	b.traceActivity("kernel", "unattributed", 0, 7, 4_000, 5_000, 2)
+	_, _, ext := decodeFixtureExternal(t, b.finalize())
+
+	if ext.records != 2 || ext.matched != 1 {
+		t.Errorf("coverage = %d of %d device record(s), want 1 of 2", ext.matched, ext.records)
+	}
+	if ext.kind != cupti.ExternalCorrelationKindCustom0 {
+		t.Errorf("reported namespace = %v, want the kind the producer recorded", ext.kind)
+	}
+	// 2000ns of 3000ns: coverage by time is not coverage by count.
+	if ext.matchedNanos != 2_000 || ext.duration != 3_000 {
+		t.Errorf("coverage by time = %d of %d ns, want 2000 of 3000", ext.matchedNanos, ext.duration)
+	}
+	if ext.ambiguous != 0 {
+		t.Errorf("ambiguous = %d, want 0", ext.ambiguous)
+	}
+	// Independence from the test below: one namespace, so no omission note.
+	for _, l := range externalSummaryLines(ext) {
+		if strings.Contains(l, "namespaces present") {
+			t.Errorf("single-namespace capture reports the omission note %q", l)
+		}
+	}
+}
+
+// TestExportStatesTheNamespaceItDidNotJoin is the export half of the omission.
+// Coverage that names the namespace it used and stays silent about the one it
+// discarded reports a collection gap as an absence, which is the shape this
+// tier exists to remove.
+func TestExportStatesTheNamespaceItDidNotJoin(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceExternal(3, 770, 1)
+	b.traceExternal(4, 880, 1)
+	b.traceExternal(4, 881, 2)
+	b.traceActivity("kernel", "attributed", 0, 7, 1_000, 3_000, 1)
+	b.traceActivity("kernel", "other_namespace", 0, 7, 4_000, 5_000, 2)
+	_, _, ext := decodeFixtureExternal(t, b.finalize())
+
+	if ext.kind != cupti.ExternalCorrelationKindCustom0 {
+		t.Errorf("joined namespace = %v, want Custom0, the lowest present", ext.kind)
+	}
+	// The assertion is on the lines a user reads, not on note() alone: a note
+	// that is computed and never printed is worth nothing.
+	want := "external: 2 external namespaces present (Custom0, Custom1); only Custom0 was joined, 2 record(s) in Custom1 left unattributed"
+	lines := externalSummaryLines(ext)
+	found := false
+	for _, l := range lines {
+		if l == want {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("reported lines = %q, want one reading %q", lines, want)
+	}
+	// The second kernel has a scope, in the namespace that was not joined. It
+	// still counts as unattributed -- the note is what keeps that honest.
+	if ext.matched != 1 || ext.records != 2 {
+		t.Errorf("coverage = %d of %d, want 1 of 2", ext.matched, ext.records)
+	}
+}
+
+// TestExportWithoutExternalRecordsReportsNothing is the negative control: a
+// capture whose target pushed no scopes must report no coverage rather than
+// zero-of-zero or a namespace it invented.
+func TestExportWithoutExternalRecordsReportsNothing(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceActivity("kernel", "plain", 0, 7, 1_000, 3_000, 1)
+	if _, _, ext := decodeFixtureExternal(t, b.finalize()); ext != (externalSummary{}) {
+		t.Errorf("coverage = %+v, want the zero summary", ext)
 	}
 }
