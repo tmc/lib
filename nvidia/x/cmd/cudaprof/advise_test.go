@@ -3920,3 +3920,54 @@ func TestOpaqueGraphCaveatReachesTheDutyCycleFinding(t *testing.T) {
 		t.Errorf("opacity caveat on a capture whose nodes name their graph: %q", plain.Items[0].Finding)
 	}
 }
+
+// TestAPIRecordsComeFromTheJournal covers the sibling of the timeline defect,
+// one layer in.
+//
+// recaptureOrRead was conditioned on the file; this sentence was still
+// conditioned on what the projection read. A capture written through
+// compactCaptureStatus omits the per-record arrays, so a reader looking only
+// at capture-status.json finds no host launch records and reports that the
+// capture has none -- while its journal held 124834, all correlated.
+func TestAPIRecordsComeFromTheJournal(t *testing.T) {
+	b := newJournalBuilder()
+	b.kernelOn(0, 1, 5_000, 6_000, 1)
+	b.api(1_000, 2_000, 1)
+	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
+
+	apis := extractAPIRecords(cap)
+	if len(apis) != 1 {
+		t.Fatalf("api records = %d, want the journal's 1", len(apis))
+	}
+	if got := apis[1]; got.Start != 1_000 || got.End != 2_000 {
+		t.Errorf("api record = %+v, want start 1000 end 2000", got)
+	}
+
+	// A capture with no journal and no per-record array still reports none:
+	// the point is to stop the false claim, not every claim.
+	if got := extractAPIRecords(&cudacapture.Capture{}); len(got) != 0 {
+		t.Errorf("api records = %d for an empty capture, want 0", len(got))
+	}
+}
+
+// TestUncorrelatedLaunchesAreNotAbsentOnes pins the distinction the wording
+// erased. A capture holding host launch records whose correlation ids do not
+// reach a sequence is not missing data, and telling someone to capture what
+// they already have sends them back to the GPU for nothing.
+func TestUncorrelatedLaunchesAreNotAbsentOnes(t *testing.T) {
+	why, rec := unmeasuredLaunchReason(124834)
+	if !strings.Contains(why, "124834") || !strings.Contains(why, "none correlates") {
+		t.Errorf("why = %q, want it to say the records are present and uncorrelated", why)
+	}
+	if strings.Contains(strings.ToLower(rec), "capture host launch") {
+		t.Errorf("recommends capturing records the capture already holds: %q", rec)
+	}
+
+	why, rec = unmeasuredLaunchReason(0)
+	if !strings.Contains(why, "absent from this capture") {
+		t.Errorf("why = %q, want the absence stated plainly", why)
+	}
+	if !strings.Contains(strings.ToLower(rec), "capture host launch") {
+		t.Errorf("no records and no recommendation to capture them: %q", rec)
+	}
+}

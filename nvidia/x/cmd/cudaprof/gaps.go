@@ -1210,3 +1210,29 @@ func journalStreamEvents(cap *cudacapture.Capture) (events []streamEvent, graphs
 	}
 	return events, graphsOpaque, nil
 }
+
+// journalAPIRecords reads the host launch API records from the per-record
+// journal, indexed by correlation id.
+//
+// Captures written through compactCaptureStatus omit the per-record arrays, so
+// a reader that looks only in capture-status.json finds none and reports that
+// the capture has no host launch timestamps. The journal that same capture
+// carries held 124834 of them on the run that found this, all correlated.
+func journalAPIRecords(cap *cudacapture.Capture) (map[uint32]apiCall, error) {
+	journals, _, err := requireJournals(cap)
+	if err != nil {
+		return nil, err
+	}
+	records, err := decodeJournals(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[uint32]apiCall, len(records.apis))
+	for corr, api := range records.apis {
+		if corr == 0 || api.start <= 0 || api.end < api.start {
+			continue
+		}
+		res[corr] = apiCall{Start: uint64(api.start), End: uint64(api.end)}
+	}
+	return res, nil
+}

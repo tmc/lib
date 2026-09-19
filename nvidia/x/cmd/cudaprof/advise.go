@@ -2388,6 +2388,12 @@ func extractAPIRecords(cap *cudacapture.Capture) map[uint32]apiCall {
 			return res
 		}
 	}
+	// Same reason the timeline falls back to the journal: a status file that
+	// omits the per-record array says nothing about the capture, and the
+	// finding built on its silence claims the launches were never recorded.
+	if fromJournal, err := journalAPIRecords(cap); err == nil && len(fromJournal) > 0 {
+		return fromJournal
+	}
 	return res
 }
 
@@ -2643,8 +2649,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					default:
 						behind, measured := hostBehindLaunches(kernelSeq, apis)
 						sev := SeverityInfo
-						finding := fmt.Sprintf("Low GPU duty cycle across a short-kernel sequence: %s and its kernels occupy only %.1f%% of the sequence device span (< %.0f%%); host launch timestamps are absent from this capture, so the cause of the idle time was not measured", detail, duty, lowDutyCyclePct)
-						rec := "Capture host launch API records (correlation-matched) to test whether host submission is behind the device before restructuring dispatch."
+						why, rec := unmeasuredLaunchReason(len(apis))
+						finding := fmt.Sprintf("Low GPU duty cycle across a short-kernel sequence: %s and its kernels occupy only %.1f%% of the sequence device span (< %.0f%%); %s, so the cause of the idle time was not measured", detail, duty, lowDutyCyclePct, why)
 						evLevel := EvidenceSuspected
 						if measured == 0 {
 							evLevel = EvidenceUnmeasured
@@ -3823,4 +3829,22 @@ func anyStreamTimed(streams map[uint32][]streamEvent) bool {
 		}
 	}
 	return false
+}
+
+// unmeasuredLaunchReason states why host submission went unmeasured for a
+// sequence, and what to do about it.
+//
+// Absent from the capture and absent for THESE kernels are different
+// statements, and only the first is a reason to capture anything. A capture
+// holding host launch records whose correlation ids do not reach a sequence is
+// not missing data; something between the launch and the kernel lost the id,
+// and that is where to look. Telling someone to capture what they already have
+// costs a run under GPU lock and does not produce the missing link.
+func unmeasuredLaunchReason(apiRecords int) (why, recommendation string) {
+	if apiRecords > 0 {
+		return fmt.Sprintf("this capture holds %d host launch record(s) but none correlates to these kernels", apiRecords),
+			"Find why the correlation ids of these launches do not reach their kernels before capturing anything further: the host launch records are already here."
+	}
+	return "host launch timestamps are absent from this capture",
+		"Capture host launch API records (correlation-matched) to test whether host submission is behind the device before restructuring dispatch."
 }
