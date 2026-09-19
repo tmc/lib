@@ -1,0 +1,5 @@
+agent: claude-code 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+date: 2026-09-18T17:34:06-07:00
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+verification: 17 of 17 generated files in nvidia/cudss now match ^// Code generated .* DO NOT EDIT\.$, up from 15; package reproduces under cmd/nvidia-reproduce; builds and vets for linux/amd64 and builds on darwin/arm64
