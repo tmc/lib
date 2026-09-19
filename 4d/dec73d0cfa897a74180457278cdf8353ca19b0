@@ -1,0 +1,9 @@
+Commit: 4ddec73d
+Date: 2026-09-19T02:31:59-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Attribution: Claude Opus 5 (Claude Code)
+Source: subagents scout-attn-parity and gateup-parity, independent read-only passes over the same four open items
+Verified independently: ds4_cuda.cu:24478 aligned_stream binding; cuda/mmq/test/test_iq2_aligned_entry.cu present (21557 bytes)
