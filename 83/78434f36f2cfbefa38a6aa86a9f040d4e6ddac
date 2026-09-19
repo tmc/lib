@@ -1,0 +1,12 @@
+Commit: 8378434f
+Date: 2026-09-19T02:29:20-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 46262
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Attribution: Claude Opus 5 (Claude Code)
+Source: cuda_session_linux.go:2412-2446 (cudaDenseArtifactLayers doc comment), read in full
+Corrects: 7805dce7 (the bytes-held axis label)
+Errata: 21.171
