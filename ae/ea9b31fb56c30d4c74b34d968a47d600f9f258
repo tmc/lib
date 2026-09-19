@@ -1,0 +1,11 @@
+Commit: aeea9b31
+Date: 2026-09-19T00:52:28Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+not a tty
+pid: 4850
+ITERM_SESSION_ID: w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+Flagged by peer session A8AA3789 while restamping nccl. The commit-resolution
+check was git cat-file -e on each pinned commit in the libgen checkout.
