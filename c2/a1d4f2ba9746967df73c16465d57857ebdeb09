@@ -1,0 +1,18 @@
+Commit: c2a1d4f2
+Date: 2026-09-19T07:59:41Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 44164
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+iterm-sid: C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Evidence: label 4098372, ~/tmp/rel2/ on dgx, script ~/tmp/claude-tmp/rel2-C6A7.sh
+Predictions registered in the script header before the run:
+  P1 release=1 releases bytes but availGiB flat   HIT (released=24/13.50GiB, availGiB 99.1)
+  P2 release=2 recovers availGiB                  REFUTED (98.8; readout is blind to page cache)
+  P3 release=2 prefill recovers above 516.9       HIT (572.1, also above the 557.2 moe=0 baseline)
+  P4 moe=0 anchor reproduces ~558.7               HIT (557.2)
+Supersedes the residency evidence in c2f10350.
