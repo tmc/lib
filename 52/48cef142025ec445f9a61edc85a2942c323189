@@ -1,0 +1,15 @@
+Commit: 5248cef1
+Date: 2026-09-19T09:11:12Z
+model: claude-opus-5
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Specified by scout-attn-parity (subagent), source-only, no GPU time.
+Verified independently before commit rather than taken on report:
+  cudaIQ2XXSRepackedBytes/cudaQ2KRepackedBytes match the derivation exactly
+  decodeQ80Quantized routes on aligned.Len()>0 at cuda_session_linux.go:2229
+  the :1968 call site sits four lines above the raw MoE reads
+  the C routing comment at ds4_cuda.cu:24450-24453 is verbatim as quoted
+  the K1->K2 sequence passes mid->ptr with no intervening quantize
+One correction made to the spec as delivered: s.expertMid is not unused, the
+Metal path reads it; it is unused on the CUDA decode path specifically.
