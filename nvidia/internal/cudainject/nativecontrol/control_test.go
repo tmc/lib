@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -308,7 +309,13 @@ func controlBinary(t *testing.T, defines ...string) string {
 	// degrade when a build that links the symbol fails to resolve it, so the
 	// flag cannot be dropped silently. Production still degrades: there an
 	// unresolved symbol means an old runtime, which is a real case.
-	args := []string{"-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-rdynamic", "-DCUDAPROF_REQUIRE_STRUCT_SIZE_FN=1", "-I", filepath.Join(src, "testcupti")}
+	args := []string{"-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-rdynamic", "-I", filepath.Join(src, "testcupti")}
+	// One build deliberately omits the symbol, to exercise the branch taken on
+	// a CUPTI older than 13.2. Requiring resolution there would refuse the very
+	// configuration that arm exists to cover.
+	if !slices.Contains(defines, noStructSizeSymbol) {
+		args = append(args, "-DCUDAPROF_REQUIRE_STRUCT_SIZE_FN=1")
+	}
 	args = append(args, defines...)
 	args = append(args,
 		filepath.Join(src, "cupti_agent.c"),
@@ -805,6 +812,59 @@ func TestActivityOnlyConfiguration(t *testing.T) {
 			c.finalized.Offered-c.finalized.Retained, c.finalized.Offered,
 			c.finalized.QueueCapacityDropped, c.finalized.QueueContentionDrop, c.finalized.QueueOversizeDropped,
 			c.finalized.BackpressureMaxNanos/1e6, c.finalized.DrainWriteMaxNanos/1e6, loadAverage())
+	}
+}
+
+// noStructSizeSymbol builds the stub without cuptiActivityGetStructSize, so
+// the producer's dlsym finds nothing and takes the branch a CUPTI older than
+// CUDA 13.2 takes.
+const noStructSizeSymbol = "-DCUDAPROF_TEST_NO_STRUCT_SIZE_SYMBOL=1"
+
+// TestCapabilityDistinguishesUnverifiedFromVerified is the other arm of the
+// layout_check control, and the reason the field is worth carrying.
+//
+// Every other scenario links a stub that exports cuptiActivityGetStructSize,
+// so the probe always resolves and always reports the compiled sizes: the
+// "verified" branch is the only one they reach, and a capability record that
+// simply asserted the compiled layout names would look identical whether the
+// runtime had been checked or not. Without this arm the two branches have
+// never been discriminated against each other and the field claims something
+// no test has shown.
+//
+// This arm also pins the deliberate choice not to fail closed. A runtime whose
+// layout cannot be verified still collects: the decode path bounds-checks each
+// record against the buffer before reading it, and refusing the kind would
+// lose memsets on every pre-13.2 runtime to protect against one that reports a
+// short record. So memsets stay on, and the record says the layout was not
+// checked.
+func TestCapabilityDistinguishesUnverifiedFromVerified(t *testing.T) {
+	verified, _, verifiedCaptures := run(t, "sustained", "1", "4", "256", "100")
+	_ = verified
+	withProbe := only(t, verifiedCaptures)
+
+	bin := controlBinary(t, noStructSizeSymbol)
+	dir := t.TempDir()
+	cmd := exec.Command(bin, "sustained", "1", "4", "256", "100")
+	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("run without the struct-size symbol: %v: %s", err, out)
+	}
+	withoutProbe := only(t, decodeAll(t, dir))
+
+	if withProbe.capability.LayoutCheck != "cuptiActivityGetStructSize" {
+		t.Errorf("with the symbol: layout_check = %q, want %q", withProbe.capability.LayoutCheck, "cuptiActivityGetStructSize")
+	}
+	if withoutProbe.capability.LayoutCheck != "unavailable" {
+		t.Errorf("without the symbol: layout_check = %q, want %q", withoutProbe.capability.LayoutCheck, "unavailable")
+	}
+	if withProbe.capability.LayoutCheck == withoutProbe.capability.LayoutCheck {
+		t.Fatal("both builds report the same layout_check: the field does not discriminate, which is the defect it was added to fix")
+	}
+	if !withoutProbe.capability.Memsets {
+		t.Error("memsets = false without the probe: an unverifiable layout degrades to unverified collection, it does not disable the kind")
+	}
+	if len(withoutProbe.failures) != 0 {
+		t.Errorf("failures = %q, want none: a CUPTI without the symbol is a supported runtime, not a failure", withoutProbe.failures)
 	}
 }
 

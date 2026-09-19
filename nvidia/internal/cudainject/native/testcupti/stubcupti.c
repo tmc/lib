@@ -495,6 +495,7 @@ int cudaprof_test_offer_tiers(unsigned kernels, unsigned memcpys, unsigned apis,
    itself and cannot reject. The short-size mocks below are the other half of
    the control and the only reason the comparison discriminates -- delete them
    and what is left is an assertion that cannot fail. */
+#ifndef CUDAPROF_TEST_NO_STRUCT_SIZE_SYMBOL
 CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, size_t *size) {
 	(void)flags;
 	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
@@ -523,6 +524,7 @@ CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, 
 	}
 }
 
+#endif /* CUDAPROF_TEST_NO_STRUCT_SIZE_SYMBOL */
 CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size) {
 	(void)flags;
 	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
