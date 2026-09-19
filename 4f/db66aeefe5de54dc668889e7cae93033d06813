@@ -1,0 +1,14 @@
+Commit: 4fdb66ae
+Date: 2026-09-19T00:40:59Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+not a tty
+pid: 64481
+ITERM_SESSION_ID: w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+Record correction only: no generator was run and no generated file
+changed. Verified by replaying the recorded argv into a scratch tree
+(22 of 23 outputs byte-identical) and by cmd/nvidia-reproduce -package
+nvml, which now reports only the two provenance files as differing --
+nvml's share of the 180ba308 absolute-path residue, still open.
