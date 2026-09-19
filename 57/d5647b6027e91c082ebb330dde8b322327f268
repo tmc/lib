@@ -1,0 +1,18 @@
+Commit: 57d5647b
+Date: 2026-09-19T08:44:49Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 45435
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+iterm-sid: C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Evidence: label 4159561, script ~/tmp/claude-tmp/n8-C6A7.sh, ~/tmp/n8/ on dgx.
+16 draws, strictly alternating, digest 665ac935 on all 16.
+Predictions registered in the script header before the run:
+  P1 both arms heavy-tailed              REFUTED (control 1.9% spread, unimodal)
+  P2 medians differ by less than 2.7%    REFUTED (+3.13%, more)
+  P3 sign test not significant           REFUTED (7 of 8, one direction)
+Restores the claim withdrawn in 3b6e604f.
