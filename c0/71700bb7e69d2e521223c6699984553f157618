@@ -10,3 +10,11 @@ session=fab9fc14-5717-427a-93df-1a1039b8e5b1
 session_url=n/a
 attribution=Claude Code
 fixture=thundergophers 4f31513, TK 67845f5, sha1 f7f30f61189236cf5e83ebbc57ad892bdbf4dbca
+
+correction 2026-09-19: the commit message says 10944 element assignments.
+The correct total is 11008. Per shape: 256 + 1024 + 2048 + 256 + 256 + 1024
++ 512 + 1024 + 4096 + 512. My arithmetic when writing the message, not the
+traversal -- the test compares every element of every shape and asserts the
+per-shape count against Rows*Cols, so the code was always over the full
+11008. Caught by F4405D88, whose independent harness counted 11008 from the
+same fixture.
