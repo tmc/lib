@@ -3612,3 +3612,53 @@ func TestProfileDutyCycleUnionsOverlappingStreams(t *testing.T) {
 		t.Errorf("duty cycle = %v, want 20", pct)
 	}
 }
+
+// TestCriticalRequiresAShareOfTheProfile pins the floor and, as importantly,
+// the two exemptions.
+//
+// Severity is the reader's ordering. A cost-based finding that accounts for
+// almost none of the profile is not what to do first, however severe its
+// local ratio: one report's only Critical was a 2-launch single-thread kernel
+// worth 0.006 ms, ranked above a kernel holding 536.58 ms as a Warning. But a
+// finding that is Critical for what it IS rather than for what it costs --
+// the module targets the wrong architecture, or the report's own ordering is
+// misleading -- has no share to clear, and flooring it would delete the
+// warning entirely.
+func TestCriticalRequiresAShareOfTheProfile(t *testing.T) {
+	const total = 1_000_000_000
+	report := &AdviceReport{Items: []AdviceItem{
+		{Severity: SeverityCritical, Category: CategoryArchitectureCompute, Finding: "tiny by cost", DeviceTimeNanos: 6_000},
+		{Severity: SeverityCritical, Category: CategoryArchitecture, Finding: "big by cost", DeviceTimeNanos: 536_000_000},
+		{Severity: SeverityCritical, Category: CategoryArchitecture, Finding: "wrong architecture", DeviceTimeNanos: 6_000, severityByKind: true},
+		{Severity: SeverityWarning, Category: CategoryMemory, Finding: "a warning stays one", DeviceTimeNanos: 6_000},
+	}}
+	finalizeAndRankFindingsWithTiming(report, nil, total, true)
+
+	got := make(map[string]Severity, len(report.Items))
+	for _, it := range report.Items {
+		got[it.Finding] = it.Severity
+	}
+	for _, tc := range []struct {
+		finding string
+		want    Severity
+	}{
+		{"tiny by cost", SeverityWarning},
+		{"big by cost", SeverityCritical},
+		{"wrong architecture", SeverityCritical},
+		{"a warning stays one", SeverityWarning},
+	} {
+		if got[tc.finding] != tc.want {
+			t.Errorf("%q = %s, want %s", tc.finding, got[tc.finding], tc.want)
+		}
+	}
+
+	// The floor must not be reachable by rounding: a finding exactly at it
+	// keeps Critical, so the boundary is stated rather than discovered.
+	at := &AdviceReport{Items: []AdviceItem{
+		{Severity: SeverityCritical, Category: CategoryMemory, Finding: "exactly at the floor", ShareOfProfile: criticalShareFloorPct},
+	}}
+	finalizeAndRankFindingsWithTiming(at, nil, total, true)
+	if at.Items[0].Severity != SeverityCritical {
+		t.Errorf("a finding exactly at the floor was demoted to %s", at.Items[0].Severity)
+	}
+}

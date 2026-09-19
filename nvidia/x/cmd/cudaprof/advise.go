@@ -107,6 +107,14 @@ type AdviceItem struct {
 	NextMeasurement          string        `json:"next_measurement,omitempty"`
 	DeviceTimeNanos          int64         `json:"device_time_nanos,omitempty"`
 	ShareOfProfile           float64       `json:"share_of_profile,omitempty"`
+
+	// severityByKind exempts this item from the Critical share floor. A
+	// finding that says the module may not run, or that the report's own
+	// ordering is misleading, is Critical for what it is and not for how much
+	// device time it accounts for. Everything else earns Critical by cost and
+	// must clear the floor. Not serialized: it is how severity was decided,
+	// which the severity field already reports.
+	severityByKind bool
 }
 
 // AdviceReport contains all recommendations resulting from analyzing a capture.
@@ -553,6 +561,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 							Severity:                 SeverityCritical,
 							Category:                 CategoryArchitecture,
 							EvidenceLevel:            EvidenceObserved,
+							severityByKind:           true,
 							Location:                 loc,
 							Finding:                  fmt.Sprintf("Instruction %q (%s) requires architecture %s, but module targets %s", inst.Opcode, inst.Mnemonic, req, target),
 							ActionableRecommendation: fmt.Sprintf("Compile with target architecture >= %s or replace with instructions compatible with %s.", req, target),
@@ -3494,6 +3503,19 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 		}
 	}
 
+	// Critical is a claim about what to work on first, so a finding that earns
+	// it by cost has to account for some. Without this floor a 2-launch
+	// single-thread kernel worth 0.006 ms was the only Critical in a 66-finding
+	// report, above a kernel holding 536.58 ms as a Warning -- the reader's
+	// first instruction pointed at 0.0002% of the profile.
+	for i := range report.Items {
+		item := &report.Items[i]
+		if item.Severity == SeverityCritical && !item.severityByKind &&
+			item.ShareOfProfile > 0 && item.ShareOfProfile < criticalShareFloorPct {
+			item.Severity = SeverityWarning
+		}
+	}
+
 	sort.SliceStable(report.Items, func(i, j int) bool {
 		a, b := report.Items[i], report.Items[j]
 		if a.Severity != b.Severity {
@@ -3511,6 +3533,12 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 		return a.Finding < b.Finding
 	})
 }
+
+// criticalShareFloorPct is the share of the profile a cost-based finding must
+// account for to stay Critical. A finding below it may still be true and worth
+// fixing; it is not what to do first, and putting it first costs the reader
+// the one position in the report they are certain to read.
+const criticalShareFloorPct = 0.1
 
 // deviceIdleCriticalPct is the whole-capture duty cycle below which the idle
 // time outweighs everything a kernel-time ranking can see. It is deliberately
@@ -3598,6 +3626,7 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
 		Severity:        SeverityCritical,
 		Category:        CategoryArchitectureDispatch,
 		EvidenceLevel:   EvidenceObserved,
+		severityByKind:  true,
 		DeviceTimeNanos: int64(busyNs),
 		ShareOfProfile:  pct,
 		Finding: fmt.Sprintf("The device was idle for %.2f%% of the captured span: %.3f ms idle of a %.3f ms span, with %.3f ms of device work. Every finding below this one ranks that %.2f%% -- none of them can see the idle time, and on this capture the idle time is the larger quantity.",
