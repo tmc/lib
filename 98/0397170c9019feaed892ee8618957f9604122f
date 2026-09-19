@@ -1,0 +1,14 @@
+commit: 98039717
+date: 2026-09-19T07:41:34Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 2051
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+attribution: Claude Code (Opus 5)
+gpu-lock label: 4082203
+cudaprof: 4eafba1f
+captures: ~/tmp/claude-tmp/caps/go_{graph_1,nograph_1}.pprof
+credit: scout-repack predicted the MoE repack target from source before it was visible
