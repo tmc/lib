@@ -14,9 +14,11 @@ type OpcodeSummary struct {
 }
 
 // Count returns the number of operations whose opcode matches prefix.
-// Matching is case-insensitive, prefix-optional ("cuda_tile." prefix can be omitted),
-// and dot- or underscore-aware. For example, Count("mma") matches "cuda_tile.mma_f"
-// and "cuda_tile.mma_i", and Count("load_view_tko") matches "cuda_tile.load_view_tko".
+//
+// Matching is case-insensitive and the "cuda_tile." prefix may be omitted. A
+// prefix matches a whole mnemonic or any mnemonic beginning with it, so
+// Count("mma") counts cuda_tile.mmaf, cuda_tile.mmai and cuda_tile.mmaf_scaled
+// together, and Count("load_view_tko") counts exactly that operation.
 func (s *OpcodeSummary) Count(prefix string) int {
 	if s == nil || len(s.Counts) == 0 {
 		return 0
@@ -40,8 +42,11 @@ func (s *OpcodeSummary) Count(prefix string) int {
 			continue
 		}
 
-		if strings.HasPrefix(opClean, pClean+".") || strings.HasPrefix(opClean, pClean+"_") ||
-			strings.HasPrefix(opLower, prefix+".") || strings.HasPrefix(opLower, prefix+"_") {
+		// The dialect glues the element-type suffix onto the mnemonic --
+		// mmaf, mmai, addf, addi -- so a family query has no separator to
+		// anchor on. Match a plain prefix as well as a separated one, or
+		// Count("mma") would report zero for a kernel full of mmaf.
+		if strings.HasPrefix(opClean, pClean) || strings.HasPrefix(opLower, prefix) {
 			total += count
 		}
 	}
@@ -121,10 +126,10 @@ var (
 	// ForbidUnfusedFallbacks catches kernels where fused tensor core operations
 	// fall back to unfused elementwise arithmetic.
 	ForbidUnfusedFallbacks = []string{
-		"cuda_tile.mul_f",
-		"cuda_tile.add_f",
-		"cuda_tile.mul_i",
-		"cuda_tile.add_i",
+		"cuda_tile.mulf",
+		"cuda_tile.addf",
+		"cuda_tile.muli",
+		"cuda_tile.addi",
 	}
 
 	// RequireTMAOperations requires tensor view loads and stores.
@@ -135,8 +140,8 @@ var (
 
 	// RequireTensorCoreMMA requires Tensor Core matrix multiply operations.
 	RequireTensorCoreMMA = []string{
-		"cuda_tile.mma_f",
-		"cuda_tile.mma_i",
+		"cuda_tile.mmaf",
+		"cuda_tile.mmai",
 		"cuda_tile.mmaf_scaled",
 	}
 )

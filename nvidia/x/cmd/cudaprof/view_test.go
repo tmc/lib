@@ -516,7 +516,7 @@ func TestTileIRRichSupportInView(t *testing.T) {
     %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16>
     %vB = cuda_tile.load_view_tko %B, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16>
     %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>
-    %acc = cuda_tile.mma_f %vA, %vB, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mmaf %vA, %vB, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
     cuda_tile.return
   }
 }`
@@ -586,16 +586,16 @@ Args:
 				t.Errorf("load_view_tko RemarkBadge = %q, want TMALoadOptimized", l.RemarkBadge)
 			}
 		}
-		if strings.Contains(l.Text, "mma_f") {
+		if strings.Contains(l.Text, "mmaf") {
 			foundMMA = true
 			if l.Category != "Tensor Core MMA" {
-				t.Errorf("mma_f Category = %q, want Tensor Core MMA", l.Category)
+				t.Errorf("mmaf Category = %q, want Tensor Core MMA", l.Category)
 			}
 			if !strings.Contains(l.HoverDoc, "wgmma") {
-				t.Errorf("mma_f HoverDoc missing wgmma lowering: %q", l.HoverDoc)
+				t.Errorf("mmaf HoverDoc missing wgmma lowering: %q", l.HoverDoc)
 			}
 			if l.RemarkBadge != "TensorCoreMMASelected" {
-				t.Errorf("mma_f RemarkBadge = %q, want TensorCoreMMASelected", l.RemarkBadge)
+				t.Errorf("mmaf RemarkBadge = %q, want TensorCoreMMASelected", l.RemarkBadge)
 			}
 		}
 	}
@@ -603,7 +603,7 @@ Args:
 		t.Error("missing load_view_tko line in Tile IR tier")
 	}
 	if !foundMMA {
-		t.Error("missing mma_f line in Tile IR tier")
+		t.Error("missing mmaf line in Tile IR tier")
 	}
 
 	// 3. Verify HTML rendering has Tile IR styling and badges
@@ -646,7 +646,7 @@ __global__ void gemm_kernel(const half* A, const half* B, float* C) {
     %tok0 = cuda_tile.make_token : !cuda_tile.token
     %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16> loc("kernels.cu":3:10)
     %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>
-    %acc = cuda_tile.mma_f %vA, %vA, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mmaf %vA, %vA, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
     cuda_tile.return
   }
 }`
@@ -733,15 +733,15 @@ ret;
 				t.Errorf("Tile load_view_tko SourceLine = %d, want 3", l.SourceLine)
 			}
 		}
-		if strings.Contains(l.Text, "mma_f") {
+		if strings.Contains(l.Text, "mmaf") {
 			foundTileMMA = true
 			if l.SemanticTag != "mma" {
-				t.Errorf("Tile mma_f SemanticTag = %q, want mma", l.SemanticTag)
+				t.Errorf("Tile mmaf SemanticTag = %q, want mma", l.SemanticTag)
 			}
 		}
 	}
 	if !foundTileTMA || !foundTileMMA {
-		t.Error("Tile IR missing load_view_tko or mma_f")
+		t.Error("Tile IR missing load_view_tko or mmaf")
 	}
 
 	// 4. Verify PTX source line mapping (.loc) and semantic tags

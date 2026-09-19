@@ -156,19 +156,19 @@ var rawOpDocs = []*OpDoc{
 
 	// Tensor Core MMA
 	{
-		Mnemonic:         "mma_f",
+		Mnemonic:         "mmaf",
 		Category:         CatComputeMMA,
 		Summary:          "Fused matrix multiply-accumulate on floating-point tiles via Tensor Cores.",
-		Syntax:           []string{"%acc = cuda_tile.mma_f %A, %B, %C : (!cuda_tile.tile<MxKxf16>, !cuda_tile.tile<KxNxf16>, !cuda_tile.tile<MxNxf32>) -> !cuda_tile.tile<MxNxf32>"},
+		Syntax:           []string{"%acc = cuda_tile.mmaf %A, %B, %C : (!cuda_tile.tile<MxKxf16>, !cuda_tile.tile<KxNxf16>, !cuda_tile.tile<MxNxf32>) -> !cuda_tile.tile<MxNxf32>"},
 		MinArch:          "sm_90",
 		HardwareLowering: "wgmma.mma_async / mma.sync",
 		FallbackHazards:  []string{"May fall back to scalar fma if tile dimensions are unaligned or unsupported"},
 	},
 	{
-		Mnemonic:         "mma_i",
+		Mnemonic:         "mmai",
 		Category:         CatComputeMMA,
 		Summary:          "Fused matrix multiply-accumulate on integer tiles via Tensor Cores.",
-		Syntax:           []string{"%acc = cuda_tile.mma_i %A, %B, %C : (!cuda_tile.tile<MxKxs8>, !cuda_tile.tile<KxNxs8>, !cuda_tile.tile<MxNxs32>) -> !cuda_tile.tile<MxNxs32>"},
+		Syntax:           []string{"%acc = cuda_tile.mmai %A, %B, %C : (!cuda_tile.tile<MxKxs8>, !cuda_tile.tile<KxNxs8>, !cuda_tile.tile<MxNxs32>) -> !cuda_tile.tile<MxNxs32>"},
 		MinArch:          "sm_90",
 		HardwareLowering: "wgmma.mma_async / mma.sync",
 	},
@@ -222,30 +222,30 @@ var rawOpDocs = []*OpDoc{
 
 	// Vector Floating-Point Arithmetic
 	{
-		Mnemonic:        "add_f",
+		Mnemonic:        "addf",
 		Category:        CatComputeElement,
 		Summary:         "Elementwise floating-point addition across tile elements.",
-		Syntax:          []string{"%res = cuda_tile.add_f %a, %b : !cuda_tile.tile<...>"},
-		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mma_f when computing matrix multiplications"},
+		Syntax:          []string{"%res = cuda_tile.addf %a, %b : !cuda_tile.tile<...>"},
+		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mmaf when computing matrix multiplications"},
 	},
 	{
 		Mnemonic: "sub_f",
 		Category: CatComputeElement,
 		Summary:  "Elementwise floating-point subtraction across tile elements.",
-		Syntax:   []string{"%res = cuda_tile.sub_f %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.subf %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic:        "mul_f",
+		Mnemonic:        "mulf",
 		Category:        CatComputeElement,
 		Summary:         "Elementwise floating-point multiplication across tile elements.",
-		Syntax:          []string{"%res = cuda_tile.mul_f %a, %b : !cuda_tile.tile<...>"},
-		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mma_f when computing matrix multiplications"},
+		Syntax:          []string{"%res = cuda_tile.mulf %a, %b : !cuda_tile.tile<...>"},
+		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mmaf when computing matrix multiplications"},
 	},
 	{
-		Mnemonic: "div_f",
+		Mnemonic: "divf",
 		Category: CatComputeElement,
 		Summary:  "Elementwise floating-point division across tile elements.",
-		Syntax:   []string{"%res = cuda_tile.div_f %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.divf %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
 		Mnemonic:         "fma",
@@ -255,68 +255,68 @@ var rawOpDocs = []*OpDoc{
 		HardwareLowering: "fma",
 	},
 	{
-		Mnemonic: "neg_f",
+		Mnemonic: "negf",
 		Category: CatComputeElement,
 		Summary:  "Elementwise floating-point negation.",
-		Syntax:   []string{"%res = cuda_tile.neg_f %a : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.negf %a : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic: "rem_f",
+		Mnemonic: "remf",
 		Category: CatComputeElement,
 		Summary:  "Elementwise floating-point remainder.",
-		Syntax:   []string{"%res = cuda_tile.rem_f %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.remf %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
 		Mnemonic: "fpow_f",
 		Category: CatComputeElement,
 		Summary:  "Elementwise floating-point power function.",
-		Syntax:   []string{"%res = cuda_tile.fpow_f %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.fpowf %a, %b : !cuda_tile.tile<...>"},
 	},
 
 	// Vector Integer Arithmetic
 	{
-		Mnemonic:        "add_i",
+		Mnemonic:        "addi",
 		Category:        CatComputeInteger,
 		Summary:         "Elementwise integer addition across tile elements.",
-		Syntax:          []string{"%res = cuda_tile.add_i %a, %b : !cuda_tile.tile<...>"},
-		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mma_i when computing matrix multiplications"},
+		Syntax:          []string{"%res = cuda_tile.addi %a, %b : !cuda_tile.tile<...>"},
+		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mmai when computing matrix multiplications"},
 	},
 	{
 		Mnemonic: "sub_i",
 		Category: CatComputeInteger,
 		Summary:  "Elementwise integer subtraction across tile elements.",
-		Syntax:   []string{"%res = cuda_tile.sub_i %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.subi %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic:        "mul_i",
+		Mnemonic:        "muli",
 		Category:        CatComputeInteger,
 		Summary:         "Elementwise integer multiplication across tile elements.",
-		Syntax:          []string{"%res = cuda_tile.mul_i %a, %b : !cuda_tile.tile<...>"},
-		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mma_i when computing matrix multiplications"},
+		Syntax:          []string{"%res = cuda_tile.muli %a, %b : !cuda_tile.tile<...>"},
+		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mmai when computing matrix multiplications"},
 	},
 	{
 		Mnemonic: "mulhi_i",
 		Category: CatComputeInteger,
 		Summary:  "Elementwise high-half integer multiplication.",
-		Syntax:   []string{"%res = cuda_tile.mulhi_i %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.mulhii %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic: "div_i",
+		Mnemonic: "divi",
 		Category: CatComputeInteger,
 		Summary:  "Elementwise integer division across tile elements.",
-		Syntax:   []string{"%res = cuda_tile.div_i %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.divi %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic: "neg_i",
+		Mnemonic: "negi",
 		Category: CatComputeInteger,
 		Summary:  "Elementwise integer negation.",
-		Syntax:   []string{"%res = cuda_tile.neg_i %a : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.negi %a : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic: "rem_i",
+		Mnemonic: "remi",
 		Category: CatComputeInteger,
 		Summary:  "Elementwise integer remainder or modulo.",
-		Syntax:   []string{"%res = cuda_tile.rem_i %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.remi %a, %b : !cuda_tile.tile<...>"},
 	},
 
 	// Math Intrinsics
@@ -515,7 +515,7 @@ var rawOpDocs = []*OpDoc{
 		Mnemonic: "ext_i",
 		Category: CatTypeCast,
 		Summary:  "Sign-extends or zero-extends integer bit width.",
-		Syntax:   []string{"%res = cuda_tile.ext_i %a : !cuda_tile.tile<...> -> !cuda_tile.tile<...>"},
+		Syntax:   []string{"%res = cuda_tile.exti %a : !cuda_tile.tile<...> -> !cuda_tile.tile<...>"},
 	},
 	{
 		Mnemonic: "iota",
@@ -542,16 +542,16 @@ var rawOpDocs = []*OpDoc{
 		Syntax:   []string{"%res = cuda_tile.select %cond, %t, %f : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic: "cmp_f",
+		Mnemonic: "cmpf",
 		Category: CatComputeElement,
 		Summary:  "Elementwise floating-point comparison yielding boolean tile.",
-		Syntax:   []string{"%cond = cuda_tile.cmp_f %pred, %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%cond = cuda_tile.cmpf %pred, %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic: "cmp_i",
+		Mnemonic: "cmpi",
 		Category: CatComputeInteger,
 		Summary:  "Elementwise integer comparison yielding boolean tile.",
-		Syntax:   []string{"%cond = cuda_tile.cmp_i %pred, %a, %b : !cuda_tile.tile<...>"},
+		Syntax:   []string{"%cond = cuda_tile.cmpi %pred, %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
 		Mnemonic: "constant",
@@ -575,7 +575,7 @@ var docDatabase = sync.OnceValue(func() map[string]*OpDoc {
 
 // LookupDoc returns documentation for a Tile IR operation.
 // Lookup is case-insensitive and the "cuda_tile." prefix is optional.
-// Example: LookupDoc("cuda_tile.mma_f"), LookupDoc("mma_f"), and LookupDoc("load_view_tko") all resolve.
+// Example: LookupDoc("cuda_tile.mmaf"), LookupDoc("mmaf"), and LookupDoc("load_view_tko") all resolve.
 func LookupDoc(opcode string) *OpDoc {
 	opcode = strings.TrimSpace(opcode)
 	if opcode == "" {

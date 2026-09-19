@@ -130,7 +130,7 @@ type Global struct {
 type Operation struct {
 	Line       int               // 1-based line number in Tile IR text
 	Results    []string          // SSA result value names, e.g. ["%cst_16_i32"]
-	OpCode     string            // mnemonic or opcode, e.g. "cuda_tile.mma_f" or "constant"
+	OpCode     string            // mnemonic or opcode, e.g. "cuda_tile.mmaf" or "constant"
 	Operands   []string          // operand value names, e.g. ["%arg0", "%arg1"]
 	Type       string            // result type string, e.g. "tile<16x16xf32>"
 	TypeVal    Type              // parsed type value if resolved
@@ -159,8 +159,8 @@ func (op *Operation) IsMMA() bool {
 		return false
 	}
 	code := strings.ToLower(op.OpCode)
-	return strings.Contains(code, "mma_f") ||
-		strings.Contains(code, "mma_i") ||
+	return strings.Contains(code, "mmaf") ||
+		strings.Contains(code, "mmai") ||
 		strings.Contains(code, "mmaf_scaled")
 }
 

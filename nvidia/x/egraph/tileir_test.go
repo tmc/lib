@@ -66,9 +66,9 @@ func TestGenerateTileIR_RMSNormGEMVSwiGLU(t *testing.T) {
 		"cuda_tile.entry @fused_rmsnorm_gemv_swiglu_kernel",
 		"%tok0 = cuda_tile.make_token : !cuda_tile.token",
 		"cuda_tile.load_view_tko",
-		"cuda_tile.mul_f",
+		"cuda_tile.mulf",
 		"cuda_tile.rsqrt",
-		"cuda_tile.mma_f",
+		"cuda_tile.mmaf",
 		"cuda_tile.exp",
 		"cuda_tile.return",
 	}
@@ -158,7 +158,7 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 			wantSubstr: []string{
 				"cuda_tile.entry @rmsnorm_qkv_kernel",
 				"cuda_tile.rsqrt",
-				"cuda_tile.mma_f",
+				"cuda_tile.mmaf",
 			},
 		},
 		{
@@ -168,8 +168,8 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 			wantSubstr: []string{
 				"cuda_tile.entry @rmsnorm_qkv_split_kernel",
 				"cuda_tile.rsqrt",
-				"cuda_tile.mma_f",
-				"cuda_tile.add_f",
+				"cuda_tile.mmaf",
+				"cuda_tile.addf",
 			},
 		},
 		{
@@ -179,7 +179,7 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 			wantSubstr: []string{
 				"cuda_tile.entry @rmsnorm_proj_kernel",
 				"cuda_tile.rsqrt",
-				"cuda_tile.mma_f",
+				"cuda_tile.mmaf",
 			},
 		},
 		{
@@ -188,9 +188,9 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 			precision: "f16",
 			wantSubstr: []string{
 				"cuda_tile.entry @swiglu_kernel",
-				"cuda_tile.mma_f",
+				"cuda_tile.mmaf",
 				"cuda_tile.exp",
-				"cuda_tile.mul_f",
+				"cuda_tile.mulf",
 			},
 		},
 		{
@@ -199,8 +199,8 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 			precision: "f16",
 			wantSubstr: []string{
 				"cuda_tile.entry @geglu_kernel",
-				"cuda_tile.mma_f",
-				"cuda_tile.mul_f",
+				"cuda_tile.mmaf",
+				"cuda_tile.mulf",
 			},
 		},
 		{
@@ -209,7 +209,7 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 			precision: "f32",
 			wantSubstr: []string{
 				"cuda_tile.entry @gelu_kernel",
-				"cuda_tile.mma_f",
+				"cuda_tile.mmaf",
 				"cuda_tile.exp",
 			},
 		},
@@ -220,7 +220,7 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 			wantSubstr: []string{
 				"cuda_tile.entry @fp8_gemm_kernel",
 				"f8E4M3FN",
-				"cuda_tile.mma_f",
+				"cuda_tile.mmaf",
 			},
 		},
 		{
@@ -230,7 +230,7 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 			wantSubstr: []string{
 				"cuda_tile.entry @fp4_gemm_kernel",
 				"f4E2M1FN",
-				"cuda_tile.mma_f",
+				"cuda_tile.mmaf",
 			},
 		},
 		{
@@ -239,7 +239,7 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 			precision: "bf16",
 			wantSubstr: []string{
 				"cuda_tile.entry @mma_kernel",
-				"cuda_tile.mma_f",
+				"cuda_tile.mmaf",
 			},
 		},
 	}
@@ -333,7 +333,7 @@ func TestGenerateTileIR_AutoFusion(t *testing.T) {
 	if !strings.Contains(textIR, "cuda_tile.rsqrt") {
 		t.Errorf("missing RMSNorm rsqrt in auto-fused IR:\n%s", textIR)
 	}
-	if !strings.Contains(textIR, "cuda_tile.mma_f") {
+	if !strings.Contains(textIR, "cuda_tile.mmaf") {
 		t.Errorf("missing MMA in auto-fused IR:\n%s", textIR)
 	}
 }

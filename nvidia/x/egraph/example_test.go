@@ -132,7 +132,7 @@ func ExampleGenerateTileIR() {
 
 	fmt.Println(strings.Contains(textIR, "cuda_tile.entry @fused_rmsnorm_qkv"))
 	fmt.Println(strings.Contains(textIR, "cuda_tile.rsqrt"))
-	fmt.Println(strings.Contains(textIR, "cuda_tile.mma_f"))
+	fmt.Println(strings.Contains(textIR, "cuda_tile.mmaf"))
 	// Output:
 	// true
 	// true

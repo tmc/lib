@@ -341,7 +341,7 @@ func (f *Function) VerifyShapes() []ShapeError {
 		}
 
 		// Verify Tensor Core MMA operations
-		if op.IsMMA() || cleanOp == "mma_f" || cleanOp == "mma_i" || cleanOp == "mmaf_scaled" {
+		if op.IsMMA() || cleanOp == "mmaf" || cleanOp == "mmai" || cleanOp == "mmaf_scaled" {
 			var typeA, typeB, typeC Type
 
 			if fnType, ok := op.TypeVal.(*FunctionType); ok && len(fnType.Inputs) >= 2 {

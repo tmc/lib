@@ -15,7 +15,7 @@ cuda_tile.module @valid_module {
     %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x32xf16>
     %vB = cuda_tile.load_view_tko %B, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<32x64xf16>
     %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>
-    %acc = cuda_tile.mma_f %vA, %vB, %cst : (!cuda_tile.tile<64x32xf16>, !cuda_tile.tile<32x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mmaf %vA, %vB, %cst : (!cuda_tile.tile<64x32xf16>, !cuda_tile.tile<32x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
     cuda_tile.return
   }
 }
@@ -126,7 +126,7 @@ func TestVerifyShapes(t *testing.T) {
     %A = cuda_tile.constant <f16: 1.0> : !cuda_tile.tile<64x32xf16>
     %B = cuda_tile.constant <f16: 1.0> : !cuda_tile.tile<16x64xf16>
     %C = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>
-    %acc = cuda_tile.mma_f %A, %B, %C : (!cuda_tile.tile<64x32xf16>, !cuda_tile.tile<16x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mmaf %A, %B, %C : (!cuda_tile.tile<64x32xf16>, !cuda_tile.tile<16x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
     cuda_tile.return
   }
 }`,
@@ -139,7 +139,7 @@ func TestVerifyShapes(t *testing.T) {
     %A = cuda_tile.constant <f16: 1.0> : !cuda_tile.tile<64x32xf16>
     %B = cuda_tile.constant <f16: 1.0> : !cuda_tile.tile<32x64xf16>
     %C = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<32x32xf32>
-    %acc = cuda_tile.mma_f %A, %B, %C : (!cuda_tile.tile<64x32xf16>, !cuda_tile.tile<32x64xf16>, !cuda_tile.tile<32x32xf32>) -> !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mmaf %A, %B, %C : (!cuda_tile.tile<64x32xf16>, !cuda_tile.tile<32x64xf16>, !cuda_tile.tile<32x32xf32>) -> !cuda_tile.tile<64x64xf32>
     cuda_tile.return
   }
 }`,
@@ -163,7 +163,7 @@ func TestVerifyShapes(t *testing.T) {
     %A = cuda_tile.constant <f16: 1.0> : !cuda_tile.tile<16x16xf16>
     %B = cuda_tile.constant <f32: 1.0> : !cuda_tile.tile<16x16xf32>
     %C = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<16x16xf32>
-    %acc = cuda_tile.mma_f %A, %B, %C : (!cuda_tile.tile<16x16xf16>, !cuda_tile.tile<16x16xf32>, !cuda_tile.tile<16x16xf32>) -> !cuda_tile.tile<16x16xf32>
+    %acc = cuda_tile.mmaf %A, %B, %C : (!cuda_tile.tile<16x16xf16>, !cuda_tile.tile<16x16xf32>, !cuda_tile.tile<16x16xf32>) -> !cuda_tile.tile<16x16xf32>
     cuda_tile.return
   }
 }`,

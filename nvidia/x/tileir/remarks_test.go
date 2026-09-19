@@ -14,7 +14,7 @@ cuda_tile.module @matmul_mod {
     %tok0 = cuda_tile.make_token : !cuda_tile.token loc(#loc2)
     %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16> loc(#loc3)
     %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32> loc(#loc4)
-    %acc = cuda_tile.mma_f %vA, %vA, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32> loc(#loc5)
+    %acc = cuda_tile.mmaf %vA, %vA, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32> loc(#loc5)
     cuda_tile.return loc(#loc6)
   }
 }

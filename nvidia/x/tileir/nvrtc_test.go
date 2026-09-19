@@ -259,7 +259,7 @@ func TestTileIRSyntaxGeneration(t *testing.T) {
 							},
 							{
 								Results:  []string{"%acc"},
-								OpCode:   "cuda_tile.mma_f",
+								OpCode:   "cuda_tile.mmaf",
 								Operands: []string{"%vA", "%vB", "%cst"},
 								Type:     "(!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>",
 							},
@@ -282,7 +282,7 @@ func TestTileIRSyntaxGeneration(t *testing.T) {
 				"%vA = cuda_tile.load_view_tko %A, %tok0",
 				"%vB = cuda_tile.load_view_tko %B, %tok0",
 				"%cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>",
-				"%acc = cuda_tile.mma_f %vA, %vB, %cst",
+				"%acc = cuda_tile.mmaf %vA, %vB, %cst",
 				"cuda_tile.store_view_tko %C, %acc, %tok0",
 				"cuda_tile.return",
 			},
@@ -322,7 +322,7 @@ func TestTileIRSyntaxGeneration(t *testing.T) {
 							},
 							{
 								Results:  []string{"%out"},
-								OpCode:   "cuda_tile.mma_i",
+								OpCode:   "cuda_tile.mmai",
 								Operands: []string{"%tX", "%tW"},
 								Type:     "(!cuda_tile.tile<32x32xi8>, !cuda_tile.tile<32x32xi8>) -> !cuda_tile.tile<32x32xi32>",
 							},
@@ -342,11 +342,11 @@ func TestTileIRSyntaxGeneration(t *testing.T) {
 			wantSubstrs: []string{
 				"cuda_tile.module @scaled_int_module",
 				"cuda_tile.entry @int_matmul",
-				"%out = cuda_tile.mma_i %tX, %tW",
+				"%out = cuda_tile.mmai %tX, %tW",
 				"%scaled = cuda_tile.mmaf_scaled %tX, %tW",
 			},
 			wantTMAOps:    2,
-			wantMMAOps:    2, // mma_i and mmaf_scaled
+			wantMMAOps:    2, // mmai and mmaf_scaled
 			wantConstants: 0,
 		},
 	}

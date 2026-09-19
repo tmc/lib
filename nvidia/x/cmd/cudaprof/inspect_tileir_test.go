@@ -18,7 +18,7 @@ cuda_tile.module @gemm {
     %tok = cuda_tile.make_token : !cuda_tile.token
     %vA = cuda_tile.load_view_tko %arg0, %tok : (!cuda_tile.tile<ptr<f32>>, !cuda_tile.token) -> !cuda_tile.tile<16x16xf32>
     %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<16x16xf32>
-    %acc = cuda_tile.mma_f %vA, %vA, %cst : (!cuda_tile.tile<16x16xf32>, !cuda_tile.tile<16x16xf32>, !cuda_tile.tile<16x16xf32>) -> !cuda_tile.tile<16x16xf32>
+    %acc = cuda_tile.mmaf %vA, %vA, %cst : (!cuda_tile.tile<16x16xf32>, !cuda_tile.tile<16x16xf32>, !cuda_tile.tile<16x16xf32>) -> !cuda_tile.tile<16x16xf32>
     cuda_tile.return
   }
 }

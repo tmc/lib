@@ -311,7 +311,7 @@ func TestNegativeControls(t *testing.T) {
 	t.Run("tile type mismatch in MMA", func(t *testing.T) {
 		const mismatchIR = `cuda_tile.module @m {
   cuda_tile.entry @bad_mma(%A: !cuda_tile.tile<16x16xf16>, %B: !cuda_tile.tile<16x16xf32>, %C: !cuda_tile.tile<16x16xf32>) {
-    %acc = cuda_tile.mma_f %A, %B, %C : (!cuda_tile.tile<16x16xf16>, !cuda_tile.tile<16x16xf32>, !cuda_tile.tile<16x16xf32>) -> !cuda_tile.tile<16x16xf32>
+    %acc = cuda_tile.mmaf %A, %B, %C : (!cuda_tile.tile<16x16xf16>, !cuda_tile.tile<16x16xf32>, !cuda_tile.tile<16x16xf32>) -> !cuda_tile.tile<16x16xf32>
     cuda_tile.return
   }
 }`

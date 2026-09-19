@@ -16,16 +16,16 @@ func TestLookupDoc(t *testing.T) {
 		wantLowering string
 	}{
 		{
-			name:         "mma_f with prefix",
-			query:        "cuda_tile.mma_f",
-			wantMnemonic: "mma_f",
+			name:         "mmaf with prefix",
+			query:        "cuda_tile.mmaf",
+			wantMnemonic: "mmaf",
 			wantCategory: tileir.CatComputeMMA,
 			wantLowering: "wgmma.mma_async / mma.sync",
 		},
 		{
-			name:         "mma_f without prefix",
-			query:        "mma_f",
-			wantMnemonic: "mma_f",
+			name:         "mmaf without prefix",
+			query:        "mmaf",
+			wantMnemonic: "mmaf",
 			wantCategory: tileir.CatComputeMMA,
 			wantLowering: "wgmma.mma_async / mma.sync",
 		},
@@ -124,7 +124,7 @@ func TestCategoryProperties(t *testing.T) {
 }
 
 func TestExplainAndHoverInfo(t *testing.T) {
-	exp := tileir.Explain("cuda_tile.mma_f")
+	exp := tileir.Explain("cuda_tile.mmaf")
 	if !strings.Contains(exp, "Tensor Core MMA") {
 		t.Errorf("Explain missing category: %s", exp)
 	}

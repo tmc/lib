@@ -120,7 +120,7 @@ cuda_tile.module @gemm_kernels {
     %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16> loc(#loc3)
     %vB = cuda_tile.load_view_tko %B, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16> loc(#loc4)
     %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32> loc(#loc5)
-    %acc = cuda_tile.mma_f %vA, %vB, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32> loc(#loc6)
+    %acc = cuda_tile.mmaf %vA, %vB, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32> loc(#loc6)
     cuda_tile.return loc(#loc7)
   }
 }
@@ -301,7 +301,7 @@ func TestEncodeBytecodeRoundTrip(t *testing.T) {
     %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f4E2M1FN>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf4E2M1FN>
     %vB = cuda_tile.load_view_tko %B, %tok0 : (!cuda_tile.tile<ptr<f4E2M1FN>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf4E2M1FN>
     %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>
-    %acc = cuda_tile.mma_f %vA, %vB, %cst : (!cuda_tile.tile<64x64xf4E2M1FN>, !cuda_tile.tile<64x64xf4E2M1FN>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mmaf %vA, %vB, %cst : (!cuda_tile.tile<64x64xf4E2M1FN>, !cuda_tile.tile<64x64xf4E2M1FN>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
     cuda_tile.return
   }
 }

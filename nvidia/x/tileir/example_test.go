@@ -47,11 +47,11 @@ func ExampleParseType() {
 }
 
 func ExampleLookupDoc() {
-	doc := tileir.LookupDoc("cuda_tile.mma_f")
+	doc := tileir.LookupDoc("cuda_tile.mmaf")
 	fmt.Printf("%s: %s [%s]\n", doc.OpCode, doc.Category, doc.HardwareLowering)
 
 	// Output:
-	// cuda_tile.mma_f: Tensor Core MMA [wgmma.mma_async / mma.sync]
+	// cuda_tile.mmaf: Tensor Core MMA [wgmma.mma_async / mma.sync]
 }
 
 func ExampleSplitOperands() {
@@ -74,13 +74,13 @@ cuda_tile.module @gemm {
     %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16>
     %vB = cuda_tile.load_view_tko %B, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16>
     %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>
-    %acc = cuda_tile.mma_f %vA, %vB, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mmaf %vA, %vB, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
     cuda_tile.return
   }
 }
 `
 	mod, _ := tileir.ParseString(code)
-	err := mod.AssertOpcodes("matmul", []string{"cuda_tile.mma_f"}, tileir.ForbidScalarMemoryFallbacks)
+	err := mod.AssertOpcodes("matmul", []string{"cuda_tile.mmaf"}, tileir.ForbidScalarMemoryFallbacks)
 	fmt.Println("Audit passed:", err == nil)
 
 	// Output:

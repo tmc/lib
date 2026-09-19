@@ -271,16 +271,16 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 			rhsSSA := nodeSSA[node.Inputs[1]]
 			resSSA := fmt.Sprintf("%%b%d", node.ID)
 
-			opName := "cuda_tile.add_f"
+			opName := "cuda_tile.addf"
 			switch strings.ToLower(node.Op) {
 			case "add":
-				opName = "cuda_tile.add_f"
+				opName = "cuda_tile.addf"
 			case "mul":
-				opName = "cuda_tile.mul_f"
+				opName = "cuda_tile.mulf"
 			case "sub":
-				opName = "cuda_tile.add_f" // Tile IR represents sub as add with neg or direct
+				opName = "cuda_tile.addf" // Tile IR represents sub as add with neg or direct
 			case "div":
-				opName = "cuda_tile.div_f"
+				opName = "cuda_tile.divf"
 			}
 
 			tileType := nodeTypes[node.Inputs[0]]
@@ -331,7 +331,7 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 				fn.Operations = append(fn.Operations, &Operation{
 					Line:       len(fn.Operations) + 1,
 					Results:    []string{resSSA},
-					OpCode:     "cuda_tile.max_f",
+					OpCode:     "cuda_tile.maxf",
 					Operands:   []string{inSSA, cstSSA},
 					Type:       tileType.String(),
 					TypeVal:    tileType,
@@ -343,7 +343,7 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 				fn.Operations = append(fn.Operations, &Operation{
 					Line:       len(fn.Operations) + 1,
 					Results:    []string{resSSA},
-					OpCode:     "cuda_tile.neg_f",
+					OpCode:     "cuda_tile.negf",
 					Operands:   []string{inSSA},
 					Type:       tileType.String(),
 					TypeVal:    tileType,
@@ -380,7 +380,7 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 			fn.Operations = append(fn.Operations, &Operation{
 				Line:       len(fn.Operations) + 1,
 				Results:    []string{resSSA},
-				OpCode:     "cuda_tile.mma_f",
+				OpCode:     "cuda_tile.mmaf",
 				Operands:   []string{aSSA, bSSA, cstSSA},
 				Type:       accType.String(),
 				TypeVal:    accType,

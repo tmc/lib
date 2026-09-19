@@ -396,8 +396,8 @@ func TestEndToEndTileIRLowering(t *testing.T) {
 	if !strings.Contains(textIR, "cuda_tile.entry @fused_swiglu_tile") {
 		t.Fatalf("textual Tile IR missing entry function header:\n%s", textIR)
 	}
-	if !strings.Contains(textIR, "cuda_tile.mma_f") {
-		t.Fatalf("textual Tile IR missing mma_f operation:\n%s", textIR)
+	if !strings.Contains(textIR, "cuda_tile.mmaf") {
+		t.Fatalf("textual Tile IR missing mmaf operation:\n%s", textIR)
 	}
 
 	parsedMod, err := tileir.ParseString(textIR)
