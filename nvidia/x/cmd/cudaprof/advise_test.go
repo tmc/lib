@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"maps"
 	"regexp"
@@ -3393,4 +3394,94 @@ uncoalesced_load:
 			t.Errorf("theoretical occupancy NextMeasurement missing active warps / A/B timing: %q", occItem.NextMeasurement)
 		}
 	})
+}
+
+// TestFusionPairFindingCarriesItsDeviceTime pins that a pair finding publishes
+// the device time it already names in prose.
+//
+// The pair findings set Location.Kernel to "A -> B", which is no kernel in the
+// profile, so the per-kernel fill-in in finalizeAndRankFindingsWithTiming
+// looks it up and finds nothing. Both numeric fields then stayed zero and,
+// being omitempty, left the JSON entirely: a consumer iterating items and
+// reading device_time_nanos got a missing key, and the item could not be
+// ranked or sorted against the per-kernel findings it competes with. The
+// accumulated duration was in the finding text the whole time.
+func TestFusionPairFindingCarriesItsDeviceTime(t *testing.T) {
+	var samples []*profile.Sample
+	for i := 0; i < 4; i++ {
+		for _, name := range []string{"swiglu_fwd", "quant_block_q8"} {
+			samples = append(samples, &profile.Sample{
+				Location: []*profile.Location{{ID: uint64(len(samples) + 1), Line: []profile.Line{
+					{Function: &profile.Function{ID: 1, Name: name}},
+				}}},
+				Value:    []int64{100000},
+				Label:    map[string][]string{"name": {name}, "buffer": {"hidden"}},
+				NumLabel: map[string][]int64{"stream": {7}},
+			})
+		}
+	}
+	cap := &cudacapture.Capture{Profile: &profile.Profile{
+		SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+		Sample:     samples,
+	}}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture: %v", err)
+	}
+	var pair *AdviceItem
+	for i := range report.Items {
+		if strings.Contains(report.Items[i].Location.Kernel, "->") {
+			pair = &report.Items[i]
+			break
+		}
+	}
+	if pair == nil {
+		t.Fatalf("no pair finding in %d items; the fixture no longer reaches the fusion path", len(report.Items))
+	}
+	// The invariant is that the field says what the prose says. Hardcoding a
+	// number here would pin the fixture's adjacency arithmetic instead, and
+	// that is not the property that broke.
+	said, ok := accumulatedFromFinding(pair.Finding)
+	if !ok {
+		t.Fatalf("finding names no accumulation, so there is nothing to agree with: %s", pair.Finding)
+	}
+	if pair.DeviceTimeNanos != int64(said) {
+		t.Errorf("device_time_nanos = %d, finding says %v: the field must carry what the prose already names", pair.DeviceTimeNanos, said)
+	}
+	if pair.ShareOfProfile <= 0 {
+		t.Errorf("share_of_profile = %v, want the share derived from the device time", pair.ShareOfProfile)
+	}
+
+	// Asserted on the bytes: omitempty means a zero field is an ABSENT key,
+	// which is what a consumer hit as a missing-key error, and a struct decode
+	// would silently read it back as zero.
+	b, err := json.Marshal(pair)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"device_time_nanos", "share_of_profile"} {
+		if !bytes.Contains(b, []byte(`"`+key+`"`)) {
+			t.Errorf("%s absent from the published item: %s", key, b)
+		}
+	}
+}
+
+// accumulatedFromFinding returns the duration a pair finding names in its
+// "accumulating <d>" clause.
+func accumulatedFromFinding(finding string) (time.Duration, bool) {
+	const marker = "accumulating "
+	i := strings.Index(finding, marker)
+	if i < 0 {
+		return 0, false
+	}
+	rest := finding[i+len(marker):]
+	if j := strings.IndexAny(rest, ")"); j >= 0 {
+		rest = rest[:j]
+	}
+	d, err := time.ParseDuration(rest)
+	if err != nil {
+		return 0, false
+	}
+	return d, true
 }

@@ -2727,6 +2727,13 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					Severity:      SeverityWarning,
 					Category:      CategoryMemoryCompute,
 					EvidenceLevel: EvidenceSuspected,
+					// The pair is the unit of device time here, so the item carries the
+					// sum the finding already names. Without it the item reaches a
+					// consumer with neither device_time_nanos nor share_of_profile --
+					// Location.Kernel is "A -> B", which is no kernel in the profile, so
+					// the fill-in below looks it up and finds nothing. Pairs overlap, so
+					// these shares do not sum with the per-kernel ones.
+					DeviceTimeNanos: int64(ps.totalDur),
 					Location: Location{
 						Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
 					},
@@ -2753,6 +2760,13 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					Severity:      SeverityWarning,
 					Category:      CategoryMemoryCompute,
 					EvidenceLevel: EvidenceSuspected,
+					// The pair is the unit of device time here, so the item carries the
+					// sum the finding already names. Without it the item reaches a
+					// consumer with neither device_time_nanos nor share_of_profile --
+					// Location.Kernel is "A -> B", which is no kernel in the profile, so
+					// the fill-in below looks it up and finds nothing. Pairs overlap, so
+					// these shares do not sum with the per-kernel ones.
+					DeviceTimeNanos: int64(ps.totalDur),
 					Location: Location{
 						Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
 					},
@@ -2787,6 +2801,13 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 						Severity:      SeverityInfo,
 						Category:      CategoryMemoryCompute,
 						EvidenceLevel: EvidenceSuspected,
+						// The pair is the unit of device time here, so the item carries the
+						// sum the finding already names. Without it the item reaches a
+						// consumer with neither device_time_nanos nor share_of_profile --
+						// Location.Kernel is "A -> B", which is no kernel in the profile, so
+						// the fill-in below looks it up and finds nothing. Pairs overlap, so
+						// these shares do not sum with the per-kernel ones.
+						DeviceTimeNanos: int64(ps.totalDur),
 						Location: Location{
 							Kernel: fmt.Sprintf("%s + %s", ev1.Name, ev2.Name),
 						},
@@ -2815,6 +2836,13 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 						Severity:      SeverityWarning,
 						Category:      CategoryMemoryCompute,
 						EvidenceLevel: EvidenceSuspected,
+						// The pair is the unit of device time here, so the item carries the
+						// sum the finding already names. Without it the item reaches a
+						// consumer with neither device_time_nanos nor share_of_profile --
+						// Location.Kernel is "A -> B", which is no kernel in the profile, so
+						// the fill-in below looks it up and finds nothing. Pairs overlap, so
+						// these shares do not sum with the per-kernel ones.
+						DeviceTimeNanos: int64(ps.totalDur),
 						Location: Location{
 							Kernel: fmt.Sprintf("%s -> %s", cleanName1, cleanName2),
 						},
