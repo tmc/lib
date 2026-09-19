@@ -305,9 +305,15 @@ type gapRecords struct {
 	// Spans that explain idle rather than occupy the device. None of the
 	// three is in activities: see the exclusions in decodeJournal.
 	overheads []gapInterval
-	graphs    []gapInterval
+	graphs    []gapActivity
 	syncs     []gapInterval
 	rawSyncs  []rawSync
+
+	// graphNodes counts device records that name the graph they ran as a
+	// node of. It is what decides whether excluding the replay envelope is
+	// sound: the exclusion exists because the envelope spans those records,
+	// and with none of them present it spans nothing.
+	graphNodes int
 
 	// contextDevice maps a CUPTI context to the device the records that carry
 	// both reported it on. A synchronization record carries a context and no
@@ -360,6 +366,7 @@ type gapPayload struct {
 	Device       uint32 `json:"device"`
 	Context      uint32 `json:"context"`
 	Correlation  uint32 `json:"correlation"`
+	GraphID      uint32 `json:"graph_id"`
 	OverheadKind uint32 `json:"overhead_kind"`
 	SyncType     uint32 `json:"sync_type"`
 	Dropped      uint64 `json:"dropped"`
@@ -551,7 +558,12 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 				out.overheads = append(out.overheads, gapInterval{start: int64(payload.Start), end: int64(payload.End)})
 				continue
 			case "graph_trace":
-				out.graphs = append(out.graphs, gapInterval{device: payload.Device, start: int64(payload.Start), end: int64(payload.End)})
+				out.graphs = append(out.graphs, gapActivity{
+					device:      payload.Device,
+					start:       int64(payload.Start),
+					end:         int64(payload.End),
+					correlation: payload.Correlation,
+				})
 				continue
 			case "sync":
 				out.rawSyncs = append(out.rawSyncs, rawSync{context: payload.Context, start: int64(payload.Start), end: int64(payload.End)})
@@ -562,6 +574,9 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 			// be resolved through. First writer wins: a context belongs to
 			// one device for its lifetime, and a later disagreement is a
 			// reused id, not a migration.
+			if payload.GraphID != 0 {
+				out.graphNodes++
+			}
 			if payload.Context != 0 {
 				if _, ok := out.contextDevice[payload.Context]; !ok {
 					out.contextDevice[payload.Context] = payload.Device
@@ -606,6 +621,12 @@ type GapReport struct {
 	// worse than one that says it has no device.
 	UnresolvedSyncs     int   `json:"unresolved_sync_records"`
 	UnresolvedSyncNanos int64 `json:"unresolved_sync_ns"`
+
+	// OpaqueGraphReplays reports that the capture held graph replay envelopes
+	// and no device record naming a graph id, so the replays are counted as
+	// device activity from their envelopes alone. The idle inside them is not
+	// observable and is reported as busy.
+	OpaqueGraphReplays bool `json:"opaque_graph_replays,omitempty"`
 }
 
 // GapDevice holds the whole-run and steady-state timelines of one device.
@@ -728,6 +749,24 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 	if err != nil {
 		return nil, err
 	}
+	// A graph replay envelope is excluded from the device timeline because it
+	// spans the records of the nodes replayed inside it, and counting both
+	// would charge that device time twice. When CUPTI emitted the envelopes
+	// and no record inside them -- no device record names a graph id -- the
+	// envelope spans nothing, so excluding it deletes the whole replay from
+	// the timeline and reports its duration as device idle. On one capture
+	// that read 14.54% duty cycle where the work was about 71%.
+	//
+	// The capture carries its own discriminator, so this is decided rather
+	// than assumed. With no node records the envelope is the only evidence
+	// the graph ran and is counted as the activity it is. What is then lost
+	// is the idle BETWEEN nodes, which is counted as busy -- a bounded error
+	// in the honest direction, unlike deleting the replay outright.
+	graphsAreOpaque := len(records.graphs) != 0 && records.graphNodes == 0
+	if graphsAreOpaque {
+		records.activities = append(records.activities, records.graphs...)
+		records.graphs = nil
+	}
 	sort.SliceStable(records.activities, func(i, j int) bool {
 		a, b := records.activities[i], records.activities[j]
 		if a.start != b.start {
@@ -747,6 +786,7 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 		APIRecords:          len(records.apis),
 		Correlated:          float64(matched) / float64(len(records.activities)) * 100,
 		WarmupMS:            opts.warmupMS,
+		OpaqueGraphReplays:  graphsAreOpaque,
 		UnresolvedSyncs:     records.unresolvedSyncs,
 		UnresolvedSyncNanos: records.unresolvedNanos,
 	}
@@ -767,7 +807,7 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 		spans := gapSpans{
 			overhead: records.overheads,
 			sync:     spansForDevice(records.syncs, d),
-			graph:    spansForDevice(records.graphs, d),
+			graph:    graphSpansForDevice(records.graphs, d),
 		}
 		entry := GapDevice{Device: d, Overall: computeGapStats(acts, records.apis, "overall", spans)}
 		t0 := acts[0].start
@@ -819,6 +859,18 @@ func mergeIntervals(acts []gapActivity) []mergedInterval {
 // gapSpans are the non-device spans offered to one device's timeline.
 type gapSpans struct {
 	overhead, sync, graph []gapInterval
+}
+
+// graphSpansForDevice is spansForDevice over the graph envelopes, which are
+// kept as activities so they can be promoted onto the timeline whole.
+func graphSpansForDevice(spans []gapActivity, device uint32) []gapInterval {
+	var out []gapInterval
+	for _, s := range spans {
+		if s.device == device {
+			out = append(out, gapInterval{device: s.device, start: s.start, end: s.end})
+		}
+	}
+	return out
 }
 
 func spansForDevice(spans []gapInterval, device uint32) []gapInterval {
@@ -1022,6 +1074,9 @@ func (r *GapReport) text() string {
 	fmt.Fprintf(&b, "  activities %d  api records %d  correlated %.1f%%\n", r.Activities, r.APIRecords, r.Correlated)
 	if r.UnresolvedSyncs > 0 {
 		fmt.Fprintf(&b, "  %d synchronization record(s) totalling %s could not be placed on a device: no record named their context\n", r.UnresolvedSyncs, millis(r.UnresolvedSyncNanos))
+	}
+	if r.OpaqueGraphReplays {
+		fmt.Fprintf(&b, "  graph replays are opaque: the capture holds replay envelopes and no device record naming a graph id, so each replay is counted as activity from its envelope alone. The idle between nodes of a graph is not observable here and is reported as busy.\n")
 	}
 	for _, d := range r.Devices {
 		for _, s := range []*GapStats{d.Overall, d.SteadyState} {

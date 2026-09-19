@@ -83,6 +83,18 @@ func (b *journalBuilder) overhead(start, end uint64, overheadKind uint32) *journ
 	return b
 }
 
+// graphNode appends one kernel that names the graph it ran as a node of,
+// which is what makes a replay envelope's exclusion sound: the envelope is
+// excluded because it spans records like this one.
+func (b *journalBuilder) graphNode(device, context uint32, start, end uint64, correlation, graphID uint32) *journalBuilder {
+	b.append(recordActivity, map[string]any{
+		"kind": "activity", "subtype": "kernel", "valid": true,
+		"start": start, "end": end, "device": device, "context": context,
+		"correlation": correlation, "graph_id": graphID,
+	})
+	return b
+}
+
 // graphTrace appends one graph replay envelope, which does carry a device.
 func (b *journalBuilder) graphTrace(device uint32, start, end uint64, graphID, correlation uint32) *journalBuilder {
 	b.append(recordActivity, map[string]any{
@@ -1128,8 +1140,17 @@ func TestGapsReportsSyncWithUnknownContextAsUnresolved(t *testing.T) {
 // span and the node time inside it is graph launch and scheduling cost that no
 // per-node record holds.
 func TestGapsKeepsGraphTraceOutOfDeviceBusy(t *testing.T) {
-	before := analyzeFixture(t, twoKernelHole().finalize())
-	with := twoKernelHole()
+	// Both kernels name the graph they are nodes of. That is the condition
+	// the exclusion rests on, so the fixture has to state it: a capture whose
+	// kernels name no graph is the opaque case below, not this one.
+	nodes := func() *journalBuilder {
+		b := newJournalBuilder()
+		b.graphNode(0, 1, 1_000, 3_000, 1, 5)
+		b.graphNode(0, 1, 6_000, 7_000, 2, 5)
+		return b
+	}
+	before := analyzeFixture(t, nodes().finalize())
+	with := nodes()
 	// The envelope covers both kernels and the hole between them, which is
 	// what a real replay of two nodes looks like.
 	with.graphTrace(0, 900, 7_100, 5, 3)
@@ -1234,4 +1255,66 @@ func findGapLine(t *testing.T, out, prefix string) string {
 	}
 	t.Fatalf("no %q line in:\n%s", prefix, out)
 	return ""
+}
+
+// TestOpaqueGraphReplayIsNotIdle covers the condition that makes the exclusion
+// above unsound, which is the one a real capture hit.
+//
+// The envelope is excluded because it spans the node records. When CUPTI emits
+// the envelope and nothing inside it -- no device record names a graph id --
+// it spans nothing, and excluding it deletes the entire replay from the
+// timeline and republishes its duration as device idle. On the capture that
+// found this, 2942.915 ms of graph work read as idle and the duty cycle read
+// 14.54% where the work was about 71%. An A/B that disabled graphs moved wall
+// clock by 33 ms against a 2904 ms prediction: the work was always there.
+//
+// Both arms of the discriminator are asserted. A capture whose kernels do name
+// their graph must keep the exclusion, or this fix trades one 5x error for
+// another.
+func TestOpaqueGraphReplayIsNotIdle(t *testing.T) {
+	opaque := newJournalBuilder()
+	opaque.kernelOn(0, 1, 1_000, 2_000, 1)  // not a graph node
+	opaque.kernelOn(0, 1, 9_000, 10_000, 2) // not a graph node
+	opaque.graphTrace(0, 3_000, 8_000, 5, 3)
+	report := analyzeFixture(t, opaque.finalize())
+	if !report.OpaqueGraphReplays {
+		t.Fatal("a capture with replay envelopes and no graph-tagged record was not reported as opaque")
+	}
+	s := report.Devices[0].Overall
+	// 1000 + 5000 + 1000 of work in a 9000 ns span: the replay is on the
+	// timeline. Excluding it gives 2000 active and 7000 idle.
+	if s.ActiveNanos != 7_000 || s.IdleNanos != 2_000 {
+		t.Errorf("active/idle = %d/%d, want 7000/2000: the replay was dropped from the timeline and reported as idle", s.ActiveNanos, s.IdleNanos)
+	}
+	if s.DutyCyclePct < 77.7 || s.DutyCyclePct > 77.8 {
+		t.Errorf("duty cycle = %.2f, want 77.78", s.DutyCyclePct)
+	}
+	// Counted as activity, it is no longer an idle overlay. Reporting it in
+	// both places would let a reader add it to a total it is already inside.
+	if s.Overlay.GraphReplayNanos != 0 {
+		t.Errorf("graph replay overlay = %d ns, want 0: the envelope is on the timeline now", s.Overlay.GraphReplayNanos)
+	}
+	// The error this cannot avoid is stated rather than hidden: idle between
+	// the nodes of a replay is invisible here and is counted as busy.
+	if out := report.text(); !strings.Contains(out, "graph replays are opaque") {
+		t.Errorf("report does not say the replays are opaque:\n%s", out)
+	}
+
+	// The other arm: one graph-tagged kernel is enough to make the envelope
+	// the span of something, and the exclusion must survive.
+	tagged := newJournalBuilder()
+	tagged.kernelOn(0, 1, 1_000, 2_000, 1)
+	tagged.graphNode(0, 1, 3_000, 4_000, 4, 5)
+	tagged.kernelOn(0, 1, 9_000, 10_000, 2)
+	tagged.graphTrace(0, 3_000, 8_000, 5, 3)
+	report = analyzeFixture(t, tagged.finalize())
+	if report.OpaqueGraphReplays {
+		t.Error("a capture whose kernels name their graph was reported as opaque")
+	}
+	if s := report.Devices[0].Overall; s.ActiveNanos != 3_000 {
+		t.Errorf("active = %d ns, want 3000: the envelope was counted on top of the node inside it", s.ActiveNanos)
+	}
+	if out := report.text(); strings.Contains(out, "graph replays are opaque") {
+		t.Errorf("report claims opaque replays where a node record names its graph:\n%s", out)
+	}
 }
