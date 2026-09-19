@@ -32,8 +32,10 @@ func TestUnmodeledIsNotEveryRejection(t *testing.T) {
 		call func() error
 	}{
 		// fp8 base tiles exist; this package has no verified mapping.
-		{"one-byte fragment", func() error {
-			_, err := NewFragment(1, FragmentRow)
+		// The one-byte row layout is measured; the column layout is not,
+		// and a 16x32 base tile is not a square tile's transpose.
+		{"one-byte column fragment", func() error {
+			_, err := NewFragment(1, FragmentCol)
 			return err
 		}},
 		// sm_90a is a real target with no fixture written for it.

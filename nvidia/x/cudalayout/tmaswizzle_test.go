@@ -63,6 +63,10 @@ func TestNewSwizzledTileRejects(t *testing.T) {
 // tkByteOffset transcribes ThunderKittens' st::idx
 // (include/types/shared/st.cuh:108-120) against a tile base of zero, which is
 // what [SwizzledTile.BaseAlignment] requires a real base to be congruent to.
+//
+// Being a transcription, it can only reproduce the reading that produced it.
+// TestSwizzledTileMatchesMeasuredStorage is the witness that is not, and it
+// agrees with this one on all ten recorded shapes.
 func tkByteOffset(rows, elemBytes, span, row, col int) int {
 	subtileCols := span / elemBytes
 	outer := col / subtileCols

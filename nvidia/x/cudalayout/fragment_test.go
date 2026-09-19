@@ -11,8 +11,8 @@ func TestNewFragmentRejects(t *testing.T) {
 		elementByte int
 		layout      FragmentLayout
 	}{
-		{"one byte is unmodeled", 1, FragmentRow},
 		{"eight byte has no fragment", 8, FragmentRow},
+		{"three byte has no fragment", 3, FragmentRow},
 		{"zero width", 0, FragmentRow},
 		{"unknown layout", 4, FragmentLayout(7)},
 	}
@@ -36,6 +36,9 @@ func TestFragmentCounts(t *testing.T) {
 		// packed type (bf16_2) or 8 for an 8-byte one (float2).
 		{"16-bit", 2, 8, 2, 4, 4},
 		{"32-bit", 4, 8, 2, 4, 8},
+		// One byte is the measured row in testdata/tklayout.json: a 16x32
+		// base tile, 16 elements a thread in four slots of four.
+		{"8-bit", 1, 16, 4, 4, 4},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -194,6 +197,11 @@ func TestFragmentOutOfBounds(t *testing.T) {
 // TestFragmentMatchesThunderKittens does pin the order, but tkElement and
 // the implementation were transcribed from the same lines by the same
 // author, so it is one witness, not two.
+//
+// Since this was written a third has arrived and is the strongest of them:
+// TestFragmentMatchesMeasuredRegisters compares against testdata/tklayout.json,
+// recorded from a GPU. It does not cover FragmentCol, so the reasoning below
+// still carries that half.
 //
 // This table is the second witness: it comes from the 32-bit path at
 // ThunderKittens include/ops/group/memory/tile/shared_to_register.cuh:84-99,
