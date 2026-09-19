@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -3897,11 +3898,8 @@ func TestOpaqueGraphCaveatReachesTheDutyCycleFinding(t *testing.T) {
 
 	report := &AdviceReport{}
 	auditDeviceDutyCycle(cap, report)
-	if len(report.Items) != 1 {
-		t.Fatalf("items = %d, want the duty-cycle finding", len(report.Items))
-	}
-	if !strings.Contains(report.Items[0].Finding, "lower bound") {
-		t.Errorf("finding does not carry the opacity caveat: %q", report.Items[0].Finding)
+	if !strings.Contains(dutyCycleFinding(t, report), "lower bound") {
+		t.Errorf("finding does not carry the opacity caveat: %q", dutyCycleFinding(t, report))
 	}
 
 	// A capture whose replays are described by their nodes must not carry it:
@@ -3913,12 +3911,24 @@ func TestOpaqueGraphCaveatReachesTheDutyCycleFinding(t *testing.T) {
 	c.kernelOn(0, 1, 90_000, 91_000, 2)
 	plain := &AdviceReport{}
 	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": c.finalize()}, completeStatus()), plain)
-	if len(plain.Items) != 1 {
-		t.Fatalf("items = %d, want the duty-cycle finding", len(plain.Items))
+	if strings.Contains(dutyCycleFinding(t, plain), "lower bound") {
+		t.Errorf("opacity caveat on a capture whose nodes name their graph: %q", dutyCycleFinding(t, plain))
 	}
-	if strings.Contains(plain.Items[0].Finding, "lower bound") {
-		t.Errorf("opacity caveat on a capture whose nodes name their graph: %q", plain.Items[0].Finding)
+}
+
+// dutyCycleFinding returns the duty-cycle finding's text. It selects rather
+// than indexing: auditDeviceDutyCycle also emits the idle attribution, and a
+// test that asserts on Items[0] asserts on whichever of the two happened to
+// be appended first.
+func dutyCycleFinding(t *testing.T, report *AdviceReport) string {
+	t.Helper()
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, "The device was idle for") {
+			return it.Finding
+		}
 	}
+	t.Fatalf("no duty-cycle finding among %d items", len(report.Items))
+	return ""
 }
 
 // TestAPIRecordsComeFromTheJournal covers the sibling of the timeline defect,
@@ -3969,5 +3979,218 @@ func TestUncorrelatedLaunchesAreNotAbsentOnes(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(rec), "capture host launch") {
 		t.Errorf("no records and no recommendation to capture them: %q", rec)
+	}
+}
+
+// idleJournal is a five-kernel run of 1000 ns kernels separated by 9000 ns
+// gaps -- a 12.2% duty cycle. apiAt places each kernel's launch call relative
+// to that kernel's start, which is the only thing that decides which idle arm
+// the gap lands in.
+func idleJournal(apiAt func(kernelStart uint64) (start, end uint64)) []byte {
+	b := newJournalBuilder()
+	for i := uint32(1); i <= 5; i++ {
+		start := uint64(10_000) + uint64(i-1)*10_000
+		b.kernel(start, start+1_000, i)
+		s, e := apiAt(start)
+		b.api(s, e, i)
+	}
+	return b.finalize()
+}
+
+// TestIdleAttributionNamesTheMechanismItMeasured is a double dissociation: the
+// same kernels and the same idle time, with only the launch call moved, must
+// produce opposite arms and opposite remedies. A test with one fixture cannot
+// tell a correct attribution from a constant one.
+func TestIdleAttributionNamesTheMechanismItMeasured(t *testing.T) {
+	tests := []struct {
+		name        string
+		journal     []byte
+		wantArm     string
+		wantRemedy  string
+		notRemedy   string
+		wantNoMajor bool
+	}{
+		{
+			// The launch returned before the previous kernel ended, so the
+			// work was queued and the device idled anyway.
+			name:       "hardware queue",
+			journal:    idleJournal(func(k uint64) (uint64, uint64) { return k - 10_000, k - 9_500 }),
+			wantArm:    "hardware queue",
+			wantRemedy: "Neither batching nor earlier submission",
+			notRemedy:  "Submit further ahead",
+		},
+		{
+			// The launch call started 5000 ns after the previous kernel ended.
+			name:       "host behind",
+			journal:    idleJournal(func(k uint64) (uint64, uint64) { return k - 4_000, k - 3_000 }),
+			wantArm:    "host behind",
+			wantRemedy: "Submit further ahead",
+			notRemedy:  "Neither batching nor earlier submission",
+		},
+		{
+			// One gap of each class. The largest arm holds 40% of the idle,
+			// so the finding has to say that acting on it recovers 40% and
+			// not the idle time.
+			name:        "no majority",
+			journal:     mixedIdleJournal(),
+			wantArm:     "hardware queue",
+			wantRemedy:  "Neither batching nor earlier submission",
+			notRemedy:   "Submit further ahead",
+			wantNoMajor: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cap := testCapture(map[string][]byte{"capture.journal": tt.journal}, completeStatus())
+			report := &AdviceReport{}
+			if !auditIdleAttribution(cap, report) {
+				t.Fatal("auditIdleAttribution reported no finding on a 12% duty cycle capture")
+			}
+			if len(report.Items) != 1 {
+				t.Fatalf("items = %d, want 1", len(report.Items))
+			}
+			item := report.Items[0]
+			want := "largest share of that idle -- "
+			if !strings.Contains(item.Finding, want) || !strings.Contains(item.Finding, "was "+tt.wantArm+".") {
+				t.Errorf("finding does not name %q as the largest arm:\n%s", tt.wantArm, item.Finding)
+			}
+			if !strings.Contains(item.ActionableRecommendation, tt.wantRemedy) {
+				t.Errorf("recommendation lacks %q:\n%s", tt.wantRemedy, item.ActionableRecommendation)
+			}
+			if strings.Contains(item.ActionableRecommendation, tt.notRemedy) {
+				t.Errorf("recommendation carries the other arm's remedy %q:\n%s", tt.notRemedy, item.ActionableRecommendation)
+			}
+			// The split is stated whole: a reader acting on one arm has to be
+			// able to see what the other three hold.
+			for _, arm := range []string{"host behind", "driver submission", "hardware queue", "unattributed"} {
+				if !strings.Contains(item.Finding, arm) {
+					t.Errorf("finding omits the %s arm:\n%s", arm, item.Finding)
+				}
+			}
+			if item.DeviceTimeNanos <= 0 {
+				t.Errorf("DeviceTimeNanos = %d, want the idle nanos the finding accounts for", item.DeviceTimeNanos)
+			}
+			// Every fixture runs the same kernels: 5000 ns of device work
+			// inside 41000 ns, so 87.80% of the span was idle. The share this
+			// item reports is the share it accounts for -- the idle -- and
+			// not the duty cycle, which is the quantity it exists to rank
+			// ahead of.
+			if want := 87.80; math.Abs(item.ShareOfProfile-want) > 0.01 {
+				t.Errorf("ShareOfProfile = %.2f, want the idle share of the span, %.2f", item.ShareOfProfile, want)
+			}
+			// A plurality is not a majority. The caveat has to appear exactly
+			// where it is true: printed on a 100% arm it is false, and
+			// omitted on a 40% arm it lets the recommendation read as an
+			// account of all the idle time.
+			const caveat = "No single mechanism holds a majority"
+			if got := strings.Contains(item.Finding, caveat); got != tt.wantNoMajor {
+				t.Errorf("majority caveat present = %v, want %v:\n%s", got, tt.wantNoMajor, item.Finding)
+			}
+		})
+	}
+}
+
+// mixedIdleJournal gives each of the four idle arms one gap, so no arm holds a
+// majority: hardware queue 14500 ns of 36000 ns.
+func mixedIdleJournal() []byte {
+	b := newJournalBuilder()
+	kstart := func(i uint32) uint64 { return uint64(10_000) + uint64(i-1)*10_000 }
+	for i := uint32(1); i <= 5; i++ {
+		b.kernel(kstart(i), kstart(i)+1_000, i)
+	}
+	b.api(kstart(1)-5_000, kstart(1)-4_000, 1)
+	// Host ahead: the call returned before the previous kernel ended.
+	b.api(kstart(2)-10_000, kstart(2)-9_500, 2)
+	// Host behind: the call started 8000 ns after the device went idle.
+	b.api(kstart(3)-1_000, kstart(3)-500, 3)
+	// Correlation 4 is deliberately absent: unattributed.
+	// Host during: the previous kernel ended inside the call.
+	b.api(kstart(5)-9_100, kstart(5)-5_000, 5)
+	return b.finalize()
+}
+
+// TestNoIdleAttributionOnABusyCapture keeps the finding off a capture whose
+// device was working. Without this the gate is untested in the direction that
+// matters: a finding that fires on every capture ranks nothing.
+func TestNoIdleAttributionOnABusyCapture(t *testing.T) {
+	cap := testCapture(map[string][]byte{"capture.journal": uniformJournal()}, completeStatus())
+	report := &AdviceReport{}
+	if auditIdleAttribution(cap, report) || len(report.Items) != 0 {
+		t.Errorf("attribution finding on an 83%% duty cycle capture: %+v", report.Items)
+	}
+}
+
+// TestIdleAttributionOutranksAKernelTimeFinding is the whole point of the
+// finding: on an idle-dominated capture the reader's first instruction has to
+// be about the idle time, not about the largest kernel in the minority of the
+// span that remains.
+func TestIdleAttributionOutranksAKernelTimeFinding(t *testing.T) {
+	journal := idleJournal(func(k uint64) (uint64, uint64) { return k - 10_000, k - 9_500 })
+	cap := testCapture(map[string][]byte{"capture.journal": journal}, completeStatus())
+	report := &AdviceReport{}
+	// A kernel finding holding every nanosecond the device was actually busy.
+	report.Items = append(report.Items, AdviceItem{
+		Severity:        SeverityCritical,
+		Category:        CategoryCompute,
+		EvidenceLevel:   EvidenceObserved,
+		DeviceTimeNanos: 5_000,
+		ShareOfProfile:  100,
+		Finding:         "kernel foo holds all of the device time",
+		Location:        Location{Kernel: "foo"},
+	})
+	auditDeviceDutyCycle(cap, report)
+	if len(report.Items) != 3 {
+		t.Fatalf("items = %d, want the kernel finding plus a duty cycle and an attribution finding", len(report.Items))
+	}
+	finalizeAndRankFindings(report, map[string]int64{"foo": 5_000}, 5_000)
+	first := report.Items[0]
+	if !strings.Contains(first.Finding, "Idle attribution:") {
+		t.Errorf("first finding is not the idle attribution:\n%s", first.Finding)
+	}
+	// The duty cycle finding must stop telling the reader to go attribute the
+	// idle time once this report has attributed it.
+	var duty AdviceItem
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, "The device was idle for") {
+			duty = it
+		}
+	}
+	if duty.Finding == "" {
+		t.Fatal("no duty cycle finding")
+	}
+	if strings.Contains(duty.ActionableRecommendation, "run cudaprof gaps on this capture") {
+		t.Errorf("duty cycle finding still sends the reader to a command this report already ran:\n%s", duty.ActionableRecommendation)
+	}
+	if !strings.Contains(duty.ActionableRecommendation, "idle attribution in this report") {
+		t.Errorf("duty cycle finding does not point at the attribution:\n%s", duty.ActionableRecommendation)
+	}
+}
+
+// TestIdleMagnitudeIsNotLabelledGPUTime guards the rendered header, which is
+// the line a reader ranks findings by. The default parenthetical reads "N% of
+// GPU time, M ms", and the attribution's M ms is idle: rendered with the
+// default label it reports the time the device did nothing as the time a
+// kernel ran.
+func TestIdleMagnitudeIsNotLabelledGPUTime(t *testing.T) {
+	journal := idleJournal(func(k uint64) (uint64, uint64) { return k - 10_000, k - 9_500 })
+	cap := testCapture(map[string][]byte{"capture.journal": journal}, completeStatus())
+	report := &AdviceReport{}
+	if !auditIdleAttribution(cap, report) {
+		t.Fatal("no attribution finding")
+	}
+	var line string
+	for _, l := range strings.Split(report.Markdown(), "\n") {
+		if strings.HasPrefix(l, "### ") && strings.Contains(l, "Idle attribution:") {
+			line = l
+		}
+	}
+	if line == "" {
+		t.Fatalf("attribution finding has no header in:\n%s", report.Markdown())
+	}
+	if strings.Contains(line, "of GPU time") {
+		t.Errorf("idle time rendered as GPU time:\n%s", line)
+	}
+	if !strings.Contains(line, "of idle") || !strings.Contains(line, "hardware queue:") {
+		t.Errorf("header does not say what its number is:\n%s", line)
 	}
 }

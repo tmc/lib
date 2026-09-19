@@ -108,6 +108,13 @@ type AdviceItem struct {
 	DeviceTimeNanos          int64         `json:"device_time_nanos,omitempty"`
 	ShareOfProfile           float64       `json:"share_of_profile,omitempty"`
 
+	// magnitude overrides the parenthetical the markdown header prints for
+	// this item. The default reads "(N% of GPU time, M ms)", which is a claim
+	// about device work: a finding whose numbers are idle time renders there
+	// as though the idle were work a kernel did. An item whose numbers mean
+	// something else says what they mean here.
+	magnitude string
+
 	// severityByKind exempts this item from the Critical share floor. A
 	// finding that says the module may not run, or that the report's own
 	// ordering is misleading, is Critical for what it is and not for how much
@@ -203,7 +210,9 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 	for i := 0; i < count; i++ {
 		item := r.Items[i]
 		header := fmt.Sprintf("### %d. [%s] %s: %s\n\n", i+1, item.Severity, item.Category, item.Finding)
-		if item.ShareOfProfile > 0 || item.DeviceTimeNanos > 0 {
+		if item.magnitude != "" {
+			header = fmt.Sprintf("### %d. [%s] (%s) %s: %s\n\n", i+1, item.Severity, item.magnitude, item.Category, item.Finding)
+		} else if item.ShareOfProfile > 0 || item.DeviceTimeNanos > 0 {
 			if item.DeviceTimeNanos > 0 {
 				durMs := float64(item.DeviceTimeNanos) / 1e6
 				header = fmt.Sprintf("### %d. [%s] (%.2f%% of GPU time, %.2f ms) %s: %s\n\n", i+1, item.Severity, item.ShareOfProfile, durMs, item.Category, item.Finding)
@@ -3762,6 +3771,13 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
 	if graphsOpaque {
 		opaque = " This capture's graph replays are opaque -- no device record names a graph, so each replay counts as busy from its envelope alone and the idle here is a lower bound."
 	}
+	// The attribution runs first so this finding can say whether the idle it
+	// names was attributed, rather than sending the reader to a command that
+	// has already run.
+	rec := "Attribute the idle time before acting on any kernel finding below: run cudaprof gaps on this capture, which splits idle into host-behind, synchronization, and graph-replay time. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies."
+	if auditIdleAttribution(cap, report) {
+		rec = "Act on the idle attribution in this report -- the finding naming where this idle went -- before any kernel finding below it. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies."
+	}
 	report.Items = append(report.Items, AdviceItem{
 		Severity:        SeverityCritical,
 		Category:        CategoryArchitectureDispatch,
@@ -3771,9 +3787,150 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
 		ShareOfProfile:  pct,
 		Finding: fmt.Sprintf("The device was idle for %.2f%% of the captured span: %.3f ms idle of a %.3f ms span, with %.3f ms of device work. Every finding below this one ranks that %.2f%% -- none of them can see the idle time, and on this capture the idle time is the larger quantity.%s",
 			100.0-pct, float64(idleNs)/1e6, float64(spanNs)/1e6, float64(busyNs)/1e6, pct, opaque),
-		ActionableRecommendation: "Attribute the idle time before acting on any kernel finding below: run cudaprof gaps on this capture, which splits idle into host-behind, synchronization, and graph-replay time. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies.",
+		ActionableRecommendation: rec,
 		NextMeasurement:          "cudaprof gaps <capture> -- idle attribution and the gap distribution",
 	})
+}
+
+// idleArm is one mechanism of the gaps idle attribution, paired with the
+// remedy that mechanism admits.
+//
+// The remedies are mutually exclusive on purpose. Batching recovers driver
+// submission cost and cannot touch hardware queue latency; submitting earlier
+// recovers host-behind time and cannot touch either. Naming the wrong arm
+// costs the reader the work of trying a remedy that could not have helped,
+// and the arms are close enough in a duty-cycle number to be indistinguishable
+// without this split.
+type idleArm struct {
+	name   string
+	nanos  int64
+	remedy string
+}
+
+// idleAttribution is the gaps attribution of one device's idle time, reduced
+// to what a finding can state.
+type idleAttribution struct {
+	device uint32
+	idle   int64
+	duty   float64
+	gaps   int
+	median int64
+	arms   []idleArm // largest first
+}
+
+func idleArms(a GapAttribution) []idleArm {
+	arms := []idleArm{
+		{
+			name:   "host behind",
+			nanos:  a.HostBehindNanos,
+			remedy: "The device finished its work before the host called the next launch, so the host is the one behind. Submit further ahead: enqueue a run of work rather than one op at a time, move host-side work off the dispatch thread, or capture the sequence into a CUDA graph so a single call enqueues all of it.",
+		},
+		{
+			name:   "driver submission",
+			nanos:  a.DriverSubmitNanos,
+			remedy: "The device went idle while the host was inside the launch call, so the cost is per call and paid in the driver. Make fewer, larger calls: fuse adjacent launches, or replay the sequence as a CUDA graph. Calling earlier cannot help -- the host had already called.",
+		},
+		{
+			name:   "hardware queue",
+			nanos:  a.HardwareNanos,
+			remedy: "The launch had already returned before the previous op ended, so the work was queued and the device idled anyway. Neither batching nor earlier submission can recover this time: look at what keeps the queued work from starting -- same-stream ordering, an event wait, or a dependency on the op that just finished.",
+		},
+		{
+			name:   "unattributed",
+			nanos:  a.UnattributedNanos,
+			remedy: "No host launch record correlated to the op that followed this idle, so this capture names no mechanism for it. Find why the correlation ids of these launches do not reach their activities before choosing a remedy: any remedy chosen here would be chosen from ignorance, not from the measurement.",
+		},
+	}
+	sort.SliceStable(arms, func(i, j int) bool { return arms[i].nanos > arms[j].nanos })
+	return arms
+}
+
+// captureIdleAttribution attributes the idle time of the device that spent the
+// most of it, using the same analysis the gaps command reports.
+//
+// advise otherwise reads the pprof projection, which is an aggregate: it sums
+// durations and drops the per-activity timestamps, so no attribution is
+// recoverable from it. These numbers exist only in the capture journals. A
+// capture without them, or whose journals are truncated, yields nothing here
+// rather than an attribution computed from a surviving prefix.
+func captureIdleAttribution(cap *cudacapture.Capture) (idleAttribution, bool) {
+	gaps, err := analyzeGaps(cap, gapOptions{maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes})
+	if err != nil {
+		return idleAttribution{}, false
+	}
+	var best idleAttribution
+	var found bool
+	for _, dev := range gaps.Devices {
+		s := dev.Overall
+		if s == nil || s.IdleNanos <= 0 || (found && s.IdleNanos <= best.idle) {
+			continue
+		}
+		best = idleAttribution{
+			device: dev.Device,
+			idle:   s.IdleNanos,
+			duty:   s.DutyCyclePct,
+			gaps:   s.GapCount,
+			median: s.Distribution.Median,
+			arms:   idleArms(s.Attribution),
+		}
+		found = true
+	}
+	return best, found
+}
+
+// auditIdleAttribution names where an idle-dominated capture's idle time went,
+// and reports whether it emitted a finding.
+//
+// auditDeviceDutyCycle states that the idle time is the larger quantity; it
+// deliberately does not diagnose it. That left the report with no finding a
+// reader could act on for the majority of the span, so the only actionable
+// items remained the kernel-time ones -- the minority the duty cycle had just
+// said not to act on first. This finding closes that: it ranks by the idle
+// time it accounts for, so a device idling in the hardware queue outranks the
+// kernel holding the largest share of a much smaller busy total.
+func auditIdleAttribution(cap *cudacapture.Capture, report *AdviceReport) bool {
+	attr, ok := captureIdleAttribution(cap)
+	if !ok || attr.duty >= deviceIdleCriticalPct {
+		return false
+	}
+	top := attr.arms[0]
+	if top.nanos <= 0 {
+		return false
+	}
+	share := float64(top.nanos) / float64(attr.idle) * 100.0
+	var split strings.Builder
+	for i, arm := range attr.arms {
+		if i != 0 {
+			split.WriteString(", ")
+		}
+		fmt.Fprintf(&split, "%s %.3f ms (%.1f%%)", arm.name, float64(arm.nanos)/1e6, float64(arm.nanos)/float64(attr.idle)*100.0)
+	}
+	finding := fmt.Sprintf("Device %d was idle %.3f ms across %d gaps (median %.3f us), and the largest share of that idle -- %.1f%% -- was %s. Idle attribution: %s.",
+		attr.device, float64(attr.idle)/1e6, attr.gaps, float64(attr.median)/1e3, share, top.name, split.String())
+	// A plurality is not a majority, and the four remedies are exclusive: a
+	// reader who acts on the top arm alone recovers its share and no more.
+	// Saying so here keeps the recommendation below from being read as an
+	// account of all the idle time.
+	if share < 50.0 {
+		finding += " No single mechanism holds a majority of the idle time, so a remedy aimed at one arm can recover at most that arm's share."
+	}
+	report.Items = append(report.Items, AdviceItem{
+		Severity:       SeverityCritical,
+		Category:       CategoryArchitectureDispatch,
+		EvidenceLevel:  EvidenceObserved,
+		severityByKind: true,
+		// The ranking key is time on the device timeline, and the time this
+		// finding accounts for is idle time. Ranking it by the kernel time it
+		// does not hold would sort the majority of the span below the
+		// minority -- the ordering this finding exists to correct.
+		DeviceTimeNanos:          top.nanos,
+		ShareOfProfile:           100.0 - attr.duty,
+		magnitude:                fmt.Sprintf("%s: %.2f ms, %.1f%% of idle", top.name, float64(top.nanos)/1e6, share),
+		Finding:                  finding,
+		ActionableRecommendation: top.remedy,
+		NextMeasurement:          "cudaprof gaps <capture> -- the gap distribution and host concurrency classes behind this split",
+	})
+	return true
 }
 
 // journalRemedy and recaptureOrRead keep a diagnosis of missing timestamps
