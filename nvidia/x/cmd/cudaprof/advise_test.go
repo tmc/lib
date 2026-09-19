@@ -4247,3 +4247,84 @@ func TestIdleAttributionSeparatesUnseenFromAbsent(t *testing.T) {
 		t.Errorf("idle finding does not separate unseen from absent:\n%s", idle)
 	}
 }
+
+// TestOpaqueDutyCycleIsReportedAsACeiling covers the silent half of the
+// opacity problem. The idle finding does not fire above the duty-cycle
+// threshold, and a reader who sees no idle finding concludes the device was
+// busy. On a capture whose replays are opaque that inference is unavailable:
+// each replay counts as busy from its envelope alone, so a run that spent its
+// span inside replays reads as busy whatever it did. The absence of the
+// finding then says nothing about the run, and nothing in the report said so.
+func TestOpaqueDutyCycleIsReportedAsACeiling(t *testing.T) {
+	// A span whose busy time is almost entirely one replay envelope: 98%
+	// busy as measured, 2% on the records the capture can resolve.
+	opaqueJournal := func() []byte {
+		b := newJournalBuilder()
+		b.kernel(1_000, 2_000, 1)
+		b.api(500, 900, 1)
+		b.graphTrace(0, 3_000, 98_000, 7, 2)
+		b.kernel(99_000, 100_000, 3)
+		b.api(98_500, 98_900, 3)
+		return b.finalize()
+	}
+
+	report := &AdviceReport{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": opaqueJournal()}, completeStatus()), report)
+	ceiling := ceilingFinding(t, report)
+	if !strings.Contains(ceiling, "ceiling, not a measurement") {
+		t.Errorf("finding does not call the duty cycle a ceiling:\n%s", ceiling)
+	}
+	// Both numbers have to be present: the ceiling alone is the number that
+	// misled the reader, and the floor alone hides how far apart they are.
+	if !strings.Contains(ceiling, "97.98%") || !strings.Contains(ceiling, "2.02%") {
+		t.Errorf("finding does not report both the measured and resolved shares:\n%s", ceiling)
+	}
+
+	// Control 1: the same envelope, resolved into nodes. Nothing is hidden,
+	// so there is nothing to warn about.
+	b := newJournalBuilder()
+	b.kernel(1_000, 2_000, 1)
+	b.api(500, 900, 1)
+	b.graphTrace(0, 3_000, 98_000, 7, 2)
+	b.graphNode(0, 1, 3_000, 98_000, 4, 7)
+	b.kernel(99_000, 100_000, 3)
+	b.api(98_500, 98_900, 3)
+	report = &AdviceReport{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus()), report)
+	if got := findingContaining(report, "ceiling, not a measurement"); got != "" {
+		t.Errorf("ceiling warning on a capture whose nodes are resolved:\n%s", got)
+	}
+
+	// Control 2: opaque replays, but the capture is busy on its resolved
+	// records alone. Resolving the envelopes cannot change the answer, so
+	// saying anything would be noise.
+	b = newJournalBuilder()
+	b.kernel(1_000, 60_000, 1)
+	b.api(500, 900, 1)
+	b.graphTrace(0, 61_000, 70_000, 7, 2)
+	b.kernel(71_000, 99_000, 3)
+	b.api(70_500, 70_900, 3)
+	report = &AdviceReport{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus()), report)
+	if got := findingContaining(report, "ceiling, not a measurement"); got != "" {
+		t.Errorf("ceiling warning where the resolved records are already busy:\n%s", got)
+	}
+}
+
+func findingContaining(report *AdviceReport, want string) string {
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, want) {
+			return it.Finding
+		}
+	}
+	return ""
+}
+
+func ceilingFinding(t *testing.T, report *AdviceReport) string {
+	t.Helper()
+	if got := findingContaining(report, "ceiling, not a measurement"); got != "" {
+		return got
+	}
+	t.Fatalf("no duty-cycle ceiling finding among %d items", len(report.Items))
+	return ""
+}

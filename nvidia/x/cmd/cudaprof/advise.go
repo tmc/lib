@@ -3757,10 +3757,103 @@ func profileDutyCycle(streams map[uint32][]streamEvent) (pct float64, spanNs, bu
 // This finding does not diagnose the idle time; it refuses to let the ranking
 // below it be read as the whole account, and names the command that does
 // attribute idle.
+// dutyCycleFloor reports the busy share left when the graph replay envelopes
+// are taken out of the busy union, measured against the same span so the two
+// percentages are comparable.
+//
+// An opaque replay is one activity record covering the whole replay, so
+// whatever the device did not do between its nodes is counted as work. The
+// measured duty cycle is therefore a ceiling. This is the floor beneath it:
+// the busy time the capture can actually show. The truth is somewhere in
+// between and this capture cannot say where.
+func dutyCycleFloor(streams map[uint32][]streamEvent, spanNs uint64) (float64, bool) {
+	if spanNs == 0 {
+		return 0, false
+	}
+	type iv struct{ start, end uint64 }
+	var ivs []iv
+	for _, evs := range streams {
+		for _, ev := range evs {
+			// The false is what makes this the floor: deviceWorkSubtype
+			// reads it as "a graph replay envelope is not device work", so
+			// the envelopes drop out and only records the capture can
+			// resolve remain. Do not also skip graph_trace by name here --
+			// two spellings of one rule mean neither can be tested.
+			if !deviceWorkSubtype(ev.Subtype, false) || ev.End == 0 || ev.End <= ev.Start {
+				continue
+			}
+			ivs = append(ivs, iv{ev.Start, ev.End})
+		}
+	}
+	if len(ivs) == 0 {
+		return 0, true
+	}
+	sort.Slice(ivs, func(i, j int) bool { return ivs[i].start < ivs[j].start })
+	var busy uint64
+	cur := ivs[0]
+	for _, x := range ivs[1:] {
+		if x.start > cur.end {
+			busy += cur.end - cur.start
+			cur = x
+			continue
+		}
+		if x.end > cur.end {
+			cur.end = x.end
+		}
+	}
+	busy += cur.end - cur.start
+	return float64(busy) * 100.0 / float64(spanNs), true
+}
+
+// auditOpaqueDutyCeiling reports a duty cycle that is a ceiling rather than a
+// measurement.
+//
+// The idle finding does not fire above deviceIdleCriticalPct, and a reader who
+// sees no idle finding concludes the device was busy. On a capture whose graph
+// replays are opaque that inference is not available: each replay counts as
+// busy from its envelope alone, so a run that spent most of its span inside
+// replays reads as busy whatever it actually did. The absence of the finding
+// then says nothing about the run -- the finding could not have fired.
+//
+// The gate is that removing the envelopes drops the busy share below the
+// threshold. Only then could resolving the replays change the answer; a
+// capture that is busy on its resolved records alone is busy, and saying
+// anything here would be noise.
+//
+// That gate is also the whole test for opacity, which is why no separate
+// opacity flag is consulted. A capture whose replays resolve into nodes has
+// its envelopes excluded from the busy union already, so its floor and its
+// measured duty cycle are the same number and this returns. Asking a second
+// source -- journal record counts rather than the stream events these
+// percentages come from -- would let the two disagree about one capture.
+func auditOpaqueDutyCeiling(streams map[uint32][]streamEvent, pct float64, spanNs uint64, report *AdviceReport) {
+	floor, ok := dutyCycleFloor(streams, spanNs)
+	if !ok || floor >= deviceIdleCriticalPct {
+		return
+	}
+	report.Items = append(report.Items, AdviceItem{
+		Severity:      SeverityWarning,
+		Category:      CategoryArchitectureDispatch,
+		EvidenceLevel: EvidenceUnmeasured,
+		magnitude:     fmt.Sprintf("duty cycle %.2f%% measured, %.2f%% on resolved records alone", pct, floor),
+		Finding: fmt.Sprintf("The device measured %.2f%% busy, which is why no idle finding appears in this report. That number is a ceiling, not a measurement: this capture counts each graph replay as busy from its envelope alone, so whatever the device did not do between a replay's nodes is counted as work. On the records this capture can resolve, the busy share is %.2f%%. The true duty cycle is somewhere between the two, and a run that is mostly replay reads as busy whichever it is.",
+			pct, floor),
+		ActionableRecommendation: "Do not read the absence of an idle finding here as evidence that the device was busy: on this capture that finding could not have fired regardless of the idle. Re-capture with graph node records resolved -- device records naming their graph ids -- before concluding anything about this run's duty cycle, and before comparing its duty cycle against a capture whose replays were resolved.",
+		NextMeasurement:          "cudaprof gaps <capture> -- it reports the replay opacity directly and splits the idle it can see",
+	})
+}
+
 func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
 	streams, graphsOpaque := extractStreamEventsDetail(cap)
 	pct, spanNs, busyNs, ok := profileDutyCycle(streams)
-	if !ok || pct >= deviceIdleCriticalPct {
+	if !ok {
+		return
+	}
+	if pct >= deviceIdleCriticalPct {
+		// A high duty cycle is why no idle finding follows. On a capture
+		// whose replays are opaque that reading is not available: see
+		// auditOpaqueDutyCeiling.
+		auditOpaqueDutyCeiling(streams, pct, spanNs, report)
 		return
 	}
 	idleNs := spanNs - busyNs
