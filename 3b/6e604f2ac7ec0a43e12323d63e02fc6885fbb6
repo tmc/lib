@@ -1,0 +1,22 @@
+Commit: 3b6e604f
+Date: 2026-09-19T08:26:06Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 99316
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+iterm-sid: C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Evidence:
+  cudaprof 64bb3a8b, built from a pristine worktree, gaps --diff_base on
+    ~/tmp/graphvis/go_nograph_1.pprof -> ~/tmp/moecap/moe8.pprof
+  scope check ~/tmp/claude-tmp/win.py over the journals in exn/ and ex8/
+  layer sweep ~/tmp/claude-tmp/lay2-C6A7.sh, ~/tmp/lay2/ on dgx
+E5 predictions registered before the run:
+  P1 mode-2 prefill rises with layer count   HIT in number, INADMISSIBLE above 8 (digest)
+  P2 43 layers is the campaign best prefill  number produced, digest mismatch, withdrawn
+  P3 generation falls with layer count       HIT (17.4 / 3.7 / 1.9 / 0.7)
+  P4 release=0 at 20 layers continues down   UNTESTABLE, rc=1 non-finite logit both draws
+Supersedes the prefill win in c2a1d4f2.
