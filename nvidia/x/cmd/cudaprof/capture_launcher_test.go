@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -216,5 +218,63 @@ func TestParseCaptureArgsRequireComplete(t *testing.T) {
 	}
 	if !o.RequireComplete {
 		t.Fatal("RequireComplete was not set")
+	}
+}
+
+// TestTargetEnvironmentDiscriminatesArmsWithoutDisclosingThem covers the
+// stamp that answers "which arm was this".
+//
+// Two arms of one program can differ only in an environment variable, produce
+// different output, and pass every gate the capture applies. Nothing in the
+// capture said which arm it profiled, and a reader lost a day to it. The
+// digest is what discriminates -- including on a variable nobody thought to
+// name in advance, which is the case that bites -- and it must do that
+// without putting any value in an artifact people attach to bug reports.
+func TestTargetEnvironmentDiscriminatesArmsWithoutDisclosingThem(t *testing.T) {
+	base := []string{"PATH=/usr/bin", "SECRET_TOKEN=hunter2", "DS4_PHASE=decode"}
+	other := []string{"PATH=/usr/bin", "SECRET_TOKEN=hunter2", "DS4_PHASE=prefill"}
+
+	a := stampTargetEnvironment([]string{"./ds4", "-n", "1"}, "/work", base, nil)
+	b := stampTargetEnvironment([]string{"./ds4", "-n", "1"}, "/work", other, nil)
+	if a.EnvDigest == "" {
+		t.Fatal("no digest recorded")
+	}
+	if a.EnvDigest == b.EnvDigest {
+		t.Error("two arms differing in one variable share a digest, so the digest cannot tell them apart")
+	}
+	// Order is not part of the environment's identity.
+	shuffled := []string{"DS4_PHASE=decode", "PATH=/usr/bin", "SECRET_TOKEN=hunter2"}
+	if c := stampTargetEnvironment([]string{"./ds4", "-n", "1"}, "/work", shuffled, nil); c.EnvDigest != a.EnvDigest {
+		t.Error("the same environment in a different order produced a different digest")
+	}
+
+	// Nothing is disclosed unless it was named.
+	raw, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(raw, []byte("hunter2")) || bytes.Contains(raw, []byte("decode")) {
+		t.Errorf("an unnamed environment value was written into the capture: %s", raw)
+	}
+	if !bytes.Contains(raw, []byte(`"./ds4"`)) {
+		t.Errorf("the command was not recorded: %s", raw)
+	}
+
+	// Naming a variable discloses it, and only it.
+	named := stampTargetEnvironment([]string{"./ds4"}, "/work", base, []string{"DS4_*", "NOT_SET_HERE"})
+	if named.Env["DS4_PHASE"] != "decode" {
+		t.Errorf("named variable not recorded: %+v", named.Env)
+	}
+	if _, ok := named.Env["SECRET_TOKEN"]; ok {
+		t.Errorf("an unnamed variable was disclosed: %+v", named.Env)
+	}
+	// A variable that was not set is absent, not empty: "" is a value a
+	// program can branch on differently than unset, so the two must not read
+	// the same in the capture.
+	if _, ok := named.Env["NOT_SET_HERE"]; ok {
+		t.Errorf("an unset variable was recorded as a value: %+v", named.Env)
+	}
+	if !slices.Contains(named.EnvUnset, "NOT_SET_HERE") {
+		t.Errorf("an unset named variable was not reported as unset: %+v", named.EnvUnset)
 	}
 }

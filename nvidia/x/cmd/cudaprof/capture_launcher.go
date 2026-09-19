@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -214,8 +216,14 @@ type captureOptions struct {
 	// RecoverUnfinalized admits records from readable worker generations that
 	// carry no finalized record, as an explicitly labelled partial. It never
 	// makes a capture successful and never affects a finalized generation.
-	RecoverUnfinalized    bool
-	MaxJournalRecords     int64
+	RecoverUnfinalized bool
+	MaxJournalRecords  int64
+	// StampEnv names environment variables whose values are recorded in the
+	// capture, by exact name or by a trailing-* prefix. Nothing is disclosed
+	// unless it is named here: an environment carries credentials, and a
+	// profile is an artifact people attach to bug reports. The digest below
+	// discriminates arms without this.
+	StampEnv              []string
 	Timeout, DrainTimeout time.Duration
 	Output                string
 	Inject                string
@@ -267,16 +275,17 @@ type captureResult struct {
 	// from unfinalized generations, so a reader can subtract the recovered
 	// contribution from the totals above. They are zero unless recovery was
 	// explicitly requested and at least one generation was recovered.
-	RecoveredGenerations     uint64            `json:"recovered_generations,omitempty"`
-	RecoveredActivityRecords uint64            `json:"recovered_activity_records,omitempty"`
-	RecoveredDroppedRecords  uint64            `json:"recovered_dropped_records,omitempty"`
-	DroppedRecords           uint64            `json:"dropped_records"`
-	ActivityNanos            uint64            `json:"activity_nanos"`
-	CopyBytes                uint64            `json:"copy_bytes"`
-	Activities               []captureActivity `json:"activities,omitempty"`
-	Capability               json.RawMessage   `json:"capability,omitempty"`
-	CaptureError             string            `json:"capture_error,omitempty"`
-	ScratchDir               string            `json:"scratch_dir,omitempty"`
+	RecoveredGenerations     uint64             `json:"recovered_generations,omitempty"`
+	RecoveredActivityRecords uint64             `json:"recovered_activity_records,omitempty"`
+	RecoveredDroppedRecords  uint64             `json:"recovered_dropped_records,omitempty"`
+	DroppedRecords           uint64             `json:"dropped_records"`
+	ActivityNanos            uint64             `json:"activity_nanos"`
+	CopyBytes                uint64             `json:"copy_bytes"`
+	Activities               []captureActivity  `json:"activities,omitempty"`
+	Capability               json.RawMessage    `json:"capability,omitempty"`
+	Target                   *targetEnvironment `json:"target_environment,omitempty"`
+	CaptureError             string             `json:"capture_error,omitempty"`
+	ScratchDir               string             `json:"scratch_dir,omitempty"`
 }
 
 // captureActivity represents one observed GPU kernel execution or memory copy.
@@ -457,6 +466,17 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			}
 			i = next
 			o.Inject = v
+		case "--stamp-env":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			for _, name := range strings.Split(v, ",") {
+				if name = strings.TrimSpace(name); name != "" {
+					o.StampEnv = append(o.StampEnv, name)
+				}
+			}
 		case "--no-inject":
 			o.NoInject = true
 		case "--json":
@@ -561,6 +581,76 @@ func newCaptureSession() (string, string, error) {
 	return hex.EncodeToString(nonce[:]), dir, nil
 }
 
+// targetEnvironment records what the target was run as.
+//
+// Two arms of the same program can differ only in an environment variable,
+// produce different output, and pass every gate the capture applies -- and
+// nothing in the capture said which arm it profiled. That cost a reader a day.
+//
+// Command and Dir are recorded in full: they are already visible to anyone who
+// can read the capture's process list. The environment is not, so only its
+// DIGEST is recorded by default. A digest answers the question that was
+// actually being asked -- are these two captures the same arm -- without
+// disclosing a single value, and it discriminates on variables nobody thought
+// to name in advance, which is the case that bites. Values are recorded only
+// for variables the operator named with --stamp-env.
+type targetEnvironment struct {
+	Command []string `json:"command,omitempty"`
+	Dir     string   `json:"dir,omitempty"`
+	// EnvDigest is over every NAME=VALUE the target received, sorted, so it is
+	// stable across the map ordering the environment does not have.
+	EnvDigest string `json:"env_digest,omitempty"`
+	EnvCount  int    `json:"env_count,omitempty"`
+	// Env holds the variables named by --stamp-env. A named variable that was
+	// not set is recorded as absent rather than empty: "" is a value a program
+	// can branch on differently than unset.
+	Env        map[string]string `json:"env,omitempty"`
+	EnvUnset   []string          `json:"env_unset,omitempty"`
+	StampedFor []string          `json:"env_stamped_for,omitempty"`
+}
+
+// stampTargetEnvironment records the environment the target actually received,
+// which is the one captureEnvironment returned, not the parent's.
+func stampTargetEnvironment(command []string, workDir string, env, stampFor []string) *targetEnvironment {
+	t := &targetEnvironment{
+		Command:  append([]string(nil), command...),
+		Dir:      workDir,
+		EnvCount: len(env),
+	}
+	sorted := slices.Sorted(slices.Values(env))
+	h := sha256.New()
+	for _, item := range sorted {
+		h.Write([]byte(item))
+		h.Write([]byte{0})
+	}
+	t.EnvDigest = hex.EncodeToString(h.Sum(nil))
+	if len(stampFor) == 0 {
+		return t
+	}
+	t.StampedFor = append([]string(nil), stampFor...)
+	for _, want := range stampFor {
+		prefix, isPrefix := strings.CutSuffix(want, "*")
+		matched := false
+		for _, item := range env {
+			name, value, ok := strings.Cut(item, "=")
+			if !ok {
+				continue
+			}
+			if (isPrefix && strings.HasPrefix(name, prefix)) || (!isPrefix && name == want) {
+				if t.Env == nil {
+					t.Env = make(map[string]string)
+				}
+				t.Env[name] = value
+				matched = true
+			}
+		}
+		if !matched {
+			t.EnvUnset = append(t.EnvUnset, want)
+		}
+	}
+	return t
+}
+
 func captureEnvironment(o captureOptions, session, dir string) []string {
 	env := append([]string(nil), o.Env...)
 	if env == nil {
@@ -638,6 +728,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	}
 	cmd := exec.Command(o.command[0], o.command[1:]...)
 	cmd.Dir, cmd.Env = o.Dir, captureEnvironment(o, session, dir)
+	result.Target = stampTargetEnvironment(o.command, o.Dir, cmd.Env, o.StampEnv)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = o.Stdin, o.Stdout, o.Stderr
 	if cmd.Stdin == nil {
 		cmd.Stdin = os.Stdin

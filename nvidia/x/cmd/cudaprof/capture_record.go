@@ -711,6 +711,11 @@ Options:
   --inject <path>               path to CUPTI agent shared library (or set CUDAPROF_INJECT)
   --no-inject                   run target uninstrumented without injection library
   --json                        write JSON status summary to stdout
+  --stamp-env <names>           record the values of these environment variables in the
+                                capture, comma separated, exact names or a NAME* prefix.
+                                The capture always records a digest of the target's whole
+                                environment, which says whether two captures are the same
+                                arm; this names the variables whose values are disclosed
   -o <path>                     write capture output to file or directory
   --max-records <N>             maximum journal records the reader decodes (default %d);
                                 bounds decoding only -- it cannot recover a record the
