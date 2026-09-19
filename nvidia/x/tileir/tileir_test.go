@@ -192,15 +192,23 @@ cuda_tile.module @gemm_kernels {
 }
 
 // bytecodeGoldenDir holds the CUDA 13.4 bytecode files produced by NVIDIA's
-// own writer. It is a checkout of github.com/NVIDIA/cuda-tile, not part of this
-// repository, so tests that use it skip when it is absent.
-var bytecodeGoldenDir = os.Getenv("HOME") + "/go/src/github.com/NVIDIA/cuda-tile/test/Bytecode/encoding_stability/goldens"
+// own writer, vendored from github.com/NVIDIA/cuda-tile. See the README there
+// for provenance. They are in the repository so that the one test checking our
+// encoder against bytes we did not author runs everywhere, rather than only
+// where a copy of NVIDIA's source tree happens to sit.
+const bytecodeGoldenDir = "testdata/bytecodegoldens"
 
 func bytecodeGoldens(t *testing.T) []string {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join(bytecodeGoldenDir, "*.golden.tileirbc"))
-	if err != nil || len(files) == 0 {
-		t.Skip("cuda-tile golden files not found, skipping")
+	if err != nil {
+		t.Fatalf("globbing goldens: %v", err)
+	}
+	// The goldens are vendored, so an empty set is a broken checkout rather
+	// than an absent optional dependency. Skipping here once hid this test
+	// on every machine but the one holding NVIDIA's source tree.
+	if len(files) == 0 {
+		t.Fatalf("no goldens in %s; they are vendored and must be present", bytecodeGoldenDir)
 	}
 	return files
 }
