@@ -82,12 +82,6 @@ const (
 // Stream is an opaque CUDA stream handle.
 type Stream uintptr
 
-// DeviceMemHandler is a placeholder for unresolved C type cutensornetDeviceMemHandler_t.
-type DeviceMemHandler struct{}
-
-// MPSEnvBounds is a placeholder for unresolved C type cutensornetMPSEnvBounds_t.
-type MPSEnvBounds struct{}
-
 // LoggerCallback represents cutensornetLoggerCallback_t.
 type LoggerCallback uintptr
 

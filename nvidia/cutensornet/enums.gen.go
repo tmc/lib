@@ -332,6 +332,7 @@ type WorksizePref int32
 const (
 	WorksizePrefMin         WorksizePref = 0 // At least one algorithm will be available for each contraction
 	WorksizePrefRecommended WorksizePref = 1 // The most suitable algorithm will be available for each contraction
+	WorksizePrefMax         WorksizePref = 2 // All algorithms will be available for each contraction
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -341,6 +342,8 @@ func (e WorksizePref) String() string {
 		return "WorksizePrefMin"
 	case WorksizePrefRecommended:
 		return "WorksizePrefRecommended"
+	case WorksizePrefMax:
+		return "WorksizePrefMax"
 	}
 	return fmt.Sprintf("WorksizePref(%d)", e)
 }

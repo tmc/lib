@@ -188,8 +188,9 @@ func TestWorkspaceEnumValues(t *testing.T) {
 }
 
 // TestWorksizePrefValues pins the workspace preference values, including
-// WorksizePrefMax, which the generator drops as a _MAX sentinel and enums.go
-// restores by hand.
+// WorksizePrefMax. It reads like a count sentinel and was filtered out as one
+// until the generator's sentinel allowlist admitted it; a hand-written enums.go
+// declared it here in the meantime.
 func TestWorksizePrefValues(t *testing.T) {
 	if WorksizePrefMin != 0 {
 		t.Errorf("WorksizePrefMin = %d, want 0", WorksizePrefMin)
