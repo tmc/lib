@@ -120,10 +120,14 @@ type Epoch struct {
 	mu        sync.Mutex
 	Number    uint64
 	published map[string]bool
+	owned     map[string]bool
 	aborted   bool
+	drained   bool
 }
 
-func NewEpoch(n uint64) *Epoch { return &Epoch{Number: n, published: map[string]bool{}} }
+func NewEpoch(n uint64) *Epoch {
+	return &Epoch{Number: n, published: map[string]bool{}, owned: map[string]bool{}}
+}
 func (e *Epoch) Publish(id string, g Graph) error {
 	if e == nil {
 		return fmt.Errorf("nil epoch")
@@ -187,4 +191,90 @@ func (e *Epoch) Aborted() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.aborted
+}
+
+// Ownership of task output storage, and what an abort does to it.
+//
+// A task's output buffer is owned by the device from the moment the host
+// claims it for a launch until the host has both observed the launch finish
+// and released it. An abort does not end that ownership: the abort word is
+// something the worker reads at its next poll, not a fence it has already
+// passed, so a buffer freed on abort can be freed while a store is in flight.
+// [Epoch.Release] therefore refuses until [Epoch.Drain] records that the host
+// joined the launch, and [Epoch.Retained] names what may not be freed yet.
+
+// Claim records that the device owns task id's output storage for this epoch.
+func (e *Epoch) Claim(id string, g Graph) error {
+	if e == nil {
+		return fmt.Errorf("nil epoch")
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if _, ok := g.tasks[id]; !ok {
+		return fmt.Errorf("unknown task %q", id)
+	}
+	if e.owned == nil {
+		e.owned = make(map[string]bool)
+	}
+	if e.owned[id] {
+		return fmt.Errorf("task %q output storage is already claimed", id)
+	}
+	e.owned[id] = true
+	return nil
+}
+
+// Drain records that the host has observed the launch finish, so nothing is
+// still storing into the claimed buffers.
+func (e *Epoch) Drain() {
+	if e != nil {
+		e.mu.Lock()
+		defer e.mu.Unlock()
+		e.drained = true
+	}
+}
+
+// Drained reports whether the launch has been observed to finish.
+func (e *Epoch) Drained() bool {
+	if e == nil {
+		return false
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.drained
+}
+
+// Release relinquishes ownership of task id's output storage.
+//
+// It refuses while an abort is outstanding and the launch has not been
+// drained. That refusal is the point: an aborted launch is the case where
+// freeing looks safest and is not.
+func (e *Epoch) Release(id string) error {
+	if e == nil {
+		return fmt.Errorf("nil epoch")
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if !e.owned[id] {
+		return fmt.Errorf("task %q output storage is not claimed", id)
+	}
+	if e.aborted && !e.drained {
+		return fmt.Errorf("task %q output storage may not be released: an abort is outstanding and the launch has not been drained", id)
+	}
+	delete(e.owned, id)
+	return nil
+}
+
+// Retained returns the tasks whose output storage is still owned, sorted.
+func (e *Epoch) Retained() []string {
+	if e == nil {
+		return nil
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	out := make([]string, 0, len(e.owned))
+	for id := range e.owned {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
 }
