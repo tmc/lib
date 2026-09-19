@@ -321,7 +321,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 				result.Outcome, result.CaptureError = captureOutcomeInjection, errStr
 			}
 		} else if targetJournalErr != nil {
-			result.Outcome, result.CaptureError = captureOutcomeTransport, targetJournalErr.Error()
+			result.Outcome, result.CaptureError = captureOutcomeTransport, targetJournalErr.Error()+unfinalizedHint(targetJournalErr, result)
 		} else if len(workers) > 0 && workers[len(workers)-1].Failure != "" {
 			w := workers[len(workers)-1]
 			if w.Disposition == "injection-failed" {
@@ -472,6 +472,35 @@ type journalMetrics struct {
 // clean Go exit says nothing went wrong at all and the target simply cannot
 // finalize this producer as written.
 var errJournalNotFinalized = errors.New("capture journal missing finalized record")
+
+// unfinalizedHint names the cause of an unfinalized journal when the evidence
+// points at one, and says nothing when it does not.
+//
+// "capture journal missing finalized record" is true and unhelpful: it
+// describes the artifact rather than what happened, and the two causes point
+// opposite ways. A force-killed worker says something upstream went wrong. A
+// target that exited 0 with a bootstrap on record and no activity at all
+// says nothing went wrong -- it ran, it was instrumented, and it left through
+// an exit path that reaches none of the agent's finalization routes.
+//
+// The hint is conditional on that signature because a caveat printed on every
+// unfinalized journal is one a reader learns to skip, and then it is not a
+// hint. A killed worker usually has activity records and a non-zero status, so
+// it does not match and is not told a Go story about itself.
+func unfinalizedHint(err error, result captureResult) string {
+	if !errors.Is(err, errJournalNotFinalized) {
+		return ""
+	}
+	if result.TargetExitCode != 0 || result.ActivityRecords != 0 {
+		return ""
+	}
+	return "\n\tThe target exited 0 having written a bootstrap and no activity. That is what a\n" +
+		"\truntime which leaves through the exit_group syscall looks like: the agent's ELF\n" +
+		"\tdestructor and atexit both run from libc's exit(3), and its SIGTERM terminator\n" +
+		"\tneeds a signal nobody sent, so none of the three fire and CUPTI's buffers are\n" +
+		"\tdiscarded unflushed. A Go target does this by returning from main.\n" +
+		"\tHave the target call cudaprofagent.Finalize() before it exits."
+}
 
 // Serving workers can legitimately emit more than the transport decoder's
 // small default record bound. Keep an explicit finite controller bound while

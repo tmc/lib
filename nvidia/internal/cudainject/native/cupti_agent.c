@@ -276,7 +276,6 @@ static int term_pipe[2] = {-1, -1};
 static _Atomic int term_signalled;
 static pthread_t terminator;
 static struct sigaction prev_sigterm;
-static int sigterm_chain_default;
 static int sigterm_installed;
 /* Whether the fork guard is registered; reported in the capability record so a
    run never silently assumes it. */
@@ -1199,6 +1198,9 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
    I/O happens in signal context; the terminator thread does all of that in a
    normal execution context. */
 static void cudaprof_sigterm_handler(int signo, siginfo_t *info, void *context) {
+	(void)signo;
+	(void)info;
+	(void)context;
 	int saved = errno;
 	atomic_store(&term_signalled, 1);
 	if (term_pipe[1] >= 0) {
@@ -1208,19 +1210,15 @@ static void cudaprof_sigterm_handler(int signo, siginfo_t *info, void *context) 
 		(void)n;
 	}
 	errno = saved;
-	/* Chain to the disposition the target installed so its own termination
-	   semantics are unchanged. A default disposition is not re-raised here:
-	   the terminator restores and re-raises it once the journal is closed. */
-	if (!sigterm_chain_default) {
-		/* sa_handler and sa_sigaction alias, so SIG_DFL and SIG_IGN are
-		   recognized by value whatever SA_SIGINFO says; only a real function
-		   pointer is dispatched, and only then does SA_SIGINFO pick the
-		   signature. */
-		if (prev_sigterm.sa_handler != SIG_DFL && prev_sigterm.sa_handler != SIG_IGN) {
-			if (prev_sigterm.sa_flags & SA_SIGINFO) prev_sigterm.sa_sigaction(signo, info, context);
-			else prev_sigterm.sa_handler(signo);
-		}
-	}
+	/* The target's own disposition is NOT run here. It used to be, inline,
+	   and that made SIGTERM useless as a finalization route for any target
+	   that installs a handler of its own -- which is every Go program, since
+	   the Go runtime always installs one, and most C++ servers. The target's
+	   handler would terminate the process while the terminator thread was
+	   still waiting to be scheduled, and the journal would end unfinalized.
+	   The terminator restores the previous disposition and re-raises once the
+	   journal is closed, which is what the default-disposition case always
+	   did; this is only the same thing for the rest. */
 }
 
 static void *terminator_thread(void *arg) {
@@ -1236,17 +1234,26 @@ static void *terminator_thread(void *arg) {
 	if (!atomic_load(&term_signalled)) return NULL;
 	finalize_trigger = "signal";
 	cudaprof_cupti_finalize();
-	if (sigterm_chain_default) {
-		/* The target had no SIGTERM disposition of its own. Finalization is
-		   complete, so restore the default and re-raise to terminate with the
-		   status the sender asked for. */
-		struct sigaction dfl;
-		memset(&dfl, 0, sizeof(dfl));
-		dfl.sa_handler = SIG_DFL;
-		sigemptyset(&dfl.sa_mask);
-		(void)sigaction(SIGTERM, &dfl, NULL);
-		raise(SIGTERM);
-	}
+	/* Finalization is complete, so put back whatever disposition the target
+	   had and deliver the signal again. One path covers both cases because
+	   prev_sigterm IS the previous disposition: SIG_DFL for a target with
+	   none, and the target's own handler otherwise. install_sigterm refuses to
+	   install over SIG_IGN, so it is never that.
+
+	   kill rather than raise: raise delivers to the calling thread, and this
+	   thread belongs to the agent rather than to the target's runtime. A Go
+	   runtime handles a process-directed SIGTERM through its normal path and
+	   exits; a signal raised on a thread it does not know takes its
+	   foreign-thread path instead.
+
+	   The cost of doing this after finalization rather than before is that the
+	   target's termination is delayed by the flush, and a finalize that hangs
+	   leaves the target alive where it would previously have died. That
+	   exposure is not new -- it is what the default-disposition case has
+	   always had -- and the alternative is a route that silently collects
+	   nothing. */
+	(void)sigaction(SIGTERM, &prev_sigterm, NULL);
+	(void)kill(getpid(), SIGTERM);
 	return NULL;
 }
 
@@ -1274,10 +1281,6 @@ static void install_sigterm(void) {
 		return;
 	}
 	prev_sigterm = current;
-	/* Classify by the handler value, not by SA_SIGINFO: a default
-	   disposition can be reported with that flag already set, and treating it
-	   as a handler would leave the signal unhandled and the target alive. */
-	sigterm_chain_default = current.sa_handler == SIG_DFL;
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_sigaction = cudaprof_sigterm_handler;
@@ -1895,6 +1898,26 @@ static void cudaprof_cupti_finalize(void) {
 }
 
 __attribute__((destructor)) static void cudaprof_cupti_fini(void) { cudaprof_cupti_finalize(); }
+
+/* cudaprof_finalize is the route a target takes for itself, and it exists
+   because the other three are all reachable only through libc.
+
+   The ELF destructor and atexit both run from libc's exit(3), and the SIGTERM
+   terminator needs a signal nobody sends. A runtime that issues the exit_group
+   syscall directly reaches none of them: Go does exactly this -- runtime.exit
+   is SYS_exit_group in sys_linux_arm64.s, no libc on the path -- and a runtime
+   that installs its own SIGTERM disposition after this agent's constructor has
+   run has taken the third route away as well. Such a target exits 0, reports
+   its own work as done, and leaves a journal with no finalized record and no
+   activity, because CUPTI's buffers are flushed at finalize and die with the
+   process.
+
+   Interposing exit(3) would not help: the syscall is issued without it. So the
+   target has to ask, and this is what it asks. Idempotent by the same
+   compare-and-swap as every other route, so calling it and then exiting
+   normally finalizes once. */
+__attribute__((visibility("default"))) void cudaprof_finalize(void);
+void cudaprof_finalize(void) { cudaprof_cupti_finalize(); }
 
 /* Thin opt-in wrappers for Python/operator instrumentation. The caller must
    push, dispatch synchronously, and pop on the same OS thread. */

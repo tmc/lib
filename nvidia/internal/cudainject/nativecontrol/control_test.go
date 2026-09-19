@@ -858,6 +858,49 @@ func TestHandlerClobberStillFinalizes(t *testing.T) {
 	checkReconciles(t, c, result.Offered)
 }
 
+// TestRuntimeExitLosesTheJournalWithoutAnExplicitFinalize reproduces, without
+// a GPU, the failure a Go capture target hits on real hardware.
+//
+// All three of the producer's finalization routes run through libc. The ELF
+// destructor and atexit are driven by exit(3); the SIGTERM terminator needs a
+// signal nobody sends, and a runtime that installs its own SIGTERM disposition
+// after this agent's constructor has run has taken that one away too. A
+// runtime leaving through the exit_group syscall reaches none of them, and
+// because CUPTI's buffers are flushed at finalize they die with the process:
+// the target exits 0 and reports its own work done while the capture holds
+// nothing.
+//
+// Measured first on GB10, where a Go target collected zero records and a C++
+// target doing the same device work under the same agent and the same cudaprof
+// collected cleanly. This is that dissociation in the control harness, and it
+// is the oracle for the fix rather than a test written after one: the first
+// arm asserts the loss, so deleting cudaprof_finalize brings it back.
+func TestRuntimeExitLosesTheJournalWithoutAnExplicitFinalize(t *testing.T) {
+	_, status, captures := run(t, "runtime-exit", "4", "4", "256", "0")
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Fatalf("status = %v, want a clean exit: the target believes it succeeded", status)
+	}
+	c := only(t, captures)
+	if c.finalized != nil {
+		t.Fatalf("journal was finalized: the reproduction no longer reproduces, so the arm below proves nothing")
+	}
+
+	_, status, captures = run(t, "runtime-exit-finalize", "4", "4", "256", "0")
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Fatalf("status = %v, want a clean exit: finalizing must not change how the target terminates", status)
+	}
+	c = only(t, captures)
+	if c.finalized == nil {
+		t.Fatal("no finalized record after an explicit cudaprof_finalize: the one route a runtime can take is not working")
+	}
+	if c.finalized.Trigger != "exit" {
+		t.Errorf("trigger = %q, want exit", c.finalized.Trigger)
+	}
+	if c.counts[kindActivity] == 0 {
+		t.Error("finalized with no activity records: finalization that flushes nothing is the same loss with a record on top")
+	}
+}
+
 // TestActivityOnlyConfiguration covers the second supported configuration.
 // API attribution dominates journal volume, so a run may disable it; that has
 // to be an explicit, recorded choice rather than a silent degradation, and it

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -170,5 +171,35 @@ func TestAgentRevisionReadsAbsenceAsAbsence(t *testing.T) {
 		if got := agentRevision([]byte(in)); got != "" {
 			t.Errorf("agentRevision(%q) = %q, want \"\"", in, got)
 		}
+	}
+}
+
+// TestUnfinalizedHintSpeaksOnlyToTheSignatureItRecognizes covers both arms of
+// the diagnosis, because the silent arm is the one that makes it worth having.
+// A hint printed on every unfinalized journal would be read as boilerplate and
+// would tell a force-killed serving worker a story about Go that is not true
+// of it.
+func TestUnfinalizedHintSpeaksOnlyToTheSignatureItRecognizes(t *testing.T) {
+	const bypass = "exit_group"
+	for _, tt := range []struct {
+		name   string
+		err    error
+		result captureResult
+		want   bool
+	}{
+		{"clean exit, nothing collected", errJournalNotFinalized, captureResult{TargetExitCode: 0, ActivityRecords: 0}, true},
+		{"killed mid-run", errJournalNotFinalized, captureResult{TargetExitCode: 137, ActivityRecords: 0}, false},
+		{"collected then lost the record", errJournalNotFinalized, captureResult{TargetExitCode: 0, ActivityRecords: 41}, false},
+		{"a different failure entirely", errors.New("read handshake: EOF"), captureResult{TargetExitCode: 0, ActivityRecords: 0}, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := unfinalizedHint(tt.err, tt.result)
+			if strings.Contains(got, bypass) != tt.want {
+				t.Errorf("hint mentions the exit path = %v, want %v\n\thint: %q", !tt.want, tt.want, got)
+			}
+			if !tt.want && got != "" {
+				t.Errorf("hint = %q, want empty", got)
+			}
+		})
 	}
 }

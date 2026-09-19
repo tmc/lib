@@ -135,6 +135,8 @@ static void *trigger_thread(void *arg) {
    guarantees once its handler is gone. */
 static volatile sig_atomic_t app_terminated;
 
+void cudaprof_finalize(void);
+
 static void app_sigterm(int signo) { (void)signo; app_terminated = 1; }
 
 static unsigned arg_uint(int argc, char **argv, int index, unsigned fallback) {
@@ -257,7 +259,8 @@ int main(int argc, char **argv) {
 
 	pthread_t trigger_id = 0;
 	struct trigger t = {0, 0};
-	if (strcmp(scenario, "clobber") == 0 || strcmp(scenario, "fork-inert-clobber") == 0) {
+	if (strcmp(scenario, "clobber") == 0 || strcmp(scenario, "fork-inert-clobber") == 0 ||
+	    strcmp(scenario, "runtime-exit") == 0 || strcmp(scenario, "runtime-exit-finalize") == 0) {
 		struct sigaction sa;
 		memset(&sa, 0, sizeof(sa));
 		sa.sa_handler = app_sigterm;
@@ -415,6 +418,20 @@ int main(int argc, char **argv) {
 		   would and the producer finalizes from atexit. */
 		for (int i = 0; i < 100 && !app_terminated; i++) { struct timespec ts = {0, 10000000L}; nanosleep(&ts, NULL); }
 		return app_terminated ? 7 : 8;
+	}
+	/* Stands in for a language runtime: it owns SIGTERM, and it leaves through
+	   the exit_group syscall rather than through exit(3), so neither the ELF
+	   destructor nor atexit runs. _exit(2) is that shape -- Go reaches it by
+	   issuing the syscall itself, which is not something a C control can do
+	   portably, but the agent cannot tell the difference: what matters is that
+	   libc's exit sequence does not run.
+
+	   The two arms differ by one call. Without it the journal ends unfinalized
+	   with no activity, which is the defect. With it the target finalizes for
+	   itself, which is the only route left once the other three are gone. */
+	if (strcmp(scenario, "runtime-exit") == 0 || strcmp(scenario, "runtime-exit-finalize") == 0) {
+		if (strcmp(scenario, "runtime-exit-finalize") == 0) cudaprof_finalize();
+		_exit(0);
 	}
 	if (strcmp(scenario, "race") == 0 || strcmp(scenario, "forced-kill") == 0) {
 		/* Stay alive so the signal decides how the process ends. */
