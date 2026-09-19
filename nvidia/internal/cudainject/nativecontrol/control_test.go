@@ -130,13 +130,15 @@ type capture struct {
 	counts     map[uint16]uint64
 	finalized  *finalizedRecord
 	capability capabilityRecord
-	failures   []string
-	markers    []markerRecord
-	memsets    []memsetRecord
-	overheads  []overheadRecord
-	graphs     []graphTraceRecord
-	syncs      []syncRecord
-	hosts      []hostSampleRecord
+	// capabilityJSON is the record as written, for assertions about absence.
+	capabilityJSON []byte
+	failures       []string
+	markers        []markerRecord
+	memsets        []memsetRecord
+	overheads      []overheadRecord
+	graphs         []graphTraceRecord
+	syncs          []syncRecord
+	hosts          []hostSampleRecord
 	// order is every record's kind in journal order. The producer's ordering
 	// invariant -- nothing before bootstrap and capability, nothing after
 	// finalized -- is a property of the sequence, not of the counts, so it
@@ -233,6 +235,7 @@ type capabilityRecord struct {
 	Activity        bool   `json:"activity"`
 	APIRecords      bool   `json:"api_records"`
 	LayoutCheck     string `json:"layout_check"`
+	AgentRevision   string `json:"agent_revision"`
 	DriverAPI       bool   `json:"driver_api"`
 	RuntimeAPI      bool   `json:"runtime_api"`
 	SigtermFinalize bool   `json:"sigterm_finalize"`
@@ -429,6 +432,9 @@ func decode(t *testing.T, path string) capture {
 			if err := json.Unmarshal(r.Payload, &c.capability); err != nil {
 				t.Fatalf("capability payload %q: %v", r.Payload, err)
 			}
+			// Kept raw as well: a field being absent is not the same as its
+			// decoding to a zero value, and only the bytes can tell them apart.
+			c.capabilityJSON = append([]byte(nil), r.Payload...)
 		case kindFailure:
 			c.failures = append(c.failures, string(r.Payload))
 		case kindHost:
@@ -865,6 +871,51 @@ func TestCapabilityDistinguishesUnverifiedFromVerified(t *testing.T) {
 	}
 	if len(withoutProbe.failures) != 0 {
 		t.Errorf("failures = %q, want none: a CUPTI without the symbol is a supported runtime, not a failure", withoutProbe.failures)
+	}
+}
+
+// agentRevisionDefine builds the agent with a known source revision, the way
+// the build recipe in native/README.md does.
+const agentRevisionDefine = `-DCUDAPROF_AGENT_REVISION="c0ffee1"`
+
+// TestCapabilityCarriesTheAgentRevision covers the identity half of the
+// capability record.
+//
+// The record states what the producer can do. Until agent_revision it did not
+// state which producer, and a reader holding only the artifact could not tell
+// a current agent reporting that a runtime lacks a capability from an agent
+// built before that capability existed: both say the same thing in the same
+// words. The case that prompted it was a verification about to be run against
+// a preinstalled binary older than the change it was verifying.
+//
+// Both arms are needed. Asserting only that a stamped build carries the
+// revision would pass on a producer that stamped every build, including one
+// whose identity the build never supplied -- and a wrong revision is worse
+// than none, because a reader will act on it. So the unstamped arm asserts the
+// field is ABSENT rather than "unknown" or empty-but-present.
+func TestCapabilityCarriesTheAgentRevision(t *testing.T) {
+	_, _, unstamped := run(t, "sustained", "1", "4", "256", "100")
+	plain := only(t, unstamped)
+	if plain.capability.AgentRevision != "" {
+		t.Errorf("unstamped build: agent_revision = %q, want absent: a build that was not told its revision must not name one", plain.capability.AgentRevision)
+	}
+	if bytes.Contains(plain.capabilityJSON, []byte("agent_revision")) {
+		t.Errorf("unstamped build emitted an agent_revision key: %s\n\tan empty value present in the record reads as an answer; absence does not", plain.capabilityJSON)
+	}
+
+	bin := controlBinary(t, agentRevisionDefine)
+	dir := t.TempDir()
+	cmd := exec.Command(bin, "sustained", "1", "4", "256", "100")
+	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("run with a stamped revision: %v: %s", err, out)
+	}
+	stamped := only(t, decodeAll(t, dir))
+	if stamped.capability.AgentRevision != "c0ffee1" {
+		t.Errorf("stamped build: agent_revision = %q, want %q", stamped.capability.AgentRevision, "c0ffee1")
+	}
+	if stamped.capability.AgentRevision == plain.capability.AgentRevision {
+		t.Fatal("both builds report the same agent_revision: the field does not discriminate, which is the defect it was added to fix")
 	}
 }
 

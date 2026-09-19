@@ -160,11 +160,26 @@ CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"
 CUDA_TARGET="$(uname -m)-linux"
 [ "$CUDA_TARGET" = "aarch64-linux" ] && CUDA_TARGET="sbsa-linux"
 
+# The revision this agent was built from, stamped into its capability record.
+# Omit it and the record simply carries no agent_revision, which is honest but
+# means a reader cannot tell this agent from one built before the capability it
+# reports on existed.
+REV="$(git rev-parse --short HEAD)$(git diff --quiet || echo -dirty)"
+
 cc -std=c11 -O2 -fPIC -shared \
+  -DCUDAPROF_AGENT_REVISION="\"${REV}\"" \
   -I"${CUDA_HOME}/targets/${CUDA_TARGET}/include" -I"${CUDA_HOME}/include" -I. \
   cupti_agent.c -o "$HOME/tmp/libcupti_agent.so" \
   -L"${CUDA_HOME}/targets/${CUDA_TARGET}/lib" -L"${CUDA_HOME}/lib64" -lcupti -lpthread
 ```
+
+The capability record carries two identities and needs both: `agent_revision`
+names the source this `.so` was built from, and `producer` names the `cudaprof`
+that read it. They are separate artifacts resolved separately -- the `.so` is
+found next to the executable -- so either can be older than the other, and a
+record naming only one still cannot say what it describes. An identity the
+build did not supply is written as an absent field rather than as `"unknown"`,
+because a reader will treat any present value as an answer.
 
 **Version compatibility and layout gating**:
 The agent enforces major version compatibility between compile-time headers and the target's active runtime (e.g. CUDA 12 `Kernel9` vs CUDA 13 `Kernel10`). Within CUDA 13 (13.0 through 13.4+), activity record structures grow append-only; the agent dynamically verifies via `cuptiActivityGetStructSize` (on runtimes exporting it) that the active runtime's record sizes satisfy the compiled layout requirements (`sizeof(Kernel10) == 216` and `sizeof(Memcpy6) == 96`), allowing minor- and update-version skews to collect cleanly while safely rejecting genuine layout incompatibilities. Both `compile_cupti` and `runtime_cupti` versions are recorded in the capability record.

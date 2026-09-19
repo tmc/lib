@@ -374,7 +374,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			result.Activities[i].Process = uint64(result.TargetPID)
 		}
 	}
-	result.Capability = selectedState.capabilityData
+	result.Capability = stampProducer(selectedState.capabilityData, buildProducer())
 	if selectedState.failure != "" {
 		errStr := selectedState.failure
 		if selectedState.failureError != "" {

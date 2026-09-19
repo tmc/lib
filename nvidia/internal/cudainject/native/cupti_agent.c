@@ -28,6 +28,12 @@
 #include <time.h>
 #include <unistd.h>
 
+/* CUDAPROF_AGENT_REVISION is set by the build to the revision of the source
+   this agent was compiled from. Empty means the build did not say. */
+#ifndef CUDAPROF_AGENT_REVISION
+#define CUDAPROF_AGENT_REVISION ""
+#endif
+
 #define WIRE_HEADER 80
 #define MAX_PAYLOAD 4096
 #define BUFFER_BYTES (8u << 20)
@@ -1611,6 +1617,29 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	   skipped, and a capability record that reported only the compiled layout
 	   names would read identically whether they were verified or assumed. */
 	const char *layout_check = fn_get_struct_size != NULL ? "cuptiActivityGetStructSize" : "unavailable";
+	/* CUDAPROF_AGENT_REVISION names the source this agent was built from. The
+	   build recipe in README.md defines it; a build that does not leaves it
+	   empty, and an empty string is written as an absent field rather than as
+	   "unknown", because a reader will treat any value as an answer.
+
+	   The agent and the cudaprof that reads it are separate artifacts resolved
+	   separately -- the .so is found next to the executable -- so either can be
+	   older than the other, and a capability record identifying only one of
+	   them still cannot say what it describes. cudaprof stamps the other half
+	   under "producer". */
+	const char *agent_revision = CUDAPROF_AGENT_REVISION;
+	char agent_revision_buf[128];
+	const char *agent_revision_field = "";
+	if (agent_revision[0] != '\0') {
+		int rev_len = snprintf(agent_revision_buf, sizeof(agent_revision_buf), "\"agent_revision\":\"%s\",", agent_revision);
+		/* A truncated revision is the failure this field exists to prevent: it
+		   would name a different commit and still look like an answer. Drop the
+		   field instead, so the record says it does not know. */
+		if (rev_len > 0 && (size_t)rev_len < sizeof(agent_revision_buf)) {
+			agent_revision_field = agent_revision_buf;
+		}
+	}
+
 	/* A runtime whose memset record is shorter than the layout this agent
 	   reads would be read past its end. That is a reason not to collect the
 	   kind, not a reason to fail the capture, so unlike the kernel and memcpy
@@ -1795,7 +1824,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	}
 	if (range_gated != RANGE_GATED) atomic_store(&collecting, 1);
 	configure_host_sampler();
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
