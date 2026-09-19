@@ -5884,7 +5884,7 @@
           },
           {
             "path": "nvidia/nccl/defaults.gen.go",
-            "sha256": "5dd5664759f369819a96cbc1db53d213806ee529fd2cd1245036313603982ef7"
+            "sha256": "d4b2dffa8ad1e6b7ab8ae1feba322ddea6702370591a0782b7969a6d4820afa6"
           },
           {
             "path": "nvidia/nccl/devcomm.gen.go",
@@ -5963,7 +5963,8 @@
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
-        }
+        },
+        "note": "Restamped 2026-09-18 for one byte. contrib/cuda GenerateDefaults returned its buffer without format.Source, so defaults.gen.go shipped with a blank line at end of file -- the only generated file in nvidia that gofmt would change. The emitter now formats (libgen), and this record holds the digest of the formatted file. Nothing else moved: the same pinned header, the same recipe, and the other 19 outputs reproduce byte for byte. The pin did not move."
       },
       "header": {
         "path": "pinned/nccl/2.31.2-1/nccl.h",

@@ -43,4 +43,3 @@ func NewDevCommRequirements() DevCommRequirements {
 func NewSimInfo() SimInfo {
 	return SimInfo{Size: uint(unsafe.Sizeof(SimInfo{})), Magic: 0x74685283, Version: 23102, EstimatedTime: -1.0}
 }
-
