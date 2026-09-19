@@ -1,0 +1,21 @@
+Commit: ee60e647
+Date: 2026-09-19T03:16:42-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+not a tty
+pid: 6511
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Attribution: Claude Opus 5 (Claude Code)
+Author: subagent swiglu-clamp, reviewed and committed by the lead
+Corrections the subagent made to the lead's framing, all verified against ds4.c:
+  - '9 hardcoded literals' was a LINE count; 18 occurrences kernel-side plus 1 Go = 19
+  - C does NOT test equality: config_expect_f32 (ds4.c:6513) accepts |got-expected| <= max(|expected|,1)*1e-6
+  - the 0.0f preset is DS4_SHAPE_GLM52 (ds4.c:712,747), a shipped shape with clamping disabled
+  - C checks only the first DS4_N_LAYER entries; a longer array is accepted, tail ignored
+Control re-fired by the lead independently: cuda_probe.cu:1072 10.0f->9.0f, run from darwin, FAIL; restored, ok
+Verified: gofmt clean on the five touched files, go vet+build clean darwin and linux
+Gate status: passes VACUOUSLY on the pinned checkpoint (43 entries all 10.0); value is prospective
+No GPU time used
