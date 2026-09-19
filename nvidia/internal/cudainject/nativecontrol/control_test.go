@@ -381,6 +381,22 @@ func controlBinary(t *testing.T, defines ...string) string {
 	if !slices.Contains(defines, noStructSizeSymbol) {
 		args = append(args, "-DCUDAPROF_REQUIRE_STRUCT_SIZE_FN=1")
 	}
+	// Shrinking the capability buffer is the only way to reach the
+	// truncation branch, and the shrunk size is a compile-time constant, so
+	// gcc proves the truncation statically and -Werror=format-truncation
+	// refuses to build the very arm that exists to observe it at run time.
+	// The build cannot produce the binary, the test reports a build failure,
+	// and the branch stays uncovered on the one configuration written to
+	// cover it.
+	//
+	// Demoted rather than silenced, and only for this arm: -Wno-error= leaves
+	// the warning on stderr, so a truncation that appears in a build nobody
+	// asked to truncate still says so.
+	if slices.ContainsFunc(defines, func(d string) bool {
+		return strings.HasPrefix(d, capabilityBufferDefine)
+	}) {
+		args = append(args, "-Wno-error=format-truncation")
+	}
 	args = append(args, defines...)
 	args = append(args,
 		filepath.Join(src, "cupti_agent.c"),
@@ -937,6 +953,10 @@ func TestActivityOnlyConfiguration(t *testing.T) {
 // the producer's dlsym finds nothing and takes the branch a CUPTI older than
 // CUDA 13.2 takes.
 const noStructSizeSymbol = "-DCUDAPROF_TEST_NO_STRUCT_SIZE_SYMBOL=1"
+
+// capabilityBufferDefine prefixes the define that resizes the capability
+// buffer. See controlBinary for why a build carrying it relaxes one -Werror.
+const capabilityBufferDefine = "-DCUDAPROF_CAPABILITY_BUFFER="
 
 // TestCapabilityDistinguishesUnverifiedFromVerified is the other arm of the
 // layout_check control, and the reason the field is worth carrying.
@@ -2708,7 +2728,7 @@ func TestCapabilityTruncationNamesItself(t *testing.T) {
 		return only(t, decodeAll(t, dir, binRevision(bin)))
 	}
 
-	truncated := run(t, "-DCUDAPROF_CAPABILITY_BUFFER=64")
+	truncated := run(t, capabilityBufferDefine+"64")
 	if truncated.counts[kindCapability] != 0 {
 		t.Fatalf("capability record fit in 64 bytes: %d written, so this run does not exercise truncation", truncated.counts[kindCapability])
 	}
