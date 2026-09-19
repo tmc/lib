@@ -10,6 +10,7 @@ import (
 	"github.com/ebitengine/purego"
 	"os"
 	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 )
@@ -28,16 +29,64 @@ var (
 	// present records which symbols resolved during registerFuncs. It is
 	// written under loadMu before ready is set, and only read afterwards.
 	present = make(map[string]bool)
+
+	// unbound records symbols the library exports that could not be bound,
+	// keyed by symbol name. It follows the same locking discipline as present.
+	unbound = make(map[string]error)
 )
 
-// SymbolError reports that a symbol is absent from the loaded library, which
-// happens when the installed driver predates the entry point.
+// SymbolError reports that a symbol is not callable.
+//
+// Err distinguishes the two ways that happens. A nil Err means the loaded
+// library does not export the symbol, which is what an installed driver older
+// than the entry point looks like. A non-nil Err means the library does export
+// it and the binding itself failed; the library is not at fault.
 type SymbolError struct {
 	Symbol string
+	Err    error
 }
 
-// Error reports the unavailable library symbol.
-func (e *SymbolError) Error() string { return "nvdec: symbol " + e.Symbol + " unavailable" }
+// Error reports the uncallable library symbol and, when the symbol was present
+// but could not be bound, why.
+func (e *SymbolError) Error() string {
+	if e.Err != nil {
+		return "nvdec: symbol " + e.Symbol + " unavailable: " + e.Err.Error()
+	}
+	return "nvdec: symbol " + e.Symbol + " unavailable"
+}
+
+// Unwrap returns the reason the symbol could not be bound, or nil when the
+// loaded library does not export it.
+func (e *SymbolError) Unwrap() error { return e.Err }
+
+// BindFailure names a symbol the loaded library exports but that could not be
+// bound, and why.
+type BindFailure struct {
+	Symbol string
+	Err    error
+}
+
+// BindFailures returns the symbols the loaded library exports that could not
+// be bound, sorted by symbol name, or nil if every exported symbol bound.
+// Calling one of these reports *SymbolError with the same Err.
+//
+// A load that reports no error can still leave symbols unbound: the library is
+// fine and the signatures are not representable here. Call this after Load to
+// find that out at once rather than one call site at a time. It does not
+// trigger a load, and returns nil if none has happened.
+func BindFailures() []BindFailure {
+	loadMu.Lock()
+	defer loadMu.Unlock()
+	if len(unbound) == 0 {
+		return nil
+	}
+	out := make([]BindFailure, 0, len(unbound))
+	for sym, err := range unbound {
+		out = append(out, BindFailure{Symbol: sym, Err: err})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Symbol < out[j].Symbol })
+	return out
+}
 
 // LibraryConflictError reports a Load call naming a different library than the
 // one already loaded. Only one library is loaded per process.
@@ -133,6 +182,14 @@ func loadLocked(path string) error {
 		return libErr
 	}
 	registerFuncs()
+	if libErr = checkVersion(); libErr != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		clearFuncs()
+		return libErr
+	}
 	ready.Store(true)
 	return nil
 }
@@ -181,6 +238,11 @@ func libraryNames() []string {
 	return nil
 }
 
+// checkVersion reports whether the loaded library is one these bindings can
+// drive. nvdec exposes no way to ask a loaded library which API it implements,
+// so there is nothing to check.
+func checkVersion() error { return nil }
+
 // register binds a Go function pointer to a library symbol, recording whether
 // the symbol resolved. A symbol absent from the loaded driver is left unbound
 // so the package still works against older releases; calling it returns
@@ -193,8 +255,36 @@ func register(fn any, symbol string) {
 	if err != nil || sym == 0 {
 		return
 	}
-	purego.RegisterFunc(fn, sym)
+	if !bindSymbol(fn, sym) {
+		unbound[symbol] = errArgumentSlots
+		return
+	}
 	present[symbol] = true
+}
+
+// errArgumentSlots is the reason a symbol the library exports could still
+// not be bound: the signature needs more argument registers and stack slots
+// than this architecture's calling convention provides.
+var errArgumentSlots = errors.New("signature needs more argument slots than this architecture provides")
+
+// bindSymbol binds fn to the resolved symbol address sym and reports whether
+// the binding succeeded. purego.RegisterFunc panics when it cannot build a
+// trampoline for fn's signature; the usual cause is a signature needing more
+// argument registers and stack slots than the target architecture allows
+// (purego admits 32 arguments on 64-bit platforms, 15 on ppc64le). Recovering
+// leaves such a symbol unbound, so calling it reports *SymbolError, rather
+// than killing the process at load time.
+//
+// purego assigns to fn only after every check it can panic on, so a recovered
+// binding leaves fn nil.
+func bindSymbol(fn any, sym uintptr) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	purego.RegisterFunc(fn, sym)
+	return true
 }
 
 // checkLib loads the library if it has not been loaded yet.
@@ -215,7 +305,7 @@ func checkLibSym(symbol string) error {
 		return err
 	}
 	if !present[symbol] {
-		return &SymbolError{Symbol: symbol}
+		return &SymbolError{Symbol: symbol, Err: unbound[symbol]}
 	}
 	return nil
 }

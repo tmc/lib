@@ -7053,25 +7053,6 @@
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
       },
       "generation": {
-        "additional_pass": {
-          "argv": [
-            "go",
-            "run",
-            "./cmd/gen-nvcodec",
-            "-api",
-            "nvdec",
-            "-windows",
-            "-headers",
-            "cmd/gen-nvcodec/headers",
-            "-cc",
-            "x86_64-w64-mingw32-gcc",
-            "-runner",
-            "wine64",
-            "-out",
-            "${OUTPUT_DIR}"
-          ],
-          "note": "Emits the *_windows.gen.go files and layout_windows_test.go. Requires a MinGW cross-compiler and Wine; this pass was not run for this record, so those outputs are recorded by hash but not reproduced."
-        },
         "argv": [
           "go",
           "run",
@@ -7123,7 +7104,7 @@
           },
           {
             "path": "nvidia/nvdec/init_windows.gen.go",
-            "sha256": "24b7da27910ef54172cc711c3e322810310cd10e8d2b2e7f88d670e9febffef6"
+            "sha256": "473f1d515559b6d7f5a51cf1890f72370222d3bcb457e046c3feed7d2bf5ea22"
           },
           {
             "path": "nvidia/nvdec/layout.gen_test.go",
@@ -7163,6 +7144,63 @@
           }
         ],
         "source_state": "clean codegen checkout at the recorded commit; the default pass was re-run and its ten outputs compared byte for byte with the recorded lib commit. The Windows pass was not run, so its seven outputs are recorded by hash only.",
+        "supplemental_runs": [
+          {
+            "argv": [
+              "go",
+              "run",
+              "./cmd/gen-nvcodec",
+              "-api",
+              "nvdec",
+              "-windows",
+              "-headers",
+              "cmd/gen-nvcodec/headers",
+              "-cc",
+              "x86_64-w64-mingw32-gcc",
+              "-runner",
+              "wine64",
+              "-out",
+              "${OUTPUT_DIR}"
+            ],
+            "cwd": "${CODEGEN_REPO}",
+            "environment": {
+              "GOWORK": "off",
+              "TMPDIR": "${SCRATCH_DIR}"
+            },
+            "note": "Emits the Windows amd64 ABI files. Requires a MinGW cross-compiler and Wine, so it was not run when this record was written. It does run here, and all seven outputs reproduce; init_windows.gen.go was regenerated to get there, because the loader emitter had changed since the pass last ran and the Windows loader had been left behind its Linux sibling. loader_windows.gen.go is deliberately not listed here: the loader is emitted for both platforms by the main pass. The outputs stay in generation.outputs as well, which is the package's file inventory rather than an attribution.",
+            "outputs": [
+              {
+                "path": "nvidia/nvdec/consts_windows.gen.go",
+                "sha256": "ac2a16ae6d3b31fecbb51b9df30d87feeff1c5bf4b2229b7a1b8dfd26a7bfece"
+              },
+              {
+                "path": "nvidia/nvdec/enums_windows.gen.go",
+                "sha256": "22026a27a05be7c4f6557b11de82f42bbbf748051fedce62d4b08c89831febd4"
+              },
+              {
+                "path": "nvidia/nvdec/funcs_windows.gen.go",
+                "sha256": "d9c65eadffb8f51063514e6a21db974ddebcd79c5f2f825c720b29241b222565"
+              },
+              {
+                "path": "nvidia/nvdec/init_windows.gen.go",
+                "sha256": "473f1d515559b6d7f5a51cf1890f72370222d3bcb457e046c3feed7d2bf5ea22"
+              },
+              {
+                "path": "nvidia/nvdec/layout_windows.gen_test.go",
+                "sha256": "8a82d89b83ba613c7e466191f2e3ba6f133adc871e6a0c73425ef6e1c83a57d5"
+              },
+              {
+                "path": "nvidia/nvdec/structs_windows.gen.go",
+                "sha256": "abc73277f05f4aa36e8e1df7f2498bbcb72c11d7f5fb776c1043867d2d21285d"
+              },
+              {
+                "path": "nvidia/nvdec/types_windows.gen.go",
+                "sha256": "3de52e82ff721a1c782e304673bdb3d106e09951e39ef718a4c8333efb51b116"
+              }
+            ],
+            "purpose": "Generate the Windows amd64 bindings and their layout tests without regenerating the Linux ones."
+          }
+        ],
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
