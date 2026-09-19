@@ -140,9 +140,20 @@ func TestCompileTMAInstructionFixture(t *testing.T) {
 // This is the defect a compile gate cannot see. A CUtensorMap parameter that
 // is not __grid_constant__ compiles cleanly, but the compiler copies all 128
 // bytes onto the stack and the instruction receives a generic address of that
-// copy rather than the descriptor. The tell is in the PTX: cvta.param for the
-// correct form, against a run of ld.param.v2.b64 loads and a cvta.local for
-// the copy.
+// copy rather than the descriptor.
+//
+// The decisive signal is the address-space conversion: cvta.param for the
+// correct form against cvta.local for the copy. Those two are what a peer's
+// independent three-kernel comparison on the same toolkit isolated, and they
+// hold regardless of what the kernel does with the descriptor.
+//
+// The vector-load assertion is the weak one of the three and is specific to
+// this fixture. How many ld.param.v2.b64 loads appear depends on how much of
+// the descriptor the kernel reads: a kernel that only takes its address
+// copies nothing and emits none, so their absence is not evidence of the
+// correct form. They are asserted here because this fixture hands the whole
+// descriptor to cp.async.bulk.tensor, which makes the copy real and its
+// absence meaningful -- a property of the fixture, not of the defect.
 func TestTMAFixturePassesTheMapInParamSpace(t *testing.T) {
 	nvcc := nvccOrSkip(t)
 	target := tmaTarget()
