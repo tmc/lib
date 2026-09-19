@@ -50,13 +50,17 @@ func (c coverage) Determined() bool { return c.Reason == "" }
 // block, so it collects samples in proportion to how much of the device it
 // wastes, inverted. That bias runs in the worst direction available: smallest
 // for the kernels that fill the device, largest for the ones that starve it,
-// which are exactly the ones a profile is usually opened to find. On GB10 the
-// decode step holds 5.26ms/token in kernels launched with a grid narrower than
-// the device's 48 SMs, 7.5% of summed device span across 914 launches a token;
-// a sample ranking of that same workload put every one of them in the tail, the
-// largest -- ds4_indexer_select, 552us/token -- on grid 1. The failure is
-// unfalsifiable from inside the profile: no sample count would reveal it,
-// because the undersampling is the finding.
+// which are exactly the ones a profile is usually opened to find. Measured on
+// GB10 (48 SMs, 32 decode steps under gpu-lock with no other compute app on the
+// device, CUPTI ActivityKindConcurrentKernel) at 76d0df0b: the decode step holds
+// 5.26ms/token in kernels launched with a grid narrower than 48, 7.5% of summed
+// device span across 914 launches a token, and a sample ranking of that same
+// workload put every one of them in the tail. The vivid case was historical --
+// ds4_indexer_select at 552us/token on grid 1, one SM of 48 for the whole of it,
+// as it stood at 9fb244e4 and before it was rewritten -- but the aggregate is
+// the load-bearing number and does not depend on any one kernel surviving. The
+// failure is unfalsifiable from inside the profile: no sample count would reveal
+// it, because the undersampling is the finding.
 //
 // None of this is an argument against PC sampling, which answers a different
 // question well: which source lines a kernel's warps sit on, and on what stall
