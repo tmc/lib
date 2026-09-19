@@ -780,9 +780,9 @@ func TestAdvice_SMGridStarvation(t *testing.T) {
 			wantWarning:  true,
 			wantKernel:   "decode_attention",
 			wantCategory: CategoryArchitecture,
-			wantSeverity: SeverityWarning,
-			wantFinding:  "Grid size leaves physical SMs completely idle",
-			wantRec:      "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol)",
+			wantSeverity: SeverityInfo,
+			wantFinding:  "launched with fewer grid blocks than the GPU has SMs",
+			wantRec:      "Compare achieved occupancy against these grids before changing any of them",
 		},
 		{
 			name: "grid_starvation_json_activities",
@@ -797,9 +797,9 @@ func TestAdvice_SMGridStarvation(t *testing.T) {
 			wantWarning:  true,
 			wantKernel:   "starved_kernel",
 			wantCategory: CategoryArchitecture,
-			wantSeverity: SeverityWarning,
-			wantFinding:  "Grid size leaves physical SMs completely idle",
-			wantRec:      "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol)",
+			wantSeverity: SeverityInfo,
+			wantFinding:  "launched with fewer grid blocks than the GPU has SMs",
+			wantRec:      "Compare achieved occupancy against these grids before changing any of them",
 		},
 		{
 			name: "sufficient_grid_256_blocks",
@@ -1550,8 +1550,8 @@ deepseek_decode:
 		{
 			name:     "heuristic_2_grid_starvation",
 			category: CategoryArchitecture,
-			finding:  "Grid size leaves physical SMs completely idle",
-			rec:      "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol)",
+			finding:  "launched with fewer grid blocks than the GPU has SMs",
+			rec:      "Compare achieved occupancy against these grids before changing any of them",
 		},
 		{
 			name:     "heuristic_3_memory_dominated_load",
@@ -2413,8 +2413,8 @@ func TestAdvice_DeviceProvenanceDisclosure(t *testing.T) {
 	if smSrc == sourceLiveDevice {
 		provSuffixSM = " (SM count inferred from local host device, not recorded in capture)"
 	}
-	f2 := fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves 66%% of SMs idle%s",
-		launches[0].Kernel, launches[0].GridBlocks, smCount, provSuffixSM)
+	f2 := fmt.Sprintf("%d kernel(s) launched with fewer grid blocks than the GPU has SMs (%d SMs)%s: %s (%d blocks, 66%% idle)",
+		1, smCount, provSuffixSM, launches[0].Kernel, launches[0].GridBlocks)
 	if !strings.Contains(f2, "(SM count inferred from local host device, not recorded in capture)") {
 		t.Errorf("f2 missing live device disclosure: %s", f2)
 	}
@@ -3660,5 +3660,55 @@ func TestCriticalRequiresAShareOfTheProfile(t *testing.T) {
 	finalizeAndRankFindingsWithTiming(at, nil, total, true)
 	if at.Items[0].Severity != SeverityCritical {
 		t.Errorf("a finding exactly at the floor was demoted to %s", at.Items[0].Severity)
+	}
+}
+
+// TestGridStarvationIsOneFindingWithoutAPrescription pins both halves of the
+// collapse: many starved kernels produce one finding, and that finding stops
+// at the observation.
+//
+// Per-kernel it was 23 of 66 findings on a ds4 capture, all the same sentence,
+// each recommending 2D tiling -- a remedy for a tuning decision that was never
+// made. The grids were literals mirroring a .cu define and they were correct.
+// A capture cannot tell a tuned grid from a fixed one, so the tool must not
+// name a cause it cannot see.
+func TestGridStarvationIsOneFindingWithoutAPrescription(t *testing.T) {
+	var acts []string
+	for i := 0; i < 12; i++ {
+		acts = append(acts, fmt.Sprintf(`{"name":"k%02d","subtype":"kernel","grid_blocks":%d,"block_threads":256}`, i, 8+i))
+	}
+	cap := &cudacapture.Capture{
+		Metadata: []byte(`{"device": "NVIDIA B200"}`), // 132 SMs
+		Files:    map[string][]byte{"activities.json": []byte("[" + strings.Join(acts, ",") + "]")},
+	}
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture: %v", err)
+	}
+	var found []AdviceItem
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, "fewer grid blocks than the GPU has SMs") {
+			found = append(found, it)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("12 starved kernels produced %d findings, want 1", len(found))
+	}
+	got := found[0]
+	// Worst first, and the tail named as a count rather than dropped.
+	if !strings.Contains(got.Finding, "12 kernel(s)") {
+		t.Errorf("finding does not state how many kernels it covers: %s", got.Finding)
+	}
+	if !strings.Contains(got.Finding, "k00 (8 blocks") {
+		t.Errorf("finding does not lead with the worst offender: %s", got.Finding)
+	}
+	if !strings.Contains(got.Finding, "and 4 more") {
+		t.Errorf("finding does not account for the kernels it did not name: %s", got.Finding)
+	}
+	// The prescription is the part that was wrong on the merits.
+	for _, gone := range []string{"2D tiling", "split-K", "griddepcontrol", "Decompose"} {
+		if strings.Contains(got.ActionableRecommendation, gone) {
+			t.Errorf("recommendation still prescribes %q for a grid whose origin the capture cannot see: %s", gone, got.ActionableRecommendation)
+		}
 	}
 }

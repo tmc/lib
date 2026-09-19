@@ -1336,7 +1336,27 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 	}
 
 	// 2. SM Grid Starvation (< SMCount)
+	//
+	// One finding for all of them, and it recommends nothing.
+	//
+	// This was one finding per kernel, each recommending 2D tiling or split-K.
+	// On a ds4 capture that was 23 of 66 findings, all saying the same thing,
+	// and the recommendation named a cause that did not exist: no grid in that
+	// attention path consults any device property, so there was no tuning
+	// decision to revisit. The grids were literals mirroring a .cu define, and
+	// they were correct -- the work really is that shape.
+	//
+	// A capture cannot tell a grid that was tuned from one that was fixed: it
+	// sees a grid and an SM count. Absence of a device-property query is not
+	// evidence either, only absence of visibility. So the observation stays,
+	// because it is true and sometimes the reason, and the prescription goes.
 	if hasSMCount {
+		type starved struct {
+			kernel  string
+			blocks  int
+			idlePct int
+		}
+		var list []starved
 		seenGridStarvation := make(map[string]bool)
 		for _, launch := range launches {
 			if launch.GridBlocks > 0 && launch.GridBlocks < smCount {
@@ -1344,21 +1364,47 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 					continue
 				}
 				seenGridStarvation[launch.Kernel] = true
-				idlePct := (smCount - launch.GridBlocks) * 100 / smCount
-				provSuffix := ""
-				if smSrc == sourceLiveDevice {
-					provSuffix = " (SM count inferred from local host device, not recorded in capture)"
-				}
-				report.Items = append(report.Items, AdviceItem{
-					Severity:                 SeverityWarning,
-					Category:                 CategoryArchitecture,
-					EvidenceLevel:            EvidenceSuspected,
-					Location:                 launch.Location,
-					Finding:                  fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves %d%% of SMs idle%s", launch.Kernel, launch.GridBlocks, smCount, idlePct, provSuffix),
-					ActionableRecommendation: "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol).",
-					NextMeasurement:          "A/B wall-clock timing with increased grid blocks",
-				})
+				list = append(list, starved{launch.Kernel, launch.GridBlocks, (smCount - launch.GridBlocks) * 100 / smCount})
 			}
+		}
+		if len(list) > 0 {
+			sort.Slice(list, func(i, j int) bool {
+				if list[i].idlePct != list[j].idlePct {
+					return list[i].idlePct > list[j].idlePct
+				}
+				return list[i].kernel < list[j].kernel
+			})
+			// Named in the finding, not a table: the finding renders as a
+			// markdown heading, so it has to stay one line. The cap keeps a
+			// capture with hundreds of kernels from filling the report with
+			// the same sentence it just collapsed.
+			const named = 8
+			var parts []string
+			for i, st := range list {
+				if i == named {
+					parts = append(parts, fmt.Sprintf("and %d more", len(list)-named))
+					break
+				}
+				parts = append(parts, fmt.Sprintf("%s (%d blocks, %d%% idle)", st.kernel, st.blocks, st.idlePct))
+			}
+			provSuffix := ""
+			if smSrc == sourceLiveDevice {
+				provSuffix = " (SM count inferred from local host device, not recorded in capture)"
+			}
+			loc := Location{}
+			if len(list) == 1 {
+				loc = Location{Kernel: list[0].kernel}
+			}
+			report.Items = append(report.Items, AdviceItem{
+				Severity:      SeverityInfo,
+				Category:      CategoryArchitecture,
+				EvidenceLevel: EvidenceObserved,
+				Location:      loc,
+				Finding: fmt.Sprintf("%d kernel(s) launched with fewer grid blocks than the GPU has SMs (%d SMs)%s: %s. Whether that is a shortfall depends on how much work there is; this capture does not record how the grids were chosen.",
+					len(list), smCount, provSuffix, strings.Join(parts, ", ")),
+				ActionableRecommendation: "Compare achieved occupancy against these grids before changing any of them. A grid smaller than the SM count is a fact about the launch, not a defect: it is a problem only where there is more work available than the grid exposes.",
+				NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active per kernel, against the grid sizes above",
+			})
 		}
 	}
 }
