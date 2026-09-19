@@ -277,8 +277,8 @@ func generateCudaToolTables(outFile, pkg string, allData []toolVersionData, tool
 		log.Fatalf("genoptions: format output: %v\ncode:\n%s", err, buf.String())
 	}
 
-	if err := os.WriteFile(outFile, formatted, 0o644); err != nil {
-		log.Fatalf("genoptions: write %s: %v", outFile, err)
+	if err := writeGenerated(outFile, formatted); err != nil {
+		log.Fatalf("genoptions: %v", err)
 	}
 }
 
@@ -502,8 +502,8 @@ func generateNvrtcFlags(outFile, pkg string, allData []toolVersionData) {
 		log.Fatalf("genoptions: format output: %v\ncode:\n%s", err, buf.String())
 	}
 
-	if err := os.WriteFile(outFile, formatted, 0o644); err != nil {
-		log.Fatalf("genoptions: write %s: %v", outFile, err)
+	if err := writeGenerated(outFile, formatted); err != nil {
+		log.Fatalf("genoptions: %v", err)
 	}
 }
 

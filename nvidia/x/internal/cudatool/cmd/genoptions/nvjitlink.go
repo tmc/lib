@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"go/format"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/internal/cudatool"
@@ -77,7 +76,7 @@ func ValidateOption(flag string) error {
 	if err != nil {
 		log.Fatalf("genoptions: format nvjitlink flags: %v", err)
 	}
-	if err := os.WriteFile(outFile, formatted, 0o644); err != nil {
-		log.Fatalf("genoptions: write %s: %v", outFile, err)
+	if err := writeGenerated(outFile, formatted); err != nil {
+		log.Fatalf("genoptions: %v", err)
 	}
 }
