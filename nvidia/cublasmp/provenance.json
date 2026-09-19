@@ -3,23 +3,24 @@
   "generator": "github.com/tmc/libgen/cmd/gen-cublasmp",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$HOME/go/src/github.com/tmc/libgen",
+  "cwd": ".",
   "argv": [
-    "$TMPDIR/go-build4149379447/b001/exe/gen-cublasmp",
+    "gen-cublasmp",
     "-cuda-headers",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
+    "cuda-headers",
     "-output",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/cublasmp"
+    "cublasmp"
   ],
   "inputs": [
     {
-      "path": "$HOME/go/src/github.com/tmc/libgen/cmd/gen-cublasmp/headers/cublasmp.h",
+      "path": "cublasmp.h",
       "sha256": "024414f9be9a4c2b98c18ea7160a071939882b850209674505f8f51a8a594a7e"
     }
   ],
-  "source_hash": "6e53d0cb437650cc935efd906158abd2ef9495991d2d93d4394ee50be3a69064",
+  "source_hash": "a2d48f88add648a63dc9a37b0e973d2648dcdc2dae3c52ace3e99c087ff7611f",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
-    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
   ]
 }

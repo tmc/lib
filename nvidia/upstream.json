@@ -331,7 +331,7 @@
           },
           {
             "path": "nvidia/cublasmp/provenance.gen.go",
-            "sha256": "3f58faefc51ee2b008952833fc24665a7127ce6ec9a36007acfef51032043086"
+            "sha256": "5fa47ebd18238f50ffb098b6677eff248f39466abf91ccde16a43cd39daed608"
           },
           {
             "path": "nvidia/cublasmp/result.gen.go",
@@ -1839,7 +1839,7 @@
           },
           {
             "path": "nvidia/cufile/provenance.gen.go",
-            "sha256": "a8edc8a7a9294f54213e2f18d64b304b7769a2dc1df2af68ae98bc5ae18f5b93"
+            "sha256": "9d12b3e6ec75319b1ec435235bce2255836519732ad10f5b012e6ee13338c56b"
           },
           {
             "path": "nvidia/cufile/result.gen.go",
@@ -3298,7 +3298,7 @@
           },
           {
             "path": "nvidia/cusolvermp/provenance.gen.go",
-            "sha256": "06e4b1b15b760e75d7f8c2059cb3ddb3f3d6cdb3c90a2133b466a861cc8b5b6a"
+            "sha256": "0aabbd4f4ee4e573c03c87b4837a40f62389635483ed6a6c3725b1f15088bc16"
           },
           {
             "path": "nvidia/cusolvermp/result.gen.go",
@@ -3737,7 +3737,7 @@
           },
           {
             "path": "nvidia/cusparse/provenance.gen.go",
-            "sha256": "8bb639d8483a23041a761f4f18f4c0b2b0e191892101cb97e6c3710b938687c5"
+            "sha256": "96826b43166748b22cd10ea4913f5d40e2fac82f3e60d3b9e7363fbd73fd2448"
           },
           {
             "path": "nvidia/cusparse/result.gen.go",
@@ -4287,7 +4287,7 @@
           },
           {
             "path": "nvidia/custatevec/provenance.gen.go",
-            "sha256": "3584cf84029f358e8786bd5c9ec73a1f8e66f33152c365f60abbca0c81d4d5f7"
+            "sha256": "8a7ee2d4d4869f7a8f920f5abf7c592878bc57b1bbd4ff82ca452e1b40e989fa"
           },
           {
             "path": "nvidia/custatevec/result.gen.go",
@@ -4729,7 +4729,7 @@
           },
           {
             "path": "nvidia/dcgm/provenance.gen.go",
-            "sha256": "cc6fb7abb7bb83c9baf14a6b7e3a1a1d50a41d2d0a987cb4cb57c65b317ec84b"
+            "sha256": "80903d29eb2eb755452166cde69e813b1e7e448f64889d1f24b69770f92d708d"
           },
           {
             "documentation_refresh": "documentation-generation.json",
@@ -5243,7 +5243,7 @@
           },
           {
             "path": "nvidia/gdrcopy/provenance.gen.go",
-            "sha256": "7f84cd563fd4c2cb37358b3d699f5c9954e19d7d2d482d00a36d50b39ca54091"
+            "sha256": "8799fbb8ddf31ffed1523c11ab15bd442ae48ad07db32de573c5cdb22845800b"
           },
           {
             "path": "nvidia/gdrcopy/symbols.gen_test.go",
@@ -6944,7 +6944,7 @@
           },
           {
             "path": "nvidia/nvcomp/provenance.gen.go",
-            "sha256": "5dad51baae01f9619b37347d6ac81953bdef1b7bec5789c15ba8384d7f085f1c"
+            "sha256": "b84017a3ea81e2224823ba9f490498eccdf19d183cfe27dc71492b92e1d49d7b"
           },
           {
             "path": "nvidia/nvcomp/result.gen.go",
@@ -7124,7 +7124,7 @@
           },
           {
             "path": "nvidia/nvdec/provenance.gen.go",
-            "sha256": "1eb64cf69dcbcebc25230693ea9d937a4b58249d5782ecd88cbae43c3fb88430"
+            "sha256": "09b1c2455d3cfcc57d44efa8bcd91355961a590dd02efdf5f235ccbc3774e457"
           },
           {
             "path": "nvidia/nvdec/structs.gen.go",
@@ -7328,7 +7328,7 @@
           },
           {
             "path": "nvidia/nvenc/provenance.gen.go",
-            "sha256": "ffeac8807584cc412ced2d6dfee4a5fcdd2287286b02cb0d38423c5d5c8ef051"
+            "sha256": "9fb1a956f4851f094b780f561485dbd15a3188b34d31c14f5257dc9855966283"
           },
           {
             "path": "nvidia/nvenc/structs.gen.go",
@@ -7809,7 +7809,7 @@
           },
           {
             "path": "nvidia/nvjpeg2k/provenance.gen.go",
-            "sha256": "3732c9d700052e17d21700afaffb1fbcff43a32619f94c11c13f721f536af3d8"
+            "sha256": "97bec9f56d6e8ce4cb4fcecabe1e1f9ff2cafb115d3009b7526b4b8ea649cb77"
           },
           {
             "path": "nvidia/nvjpeg2k/result.gen.go",
@@ -8421,7 +8421,7 @@
           },
           {
             "path": "nvidia/nvshmem/provenance.gen.go",
-            "sha256": "dd889b134fccbcbf65b59cfcf4bb4c89bdf6ef407310667277b6e17b6e1d3d42"
+            "sha256": "478109fc522f494a69224824802ed1510a1e6b8b6a177526d497f2099a57cfd2"
           },
           {
             "path": "nvidia/nvshmem/status.gen.go",
@@ -9020,6 +9020,6 @@
   },
   "recorded_at": "2026-09-07",
   "schema_version": 1,
-  "scope": "Inventoried 34 generated package directories; 34 have recorded generation argv and 0 have no recorded argv. Existing package receipts and their limitations are preserved.",
+  "scope": "Inventoried 35 generated package directories; 35 have recorded generation argv and 0 have no recorded argv. Existing package receipts and their limitations are preserved.",
   "status": "partial-provenance"
 }

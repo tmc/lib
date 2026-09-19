@@ -3,25 +3,26 @@
   "generator": "github.com/tmc/libgen/cmd/gen-nvcodec",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$HOME/go/src/github.com/tmc/libgen",
+  "cwd": ".",
   "argv": [
-    "$GOCACHE/99/99b69e015445567b3fc975017df17e3334ac7f2cfc484d5b118d955133f2e379-d/gen-nvcodec",
+    "gen-nvcodec",
     "-api",
     "nvenc",
     "-headers",
     "cmd/gen-nvcodec/headers/nvenc-13.0",
     "-out",
-    "$HOME/go/src/github.com/tmc/lib/nvidia/nvenc"
+    "nvenc"
   ],
   "inputs": [
     {
-      "path": "$HOME/go/src/github.com/tmc/libgen/cmd/gen-nvcodec/headers/nvenc-13.0/nvEncodeAPI.h",
+      "path": "nvEncodeAPI.h",
       "sha256": "4fe4094541ef0f8a13249d97a8692dc5f835a6e9dd42eeadb3e2f7321d54dc7e"
     }
   ],
-  "source_hash": "e53fd1ea6449f5ac7e9b25c1d4b6636cb01ecdb1a472e0bcc2780d2878f32b66",
+  "source_hash": "456872ca1bfead409b755c51449227589915e7ff428f1c59eaa391cc8a963ca1",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
-    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+    "argv records portable argument names; host-specific paths are intentionally redacted.",
+    "cwd is recorded as . to avoid embedding the generator host path."
   ]
 }
