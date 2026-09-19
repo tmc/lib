@@ -1,0 +1,6 @@
+Commit: 99dbc299af3325618e46bf8150526887d37b72c8
+Date: 2026-09-19T04:33:20-07:00
+model: claude-opus-5
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+note: index generated from git log 778db619~1..HEAD -- examples/ds4-min; roles assigned by hand, counts computed
