@@ -1,0 +1,17 @@
+Commit: 935f51b7
+Date: 2026-09-19T03:08:50-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+not a tty
+pid: 57260
+ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Attribution: Claude Opus 5 (Claude Code)
+Source: peer session F76EF7EB -- 'what establishes fourteen?'
+Follows: 0eb9a5d7 (the thirteen sites), 87c184ee (the first three)
+Control: defect planted in metal_attention_darwin_test.go, GOOS=linux run FAILED; restored, passes
+Verified: go vet ./... clean darwin and linux; test scans 199 .go files
+Errata: 21.186
+No GPU time used
