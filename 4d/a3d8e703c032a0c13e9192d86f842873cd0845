@@ -1,6 +1,10 @@
-Commit: 3c67d66740f8c1f3dbd028aa314c3744bfe6df88
-Date: 2026-09-19T04:26:56-07:00
+Commit: 4da3d8e703c032a0c13e9192d86f842873cd0845
+Date: 2026-09-19T04:27:54-07:00
 model: claude-opus-5
 session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
 session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
-note: derived from the retained journal decoded at 654d6ac0; no GPU run
+note: derived from the retained journal decoded at 654d6ac0; no GPU run.
+  Amended from 3c67d66740f8c1f3dbd028aa314c3744bfe6df88 to name the
+  census-table split the first message omitted. git copied the old note
+  forward via notes.rewrite.amend, so its Commit: line named the pre-amend
+  sha -- overwritten here, and it was my own note on my own HEAD commit.
