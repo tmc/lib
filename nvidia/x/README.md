@@ -53,6 +53,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaplan](cudaplan/) | Package cudaplan provides executable plans, resource ownership, and completion tracking for CUDA execution graphs and compiled kernels. |
 | [cudaprepack](cudaprepack/) | Package cudaprepack provides ahead-of-time (AOT) hardware layout transformations for NVIDIA Blackwell TMA (cp.async.bulk.tensor.2d) tensor boxes and microscaled sub-byte formats. |
 | [cudaprof](cudaprof/) | Package cudaprof writes caller-supplied CUDA execution observations as Go profiles, Perfetto traces, and bounded in-memory recordings. |
+| [cudaprofagent](cudaprofagent/) | Package cudaprofagent lets a Go program finalize an attached cudaprof CUPTI agent before it exits. |
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
 | [cudarecipe](cudarecipe/) | Package cudarecipe inspects supplied CUDA artifacts and emits bounded, schema-versioned reports. |
