@@ -31,10 +31,10 @@ func main() {
 			if !op.HasOpcode {
 				continue
 			}
-			fmt.Printf("%-28s 0x%02X results=%d variadicResults=%v operands=%d count=%v segments=%v attrs=%d regions=%d\n",
+			fmt.Printf("%-28s 0x%02X results=%d variadicResults=%v operands=%d count=%v segments=%v attrs=%d flags=%d regions=%d\n",
 				op.Mnemonic, op.Opcode, len(op.Results), op.VariadicResults(),
 				len(op.Operands()), op.EncodeOperandCount(), op.AttrSizedOperandSegments(),
-				len(op.Attributes()), op.Regions)
+				len(op.Attributes()), len(op.FlagBits()), op.Regions)
 		}
 		return
 	}
@@ -66,18 +66,24 @@ func generate(ops []Op) ([]byte, error) {
 package tileir
 
 // opSpecs describes the bytecode encoding shape of every Tile IR operation
-// that has an opcode, derived from NVIDIA's TableGen sources. An operation is
-// written as opcode, result types, attributes, operands, regions; this table
-// says how many of each and whether a count precedes them.
+// that has an opcode, derived from NVIDIA's TableGen sources. After the
+// opcode, an operation is written as result types, a flags varint,
+// attributes, operands and regions; this table says how many of each, which
+// carry counts, and which bit of the flags field each optional field owns.
 //
 // Keys are dialect-qualified mnemonics, as they appear in textual Tile IR.
 var opSpecs = map[string]opSpec{
 `)
 	for _, op := range withOpcode {
-		fmt.Fprintf(&buf, "\t%q: {Opcode: 0x%02X, NumResults: %d, VariadicResults: %v, Operands: %s, EncodeOperandCount: %v, AttrSegments: %v, NumAttributes: %d, NumRegions: %d},\n",
-			"cuda_tile."+op.Mnemonic, op.Opcode, len(op.Results), op.VariadicResults(),
-			operandKinds(op), op.EncodeOperandCount(), op.AttrSizedOperandSegments(),
-			len(op.Attributes()), op.Regions)
+		fmt.Fprintf(&buf, "\t%q: {\n", "cuda_tile."+op.Mnemonic)
+		fmt.Fprintf(&buf, "\t\tOpcode: 0x%02X,\n", op.Opcode)
+		fmt.Fprintf(&buf, "\t\tNumResults: %d, VariadicResults: %v,\n", len(op.Results), op.VariadicResults())
+		fmt.Fprintf(&buf, "\t\tOperands: %s, EncodeOperandCount: %v, AttrSegments: %v,\n",
+			operandKinds(op), op.EncodeOperandCount(), op.AttrSizedOperandSegments())
+		fmt.Fprintf(&buf, "\t\tAttributes: %s,\n", attrSpecs(op))
+		fmt.Fprintf(&buf, "\t\tFlags: %s,\n", flagBits(op))
+		fmt.Fprintf(&buf, "\t\tNumRegions: %d,\n", op.Regions)
+		fmt.Fprintf(&buf, "\t},\n")
 	}
 	fmt.Fprintf(&buf, "}\n")
 
@@ -118,4 +124,32 @@ func operandKinds(op Op) string {
 		}
 	}
 	return "[]operandKind{" + strings.Join(parts, ", ") + "}"
+}
+
+// attrSpecs renders an attribute slice literal. Order is the ODS declaration
+// order, which is the order the writer emits payloads in.
+func attrSpecs(op Op) string {
+	attrs := op.Attributes()
+	if len(attrs) == 0 {
+		return "nil"
+	}
+	parts := make([]string, len(attrs))
+	for i, a := range attrs {
+		parts[i] = fmt.Sprintf("{Name: %q, Optional: %v, Unit: %v}",
+			a.Name, a.Optional(), a.Kind == ArgUnitAttribute)
+	}
+	return "[]attrSpec{" + strings.Join(parts, ", ") + "}"
+}
+
+// flagBits renders the flags bit assignment, low bit first.
+func flagBits(op Op) string {
+	bits := op.FlagBits()
+	if len(bits) == 0 {
+		return "nil"
+	}
+	parts := make([]string, len(bits))
+	for i, b := range bits {
+		parts[i] = fmt.Sprintf("{Name: %q, Operand: %v, Index: %d}", b.Name, b.Operand, b.Index)
+	}
+	return "[]flagBit{" + strings.Join(parts, ", ") + "}"
 }

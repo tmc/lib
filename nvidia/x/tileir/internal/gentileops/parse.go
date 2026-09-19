@@ -3,11 +3,19 @@
 //
 // The bytecode encoding of an operation is not ad hoc: cuda-tile's
 // BytecodeGen.cpp derives a writer for every operation from its ODS
-// definition, emitting opcode, result types, attributes, operands and regions
-// in that order (tools/cuda-tile-tblgen/BytecodeGen.cpp:653-665). What varies
-// per operation is only shape: how many results, whether they are variadic,
-// which arguments are attributes rather than operands, and whether an operand
-// count precedes the operands.
+// definition, emitting result types, a flags field, attributes, operands and
+// regions in that order (tools/cuda-tile-tblgen/BytecodeGen.cpp:660-666,
+// after the caller has written the opcode). What varies per operation is only
+// shape: how many results, whether they are variadic, which arguments are
+// attributes rather than operands, which of those are optional and so carry a
+// flags bit instead of or alongside a payload, and where counts appear.
+//
+// The flags field is the part a reading of the emission order misses. It is a
+// single varint bitmask covering every optional attribute and, under
+// AttrSizedOperandSegments, every optional operand; a UnitAttr has no payload
+// at all and exists only as its bit. An encoder that writes attributes and
+// operands without it produces a stream that is wrong from the first
+// operation that has one.
 //
 // This program recovers that shape from the TableGen sources and writes it as
 // a Go table, so the encoder is derived from NVIDIA's definitions rather than
@@ -19,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -35,8 +44,13 @@ const (
 	ArgOptionalOperand
 	// ArgAttribute is an attribute, serialized before operands.
 	ArgAttribute
-	// ArgOptionalAttribute is an attribute that may be absent.
+	// ArgOptionalAttribute is an attribute that may be absent. It carries a
+	// flags bit, and its payload follows only when the bit is set.
 	ArgOptionalAttribute
+	// ArgUnitAttribute is a UnitAttr. It is optional, and its flags bit is
+	// its entire encoding: the writer emits no payload for it
+	// (BytecodeGen.cpp:445-447).
+	ArgUnitAttribute
 )
 
 func (k ArgKind) String() string {
@@ -51,6 +65,8 @@ func (k ArgKind) String() string {
 		return "ArgAttribute"
 	case ArgOptionalAttribute:
 		return "ArgOptionalAttribute"
+	case ArgUnitAttribute:
+		return "ArgUnitAttribute"
 	}
 	return "ArgKind(?)"
 }
@@ -60,6 +76,18 @@ type Arg struct {
 	Name string
 	Type string
 	Kind ArgKind
+	// Version is the CudaTileArg sinceVersion, e.g. "13.4". It orders the
+	// flags bits; see [Op.FlagBits].
+	Version string
+}
+
+// Optional reports whether the argument carries a flags bit.
+func (a Arg) Optional() bool {
+	switch a.Kind {
+	case ArgOptionalAttribute, ArgUnitAttribute, ArgOptionalOperand:
+		return true
+	}
+	return false
 }
 
 // Op is the encoding shape of one Tile IR operation.
@@ -92,7 +120,7 @@ func (o Op) Attributes() []Arg {
 	var res []Arg
 	for _, a := range o.Args {
 		switch a.Kind {
-		case ArgAttribute, ArgOptionalAttribute:
+		case ArgAttribute, ArgOptionalAttribute, ArgUnitAttribute:
 			res = append(res, a)
 		}
 	}
@@ -110,16 +138,109 @@ func (o Op) AttrSizedOperandSegments() bool {
 	return false
 }
 
-// EncodeOperandCount reports whether a count varint precedes the operands.
-// BytecodeGen writes one only when some operand is variadic or optional
-// (BytecodeGen.cpp:521-531).
+// EncodeOperandCount reports whether one count varint precedes the whole
+// operand list.
+//
+// It is false under AttrSizedOperandSegments, and not because such an
+// operation has no counts: it has one per group and no list-wide count at all.
+// The writer takes the two branches in generateOperandSerialization
+// (BytecodeGen.cpp:510-535) -- a flat writeOperands over op->getOperands()
+// with encodeSize set when any operand is variadic or optional, or one
+// writeOperands per group where only a variadic group carries a size and an
+// optional group is written only when its flags bit is set. Reporting a
+// list-wide count for the segmented form puts one extra varint in the stream
+// and none of the per-group ones.
 func (o Op) EncodeOperandCount() bool {
+	if o.AttrSizedOperandSegments() {
+		return false
+	}
 	for _, a := range o.Operands() {
 		if a.Kind == ArgVariadicOperand || a.Kind == ArgOptionalOperand {
 			return true
 		}
 	}
 	return false
+}
+
+// FlagBit is one bit of an operation's flags varint.
+type FlagBit struct {
+	Name string
+	// Operand says the bit stands for an optional operand group rather than
+	// an optional attribute.
+	Operand bool
+	// Index is the position within [Op.Operands] or [Op.Attributes].
+	Index int
+	// Version is the sinceVersion that placed the bit where it is.
+	Version string
+}
+
+// FlagBits returns an operation's flags bits in bit order, low bit first. An
+// empty result means the operation writes no flags varint at all.
+//
+// The order is NVIDIA's, from getVersionOrderedBitAssignments
+// (BytecodeGenUtilities.cpp:151-214): bits are grouped by the version that
+// introduced the field, ascending, and within one version the optional
+// attributes come before the optional operands, each in declaration order.
+// Ordering by declaration alone would agree on most operations and disagree
+// exactly on the ones that grew a field later, which is where a reader on a
+// different toolkit version is already most at risk.
+//
+// Optional operands take bits only under AttrSizedOperandSegments. Without
+// that trait the writer emits one flat operand list and an absent optional
+// operand is not recoverable from a bit, so it assigns none.
+func (o Op) FlagBits() []FlagBit {
+	type entry struct {
+		major, minor int
+		seq          int
+		bit          FlagBit
+	}
+	var entries []entry
+	add := func(a Arg, operand bool, index int) {
+		major, minor := parseVersion(a.Version)
+		entries = append(entries, entry{
+			major: major, minor: minor, seq: len(entries),
+			bit: FlagBit{Name: a.Name, Operand: operand, Index: index, Version: a.Version},
+		})
+	}
+	for i, a := range o.Attributes() {
+		if a.Optional() {
+			add(a, false, i)
+		}
+	}
+	if o.AttrSizedOperandSegments() {
+		for i, a := range o.Operands() {
+			if a.Kind == ArgOptionalOperand {
+				add(a, true, i)
+			}
+		}
+	}
+	// A stable sort on the version alone reproduces the C++ grouping: every
+	// attribute was appended before every operand, so equal versions keep
+	// attributes first.
+	sort.SliceStable(entries, func(i, j int) bool {
+		if entries[i].major != entries[j].major {
+			return entries[i].major < entries[j].major
+		}
+		return entries[i].minor < entries[j].minor
+	})
+	var bits []FlagBit
+	for _, e := range entries {
+		bits = append(bits, e.bit)
+	}
+	return bits
+}
+
+// parseVersion splits a "major.minor" sinceVersion. An unparseable version
+// sorts first, which keeps a table entry rather than dropping one, and the
+// generator reports it separately.
+func parseVersion(v string) (major, minor int) {
+	maj, min, ok := strings.Cut(v, ".")
+	if !ok {
+		return 0, 0
+	}
+	major, _ = strconv.Atoi(maj)
+	minor, _ = strconv.Atoi(min)
+	return major, minor
 }
 
 // VariadicResults reports whether a result count varint precedes the result
@@ -208,6 +329,26 @@ func innerType(entry string) string {
 	return e
 }
 
+// entryVersion returns the sinceVersion an entry was introduced with. It is
+// the third template argument of CudaTileArg<constraint, desc, version>
+// (Dialect.td:257-258), and it orders the flags bits.
+func entryVersion(entry string) string {
+	e := strings.TrimSpace(entry)
+	if i := strings.LastIndex(e, ":$"); i >= 0 {
+		e = e[:i]
+	}
+	for _, wrapper := range []string{"CudaTileArg<", "CudaTileUnusedArg<"} {
+		if !strings.HasPrefix(e, wrapper) {
+			continue
+		}
+		inner := strings.TrimSuffix(strings.TrimSpace(e[len(wrapper):]), ">")
+		if parts := splitTopLevel(inner); len(parts) > 2 {
+			return strings.Trim(strings.TrimSpace(parts[2]), `"`)
+		}
+	}
+	return ""
+}
+
 // argName returns the ODS name of an entry, without the leading dollar.
 func argName(entry string) string {
 	if i := strings.LastIndex(entry, ":$"); i >= 0 {
@@ -219,12 +360,20 @@ func argName(entry string) string {
 // classify decides what one arguments-list entry encodes as. MLIR spells
 // attribute constraints with an Attr suffix, which is what separates an
 // attribute from an operand here.
+//
+// Optional means what MLIR's isOptional means, because that is the predicate
+// the writer branches on: OptionalAttr and UnitAttr set it,
+// DefaultValuedOptionalAttr sets it, and plain DefaultValuedAttr does not.
+// A DefaultValuedAttr is always written, with no flags bit, so classifying it
+// as optional both invents a bit and drops a payload.
 func classify(typ string) ArgKind {
 	switch {
-	case strings.HasPrefix(typ, "OptionalAttr<"):
+	case strings.HasPrefix(typ, "OptionalAttr<UnitAttr"), typ == "UnitAttr":
+		return ArgUnitAttribute
+	case strings.HasPrefix(typ, "OptionalAttr<"), strings.HasPrefix(typ, "DefaultValuedOptionalAttr<"):
 		return ArgOptionalAttribute
-	case strings.HasPrefix(typ, "DefaultValuedAttr<"), strings.HasPrefix(typ, "DefaultValuedOptionalAttr<"):
-		return ArgOptionalAttribute
+	case strings.HasPrefix(typ, "DefaultValuedAttr<"):
+		return ArgAttribute
 	case strings.HasPrefix(typ, "Variadic<"):
 		return ArgVariadicOperand
 	case strings.HasPrefix(typ, "Optional<"):
@@ -244,7 +393,12 @@ func parseArgs(body string) []Arg {
 			continue
 		}
 		typ := innerType(entry)
-		res = append(res, Arg{Name: argName(entry), Type: typ, Kind: classify(typ)})
+		res = append(res, Arg{
+			Name:    argName(entry),
+			Type:    typ,
+			Kind:    classify(typ),
+			Version: entryVersion(entry),
+		})
 	}
 	return res
 }
