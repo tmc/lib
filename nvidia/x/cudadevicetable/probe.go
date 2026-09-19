@@ -182,6 +182,24 @@ func ProbeTargets(ptxasPath string, targets []string) ([]Result, error) {
 // nowhere is reported as an error rather than recorded: see the positive
 // control rule in validateTargets.
 func BuildTargets(results []Result, probe FeatureProbe) (map[string]Target, error) {
+	out, err := buildTargets(results, probe)
+	if err != nil {
+		return nil, err
+	}
+	if err := (Table{Schema: 1, Targets: out}).validateTargets(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// buildTargets records the conclusive results without applying the rules that
+// range over the whole table. The positive control asks whether a feature is
+// supported *somewhere*, and a caller probing a single target has a population
+// of one, in which "somewhere" collapses to "here" -- so every feature that
+// target lacks reads as a fixture that assembles nowhere. Such a caller
+// validates the union of its results with a corpus instead; see
+// [Resolver.Resolve].
+func buildTargets(results []Result, probe FeatureProbe) (map[string]Target, error) {
 	out := map[string]Target{}
 	for _, r := range results {
 		switch r.Outcome {
@@ -210,10 +228,6 @@ func BuildTargets(results []Result, probe FeatureProbe) (map[string]Target, erro
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no conclusive probe results")
-	}
-	probed := Table{Schema: 1, Targets: out}
-	if err := probed.validateTargets(); err != nil {
-		return nil, err
 	}
 	return out, nil
 }

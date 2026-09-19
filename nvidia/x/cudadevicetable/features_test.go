@@ -36,8 +36,28 @@ func TestUnsupportedEverywhereIsRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("Validate accepted a feature unsupported at every target")
 	}
-	if !strings.Contains(err.Error(), "assembles nowhere") {
+	if !strings.Contains(err.Error(), "assemble nowhere") {
 		t.Errorf("Validate error = %v, want it to name the missing positive control", err)
+	}
+	if !strings.Contains(err.Error(), "ghost") {
+		t.Errorf("Validate error = %v, want it to name the offending feature", err)
+	}
+
+	// Every offender is named, in sorted order. Map iteration would otherwise
+	// blame a different one on each run, and a blame that moves between runs
+	// reads as a fact about the feature it lands on.
+	for _, tgt := range tbl.Targets {
+		tgt.Features["apparition"] = Feature{Source: Probed, Instrument: "ptxas -arch=" + tgt.Target + " apparition.ptx", Fixture: "ptxprobe/apparition.ptx", Diagnostic: "error: no"}
+	}
+	err = tbl.Validate()
+	if err == nil {
+		t.Fatal("Validate accepted two features unsupported at every target")
+	}
+	if want := "feature(s) apparition, ghost unsupported"; !strings.Contains(err.Error(), want) {
+		t.Errorf("Validate error = %v, want it to contain %q", err, want)
+	}
+	for _, tgt := range tbl.Targets {
+		delete(tgt.Features, "apparition")
 	}
 
 	// One acceptance anywhere is what makes the negatives meaningful.

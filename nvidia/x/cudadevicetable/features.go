@@ -197,10 +197,19 @@ func (t Table) validateTargets() error {
 	// a constant-zero matrix descriptor, which ptxas 13.0.88 segfaults on. A
 	// classifier that read a non-zero exit as "unsupported" reported wgmma
 	// unsupported at sm_90a, the one target that does support it.
+	//
+	// Every offending feature is named, sorted, because map iteration order
+	// would otherwise pick a different one to blame on each run and a blame
+	// that moves between runs reads as a fact about that feature.
+	var nowhere []string
 	for name := range probedAnywhere {
 		if !supportedSomewhere[name] {
-			return fmt.Errorf("feature %q is unsupported at every probed target: its fixture assembles nowhere, so the negatives are not measurements", name)
+			nowhere = append(nowhere, name)
 		}
+	}
+	if len(nowhere) > 0 {
+		sort.Strings(nowhere)
+		return fmt.Errorf("feature(s) %s unsupported at every probed target: the fixtures assemble nowhere, so the negatives are not measurements", strings.Join(nowhere, ", "))
 	}
 	return nil
 }

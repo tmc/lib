@@ -3,6 +3,8 @@ package cudadevicetable
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/x/internal/cudatool"
@@ -42,14 +44,15 @@ type Resolver struct {
 	ptxas string
 	host  string
 
-	mu    sync.Mutex
-	cache map[string]Target
+	mu      sync.Mutex
+	cache   map[string]Target
+	witness map[string]bool
 }
 
 // NewResolver returns a Resolver using the ptxas at path. host is recorded in
 // the probe stamp of anything it measures.
 func NewResolver(ptxas, host string) *Resolver {
-	return &Resolver{ptxas: ptxas, host: host, cache: map[string]Target{}}
+	return &Resolver{ptxas: ptxas, host: host, cache: map[string]Target{}, witness: map[string]bool{}}
 }
 
 // Ask returns the table's answer when it has one, and otherwise probes. A
@@ -75,10 +78,12 @@ func (r *Resolver) Ask(target, feature string) Answer {
 }
 
 // Resolve probes every embedded fixture for one target and returns the record,
-// caching it. The record is built by the same [BuildTargets] path the
-// generator uses, so a resolved target is subject to the same provenance rules
-// as a checked-in one -- including the positive control, which is why Resolve
-// probes the whole fixture set rather than the one feature asked about.
+// caching it. The record is subject to the same provenance rules as a
+// checked-in one -- including the positive control, which is why Resolve
+// probes the whole fixture set rather than the one feature asked about. Those
+// rules are applied to the checked-in table with the new record merged in,
+// because the control they contain is a property of a corpus and not of a
+// single target.
 func (r *Resolver) Resolve(target string) (Target, error) {
 	if !targetPattern.MatchString(target) {
 		return Target{}, fmt.Errorf("cudadevicetable: %q is not an exact target such as \"sm_90a\"", target)
@@ -100,8 +105,34 @@ func (r *Resolver) Resolve(target string) (Target, error) {
 	if err != nil {
 		return Target{}, err
 	}
-	built, err := BuildTargets(results, probe)
+	built, err := buildTargets(results, probe)
 	if err != nil {
+		return Target{}, fmt.Errorf("cudadevicetable: resolve %s: %w", target, err)
+	}
+	if err := r.witnessLocked(built[target]); err != nil {
+		return Target{}, fmt.Errorf("cudadevicetable: resolve %s: %w", target, err)
+	}
+	// Validate against the checked-in table plus this target, not against this
+	// target alone. The rules are the generator's, and one of them -- that a
+	// probed feature must be supported by some target -- is a statement about
+	// a population. A single target is a population of one, in which every
+	// feature it does not support is a feature supported nowhere, so resolving
+	// alone would fail for every target that is not the most capable one the
+	// fixtures describe. The union restores the corpus the rule was written
+	// for while still subjecting the new record to all of it.
+	//
+	// The union alone would make the positive control vacuous here, since the
+	// checked-in table satisfies it by construction. witnessLocked above is
+	// what keeps it live: it re-measures the "somewhere" with this assembler
+	// instead of inheriting it from the one that generated the table.
+	union := make(map[string]Target, len(table.Targets)+len(built))
+	for k, v := range table.Targets {
+		union[k] = v
+	}
+	for k, v := range built {
+		union[k] = v
+	}
+	if err := (Table{Schema: 1, Targets: union}).validateTargets(); err != nil {
 		return Target{}, fmt.Errorf("cudadevicetable: resolve %s: %w", target, err)
 	}
 	t, ok := built[target]
@@ -123,4 +154,56 @@ func (r *Resolver) Resolved() map[string]Target {
 		out[k] = v
 	}
 	return out
+}
+
+// witnessLocked re-measures, with this Resolver's assembler, that each feature
+// the resolved target rejects is still accepted by some target. It is the
+// positive control made current.
+//
+// The checked-in table already names, for every feature, a target that accepts
+// it -- but that evidence was produced by whichever assembler generated the
+// table. A fixture that stops assembling under a newer ptxas would otherwise
+// turn into a row of confident negatives here, with the stale table vouching
+// for it. So for each rejected feature this probes the table's own witness and
+// requires it to still accept. Witnesses are cached for the Resolver's life;
+// a feature the target supports needs none, since it is its own witness.
+//
+// r.mu must be held.
+func (r *Resolver) witnessLocked(t Target) error {
+	fixtures := Fixtures()
+	var failed []string
+	names := make([]string, 0, len(t.Features))
+	for name := range t.Features {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		f := t.Features[name]
+		if f.Source != Probed || f.Supported {
+			continue
+		}
+		witnesses := TargetsSupporting(name)
+		if len(witnesses) == 0 {
+			failed = append(failed, fmt.Sprintf("%s (the table names no target that supports it)", name))
+			continue
+		}
+		w := witnesses[0]
+		key := name + " " + w
+		ok, cached := r.witness[key]
+		if !cached {
+			res, err := ProbeFeature(r.ptxas, name, fixtures[name], w)
+			if err != nil {
+				return fmt.Errorf("witness probe %s at %s: %w", name, w, err)
+			}
+			ok = res.Outcome == Accepted
+			r.witness[key] = ok
+		}
+		if !ok {
+			failed = append(failed, fmt.Sprintf("%s (witness %s rejects it too)", name, w))
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("fixture no longer assembles under %s: %s; the negatives are not measurements", r.ptxas, strings.Join(failed, ", "))
+	}
+	return nil
 }

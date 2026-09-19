@@ -149,3 +149,35 @@ func TestFindPTXASNamedAssemblerWins(t *testing.T) {
 		t.Errorf("FindPTXAS() with $PTXAS = (%q, %v), want (%q, nil)", got, err, named)
 	}
 }
+
+// TestResolverResolvesEveryRecordedTargetAlone is the population-size control.
+//
+// The rules a resolved record is held to are the generator's, and one of them
+// -- that a probed feature must be accepted by some target -- is a property of
+// a corpus. A Resolver probes one target, so its corpus has one member, and
+// "supported somewhere" collapses into "supported here": every feature the
+// target lacks reads as a fixture that assembles nowhere. Measured before the
+// fix, resolving each recorded target on its own failed for all of them; the
+// only reason the package looked healthy is that its other resolver test picks
+// sm_86, and the blamed feature is chosen by map iteration order, so the
+// failure named a different feature each run and read as noise.
+//
+// Every recorded target must resolve alone, including the ones the table
+// already covers: the table's answer is not the path under test here.
+func TestResolverResolvesEveryRecordedTargetAlone(t *testing.T) {
+	ptxas, err := FindPTXAS()
+	if err != nil {
+		t.Skipf("no ptxas available to resolve with: %v", err)
+	}
+	for _, target := range Targets() {
+		t.Run(target, func(t *testing.T) {
+			// A fresh Resolver per target is the point: a shared one would
+			// carry the previous target's results and quietly restore the
+			// population this test is trying to reduce to one.
+			r := NewResolver(ptxas, "test")
+			if _, err := r.Resolve(target); err != nil {
+				t.Errorf("Resolve(%s) alone: %v", target, err)
+			}
+		})
+	}
+}
