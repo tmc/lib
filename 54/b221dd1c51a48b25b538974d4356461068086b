@@ -1,0 +1,9 @@
+commit=54b221dd date=2026-09-19T06:59:14Z
+claude-code=2.1.269 model=claude-opus-5 pid=71005 iterm_session=w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session=0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url=https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+measurement: gpu-lock label=4037664, script ~/tmp/grapharm-C6A7.sh on dgx
+target build 7c792ad5 dirty=14 (dgx worktree /home/tmc/tmp/ds4-span-C6A7)
+outputs /home/tmc/tmp/gr-{on,off}-{1,2}.{a,b,c,d}.{out,log}
+prediction recorded in errata 21.136 before the run; result 21.140-21.142
