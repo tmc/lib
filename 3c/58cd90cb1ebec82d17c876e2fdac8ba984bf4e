@@ -1,0 +1,7 @@
+agent: claude-code 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+date: 2026-09-18T17:13:16-07:00
+tty: not a tty pid: 85064
+iterm_session: w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+verification: all three flags.gen.go reproduce their recorded digests from the new cwd; cmd/nvidia-reproduce gate green for nvrtc, nvvm, nvjitlink
