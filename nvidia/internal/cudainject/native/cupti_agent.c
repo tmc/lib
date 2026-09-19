@@ -34,6 +34,14 @@
 #define CUDAPROF_AGENT_REVISION ""
 #endif
 
+/* CUDAPROF_CAPABILITY_BUFFER is the capability record's formatting buffer.
+   It is a macro so a test can build the agent with a buffer too small to hold
+   the record and exercise the truncation path, which is otherwise reachable
+   only by adding fields until it overflows. */
+#ifndef CUDAPROF_CAPABILITY_BUFFER
+#define CUDAPROF_CAPABILITY_BUFFER 16384
+#endif
+
 #define WIRE_HEADER 80
 #define MAX_PAYLOAD 4096
 #define BUFFER_BYTES (8u << 20)
@@ -1765,7 +1773,12 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	}
 	cupti_ready = 1;
 	const char *bootstrap = "{\"kind\":\"bootstrap\"}";
-	char capability[4096];
+	// 4096 was outgrown once already: the record gained agent_revision, and
+	// every field added to it costs bytes that nothing was counting. Truncation
+	// used to drop the record with no trace, which reaches the reader as
+	// "untyped or out-of-order activity" -- a complaint about the next record,
+	// naming neither this buffer nor the field that overflowed it.
+	char capability[CUDAPROF_CAPABILITY_BUFFER];
 	if (api_requested) {
 		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_DRIVER);
 		if (result != CUPTI_SUCCESS) {
@@ -1832,6 +1845,18 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
 		capability_written = write_record(KIND_CAPABILITY, now_ns(), capability, (size_t)capability_len) == 0;
+	else {
+		/* Say so. Without this the capture fails several records later, in
+		   words that describe the wrong record: the reader refuses an activity
+		   for arriving before a capability that was never written. snprintf
+		   returns the length it WANTED, so the message can name the size the
+		   record needs rather than leaving it to be guessed. */
+		char failure[256];
+		int fn = capability_len < 0
+			? snprintf(failure, sizeof(failure), "{\"state\":\"producer_failure\",\"error\":\"capability record could not be formatted\"}")
+			: snprintf(failure, sizeof(failure), "{\"state\":\"producer_failure\",\"error\":\"capability record needs %d bytes, buffer holds %zu\"}", capability_len + 1, sizeof(capability));
+		if (fn > 0 && (size_t)fn < sizeof(failure)) (void)write_record(KIND_FAILURE, now_ns(), failure, (size_t)fn);
+	}
 	/* The sampler starts here and nowhere earlier. A consumer rejects any
 	   record that arrives before bootstrap and capability, and both of those
 	   took their sequence numbers under the journal lock above, so a sampler

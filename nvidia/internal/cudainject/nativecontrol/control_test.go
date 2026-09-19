@@ -2681,3 +2681,62 @@ func TestSynchronizationsReachTheJournal(t *testing.T) {
 		t.Errorf("status = %v, want clean exit", status)
 	}
 }
+
+// TestCapabilityTruncationNamesItself covers the branch that used to drop the
+// capability record without a word.
+//
+// snprintf into a fixed buffer returns the length it wanted, and the agent
+// wrote the record only when that fit. When it did not, nothing was written
+// and nothing said so: the reader then refused the next activity record for
+// arriving before a capability that was never written, which names the wrong
+// record and no cause. The record has grown before -- agent_revision was added
+// to it this week -- so the branch is reachable by ordinary work, not only by
+// a malformed build.
+//
+// The buffer is a build-time macro so this can be forced. Waiting for the
+// record to outgrow 16384 on its own is not a test.
+func TestCapabilityTruncationNamesItself(t *testing.T) {
+	run := func(t *testing.T, defines ...string) capture {
+		t.Helper()
+		bin := controlBinary(t, defines...)
+		dir := t.TempDir()
+		cmd := exec.Command(bin, "sustained", "1", "4", "256", "100")
+		cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("run: %v: %s", err, out)
+		}
+		return only(t, decodeAll(t, dir, binRevision(bin)))
+	}
+
+	truncated := run(t, "-DCUDAPROF_CAPABILITY_BUFFER=64")
+	if truncated.counts[kindCapability] != 0 {
+		t.Fatalf("capability record fit in 64 bytes: %d written, so this run does not exercise truncation", truncated.counts[kindCapability])
+	}
+	var said string
+	for _, f := range truncated.failures {
+		if strings.Contains(f, "capability record needs") {
+			said = f
+		}
+	}
+	if said == "" {
+		t.Fatalf("capability record was dropped and no failure record said so: failures=%q", truncated.failures)
+	}
+	// The size is the actionable part: a reader who has to guess how much the
+	// record needs cannot tell a buffer that is close from one that is absurd.
+	if !strings.Contains(said, "buffer holds 64") {
+		t.Errorf("failure does not name the buffer it overflowed: %s", said)
+	}
+
+	// The control. The shipped buffer must both hold the record and stay
+	// quiet, or the assertion above would pass on a build that always
+	// complains.
+	normal := run(t)
+	if normal.counts[kindCapability] == 0 {
+		t.Error("no capability record at the shipped buffer size")
+	}
+	for _, f := range normal.failures {
+		if strings.Contains(f, "capability record needs") {
+			t.Errorf("shipped buffer reported truncation: %s", f)
+		}
+	}
+}
