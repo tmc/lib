@@ -1566,3 +1566,66 @@ func TestCaptureStatusDoesNotInventADeviceForDevicelessTiers(t *testing.T) {
 		}
 	}
 }
+
+// TestActivityRecordsCountsActivityRecords pins what the published
+// activity_records field means.
+//
+// The field is fed from wire.Stats.Records, and wire increments that for every
+// record it decodes -- bootstrap, capability, API, host sample, marker,
+// finalized. observeJournal overwrites it before returning with the count of
+// activity records that carried device work. Nothing tested that overwrite, so
+// deleting the line left the suite green while every published count silently
+// became a total. That is what this test is for.
+//
+// The fixture is built so the two definitions cannot coincide: six records, of
+// which two are device work. A journal holding only activities would pass
+// under either definition and pin nothing.
+//
+// len(activities) is a third number again, and deliberately not equal to
+// either. A marker becomes a timeline entry -- it is an NVTX range the target
+// asked to see -- but it is not device work and is not counted. A reader who
+// expects the published count to match the timeline length is reading the
+// field as something it does not claim to be.
+func TestActivityRecordsCountsActivityRecords(t *testing.T) {
+	dir := t.TempDir()
+	const sessionHex = "0123456789abcdef0123456789abcdef"
+	raw, err := hex.DecodeString(sessionHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	copy(sid[:], raw)
+
+	journalPath := filepath.Join(dir, "capture.journal")
+	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"range","valid":true}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"memset","name":"","valid":true,"start":300,"end":420,"bytes":8192,"value":7,"device":1,"stream":7,"correlation":9,"grid":[0,0,0],"block":[0,0,0]}`)},
+		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+	})
+
+	stats, state, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
+	if err != nil {
+		t.Fatalf("observeJournal: %v", err)
+	}
+	if stats.Records != 2 {
+		t.Errorf("activity_records = %d, want 2 (kernel + memset): a marker is an NVTX range on the host, not device work", stats.Records)
+	}
+	// The control. state.records is wire's own count of everything decoded,
+	// which is what the published field would carry if the overwrite were
+	// removed. If the two agreed, the assertion above would hold under either
+	// definition and would be pinning nothing.
+	if state.records != 6 {
+		t.Fatalf("fixture decoded %d records, want 6: it no longer discriminates the two definitions", state.records)
+	}
+	if state.records == stats.Records {
+		t.Fatalf("total records and activity records are both %d: the fixture cannot discriminate the two definitions", state.records)
+	}
+	// The marker is on the timeline and out of the count, so neither number
+	// substitutes for the other.
+	if len(activities) != 3 {
+		t.Errorf("timeline holds %d entries, want 3: the marker belongs on it even though it is not counted as device work", len(activities))
+	}
+}

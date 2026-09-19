@@ -125,11 +125,11 @@ func agentRevision(capability []byte) string {
 type contributingProducer struct {
 	process  uint64
 	revision string // "" when that agent's build did not name itself
-	// records is the journal's decoded record count, which is the same
-	// quantity the published activity_records field carries -- so the two are
-	// comparable -- but not, despite that field's name, a count of activity
-	// records alone: wire.Stats.Records increments for every record kind.
-	// Spelled plainly here rather than inheriting the older name.
+	// records is what that process contributed to the merged timeline: its
+	// count of activity records carrying device work, the same quantity the
+	// published activity_records field carries. Markers and capture-range
+	// edges travel in the same record stream and are not counted, so this is
+	// smaller than the journal's total record count.
 	records uint64
 }
 
@@ -147,11 +147,12 @@ type producerScope struct {
 
 // otherProducer is one contributing process the capability record does not
 // describe. Records counts what that process contributed to the merged set,
-// in the same quantity the published activity_records field uses.
+// in the same quantity -- and under the same name -- as the activity_records
+// field published for the capture and for each worker.
 type otherProducer struct {
 	Process  uint64 `json:"process"`
 	Revision string `json:"revision,omitempty"`
-	Records  uint64 `json:"records"`
+	Records  uint64 `json:"activity_records"`
 }
 
 // stampProducerScope states, in the capability record, when the record does

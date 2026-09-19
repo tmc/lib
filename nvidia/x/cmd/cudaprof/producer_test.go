@@ -133,6 +133,14 @@ func TestStampProducerScopeStatesTheProducersItDoesNotDescribe(t *testing.T) {
 	if !slices.Equal(scope.Others, want) {
 		t.Errorf("others = %+v, want %+v", scope.Others, want)
 	}
+	// Asserted on the bytes because the decode above goes through the same
+	// struct tags it would be checking, so a renamed key round-trips through
+	// it unnoticed. The name is load-bearing: a capture already publishes
+	// records and activity_records side by side, for the journal's total and
+	// for the device work in it, and this count is the second of those.
+	if !bytes.Contains(got, []byte(`"activity_records":20`)) {
+		t.Errorf("per-process count is not published as activity_records: %s", got)
+	}
 	// The note is what a reader who is not querying fields will see, so it has
 	// to carry the same facts: how many, which revisions, how many records.
 	for _, frag := range []string{"c0ffee1", "deadbee", "2 other process(es)", "25 record(s)", "1 of them an agent that names no revision"} {
