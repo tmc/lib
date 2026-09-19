@@ -40,8 +40,8 @@ func OnlineAttentionRow(scores, values []float32, mask []bool, seqLen, headDim i
 
 	// State variables
 	hasPrior := false
-	var m float64 // Running maximum
-	var l float64 // Running normalizer
+	var m float64                 // Running maximum
+	var l float64                 // Running normalizer
 	U := make([]float64, headDim) // Running unnormalized output accumulator
 
 	for start := 0; start < seqLen; start += tileSize {

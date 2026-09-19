@@ -57,16 +57,16 @@ const (
 
 // WorkloadBindings specifies concrete tensor shapes, layouts, precision, and input/weight identities.
 type WorkloadBindings struct {
-	Name            string            // Identifying workload name
-	Shape           cudashape.Shape   // Concrete activation/input shape
-	DType           cudair.DataType   // Activation tensor primitive data type
-	Layout          string            // Memory layout ("row_major", "col_major", "strided")
-	InputNames      []string          // Expected input identities
+	Name             string            // Identifying workload name
+	Shape            cudashape.Shape   // Concrete activation/input shape
+	DType            cudair.DataType   // Activation tensor primitive data type
+	Layout           string            // Memory layout ("row_major", "col_major", "strided")
+	InputNames       []string          // Expected input identities
 	WeightIdentities map[string]string // Mapping of weight name to content digest/version
-	NumericalPolicy NumericalPolicy   // Precision/numerical requirements
-	Objective       Objective         // Target optimization objective
-	ExpectedDigests map[int]string    // Expected SHA-256 logit digests per sequence length N (e.g. 2..2048)
-	ResetState      func() error      // Callback to reset mutable state (KV cache, scratch buffers) between runs
+	NumericalPolicy  NumericalPolicy   // Precision/numerical requirements
+	Objective        Objective         // Target optimization objective
+	ExpectedDigests  map[int]string    // Expected SHA-256 logit digests per sequence length N (e.g. 2..2048)
+	ResetState       func() error      // Callback to reset mutable state (KV cache, scratch buffers) between runs
 }
 
 // Validate checks that all required fields are present and valid.
@@ -122,15 +122,15 @@ func (b WorkloadBindings) Key() string {
 
 // CandidatePlan represents an admitted candidate with its derivation history and score.
 type CandidatePlan struct {
-	ID          string            // Unique identifier for the candidate
-	Expr        *egraph.Expr      // Extracted AST expression
-	Derivation  []egraph.Action   // Replayable sequence of actions from initial state
-	Cost        float64           // Heuristic or evaluated cost score (lower is better)
-	Receipt     *cudatrial.Receipt// Timing and qualification receipt from evaluation (if evaluated)
-	Generation  int               // Generation or epoch sequence number
-	Validated   bool              // True if validated against reference or held-out tests
-	Digest      string            // Numerical output digest (e.g. SHA-256)
-	ProfileCost float64           // Attributed stall/profile penalty cost
+	ID          string             // Unique identifier for the candidate
+	Expr        *egraph.Expr       // Extracted AST expression
+	Derivation  []egraph.Action    // Replayable sequence of actions from initial state
+	Cost        float64            // Heuristic or evaluated cost score (lower is better)
+	Receipt     *cudatrial.Receipt // Timing and qualification receipt from evaluation (if evaluated)
+	Generation  int                // Generation or epoch sequence number
+	Validated   bool               // True if validated against reference or held-out tests
+	Digest      string             // Numerical output digest (e.g. SHA-256)
+	ProfileCost float64            // Attributed stall/profile penalty cost
 }
 
 // Fingerprint returns a stable structural identifier for the candidate's AST and derivation.

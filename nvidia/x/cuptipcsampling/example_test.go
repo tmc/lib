@@ -253,4 +253,3 @@ func ExampleCapturePhase() {
 	// Output:
 	// cuptipcsampling: invalid context
 }
-

@@ -10,14 +10,14 @@ import (
 
 // ProfileEvidence captures hardware stall metrics and execution statistics from CUPTI/SASS profiling.
 type ProfileEvidence struct {
-	StallMemoryThrottle float64       // Fraction of cycles stalled on memory throttle [0, 1]
-	StallScoreboard     float64       // Fraction of cycles stalled on scoreboard [0, 1]
-	StallLGThrottle     float64       // Fraction of cycles stalled on local/global throttle [0, 1]
-	Occupancy           float64       // Achieved SM active warp occupancy [0, 1]
-	TargetOccupancy     float64       // Target threshold occupancy (e.g. 0.5)
-	RegisterSpillBytes  uint64        // Bytes spilled to local memory
-	CollectedAt         time.Time     // Timestamp of profile collection
-	Epoch               string        // Scoring epoch when evidence was gathered
+	StallMemoryThrottle float64   // Fraction of cycles stalled on memory throttle [0, 1]
+	StallScoreboard     float64   // Fraction of cycles stalled on scoreboard [0, 1]
+	StallLGThrottle     float64   // Fraction of cycles stalled on local/global throttle [0, 1]
+	Occupancy           float64   // Achieved SM active warp occupancy [0, 1]
+	TargetOccupancy     float64   // Target threshold occupancy (e.g. 0.5)
+	RegisterSpillBytes  uint64    // Bytes spilled to local memory
+	CollectedAt         time.Time // Timestamp of profile collection
+	Epoch               string    // Scoring epoch when evidence was gathered
 }
 
 // IsStale reports whether the evidence was gathered under an older scoring epoch or is expired.

@@ -423,7 +423,6 @@ func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid cudalaunch.Dim3,
 	return e.SetKernelNodeParams(node, &params)
 }
 
-
 // ApplyKernelNodeUpdate applies a typed KernelNodeUpdate to node in the executable graph.
 func (e *Exec) ApplyKernelNodeUpdate(node *Node, update KernelNodeUpdate) error {
 	if e == nil || e.raw == 0 {

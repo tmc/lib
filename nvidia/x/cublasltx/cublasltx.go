@@ -791,7 +791,7 @@ func validateLinearLengths(xLen, tokens, inFeatures, wLen, outFeatures, yLen int
 func float32ToF16Bits(f float32) uint16 {
 	bits := math.Float32bits(f)
 	sign := uint16((bits >> 16) & 0x8000)
-	exp := int((bits >> 23) & 0xff) - 127 + 15
+	exp := int((bits>>23)&0xff) - 127 + 15
 	mant := bits & 0x007fffff
 	if exp <= 0 {
 		return sign
@@ -800,4 +800,3 @@ func float32ToF16Bits(f float32) uint16 {
 	}
 	return sign | uint16(exp<<10) | uint16(mant>>13)
 }
-

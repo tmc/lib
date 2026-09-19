@@ -111,7 +111,6 @@ func (tc TileConfig) SharedMemBytes() int {
 	return (tc.TileM*tc.TileK + tc.TileK*tc.TileN) * elem
 }
 
-
 // DefaultGEMMTile returns standard shared-memory tile dimensions for GEMM/GEMV.
 func DefaultGEMMTile() TileConfig {
 	return TileConfig{

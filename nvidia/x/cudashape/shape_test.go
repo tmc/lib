@@ -120,7 +120,7 @@ func TestShapeOverflow(t *testing.T) {
 
 	// Mutant control: request an overflowing allocation
 	t.Run("mutant_overflowing_allocation", func(t *testing.T) {
-		s, err := cudashape.New(1 << 20, 1 << 20) // 1 Tera-elements
+		s, err := cudashape.New(1<<20, 1<<20) // 1 Tera-elements
 		if err != nil {
 			t.Fatalf("unexpected New error: %v", err)
 		}

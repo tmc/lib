@@ -13,7 +13,7 @@ var (
 
 	flowMu       sync.Mutex
 	flowNextID   uintptr = 1
-	flowContexts = make(map[uintptr]context.Context)
+	flowContexts         = make(map[uintptr]context.Context)
 )
 
 func globalFlowCallback(payload, reserved uintptr) int32 {

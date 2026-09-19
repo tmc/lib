@@ -10,22 +10,22 @@ import (
 
 // CollectiveStep represents an explicit collective transfer step within a plan.
 type CollectiveStep struct {
-	StepID      int
-	Name        string
-	Descriptor  OperationDescriptor
-	SendBuffer  driver.DevicePtr
-	RecvBuffer  driver.DevicePtr
-	Slot        int
-	InFlightTr  *InFlightTransfer
+	StepID     int
+	Name       string
+	Descriptor OperationDescriptor
+	SendBuffer driver.DevicePtr
+	RecvBuffer driver.DevicePtr
+	Slot       int
+	InFlightTr *InFlightTransfer
 }
 
 // Plan coordinates execution across distributed steps and kernel execution.
 type Plan struct {
-	mu           sync.Mutex
-	comm         *Communicator
-	pipeline     *PipelineManager
-	steps        []CollectiveStep
-	closed       bool
+	mu       sync.Mutex
+	comm     *Communicator
+	pipeline *PipelineManager
+	steps    []CollectiveStep
+	closed   bool
 }
 
 // NewPlan creates a distributed execution plan bound to a Communicator and PipelineManager.

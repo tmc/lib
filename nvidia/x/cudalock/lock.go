@@ -31,7 +31,7 @@ var (
 
 // Process-wide reentrancy tracking.
 var (
-	processMu       sync.Mutex
+	processMu        sync.Mutex
 	processHoldCount int
 	processActiveDir string
 	processHolderPID int

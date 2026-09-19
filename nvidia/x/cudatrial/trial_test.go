@@ -236,8 +236,8 @@ func TestSameArmExact(t *testing.T) {
 			wantExact: true,
 		},
 		{
-			name: "empty receipts fails",
-			receipts: nil,
+			name:      "empty receipts fails",
+			receipts:  nil,
 			wantExact: false,
 		},
 		{

@@ -23,7 +23,7 @@ func TestProfileWorkloadMismatch(t *testing.T) {
 		Coverage:           0.85,
 		ClockUncertaintyNs: 5000,
 		Metrics: map[string]int64{
-			"smsp__pcsamp_warps_issue_stalled_long_scoreboard": 1500,
+			"smsp__pcsamp_warps_issue_stalled_long_scoreboard":  1500,
 			"smsp__pcsamp_warps_issue_stalled_short_scoreboard": 200,
 		},
 	})

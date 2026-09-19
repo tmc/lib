@@ -39,11 +39,11 @@ func TestValidateMatMulBuffers(t *testing.T) {
 
 func TestValidateLinearBuffers(t *testing.T) {
 	tests := []struct {
-		name                         string
-		xLen, tokens, inFeatures     int
-		wLen, outFeatures            int
-		yLen                         int
-		want                         string
+		name                     string
+		xLen, tokens, inFeatures int
+		wLen, outFeatures        int
+		yLen                     int
+		want                     string
 	}{
 		{name: "valid", xLen: 6, tokens: 2, inFeatures: 3, wLen: 12, outFeatures: 4, yLen: 8},
 		{name: "zero dimension", tokens: 0, inFeatures: 3, outFeatures: 4, want: "dimensions must be positive"},
@@ -85,4 +85,3 @@ func TestFloat32ToF16Bits(t *testing.T) {
 		}
 	}
 }
-

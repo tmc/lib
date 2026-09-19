@@ -11,7 +11,6 @@ import (
 // ErrUnsupportedOperator indicates that an operator cannot be lowered by cudafuse.
 var ErrUnsupportedOperator = errors.New("cudafuse: unsupported operator for fusion")
 
-
 // FusedKernel represents a synthesized CUDA C++ kernel with line-level source provenance.
 type FusedKernel struct {
 	Name    string
@@ -40,7 +39,6 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 	if len(nodes) == 0 {
 		return fk, fmt.Errorf("cudafuse: empty graph")
 	}
-
 
 	var inputs []*cudair.Node
 	var outputs []*cudair.Node

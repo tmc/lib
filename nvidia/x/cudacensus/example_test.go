@@ -114,4 +114,3 @@ func ExampleCapture_Analyze() {
 	// phase: token, launches: 132
 	// known launches: 25, unknown launches: 107
 }
-

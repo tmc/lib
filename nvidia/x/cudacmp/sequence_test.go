@@ -11,11 +11,11 @@ func TestAnalyzeLaunchSequences(t *testing.T) {
 	launches := []cudacensus.Launch{
 		// Stream 1: Rapid sequence (candidate batching) with repeated pattern [gate, up]
 		{Name: "gate", StreamID: 1, StartNs: 1000, EndNs: 2000},
-		{Name: "up", StreamID: 1, StartNs: 2100, EndNs: 3000}, // gap = 100
+		{Name: "up", StreamID: 1, StartNs: 2100, EndNs: 3000},   // gap = 100
 		{Name: "gate", StreamID: 1, StartNs: 3100, EndNs: 4000}, // gap = 100
-		{Name: "up", StreamID: 1, StartNs: 4100, EndNs: 5000}, // gap = 100
+		{Name: "up", StreamID: 1, StartNs: 4100, EndNs: 5000},   // gap = 100
 		{Name: "gate", StreamID: 1, StartNs: 5100, EndNs: 6000}, // gap = 100
-		{Name: "up", StreamID: 1, StartNs: 6100, EndNs: 7000}, // gap = 100
+		{Name: "up", StreamID: 1, StartNs: 6100, EndNs: 7000},   // gap = 100
 
 		// Large gap on stream 1 before next launch
 		{Name: "down", StreamID: 1, StartNs: 15000, EndNs: 18000}, // gap = 8000 ns (> 1000ns)

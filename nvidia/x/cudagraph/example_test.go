@@ -28,4 +28,3 @@ func ExampleGraph_Eligibility() {
 	// cudagraph: graph is closed
 	// false
 }
-

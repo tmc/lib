@@ -944,7 +944,7 @@ func hostLinearRowMajor(x, w []float32, tokens, inFeatures, outFeatures int) []f
 func f32ToF16Bits(f float32) uint16 {
 	bits := math.Float32bits(f)
 	sign := uint16((bits >> 16) & 0x8000)
-	exp := int((bits >> 23) & 0xff) - 127 + 15
+	exp := int((bits>>23)&0xff) - 127 + 15
 	mant := bits & 0x007fffff
 	if exp <= 0 {
 		return sign
@@ -976,4 +976,3 @@ func f16ToF32Bits(h uint16) float32 {
 	exp32 := uint32(exp - 15 + 127)
 	return math.Float32frombits(sign | (exp32 << 23) | (mant << 13))
 }
-

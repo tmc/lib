@@ -184,28 +184,28 @@ func TestTileDisasmBytecodeExtraction(t *testing.T) {
 	buf.Write(make([]byte, 64))
 
 	// 1: .shstrtab (offset 1 in shstrtabData)
-	binary.Write(&buf, binary.LittleEndian, uint32(1))               // sh_name (".shstrtab")
-	binary.Write(&buf, binary.LittleEndian, uint32(3))               // sh_type (SHT_STRTAB)
-	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_flags
-	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_addr
-	binary.Write(&buf, binary.LittleEndian, shstrtabOffset)          // sh_offset
-	binary.Write(&buf, binary.LittleEndian, uint64(len(shstrtabData)))// sh_size
-	binary.Write(&buf, binary.LittleEndian, uint32(0))               // sh_link
-	binary.Write(&buf, binary.LittleEndian, uint32(0))               // sh_info
-	binary.Write(&buf, binary.LittleEndian, uint64(1))               // sh_addralign
-	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_entsize
+	binary.Write(&buf, binary.LittleEndian, uint32(1))                 // sh_name (".shstrtab")
+	binary.Write(&buf, binary.LittleEndian, uint32(3))                 // sh_type (SHT_STRTAB)
+	binary.Write(&buf, binary.LittleEndian, uint64(0))                 // sh_flags
+	binary.Write(&buf, binary.LittleEndian, uint64(0))                 // sh_addr
+	binary.Write(&buf, binary.LittleEndian, shstrtabOffset)            // sh_offset
+	binary.Write(&buf, binary.LittleEndian, uint64(len(shstrtabData))) // sh_size
+	binary.Write(&buf, binary.LittleEndian, uint32(0))                 // sh_link
+	binary.Write(&buf, binary.LittleEndian, uint32(0))                 // sh_info
+	binary.Write(&buf, binary.LittleEndian, uint64(1))                 // sh_addralign
+	binary.Write(&buf, binary.LittleEndian, uint64(0))                 // sh_entsize
 
 	// 2: .nv.tileir (offset 11 in shstrtabData)
-	binary.Write(&buf, binary.LittleEndian, uint32(11))              // sh_name (".nv.tileir")
-	binary.Write(&buf, binary.LittleEndian, uint32(1))               // sh_type (SHT_PROGBITS)
-	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_flags
-	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_addr
-	binary.Write(&buf, binary.LittleEndian, payloadOffset)           // sh_offset
+	binary.Write(&buf, binary.LittleEndian, uint32(11))                   // sh_name (".nv.tileir")
+	binary.Write(&buf, binary.LittleEndian, uint32(1))                    // sh_type (SHT_PROGBITS)
+	binary.Write(&buf, binary.LittleEndian, uint64(0))                    // sh_flags
+	binary.Write(&buf, binary.LittleEndian, uint64(0))                    // sh_addr
+	binary.Write(&buf, binary.LittleEndian, payloadOffset)                // sh_offset
 	binary.Write(&buf, binary.LittleEndian, uint64(len(expectedPayload))) // sh_size
-	binary.Write(&buf, binary.LittleEndian, uint32(0))               // sh_link
-	binary.Write(&buf, binary.LittleEndian, uint32(0))               // sh_info
-	binary.Write(&buf, binary.LittleEndian, uint64(1))               // sh_addralign
-	binary.Write(&buf, binary.LittleEndian, uint64(0))               // sh_entsize
+	binary.Write(&buf, binary.LittleEndian, uint32(0))                    // sh_link
+	binary.Write(&buf, binary.LittleEndian, uint32(0))                    // sh_info
+	binary.Write(&buf, binary.LittleEndian, uint64(1))                    // sh_addralign
+	binary.Write(&buf, binary.LittleEndian, uint64(0))                    // sh_entsize
 
 	// Backpatch e_shoff
 	elfBytes := buf.Bytes()

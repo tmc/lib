@@ -12,12 +12,12 @@ import (
 
 // SearchBudget configures limits on search exploration.
 type SearchBudget struct {
-	MaxStates       int           // Maximum total search states visited
-	MaxDepth        int           // Maximum transition depth from root
-	MaxActions      int           // Maximum candidate actions evaluated per state
-	MaxMemoryBytes  int64         // Maximum accounted search state memory (or 0 for unlimited)
-	MaxEvaluations  int           // Maximum number of compiler/evaluator calls
-	Timeout         time.Duration // Maximum wall time for search
+	MaxStates      int           // Maximum total search states visited
+	MaxDepth       int           // Maximum transition depth from root
+	MaxActions     int           // Maximum candidate actions evaluated per state
+	MaxMemoryBytes int64         // Maximum accounted search state memory (or 0 for unlimited)
+	MaxEvaluations int           // Maximum number of compiler/evaluator calls
+	Timeout        time.Duration // Maximum wall time for search
 }
 
 // DefaultBudget provides sensible conservative limits.

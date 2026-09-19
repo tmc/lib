@@ -20,11 +20,11 @@ const (
 // target architecture, flags, and requested output format necessary to guarantee
 // binary cache validity.
 type CompilerIdentity struct {
-	NVRTCVersion string             // e.g. "12.8" or "13.0"
-	DriverSONAME string             // e.g. "libcuda.so.1" or loaded driver path
-	TargetArch   string             // e.g. "sm_121a", "sm_100a"
-	Flags        []string           // Exact compilation options
-	OutputKind   nvrtcx.OutputKind  // Output kind magic
+	NVRTCVersion string            // e.g. "12.8" or "13.0"
+	DriverSONAME string            // e.g. "libcuda.so.1" or loaded driver path
+	TargetArch   string            // e.g. "sm_121a", "sm_100a"
+	Flags        []string          // Exact compilation options
+	OutputKind   nvrtcx.OutputKind // Output kind magic
 }
 
 // CompilerCacheKey computes a deterministic SHA-256 digest string hashing inputKey

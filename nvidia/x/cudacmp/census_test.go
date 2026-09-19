@@ -429,4 +429,3 @@ func TestBuildPhaseCensus_InvalidIntervals(t *testing.T) {
 		t.Error("expected error for negative timestamp in BuildPhaseCensus, got nil")
 	}
 }
-

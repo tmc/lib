@@ -20,13 +20,13 @@ type ComputeApp struct {
 
 // StatusReport details both the filesystem mutex status and physical GPU device activity.
 type StatusReport struct {
-	LockDir      string
-	MutexHeld    bool
-	Owner        *Owner
-	OwnerAlive   bool
-	OwnerAge     time.Duration
-	ComputeApps  []ComputeApp
-	DeviceError  string
+	LockDir     string
+	MutexHeld   bool
+	Owner       *Owner
+	OwnerAlive  bool
+	OwnerAge    time.Duration
+	ComputeApps []ComputeApp
+	DeviceError string
 }
 
 // String formats the status report clearly dividing the Mutex and Device sections.

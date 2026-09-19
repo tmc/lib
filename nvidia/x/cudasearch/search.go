@@ -30,14 +30,14 @@ type SearchResult struct {
 // MockEvaluator is a test and host evaluation engine that estimates AST cost
 // and optionally simulates execution timing receipts.
 type MockEvaluator struct {
-	CostModel    egraph.CostModel
-	Scoring      ScoringModel
-	Evidence     map[string]*ProfileEvidence
-	TimingDelay  time.Duration
+	CostModel     egraph.CostModel
+	Scoring       ScoringModel
+	Evidence      map[string]*ProfileEvidence
+	TimingDelay   time.Duration
 	FailCandidate func(expr *egraph.Expr) bool
 	ComputeDigest func(expr *egraph.Expr) string
-	Workload     WorkloadBindings
-	ResetCount   int
+	Workload      WorkloadBindings
+	ResetCount    int
 }
 
 // Evaluate extracts the best AST from root and scores it.

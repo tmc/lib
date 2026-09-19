@@ -296,4 +296,3 @@ func TestDynamicSharedMemOptinLifecycle(t *testing.T) {
 		t.Errorf("limit lowered: was %d, now %d (must preserve larger)", curDynamic, curAfterLower)
 	}
 }
-
