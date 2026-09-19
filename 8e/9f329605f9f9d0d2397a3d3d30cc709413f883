@@ -7,3 +7,9 @@ pid: 51360
 ITERM_SESSION_ID: w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
 session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
 session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+
+Verified on device 2026-09-19T03:45 -07:00, label teardown-verify-C6A7BA75:
+  pinned  rc=0 PASS (was rc=1 FAIL with 'nil or closed device')
+  default rc=0 PASS
+  zero occurrences of the free error in the log; digest f0e4094b28390eab both arms
+This closes the 'not yet re-run on device' note in the commit message.
