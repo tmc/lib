@@ -7612,9 +7612,13 @@
               "run",
               "github.com/tmc/lib/nvidia/x/internal/cudatool/cmd/genoptions",
               "-target=nvjitlink",
-              "-out=flags.gen.go"
+              "-out=${OUTPUT_DIR}/flags.gen.go"
             ],
-            "cwd": "${OUTPUT_DIR}",
+            "cwd": "${LIB_REPO}/nvidia",
+            "environment": {
+              "GOWORK": "off",
+              "TMPDIR": "${SCRATCH_DIR}"
+            },
             "note": "flags.gen.go is not a gen-nvidia output. It is written by genoptions, which lives in this repository rather than in codegen and is invoked by the go:generate directive in generate.go. The path remains in generation.outputs because that list is the package's enforced file inventory, which every generated file must appear in, not a claim about which tool wrote it.",
             "outputs": [
               {
@@ -7628,7 +7632,7 @@
               "tree": "12b753cf179712b3633b1bae80bb5c0a4772051e",
               "url": "ssh://gpu-host/home/user/go/src/github.com/tmc/lib"
             },
-            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927."
+            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927. The recipe first recorded here ran with cwd ${OUTPUT_DIR} and a bare -out, which is how go:generate invokes it in place and which cannot run anywhere else: outside the module there is no go.mod for go run to resolve the package against. The cwd is now the module root and -out is absolute, so the recipe reproduces into a scratch directory; the digest is unchanged, verified for all three packages on 2026-09-18."
           }
         ],
         "toolchain": {
@@ -8240,9 +8244,13 @@
               "run",
               "github.com/tmc/lib/nvidia/x/internal/cudatool/cmd/genoptions",
               "-target=nvrtc",
-              "-out=flags.gen.go"
+              "-out=${OUTPUT_DIR}/flags.gen.go"
             ],
-            "cwd": "${OUTPUT_DIR}",
+            "cwd": "${LIB_REPO}/nvidia",
+            "environment": {
+              "GOWORK": "off",
+              "TMPDIR": "${SCRATCH_DIR}"
+            },
             "note": "flags.gen.go is not a gen-nvidia output. It is written by genoptions, which lives in this repository rather than in codegen and is invoked by the go:generate directive in generate.go. The path remains in generation.outputs because that list is the package's enforced file inventory, which every generated file must appear in, not a claim about which tool wrote it.",
             "outputs": [
               {
@@ -8256,7 +8264,7 @@
               "tree": "12b753cf179712b3633b1bae80bb5c0a4772051e",
               "url": "ssh://gpu-host/home/user/go/src/github.com/tmc/lib"
             },
-            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927."
+            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927. The recipe first recorded here ran with cwd ${OUTPUT_DIR} and a bare -out, which is how go:generate invokes it in place and which cannot run anywhere else: outside the module there is no go.mod for go run to resolve the package against. The cwd is now the module root and -out is absolute, so the recipe reproduces into a scratch directory; the digest is unchanged, verified for all three packages on 2026-09-18."
           }
         ],
         "toolchain": {
@@ -8615,9 +8623,13 @@
               "run",
               "github.com/tmc/lib/nvidia/x/internal/cudatool/cmd/genoptions",
               "-target=nvvm",
-              "-out=flags.gen.go"
+              "-out=${OUTPUT_DIR}/flags.gen.go"
             ],
-            "cwd": "${OUTPUT_DIR}",
+            "cwd": "${LIB_REPO}/nvidia",
+            "environment": {
+              "GOWORK": "off",
+              "TMPDIR": "${SCRATCH_DIR}"
+            },
             "note": "flags.gen.go is not a gen-nvidia output. It is written by genoptions, which lives in this repository rather than in codegen and is invoked by the go:generate directive in generate.go. The path remains in generation.outputs because that list is the package's enforced file inventory, which every generated file must appear in, not a claim about which tool wrote it.",
             "outputs": [
               {
@@ -8631,7 +8643,7 @@
               "tree": "12b753cf179712b3633b1bae80bb5c0a4772051e",
               "url": "ssh://gpu-host/home/user/go/src/github.com/tmc/lib"
             },
-            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927."
+            "verification": "Reproduced byte for byte at the recorded commit on 2026-09-18. That commit is where the reproduction was checked, not where the file was first generated; the original run is lib 2cd8e927. The recipe first recorded here ran with cwd ${OUTPUT_DIR} and a bare -out, which is how go:generate invokes it in place and which cannot run anywhere else: outside the module there is no go.mod for go run to resolve the package against. The cwd is now the module root and -out is absolute, so the recipe reproduces into a scratch directory; the digest is unchanged, verified for all three packages on 2026-09-18."
           }
         ],
         "toolchain": {

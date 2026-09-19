@@ -373,8 +373,12 @@ int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned a
    dlsym(RTLD_DEFAULT, ...). Without a definition here that lookup found
    nothing, so every layout check the producer makes was skipped in every
    scenario and only the CUDAPROF_TEST_STRUCT_SIZE_FN builds reached them.
-   Reporting the compiled sizes is the compatible case; the mocks below are
-   the incompatible ones. */
+   Reporting the compiled sizes is the compatible case. On its own that arm
+   is tautological: these sizeof expressions and the producer's come from the
+   same headers in the same build, so the check compares the layout against
+   itself and cannot reject. The short-size mocks below are the other half of
+   the control and the only reason the comparison discriminates -- delete them
+   and what is left is an assertion that cannot fail. */
 CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, size_t *size) {
 	(void)flags;
 	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
