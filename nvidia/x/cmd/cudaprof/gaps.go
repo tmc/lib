@@ -789,6 +789,17 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 	// the graph ran and is counted as the activity it is. What is then lost
 	// is the idle BETWEEN nodes, which is counted as busy -- a bounded error
 	// in the honest direction, unlike deleting the replay outright.
+	//
+	// The size of that error is measured, not argued. Two captures of one
+	// workload from a single lock hold, one with CUDA graphs disabled so the
+	// same work resolves into real kernel records and no promotion happens:
+	//
+	//	graphs on    duty 72.24%   active 3845.843 ms   169 envelopes
+	//	graphs off   duty 70.83%   active 3738.689 ms     0 envelopes
+	//
+	// 1.4 points apart, the promoted arm high by 107 ms, which is the idle
+	// between nodes that this counts as busy. The control needs a second arm
+	// of the same workload and so is not reproducible from any one capture.
 	graphsAreOpaque := len(records.graphs) != 0 && records.graphNodes == 0
 	if graphsAreOpaque {
 		records.activities = append(records.activities, records.graphs...)
