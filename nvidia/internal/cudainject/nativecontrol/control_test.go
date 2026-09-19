@@ -185,6 +185,7 @@ const (
 type capabilityRecord struct {
 	Activity        bool   `json:"activity"`
 	APIRecords      bool   `json:"api_records"`
+	LayoutCheck     string `json:"layout_check"`
 	DriverAPI       bool   `json:"driver_api"`
 	RuntimeAPI      bool   `json:"runtime_api"`
 	SigtermFinalize bool   `json:"sigterm_finalize"`
@@ -236,7 +237,19 @@ func controlBinary(t *testing.T, defines ...string) string {
 	}
 	out := filepath.Join(dir, "cupti-agent-control")
 	const src = "../native"
-	args := []string{"-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-I", filepath.Join(src, "testcupti")}
+	// The stub CUPTI exports cuptiActivityGetStructSize, so in this build the
+	// producer's dlsym(RTLD_DEFAULT, ...) must find it. On ELF a symbol
+	// defined in the executable is not in the dynamic symbol table unless the
+	// link asks for it, so without -rdynamic the lookup returns NULL, every
+	// layout check is skipped, and the scenarios pass having covered none of
+	// that code. -Werror is the same bargain for the compiler; this is it for
+	// the loader. CUDAPROF_REQUIRE_STRUCT_SIZE_FN makes the producer refuse
+	// rather than degrade if it ever stops resolving, so the flag cannot be
+	// dropped silently. Mach-O exports these by default and needs neither.
+	args := []string{"-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-DCUDAPROF_REQUIRE_STRUCT_SIZE_FN=1", "-I", filepath.Join(src, "testcupti")}
+	if runtime.GOOS != "darwin" {
+		args = append(args, "-rdynamic")
+	}
 	args = append(args, defines...)
 	args = append(args,
 		filepath.Join(src, "cupti_agent.c"),
@@ -726,6 +739,16 @@ func TestCapabilityReportsProducerBounds(t *testing.T) {
 	}
 	if !c.capability.APIRecords {
 		t.Error("api_records = false, want true by default")
+	}
+	// The producer degrades when cuptiActivityGetStructSize is absent: every
+	// runtime layout check is skipped and the kernel, memcpy and memset
+	// layouts are assumed from the headers it was compiled against. That is
+	// the right behaviour on a CUPTI older than 13.2 and the wrong one to
+	// report as a verified layout, so the two are separate fields. Here the
+	// stub exports the symbol, so a run that reports anything else is one
+	// where the scenarios below covered none of the checking code.
+	if c.capability.LayoutCheck != "cuptiActivityGetStructSize" {
+		t.Errorf("layout_check = %q, want %q: the layouts were assumed, not verified", c.capability.LayoutCheck, "cuptiActivityGetStructSize")
 	}
 }
 

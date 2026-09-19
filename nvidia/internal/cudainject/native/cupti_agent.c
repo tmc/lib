@@ -1111,7 +1111,26 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	   rejects. POSIX sanctions assigning through an object pointer instead. */
 	pfn_get_struct_size fn_get_struct_size = NULL;
 	*(void **)(&fn_get_struct_size) = dlsym(RTLD_DEFAULT, "cuptiActivityGetStructSize");
+#ifdef CUDAPROF_REQUIRE_STRUCT_SIZE_FN
+	/* A build that links a CUPTI exporting the symbol is a different case from
+	   a runtime too old to have it: there the resolution failing says the
+	   build is wrong, not that the runtime is old, and a configuration that
+	   knows the symbol is present refuses rather than skipping every check
+	   below. Production keeps the degrading path, where an old runtime is
+	   real. */
+	if (fn_get_struct_size == NULL) {
+		const char *failure = "{\"state\":\"cupti_unavailable\",\"error\":\"cuptiActivityGetStructSize did not resolve in a build that requires it\"}";
+		(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
+		write_handshake(NULL);
+		return;
+	}
 #endif
+#endif
+	/* Whether the runtime layouts were checked at all is a separate fact from
+	   what they were checked against: without the symbol every check below is
+	   skipped, and a capability record that reported only the compiled layout
+	   names would read identically whether they were verified or assumed. */
+	const char *layout_check = fn_get_struct_size != NULL ? "cuptiActivityGetStructSize" : "unavailable";
 	/* A runtime whose memset record is shorter than the layout this agent
 	   reads would be read past its end. That is a reason not to collect the
 	   kind, not a reason to fail the capture, so unlike the kernel and memcpy
@@ -1203,7 +1222,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	}
 	cupti_ready = 1;
 	const char *bootstrap = "{\"kind\":\"bootstrap\"}";
-	char capability[1024];
+	char capability[1280];
 	if (api_requested) {
 		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_DRIVER);
 		if (result != CUPTI_SUCCESS) {
@@ -1264,7 +1283,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		}
 	}
 	if (range_gated != RANGE_GATED) atomic_store(&collecting, 1);
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability)) (void)write_record(KIND_CAPABILITY, now_ns(), capability, (size_t)capability_len);
 	write_handshake(NULL);

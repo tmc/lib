@@ -39,6 +39,7 @@ unsigned cudaprof_test_enabled_kind_count(void);
 int cudaprof_test_request_buffer(void);
 
 /* Mock struct size functions for layout compatibility test injection. */
+CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, size_t *size);
 CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size);
 CUptiResult cudaprof_test_mock_short_memcpy_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size);
 

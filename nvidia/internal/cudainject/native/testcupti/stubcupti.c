@@ -369,6 +369,31 @@ int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned a
 	return placed;
 }
 
+/* The real CUPTI exports this from 13.2 on, and the producer resolves it with
+   dlsym(RTLD_DEFAULT, ...). Without a definition here that lookup found
+   nothing, so every layout check the producer makes was skipped in every
+   scenario and only the CUDAPROF_TEST_STRUCT_SIZE_FN builds reached them.
+   Reporting the compiled sizes is the compatible case; the mocks below are
+   the incompatible ones. */
+CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, size_t *size) {
+	(void)flags;
+	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
+	switch (kind) {
+	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL:
+	case CUPTI_ACTIVITY_KIND_KERNEL:
+		*size = sizeof(CUpti_ActivityKernel9);
+		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_MEMCPY:
+		*size = sizeof(CUpti_ActivityMemcpy6);
+		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_MEMSET:
+		*size = sizeof(CUpti_ActivityMemset4);
+		return CUPTI_SUCCESS;
+	default:
+		return CUPTI_ERROR_NOT_SUPPORTED;
+	}
+}
+
 CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size) {
 	(void)flags;
 	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
