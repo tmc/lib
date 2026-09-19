@@ -691,6 +691,14 @@ type GapAttribution struct {
 	HostBehindNanos   int64 `json:"host_behind"`
 	DriverSubmitNanos int64 `json:"driver_submission"`
 	HardwareNanos     int64 `json:"hardware_queue"`
+	// UnattributedNanos is idle before an activity whose correlation id
+	// matched no API record. It is its own arm because there is no mechanism
+	// to name: the launch that would say where the time went was not found.
+	// It was previously added to HardwareNanos, which reported "we could not
+	// find the launch" as "hardware queue latency" -- a specific mechanism
+	// claim, and the one a reader acts on. Any future record kind arriving
+	// without a correlation id lands here rather than inventing a cause.
+	UnattributedNanos int64 `json:"unattributed"`
 }
 
 const (
@@ -895,7 +903,7 @@ func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string, s
 		api, ok := apis[merged[i+1].first.correlation]
 		if !ok {
 			classGaps[classUnmatched] = append(classGaps[classUnmatched], gap)
-			stats.Attribution.HardwareNanos += gap
+			stats.Attribution.UnattributedNanos += gap
 			continue
 		}
 		switch {
@@ -1050,9 +1058,10 @@ func writeGapStats(b *strings.Builder, s *GapStats) {
 	fmt.Fprintf(b, "    host behind       %12s  (%.2f%% of idle)\n", millis(s.Attribution.HostBehindNanos), pct(s.Attribution.HostBehindNanos, s.IdleNanos))
 	fmt.Fprintf(b, "    driver submission %12s  (%.2f%% of idle)\n", millis(s.Attribution.DriverSubmitNanos), pct(s.Attribution.DriverSubmitNanos, s.IdleNanos))
 	fmt.Fprintf(b, "    hardware queue    %12s  (%.2f%% of idle)\n", millis(s.Attribution.HardwareNanos), pct(s.Attribution.HardwareNanos, s.IdleNanos))
-	// Printed apart from the three above, and labelled as overlapping them,
-	// because they do not partition idle and must not be read as a fourth,
-	// fifth and sixth share of it.
+	fmt.Fprintf(b, "    unattributed      %12s  (%.2f%% of idle)\n", millis(s.Attribution.UnattributedNanos), pct(s.Attribution.UnattributedNanos, s.IdleNanos))
+	// Printed apart from the four above, and labelled as overlapping them,
+	// because they do not partition idle and must not be read as further
+	// shares of it.
 	fmt.Fprintf(b, "  idle overlay (overlapping, does not sum with the split above)\n")
 	fmt.Fprintf(b, "    cupti overhead    %12s  (%.2f%% of idle, %d gap(s))\n", millis(s.Overlay.CuptiOverheadNanos), pct(s.Overlay.CuptiOverheadNanos, s.IdleNanos), s.Overlay.CuptiOverheadGaps)
 	fmt.Fprintf(b, "    synchronization   %12s  (%.2f%% of idle, %d gap(s))\n", millis(s.Overlay.SyncNanos), pct(s.Overlay.SyncNanos, s.IdleNanos), s.Overlay.SyncGaps)

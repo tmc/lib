@@ -282,6 +282,7 @@ func TestGapsHostClassification(t *testing.T) {
 		wantBehind   int64
 		wantDriver   int64
 		wantHardware int64
+		wantUnattrib int64
 	}{
 		{
 			name:         "host ahead",
@@ -308,11 +309,14 @@ func TestGapsHostClassification(t *testing.T) {
 			wantHardware: 30,
 		},
 		{
+			// Not hardware queue. A gap whose next activity correlated to
+			// no API record has no known mechanism, and "hardware queue
+			// latency" is a mechanism a reader acts on.
 			name:         "unmatched correlation",
 			api:          nil,
 			wantClass:    classUnmatched,
 			wantIdle:     100,
-			wantHardware: 100,
+			wantUnattrib: 100,
 		},
 	}
 	for _, tt := range tests {
@@ -335,8 +339,11 @@ func TestGapsHostClassification(t *testing.T) {
 				}
 			}
 			a := s.Attribution
-			if a.HostBehindNanos != tt.wantBehind || a.DriverSubmitNanos != tt.wantDriver || a.HardwareNanos != tt.wantHardware {
-				t.Errorf("attribution = %+v, want behind %d driver %d hardware %d", a, tt.wantBehind, tt.wantDriver, tt.wantHardware)
+			if a.HostBehindNanos != tt.wantBehind || a.DriverSubmitNanos != tt.wantDriver || a.HardwareNanos != tt.wantHardware || a.UnattributedNanos != tt.wantUnattrib {
+				t.Errorf("attribution = %+v, want behind %d driver %d hardware %d unattributed %d", a, tt.wantBehind, tt.wantDriver, tt.wantHardware, tt.wantUnattrib)
+			}
+			if sum := a.HostBehindNanos + a.DriverSubmitNanos + a.HardwareNanos + a.UnattributedNanos; sum != s.IdleNanos {
+				t.Errorf("attribution arms sum to %d, want the idle they split, %d", sum, s.IdleNanos)
 			}
 		})
 	}
@@ -1170,4 +1177,61 @@ func TestGapsOverlayDoesNotDoubleCountOverlappingSpans(t *testing.T) {
 	if s.Overlay.CuptiOverheadNanos > s.IdleNanos {
 		t.Errorf("overlay cupti_overhead %d ns exceeds idle %d ns", s.Overlay.CuptiOverheadNanos, s.IdleNanos)
 	}
+}
+
+// TestUnattributedIdleNamesNoMechanism pins the split that a whole campaign
+// was misread through.
+//
+// Idle before an activity that correlated to no API record used to be added,
+// whole, to the hardware-queue arm, whose stated meaning is "idle is hardware
+// queue latency". That turns "we could not find the launch" into a specific
+// mechanism, and a mechanism is what a reader goes and works on. The two arms
+// have to be separable in the output, not only in the class table -- a reader
+// who sums the attribution lines must not find the unknown inside the known.
+func TestUnattributedIdleNamesNoMechanism(t *testing.T) {
+	// Three activities, 100 us apart. The middle one correlates; the last
+	// does not, so one gap is attributable and one is not.
+	acts := []gapActivity{
+		{start: 0, end: 100_000, correlation: 1},
+		{start: 200_000, end: 300_000, correlation: 2},
+		{start: 400_000, end: 500_000, correlation: 3},
+	}
+	apis := map[uint32]gapAPI{2: {start: 10_000, end: 50_000}} // host ahead
+	s := computeGapStats(acts, apis, "overall", gapSpans{})
+	if s.GapCount != 2 || s.IdleNanos != 200_000 {
+		t.Fatalf("gaps/idle = %d/%d, want 2/200000", s.GapCount, s.IdleNanos)
+	}
+	a := s.Attribution
+	if a.HardwareNanos != 100_000 || a.UnattributedNanos != 100_000 {
+		t.Errorf("attribution = %+v, want hardware 100000 and unattributed 100000 kept apart", a)
+	}
+	if got := a.HostBehindNanos + a.DriverSubmitNanos + a.HardwareNanos + a.UnattributedNanos; got != s.IdleNanos {
+		t.Errorf("arms sum to %d, want %d: the split must partition idle", got, s.IdleNanos)
+	}
+
+	// Asserted on the rendered text, not the struct, because the struct is
+	// not what anyone read: the count of unmatched gaps was already printed
+	// directly above the hardware-queue line, and it was still read past.
+	var b strings.Builder
+	writeGapStats(&b, s)
+	out := b.String()
+	hw := findGapLine(t, out, "hardware queue")
+	un := findGapLine(t, out, "unattributed")
+	if !strings.Contains(hw, "0.100 ms") || !strings.Contains(hw, "50.00%") {
+		t.Errorf("hardware queue line absorbed the uncorrelated gap: %q", hw)
+	}
+	if !strings.Contains(un, "0.100 ms") || !strings.Contains(un, "50.00%") {
+		t.Errorf("unattributed line does not carry the uncorrelated gap: %q", un)
+	}
+}
+
+func findGapLine(t *testing.T, out, prefix string) string {
+	t.Helper()
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), prefix) {
+			return line
+		}
+	}
+	t.Fatalf("no %q line in:\n%s", prefix, out)
+	return ""
 }
