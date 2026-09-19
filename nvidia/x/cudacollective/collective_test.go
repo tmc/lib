@@ -290,15 +290,24 @@ func TestUnsupportedDeviceCollective(t *testing.T) {
 	}
 	m, _ := cudacollective.NewMembership(ranks)
 
-	resolver := cudacollective.NewResolver()
-
-	// Cross-host asking for NVSwitch multicast must fail with ErrUnsupportedDevice
-	_, err := resolver.Resolve(m, cudacollective.TopologyNVSwitchMulticast)
+	// Cross-host asking for NVSwitch multicast must fail with ErrUnsupportedDevice.
+	// Only NVLSHM and MoonEP can satisfy it and both refuse a cross-host
+	// membership, so the default chain answers the same way on every host.
+	_, err := cudacollective.NewResolver().Resolve(m, cudacollective.TopologyNVSwitchMulticast)
 	if !errors.Is(err, cudacollective.ErrUnsupportedDevice) {
 		t.Fatalf("cross-host NVSwitch multicast: got %v, want ErrUnsupportedDevice", err)
 	}
 
-	// TopologyAny should resolve to TCP socket fallback without failing
+	// TopologyAny falls through the chain to the socket fallback. The chain is
+	// given explicitly: the default one includes NCCL, whose Available reports
+	// only whether libnccl loads, so on a host with NCCL installed this would
+	// stop at nccltest and the assertion would be testing the host rather than
+	// the fall-through.
+	resolver := cudacollective.NewResolver(
+		&cudacollective.NVLSHMTransport{},
+		&cudacollective.MoonEPTransport{},
+		&cudacollective.TCPSocketTransport{},
+	)
 	tr, err := resolver.Resolve(m, cudacollective.TopologyAny)
 	if err != nil {
 		t.Fatalf("topology any should resolve fallback: %v", err)

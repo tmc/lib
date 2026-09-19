@@ -21,7 +21,10 @@ func Example() {
 		return
 	}
 
-	resolver := cudacollective.NewResolver()
+	// The transport chain is given explicitly. NewResolver with no arguments
+	// picks the best transport the host can offer, which makes the example's
+	// output depend on whether libnccl is installed.
+	resolver := cudacollective.NewResolver(&cudacollective.TCPSocketTransport{})
 	transport, err := resolver.Resolve(membership, cudacollective.TopologyAny)
 	if err != nil {
 		fmt.Printf("resolve error: %v\n", err)
