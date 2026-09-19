@@ -325,7 +325,15 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 				result.Outcome, result.CaptureError = captureOutcomeInjection, errStr
 			}
 		} else if targetJournalErr != nil {
-			result.Outcome, result.CaptureError = captureOutcomeTransport, targetJournalErr.Error()+unfinalizedHint(targetJournalErr, result)
+			// Only the unfinalized case is named for its stage. Every other
+			// journal error -- truncation, bad ordering, identity mismatch --
+			// is a failure to get intact records across, which is what
+			// transport-failed says.
+			outcome := captureOutcomeTransport
+			if errors.Is(targetJournalErr, errJournalNotFinalized) {
+				outcome = captureOutcomeNotFinalized
+			}
+			result.Outcome, result.CaptureError = outcome, targetJournalErr.Error()+unfinalizedHint(targetJournalErr, result)
 		} else if len(workers) > 0 && workers[len(workers)-1].Failure != "" {
 			w := workers[len(workers)-1]
 			if w.Disposition == "injection-failed" {

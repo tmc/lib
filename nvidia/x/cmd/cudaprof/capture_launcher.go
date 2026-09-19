@@ -32,6 +32,13 @@ const (
 	captureOutcomeUnsupported = "unsupported"
 	captureOutcomeInjection   = "injection-failed"
 	captureOutcomeTransport   = "transport-failed"
+	// captureOutcomeNotFinalized reports a target whose journal decoded
+	// completely and whose producer never wrote a finalized record. It is
+	// split out of transport-failed because the transport is exactly what did
+	// work: the handshake completed and records arrived. Reporting it as a
+	// transport failure sent at least one reader hunting the channel for a
+	// fault that was never there, with transport_ready:false agreeing.
+	captureOutcomeNotFinalized = "not-finalized"
 	// captureOutcomePartialRecovered reports totals that include records read
 	// from generations that never wrote a finalized record. Such a generation
 	// decoded completely and passed every identity and ordering check, but its

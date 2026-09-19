@@ -373,3 +373,53 @@ func TestUnfinalizedTargetReportsTheTransportItUsed(t *testing.T) {
 		t.Errorf("handshake said transport_ready:false and the capture published true: %+v", got)
 	}
 }
+
+// TestNotFinalizedIsNotATransportFailure pins the outcome token for a target
+// that got its records across and never closed the books.
+//
+// Both arms fail the capture and both set targetJournalErr, so a single arm
+// could not tell the two tokens apart -- it would pass with the branch deleted.
+// The truncated arm is what makes the split mean something: a journal that did
+// not arrive intact is a transport failure and must keep saying so.
+func TestNotFinalizedIsNotATransportFailure(t *testing.T) {
+	const session = "00112233445566778899aabbccddeeff"
+	var sid [16]byte
+	raw, _ := hex.DecodeString(session)
+	copy(sid[:], raw)
+
+	write := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		writeHandshake(t, dir, session, 41, 2)
+		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
+			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+		})
+		return dir
+	}
+
+	got := observeCaptureSession(captureResult{TargetPID: 41}, write(t), session, observeOptions{injectionRequested: true})
+	if got.Outcome != captureOutcomeNotFinalized {
+		t.Errorf("outcome = %q, want %q: the handshake completed and records arrived, so the transport is the one thing that worked", got.Outcome, captureOutcomeNotFinalized)
+	}
+
+	// Same journal, cut short so it no longer decodes. The records did not
+	// arrive intact, which is what transport-failed says.
+	cut := write(t)
+	path := filepath.Join(cut, "capture.journal")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(path, info.Size()-16); err != nil {
+		t.Fatal(err)
+	}
+	short := observeCaptureSession(captureResult{TargetPID: 41}, cut, session, observeOptions{injectionRequested: true})
+	if short.Outcome != captureOutcomeTransport {
+		t.Errorf("truncated journal outcome = %q, want %q", short.Outcome, captureOutcomeTransport)
+	}
+	if short.Outcome == got.Outcome {
+		t.Fatalf("both journal failures report %q: the test cannot discriminate the two tokens", got.Outcome)
+	}
+}
