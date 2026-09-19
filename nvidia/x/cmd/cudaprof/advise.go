@@ -3816,6 +3816,15 @@ type idleAttribution struct {
 	gaps   int
 	median int64
 	arms   []idleArm // largest first
+
+	// opaqueGraphs reports that this capture held graph replay envelopes with
+	// no per-node records. Those replays carry no launch correlation, so idle
+	// beside them lands in the unattributed arm with a cause that is known
+	// and nameable rather than unknown. Without saying so, the finding
+	// reports that idle as a mechanism the capture could not identify, when
+	// what actually happened is that the instrument could not see through the
+	// replay.
+	opaqueGraphs bool
 }
 
 func idleArms(a GapAttribution) []idleArm {
@@ -3866,12 +3875,13 @@ func captureIdleAttribution(cap *cudacapture.Capture) (idleAttribution, bool) {
 			continue
 		}
 		best = idleAttribution{
-			device: dev.Device,
-			idle:   s.IdleNanos,
-			duty:   s.DutyCyclePct,
-			gaps:   s.GapCount,
-			median: s.Distribution.Median,
-			arms:   idleArms(s.Attribution),
+			device:       dev.Device,
+			idle:         s.IdleNanos,
+			duty:         s.DutyCyclePct,
+			gaps:         s.GapCount,
+			median:       s.Distribution.Median,
+			arms:         idleArms(s.Attribution),
+			opaqueGraphs: gaps.OpaqueGraphReplays,
 		}
 		found = true
 	}
@@ -3913,6 +3923,14 @@ func auditIdleAttribution(cap *cudacapture.Capture, report *AdviceReport) bool {
 	// account of all the idle time.
 	if share < 50.0 {
 		finding += " No single mechanism holds a majority of the idle time, so a remedy aimed at one arm can recover at most that arm's share."
+	}
+	// Replay opacity is a property of the instrument, not of the run. Saying
+	// so here separates "this idle has no mechanism" from "this capture
+	// cannot see the mechanism": the unattributed time is real either way,
+	// and only the second is fixed by re-capturing rather than by changing
+	// the program.
+	if attr.opaqueGraphs {
+		finding += " This capture holds graph replay envelopes with no per-node records, which carry no launch correlation, so idle beside a replay cannot be attributed and lands in the unattributed arm. That idle is real and unattributable here, not absent."
 	}
 	report.Items = append(report.Items, AdviceItem{
 		Severity:       SeverityCritical,

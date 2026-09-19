@@ -3931,6 +3931,19 @@ func dutyCycleFinding(t *testing.T, report *AdviceReport) string {
 	return ""
 }
 
+// idleFinding returns the idle-attribution finding's text, selected rather
+// than indexed for the reason dutyCycleFinding is.
+func idleFinding(t *testing.T, report *AdviceReport) string {
+	t.Helper()
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, "Idle attribution:") {
+			return it.Finding
+		}
+	}
+	t.Fatalf("no idle-attribution finding among %d items", len(report.Items))
+	return ""
+}
+
 // TestAPIRecordsComeFromTheJournal covers the sibling of the timeline defect,
 // one layer in.
 //
@@ -4192,5 +4205,45 @@ func TestIdleMagnitudeIsNotLabelledGPUTime(t *testing.T) {
 	}
 	if !strings.Contains(line, "of idle") || !strings.Contains(line, "hardware queue:") {
 		t.Errorf("header does not say what its number is:\n%s", line)
+	}
+}
+
+// TestIdleAttributionSeparatesUnseenFromAbsent covers the difference between
+// idle a capture could not attribute and idle that is not there. A graph
+// replay recorded as an envelope with no per-node records carries no launch
+// correlation, so idle beside it lands in the unattributed arm -- with a cause
+// that is known and nameable, not unknown. A reader told only "unattributed"
+// reasonably concludes the measurement found nothing; the honest statement is
+// that the instrument could not see through the replay, and that is fixed by
+// re-capturing rather than by changing the program.
+func TestIdleAttributionSeparatesUnseenFromAbsent(t *testing.T) {
+	const opaque = "graph replay envelopes with no per-node records"
+
+	// Same kernels and same idle in both arms: only the replay records differ.
+	plain := idleJournal(func(k uint64) (uint64, uint64) { return k - 5_000, k - 100 })
+	report := &AdviceReport{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": plain}, completeStatus()), report)
+	if got := idleFinding(t, report); strings.Contains(got, opaque) {
+		t.Errorf("a capture with no graph replays claims replay opacity:\n%s", got)
+	}
+
+	b := newJournalBuilder()
+	for i := uint32(1); i <= 5; i++ {
+		start := uint64(10_000) + uint64(i-1)*10_000
+		b.kernel(start, start+1_000, i)
+		b.api(start-5_000, start-100, i)
+	}
+	// An envelope with no nodes inside it: the shape that hides the census.
+	b.graphTrace(0, 60_000, 69_000, 7, 100)
+	withReplays := b.finalize()
+
+	report = &AdviceReport{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": withReplays}, completeStatus()), report)
+	idle := idleFinding(t, report)
+	if !strings.Contains(idle, opaque) {
+		t.Errorf("idle finding does not name replay opacity:\n%s", idle)
+	}
+	if !strings.Contains(idle, "real and unattributable here, not absent") {
+		t.Errorf("idle finding does not separate unseen from absent:\n%s", idle)
 	}
 }
