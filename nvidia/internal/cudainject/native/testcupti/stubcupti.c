@@ -66,11 +66,20 @@ static _Atomic unsigned first_enable_at;
 static unsigned next_call_sequence(void) { return atomic_fetch_add(&call_sequence, 1u) + 1u; }
 
 /* Tracks which kinds the producer enabled, so an activity-only configuration
-   really does stop API records from being delivered, as CUPTI would. */
-static _Atomic int enabled_kinds[16];
+   really does stop API records from being delivered, as CUPTI would.
+
+   The bound covers CUPTI's own dense kind enum, which reaches the low nineties
+   in CUDA 13, rather than the handful of kinds the agent happened to enable
+   when this was written: a kind past the end was refused with
+   CUPTI_ERROR_INVALID_PARAMETER, and because every optional kind here degrades
+   on a refusal, adding one whose value exceeded the bound would have produced
+   a producer that enabled nothing, a stub that delivered nothing, and a suite
+   that passed. */
+#define TEST_MAX_ACTIVITY_KINDS 128
+static _Atomic int enabled_kinds[TEST_MAX_ACTIVITY_KINDS];
 
 static int kind_enabled(CUpti_ActivityKind kind) {
-	if ((unsigned)kind >= 16) return 0;
+	if ((unsigned)kind >= TEST_MAX_ACTIVITY_KINDS) return 0;
 	return atomic_load(&enabled_kinds[(unsigned)kind]);
 }
 
@@ -81,7 +90,7 @@ CUptiResult cuptiActivityEnable(CUpti_ActivityKind kind) {
 	   produced before the callback is installed, and the first enable is when
 	   that becomes possible. */
 	(void)atomic_compare_exchange_strong(&first_enable_at, &unset, at);
-	if ((unsigned)kind >= 16) return CUPTI_ERROR_INVALID_PARAMETER;
+	if ((unsigned)kind >= TEST_MAX_ACTIVITY_KINDS) return CUPTI_ERROR_INVALID_PARAMETER;
 	atomic_store(&enabled_kinds[(unsigned)kind], 1);
 	return CUPTI_SUCCESS;
 }
@@ -118,7 +127,7 @@ uint64_t cudaprof_test_timestamp(void) {
 }
 
 CUptiResult cuptiActivityDisable(CUpti_ActivityKind kind) {
-	if ((unsigned)kind >= 16) return CUPTI_ERROR_INVALID_PARAMETER;
+	if ((unsigned)kind >= TEST_MAX_ACTIVITY_KINDS) return CUPTI_ERROR_INVALID_PARAMETER;
 	atomic_store(&enabled_kinds[(unsigned)kind], 0);
 	return CUPTI_SUCCESS;
 }
@@ -219,7 +228,7 @@ int cudaprof_test_fire_callback(unsigned domain, unsigned cbid, unsigned site) {
 
 unsigned cudaprof_test_enabled_kind_count(void) {
 	unsigned n = 0;
-	for (unsigned i = 0; i < 16; i++) {
+	for (unsigned i = 0; i < TEST_MAX_ACTIVITY_KINDS; i++) {
 		if (atomic_load(&enabled_kinds[i])) n++;
 	}
 	return n;
