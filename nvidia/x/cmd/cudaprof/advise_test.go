@@ -3874,3 +3874,49 @@ func TestNoRecaptureRecommendedWhenTheJournalIsAttached(t *testing.T) {
 		t.Errorf("journalRemedy = %q for a capture with no journal", got)
 	}
 }
+
+// TestOpaqueGraphCaveatReachesTheDutyCycleFinding pins the caveat's delivery.
+// The finding that reranks every other finding must say when its busy figure
+// includes time the device may not have been working: with no graph-tagged
+// record, a replay counts as busy for its whole envelope, so the idle it
+// reports is a floor and not a measurement.
+func TestOpaqueGraphCaveatReachesTheDutyCycleFinding(t *testing.T) {
+	b := newJournalBuilder()
+	b.kernelOn(0, 1, 1_000, 2_000, 1)
+	b.graphTrace(0, 3_000, 4_000, 5, 3)
+	b.kernelOn(0, 1, 90_000, 91_000, 2)
+	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
+
+	streams, opaque := extractStreamEventsDetail(cap)
+	if !opaque {
+		t.Fatal("journal with envelopes and no graph-tagged record did not report opaque replays")
+	}
+	if _, _, busy, ok := profileDutyCycle(streams); !ok || busy != 3_000 {
+		t.Fatalf("busy = %d (ok %v), want 3000: the envelope is on the timeline", busy, ok)
+	}
+
+	report := &AdviceReport{}
+	auditDeviceDutyCycle(cap, report)
+	if len(report.Items) != 1 {
+		t.Fatalf("items = %d, want the duty-cycle finding", len(report.Items))
+	}
+	if !strings.Contains(report.Items[0].Finding, "lower bound") {
+		t.Errorf("finding does not carry the opacity caveat: %q", report.Items[0].Finding)
+	}
+
+	// A capture whose replays are described by their nodes must not carry it:
+	// a caveat printed on every capture is one a reader learns to skip.
+	c := newJournalBuilder()
+	c.kernelOn(0, 1, 1_000, 2_000, 1)
+	c.graphNode(0, 1, 3_000, 4_000, 4, 5)
+	c.graphTrace(0, 3_000, 4_000, 5, 3)
+	c.kernelOn(0, 1, 90_000, 91_000, 2)
+	plain := &AdviceReport{}
+	auditDeviceDutyCycle(testCapture(map[string][]byte{"capture.journal": c.finalize()}, completeStatus()), plain)
+	if len(plain.Items) != 1 {
+		t.Fatalf("items = %d, want the duty-cycle finding", len(plain.Items))
+	}
+	if strings.Contains(plain.Items[0].Finding, "lower bound") {
+		t.Errorf("opacity caveat on a capture whose nodes name their graph: %q", plain.Items[0].Finding)
+	}
+}

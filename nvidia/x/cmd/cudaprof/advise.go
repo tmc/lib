@@ -3002,9 +3002,19 @@ func cleanKernelName(name string) string {
 }
 
 func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
+	events, _ := extractStreamEventsDetail(cap)
+	return events
+}
+
+// extractStreamEventsDetail also reports that the events came from a journal
+// whose graph replays are opaque: the envelopes are on the timeline because no
+// device record named a graph, so their interiors are counted as busy. A
+// caller stating a duty cycle has to carry that caveat, and this is the only
+// place that knows it -- re-deriving it would mean decoding the journal twice.
+func extractStreamEventsDetail(cap *cudacapture.Capture) (map[uint32][]streamEvent, bool) {
 	res := make(map[uint32][]streamEvent)
 	if cap == nil {
-		return res
+		return res, false
 	}
 
 	if cap.Profile != nil && len(cap.Profile.Sample) > 0 {
@@ -3152,7 +3162,7 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 	// res, so a len(res) == 0 guard would never fire, and the reader would go
 	// on to announce that the capture has no timestamps while holding them.
 	if !anyStreamTimed(res) {
-		if events, _, err := journalStreamEvents(cap); err == nil && anyEventTimed(events) {
+		if events, opaque, err := journalStreamEvents(cap); err == nil && anyEventTimed(events) {
 			// Replaces what the projection produced rather than joining it.
 			// The two sources describe the same device work at different
 			// fidelities, and a union of them would double every activity the
@@ -3161,7 +3171,7 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 			for _, ev := range events {
 				timed[ev.Stream] = append(timed[ev.Stream], ev)
 			}
-			return timed
+			return timed, opaque
 		}
 	}
 	if len(res) == 0 && len(cap.Files) > 0 {
@@ -3178,7 +3188,7 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 		}
 	}
 
-	return res
+	return res, false
 }
 
 func parseStreamEventsFromJSON(data []byte) []streamEvent {
@@ -3733,11 +3743,19 @@ func profileDutyCycle(streams map[uint32][]streamEvent) (pct float64, spanNs, bu
 // below it be read as the whole account, and names the command that does
 // attribute idle.
 func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
-	pct, spanNs, busyNs, ok := profileDutyCycle(extractStreamEvents(cap))
+	streams, graphsOpaque := extractStreamEventsDetail(cap)
+	pct, spanNs, busyNs, ok := profileDutyCycle(streams)
 	if !ok || pct >= deviceIdleCriticalPct {
 		return
 	}
 	idleNs := spanNs - busyNs
+	// Carried forward rather than left to the gaps reader: on such a capture
+	// the busy figure includes whatever the device did NOT do between the
+	// nodes of a replay, so the idle below is a floor.
+	opaque := ""
+	if graphsOpaque {
+		opaque = " This capture's graph replays are opaque -- no device record names a graph, so each replay counts as busy from its envelope alone and the idle here is a lower bound."
+	}
 	report.Items = append(report.Items, AdviceItem{
 		Severity:        SeverityCritical,
 		Category:        CategoryArchitectureDispatch,
@@ -3745,8 +3763,8 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
 		severityByKind:  true,
 		DeviceTimeNanos: int64(busyNs),
 		ShareOfProfile:  pct,
-		Finding: fmt.Sprintf("The device was idle for %.2f%% of the captured span: %.3f ms idle of a %.3f ms span, with %.3f ms of device work. Every finding below this one ranks that %.2f%% -- none of them can see the idle time, and on this capture the idle time is the larger quantity.",
-			100.0-pct, float64(idleNs)/1e6, float64(spanNs)/1e6, float64(busyNs)/1e6, pct),
+		Finding: fmt.Sprintf("The device was idle for %.2f%% of the captured span: %.3f ms idle of a %.3f ms span, with %.3f ms of device work. Every finding below this one ranks that %.2f%% -- none of them can see the idle time, and on this capture the idle time is the larger quantity.%s",
+			100.0-pct, float64(idleNs)/1e6, float64(spanNs)/1e6, float64(busyNs)/1e6, pct, opaque),
 		ActionableRecommendation: "Attribute the idle time before acting on any kernel finding below: run cudaprof gaps on this capture, which splits idle into host-behind, synchronization, and graph-replay time. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies.",
 		NextMeasurement:          "cudaprof gaps <capture> -- idle attribution and the gap distribution",
 	})
