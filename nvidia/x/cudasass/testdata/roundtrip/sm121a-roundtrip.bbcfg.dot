@@ -1,0 +1,16 @@
+digraph f {
+subgraph "cluster_intmix" {
+node [fontname="Courier",fontsize=10,shape=Mrecord];
+"intmix"
+[label="{<entry>	.global		intmix\l	.type		intmix,@function\l	.size		intmix,(.L_x_2\ -\ intmix)\l	.other		intmix,\<no\ object\>\lintmix:\l.text.intmix:\l0000:\ \ \ LDC\ R1,\ c\[0x0\]\[0x37c\]\ ;\l0010:\ \ \ S2R\ R7,\ SR_TID.X\ ;\l0020:\ \ \ LDCU\ UR6,\ c\[0x0\]\[0x388\]\ ;\l0030:\ \ \ LDC.64\ R2,\ c\[0x0\]\[0x380\]\ ;\l0040:\ \ \ LDCU.64\ UR4,\ c\[0x0\]\[0x358\]\ ;\l0050:\ \ \ IADD\ R0,\ R7.reuse,\ UR6\ ;\l0060:\ \ \ IMAD\ R5,\ R7,\ 0x3,\ RZ\ ;\l0070:\ \ \ IMAD.WIDE.U32\ R2,\ R7,\ 0x4,\ R2\ ;\l0080:\ \ \ LOP3.LUT\ R0,\ R0,\ R5,\ RZ,\ 0xfc,\ !PT\ ;\l0090:\ \ \ LOP3.LUT\ R5,\ R7,\ UR6,\ RZ,\ 0xfc,\ !PT\ ;\l00a0:\ \ \ IADD\ R5,\ R0,\ -R5\ ;\l00b0:\ \ \ STG.E\ desc\[UR4\]\[R2.64\],\ R5\ ;\l|<exit0>00c0:\ \ \ EXIT\ ;\l}"]
+}
+subgraph "cluster_addk" {
+node [fontname="Courier",fontsize=10,shape=Mrecord];
+"addk"
+[label="{<entry>	.global		addk\l	.type		addk,@function\l	.size		addk,(.L_x_3\ -\ addk)\l	.other		addk,\<no\ object\>\laddk:\l.text.addk:\l0000:\ \ \ LDC\ R1,\ c\[0x0\]\[0x37c\]\ ;\l0010:\ \ \ S2R\ R0,\ SR_TID.X\ ;\l0020:\ \ \ S2UR\ UR4,\ SR_CTAID.X\ ;\l0030:\ \ \ LDCU\ UR5,\ c\[0x0\]\[0x398\]\ ;\l0040:\ \ \ LDC\ R9,\ c\[0x0\]\[0x360\]\ ;\l0050:\ \ \ IMAD\ R9,\ R9,\ UR4,\ R0\ ;\l0060:\ \ \ ISETP.GE.AND\ P0,\ PT,\ R9,\ UR5,\ PT\ ;\l|<exit0>0070:\ \ \ @P0\ EXIT\ ;\l}"]
+"addk":exit0:s -> "BB0":entry:n [style=solid];
+node [fontname="Courier",fontsize=10,shape=Mrecord];
+"BB0"
+[label="{<entry>0080:\ \ \ LDC.64\ R2,\ c\[0x0\]\[0x380\]\ ;\l0090:\ \ \ LDCU.64\ UR4,\ c\[0x0\]\[0x358\]\ ;\l00a0:\ \ \ LDC.64\ R4,\ c\[0x0\]\[0x388\]\ ;\l00b0:\ \ \ LDC.64\ R6,\ c\[0x0\]\[0x390\]\ ;\l00c0:\ \ \ IMAD.WIDE\ R2,\ R9,\ 0x4,\ R2\ ;\l00d0:\ \ \ LDG.E\ R2,\ desc\[UR4\]\[R2.64\]\ ;\l00e0:\ \ \ IMAD.WIDE\ R4,\ R9,\ 0x4,\ R4\ ;\l00f0:\ \ \ LDG.E\ R5,\ desc\[UR4\]\[R4.64\]\ ;\l0100:\ \ \ IMAD.WIDE\ R6,\ R9,\ 0x4,\ R6\ ;\l0110:\ \ \ FADD\ R9,\ R2,\ R5\ ;\l0120:\ \ \ STG.E\ desc\[UR4\]\[R6.64\],\ R9\ ;\l|<exit0>0130:\ \ \ EXIT\ ;\l}"]
+}
+}
