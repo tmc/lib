@@ -132,6 +132,9 @@ type capture struct {
 	failures   []string
 	markers    []markerRecord
 	memsets    []memsetRecord
+	overheads  []overheadRecord
+	graphs     []graphTraceRecord
+	syncs      []syncRecord
 	hosts      []hostSampleRecord
 	// order is every record's kind in journal order. The producer's ordering
 	// invariant -- nothing before bootstrap and capability, nothing after
@@ -235,6 +238,9 @@ type capabilityRecord struct {
 	AtforkGuard     bool   `json:"atfork_guard"`
 	NVTXMarkers     bool   `json:"nvtx_markers"`
 	Memsets         bool   `json:"memsets"`
+	Overheads       bool   `json:"overheads"`
+	GraphTraces     bool   `json:"graph_traces"`
+	Synchronization bool   `json:"synchronization"`
 	ClocksUnified   bool   `json:"clocks_unified"`
 	CUPTIClock      string `json:"cupti_clock"`
 	HostSample      string `json:"host_sample"`
@@ -448,6 +454,27 @@ func decode(t *testing.T, path string) capture {
 					t.Fatalf("memset payload %q: %v", r.Payload, err)
 				}
 				c.memsets = append(c.memsets, m)
+			}
+			if bytes.Contains(r.Payload, []byte(`"subtype":"overhead"`)) {
+				var o overheadRecord
+				if err := json.Unmarshal(r.Payload, &o); err != nil {
+					t.Fatalf("overhead payload %q: %v", r.Payload, err)
+				}
+				c.overheads = append(c.overheads, o)
+			}
+			if bytes.Contains(r.Payload, []byte(`"subtype":"graph_trace"`)) {
+				var g graphTraceRecord
+				if err := json.Unmarshal(r.Payload, &g); err != nil {
+					t.Fatalf("graph_trace payload %q: %v", r.Payload, err)
+				}
+				c.graphs = append(c.graphs, g)
+			}
+			if bytes.Contains(r.Payload, []byte(`"subtype":"sync"`)) {
+				var y syncRecord
+				if err := json.Unmarshal(r.Payload, &y); err != nil {
+					t.Fatalf("sync payload %q: %v", r.Payload, err)
+				}
+				c.syncs = append(c.syncs, y)
 			}
 		}
 	}
@@ -2119,5 +2146,250 @@ func TestHostSampleRefusesUnreadableRoot(t *testing.T) {
 	}
 	if !status.Exited() || status.ExitStatus() != 0 {
 		t.Errorf("status = %v, want clean exit: a missing root disables the tier, it does not fail the capture", status)
+	}
+}
+
+// overheadRecord is one CUPTI_ACTIVITY_KIND_OVERHEAD activity: CUPTI's own
+// cost as a timestamped span. Note what it does not have: a device. The
+// producer transcribes the object identity CUPTI gave it, which for a buffer
+// flush is a host thread, and ObjectKind is what says whether Device means
+// anything at all.
+type overheadRecord struct {
+	Subtype      string `json:"subtype"`
+	Valid        bool   `json:"valid"`
+	Start        uint64 `json:"start"`
+	End          uint64 `json:"end"`
+	OverheadKind uint32 `json:"overhead_kind"`
+	ObjectKind   uint32 `json:"object_kind"`
+	Device       uint32 `json:"device"`
+	Context      uint32 `json:"context"`
+	Stream       uint32 `json:"stream"`
+	ProcessID    uint32 `json:"process_id"`
+	ThreadID     uint32 `json:"thread_id"`
+}
+
+// graphTraceRecord is one CUPTI_ACTIVITY_KIND_GRAPH_TRACE activity: the span
+// of one graph replay. Per-node visibility already exists on the kernel
+// records, which carry graph_id and graph_node_id; this is the envelope they
+// sit inside, and the difference between the two is launch and scheduling
+// cost no per-node record holds.
+type graphTraceRecord struct {
+	Subtype     string `json:"subtype"`
+	Valid       bool   `json:"valid"`
+	Start       uint64 `json:"start"`
+	End         uint64 `json:"end"`
+	Device      uint32 `json:"device"`
+	Context     uint32 `json:"context"`
+	Stream      uint32 `json:"stream"`
+	Correlation uint32 `json:"correlation"`
+	GraphID     uint32 `json:"graph_id"`
+}
+
+// syncRecord is one CUPTI_ACTIVITY_KIND_SYNCHRONIZATION activity: the window
+// a stream, event or context synchronize was open. It names a context and a
+// stream and no device, which is the whole reason the consumer has to resolve
+// one rather than read one.
+type syncRecord struct {
+	Subtype     string `json:"subtype"`
+	Valid       bool   `json:"valid"`
+	Start       uint64 `json:"start"`
+	End         uint64 `json:"end"`
+	SyncType    uint32 `json:"sync_type"`
+	CudaEventID uint32 `json:"cuda_event_id"`
+	Context     uint32 `json:"context"`
+	Stream      uint32 `json:"stream"`
+	Correlation uint32 `json:"correlation"`
+}
+
+// TestOverheadsReachTheJournal covers CUPTI_ACTIVITY_KIND_OVERHEAD end to end.
+//
+// The kind is the tool's own cost, expressed as timestamped spans: buffer
+// flushes, instrumentation pauses, lazily loaded modules. Until it was
+// collected, every one of those intervals was indistinguishable from the
+// device having nothing to do, so `cudaprof gaps` charged the time the tool
+// spent to the program it was measuring. That is a distortion in the tool's
+// headline number, in the direction that flatters no one: a run profiled more
+// heavily reports a worse duty cycle.
+//
+// The assertion on ObjectKind is the substantive one. An overhead record has
+// no deviceId at all; what it has is an object, and for CUPTI's own overhead
+// that object is a host thread. A producer that read Device off one of these
+// would emit a zero, and a consumer that trusted it would charge every
+// overhead in the process to device 0.
+func TestOverheadsReachTheJournal(t *testing.T) {
+	// argv: scenario threads buffers per_buffer pause_micros _ markers memsets undecoded overheads
+	_, status, captures := run(t, "sustained", "1", "1", "8", "0", "0", "0", "0", "0", "5")
+	c := only(t, captures)
+	if !c.capability.Overheads {
+		t.Fatal("capability reports overheads = false: the producer never enabled CUPTI_ACTIVITY_KIND_OVERHEAD, so every assertion below would be about an empty set")
+	}
+	if len(c.overheads) != 5 {
+		t.Fatalf("got %d overhead records, want 5", len(c.overheads))
+	}
+	for i, o := range c.overheads {
+		if o.Subtype != "overhead" {
+			t.Errorf("overhead %d: subtype=%q, want \"overhead\"", i, o.Subtype)
+		}
+		if !o.Valid {
+			t.Errorf("overhead %d: valid=false, want true: the stub wrote a well-ordered span", i)
+		}
+		// The span is the point. An overhead carried with start == end would
+		// leave the idle arithmetic downstream exactly where it was.
+		if got := o.End - o.Start; got != 70 {
+			t.Errorf("overhead %d spans %d..%d (%d ns), want 70 as the stub wrote it", i, o.Start, o.End, got)
+		}
+		// 1<<16 is CUPTI_ACTIVITY_OVERHEAD_CUPTI_BUFFER_FLUSH. Without the
+		// kind a reader cannot say which overhead a gap was, and "the tool
+		// cost you something here" is not actionable; "the tool was flushing
+		// its activity buffers here" is.
+		if o.OverheadKind != 1<<16 {
+			t.Errorf("overhead %d: overhead_kind=%d, want %d (CUPTI buffer flush): the kind was dropped, leaving an unattributable span", i, o.OverheadKind, 1<<16)
+		}
+		// 2 is CUPTI_ACTIVITY_OBJECT_THREAD.
+		if o.ObjectKind != 2 {
+			t.Errorf("overhead %d: object_kind=%d, want 2 (thread)", i, o.ObjectKind)
+		}
+		if o.ProcessID != 4242 || o.ThreadID != 99 {
+			t.Errorf("overhead %d: process/thread = %d/%d, want 4242/99 from the stub record", i, o.ProcessID, o.ThreadID)
+		}
+		// A thread-scoped overhead has no device, and the producer must leave
+		// the field empty rather than fill it with the zero that a consumer
+		// would read as device 0.
+		if o.Device != 0 || o.Context != 0 || o.Stream != 0 {
+			t.Errorf("overhead %d: device/context/stream = %d/%d/%d, want all zero: the record is scoped to a thread and names no device", i, o.Device, o.Context, o.Stream)
+		}
+	}
+	if len(c.failures) != 0 {
+		t.Errorf("producer reported failures: %q", c.failures)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestGraphTracesReachTheJournal covers CUPTI_ACTIVITY_KIND_GRAPH_TRACE end to
+// end.
+//
+// Per-node visibility is not what this adds: kernel records already carry
+// graph_id and graph_node_id, and the consumer reads both. What was missing is
+// the complement -- the span the replay as a whole occupied. Without it the
+// launch and scheduling cost of a graph is not merely unmeasured, it is
+// unmeasurable: it is exactly the part of the replay no node record covers,
+// and summing the nodes cannot recover a number that is defined as what the
+// nodes leave out.
+func TestGraphTracesReachTheJournal(t *testing.T) {
+	// argv: ... markers memsets undecoded overheads graph_traces
+	_, status, captures := run(t, "sustained", "1", "1", "8", "0", "0", "0", "0", "0", "0", "4")
+	c := only(t, captures)
+	if !c.capability.GraphTraces {
+		t.Fatal("capability reports graph_traces = false: the producer never enabled CUPTI_ACTIVITY_KIND_GRAPH_TRACE, so every assertion below would be about an empty set")
+	}
+	if len(c.graphs) != 4 {
+		t.Fatalf("got %d graph_trace records, want 4", len(c.graphs))
+	}
+	for i, g := range c.graphs {
+		if g.Subtype != "graph_trace" {
+			t.Errorf("graph_trace %d: subtype=%q, want \"graph_trace\"", i, g.Subtype)
+		}
+		if !g.Valid {
+			t.Errorf("graph_trace %d: valid=false, want true", i)
+		}
+		if got := g.End - g.Start; got != 90 {
+			t.Errorf("graph_trace %d spans %d..%d (%d ns), want 90 as the stub wrote it", i, g.Start, g.End, got)
+		}
+		// The graph id is what joins the envelope to the node records that
+		// ran inside it. An envelope with graph id 0 is a span belonging to
+		// no graph, which is worth nothing to a reader holding node records.
+		if g.GraphID != 5 {
+			t.Errorf("graph_trace %d: graph_id=%d, want 5: the envelope cannot be joined to the nodes it replayed", i, g.GraphID)
+		}
+		if g.Context != 1 || g.Stream != 7 {
+			t.Errorf("graph_trace %d: context/stream = %d/%d, want 1/7", i, g.Context, g.Stream)
+		}
+		if g.Correlation == 0 {
+			t.Errorf("graph_trace %d has correlation 0, so it can never be joined to the launch that replayed it", i)
+		}
+	}
+	// Unlike an overhead or a sync, a graph trace does carry a device id, and
+	// the stub alternates it: a producer that dropped the field would put
+	// every replay on device 0.
+	var devices [2]int
+	for _, g := range c.graphs {
+		if g.Device > 1 {
+			t.Fatalf("graph_trace device %d outside the stub's 0/1 alternation", g.Device)
+		}
+		devices[g.Device]++
+	}
+	if devices[0] == 0 || devices[1] == 0 {
+		t.Errorf("graph_trace devices = %v, want both: the device id the record carries was not transcribed", devices)
+	}
+	if len(c.failures) != 0 {
+		t.Errorf("producer reported failures: %q", c.failures)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestSynchronizationsReachTheJournal covers
+// CUPTI_ACTIVITY_KIND_SYNCHRONIZATION end to end.
+//
+// A synchronization span is the host waiting: a stream synchronize, an event
+// wait, a context synchronize. It is the single most common reason a device is
+// idle, and it was absent from the journal, so the gap report could say how
+// much idle there was and never why.
+//
+// The assertions on Context and Stream, and the absence of any assertion that
+// a device was carried, are the substance. CUpti_ActivitySynchronization has
+// no deviceId field. The producer therefore cannot supply one and must not
+// invent one; resolving it belongs to the consumer, which has records that
+// carry both a context and a device, and saying when it could not be resolved
+// belongs there too.
+func TestSynchronizationsReachTheJournal(t *testing.T) {
+	// argv: ... markers memsets undecoded overheads graph_traces syncs
+	_, status, captures := run(t, "sustained", "1", "1", "8", "0", "0", "0", "0", "0", "0", "0", "6")
+	c := only(t, captures)
+	if !c.capability.Synchronization {
+		t.Fatal("capability reports synchronization = false: the producer never enabled CUPTI_ACTIVITY_KIND_SYNCHRONIZATION, so every assertion below would be about an empty set")
+	}
+	if len(c.syncs) != 6 {
+		t.Fatalf("got %d sync records, want 6", len(c.syncs))
+	}
+	for i, y := range c.syncs {
+		if y.Subtype != "sync" {
+			t.Errorf("sync %d: subtype=%q, want \"sync\"", i, y.Subtype)
+		}
+		if !y.Valid {
+			t.Errorf("sync %d: valid=false, want true", i)
+		}
+		if got := y.End - y.Start; got != 60 {
+			t.Errorf("sync %d spans %d..%d (%d ns), want 60 as the stub wrote it", i, y.Start, y.End, got)
+		}
+		// 3 is CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_SYNCHRONIZE. The
+		// type is what turns "the device was idle" into a sentence naming
+		// which call the host was sitting in.
+		if y.SyncType != 3 {
+			t.Errorf("sync %d: sync_type=%d, want 3 (stream synchronize): the span survived but what it was did not", i, y.SyncType)
+		}
+		if y.CudaEventID != 3 {
+			t.Errorf("sync %d: cuda_event_id=%d, want 3", i, y.CudaEventID)
+		}
+		// The context is not decoration here: it is the only field through
+		// which this record can ever be placed on a device timeline.
+		if y.Context != 1 {
+			t.Errorf("sync %d: context=%d, want 1: without it the record can never be attributed to a device", i, y.Context)
+		}
+		if y.Stream != 7 {
+			t.Errorf("sync %d: stream=%d, want 7", i, y.Stream)
+		}
+		if y.Correlation == 0 {
+			t.Errorf("sync %d has correlation 0, so it can never be joined to the API call that waited", i)
+		}
+	}
+	if len(c.failures) != 0 {
+		t.Errorf("producer reported failures: %q", c.failures)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
 	}
 }

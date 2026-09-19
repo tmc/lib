@@ -1333,3 +1333,135 @@ func TestObserveJournalRejectsEarlyHostSample(t *testing.T) {
 		})
 	}
 }
+
+// TestObserveJournalCarriesTheIdleExplainingTiers covers the consumer half of
+// the OVERHEAD, GRAPH_TRACE and SYNCHRONIZATION tiers.
+//
+// The subtype check in observeJournal is an allowlist, which is the opposite
+// failure mode to the denylist in gaps: the producer side cannot ship without
+// this one, because a capture of any target that synchronizes a stream -- that
+// is, every target -- would be rejected outright with "unknown activity
+// subtype" rather than degraded. Producer and consumer have to land together.
+//
+// The second half of the test is the arithmetic. journalMetrics.duration is
+// accumulated in an else arm that used to mean "not a memcpy", so every one of
+// these three would have been charged to device duration: CUPTI's own cost,
+// the host's waiting, and a replay envelope that already contains the kernels
+// it spans.
+func TestObserveJournalCarriesTheIdleExplainingTiers(t *testing.T) {
+	dir := t.TempDir()
+	sessionHex := "0123456789abcdef0123456789abcdef"
+	raw, err := hex.DecodeString(sessionHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	copy(sid[:], raw)
+
+	journalPath := filepath.Join(dir, "capture.journal")
+	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200,"device":1,"context":4}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"overhead","name":"","valid":true,"start":300,"end":370,"overhead_kind":65536,"object_kind":2,"process_id":4242,"thread_id":99}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"graph_trace","name":"","valid":true,"start":400,"end":490,"device":1,"context":4,"stream":7,"correlation":11,"graph_id":5}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"sync","name":"","valid":true,"start":500,"end":560,"sync_type":3,"cuda_event_id":3,"context":4,"stream":7,"correlation":12}`)},
+		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":4}`)},
+	})
+
+	_, _, metrics, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
+	if err != nil {
+		t.Fatalf("an overhead, graph trace or sync record cost the whole capture: %v", err)
+	}
+	if len(activities) != 4 {
+		t.Fatalf("got %d activities, want 4", len(activities))
+	}
+	byKind := map[string]captureActivity{}
+	for _, a := range activities {
+		byKind[a.Subtype] = a
+	}
+	for _, want := range []string{"overhead", "graph_trace", "sync"} {
+		if _, ok := byKind[want]; !ok {
+			t.Fatalf("no %q record in the activity slice", want)
+		}
+	}
+
+	o := byKind["overhead"]
+	if o.Start != 300 || o.End != 370 {
+		t.Errorf("overhead span = %d..%d, want 300..370", o.Start, o.End)
+	}
+	if o.OverheadKind != 65536 {
+		t.Errorf("overhead kind = %d, want 65536: the span survived but what caused it did not", o.OverheadKind)
+	}
+	// ObjectKind is what makes the zero Device readable as "no device" rather
+	// than as device 0. Dropping it leaves a record that looks device-scoped.
+	if o.ObjectKind != 2 {
+		t.Errorf("overhead object kind = %d, want 2 (thread)", o.ObjectKind)
+	}
+	if o.ProcessID != 4242 || o.ThreadID != 99 {
+		t.Errorf("overhead process/thread = %d/%d, want 4242/99", o.ProcessID, o.ThreadID)
+	}
+
+	g := byKind["graph_trace"]
+	if g.Start != 400 || g.End != 490 {
+		t.Errorf("graph_trace span = %d..%d, want 400..490", g.Start, g.End)
+	}
+	if g.GraphID != 5 {
+		t.Errorf("graph_trace graph id = %d, want 5: the envelope can no longer be joined to its nodes", g.GraphID)
+	}
+	if g.Device != 1 {
+		t.Errorf("graph_trace device = %d, want 1", g.Device)
+	}
+
+	y := byKind["sync"]
+	if y.Start != 500 || y.End != 560 {
+		t.Errorf("sync span = %d..%d, want 500..560", y.Start, y.End)
+	}
+	if y.SyncType != 3 {
+		t.Errorf("sync type = %d, want 3 (stream synchronize)", y.SyncType)
+	}
+	if y.CudaEventID != 3 {
+		t.Errorf("sync cuda event id = %d, want 3", y.CudaEventID)
+	}
+	if y.Context != 4 {
+		t.Errorf("sync context = %d, want 4: without it the record can never be placed on a device", y.Context)
+	}
+	if y.Device != 0 {
+		t.Errorf("sync device = %d, want 0: the producer has no device to report for a sync and must not invent one", y.Device)
+	}
+
+	if metrics.copyBytes != 0 {
+		t.Errorf("copy bytes = %d, want 0", metrics.copyBytes)
+	}
+	// 100 ns for the kernel and nothing else. 70+90+60 = 220 ns of the three
+	// tiers is not device work: the overhead is the tool's, the sync is the
+	// host waiting, and the graph envelope already contains the kernel.
+	if metrics.duration != 100 {
+		t.Errorf("duration = %d, want 100 (the kernel alone): %d ns of overhead, sync or replay-envelope time was charged to the device", metrics.duration, metrics.duration-100)
+	}
+}
+
+// TestCaptureStatusDoesNotInventADeviceForDevicelessTiers covers the device
+// roster in compactCaptureStatus, which is built by reading Device off every
+// activity. An overhead is scoped to a host thread and a sync carries no
+// device field at all, so on both the field is zero because nothing filled it.
+// Reading it there would list device 0 as a device the capture saw work on --
+// on every capture, including one that used no device 0.
+func TestCaptureStatusDoesNotInventADeviceForDevicelessTiers(t *testing.T) {
+	status := compactCaptureStatus(captureResult{Activities: []captureActivity{
+		{Subtype: "kernel", Valid: true, Start: 100, End: 200, Device: 1},
+		{Subtype: "overhead", Valid: true, Start: 300, End: 370, ObjectKind: 2},
+		{Subtype: "sync", Valid: true, Start: 500, End: 560, Context: 4},
+		{Subtype: "graph_trace", Valid: true, Start: 400, End: 490, Device: 1},
+	}})
+	if len(status.Devices) != 1 || status.Devices[0] != 1 {
+		t.Errorf("devices = %v, want [1]: a record with no device to report was read as reporting device 0", status.Devices)
+	}
+	// They are still counted by kind: excluded from the device roster is not
+	// excluded from the capture.
+	for _, kind := range []string{"overhead", "sync", "graph_trace"} {
+		if status.ActivityKinds[kind] != 1 {
+			t.Errorf("activity kind %q counted %d time(s), want 1", kind, status.ActivityKinds[kind])
+		}
+	}
+}

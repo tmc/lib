@@ -31,6 +31,9 @@ static size_t record_size(CUpti_ActivityKind kind) {
 	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL: n = sizeof(TEST_KERNEL_TYPE); break;
 	case CUPTI_ACTIVITY_KIND_MEMCPY: n = sizeof(CUpti_ActivityMemcpy6); break;
 	case CUPTI_ACTIVITY_KIND_MEMSET: n = sizeof(CUpti_ActivityMemset4); break;
+	case CUPTI_ACTIVITY_KIND_OVERHEAD: n = sizeof(CUpti_ActivityOverhead); break;
+	case CUPTI_ACTIVITY_KIND_SYNCHRONIZATION: n = sizeof(CUpti_ActivitySynchronization); break;
+	case CUPTI_ACTIVITY_KIND_GRAPH_TRACE: n = sizeof(CUpti_ActivityGraphTrace); break;
 	case CUPTI_ACTIVITY_KIND_DRIVER:
 	case CUPTI_ACTIVITY_KIND_RUNTIME: n = sizeof(CUpti_ActivityAPI); break;
 	case CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION: n = sizeof(CUpti_ActivityExternalCorrelation); break;
@@ -306,6 +309,18 @@ int cudaprof_test_offer_mix(unsigned kernels, unsigned memcpys, unsigned apis, u
    cuptiActivityEnable the agent made; it is what a runtime newer than the
    build delivers, and what the decode loop's final else has to answer for. */
 int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets, unsigned undecoded) {
+	return cudaprof_test_offer_tiers(kernels, memcpys, apis, externals, markers, memsets, undecoded, 0, 0, 0);
+}
+
+/* Overheads, graph traces and syncs are offered above the other counts on the
+   same rule as markers and memsets: a scenario calibrated on a kernel/memcpy/
+   api mix keeps that mix when one of them is added to it.
+
+   The three are the kinds a consumer must not count as device work. The stub
+   gives each a span that overlaps the hole between the kernels it writes, so a
+   consumer that does count them erases idle time rather than merely reporting
+   an extra record. */
+int cudaprof_test_offer_tiers(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets, unsigned undecoded, unsigned overheads, unsigned graph_traces, unsigned syncs) {
 	if (request_cb == NULL || complete_cb == NULL) return -1;
 	uint8_t *buffer = NULL;
 	size_t size = 0, max_records = 0;
@@ -323,6 +338,9 @@ int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned a
 		else if (markers) { kind = CUPTI_ACTIVITY_KIND_MARKER; markers--; }
 		else if (memsets) { kind = CUPTI_ACTIVITY_KIND_MEMSET; memsets--; }
 		else if (undecoded) { kind = CUPTI_ACTIVITY_KIND_TEST_UNDECODED; undecoded--; }
+		else if (overheads) { kind = CUPTI_ACTIVITY_KIND_OVERHEAD; overheads--; }
+		else if (graph_traces) { kind = CUPTI_ACTIVITY_KIND_GRAPH_TRACE; graph_traces--; }
+		else if (syncs) { kind = CUPTI_ACTIVITY_KIND_SYNCHRONIZATION; syncs--; }
 		else break;
 		if (kind != CUPTI_ACTIVITY_KIND_TEST_UNDECODED && !kind_enabled(kind)) continue;
 		size_t n = record_size(kind);
@@ -374,6 +392,44 @@ int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned a
 		case CUPTI_ACTIVITY_KIND_TEST_UNDECODED:
 			((CUpti_Activity *)slot)->kind = kind;
 			break;
+		case CUPTI_ACTIVITY_KIND_OVERHEAD: {
+			CUpti_ActivityOverhead *o = (CUpti_ActivityOverhead *)slot;
+			o->kind = kind;
+			o->overheadKind = CUPTI_ACTIVITY_OVERHEAD_CUPTI_BUFFER_FLUSH;
+			/* A thread, not a device: this is where CUPTI's own cost is
+			   actually charged, and a stub that handed the agent a device id
+			   would hide the resolution problem the consumer has to solve. */
+			o->objectKind = CUPTI_ACTIVITY_OBJECT_THREAD;
+			o->objectId.pt.processId = 4242;
+			o->objectId.pt.threadId = 99;
+			o->start = 6000 + correlation;
+			o->end = o->start + 70;
+			break;
+		}
+		case CUPTI_ACTIVITY_KIND_GRAPH_TRACE: {
+			CUpti_ActivityGraphTrace *g = (CUpti_ActivityGraphTrace *)slot;
+			g->kind = kind;
+			g->correlationId = correlation;
+			g->start = 7000 + correlation;
+			g->end = g->start + 90;
+			g->deviceId = correlation & 1u;
+			g->graphId = 5;
+			g->contextId = 1;
+			g->streamId = 7;
+			break;
+		}
+		case CUPTI_ACTIVITY_KIND_SYNCHRONIZATION: {
+			CUpti_ActivitySynchronization *y = (CUpti_ActivitySynchronization *)slot;
+			y->kind = kind;
+			y->type = CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_SYNCHRONIZE;
+			y->start = 8000 + correlation;
+			y->end = y->start + 60;
+			y->correlationId = correlation;
+			y->contextId = 1;
+			y->streamId = 7;
+			y->cudaEventId = 3;
+			break;
+		}
 		case CUPTI_ACTIVITY_KIND_MEMSET: {
 			CUpti_ActivityMemset4 *ms = (CUpti_ActivityMemset4 *)slot;
 			ms->kind = kind;
@@ -453,6 +509,15 @@ CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, 
 	case CUPTI_ACTIVITY_KIND_MEMSET:
 		*size = sizeof(CUpti_ActivityMemset4);
 		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_OVERHEAD:
+		*size = sizeof(CUpti_ActivityOverhead);
+		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_GRAPH_TRACE:
+		*size = sizeof(CUpti_ActivityGraphTrace);
+		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_SYNCHRONIZATION:
+		*size = sizeof(CUpti_ActivitySynchronization);
+		return CUPTI_SUCCESS;
 	default:
 		return CUPTI_ERROR_NOT_SUPPORTED;
 	}
@@ -473,6 +538,18 @@ CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind,
 		*size = sizeof(CUpti_ActivityMemset4);
 		return CUPTI_SUCCESS;
 	}
+	if (kind == CUPTI_ACTIVITY_KIND_OVERHEAD) {
+		*size = sizeof(CUpti_ActivityOverhead);
+		return CUPTI_SUCCESS;
+	}
+	if (kind == CUPTI_ACTIVITY_KIND_SYNCHRONIZATION) {
+		*size = sizeof(CUpti_ActivitySynchronization);
+		return CUPTI_SUCCESS;
+	}
+	if (kind == CUPTI_ACTIVITY_KIND_GRAPH_TRACE) {
+		*size = sizeof(CUpti_ActivityGraphTrace);
+		return CUPTI_SUCCESS;
+	}
 	return CUPTI_ERROR_NOT_SUPPORTED;
 }
 
@@ -489,6 +566,18 @@ CUptiResult cudaprof_test_mock_short_memcpy_struct_size(CUpti_ActivityKind kind,
 	}
 	if (kind == CUPTI_ACTIVITY_KIND_MEMSET) {
 		*size = sizeof(CUpti_ActivityMemset4);
+		return CUPTI_SUCCESS;
+	}
+	if (kind == CUPTI_ACTIVITY_KIND_OVERHEAD) {
+		*size = sizeof(CUpti_ActivityOverhead);
+		return CUPTI_SUCCESS;
+	}
+	if (kind == CUPTI_ACTIVITY_KIND_SYNCHRONIZATION) {
+		*size = sizeof(CUpti_ActivitySynchronization);
+		return CUPTI_SUCCESS;
+	}
+	if (kind == CUPTI_ACTIVITY_KIND_GRAPH_TRACE) {
+		*size = sizeof(CUpti_ActivityGraphTrace);
 		return CUPTI_SUCCESS;
 	}
 	return CUPTI_ERROR_NOT_SUPPORTED;

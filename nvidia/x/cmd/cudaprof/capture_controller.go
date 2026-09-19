@@ -51,6 +51,10 @@ type captureRecordPayload struct {
 	Submitted           uint64     `json:"submitted"`
 	CopyKind            uint8      `json:"copy_kind"`
 	Value               uint32     `json:"value"`
+	OverheadKind        uint32     `json:"overhead_kind"`
+	ObjectKind          uint32     `json:"object_kind"`
+	SyncType            uint32     `json:"sync_type"`
+	CudaEventID         uint32     `json:"cuda_event_id"`
 	Device              uint32     `json:"device"`
 	Context             uint32     `json:"context"`
 	Stream              uint32     `json:"stream"`
@@ -605,6 +609,34 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				continue
 			}
 			if payload.Subtype == "capture_range" {
+				continue
+			}
+			// CUPTI overhead, the graph replay envelope and synchronization
+			// windows are carried like markers are: they reach the consumer
+			// intact, and they are counted as neither activity nor valid
+			// activity, because those two are counts of device work and none
+			// of these three is device work. An overhead interval is CUPTI's
+			// own cost, a sync window is the host waiting, and a graph trace
+			// spans the kernel records of the nodes it replayed -- counting
+			// that one would charge the same device time twice.
+			if payload.Subtype == "overhead" || payload.Subtype == "graph_trace" || payload.Subtype == "sync" {
+				activities = append(activities, captureActivity{
+					Subtype:      payload.Subtype,
+					Valid:        payload.Valid && payload.Start != 0 && payload.End >= payload.Start && payload.End-payload.Start <= math.MaxInt64,
+					Start:        payload.Start,
+					End:          payload.End,
+					Device:       payload.Device,
+					Context:      payload.Context,
+					Stream:       payload.Stream,
+					Correlation:  payload.Correlation,
+					ProcessID:    payload.ProcessID,
+					ThreadID:     payload.ThreadID,
+					GraphID:      payload.GraphID,
+					OverheadKind: payload.OverheadKind,
+					ObjectKind:   payload.ObjectKind,
+					SyncType:     payload.SyncType,
+					CudaEventID:  payload.CudaEventID,
+				})
 				continue
 			}
 			if payload.Subtype != "kernel" && payload.Subtype != "memcpy" && payload.Subtype != "memset" {

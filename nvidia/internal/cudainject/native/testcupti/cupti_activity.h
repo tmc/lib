@@ -27,6 +27,9 @@ typedef enum {
 	CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL = 6,
 	CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION = 7,
 	CUPTI_ACTIVITY_KIND_MARKER = 12,
+	CUPTI_ACTIVITY_KIND_OVERHEAD = 17,
+	CUPTI_ACTIVITY_KIND_SYNCHRONIZATION = 38,
+	CUPTI_ACTIVITY_KIND_GRAPH_TRACE = 51,
 	/* A kind the producer has no decode branch for, and never will. CUPTI's
 	   own kinds are a dense enum -- CUDA 13 reaches the low nineties -- so a
 	   value five orders of magnitude above the top of that range cannot
@@ -116,6 +119,67 @@ typedef struct {
 	uint64_t start, end;
 	uint32_t processId, threadId, correlationId, returnValue;
 } CUpti_ActivityAPI;
+
+/* CUPTI's own cost, as spans. The overhead kinds below are the values the real
+   header gives them: the low bits are driver overheads and everything CUPTI
+   charges to itself is shifted into the high half, so a consumer that treats
+   the field as an opaque number still sorts them apart. */
+typedef enum {
+	CUPTI_ACTIVITY_OVERHEAD_UNKNOWN = 0,
+	CUPTI_ACTIVITY_OVERHEAD_DRIVER_COMPILER = 1,
+	CUPTI_ACTIVITY_OVERHEAD_CUPTI_BUFFER_FLUSH = 1 << 16,
+	CUPTI_ACTIVITY_OVERHEAD_CUPTI_INSTRUMENTATION = 2 << 16,
+	CUPTI_ACTIVITY_OVERHEAD_CUPTI_RESOURCE = 3 << 16
+} CUpti_ActivityOverheadKind;
+
+/* Only the prefix cupti_agent.c reads. The real CUpti_ActivityOverhead3 adds a
+   correlation id and an overhead-data pointer after these; the agent reads
+   neither, and a stub that invented their offsets would assert a layout
+   nothing here checks.
+
+   An overhead record has no deviceId. What it has is an object identity that
+   is usually a process or a thread, because CUPTI's own cost is paid on the
+   host -- which is why the consumer cannot place one on a device timeline and
+   must not pretend otherwise. */
+typedef struct {
+	CUpti_ActivityKind kind;
+	CUpti_ActivityOverheadKind overheadKind;
+	CUpti_ActivityObjectKind objectKind;
+	CUpti_ActivityObjectKindId objectId;
+	uint64_t start, end;
+} CUpti_ActivityOverhead;
+
+typedef enum {
+	CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_UNKNOWN = 0,
+	CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_EVENT_SYNCHRONIZE = 1,
+	CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_WAIT_EVENT = 2,
+	CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_STREAM_SYNCHRONIZE = 3,
+	CUPTI_ACTIVITY_SYNCHRONIZATION_TYPE_CONTEXT_SYNCHRONIZE = 4
+} CUpti_ActivitySynchronizationType;
+
+/* Only the prefix cupti_agent.c reads; CUpti_ActivitySynchronization2 adds an
+   event sync id and a return value after these.
+
+   Note what is absent: a deviceId. A synchronization record names a context
+   and a stream and stops there, so the device a sync belongs to is something a
+   consumer has to resolve through records that carry both -- or report as
+   unresolved. */
+typedef struct {
+	CUpti_ActivityKind kind;
+	CUpti_ActivitySynchronizationType type;
+	uint64_t start, end;
+	uint32_t correlationId, contextId, streamId, cudaEventId;
+} CUpti_ActivitySynchronization;
+
+/* Only the prefix cupti_agent.c reads; CUpti_ActivityGraphTrace2 adds an end
+   device and end context after these. Unlike the two above, a graph trace does
+   carry a deviceId, so the replay envelope needs no resolution step. */
+typedef struct {
+	CUpti_ActivityKind kind;
+	uint32_t correlationId;
+	uint64_t start, end;
+	uint32_t deviceId, graphId, contextId, streamId;
+} CUpti_ActivityGraphTrace;
 
 /* cupti_agent.c static-asserts this layout, so the stub must match the real
    one byte for byte. */

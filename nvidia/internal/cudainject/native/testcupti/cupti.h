@@ -17,6 +17,7 @@ int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsig
 int cudaprof_test_offer_markers(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers);
 int cudaprof_test_offer_mix(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets);
 int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets, unsigned undecoded);
+int cudaprof_test_offer_tiers(unsigned kernels, unsigned memcpys, unsigned apis, unsigned externals, unsigned markers, unsigned memsets, unsigned undecoded, unsigned overheads, unsigned graph_traces, unsigned syncs);
 int cudaprof_test_callbacks_registered(void);
 
 /* Drives the Callback API surface capture-range gating subscribes to. fire()

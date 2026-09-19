@@ -174,37 +174,41 @@ Options:
 // tracePayload is the typed journal payload, in full. gapPayload reads the
 // four fields a duty cycle needs; a timeline draws the rest.
 type tracePayload struct {
-	Kind        string `json:"kind"`
-	Subtype     string `json:"subtype"`
-	Domain      string `json:"domain"`
-	Name        string `json:"name"`
-	Valid       bool   `json:"valid"`
-	Start       uint64 `json:"start"`
-	End         uint64 `json:"end"`
-	Bytes       uint64 `json:"bytes"`
-	Queued      uint64 `json:"queued"`
-	Submitted   uint64 `json:"submitted"`
-	CopyKind    uint32 `json:"copy_kind"`
-	RuntimeCorr uint32 `json:"runtime_correlation"`
-	Device      uint32 `json:"device"`
-	Context     uint32 `json:"context"`
-	Stream      uint32 `json:"stream"`
-	Correlation uint32 `json:"correlation"`
-	GridX       uint32 `json:"grid_x"`
-	GridY       uint32 `json:"grid_y"`
-	GridZ       uint32 `json:"grid_z"`
-	BlockX      uint32 `json:"block_x"`
-	BlockY      uint32 `json:"block_y"`
-	BlockZ      uint32 `json:"block_z"`
-	Registers   uint32 `json:"registers_per_thread"`
-	DynShared   uint32 `json:"dynamic_shared_memory"`
-	GraphID     uint32 `json:"graph_id"`
-	GraphNodeID uint64 `json:"graph_node_id"`
-	ProcessID   uint32 `json:"process_id"`
-	ThreadID    uint32 `json:"thread_id"`
-	CallbackID  uint32 `json:"callback_id"`
-	ReturnValue uint32 `json:"return_value"`
-	Dropped     uint64 `json:"dropped"`
+	Kind         string `json:"kind"`
+	Subtype      string `json:"subtype"`
+	Domain       string `json:"domain"`
+	Name         string `json:"name"`
+	Valid        bool   `json:"valid"`
+	Start        uint64 `json:"start"`
+	End          uint64 `json:"end"`
+	Bytes        uint64 `json:"bytes"`
+	Queued       uint64 `json:"queued"`
+	Submitted    uint64 `json:"submitted"`
+	CopyKind     uint32 `json:"copy_kind"`
+	RuntimeCorr  uint32 `json:"runtime_correlation"`
+	Device       uint32 `json:"device"`
+	Context      uint32 `json:"context"`
+	Stream       uint32 `json:"stream"`
+	Correlation  uint32 `json:"correlation"`
+	GridX        uint32 `json:"grid_x"`
+	GridY        uint32 `json:"grid_y"`
+	GridZ        uint32 `json:"grid_z"`
+	BlockX       uint32 `json:"block_x"`
+	BlockY       uint32 `json:"block_y"`
+	BlockZ       uint32 `json:"block_z"`
+	Registers    uint32 `json:"registers_per_thread"`
+	DynShared    uint32 `json:"dynamic_shared_memory"`
+	GraphID      uint32 `json:"graph_id"`
+	GraphNodeID  uint64 `json:"graph_node_id"`
+	OverheadKind uint32 `json:"overhead_kind"`
+	ObjectKind   uint32 `json:"object_kind"`
+	SyncType     uint32 `json:"sync_type"`
+	CudaEventID  uint32 `json:"cuda_event_id"`
+	ProcessID    uint32 `json:"process_id"`
+	ThreadID     uint32 `json:"thread_id"`
+	CallbackID   uint32 `json:"callback_id"`
+	ReturnValue  uint32 `json:"return_value"`
+	Dropped      uint64 `json:"dropped"`
 
 	// External correlation. The producer emits these in their own frame kind:
 	// ExternalID is the framework scope -- a PyTorch operator, an NCCL
@@ -549,6 +553,15 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				markers = append(markers, p)
 				continue
 			}
+			if p.Subtype == "overhead" {
+				// CUPTI's own cost is paid on a host thread, and the record
+				// says so: its object is a process or a thread, not a device.
+				// Drawing it on a device track would put a slice the device
+				// never ran beside the kernels it did, which is the same
+				// claim the lane splitting above exists to avoid making.
+				*out = append(*out, traceRecord{rec: activityRecord(p), kind: trackHost, group: [2]uint32{p.ProcessID, p.ThreadID}})
+				continue
+			}
 			*out = append(*out, traceRecord{rec: activityRecord(p), kind: trackDevice, group: [2]uint32{p.Device, p.Stream}})
 		case recordAPI:
 			if p.Start == 0 || p.End < p.Start {
@@ -596,6 +609,28 @@ func activityRecord(p tracePayload) cuptiactivity.Record {
 		r.Kind = cupti.ActivityKindMemcpy
 		r.CopyKind = cupti.ActivityMemcpyKind(p.CopyKind)
 		r.RuntimeCorrelationID = p.RuntimeCorr
+	case "overhead":
+		// Each of the three arms below exists for the reason the memset arm
+		// below it does: the default is the kernel arm, so a subtype it does
+		// not name is not rejected but relabelled, and the export is then
+		// complete, well formed, and wrong in a way no count shows.
+		r.Kind = cupti.ActivityKindOverhead
+		r.ProcessID, r.ThreadID = p.ProcessID, p.ThreadID
+		if r.Name == "" {
+			r.Name = cupti.ActivityOverheadKind(p.OverheadKind).String()
+		}
+	case "graph_trace":
+		r.Kind = cupti.ActivityKindGraphTrace
+		if r.Name == "" {
+			r.Name = "cudaGraphLaunch"
+		}
+	case "sync":
+		r.Kind = cupti.ActivityKindSynchronization
+		r.Synchronization = cupti.ActivitySynchronizationType(p.SyncType)
+		r.CudaEventID = p.CudaEventID
+		if r.Name == "" {
+			r.Name = r.Synchronization.String()
+		}
 	case "memset":
 		// Without this arm a memset falls to the default below and is
 		// exported as a kernel, carrying whatever the zero grid and block

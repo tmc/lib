@@ -165,10 +165,15 @@ func compactCaptureStatus(result captureResult) captureStatus {
 	kinds := make(map[string]uint64)
 	for _, activity := range result.Activities {
 		// A marker is a host annotation whose Device field names no device it
-		// ran on, and an external-correlation record is a link carrying no
-		// device at all, so counting either here would report a device the
-		// capture saw no work on. Their subtypes are still counted below.
-		if activity.Subtype == "marker" || activity.Subtype == "external_correlation" {
+		// ran on. An external-correlation record is a link carrying no
+		// device at all. A CUPTI overhead names an object that is usually a
+		// host thread, and a synchronization record carries no device field
+		// either: on both, Device is zero because nothing filled it. Listing
+		// any of them would report device 0 as a device the capture saw work
+		// on, on every capture, including one that used no device 0. A graph
+		// trace is not in this set -- it carries a real device id. Their
+		// subtypes are still counted below.
+		if activity.Subtype == "marker" || activity.Subtype == "external_correlation" || activity.Subtype == "overhead" || activity.Subtype == "sync" {
 			kinds[activity.Subtype]++
 			continue
 		}

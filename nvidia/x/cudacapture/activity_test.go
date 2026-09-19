@@ -620,3 +620,44 @@ func TestBuildActivityProfileSkipsExternalCorrelation(t *testing.T) {
 		t.Errorf("sample subtype = %v, want kernel", got)
 	}
 }
+
+// TestBuildActivityProfileSkipsTheIdleExplainingTiers pins the exclusion of
+// the three tiers that are not device work.
+//
+// The value arms in BuildActivityProfile are a chain with no default, so a
+// subtype none of them names still produces a sample: count one, kernel time
+// zero, memory time zero, bytes zero. A CUPTI overhead span, a graph replay
+// envelope and a cudaStreamSynchronize would each land in the profile as
+// device work that took no time, inflating the count dimension against the
+// duration dimensions beside it -- the same defect the marker exclusion
+// already exists for. The graph trace would be worse than that: its span
+// contains the kernel records of the nodes it replayed, so admitting it would
+// charge their device time twice.
+func TestBuildActivityProfileSkipsTheIdleExplainingTiers(t *testing.T) {
+	p := cudacapture.BuildActivityProfile("session-42", 100, []cudacapture.ActivityRecord{
+		{Subtype: "kernel", Valid: true, Start: 1000, End: 1500, Device: 1},
+		{Subtype: "overhead", Valid: true, Start: 2000, End: 2070, OverheadKind: 1 << 16, ObjectKind: 2},
+		{Subtype: "graph_trace", Valid: true, Start: 900, End: 1600, Device: 1, GraphID: 5},
+		{Subtype: "sync", Valid: true, Start: 3000, End: 3060, SyncType: 3, Context: 4},
+	})
+	if p == nil {
+		t.Fatal("no profile")
+	}
+	if len(p.Sample) != 1 {
+		var subtypes []string
+		for _, s := range p.Sample {
+			subtypes = append(subtypes, s.Label["subtype"]...)
+		}
+		t.Fatalf("samples = %d %v, want 1 (the kernel alone): a record that is not device work became device work that took no time", len(p.Sample), subtypes)
+	}
+	s := p.Sample[0]
+	if got := s.Label["subtype"]; len(got) != 1 || got[0] != "kernel" {
+		t.Fatalf("surviving sample subtype = %v, want [kernel]", got)
+	}
+	if s.Value[0] != 500 {
+		t.Errorf("kernel time = %d, want 500", s.Value[0])
+	}
+	if s.Value[3] != 1 {
+		t.Errorf("count = %d, want 1", s.Value[3])
+	}
+}

@@ -11,10 +11,18 @@ import (
 // traceActivity appends one activity with an explicit stream and name, which
 // the gaps fixtures do not carry because a duty cycle does not draw them.
 func (b *journalBuilder) traceActivity(subtype, name string, device, stream uint32, start, end uint64, correlation uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	p := map[string]any{
 		"kind": "activity", "subtype": subtype, "valid": true, "name": name,
 		"start": start, "end": end, "device": device, "stream": stream, "correlation": correlation,
-	})
+	}
+	switch subtype {
+	case "sync":
+		p["sync_type"] = 3
+		p["cuda_event_id"] = 3
+	case "graph_trace":
+		p["graph_id"] = 5
+	}
+	b.append(recordActivity, p)
 	return b
 }
 
@@ -540,5 +548,71 @@ func TestExportWithoutExternalRecordsReportsNothing(t *testing.T) {
 	b.traceActivity("kernel", "plain", 0, 7, 1_000, 3_000, 1)
 	if _, _, ext := decodeFixtureExternal(t, b.finalize()); ext != (externalSummary{}) {
 		t.Errorf("coverage = %+v, want the zero summary", ext)
+	}
+}
+
+// TestExportKeepsTheIdleExplainingTiersOutOfTheKernelKind covers the three new
+// arms in activityRecord.
+//
+// The switch there has a permissive default -- the kernel arm -- so a subtype
+// it does not name is not rejected, it is relabelled. Before these arms
+// existed, a CUPTI overhead span, a graph replay envelope and a
+// cudaStreamSynchronize would each have been exported as a CONCURRENT_KERNEL
+// carrying a zero grid and block. The trace would open, render, and show three
+// kernels the program never launched, and no count anywhere would be wrong.
+// The assertion is therefore on the kind of each record, not on their number.
+func TestExportKeepsTheIdleExplainingTiersOutOfTheKernelKind(t *testing.T) {
+	b := newJournalBuilder()
+	b.traceActivity("kernel", "k", 0, 7, 1_000, 2_000, 1)
+	b.traceActivity("graph_trace", "", 0, 7, 3_000, 4_000, 2)
+	b.traceActivity("sync", "", 0, 7, 5_000, 6_000, 3)
+	b.append(recordActivity, map[string]any{
+		"kind": "activity", "subtype": "overhead", "valid": true,
+		"start": 7_000, "end": 8_000, "overhead_kind": 1 << 16, "object_kind": 2,
+		"process_id": 4242, "thread_id": 99,
+	})
+	records := decodeFixture(t, b.finalize())
+	if len(records) != 4 {
+		t.Fatalf("records = %d, want 4", len(records))
+	}
+
+	byKind := map[cupti.ActivityKind]traceRecord{}
+	for _, r := range records {
+		byKind[r.rec.Kind] = r
+	}
+	for _, want := range []cupti.ActivityKind{cupti.ActivityKindConcurrentKernel, cupti.ActivityKindOverhead, cupti.ActivityKindGraphTrace, cupti.ActivityKindSynchronization} {
+		if _, ok := byKind[want]; !ok {
+			var got []cupti.ActivityKind
+			for _, r := range records {
+				got = append(got, r.rec.Kind)
+			}
+			t.Fatalf("no %v record in the trace; kinds = %v: a subtype fell through to the permissive default and was exported as a kernel", want, got)
+		}
+	}
+
+	// CUPTI's own cost is paid on a host thread, and the record says so. A
+	// device track is a claim the device ran it.
+	overhead := byKind[cupti.ActivityKindOverhead]
+	if overhead.kind != trackHost {
+		t.Errorf("overhead is on the device track: the trace would draw CUPTI's own cost beside the kernels the device actually ran")
+	}
+	if overhead.group != [2]uint32{4242, 99} {
+		t.Errorf("overhead host track = %v, want {4242, 99} from its object identity", overhead.group)
+	}
+	// A record whose name is the numeric enum, or empty, is one a reader
+	// cannot act on: "an overhead happened" is not a finding.
+	if overhead.rec.Name != cupti.ActivityOverheadCuptiBufferFlush.String() {
+		t.Errorf("overhead name = %q, want %q", overhead.rec.Name, cupti.ActivityOverheadCuptiBufferFlush.String())
+	}
+
+	sync := byKind[cupti.ActivityKindSynchronization]
+	if sync.rec.Synchronization != cupti.ActivitySynchronizationTypeStreamSynchronize {
+		t.Errorf("sync type = %v, want stream synchronize: the span survived and the reason for it did not", sync.rec.Synchronization)
+	}
+	if sync.rec.Name != cupti.ActivitySynchronizationTypeStreamSynchronize.String() {
+		t.Errorf("sync name = %q, want %q", sync.rec.Name, cupti.ActivitySynchronizationTypeStreamSynchronize.String())
+	}
+	if sync.rec.CudaEventID != 3 {
+		t.Errorf("sync cuda event id = %d, want 3", sync.rec.CudaEventID)
 	}
 }

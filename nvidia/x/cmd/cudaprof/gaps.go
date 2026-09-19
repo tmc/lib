@@ -301,6 +301,28 @@ type gapRecords struct {
 	activities []gapActivity
 	apis       map[uint32]gapAPI
 	journals   []gapJournal
+
+	// Spans that explain idle rather than occupy the device. None of the
+	// three is in activities: see the exclusions in decodeJournal.
+	overheads []gapInterval
+	graphs    []gapInterval
+	syncs     []gapInterval
+	rawSyncs  []rawSync
+
+	// contextDevice maps a CUPTI context to the device the records that carry
+	// both reported it on. A synchronization record carries a context and no
+	// device, so this is the only thing that can place one on a device
+	// timeline. Context 0 is never entered: it is the value a record that
+	// named no context leaves behind, and treating it as a context would
+	// resolve every unattributable sync onto whichever device happened to
+	// leave a zero there.
+	contextDevice map[uint32]uint32
+
+	// Syncs whose context no device-carrying record ever named. They are
+	// reported, not placed: assigning them to device 0 would put the
+	// explanation for one device's idle on another device's timeline.
+	unresolvedSyncs int
+	unresolvedNanos int64
 }
 
 type gapActivity struct {
@@ -309,20 +331,38 @@ type gapActivity struct {
 	correlation uint32
 }
 
+// gapInterval is one span on one device's timeline. Overhead spans carry no
+// device -- CUPTI's cost is charged to a host thread -- and are held with
+// device left at zero and applied to every device, which the overlay below
+// states rather than hides.
+type gapInterval struct {
+	device     uint32
+	start, end int64
+}
+
+// rawSync is a synchronization span before its device is known.
+type rawSync struct {
+	context    uint32
+	start, end int64
+}
+
 type gapAPI struct{ start, end int64 }
 
 // gapPayload is the subset of a typed journal payload gap analysis reads.
 type gapPayload struct {
-	Kind        string `json:"kind"`
-	Subtype     string `json:"subtype"`
-	State       string `json:"state"`
-	Domain      string `json:"domain"`
-	Valid       bool   `json:"valid"`
-	Start       uint64 `json:"start"`
-	End         uint64 `json:"end"`
-	Device      uint32 `json:"device"`
-	Correlation uint32 `json:"correlation"`
-	Dropped     uint64 `json:"dropped"`
+	Kind         string `json:"kind"`
+	Subtype      string `json:"subtype"`
+	State        string `json:"state"`
+	Domain       string `json:"domain"`
+	Valid        bool   `json:"valid"`
+	Start        uint64 `json:"start"`
+	End          uint64 `json:"end"`
+	Device       uint32 `json:"device"`
+	Context      uint32 `json:"context"`
+	Correlation  uint32 `json:"correlation"`
+	OverheadKind uint32 `json:"overhead_kind"`
+	SyncType     uint32 `json:"sync_type"`
+	Dropped      uint64 `json:"dropped"`
 }
 
 // decodeJournals decodes every journal member. A journal whose frames do not
@@ -330,7 +370,7 @@ type gapPayload struct {
 // timeline whose end is unknown, and a truncated prefix is indistinguishable
 // from a short run once the records are counted.
 func decodeJournals(journals map[string][]byte, maxRecords, maxBytes int64) (gapRecords, error) {
-	out := gapRecords{apis: make(map[uint32]gapAPI)}
+	out := gapRecords{apis: make(map[uint32]gapAPI), contextDevice: make(map[uint32]uint32)}
 	names := make([]string, 0, len(journals))
 	for name := range journals {
 		names = append(names, name)
@@ -358,7 +398,30 @@ func decodeJournals(journals map[string][]byte, maxRecords, maxBytes int64) (gap
 	if len(out.activities) == 0 {
 		return gapRecords{}, errors.New("journals hold no valid activity records, so there is no device timeline to analyze")
 	}
+	// Resolution runs once every journal has been read, not per journal: the
+	// kernel that names a context and the sync that shares it need not have
+	// been drained into the same journal member.
+	out.resolveSyncDevices()
 	return out, nil
+}
+
+// resolveSyncDevices places each synchronization span on the device its
+// context belongs to.
+//
+// A sync that cannot be resolved is counted and dropped rather than defaulted.
+// Device 0 is the wrong answer twice over: on a single-device run it is
+// indistinguishable from a correct one, so the defect never shows; on a
+// multi-device run it explains one device's idle with another device's wait.
+func (r *gapRecords) resolveSyncDevices() {
+	for _, y := range r.rawSyncs {
+		device, ok := r.contextDevice[y.context]
+		if !ok {
+			r.unresolvedSyncs++
+			r.unresolvedNanos += y.end - y.start
+			continue
+		}
+		r.syncs = append(r.syncs, gapInterval{device: device, start: y.start, end: y.end})
+	}
 }
 
 // decompressJournal returns the journal frames, transparently decompressing a
@@ -463,6 +526,47 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 			if payload.Subtype == "marker" || payload.Subtype == "capture_range" {
 				continue
 			}
+			// The same exclusion, for three more kinds and a sharper reason.
+			// This filter is a denylist -- anything it does not name counts
+			// as device busy -- so a span that merely explains idle, added
+			// upstream and not named here, would be subtracted from the idle
+			// it was added to explain, and nothing would fail. That is the
+			// whole trap:
+			//
+			//   overhead    CUPTI's own cost, paid on a host thread. Counting
+			//               it as busy makes the tool's headline idle number
+			//               shrink in proportion to how much the tool cost.
+			//   sync        the host waiting. This is the reason the device
+			//               was idle; charging it to busy erases the idle it
+			//               explains, exactly.
+			//   graph_trace the replay envelope, which spans the kernel
+			//               records of the nodes replayed inside it. It would
+			//               both double-count their device time and paper
+			//               over the scheduling gaps between them.
+			//
+			// Each is kept as a span instead and intersected with the idle
+			// gaps below, which is attribution rather than occupancy.
+			switch payload.Subtype {
+			case "overhead":
+				out.overheads = append(out.overheads, gapInterval{start: int64(payload.Start), end: int64(payload.End)})
+				continue
+			case "graph_trace":
+				out.graphs = append(out.graphs, gapInterval{device: payload.Device, start: int64(payload.Start), end: int64(payload.End)})
+				continue
+			case "sync":
+				out.rawSyncs = append(out.rawSyncs, rawSync{context: payload.Context, start: int64(payload.Start), end: int64(payload.End)})
+				continue
+			}
+			// A record that carries both a context and the device it ran on
+			// is the only source for the map a synchronization record has to
+			// be resolved through. First writer wins: a context belongs to
+			// one device for its lifetime, and a later disagreement is a
+			// reused id, not a migration.
+			if payload.Context != 0 {
+				if _, ok := out.contextDevice[payload.Context]; !ok {
+					out.contextDevice[payload.Context] = payload.Device
+				}
+			}
 			out.activities = append(out.activities, gapActivity{
 				device:      payload.Device,
 				start:       int64(payload.Start),
@@ -495,6 +599,13 @@ type GapReport struct {
 	Correlated float64      `json:"correlation_match_pct"`
 	WarmupMS   float64      `json:"warmup_ms"`
 	Devices    []GapDevice  `json:"devices"`
+
+	// Synchronization spans whose context no device-carrying record named, so
+	// no device timeline could claim them. They are stated here rather than
+	// folded into device 0: an explanation placed on the wrong device is
+	// worse than one that says it has no device.
+	UnresolvedSyncs     int   `json:"unresolved_sync_records"`
+	UnresolvedSyncNanos int64 `json:"unresolved_sync_ns"`
 }
 
 // GapDevice holds the whole-run and steady-state timelines of one device.
@@ -517,6 +628,34 @@ type GapStats struct {
 	Distribution    GapDistribution `json:"distribution_ns"`
 	Concurrency     []GapClass      `json:"host_concurrency"`
 	Attribution     GapAttribution  `json:"idle_attribution_ns"`
+	Overlay         GapOverlay      `json:"idle_overlay_ns"`
+}
+
+// GapOverlay names the idle time that something in the journal explains
+// directly: CUPTI was flushing, the host was waiting on a synchronize, or the
+// device was between the nodes of a graph replay.
+//
+// It overlays GapAttribution rather than extending it. The three numbers there
+// partition idle and sum to IdleNanos; these do not. One gap can be both host
+// behind and spent inside a cudaStreamSynchronize, one overhead span can cover
+// several gaps, and a graph replay envelope can contain both. Adding an
+// overlay figure to an attribution figure therefore double counts, and adding
+// two overlay figures to each other can exceed idle.
+type GapOverlay struct {
+	// CuptiOverheadNanos is idle time covered by a CUPTI overhead span: time
+	// the tool cost the run, which the tool would otherwise report as the
+	// program leaving the device idle. Overhead records carry a host thread
+	// rather than a device, so the same spans are applied to every device.
+	CuptiOverheadNanos int64 `json:"cupti_overhead"`
+	CuptiOverheadGaps  int   `json:"cupti_overhead_gap_count"`
+	// SyncNanos is idle covered by a synchronization span on this device.
+	SyncNanos int64 `json:"synchronization"`
+	SyncGaps  int   `json:"synchronization_gap_count"`
+	// GraphReplayNanos is idle inside a graph replay envelope: the device was
+	// between nodes of a launched graph, which is graph scheduling cost and
+	// not the host failing to keep up.
+	GraphReplayNanos int64 `json:"graph_replay"`
+	GraphReplayGaps  int   `json:"graph_replay_gap_count"`
 }
 
 // GapDistribution reports the shape of the idle gaps, not only their total. A
@@ -595,11 +734,13 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 		}
 	}
 	report := &GapReport{
-		Journals:   records.journals,
-		Activities: len(records.activities),
-		APIRecords: len(records.apis),
-		Correlated: float64(matched) / float64(len(records.activities)) * 100,
-		WarmupMS:   opts.warmupMS,
+		Journals:            records.journals,
+		Activities:          len(records.activities),
+		APIRecords:          len(records.apis),
+		Correlated:          float64(matched) / float64(len(records.activities)) * 100,
+		WarmupMS:            opts.warmupMS,
+		UnresolvedSyncs:     records.unresolvedSyncs,
+		UnresolvedSyncNanos: records.unresolvedNanos,
 	}
 	byDevice := make(map[uint32][]gapActivity)
 	for _, a := range records.activities {
@@ -613,7 +754,14 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 	warmupNanos := int64(opts.warmupMS * 1e6)
 	for _, d := range devices {
 		acts := byDevice[d]
-		entry := GapDevice{Device: d, Overall: computeGapStats(acts, records.apis, "overall")}
+		// Overhead spans carry no device, so every device is offered all of
+		// them; the sync and graph spans are filtered to this one.
+		spans := gapSpans{
+			overhead: records.overheads,
+			sync:     spansForDevice(records.syncs, d),
+			graph:    spansForDevice(records.graphs, d),
+		}
+		entry := GapDevice{Device: d, Overall: computeGapStats(acts, records.apis, "overall", spans)}
 		t0 := acts[0].start
 		var steady []gapActivity
 		for _, a := range acts {
@@ -622,7 +770,7 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 			}
 		}
 		if len(steady) != 0 && len(steady) != len(acts) {
-			entry.SteadyState = computeGapStats(steady, records.apis, "steady-state")
+			entry.SteadyState = computeGapStats(steady, records.apis, "steady-state", spans)
 		}
 		report.Devices = append(report.Devices, entry)
 	}
@@ -660,7 +808,64 @@ func mergeIntervals(acts []gapActivity) []mergedInterval {
 	return merged
 }
 
-func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string) *GapStats {
+// gapSpans are the non-device spans offered to one device's timeline.
+type gapSpans struct {
+	overhead, sync, graph []gapInterval
+}
+
+func spansForDevice(spans []gapInterval, device uint32) []gapInterval {
+	var out []gapInterval
+	for _, s := range spans {
+		if s.device == device {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// overlayIdle reports how much of the idle in gaps is covered by spans, and
+// how many gaps at least one span touched.
+//
+// Overlapping spans are counted once: the answer is the measure of the union
+// of the intersections, not the sum of them. A CUPTI buffer flush nested
+// inside a graph replay would otherwise be charged twice to one gap, and a
+// figure derived that way can exceed the idle it is a part of.
+func overlayIdle(gaps, spans []gapInterval) (int64, int) {
+	if len(gaps) == 0 || len(spans) == 0 {
+		return 0, 0
+	}
+	var total int64
+	var touched int
+	for _, g := range gaps {
+		var pieces []gapInterval
+		for _, s := range spans {
+			start, end := max64(g.start, s.start), min64(g.end, s.end)
+			if end > start {
+				pieces = append(pieces, gapInterval{start: start, end: end})
+			}
+		}
+		if len(pieces) == 0 {
+			continue
+		}
+		touched++
+		sort.Slice(pieces, func(i, j int) bool { return pieces[i].start < pieces[j].start })
+		cur := pieces[0]
+		for _, p := range pieces[1:] {
+			if p.start <= cur.end {
+				if p.end > cur.end {
+					cur.end = p.end
+				}
+				continue
+			}
+			total += cur.end - cur.start
+			cur = p
+		}
+		total += cur.end - cur.start
+	}
+	return total, touched
+}
+
+func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string, spans gapSpans) *GapStats {
 	if len(acts) == 0 {
 		return nil
 	}
@@ -678,6 +883,7 @@ func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string) *
 	}
 	classGaps := map[string][]int64{}
 	var gaps []int64
+	var idle []gapInterval
 	for i := 0; i+1 < len(merged); i++ {
 		prevEnd, nextStart := merged[i].end, merged[i+1].start
 		gap := nextStart - prevEnd
@@ -685,6 +891,7 @@ func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string) *
 			continue
 		}
 		gaps = append(gaps, gap)
+		idle = append(idle, gapInterval{start: prevEnd, end: nextStart})
 		api, ok := apis[merged[i+1].first.correlation]
 		if !ok {
 			classGaps[classUnmatched] = append(classGaps[classUnmatched], gap)
@@ -712,6 +919,9 @@ func computeGapStats(acts []gapActivity, apis map[uint32]gapAPI, label string) *
 	}
 	stats.GapCount = len(gaps)
 	stats.Distribution = describeGaps(gaps)
+	stats.Overlay.CuptiOverheadNanos, stats.Overlay.CuptiOverheadGaps = overlayIdle(idle, spans.overhead)
+	stats.Overlay.SyncNanos, stats.Overlay.SyncGaps = overlayIdle(idle, spans.sync)
+	stats.Overlay.GraphReplayNanos, stats.Overlay.GraphReplayGaps = overlayIdle(idle, spans.graph)
 	if total := stats.ActiveNanos + stats.IdleNanos; total > 0 {
 		stats.DutyCyclePct = float64(stats.ActiveNanos) / float64(total) * 100
 	}
@@ -802,6 +1012,9 @@ func (r *GapReport) text() string {
 		fmt.Fprintf(&b, "  journal %s (%s, %d bytes, %d records)\n", j.Name, form, j.Bytes, j.Records)
 	}
 	fmt.Fprintf(&b, "  activities %d  api records %d  correlated %.1f%%\n", r.Activities, r.APIRecords, r.Correlated)
+	if r.UnresolvedSyncs > 0 {
+		fmt.Fprintf(&b, "  %d synchronization record(s) totalling %s could not be placed on a device: no record named their context\n", r.UnresolvedSyncs, millis(r.UnresolvedSyncNanos))
+	}
 	for _, d := range r.Devices {
 		for _, s := range []*GapStats{d.Overall, d.SteadyState} {
 			if s == nil {
@@ -837,6 +1050,13 @@ func writeGapStats(b *strings.Builder, s *GapStats) {
 	fmt.Fprintf(b, "    host behind       %12s  (%.2f%% of idle)\n", millis(s.Attribution.HostBehindNanos), pct(s.Attribution.HostBehindNanos, s.IdleNanos))
 	fmt.Fprintf(b, "    driver submission %12s  (%.2f%% of idle)\n", millis(s.Attribution.DriverSubmitNanos), pct(s.Attribution.DriverSubmitNanos, s.IdleNanos))
 	fmt.Fprintf(b, "    hardware queue    %12s  (%.2f%% of idle)\n", millis(s.Attribution.HardwareNanos), pct(s.Attribution.HardwareNanos, s.IdleNanos))
+	// Printed apart from the three above, and labelled as overlapping them,
+	// because they do not partition idle and must not be read as a fourth,
+	// fifth and sixth share of it.
+	fmt.Fprintf(b, "  idle overlay (overlapping, does not sum with the split above)\n")
+	fmt.Fprintf(b, "    cupti overhead    %12s  (%.2f%% of idle, %d gap(s))\n", millis(s.Overlay.CuptiOverheadNanos), pct(s.Overlay.CuptiOverheadNanos, s.IdleNanos), s.Overlay.CuptiOverheadGaps)
+	fmt.Fprintf(b, "    synchronization   %12s  (%.2f%% of idle, %d gap(s))\n", millis(s.Overlay.SyncNanos), pct(s.Overlay.SyncNanos, s.IdleNanos), s.Overlay.SyncGaps)
+	fmt.Fprintf(b, "    graph replay      %12s  (%.2f%% of idle, %d gap(s))\n", millis(s.Overlay.GraphReplayNanos), pct(s.Overlay.GraphReplayNanos, s.IdleNanos), s.Overlay.GraphReplayGaps)
 }
 
 func millis(ns int64) string { return fmt.Sprintf("%.3f ms", float64(ns)/1e6) }

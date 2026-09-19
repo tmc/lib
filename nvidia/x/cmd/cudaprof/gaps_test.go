@@ -61,6 +61,48 @@ func (b *journalBuilder) activity(subtype string, device uint32, start, end uint
 	return b
 }
 
+// kernelOn appends one kernel on an explicit device and context. The context
+// matters only here: it is what a synchronization record is resolved through,
+// and a fixture whose kernels name no context can never exercise resolution.
+func (b *journalBuilder) kernelOn(device, context uint32, start, end uint64, correlation uint32) *journalBuilder {
+	b.append(recordActivity, map[string]any{
+		"kind": "activity", "subtype": "kernel", "valid": true,
+		"start": start, "end": end, "device": device, "context": context, "correlation": correlation,
+	})
+	return b
+}
+
+// overhead appends one CUPTI overhead span. It carries no device, exactly as
+// the producer writes it: CUPTI's own cost is charged to a host thread.
+func (b *journalBuilder) overhead(start, end uint64, overheadKind uint32) *journalBuilder {
+	b.append(recordActivity, map[string]any{
+		"kind": "activity", "subtype": "overhead", "valid": true,
+		"start": start, "end": end, "overhead_kind": overheadKind, "object_kind": 2,
+		"process_id": 4242, "thread_id": 99,
+	})
+	return b
+}
+
+// graphTrace appends one graph replay envelope, which does carry a device.
+func (b *journalBuilder) graphTrace(device uint32, start, end uint64, graphID, correlation uint32) *journalBuilder {
+	b.append(recordActivity, map[string]any{
+		"kind": "activity", "subtype": "graph_trace", "valid": true,
+		"start": start, "end": end, "device": device, "graph_id": graphID, "correlation": correlation,
+	})
+	return b
+}
+
+// sync appends one synchronization span. It names a context and no device,
+// because CUpti_ActivitySynchronization has no device field to name.
+func (b *journalBuilder) sync(context uint32, start, end uint64, syncType, correlation uint32) *journalBuilder {
+	b.append(recordActivity, map[string]any{
+		"kind": "activity", "subtype": "sync", "valid": true,
+		"start": start, "end": end, "context": context, "sync_type": syncType,
+		"cuda_event_id": 3, "correlation": correlation,
+	})
+	return b
+}
+
 // api appends one driver launch record correlated to an activity.
 func (b *journalBuilder) api(start, end uint64, correlation uint32) *journalBuilder {
 	b.append(recordAPI, map[string]any{
@@ -279,7 +321,7 @@ func TestGapsHostClassification(t *testing.T) {
 			if tt.api != nil {
 				apis[2] = *tt.api
 			}
-			s := computeGapStats(acts, apis, "overall")
+			s := computeGapStats(acts, apis, "overall", gapSpans{})
 			if s.GapCount != 1 || s.IdleNanos != tt.wantIdle {
 				t.Fatalf("gaps = %d idle = %d, want 1 gap of %d", s.GapCount, s.IdleNanos, tt.wantIdle)
 			}
@@ -907,5 +949,225 @@ func TestGapsCountsMemsetsAsBusy(t *testing.T) {
 	}
 	if a.SpanNanos != b.SpanNanos {
 		t.Errorf("span = %d with the memset, %d without: a contained record moved an end of the timeline", a.SpanNanos, b.SpanNanos)
+	}
+}
+
+// twoKernelHole is two kernels on device 0 in context 1 with a single 3000 ns
+// hole between them. Every test below adds one idle-explaining span inside
+// that hole and asserts the hole is still there.
+func twoKernelHole() *journalBuilder {
+	b := newJournalBuilder()
+	b.kernelOn(0, 1, 1_000, 3_000, 1)
+	b.kernelOn(0, 1, 6_000, 7_000, 2)
+	return b
+}
+
+func analyzeFixture(t *testing.T, data []byte) *GapReport {
+	t.Helper()
+	report, err := analyzeGaps(testCapture(map[string][]byte{"capture.journal": data}, completeStatus()), gapOptions{warmupMS: 0, maxRecords: controllerMaxJournalRecords})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return report
+}
+
+// TestGapsKeepsOverheadOutOfDeviceBusy is the assertion the OVERHEAD tier
+// stands or falls on, and it is an assertion that nothing changed.
+//
+// The subtype filter in decodeJournal is a denylist: markers and capture-range
+// edges are dropped and everything else is device work. Enabling a new kind
+// upstream therefore silently enrols it as device busy. For overhead that is
+// not a small error, it is an inversion -- CUPTI's own cost would be counted
+// as the program keeping the device busy, and the idle the tool itself caused
+// would vanish from the number the tool exists to report. Nothing would fail:
+// active would rise, idle would fall, and both would still sum to the span.
+//
+// So the test pins idle, active and the gap count against a run with no
+// overhead at all, and then asserts the overlay picked the span up. Exclusion
+// without attribution is half the value: a gap the tool reports should be
+// labellable "this is CUPTI flushing, not your program".
+func TestGapsKeepsOverheadOutOfDeviceBusy(t *testing.T) {
+	before := analyzeFixture(t, twoKernelHole().finalize())
+	with := twoKernelHole()
+	// Squarely inside the hole, touching neither kernel.
+	with.overhead(4_000, 5_000, 1<<16)
+	after := analyzeFixture(t, with.finalize())
+
+	if len(before.Devices) != 1 || len(after.Devices) != 1 {
+		t.Fatalf("devices = %d without the overhead, %d with; want 1 each: an overhead carries no device and must not open a timeline", len(before.Devices), len(after.Devices))
+	}
+	b, a := before.Devices[0].Overall, after.Devices[0].Overall
+	if b.IdleNanos != 3_000 || b.ActiveNanos != 3_000 || b.GapCount != 1 {
+		t.Fatalf("baseline idle/active/gaps = %d/%d/%d, want 3000/3000/1: the fixture no longer has the hole this test is about", b.IdleNanos, b.ActiveNanos, b.GapCount)
+	}
+	if a.IdleNanos != b.IdleNanos {
+		t.Errorf("idle = %d ns with the overhead, %d without: %d ns of CUPTI's own cost was counted as device work and subtracted from the idle it caused", a.IdleNanos, b.IdleNanos, b.IdleNanos-a.IdleNanos)
+	}
+	if a.ActiveNanos != b.ActiveNanos {
+		t.Errorf("active = %d ns with the overhead, %d without: an overhead span entered the busy timeline", a.ActiveNanos, b.ActiveNanos)
+	}
+	if a.GapCount != b.GapCount {
+		t.Errorf("gaps = %d with the overhead, %d without: the span split a real device gap in two", a.GapCount, b.GapCount)
+	}
+	if a.Activities != b.Activities {
+		t.Errorf("activities = %d with the overhead, %d without: the count of device work admitted a record that is not device work", a.Activities, b.Activities)
+	}
+	// Excluded and attributed. Without this the gap is honest and unexplained,
+	// which is where the tool already was.
+	if a.Overlay.CuptiOverheadNanos != 1_000 {
+		t.Errorf("overlay cupti_overhead = %d ns, want 1000: the gap cannot be labelled as the tool's own cost", a.Overlay.CuptiOverheadNanos)
+	}
+	if a.Overlay.CuptiOverheadGaps != 1 {
+		t.Errorf("overlay cupti_overhead gap count = %d, want 1", a.Overlay.CuptiOverheadGaps)
+	}
+	if b.Overlay.CuptiOverheadNanos != 0 || b.Overlay.CuptiOverheadGaps != 0 {
+		t.Errorf("baseline overlay = %d ns over %d gap(s), want zero: the overlay reports overhead in a run that has none", b.Overlay.CuptiOverheadNanos, b.Overlay.CuptiOverheadGaps)
+	}
+}
+
+// TestGapsKeepsSyncOutOfDeviceBusy is the same denylist trap, in its sharpest
+// form. A synchronization span is the host waiting, which is *why* the device
+// was idle; counting it as busy would erase precisely the idle it was added to
+// explain, and the erasure is exact rather than approximate. A reader would
+// see a duty cycle improve as more of the run was spent blocked.
+//
+// It also covers the device resolution. The record carries a context and no
+// device, and the only reason this sync lands on device 0 is that a kernel
+// named context 1 on device 0.
+func TestGapsKeepsSyncOutOfDeviceBusy(t *testing.T) {
+	before := analyzeFixture(t, twoKernelHole().finalize())
+	with := twoKernelHole()
+	with.sync(1, 4_000, 5_500, 3, 9)
+	after := analyzeFixture(t, with.finalize())
+
+	b, a := before.Devices[0].Overall, after.Devices[0].Overall
+	if b.IdleNanos != 3_000 {
+		t.Fatalf("baseline idle = %d ns, want 3000", b.IdleNanos)
+	}
+	if a.IdleNanos != b.IdleNanos {
+		t.Errorf("idle = %d ns with the sync, %d without: the host's wait was counted as device work, erasing %d ns of the idle it explains", a.IdleNanos, b.IdleNanos, b.IdleNanos-a.IdleNanos)
+	}
+	if a.ActiveNanos != b.ActiveNanos {
+		t.Errorf("active = %d ns with the sync, %d without", a.ActiveNanos, b.ActiveNanos)
+	}
+	if a.GapCount != b.GapCount {
+		t.Errorf("gaps = %d with the sync, %d without", a.GapCount, b.GapCount)
+	}
+	if a.Overlay.SyncNanos != 1_500 {
+		t.Errorf("overlay synchronization = %d ns, want 1500: the idle is reported without the reason for it", a.Overlay.SyncNanos)
+	}
+	if a.Overlay.SyncGaps != 1 {
+		t.Errorf("overlay synchronization gap count = %d, want 1", a.Overlay.SyncGaps)
+	}
+	if after.UnresolvedSyncs != 0 {
+		t.Errorf("unresolved syncs = %d, want 0: a kernel named context 1 on device 0, so this sync is resolvable", after.UnresolvedSyncs)
+	}
+}
+
+// TestGapsReportsSyncWithUnknownContextAsUnresolved covers the other branch of
+// the resolution, which is the one a default would hide.
+//
+// CUpti_ActivitySynchronization has no device field. Filling one in from
+// nothing means writing zero, and zero is a valid device id: on a single-GPU
+// run the wrong answer and the right answer are the same number, so the defect
+// never surfaces, and on a multi-GPU run one device's idle is explained by
+// another device's wait. The fixture therefore runs entirely on device 1, so a
+// fabricated device 0 has nowhere to hide.
+func TestGapsReportsSyncWithUnknownContextAsUnresolved(t *testing.T) {
+	b := newJournalBuilder()
+	b.kernelOn(1, 4, 1_000, 3_000, 1)
+	b.kernelOn(1, 4, 6_000, 7_000, 2)
+	// Context 9 belongs to no record that carries a device.
+	b.sync(9, 4_000, 5_000, 3, 9)
+	report := analyzeFixture(t, b.finalize())
+
+	if len(report.Devices) != 1 || report.Devices[0].Device != 1 {
+		var got []uint32
+		for _, d := range report.Devices {
+			got = append(got, d.Device)
+		}
+		t.Fatalf("devices = %v, want [1] only: an unresolvable sync was placed on a device timeline, and device 0 is the timeline it invents", got)
+	}
+	if report.UnresolvedSyncs != 1 {
+		t.Errorf("unresolved syncs = %d, want 1: a sync whose context nothing named was silently accounted for somewhere", report.UnresolvedSyncs)
+	}
+	if report.UnresolvedSyncNanos != 1_000 {
+		t.Errorf("unresolved sync nanos = %d, want 1000", report.UnresolvedSyncNanos)
+	}
+	s := report.Devices[0].Overall
+	if s.IdleNanos != 3_000 {
+		t.Errorf("idle = %d ns, want 3000: the unresolvable sync still reached a device timeline", s.IdleNanos)
+	}
+	if s.Overlay.SyncNanos != 0 {
+		t.Errorf("overlay synchronization = %d ns on device 1, want 0: a sync that could not be attributed was attributed anyway", s.Overlay.SyncNanos)
+	}
+	// The count is not enough on its own: a reader who is not told will read
+	// the remaining overlay as complete.
+	if !strings.Contains(report.text(), "could not be placed on a device") {
+		t.Errorf("report text does not say a sync went unplaced:\n%s", report.text())
+	}
+}
+
+// TestGapsKeepsGraphTraceOutOfDeviceBusy covers the third denylist entry.
+//
+// A graph replay envelope spans the kernel records of the nodes replayed
+// inside it, so admitting it to the busy timeline does two things at once: it
+// counts that device time twice, and -- because the envelope is contiguous
+// across the scheduling gaps between nodes -- it merges over exactly the idle
+// a reader would want to see. A graph would appear to run at a 100% duty
+// cycle by definition.
+//
+// The envelope is kept as an overlay instead, where the difference between the
+// span and the node time inside it is graph launch and scheduling cost that no
+// per-node record holds.
+func TestGapsKeepsGraphTraceOutOfDeviceBusy(t *testing.T) {
+	before := analyzeFixture(t, twoKernelHole().finalize())
+	with := twoKernelHole()
+	// The envelope covers both kernels and the hole between them, which is
+	// what a real replay of two nodes looks like.
+	with.graphTrace(0, 900, 7_100, 5, 3)
+	after := analyzeFixture(t, with.finalize())
+
+	b, a := before.Devices[0].Overall, after.Devices[0].Overall
+	if a.IdleNanos != b.IdleNanos {
+		t.Errorf("idle = %d ns with the graph trace, %d without: the replay envelope merged over the scheduling gap between its own nodes", a.IdleNanos, b.IdleNanos)
+	}
+	if a.ActiveNanos != b.ActiveNanos {
+		t.Errorf("active = %d ns with the graph trace, %d without: the envelope's device time was counted on top of the nodes inside it", a.ActiveNanos, b.ActiveNanos)
+	}
+	if a.SpanNanos != b.SpanNanos {
+		t.Errorf("span = %d with the graph trace, %d without: the envelope moved an end of the timeline", a.SpanNanos, b.SpanNanos)
+	}
+	if a.GapCount != b.GapCount {
+		t.Errorf("gaps = %d with the graph trace, %d without", a.GapCount, b.GapCount)
+	}
+	if a.Overlay.GraphReplayNanos != 3_000 {
+		t.Errorf("overlay graph_replay = %d ns, want 3000: the idle inside the replay is not attributable to graph scheduling", a.Overlay.GraphReplayNanos)
+	}
+	if a.Overlay.GraphReplayGaps != 1 {
+		t.Errorf("overlay graph_replay gap count = %d, want 1", a.Overlay.GraphReplayGaps)
+	}
+}
+
+// TestGapsOverlayDoesNotDoubleCountOverlappingSpans pins the one arithmetic
+// property an overlay of this shape can get wrong. Two spans covering the same
+// idle -- a CUPTI flush that happens during a synchronize is the ordinary case
+// -- must contribute their union, not their sum. Summing them produces a
+// figure that can exceed the idle it is a part of, which is how a reader
+// learns to distrust every number beside it.
+func TestGapsOverlayDoesNotDoubleCountOverlappingSpans(t *testing.T) {
+	b := twoKernelHole()
+	b.overhead(4_000, 4_800, 1<<16)
+	b.overhead(4_400, 5_000, 1<<16)
+	report := analyzeFixture(t, b.finalize())
+	s := report.Devices[0].Overall
+	if s.Overlay.CuptiOverheadNanos != 1_000 {
+		t.Errorf("overlay cupti_overhead = %d ns, want 1000 (the union of 4000..4800 and 4400..5000): overlapping spans were summed", s.Overlay.CuptiOverheadNanos)
+	}
+	if s.Overlay.CuptiOverheadGaps != 1 {
+		t.Errorf("overlay gap count = %d, want 1: two spans in one gap counted the gap twice", s.Overlay.CuptiOverheadGaps)
+	}
+	if s.Overlay.CuptiOverheadNanos > s.IdleNanos {
+		t.Errorf("overlay cupti_overhead %d ns exceeds idle %d ns", s.Overlay.CuptiOverheadNanos, s.IdleNanos)
 	}
 }

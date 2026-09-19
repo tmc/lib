@@ -48,6 +48,22 @@ type ActivityRecord struct {
 	ExternalKind uint32 `json:"external_kind,omitempty"`
 	ExternalID   uint64 `json:"external_id,omitempty"`
 
+	// OverheadKind and ObjectKind are set only when Subtype is "overhead".
+	// ObjectKind is load-bearing rather than decorative: a CUPTI overhead
+	// names an object, which is usually a host thread, and Device is
+	// meaningful only when ObjectKind is a device, a context or a stream.
+	// Reading Device without it turns every process-scoped overhead into one
+	// belonging to device 0.
+	OverheadKind uint32 `json:"overhead_kind,omitempty"`
+	ObjectKind   uint32 `json:"object_kind,omitempty"`
+
+	// SyncType and CudaEventID are set only when Subtype is "sync". A
+	// synchronization record carries a context and a stream and no device at
+	// all, so Device on one of these is zero because nothing filled it, not
+	// because the sync was on device 0.
+	SyncType    uint32 `json:"sync_type,omitempty"`
+	CudaEventID uint32 `json:"cuda_event_id,omitempty"`
+
 	// NVTX marker fields, set only when Subtype is "marker". A range is two
 	// records sharing MarkerID on one thread: CUPTI reports the open and the
 	// close separately, so no single record holds a duration. Pairing needs
@@ -304,7 +320,20 @@ func BuildActivityProfileIndex(session string, targetPID uint64, activities []Ac
 		// and a native correlation ID, with no interval of its own. It is
 		// carried alongside device work so the join can see both in one
 		// stream, and it is skipped here for the same reason a marker is.
-		if activity.Subtype == "external_correlation" {
+		//
+		// Neither is the CUPTI overhead tier, the graph replay envelope, nor
+		// a synchronization window. The profile's four dimensions are kernel
+		// time, memory time, bytes and a count; none of the three has a value
+		// for the first three, so each would arrive as a sample counting one
+		// of something that took no time and moved no bytes. The count
+		// dimension would then be counting a different population than the
+		// duration dimensions beside it, which is the same defect the marker
+		// exclusion above exists for.
+		//
+		// A graph trace is excluded for a second reason: its span contains
+		// the kernel records of the nodes it replayed, so admitting it would
+		// charge that device time twice.
+		if activity.Subtype == "external_correlation" || activity.Subtype == "overhead" || activity.Subtype == "graph_trace" || activity.Subtype == "sync" {
 			continue
 		}
 		value := []int64{0, 0, 0, 1}

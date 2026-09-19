@@ -213,6 +213,9 @@ static int concurrent_enabled;
 static int legacy_enabled;
 static int memcpy_enabled;
 static int memset_enabled;
+static int overhead_enabled;
+static int graph_trace_enabled;
+static int sync_enabled;
 static int external_enabled;
 static int marker_enabled;
 static int runtime_enabled;
@@ -593,6 +596,86 @@ static int append_activity(const char *kind, const char *name, uint64_t start, u
 		registers_per_thread, dynamic_shared_memory, graph_id, graph_node_id);
 	if (n < 0 || n >= (int)sizeof(payload)) return -1;
 	return queue_pending(KIND_ACTIVITY, start, payload, (size_t)n);
+}
+
+/* CUPTI's own cost, as a span. This is the one tier here that is not the
+   target's work at all: a buffer flush, an instrumentation pause, a lazily
+   loaded module. Until it was collected, every one of those intervals was
+   indistinguishable from the device being idle, so the tool's headline idle
+   number carried the tool.
+
+   An overhead record names an object, not a device, and the object is usually
+   a host thread. The device/context/stream fields are filled only when CUPTI
+   actually scoped the overhead that way; otherwise they stay zero and
+   object_kind is what says so. Writing a zero device as though it meant
+   "device 0" is the failure this tier exists to avoid, not one to repeat. */
+static int append_overhead(const CUpti_ActivityOverhead *o) {
+	uint32_t process_id = 0, thread_id = 0, device = 0, context = 0, stream = 0;
+	switch (o->objectKind) {
+	case CUPTI_ACTIVITY_OBJECT_PROCESS:
+		process_id = o->objectId.pt.processId;
+		break;
+	case CUPTI_ACTIVITY_OBJECT_THREAD:
+		process_id = o->objectId.pt.processId;
+		thread_id = o->objectId.pt.threadId;
+		break;
+	case CUPTI_ACTIVITY_OBJECT_STREAM:
+		stream = o->objectId.dcs.streamId;
+		/* fallthrough */
+	case CUPTI_ACTIVITY_OBJECT_CONTEXT:
+		context = o->objectId.dcs.contextId;
+		/* fallthrough */
+	case CUPTI_ACTIVITY_OBJECT_DEVICE:
+		device = o->objectId.dcs.deviceId;
+		break;
+	default:
+		break;
+	}
+	int valid = o->start != CUPTI_TIMESTAMP_UNKNOWN && o->end != CUPTI_TIMESTAMP_UNKNOWN && o->end >= o->start;
+	char payload[MAX_PAYLOAD];
+	int n = snprintf(payload, sizeof(payload),
+		"{\"kind\":\"activity\",\"subtype\":\"overhead\",\"name\":\"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"overhead_kind\":%u,\"object_kind\":%u,\"device\":%u,\"context\":%u,\"stream\":%u,\"process_id\":%u,\"thread_id\":%u}",
+		valid ? "true" : "false", o->start, o->end, (unsigned)o->overheadKind, (unsigned)o->objectKind,
+		device, context, stream, process_id, thread_id);
+	if (n < 0 || (size_t)n >= sizeof(payload)) return -1;
+	return queue_pending(KIND_ACTIVITY, o->start, payload, (size_t)n);
+}
+
+/* The graph replay envelope. Per-node visibility already exists -- kernel
+   records carry graphId and graphNodeId -- so what this adds is the complement:
+   the span the whole replay occupied, against which the nodes inside it can be
+   measured. The difference between the two is graph launch and scheduling
+   cost, and no per-node record holds it.
+
+   Unlike an overhead or a synchronization, a graph trace does carry a device
+   id, so nothing downstream has to resolve one for it. */
+static int append_graph_trace(const CUpti_ActivityGraphTrace *g) {
+	int valid = g->start != CUPTI_TIMESTAMP_UNKNOWN && g->end != CUPTI_TIMESTAMP_UNKNOWN && g->end >= g->start;
+	char payload[MAX_PAYLOAD];
+	int n = snprintf(payload, sizeof(payload),
+		"{\"kind\":\"activity\",\"subtype\":\"graph_trace\",\"name\":\"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"device\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u,\"graph_id\":%u}",
+		valid ? "true" : "false", g->start, g->end, g->deviceId, g->contextId, g->streamId, g->correlationId, g->graphId);
+	if (n < 0 || (size_t)n >= sizeof(payload)) return -1;
+	return queue_pending(KIND_ACTIVITY, g->start, payload, (size_t)n);
+}
+
+/* A synchronization span: the window a cudaStreamSynchronize, an event wait or
+   a context synchronize was open. It is host time, not device work, and its
+   value is that it explains device idle rather than adding to device busy.
+
+   The record carries a context and a stream and no device at all. The device
+   is left at zero here deliberately -- the producer has no map from contexts
+   to devices, and a guess written into the journal is indistinguishable from a
+   measurement once it is there. Resolving it is the consumer's job, and so is
+   saying when it could not be resolved. */
+static int append_sync(const CUpti_ActivitySynchronization *y) {
+	int valid = y->start != CUPTI_TIMESTAMP_UNKNOWN && y->end != CUPTI_TIMESTAMP_UNKNOWN && y->end >= y->start;
+	char payload[MAX_PAYLOAD];
+	int n = snprintf(payload, sizeof(payload),
+		"{\"kind\":\"activity\",\"subtype\":\"sync\",\"name\":\"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"sync_type\":%u,\"cuda_event_id\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u}",
+		valid ? "true" : "false", y->start, y->end, (unsigned)y->type, y->cudaEventId, y->contextId, y->streamId, y->correlationId);
+	if (n < 0 || (size_t)n >= sizeof(payload)) return -1;
+	return queue_pending(KIND_ACTIVITY, y->start, payload, (size_t)n);
 }
 
 static int append_external(uint32_t external_kind, uint64_t external_id, uint32_t correlation) {
@@ -1068,6 +1151,15 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 			if (rp + sizeof(CUpti_ActivityExternalCorrelation) < rp || rp + sizeof(CUpti_ActivityExternalCorrelation) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short external correlation record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityExternalCorrelation *x = (const CUpti_ActivityExternalCorrelation *)record;
 			(void)append_external((uint32_t)x->externalKind, x->externalId, x->correlationId);
+		} else if (record->kind == CUPTI_ACTIVITY_KIND_OVERHEAD) {
+			if (rp + sizeof(CUpti_ActivityOverhead) < rp || rp + sizeof(CUpti_ActivityOverhead) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Overhead record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
+			(void)append_overhead((const CUpti_ActivityOverhead *)record);
+		} else if (record->kind == CUPTI_ACTIVITY_KIND_GRAPH_TRACE) {
+			if (rp + sizeof(CUpti_ActivityGraphTrace) < rp || rp + sizeof(CUpti_ActivityGraphTrace) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short GraphTrace record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
+			(void)append_graph_trace((const CUpti_ActivityGraphTrace *)record);
+		} else if (record->kind == CUPTI_ACTIVITY_KIND_SYNCHRONIZATION) {
+			if (rp + sizeof(CUpti_ActivitySynchronization) < rp || rp + sizeof(CUpti_ActivitySynchronization) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Synchronization record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
+			(void)append_sync((const CUpti_ActivitySynchronization *)record);
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_MARKER) {
 			if (rp + sizeof(CUpti_ActivityMarker2) < rp || rp + sizeof(CUpti_ActivityMarker2) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Marker2 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			(void)append_marker((const CUpti_ActivityMarker2 *)record);
@@ -1268,13 +1360,17 @@ static int set_activity_collection(int on) {
 		CUPTI_ACTIVITY_KIND_KERNEL,
 		CUPTI_ACTIVITY_KIND_MEMCPY,
 		CUPTI_ACTIVITY_KIND_MEMSET,
+		CUPTI_ACTIVITY_KIND_OVERHEAD,
+		CUPTI_ACTIVITY_KIND_GRAPH_TRACE,
+		CUPTI_ACTIVITY_KIND_SYNCHRONIZATION,
 		CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION,
 		CUPTI_ACTIVITY_KIND_MARKER,
 		CUPTI_ACTIVITY_KIND_RUNTIME,
 		CUPTI_ACTIVITY_KIND_DRIVER,
 	};
 	const int *flags[] = {
-		&concurrent_enabled, &legacy_enabled, &memcpy_enabled, &memset_enabled, &external_enabled,
+		&concurrent_enabled, &legacy_enabled, &memcpy_enabled, &memset_enabled,
+		&overhead_enabled, &graph_trace_enabled, &sync_enabled, &external_enabled,
 		&marker_enabled, &runtime_enabled, &driver_enabled,
 	};
 	int failures = 0;
@@ -1524,6 +1620,18 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		size_t memset_sz = 0;
 		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_MEMSET, 0, &memset_sz) != CUPTI_SUCCESS || memset_sz < sizeof(CUpti_ActivityMemset4)) memset_layout_ok = 0;
 	}
+	/* The same degrade-rather-than-fail policy for the three tiers below. Each
+	   is read as a prefix of the record the runtime delivers, so a runtime
+	   whose record is shorter than the prefix would be read past its end. */
+	int overhead_layout_ok = 1, graph_trace_layout_ok = 1, sync_layout_ok = 1;
+	if (fn_get_struct_size != NULL) {
+		size_t sz = 0;
+		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_OVERHEAD, 0, &sz) != CUPTI_SUCCESS || sz < sizeof(CUpti_ActivityOverhead)) overhead_layout_ok = 0;
+		sz = 0;
+		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_GRAPH_TRACE, 0, &sz) != CUPTI_SUCCESS || sz < sizeof(CUpti_ActivityGraphTrace)) graph_trace_layout_ok = 0;
+		sz = 0;
+		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_SYNCHRONIZATION, 0, &sz) != CUPTI_SUCCESS || sz < sizeof(CUpti_ActivitySynchronization)) sync_layout_ok = 0;
+	}
 	if (fn_get_struct_size != NULL) {
 		size_t kernel_sz = 0, memcpy_sz = 0;
 		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL, 0, &kernel_sz) != CUPTI_SUCCESS ||
@@ -1571,6 +1679,25 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	if (memset_layout_ok) {
 		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MEMSET);
 		if (result == CUPTI_SUCCESS) memset_enabled = 1;
+	}
+	/* CUPTI's own cost, the graph replay envelope and the synchronization
+	   windows. None of the three is device work, and all three exist to
+	   explain device idle rather than to add to device busy -- an overhead
+	   interval and a sync window were previously indistinguishable from the
+	   device having nothing to do. They take the MARKER policy: a CUPTI that
+	   refuses one is a supported configuration recorded in the capability
+	   record, not a reason to lose the kernels and copies with it. */
+	if (overhead_layout_ok) {
+		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_OVERHEAD);
+		if (result == CUPTI_SUCCESS) overhead_enabled = 1;
+	}
+	if (graph_trace_layout_ok) {
+		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_GRAPH_TRACE);
+		if (result == CUPTI_SUCCESS) graph_trace_enabled = 1;
+	}
+	if (sync_layout_ok) {
+		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_SYNCHRONIZATION);
+		if (result == CUPTI_SUCCESS) sync_enabled = 1;
 	}
 	result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_EXTERNAL_CORRELATION);
 	if (result != CUPTI_SUCCESS) {
@@ -1668,7 +1795,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	}
 	if (range_gated != RANGE_GATED) atomic_store(&collecting, 1);
 	configure_host_sampler();
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
