@@ -3,24 +3,23 @@
   "generator": "github.com/tmc/libgen/cmd/gen-cudss",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": ".",
+  "cwd": "$HOME/go/src/github.com/tmc/libgen",
   "argv": [
-    "gen-cudss",
+    "$TMPDIR/go-build2637510552/b001/exe/gen-cudss",
     "-cuda-headers",
-    "cuda-headers",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-output",
-    "cudss"
+    "$HOME/go/src/github.com/tmc/lib/nvidia/cudss"
   ],
   "inputs": [
     {
-      "path": "cudss.h",
+      "path": "$HOME/go/src/github.com/tmc/libgen/cmd/gen-cudss/headers/cudss.h",
       "sha256": "d328a3bec10ad702174c61c7701daada7aa78db3bda265b30751ff485de62b50"
     }
   ],
-  "source_hash": "df54d2f2881d5687fbca1b40ff5d1ab7a35ade2a63118a83e6a873bccf5c92d1",
+  "source_hash": "33685b116f625d59883e20413b3b5903085e412c9028dd74928a34e61e6277b8",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
-    "argv records portable argument names; host-specific paths are intentionally redacted.",
-    "cwd is recorded as . to avoid embedding the generator host path."
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
   ]
 }

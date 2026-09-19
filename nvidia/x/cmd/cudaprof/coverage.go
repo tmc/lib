@@ -42,6 +42,26 @@ func (c coverage) Determined() bool { return c.Reason == "" }
 // of samples cannot, and a ranking whose denominator is unknown is not a
 // ranking. Coverage of the wall-clock span is a further question, and its being
 // unknown weakens a ranking without invalidating it.
+//
+// The unit is not the whole of it. A PC sample says where execution was, never
+// how fast, and the share a kernel collects is a share of resident warp-cycles,
+// not of wall-clock. A kernel occupying one block of a 48-SM device holds the
+// machine for its whole duration while contributing the warp-cycles of a single
+// block, so it collects samples in proportion to how much of the device it
+// wastes, inverted. That bias runs in the worst direction available: smallest
+// for the kernels that fill the device, largest for the ones that starve it,
+// which are exactly the ones a profile is usually opened to find. On GB10 the
+// decode step holds 5.26ms/token in kernels launched with a grid narrower than
+// the device's 48 SMs, 7.5% of summed device span across 914 launches a token;
+// a sample ranking of that same workload put every one of them in the tail, the
+// largest -- ds4_indexer_select, 552us/token -- on grid 1. The failure is
+// unfalsifiable from inside the profile: no sample count would reveal it,
+// because the undersampling is the finding.
+//
+// None of this is an argument against PC sampling, which answers a different
+// question well: which source lines a kernel's warps sit on, and on what stall
+// reason. The refusal is specific to using sample share as a time ranking
+// across kernels of differing occupancy.
 func (c coverage) Rankable() bool { return c.Busy > 0 }
 
 // Fraction is the share of the measured span the profile observed. It is
