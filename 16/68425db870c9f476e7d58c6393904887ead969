@@ -1,0 +1,11 @@
+commit=1668425d date=2026-09-19T07:17:36Z
+claude-code=2.1.269 model=claude-opus-5 pid=30775 iterm_session=w3t0p0:C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session=0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url=https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+instrument: cudaprof rebuilt from /Volumes/tmc/go/src/github.com/tmc/lib main bb8de0cc
+  (contains 86bad446 overhead exclusion, 13d746d2 unattributed arm, 037c9821 env stamp)
+  binary ~/tmp/claude-tmp/cudaprof-head; captures copied to ~/tmp/claude-tmp/caps
+prior binary was a 2026-09-17 dirty build of 04924422 -- source of the withdrawn claims
+no GPU run; analysis only. errata 21.148-21.150
+caught by session F76EF7EB before the bad correction propagated
