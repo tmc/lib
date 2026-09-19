@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -57,7 +58,8 @@ type GapDiff struct {
 	Kernels  *KernelCensusDiff `json:"kernels,omitempty"`
 }
 
-// KernelDelta is one kernel's launch count and device time in both arms.
+// KernelDelta is one kernel's launch count, device time and place in the run,
+// in both arms.
 type KernelDelta struct {
 	Name              string `json:"name"`
 	BaseLaunches      int    `json:"base_launches"`
@@ -66,7 +68,26 @@ type KernelDelta struct {
 	TargetNanos       int64  `json:"target_device_ns"`
 	DeltaNanos        int64  `json:"delta_device_ns"`
 	LaunchesUnchanged bool   `json:"launches_unchanged"`
+
+	// BaseOrderFrac and TargetOrderFrac are where the kernel's median launch
+	// sat in each arm's launch order, and PositionShift is the difference.
+	// Relocated marks a kernel whose launch count held still while its
+	// launches moved to a different part of the run.
+	BaseOrderFrac   float64 `json:"base_median_order_frac"`
+	TargetOrderFrac float64 `json:"target_median_order_frac"`
+	PositionShift   float64 `json:"median_order_shift"`
+	Relocated       bool    `json:"relocated,omitempty"`
 }
+
+// relocationShiftFrac is how far a kernel's median launch has to move through
+// the run's launch order, as a fraction of it, before the kernel's launch
+// count holding still stops being evidence that a window containing it holds
+// the same work in both arms.
+//
+// It decides emphasis, not visibility: the two positions are printed for
+// every row whose count did not change, so a reader can see a shift below the
+// threshold and judge it against their own window.
+const relocationShiftFrac = 0.05
 
 // KernelCensusDiff splits the per-kernel device-time deltas by whether the
 // kernel's launch count moved.
@@ -85,10 +106,21 @@ type KernelDelta struct {
 // four kernels nobody had touched -- was invisible until launch count was held
 // constant.
 type KernelCensusDiff struct {
-	Changed        []KernelDelta `json:"launches_changed"`
-	Unchanged      []KernelDelta `json:"launches_unchanged"`
+	Changed   []KernelDelta `json:"launches_changed"`
+	Unchanged []KernelDelta `json:"launches_unchanged"`
+	// Relocated holds the kernels whose launch count is identical and whose
+	// launches sit in a different part of the run.
+	//
+	// Two things put a kernel here: the change moved its launches, or the
+	// change altered what runs around it and carried its position along.
+	// This does not separate those, and does not claim to. Either one breaks
+	// the same thing -- a rate computed over part of the run is dividing by a
+	// window that no longer holds the same work in both arms -- and that is
+	// what the row is reported for.
+	Relocated      []KernelDelta `json:"launches_relocated"`
 	ChangedNanos   int64         `json:"launches_changed_delta_ns"`
 	UnchangedNanos int64         `json:"launches_unchanged_delta_ns"`
+	RelocatedNanos int64         `json:"launches_relocated_delta_ns"`
 	// Kernel records whose name the journal did not carry. They are in
 	// neither list and in no total, so they are counted here rather than
 	// leaving the lists to imply they cover every kernel record.
@@ -165,14 +197,25 @@ func diffKernelCensus(base, target *GapReport) *KernelCensusDiff {
 			TargetNanos:       tk.DeviceNanos,
 			DeltaNanos:        tk.DeviceNanos - bk.DeviceNanos,
 			LaunchesUnchanged: bk.Launches == tk.Launches,
+			BaseOrderFrac:     bk.MedianOrderFrac,
+			TargetOrderFrac:   tk.MedianOrderFrac,
 		}
-		if d.LaunchesUnchanged {
-			out.Unchanged = append(out.Unchanged, d)
-			out.UnchangedNanos += d.DeltaNanos
+		if !d.LaunchesUnchanged {
+			out.Changed = append(out.Changed, d)
+			out.ChangedNanos += d.DeltaNanos
 			continue
 		}
-		out.Changed = append(out.Changed, d)
-		out.ChangedNanos += d.DeltaNanos
+		// A position is only comparable between two arms that both ran the
+		// kernel. Present in one arm only is a count change, handled above.
+		d.PositionShift = d.TargetOrderFrac - d.BaseOrderFrac
+		if math.Abs(d.PositionShift) >= relocationShiftFrac {
+			d.Relocated = true
+			out.Relocated = append(out.Relocated, d)
+			out.RelocatedNanos += d.DeltaNanos
+			continue
+		}
+		out.Unchanged = append(out.Unchanged, d)
+		out.UnchangedNanos += d.DeltaNanos
 	}
 	rank := func(rows []KernelDelta) {
 		sort.SliceStable(rows, func(i, j int) bool {
@@ -191,6 +234,7 @@ func diffKernelCensus(base, target *GapReport) *KernelCensusDiff {
 	}
 	rank(out.Changed)
 	rank(out.Unchanged)
+	rank(out.Relocated)
 	return out
 }
 
@@ -452,32 +496,41 @@ func writeKernelCensusDiff(b *strings.Builder, k *KernelCensusDiff) {
 	if k == nil {
 		return
 	}
-	b.WriteString("\nper-kernel census\n")
+	b.WriteString("\nper-kernel census (whole capture, not a window)\n")
 	// Printed above the two halves, not below them: it says what the first
 	// half's largest rows mean, and a reader who has already read them has
 	// already drawn the conclusion it exists to prevent.
 	if k.Caveat != "" {
 		fmt.Fprintf(b, "  caveat: %s\n", k.Caveat)
 	}
-	section := func(title, note string, rows []KernelDelta, total int64) {
+	section := func(title, note string, rows []KernelDelta, total int64, position bool) {
 		fmt.Fprintf(b, "  %s: %s (%s)\n", title, signedDuration(total), note)
 		if len(rows) == 0 {
 			b.WriteString("    none\n")
 			return
 		}
-		fmt.Fprintf(b, "    %-44s %9s %9s %12s %12s %12s\n", "kernel", "launches", "->", "device ms", "->", "delta")
+		fmt.Fprintf(b, "    %-44s %9s %9s %12s %12s %12s", "kernel", "launches", "->", "device ms", "->", "delta")
+		if position {
+			fmt.Fprintf(b, "  %15s", "median rank")
+		}
+		b.WriteString("\n")
 		for i, r := range rows {
 			if i == kernelCensusRows {
 				fmt.Fprintf(b, "    (%d more)\n", len(rows)-kernelCensusRows)
 				break
 			}
-			fmt.Fprintf(b, "    %-44s %9d %9d %12s %12s %12s\n",
+			fmt.Fprintf(b, "    %-44s %9d %9d %12s %12s %12s",
 				truncateKernelName(r.Name, 44), r.BaseLaunches, r.TargetLaunches,
 				millis(r.BaseNanos), millis(r.TargetNanos), signedDuration(r.DeltaNanos))
+			if position {
+				fmt.Fprintf(b, "  %5.1f%% -> %5.1f%%", r.BaseOrderFrac*100, r.TargetOrderFrac*100)
+			}
+			b.WriteString("\n")
 		}
 	}
-	section("launch count changed", "the code path moved: this is the change", k.Changed, k.ChangedNanos)
-	section("launch count unchanged", "these kernels were not touched: this is what the change cost elsewhere on the device", k.Unchanged, k.UnchangedNanos)
+	section("launch count changed", "the code path moved: this is the change", k.Changed, k.ChangedNanos, false)
+	section("launch count unchanged, position moved", "same launches, different part of the run: a rate measured over a window will disagree with this total, and the window is the thing to check", k.Relocated, k.RelocatedNanos, true)
+	section("launch count unchanged, position held", "these kernels were not touched: this is what the change cost elsewhere on the device", k.Unchanged, k.UnchangedNanos, true)
 	if k.UnnamedBase != 0 || k.UnnamedTarget != 0 {
 		fmt.Fprintf(b, "  %d -> %d kernel records carried no name and are in neither half\n", k.UnnamedBase, k.UnnamedTarget)
 	}
@@ -593,29 +646,34 @@ func gapDecompositionMarkdown(baseCap, targetCap *cudacapture.Capture, basePath,
 // kernel together by delta, which puts a kernel the change never touched at
 // the top whenever the change cost more elsewhere than it saved.
 func writeKernelCensusMarkdown(sb *strings.Builder, k *KernelCensusDiff) {
-	if k == nil || (len(k.Changed) == 0 && len(k.Unchanged) == 0) {
+	if k == nil || (len(k.Changed) == 0 && len(k.Relocated) == 0 && len(k.Unchanged) == 0) {
 		return
 	}
 	sb.WriteString("## Per-Kernel Census\n\n")
-	sb.WriteString("A kernel whose launch count moved took a different path: that is the change. A kernel with the same launch count in both arms was not touched, so device time that moved there is what the change cost elsewhere on the device.\n\n")
+	sb.WriteString("Whole capture, not a window. A kernel whose launch count moved took a different path: that is the change. A kernel that kept its launch count but whose launches sit in a different part of the run is not untouched -- a rate measured over a window will disagree with these totals. Only a kernel that kept both its count and its place was left alone, and device time that moved there is what the change cost elsewhere on the device.\n\n")
 	if k.Caveat != "" {
 		sb.WriteString(fmt.Sprintf("**Caveat**: %s.\n\n", k.Caveat))
 	}
 	sb.WriteString(fmt.Sprintf("- **Launch count changed**: %s\n", signedDuration(k.ChangedNanos)))
-	sb.WriteString(fmt.Sprintf("- **Launch count unchanged**: %s\n\n", signedDuration(k.UnchangedNanos)))
-	sb.WriteString("| Kernel | Launches | Base | Target | Delta | Launch count |\n|---|---|---|---|---|---|\n")
-	for _, half := range [][]KernelDelta{k.Changed, k.Unchanged} {
+	sb.WriteString(fmt.Sprintf("- **Launch count unchanged, position moved**: %s\n", signedDuration(k.RelocatedNanos)))
+	sb.WriteString(fmt.Sprintf("- **Launch count unchanged, position held**: %s\n\n", signedDuration(k.UnchangedNanos)))
+	sb.WriteString("| Kernel | Launches | Base | Target | Delta | Median rank | Class |\n|---|---|---|---|---|---|---|\n")
+	for _, half := range [][]KernelDelta{k.Changed, k.Relocated, k.Unchanged} {
 		for i, r := range half {
 			if i == kernelCensusRows {
-				sb.WriteString(fmt.Sprintf("| _(%d more)_ | | | | | |\n", len(half)-kernelCensusRows))
+				sb.WriteString(fmt.Sprintf("| _(%d more)_ | | | | | | |\n", len(half)-kernelCensusRows))
 				break
 			}
-			state := "changed"
+			state, rank := "changed", ""
 			if r.LaunchesUnchanged {
-				state = "unchanged"
+				state = "unchanged, position held"
+				if r.Relocated {
+					state = "unchanged, position moved"
+				}
+				rank = fmt.Sprintf("%.1f%% -> %.1f%%", r.BaseOrderFrac*100, r.TargetOrderFrac*100)
 			}
-			sb.WriteString(fmt.Sprintf("| `%s` | %d -> %d | %s | %s | %s | %s |\n",
-				r.Name, r.BaseLaunches, r.TargetLaunches, millis(r.BaseNanos), millis(r.TargetNanos), signedDuration(r.DeltaNanos), state))
+			sb.WriteString(fmt.Sprintf("| `%s` | %d -> %d | %s | %s | %s | %s | %s |\n",
+				r.Name, r.BaseLaunches, r.TargetLaunches, millis(r.BaseNanos), millis(r.TargetNanos), signedDuration(r.DeltaNanos), rank, state))
 		}
 	}
 	sb.WriteString("\n")

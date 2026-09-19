@@ -177,13 +177,16 @@ Summed per-kernel device time cannot see this axis: a change that moves work
 out of inter-kernel idle and into the kernels raises device-active time while
 the run gets faster, and a device-time-only diff scores that as a regression.
 
-A --diff_base run also prints a per-kernel census, split by whether each
-kernel's launch count moved. A kernel whose count changed took a different
-path: that is the change. A kernel with the same launch count in both arms was
-not touched, so device time that moved there is what the change cost elsewhere
-on the device. Ranked together by delta these are indistinguishable, and the
-untouched kernel is the one that sorts first whenever the change cost more
-than it saved.
+A --diff_base run also prints a per-kernel census in three classes. A kernel
+whose launch count moved took a different path: that is the change. A kernel
+that kept its count but whose launches sit in a different part of the run is
+not untouched -- the census covers the whole capture, and a rate measured over
+a window will disagree with these totals, because the window no longer holds
+the same work in both arms. Only a kernel that kept both its count and its
+place was left alone, and device time that moved there is what the change cost
+elsewhere on the device. Ranked together by delta all three are
+indistinguishable, and the untouched kernel is the one that sorts first
+whenever the change cost more than it saved.
 
 Options:
   --diff_base=FILE  compare against this capture and report deltas
@@ -882,11 +885,29 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 	return report, nil
 }
 
-// KernelCensus is one kernel's launch count and device time in one capture.
+// KernelCensus is one kernel's launch count, device time, and place in the
+// timeline in one capture.
 type KernelCensus struct {
 	Name        string `json:"name"`
 	Launches    int    `json:"launches"`
 	DeviceNanos int64  `json:"device_ns"`
+
+	// MedianOrderFrac is where this kernel's median launch sat in the ORDER
+	// of the capture's kernel launches: 0 at the first launch of the run, 1
+	// at the last.
+	//
+	// A launch count says whether the work ran, never when. A change that
+	// relocates work -- the same launches, in a different phase of the run --
+	// leaves every count identical, and a census reading counts alone reports
+	// the kernel as untouched.
+	//
+	// Order, not elapsed time. Position measured as a fraction of the device
+	// span moves whenever any duration changes: a kernel that got slower
+	// stretches the span it is divided by, and its own median start slides
+	// backwards through a run it never moved in. The launch order cannot be
+	// perturbed by a duration at all, so what remains is what the census is
+	// asking about -- whether the same work sits in the same part of the run.
+	MedianOrderFrac float64 `json:"median_launch_order_frac"`
 }
 
 // kernelCensus counts launches and device time per kernel name.
@@ -899,11 +920,19 @@ type KernelCensus struct {
 // kernel itself did not change.
 func kernelCensus(acts []gapActivity) ([]KernelCensus, int) {
 	byName := make(map[string]*KernelCensus)
+	ranks := make(map[string][]int)
 	unnamed := 0
+	// acts arrives sorted by start, so the running count is the launch order.
+	// Unnamed kernel records advance it too: they are launches, and leaving
+	// them out would move every later kernel's rank by however many of them
+	// the capture happened to carry.
+	launches := 0
 	for _, a := range acts {
 		if !strings.EqualFold(a.subtype, "kernel") {
 			continue
 		}
+		rank := launches
+		launches++
 		if a.name == "" {
 			unnamed++
 			continue
@@ -915,9 +944,17 @@ func kernelCensus(acts []gapActivity) ([]KernelCensus, int) {
 		}
 		c.Launches++
 		c.DeviceNanos += a.end - a.start
+		ranks[a.name] = append(ranks[a.name], rank)
 	}
 	out := make([]KernelCensus, 0, len(byName))
 	for _, c := range byName {
+		// The median, not the mean: one launch at the far end of the run
+		// moves a mean past the shift being measured and leaves the median
+		// where the bulk of the launches actually are.
+		if launches > 1 {
+			r := ranks[c.Name]
+			c.MedianOrderFrac = float64(r[len(r)/2]) / float64(launches-1)
+		}
 		out = append(out, *c)
 	}
 	sort.Slice(out, func(i, j int) bool {

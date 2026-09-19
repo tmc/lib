@@ -411,31 +411,44 @@ func TestGapsDiffMeasuredCase(t *testing.T) {
 	}
 }
 
-// TestCensusTextMarksTheUntouchedHalf guards the rendering, which is the whole
-// deliverable: the two halves are only useful if a reader can tell which row
+// TestCensusTextMarksTheThreeClasses guards the rendering, which is the whole
+// deliverable: the classes are only useful if a reader can tell which row
 // belongs to which. A column of deltas with no launch counts beside them is
-// the view that sent one A/B an hour down the wrong kernel.
-func TestCensusTextMarksTheUntouchedHalf(t *testing.T) {
+// the view that sent one A/B an hour down the wrong kernel, and a row marked
+// "unchanged" on the strength of a count alone is the one that sent the next
+// A/B down a window its two arms no longer agreed about.
+func TestCensusTextMarksTheThreeClasses(t *testing.T) {
 	type row = struct {
 		name     string
 		duration uint64
 		count    int
 	}
-	base := censusReport(t, []row{{"repack", 1_000, 10}, {"dense", 1_000, 5}})
-	target := censusReport(t, []row{{"repack", 1_000, 4}, {"dense", 3_000, 5}})
+	base := censusReport(t, []row{{"repack", 1_000, 10}, {"dense", 1_000, 5}, {"tail", 1_000, 3}})
+	target := censusReport(t, []row{{"repack", 1_000, 4}, {"dense", 3_000, 5}, {"tail", 1_000, 3}})
 	base.Capture, target.Capture = "base.pprof", "target.pprof"
 	diff, err := diffGapReports(base, target)
 	if err != nil {
 		t.Fatal(err)
 	}
+	k := diff.Kernels
+	if len(k.Changed) != 1 || k.Changed[0].Name != "repack" {
+		t.Fatalf("changed = %v, want repack alone", names(k.Changed))
+	}
+	if len(k.Relocated) != 1 || k.Relocated[0].Name != "dense" {
+		t.Fatalf("relocated = %v, want dense alone", names(k.Relocated))
+	}
+	if len(k.Unchanged) != 1 || k.Unchanged[0].Name != "tail" {
+		t.Fatalf("unchanged = %v, want tail alone", names(k.Unchanged))
+	}
 	text := diff.text()
 	for _, want := range []string{
-		"per-kernel census",
+		"per-kernel census (whole capture, not a window)",
 		"launch count changed",
-		"launch count unchanged",
-		"these kernels were not touched",
+		"launch count unchanged, position moved",
+		"launch count unchanged, position held",
 		"repack",
 		"dense",
+		"tail",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("census text lacks %q:\n%s", want, text)
@@ -444,14 +457,133 @@ func TestCensusTextMarksTheUntouchedHalf(t *testing.T) {
 	// The launch counts have to be printed, not only used to sort: the whole
 	// request was for a reader to be able to see that a count held still.
 	if !strings.Contains(text, "        5         5") {
-		t.Errorf("untouched kernel's launch counts are not printed:\n%s", text)
+		t.Errorf("relocated kernel's launch counts are not printed:\n%s", text)
 	}
 	md := &strings.Builder{}
-	writeKernelCensusMarkdown(md, diff.Kernels)
-	if !strings.Contains(md.String(), "| `dense` | 5 -> 5 |") {
-		t.Errorf("markdown census lacks the untouched row:\n%s", md.String())
+	writeKernelCensusMarkdown(md, k)
+	for _, want := range []string{
+		"| `dense` | 5 -> 5 |",
+		"unchanged, position moved |",
+		"| `tail` | 3 -> 3 |",
+		"unchanged, position held |",
+	} {
+		if !strings.Contains(md.String(), want) {
+			t.Errorf("markdown census lacks %q:\n%s", want, md.String())
+		}
 	}
-	if !strings.Contains(md.String(), "unchanged |") {
-		t.Errorf("markdown census does not mark the untouched half:\n%s", md.String())
+}
+
+// TestRelocationIsBlindToDuration is the negative control for the position
+// flag, and it is the reason position is measured in launch order rather than
+// elapsed time. Both arms run the same kernels in the same order; one of them
+// simply got slower. Measured against the device span, that alone slides every
+// later kernel's median start backwards -- the span it is divided by grew --
+// and the census would report a relocation that nothing relocated. Order
+// cannot be perturbed by a duration, so nothing here may be flagged.
+func TestRelocationIsBlindToDuration(t *testing.T) {
+	type row = struct {
+		name     string
+		duration uint64
+		count    int
+	}
+	base := censusReport(t, []row{{"repack", 1_000, 10}, {"dense", 1_000, 5}})
+	target := censusReport(t, []row{{"repack", 1_000, 10}, {"dense", 3_000, 5}})
+	diff, err := diffGapReports(base, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names(diff.Kernels.Relocated); len(got) != 0 {
+		t.Errorf("relocated = %v, want none: only a duration changed", got)
+	}
+	if got := names(diff.Kernels.Unchanged); len(got) != 2 {
+		t.Errorf("unchanged = %v, want both kernels", got)
+	}
+	if diff.Kernels.UnchangedNanos != 10_000 {
+		t.Errorf("unchanged nanos = %d, want +10000: the slowdown is still reported", diff.Kernels.UnchangedNanos)
+	}
+}
+
+func names(ds []KernelDelta) []string {
+	var out []string
+	for _, d := range ds {
+		out = append(out, d.Name)
+	}
+	return out
+}
+
+// orderedCensus builds a capture whose kernel launches occur in exactly the
+// given order, one launch per entry, all the same duration. An empty name is
+// an unnamed kernel record -- a launch the census can count but not attribute.
+func orderedCensus(t *testing.T, order []string) *GapReport {
+	t.Helper()
+	b := newJournalBuilder()
+	var at uint64 = 1_000
+	var corr uint32
+	for _, name := range order {
+		corr++
+		if name == "" {
+			b.kernel(at, at+1_000, corr)
+		} else {
+			b.namedKernel(name, at, at+1_000, corr)
+		}
+		b.api(at-500, at-100, corr)
+		at += 2_000
+	}
+	cap := testCapture(map[string][]byte{"capture.journal": b.finalize()}, completeStatus())
+	report, err := analyzeGaps(cap, gapOptions{maxRecords: controllerMaxJournalRecords})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return report
+}
+
+// TestPositionIsTheMedianLaunchNotTheMean is why the position is a median. The
+// spread kernel keeps four of its five launches at the head of the run in both
+// arms and sends the fifth to the far end in one of them. That one launch
+// moves a mean by 14 points of the run -- three times the relocation
+// threshold -- and reports a kernel as relocated when the bulk of its work
+// never moved. The median stays where the launches are.
+func TestPositionIsTheMedianLaunchNotTheMean(t *testing.T) {
+	filler := func(n int) []string {
+		out := make([]string, n)
+		for i := range out {
+			out[i] = "filler"
+		}
+		return out
+	}
+	base := orderedCensus(t, append(append([]string{"spread", "spread", "spread", "spread"}, filler(10)...), "spread"))
+	target := orderedCensus(t, append([]string{"spread", "spread", "spread", "spread", "spread"}, filler(10)...))
+	diff, err := diffGapReports(base, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range diff.Kernels.Relocated {
+		if d.Name == "spread" {
+			t.Errorf("spread is relocated (shift %+.3f): four of five launches never moved", d.PositionShift)
+		}
+	}
+	// The control: filler really did move, so the flag is not simply off.
+	if got := names(diff.Kernels.Relocated); len(got) != 1 || got[0] != "filler" {
+		t.Errorf("relocated = %v, want filler alone", got)
+	}
+}
+
+// TestUnnamedLaunchesHoldThePositionScale checks that a kernel record with no
+// name still advances the launch order. It is a launch: work ran on the device
+// at that point in the run. Leaving it out of the scale makes position mean
+// "rank among the launches we could name", and a kernel that sat still while
+// four unnamed launches moved past it then reports no shift at all.
+func TestUnnamedLaunchesHoldThePositionScale(t *testing.T) {
+	base := orderedCensus(t, []string{"a", "b", "", "", "", "", "c"})
+	target := orderedCensus(t, []string{"a", "", "", "", "", "b", "c"})
+	diff, err := diffGapReports(base, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names(diff.Kernels.Relocated); len(got) != 1 || got[0] != "b" {
+		t.Fatalf("relocated = %v, want b alone: four unnamed launches moved past it", got)
+	}
+	if got := diff.Kernels.Relocated[0].PositionShift; got < 0.6 {
+		t.Errorf("b's shift = %+.3f, want ~+0.667 of the run's launch order", got)
 	}
 }

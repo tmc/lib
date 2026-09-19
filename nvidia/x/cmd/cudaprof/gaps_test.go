@@ -1415,9 +1415,23 @@ func TestKernelCensusSeparatesLaunchChangesFromPressure(t *testing.T) {
 	if got := changed["added"]; got.BaseLaunches != 0 || got.TargetLaunches != 3 {
 		t.Errorf("added = %+v, want 0 -> 3 launches", got)
 	}
-	dense, ok := unchanged["dense"]
+	// dense keeps its 5 launches in both arms, but removing 6 repack launches
+	// ahead of it moves where it sits in the run. That is the third class:
+	// the count says the kernel was left alone and the position says a window
+	// containing it does not hold the same work in both arms.
+	relocated := map[string]KernelDelta{}
+	for _, r := range d.Relocated {
+		relocated[r.Name] = r
+	}
+	dense, ok := relocated["dense"]
 	if !ok {
-		t.Fatalf("dense is not in the untouched half: %+v", d.Unchanged)
+		t.Fatalf("dense is in neither the untouched nor the moved half: unchanged %+v relocated %+v", d.Unchanged, d.Relocated)
+	}
+	if _, ok := unchanged["dense"]; ok {
+		t.Error("dense is reported untouched, but its launches moved to a different part of the run")
+	}
+	if dense.PositionShift == 0 {
+		t.Errorf("dense = %+v, want a nonzero median-position shift", dense)
 	}
 	if dense.BaseLaunches != 5 || dense.TargetLaunches != 5 {
 		t.Errorf("dense launches = %d -> %d, want 5 -> 5", dense.BaseLaunches, dense.TargetLaunches)
@@ -1425,10 +1439,14 @@ func TestKernelCensusSeparatesLaunchChangesFromPressure(t *testing.T) {
 	if dense.DeltaNanos != 10_000 {
 		t.Errorf("dense delta = %d ns, want +10000 (5 launches, 2000 ns slower each)", dense.DeltaNanos)
 	}
-	// The totals are the reading the two halves exist to give: work removed
-	// on one side, pressure paid on the other.
-	if d.UnchangedNanos != 10_000 {
-		t.Errorf("untouched total = %d ns, want 10000", d.UnchangedNanos)
+	// The totals are the reading the halves exist to give: work removed on
+	// one side, and on the other a cost that is only comparable if the window
+	// it was measured over holds the same work in both arms.
+	if d.RelocatedNanos != 10_000 {
+		t.Errorf("moved total = %d ns, want 10000", d.RelocatedNanos)
+	}
+	if d.UnchangedNanos != 0 {
+		t.Errorf("untouched total = %d ns, want 0: nothing here held its position", d.UnchangedNanos)
 	}
 	if want := int64(-6_000 - 1_000 + 1_200); d.ChangedNanos != want {
 		t.Errorf("changed total = %d ns, want %d", d.ChangedNanos, want)
