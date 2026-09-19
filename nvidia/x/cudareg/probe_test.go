@@ -31,19 +31,18 @@ func TestSM121aIsAdmitted(t *testing.T) {
 }
 
 // findPTXAS locates a ptxas, or "" when none is installed.
+//
+// It defers to cudadevicetable.FindPTXAS rather than searching $PATH itself,
+// so this package probes the same assembler the device table measures with.
+// A local search would drift from it, and on a host whose distribution ships
+// an older ptxas ahead of the toolkit's the two would disagree about which
+// targets exist.
 func findPTXAS() string {
-	if p := os.Getenv("PTXAS"); p != "" {
-		return p
+	p, err := cudadevicetable.FindPTXAS()
+	if err != nil {
+		return ""
 	}
-	if p, err := exec.LookPath("ptxas"); err == nil {
-		return p
-	}
-	for _, p := range []string{"/usr/local/cuda/bin/ptxas", "/usr/local/cuda-13.0/bin/ptxas"} {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	return ""
+	return p
 }
 
 // TestLegalCountBoundaries checks the range and granularity this package

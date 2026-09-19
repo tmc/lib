@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
 
 // encodingFixture is nvdisasm --print-code --print-instruction-encoding output.
@@ -148,9 +149,13 @@ func TestParseWithoutEncoding(t *testing.T) {
 // bytes are right: it rejects an all-zero word, a length that is not a multiple
 // of sixteen, and, as the control below shows, the two words in the wrong order.
 func TestEncodingRoundTrip(t *testing.T) {
-	tool, err := exec.LookPath("nvdisasm")
+	// Take nvdisasm from the CUDA toolkit before $PATH: a distribution copy
+	// earlier on $PATH can predate the architecture the fixture was captured
+	// for, and it decodes those encodings to something else rather than
+	// declining to.
+	tool, err := cudatool.LookTool("nvdisasm", os.Getenv("NVDISASM"))
 	if err != nil {
-		t.Skipf("nvdisasm not in PATH: %v", err)
+		t.Skipf("no nvdisasm: %v", err)
 	}
 
 	want := readEncodingFixture(t).Functions[0].Instructions
