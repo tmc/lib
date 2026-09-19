@@ -3,6 +3,7 @@
 package nvml_test
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -99,6 +100,15 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 		}
 		var corr, unc, pending, failure uint32
 		corr, err := device.GetRemappedRows(&unc, &pending, &failure)
+		if errors.Is(err, nvml.ErrNotSupported) {
+			// Row remapping is a property of the memory, not of the library:
+			// a part without remappable rows answers ErrNotSupported, which is
+			// the library working rather than failing. Skip says so out loud,
+			// because the comparison this subtest exists for was not made and
+			// a bare skip reads as a passing one.
+			t.Skipf("UNQUALIFIED: %s reports row remapping unsupported (%v);"+
+				" the v1 against v2 comparison was not made on this device", name, err)
+		}
 		if err != nil {
 			t.Fatalf("GetRemappedRows: %v", err)
 		}
