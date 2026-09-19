@@ -3712,3 +3712,63 @@ func TestGridStarvationIsOneFindingWithoutAPrescription(t *testing.T) {
 		}
 	}
 }
+
+// TestDutyCycleCountsOnlyDeviceWork covers the three spans a capture carries
+// that are not device occupancy.
+//
+// A synchronization window is the worst of them: the device is idle BECAUSE
+// the host is inside that call, so counting it as busy erases exactly the idle
+// it explains, and the duty-cycle finding that ranks every other finding goes
+// quiet on the captures that need it most.
+func TestDutyCycleCountsOnlyDeviceWork(t *testing.T) {
+	streams := map[uint32][]streamEvent{
+		0: {
+			{Subtype: "kernel", Start: 0, End: 1_000},
+			{Subtype: "sync", Start: 1_000, End: 8_000},
+			{Subtype: "overhead", Start: 2_000, End: 3_000},
+			{Subtype: "kernel", Start: 9_000, End: 10_000},
+		},
+	}
+	pct, span, busy, ok := profileDutyCycle(streams)
+	if !ok {
+		t.Fatal("duty cycle not computed")
+	}
+	if span != 10_000 || busy != 2_000 {
+		t.Errorf("span/busy = %d/%d, want 10000/2000: a host wait or CUPTI's own cost was counted as device work", span, busy)
+	}
+	if pct < 19.9 || pct > 20.1 {
+		t.Errorf("duty cycle = %.2f, want 20.00", pct)
+	}
+}
+
+// TestDutyCycleCountsAnUnrecordedGraphReplay pins both arms of the graph rule.
+// The envelope is excluded because it spans its nodes' records; a capture that
+// holds no such record has had its whole replay deleted from the timeline and
+// republished as idle. One real capture read 14.54% where the work was ~71%.
+func TestDutyCycleCountsAnUnrecordedGraphReplay(t *testing.T) {
+	opaque := map[uint32][]streamEvent{
+		0: {
+			{Subtype: "kernel", Start: 0, End: 1_000},
+			{Subtype: "graph_trace", GraphID: 5, Start: 2_000, End: 9_000},
+			{Subtype: "kernel", Start: 9_000, End: 10_000},
+		},
+	}
+	_, span, busy, ok := profileDutyCycle(opaque)
+	if !ok || span != 10_000 || busy != 9_000 {
+		t.Errorf("span/busy = %d/%d (ok %v), want 10000/9000: the replay was dropped and reported as idle", span, busy, ok)
+	}
+
+	// One kernel naming its graph makes the envelope the span of something,
+	// and counting both would charge that device time twice.
+	recorded := map[uint32][]streamEvent{
+		0: {
+			{Subtype: "kernel", Start: 0, End: 1_000},
+			{Subtype: "graph_trace", GraphID: 5, Start: 2_000, End: 9_000},
+			{Subtype: "kernel", GraphID: 5, Start: 3_000, End: 4_000},
+			{Subtype: "kernel", Start: 9_000, End: 10_000},
+		},
+	}
+	if _, span, busy, ok := profileDutyCycle(recorded); !ok || span != 10_000 || busy != 3_000 {
+		t.Errorf("span/busy = %d/%d (ok %v), want 10000/3000: the envelope was counted on top of the node inside it", span, busy, ok)
+	}
+}

@@ -2313,10 +2313,13 @@ type streamEvent struct {
 	Start       uint64
 	End         uint64
 	Correlation uint32
-	Shape       string
-	Buffer      string
-	Grid        [3]int
-	Block       [3]int
+	// GraphID names the CUDA graph this ran as a node of, or the graph a
+	// replay envelope replayed. Zero means the record named none.
+	GraphID uint32
+	Shape   string
+	Buffer  string
+	Grid    [3]int
+	Block   [3]int
 }
 
 const (
@@ -3094,6 +3097,10 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 			}
 
 			correlation := sampleCorrelation(s)
+			var graphID uint32
+			if len(s.NumLabel["graph_id"]) > 0 {
+				graphID = uint32(s.NumLabel["graph_id"][0])
+			}
 
 			shape := ""
 			if len(s.Label["shape"]) > 0 {
@@ -3124,6 +3131,7 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 					Start:       startNs,
 					End:         endNs,
 					Correlation: correlation,
+					GraphID:     graphID,
 					Shape:       shape,
 					Buffer:      buffer,
 					Grid:        grid,
@@ -3204,6 +3212,9 @@ func parseStreamEventsFromJSON(data []byte) []streamEvent {
 		}
 		if c, ok := m["correlation"].(float64); ok && c > 0 {
 			ev.Correlation = uint32(c)
+		}
+		if g, ok := m["graph_id"].(float64); ok && g > 0 {
+			ev.GraphID = uint32(g)
 		}
 		if d, ok := m["duration"].(float64); ok && d > 0 {
 			ev.DurationNs = uint64(d)
@@ -3599,13 +3610,49 @@ const deviceIdleCriticalPct = 50.0
 // different streams overlap, and summing durations across streams produces a
 // busy figure larger than the span it is divided by -- a duty cycle above
 // 100%, which is how this class of number announces that it was summed.
+// deviceWorkSubtype reports whether an event occupied the device.
+//
+// The three it rejects are spans the capture carries for a different purpose:
+// CUPTI's own cost, the window the host spent waiting, and the envelope of a
+// graph replay. Counting a synchronization window as busy is the worst of the
+// three, because it erases exactly the idle it explains -- the device was idle
+// BECAUSE the host was in that call.
+//
+// graphTraceIsWork inverts the graph arm. The envelope is excluded because it
+// spans the records of the nodes replayed inside it; when the capture holds no
+// such record, it spans nothing, and excluding it deletes the whole replay
+// from the timeline and reports its duration as idle.
+func deviceWorkSubtype(subtype string, graphTraceIsWork bool) bool {
+	switch strings.ToLower(subtype) {
+	case "overhead", "sync", "synchronization":
+		return false
+	case "graph_trace", "graphtrace":
+		return graphTraceIsWork
+	}
+	return true
+}
+
 func profileDutyCycle(streams map[uint32][]streamEvent) (pct float64, spanNs, busyNs uint64, ok bool) {
+	// Decided from the capture, not assumed: a replay envelope is redundant
+	// with its node records and is the only evidence of the replay without
+	// them. See deviceWorkSubtype.
+	graphTraceIsWork := true
+	for _, evs := range streams {
+		for _, ev := range evs {
+			if ev.GraphID != 0 && !strings.EqualFold(ev.Subtype, "graph_trace") {
+				graphTraceIsWork = false
+			}
+		}
+	}
 	type iv struct{ start, end uint64 }
 	var ivs []iv
 	var first, last uint64
 	var haveFirst bool
 	for _, evs := range streams {
 		for _, ev := range evs {
+			if !deviceWorkSubtype(ev.Subtype, graphTraceIsWork) {
+				continue
+			}
 			// End is the sentinel for "this capture carries no activity
 			// timestamps", not Start: a device timeline that begins at zero is
 			// a legitimate one, and testing Start drops its first activity
