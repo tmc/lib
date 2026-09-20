@@ -6,15 +6,30 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 )
 
-// ApiData represents copied, safe data from a driver or runtime API callback.
+// ApiData represents copied fields and callback-lifetime raw pointers from a
+// driver or runtime API callback.
 type ApiData struct {
-	CallbackSite    cupti.ApiCallbackSite
-	FunctionName    string
-	SymbolName      string
-	Context         cupti.Context
-	ContextUid      uint32
-	CorrelationId   uint32
-	CorrelationData uint64
+	CallbackSite cupti.ApiCallbackSite
+	FunctionName string
+	SymbolName   string
+	// FunctionParams is the callback-lifetime native parameter pointer.
+	//
+	// UNSAFE: the pointer is valid only while the callback is executing. The
+	// pointed-to layout is callback-ID and CUPTI-version specific. This package
+	// does not dereference it; callers must treat it as UNREAD unless they have
+	// independently qualified the exact layout.
+	FunctionParams unsafe.Pointer
+	// FunctionReturnValue is the callback-lifetime native return-value pointer.
+	//
+	// UNSAFE: the pointer is valid only while the callback is executing. The
+	// pointed-to layout is callback-ID and CUPTI-version specific. This package
+	// does not dereference it; callers must treat it as UNREAD unless they have
+	// independently qualified the exact layout.
+	FunctionReturnValue unsafe.Pointer
+	Context             cupti.Context
+	ContextUid          uint32
+	CorrelationId       uint32
+	CorrelationData     uint64
 }
 
 // ResourceData represents copied, safe data from a resource callback.

@@ -96,12 +96,14 @@ func decodeEvent(userdata uintptr, domain cupti.CallbackDomain, cbid uint32, cbd
 	case cupti.CbDomainDriverApi, cupti.CbDomainRuntimeApi:
 		raw := (*rawCallbackData)(cbdata)
 		api := &ApiData{
-			CallbackSite:  raw.callbackSite,
-			FunctionName:  goString(raw.functionName),
-			SymbolName:    goString(raw.symbolName),
-			Context:       raw.context,
-			ContextUid:    raw.contextUid,
-			CorrelationId: raw.correlationId,
+			CallbackSite:        raw.callbackSite,
+			FunctionName:        goString(raw.functionName),
+			SymbolName:          goString(raw.symbolName),
+			FunctionParams:      raw.functionParams,
+			FunctionReturnValue: raw.functionReturnValue,
+			Context:             raw.context,
+			ContextUid:          raw.contextUid,
+			CorrelationId:       raw.correlationId,
 		}
 		if raw.correlationData != nil {
 			api.CorrelationData = *raw.correlationData

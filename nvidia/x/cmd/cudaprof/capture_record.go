@@ -46,6 +46,9 @@ func runCaptureCommand(args []string) error {
 		fmt.Fprintln(os.Stderr, "cudaprof: error: no injection library specified (--inject /path/to/agent.so, CUDAPROF_INJECT, or CUDAPROF_AGENT); target will not run")
 	}
 	result, runErr := runCapture(context.Background(), opts)
+	if opts.LaunchManifest {
+		result.LaunchManifest = buildLaunchManifest(result)
+	}
 	if opts.Output != "" {
 		if err := writeCaptureStatus(opts.Output, result, captureArtifactBudget{FileBytes: opts.CaptureFileBytes, TotalBytes: opts.CaptureTotalBytes}); err != nil {
 			return fmt.Errorf("write capture: %w", err)
@@ -767,6 +770,8 @@ Options:
   --inject <path>               path to CUPTI agent shared library (or set CUDAPROF_INJECT)
   --no-inject                   run target uninstrumented without injection library
   --json                        write JSON status summary to stdout
+  --launch-manifest             attach an opt-in metadata-only launch manifest;
+                                unknown callback layouts remain UNREAD
   --stamp-env <names>           record the values of these environment variables in the
                                 capture, comma separated, exact names or a NAME* prefix.
                                 The capture always records a digest of the target's whole

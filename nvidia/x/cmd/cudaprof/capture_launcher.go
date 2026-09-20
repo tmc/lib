@@ -221,6 +221,9 @@ type captureOptions struct {
 	RequireComplete bool
 	NoInject        bool
 	JSON            bool
+	// LaunchManifest enables the bounded, metadata-only launch manifest in the
+	// capture status. It never enables parameter decoding by itself.
+	LaunchManifest bool
 	// CaptureFileBytes is the per-file budget for artifacts attached to the
 	// written capture. Zero means the cudacapture package default. It applies
 	// only to the capture this process is producing from its own scratch
@@ -338,6 +341,7 @@ type captureResult struct {
 	ActivityNanos            uint64             `json:"activity_nanos"`
 	CopyBytes                uint64             `json:"copy_bytes"`
 	Activities               []captureActivity  `json:"activities,omitempty"`
+	LaunchManifest           json.RawMessage    `json:"launch_manifest,omitempty"`
 	Capability               json.RawMessage    `json:"capability,omitempty"`
 	Target                   *targetEnvironment `json:"target_environment,omitempty"`
 	CaptureError             string             `json:"capture_error,omitempty"`
@@ -573,6 +577,8 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			o.NoInject = true
 		case "--json":
 			o.JSON = true
+		case "--launch-manifest":
+			o.LaunchManifest = true
 		default:
 			return o, unknownCaptureOption(name)
 		}

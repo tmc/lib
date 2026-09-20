@@ -45,15 +45,19 @@ func TestDecodeEvent(t *testing.T) {
 	fnNameBytes := []byte("cuMemAlloc_v2\x00")
 	symNameBytes := []byte("my_kernel\x00")
 	corrData := uint64(12345678)
+	params := uint64(0x1111)
+	returnValue := uint64(0x2222)
 
 	rawApi := cupti.CallbackData{
-		CallbackSite:    cupti.ApiEnter,
-		FunctionName:    uintptr(unsafe.Pointer(&fnNameBytes[0])),
-		SymbolName:      uintptr(unsafe.Pointer(&symNameBytes[0])),
-		Context:         cupti.Context(0x1000),
-		ContextUid:      42,
-		CorrelationData: uintptr(unsafe.Pointer(&corrData)),
-		CorrelationId:   999,
+		CallbackSite:        cupti.ApiEnter,
+		FunctionName:        uintptr(unsafe.Pointer(&fnNameBytes[0])),
+		SymbolName:          uintptr(unsafe.Pointer(&symNameBytes[0])),
+		FunctionParams:      uintptr(unsafe.Pointer(&params)),
+		FunctionReturnValue: uintptr(unsafe.Pointer(&returnValue)),
+		Context:             cupti.Context(0x1000),
+		ContextUid:          42,
+		CorrelationData:     uintptr(unsafe.Pointer(&corrData)),
+		CorrelationId:       999,
 	}
 
 	evt := decodeEvent(1, cupti.CbDomainDriverApi, 10, unsafe.Pointer(&rawApi), false)
@@ -74,6 +78,12 @@ func TestDecodeEvent(t *testing.T) {
 	}
 	if evt.Api.SymbolName != "my_kernel" {
 		t.Errorf("SymbolName = %q, want my_kernel", evt.Api.SymbolName)
+	}
+	if evt.Api.FunctionParams != unsafe.Pointer(&params) {
+		t.Errorf("FunctionParams = %p, want %p", evt.Api.FunctionParams, &params)
+	}
+	if evt.Api.FunctionReturnValue != unsafe.Pointer(&returnValue) {
+		t.Errorf("FunctionReturnValue = %p, want %p", evt.Api.FunctionReturnValue, &returnValue)
 	}
 	if evt.Api.ContextUid != 42 {
 		t.Errorf("ContextUid = %d, want 42", evt.Api.ContextUid)
