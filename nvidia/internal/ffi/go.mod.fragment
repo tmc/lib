@@ -1,0 +1,2 @@
+// ffi-eject inline mode vendors the syscall trampoline and dlfcn loader.
+// It requires no github.com/ebitengine/purego module dependency.

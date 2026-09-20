@@ -9,7 +9,7 @@
     "-api",
     "nccl",
     "-header",
-    "nccl.h",
+    "../cuda-headers/pinned/nccl/2.31.2-1/nccl.h",
     "-headers-dir",
     "cuda-headers",
     "-output",
@@ -18,7 +18,11 @@
     "nccl",
     "-deprecated=true",
     "-docs-dir",
-    "docs"
+    "docs",
+    "-ffi-register",
+    "github.com/tmc/lib/nvidia/internal/ffi",
+    "-ffi-register-symbols",
+    "ncclTeamRankToWorld,ncclTeamRankToLsa,ncclGinBarrierCreateRequirement,ncclLsaBarrierCreateRequirement,ncclCftBarrierCreateRequirement,ncclGetCftDeviceLeInfo"
   ],
   "inputs": [
     {

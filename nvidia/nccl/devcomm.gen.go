@@ -11,6 +11,8 @@ var (
 	fnteamCftMultimem     func(Comm) Team
 	fnteamLsa             func(Comm) Team
 	fnteamRail            func(Comm) Team
+	fnteamRankToLsa       func(Comm, Team, int32) int32
+	fnteamRankToWorld     func(Comm, Team, int32) int32
 	fnteamWorld           func(Comm) Team
 )
 
@@ -58,6 +60,24 @@ func teamRail(comm Comm) Team {
 	return fnteamRail(comm)
 }
 
+// teamRankToLsa wraps ncclTeamRankToLsa.
+func teamRankToLsa(comm Comm, team Team, rank int32) (int32, error) {
+	if err := checkLibSym("ncclTeamRankToLsa"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return fnteamRankToLsa(comm, team, rank), nil
+}
+
+// teamRankToWorld wraps ncclTeamRankToWorld.
+func teamRankToWorld(comm Comm, team Team, rank int32) (int32, error) {
+	if err := checkLibSym("ncclTeamRankToWorld"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return fnteamRankToWorld(comm, team, rank), nil
+}
+
 // teamWorld wraps ncclTeamWorld.
 func teamWorld(comm Comm) Team {
 	return fnteamWorld(comm)
@@ -96,6 +116,16 @@ func (c Comm) TeamLsa() Team {
 // TeamRail wraps ncclTeamRail.
 func (c Comm) TeamRail() Team {
 	return teamRail(c)
+}
+
+// TeamRankToLsa wraps ncclTeamRankToLsa.
+func (c Comm) TeamRankToLsa(team Team, rank int32) (int32, error) {
+	return teamRankToLsa(c, team, rank)
+}
+
+// TeamRankToWorld wraps ncclTeamRankToWorld.
+func (c Comm) TeamRankToWorld(team Team, rank int32) (int32, error) {
+	return teamRankToWorld(c, team, rank)
 }
 
 // TeamWorld wraps ncclTeamWorld.

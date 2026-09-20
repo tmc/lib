@@ -13,6 +13,7 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	inlineffi "github.com/tmc/lib/nvidia/internal/ffi"
 )
 
 var (
@@ -242,6 +243,25 @@ func register(fn interface{}, symbol string) {
 	present[symbol] = true
 }
 
+// register uses the ejected FFI registrar to bind a symbol in the nccl
+// library, recording whether the symbol resolved. Symbols absent from the
+// loaded version are left unbound so the package still works against older
+// releases; calling one returns *SymbolError rather than panicking.
+func registerFFI(fn interface{}, symbol string) {
+	if lib == 0 {
+		return
+	}
+	sym, err := lookupLibrarySymbol(lib, symbol)
+	if err != nil || sym == 0 {
+		return
+	}
+	if err := inlineffi.RegisterFunc(fn, sym); err != nil {
+		unbound[symbol] = err
+		return
+	}
+	present[symbol] = true
+}
+
 // errArgumentSlots is the reason a symbol the library exports could still
 // not be bound: the signature needs more argument registers and stack slots
 // than this architecture's calling convention provides.
@@ -336,7 +356,7 @@ func registerFuncs() {
 	register(&fnalltoAllConfig, "ncclAlltoAllConfig")
 	register(&fnbroadcast, "ncclBroadcast")
 	register(&fnbroadcastConfig, "ncclBroadcastConfig")
-	register(&fnCftBarrierCreateRequirement, "ncclCftBarrierCreateRequirement")
+	registerFFI(&fnCftBarrierCreateRequirement, "ncclCftBarrierCreateRequirement")
 	register(&fncommAbort, "ncclCommAbort")
 	register(&fncommCount, "ncclCommCount")
 	register(&fncommCuDevice, "ncclCommCuDevice")
@@ -365,7 +385,7 @@ func registerFuncs() {
 	register(&fndevCommDestroy, "ncclDevCommDestroy")
 	register(&fngather, "ncclGather")
 	register(&fngatherConfig, "ncclGatherConfig")
-	register(&fngetCftDeviceLeInfo, "ncclGetCftDeviceLeInfo")
+	registerFFI(&fngetCftDeviceLeInfo, "ncclGetCftDeviceLeInfo")
 	register(&fngetLastError, "ncclGetLastError")
 	register(&fngetLsaDevicePointer, "ncclGetLsaDevicePointer")
 	register(&fngetLsaMultimemDevicePointer, "ncclGetLsaMultimemDevicePointer")
@@ -375,13 +395,13 @@ func registerFuncs() {
 	register(&fngetPeerDevicePointer, "ncclGetPeerDevicePointer")
 	register(&fnGetUniqueId, "ncclGetUniqueId")
 	register(&fnGetVersion, "ncclGetVersion")
-	register(&fnginBarrierCreateRequirement, "ncclGinBarrierCreateRequirement")
+	registerFFI(&fnginBarrierCreateRequirement, "ncclGinBarrierCreateRequirement")
 	register(&fnGroupEnd, "ncclGroupEnd")
 	register(&fnGroupSimulateEnd, "ncclGroupSimulateEnd")
 	register(&fnGroupStart, "ncclGroupStart")
 	register(&fnLLA2ACalcSlots, "ncclLLA2ACalcSlots")
 	register(&fnLLA2ACreateRequirement, "ncclLLA2ACreateRequirement")
-	register(&fnLsaBarrierCreateRequirement, "ncclLsaBarrierCreateRequirement")
+	registerFFI(&fnLsaBarrierCreateRequirement, "ncclLsaBarrierCreateRequirement")
 	register(&fnMemAlloc, "ncclMemAlloc")
 	register(&fnMemFree, "ncclMemFree")
 	register(&fnParamBind, "ncclParamBind")
@@ -414,6 +434,8 @@ func registerFuncs() {
 	register(&fnteamCftMultimem, "ncclTeamCftMultimem")
 	register(&fnteamLsa, "ncclTeamLsa")
 	register(&fnteamRail, "ncclTeamRail")
+	registerFFI(&fnteamRankToLsa, "ncclTeamRankToLsa")
+	registerFFI(&fnteamRankToWorld, "ncclTeamRankToWorld")
 	register(&fnteamWorld, "ncclTeamWorld")
 	register(&fnwaitSignal, "ncclWaitSignal")
 	register(&fnwinGetUserPtr, "ncclWinGetUserPtr")
@@ -508,6 +530,8 @@ func clearFuncs() {
 	fnteamCftMultimem = nil
 	fnteamLsa = nil
 	fnteamRail = nil
+	fnteamRankToLsa = nil
+	fnteamRankToWorld = nil
 	fnteamWorld = nil
 	fnwaitSignal = nil
 	fnwinGetUserPtr = nil
@@ -946,6 +970,16 @@ func HasTeamLsa() bool {
 // HasTeamRail reports whether ncclTeamRail resolved in the loaded library.
 func HasTeamRail() bool {
 	return Has("ncclTeamRail")
+}
+
+// HasTeamRankToLsa reports whether ncclTeamRankToLsa resolved in the loaded library.
+func HasTeamRankToLsa() bool {
+	return Has("ncclTeamRankToLsa")
+}
+
+// HasTeamRankToWorld reports whether ncclTeamRankToWorld resolved in the loaded library.
+func HasTeamRankToWorld() bool {
+	return Has("ncclTeamRankToWorld")
 }
 
 // HasTeamWorld reports whether ncclTeamWorld resolved in the loaded library.

@@ -85,6 +85,10 @@ package nvidia
 // record it. Accepting an entry means having read it; the gate reports only
 // that the file and the tree agree.
 
+// Eject the pinned local ARM64 registrar before generating its NCCL callers.
+// FFI_SRC may name a clean checkout of the revision in scripts/ffi.sh.
+//go:generate sh scripts/ffi.sh
+
 //go:generate -command nvgen nvgen -output .
 
 // Generated from the CUDA profile: a toolkit bump moves these.
