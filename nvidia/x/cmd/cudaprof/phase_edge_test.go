@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,6 +35,40 @@ func TestBuildPhaseReceiptMeasuresQualifiedPair(t *testing.T) {
 	}
 	if r.KernelCount != 2 || r.KernelNanos != 30 {
 		t.Fatalf("kernel attribution = %d/%d, want 2/30", r.KernelCount, r.KernelNanos)
+	}
+}
+
+func TestObserveCaptureSessionBuildsMeasuredPhaseReceipt(t *testing.T) {
+	dir := t.TempDir()
+	session := "00112233445566778899aabbccddeeff"
+	var sid [16]byte
+	raw, err := hex.DecodeString(session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	copy(sid[:], raw)
+	h := captureHandshake{Protocol: 1, Session: session, Process: 41, Generation: 2, TransportReady: true}
+	handshake, err := json.Marshal(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "handshake.json"), handshake, 0600); err != nil {
+		t.Fatal(err)
+	}
+	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability","capture_range":"cudaProfilerApi","clocks_unified":true}`)},
+		{Kind: recordActivity, Timestamp: 10, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":"start","api":"cudaProfilerStart","index":0,"toggle_failures":0}`)},
+		{Kind: recordActivity, Timestamp: 20, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":11,"end":19}`)},
+		{Kind: recordActivity, Timestamp: 30, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":"stop","api":"cudaProfilerStop","index":0,"toggle_failures":0}`)},
+		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1,"offered":6,"retained":6}`)},
+	})
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
+	if got.PhaseReceipt == nil || got.PhaseReceipt.Status != "MEASURED" {
+		t.Fatalf("phase receipt = %+v, result = %+v", got.PhaseReceipt, got)
+	}
+	if got.PhaseReceipt.KernelCount != 1 || got.PhaseReceipt.KernelNanos != 8 {
+		t.Fatalf("phase attribution = %+v, want one kernel / 8 ns", got.PhaseReceipt)
 	}
 }
 

@@ -492,7 +492,6 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	result.RecordLoss = selectedMetrics.loss.orNil()
 	result.ActivityNanos, result.CopyBytes, result.Activities = selectedMetrics.duration, selectedMetrics.copyBytes, selectedActivities
 	result.APIRecords = selectedAPIs
-	result.PhaseReceipt = buildPhaseReceipt(result, selectedPhaseEdges)
 	result = mergeWorkers(result)
 	for i := range result.Activities {
 		if result.Activities[i].Process == 0 {
@@ -504,12 +503,17 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	// activity records above it may have come from several processes, each with
 	// its own agent. Say so when they are not the same producer.
 	result.Capability = stampProducerScope(result.Capability, selectedState.agentRevision, workerProducers)
+	result.PhaseReceipt = buildPhaseReceipt(result, selectedPhaseEdges)
 	if targetRecovered {
 		// The generation decoded completely and passed every identity and
 		// ordering check, so its records stand; what is unknown is whether it
 		// had more to write. It therefore never reaches the outcome ladder
 		// below -- no branch of it can describe a generation that did not
 		// finalize -- and applyPartialRecovery is what labels the result.
+		//
+		// The receipt is built above this, not below it: a recovered
+		// generation has phase edges like any other, and skipping the ladder
+		// is not a reason to publish it without one.
 		return applyPartialRecovery(result)
 	}
 	if selectedState.failure != "" {
