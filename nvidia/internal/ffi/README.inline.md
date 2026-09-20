@@ -15,10 +15,11 @@ Strings, slices, callbacks as arguments, HFA, structs over 16 bytes, pointer fie
 in structs, and register exhaustion are unsupported. NewCallback is a separate
 -with-callbacks tier. Go and C layouts must match, including padding.
 
-The inline coexistence gate is proven on darwin/amd64 and darwin/arm64. Linux,
-FreeBSD, and NetBSD dynamic-import files are emitted with build tags for future
-validation, but they are not claimed supported until a coexistence test links and
-runs there.
+The inline coexistence gate has run on darwin/amd64, darwin/arm64 and linux/arm64.
+The loader regression covers runtime/cgo, fakecgo, and stock-purego coexistence.
+On ELF the local assembly stubs are prefixed, but their C import names are shared
+with cgo's linker symbols. The stubs remain enabled with cgo: excluding them would
+make the loader call a data address. FreeBSD and NetBSD remain build-only targets.
 
 By default inline mode requires CGO_ENABLED=1. It vendors the syscall trampoline and
 dlfcn loader but not purego's fakecgo, so under CGO_ENABLED=0 there is no

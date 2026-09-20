@@ -10,7 +10,7 @@ const (
 	rtldGlobal = 0x00000100
 )
 
-//go:cgo_import_dynamic nvidiaffi_purego_dlopen dlopen "libc.so.7"
-//go:cgo_import_dynamic nvidiaffi_purego_dlsym dlsym "libc.so.7"
-//go:cgo_import_dynamic nvidiaffi_purego_dlerror dlerror "libc.so.7"
-//go:cgo_import_dynamic nvidiaffi_purego_dlclose dlclose "libc.so.7"
+//go:cgo_import_dynamic dlopen dlopen "libc.so.7"
+//go:cgo_import_dynamic dlsym dlsym "libc.so.7"
+//go:cgo_import_dynamic dlerror dlerror "libc.so.7"
+//go:cgo_import_dynamic dlclose dlclose "libc.so.7"

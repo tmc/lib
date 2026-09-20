@@ -3,7 +3,7 @@
 set -eu
 module=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 src=$(CDPATH= cd -- "${FFI_SRC:-$module/../../ffi}" && pwd)
-revision=750d19d5e3f6c0fc2b52a9acee444bc104c92265
+revision=c1f398e6c731e44ef5b40cb70b59e048f02267a7
 actual=$(git -C "$src" rev-parse HEAD)
 if [ "$actual" != "$revision" ] || [ -n "$(git -C "$src" status --porcelain)" ]; then
     echo "ffi: FFI_SRC must be a clean checkout of $revision (got $actual)" >&2
