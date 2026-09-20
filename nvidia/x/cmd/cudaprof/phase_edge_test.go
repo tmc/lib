@@ -38,6 +38,22 @@ func TestBuildPhaseReceiptMeasuresQualifiedPair(t *testing.T) {
 	}
 }
 
+func TestBuildPhaseReceiptIgnoresDeclaredRedundantEdges(t *testing.T) {
+	edges := []capturePhaseEdge{
+		{Sequence: 1, Timestamp: 10, Edge: "start", API: "cuProfilerStart", Index: 0},
+		{Sequence: 2, Timestamp: 11, Edge: "redundant_start", API: "cudaProfilerStart", Index: 0},
+		{Sequence: 3, Timestamp: 70, Edge: "stop", API: "cudaProfilerStop", Index: 0},
+		{Sequence: 4, Timestamp: 71, Edge: "redundant_stop", API: "cuProfilerStop", Index: 1},
+	}
+	r := buildPhaseReceipt(phaseResult(nil), edges)
+	if r.Status != "MEASURED" || r.DurationNanos != 60 {
+		t.Fatalf("receipt = %+v, want measured primary pair", r)
+	}
+	if len(r.Edges) != len(edges) || r.Edges[1].Edge != "redundant_start" || r.Edges[3].Index != 1 {
+		t.Fatalf("raw edges were not preserved: %+v", r.Edges)
+	}
+}
+
 func TestObserveCaptureSessionBuildsMeasuredPhaseReceipt(t *testing.T) {
 	dir := t.TempDir()
 	session := "00112233445566778899aabbccddeeff"

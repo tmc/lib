@@ -77,11 +77,18 @@ func buildPhaseReceipt(result captureResult, edges []capturePhaseEdge) *captureP
 		r.Reason = "clock_unified_false"
 		return r
 	}
-	if len(edges) != 2 {
+	primary := make([]capturePhaseEdge, 0, len(edges))
+	for _, edge := range edges {
+		if edge.Edge == "redundant_start" || edge.Edge == "redundant_stop" {
+			continue
+		}
+		primary = append(primary, edge)
+	}
+	if len(primary) != 2 {
 		r.Reason = "edge_pair_invalid"
 		return r
 	}
-	start, stop := edges[0], edges[1]
+	start, stop := primary[0], primary[1]
 	if start.Edge != "start" || stop.Edge != "stop" || !matchingPhaseAPIs(start.API, stop.API) || start.Index != stop.Index || start.ToggleFailures != 0 || stop.ToggleFailures != 0 || start.Sequence >= stop.Sequence || start.Timestamp == 0 || stop.Timestamp <= start.Timestamp {
 		r.Reason = "edge_pair_invalid"
 		return r
@@ -100,14 +107,8 @@ func buildPhaseReceipt(result captureResult, edges []capturePhaseEdge) *captureP
 }
 
 func matchingPhaseAPIs(start, stop string) bool {
-	switch {
-	case start == "cudaProfilerStart" && stop == "cudaProfilerStop":
-		return true
-	case start == "cuProfilerStart" && stop == "cuProfilerStop":
-		return true
-	default:
-		return false
-	}
+	return (start == "cudaProfilerStart" || start == "cuProfilerStart") &&
+		(stop == "cudaProfilerStop" || stop == "cuProfilerStop")
 }
 
 func (r *capturePhaseReceipt) String() string {
