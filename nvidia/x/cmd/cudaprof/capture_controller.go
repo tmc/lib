@@ -86,6 +86,10 @@ type captureRecordPayload struct {
 	Smem                uint32     `json:"smem"`
 	GraphID             uint32     `json:"graph_id"`
 	GraphNodeID         uint64     `json:"graph_node_id"`
+	Edge                string     `json:"edge"`
+	API                 string     `json:"api"`
+	Index               uint32     `json:"index"`
+	ToggleFailures      uint32     `json:"toggle_failures"`
 	Dropped             uint64     `json:"dropped"`
 	// The finalized record carries the breakdown of what the producer lost.
 	// Dropped above is their sum, and a sum cannot be acted on: the mechanisms
@@ -224,6 +228,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	var selectedRecords wire.Stats
 	var selectedActivities []captureActivity
 	var selectedAPIs []captureAPI
+	var selectedPhaseEdges []capturePhaseEdge
 	var workerProducers []contributingProducer
 	var workerActivities []captureActivity
 	var workerAPIs []captureAPI
@@ -367,6 +372,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		workers = append(workers, innerWorkers...)
 		selected, selectedState, selectedMetrics, selectedRecords = f, state, metrics, records
 		selectedActivities, selectedAPIs = activities, apis
+		selectedPhaseEdges = selectedMetrics.phaseEdges
 	}
 	result.WorkerGenerations = workers
 	// mergeWorkers folds the followed generations into the totals. The target
@@ -486,6 +492,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	result.RecordLoss = selectedMetrics.loss.orNil()
 	result.ActivityNanos, result.CopyBytes, result.Activities = selectedMetrics.duration, selectedMetrics.copyBytes, selectedActivities
 	result.APIRecords = selectedAPIs
+	result.PhaseReceipt = buildPhaseReceipt(result, selectedPhaseEdges)
 	result = mergeWorkers(result)
 	for i := range result.Activities {
 		if result.Activities[i].Process == 0 {
@@ -674,6 +681,7 @@ type journalState struct {
 type journalMetrics struct {
 	duration, copyBytes, external, hostSamples uint64
 	loss                                       captureLoss
+	phaseEdges                                 []capturePhaseEdge
 }
 
 // errJournalNotFinalized reports a journal that decoded completely but whose
@@ -887,6 +895,14 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				continue
 			}
 			if payload.Subtype == "capture_range" {
+				metrics.phaseEdges = append(metrics.phaseEdges, capturePhaseEdge{
+					Sequence:       record.Sequence,
+					Timestamp:      record.Timestamp,
+					Edge:           payload.Edge,
+					API:            payload.API,
+					Index:          payload.Index,
+					ToggleFailures: payload.ToggleFailures,
+				})
 				continue
 			}
 			// device_active is the producer saying CUPTI asked it for a

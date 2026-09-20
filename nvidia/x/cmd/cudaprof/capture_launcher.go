@@ -334,18 +334,19 @@ type captureResult struct {
 	// from unfinalized generations, so a reader can subtract the recovered
 	// contribution from the totals above. They are zero unless recovery was
 	// explicitly requested and at least one generation was recovered.
-	RecoveredGenerations     uint64             `json:"recovered_generations,omitempty"`
-	RecoveredActivityRecords uint64             `json:"recovered_activity_records,omitempty"`
-	RecoveredDroppedRecords  uint64             `json:"recovered_dropped_records,omitempty"`
-	DroppedRecords           uint64             `json:"dropped_records"`
-	ActivityNanos            uint64             `json:"activity_nanos"`
-	CopyBytes                uint64             `json:"copy_bytes"`
-	Activities               []captureActivity  `json:"activities,omitempty"`
-	LaunchManifest           json.RawMessage    `json:"launch_manifest,omitempty"`
-	Capability               json.RawMessage    `json:"capability,omitempty"`
-	Target                   *targetEnvironment `json:"target_environment,omitempty"`
-	CaptureError             string             `json:"capture_error,omitempty"`
-	ScratchDir               string             `json:"scratch_dir,omitempty"`
+	RecoveredGenerations     uint64               `json:"recovered_generations,omitempty"`
+	RecoveredActivityRecords uint64               `json:"recovered_activity_records,omitempty"`
+	RecoveredDroppedRecords  uint64               `json:"recovered_dropped_records,omitempty"`
+	DroppedRecords           uint64               `json:"dropped_records"`
+	ActivityNanos            uint64               `json:"activity_nanos"`
+	CopyBytes                uint64               `json:"copy_bytes"`
+	Activities               []captureActivity    `json:"activities,omitempty"`
+	LaunchManifest           json.RawMessage      `json:"launch_manifest,omitempty"`
+	PhaseReceipt             *capturePhaseReceipt `json:"phase_receipt,omitempty"`
+	Capability               json.RawMessage      `json:"capability,omitempty"`
+	Target                   *targetEnvironment   `json:"target_environment,omitempty"`
+	CaptureError             string               `json:"capture_error,omitempty"`
+	ScratchDir               string               `json:"scratch_dir,omitempty"`
 }
 
 // captureActivity represents one observed GPU kernel execution or memory copy.
