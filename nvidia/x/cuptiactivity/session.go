@@ -25,7 +25,8 @@ type Result struct {
 }
 
 // Close stops owned activity kinds and flushes their buffers. Native cleanup
-// failures retain ownership for a later retry. Callers must synchronize their
+// failures retain ownership for a later retry. Close leaves the process-wide
+// activity callbacks registered for reuse by Start. Callers must synchronize their
 // workload before Close if they require complete device timestamps.
 func (s *Session) Close() error {
 	if s == nil {

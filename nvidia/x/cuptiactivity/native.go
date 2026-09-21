@@ -32,11 +32,13 @@ var nativeSessions struct {
 // Start starts process-wide CUPTI activity collection. The caller must own
 // exclusive use of CUPTI activity registration and enable/disable APIs in this
 // process, including other profiling libraries. This package cannot detect an
-// external registrant. Only one Session can be active at a time.
+// external registrant. Only one Session can be active at a time. Callback
+// registration is retained after Close and reused by later sessions. Callers
+// must not replace it or finalize CUPTI between sessions.
 //
 // All Config bounds must be positive; BufferBytes must be a multiple of eight.
 // A nonnil Session returned with an error retains cleanup ownership: call Close
-// again. Only the locally qualified CUPTI record version is accepted.
+// again. The loaded CUPTI version and record layouts must pass validation.
 func Start(config Config) (*Session, error) {
 	if config.MaxRecords <= 0 {
 		return nil, errors.New("cuptiactivity: record limit must be positive")
