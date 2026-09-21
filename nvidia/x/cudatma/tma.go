@@ -23,6 +23,70 @@ const (
 // MaxRank is the greatest tensor rank a tiled tensor map admits.
 const MaxRank = 5
 
+// ElementType names the element format a descriptor encodes. ElementBytes
+// alone cannot distinguish the two-byte float formats, which share a width but
+// not an exponent range, so a bfloat16 tensor has to say so.
+type ElementType uint8
+
+// The element formats a tiled tensor map admits here. ElementTypeDefault is the
+// zero value and keeps the format ElementBytes implies on its own: float16 at
+// two bytes and float32 at four.
+const (
+	ElementTypeDefault ElementType = iota
+	ElementTypeFloat16
+	ElementTypeBfloat16
+	ElementTypeFloat32
+)
+
+// String implements [fmt.Stringer].
+func (e ElementType) String() string {
+	switch e {
+	case ElementTypeDefault:
+		return "default"
+	case ElementTypeFloat16:
+		return "float16"
+	case ElementTypeBfloat16:
+		return "bfloat16"
+	case ElementTypeFloat32:
+		return "float32"
+	}
+	return fmt.Sprintf("ElementType(%d)", uint8(e))
+}
+
+// bytes reports the width in bytes an element format occupies, and whether the
+// format is one this package admits.
+func (e ElementType) bytes() (uint32, bool) {
+	switch e {
+	case ElementTypeFloat16, ElementTypeBfloat16:
+		return 2, true
+	case ElementTypeFloat32:
+		return 4, true
+	}
+	return 0, false
+}
+
+// driverType maps an element format onto the driver enum, resolving
+// ElementTypeDefault against the descriptor's element width.
+func (e ElementType) driverType(elementBytes uint32) (driver.TensorMapDataType, error) {
+	switch e {
+	case ElementTypeDefault:
+		switch elementBytes {
+		case 2:
+			return driver.TensorMapDataTypeFloat16, nil
+		case 4:
+			return driver.TensorMapDataTypeFloat32, nil
+		}
+		return 0, fmt.Errorf("element size %d has no admitted driver format", elementBytes)
+	case ElementTypeFloat16:
+		return driver.TensorMapDataTypeFloat16, nil
+	case ElementTypeBfloat16:
+		return driver.TensorMapDataTypeBfloat16, nil
+	case ElementTypeFloat32:
+		return driver.TensorMapDataTypeFloat32, nil
+	}
+	return 0, fmt.Errorf("unsupported element type %d", uint8(e))
+}
+
 // Descriptor is validated tensor metadata. The CUDA Driver API owns creation
 // of the eventual opaque CUtensorMap.
 //
@@ -41,6 +105,7 @@ type Descriptor struct {
 	Strides      [MaxRank]uint64
 	Box          [MaxRank]uint32
 	ElementBytes uint32
+	ElementType  ElementType
 	Swizzle      uint32
 	Interleave   driver.TensorMapInterleave
 	L2Promotion  driver.TensorMapL2promotion
@@ -57,14 +122,9 @@ func (d Descriptor) EncodeTiled() (*driver.TensorMap, error) {
 	if d.Base > uint64(^uintptr(0)) {
 		return nil, fmt.Errorf("base address exceeds host pointer width")
 	}
-	var dt driver.TensorMapDataType
-	switch d.ElementBytes {
-	case 2:
-		dt = driver.TensorMapDataTypeFloat16
-	case 4:
-		dt = driver.TensorMapDataTypeFloat32
-	default:
-		return nil, fmt.Errorf("element size %d has no admitted driver format", d.ElementBytes)
+	dt, err := d.ElementType.driverType(d.ElementBytes)
+	if err != nil {
+		return nil, err
 	}
 	m := driver.NewTensorMap()
 	dims := d.Dims
@@ -129,6 +189,15 @@ func (d Descriptor) Validate() error {
 	}
 	if d.ElementBytes != 2 && d.ElementBytes != 4 {
 		return fmt.Errorf("unsupported element size %d", d.ElementBytes)
+	}
+	if d.ElementType != ElementTypeDefault {
+		typeWidth, ok := d.ElementType.bytes()
+		if !ok {
+			return fmt.Errorf("unsupported element type %d", uint8(d.ElementType))
+		}
+		if typeWidth != d.ElementBytes {
+			return fmt.Errorf("element type %v is %d bytes, not the %d declared", d.ElementType, typeWidth, d.ElementBytes)
+		}
 	}
 	switch d.Interleave {
 	case driver.TensorMapInterleaveNone:
