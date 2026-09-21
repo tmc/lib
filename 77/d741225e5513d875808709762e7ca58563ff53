@@ -1,0 +1,11 @@
+commit: 77d74122
+date: 2026-09-20T17:37:39-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty
+pid: 52687
+ITERM_SESSION_ID: w3t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session: f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url: (none provided)
+verified: GOWORK=off go test + go vet ./x/cuda/... ./x/cuptiactivity/... ./x/nvtx/... all ok on darwin
+rehashed: was 753ae88e, re-parented by the split of a7eb8623; content unchanged.
