@@ -111,10 +111,14 @@ func (s *Stream) query() (bool, error) {
 	return false, fmt.Errorf("cuda: query stream: %w", err)
 }
 
-// Synchronize blocks until all operations enqueued on the stream have finished execution.
-// If ctx is cancelled or times out before the operations complete, Synchronize returns
-// the context error immediately. Note that GPU hardware execution continues until the
-// active kernel finishes.
+// Synchronize waits for operations enqueued on the stream to finish, then runs
+// registered cleanup callbacks. A nil context waits without cancellation.
+//
+// Cancellation stops polling and returns the context error; it does not cancel
+// GPU work or run cleanup callbacks. Retained resources must remain live until a
+// later successful Synchronize or Destroy. Cancellation cannot interrupt waiting
+// for another stream operation's lifecycle lock, a driver call, or cleanup
+// callbacks. If completion is observed before cancellation, Synchronize succeeds.
 func (s *Stream) Synchronize(ctx context.Context) error {
 	s.lifeMu.Lock()
 	if s.destroyed {

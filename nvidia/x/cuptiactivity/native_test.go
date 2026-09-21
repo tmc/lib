@@ -76,3 +76,66 @@ func TestNativeNameCopy(t *testing.T) {
 		t.Fatalf("nil name=%q error=%v", name, err)
 	}
 }
+
+// A completed buffer can leave the pool before its callback finishes querying
+// dropped records. Teardown must account for the callback as well as the pool.
+func TestCompleteBufferRemainsActiveAfterBufferReturn(t *testing.T) {
+	pool, err := newBufferPool(64, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan struct{})
+	c := &collection{pool: pool, dropped: func(cupti.Context, uint32) (uint, error) {
+		close(entered)
+		<-release
+		return 0, nil
+	}}
+	nativeSessions.Lock()
+	if nativeSessions.active != nil || nativeSessions.callbacks != 0 {
+		nativeSessions.Unlock()
+		t.Fatal("another collection or callback is active")
+	}
+	nativeSessions.active = c
+	nativeSessions.Unlock()
+	t.Cleanup(func() {
+		close(release)
+		<-done
+		nativeSessions.Lock()
+		defer nativeSessions.Unlock()
+		if nativeSessions.callbacks != 0 {
+			t.Errorf("callbacks after completion = %d", nativeSessions.callbacks)
+		}
+		nativeSessions.active = nil
+	})
+	ptr, size := pool.request()
+	go func() {
+		defer close(done)
+		completeBuffer(0, 0, ptr, size, 0)
+	}()
+	<-entered
+	if pending, _ := pool.status(); pending != 0 {
+		t.Fatalf("pending buffers = %d, want 0", pending)
+	}
+	nativeSessions.Lock()
+	callbacks := nativeSessions.callbacks
+	nativeSessions.Unlock()
+	if callbacks != 1 {
+		t.Fatalf("callbacks during dropped-record query = %d, want 1", callbacks)
+	}
+}
+
+func TestRequestBufferWithoutSession(t *testing.T) {
+	nativeSessions.Lock()
+	active := nativeSessions.active
+	nativeSessions.Unlock()
+	if active != nil {
+		t.Fatal("another collection is active")
+	}
+	pointer, size, maxRecords := uintptr(1), uint(2), uint(3)
+	requestBuffer(&pointer, &size, &maxRecords)
+	if pointer != 0 || size != 0 || maxRecords != 0 {
+		t.Fatalf("request without session = %#x, %d, %d", pointer, size, maxRecords)
+	}
+}

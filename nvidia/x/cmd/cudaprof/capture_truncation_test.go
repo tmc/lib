@@ -123,7 +123,7 @@ func TestGapsRefusalNamesTheMechanism(t *testing.T) {
 			}
 			// Both producer-side mechanisms are reached by the same lever, and
 			// the flag a reader would reach for instead is not.
-			if !strings.Contains(err.Error(), "CUDAPROF_API_ACTIVITY=0") {
+			if !strings.Contains(err.Error(), "--api-activity=false") {
 				t.Errorf("refusal names no reachable remedy: %v", err)
 			}
 			if !strings.Contains(err.Error(), "--max-records is not the remedy here") {
@@ -299,12 +299,12 @@ func TestVolumeRemedyFollowsTheCapability(t *testing.T) {
 		capability string
 		want, deny string
 	}{
-		{"api attribution on", `{"kind":"capability","api_records":true}`, "CUDAPROF_API_ACTIVITY=0", "already collected no API"},
+		{"api attribution on", `{"kind":"capability","api_records":true}`, "--api-activity=false", "already collected no API"},
 		{"promises smaller inputs, not fewer drops", `{"api_records":true}`, "not fewer drops", "will fix"},
-		{"api attribution off", `{"kind":"capability","api_records":false}`, "already collected no API attribution", "CUDAPROF_API_ACTIVITY=0"},
-		{"no capability block", "", "CUDAPROF_API_ACTIVITY=0", "already collected no API"},
-		{"capability without the field", `{"kind":"capability"}`, "CUDAPROF_API_ACTIVITY=0", "already collected no API"},
-		{"unparseable capability", `not json`, "CUDAPROF_API_ACTIVITY=0", "already collected no API"},
+		{"api attribution off", `{"kind":"capability","api_records":false}`, "already collected no API attribution", "--api-activity=false"},
+		{"no capability block", "", "--api-activity=false", "already collected no API"},
+		{"capability without the field", `{"kind":"capability"}`, "--api-activity=false", "already collected no API"},
+		{"unparseable capability", `not json`, "--api-activity=false", "already collected no API"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -336,7 +336,7 @@ func TestTruncationMessageSeparatesTheTwoDropMechanisms(t *testing.T) {
 	}
 	for _, want := range []string{
 		"pending ring filling up",
-		"CUDAPROF_API_ACTIVITY=0",
+		"--api-activity=false",
 		"--max-records is not the remedy here",
 		"fails outright",
 	} {
@@ -363,7 +363,7 @@ func TestCaptureHeadlineNamesRequireComplete(t *testing.T) {
 	for _, want := range []string{
 		"capture TRUNCATED",
 		"retained 0.18%",
-		"CUDAPROF_API_ACTIVITY=0",
+		"--api-activity=false",
 		"--require-complete",
 		"--max-records does not apply",
 	} {
@@ -585,7 +585,7 @@ func TestDetailedRecordsDispositionStaysCompact(t *testing.T) {
 // that wait is bounded by journal write latency, not by record count.
 func TestVolumeRemedyClaimsOnlyVolume(t *testing.T) {
 	got := volumeRemedy(json.RawMessage(`{"api_records":true}`))
-	for _, want := range []string{"CUDAPROF_API_ACTIVITY=0", "order of magnitude smaller", "not fewer drops", "journal write latency"} {
+	for _, want := range []string{"--api-activity=false", "order of magnitude smaller", "not fewer drops", "journal write latency"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("volumeRemedy = %q, want it to contain %q", got, want)
 		}

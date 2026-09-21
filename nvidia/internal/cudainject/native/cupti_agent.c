@@ -259,9 +259,28 @@ _Static_assert(CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStart_v4000 == 171, "unexpec
 _Static_assert(CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000 == 172, "unexpected cudaProfilerStop cbid");
 _Static_assert(CUPTI_DRIVER_TRACE_CBID_cuProfilerStart == 308, "unexpected cuProfilerStart cbid");
 _Static_assert(CUPTI_DRIVER_TRACE_CBID_cuProfilerStop == 309, "unexpected cuProfilerStop cbid");
+/* Finalization policy. The ELF destructor, atexit and the SIGTERM terminator
+   all describe a process that winds down through libc. A Go program does not:
+   its runtime leaves through exit_group, which runs neither a destructor nor
+   an atexit handler, so a Go target that returns from main keeps whatever
+   CUPTI was still holding and its journal ends with no finalized record --
+   measured as 0 activity records against 51 from the same capture of a C
+   target. CUDAPROF_FINALIZE=profiler-stop makes the target's own
+   cudaProfilerStop the trigger instead, which is a point the target chooses
+   and reaches.
+
+   It is opt-in because a stop is not by itself the end of a capture: a target
+   may stop and start collection again, and finalizing on every stop would end
+   the journal at the first one. The mode is reported in the capability record,
+   including when it was asked for and the stop callback could not be armed, so
+   a reader never assumes a trigger that is not there. */
+#define FINALIZE_EXIT 0
+#define FINALIZE_PROFILER_STOP 1
+#define FINALIZE_UNAVAILABLE 2
+static int finalize_mode;
 static _Atomic int finalize_started;
 static _Atomic int finalize_done;
-static const char *finalize_trigger = "exit";
+static const char *finalize_trigger;
 static uint64_t self_pid;
 static unsigned char buffer_pool[BUFFER_POOL][BUFFER_BYTES] __attribute__((aligned(64)));
 static _Atomic int buffer_busy[BUFFER_POOL];
@@ -273,6 +292,27 @@ static pthread_cond_t pending_cond = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t pending_space_cond = PTHREAD_COND_INITIALIZER;
 static int worker_stop;
 static pthread_t worker;
+
+/* Optional interval flush. CUPTI hands a completed buffer to buffer_completed
+   only when that buffer fills or when something flushes it, so a target whose
+   buffers never fill and which never reaches a finalization trigger leaves
+   every record inside CUPTI. CUDAPROF_FLUSH_INTERVAL_MS asks for a flush every
+   so many milliseconds, which bounds how much of a run is held there. Records
+   published this way reach the journal with no finalized record after them,
+   which is what they are: a partial capture, and the consumer reads them as
+   one.
+
+   The flush runs on its own thread rather than in the drain because
+   cuptiActivityFlushAll delivers the buffer on the thread that called it. A
+   drain thread that flushed would be inside buffer_completed offering a whole
+   buffer to a ring that only it can empty; every record past PENDING_RECORDS
+   would wait out ADMIT_WAIT_NANOS and then be dropped for capacity. */
+static long flush_interval_ms;
+static pthread_t flusher;
+static int flush_started;
+static int flush_stop;
+static pthread_mutex_t flush_mu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t flush_cond = PTHREAD_COND_INITIALIZER;
 /* Drain-owned scratch. Only the single drain thread touches these. */
 static unsigned char batch_headers[DRAIN_BATCH][WIRE_HEADER];
 static struct iovec batch_iov[DRAIN_BATCH * 2];
@@ -310,7 +350,7 @@ static int clock_state = AGENT_CLOCK_UNSUPPORTED;
 static uint64_t now_ns(void);
 static int write_record(uint16_t, uint64_t, const char *, size_t);
 static void cudaprof_cupti_atexit(void);
-static void cudaprof_cupti_finalize(void);
+static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback);
 
 static int write_batch(size_t tail, size_t n);
 
@@ -381,6 +421,46 @@ static void *drain_worker(void *arg) {
 		pthread_mutex_unlock(&pending_mu);
 		if (err != 0) atomic_store(&producer_failed, 1);
 	}
+}
+
+/* Flushes CUPTI every flush_interval_ms until finalization stops it. CUPTI
+   delivers the buffers on this thread, so the records take the ordinary
+   buffer_completed path and the drain -- a different thread -- keeps emptying
+   the ring underneath. A flush is skipped once shutdown has begun: finalize
+   owns the ordered CUPTI sequence from that point and a second thread inside
+   CUPTI would race it. */
+static void *flush_worker(void *arg) {
+	(void)arg;
+	for (;;) {
+		struct timespec deadline;
+		if (clock_gettime(CLOCK_REALTIME, &deadline) != 0) return NULL;
+		deadline.tv_sec += flush_interval_ms / 1000;
+		deadline.tv_nsec += (flush_interval_ms % 1000) * 1000000L;
+		if (deadline.tv_nsec >= 1000000000L) { deadline.tv_nsec -= 1000000000L; deadline.tv_sec++; }
+		pthread_mutex_lock(&flush_mu);
+		while (!flush_stop) {
+			if (pthread_cond_timedwait(&flush_cond, &flush_mu, &deadline) == ETIMEDOUT) break;
+		}
+		int stop = flush_stop;
+		pthread_mutex_unlock(&flush_mu);
+		if (stop) return NULL;
+		if (atomic_load(&shutdown_started)) continue;
+		(void)cuptiActivityFlushAll(0);
+	}
+}
+
+/* Stops the interval flusher and waits for it to leave. Finalization calls
+   this before its own CUPTI sequence, so that from there on exactly one thread
+   is inside CUPTI, and before it stops the drain, because a flush still in
+   flight is offering records that the drain has to be alive to accept. */
+static void stop_flush_worker(void) {
+	if (!flush_started) return;
+	pthread_mutex_lock(&flush_mu);
+	flush_stop = 1;
+	pthread_cond_signal(&flush_cond);
+	pthread_mutex_unlock(&flush_mu);
+	if (pthread_join(flusher, NULL) != 0) atomic_store(&producer_failed, 1);
+	flush_started = 0;
 }
 
 static const char *cupti_library_path(void) {
@@ -1240,8 +1320,7 @@ static void *terminator_thread(void *arg) {
 		return NULL;
 	}
 	if (!atomic_load(&term_signalled)) return NULL;
-	finalize_trigger = "signal";
-	cudaprof_cupti_finalize();
+	cudaprof_cupti_finalize("signal", 0);
 	/* Finalization is complete, so put back whatever disposition the target
 	   had and deliver the signal again. One path covers both cases because
 	   prev_sigterm IS the previous disposition: SIG_DFL for a target with
@@ -1323,6 +1402,7 @@ static void cudaprof_after_fork_child(void) {
 	external_enabled = 0;
 	marker_enabled = 0;
 	callback_registered = 0;
+	flush_started = 0;
 	initialized = 0;
 	/* fork(2) copies only the calling thread, so the sampler does not exist
 	   here. Clearing this keeps any later finalize from joining a pthread_t
@@ -1450,7 +1530,12 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 		atomic_fetch_sub(&callback_active, 1);
 		return;
 	}
-	/* A target may call Start twice, or Stop without Start. Collection is a
+	/* Gating and finalize-on-stop subscribe to the same four callbacks for
+	   different reasons, so an ungated run that only wants the stop trigger
+	   toggles nothing and writes no edges: there is no range for an edge to
+	   bound, and a journal that reported one would claim a scope it never had.
+
+	   A target may call Start twice, or Stop without Start. Collection is a
 	   level, not a counter: a redundant edge is recorded and otherwise
 	   ignored, because toggling on an already-open range would make the
 	   journal claim a boundary the hardware never saw.
@@ -1465,23 +1550,36 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 	   holds too, leaving the gate shut for the rest of a run. The exchange
 	   below is what makes the level a gate rather than a hint; on failure the
 	   edge really is redundant, because some other thread owns the transition. */
-	int expected = start ? 0 : 1;
-	if (!atomic_compare_exchange_strong(&collecting, &expected, start)) {
-		/* A redundant edge belongs to no range of its own, so it carries the
-		   index of the range it was talking about: the open one for a second
-		   Start, and for a Stop with nothing open the index the next Start
-		   will take. Reporting the raw count instead invents a range one past
-		   the end, which a consumer grouping edges by index reads as a range
-		   that opened and never closed. */
-		unsigned opens = atomic_load(&range_opens);
-		write_range_edge(start ? "redundant_start" : "redundant_stop", api, start && opens > 0 ? opens - 1 : opens, 0);
+	if (range_gated == RANGE_GATED) {
+		int expected = start ? 0 : 1;
+		if (atomic_compare_exchange_strong(&collecting, &expected, start)) {
+			unsigned index = start ? atomic_fetch_add(&range_opens, 1) : atomic_load(&range_opens) - 1;
+			int failures = set_activity_collection(start);
+			if (!start) (void)cuptiActivityFlushAll(0);
+			write_range_edge(start ? "start" : "stop", api, index, failures);
+		} else {
+			/* A redundant edge belongs to no range of its own, so it carries the
+			   index of the range it was talking about: the open one for a second
+			   Start, and for a Stop with nothing open the index the next Start
+			   will take. Reporting the raw count instead invents a range one past
+			   the end, which a consumer grouping edges by index reads as a range
+			   that opened and never closed. */
+			unsigned opens = atomic_load(&range_opens);
+			write_range_edge(start ? "redundant_start" : "redundant_stop", api, start && opens > 0 ? opens - 1 : opens, 0);
+		}
+	}
+	/* Every stop finalizes in this mode, including one the gate called
+	   redundant: the target asked to stop collecting, and the mode says that
+	   is where this capture ends. Leave the callback first -- finalize waits
+	   for callback_active to reach zero and this callback is counted in it, so
+	   staying here would make finalize wait for itself. Nothing below re-enters
+	   the agent, and finalize stores shutdown_started before it waits, which
+	   shuts every entry point a concurrent caller could arrive through. */
+	if (!start && finalize_mode == FINALIZE_PROFILER_STOP) {
 		atomic_fetch_sub(&callback_active, 1);
+		cudaprof_cupti_finalize("profiler-stop", 1);
 		return;
 	}
-	unsigned index = start ? atomic_fetch_add(&range_opens, 1) : atomic_load(&range_opens) - 1;
-	int failures = set_activity_collection(start);
-	if (!start) (void)cuptiActivityFlushAll(0);
-	write_range_edge(start ? "start" : "stop", api, index, failures);
 	atomic_fetch_sub(&callback_active, 1);
 }
 
@@ -1798,13 +1896,23 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	   would produce an empty journal that looks exactly like a target that
 	   never opened a range; the alternative of staying silent would hand the
 	   consumer an unscoped journal it believes is scoped. Neither is a state
-	   the reader can tell apart without being told, so it is told. */
+	   the reader can tell apart without being told, so it is told.
+
+	   Gating is one of two reasons to watch the profiler API. Finalizing on a
+	   stop is the other, and it is a separate request: a target that calls
+	   only cudaProfilerStop, to hand the agent the flush its exit path will
+	   never run, has no range to gate and gating it would collect nothing. One
+	   subscription serves both, because CUPTI allows one subscriber. */
 	const char *range_env = getenv("CUDAPROF_CAPTURE_RANGE");
-	if (range_env != NULL && strcmp(range_env, "cudaProfilerApi") == 0) {
+	int range_requested = range_env != NULL && strcmp(range_env, "cudaProfilerApi") == 0;
+	const char *finalize_env = getenv("CUDAPROF_FINALIZE");
+	int stop_requested = finalize_env != NULL && strcmp(finalize_env, "profiler-stop") == 0;
+	if (range_requested || stop_requested) {
 		CUptiResult sub = cuptiSubscribe(&range_subscriber, range_callback, NULL);
 		if (sub != CUPTI_SUCCESS) {
-			record_cupti_failure("cuptiSubscribe(capture range)", sub);
-			range_gated = RANGE_UNAVAILABLE;
+			record_cupti_failure("cuptiSubscribe(profiler API)", sub);
+			if (range_requested) range_gated = RANGE_UNAVAILABLE;
+			if (stop_requested) finalize_mode = FINALIZE_UNAVAILABLE;
 		} else {
 			range_subscribed = 1;
 			static const struct { CUpti_CallbackDomain domain; CUpti_CallbackId cbid; int opens; const char *what; } triggers[] = {
@@ -1827,20 +1935,49 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			   open -- a journal byte-identical to a correctly gated run whose
 			   target simply never profiled, which is exactly the
 			   indistinguishable-empty-journal state this gating exists to
-			   refuse. Treat an unpaired arm as no gate at all. */
-			if (opens_armed == 0 || closes_armed == 0) {
+			   refuse. Treat an unpaired arm as no gate at all.
+
+			   Finalizing on a stop asks less of the same triggers: it opens no
+			   range, so a surviving Stop is the whole requirement and an
+			   unarmable Start costs it nothing. The two requests are therefore
+			   answered separately, and each says in the capability record
+			   whether it was met. */
+			if (range_requested) range_gated = opens_armed > 0 && closes_armed > 0 ? RANGE_GATED : RANGE_UNAVAILABLE;
+			if (stop_requested) finalize_mode = closes_armed > 0 ? FINALIZE_PROFILER_STOP : FINALIZE_UNAVAILABLE;
+			if (range_gated == RANGE_GATED) (void)set_activity_collection(0);
+			else if (finalize_mode != FINALIZE_PROFILER_STOP) {
 				(void)cuptiUnsubscribe(range_subscriber);
 				range_subscribed = 0;
-				range_gated = RANGE_UNAVAILABLE;
-			} else {
-				range_gated = RANGE_GATED;
-				(void)set_activity_collection(0);
 			}
 		}
 	}
 	if (range_gated != RANGE_GATED) atomic_store(&collecting, 1);
 	configure_host_sampler();
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
+	/* An interval flush is the last resort for a target that cooperates with
+	   nothing: it neither fills a CUPTI buffer nor reaches a trigger, so
+	   without one its records are still inside CUPTI when the process ends.
+	   Default off, because a flush the run does not need costs CUPTI callback
+	   latency on the target's own threads for nothing. The thread starts here,
+	   after every kind that can deliver a record has been enabled. */
+	const char *flush_env = getenv("CUDAPROF_FLUSH_INTERVAL_MS");
+	if (flush_env != NULL) {
+		char *end = NULL;
+		long ms = strtol(flush_env, &end, 10);
+		if (end != flush_env && *end == '\0' && ms > 0) flush_interval_ms = ms;
+	}
+	if (flush_interval_ms > 0) {
+		if (pthread_create(&flusher, NULL, flush_worker, NULL) == 0) {
+			flush_started = 1;
+		} else {
+			/* The capture still runs; it just holds its records until a
+			   trigger. Reporting zero here is what keeps the capability record
+			   a statement about this process rather than about the request. */
+			flush_interval_ms = 0;
+			const char *failure = "{\"state\":\"producer_failure\",\"error\":\"flush thread creation failed\"}";
+			(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
+		}
+	}
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
@@ -1868,17 +2005,27 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	write_handshake(NULL);
 }
 
-/* Finalization may be triggered by the ELF destructor, by atexit, or by the
-   terminator thread after SIGTERM. Exactly one caller runs the ordered
-   sequence; the others wait for it to publish the finalized record so the
-   process cannot exit over a half-written journal. */
-static void cudaprof_cupti_finalize(void) {
+/* Finalization may be triggered by the ELF destructor, by atexit, by the
+   terminator thread after SIGTERM, by a capture-range stop under
+   CUDAPROF_FINALIZE=profiler-stop, or by a host program calling
+   cudaprof_finalize. Exactly one caller runs the ordered sequence and names
+   itself in the finalized record; the others wait for it to publish that
+   record, so the process cannot exit over a half-written journal.
+
+   in_range_callback says the caller is range_callback, which reaches here from
+   inside a callback the range subscriber is dispatching. */
+static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback) {
 	if (!initialized || journal_fd < 0) return;
 	int expected = 0;
 	if (!atomic_compare_exchange_strong(&finalize_started, &expected, 1)) {
 		for (int i = 0; i < 10000 && !atomic_load(&finalize_done); i++) { struct timespec ts = {0, 1000000}; nanosleep(&ts, NULL); }
 		return;
 	}
+	finalize_trigger = trigger;
+	/* Before any of the sequence below, so that from here on this thread is
+	   the only one inside CUPTI, and while the drain is still running to take
+	   whatever a flush in flight is delivering. */
+	stop_flush_worker();
 	int flush_error = 0;
 	if (callback_registered && (concurrent_enabled || memcpy_enabled || external_enabled || marker_enabled || runtime_enabled || driver_enabled)) {
 		if (cuptiActivityFlushAll(1) != CUPTI_SUCCESS) flush_error = 1;
@@ -1887,7 +2034,14 @@ static void cudaprof_cupti_finalize(void) {
 		   CUPTI accepts and which set_activity_collection reports as zero
 		   failures because it skips kinds that were never enabled. */
 		if (set_activity_collection(0) != 0) flush_error = 1;
-		if (range_subscribed) {
+		/* Unsubscribing from inside a callback that this subscriber is
+		   dispatching asks CUPTI to retire a callback that has not returned,
+		   so a finalize on the stop edge leaves the subscription in place. It
+		   is inert either way: shutdown_started is stored below and
+		   range_callback tests it before it touches anything. Disabling the
+		   activity kinds from inside the same callback is already how a gated
+		   stop closes its range, so only the unsubscribe waits. */
+		if (range_subscribed && !in_range_callback) {
 			if (cuptiUnsubscribe(range_subscriber) != CUPTI_SUCCESS) flush_error = 1;
 			range_subscribed = 0;
 		}
@@ -1922,7 +2076,7 @@ static void cudaprof_cupti_finalize(void) {
 	atomic_store(&finalize_done, 1);
 }
 
-__attribute__((destructor)) static void cudaprof_cupti_fini(void) { cudaprof_cupti_finalize(); }
+__attribute__((destructor)) static void cudaprof_cupti_fini(void) { cudaprof_cupti_finalize("exit", 0); }
 
 /* cudaprof_finalize is the route a target takes for itself, and it exists
    because the other three are all reachable only through libc.
@@ -1940,9 +2094,19 @@ __attribute__((destructor)) static void cudaprof_cupti_fini(void) { cudaprof_cup
    Interposing exit(3) would not help: the syscall is issued without it. So the
    target has to ask, and this is what it asks. Idempotent by the same
    compare-and-swap as every other route, so calling it and then exiting
-   normally finalizes once. */
-__attribute__((visibility("default"))) void cudaprof_finalize(void);
-void cudaprof_finalize(void) { cudaprof_cupti_finalize(); }
+   normally finalizes once. It returns only once the finalized record is on
+   disk, whether this call ran the sequence or found another trigger already
+   running it, so a caller that returns from this and then calls exit_group
+   loses nothing. It reports no CUptiResult because what it finalizes is the
+   journal, not a CUPTI operation: 0 means the capture is finalized, -1 that
+   this process has no initialized agent to finalize -- an unconfigured run,
+   or a forked child, which owns none of what it inherited. */
+__attribute__((visibility("default"))) int cudaprof_finalize(void);
+int cudaprof_finalize(void) {
+	if (!initialized) return -1;
+	cudaprof_cupti_finalize("host", 0);
+	return atomic_load(&finalize_done) ? 0 : -1;
+}
 
 /* Thin opt-in wrappers for Python/operator instrumentation. The caller must
    push, dispatch synchronously, and pop on the same OS thread. */
@@ -1956,4 +2120,4 @@ CUptiResult cudaprof_pop_external(uint32_t external_kind, uint64_t *external_id)
 	return cuptiActivityPopExternalCorrelationId((CUpti_ExternalCorrelationKind)external_kind, external_id);
 }
 
-static void cudaprof_cupti_atexit(void) { cudaprof_cupti_finalize(); }
+static void cudaprof_cupti_atexit(void) { cudaprof_cupti_finalize("exit", 0); }

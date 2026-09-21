@@ -50,6 +50,15 @@ unsigned cudaprof_test_timestamp_registered_at(void);
 unsigned cudaprof_test_first_enable_at(void);
 uint64_t cudaprof_test_timestamp(void);
 
+/* Stages a buffer that is delivered only when something calls
+   cuptiActivityFlushAll, and reports how many flushes happened and how many
+   records they delivered. A control that stages records and never triggers a
+   flush collects nothing, which is the state an interval flush exists to
+   bound. */
+void cudaprof_test_stage_for_flush(unsigned kernels, unsigned memcpys, unsigned apis);
+unsigned cudaprof_test_flush_count(void);
+unsigned cudaprof_test_flush_delivered(void);
+
 /* Mock struct size functions for layout compatibility test injection. */
 CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, size_t *size);
 CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size);

@@ -17,8 +17,8 @@ import (
 
 func TestParseCaptureArgsPreservesTargetArgv(t *testing.T) {
 	// The subject here is argv preservation past --, so the leading options
-	// are implemented ones: --deep and --collect are now refused during
-	// parsing, and a rejected parse would say nothing about argv.
+	// are ones this command implements: an option it does not is refused
+	// during parsing, and a rejected parse would say nothing about argv.
 	o, err := parseCaptureArgs([]string{"--trace", "--max-records=5000000", "--", "sh", "-c", "printf '%s\\n' \"$1\"", "sh", "-value with spaces"})
 	if err != nil {
 		t.Fatal(err)
@@ -101,25 +101,6 @@ func TestRunCaptureFailsClosedWithoutSpawningWhenInjectMissing(t *testing.T) {
 	}
 	if _, err := os.Stat(sentinel); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("target was spawned despite missing injection library: %v", err)
-	}
-}
-
-func TestRunCaptureRejectsUnimplementedPolicyBeforeSpawn(t *testing.T) {
-	for _, name := range []string{"deep", "exhaustive", "follow"} {
-		t.Run(name, func(t *testing.T) {
-			o := captureOptions{command: []string{"/path/that/must/not/spawn"}}
-			switch name {
-			case "deep":
-				o.Deep = true
-			case "exhaustive":
-				o.Exhaustive = true
-			case "follow":
-				o.FollowChildren = true
-			}
-			if _, err := runCapture(context.Background(), o); err == nil {
-				t.Fatal("accepted unimplemented policy")
-			}
-		})
 	}
 }
 
@@ -211,6 +192,96 @@ func TestCaptureHelper(t *testing.T) {
 	}
 }
 
+// TestParseCaptureArgsCollectionPolicy covers the three flags that configure
+// the agent rather than the launcher. Both the separated and the =-joined form
+// are exercised, as --max-records already is: an option the neighbours accept
+// in one spelling and not the other is a trap.
+func TestParseCaptureArgsCollectionPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		args  []string
+		want  captureOptions
+		wantE string
+	}{
+		{name: "range joined", args: []string{"--capture-range=cudaProfilerApi", "--", "true"}, want: captureOptions{CaptureRange: "cudaProfilerApi"}},
+		{name: "range separated", args: []string{"--capture-range", "none", "--", "true"}, want: captureOptions{CaptureRange: "none"}},
+		{name: "range single dash", args: []string{"-capture-range=cudaProfilerApi", "--", "true"}, want: captureOptions{CaptureRange: "cudaProfilerApi"}},
+		{name: "finalize", args: []string{"--capture-range=cudaProfilerApi", "--finalize=profiler-stop", "--", "true"}, want: captureOptions{CaptureRange: "cudaProfilerApi", Finalize: "profiler-stop"}},
+		{name: "finalize exit", args: []string{"--finalize=exit", "--", "true"}, want: captureOptions{Finalize: "exit"}},
+		{name: "flush interval", args: []string{"--flush-interval=250ms", "--", "true"}, want: captureOptions{FlushInterval: 250 * time.Millisecond}},
+		{name: "flush interval separated", args: []string{"--flush-interval", "1s", "--", "true"}, want: captureOptions{FlushInterval: time.Second}},
+		{name: "recover", args: []string{"--recover-unfinalized", "--", "true"}, want: captureOptions{RecoverUnfinalized: true}},
+		{name: "bad range", args: []string{"--capture-range=nvtx", "--", "true"}, wantE: "invalid capture range"},
+		{name: "bad finalize", args: []string{"--finalize=sigterm", "--", "true"}, wantE: "invalid finalize trigger"},
+		{name: "bad flush", args: []string{"--flush-interval=0", "--", "true"}, wantE: "invalid --flush-interval"},
+		// Below the agent's resolution the interval rounds to zero, which is
+		// indistinguishable from not asking for a periodic flush at all.
+		{name: "sub-millisecond flush", args: []string{"--flush-interval=100us", "--", "true"}, wantE: "below the agent's 1ms resolution"},
+		// The two profiler-API options are independent requests. A target that
+		// calls only cuProfilerStop, to hand the agent the flush its exit path
+		// will never run, wants the trigger without the gating, so this is a
+		// supported configuration and not a mistake to refuse.
+		{name: "finalize without range", args: []string{"--finalize=profiler-stop", "--", "true"}, want: captureOptions{Finalize: "profiler-stop"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o, err := parseCaptureArgs(tc.args)
+			if tc.wantE != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantE) {
+					t.Fatalf("parseCaptureArgs(%v) error = %v, want one naming %q", tc.args, err, tc.wantE)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseCaptureArgs(%v): %v", tc.args, err)
+			}
+			if o.CaptureRange != tc.want.CaptureRange || o.Finalize != tc.want.Finalize || o.FlushInterval != tc.want.FlushInterval || o.RecoverUnfinalized != tc.want.RecoverUnfinalized {
+				t.Errorf("parseCaptureArgs(%v) = range %q finalize %q flush %v recover %v, want range %q finalize %q flush %v recover %v",
+					tc.args, o.CaptureRange, o.Finalize, o.FlushInterval, o.RecoverUnfinalized,
+					tc.want.CaptureRange, tc.want.Finalize, tc.want.FlushInterval, tc.want.RecoverUnfinalized)
+			}
+		})
+	}
+}
+
+// TestCaptureEnvironmentExportsCollectionPolicy is the half that matters: the
+// flags configure the agent, and the agent only ever learns about them through
+// these three variables. A flag parsed and not exported does nothing, which is
+// the state CUDAPROF_CAPTURE_RANGE support was in -- the agent has read it
+// since it was written and no command line could set it.
+func TestCaptureEnvironmentExportsCollectionPolicy(t *testing.T) {
+	o := captureOptions{Env: []string{}, CaptureRange: "cudaProfilerApi", Finalize: "profiler-stop", FlushInterval: 250 * time.Millisecond}
+	env := captureEnvironment(o, "session", "dir")
+	for _, tc := range []struct{ key, want string }{
+		{"CUDAPROF_CAPTURE_RANGE", "cudaProfilerApi"},
+		{"CUDAPROF_FINALIZE", "profiler-stop"},
+		{"CUDAPROF_FLUSH_INTERVAL_MS", "250"},
+	} {
+		if got := lookupEnv(env, tc.key); got != tc.want {
+			t.Errorf("%s = %q, want %q", tc.key, got, tc.want)
+		}
+	}
+}
+
+// TestCaptureEnvironmentOmitsUnsetCollectionPolicy: an unset flag leaves the
+// caller's own environment alone, so a value exported by a wrapper script
+// survives, and --capture-range=none is how it is turned back off. Exporting an
+// empty value instead would reach the agent as a mode name it does not know.
+func TestCaptureEnvironmentOmitsUnsetCollectionPolicy(t *testing.T) {
+	env := captureEnvironment(captureOptions{Env: []string{"CUDAPROF_CAPTURE_RANGE=cudaProfilerApi"}}, "session", "dir")
+	if got := lookupEnv(env, "CUDAPROF_CAPTURE_RANGE"); got != "cudaProfilerApi" {
+		t.Errorf("CUDAPROF_CAPTURE_RANGE = %q, want the caller's value", got)
+	}
+	for _, key := range []string{"CUDAPROF_FINALIZE", "CUDAPROF_FLUSH_INTERVAL_MS"} {
+		if got := lookupEnv(env, key); got != "" {
+			t.Errorf("%s = %q, want unset", key, got)
+		}
+	}
+	env = captureEnvironment(captureOptions{Env: []string{"CUDAPROF_CAPTURE_RANGE=cudaProfilerApi"}, CaptureRange: captureRangeNone}, "session", "dir")
+	if got := lookupEnv(env, "CUDAPROF_CAPTURE_RANGE"); got != captureRangeNone {
+		t.Errorf("CUDAPROF_CAPTURE_RANGE = %q, want none to override the environment", got)
+	}
+}
+
 func TestParseCaptureArgsRequireComplete(t *testing.T) {
 	o, err := parseCaptureArgs([]string{"--require-complete", "--", "true"})
 	if err != nil {
@@ -276,5 +347,77 @@ func TestTargetEnvironmentDiscriminatesArmsWithoutDisclosingThem(t *testing.T) {
 	}
 	if !slices.Contains(named.EnvUnset, "NOT_SET_HERE") {
 		t.Errorf("an unset named variable was not reported as unset: %+v", named.EnvUnset)
+	}
+}
+
+// TestParseCaptureArgsProjectionPolicy covers the two flags whose default is
+// on. A boolean that is only ever spelled bare cannot be turned off, which is
+// the state --follow-children was in, so both spellings are exercised here
+// along with the single-dash form the neighbouring options accept.
+func TestParseCaptureArgsProjectionPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		args    []string
+		follow  bool
+		api     bool
+		apiSet  bool
+		exclude []string
+		wantE   string
+	}{
+		{name: "defaults", args: []string{"--", "true"}, follow: true, api: true},
+		{name: "follow bare", args: []string{"--follow-children", "--", "true"}, follow: true, api: true},
+		{name: "follow off", args: []string{"--follow-children=false", "--", "true"}, api: true},
+		{name: "follow single dash", args: []string{"-follow-children=0", "--", "true"}, api: true},
+		{name: "api bare", args: []string{"--api-activity", "--", "true"}, follow: true, api: true, apiSet: true},
+		{name: "api off", args: []string{"--api-activity=false", "--", "true"}, follow: true, apiSet: true},
+		{name: "api single dash", args: []string{"-api-activity=0", "--", "true"}, follow: true, apiSet: true},
+		{name: "exclude repeats", args: []string{"--exclude=sgemm", "--exclude", "elementwise", "--", "true"}, follow: true, api: true, exclude: []string{"sgemm", "elementwise"}},
+		{name: "bad bool", args: []string{"--follow-children=sometimes", "--", "true"}, wantE: `invalid --follow-children "sometimes"`},
+		{name: "empty exclude", args: []string{"--exclude=", "--", "true"}, wantE: "non-empty value"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o, err := parseCaptureArgs(tc.args)
+			if tc.wantE != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantE) {
+					t.Fatalf("parseCaptureArgs(%v) error = %v, want one naming %q", tc.args, err, tc.wantE)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseCaptureArgs(%v): %v", tc.args, err)
+			}
+			if o.FollowChildren != tc.follow || o.APIActivity != tc.api || o.apiActivitySet != tc.apiSet {
+				t.Errorf("parseCaptureArgs(%v) = follow %v api %v set %v, want follow %v api %v set %v",
+					tc.args, o.FollowChildren, o.APIActivity, o.apiActivitySet, tc.follow, tc.api, tc.apiSet)
+			}
+			if !reflect.DeepEqual(o.Exclude, tc.exclude) {
+				t.Errorf("parseCaptureArgs(%v) exclude = %#v, want %#v", tc.args, o.Exclude, tc.exclude)
+			}
+		})
+	}
+}
+
+// TestCaptureEnvironmentExportsAPIActivity is the half that matters for
+// --api-activity: the agent learns of it only through CUDAPROF_API_ACTIVITY,
+// and it reads that variable as "off only when it is exactly 0". An untouched
+// flag must leave the caller's own value alone, and an explicit --api-activity
+// must be able to override a 0 the surrounding environment set.
+func TestCaptureEnvironmentExportsAPIActivity(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		o    captureOptions
+		want string
+	}{
+		{"unset", captureOptions{Env: []string{}, APIActivity: true}, ""},
+		{"off", captureOptions{Env: []string{}, apiActivitySet: true}, "0"},
+		{"on", captureOptions{Env: []string{}, APIActivity: true, apiActivitySet: true}, "1"},
+		{"inherits", captureOptions{Env: []string{"CUDAPROF_API_ACTIVITY=0"}, APIActivity: true}, "0"},
+		{"overrides", captureOptions{Env: []string{"CUDAPROF_API_ACTIVITY=0"}, APIActivity: true, apiActivitySet: true}, "1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := lookupEnv(captureEnvironment(tc.o, "session", "dir"), "CUDAPROF_API_ACTIVITY"); got != tc.want {
+				t.Errorf("CUDAPROF_API_ACTIVITY = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

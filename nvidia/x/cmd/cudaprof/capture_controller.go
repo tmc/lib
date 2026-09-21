@@ -102,16 +102,34 @@ type captureRecordPayload struct {
 }
 
 // observeOptions carries the caller's explicit choices into journal
-// observation. The zero value is the strict default: only generations that
-// wrote a finalized record contribute anything.
+// observation. The zero value is the default policy: only generations that
+// wrote a finalized record contribute anything, and the generations of
+// processes the target spawned are part of the capture.
 type observeOptions struct {
 	injectionRequested bool
 	noInject           bool
-	// recoverUnfinalized admits records from a worker generation that decoded
+	// targetOnly restricts the totals and the projection to the target's own
+	// generation. It is spelled negatively because following children is the
+	// default -- injection is inherited across exec, so a child is already
+	// running the agent and already writing its own generation, and a capture
+	// of a wrapper script that reported nothing would be describing a run it
+	// did observe. --follow-children=false sets this.
+	//
+	// It withholds records from the totals; it never withholds evidence. Every
+	// generation stays in WorkerGenerations with its own counts and
+	// disposition, every worker journal stays attached to the artifact, and an
+	// unfollowed generation that failed to qualify still costs the run its
+	// completeness. The one thing that changes is which records the capture
+	// claims as its own, and ChildrenFollowed publishes that choice.
+	targetOnly bool
+	// recoverUnfinalized admits records from a generation that decoded
 	// completely but never finalized. Such a generation is labelled
 	// "unfinalized-partial", counted separately in RecoveredGenerations, and
 	// forces the partial-recovered outcome; it never makes the capture
-	// successful.
+	// successful. It applies to the target generation as well as to workers:
+	// a periodic flush (CUDAPROF_FLUSH_INTERVAL_MS) publishes real records from
+	// a target that then exits without finalizing, and refusing those is
+	// refusing the whole capture.
 	recoverUnfinalized bool
 	maxJournalRecords  int64
 }
@@ -119,6 +137,7 @@ type observeOptions struct {
 // observeCaptureSession observes one capture session and always stamps the
 // whole-run completeness of what it observed, at every terminal path.
 func observeCaptureSession(result captureResult, dir, session string, opts observeOptions) captureResult {
+	result.ChildrenFollowed = !opts.targetOnly
 	return withRunCompleteness(observeSession(result, dir, session, opts))
 }
 
@@ -213,13 +232,18 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	// targetObservedTransport is the transport readiness the target itself
 	// reported in its handshake, kept for the refusal path below.
 	var targetObservedTransport bool
+	var targetObservedActivity uint64
+	var targetRecovered bool
+	// Recovering a worker generation means admitting its records, so it is
+	// only on offer when those records are being admitted at all.
+	recoverWorkers := opts.recoverUnfinalized && !opts.targetOnly
 	for i := range files {
 		f := &files[i]
 		if f.h.Process != uint64(result.TargetPID) {
 			worker := captureWorker{Process: f.h.Process, Generation: f.h.Generation, Disposition: "incomplete"}
 			if f.h.InjectionFailure != "" {
 				worker.Failure, worker.Disposition = f.h.InjectionFailure, "injection-failed"
-			} else if records, state, metrics, activities, apis, _, err := observeJournal(filepath.Join(f.path, "capture.journal"), session, int(f.h.Process), opts.maxJournalRecords); err == nil || (opts.recoverUnfinalized && errors.Is(err, errJournalNotFinalized)) {
+			} else if records, state, metrics, activities, apis, _, err := observeJournal(filepath.Join(f.path, "capture.journal"), session, int(f.h.Process), opts.maxJournalRecords); err == nil || (recoverWorkers && errors.Is(err, errJournalNotFinalized)) {
 				// Identity is checked before anything is contributed, whether
 				// or not the generation finalized.
 				if state.generation != f.h.Generation {
@@ -228,7 +252,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 					continue
 				}
 				worker.Records, worker.ActivityRecords, worker.Finalized = state.records, records.Records, state.finalized
-				if state.finalized || err != nil {
+				if !opts.targetOnly && (state.finalized || err != nil) {
 					for i := range activities {
 						activities[i].Process = f.h.Process
 					}
@@ -281,13 +305,14 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		if state.failure != "" {
 			targetFailureState = state
 		}
-		if err != nil {
+		admitPartial := err != nil && recoverableTargetGeneration(opts, err, state, records)
+		if err != nil && !admitPartial {
 			targetJournalErr = err
 			// observeJournal returns errJournalNotFinalized together with
 			// everything it did decode. Keep those values for the diagnosis
 			// below; the capture is still refused, but it must not describe
 			// what it read as absent.
-			targetObserved, targetObservedState = true, state
+			targetObserved, targetObservedState, targetObservedActivity = true, state, records.Records
 			targetObservedTransport = f.h.TransportReady
 			failMsg := err.Error()
 			if state.failure != "" {
@@ -305,6 +330,17 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		if state.generation != f.h.Generation {
 			workers = append(workers, captureWorker{Process: f.h.Process, Generation: f.h.Generation, Failure: "handshake generation mismatch", Disposition: "identity-mismatch"})
 			continue
+		}
+		if admitPartial {
+			// The target's own generation is now one of the unqualified ones,
+			// and it says so in the manifest like any other: a reader counting
+			// dispositions must see it, and RunCompleteness is computed from
+			// exactly this list plus CollectorFinalized, which stays false.
+			targetRecovered = true
+			result.RecoveredGenerations++
+			result.RecoveredActivityRecords += records.Records
+			result.RecoveredDroppedRecords += records.Dropped
+			workers = append(workers, captureWorker{Process: f.h.Process, Generation: f.h.Generation, Records: state.records, ActivityRecords: records.Records, Failure: err.Error(), Disposition: captureWorkerUnfinalizedPartial})
 		}
 		workers = append(workers, innerWorkers...)
 		selected, selectedState, selectedMetrics, selectedRecords = f, state, metrics, records
@@ -333,7 +369,15 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			if errors.Is(targetJournalErr, errJournalNotFinalized) {
 				outcome = captureOutcomeNotFinalized
 			}
-			result.Outcome, result.CaptureError = outcome, targetJournalErr.Error()+unfinalizedHint(targetJournalErr, result)
+			// The diagnosis expands the sentinel wherever the journal says
+			// what to change. Where it does not -- it returns the error
+			// unchanged -- the hint can still name the cause from the exit
+			// code, so the two compose rather than both speaking at once.
+			diagnosis := unfinalizedTargetDiagnosis(targetJournalErr, targetObservedState, targetObservedActivity)
+			if diagnosis == targetJournalErr.Error() {
+				diagnosis += unfinalizedHint(targetJournalErr, result)
+			}
+			result.Outcome, result.CaptureError = outcome, diagnosis
 		} else if len(workers) > 0 && workers[len(workers)-1].Failure != "" {
 			w := workers[len(workers)-1]
 			if w.Disposition == "injection-failed" {
@@ -404,6 +448,14 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	// activity records above it may have come from several processes, each with
 	// its own agent. Say so when they are not the same producer.
 	result.Capability = stampProducerScope(result.Capability, selectedState.agentRevision, workerProducers)
+	if targetRecovered {
+		// The generation decoded completely and passed every identity and
+		// ordering check, so its records stand; what is unknown is whether it
+		// had more to write. It therefore never reaches the outcome ladder
+		// below -- no branch of it can describe a generation that did not
+		// finalize -- and applyPartialRecovery is what labels the result.
+		return applyPartialRecovery(result)
+	}
 	if selectedState.failure != "" {
 		errStr := selectedState.failure
 		if selectedState.failureError != "" {
@@ -438,6 +490,58 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 // its counts are a floor, not a total.
 const captureWorkerUnfinalizedPartial = "unfinalized-partial"
 
+// recoverableTargetGeneration reports whether an unfinalized target generation
+// may contribute its records as an explicit partial. Three conditions, each
+// for its own reason:
+//
+// The sentinel, because every other observeJournal error means the journal did
+// not decode and its records were never trustworthy.
+//
+// No producer failure, because a target that recorded one has a cause worth
+// more than its records: the existing path reports that cause as the outcome
+// (cupti_unavailable becomes unsupported, anything else injection-failed), and
+// relabelling it partial-recovered would bury the one thing the caller needs.
+//
+// At least one activity record, because a generation that flushed nothing has
+// nothing to recover. Admitting it would replace the diagnosis below with an
+// empty partial capture, which is the same silence with a friendlier name.
+func recoverableTargetGeneration(opts observeOptions, err error, state journalState, records wire.Stats) bool {
+	return opts.recoverUnfinalized && errors.Is(err, errJournalNotFinalized) && state.failure == "" && records.Records > 0
+}
+
+// unfinalizedTargetDiagnosis expands the missing-finalize sentinel for the one
+// journal shape that has a remedy, and leaves every other one alone.
+//
+// "capture journal missing finalized record" is true of a Go target and tells
+// it nothing. The shape is specific: the agent loaded, published its
+// capability, and then wrote neither an activity record nor a finalized one.
+// That is not an injection fault and not a missing libcupti -- both of those
+// stop before the capability record. CUPTI hands activity buffers over only
+// when they fill or when something flushes them, and every flush the agent
+// owns hangs off process exit: its ELF destructor, its atexit handler, its
+// SIGTERM terminator thread. A Go runtime exits through exit_group and reaches
+// none of them, so the buffers die with the process. Measured on 2026-09-20:
+// one agent, 51 records from a C target and 0 from a Go one, and a --timeout
+// SIGTERM did not change it.
+//
+// A generation that did write activity records reached a flush, so that
+// diagnosis would be wrong for it. It gets the other one: its records decoded
+// and are being thrown away for want of a flag.
+func unfinalizedTargetDiagnosis(err error, state journalState, activityRecords uint64) string {
+	if !errors.Is(err, errJournalNotFinalized) || !state.bootstrap || !state.capability {
+		return err.Error()
+	}
+	if activityRecords > 0 {
+		return fmt.Sprintf("%v: the journal holds %d activity records that decoded completely and passed every identity and ordering check, and the generation that wrote them never finalized, so its own outcome is unknown; re-run with --recover-unfinalized to admit them as an explicitly partial capture", err, activityRecords)
+	}
+	return err.Error() + ": the agent loaded and published its capability, then wrote no activity record and never finalized" +
+		" -- CUPTI releases activity buffers only on flush or when they fill, and a target that exits through exit_group, as every Go program does," +
+		" runs none of the agent's exit-time flushes. Either have the target call driver.ProfilerStop() (github.com/tmc/lib/nvidia/driver) before it exits" +
+		" and re-run with --finalize=profiler-stop, which publishes the capture on that call -- add --capture-range=cudaProfilerApi to collect only between" +
+		" ProfilerStart and ProfilerStop -- or re-run with --flush-interval=250ms --recover-unfinalized, which flushes while the target is alive and admits" +
+		" what it flushed as an explicitly partial capture"
+}
+
 // applyPartialRecovery marks a result that includes recovered unfinalized
 // records. It never sets CaptureSuccess and never leaves a collected outcome
 // standing, so no consumer can read the totals as a complete profile.
@@ -447,7 +551,7 @@ func applyPartialRecovery(result captureResult) captureResult {
 	}
 	result.Outcome, result.CaptureSuccess = captureOutcomePartialRecovered, false
 	if result.CaptureError == "" {
-		result.CaptureError = fmt.Sprintf("%d worker generation(s) recovered without a finalized record", result.RecoveredGenerations)
+		result.CaptureError = fmt.Sprintf("%d generation(s) recovered without a finalized record", result.RecoveredGenerations)
 	}
 	return result
 }

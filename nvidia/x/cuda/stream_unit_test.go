@@ -2,7 +2,9 @@ package cuda
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 )
 
 func TestStreamCleanupDirect(t *testing.T) {
@@ -35,19 +37,44 @@ func TestStreamCleanupDirect(t *testing.T) {
 	}
 }
 
-func TestStreamSyncDrainsCleanups(t *testing.T) {
-	s := &Stream{}
-	called := false
-	s.AddCleanup(func() {
-		called = true
-	})
-
-	// When raw stream is 0/mocked, query or direct drain should work
-	s.drainCleanups()
-	if !called {
-		t.Fatal("expected cleanup on drain")
+func TestStreamSynchronizeCanceledRetainsCleanups(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		deadline bool
+		want     error
+	}{
+		{"canceled", false, context.Canceled},
+		{"deadline", true, context.DeadlineExceeded},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			if tt.deadline {
+				cancel()
+				ctx, cancel = context.WithDeadline(context.Background(), time.Unix(0, 0))
+			} else {
+				cancel()
+			}
+			defer cancel()
+			s := &Stream{}
+			calls := 0
+			s.AddCleanup(func() { calls++ })
+			if err := s.Synchronize(ctx); !errors.Is(err, tt.want) {
+				t.Fatalf("Synchronize = %v, want %v", err, tt.want)
+			}
+			if calls != 0 || len(s.cleanups) != 1 {
+				t.Fatalf("cleanup calls = %d, retained = %d", calls, len(s.cleanups))
+			}
+			if !s.lifeMu.TryLock() {
+				t.Fatal("Synchronize retained lifecycle lock")
+			}
+			s.lifeMu.Unlock()
+			s.drainCleanups()
+			s.drainCleanups()
+			if calls != 1 {
+				t.Fatalf("cleanup calls after drain = %d, want 1", calls)
+			}
+		})
 	}
-	_ = context.Background()
 }
 
 func TestDefaultStream(t *testing.T) {
