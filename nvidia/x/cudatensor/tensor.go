@@ -48,23 +48,39 @@ var pkgPrefix = func() string {
 // A location that cannot be determined is returned as the zero value. Callers
 // treat that as absent, which is the safe failure: no attribution is a gap a
 // reader can see, and a confident wrong one is not.
+//
+// The frames above the caller, up to maxCallers of them and stopping at the
+// runtime, are kept in Callers so a graph built through helpers can be read
+// from the helper's callers as well.
 func captureSource() cudair.SourceLocation {
 	if pkgPrefix == "" {
 		return cudair.SourceLocation{}
 	}
-	var pcs [16]uintptr
+	var pcs [2 + maxCallers + 16]uintptr
 	n := runtime.Callers(2, pcs[:])
 	frames := runtime.CallersFrames(pcs[:n])
+	var loc cudair.SourceLocation
 	for {
 		f, more := frames.Next()
-		if f.Function != "" && !strings.HasPrefix(f.Function, pkgPrefix) {
-			return cudair.SourceLocation{File: f.File, Line: f.Line, Function: f.Function}
+		switch {
+		case f.Function == "" || strings.HasPrefix(f.Function, pkgPrefix):
+		case strings.HasPrefix(f.Function, "runtime."):
+			return loc
+		case loc.File == "":
+			loc = cudair.SourceLocation{File: f.File, Line: f.Line, Function: f.Function}
+		case len(loc.Callers) < maxCallers:
+			loc.Callers = append(loc.Callers, cudair.Frame{File: f.File, Line: f.Line, Function: f.Function})
+		default:
+			return loc
 		}
 		if !more {
-			return cudair.SourceLocation{}
+			return loc
 		}
 	}
 }
+
+// maxCallers bounds the frames kept above a captured location.
+const maxCallers = 8
 
 // NewInput creates a new input tensor within the given graph.
 func NewInput(g *cudair.Graph, name string, shape []int, dtype cudair.DataType) Tensor {

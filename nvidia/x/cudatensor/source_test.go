@@ -108,3 +108,40 @@ func TestCapturedSourceIsTheCaller(t *testing.T) {
 		})
 	}
 }
+
+// TestCapturedCallers checks that the frames above the building statement
+// are kept, nearest first, so a graph built through a helper can be charged
+// to the helper's caller.
+func TestCapturedCallers(t *testing.T) {
+	g := cudair.NewGraph()
+	a := NewInput(g, "A", []int{4, 4}, cudair.Float32)
+	b := NewInput(g, "B", []int{4, 4}, cudair.Float32)
+	got, line := viaHelper(a, b), here(t)
+	if err := got.Err(); err != nil {
+		t.Fatal(err)
+	}
+	loc := got.Node().SourceLoc
+	if !strings.Contains(loc.Function, "viaHelper") {
+		t.Fatalf("leaf function = %q, want viaHelper", loc.Function)
+	}
+	if len(loc.Callers) == 0 {
+		t.Fatal("no callers recorded")
+	}
+	c := loc.Callers[0]
+	if !strings.HasSuffix(c.File, "source_test.go") || c.Line != line {
+		t.Errorf("Callers[0] = %s:%d, want this file line %d", c.File, c.Line, line)
+	}
+	if !strings.Contains(c.Function, "TestCapturedCallers") {
+		t.Errorf("Callers[0].Function = %q, want the test function", c.Function)
+	}
+	for _, c := range loc.Callers {
+		if strings.HasPrefix(c.Function, "runtime.") {
+			t.Errorf("runtime frame %q recorded as a caller", c.Function)
+		}
+	}
+}
+
+// viaHelper builds a node one frame below its caller.
+func viaHelper(a, b Tensor) Tensor {
+	return a.Add(b)
+}

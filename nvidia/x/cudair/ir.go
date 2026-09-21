@@ -127,7 +127,20 @@ func (e StorageEffect) String() string {
 }
 
 // SourceLocation captures host Go source attribution for an IR node.
+//
+// File, Line and Function name the statement that built the node. Callers
+// holds the frames above that statement, nearest first, so a node built
+// inside a helper can also be charged to the code that called the helper.
+// Callers is capped by whoever records the location and may be empty.
 type SourceLocation struct {
+	File     string
+	Line     int
+	Function string
+	Callers  []Frame
+}
+
+// A Frame is one caller of the statement a SourceLocation names.
+type Frame struct {
 	File     string
 	Line     int
 	Function string
