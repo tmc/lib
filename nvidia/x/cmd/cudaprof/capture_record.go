@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -95,6 +96,45 @@ func runCaptureCommand(args []string) error {
 // announcing success. The word follows RunCompleteness, which is the field
 // that answers the question the word asks.
 func captureHeadline(result captureResult) string {
+	return captureHeadlineTotals(result) + projectionNotes(result)
+}
+
+// projectionNotes says how the projection differs from the journal totals the
+// headline just printed. Both differences are the caller's own policy, and
+// both are silent in every count above them: an excluded kernel and an
+// unfollowed child generation each leave a capture whose pprof holds fewer
+// records than its own activity_records, with nothing on the terminal to say
+// why.
+func projectionNotes(result captureResult) string {
+	var b strings.Builder
+	if result.ExcludedRecords > 0 {
+		fmt.Fprintf(&b, "  excluded %d kernel record(s) (%s) matching %s from the projection; the totals above and the attached journals still hold them, so cudaprof gaps still sees them\n",
+			result.ExcludedRecords, time.Duration(result.ExcludedNanos), strings.Join(result.ExcludedPatterns, ", "))
+	}
+	if !result.ChildrenFollowed {
+		if generations, records := unfollowedChildren(result.WorkerGenerations); generations > 0 {
+			fmt.Fprintf(&b, "  %d child generation(s) holding %d activity record(s) are not in these totals (--follow-children=false); their journals are attached and their dispositions are in worker_generations\n",
+				generations, records)
+		}
+	}
+	return b.String()
+}
+
+// unfollowedChildren counts the generations left out of the totals and the
+// records they hold. The counts come from the generations themselves, which
+// were decoded either way: not following a child never means not observing it.
+func unfollowedChildren(workers []captureWorker) (generations, records uint64) {
+	for _, w := range workers {
+		if w.ActivityRecords == 0 {
+			continue
+		}
+		generations++
+		records += w.ActivityRecords
+	}
+	return generations, records
+}
+
+func captureHeadlineTotals(result captureResult) string {
 	if result.RunCompleteness == runComplete {
 		head := fmt.Sprintf("capture complete: %d records, 0 dropped, run_completeness: %s\n",
 			result.ActivityRecords, result.RunCompleteness)
@@ -372,8 +412,8 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	// projection cannot represent it.
 	const maxInt64 = uint64(^uint64(0) >> 1)
 	for i, activity := range result.Activities {
-		if activity.Valid && (activity.Subtype == "memcpy" || activity.Subtype == "memset") && activity.Bytes > maxInt64 {
-			return fmt.Errorf("activity %d byte count %d exceeds pprof int64 range", i, activity.Bytes)
+		if activity.Valid && activity.Subtype == "memcpy" && activity.Bytes > maxInt64 {
+			return fmt.Errorf("activity %d copy bytes %d exceed pprof int64 range", i, activity.Bytes)
 		}
 	}
 	budget = budget.effective()
@@ -509,9 +549,10 @@ func formatByteSize(b int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-// printCaptureHelp documents the capture flags. The budget defaults are
-// interpolated from the constants that enforce them rather than transcribed,
-// so help that disagrees with behaviour cannot be written.
+// printCaptureHelp documents the capture flags. The budget defaults, the
+// collection-policy vocabulary and the partial outcome are interpolated from
+// the constants that enforce them rather than transcribed, so help that
+// disagrees with behaviour cannot be written.
 func printCaptureHelp() {
 	fmt.Print(captureHelp())
 }
@@ -534,17 +575,60 @@ Options:
                                 a journal is measured against this compressed, and one that
                                 does not fit is omitted, which makes the capture unusable
                                 for cudaprof gaps
-  --capture-total-bytes <N>     maximum bytes for the whole capture artifact (default %d)
+  --capture-total-bytes <N>     maximum bytes for the whole capture artifact (default %[3]d)
+  --capture-range <mode>        %[4]s (default) or %[5]s, which collects only between
+                                the target's own cuProfilerStart and cuProfilerStop
+                                (driver.ProfilerStart/ProfilerStop in Go); sets
+                                CUDAPROF_CAPTURE_RANGE in the target
+  --finalize <trigger>          when the agent flushes and finalizes: %[6]s (default) or
+                                %[7]s, on the target's cuProfilerStop. A Go target
+                                exits through exit_group and runs neither the agent's atexit
+                                handler nor its ELF destructor, so %[6]s finalization never
+                                fires for it and a ProfilerStop before exit is what publishes
+                                the capture. Independent of --capture-range, which decides
+                                what is collected rather than when it is published; sets
+                                CUDAPROF_FINALIZE
+  --flush-interval <duration>   have the agent flush CUPTI's activity buffers this often, so a
+                                target that never finalizes still publishes records (sets
+                                CUDAPROF_FLUSH_INTERVAL_MS, whole milliseconds). Such a run
+                                leaves no finalized record and needs --recover-unfinalized
+  --recover-unfinalized         admit records from a generation that decoded completely and
+                                passed every identity and ordering check but wrote no finalized
+                                record. Its own outcome is unknown, so the capture is reported
+                                as %[8]s and is never successful
   --trace                       enable CUDA activity tracing (default true)
-  --deep                        enable deep tracing (API calls and activities)
-  --exhaustive                  enable exhaustive tracing
-  --collect <metric>            collect additional CUPTI metrics
-  --exclude <kernel>            exclude matching kernel names
+  --api-activity[=false]        collect runtime and driver API attribution (default true);
+                                it is ~87-92%% of the records a journal holds and a kernel
+                                timeline does not need it, so --api-activity=false is the one
+                                lever that cuts journal volume by an order of magnitude. It
+                                changes what is collected, not what is reported: sets
+                                CUDAPROF_API_ACTIVITY in the target
+  --follow-children[=false]     count the generations of processes the target spawned in this
+                                capture's totals and projection (default true). Injection is
+                                inherited across exec, so a child runs the agent and writes its
+                                own generation either way; =false leaves those records out of
+                                the totals while their journals stay attached, their counts and
+                                dispositions stay in worker_generations, and a child that never
+                                finalized still costs the run its completeness. The capture
+                                publishes the choice as children_followed
+  --exclude <kernel>            drop kernels whose name contains this substring from the
+                                projection (repeatable). The agent has already run, so this
+                                removes nothing from the capture: the totals above stay journal
+                                totals, excluded_records and excluded_nanos report what the
+                                projection left out (activity_samples == activity_records -
+                                excluded_records), the attached journals still hold every
+                                record, and cudaprof gaps, which reads them, still sees the
+                                excluded kernels. API records are not matched
   --timeout <duration>          execution timeout
   --drain-timeout <duration>    drain timeout after target completion
   --require-complete            require complete capture without dropped records
-  --follow-children             follow spawned child processes
-`, controllerMaxJournalRecords, cudacapture.MaxCaptureFileBytes, cudacapture.MaxCaptureTotalBytes)
+
+Hardware counters are out of scope here: capture records a CUPTI activity timeline, and
+counter collection needs the CUPTI Profiling API with replay. That exists in-process --
+github.com/tmc/lib/nvidia/x/cuptirange profiles ranges with user replay (Plan.Capture), and
+cuptimetrics lists the metrics a given chip offers.
+`, controllerMaxJournalRecords, cudacapture.MaxCaptureFileBytes, cudacapture.MaxCaptureTotalBytes,
+		captureRangeNone, captureRangeProfilerAPI, finalizeExit, finalizeProfilerStop, captureOutcomePartialRecovered)
 }
 
 type deviceProvenance struct {

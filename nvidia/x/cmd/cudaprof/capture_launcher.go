@@ -141,7 +141,10 @@ func (l captureLoss) dominant(capability json.RawMessage) string {
 // the agent's note at cupti_agent.c:880 puts it at 92% of the measured
 // journals, and ds4 captures put it at 87% -- and a kernel timeline does not
 // need it. Nothing outside the C source says so, which leaves a caller staring
-// at a drop count with no reachable action.
+// at a drop count with no reachable action. The lever is named as the flag
+// that pulls it rather than as CUDAPROF_API_ACTIVITY=0, the variable the flag
+// exports: advice that asks a caller to edit the target's environment by hand
+// is advice about the implementation.
 //
 // It stops short of promising fewer drops, because that does not follow and
 // has been measured not to hold. A capacity drop is admission finding the ring
@@ -155,7 +158,7 @@ func volumeRemedy(capability json.RawMessage) string {
 	if !apiRecordsEnabled(capability) {
 		return ", and this run already collected no API attribution, so the remaining levers are a shorter workload or fewer captured generations"
 	}
-	return ", so re-run with CUDAPROF_API_ACTIVITY=0 for a journal roughly an order of magnitude smaller (API attribution is ~87-92% of records and a kernel timeline does not need it); that buys smaller inputs, not fewer drops, which on this path track journal write latency rather than record count"
+	return ", so re-run with --api-activity=false for a journal roughly an order of magnitude smaller (API attribution is ~87-92% of records and a kernel timeline does not need it); that buys smaller inputs, not fewer drops, which on this path track journal write latency rather than record count"
 }
 
 // apiRecordsEnabled reports whether the agent collected runtime and driver API
@@ -187,13 +190,28 @@ func (l captureLoss) retainedFraction() (float64, bool) {
 // captureOptions is the policy for one capture invocation. command contains
 // the target argv after the -- separator and is never interpreted by a shell.
 type captureOptions struct {
-	Trace, Deep, Exhaustive bool
-	Collect, Exclude        []string
-	Replay                  string
-	FollowChildren          bool
-	RequireComplete         bool
-	NoInject                bool
-	JSON                    bool
+	Trace   bool
+	Replay  string
+	Exclude []string
+	// FollowChildren keeps the generations of processes the target spawned in
+	// this capture's totals and projection. It does not decide whether a child
+	// is instrumented: CUDA_INJECTION64_PATH and the preload are inherited
+	// across exec, so a child runs the agent and writes its own generation
+	// whatever this says. False leaves those records out of the totals and the
+	// pprof while the generations stay listed in worker_generations and their
+	// raw journals stay attached, so nothing is hidden by not following them.
+	FollowChildren bool
+	// APIActivity collects runtime and driver API attribution alongside device
+	// activity. It is on by default because the agent's default is on; setting
+	// it false exports CUDAPROF_API_ACTIVITY=0, which is the one lever that
+	// cuts journal volume by an order of magnitude. apiActivitySet records
+	// whether the caller said anything, so an untouched flag leaves the
+	// target's own environment alone, as the collection policy below does.
+	APIActivity     bool
+	apiActivitySet  bool
+	RequireComplete bool
+	NoInject        bool
+	JSON            bool
 	// CaptureFileBytes is the per-file budget for artifacts attached to the
 	// written capture. Zero means the cudacapture package default. It applies
 	// only to the capture this process is producing from its own scratch
@@ -204,10 +222,20 @@ type captureOptions struct {
 	// an artifact that default readers reject, which is why the read side has
 	// a matching explicit option rather than a raised default.
 	CaptureTotalBytes int64
-	// RecoverUnfinalized admits records from readable worker generations that
-	// carry no finalized record, as an explicitly labelled partial. It never
-	// makes a capture successful and never affects a finalized generation.
-	RecoverUnfinalized    bool
+	// RecoverUnfinalized admits records from readable generations that carry no
+	// finalized record, as an explicitly labelled partial. It never makes a
+	// capture successful and never affects a finalized generation.
+	RecoverUnfinalized bool
+	// CaptureRange, Finalize and FlushInterval are the agent's collection
+	// policy. They are launcher options only in the sense that the launcher is
+	// what puts them in the target's environment; every one of them is read and
+	// enforced inside the injected agent, and a value this launcher accepts is
+	// still inert against an agent that does not know it. The names are the
+	// contract: CUDAPROF_CAPTURE_RANGE, CUDAPROF_FINALIZE and
+	// CUDAPROF_FLUSH_INTERVAL_MS.
+	CaptureRange          string
+	Finalize              string
+	FlushInterval         time.Duration
 	MaxJournalRecords     int64
 	Timeout, DrainTimeout time.Duration
 	Output                string
@@ -218,6 +246,23 @@ type captureOptions struct {
 	Stdout, Stderr        io.Writer
 	command               []string
 }
+
+// The values --capture-range and --finalize accept. They are the agent's
+// vocabulary, not this command's: each is compared byte for byte against the
+// corresponding variable in cupti_agent.c, so a spelling this launcher invents
+// would turn the feature off while reading as if it turned it on.
+//
+// The two are independent requests even though both watch the profiler API.
+// Gating asks what to collect; finalizing on a stop asks when to publish it. A
+// target that calls only cuProfilerStop, to hand the agent the flush its exit
+// path will never run, wants the second and not the first, so neither value
+// implies the other and neither is refused without the other.
+const (
+	captureRangeNone        = "none"
+	captureRangeProfilerAPI = "cudaProfilerApi"
+	finalizeExit            = "exit"
+	finalizeProfilerStop    = "profiler-stop"
+)
 
 // captureResult keeps target termination independent from capture status.
 // A target may fail while the capture itself is complete, or vice versa.
@@ -247,6 +292,17 @@ type captureResult struct {
 	// cost it. Per-generation detail stays in WorkerGenerations.
 	RunCompleteness        string `json:"run_completeness"`
 	UnqualifiedGenerations uint64 `json:"unqualified_generations,omitempty"`
+	// ChildrenFollowed says whether the totals above include the generations
+	// of processes the target spawned. It carries no omitempty: a reader that
+	// cannot see this field cannot tell a whole-run total from a target-only
+	// one, and the dangerous value is the false one.
+	ChildrenFollowed bool `json:"children_followed"`
+	// ExcludedPatterns, ExcludedRecords and ExcludedNanos report what --exclude
+	// removed from the projection. The totals above stay journal totals, so
+	// activity_samples == activity_records - excluded_records.
+	ExcludedPatterns []string `json:"excluded_patterns,omitempty"`
+	ExcludedRecords  uint64   `json:"excluded_records,omitempty"`
+	ExcludedNanos    uint64   `json:"excluded_nanos,omitempty"`
 	// OmittedFiles records artifacts left out of the written capture because
 	// they exceeded the per-file budget. Their exact size and digest are kept
 	// so an omission is always visible and the original stays identifiable.
@@ -332,7 +388,7 @@ type captureWorker struct {
 // parseCaptureArgs parses only the launcher options before --. This preserves
 // every target argument, including strings beginning with a dash.
 func parseCaptureArgs(args []string) (captureOptions, error) {
-	o := captureOptions{Trace: true, Replay: "off", Timeout: 0, DrainTimeout: 2 * time.Second}
+	o := captureOptions{Trace: true, APIActivity: true, FollowChildren: true, Replay: "off", Timeout: 0, DrainTimeout: 2 * time.Second}
 	var i int
 	for i < len(args) {
 		arg := args[i]
@@ -349,12 +405,18 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			return o, flag.ErrHelp
 		case "--trace":
 			o.Trace = true
-		case "--deep":
-			o.Deep, o.Trace = true, true
-		case "--exhaustive":
-			o.Exhaustive, o.Deep, o.Trace = true, true, true
-		case "--follow-children":
-			o.FollowChildren = true
+		case "--follow-children", "-follow-children":
+			v, err := captureBool(name, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			o.FollowChildren = v
+		case "--api-activity", "-api-activity":
+			v, err := captureBool(name, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			o.APIActivity, o.apiActivitySet = v, true
 		case "--require-complete":
 			o.RequireComplete = true
 		case "--recover-unfinalized":
@@ -392,14 +454,44 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, fmt.Errorf("invalid %s %q", name, v)
 			}
 			o.MaxJournalRecords = n
-		case "--collect":
+		case "--capture-range", "-capture-range":
 			v, next, err := captureValue(args, i, value, hasValue)
 			if err != nil {
 				return o, err
 			}
 			i = next
-			o.Collect = append(o.Collect, v)
-		case "--exclude":
+			if v != captureRangeNone && v != captureRangeProfilerAPI {
+				return o, fmt.Errorf("invalid capture range %q (%s or %s)", v, captureRangeNone, captureRangeProfilerAPI)
+			}
+			o.CaptureRange = v
+		case "--finalize", "-finalize":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			if v != finalizeExit && v != finalizeProfilerStop {
+				return o, fmt.Errorf("invalid finalize trigger %q (%s or %s)", v, finalizeExit, finalizeProfilerStop)
+			}
+			o.Finalize = v
+		case "--flush-interval", "-flush-interval":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			d, err := time.ParseDuration(v)
+			if err != nil || d <= 0 {
+				return o, fmt.Errorf("invalid %s %q", name, v)
+			}
+			// The agent takes whole milliseconds, so a sub-millisecond interval
+			// would round to zero and read as "no periodic flush" -- the exact
+			// state the caller was asking to leave.
+			if d < time.Millisecond {
+				return o, fmt.Errorf("flush interval %q is below the agent's 1ms resolution", v)
+			}
+			o.FlushInterval = d
+		case "--exclude", "-exclude":
 			v, next, err := captureValue(args, i, value, hasValue)
 			if err != nil {
 				return o, err
@@ -450,7 +542,7 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 		case "--json":
 			o.JSON = true
 		default:
-			return o, fmt.Errorf("unknown capture option %q", name)
+			return o, unknownCaptureOption(name)
 		}
 		i++
 	}
@@ -484,34 +576,42 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			return o, fmt.Errorf("injection library is a directory: %s", o.Inject)
 		}
 	}
-	if err := rejectUnimplementedPolicy(o); err != nil {
-		return o, err
-	}
 	return o, nil
 }
 
-// rejectUnimplementedPolicy refuses a collector policy the capture path does
-// not implement, while it is still an argument. runCapture refuses the same
-// set, but it does so after the caller has a zero-valued result in hand, and
-// runCaptureCommand writes its artifact before it consults that error -- so a
-// flag nothing implements produced a capture file describing nothing. The
-// argument is the last point at which refusing costs nothing.
-func rejectUnimplementedPolicy(o captureOptions) error {
-	switch {
-	// --exhaustive implies --deep, so it is tested first or its rejection
-	// names a flag the user did not type.
-	case o.Exhaustive:
-		return errors.New("--exhaustive is not implemented")
-	case o.Deep:
-		return errors.New("--deep is not implemented")
-	case o.FollowChildren:
-		return errors.New("--follow-children is not implemented")
-	case len(o.Collect) > 0:
-		return errors.New("--collect is not implemented")
-	case len(o.Exclude) > 0:
-		return errors.New("--exclude is not implemented")
+// captureRetired maps an option this command once accepted to what replaced
+// it. Nothing here is parsed: an option is either implemented or unknown, and
+// an accepted-then-refused flag is what this table exists to prevent a return
+// to. It is a diagnosis, not a compatibility shim -- the replacement is not
+// guessable from the name, and "unknown capture option" alone sends a caller
+// hunting for a spelling when what they want is a different knob or a
+// different tool.
+var captureRetired = map[string]string{
+	"--deep":       "runtime and driver API attribution is collected by default, so there is no deeper mode to ask for; --api-activity=false turns it off",
+	"--exhaustive": "runtime and driver API attribution is collected by default, so there is no deeper mode to ask for; --api-activity=false turns it off",
+	"--collect":    "capture records a CUPTI activity timeline, not hardware counters; counter collection needs the CUPTI Profiling API with replay, which github.com/tmc/lib/nvidia/x/cuptirange does in-process for a Go program (Plan.Capture), and cuptimetrics lists the metrics a chip offers",
+}
+
+func unknownCaptureOption(name string) error {
+	if note, ok := captureRetired[name]; ok {
+		return fmt.Errorf("unknown capture option %q: %s", name, note)
 	}
-	return nil
+	return fmt.Errorf("unknown capture option %q", name)
+}
+
+// captureBool parses a boolean option. Like the flag package, a boolean takes
+// a value only in the -x=v form: a separated value cannot be told apart from
+// the target command, and an option whose meaning depends on what follows it
+// is worse than one spelling fewer.
+func captureBool(name, value string, hasValue bool) (bool, error) {
+	if !hasValue {
+		return true, nil
+	}
+	v, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("invalid %s %q", name, value)
+	}
+	return v, nil
 }
 
 func captureValue(args []string, i int, value string, hasValue bool) (string, int, error) {
@@ -557,6 +657,31 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 	env = setCaptureEnv(env, "CUDAPROF_PROTOCOL", strconv.Itoa(captureProtocolVersion))
 	env = setCaptureEnv(env, "CUDAPROF_SESSION", session)
 	env = setCaptureEnv(env, "CUDAPROF_TRANSPORT", dir)
+	// The collection policy is exported only when the caller asked for it, so
+	// an unset flag leaves whatever the caller's own environment said and the
+	// agent keeps its own default. "none" is exported like any other value: it
+	// is how a caller turns off gating that the surrounding environment
+	// enabled, and silently dropping it would leave the run gated.
+	if o.CaptureRange != "" {
+		env = setCaptureEnv(env, "CUDAPROF_CAPTURE_RANGE", o.CaptureRange)
+	}
+	if o.Finalize != "" {
+		env = setCaptureEnv(env, "CUDAPROF_FINALIZE", o.Finalize)
+	}
+	if o.FlushInterval > 0 {
+		env = setCaptureEnv(env, "CUDAPROF_FLUSH_INTERVAL_MS", strconv.FormatInt(o.FlushInterval.Milliseconds(), 10))
+	}
+	// The agent reads this variable as "off only when it is exactly 0", so an
+	// explicit --api-activity exports 1 rather than relying on absence: the
+	// caller's own environment may already hold a 0 that the flag is being
+	// used to override.
+	if o.apiActivitySet {
+		value := "1"
+		if !o.APIActivity {
+			value = "0"
+		}
+		env = setCaptureEnv(env, "CUDAPROF_API_ACTIVITY", value)
+	}
 	if o.Inject != "" {
 		key := "LD_PRELOAD"
 		if runtime.GOOS == "darwin" {
@@ -604,9 +729,6 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if o.Replay == "" {
 		o.Replay = "off"
 	}
-	if o.Deep || o.Exhaustive || len(o.Collect) > 0 || len(o.Exclude) > 0 || o.FollowChildren {
-		return captureResult{}, errors.New("requested collector policy is not implemented")
-	}
 	if o.DrainTimeout <= 0 {
 		o.DrainTimeout = 2 * time.Second
 	}
@@ -618,7 +740,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if o.Inject != "" {
 		outcome = captureOutcomeInjection
 	}
-	result := captureResult{Protocol: captureProtocolVersion, Session: session, State: captureStatePlanned, Outcome: outcome, ScratchDir: dir}
+	result := captureResult{Protocol: captureProtocolVersion, Session: session, State: captureStatePlanned, Outcome: outcome, ChildrenFollowed: o.FollowChildren, ScratchDir: dir}
 	if o.Inject == "" && !o.NoInject {
 		result.CaptureError = "no injection library configured (specify --inject /path/to/agent.so, CUDAPROF_INJECT, or pass --no-inject to run uninstrumented)"
 		result.RunCompleteness = runUnknown
@@ -669,7 +791,8 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		}
 	}
 	result.State = captureStateFinalized
-	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", noInject: o.NoInject, recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
+	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", noInject: o.NoInject, targetOnly: !o.FollowChildren, recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
+	result = excludeKernels(result, o.Exclude)
 	if o.RequireComplete && result.RunCompleteness != runComplete {
 		result.CaptureSuccess = false
 		if result.CaptureError == "" {
@@ -705,4 +828,59 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		return result, nil
 	}
 	return result, fmt.Errorf("wait for capture target: %w", waitErr)
+}
+
+// excludeKernels drops the kernels named by --exclude from this capture's
+// projection: the pprof, the activity samples and the aggregates computed from
+// them.
+//
+// It is a projection filter and not a collection one, because by the time this
+// runs the target has exited and the agent has written everything it saw.
+// Nothing here can keep a kernel out of the capture: the raw journals stay
+// attached, and journal-based analysis (cudaprof gaps) still sees every
+// excluded kernel, which is right -- a timeline with a kernel cut out of it
+// would report idle gaps that never happened.
+//
+// So the totals stay journal totals. ActivityRecords, ActivityNanos, CopyBytes
+// and the loss breakdown keep describing what the producer wrote, and what the
+// exclusion removed is reported beside them as ExcludedRecords and
+// ExcludedNanos. The identity a reader can check is
+// activity_samples == activity_records - excluded_records. Subtracting from
+// the totals instead would publish numbers that disagree with the journal in
+// the same file, and with the producer's own retained count, with nothing in
+// the capture to say which convention produced them.
+//
+// A pattern matches when it appears anywhere in the kernel name. Mangled names
+// are long and an exact match is unusable by hand. Only kernels are matched: a
+// memcpy has no kernel name, so no --exclude can remove one.
+func excludeKernels(result captureResult, patterns []string) captureResult {
+	if len(patterns) == 0 {
+		return result
+	}
+	result.ExcludedPatterns = append([]string(nil), patterns...)
+	// A fresh slice rather than a filter in place: captureResult is passed by
+	// value, so reusing the storage would rewrite the activities of the result
+	// the caller still holds.
+	kept := make([]captureActivity, 0, len(result.Activities))
+	for _, a := range result.Activities {
+		if a.Subtype == "kernel" && matchesAnyPattern(a.Name, patterns) {
+			result.ExcludedRecords++
+			if a.Valid && a.End >= a.Start {
+				result.ExcludedNanos += a.End - a.Start
+			}
+			continue
+		}
+		kept = append(kept, a)
+	}
+	result.Activities = kept
+	return result
+}
+
+func matchesAnyPattern(name string, patterns []string) bool {
+	for _, p := range patterns {
+		if strings.Contains(name, p) {
+			return true
+		}
+	}
+	return false
 }

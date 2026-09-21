@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/journal"
@@ -292,5 +293,207 @@ func TestUnfinalizedTargetStillReportsWhatItRead(t *testing.T) {
 	}
 	if !got.BootstrapSeen {
 		t.Fatalf("journal holds a bootstrap record but bootstrap_seen is false: %+v", got)
+	}
+	// The refusal is correct and, on its own, useless: it describes the journal
+	// and names nothing to change. Everything below is what a caller has to do
+	// to get a Go target to collect, which is why it belongs in this message.
+	for _, want := range []string{
+		"never finalized",
+		"exit_group",
+		"--capture-range=cudaProfilerApi",
+		"--finalize=profiler-stop",
+		"--flush-interval",
+		"ProfilerStop",
+	} {
+		if !strings.Contains(got.CaptureError, want) {
+			t.Errorf("capture error omits %q:\n%s", want, got.CaptureError)
+		}
+	}
+}
+
+// targetSession writes a session whose target generation is written by
+// writeTarget and which has no worker generations at all -- the shape of a
+// plain single-process capture, as opposed to recoverySession's parent plus
+// worker.
+func targetSession(t *testing.T, writeTarget func(t *testing.T, dir string, sid [16]byte)) string {
+	t.Helper()
+	const session = "00112233445566778899aabbccddeeff"
+	dir := t.TempDir()
+	var sid [16]byte
+	raw, _ := hex.DecodeString(session)
+	copy(sid[:], raw)
+	writeHandshake(t, dir, session, 41, 2)
+	writeTarget(t, dir, sid)
+	return dir
+}
+
+// flushedTargetJournal is what a periodic flush leaves behind: real activity
+// records published while the target was alive, and no finalized record,
+// because the target exited without running any of the agent's exit paths.
+func flushedTargetJournal(t *testing.T, dir string, sid [16]byte) {
+	t.Helper()
+	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"memcpy","valid":true,"start":30,"end":40,"bytes":64}`)},
+	})
+}
+
+// TestRecoverUnfinalizedTargetGeneration is the --flush-interval outcome. The
+// records are the producer's own, structurally intact and identity-checked;
+// only the generation's completion is unknown. Refusing them outright, which is
+// what happened before, threw away the entire capture a periodic flush exists
+// to produce.
+func TestRecoverUnfinalizedTargetGeneration(t *testing.T) {
+	dir := targetSession(t, flushedTargetJournal)
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, "00112233445566778899aabbccddeeff", observeOptions{injectionRequested: true, recoverUnfinalized: true})
+	if got.CaptureSuccess {
+		t.Fatalf("recovered target was published as a successful capture: %+v", got)
+	}
+	if got.Outcome != captureOutcomePartialRecovered {
+		t.Fatalf("outcome = %q, want %q", got.Outcome, captureOutcomePartialRecovered)
+	}
+	if got.CollectorFinalized {
+		t.Fatal("recovery claimed the collector finalized")
+	}
+	// Nothing in this run qualified: the generation that did not finalize is
+	// the target's own, which is exactly what runFailed means.
+	if got.RunCompleteness != runFailed {
+		t.Errorf("run_completeness = %q, want %q", got.RunCompleteness, runFailed)
+	}
+	if got.ActivityRecords != 2 || len(got.Activities) != 2 {
+		t.Fatalf("recovered activity = %d records, %d samples", got.ActivityRecords, len(got.Activities))
+	}
+	if got.CopyBytes != 64 || got.ActivityNanos != 10 {
+		t.Errorf("recovered metrics = bytes %d nanos %d", got.CopyBytes, got.ActivityNanos)
+	}
+	if got.RecoveredGenerations != 1 || got.RecoveredActivityRecords != 2 {
+		t.Errorf("recovery counters = %d/%d", got.RecoveredGenerations, got.RecoveredActivityRecords)
+	}
+	// The recovered contribution must be subtractable from the published
+	// totals, so the generation it came from has to be in the manifest.
+	w := got.WorkerGenerations
+	if len(w) != 1 || w[0].Process != 41 || w[0].Generation != 2 {
+		t.Fatalf("manifest = %+v", w)
+	}
+	if w[0].Finalized || w[0].Disposition != captureWorkerUnfinalizedPartial || w[0].ActivityRecords != 2 {
+		t.Errorf("recovered target disposition = %+v", w[0])
+	}
+	if got.UnqualifiedGenerations != 1 {
+		t.Errorf("unqualified_generations = %d, want 1", got.UnqualifiedGenerations)
+	}
+	if got.Activities[0].Process != 41 {
+		t.Errorf("recovered activity lost target identity: %+v", got.Activities[0])
+	}
+}
+
+// TestRecoverUnfinalizedTargetDefaultsOff pins that the target path is as
+// explicit as the worker one: without the flag the same journal contributes
+// nothing and the capture is refused.
+func TestRecoverUnfinalizedTargetDefaultsOff(t *testing.T) {
+	dir := targetSession(t, flushedTargetJournal)
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, "00112233445566778899aabbccddeeff", observeOptions{injectionRequested: true})
+	if got.CaptureSuccess || got.Outcome != captureOutcomeTransport {
+		t.Fatalf("default outcome = %+v", got)
+	}
+	if got.ActivityRecords != 0 || got.RecoveredGenerations != 0 {
+		t.Fatalf("default admitted target records: %+v", got)
+	}
+	// This refusal is throwing away records it just decoded, which is a
+	// defensible default and an indefensible thing to be silent about.
+	for _, want := range []string{"2 activity records", "--recover-unfinalized"} {
+		if !strings.Contains(got.CaptureError, want) {
+			t.Errorf("capture error omits %q:\n%s", want, got.CaptureError)
+		}
+	}
+}
+
+// TestRecoverUnfinalizedTargetKeepsDiagnosisWhenNothingWasFlushed is where the
+// two features meet. A Go target with no periodic flush writes a bootstrap and
+// a capability record and nothing else; there is no record to recover, and
+// answering with an empty partial capture would replace the one message that
+// says what to change with a well-labelled zero.
+func TestRecoverUnfinalizedTargetKeepsDiagnosisWhenNothingWasFlushed(t *testing.T) {
+	dir := targetSession(t, func(t *testing.T, dir string, sid [16]byte) {
+		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
+			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		})
+	})
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, "00112233445566778899aabbccddeeff", observeOptions{injectionRequested: true, recoverUnfinalized: true})
+	if got.Outcome != captureOutcomeTransport || got.RecoveredGenerations != 0 {
+		t.Fatalf("empty target was recovered: %+v", got)
+	}
+	if !strings.Contains(got.CaptureError, "--flush-interval") {
+		t.Errorf("capture error lost the diagnosis: %q", got.CaptureError)
+	}
+}
+
+// TestRecoverUnfinalizedTargetKeepsProducerFailure pins the precedence: a
+// target that recorded why it failed reports that cause, not the generic
+// partial label. The cause is the more actionable of the two.
+func TestRecoverUnfinalizedTargetKeepsProducerFailure(t *testing.T) {
+	dir := targetSession(t, func(t *testing.T, dir string, sid [16]byte) {
+		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
+			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+			{Kind: recordFailure, Payload: []byte(`{"state":"cupti_unavailable","error":"libcupti.so not found"}`)},
+		})
+	})
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, "00112233445566778899aabbccddeeff", observeOptions{injectionRequested: true, recoverUnfinalized: true})
+	if got.Outcome != captureOutcomeUnsupported {
+		t.Fatalf("outcome = %q, want %q: %+v", got.Outcome, captureOutcomeUnsupported, got)
+	}
+	if !strings.Contains(got.CaptureError, "libcupti.so not found") {
+		t.Errorf("capture error lost the producer's reason: %q", got.CaptureError)
+	}
+	if got.RecoveredGenerations != 0 {
+		t.Errorf("failed target was counted as recovered: %+v", got)
+	}
+}
+
+// TestRecoverUnfinalizedTargetRejectsTruncated: recovery admits only journals
+// that decoded completely, on the target path as on the worker one.
+func TestRecoverUnfinalizedTargetRejectsTruncated(t *testing.T) {
+	dir := targetSession(t, func(t *testing.T, dir string, sid [16]byte) {
+		flushedTargetJournal(t, dir, sid)
+		f, err := os.OpenFile(filepath.Join(dir, "capture.journal"), os.O_WRONLY|os.O_APPEND, 0600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.Write([]byte{1, 2, 3}); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, "00112233445566778899aabbccddeeff", observeOptions{injectionRequested: true, recoverUnfinalized: true})
+	if got.CaptureSuccess || got.RecoveredGenerations != 0 || got.ActivityRecords != 0 {
+		t.Fatalf("truncated target contributed: %+v", got)
+	}
+}
+
+// TestCaptureHelpDocumentsTheCollectionPolicyFlags: these flags are the only
+// way to collect anything from a target that does not finalize, and a flag that
+// is parsed but not documented is one nobody can find. --recover-unfinalized
+// had been in exactly that state.
+func TestCaptureHelpDocumentsTheCollectionPolicyFlags(t *testing.T) {
+	help := captureHelp()
+	for _, want := range []string{
+		"--capture-range",
+		captureRangeProfilerAPI,
+		"--finalize",
+		finalizeProfilerStop,
+		"--flush-interval",
+		"CUDAPROF_FLUSH_INTERVAL_MS",
+		"--recover-unfinalized",
+		captureOutcomePartialRecovered,
+	} {
+		if !strings.Contains(help, want) {
+			t.Errorf("capture help omits %q:\n%s", want, help)
+		}
 	}
 }
