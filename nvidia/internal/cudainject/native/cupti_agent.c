@@ -282,7 +282,8 @@ static _Atomic int finalize_started;
 static _Atomic int finalize_done;
 /* device_active is set by the first buffer request, journal_ready by the
    constructor once bootstrap and capability are down, and device_active_written
-   by whichever of the two publishes the record. */
+   by whichever of the two publishes the record. journal_ready also holds the
+   interval flusher until the journal can accept an activity record. */
 static _Atomic int device_active;
 static _Atomic int device_active_written;
 static _Atomic int journal_ready;
@@ -451,6 +452,12 @@ static void *flush_worker(void *arg) {
 		pthread_mutex_unlock(&flush_mu);
 		if (stop) return NULL;
 		if (atomic_load(&shutdown_started)) continue;
+		/* The thread is created before the bootstrap and capability records
+		   are written, because the capability record reports whether creating
+		   it worked. A flush before those two would hand the consumer an
+		   activity record ahead of them, and it refuses the whole journal for
+		   that. journal_ready is stored once both are down. */
+		if (!atomic_load(&journal_ready)) continue;
 		(void)cuptiActivityFlushAll(0);
 	}
 }
@@ -666,6 +673,18 @@ static void write_handshake(const char *failure) {
 	fclose(f);
 }
 
+/* A record that did not fit its buffer is a record nothing downstream will
+   ever hear about: queue_pending never sees it, so it is not counted as
+   dropped either, and the journal reads as if the work never happened. Say
+   so, on the same rule the name guards apply -- exact or a failure, never a
+   quiet loss. what names the record that overflowed. */
+static int payload_overflow(const char *what) {
+	char failure[192];
+	int n = snprintf(failure, sizeof(failure), "{\"state\":\"producer_failure\",\"error\":\"%s record does not fit its buffer\"}", what);
+	if (n > 0 && (size_t)n < sizeof(failure)) (void)queue_pending(KIND_FAILURE, now_ns(), failure, (size_t)n);
+	return -1;
+}
+
 static int append_activity(const char *kind, const char *name, uint64_t start, uint64_t end, uint64_t bytes,
 	uint64_t queued, uint64_t submitted, uint8_t copy_kind, uint32_t memset_value,
 	uint32_t runtime_correlation, uint32_t device, uint32_t context, uint32_t stream, uint32_t correlation,
@@ -693,7 +712,10 @@ static int append_activity(const char *kind, const char *name, uint64_t start, u
 		grid_x, grid_y, grid_z, block_x, block_y, block_z,
 		grid_x, grid_y, grid_z, block_x, block_y, block_z,
 		registers_per_thread, dynamic_shared_memory, graph_id, graph_node_id);
-	if (n < 0 || n >= (int)sizeof(payload)) return -1;
+	/* The name guard above reserves one escaped byte, not the several hundred
+	   the fields below take, so a name within a tail's length of the buffer
+	   passes it and overflows here. */
+	if (n < 0 || n >= (int)sizeof(payload)) return payload_overflow("activity");
 	return queue_pending(KIND_ACTIVITY, start, payload, (size_t)n);
 }
 
@@ -828,7 +850,7 @@ static int append_marker(const CUpti_ActivityMarker2 *m) {
 	if (n < 0 || n >= (int)sizeof(payload)) return -1;
 	if ((n = append_escaped(payload, sizeof(payload), n, m->name, "marker name")) < 0) return -1;
 	int w = snprintf(payload + n, sizeof(payload) - (size_t)n, "\",\"marker_domain\":\"");
-	if (w < 0 || (size_t)(n + w) >= sizeof(payload)) return -1;
+	if (w < 0 || (size_t)(n + w) >= sizeof(payload)) return payload_overflow("marker");
 	n += w;
 	if ((n = append_escaped(payload, sizeof(payload), n, m->domain, "marker domain")) < 0) return -1;
 	uint32_t process_id = 0, thread_id = 0, device = 0, context = 0, stream = 0;
@@ -857,7 +879,7 @@ static int append_marker(const CUpti_ActivityMarker2 *m) {
 		m->timestamp != CUPTI_TIMESTAMP_UNKNOWN ? "true" : "false", m->timestamp, m->timestamp,
 		(unsigned)m->id, (unsigned)m->flags, (unsigned)m->objectKind,
 		process_id, thread_id, device, context, stream);
-	if (w < 0 || (size_t)(n + w) >= sizeof(payload)) return -1;
+	if (w < 0 || (size_t)(n + w) >= sizeof(payload)) return payload_overflow("marker");
 	n += w;
 	return queue_pending(KIND_ACTIVITY, m->timestamp, payload, (size_t)n);
 }
@@ -2063,7 +2085,7 @@ static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback) 
 	   whatever a flush in flight is delivering. */
 	stop_flush_worker();
 	int flush_error = 0;
-	if (callback_registered && (concurrent_enabled || memcpy_enabled || external_enabled || marker_enabled || runtime_enabled || driver_enabled)) {
+	if (callback_registered && (concurrent_enabled || legacy_enabled || memcpy_enabled || memset_enabled || overhead_enabled || graph_trace_enabled || sync_enabled || external_enabled || marker_enabled || runtime_enabled || driver_enabled)) {
 		if (cuptiActivityFlushAll(1) != CUPTI_SUCCESS) flush_error = 1;
 		/* A gated run whose range is still open is disabled here exactly as an
 		   ungated one is; a gated run already closed disables nothing, which
