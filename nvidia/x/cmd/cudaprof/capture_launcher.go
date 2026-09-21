@@ -794,6 +794,11 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 	if o.Finalize != "" {
 		env = setCaptureEnv(env, "CUDAPROF_FINALIZE", o.Finalize)
 	}
+	// Module images are requested by this process because this process is the
+	// one that can decode the record kind they arrive under. An agent old
+	// enough to ignore the variable simply writes no modules, and the capture
+	// is what it would have been.
+	env = setCaptureEnv(env, "CUDAPROF_MODULES", "1")
 	if o.FlushInterval > 0 {
 		env = setCaptureEnv(env, "CUDAPROF_FLUSH_INTERVAL_MS", strconv.FormatInt(o.FlushInterval.Milliseconds(), 10))
 	}
