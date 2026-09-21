@@ -425,10 +425,32 @@ func captureBanner(c *Capture) string {
 		}
 	}
 	sort.Strings(roles)
-	if len(roles) == 0 {
-		return "No source, PTX, CUBIN, or SASS code artifacts were captured; availability is recorded in the manifest."
+	// A capture of a process that loaded several modules has no whole-capture
+	// code role and every module's code all the same. Counting only c.Code
+	// would report that capture as carrying nothing, which is the one thing
+	// the banner must never say while the artifacts are sitting in it.
+	moduleRoles := make(map[string]bool, 4)
+	for _, m := range c.Modules {
+		for role, name := range map[string]string{"source": m.Code.Source, "ptx": m.Code.PTX, "cubin": m.Code.CUBIN, "sass": m.Code.SASS} {
+			if name != "" {
+				moduleRoles[role] = true
+			}
+		}
 	}
-	return fmt.Sprintf("Embedded code artifacts: %s; use cudaprof for available source and NVIDIA disassembly.", strings.Join(roles, ", "))
+	perModule := make([]string, 0, len(moduleRoles))
+	for role := range moduleRoles {
+		perModule = append(perModule, role)
+	}
+	sort.Strings(perModule)
+	switch {
+	case len(roles) == 0 && len(perModule) == 0:
+		return "No source, PTX, CUBIN, or SASS code artifacts were captured; availability is recorded in the manifest."
+	case len(roles) == 0:
+		return fmt.Sprintf("Embedded code artifacts: %s, per module across %d modules; use cudaprof for available source and NVIDIA disassembly.", strings.Join(perModule, ", "), len(c.Modules))
+	case len(perModule) == 0:
+		return fmt.Sprintf("Embedded code artifacts: %s; use cudaprof for available source and NVIDIA disassembly.", strings.Join(roles, ", "))
+	}
+	return fmt.Sprintf("Embedded code artifacts: %s, and %s per module across %d modules; use cudaprof for available source and NVIDIA disassembly.", strings.Join(roles, ", "), strings.Join(perModule, ", "), len(c.Modules))
 }
 
 // Read reads a capture from a reader containing a pprof profile with embedded

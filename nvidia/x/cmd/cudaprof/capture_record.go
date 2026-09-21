@@ -424,6 +424,20 @@ func scratchAttachments(dir string) []captureAttachment {
 			// namespace in the basename so archives remain self-contained.
 			add("worker-"+entry.Name()+"-"+name, filepath.Join(dir, entry.Name(), name))
 		}
+		// Module images the agent wrote out of band. They are named under the
+		// same worker namespace, which is what keeps two processes that each
+		// loaded a first module from colliding on module-0000.
+		images, err := os.ReadDir(filepath.Join(dir, entry.Name(), "modules"))
+		if err != nil {
+			continue
+		}
+		for _, image := range images {
+			name := image.Name()
+			if !strings.HasSuffix(name, ".cubin") {
+				continue
+			}
+			add("worker-"+entry.Name()+"-"+name, filepath.Join(dir, entry.Name(), "modules", name))
+		}
 	}
 	sort.Slice(found, func(i, j int) bool { return found[i].name < found[j].name })
 	return found
@@ -724,6 +738,26 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 			"cubin":  "CUBIN was not available in this capture",
 			"sass":   "SASS was not available in this capture",
 		},
+	}
+	// Modules are declared from what was actually embedded, not from what the
+	// agent reported writing. The journal census in capture-status.json says
+	// what the target loaded; this says what the reader can disassemble, and
+	// the two differ exactly by the budget.
+	for _, a := range kept {
+		if !strings.HasSuffix(a.name, ".cubin") {
+			continue
+		}
+		c.Modules = append(c.Modules, cudacapture.Module{
+			ID:   strings.TrimSuffix(a.name, ".cubin"),
+			Code: cudacapture.CodeFiles{CUBIN: a.name},
+		})
+	}
+	// The top-level code roles describe the capture as a whole and stay
+	// unavailable: there is no single cubin for a process that loaded several.
+	// Saying so, rather than dropping the role, is what keeps a reader from
+	// reading the absence as "no device code was captured".
+	if len(c.Modules) > 0 {
+		c.CodeUnavailable["cubin"] = fmt.Sprintf("no whole-capture CUBIN; %d module images are attached individually", len(c.Modules))
 	}
 	for name, data := range attachments {
 		c.Files[name] = data

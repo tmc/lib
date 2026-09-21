@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/hex"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
 // moduleSession is the session every test here writes journals under.
@@ -55,5 +58,93 @@ func TestModuleRecordsDecode(t *testing.T) {
 	// indistinguishable from one the target never loaded.
 	if got := metrics.modules[1]; got.ID != 23 || got.Stored || got.Reason != "file_budget" || got.Size != 99999999 {
 		t.Errorf("omitted module = %+v", got)
+	}
+}
+
+// TestModuleImagesAreEmbedded runs the harvest: images the producer wrote
+// beside a worker journal must reach the published capture, be named by it,
+// and be reachable under the names it gives them.
+func TestModuleImagesAreEmbedded(t *testing.T) {
+	scratch := t.TempDir()
+	worker := filepath.Join(scratch, "process-1234-1")
+	if err := os.MkdirAll(filepath.Join(worker, "modules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Two images and one file that is not one. The non-cubin is the control:
+	// the harvest must select by role, not sweep the directory.
+	images := map[string][]byte{
+		"module-0000-id22.cubin": []byte("\x7fELFcubin-a"),
+		"module-0001-id23.cubin": []byte("\x7fELFcubin-b"),
+		"notes.txt":              []byte("not device code"),
+	}
+	for name, data := range images {
+		if err := os.WriteFile(filepath.Join(worker, "modules", name), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	out := filepath.Join(t.TempDir(), "capture.pprof")
+	result := captureResult{
+		Session:    moduleSession,
+		TargetPID:  1234,
+		Outcome:    captureOutcomeCollected,
+		ScratchDir: scratch,
+		Activities: []captureActivity{{Subtype: "kernel", Name: "k", Valid: true, Start: 100, End: 200}},
+	}
+	if err := writeCaptureStatus(out, result, captureArtifactBudget{}); err != nil {
+		t.Fatalf("write capture: %v", err)
+	}
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	c, err := cudacapture.Read(f)
+	if err != nil {
+		t.Fatalf("read capture: %v", err)
+	}
+
+	if len(c.Modules) != 2 {
+		t.Fatalf("capture names %d modules, want 2: %+v", len(c.Modules), c.Modules)
+	}
+	for _, m := range c.Modules {
+		if m.Code.CUBIN == "" {
+			t.Errorf("module %q names no cubin", m.ID)
+			continue
+		}
+		data, ok := c.Files[m.Code.CUBIN]
+		if !ok {
+			t.Errorf("module %q names %q, which is not in the capture", m.ID, m.Code.CUBIN)
+			continue
+		}
+		// The bytes must be the producer's, not merely some bytes: a harvest
+		// that attached the wrong file would still satisfy every check above.
+		want, found := images[m.Code.CUBIN[strings.LastIndex(m.Code.CUBIN, "module-"):]]
+		if !found {
+			t.Errorf("module %q has no source image", m.Code.CUBIN)
+			continue
+		}
+		if string(data) != string(want) {
+			t.Errorf("module %q = %q, want %q", m.Code.CUBIN, data, want)
+		}
+		// Names carry the worker namespace, which is what keeps two processes
+		// that each loaded a first module from colliding on module-0000.
+		if !strings.HasPrefix(m.Code.CUBIN, "worker-process-1234-1-") {
+			t.Errorf("module file %q is not scoped to its worker", m.Code.CUBIN)
+		}
+	}
+	if _, ok := c.Files["worker-process-1234-1-notes.txt"]; ok {
+		t.Error("the harvest swept a file that is not device code")
+	}
+
+	// The whole-capture cubin role stays unavailable, and must say why: a
+	// reader that sees the role absent and the reason missing reads it as
+	// "no device code was captured", which is the opposite of the truth.
+	reason := c.CodeUnavailable["cubin"]
+	if reason == "" {
+		t.Error("cubin has no availability disposition")
+	}
+	if !strings.Contains(reason, "module") {
+		t.Errorf("cubin disposition %q does not point at the modules that carry it", reason)
 	}
 }
