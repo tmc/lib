@@ -112,13 +112,23 @@ func parse(data []byte) (*Tokenizer, error) {
 	for i, r := range alphabet {
 		id, ok := m.Vocab[string(r)]
 		if !ok {
-			return nil, fmt.Errorf("tokenizer: missing byte token for 0x%02x", i)
+			// 0xC0, 0xC1 and 0xF5-0xFF cannot occur in valid UTF-8, so a
+			// vocabulary may legitimately omit them (ModernBERT does). Encode
+			// rejects non-UTF-8 input, so these entries are never reached.
+			t.bytes[i] = -1
+			continue
 		}
 		t.bytes[i] = id
 	}
 	addedNames := make(map[string]bool)
 	for _, a := range s.Added {
-		if a.Content == "" || a.ID == nil || *a.ID < 0 || a.SingleWord || a.LStrip || a.RStrip || a.Normalized == nil || *a.Normalized {
+		if a.Content == "" || a.ID == nil || *a.ID < 0 || a.SingleWord || a.RStrip || a.Normalized == nil {
+			return nil, fmt.Errorf("tokenizer: unsupported added token %q", a.Content)
+		}
+		// Added tokens are matched against the raw text, so one marked
+		// normalized behaves identically only when normalization leaves it
+		// unchanged. ModernBERT's whitespace-run tokens satisfy that.
+		if *a.Normalized && t.nfc && normalizeNFC(a.Content) != a.Content {
 			return nil, fmt.Errorf("tokenizer: unsupported added token %q", a.Content)
 		}
 		addedID := *a.ID
@@ -135,7 +145,7 @@ func parse(data []byte) (*Tokenizer, error) {
 		names[addedID] = a.Content
 		t.tokens[addedID] = decodePiece(a.Content, inverse)
 		t.special[addedID] = a.Special
-		t.added = append(t.added, addedToken{a.Content, addedID})
+		t.added = append(t.added, addedToken{a.Content, addedID, a.LStrip})
 		if addedID > t.maxID {
 			t.maxID = addedID
 		}

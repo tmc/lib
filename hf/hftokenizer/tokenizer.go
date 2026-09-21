@@ -23,8 +23,9 @@ type Tokenizer struct {
 }
 
 type addedToken struct {
-	text string
-	id   int32
+	text   string
+	id     int32
+	lstrip bool
 }
 
 // New reads a Hugging Face tokenizer.json and validates its supported pipeline.
@@ -46,13 +47,27 @@ func New(r io.Reader) (*Tokenizer, error) {
 // Encode returns IDs after added-token matching, normalization, BPE and the
 // configured single-input post-processor. It never inserts an inferred BOS.
 func (t *Tokenizer) Encode(text string) ([]int32, error) {
+	ids, err := t.EncodeRaw(text)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]int32, 0, len(t.prefix)+len(ids)+len(t.suffix))
+	out = append(out, t.prefix...)
+	out = append(out, ids...)
+	return append(out, t.suffix...), nil
+}
+
+// EncodeRaw is Encode without the post-processor, the equivalent of Hugging
+// Face's add_special_tokens=False. Use it when the caller assembles its own
+// sequence from several encoded spans.
+func (t *Tokenizer) EncodeRaw(text string) ([]int32, error) {
 	if t == nil || t.tokens == nil {
 		return nil, fmt.Errorf("tokenizer: uninitialized tokenizer")
 	}
 	if !utf8.ValidString(text) {
 		return nil, fmt.Errorf("tokenizer: input is not valid UTF-8")
 	}
-	ids := append([]int32(nil), t.prefix...)
+	var ids []int32
 	for text != "" {
 		pos := -1
 		var match addedToken
@@ -67,11 +82,17 @@ func (t *Tokenizer) Encode(text string) ([]int32, error) {
 			ids = t.encodeChunk(text, ids)
 			break
 		}
-		ids = t.encodeChunk(text[:pos], ids)
+		start := pos
+		if match.lstrip {
+			for start > 0 && isStripSpace(text[start-1]) {
+				start--
+			}
+		}
+		ids = t.encodeChunk(text[:start], ids)
 		ids = append(ids, match.id)
 		text = text[pos+len(match.text):]
 	}
-	return append(ids, t.suffix...), nil
+	return ids, nil
 }
 
 func (t *Tokenizer) encodeChunk(s string, ids []int32) []int32 {
@@ -190,4 +211,13 @@ func sortAdded(tokens []addedToken) {
 		}
 		return tokens[i].text < tokens[j].text
 	})
+}
+
+// isStripSpace reports whether c is whitespace absorbed by an lstrip added token.
+func isStripSpace(c byte) bool {
+	switch c {
+	case ' ', '\t', '\n', '\r', '\v', '\f':
+		return true
+	}
+	return false
 }
