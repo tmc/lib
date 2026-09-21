@@ -163,6 +163,14 @@ func TestModes(t *testing.T) {
 		{Options{Mode: ControlFlow, PrintInstructionOffsetsCFG: true}, []string{"--output-control-flow-graph", "--print-instr-offsets-cfg"}},
 		{Options{Mode: BasicBlockFlow, PrintInstructionOffsetsCFG: true}, []string{"--output-control-flow-graph-with-basic-blocks", "--print-instr-offsets-cfg"}},
 		{Options{PrintCode: true, InlineLines: true, PTXLines: true}, []string{"--print-code", "--print-line-info-inline", "--print-line-info-ptx"}},
+		{Options{PrintRaw: true}, []string{"--print-raw"}},
+		{Options{SortSections: true}, []string{"--sort-sections"}},
+		{Options{NoDataflow: true}, []string{"--no-dataflow"}},
+		{Options{NoVLIW: true}, []string{"--no-vliw"}},
+		{Options{Functions: []int{7}}, []string{"--cuda-function-index", "7"}},
+		{Options{Functions: []int{3, 1, 4}}, []string{"--cuda-function-index", "3,1,4"}},
+		{Options{Functions: []int{}}, nil},
+		{Options{Functions: []int{2}, NoDataflow: true, NoVLIW: true, SortSections: true}, []string{"--cuda-function-index", "2", "--sort-sections", "--no-dataflow", "--no-vliw"}},
 	} {
 		flags, err := tt.o.flags()
 		if got := cudatool.Args(flags...); err != nil || !reflect.DeepEqual(got, tt.want) {
@@ -172,6 +180,40 @@ func TestModes(t *testing.T) {
 	for _, o := range []Options{{Mode: 99}, {Mode: JSON, SourceLines: true}, {Mode: RegisterLife, PTXLines: true}, {Mode: Text, PrintInstructionOffsetsCFG: true}} {
 		if _, err := o.flags(); err == nil {
 			t.Errorf("accepted %+v", o)
+		}
+	}
+}
+
+// TestFlagsAreAccepted holds the names this package emits to the option sets
+// recorded for nvdisasm. TestModes asserts the command line's text; this
+// asserts the tool would take it, so a name that drifts from the corpus fails
+// here rather than on a host that has nvdisasm.
+func TestFlagsAreAccepted(t *testing.T) {
+	flags, err := Options{
+		Mode:          RegisterLife,
+		LifeRangeMode: "narrow",
+		Functions:     []int{1, 2},
+		PrintCode:     true,
+		PrintHex:      true,
+		PrintRaw:      true,
+		SortSections:  true,
+		NoDataflow:    true,
+		NoVLIW:        true,
+	}.flags()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range []cudatool.Version{cudatool.V(12, 6), cudatool.V(13, 0), cudatool.V(13, 4)} {
+		opts, src, ok := cudatool.KnownOptions(ToolName, v)
+		if !ok {
+			t.Fatalf("%v: no recorded option set", v)
+		}
+		caps := cudatool.Caps{Tool: ToolName, Version: v, Source: src, Options: opts}
+		if err := caps.Check(flags...); err != nil {
+			t.Errorf("%v: %v", v, err)
+		}
+		if err := caps.Check(cudatool.Flag{Name: "--not-an-nvdisasm-option"}); err == nil {
+			t.Errorf("%v: accepted an option nvdisasm does not have", v)
 		}
 	}
 }

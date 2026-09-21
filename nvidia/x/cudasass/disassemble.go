@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
@@ -32,9 +34,14 @@ const (
 type Options struct {
 	Mode                       Mode
 	LifeRangeMode              string // "count", "narrow", or "wide" for RegisterLife mode
+	Functions                  []int  // symbol indices to disassemble; all functions when empty
 	PrintCode                  bool
 	PrintHex                   bool
+	PrintRaw                   bool
 	SeparateFunctions          bool
+	SortSections               bool
+	NoDataflow                 bool
+	NoVLIW                     bool
 	PrintInstructionOffsetsCFG bool
 	SourceLines                bool
 	InlineLines                bool
@@ -101,14 +108,33 @@ func (o Options) flags() ([]cudatool.Flag, error) {
 		}
 		add("--print-instr-offsets-cfg")
 	}
+	if len(o.Functions) > 0 {
+		indices := make([]string, len(o.Functions))
+		for i, n := range o.Functions {
+			indices[i] = strconv.Itoa(n)
+		}
+		flags = append(flags, cudatool.Flag{Name: "--cuda-function-index", Value: strings.Join(indices, ",")})
+	}
 	if o.PrintCode {
 		add("--print-code")
 	}
 	if o.PrintHex {
 		add("--print-instruction-encoding")
 	}
+	if o.PrintRaw {
+		add("--print-raw")
+	}
 	if o.SeparateFunctions {
 		add("--separate-functions")
+	}
+	if o.SortSections {
+		add("--sort-sections")
+	}
+	if o.NoDataflow {
+		add("--no-dataflow")
+	}
+	if o.NoVLIW {
+		add("--no-vliw")
 	}
 	if o.InlineLines {
 		add("--print-line-info-inline")
