@@ -172,6 +172,12 @@ func runCompletenessOf(transportReady, collectorFinalized bool, unqualified uint
 func unqualifiedGenerations(workers []captureWorker) uint64 {
 	var n uint64
 	for _, w := range workers {
+		if w.Disposition == captureWorkerNoCUDA && w.Failure == "" {
+			// A generation that ran no CUDA had nothing to finalize and lost
+			// nothing by not doing so. Counting it would turn every capture of
+			// a wrapper script partial.
+			continue
+		}
 		if w.Disposition != "finalized" || w.Failure != "" {
 			n++
 		}
@@ -234,6 +240,10 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	var targetObservedTransport bool
 	var targetObservedActivity uint64
 	var targetRecovered bool
+	// targetNoCUDA reports a target that ran no CUDA of its own. It is not a
+	// failure and not a recovery: there was nothing to collect in that
+	// process, and the capture is whatever the processes it started collected.
+	var targetNoCUDA bool
 	// Recovering a worker generation means admitting its records, so it is
 	// only on offer when those records are being admitted at all.
 	recoverWorkers := opts.recoverUnfinalized && !opts.targetOnly
@@ -305,6 +315,18 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		if state.failure != "" {
 			targetFailureState = state
 		}
+		// A target whose journal ends unfinalized having never been asked for
+		// an activity buffer ran no CUDA. CUPTI asks only when it has device
+		// work to store, and the producer notes that request as it happens, so
+		// the note is present exactly when records were there to lose. A shell
+		// that starts a CUDA program is the ordinary case, and refusing the
+		// run over the shell discards every record the program collected.
+		if err != nil && errors.Is(err, errJournalNotFinalized) && noCUDAGeneration(state, records) && state.generation == f.h.Generation {
+			targetNoCUDA = true
+			targetObservedState, targetObservedTransport = state, f.h.TransportReady
+			workers = append(workers, captureWorker{Process: f.h.Process, Generation: f.h.Generation, Records: state.records, Disposition: captureWorkerNoCUDA})
+			continue
+		}
 		admitPartial := err != nil && recoverableTargetGeneration(opts, err, state, records)
 		if err != nil && !admitPartial {
 			targetJournalErr = err
@@ -347,6 +369,24 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		selectedActivities, selectedAPIs = activities, apis
 	}
 	result.WorkerGenerations = workers
+	// mergeWorkers folds the followed generations into the totals. The target
+	// path and the non-CUDA-parent path both need it, and a capture must not
+	// count a worker differently depending on which process held the
+	// capability record.
+	mergeWorkers := func(result captureResult) captureResult {
+		if len(workerActivities) == 0 {
+			return result
+		}
+		result.Activities = append(result.Activities, workerActivities...)
+		result.ActivityNanos += workerDuration
+		result.CopyBytes += workerCopyBytes
+		result.ActivityRecords += workerRecords
+		result.DroppedRecords += workerDropped
+		result.ExternalRecords += workerExternal
+		result.HostSampleRecords += workerHostSamples
+		result.APIRecords = append(result.APIRecords, workerAPIs...)
+		return result
+	}
 	if selected == nil {
 		if targetInjectionFailure != "" {
 			result.Outcome, result.CaptureError = captureOutcomeInjection, targetInjectionFailure
@@ -378,6 +418,24 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 				diagnosis += unfinalizedHint(targetJournalErr, result)
 			}
 			result.Outcome, result.CaptureError = outcome, diagnosis
+		} else if targetNoCUDA {
+			// The capture is the followed generations' work. It keeps the
+			// target's capability record -- injection is inherited across
+			// exec, so it describes the same agent and the same flags -- with
+			// the producer scope saying whose records the totals are.
+			result.TransportReady = targetObservedTransport
+			result.BootstrapSeen = targetObservedState.bootstrap
+			result.CollectorFinalized = followedCollectorsPublished(workers)
+			result.Capability = stampProducerScope(stampProducer(targetObservedState.capabilityData, buildProducer()), targetObservedState.agentRevision, workerProducers)
+			result = mergeWorkers(result)
+			if result.ActivityRecords > 0 {
+				result.Outcome, result.CaptureSuccess = captureOutcomeCollected, true
+			} else {
+				// Same answer a finalized generation gets for the same
+				// evidence: the agent came up and nothing ran under it.
+				result.Outcome = "initialized-no-activity"
+			}
+			return applyPartialRecovery(result)
 		} else if len(workers) > 0 && workers[len(workers)-1].Failure != "" {
 			w := workers[len(workers)-1]
 			if w.Disposition == "injection-failed" {
@@ -428,16 +486,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	result.RecordLoss = selectedMetrics.loss.orNil()
 	result.ActivityNanos, result.CopyBytes, result.Activities = selectedMetrics.duration, selectedMetrics.copyBytes, selectedActivities
 	result.APIRecords = selectedAPIs
-	if len(workerActivities) != 0 {
-		result.Activities = append(result.Activities, workerActivities...)
-		result.ActivityNanos += workerDuration
-		result.CopyBytes += workerCopyBytes
-		result.ActivityRecords += workerRecords
-		result.DroppedRecords += workerDropped
-		result.ExternalRecords += workerExternal
-		result.HostSampleRecords += workerHostSamples
-		result.APIRecords = append(result.APIRecords, workerAPIs...)
-	}
+	result = mergeWorkers(result)
 	for i := range result.Activities {
 		if result.Activities[i].Process == 0 {
 			result.Activities[i].Process = uint64(result.TargetPID)
@@ -489,6 +538,48 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 // substitute for "finalized": the generation's own completion is unknown, so
 // its counts are a floor, not a total.
 const captureWorkerUnfinalizedPartial = "unfinalized-partial"
+
+// noCUDAGeneration reports a generation that ran no CUDA at all.
+//
+// The evidence is the absence of the producer's device_active note, and that
+// absence means nothing unless the producer writes one -- an agent built
+// before the note leaves the same journal for a process that lost every
+// record as for one that had none, and reading the first as the second turns
+// a failed capture into a silently empty success. So the capability record is
+// asked whether this producer reports the note at all, and a producer that
+// does not gets the refusal it got before.
+func noCUDAGeneration(state journalState, records wire.Stats) bool {
+	if state.deviceActive || state.failure != "" || records.Records != 0 {
+		return false
+	}
+	var capability struct {
+		DeviceActiveNote bool `json:"device_active_note"`
+	}
+	return json.Unmarshal(state.capabilityData, &capability) == nil && capability.DeviceActiveNote
+}
+
+// captureWorkerNoCUDA labels a generation that ran no CUDA: the agent loaded,
+// CUPTI never asked it for an activity buffer, and the process ended without
+// finalizing a journal that had nothing in it to publish.
+const captureWorkerNoCUDA = "no-cuda"
+
+// followedCollectorsPublished reports whether the collection a target that ran
+// no CUDA stood aside for was published.
+//
+// The target itself had nothing to finalize, so the question is only about the
+// generations that did collect, and the answer is true when none of them ended
+// without publishing -- including the run where no other process started at
+// all, which collected nothing and lost nothing. A generation that published a
+// failure is published: the failure is in its record and counts as unqualified,
+// which is what turns the run partial rather than failed.
+func followedCollectorsPublished(workers []captureWorker) bool {
+	for _, w := range workers {
+		if w.Disposition != captureWorkerNoCUDA && w.Disposition != "finalized" {
+			return false
+		}
+	}
+	return true
+}
 
 // recoverableTargetGeneration reports whether an unfinalized target generation
 // may contribute its records as an explicit partial. Three conditions, each
@@ -564,9 +655,14 @@ func resultWithWorkers(result captureResult, workers []captureWorker, message st
 
 type journalState struct {
 	bootstrap, capability, finalized, noCUDA, initializedNoActivity bool
-	generation                                                      uint64
-	records                                                         uint64
-	capabilityData                                                  json.RawMessage
+	// deviceActive reports the producer's note that CUPTI asked it for an
+	// activity buffer. It is what separates a generation that lost its
+	// records from one that had none to lose: both end with a journal holding
+	// bootstrap and capability alone.
+	deviceActive   bool
+	generation     uint64
+	records        uint64
+	capabilityData json.RawMessage
 	// agentRevision is the source revision the agent that wrote this journal
 	// stamped into its capability record, "" when it named none. A session
 	// merges journals from several processes and publishes one capability
@@ -791,6 +887,14 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				continue
 			}
 			if payload.Subtype == "capture_range" {
+				continue
+			}
+			// device_active is the producer saying CUPTI asked it for a
+			// buffer. Like a capture-range edge it is bookkeeping rather than
+			// device work, so it is counted as neither activity nor valid
+			// activity and carries nothing a timeline could hold.
+			if payload.Subtype == "device_active" {
+				state.deviceActive = true
 				continue
 			}
 			// CUPTI overhead, the graph replay envelope and synchronization

@@ -280,6 +280,12 @@ _Static_assert(CUPTI_DRIVER_TRACE_CBID_cuProfilerStop == 309, "unexpected cuProf
 static int finalize_mode;
 static _Atomic int finalize_started;
 static _Atomic int finalize_done;
+/* device_active is set by the first buffer request, journal_ready by the
+   constructor once bootstrap and capability are down, and device_active_written
+   by whichever of the two publishes the record. */
+static _Atomic int device_active;
+static _Atomic int device_active_written;
+static _Atomic int journal_ready;
 static const char *finalize_trigger;
 static uint64_t self_pid;
 static unsigned char buffer_pool[BUFFER_POOL][BUFFER_BYTES] __attribute__((aligned(64)));
@@ -1147,9 +1153,35 @@ static void stop_host_sampler(void) {
 	host_sample_running = 0;
 }
 
+/* device_active records that CUPTI asked this process for an activity buffer,
+   which it does only when there is device work to store. It is the one piece
+   of evidence a journal that never finalizes still carries: activity and API
+   records stay inside CUPTI until a flush, so a target that exits through
+   exit_group leaves a journal holding bootstrap and capability and nothing
+   else -- byte for byte what a process that never touched CUDA leaves. A
+   consumer reading that cannot tell a lost capture from a wrapper script, and
+   refusing both costs a shell-wrapped run every record its children collected.
+
+   Written once, directly rather than through the queue, because the drain that
+   empties the queue is exactly what the exiting target does not reach. The
+   constructor publishes it if the request arrives before the capability record
+   is down, since a consumer refuses an activity record that precedes one. */
+static void publish_device_active(void) {
+	int expected = 0;
+	if (!atomic_compare_exchange_strong(&device_active_written, &expected, 1)) return;
+	static const char record[] = "{\"kind\":\"activity\",\"subtype\":\"device_active\"}";
+	(void)write_record(KIND_ACTIVITY, now_ns(), record, sizeof(record) - 1);
+}
+
+static void note_device_active(void) {
+	if (atomic_exchange(&device_active, 1)) return;
+	if (atomic_load(&journal_ready)) publish_device_active();
+}
+
 static void CUPTIAPI buffer_requested(uint8_t **buffer, size_t *size, size_t *max_records) {
 	*buffer = NULL; *size = 0;
 	if (atomic_load(&shutdown_started)) { *max_records = 0; return; }
+	note_device_active();
 	for (int i = 0; i < BUFFER_POOL; i++) {
 		int expected = 0;
 		if (atomic_compare_exchange_strong(&buffer_busy[i], &expected, 1)) { *buffer = buffer_pool[i]; *size = BUFFER_BYTES; break; }
@@ -1977,7 +2009,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
 		}
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
@@ -2001,7 +2033,11 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	   configure time instead would make the ordering a question of thread
 	   scheduling, and the failure would be a rejected capture rather than a
 	   missing sample. */
-	if (capability_written) start_host_sampler();
+	if (capability_written) {
+		atomic_store(&journal_ready, 1);
+		if (atomic_load(&device_active)) publish_device_active();
+		start_host_sampler();
+	}
 	write_handshake(NULL);
 }
 

@@ -157,6 +157,12 @@ type capture struct {
 	order     []uint16
 	ranges    []rangeEdgeRecord
 	truncated bool
+	// deviceActive counts the producer's device_active notes. The note is
+	// written straight to the journal rather than through the ring, because
+	// the drain that empties the ring is what an exiting target never
+	// reaches, so it is out of band by construction and every reconciliation
+	// below has to take it out of the journal's side of the equation.
+	deviceActive int
 }
 
 // rangeEdgeRecord is one capture-range edge as the producer wrote it. These are
@@ -542,6 +548,9 @@ func decode(t *testing.T, path, wantRevision string) capture {
 			// Only markers are decoded here. The high-volume scenarios offer
 			// millions of activity records and a JSON unmarshal per record
 			// would make the decode, not the producer, the thing under test.
+			if bytes.Contains(r.Payload, []byte(`"subtype":"device_active"`)) {
+				c.deviceActive++
+			}
 			if bytes.Contains(r.Payload, []byte(`"subtype":"capture_range"`)) {
 				var e rangeEdgeRecord
 				if err := json.Unmarshal(r.Payload, &e); err != nil {
@@ -642,7 +651,7 @@ func checkReconcilesOutOfBand(t *testing.T, c capture, offered uint64, outOfBand
 			queued += n
 		}
 	}
-	var outOfBandTotal uint64
+	outOfBandTotal := uint64(c.deviceActive)
 	for _, n := range outOfBand {
 		outOfBandTotal += n
 	}
@@ -702,7 +711,7 @@ func checkPerKindReconciles(t *testing.T, c capture, drops uint64, outOfBand map
 	// records of that kind actually in the journal. A kind-agnostic counter
 	// passes the sums above and fails here.
 	journal := map[string]uint64{
-		"activity": c.counts[kindActivity] - outOfBand[kindActivity],
+		"activity": c.counts[kindActivity] - outOfBand[kindActivity] - uint64(c.deviceActive),
 		"api":      c.counts[kindAPI] - outOfBand[kindAPI],
 		"external": c.counts[kindExternal] - outOfBand[kindExternal],
 		"failure":  c.counts[kindFailure] - outOfBand[kindFailure],
@@ -2084,8 +2093,21 @@ func TestPeriodicFlushPublishesWithoutATrigger(t *testing.T) {
 	if c.capability.FlushIntervalMS != 50 {
 		t.Errorf("flush_interval_ms = %d, want 50: the record states the interval this process runs", c.capability.FlushIntervalMS)
 	}
-	if n := c.counts[kindActivity] + c.counts[kindAPI]; n != on.Offered {
+	if n := c.counts[kindActivity] + c.counts[kindAPI] - uint64(c.deviceActive); n != on.Offered {
 		t.Errorf("journal holds %d of the %d records the flush delivered", n, on.Offered)
+	}
+	// The flush is also where CUPTI first asks this producer for a buffer, and
+	// the note of that request is the only mark of device work a journal
+	// ending like this one carries: the records themselves are here because a
+	// flush ran, and a target that reaches no flush and no trigger publishes
+	// none of them. A consumer reads the note's absence as a process that ran
+	// no CUDA, so a run with device work has to write it exactly once, ahead
+	// of the records it is about.
+	if c.deviceActive != 1 {
+		t.Errorf("device_active notes = %d, want 1", c.deviceActive)
+	}
+	if quiet.deviceActive != 0 {
+		t.Errorf("device_active notes = %d without a flush, so the note does not discriminate", quiet.deviceActive)
 	}
 	if c.finalized != nil {
 		t.Errorf("a process that left by _exit wrote a finalized record: %+v", *c.finalized)

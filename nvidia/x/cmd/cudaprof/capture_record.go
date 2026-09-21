@@ -101,7 +101,22 @@ func runCaptureCommand(args []string) error {
 // announcing success. The word follows RunCompleteness, which is the field
 // that answers the question the word asks.
 func captureHeadline(result captureResult) string {
-	return captureHeadlineTotals(result) + projectionNotes(result)
+	return captureHeadlineTotals(result) + wrapperNote(result) + projectionNotes(result)
+}
+
+// wrapperNote says whose records the totals are when they are not the
+// target's. A shell or launcher runs no CUDA of its own, so every record in
+// the capture came from a process it started, and a reader who assumes
+// otherwise will look for the target's own name in a timeline that cannot
+// hold it.
+func wrapperNote(result captureResult) string {
+	for _, w := range result.WorkerGenerations {
+		if w.Process != uint64(result.TargetPID) || w.Disposition != captureWorkerNoCUDA {
+			continue
+		}
+		return fmt.Sprintf("  the target process ran no CUDA; these totals are from the %d generation(s) it started\n", len(result.WorkerGenerations)-1)
+	}
+	return ""
 }
 
 // projectionNotes says how the projection differs from the journal totals the
