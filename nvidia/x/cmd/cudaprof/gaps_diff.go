@@ -131,6 +131,11 @@ type KernelCensusDiff struct {
 	// which makes a launch count difference a recording difference rather
 	// than a change in what ran.
 	Caveat string `json:"caveat,omitempty"`
+
+	// PositionCaveat is set when kernels that ran in both arms moved
+	// through the run. It is a different claim from Caveat: the records
+	// agree about what ran, and disagree about where.
+	PositionCaveat string `json:"position_caveat,omitempty"`
 }
 
 // censusCaveat names a launch count difference the change did not cause.
@@ -152,6 +157,40 @@ func censusCaveat(base, target *GapReport) string {
 	}
 	return fmt.Sprintf("the %s capture's graph replays are opaque and the %s capture's are not: kernels that ran inside a replay have no device record in the %s arm, so they show a launch count of zero there. A row that falls to or rises from zero is that difference in recording, not a launch the change removed",
 		opaque, resolved, opaque)
+}
+
+// positionCaveat states that the two arms disagree about WHERE work happened.
+//
+// Every total in this census is a whole-capture total, and a relocation moves
+// no whole-capture total at all: the launch count is identical and the device
+// time is whatever it was. A rate measured over a window is not so stable.
+// Work that leaves a window has left that rate's denominator without leaving
+// the run, which reads as a speedup the run did not get -- on the pair that
+// motivated this, 24 repack launches moved out of the prefill window while
+// repack's whole-capture time rose 89.934 ms, and the windowed metric called
+// it an improvement.
+//
+// This has to print above the table rather than beside the rows it describes.
+// The preamble already carries the general rule, but a sentence printed on
+// every report says nothing about THIS pair; a reader learns that relocation
+// occurred here only if something fires on it. By the time the section is
+// reached the totals have been read and the conclusion drawn.
+func positionCaveat(rows []KernelDelta) string {
+	if len(rows) == 0 {
+		return ""
+	}
+	worst := rows[0]
+	for _, r := range rows[1:] {
+		if math.Abs(r.PositionShift) > math.Abs(worst.PositionShift) {
+			worst = r
+		}
+	}
+	subject := fmt.Sprintf("%d kernels kept their launch counts", len(rows))
+	if len(rows) == 1 {
+		subject = "one kernel kept its launch count"
+	}
+	return fmt.Sprintf("%s and moved through the run, %s furthest at %+.1f points of launch order. The two arms disagree about where work happened, not whether it happened, so these whole-capture totals are unmoved by it and any rate measured over a window -- prefill tokens/s, a phase total -- is not. Check the window before reading a speedup",
+		subject, truncateKernelName(worst.Name, 44), worst.PositionShift*100)
 }
 
 // diffKernelCensus pairs the two censuses by kernel name.
@@ -235,6 +274,7 @@ func diffKernelCensus(base, target *GapReport) *KernelCensusDiff {
 	rank(out.Changed)
 	rank(out.Unchanged)
 	rank(out.Relocated)
+	out.PositionCaveat = positionCaveat(out.Relocated)
 	return out
 }
 
@@ -503,6 +543,9 @@ func writeKernelCensusDiff(b *strings.Builder, k *KernelCensusDiff) {
 	if k.Caveat != "" {
 		fmt.Fprintf(b, "  caveat: %s\n", k.Caveat)
 	}
+	if k.PositionCaveat != "" {
+		fmt.Fprintf(b, "  caveat: %s\n", k.PositionCaveat)
+	}
 	section := func(title, note string, rows []KernelDelta, total int64, position bool) {
 		fmt.Fprintf(b, "  %s: %s (%s)\n", title, signedDuration(total), note)
 		if len(rows) == 0 {
@@ -653,6 +696,9 @@ func writeKernelCensusMarkdown(sb *strings.Builder, k *KernelCensusDiff) {
 	sb.WriteString("Whole capture, not a window. A kernel whose launch count moved took a different path: that is the change. A kernel that kept its launch count but whose launches sit in a different part of the run is not untouched -- a rate measured over a window will disagree with these totals. Only a kernel that kept both its count and its place was left alone, and device time that moved there is what the change cost elsewhere on the device.\n\n")
 	if k.Caveat != "" {
 		sb.WriteString(fmt.Sprintf("**Caveat**: %s.\n\n", k.Caveat))
+	}
+	if k.PositionCaveat != "" {
+		sb.WriteString(fmt.Sprintf("**Caveat**: %s.\n\n", k.PositionCaveat))
 	}
 	sb.WriteString(fmt.Sprintf("- **Launch count changed**: %s\n", signedDuration(k.ChangedNanos)))
 	sb.WriteString(fmt.Sprintf("- **Launch count unchanged, position moved**: %s\n", signedDuration(k.RelocatedNanos)))

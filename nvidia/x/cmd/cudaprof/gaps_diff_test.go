@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -585,5 +586,85 @@ func TestUnnamedLaunchesHoldThePositionScale(t *testing.T) {
 	}
 	if got := diff.Kernels.Relocated[0].PositionShift; got < 0.6 {
 		t.Errorf("b's shift = %+.3f, want ~+0.667 of the run's launch order", got)
+	}
+}
+
+// TestPositionCaveatPrintsAboveTheTable is errata 21.155: a whole-capture diff
+// whose two arms disagree about WHERE work happened has to say so above the
+// table, not in a section a reader reaches after the totals have been read.
+//
+// The section heading has carried that sentence since the three-class split
+// landed. It was not enough: the reader who divides by a window has already
+// divided by the time they get there.
+func TestPositionCaveatPrintsAboveTheTable(t *testing.T) {
+	base := orderedCensus(t, []string{"early", "early", "held", "late", "late"})
+	target := orderedCensus(t, []string{"held", "late", "late", "early", "early"})
+	diff, err := diffGapReports(base, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	k := diff.Kernels
+	if k.PositionCaveat == "" {
+		t.Fatalf("no position caveat; relocated = %v", names(k.Relocated))
+	}
+	text := diff.text()
+	caveatAt := strings.Index(text, k.PositionCaveat)
+	tableAt := strings.Index(text, "launch count changed:")
+	if caveatAt < 0 || tableAt < 0 {
+		t.Fatalf("caveat at %d, first section at %d, in:\n%s", caveatAt, tableAt, text)
+	}
+	if caveatAt > tableAt {
+		t.Errorf("position caveat printed below the table (%d > %d):\n%s", caveatAt, tableAt, text)
+	}
+	if !strings.Contains(k.PositionCaveat, "window") {
+		t.Errorf("caveat does not name the window, the thing to check: %q", k.PositionCaveat)
+	}
+	var md strings.Builder
+	writeKernelCensusMarkdown(&md, k)
+	if !strings.Contains(md.String(), k.PositionCaveat) {
+		t.Errorf("markdown render dropped the position caveat:\n%s", md.String())
+	}
+}
+
+// TestPositionCaveatNamesTheFurthestMover keeps the caveat from reporting
+// whichever row sorted first. The rows are ranked by delta, so the kernel that
+// moved furthest is generally not row zero, and naming the wrong one sends the
+// reader to the wrong window.
+func TestPositionCaveatNamesTheFurthestMover(t *testing.T) {
+	base := orderedCensus(t, []string{"far", "far", "near", "near", "anchor", "anchor"})
+	target := orderedCensus(t, []string{"near", "anchor", "anchor", "near", "far", "far"})
+	diff, err := diffGapReports(base, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	k := diff.Kernels
+	var worst KernelDelta
+	for _, r := range k.Relocated {
+		if math.Abs(r.PositionShift) > math.Abs(worst.PositionShift) {
+			worst = r
+		}
+	}
+	if worst.Name == "" {
+		t.Fatalf("nothing relocated: %v", names(k.Relocated))
+	}
+	if !strings.Contains(k.PositionCaveat, worst.Name) {
+		t.Errorf("caveat %q does not name the furthest mover %q (shift %.3f)", k.PositionCaveat, worst.Name, worst.PositionShift)
+	}
+}
+
+// TestNoPositionCaveatWhenNothingMoved is the negative control. A caveat that
+// prints on every diff is the unconditional preamble again, and says nothing
+// about the pair in front of the reader.
+func TestNoPositionCaveatWhenNothingMoved(t *testing.T) {
+	order := []string{"a", "a", "b", "b", "c"}
+	diff, err := diffGapReports(orderedCensus(t, order), orderedCensus(t, order))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := diff.Kernels.PositionCaveat; got != "" {
+		t.Errorf("position caveat on an unmoved pair: %q", got)
+	}
+	if strings.Contains(diff.text(), "disagree about where work happened") {
+		t.Errorf("text names a position disagreement that did not occur:\n%s", diff.text())
 	}
 }
