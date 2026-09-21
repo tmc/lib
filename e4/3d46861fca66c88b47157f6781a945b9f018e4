@@ -1,0 +1,10 @@
+commit: e43d46861fca66c88b47157f6781a945b9f018e4
+commit date: 2026-09-20T17:43:55-07:00
+agent: Codex
+model: GPT-6 (exact runtime model ID unavailable)
+codex version: 0.155.1
+claude-code version installed: 2.1.269 (not the executing agent)
+tty: none (non-interactive tool execution)
+pid: 71020 (note writer)
+ITERM_SESSION_ID: w3t0p11:DAA8BAB9-DDDB-4ADB-B487-06F048D07961
+validation: isolated pinned reconstruction, source hashes, C/C++ ABI and CPU synthetic controls passed
