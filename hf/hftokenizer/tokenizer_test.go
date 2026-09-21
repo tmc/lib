@@ -146,8 +146,13 @@ func TestRejectUnsupported(t *testing.T) {
 		{"fallback", func(s map[string]any) { s["model"].(map[string]any)["byte_fallback"] = true }},
 		{"missing byte", func(s map[string]any) { delete(s["model"].(map[string]any)["vocab"].(map[string]any), "a") }},
 		{"ID collision", func(s map[string]any) { v := s["model"].(map[string]any)["vocab"].(map[string]any); v["b"] = v["a"] }},
-		{"normalized added", func(s map[string]any) { s["added_tokens"].([]any)[0].(map[string]any)["normalized"] = true }},
-		{"strip added", func(s map[string]any) { s["added_tokens"].([]any)[0].(map[string]any)["lstrip"] = true }},
+		{"normalized added", func(s map[string]any) {
+			// Normalization would rewrite this token, so matching it against
+			// the raw text is not equivalent.
+			a := s["added_tokens"].([]any)[0].(map[string]any)
+			a["content"], a["normalized"] = "e\u0301", true
+		}},
+		{"rstrip added", func(s map[string]any) { s["added_tokens"].([]any)[0].(map[string]any)["rstrip"] = true }},
 		{"decoder", func(s map[string]any) { s["decoder"] = map[string]any{"type": "Metaspace"} }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -394,4 +399,63 @@ func BenchmarkEncode(b *testing.B) {
 			}
 		})
 	}
+}
+
+// TestAddedTokenNormalizedInvariant accepts a normalized added token when the
+// normalizer leaves its content unchanged, as ModernBERT's whitespace runs do.
+func TestAddedTokenNormalizedInvariant(t *testing.T) {
+	tok := loadMutated(t, func(s map[string]any) {
+		s["added_tokens"].([]any)[0].(map[string]any)["normalized"] = true
+	})
+	if _, err := tok.Encode("hello <BOS> world"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestAddedTokenLStrip checks that an lstrip added token absorbs the whitespace
+// that precedes it instead of leaving it to the BPE merges.
+func TestAddedTokenLStrip(t *testing.T) {
+	plain := loadMutated(t, func(s map[string]any) {})
+	strip := loadMutated(t, func(s map[string]any) {
+		s["added_tokens"].([]any)[0].(map[string]any)["lstrip"] = true
+	})
+	got, err := strip.Encode("a   <BOS>b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := plain.Encode("a<BOS>b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("lstrip did not absorb spaces: got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("lstrip mismatch: got %v, want %v", got, want)
+		}
+	}
+}
+
+// loadMutated builds a tokenizer from the Qwen fixture with change applied.
+func loadMutated(t *testing.T, change func(map[string]any)) *Tokenizer {
+	t.Helper()
+	data, err := os.ReadFile("testdata/qwen.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s map[string]any
+	if err := json.Unmarshal(data, &s); err != nil {
+		t.Fatal(err)
+	}
+	change(s)
+	b, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := New(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tok
 }
