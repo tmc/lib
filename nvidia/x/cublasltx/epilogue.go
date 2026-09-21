@@ -3,8 +3,6 @@ package cublasltx
 import (
 	"errors"
 	"fmt"
-	"runtime"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublaslt"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -37,70 +35,14 @@ func (e *Engine) MatMulWithGELUBias(
 	if s != nil && s.Device() != e.dev {
 		return errors.New("cublasltx: stream belongs to another device")
 	}
-
-	return e.dev.WithContext(func() error {
-		var pin runtime.Pinner
-		defer pin.Unpin()
-		opDesc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
-		if err != nil {
-			return fmt.Errorf("create matmul desc: %w", err)
-		}
-		defer opDesc.Destroy()
-
-		// Configure Epilogue: GELU + Bias Fusion
-		epilogue := cublaslt.EpilogueGeluBias
-		pin.Pin(&epilogue)
-		if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogue, uintptr(unsafe.Pointer(&epilogue)), uint(unsafe.Sizeof(epilogue))); err != nil {
-			return fmt.Errorf("set epilogue gelu+bias: %w", err)
-		}
-
-		biasPtr := bias.Ptr()
-		pin.Pin(&biasPtr)
-		if err := opDesc.SetAttribute(cublaslt.MatmulDescBiasPointer, uintptr(unsafe.Pointer(&biasPtr)), uint(unsafe.Sizeof(biasPtr))); err != nil {
-			return fmt.Errorf("set bias pointer: %w", err)
-		}
-
-		layoutA, err := cublaslt.NewMatrixLayout(cublaslt.R32F, uint64(m), uint64(k), int64(m))
-		if err != nil {
-			return fmt.Errorf("create layout A: %w", err)
-		}
-		defer layoutA.Destroy()
-
-		layoutB, err := cublaslt.NewMatrixLayout(cublaslt.R32F, uint64(k), uint64(n), int64(k))
-		if err != nil {
-			return fmt.Errorf("create layout B: %w", err)
-		}
-		defer layoutB.Destroy()
-
-		layoutD, err := cublaslt.NewMatrixLayout(cublaslt.R32F, uint64(m), uint64(n), int64(m))
-		if err != nil {
-			return fmt.Errorf("create layout D: %w", err)
-		}
-		defer layoutD.Destroy()
-
-		alpha := float32(1.0)
-		beta := float32(0.0)
-		pin.Pin(&alpha)
-		pin.Pin(&beta)
-
-		return withStream(s, func(streamHandle cublaslt.Stream) error {
-			return e.handle.Matmul(
-				opDesc,
-				uintptr(unsafe.Pointer(&alpha)),
-				uintptr(a.Ptr()),
-				layoutA,
-				uintptr(b.Ptr()),
-				layoutB,
-				uintptr(unsafe.Pointer(&beta)),
-				uintptr(d.Ptr()),
-				layoutD,
-				uintptr(d.Ptr()),
-				layoutD,
-				nil,
-				0,
-				0,
-				streamHandle,
-			)
-		})
-	})
+	return e.execute(s, MatMulConfig{
+		ComputeType: cublaslt.Compute32F,
+		ScaleType:   cublaslt.R32F,
+		AType:       cublaslt.R32F,
+		BType:       cublaslt.R32F,
+		DType:       cublaslt.R32F,
+		Alpha:       1.0,
+		Epilogue:    cublaslt.EpilogueGeluBias,
+		Bias:        bias.Ptr(),
+	}, a.Ptr(), m, k, m, b.Ptr(), k, n, k, d.Ptr(), m, n, m)
 }

@@ -221,6 +221,38 @@ type MatMulConfig struct {
 	Beta          float32              // scalar multiplier for D (defaults to 0.0)
 	Workspace     cudamem.Slice[byte]  // Optional per-operation workspace override.
 	WorkspaceSize uint                 // Optional workspace size limit in bytes (defaults to Workspace.Len() if Workspace is set).
+
+	Epilogue cublaslt.Epilogue // postprocessing applied to D; zero means none
+	Bias     driver.DevicePtr  // bias vector, one value per row of D, required by the bias and bgrad epilogues
+	BiasType cublaslt.DataType // element type of Bias (defaults to DType)
+	Aux      driver.DevicePtr  // auxiliary buffer the EpilogueGeluAux and EpilogueReluAux families write or read
+	AuxLd    int               // leading dimension of Aux, in elements (defaults to the leading dimension of D)
+}
+
+// epilogueUsesBias reports whether ep reads or writes the bias vector, which
+// cuBLASLt takes from MatmulDescBiasPointer.
+func epilogueUsesBias(ep cublaslt.Epilogue) bool {
+	switch ep {
+	case cublaslt.EpilogueBias, cublaslt.EpilogueReluBias, cublaslt.EpilogueReluAuxBias,
+		cublaslt.EpilogueGeluBias, cublaslt.EpilogueGeluAuxBias,
+		cublaslt.EpilogueDreluBgrad, cublaslt.EpilogueDgeluBgrad,
+		cublaslt.EpilogueBgrada, cublaslt.EpilogueBgradb:
+		return true
+	}
+	return false
+}
+
+// epilogueUsesAux reports whether ep reads or writes the auxiliary buffer,
+// which cuBLASLt takes from MatmulDescEpilogueAuxPointer.
+func epilogueUsesAux(ep cublaslt.Epilogue) bool {
+	switch ep {
+	case cublaslt.EpilogueReluAux, cublaslt.EpilogueReluAuxBias,
+		cublaslt.EpilogueGeluAux, cublaslt.EpilogueGeluAuxBias,
+		cublaslt.EpilogueDrelu, cublaslt.EpilogueDreluBgrad,
+		cublaslt.EpilogueDgelu, cublaslt.EpilogueDgeluBgrad:
+		return true
+	}
+	return false
 }
 
 func (e *Engine) execute(
@@ -266,6 +298,18 @@ func (e *Engine) execute(
 	if cfg.Alpha == 0 && cfg.Beta == 0 {
 		cfg.Alpha = 1.0
 	}
+	if cfg.BiasType == 0 {
+		cfg.BiasType = cfg.DType
+	}
+	if epilogueUsesBias(cfg.Epilogue) && cfg.Bias == 0 {
+		return fmt.Errorf("cublasltx: epilogue %v needs a bias pointer", cfg.Epilogue)
+	}
+	if epilogueUsesAux(cfg.Epilogue) && cfg.Aux == 0 {
+		return fmt.Errorf("cublasltx: epilogue %v needs an auxiliary pointer", cfg.Epilogue)
+	}
+	if cfg.AuxLd == 0 {
+		cfg.AuxLd = ldd
+	}
 
 	return e.dev.WithContext(func() error {
 		var pin runtime.Pinner
@@ -289,6 +333,37 @@ func (e *Engine) execute(
 			pin.Pin(&op)
 			if err := opDesc.SetAttribute(cublaslt.MatmulDescTransb, uintptr(unsafe.Pointer(&op)), uint(unsafe.Sizeof(op))); err != nil {
 				return fmt.Errorf("set transb: %w", err)
+			}
+		}
+		if cfg.Epilogue != 0 {
+			ep := cfg.Epilogue
+			pin.Pin(&ep)
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogue, uintptr(unsafe.Pointer(&ep)), uint(unsafe.Sizeof(ep))); err != nil {
+				return fmt.Errorf("set epilogue: %w", err)
+			}
+		}
+		if cfg.Bias != 0 {
+			biasPtr := cfg.Bias
+			pin.Pin(&biasPtr)
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescBiasPointer, uintptr(unsafe.Pointer(&biasPtr)), uint(unsafe.Sizeof(biasPtr))); err != nil {
+				return fmt.Errorf("set bias pointer: %w", err)
+			}
+			biasType := cfg.BiasType
+			pin.Pin(&biasType)
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescBiasDataType, uintptr(unsafe.Pointer(&biasType)), uint(unsafe.Sizeof(biasType))); err != nil {
+				return fmt.Errorf("set bias data type: %w", err)
+			}
+		}
+		if cfg.Aux != 0 {
+			auxPtr := cfg.Aux
+			pin.Pin(&auxPtr)
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogueAuxPointer, uintptr(unsafe.Pointer(&auxPtr)), uint(unsafe.Sizeof(auxPtr))); err != nil {
+				return fmt.Errorf("set epilogue aux pointer: %w", err)
+			}
+			auxLd := int64(cfg.AuxLd)
+			pin.Pin(&auxLd)
+			if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogueAuxLd, uintptr(unsafe.Pointer(&auxLd)), uint(unsafe.Sizeof(auxLd))); err != nil {
+				return fmt.Errorf("set epilogue aux ld: %w", err)
 			}
 		}
 
