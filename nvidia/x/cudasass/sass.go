@@ -23,6 +23,34 @@ type Function struct {
 	Name         string
 	BaseAddress  uint64
 	Instructions []Instruction
+
+	// Symbols lists the function symbols nvdisasm declares inside this
+	// function's section other than the function itself, in address order.
+	// The compiler places the subroutines a kernel calls, such as its
+	// division slowpath, after the kernel's own code in the same section,
+	// and their instructions are in Instructions like any other.
+	Symbols []Symbol
+}
+
+// A Symbol is a function symbol declared inside another function's section,
+// at the address of its first instruction.
+type Symbol struct {
+	Name    string
+	Address uint64
+}
+
+// SymbolAt returns the name of the symbol whose code contains the
+// function-relative address: the last of Symbols at or before it, or the
+// function's own name when no symbol precedes it.
+func (f *Function) SymbolAt(addr uint64) string {
+	name := f.Name
+	for _, s := range f.Symbols {
+		if s.Address > addr {
+			break
+		}
+		name = s.Name
+	}
+	return name
 }
 
 // Instruction represents a single decoded hardware SASS instruction.
@@ -120,6 +148,9 @@ func Parse(r io.Reader) (*Disassembly, error) {
 	// Instruction awaiting the high word of its encoding, identified by
 	// position because appending to Instructions may move the slice.
 	pendingFn, pendingIdx := (*Function)(nil), 0
+	// pendingSymbol is a function symbol declared by a .type directive whose
+	// address is that of the next instruction parsed.
+	pendingSymbol := ""
 
 	// curSection indexes d.sections, or is -1 between kernels. An index rather
 	// than a pointer: appending to d.sections moves the backing array, and a
@@ -191,8 +222,17 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			continue
 		}
 
+		if name, ok := functionSymbol(trimmed); ok && curFn != nil && name != curFn.Name {
+			// nvdisasm declares the symbol twice, once with the section's
+			// header lines and once before its label; the label's is the
+			// one at the code.
+			pendingSymbol = name
+			continue
+		}
+
 		// Detect function header (e.g. ".text._Z10LinearGEMV...", "Function : LinearGEMV", "--- Kernel: LinearGEMV ---")
 		if fnName := extractFunctionName(trimmed); fnName != "" {
+			pendingSymbol = ""
 			curSourceFile = ""
 			curSourceLine = 0
 			curInlinedFile = ""
@@ -226,6 +266,10 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			}
 			if len(curFn.Instructions) == 0 {
 				curFn.BaseAddress = inst.Address
+			}
+			if pendingSymbol != "" {
+				curFn.Symbols = append(curFn.Symbols, Symbol{Name: pendingSymbol, Address: inst.Address})
+				pendingSymbol = ""
 			}
 			curFn.Instructions = append(curFn.Instructions, inst)
 			if sawEncoding {
@@ -285,6 +329,22 @@ func extractFunctionName(line string) string {
 		return strings.TrimSpace(name)
 	}
 	return ""
+}
+
+// functionSymbol parses a ".type NAME,@function" directive.
+func functionSymbol(line string) (string, bool) {
+	if !strings.HasPrefix(line, ".type") {
+		return "", false
+	}
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return "", false
+	}
+	name, typ, ok := strings.Cut(fields[len(fields)-1], ",")
+	if !ok || typ != "@function" || name == "" {
+		return "", false
+	}
+	return name, true
 }
 
 // ParseInstructionLine parses a single SASS instruction line.
