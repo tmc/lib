@@ -30,6 +30,7 @@
    symbols the shipping library exports. */
 CUptiResult cudaprof_push_external(uint32_t external_kind, uint64_t external_id);
 CUptiResult cudaprof_pop_external(uint32_t external_kind, uint64_t *external_id);
+int cudaprof_finalize(void);
 
 /* Counts this process's open descriptors whose /proc/self/fd link matches a
    prefix or suffix, which is how the control observes that a forked child
@@ -182,29 +183,76 @@ int main(int argc, char **argv) {
 	   kind count separates them. Which cbid to trigger on is an argument so
 	   one scenario covers the runtime pair and the driver pair; a target calls
 	   one or the other and the gate has to open for either. */
-	if (strcmp(scenario, "capture-range") == 0) {
+	if (strncmp(scenario, "capture-range", strlen("capture-range")) == 0) {
 		unsigned domain = arg_uint(argc, argv, 6, 2);  /* RUNTIME_API */
 		unsigned start_cbid = domain == 2 ? 171u : 308u;
 		unsigned stop_cbid = domain == 2 ? 172u : 309u;
+		/* A target may stop collecting and start again, so the restart
+		   variant runs the pair twice and reports the second range. A
+		   producer that ends the capture at the first stop has no second
+		   range to report and writes two edges where four are due. */
+		unsigned cycles = strcmp(scenario, "capture-range-restart") == 0 ? 2u : 1u;
 		unsigned before_kinds = cudaprof_test_enabled_kind_count();
 		int before = cudaprof_test_offer_undecoded(buffers, buffers, buffers, 0, markers, memsets, undecoded);
-		int fired_start = cudaprof_test_fire_callback(domain, start_cbid, 1 /* API_EXIT */);
-		unsigned inside_kinds = cudaprof_test_enabled_kind_count();
-		int inside = cudaprof_test_offer_undecoded(buffers, buffers, buffers, 0, markers, memsets, undecoded);
-		int fired_stop = cudaprof_test_fire_callback(domain, stop_cbid, 0 /* API_ENTER */);
-		unsigned after_kinds = cudaprof_test_enabled_kind_count();
-		int after = cudaprof_test_offer_undecoded(buffers, buffers, buffers, 0, markers, memsets, undecoded);
-		printf("{\"scenario\":\"capture-range\",\"subscribed\":%d,\"domain\":%u,"
+		int fired_start = 0, fired_stop = 0, inside = 0, after = 0;
+		unsigned inside_kinds = 0, after_kinds = 0;
+		for (unsigned c = 0; c < cycles; c++) {
+			fired_start = cudaprof_test_fire_callback(domain, start_cbid, 1 /* API_EXIT */);
+			inside_kinds = cudaprof_test_enabled_kind_count();
+			inside = cudaprof_test_offer_undecoded(buffers, buffers, buffers, 0, markers, memsets, undecoded);
+			fired_stop = cudaprof_test_fire_callback(domain, stop_cbid, 0 /* API_ENTER */);
+			after_kinds = cudaprof_test_enabled_kind_count();
+			after = cudaprof_test_offer_undecoded(buffers, buffers, buffers, 0, markers, memsets, undecoded);
+		}
+		printf("{\"scenario\":\"%s\",\"subscribed\":%d,\"domain\":%u,"
 			"\"start_enabled\":%d,\"stop_enabled\":%d,\"fired_start\":%d,\"fired_stop\":%d,"
 			"\"before\":%d,\"inside\":%d,\"after\":%d,"
 			"\"before_kinds\":%u,\"inside_kinds\":%u,\"after_kinds\":%u}\n",
-			cudaprof_test_subscribed(), domain,
+			scenario, cudaprof_test_subscribed(), domain,
 			cudaprof_test_callback_enabled(domain, start_cbid),
 			cudaprof_test_callback_enabled(domain, stop_cbid),
 			fired_start, fired_stop, before, inside, after,
 			before_kinds, inside_kinds, after_kinds);
 		fflush(stdout);
+		/* The abrupt variant leaves the way a Go runtime leaves: straight to
+		   exit_group, running no ELF destructor and no atexit handler. What
+		   the journal holds is what was written before this line. */
+		if (strcmp(scenario, "capture-range-abrupt") == 0) _exit(0);
 		return 0;
+	}
+
+	/* finalize-export drives cudaprof_finalize, the entry point a host calls
+	   when its runtime will leave by exit_group. The scenario ends that way on
+	   purpose, so the journal can only be complete if the call itself
+	   completed it. The offers after the call must find every entry point
+	   shut, and the second call must report the same finalized capture without
+	   writing a second finalized record. */
+	if (strcmp(scenario, "finalize-export") == 0) {
+		int offered = cudaprof_test_offer_markers(buffers, buffers, buffers, 0, markers);
+		int rc = cudaprof_finalize();
+		int after = cudaprof_test_offer_markers(buffers, buffers, buffers, 0, markers);
+		int again = cudaprof_finalize();
+		printf("{\"scenario\":\"finalize-export\",\"offered\":%d,\"after\":%d,"
+			"\"finalize_rc\":%d,\"finalize_rc_again\":%d}\n", offered, after, rc, again);
+		fflush(stdout);
+		_exit(0);
+	}
+
+	/* flush-interval is the target that cooperates with nothing: it never
+	   fills a CUPTI buffer, never reaches the profiler API, and leaves by
+	   exit_group. Its records sit staged inside the stub until something
+	   flushes, so the journal holds them only if the producer's own interval
+	   flush ran. The wait is several intervals long; the flush count says how
+	   many actually happened. */
+	if (strcmp(scenario, "flush-interval") == 0) {
+		cudaprof_test_stage_for_flush(buffers, buffers, buffers);
+		unsigned wait_ms = arg_uint(argc, argv, 6, 400);
+		struct timespec ts = {wait_ms / 1000u, (long)(wait_ms % 1000u) * 1000000L};
+		nanosleep(&ts, NULL);
+		printf("{\"scenario\":\"flush-interval\",\"offered\":%u,\"flushes\":%u}\n",
+			cudaprof_test_flush_delivered(), cudaprof_test_flush_count());
+		fflush(stdout);
+		_exit(0);
 	}
 
 	pthread_t trigger_id = 0;

@@ -104,6 +104,16 @@ type harnessResult struct {
 	ChildPopResult     int `json:"child_pop_result"`
 	ChildJournalFDs    int `json:"child_journal_fds"`
 	ChildPipeFDs       int `json:"child_pipe_fds"`
+
+	// finalize-export and flush-interval only. After is what the harness
+	// offered once the capture was finalized, which must be nothing: the
+	// entry points are shut. FinalizeRC and FinalizeRCAgain are the exported
+	// finalize's two returns, and Flushes is how many times the producer's
+	// interval flush actually reached CUPTI.
+	After           int `json:"after"`
+	FinalizeRC      int `json:"finalize_rc"`
+	FinalizeRCAgain int `json:"finalize_rc_again"`
+	Flushes         int `json:"flushes"`
 }
 
 // cuptiSuccess and cuptiErrorNotSupported are the stub CUPTI's values for
@@ -192,6 +202,8 @@ type capabilityRecord struct {
 	NVTXMarkers     bool   `json:"nvtx_markers"`
 	Memsets         bool   `json:"memsets"`
 	CaptureRange    string `json:"capture_range"`
+	Finalize        string `json:"finalize"`
+	FlushIntervalMS int    `json:"flush_interval_ms"`
 	DrainBatch      int    `json:"drain_batch"`
 	QueueCapacity   int    `json:"queue_capacity"`
 	KernelLayout    string `json:"kernel_layout"`
@@ -395,14 +407,15 @@ func only(t *testing.T, captures []capture) capture {
 // exactly one named category, and the journal holds what the drain claims.
 func checkReconciles(t *testing.T, c capture, offered uint64) {
 	t.Helper()
-	checkReconcilesOutOfBand(t, c, offered, 0)
+	checkReconcilesOutOfBand(t, c, offered, nil)
 }
 
-// checkReconcilesOutOfBand is checkReconciles where outOfBand records reached
-// the journal without passing through the ring. The constructor writes such a
-// record directly when it fails before the drain thread exists, so it cannot
-// appear in the drain's retained count.
-func checkReconcilesOutOfBand(t *testing.T, c capture, offered uint64, outOfBand uint64) {
+// checkReconcilesOutOfBand is checkReconciles where outOfBand records, counted
+// by wire kind, reached the journal without passing through the ring and so
+// cannot appear in the drain's retained count. The constructor writes such a
+// failure record directly when it fails before the drain thread exists, and a
+// capture-range edge is written the same way.
+func checkReconcilesOutOfBand(t *testing.T, c capture, offered uint64, outOfBand map[uint16]uint64) {
 	t.Helper()
 	fin := c.finalized
 	if fin == nil {
@@ -430,8 +443,12 @@ func checkReconcilesOutOfBand(t *testing.T, c capture, offered uint64, outOfBand
 			queued += n
 		}
 	}
-	if queued != fin.Retained+outOfBand {
-		t.Errorf("journal holds %d records written outside the fixed three, drain claims %d plus %d out of band", queued, fin.Retained, outOfBand)
+	var outOfBandTotal uint64
+	for _, n := range outOfBand {
+		outOfBandTotal += n
+	}
+	if queued != fin.Retained+outOfBandTotal {
+		t.Errorf("journal holds %d records written outside the fixed three, drain claims %d plus %d out of band", queued, fin.Retained, outOfBandTotal)
 	}
 	checkPerKindReconciles(t, c, drops, outOfBand)
 	if c.counts[kindBootstrap] != 1 || c.counts[kindCapability] != 1 || c.counts[kindFinalized] != 1 {
@@ -445,7 +462,7 @@ func checkReconcilesOutOfBand(t *testing.T, c capture, offered uint64, outOfBand
 // the kinds returns the aggregate. drops is the aggregate queue-drop count,
 // which is what the per-kind dropped counters must sum to -- native_dropped is
 // CUPTI's own loss and never reaches admission, so it is not in this identity.
-func checkPerKindReconciles(t *testing.T, c capture, drops, outOfBand uint64) {
+func checkPerKindReconciles(t *testing.T, c capture, drops uint64, outOfBand map[uint16]uint64) {
 	t.Helper()
 	fin := c.finalized
 	if fin.ByKind == nil {
@@ -486,10 +503,10 @@ func checkPerKindReconciles(t *testing.T, c capture, drops, outOfBand uint64) {
 	// records of that kind actually in the journal. A kind-agnostic counter
 	// passes the sums above and fails here.
 	journal := map[string]uint64{
-		"activity": c.counts[kindActivity],
-		"api":      c.counts[kindAPI],
-		"external": c.counts[kindExternal],
-		"failure":  c.counts[kindFailure] - outOfBand,
+		"activity": c.counts[kindActivity] - outOfBand[kindActivity],
+		"api":      c.counts[kindAPI] - outOfBand[kindAPI],
+		"external": c.counts[kindExternal] - outOfBand[kindExternal],
+		"failure":  c.counts[kindFailure] - outOfBand[kindFailure],
 	}
 	for kind, want := range journal {
 		if got := fin.ByKind[kind].Retained; got != want {
@@ -727,6 +744,15 @@ func TestCapabilityReportsProducerBounds(t *testing.T) {
 	if !c.capability.APIRecords {
 		t.Error("api_records = false, want true by default")
 	}
+	// The optional collection policies are off unless asked for. A reader
+	// takes these as the statement of what this process will do, so a default
+	// that drifted would be a silent change of behaviour for every run.
+	if c.capability.Finalize != "exit" {
+		t.Errorf("finalize = %q, want %q by default", c.capability.Finalize, "exit")
+	}
+	if c.capability.FlushIntervalMS != 0 {
+		t.Errorf("flush_interval_ms = %d, want 0 by default", c.capability.FlushIntervalMS)
+	}
 }
 
 // TestForkedChildGoesInert covers fork(2) without exec. The child inherits the
@@ -871,7 +897,7 @@ func TestAtforkRegistrationFailureIsRecorded(t *testing.T) {
 	if c.finalized == nil {
 		t.Fatal("no finalized record")
 	}
-	checkReconcilesOutOfBand(t, c, result.Offered, 1)
+	checkReconcilesOutOfBand(t, c, result.Offered, map[uint16]uint64{kindFailure: 1})
 	if !status.Exited() || status.ExitStatus() != 0 {
 		t.Errorf("status = %v, want a clean exit", status)
 	}
@@ -1176,15 +1202,26 @@ type rangeResult struct {
 	AfterKinds   uint `json:"after_kinds"`
 
 	// Edges is what the producer actually wrote to the journal, which the
-	// harness's own counters cannot speak to.
-	Edges []rangeEdgeRecord `json:"-"`
+	// harness's own counters cannot speak to. Captures is every journal the
+	// run produced, for the scenarios whose question is what the journal ends
+	// with rather than what CUPTI was told.
+	Edges    []rangeEdgeRecord `json:"-"`
+	Captures []capture         `json:"-"`
 }
 
 // runRange executes the capture-range scenario and decodes its line.
 func runRange(t *testing.T, env []string, domain string) rangeResult {
 	t.Helper()
+	return runRangeScenario(t, "capture-range", env, domain)
+}
+
+// runRangeScenario is runRange for one of the scenario's variants: -restart
+// runs the start/stop pair twice, -abrupt ends the process with _exit and so
+// runs neither the ELF destructor nor the atexit handler.
+func runRangeScenario(t *testing.T, scenario string, env []string, domain string) rangeResult {
+	t.Helper()
 	dir := t.TempDir()
-	cmd := exec.Command(controlBinary(t), "capture-range", "1", "4", "0", "0", domain)
+	cmd := exec.Command(controlBinary(t), scenario, "1", "4", "0", "0", domain)
 	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex)
 	cmd.Env = append(cmd.Env, env...)
 	out, err := cmd.Output()
@@ -1205,6 +1242,7 @@ func runRange(t *testing.T, env []string, domain string) rangeResult {
 	// range from an empty one.
 	for _, c := range decodeAll(t, dir) {
 		got.Edges = append(got.Edges, c.ranges...)
+		got.Captures = append(got.Captures, c)
 	}
 	return got
 }
@@ -1350,6 +1388,243 @@ func TestCaptureRangeRefusesUnpairedTriggers(t *testing.T) {
 				t.Errorf("wrote %d range edges with an unpaired trigger set: %+v", len(got.Edges), got.Edges)
 			}
 		})
+	}
+}
+
+// TestFinalizeOnProfilerStop covers the only finalization trigger a Go target
+// can be relied on to reach. A Go program leaves through exit_group: it runs
+// no ELF destructor, no atexit handler, and takes no SIGTERM, so all three of
+// the producer's other triggers are skipped and the journal ends with whatever
+// CUPTI happened to hand over before the process vanished. On a real target
+// that was 0 activity records where the same workload in C collected 51.
+//
+// The scenario therefore ends with _exit, and the arms are crossed the same
+// way the gating control is. The default arm must leave the journal
+// unfinalized -- it is the bug, reproduced -- or the finalizing arm is not
+// evidence about the trigger. Both callback domains are covered because a
+// target calls either the runtime pair or the driver pair and never both.
+func TestFinalizeOnProfilerStop(t *testing.T) {
+	const gate = "CUDAPROF_CAPTURE_RANGE=cudaProfilerApi"
+	const mode = "CUDAPROF_FINALIZE=profiler-stop"
+	for _, d := range []struct {
+		name   string
+		domain string
+	}{
+		{"runtime", "2"},
+		{"driver", "1"},
+	} {
+		t.Run(d.name, func(t *testing.T) {
+			// The bug: the same gated capture, the same stop, the same abrupt
+			// exit, without the mode. Nothing finalizes it.
+			open := runRangeScenario(t, "capture-range-abrupt", []string{gate}, d.domain)
+			unfinalized := only(t, open.Captures)
+			if unfinalized.finalized != nil {
+				t.Fatalf("a stop finalized the capture without %s, so this control proves nothing: %+v", mode, *unfinalized.finalized)
+			}
+			if unfinalized.capability.Finalize != "exit" {
+				t.Errorf("finalize = %q without the mode, want %q", unfinalized.capability.Finalize, "exit")
+			}
+
+			got := runRangeScenario(t, "capture-range-abrupt", []string{gate, mode}, d.domain)
+			c := only(t, got.Captures)
+			if c.finalized == nil {
+				t.Fatalf("the stop did not finalize the capture: %+v", got)
+			}
+			if c.finalized.Trigger != "profiler-stop" {
+				t.Errorf("finalized by %q, want %q: the record names the trigger that ran the sequence", c.finalized.Trigger, "profiler-stop")
+			}
+			if c.finalized.State != "collected" {
+				t.Errorf("state = %q, want collected", c.finalized.State)
+			}
+			if c.capability.Finalize != "profiler-stop" {
+				t.Errorf("finalize = %q, want profiler-stop: the record has to say which trigger this process will use", c.capability.Finalize)
+			}
+			// Terminated is not the same as complete: the producer's own
+			// accounting has to close over everything the range collected.
+			// The edge records are written outside the ring, like the
+			// bootstrap and capability records, so they are in the journal
+			// and in no counter.
+			checkReconcilesOutOfBand(t, c, uint64(got.Inside), map[uint16]uint64{kindActivity: uint64(len(got.Edges))})
+			if c.finalized.Activity == 0 {
+				t.Errorf("finalized with no activity, so the stop published an empty capture: %+v", *c.finalized)
+			}
+			// Finalizing at the stop must not cost the gate: this journal is
+			// still a range capture and holds both of its edges.
+			if len(got.Edges) != 2 {
+				t.Fatalf("journal holds %d capture-range edges, want a start and a stop: %+v", len(got.Edges), got.Edges)
+			}
+			if got.Before != 0 || got.After != 0 {
+				t.Errorf("collected %d records before and %d after the range, want 0 and 0: %+v", got.Before, got.After, got)
+			}
+		})
+	}
+}
+
+// TestFinalizeOnProfilerStopWithoutRange covers the target that has no range
+// to gate. It never calls Start; it calls Stop only to hand the agent the
+// flush its exit path will never run. Gating such a run would collect nothing,
+// so the two requests are answered separately from one subscription: the
+// capture is ungated from the first instruction and the stop still ends it.
+func TestFinalizeOnProfilerStopWithoutRange(t *testing.T) {
+	got := runRangeScenario(t, "capture-range-abrupt", []string{"CUDAPROF_FINALIZE=profiler-stop"}, "1")
+	c := only(t, got.Captures)
+	if got.Subscribed != 1 || got.StopEnabled != 1 {
+		t.Fatalf("no subscription for a finalize-only request: %+v", got)
+	}
+	if got.Before == 0 {
+		t.Errorf("collected nothing before the stop, so asking for the trigger alone gated the capture: %+v", got)
+	}
+	if c.capability.CaptureRange != "none" {
+		t.Errorf("capture_range = %q, want none: nothing asked for a range", c.capability.CaptureRange)
+	}
+	if len(got.Edges) != 0 {
+		t.Errorf("wrote %d range edges for an ungated run: %+v", len(got.Edges), got.Edges)
+	}
+	if c.finalized == nil {
+		t.Fatalf("the stop did not finalize the capture: %+v", got)
+	}
+	if c.finalized.Trigger != "profiler-stop" {
+		t.Errorf("finalized by %q, want %q", c.finalized.Trigger, "profiler-stop")
+	}
+	checkReconciles(t, c, uint64(got.Before+got.Inside))
+}
+
+// TestFinalizeOnProfilerStopUnavailable covers the request that cannot be met:
+// the stop callback will not arm, so no stop can ever reach the producer. The
+// capability record has to say so. A run that reported "profiler-stop" here
+// would promise a trigger that does not exist, and the journal it leaves --
+// unfinalized, because nothing else runs either -- would look like a target
+// that simply never stopped.
+func TestFinalizeOnProfilerStopUnavailable(t *testing.T) {
+	got := runRangeScenario(t, "capture-range-abrupt", []string{
+		"CUDAPROF_FINALIZE=profiler-stop",
+		"CUDAPROF_TEST_REFUSE_CBIDS=172,309",
+	}, "1")
+	c := only(t, got.Captures)
+	if c.capability.Finalize != "requested_unavailable" {
+		t.Errorf("finalize = %q, want requested_unavailable when no stop trigger armed", c.capability.Finalize)
+	}
+	// Collection stays on. An unreachable trigger is a reason to say so, not
+	// a reason to collect less.
+	if got.BeforeKinds == 0 {
+		t.Errorf("activity kinds are off after a failed arm: %+v", got)
+	}
+	if len(c.failures) == 0 {
+		t.Error("no failure record says why the trigger could not be armed")
+	}
+}
+
+// TestProfilerStopRestartKeepsCollecting is why finalizing on a stop is opt-in.
+// A stop is not by itself the end of a capture: a target may stop and start
+// again, and the default has to survive that. The scenario runs the pair
+// twice, so a producer that ended the capture at the first stop writes two
+// edges where four are due and finalizes under the wrong trigger.
+func TestProfilerStopRestartKeepsCollecting(t *testing.T) {
+	got := runRangeScenario(t, "capture-range-restart", []string{"CUDAPROF_CAPTURE_RANGE=cudaProfilerApi"}, "1")
+	c := only(t, got.Captures)
+	if len(got.Edges) != 4 {
+		t.Fatalf("journal holds %d edges, want a start and a stop for each of two ranges: %+v", len(got.Edges), got.Edges)
+	}
+	for i, want := range []struct {
+		edge  string
+		index uint
+	}{{"start", 0}, {"stop", 0}, {"start", 1}, {"stop", 1}} {
+		if got.Edges[i].Edge != want.edge || got.Edges[i].Index != want.index {
+			t.Errorf("edge %d is %q index %d, want %q index %d", i, got.Edges[i].Edge, got.Edges[i].Index, want.edge, want.index)
+		}
+	}
+	// The second range collected: the reported counts are that cycle's.
+	if got.Inside == 0 {
+		t.Errorf("the reopened range collected nothing: %+v", got)
+	}
+	if c.finalized == nil {
+		t.Fatal("no finalized record")
+	}
+	if c.finalized.Trigger != "exit" {
+		t.Errorf("finalized by %q, want exit: a stop must not end the capture unless the mode asked it to", c.finalized.Trigger)
+	}
+	// Two cycles of the same offer. The four edges are written outside the
+	// ring and belong to no counter.
+	checkReconcilesOutOfBand(t, c, 2*uint64(got.Inside), map[uint16]uint64{kindActivity: uint64(len(got.Edges))})
+}
+
+// TestExportedFinalizeClosesTheJournal covers cudaprof_finalize, the entry
+// point for a host that reaches neither the profiler API nor a libc exit path
+// and has to say so itself. The scenario calls it and then leaves by _exit, so
+// the journal can only be complete if that call completed it. Calling it twice
+// covers the idempotence a host cannot otherwise rely on: the second call must
+// report the same finalized capture and must not write a second terminal
+// record, which checkReconciles asserts by counting them.
+func TestExportedFinalizeClosesTheJournal(t *testing.T) {
+	result, status, captures := run(t, "finalize-export", "1", "4", "0", "0")
+	if status.ExitStatus() != 0 {
+		t.Fatalf("harness exited %d", status.ExitStatus())
+	}
+	if result.FinalizeRC != 0 || result.FinalizeRCAgain != 0 {
+		t.Fatalf("cudaprof_finalize returned %d then %d, want 0 both times", result.FinalizeRC, result.FinalizeRCAgain)
+	}
+	c := only(t, captures)
+	if c.finalized == nil {
+		t.Fatal("no finalized record: nothing but the export could have written one here")
+	}
+	if c.finalized.Trigger != "host" {
+		t.Errorf("finalized by %q, want %q", c.finalized.Trigger, "host")
+	}
+	if c.finalized.State != "collected" {
+		t.Errorf("state = %q, want collected", c.finalized.State)
+	}
+	checkReconciles(t, c, result.Offered)
+	// Everything the agent owns is shut once the export returns. An offer
+	// accepted after the finalized record would be a record no accounting in
+	// that journal covers.
+	if result.After != 0 {
+		t.Errorf("the producer accepted %d records after finalizing", result.After)
+	}
+}
+
+// TestPeriodicFlushPublishesWithoutATrigger covers the last resort for a target
+// that cooperates with nothing: it never fills a CUPTI buffer, never calls the
+// profiler API, and leaves by exit_group. The stub holds its records until
+// something flushes, so this journal holds them only if the producer's own
+// interval flush ran.
+//
+// What it produces is a partial capture by construction -- records with no
+// finalized record after them -- and the control asserts that shape rather
+// than hiding it: the consumer recovers such a journal knowingly.
+func TestPeriodicFlushPublishesWithoutATrigger(t *testing.T) {
+	// Control: default off. The same staged records, the same wait, no
+	// interval -- and nothing reaches the journal at all.
+	off, _, captures := run(t, "flush-interval", "1", "4", "0", "0", "400")
+	quiet := only(t, captures)
+	if off.Flushes != 0 {
+		t.Errorf("flushed %d times with no interval configured", off.Flushes)
+	}
+	if off.Offered != 0 {
+		t.Errorf("delivered %d records with no interval configured", off.Offered)
+	}
+	if quiet.capability.FlushIntervalMS != 0 {
+		t.Errorf("flush_interval_ms = %d, want 0", quiet.capability.FlushIntervalMS)
+	}
+	if n := quiet.counts[kindActivity] + quiet.counts[kindAPI]; n != 0 {
+		t.Fatalf("journal holds %d records without a flush, so the armed arm cannot discriminate", n)
+	}
+
+	on, _, captures := runEnv(t, []string{"CUDAPROF_FLUSH_INTERVAL_MS=50"}, "flush-interval", "1", "4", "0", "0", "400")
+	c := only(t, captures)
+	if on.Flushes == 0 {
+		t.Fatalf("the interval flusher never reached CUPTI: %+v", on)
+	}
+	if on.Offered == 0 {
+		t.Fatalf("a flush happened but delivered nothing: %+v", on)
+	}
+	if c.capability.FlushIntervalMS != 50 {
+		t.Errorf("flush_interval_ms = %d, want 50: the record states the interval this process runs", c.capability.FlushIntervalMS)
+	}
+	if n := c.counts[kindActivity] + c.counts[kindAPI]; n != on.Offered {
+		t.Errorf("journal holds %d of the %d records the flush delivered", n, on.Offered)
+	}
+	if c.finalized != nil {
+		t.Errorf("a process that left by _exit wrote a finalized record: %+v", *c.finalized)
 	}
 }
 

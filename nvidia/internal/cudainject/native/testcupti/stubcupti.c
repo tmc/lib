@@ -174,7 +174,37 @@ unsigned cudaprof_test_enabled_kind_count(void) {
 	return n;
 }
 
-CUptiResult cuptiActivityFlushAll(uint32_t flag) { (void)flag; return CUPTI_SUCCESS; }
+/* Records held back until something flushes. Real CUPTI hands a buffer to
+   buffer_completed when that buffer fills or when a flush asks for it, and a
+   run whose buffers never fill sees its records only through the second path.
+   Staging a buffer here is what lets a control ask what the flush path alone
+   delivers: nothing at all reaches the journal until a flush happens. */
+static _Atomic unsigned flush_calls;
+static _Atomic unsigned flush_delivered;
+static _Atomic unsigned staged_kernels, staged_memcpys, staged_apis;
+
+void cudaprof_test_stage_for_flush(unsigned kernels, unsigned memcpys, unsigned apis) {
+	atomic_store(&staged_kernels, kernels);
+	atomic_store(&staged_memcpys, memcpys);
+	atomic_store(&staged_apis, apis);
+}
+
+unsigned cudaprof_test_flush_count(void) { return atomic_load(&flush_calls); }
+unsigned cudaprof_test_flush_delivered(void) { return atomic_load(&flush_delivered); }
+
+CUptiResult cuptiActivityFlushAll(uint32_t flag) {
+	(void)flag;
+	atomic_fetch_add(&flush_calls, 1);
+	unsigned kernels = atomic_exchange(&staged_kernels, 0);
+	unsigned memcpys = atomic_exchange(&staged_memcpys, 0);
+	unsigned apis = atomic_exchange(&staged_apis, 0);
+	if (kernels == 0 && memcpys == 0 && apis == 0) return CUPTI_SUCCESS;
+	/* Delivered on the caller's thread, as CUPTI delivers a flushed buffer,
+	   so the producer's flusher really does take the buffer_completed path. */
+	int placed = cudaprof_test_offer_markers(kernels, memcpys, apis, 0, 0);
+	if (placed > 0) atomic_fetch_add(&flush_delivered, (unsigned)placed);
+	return CUPTI_SUCCESS;
+}
 
 CUptiResult cuptiActivityGetNextRecord(uint8_t *buffer, size_t valid_size, CUpti_Activity **record) {
 	if (buffer == NULL || record == NULL) return CUPTI_ERROR_INVALID_PARAMETER;

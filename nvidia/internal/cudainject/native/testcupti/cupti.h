@@ -38,6 +38,15 @@ unsigned cudaprof_test_enabled_kind_count(void);
    needs to ask without also delivering a completed buffer. */
 int cudaprof_test_request_buffer(void);
 
+/* Stages a buffer that is delivered only when something calls
+   cuptiActivityFlushAll, and reports how many flushes happened and how many
+   records they delivered. A control that stages records and never triggers a
+   flush collects nothing, which is the state an interval flush exists to
+   bound. */
+void cudaprof_test_stage_for_flush(unsigned kernels, unsigned memcpys, unsigned apis);
+unsigned cudaprof_test_flush_count(void);
+unsigned cudaprof_test_flush_delivered(void);
+
 /* Mock struct size functions for layout compatibility test injection. */
 CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size);
 CUptiResult cudaprof_test_mock_short_memcpy_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size);
