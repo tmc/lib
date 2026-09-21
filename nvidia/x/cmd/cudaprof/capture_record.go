@@ -42,6 +42,19 @@ func runCaptureCommand(args []string) error {
 		}
 		return err
 	}
+	// An output that holds no activity records does not block its own retry.
+	// The removal happens before the target runs, not at publication time:
+	// writeCaptureStatus publishes with os.Link precisely so a concurrent
+	// capture cannot clobber a selected recording, and that link fails on an
+	// existing destination -- so a run allowed to start and refused at publish
+	// would cost a whole workload under GPU lock to learn what a stat call
+	// says now.
+	if opts.ReplaceEmptyOutput {
+		fmt.Fprintf(os.Stderr, "cudaprof: replacing %s, which holds no activity records\n", opts.Output)
+		if err := os.Remove(opts.Output); err != nil {
+			return fmt.Errorf("replace empty capture output: %w", err)
+		}
+	}
 	if opts.Inject == "" && !opts.NoInject {
 		fmt.Fprintln(os.Stderr, "cudaprof: error: no injection library specified (--inject /path/to/agent.so, CUDAPROF_INJECT, or CUDAPROF_AGENT); target will not run")
 	}
@@ -788,7 +801,11 @@ Options:
                                 The capture always records a digest of the target's whole
                                 environment, which says whether two captures are the same
                                 arm; this names the variables whose values are disclosed
-  -o <path>                     write capture output to file or directory
+  -o <path>                     write capture output to file or directory. An existing
+                                output is kept and the capture refused, unless it holds no
+                                activity records: a capture that observed nothing must not
+                                block the retry under its own name. The decision is the
+                                file's record count, never a flag or the name
   --max-records <N>             maximum journal records the reader decodes (default %d);
                                 bounds decoding only -- it cannot recover a record the
                                 producer never wrote, and a journal that exceeds it fails

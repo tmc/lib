@@ -263,6 +263,12 @@ type captureOptions struct {
 	Stdin                 io.Reader
 	Stdout, Stderr        io.Writer
 	command               []string
+
+	// ReplaceEmptyOutput records that Output exists and holds no activity
+	// records, so this run may take the name. The removal is deliberately not
+	// done at parse time: parsing arguments must not delete a file, and the
+	// command does it once, before the target runs.
+	ReplaceEmptyOutput bool
 }
 
 // The values --capture-range and --finalize accept. They are the agent's
@@ -591,7 +597,12 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 	o.command = append([]string(nil), args[i:]...)
 	if o.Output != "" {
 		if _, err := os.Stat(o.Output); err == nil {
-			return o, fmt.Errorf("capture output already exists: %s", o.Output)
+			records, holds := outputHoldsWork(o.Output)
+			if holds {
+				return o, fmt.Errorf("capture output already exists and holds %s: %s\n"+
+					"\tOnly a capture that observed nothing is replaced automatically. Move this one aside or choose another -o path.", records, o.Output)
+			}
+			o.ReplaceEmptyOutput = true
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return o, fmt.Errorf("check capture output: %w", err)
 		}
@@ -993,4 +1004,43 @@ func matchesAnyPattern(name string, patterns []string) bool {
 		}
 	}
 	return false
+}
+
+// outputHoldsWork reports whether the capture already at path holds a
+// measurement, and describes what it holds. The description is returned even
+// when it holds nothing so the caller never has to re-derive it.
+//
+// Refusing to overwrite exists to protect a capture someone paid a run under
+// GPU lock for. A capture that observed nothing cost that run too, but there
+// is no measurement in it to lose, and it is precisely the artifact a failed
+// run leaves behind -- so the refusal lands on the retry, under the name the
+// retry wants. The operator then renames the output, and two captures of one
+// workload that differ by name stop being comparable by the tooling that pairs
+// them, or deletes the file by hand, which is the operation the refusal was
+// trying to make deliberate.
+//
+// The predicate is the file's own record count and nothing else: not a --force
+// flag, not the name, not whether the previous run reported failure. A retry
+// path keyed on the request rather than on the file can take a good capture
+// whose run merely looks similar, and an outcome token can say "failed" about
+// a run that still retained records. A file whose count cannot be read holds
+// work by default -- an artifact cudaprof cannot parse is not one it may
+// delete.
+func outputHoldsWork(path string) (string, bool) {
+	cap, err := readCapturePathLimits(path, cudacapture.Limits{})
+	if err != nil || cap == nil {
+		return "a capture cudaprof cannot read, so its record count is unknown", true
+	}
+	status := captureStatusFields(cap)
+	if status == nil {
+		return "no capture status, so its record count is unknown", true
+	}
+	records, ok := status["activity_records"].(float64)
+	if !ok {
+		return "a capture status with no activity_records field, so its record count is unknown", true
+	}
+	if records == 0 {
+		return "no activity records", false
+	}
+	return fmt.Sprintf("%.0f activity records", records), true
 }
