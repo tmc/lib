@@ -1,0 +1,17 @@
+commit: 23b5413d
+date: 2026-09-20T17:37:16-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 53579
+ITERM_SESSION_ID: w3t0p1:F76EF7EB-35BD-4585-89FA-888140AFD052
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url: (none provided)
+errata: 10.6(iii), cudaprof-errata-bugs-and-gaps via TOOL-IMPROVEMENTS.md from C6A7BA75
+mutation probes killed: always protect; unreadable treated as empty; decide on the
+  capture_success token instead of the record count; parse not marking the output for
+  replacement. Run in a detached worktree under GOWORK=off.
+provenance: these three files were staged in the shared index when another session's
+  bare 'git commit' swept them into a7eb8623, whose message described only its
+  cuda/stream work. a7eb8623 has been split into 9f0e1ad9 (that work, message
+  unchanged) and this commit. Original content unchanged by the split.
