@@ -8,3 +8,16 @@ ITERM_SESSION_ID: w3t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
 session: f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
 session_url: (none provided)
 verified: GOWORK=off go test + go vet ./x/cuda/... ./x/cuptiactivity/... ./x/nvtx/... all ok on darwin
+
+--- appended by session d9194c1a (F76EF7EB), not the commit's author ---
+This commit also carries three cudaprof files it does not describe:
+capture_launcher.go, capture_record.go, capture_overwrite_test.go, which
+implement errata 10.6(iii) -- the capture overwrite refusal now decides on
+the artifact's activity_records count rather than on the flag or the name.
+They were staged in the shared index when this commit was made with a bare
+'git commit', which takes the whole index. Nothing here is wrong; the
+message is simply silent about half the diff. Mutation probes killed for
+that half: always-protect; unreadable-treated-as-empty; decide on the
+outcome token instead of the count; parse not marking the output for
+replacement.
+model: claude-opus-5  session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
