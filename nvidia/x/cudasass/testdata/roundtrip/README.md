@@ -30,11 +30,13 @@ and nothing here qualifies any claim about GPU behaviour or performance.
 - `sm121a-roundtrip.bbcfg.dot` -- nvdisasm's own basic-block control-flow
   graph, used as the authority in `TestBasicBlockReconstructionAgainstNvdisasm`.
 - `probe.py` -- the bit-flip probe that produced the encoding facts below.
-- `sm121a-roundtrip.cubin` -- the CUBIN the two text artifacts were
+- `sm121a-roundtrip.cubin.hex` -- the CUBIN the two text artifacts were
   disassembled from, kept for the step 5 patch path, which needs the container
   and not only the text. Built here from `kernel.cu`; md5
   `1ee1a13df438e27deea643c990d938e3`, 8440 bytes. No vendor CUBIN is
-  committed.
+  committed. It is stored hex-encoded, as the other CUBIN fixtures in this
+  package are, so that the repository holds no binary files; the tests decode
+  it on read.
 
 ## Commands
 
@@ -42,6 +44,7 @@ and nothing here qualifies any claim about GPU behaviour or performance.
     nvcc -arch=sm_121a -cubin -o k.cubin kernel.cu
     nvdisasm -c -hex   k.cubin > sm121a-roundtrip.sass
     nvdisasm -bbcfg -poff k.cubin > sm121a-roundtrip.bbcfg.dot
+    xxd -p -c 1000000 k.cubin        > sm121a-roundtrip.cubin.hex
 
 Step 5 keeps the CUBIN as well, because the patch path operates on the ELF
 container: section lookup, alignment, relocations and the mirrored text

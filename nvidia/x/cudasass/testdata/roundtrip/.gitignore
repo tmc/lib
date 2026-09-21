@@ -1,0 +1,4 @@
+# The CUBIN is committed hex-encoded (sm121a-roundtrip.cubin.hex) so that the
+# repository holds no binary files. The raw container is a local build product
+# of the commands in README.md.
+*.cubin

@@ -2,6 +2,7 @@ package cudasass_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"os"
 	"strings"
@@ -292,14 +293,19 @@ func TestUnsweptFormReportsAbsentStallRange(t *testing.T) {
 }
 
 // roundTripCubin is the CUBIN the fixture disassembly was produced from,
-// built locally from testdata/roundtrip/kernel.cu. See the README there.
-const roundTripCubin = "testdata/roundtrip/sm121a-roundtrip.cubin"
+// built locally from testdata/roundtrip/kernel.cu. It is stored hex-encoded,
+// as the other CUBIN fixtures in this package are. See the README there.
+const roundTripCubin = "testdata/roundtrip/sm121a-roundtrip.cubin.hex"
 
 func readRoundTripCubin(t *testing.T) []byte {
 	t.Helper()
-	b, err := os.ReadFile(roundTripCubin)
+	text, err := os.ReadFile(roundTripCubin)
 	if err != nil {
 		t.Fatal(err)
+	}
+	b, err := hex.DecodeString(strings.Join(strings.Fields(string(text)), ""))
+	if err != nil {
+		t.Fatalf("decode %s: %v", roundTripCubin, err)
 	}
 	return b
 }
