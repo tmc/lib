@@ -161,6 +161,17 @@ func captureHeadlineTotals(result captureResult) string {
 	if result.RunCompleteness == runComplete {
 		head := fmt.Sprintf("capture complete: %d records, 0 dropped, run_completeness: %s\n",
 			result.ActivityRecords, result.RunCompleteness)
+		// Complete answers "was anything dropped", and at zero records it
+		// answers it correctly: nothing was dropped, because nothing was
+		// produced. The word is right and the reading it invites is not, so
+		// the count has to be spoken rather than left for the reader to
+		// interpret -- a capture with no records reads exactly like a
+		// workload that ran no such kernels, and the two are opposite
+		// findings. This cost a published census that covered 12.6% of a
+		// workload while reading as complete.
+		if result.ActivityRecords == 0 {
+			head += "  but this capture holds NO activity records: complete means nothing was dropped, and nothing was dropped because nothing was produced. No ranking, census or duty cycle taken from this file covers any part of the run\n"
+		}
 		// A run that dropped nothing can still produce an artifact with no raw
 		// records in it, because the journal did not fit the budget. Every
 		// count above reports that capture as healthy, and it is unusable for

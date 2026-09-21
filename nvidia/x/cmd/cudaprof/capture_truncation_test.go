@@ -641,3 +641,44 @@ func TestWriteLatencyNoteAttributesACapacityDrop(t *testing.T) {
 		})
 	}
 }
+
+// TestCompleteAtZeroRecordsSaysTheCaptureIsEmpty is errata 21.119. A capture
+// that dropped nothing, finalized cleanly and observed nothing reads COMPLETE,
+// and that is the correct answer to the question run_completeness asks: the
+// field means nothing was dropped, and nothing was dropped because nothing was
+// produced. The word is right and the reading it invites is not.
+//
+// Renaming the published field is the other remedy the erratum offers and is
+// not taken here: it is a token other tools parse. The headline is where the
+// reader forms the belief, so the headline is where the count is spoken.
+func TestCompleteAtZeroRecordsSaysTheCaptureIsEmpty(t *testing.T) {
+	got := captureHeadline(captureResult{
+		CaptureSuccess:  true,
+		RunCompleteness: runComplete,
+		ActivityRecords: 0,
+	})
+	if !strings.Contains(got, "NO activity records") {
+		t.Errorf("empty capture announced as complete without saying so:\n%s", got)
+	}
+	// The reader's next step is a ranking or a census, and the headline has to
+	// reach that decision rather than merely printing a zero.
+	for _, want := range []string{"ranking", "covers any part of the run"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("headline does not reach the conclusion %q:\n%s", want, got)
+		}
+	}
+}
+
+// TestCompleteWithRecordsStaysQuiet is the negative control. The qualifier
+// must fire on the empty capture and not on every clean one, or it is the
+// unconditional preamble again and says nothing about the capture in hand.
+func TestCompleteWithRecordsStaysQuiet(t *testing.T) {
+	got := captureHeadline(captureResult{
+		CaptureSuccess:  true,
+		RunCompleteness: runComplete,
+		ActivityRecords: 9711,
+	})
+	if strings.Contains(got, "NO activity records") {
+		t.Errorf("a capture with 9711 records called empty:\n%s", got)
+	}
+}
