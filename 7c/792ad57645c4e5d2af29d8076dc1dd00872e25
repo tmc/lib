@@ -1,0 +1,9 @@
+Commit: 7c792ad5
+Date: 2026-09-18
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+ITERM_SESSION_ID: C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Arms in one gpu-lock hold (label 3828017), candidate first then HEAD: kernels below 48 blocks 4.507 vs 4.694 ms/token; ds4_router_hash 100.858 us/token at HEAD, below the listing cutoff with the change. Gates: TestCUDAKernels/TestCUDASynth ok. Not an ABBA -- one draw per arm; the per-kernel disappearance carries it, not the aggregate delta. Taken under the gpu-lock 9CA0 replaced at 17:50.

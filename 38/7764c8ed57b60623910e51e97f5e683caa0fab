@@ -1,0 +1,14 @@
+Commit: 387764c8
+Date: 2026-09-18
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+none
+pid: $$
+ITERM_SESSION_ID: C6A7BA75-5D9D-4E2E-8164-39291BA10F1E
+session: 0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url: https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Measured: 1.366 -> 1.111 ms/token on ds4_attention_mixed_finalize; wrong-by-construction ceiling 1.108. Gates: TestCUDAAttentionFusedBits ok (its denominator mutant targets the literal line float denom = expf(sinks[h] - mx);, kept verbatim), compressed/attention suites ok, decode digest gate pending on the next ABBA.
+
+parity14 ABBA resolves the pending gate. base 7d25f04b, cand 7c792ad5 (this commit plus the router_hash one-thread-per-score commit), 12 draws base/cand/cand/base x3, one gpu-lock hold label=3833559, 2026-09-18. Decode output digest 665ac935 on 11 of 12 draws. The 12th (cand draw2.c) died with cuda runtime: non-finite logit 0 and produced no output rather than a different one; that is the pre-existing intermittent characterized in errata 21.38 at 3.3% for the shipped defaults, not a regression -- see errata 21.93/21.94. Generation t/s: base 14.05 13.79 13.98 14.05 14.12 14.10 mean 14.015; cand 14.17 14.11 14.18 13.92 14.04 mean 14.084, +0.49%, which is what the per-kernel spans predict (finalize -0.278 ms plus router_hash ~0.10 ms = 0.38 ms of 70.4).
