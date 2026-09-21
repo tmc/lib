@@ -18,12 +18,13 @@ func TestSourceWithLineDirectives(t *testing.T) {
 	}{
 		{
 			name: "no map leaves the source alone",
-			fk:   FusedKernel{Source: "a\nb"},
+			fk:   FusedKernel{Name: "k", Source: "a\nb"},
 			want: "a\nb",
 		},
 		{
 			name: "annotated line is attributed and then restored",
 			fk: FusedKernel{
+				Name:    "k",
 				Source:  "a\nb\nc",
 				LineMap: map[int]cudair.SourceLocation{2: at("m.go", 7)},
 			},
@@ -32,6 +33,7 @@ func TestSourceWithLineDirectives(t *testing.T) {
 		{
 			name: "trailing annotation needs no restore",
 			fk: FusedKernel{
+				Name:    "k",
 				Source:  "a\nb",
 				LineMap: map[int]cudair.SourceLocation{2: at("m.go", 7)},
 			},
@@ -40,6 +42,7 @@ func TestSourceWithLineDirectives(t *testing.T) {
 		{
 			name: "a location without a file is not a directive",
 			fk: FusedKernel{
+				Name:    "k",
 				Source:  "a\nb",
 				LineMap: map[int]cudair.SourceLocation{2: at("", 7)},
 			},
@@ -48,7 +51,7 @@ func TestSourceWithLineDirectives(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.fk.SourceWithLineDirectives("k.cu")
+			got := tt.fk.SourceWithLineDirectives()
 			if got != tt.want {
 				t.Errorf("got:\n%s\nwant:\n%s", got, tt.want)
 			}

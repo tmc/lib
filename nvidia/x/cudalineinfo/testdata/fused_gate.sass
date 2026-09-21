@@ -1,0 +1,222 @@
+	.target	sm_121
+
+	.elftype	@"ET_EXEC"
+
+
+//--------------------- .text.fused_gate          --------------------------
+	.section	.text.fused_gate,"ax",@progbits
+	.align	128
+        .global         fused_gate
+        .type           fused_gate,@function
+        .size           fused_gate,(.L_x_15 - fused_gate)
+        .other          fused_gate,@"STO_CUDA_ENTRY STV_DEFAULT"
+fused_gate:
+.text.fused_gate:
+	//## File "fused_gate.cu", line 3
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;
+	//## File "fused_gate.cu", line 9
+        /*0010*/                   S2R R11, SR_CTAID.X ;
+        /*0020*/                   LDCU UR4, c[0x0][0x360] ;
+        /*0030*/                   S2R R0, SR_TID.X ;
+        /*0040*/                   LDCU UR5, c[0x0][0x398] ;
+        /*0050*/                   IMAD R11, R11, UR4, R0 ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R11, UR5, PT ;
+        /*0070*/               @P0 EXIT ;
+	//## File "kernels.go", line 19
+        /*0080*/                   LDC.64 R4, c[0x0][0x390] ;
+        /*0090*/                   LDCU UR5, c[0x0][0x370] ;
+        /*00a0*/                   LDCU.64 UR6, c[0x0][0x358] ;
+	//## File "kernels.go", line 17
+        /*00b0*/                   LDC.64 R6, c[0x0][0x380] ;
+	//## File "fused_gate.cu", line 9
+        /*00c0*/                   LDCU UR8, c[0x0][0x398] ;
+	//## File "kernels.go", line 17
+        /*00d0*/                   LDC.64 R8, c[0x0][0x388] ;
+        /*00e0*/                   UIMAD UR4, UR4, UR5, URZ ;
+.L_x_2:
+        /*00f0*/                   IMAD.WIDE R12, R11, 0x4, R6 ;
+        /*0100*/                   LDG.E.CONSTANT R0, desc[UR6][R12.64] ;
+	//## File "kernels.go", line 19
+        /*0110*/                   HFMA2 R15, -RZ, RZ, 0.96630859375, -0.0022525787353515625 ;
+        /*0120*/                   MOV R17, 0x437c0000 ;
+	//## File "kernels.go", line 18
+        /*0130*/                   IMAD.WIDE R2, R11, 0x4, R8 ;
+        /*0140*/                   LDG.E.CONSTANT R2, desc[UR6][R2.64] ;
+        /*0150*/                   MOV R13, R11 ;
+	//## File "fused_gate.cu", line 9
+        /*0160*/                   IADD3 R11, PT, PT, R11, UR4, RZ ;
+	//## File "kernels.go", line 19
+        /*0170*/                   BSSY.RECONVERGENT B0, `(.L_x_0) ;
+	//## File "fused_gate.cu", line 9
+        /*0180*/                   ISETP.GE.AND P2, PT, R11, UR8, PT ;
+	//## File "kernels.go", line 19
+        /*0190*/                   FFMA.SAT R10, R0, -R15, 0.5 ;
+        /*01a0*/                   FFMA.RM R10, R10, R17, 12582913 ;
+        /*01b0*/                   FADD R15, R10.reuse, -12583039 ;
+        /*01c0*/                   IMAD.SHL.U32 R10, R10, 0x800000, RZ ;
+        /*01d0*/                   FFMA R15, R0, -1.4426950216293334961, -R15 ;
+        /*01e0*/                   FFMA R15, R0, -1.925963033500011079e-08, R15 ;
+        /*01f0*/                   MUFU.EX2 R15, R15 ;
+        /*0200*/                   FFMA R15, R10, R15, 1 ;
+        /*0210*/                   MUFU.RCP R3, R15 ;
+        /*0220*/                   FCHK P0, R0, R15 ;
+        /*0230*/                   FFMA R10, -R15, R3, 1 ;
+        /*0240*/                   FFMA R3, R3, R10, R3 ;
+        /*0250*/                   FFMA R10, R0, R3, RZ ;
+        /*0260*/                   FFMA R12, -R15, R10, R0 ;
+        /*0270*/                   FFMA R3, R3, R12, R10 ;
+        /*0280*/              @!P0 BRA `(.L_x_1) ;
+        /*0290*/                   MOV R10, 0x2b0 ;
+        /*02a0*/                   CALL.REL.NOINC `($__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
+        /*02b0*/                   MOV R3, R0 ;
+.L_x_1:
+        /*02c0*/                   BSYNC.RECONVERGENT B0 ;
+.L_x_0:
+        /*02d0*/                   FMUL R15, R2, R3 ;
+        /*02e0*/                   IMAD.WIDE R2, R13, 0x4, R4 ;
+        /*02f0*/                   STG.E desc[UR6][R2.64], R15 ;
+	//## File "fused_gate.cu", line 9
+        /*0300*/              @!P2 BRA `(.L_x_2) ;
+	//## File "fused_gate.cu", line 16
+        /*0310*/                   EXIT ;
+        .weak           $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath
+        .type           $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath,@function
+        .size           $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath,(.L_x_15 - $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath)
+$__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath:
+        /*0320*/                   SHF.R.U32.HI R12, RZ, 0x17, R15 ;
+        /*0330*/                   BSSY.RECONVERGENT B1, `(.L_x_3) ;
+        /*0340*/                   SHF.R.U32.HI R3, RZ, 0x17, R0 ;
+        /*0350*/                   LOP3.LUT R20, R12, 0xff, RZ, 0xc0, !PT ;
+        /*0360*/                   LOP3.LUT R18, R3, 0xff, RZ, 0xc0, !PT ;
+        /*0370*/                   MOV R12, R0 ;
+        /*0380*/                   IADD3 R17, PT, PT, R20, -0x1, RZ ;
+        /*0390*/                   IADD3 R16, PT, PT, R18, -0x1, RZ ;
+        /*03a0*/                   ISETP.GT.U32.AND P0, PT, R17, 0xfd, PT ;
+        /*03b0*/                   ISETP.GT.U32.OR P0, PT, R16, 0xfd, P0 ;
+        /*03c0*/              @!P0 MOV R14, RZ ;
+        /*03d0*/              @!P0 BRA `(.L_x_4) ;
+        /*03e0*/                   FSETP.GTU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*03f0*/                   FSETP.GTU.FTZ.AND P1, PT, |R15|, +INF , PT ;
+        /*0400*/                   MOV R3, R15 ;
+        /*0410*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xf8, 0x8f ;
+        /*0420*/               @P0 BRA `(.L_x_5) ;
+        /*0430*/                   LOP3.LUT P0, RZ, R15, 0x7fffffff, R12, 0xc8, !PT ;
+        /*0440*/              @!P0 BRA `(.L_x_6) ;
+        /*0450*/                   FSETP.NEU.FTZ.AND P3, PT, |R0|.reuse, +INF , PT ;
+        /*0460*/                   FSETP.NEU.FTZ.AND P1, PT, |R3|, +INF , PT ;
+        /*0470*/                   FSETP.NEU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*0480*/              @!P1 BRA !P3, `(.L_x_6) ;
+        /*0490*/                   LOP3.LUT P3, RZ, R12, 0x7fffffff, RZ, 0xc0, !PT ;
+        /*04a0*/                   PLOP3.LUT P1, PT, P1, P3, PT, 0x2f, 0xf2 ;
+        /*04b0*/               @P1 BRA `(.L_x_7) ;
+        /*04c0*/                   LOP3.LUT P1, RZ, R15, 0x7fffffff, RZ, 0xc0, !PT ;
+        /*04d0*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0x2f, 0xf2 ;
+        /*04e0*/               @P0 BRA `(.L_x_8) ;
+        /*04f0*/                   ISETP.GE.AND P0, PT, R16, RZ, PT ;
+        /*0500*/                   ISETP.GE.AND P1, PT, R17, RZ, PT ;
+        /*0510*/               @P0 MOV R14, RZ ;
+        /*0520*/              @!P0 MOV R14, 0xffffffc0 ;
+        /*0530*/              @!P0 FFMA R12, R0, 1.84467440737095516160e+19, RZ ;
+        /*0540*/              @!P1 FFMA R15, R3, 1.84467440737095516160e+19, RZ ;
+        /*0550*/              @!P1 IADD3 R14, PT, PT, R14, 0x40, RZ ;
+.L_x_4:
+        /*0560*/                   LEA R0, R20, 0xc0800000, 0x17 ;
+        /*0570*/                   BSSY.RECONVERGENT B2, `(.L_x_9) ;
+        /*0580*/                   IADD3 R3, PT, PT, R18, -0x7f, RZ ;
+        /*0590*/                   IADD3 R15, PT, PT, -R0, R15, RZ ;
+        /*05a0*/                   IMAD R0, R3, -0x800000, R12 ;
+        /*05b0*/                   MUFU.RCP R16, R15 ;
+        /*05c0*/                   FADD.FTZ R17, -R15, -RZ ;
+        /*05d0*/                   IADD3 R15, PT, PT, R3, 0x7f, -R20 ;
+        /*05e0*/                   IADD3 R15, PT, PT, R15, R14, RZ ;
+        /*05f0*/                   FFMA R19, R16, R17, 1 ;
+        /*0600*/                   FFMA R21, R16, R19, R16 ;
+        /*0610*/                   FFMA R12, R0, R21, RZ ;
+        /*0620*/                   FFMA R19, R17, R12, R0 ;
+        /*0630*/                   FFMA R12, R21, R19, R12 ;
+        /*0640*/                   FFMA R17, R17, R12, R0 ;
+        /*0650*/                   FFMA R0, R21, R17, R12 ;
+        /*0660*/                   SHF.R.U32.HI R3, RZ, 0x17, R0 ;
+        /*0670*/                   LOP3.LUT R3, R3, 0xff, RZ, 0xc0, !PT ;
+        /*0680*/                   IADD3 R16, PT, PT, R3, R15, RZ ;
+        /*0690*/                   IADD3 R3, PT, PT, R16, -0x1, RZ ;
+        /*06a0*/                   ISETP.GE.U32.AND P0, PT, R3, 0xfe, PT ;
+        /*06b0*/              @!P0 BRA `(.L_x_10) ;
+        /*06c0*/                   ISETP.GT.AND P0, PT, R16, 0xfe, PT ;
+        /*06d0*/               @P0 BRA `(.L_x_11) ;
+        /*06e0*/                   ISETP.GE.AND P0, PT, R16, 0x1, PT ;
+        /*06f0*/               @P0 BRA `(.L_x_12) ;
+        /*0700*/                   ISETP.GE.AND P0, PT, R16, -0x18, PT ;
+        /*0710*/                   LOP3.LUT R0, R0, 0x80000000, RZ, 0xc0, !PT ;
+        /*0720*/              @!P0 BRA `(.L_x_12) ;
+        /*0730*/                   FFMA.RZ R3, R21, R17, R12 ;
+        /*0740*/                   IADD3 R15, PT, PT, R16.reuse, 0x20, RZ ;
+        /*0750*/                   ISETP.NE.AND P1, PT, R16.reuse, RZ, PT ;
+        /*0760*/                   ISETP.NE.AND P3, PT, R16.reuse, RZ, PT ;
+        /*0770*/                   IADD3 R16, PT, PT, -R16, RZ, RZ ;
+        /*0780*/                   LOP3.LUT R3, R3, 0x7fffff, RZ, 0xc0, !PT ;
+        /*0790*/                   LOP3.LUT R14, R3, 0x800000, RZ, 0xfc, !PT ;
+        /*07a0*/                   FFMA.RP R3, R21.reuse, R17.reuse, R12.reuse ;
+        /*07b0*/                   FFMA.RM R12, R21, R17, R12 ;
+        /*07c0*/                   SHF.L.U32 R15, R14, R15, RZ ;
+        /*07d0*/                   FSETP.NEU.FTZ.AND P0, PT, R3, R12, PT ;
+        /*07e0*/                   SEL R3, R16, RZ, P3 ;
+        /*07f0*/                   ISETP.NE.AND P1, PT, R15, RZ, P1 ;
+        /*0800*/                   SHF.R.U32.HI R3, RZ, R3, R14 ;
+        /*0810*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xf8, 0x8f ;
+        /*0820*/                   SHF.R.U32.HI R15, RZ, 0x1, R3 ;
+        /*0830*/                   SEL R12, RZ, 0x1, !P0 ;
+        /*0840*/                   LOP3.LUT R12, R12, 0x1, R15, 0xf8, !PT ;
+        /*0850*/                   LOP3.LUT R12, R12, R3, RZ, 0xc0, !PT ;
+        /*0860*/                   IADD3 R15, PT, PT, R15, R12, RZ ;
+        /*0870*/                   LOP3.LUT R0, R15, R0, RZ, 0xfc, !PT ;
+        /*0880*/                   BRA `(.L_x_12) ;
+.L_x_11:
+        /*0890*/                   LOP3.LUT R0, R0, 0x80000000, RZ, 0xc0, !PT ;
+        /*08a0*/                   LOP3.LUT R0, R0, 0x7f800000, RZ, 0xfc, !PT ;
+        /*08b0*/                   BRA `(.L_x_12) ;
+.L_x_10:
+        /*08c0*/                   IMAD R0, R15, 0x800000, R0 ;
+.L_x_12:
+        /*08d0*/                   BSYNC.RECONVERGENT B2 ;
+.L_x_9:
+        /*08e0*/                   BRA `(.L_x_13) ;
+.L_x_8:
+        /*08f0*/                   LOP3.LUT R0, R15, 0x80000000, R12, 0x48, !PT ;
+        /*0900*/                   LOP3.LUT R0, R0, 0x7f800000, RZ, 0xfc, !PT ;
+        /*0910*/                   BRA `(.L_x_13) ;
+.L_x_7:
+        /*0920*/                   LOP3.LUT R0, R15, 0x80000000, R12, 0x48, !PT ;
+        /*0930*/                   BRA `(.L_x_13) ;
+.L_x_6:
+        /*0940*/                   MUFU.RSQ R0, -QNAN  ;
+        /*0950*/                   BRA `(.L_x_13) ;
+.L_x_5:
+        /*0960*/                   FADD.FTZ R0, R0, R3 ;
+.L_x_13:
+        /*0970*/                   BSYNC.RECONVERGENT B1 ;
+.L_x_3:
+        /*0980*/                   MOV R14, R10 ;
+        /*0990*/                   HFMA2 R15, -RZ, RZ, 0, 0 ;
+        /*09a0*/                   RET.REL.NODEC R14 `(fused_gate) ;
+.L_x_14:
+        /*09b0*/                   BRA `(.L_x_14);
+        /*09c0*/                   NOP;
+        /*09d0*/                   NOP;
+        /*09e0*/                   NOP;
+        /*09f0*/                   NOP;
+        /*0a00*/                   NOP;
+        /*0a10*/                   NOP;
+        /*0a20*/                   NOP;
+        /*0a30*/                   NOP;
+        /*0a40*/                   NOP;
+        /*0a50*/                   NOP;
+        /*0a60*/                   NOP;
+        /*0a70*/                   NOP;
+.L_x_15:
+
+
+//--------------------- SYMBOLS --------------------------
+
+	.type		.nv.reservedSmem.offset0,@object
+	.size		.nv.reservedSmem.offset0,0x4

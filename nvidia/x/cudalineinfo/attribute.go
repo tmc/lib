@@ -1,0 +1,232 @@
+package cudalineinfo
+
+import (
+	"fmt"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
+)
+
+// An Attribution joins every tier of one compiled unit back to its sites.
+//
+// CUDA, Locs, and SASS are keyed by site and hold what each tier attributes
+// to it: the generated lines lowered from it, the number of PTX .loc
+// directives naming it, and the SASS instructions naming it. A site absent
+// from a map produced nothing at that tier.
+type Attribution struct {
+	Unit        Unit
+	PTX         string
+	Disassembly *cudasass.Disassembly
+
+	// Module is the compiled module when the attribution came from
+	// [Compile], so the same binary that was attributed can be run. It is nil
+	// for an attribution built from artifacts.
+	Module *nvrtcx.CompiledModule
+
+	CUDA map[Site][]int
+	Locs map[Site]int
+	SASS map[Site][]cudasass.Instruction
+
+	// Instructions counts every instruction in the disassembly, in every
+	// function. Attributed counts those naming a site of the program.
+	// Remainder classifies the rest.
+	Instructions, Attributed int
+	Remainder                Remainder
+}
+
+// A Remainder classifies the instructions that name no site of the program.
+// "37 of 168 attributed" invites reading 131 as unexplained; the remainder
+// says where they are instead.
+type Remainder struct {
+	// Generated counts instructions naming the unit's own generated lines:
+	// the grid-stride loop, parameter loads, and other scaffolding no
+	// program line produced.
+	Generated int
+	// Headers counts instructions naming a header, which is library code
+	// inlined into the kernel.
+	Headers int
+	// Unlocated counts instructions carrying no line information at all.
+	Unlocated int
+	// Subroutines counts, by symbol, the instructions of every function
+	// other than the unit's kernel, such as the compiler's division
+	// slowpath, whether it has a section of its own or follows the kernel
+	// in the kernel's. Line information inside them describes the
+	// subroutine, so they are counted here whatever file they name.
+	Subroutines map[string]int
+}
+
+// Total is the number of instructions the remainder accounts for.
+func (r Remainder) Total() int {
+	n := r.Generated + r.Headers + r.Unlocated
+	for _, c := range r.Subroutines {
+		n += c
+	}
+	return n
+}
+
+// Attribute joins the tiers of a unit from its PTX and disassembly. Either may
+// be absent: an empty ptx leaves Locs empty, and a nil dis leaves SASS empty.
+func Attribute(unit Unit, ptx string, dis *cudasass.Disassembly) *Attribution {
+	a := &Attribution{
+		Unit:        unit,
+		PTX:         ptx,
+		Disassembly: dis,
+		CUDA:        map[Site][]int{},
+		Locs:        map[Site]int{},
+		SASS:        map[Site][]cudasass.Instruction{},
+		Remainder:   Remainder{Subroutines: map[string]int{}},
+	}
+	for _, s := range unit.Sites() {
+		a.CUDA[s] = unit.Lines(s)
+	}
+	for s, n := range ptxSites(ptx) {
+		if unit.isUserFile(s.File) {
+			a.Locs[s] = n
+		}
+	}
+	if dis == nil {
+		return a
+	}
+	for _, fn := range dis.Functions {
+		for _, in := range fn.Instructions {
+			a.Instructions++
+			s := Site{File: in.SourceFile, Line: in.SourceLine}
+			owner := fn.SymbolAt(in.Address)
+			switch {
+			case owner != fn.Name || unit.Name != "" && fn.Name != unit.Name:
+				a.Remainder.Subroutines[owner]++
+			case unit.isUserFile(s.File):
+				a.Attributed++
+				a.SASS[s] = append(a.SASS[s], in)
+			case s.File == "":
+				a.Remainder.Unlocated++
+			case filepath.Base(s.File) == unit.GeneratedName():
+				a.Remainder.Generated++
+			default:
+				a.Remainder.Headers++
+			}
+		}
+	}
+	return a
+}
+
+// Sites returns every site any tier attributes to, in file and line order.
+func (a *Attribution) Sites() []Site {
+	seen := map[Site]bool{}
+	var sites []Site
+	add := func(s Site) {
+		if !seen[s] {
+			seen[s] = true
+			sites = append(sites, s)
+		}
+	}
+	for s := range a.CUDA {
+		add(s)
+	}
+	for s := range a.Locs {
+		add(s)
+	}
+	for s := range a.SASS {
+		add(s)
+	}
+	sortSites(sites)
+	return sites
+}
+
+// A Row is one site with what each tier attributes to it.
+type Row struct {
+	Site Site
+	CUDA []int
+	PTX  int
+	SASS []cudasass.Instruction
+}
+
+// Rows returns one row per site, in file and line order.
+func (a *Attribution) Rows() []Row {
+	var rows []Row
+	for _, s := range a.Sites() {
+		rows = append(rows, Row{Site: s, CUDA: a.CUDA[s], PTX: a.Locs[s], SASS: a.SASS[s]})
+	}
+	return rows
+}
+
+// Instruction returns the instruction at a function-relative offset in the
+// named function, which is how PC sampling and SASS metrics report a PC.
+func (a *Attribution) Instruction(function string, offset uint64) (cudasass.Instruction, bool) {
+	if a.Disassembly == nil {
+		return cudasass.Instruction{}, false
+	}
+	fn := a.Disassembly.Function(function)
+	if fn == nil {
+		return cudasass.Instruction{}, false
+	}
+	for _, in := range fn.Instructions {
+		if in.Address == offset {
+			return in, true
+		}
+	}
+	return cudasass.Instruction{}, false
+}
+
+// SiteAt returns the program site of the instruction at a function-relative
+// offset. It reports false when there is no such instruction or it names no
+// site of the program.
+func (a *Attribution) SiteAt(function string, offset uint64) (Site, bool) {
+	in, ok := a.Instruction(function, offset)
+	if !ok || !a.Unit.isUserFile(in.SourceFile) {
+		return Site{}, false
+	}
+	return Site{File: in.SourceFile, Line: in.SourceLine}, true
+}
+
+// ptxSites counts the .loc directives in ptx by the site they name. PTX
+// refers to files by index and emits the .file table after the directives
+// that use it, so the names are collected in a pass of their own. A .loc with
+// line 0 names no line and is skipped.
+func ptxSites(ptx string) map[Site]int {
+	if ptx == "" {
+		return nil
+	}
+	lines := strings.Split(ptx, "\n")
+	files := map[string]string{}
+	for _, text := range lines {
+		f := strings.Fields(text)
+		if len(f) >= 3 && f[0] == ".file" {
+			files[f[1]] = strings.Trim(f[2], `"`)
+		}
+	}
+	sites := map[Site]int{}
+	for _, text := range lines {
+		f := strings.Fields(text)
+		if len(f) < 3 || f[0] != ".loc" {
+			continue
+		}
+		name, ok := files[f[1]]
+		if !ok {
+			continue
+		}
+		line, err := strconv.Atoi(f[2])
+		if err != nil || line <= 0 {
+			continue
+		}
+		sites[Site{File: name, Line: line}]++
+	}
+	return sites
+}
+
+func (r Remainder) String() string {
+	parts := []string{
+		fmt.Sprintf("%d generated", r.Generated),
+		fmt.Sprintf("%d unlocated", r.Unlocated),
+	}
+	if r.Headers > 0 {
+		parts = append(parts, fmt.Sprintf("%d header", r.Headers))
+	}
+	for _, name := range sortedKeys(r.Subroutines) {
+		parts = append(parts, fmt.Sprintf("%d in %s", r.Subroutines[name], name))
+	}
+	return strings.Join(parts, ", ")
+}

@@ -31,7 +31,7 @@ func Fuse(g *cudair.Graph, kernelName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fk.SourceWithLineDirectives(kernelName + ".cu"), nil
+	return fk.SourceWithLineDirectives(), nil
 }
 
 // FuseWithSourceMap generates a fused kernel and records exact source mappings from generated lines to Go callsites.
