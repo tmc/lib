@@ -4420,3 +4420,235 @@ func ceilingFinding(t *testing.T, report *AdviceReport) string {
 	t.Fatalf("no duty-cycle ceiling finding among %d items", len(report.Items))
 	return ""
 }
+
+// dominanceSample is one dispatch of a kernel family, with its device time.
+func dominanceSample(name string, nanos int64) *profile.Sample {
+	return &profile.Sample{
+		Value: []int64{nanos},
+		Label: map[string][]string{
+			"name":    {name},
+			"subtype": {"kernel"},
+			"stream":  {"1"},
+		},
+	}
+}
+
+// dominanceCapture builds a capture whose profile holds one kernel family of
+// count dispatches, each of eachNanos, optionally beside a journal.
+func dominanceCapture(count int, eachNanos int64, journal []byte) *cudacapture.Capture {
+	samples := make([]*profile.Sample, 0, count)
+	for i := 0; i < count; i++ {
+		samples = append(samples, dominanceSample(fmt.Sprintf("magma_sgemmEx_kernel_%d", i), eachNanos))
+	}
+	files := map[string][]byte{}
+	if journal != nil {
+		files["capture.journal"] = journal
+	}
+	cap := testCapture(files, completeStatus())
+	cap.Profile = &profile.Profile{
+		SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+		Sample:     samples,
+	}
+	return cap
+}
+
+// submissionIdleJournal builds a timeline whose idle is spent inside the launch
+// call: the host was already in the API when the device went idle, which is the
+// driver submission arm and the only arm that per-launch batching recovers.
+func submissionIdleJournal() []byte {
+	b := newJournalBuilder()
+	t := uint64(10_000)
+	for i := uint32(1); i <= 12; i++ {
+		start := t
+		end := start + 1_000
+		b.kernel(start, end, i)
+		if i > 1 {
+			// Opened before the previous kernel ended, closed 9000 ns into
+			// the 10000 ns gap that follows it.
+			b.api(start-10_500, start-1_000, i)
+		} else {
+			b.api(start-500, start-100, i)
+		}
+		t = end + 10_000
+	}
+	return b.finalize()
+}
+
+// TestAdvice_DominanceDoesNotBlameLaunchOverheadOnLongDispatches pins the
+// separation between what the dominance finding measures and what it infers.
+//
+// The finding reported a kernel family's share of device time -- measured --
+// and in the same sentence, under "Evidence: observed", that fine-grained
+// dispatches were incurring submission and launch overhead -- inferred, and on
+// a 683 us mean dispatch, false. The capture that raised it attributed 0.27% of
+// its idle to driver submission and the kernel was already a batched cuBLASLt
+// GEMM, so a reader following the recommendation batched a batched call.
+func TestAdvice_DominanceDoesNotBlameLaunchOverheadOnLongDispatches(t *testing.T) {
+	const launchOverheadClaim = "launched faster than they execute"
+	tests := []struct {
+		name            string
+		eachNanos       int64
+		journal         []byte
+		wantOverhead    bool
+		wantRecContains string
+	}{
+		{
+			// 683 us per dispatch: launch cost is microseconds and cannot be
+			// a dominant share of this.
+			name:            "long dispatch is not fine-grained",
+			eachNanos:       683_000,
+			journal:         submissionIdleJournal(),
+			wantOverhead:    false,
+			wantRecContains: "the cost is inside the kernel rather than in reaching it",
+		},
+		{
+			// Short dispatches, and the capture measured idle spent inside
+			// the launch call: both halves of the claim are supported.
+			name:            "short dispatch with measured submission idle",
+			eachNanos:       5_000,
+			journal:         submissionIdleJournal(),
+			wantOverhead:    true,
+			wantRecContains: "batched GEMM / GEMV",
+		},
+		{
+			// Short dispatches, but no journal: the submission cost is
+			// unmeasured. An unmeasured cost is not a measured one.
+			name:            "short dispatch without attribution stays silent",
+			eachNanos:       5_000,
+			journal:         nil,
+			wantOverhead:    false,
+			wantRecContains: "the cost is inside the kernel rather than in reaching it",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cap := dominanceCapture(15, tt.eachNanos, tt.journal)
+			kernelTimes, totalTime := computeProfileTimes(cap)
+			report := &AdviceReport{}
+			auditKernelFamilyDominance(cap, report, kernelTimes, totalTime, hasDeviceTiming(cap))
+			if len(report.Items) != 1 {
+				t.Fatalf("items = %d, want the dominance finding", len(report.Items))
+			}
+			item := report.Items[0]
+			if !strings.Contains(item.Finding, "dominates GPU execution") {
+				t.Fatalf("not the dominance finding:\n%s", item.Finding)
+			}
+			if got := strings.Contains(item.Finding, launchOverheadClaim); got != tt.wantOverhead {
+				t.Errorf("launch-overhead claim = %v, want %v:\n%s", got, tt.wantOverhead, item.Finding)
+			}
+			if !strings.Contains(item.ActionableRecommendation, tt.wantRecContains) {
+				t.Errorf("recommendation does not contain %q:\n%s", tt.wantRecContains, item.ActionableRecommendation)
+			}
+			// The measured half is always present, whichever way the
+			// inferred half went.
+			if !strings.Contains(item.Finding, "% of total device time") {
+				t.Errorf("finding dropped the measured share:\n%s", item.Finding)
+			}
+		})
+	}
+}
+
+// concentratedIdleJournal builds n kernels of kernelNs each separated by
+// smallGapNs, with one stallNs gap after the first. Every gap is host behind,
+// so the arm is constant and only the concentration and the duty cycle move.
+func concentratedIdleJournal(n int, kernelNs, smallGapNs, stallNs uint64) []byte {
+	b := newJournalBuilder()
+	t := uint64(10_000)
+	for i := 1; i <= n; i++ {
+		start := t
+		end := start + kernelNs
+		b.kernel(start, end, uint32(i))
+		b.api(start-400, start-100, uint32(i))
+		if i == 1 {
+			t = end + stallNs
+		} else {
+			t = end + smallGapNs
+		}
+	}
+	return b.finalize()
+}
+
+// TestAdvice_DominantIdleGapReportedAtAnyDutyCycle is a double dissociation on
+// the trigger: the same one-time stall, in a capture that is mostly idle and in
+// one that is mostly busy, must be reported both times.
+//
+// The idle finding fired on share of span, so the identical cold start in two
+// arms of one program -- differing only in cuBLAS math mode -- was Critical in
+// the fast arm and silent in the slow one, where longer kernels diluted it. A
+// finding that appears and disappears for reasons unrelated to whether it is
+// true cannot be acted on.
+func TestAdvice_DominantIdleGapReportedAtAnyDutyCycle(t *testing.T) {
+	const stallFinding = "holds"
+	tests := []struct {
+		name      string
+		kernelNs  uint64
+		wantBusy  bool
+		wantFires bool
+	}{
+		{name: "idle dominated", kernelNs: 1_000, wantBusy: false, wantFires: true},
+		{name: "busy, same stall", kernelNs: 200_000, wantBusy: true, wantFires: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			j := concentratedIdleJournal(6, tt.kernelNs, 1_000, 500_000)
+			cap := testCapture(map[string][]byte{"capture.journal": j}, completeStatus())
+			attr, ok := captureIdleAttribution(cap)
+			if !ok {
+				t.Fatal("no idle attribution")
+			}
+			if busy := attr.duty >= deviceIdleCriticalPct; busy != tt.wantBusy {
+				t.Fatalf("duty cycle %.2f%% (busy=%v), want busy=%v -- fixture does not set up the dissociation", attr.duty, busy, tt.wantBusy)
+			}
+			// The whole report path, so the routing through the duty-cycle
+			// branches is what is under test rather than the emitter alone.
+			report := &AdviceReport{}
+			auditDeviceDutyCycle(cap, report)
+			var found bool
+			for _, it := range report.Items {
+				if strings.Contains(it.Finding, "of idle time, and") && strings.Contains(it.Finding, "A single ") {
+					found = true
+					if !strings.Contains(it.ActionableRecommendation, "warm-up") {
+						t.Errorf("stall finding does not point at warm-up:\n%s", it.ActionableRecommendation)
+					}
+				}
+			}
+			if found != tt.wantFires {
+				var got []string
+				for _, it := range report.Items {
+					got = append(got, it.Finding)
+				}
+				t.Errorf("single-stall finding present = %v, want %v; items:\n%s", found, tt.wantFires, strings.Join(got, "\n"))
+			}
+		})
+	}
+}
+
+// TestAdvice_UniformGapsAreNotASingleStall is the negative control for the
+// stall finding. Across four uniform gaps the largest necessarily holds 25% of
+// the idle, so a share threshold alone reports the arithmetic of "largest of
+// four" as a stall. Nothing here is concentrated and nothing should fire.
+func TestAdvice_UniformGapsAreNotASingleStall(t *testing.T) {
+	j := concentratedIdleJournal(6, 1_000, 100_000, 100_000)
+	cap := testCapture(map[string][]byte{"capture.journal": j}, completeStatus())
+	attr, ok := captureIdleAttribution(cap)
+	if !ok {
+		t.Fatal("no idle attribution")
+	}
+	if attr.gaps < 4 {
+		t.Fatalf("gaps = %d, want a handful so the uniform case is exercised", attr.gaps)
+	}
+	if share, dominant := attr.dominantGap(); dominant {
+		t.Errorf("uniform gaps reported as a single stall (largest holds %.1f%% of idle across %d gaps)", share, attr.gaps)
+	}
+	// The attribution finding still fires: the idle is real, it is just not
+	// one stall.
+	report := &AdviceReport{}
+	if !auditIdleAttribution(cap, report) {
+		t.Fatal("no idle attribution finding on a uniform-gap capture")
+	}
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, "A single ") {
+			t.Errorf("stall finding fired on uniform gaps:\n%s", it.Finding)
+		}
+	}
+}
