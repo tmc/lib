@@ -155,7 +155,15 @@ func (e *Event) ElapsedSince(start *Event) (time.Duration, error) {
 	return time.Duration(float64(ms) * float64(time.Millisecond)), nil
 }
 
-// Done returns a channel that is closed once the event completes execution on the GPU.
+// Done returns a new channel that closes when Query reports completion or an
+// error, including an error caused by Destroy or Device.Close. A closed channel
+// does not establish successful GPU completion. Use Synchronize when the result
+// or cancellation matters.
+//
+// Each call starts a polling goroutine that runs until Query reports completion
+// or an error, even if the caller stops receiving. Record the event before calling
+// Done, and do not record it again until the channel closes. Done does not capture
+// a particular recording, and a closed channel stays closed if the event is reused.
 func (e *Event) Done() <-chan struct{} {
 	ch := make(chan struct{})
 	go func() {
