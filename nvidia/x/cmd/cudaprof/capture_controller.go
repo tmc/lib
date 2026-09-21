@@ -33,12 +33,18 @@ const (
 	recordExternal   uint16 = 6
 	recordAPI        uint16 = 7
 	recordHost       uint16 = 8
+	recordModule     uint16 = 9
 )
 
 type captureRecordPayload struct {
 	State               string     `json:"state"`
 	Kind                string     `json:"kind"`
 	Subtype             string     `json:"subtype"`
+	ModuleID            uint32     `json:"module_id"`
+	ModuleSize          uint64     `json:"module_size"`
+	ModuleFile          string     `json:"module_file"`
+	ModuleStored        bool       `json:"module_stored"`
+	ModuleReason        string     `json:"module_reason"`
 	Name                string     `json:"name"`
 	Error               string     `json:"error"`
 	Message             string     `json:"message"`
@@ -233,6 +239,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	var workerActivities []captureActivity
 	var workerAPIs []captureAPI
 	var workerDuration, workerCopyBytes, workerExternal, workerHostSamples, workerDropped, workerRecords uint64
+	var workerModules []captureModule
 	workers := make([]captureWorker, 0)
 	var targetHandshakeSeen bool
 	var targetInjectionFailure string
@@ -278,6 +285,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 					workerCopyBytes += metrics.copyBytes
 					workerExternal += metrics.external
 					workerHostSamples += metrics.hostSamples
+					workerModules = append(workerModules, metrics.modules...)
 					workerDropped += records.Dropped
 					workerRecords += records.Records
 				}
@@ -380,6 +388,10 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	// count a worker differently depending on which process held the
 	// capability record.
 	mergeWorkers := func(result captureResult) captureResult {
+		// Modules are merged before the activity guard: a generation that
+		// loaded device code and launched none of it still loaded it, and the
+		// image is the evidence of what was there to launch.
+		result.Modules = append(result.Modules, workerModules...)
 		if len(workerActivities) == 0 {
 			return result
 		}
@@ -489,6 +501,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	result.ActivityRecords, result.DroppedRecords = selectedRecords.Records, selectedRecords.Dropped
 	result.ExternalRecords = selectedMetrics.external
 	result.HostSampleRecords = selectedMetrics.hostSamples
+	result.Modules = selectedMetrics.modules
 	result.RecordLoss = selectedMetrics.loss.orNil()
 	result.ActivityNanos, result.CopyBytes, result.Activities = selectedMetrics.duration, selectedMetrics.copyBytes, selectedActivities
 	result.APIRecords = selectedAPIs
@@ -686,6 +699,20 @@ type journalMetrics struct {
 	duration, copyBytes, external, hostSamples uint64
 	loss                                       captureLoss
 	phaseEdges                                 []capturePhaseEdge
+	modules                                    []captureModule
+}
+
+// captureModule is one module image the agent saw the driver load. File names
+// the image beside the journal and is empty when Stored is false, which is the
+// state a module too large for the agent's budget is recorded in: a module the
+// capture declined to keep and a module the target never loaded are different
+// facts, and only one of them is silence.
+type captureModule struct {
+	ID     uint32 `json:"module_id"`
+	Size   uint64 `json:"size"`
+	File   string `json:"file,omitempty"`
+	Stored bool   `json:"stored"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // errJournalNotFinalized reports a journal that decoded completely but whose
@@ -1057,6 +1084,23 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order host sample")
 			}
 			metrics.hostSamples++
+		case recordModule:
+			// Module images. Like host samples these are not device work and
+			// never enter the activity totals; unlike them they are not gated
+			// by the capture range, because a module is loaded when the target
+			// builds its code and that is routinely before the range opens.
+			// The ordering requirement is only that the producer has
+			// identified itself.
+			if terminal || !state.bootstrap || payload.Kind != "module" {
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order module record")
+			}
+			metrics.modules = append(metrics.modules, captureModule{
+				ID:     payload.ModuleID,
+				Size:   payload.ModuleSize,
+				File:   payload.ModuleFile,
+				Stored: payload.ModuleStored,
+				Reason: payload.ModuleReason,
+			})
 		case recordFinalized:
 			if terminal || !state.bootstrap || !state.capability {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid finalized ordering")

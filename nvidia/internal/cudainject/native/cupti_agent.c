@@ -92,6 +92,11 @@
 #define KIND_EXTERNAL 6
 #define KIND_API 7
 #define KIND_HOST 8
+/* A module is not an activity: it is not work the device did and it has no
+   duration. Giving it its own kind keeps it out of the activity counts and out
+   of the sample projection, where a zero-length record would read as a kernel
+   that took no time. */
+#define KIND_MODULE 9
 
 /* Host-state sampling. CUPTI can say the device was idle for 8 ms; it cannot
    say what the host was doing during those 8 ms, so every device gap reads the
@@ -191,7 +196,7 @@ static _Atomic uint64_t offered_count;
    kind identity through admission and out to the finalized record so that a
    per-kind loss statement is derivable rather than inferred. Indexed by the
    KIND_ constants; only kinds that pass through the ring are ever nonzero. */
-#define KIND_COUNT 9
+#define KIND_COUNT 10
 static _Atomic uint64_t offered_by_kind[KIND_COUNT];
 static _Atomic uint64_t retained_by_kind[KIND_COUNT];
 static _Atomic uint64_t dropped_by_kind[KIND_COUNT];
@@ -671,6 +676,124 @@ static void write_handshake(const char *failure) {
 	else
 		fprintf(f, "{\"protocol\":1,\"session\":\"%s\",\"process\":%" PRIu64 ",\"generation\":%" PRIu64 ",\"transport_ready\":true}\n", getenv("CUDAPROF_SESSION"), (uint64_t)getpid(), generation);
 	fclose(f);
+}
+
+/* Module capture. CUPTI's resource callback hands over the cubin the driver
+   loaded, which is the only place device code is available to an
+   out-of-process profiler: the workload compiles or embeds its kernels and the
+   driver loads them, and nothing in the activity stream says what the code was.
+
+   This is deliberately outside the capture-range gate. Modules are
+   instantiated during warm-up, before a target opens its profiler range, so
+   collecting them the way activity collection is collected -- off at
+   bootstrap, on at cuProfilerStart -- would miss exactly the workloads that
+   build their code early, and would miss them silently. A module is a fact
+   about the process, not about the range.
+
+   Images are written beside the journal rather than through it. The journal is
+   a bounded ring of small fixed records sized for activity; a multi-megabyte
+   cubin pushed through it would evict real records and read downstream as
+   missing kernels. The record carries the file name, so the journal stays the
+   index and the bytes stay out of it. */
+#define MODULE_SEEN_MAX 256
+
+static pthread_mutex_t module_mu = PTHREAD_MUTEX_INITIALIZER;
+static int modules_enabled;
+static unsigned module_seq;
+static unsigned module_omitted;
+static uint64_t module_total_bytes;
+static uint64_t module_file_limit = 16ull * 1024 * 1024;
+static uint64_t module_total_limit = 128ull * 1024 * 1024;
+static struct { uint32_t id; uint64_t size; } module_seen[MODULE_SEEN_MAX];
+static unsigned module_seen_count;
+
+/* env_bytes reads a byte budget from the environment, keeping the default when
+   the variable is absent or does not parse. A budget that silently became zero
+   would omit every module and leave a capture indistinguishable from a target
+   that loaded none. */
+static uint64_t env_bytes(const char *name, uint64_t fallback) {
+	const char *v = getenv(name);
+	if (v == NULL || *v == '\0') return fallback;
+	char *end = NULL;
+	unsigned long long n = strtoull(v, &end, 10);
+	if (end == v || *end != '\0' || n == 0) return fallback;
+	return (uint64_t)n;
+}
+
+/* module_first_load reports whether an (id, size) pair has not been written
+   yet, recording it when it has not. A module loaded once per context arrives
+   once per load with identical bytes, and writing every copy would multiply
+   the capture by the context count for nothing. Past the table's bound every
+   load counts as new: writing a duplicate costs size, where refusing a
+   distinct module would cost correctness. */
+static int module_first_load(uint32_t id, uint64_t size) {
+	for (unsigned i = 0; i < module_seen_count; i++)
+		if (module_seen[i].id == id && module_seen[i].size == size) return 0;
+	if (module_seen_count < MODULE_SEEN_MAX) {
+		module_seen[module_seen_count].id = id;
+		module_seen[module_seen_count].size = size;
+		module_seen_count++;
+	}
+	return 1;
+}
+
+/* write_module writes one cubin beside the journal and records what happened to
+   it. A module the budget refuses is recorded with its size rather than
+   dropped: "the target loaded no such module" and "the agent declined to keep
+   one this large" are different facts, and silence reads as the first. */
+static void write_module(uint32_t module_id, const char *cubin, size_t size) {
+	if (worker_dir[0] == '\0' || journal_fd < 0 || cubin == NULL || size == 0) return;
+	const char *reason = "";
+	int omit = 0;
+	unsigned seq;
+	pthread_mutex_lock(&module_mu);
+	if (!module_first_load(module_id, (uint64_t)size)) { pthread_mutex_unlock(&module_mu); return; }
+	if ((uint64_t)size > module_file_limit) { omit = 1; reason = "over per-module budget"; }
+	else if (module_total_bytes + (uint64_t)size > module_total_limit) { omit = 1; reason = "over total module budget"; }
+	seq = module_seq++;
+	if (omit) module_omitted++;
+	else module_total_bytes += (uint64_t)size;
+	pthread_mutex_unlock(&module_mu);
+
+	char name[64];
+	if (snprintf(name, sizeof(name), "module-%04u-id%" PRIu32 ".cubin", seq, module_id) >= (int)sizeof(name)) return;
+	if (!omit) {
+		char dir[PATH_MAX], path[PATH_MAX];
+		if (snprintf(dir, sizeof(dir), "%s/modules", worker_dir) >= (int)sizeof(dir)) return;
+		if (mkdir(dir, 0700) != 0 && errno != EEXIST) { omit = 1; reason = "module directory unavailable"; }
+		else if (snprintf(path, sizeof(path), "%s/%s", dir, name) >= (int)sizeof(path)) return;
+		else {
+			int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+			if (fd < 0) { omit = 1; reason = "module file unavailable"; }
+			else {
+				size_t off = 0;
+				while (off < size) {
+					ssize_t w = write(fd, cubin + off, size - off);
+					if (w <= 0) { omit = 1; reason = "module write failed"; break; }
+					off += (size_t)w;
+				}
+				if (close(fd) != 0 && !omit) { omit = 1; reason = "module close failed"; }
+			}
+		}
+		/* The budget counted these bytes before the write was attempted. An
+		   I/O failure has to give them back, or a run that cannot write at all
+		   reports a total it never stored. */
+		if (omit) {
+			pthread_mutex_lock(&module_mu);
+			module_total_bytes -= (uint64_t)size;
+			module_omitted++;
+			pthread_mutex_unlock(&module_mu);
+		}
+	}
+	/* The field names are module-prefixed because the consumer decodes every
+	   record kind into one flat structure: an unprefixed "retained" or "size"
+	   would land on a field another kind already owns, and a type that
+	   disagrees fails the whole journal rather than this record. */
+	char payload[MAX_PAYLOAD];
+	int n = snprintf(payload, sizeof(payload),
+		"{\"kind\":\"module\",\"module_id\":%" PRIu32 ",\"module_size\":%zu,\"module_file\":\"%s\",\"module_stored\":%s,\"module_reason\":\"%s\"}",
+		module_id, size, omit ? "" : name, omit ? "false" : "true", reason);
+	if (n > 0 && (size_t)n < sizeof(payload)) (void)write_record(KIND_MODULE, now_ns(), payload, (size_t)n);
 }
 
 /* A record that did not fit its buffer is a record nothing downstream will
@@ -1549,8 +1672,27 @@ static void write_range_edge(const char *edge, const char *api, unsigned index, 
 
 static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const void *cbdata) {
 	(void)userdata;
+	if (cbdata == NULL || atomic_load(&shutdown_started)) return;
+	/* The resource domain passes a different structure than the API domains do,
+	   so the domain is tested before the pointer is interpreted. Reading a
+	   CUpti_ResourceData as a CUpti_CallbackData is not an error the compiler
+	   can see and not one the fields would announce: they are live memory
+	   either way. Measured on CUPTI 13.0, the module payload arrives through
+	   resourceDescriptor -- reading cbdata itself as the module data yields a
+	   plausible-looking module id and a zero size. */
+	if (domain == CUPTI_CB_DOMAIN_RESOURCE) {
+		if (cbid != CUPTI_CBID_RESOURCE_MODULE_LOADED || !modules_enabled) return;
+		const CUpti_ResourceData *res = (const CUpti_ResourceData *)cbdata;
+		const CUpti_ModuleResourceData *mod = (const CUpti_ModuleResourceData *)res->resourceDescriptor;
+		if (mod == NULL) return;
+		/* Counted like the range edges below so finalize can wait for it: this
+		   writes the journal, and teardown closes that descriptor. */
+		atomic_fetch_add(&callback_active, 1);
+		if (!atomic_load(&shutdown_started)) write_module(mod->moduleId, mod->pCubin, mod->cubinSize);
+		atomic_fetch_sub(&callback_active, 1);
+		return;
+	}
 	const CUpti_CallbackData *data = (const CUpti_CallbackData *)cbdata;
-	if (data == NULL || atomic_load(&shutdown_started)) return;
 	int start;
 	const char *api;
 	if (domain == CUPTI_CB_DOMAIN_RUNTIME_API) {
@@ -1961,14 +2103,37 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	int range_requested = range_env != NULL && strcmp(range_env, "cudaProfilerApi") == 0;
 	const char *finalize_env = getenv("CUDAPROF_FINALIZE");
 	int stop_requested = finalize_env != NULL && strcmp(finalize_env, "profiler-stop") == 0;
-	if (range_requested || stop_requested) {
+	/* Module capture rides the same subscription, because CUPTI allows one
+	   subscriber per process and the profiler-API triggers already hold it.
+
+	   It is off unless the reader asks for it. The journal's record kinds are
+	   closed -- a consumer that meets a kind it does not know refuses the whole
+	   journal, not the record -- so an agent that emitted module records by
+	   default would break every cudaprof built before this kind existed, on a
+	   capture that otherwise had nothing wrong with it. The component that
+	   knows it can decode the kind is the one that turns it on, and cudaprof
+	   capture exports it, so a user still gets modules without asking. */
+	const char *modules_env = getenv("CUDAPROF_MODULES");
+	modules_enabled = modules_env != NULL && strcmp(modules_env, "0") != 0 && strcmp(modules_env, "off") != 0;
+	module_file_limit = env_bytes("CUDAPROF_MODULE_FILE_BYTES", module_file_limit);
+	module_total_limit = env_bytes("CUDAPROF_MODULE_TOTAL_BYTES", module_total_limit);
+	int modules_requested = modules_enabled;
+	if (range_requested || stop_requested || modules_enabled) {
 		CUptiResult sub = cuptiSubscribe(&range_subscriber, range_callback, NULL);
 		if (sub != CUPTI_SUCCESS) {
 			record_cupti_failure("cuptiSubscribe(profiler API)", sub);
 			if (range_requested) range_gated = RANGE_UNAVAILABLE;
 			if (stop_requested) finalize_mode = FINALIZE_UNAVAILABLE;
+			modules_enabled = 0;
 		} else {
 			range_subscribed = 1;
+			if (modules_enabled) {
+				CUptiResult mr = cuptiEnableCallback(1, range_subscriber, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_MODULE_LOADED);
+				if (mr != CUPTI_SUCCESS) {
+					record_cupti_failure("cuptiEnableCallback(module loaded)", mr);
+					modules_enabled = 0;
+				}
+			}
 			static const struct { CUpti_CallbackDomain domain; CUpti_CallbackId cbid; int opens; const char *what; } triggers[] = {
 				{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStart_v4000, 1, "cuptiEnableCallback(cudaProfilerStart)"},
 				{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000, 0, "cuptiEnableCallback(cudaProfilerStop)"},
@@ -1999,7 +2164,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			if (range_requested) range_gated = opens_armed > 0 && closes_armed > 0 ? RANGE_GATED : RANGE_UNAVAILABLE;
 			if (stop_requested) finalize_mode = closes_armed > 0 ? FINALIZE_PROFILER_STOP : FINALIZE_UNAVAILABLE;
 			if (range_gated == RANGE_GATED) (void)set_activity_collection(0);
-			else if (finalize_mode != FINALIZE_PROFILER_STOP) {
+			else if (finalize_mode != FINALIZE_PROFILER_STOP && !modules_enabled) {
 				(void)cuptiUnsubscribe(range_subscriber);
 				range_subscribed = 0;
 			}
@@ -2031,7 +2196,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
 		}
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
@@ -2120,12 +2285,14 @@ static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback) 
 	if (pthread_join(worker, NULL) != 0) atomic_store(&producer_failed, 1);
 	char payload[MAX_PAYLOAD];
 	const char *state = atomic_load(&producer_failed) ? "producer_failure" : (atomic_load(&activity_count) ? "collected" : "initialized_no_activity");
-	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"host\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}},\"host_samples\":%" PRIu64 ",\"host_sample_records\":%" PRIu64 "}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
+	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"host\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"module\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}},\"modules_written\":%u,\"modules_omitted\":%u,\"module_bytes\":%" PRIu64 ",\"host_samples\":%" PRIu64 ",\"host_sample_records\":%" PRIu64 "}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
 		atomic_load(&offered_by_kind[KIND_ACTIVITY]), atomic_load(&retained_by_kind[KIND_ACTIVITY]), atomic_load(&dropped_by_kind[KIND_ACTIVITY]),
 		atomic_load(&offered_by_kind[KIND_API]), atomic_load(&retained_by_kind[KIND_API]), atomic_load(&dropped_by_kind[KIND_API]),
 		atomic_load(&offered_by_kind[KIND_EXTERNAL]), atomic_load(&retained_by_kind[KIND_EXTERNAL]), atomic_load(&dropped_by_kind[KIND_EXTERNAL]),
 		atomic_load(&offered_by_kind[KIND_FAILURE]), atomic_load(&retained_by_kind[KIND_FAILURE]), atomic_load(&dropped_by_kind[KIND_FAILURE]),
 		atomic_load(&offered_by_kind[KIND_HOST]), atomic_load(&retained_by_kind[KIND_HOST]), atomic_load(&dropped_by_kind[KIND_HOST]),
+		atomic_load(&offered_by_kind[KIND_MODULE]), atomic_load(&retained_by_kind[KIND_MODULE]), atomic_load(&dropped_by_kind[KIND_MODULE]),
+		module_seq - module_omitted, module_omitted, module_total_bytes,
 		atomic_load(&host_samples_taken), atomic_load(&host_sample_records));
 	if (n < 0 || (size_t)n >= sizeof(payload) || write_record(KIND_FINALIZED, now_ns(), payload, (size_t)n) != 0) atomic_store(&producer_failed, 1);
 	if (fsync(journal_fd) != 0) atomic_store(&producer_failed, 1);

@@ -336,6 +336,12 @@ type captureResult struct {
 	// they exceeded the per-file budget. Their exact size and digest are kept
 	// so an omission is always visible and the original stays identifiable.
 	OmittedFiles []captureOmittedFile `json:"omitted_files,omitempty"`
+	// Modules records every device module image the agent saw the driver
+	// load, including the ones it declined to store. It is the census the
+	// embedded cubins are drawn from: a module missing from the capture is
+	// either absent here, meaning the target never loaded it, or present with
+	// Stored false, meaning the capture chose not to keep it.
+	Modules []captureModule `json:"modules,omitempty"`
 	// RecoveredGenerations and RecoveredActivityRecords count only what came
 	// from unfinalized generations, so a reader can subtract the recovered
 	// contribution from the totals above. They are zero unless recovery was
