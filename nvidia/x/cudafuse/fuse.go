@@ -21,12 +21,17 @@ type FusedKernel struct {
 }
 
 // Fuse generates a single fused CUDA C++ mega-kernel source for the given IR graph.
+//
+// The source carries #line directives attributing generated lines to the Go
+// code they came from, so a binary compiled from it with line information
+// disassembles back to the caller's own file and line. Use FuseWithSourceMap
+// for source without the directives, along with the mapping they encode.
 func Fuse(g *cudair.Graph, kernelName string) (string, error) {
 	fk, err := FuseWithSourceMap(g, kernelName)
 	if err != nil {
 		return "", err
 	}
-	return fk.Source, nil
+	return fk.SourceWithLineDirectives(kernelName + ".cu"), nil
 }
 
 // FuseWithSourceMap generates a fused kernel and records exact source mappings from generated lines to Go callsites.
