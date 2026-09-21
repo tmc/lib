@@ -27,6 +27,7 @@ type coverage struct {
 	Span    time.Duration // wall-clock span the capture reports
 	Busy    time.Duration // device time the profile measures, zero when it measures none
 	Samples int64         // total PC samples: the denominator of every share
+	Rows    int           // sample rows in the profile; zero means nothing was observed
 
 	// Reason is empty exactly when the span's covered fraction is determined.
 	// A non-empty Reason means the fraction is unknown, not that it is small.
@@ -111,6 +112,7 @@ func captureCoverage(cap *cudacapture.Capture) coverage {
 	}
 	p := cap.Profile
 	c.Span = time.Duration(p.DurationNanos)
+	c.Rows = len(p.Sample)
 	for i, vt := range p.SampleType {
 		switch vt.Type {
 		case "kernel_time", "gpu_time":
@@ -153,6 +155,15 @@ func captureCoverage(cap *cudacapture.Capture) coverage {
 		}
 	}
 	switch {
+	case c.Rows == 0:
+		// Ordered before the device-time case, which would otherwise diagnose
+		// an empty capture as a sample-only one and prescribe its remedy.
+		// Those are opposite captures: one observed the wrong quantity, the
+		// other observed nothing, and sending someone to add activity tracing
+		// to a capture that collected zero records costs a run under GPU lock
+		// and produces the same empty file.
+		c.Reason = "the profile holds no samples at all, so this capture observed nothing: " +
+			"an empty ranking drawn from it means the capture was empty, not that the workload ran no such kernels"
 	case c.Busy <= 0:
 		c.Reason = "the profile carries no device time, only sample counts, and a sample count " +
 			"has no duration: it says where execution was, never for how long"
@@ -206,7 +217,22 @@ func preflightCoverage(w io.Writer, cap *cudacapture.Capture, args []string, all
 		return nil
 	}
 	flag, ranking := rankingRequested(args)
-	if !ranking || allow || c.Rankable() {
+	if !ranking {
+		return nil
+	}
+	// An empty profile is refused ahead of the override, and the override does
+	// not reach it. The flag exists so a reader who knows what a sample share
+	// is can read one anyway; there is no share of zero samples to read, so
+	// letting it through here would print the clean empty table this refusal
+	// exists to prevent -- a table that reads as "those kernels are not in
+	// this workload" when the capture in fact observed nothing.
+	if c.Rows == 0 {
+		return fmt.Errorf("%s has nothing to rank: %s.\n"+
+			"\tNo flag makes this file rankable. Read the capture headline for why it is empty --\n"+
+			"\ta target that exited before the collector finalized is the usual cause -- and re-capture.",
+			flag, c.Reason)
+	}
+	if allow || c.Rankable() {
 		return nil
 	}
 	return fmt.Errorf("%s would rank this profile by a total that has no duration.\n"+

@@ -125,3 +125,55 @@ func TestStripCoverageFlag(t *testing.T) {
 		t.Error("flag reported present when it was absent")
 	}
 }
+
+// TestEmptyProfileIsNotDiagnosedAsSampleOnly is errata 7.2. A capture that
+// observed nothing and a capture that observed the wrong quantity produced the
+// same coverage line and the same remedy, and the remedy belonged to the other
+// capture: someone told to add activity tracing to an empty capture pays a run
+// under GPU lock and gets the same empty file back.
+func TestEmptyProfileIsNotDiagnosedAsSampleOnly(t *testing.T) {
+	empty := captureCoverage(timedCapture(1e9, 0, 0))
+	sampleOnly := captureCoverage(timedCapture(1e9, 0, 1000))
+	if empty.Determined() {
+		t.Fatalf("empty profile reported a determined coverage: %v", empty)
+	}
+	if empty.Reason == sampleOnly.Reason {
+		t.Fatalf("empty and sample-only captures give one diagnosis: %q", empty.Reason)
+	}
+	if !strings.Contains(empty.String(), "observed nothing") {
+		t.Errorf("empty coverage does not say the capture observed nothing: %q", empty)
+	}
+	// The erratum is specifically that an empty ranking reads as a statement
+	// about the workload. The line has to deny that reading, not merely
+	// report a zero.
+	if !strings.Contains(empty.String(), "not that the workload ran no such kernels") {
+		t.Errorf("empty coverage does not deny the workload reading: %q", empty)
+	}
+}
+
+// TestEmptyProfileRefusesARankingUnderEveryFlag keeps -allow_unknown_coverage
+// from reaching the empty case. The flag exists so a reader who knows what a
+// sample share is can read one; there is no share of zero samples, so letting
+// it through prints the clean empty table the refusal exists to prevent.
+func TestEmptyProfileRefusesARankingUnderEveryFlag(t *testing.T) {
+	empty := timedCapture(1e9, 0, 0)
+	for _, allow := range []bool{false, true} {
+		var buf bytes.Buffer
+		err := preflightCoverage(&buf, empty, []string{"-top"}, allow)
+		if err == nil {
+			t.Fatalf("allow=%v: empty profile ranked, output %q", allow, buf.String())
+		}
+		if !strings.Contains(err.Error(), "nothing to rank") {
+			t.Errorf("allow=%v: refusal does not say the file is empty: %v", allow, err)
+		}
+		if strings.Contains(err.Error(), "Capture activity tracing alongside PC sampling") {
+			t.Errorf("allow=%v: empty capture given the sample-only remedy: %v", allow, err)
+		}
+	}
+	// Control: a sample-only profile is still bypassable, because there a
+	// share genuinely exists to be read as a share.
+	var buf bytes.Buffer
+	if err := preflightCoverage(&buf, timedCapture(1e9, 0, 1000), []string{"-top"}, true); err != nil {
+		t.Errorf("sample-only ranking refused under the override: %v", err)
+	}
+}
