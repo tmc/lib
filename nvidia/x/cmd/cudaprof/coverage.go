@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
@@ -114,14 +116,14 @@ func captureCoverage(cap *cudacapture.Capture) coverage {
 	c.Span = time.Duration(p.DurationNanos)
 	c.Rows = len(p.Sample)
 	for i, vt := range p.SampleType {
-		switch vt.Type {
-		case "kernel_time", "gpu_time":
+		switch {
+		case deviceTimeType(vt.Type):
 			for _, s := range p.Sample {
 				if i < len(s.Value) && s.Value[i] > 0 {
 					c.Busy += time.Duration(s.Value[i])
 				}
 			}
-		case "pc_samples", "samples":
+		case vt.Type == "pc_samples", vt.Type == "samples":
 			for _, s := range p.Sample {
 				if i < len(s.Value) && s.Value[i] > 0 {
 					c.Samples += s.Value[i]
@@ -240,4 +242,109 @@ func preflightCoverage(w io.Writer, cap *cudacapture.Capture, args []string, all
 		"\tCapture activity tracing alongside PC sampling so the profile carries device time,\n"+
 		"\tor pass %s to read the ranking as a share of samples and nothing more.",
 		flag, c.Reason, allowUnknownCoverageFlag)
+}
+
+// deviceTimeType reports whether a sample type carries device time. It is the
+// only quantity in a cudaprof profile measured in the same unit as the span,
+// so it is the only one captureCoverage can close against it, and the only one
+// the coverage statement above describes.
+func deviceTimeType(name string) bool {
+	return name == "kernel_time" || name == "gpu_time"
+}
+
+// sampleIndexRequested returns the -sample_index value in args. pprof parses
+// the flag with the flag package, so both spellings and both forms -- joined by
+// = or followed by a separate word -- have to be recognized here or the
+// refusal below silently does not apply to half the ways of writing it.
+func sampleIndexRequested(args []string) (string, bool) {
+	for i, a := range args {
+		name, value, hasValue := strings.Cut(a, "=")
+		switch name {
+		case "-sample_index", "--sample_index":
+			if hasValue {
+				return value, true
+			}
+			if i+1 < len(args) {
+				return args[i+1], true
+			}
+			return "", true
+		}
+	}
+	return "", false
+}
+
+// resolveSampleIndex reports which sample type value names, accepting exactly
+// what pprof's profile.SampleIndexByName accepts: a numeric index in range or
+// a type name, including the legacy inuse_ prefix. The legacy rule is mirrored
+// even though no cudaprof profile emits such a type, because the cost of the
+// two forms disagreeing is a refusal here of a value pprof would have taken --
+// a preflight that rejects working input is worse than the confusion it fixes.
+func resolveSampleIndex(p *profile.Profile, value string) (int, bool) {
+	if i, err := strconv.Atoi(value); err == nil {
+		if i < 0 || i >= len(p.SampleType) {
+			return 0, false
+		}
+		return i, true
+	}
+	noInuse := strings.TrimPrefix(value, "inuse_")
+	for i, vt := range p.SampleType {
+		if vt.Type == value || vt.Type == noInuse {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+// sampleTypeMenu names the quantities a profile emits, each with its unit and
+// the default marked.
+func sampleTypeMenu(p *profile.Profile) string {
+	parts := make([]string, 0, len(p.SampleType))
+	for _, vt := range p.SampleType {
+		s := fmt.Sprintf("%s (%s)", vt.Type, vt.Unit)
+		if vt.Type == p.DefaultSampleType {
+			s += " [default]"
+		}
+		parts = append(parts, s)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// preflightSampleIndex refuses a -sample_index this capture does not measure,
+// and says what it does measure in the unit each quantity is measured in.
+//
+// pprof already rejects an unknown value and already lists the type names:
+// `sample_index "activity_ns" must be one of: [kernel_time copy_time
+// copy_bytes activity]`. The list was never the missing part. The unit is.
+// activity_ns is an operator asking for a count of activity in nanoseconds,
+// and a list of four bare names cannot tell them that kernel_time is the
+// nanoseconds and activity is the count -- it reads as four alternative
+// spellings of one quantity rather than as three quantities in three units.
+//
+// The second half is the same denominator discipline the coverage statement
+// enforces. That statement is about device time, and a reader who selects
+// copy_bytes or activity gets it printed directly above a table it does not
+// describe: the header says what fraction of the span the device was busy for,
+// and the rows below rank bytes moved or launches counted. Naming the mismatch
+// costs a line and removes the only reading of the pair that is wrong.
+func preflightSampleIndex(w io.Writer, cap *cudacapture.Capture, args []string) error {
+	value, ok := sampleIndexRequested(args)
+	if !ok || value == "" {
+		return nil
+	}
+	if cap == nil || cap.Profile == nil || len(cap.Profile.SampleType) == 0 {
+		return nil
+	}
+	p := cap.Profile
+	idx, ok := resolveSampleIndex(p, value)
+	if !ok {
+		return fmt.Errorf("-sample_index=%s names a quantity this capture does not measure.\n"+
+			"\tIt measures: %s.\n"+
+			"\tThe unit decides what the ranking means: nanoseconds ranks device time, bytes ranks traffic, count ranks launches.",
+			value, sampleTypeMenu(p))
+	}
+	if vt := p.SampleType[idx]; !deviceTimeType(vt.Type) {
+		fmt.Fprintf(w, "cudaprof: -sample_index=%s ranks %s in %s, not device time: the coverage statement above is about device time and is not the denominator of the table below\n",
+			value, vt.Type, vt.Unit)
+	}
+	return nil
 }

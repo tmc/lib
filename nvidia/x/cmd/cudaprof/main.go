@@ -260,6 +260,11 @@ func run() error {
 	if err := preflightCoverage(os.Stderr, cap, args, allowUnknownCoverage); err != nil {
 		return err
 	}
+	// Ordered after the coverage statement so a selected column that the
+	// statement does not describe is named directly beneath it.
+	if err := preflightSampleIndex(os.Stderr, cap, args); err != nil {
+		return err
+	}
 	reportProvenance(os.Stderr, cap)
 	os.Args = append(os.Args[:1], args...)
 	return driver.PProf(&driver.Options{Obj: tool, Fetch: fetch})
