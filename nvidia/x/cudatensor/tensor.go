@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudafuse"
 	"github.com/tmc/lib/nvidia/x/cudair"
@@ -19,16 +20,50 @@ type Tensor struct {
 	err   error
 }
 
+// pkgPrefix is this package's symbol prefix, read from a function in the
+// package rather than written as a literal so a move or a rename cannot leave
+// a stale string behind.
+var pkgPrefix = func() string {
+	pc, _, _, ok := runtime.Caller(0)
+	if !ok {
+		return ""
+	}
+	name := runtime.FuncForPC(pc).Name() // ".../cudatensor.glob..func1"
+	slash := strings.LastIndex(name, "/")
+	dot := strings.Index(name[slash+1:], ".")
+	if dot < 0 {
+		return ""
+	}
+	return name[:slash+1+dot+1]
+}()
+
+// captureSource reports where in the caller's code this graph node was built.
+//
+// It returns the first frame outside this package rather than a frame at a
+// fixed depth. The depth is not uniform: MatMul calls this directly while Add
+// reaches it through withBinary, so a fixed skip is right for some operations
+// and wrong for others, and being wrong here is silent -- it attributes the
+// caller's computation to a line in this file, which reads like an answer.
+//
+// A location that cannot be determined is returned as the zero value. Callers
+// treat that as absent, which is the safe failure: no attribution is a gap a
+// reader can see, and a confident wrong one is not.
 func captureSource() cudair.SourceLocation {
-	var loc cudair.SourceLocation
-	if pc, file, line, ok := runtime.Caller(2); ok {
-		loc.File = file
-		loc.Line = line
-		if fn := runtime.FuncForPC(pc); fn != nil {
-			loc.Function = fn.Name()
+	if pkgPrefix == "" {
+		return cudair.SourceLocation{}
+	}
+	var pcs [16]uintptr
+	n := runtime.Callers(2, pcs[:])
+	frames := runtime.CallersFrames(pcs[:n])
+	for {
+		f, more := frames.Next()
+		if f.Function != "" && !strings.HasPrefix(f.Function, pkgPrefix) {
+			return cudair.SourceLocation{File: f.File, Line: f.Line, Function: f.Function}
+		}
+		if !more {
+			return cudair.SourceLocation{}
 		}
 	}
-	return loc
 }
 
 // NewInput creates a new input tensor within the given graph.
