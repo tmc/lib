@@ -68,11 +68,14 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 	}
 
 	var lines []string
+	lineNo := 0 // number of the last line appended, counting newlines within a chunk
 	addLine := func(s string, loc *cudair.SourceLocation) {
 		lines = append(lines, s)
+		lineNo++
 		if loc != nil && (loc.File != "" || loc.Line > 0) {
-			fk.LineMap[len(lines)] = *loc
+			fk.LineMap[lineNo] = *loc
 		}
+		lineNo += strings.Count(s, "\n")
 	}
 
 	addLine(`#include <cuda_runtime.h>`, nil)
