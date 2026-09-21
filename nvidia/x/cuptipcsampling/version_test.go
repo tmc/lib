@@ -77,3 +77,22 @@ func TestPublicStartRejectsUnwitnessedVersions(t *testing.T) {
 		})
 	}
 }
+
+// TestGeneratedVersionIsQualified pins the qualification table to the version
+// the Go types were generated from. Both gates are asserted: the query gate
+// admits a superset, so checking only it would pass even if the sampling gate
+// had dropped the generated version.
+//
+// The table holds version literals, so nothing otherwise connects it to
+// [cupti.ApiVersion] -- a regeneration moves the constant and leaves every
+// literal, and neither the compiler nor any other test notices. Whatever else
+// the table admits, it must admit the version whose struct shapes these types
+// actually are.
+func TestGeneratedVersionIsQualified(t *testing.T) {
+	if !qualifiedSamplingVersion(cupti.ApiVersion) {
+		t.Errorf("qualifiedSamplingVersion(cupti.ApiVersion = %d) = false, want true", cupti.ApiVersion)
+	}
+	if !qualifiedQueryVersion(cupti.ApiVersion) {
+		t.Errorf("qualifiedQueryVersion(cupti.ApiVersion = %d) = false, want true", cupti.ApiVersion)
+	}
+}

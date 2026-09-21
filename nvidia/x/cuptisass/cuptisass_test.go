@@ -4,6 +4,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
@@ -162,5 +163,20 @@ func TestReadCString(t *testing.T) {
 	ptr := uintptr(unsafe.Pointer(&buf[0]))
 	if got, want := readCString(ptr), "hello_sass"; got != want {
 		t.Errorf("readCString = %q, want %q", got, want)
+	}
+}
+
+// TestGeneratedVersionIsQualified pins the qualification table to the version
+// the Go types were generated from. cupti.ApiVersion is that version, and
+// the structs this package passes to CUPTI are its shapes.
+//
+// The table holds version literals, so nothing otherwise connects it to
+// [cupti.ApiVersion] -- a regeneration moves the constant and leaves every
+// literal, and neither the compiler nor any other test notices. Whatever else
+// the table admits, it must admit the version whose struct shapes these types
+// actually are.
+func TestGeneratedVersionIsQualified(t *testing.T) {
+	if !qualifiedVersion(cupti.ApiVersion) {
+		t.Errorf("qualifiedVersion(cupti.ApiVersion = %d) = false, want true", cupti.ApiVersion)
 	}
 }

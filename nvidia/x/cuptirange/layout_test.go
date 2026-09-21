@@ -1,6 +1,10 @@
 package cuptirange
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/tmc/lib/nvidia/cupti"
+)
 
 // TestLayoutShapes pins each measured parameter-struct shape to the CUPTI
 // versions it was read from. The two structs are listed separately because they
@@ -46,5 +50,28 @@ func TestLayoutShapes(t *testing.T) {
 		if !tt.qualified && (tt.singlePass || tt.scoped) {
 			t.Errorf("%d: an unqualified version cannot have a shape", tt.version)
 		}
+	}
+}
+
+// TestGeneratedVersionIsQualified pins the qualification table to the version
+// the Go types were generated from. Here that is a claim about shapes and not
+// only about admission: the two final fields the shape predicates report on are
+// fields of the generated Go structs, so both must hold at the generated
+// version or the structs and the predicates describe different headers.
+//
+// The table holds version literals, so nothing otherwise connects it to
+// [cupti.ApiVersion] -- a regeneration moves the constant and leaves every
+// literal, and neither the compiler nor any other test notices. Whatever else
+// the table admits, it must admit the version whose struct shapes these types
+// actually are.
+func TestGeneratedVersionIsQualified(t *testing.T) {
+	if !qualifiedLayout(cupti.ApiVersion) {
+		t.Errorf("qualifiedLayout(cupti.ApiVersion = %d) = false, want true", cupti.ApiVersion)
+	}
+	if !singlePassInitialize(cupti.ApiVersion) {
+		t.Errorf("singlePassInitialize(cupti.ApiVersion = %d) = false, want true", cupti.ApiVersion)
+	}
+	if !scopedProperties(cupti.ApiVersion) {
+		t.Errorf("scopedProperties(cupti.ApiVersion = %d) = false, want true", cupti.ApiVersion)
 	}
 }
