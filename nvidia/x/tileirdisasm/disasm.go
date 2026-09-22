@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
 
 // Option configures execution of the tileirdisasm disassembler.
@@ -18,6 +20,15 @@ type Option func(*config)
 type config struct {
 	disasmPath string
 	debugInfo  bool
+	tempDir    string
+}
+
+// Output retains the disassembler executable, arguments and both output streams.
+type Output = cudatool.Output
+
+// WithTempDir selects a scratch parent. Empty uses the operating system default.
+func WithTempDir(dir string) Option {
+	return func(c *config) { c.tempDir = dir }
 }
 
 // WithPath specifies an explicit path to the tileirdisasm executable.
@@ -39,8 +50,19 @@ var ErrNotFound = errors.New("tileirdisasm: executable not found in PATH or stan
 
 // Disassemble disassembles Tile IR bytecode using tileirdisasm and parses it into a Module AST.
 func Disassemble(ctx context.Context, bytecode []byte, opts ...Option) (*Module, error) {
+	m, _, err := DisassembleWithOutput(ctx, bytecode, opts...)
+	return m, err
+}
+
+// DisassembleWithOutput disassembles and parses bytecode while retaining raw
+// output even when execution or parsing fails. Scratch files are removed before
+// return; cleanup errors are joined with execution or parsing errors.
+func DisassembleWithOutput(ctx context.Context, bytecode []byte, opts ...Option) (module *Module, output Output, err error) {
 	if len(bytecode) == 0 {
-		return nil, errors.New("tileirdisasm: empty bytecode input")
+		return nil, output, errors.New("tileirdisasm: empty bytecode input")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, output, err
 	}
 
 	cfg := config{
@@ -52,18 +74,22 @@ func Disassemble(ctx context.Context, bytecode []byte, opts ...Option) (*Module,
 
 	disasmBin := findTileirdisasm(cfg.disasmPath)
 	if disasmBin == "" {
-		return nil, ErrNotFound
+		return nil, output, ErrNotFound
 	}
 
-	tmpDir, err := os.MkdirTemp("", "tileirdisasm-*")
+	tmpDir, err := os.MkdirTemp(cfg.tempDir, "tileirdisasm-*")
 	if err != nil {
-		return nil, fmt.Errorf("tileirdisasm: creating temp dir: %w", err)
+		return nil, output, fmt.Errorf("tileirdisasm: creating temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if cleanup := os.RemoveAll(tmpDir); cleanup != nil {
+			err = errors.Join(err, fmt.Errorf("tileirdisasm: remove scratch: %w", cleanup))
+		}
+	}()
 
 	inputPath := filepath.Join(tmpDir, "input.tilebc")
 	if err := os.WriteFile(inputPath, bytecode, 0600); err != nil {
-		return nil, fmt.Errorf("tileirdisasm: writing input: %w", err)
+		return nil, output, fmt.Errorf("tileirdisasm: writing input: %w", err)
 	}
 
 	args := []string{}
@@ -72,16 +98,12 @@ func Disassemble(ctx context.Context, bytecode []byte, opts ...Option) (*Module,
 	}
 	args = append(args, inputPath)
 
-	cmd := exec.CommandContext(ctx, disasmBin, args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("tileirdisasm execution failed: %w\n%s", err, stderr.String())
+	output, err = cudatool.Run(ctx, disasmBin, "", nil, args...)
+	if err != nil {
+		return nil, output, err
 	}
-
-	return Parse(bytes.NewReader(stdout.Bytes()))
+	module, err = Parse(bytes.NewReader(output.Stdout))
+	return module, output, err
 }
 
 // DisassembleFile reads a Tile IR bytecode file and returns its parsed Module AST.
