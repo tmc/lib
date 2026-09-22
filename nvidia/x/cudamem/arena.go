@@ -79,10 +79,10 @@ func (a *Arena) Device() *cuda.Device {
 // which packs as a null device pointer, so callers may defer error handling to a single
 // [Arena.Err] check.
 func AllocIn[T any](a *Arena, name string, length int) Slice[T] {
-	if a.err != nil {
-		return Slice[T]{}
-	}
 	if a.chunk > 0 {
+		if a.err != nil {
+			return Slice[T]{}
+		}
 		s, err := allocInBlock[T](a, length)
 		if err != nil {
 			a.err = fmt.Errorf("cudamem: arena alloc %s: %w", name, err)
@@ -90,13 +90,26 @@ func AllocIn[T any](a *Arena, name string, length int) Slice[T] {
 		}
 		return s
 	}
-	s, err := AllocTracked[T](a.dev, a.tracker, length)
+	s := allocIn(a, name, func() (Slice[T], error) { return AllocTracked[T](a.dev, a.tracker, length) })
+	if a.err != nil {
+		return Slice[T]{}
+	}
+	a.spans = append(a.spans, arenaSpan{s.ptr, length * int(unsafe.Sizeof(*new(T)))})
+	return s
+}
+
+func allocIn[T any](a *Arena, name string, allocate func() (Slice[T], error)) Slice[T] {
+	if a.err != nil {
+		return Slice[T]{}
+	}
+	s, err := allocate()
+	if s.Ptr() != 0 {
+		a.frees = append(a.frees, s.Free)
+	}
 	if err != nil {
 		a.err = fmt.Errorf("cudamem: arena alloc %s: %w", name, err)
 		return Slice[T]{}
 	}
-	a.frees = append(a.frees, s.Free)
-	a.spans = append(a.spans, arenaSpan{s.ptr, length * int(unsafe.Sizeof(*new(T)))})
 	return s
 }
 
@@ -182,15 +195,23 @@ func (a *Arena) Err() error {
 }
 
 // Free releases every allocation the arena still holds, in the reverse order it made
-// them, and reports the errors from any releases that failed. Freeing an arena twice is
-// safe: the second call has nothing to release.
+// them, and reports the errors from any releases that failed. Failed releases are
+// retained for another Free; successful releases are never repeated.
 func (a *Arena) Free() error {
 	frees := a.frees
-	a.frees, a.spans = nil, nil
+	a.spans = nil
 	var errs []error
 	for i := len(frees) - 1; i >= 0; i-- {
 		if err := frees[i](); err != nil {
 			errs = append(errs, err)
+		} else {
+			frees[i] = nil
+		}
+	}
+	a.frees = nil
+	for _, free := range frees {
+		if free != nil {
+			a.frees = append(a.frees, free)
 		}
 	}
 	return errors.Join(errs...)

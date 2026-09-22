@@ -2,9 +2,56 @@ package cudamem
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestArenaAdoptsFailedAllocation(t *testing.T) {
+	failure := errors.New("restore context")
+	a := NewArena(nil)
+	x := allocIn(a, "partial", func() (Slice[byte], error) {
+		return Slice[byte]{ptr: 0x1000, len: 32, cap: 32, elemSize: 1, alloc: &allocation{ptr: 0x1000, bytes: 32}}, failure
+	})
+	if x.Ptr() != 0 || !errors.Is(a.Err(), failure) || len(a.frees) != 1 {
+		t.Fatal("failed allocation was published or its cleanup owner was dropped")
+	}
+	allocIn(a, "later", func() (Slice[byte], error) { t.Fatal("allocation after failure"); return Slice[byte]{}, nil })
+	if len(a.frees) != 1 {
+		t.Fatal("failed arena changed cleanup list")
+	}
+}
+
+func TestArenaFreeRetriesFailures(t *testing.T) {
+	a := NewArena(nil)
+	failure := errors.New("free failed")
+	var order []int
+	retry := false
+	for i := range 3 {
+		a.frees = append(a.frees, func() error {
+			order = append(order, i)
+			if !retry && i != 1 {
+				return failure
+			}
+			return nil
+		})
+	}
+	if err := a.Free(); !errors.Is(err, failure) {
+		t.Fatalf("first free=%v", err)
+	}
+	if len(a.frees) != 2 {
+		t.Fatalf("retained frees=%d", len(a.frees))
+	}
+	retry = true
+	for range 2 {
+		if err := a.Free(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !reflect.DeepEqual(order, []int{2, 1, 0, 2, 0}) || len(a.frees) != 0 {
+		t.Fatalf("release order=%v", order)
+	}
+}
 
 func TestArenaFreeReverseOrder(t *testing.T) {
 	a := NewArena(nil)

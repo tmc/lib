@@ -33,12 +33,37 @@ type allocation struct {
 }
 
 // Alloc allocates a new typed Slice[T] of length elements in GPU device memory.
+// A nonzero slice belongs to the caller even when an error is returned; it must
+// be freed before dev is closed.
 func Alloc[T any](dev *cuda.Device, length int) (Slice[T], error) {
 	return AllocTracked[T](dev, nil, length)
 }
 
 // AllocTracked allocates device memory and accounts for its lifetime in tracker.
+// A nonzero error-result slice is tracked and must be freed before closing dev.
 func AllocTracked[T any](dev *cuda.Device, tracker *Tracker, length int) (Slice[T], error) {
+	if dev == nil {
+		return Slice[T]{}, errors.New("cudamem: nil allocation device")
+	}
+	return allocateSlice[T](dev, tracker, length, dev.WithContext, driver.MemAlloc)
+}
+
+// AllocManaged allocates a new typed Slice[T] in Unified/Managed memory.
+// A nonzero error-result slice must be freed before closing dev.
+func AllocManaged[T any](dev *cuda.Device, length int) (Slice[T], error) {
+	if dev == nil {
+		return Slice[T]{}, errors.New("cudamem: nil allocation device")
+	}
+	slice, err := allocateSlice[T](dev, nil, length, dev.WithContext, func(bytes uint) (driver.DevicePtr, error) {
+		return driver.MemAllocManaged(bytes, uint32(driver.MemAttachGlobal))
+	})
+	if err != nil {
+		return slice, fmt.Errorf("cudamem: managed memory: %w", err)
+	}
+	return slice, nil
+}
+
+func allocateSlice[T any](dev *cuda.Device, tracker *Tracker, length int, run func(func() error) error, allocate func(uint) (driver.DevicePtr, error)) (Slice[T], error) {
 	if length < 0 {
 		return Slice[T]{}, errors.New("cudamem: negative allocation length")
 	}
@@ -51,62 +76,22 @@ func AllocTracked[T any](dev *cuda.Device, tracker *Tracker, length int) (Slice[
 		return Slice[T]{}, fmt.Errorf("cudamem: allocation size overflows for %d elements", length)
 	}
 	totalBytes := uint(uintptr(length) * elemSize)
-
-	var dptr driver.DevicePtr
-	err := dev.WithContext(func() error {
-		p, err := driver.MemAlloc(totalBytes)
-		if err != nil {
-			return err
-		}
-		dptr = p
-		return nil
+	var ptr driver.DevicePtr
+	err := run(func() error {
+		var err error
+		ptr, err = allocate(totalBytes)
+		return err
 	})
+	var slice Slice[T]
+	if ptr != 0 {
+		tracker.allocated(uint64(totalBytes))
+		slice = Slice[T]{ptr: ptr, len: length, cap: length, elemSize: elemSize,
+			alloc: &allocation{ptr: ptr, bytes: uint64(totalBytes), tracker: tracker, device: dev}}
+	}
 	if err != nil {
-		return Slice[T]{}, fmt.Errorf("cudamem: alloc %d elements (%d bytes): %w", length, totalBytes, err)
+		return slice, fmt.Errorf("cudamem: alloc %d elements (%d bytes): %w", length, totalBytes, err)
 	}
-
-	tracker.allocated(uint64(totalBytes))
-	return Slice[T]{
-		ptr:      dptr,
-		len:      length,
-		cap:      length,
-		elemSize: elemSize,
-		alloc:    &allocation{ptr: dptr, bytes: uint64(totalBytes), tracker: tracker, device: dev},
-	}, nil
-}
-
-// AllocManaged allocates a new typed Slice[T] of length elements in Unified/Managed memory.
-func AllocManaged[T any](dev *cuda.Device, length int) (Slice[T], error) {
-	if length < 0 {
-		return Slice[T]{}, errors.New("cudamem: negative allocation length")
-	}
-	var t T
-	elemSize := unsafe.Sizeof(t)
-	if elemSize == 0 {
-		elemSize = 1
-	}
-	totalBytes := uint(uintptr(length) * elemSize)
-
-	var dptr driver.DevicePtr
-	err := dev.WithContext(func() error {
-		p, err := driver.MemAllocManaged(totalBytes, uint32(driver.MemAttachGlobal))
-		if err != nil {
-			return err
-		}
-		dptr = p
-		return nil
-	})
-	if err != nil {
-		return Slice[T]{}, fmt.Errorf("cudamem: alloc managed %d elements (%d bytes): %w", length, totalBytes, err)
-	}
-
-	return Slice[T]{
-		ptr:      dptr,
-		len:      length,
-		cap:      length,
-		elemSize: elemSize,
-		alloc:    &allocation{ptr: dptr, bytes: uint64(totalBytes), device: dev},
-	}, nil
+	return slice, nil
 }
 
 // Ptr returns the raw device pointer address.
@@ -187,22 +172,32 @@ func (s Slice[T]) Free() error {
 		return nil
 	}
 	if s.alloc != nil {
-		s.alloc.mu.Lock()
-		defer s.alloc.mu.Unlock()
-		if s.alloc.ptr == 0 {
-			return nil
-		}
-		if s.alloc.users != 0 {
-			return ErrInUse
-		}
-		if err := s.alloc.device.WithContext(s.alloc.ptr.MemFree); err != nil {
-			return fmt.Errorf("cudamem: free device memory: %w", err)
-		}
-		s.alloc.ptr = 0
-		s.alloc.tracker.freed(s.alloc.bytes)
-		return nil
+		return s.alloc.free(s.alloc.device.WithContext, driver.DevicePtr.MemFree)
 	}
 	if err := s.ptr.MemFree(); err != nil {
+		return fmt.Errorf("cudamem: free device memory: %w", err)
+	}
+	return nil
+}
+
+func (a *allocation) free(run func(func() error) error, free func(driver.DevicePtr) error) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.ptr == 0 {
+		return nil
+	}
+	if a.users != 0 {
+		return ErrInUse
+	}
+	if err := run(func() error {
+		if err := free(a.ptr); err != nil {
+			return err
+		}
+		// A context restoration error must not make this allocation live again.
+		a.ptr = 0
+		a.tracker.freed(a.bytes)
+		return nil
+	}); err != nil {
 		return fmt.Errorf("cudamem: free device memory: %w", err)
 	}
 	return nil

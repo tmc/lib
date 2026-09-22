@@ -62,6 +62,9 @@ func BucketSize(bytes uint) uint {
 // AllocAsync allocates a new typed Slice[T] of length elements ordered within stream.
 // It allocates from the default memory pool associated with stream's device, using
 // tiered size bucketing to prevent pool fragmentation.
+// A nonzero error-result slice remains owned by the caller. Queue FreeAsync on
+// the same stream, or synchronize that stream before using synchronous Free.
+// Preserve the stream and device until queued allocation/free work completes.
 func AllocAsync[T any](stream *cuda.Stream, length int) (Slice[T], error) {
 	if length < 0 {
 		return Slice[T]{}, errors.New("cudamem: negative allocation length")
@@ -69,34 +72,48 @@ func AllocAsync[T any](stream *cuda.Stream, length int) (Slice[T], error) {
 	if stream == nil {
 		return Slice[T]{}, errors.New("cudamem: nil stream passed to AllocAsync")
 	}
+	dev := stream.Device()
+	return allocateAsyncSlice[T](dev, length, func(fn func(driver.Stream) error) error {
+		return stream.WithHandle(func(handle driver.Stream) error {
+			return dev.WithContext(func() error { return fn(handle) })
+		})
+	}, driver.Stream.MemAllocAsync)
+}
+
+func allocateAsyncSlice[T any](dev *cuda.Device, length int, run func(func(driver.Stream) error) error, allocate func(driver.Stream, uint) (driver.DevicePtr, error)) (Slice[T], error) {
+	if length < 0 {
+		return Slice[T]{}, errors.New("cudamem: negative allocation length")
+	}
 	var t T
 	elemSize := unsafe.Sizeof(t)
 	if elemSize == 0 {
 		elemSize = 1
 	}
+	if uintptr(length) > uintptr(^uint(0))/elemSize {
+		return Slice[T]{}, fmt.Errorf("cudamem: async allocation size overflows for %d elements", length)
+	}
 	totalBytes := uint(uintptr(length) * elemSize)
 	allocBytes := BucketSize(totalBytes)
-	dev := stream.Device()
-
-	var dptr driver.DevicePtr
-	err := stream.WithHandle(func(handle driver.Stream) error {
-		return dev.WithContext(func() error {
-			var err error
-			dptr, err = handle.MemAllocAsync(allocBytes)
-			return err
-		})
-	})
-	if err != nil {
-		return Slice[T]{}, fmt.Errorf("cudamem: async alloc %d elements (%d bytes, bucket %d): %w", length, totalBytes, allocBytes, err)
+	capacity := uintptr(allocBytes) / elemSize
+	if capacity > uintptr(math.MaxInt) {
+		return Slice[T]{}, errors.New("cudamem: async allocation capacity overflows int")
 	}
 
-	return Slice[T]{
-		ptr:      dptr,
-		len:      length,
-		cap:      int(uintptr(allocBytes) / elemSize),
-		elemSize: elemSize,
-		alloc:    &allocation{ptr: dptr, bytes: uint64(allocBytes), device: stream.Device()},
-	}, nil
+	var dptr driver.DevicePtr
+	err := run(func(handle driver.Stream) error {
+		var err error
+		dptr, err = allocate(handle, allocBytes)
+		return err
+	})
+	var slice Slice[T]
+	if dptr != 0 {
+		slice = Slice[T]{ptr: dptr, len: length, cap: int(capacity), elemSize: elemSize,
+			alloc: &allocation{ptr: dptr, bytes: uint64(allocBytes), device: dev}}
+	}
+	if err != nil {
+		return slice, fmt.Errorf("cudamem: async alloc %d elements (%d bytes, bucket %d): %w", length, totalBytes, allocBytes, err)
+	}
+	return slice, nil
 }
 
 // FreeAsync asynchronously deallocates the device memory within the specified stream.
@@ -112,22 +129,40 @@ func (s Slice[T]) FreeAsync(stream *cuda.Stream) error {
 	if s.alloc == nil {
 		return errors.New("cudamem: async allocation has no ownership record")
 	}
-	s.alloc.mu.Lock()
-	defer s.alloc.mu.Unlock()
-	if s.alloc.ptr == 0 {
+	dev := stream.Device()
+	return s.alloc.freeAsync(func(fn func(driver.Stream) error) error {
+		return stream.WithHandle(func(handle driver.Stream) error {
+			return dev.WithContext(func() error {
+				return fn(handle)
+			})
+		})
+	}, driver.DevicePtr.MemFreeAsync, stream.AddCleanup)
+}
+
+func (a *allocation) freeAsync(run func(func(driver.Stream) error) error, free func(driver.DevicePtr, driver.Stream) error, addCleanup func(func())) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.ptr == 0 {
 		return nil
 	}
-	dev := stream.Device()
-	if err := stream.WithHandle(func(handle driver.Stream) error {
-		return dev.WithContext(func() error {
-			return s.alloc.ptr.MemFreeAsync(handle)
-		})
-	}); err != nil {
+	queued := false
+	err := run(func(stream driver.Stream) error {
+		if err := free(a.ptr, stream); err != nil {
+			return err
+		}
+		a.ptr = 0
+		queued = true
+		return nil
+	})
+	if queued {
+		// Register even when context restoration failed after enqueue. Wait
+		// until outside WithHandle; AddCleanup acquires the stream lifetime lock.
+		tracker, bytes := a.tracker, a.bytes
+		addCleanup(func() { tracker.freed(bytes) })
+	}
+	if err != nil {
 		return fmt.Errorf("cudamem: async free device memory: %w", err)
 	}
-	s.alloc.ptr = 0
-	tracker, bytes := s.alloc.tracker, s.alloc.bytes
-	stream.AddCleanup(func() { tracker.freed(bytes) })
 	return nil
 }
 
