@@ -75,6 +75,10 @@ func PrefillW256Source() (string, error) {
 }
 
 // GroupedTopKRouter computes bias-balanced grouped top-K routing.
+//
+// Selection ranks experts by gate logit plus a per-expert load-balancing bias,
+// but the returned weights are the softmax of the unbiased logits, so the bias
+// steers which experts run without distorting how much each contributes.
 type GroupedTopKRouter struct {
 	cfg    MoEConfig
 	biases []float32
@@ -90,7 +94,8 @@ func NewGroupedTopKRouter(cfg MoEConfig) *GroupedTopKRouter {
 
 type expertScore struct {
 	index int
-	score float32
+	score float32 // gate logit plus bias, used for ranking
+	logit float32 // unbiased gate logit, used for the weight
 }
 
 // Route computes top-K expert selection with softmax weights. Experts with
@@ -106,6 +111,7 @@ func (r *GroupedTopKRouter) Route(gateLogits []float32) RoutingDecision {
 		scores[i] = expertScore{
 			index: i,
 			score: gateLogits[i] + r.biases[i],
+			logit: gateLogits[i],
 		}
 	}
 
@@ -124,21 +130,20 @@ func (r *GroupedTopKRouter) Route(gateLogits []float32) RoutingDecision {
 	}
 
 	selected := make([]int, k)
-	rawScores := make([]float32, k)
-	var maxScore float32 = -1e20
+	var maxLogit float32 = -1e20
 
 	for i := 0; i < k; i++ {
 		selected[i] = scores[i].index
-		rawScores[i] = scores[i].score
-		if scores[i].score > maxScore {
-			maxScore = scores[i].score
+		if scores[i].logit > maxLogit {
+			maxLogit = scores[i].logit
 		}
 	}
 
+	// Softmax over the selected experts' unbiased logits.
 	var sumExp float32
 	weights := make([]float32, k)
 	for i := 0; i < k; i++ {
-		e := float32(math.Exp(float64(rawScores[i] - maxScore)))
+		e := float32(math.Exp(float64(scores[i].logit - maxLogit)))
 		weights[i] = e
 		sumExp += e
 	}

@@ -35,6 +35,41 @@ func TestRouteTiesAreBrokenByIndex(t *testing.T) {
 	}
 }
 
+// TestRouteBiasSelectsWithoutReweighting is the DeepSeek-V3 load-balancing
+// contract: the bias changes which experts are chosen, but the weight an
+// expert receives is the softmax of its unbiased logit. Folding the bias into
+// the weight would silently rescale every expert's contribution.
+func TestRouteBiasSelectsWithoutReweighting(t *testing.T) {
+	router := NewGroupedTopKRouter(MoEConfig{NumRoutedExperts: 4, TopK: 2})
+	logits := []float32{1.0, 0.9, 0.2, 0.1}
+
+	unbiased := router.Route(logits)
+	if want := []int{0, 1}; !equalInts(unbiased.SelectedExperts, want) {
+		t.Fatalf("SelectedExperts = %v, want %v", unbiased.SelectedExperts, want)
+	}
+
+	// Push expert 2 to the front without touching its logit.
+	router.biases = []float32{0, 0, 5, 0}
+	biased := router.Route(logits)
+	if want := []int{2, 0}; !equalInts(biased.SelectedExperts, want) {
+		t.Fatalf("biased SelectedExperts = %v, want %v", biased.SelectedExperts, want)
+	}
+
+	// Expert 2 and expert 0 must be weighted by logits 0.2 and 1.0, so expert 0
+	// still dominates despite being ranked second.
+	ratio := float64(biased.Weights[1] / biased.Weights[0])
+	if want := math.Exp(1.0 - 0.2); math.Abs(ratio-want) > 1e-5 {
+		t.Errorf("weight ratio expert0/expert2 = %v, want %v (the bias leaked into the weights)", ratio, want)
+	}
+	var sum float32
+	for _, w := range biased.Weights {
+		sum += w
+	}
+	if math.Abs(float64(sum)-1) > 1e-6 {
+		t.Errorf("weights sum to %v, want 1", sum)
+	}
+}
+
 func equalInts(a, b []int) bool {
 	if len(a) != len(b) {
 		return false
