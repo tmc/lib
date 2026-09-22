@@ -346,10 +346,20 @@ func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limi
 	var sb strings.Builder
 	sb.WriteString("# CUDA Profile Diff & Optimization Explanation\n\n")
 
-	// 1. Metric comparison: duration or PC-sampling
+	// The device timelines are read once: summed kernel time is stated
+	// against each arm's device-active time and span, and the decomposition
+	// below breaks the same timelines down.
+	gapOpts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords}
+	baseReport, baseGapErr := analyzeGaps(baseCap, gapOpts)
+	targetReport, targetGapErr := analyzeGaps(targetCap, gapOpts)
+
+	// 1. Metric comparison: summed kernel time or PC-sampling
 	durComp, pcComp, compMsg := compareProfiles(profileOrNil(baseCap), profileOrNil(targetCap), kernelFilter)
+	var baseArm, targetArm armTotals
 	if durComp != nil {
-		durComp.WriteMarkdown(&sb)
+		baseArm = readArmTotals(baseCap.Profile, baseReport, baseGapErr)
+		targetArm = readArmTotals(targetCap.Profile, targetReport, targetGapErr)
+		writeSummedKernelMarkdown(&sb, durComp, baseArm, targetArm, kernelFilter)
 	}
 	if pcComp != nil {
 		pcComp.WriteMarkdown(&sb)
@@ -359,11 +369,11 @@ func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limi
 		sb.WriteString(compMsg + "\n\n")
 	}
 
-	// The duration delta above is summed per-kernel device time, which is
-	// blind to inter-kernel idle. Decompose the same pair of runs into span,
-	// active and idle so that sum can never stand alone as the headline.
+	// Summed kernel time is blind to inter-kernel idle. Decompose the same
+	// pair of runs into span, active and idle so that sum can never stand
+	// alone as the headline.
 	if durComp != nil || hasJournal(baseCap) || hasJournal(targetCap) {
-		sb.WriteString(gapDecompositionMarkdown(baseCap, targetCap, basePath, targetPath))
+		sb.WriteString(gapDecompositionReportsMarkdown(baseReport, baseGapErr, targetReport, targetGapErr, basePath, targetPath))
 	}
 
 	// 2. PC Stall Reason Shifts
@@ -450,8 +460,8 @@ func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limi
 		for _, exp := range explanations {
 			sb.WriteString(fmt.Sprintf("- %s\n", exp))
 		}
-	} else if durComp != nil && durComp.BaseTotalNs > durComp.TargetTotalNs {
-		sb.WriteString("- Performance improvement observed across kernel execution with maintained pipeline balance.\n")
+	} else if line := durationSynthesis(durComp, baseArm, targetArm); line != "" {
+		sb.WriteString("- " + line + "\n")
 	} else if pcComp != nil {
 		if pcComp.RawDelta < 0 {
 			sb.WriteString(fmt.Sprintf("- Target run observed %d fewer PC samples (%+.1f pp shift).\n", -pcComp.RawDelta, pcComp.ShareShift))
@@ -581,34 +591,6 @@ type PCSampleKernelShift struct {
 	BaseShare     float64
 	TargetShare   float64
 	ShareShift    float64 // percentage points
-}
-
-func (c *DurationComparison) WriteMarkdown(sb *strings.Builder) {
-	sb.WriteString("## Execution Duration Delta\n\n")
-	if c.BaseTotalNs > 0 || c.TargetTotalNs > 0 {
-		baseUs := float64(c.BaseTotalNs) / 1000.0
-		targetUs := float64(c.TargetTotalNs) / 1000.0
-		deltaUs := float64(c.DeltaNs) / 1000.0
-
-		sb.WriteString(fmt.Sprintf("- **Base Runtime**:   %s\n", formatRuntime(baseUs)))
-		sb.WriteString(fmt.Sprintf("- **Target Runtime**: %s\n", formatRuntime(targetUs)))
-		sb.WriteString(fmt.Sprintf("- **Duration Delta**: %s (%.1f%% reduction, %.2f× speedup)\n\n",
-			formatDeltaUs(deltaUs), c.PctSaved, c.Speedup))
-
-		if len(c.Kernels) > 1 {
-			sb.WriteString("| Kernel | Base (µs) | Target (µs) | Delta (µs) | Speedup |\n")
-			sb.WriteString("|---|---|---|---|---|\n")
-			for _, k := range c.Kernels {
-				bUs := float64(k.BaseNs) / 1000.0
-				tUs := float64(k.TargetNs) / 1000.0
-				dUs := float64(k.DeltaNs) / 1000.0
-				sb.WriteString(fmt.Sprintf("| `%s` | %.2f | %.2f | %+.2f | %.2f× |\n", k.Name, bUs, tUs, dUs, k.Speedup))
-			}
-			sb.WriteString("\n")
-		}
-	} else {
-		sb.WriteString("No execution duration samples recorded in profiles.\n\n")
-	}
 }
 
 func (c *PCSampleComparison) WriteMarkdown(sb *strings.Builder) {

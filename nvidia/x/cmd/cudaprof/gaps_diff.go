@@ -618,21 +618,26 @@ func writeNanosRow(b *strings.Builder, v GapIntDelta) {
 // the decomposition printed beside a duration delta
 
 // gapDecompositionMarkdown renders the span/active/idle decomposition of two
-// captures for "cudaprof diff --explain". It sits beside the summed per-kernel
-// duration delta because that sum is blind to inter-kernel idle: on its own it
-// scores a run that trades kernel time for idle time backwards.
+// captures for "cudaprof diff --explain". It sits beside the summed kernel
+// time because that sum is blind to inter-kernel idle: on its own it scores a
+// run that trades kernel time for idle time backwards.
 //
 // A capture without a usable journal is named with the reason the timeline
-// could not be reconstructed, and the rest of the explanation still prints:
-// the duration delta is not wrong, it is only incomplete.
+// could not be reconstructed, and the rest of the explanation still prints.
 func gapDecompositionMarkdown(baseCap, targetCap *cudacapture.Capture, basePath, targetPath string) string {
 	opts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords}
-	var sb strings.Builder
-	sb.WriteString("## Device Timeline Decomposition\n\n")
 	baseReport, baseErr := analyzeGaps(baseCap, opts)
 	targetReport, targetErr := analyzeGaps(targetCap, opts)
+	return gapDecompositionReportsMarkdown(baseReport, baseErr, targetReport, targetErr, basePath, targetPath)
+}
+
+// gapDecompositionReportsMarkdown is gapDecompositionMarkdown over gap reports
+// already made, with the error each analysis returned.
+func gapDecompositionReportsMarkdown(baseReport *GapReport, baseErr error, targetReport *GapReport, targetErr error, basePath, targetPath string) string {
+	var sb strings.Builder
+	sb.WriteString("## Device Timeline Decomposition\n\n")
 	if baseErr != nil || targetErr != nil {
-		sb.WriteString("The duration delta above sums per-kernel device time, which cannot see inter-kernel idle. That decomposition is unavailable here:\n\n")
+		sb.WriteString("The summed kernel time above cannot see inter-kernel idle. That decomposition is unavailable here:\n\n")
 		for _, e := range []struct {
 			path string
 			err  error

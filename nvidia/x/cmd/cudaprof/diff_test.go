@@ -329,8 +329,8 @@ func TestRunDiffExplain(t *testing.T) {
 	if !strings.Contains(out, "CUDA Profile Diff & Optimization Explanation") {
 		t.Errorf("output missing title: %s", out)
 	}
-	if !strings.Contains(out, "Execution Duration Delta") {
-		t.Errorf("output missing duration delta section: %s", out)
+	if !strings.Contains(out, "## Summed Kernel Time") {
+		t.Errorf("output missing summed kernel time section: %s", out)
 	}
 	if !strings.Contains(out, "stall_mem") {
 		t.Errorf("output missing stall_mem: %s", out)
@@ -340,8 +340,13 @@ func TestRunDiffExplain(t *testing.T) {
 	if !strings.Contains(out, "-60.0%") {
 		t.Errorf("output missing the stall_mem shift: %s", out)
 	}
-	if !strings.Contains(out, "1.33×") && !strings.Contains(out, "1.33x") {
-		t.Errorf("output missing expected speedup calculation: %s", out)
+	// Neither capture has a journal, so neither arm's coverage can be read
+	// and the 1.33× the two sums would give is withheld.
+	if !strings.Contains(out, "summed kernel time -25.00 µs; no ratio: base coverage UNREAD") {
+		t.Errorf("output does not withhold the ratio for journal-less captures: %s", out)
+	}
+	if strings.Contains(out, "1.33×") {
+		t.Errorf("output printed a ratio no coverage supports: %s", out)
 	}
 }
 
@@ -519,6 +524,9 @@ func TestRunDiffExplainPCSamples(t *testing.T) {
 	}
 }
 
+// TestRunDiffExplainNativeDurationTable: both native duration sample types
+// are read as summed kernel time. These captures have no journal, so the
+// delta is printed and the ratio the sums would give is withheld.
 func TestRunDiffExplainNativeDurationTable(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -526,11 +534,11 @@ func TestRunDiffExplainNativeDurationTable(t *testing.T) {
 		sampleUnit string
 		baseNs     int64
 		targetNs   int64
-		wantSpeed  string
-		wantSaved  string
+		wantDelta  string
+		withheld   string
 	}{
-		{"gpu_time", "gpu_time", "nanoseconds", 100000, 50000, "2.00×", "50.0%"},
-		{"kernel_time", "kernel_time", "nanoseconds", 200000, 150000, "1.33×", "25.0%"},
+		{"gpu_time", "gpu_time", "nanoseconds", 100000, 50000, "summed kernel time -50.00 µs; no ratio", "2.00×"},
+		{"kernel_time", "kernel_time", "nanoseconds", 200000, 150000, "summed kernel time -50.00 µs; no ratio", "1.33×"},
 	}
 
 	for _, tt := range tests {
@@ -544,17 +552,14 @@ func TestRunDiffExplainNativeDurationTable(t *testing.T) {
 			}
 			out := buf.String()
 
-			if !strings.Contains(out, "## Execution Duration Delta") {
-				t.Errorf("missing Execution Duration Delta: %s", out)
+			if !strings.Contains(out, "## Summed Kernel Time") {
+				t.Errorf("missing Summed Kernel Time: %s", out)
 			}
-			if !strings.Contains(out, tt.wantSpeed) {
-				t.Errorf("missing speedup %s: %s", tt.wantSpeed, out)
+			if !strings.Contains(out, tt.wantDelta) {
+				t.Errorf("missing %q: %s", tt.wantDelta, out)
 			}
-			if !strings.Contains(out, tt.wantSaved) {
-				t.Errorf("missing pct saved %s: %s", tt.wantSaved, out)
-			}
-			if !strings.Contains(out, "µs") {
-				t.Errorf("missing µs unit in duration diff: %s", out)
+			if strings.Contains(out, tt.withheld) {
+				t.Errorf("printed ratio %s without coverage: %s", tt.withheld, out)
 			}
 		})
 	}
