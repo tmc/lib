@@ -37,8 +37,8 @@ func TestUnsupportedGPMMetricReportedAbsent(t *testing.T) {
 	dst := make([]Reading, len(want))
 	fillReadings(dst, want, block)
 
-	if v, ok := dst[0].Get(); !ok || v != 42.5 {
-		t.Errorf("sm_active: got (%v, %v), want (42.5, true)", v, ok)
+	if v, ok := dst[0].Get(); !ok || v != 0.425 {
+		t.Errorf("sm_active: got (%v, %v), want (0.425, true)", v, ok)
 	}
 	if _, ok := dst[1].Get(); ok {
 		t.Errorf("hmma_tensor_active: an unsupported metric reported a value")
@@ -49,8 +49,8 @@ func TestUnsupportedGPMMetricReportedAbsent(t *testing.T) {
 	if !strings.Contains(strings.ToLower(dst[1].Reason), "supported") {
 		t.Errorf("hmma_tensor_active: reason %q does not say it is unsupported", dst[1].Reason)
 	}
-	if v, ok := dst[2].Get(); !ok || v != 17.25 {
-		t.Errorf("dram_bandwidth_util: got (%v, %v), want (17.25, true)", v, ok)
+	if v, ok := dst[2].Get(); !ok || v != 0.1725 {
+		t.Errorf("dram_bandwidth_util: got (%v, %v), want (0.1725, true)", v, ok)
 	}
 }
 
@@ -65,8 +65,8 @@ func TestAbsentCounterNeverZeroOrCarriedOver(t *testing.T) {
 	// Tick one: both available.
 	fillReadings(dst, want, recordedBlock(t, want,
 		[]nvml.Result{nvml.Success, nvml.Success}, []float64{50, 60}))
-	if v, ok := dst[1].Get(); !ok || v != 60 {
-		t.Fatalf("tick one: hmma (%v, %v), want (60, true)", v, ok)
+	if v, ok := dst[1].Get(); !ok || v != 0.6 {
+		t.Fatalf("tick one: hmma (%v, %v), want (0.6, true)", v, ok)
 	}
 
 	// Tick two: the driver refuses the tensor metric. The 60 must not survive.

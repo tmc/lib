@@ -89,6 +89,7 @@ func TestIdleDeviceEstimatesZeroWithConfidence(t *testing.T) {
 	m := testModel(t)
 	idle := NewEstimate(m, Inputs{
 		Readings: []Reading{
+			{Counter: SMActive, Value: 0, Available: true},
 			{Counter: FP32Active, Value: 0, Available: true},
 			{Counter: DRAMBandwidthUtil, Value: 0, Available: true},
 		},

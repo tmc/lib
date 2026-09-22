@@ -1,7 +1,9 @@
 package cudacensus
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -112,6 +114,8 @@ func GranularityOf(c Counter) (Granularity, error) {
 }
 
 // Reading is one counter's value, or the reason there is no value.
+// Available values are fractions in [0, 1], including occupancy and bandwidth
+// utilization. The GPM adapter converts the driver's percentages to fractions.
 //
 // Value is meaningful only when Available is true. When it is false Value is
 // zero and must not be read: an unsupported counter, a counter the driver
@@ -137,13 +141,12 @@ func (r Reading) Get() (float64, bool) {
 	return r.Value, true
 }
 
-// Sample is one set of readings taken over one interval. The interval is the
-// span between the two GPM samples the values were differenced from, not a host
-// wall-clock duration around the call: a sampler that reports the latter is
-// reporting its own scheduling delay as device time.
+// Sample is one set of readings. IntervalNs is the device sample interval when
+// available; this adapter reports -1 because its bindings expose no sample
+// timestamps. TakenAt is host observation time, not a device timing channel.
 type Sample struct {
 	Readings   []Reading
-	IntervalNs int64
+	IntervalNs int64 // Device sample interval; -1 when unavailable, 0 during warm-up.
 	TakenAt    time.Time
 }
 
@@ -227,60 +230,107 @@ func (v StructVersions) validate() error {
 // parameter block are allocated once; Read reuses them, so a steady-state
 // sampling loop allocates nothing.
 type gpmSampler struct {
-	dev    nvml.Device
-	want   []Counter
-	vers   StructVersions
-	prev   nvml.GpmSample
-	next   nvml.GpmSample
-	warm   bool
-	params nvml.GpmMetricsGetParams
-	prevAt time.Time
+	dev        nvml.Device
+	want       []Counter
+	vers       StructVersions
+	prev       nvml.GpmSample
+	next       nvml.GpmSample
+	warm       bool
+	params     nvml.GpmMetricsGetParams
+	getSample  func(nvml.GpmSample, nvml.Device) error // nil uses the native binding
+	getMetrics func(*nvml.GpmMetricsGetParams) error   // nil uses the native binding
+	freeSample func(nvml.GpmSample) error              // nil uses the native binding
+	closing    bool
 }
 
-// OpenSampler prepares to read want from dev, discovering which of them the
-// device answers for. It does not read: the first Read is a warm-up that
+type samplerOpenOps struct {
+	discover func(nvml.Device, []Counter, StructVersions) (Support, error)
+	allocate func() (nvml.GpmSample, error)
+	free     func(nvml.GpmSample) error
+}
+
+func validateCounters(want []Counter) error {
+	var block nvml.GpmMetricsGetParams
+	if len(want) == 0 || len(want) > len(block.Metrics) {
+		return fmt.Errorf("cudacensus: invalid metric count %d", len(want))
+	}
+	seen := make(map[Counter]bool, len(want))
+	for _, c := range want {
+		if _, ok := counters[c]; !ok {
+			return fmt.Errorf("cudacensus: unknown counter %q", c)
+		}
+		if seen[c] {
+			return fmt.Errorf("cudacensus: duplicate counter %q", c)
+		}
+		seen[c] = true
+	}
+	return nil
+}
+
+// OpenSampler prepares to read want from dev, checking device GPM support.
+// Individual metrics remain unverified until queried. The first Read is a warm-up that
 // establishes the base sample and returns no values, because a GPM value is a
 // difference between two samples and one sample is not a difference.
+// On error a nonnil sampler retains resources whose cleanup failed; call Close
+// again to release them. Close permanently disables reads, even when it fails.
 func OpenSampler(dev nvml.Device, want []Counter, vers StructVersions) (*gpmSampler, Support, error) {
+	return openSampler(dev, want, vers, samplerOpenOps{DiscoverSupport, nvml.NewGpmSample, func(sample nvml.GpmSample) error { return sample.Free() }})
+}
+
+func openSampler(dev nvml.Device, want []Counter, vers StructVersions, ops samplerOpenOps) (*gpmSampler, Support, error) {
 	if err := vers.validate(); err != nil {
 		return nil, Support{}, err
 	}
-	for _, c := range want {
-		if _, ok := counters[c]; !ok {
-			return nil, Support{}, fmt.Errorf("cudacensus: unknown counter %q", c)
-		}
+	if err := validateCounters(want); err != nil {
+		return nil, Support{}, err
 	}
-	sup, err := DiscoverSupport(dev, want, vers)
+	sup, err := ops.discover(dev, want, vers)
 	if err != nil {
 		return nil, Support{}, err
 	}
 	if !sup.GPM {
 		return nil, sup, fmt.Errorf("cudacensus: device does not support GPM")
 	}
-	s := &gpmSampler{dev: dev, want: append([]Counter(nil), want...), vers: vers}
-	if s.prev, err = nvml.NewGpmSample(); err != nil {
-		return nil, sup, fmt.Errorf("cudacensus: allocating GPM sample: %w", err)
-	}
-	if s.next, err = nvml.NewGpmSample(); err != nil {
-		s.prev.Free()
-		return nil, sup, fmt.Errorf("cudacensus: allocating GPM sample: %w", err)
+	s := &gpmSampler{dev: dev, want: append([]Counter(nil), want...), vers: vers, freeSample: ops.free}
+	for i, slot := range []*nvml.GpmSample{&s.prev, &s.next} {
+		*slot, err = ops.allocate()
+		if err == nil && *slot == 0 {
+			err = fmt.Errorf("allocator returned no handle")
+		}
+		if err != nil {
+			err = errors.Join(fmt.Errorf("cudacensus: allocating GPM sample %d: %w", i+1, err), s.Close())
+			if s.prev != 0 || s.next != 0 {
+				return s, sup, err
+			}
+			return nil, sup, err
+		}
 	}
 	return s, sup, nil
 }
 
-// Close releases the sample buffers.
+// Close disables reads and releases sample buffers. Failed frees remain owned
+// for a later Close call; successfully released handles are not freed again.
 func (s *gpmSampler) Close() error {
-	var first error
-	for _, h := range []nvml.GpmSample{s.prev, s.next} {
-		if h == 0 {
+	if s == nil {
+		return nil
+	}
+	s.closing = true
+	free := s.freeSample
+	if free == nil {
+		free = func(sample nvml.GpmSample) error { return sample.Free() }
+	}
+	var errs []error
+	for _, slot := range []*nvml.GpmSample{&s.next, &s.prev} {
+		if *slot == 0 {
 			continue
 		}
-		if err := h.Free(); err != nil && first == nil {
-			first = err
+		if err := free(*slot); err != nil {
+			errs = append(errs, fmt.Errorf("cudacensus: freeing GPM sample: %w", err))
+		} else {
+			*slot = 0
 		}
 	}
-	s.prev, s.next = 0, 0
-	return first
+	return errors.Join(errs...)
 }
 
 // Read fills dst with one reading per requested counter and returns the sample.
@@ -294,14 +344,24 @@ func (s *gpmSampler) Read(dst []Reading) (Sample, error) {
 		return Sample{}, fmt.Errorf("cudacensus: destination holds %d readings, need %d", len(dst), len(s.want))
 	}
 	dst = dst[:len(s.want)]
+	for i, c := range s.want {
+		dst[i] = Reading{Counter: c, Reason: "sample unavailable"}
+	}
+	if s.closing || s.prev == 0 || s.next == 0 {
+		return Sample{}, fmt.Errorf("cudacensus: sampler is closed")
+	}
 	now := time.Now()
 
-	if err := s.next.Get(s.dev); err != nil {
+	get := s.getSample
+	if get == nil {
+		get = func(sample nvml.GpmSample, dev nvml.Device) error { return sample.Get(dev) }
+	}
+	if err := get(s.next, s.dev); err != nil {
 		return Sample{}, fmt.Errorf("cudacensus: GPM sample: %w", err)
 	}
 	if !s.warm {
 		s.prev, s.next = s.next, s.prev
-		s.prevAt, s.warm = now, true
+		s.warm = true
 		for i, c := range s.want {
 			dst[i] = Reading{Counter: c, Reason: "warm-up: no previous sample"}
 		}
@@ -313,16 +373,21 @@ func (s *gpmSampler) Read(dst []Reading) (Sample, error) {
 	s.params.Sample1 = s.prev
 	s.params.Sample2 = s.next
 	for i, c := range s.want {
-		s.params.Metrics[i].MetricId = uint32(counters[c].metric)
+		s.params.Metrics[i] = nvml.GpmMetric{MetricId: uint32(counters[c].metric), NvmlReturn: nvml.ErrUnknown}
 	}
-	if err := nvml.GpmMetricsGet(&s.params); err != nil {
+	metrics := s.getMetrics
+	if metrics == nil {
+		metrics = nvml.GpmMetricsGet
+	}
+	if err := metrics(&s.params); err != nil {
 		return Sample{}, fmt.Errorf("cudacensus: GPM metrics: %w", err)
 	}
 	fillReadings(dst, s.want, &s.params)
 
-	sample := Sample{Readings: dst, IntervalNs: now.Sub(s.prevAt).Nanoseconds(), TakenAt: now}
+	// The binding exposes no sample timestamps. Host scheduling time is not
+	// the device interval and must not be substituted for it.
+	sample := Sample{Readings: dst, IntervalNs: -1, TakenAt: now}
 	s.prev, s.next = s.next, s.prev
-	s.prevAt = now
 	return sample, nil
 }
 
@@ -339,7 +404,13 @@ func fillReadings(dst []Reading, want []Counter, params *nvml.GpmMetricsGetParam
 	for i, c := range want {
 		m := params.Metrics[i]
 		if m.NvmlReturn == nvml.Success {
-			dst[i] = Reading{Counter: c, Value: m.Value, Available: true}
+			// All metrics in counters are percentages, per NVML's GPM enum
+			// contract: https://docs.nvidia.com/deploy/nvml-api/api/group__nvmlGpmEnums.html
+			if math.IsNaN(m.Value) || math.IsInf(m.Value, 0) || m.Value < 0 || m.Value > 100 {
+				dst[i] = Reading{Counter: c, Reason: "invalid GPM percentage"}
+				continue
+			}
+			dst[i] = Reading{Counter: c, Value: m.Value / 100, Available: true}
 			continue
 		}
 		// Absent. No value is written: see Reading. m.Value may hold
@@ -380,9 +451,9 @@ func SumByGranularity(readings []Reading) (float64, Granularity, error) {
 	return sum, g, nil
 }
 
-// DiscoverSupport asks the device which counters it answers for, one metric at a
-// time, because GPM reports support per metric and a device that implements GPM
-// need not implement every metric in it.
+// DiscoverSupport queries device-level GPM support. Requested metrics remain
+// unverified until a sample query returns their individual results; support for
+// GPM does not establish support for any particular metric.
 func DiscoverSupport(dev nvml.Device, want []Counter, vers StructVersions) (Support, error) {
 	sup := Support{
 		Supported:  make(map[Counter]bool, len(want)),
@@ -391,32 +462,45 @@ func DiscoverSupport(dev nvml.Device, want []Counter, vers StructVersions) (Supp
 	if err := vers.validate(); err != nil {
 		return sup, err
 	}
+	if err := validateCounters(want); err != nil {
+		return sup, err
+	}
 	var q nvml.GpmSupport
 	q.Version = vers.GpmSupport
 	if err := dev.GpmQueryDeviceSupport(&q); err != nil {
 		return sup, fmt.Errorf("cudacensus: querying GPM support: %w", err)
 	}
-	sup.GPM = q.IsSupportedDevice != 0
+	return unverifiedSupport(want, q.IsSupportedDevice != 0), nil
+}
+
+func unverifiedSupport(want []Counter, gpm bool) Support {
+	sup := Support{GPM: gpm, Supported: make(map[Counter]bool), Unverified: make(map[Counter]string, len(want))}
 	if !sup.GPM {
 		for _, c := range want {
 			sup.Unverified[c] = "device does not support GPM"
 		}
-		return sup, nil
+		return sup
 	}
 	// Per-metric support is only observable by asking for the metric: GPM
 	// returns a per-metric result inside the query. Discovery therefore
 	// happens on the first real Read, and until then every requested counter
 	// is unverified rather than assumed present.
 	for _, c := range want {
-		sup.Supported[c] = true
+		sup.Unverified[c] = "per-metric support not yet queried"
 	}
-	return sup, nil
+	return sup
 }
 
 // ReadIdentity collects the P0 record for dev. Fields the driver refuses are
 // left zero and named in the error, rather than silently defaulted: an identity
 // record that does not say what it could not read is not an identity record.
 func ReadIdentity(dev nvml.Device, want []Counter, vers StructVersions) (Identity, error) {
+	if err := vers.validate(); err != nil {
+		return Identity{}, err
+	}
+	if err := validateCounters(want); err != nil {
+		return Identity{}, err
+	}
 	var id Identity
 	var errs []string
 	record := func(what string, err error) {

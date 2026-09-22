@@ -68,29 +68,40 @@ func (c Calibration) RelativeError() (float64, error) {
 		return 0, fmt.Errorf("cudacensus: calibration of %q has no error to report: the estimate was rejected above the ceiling (%s)", c.Workload, c.Estimate.RejectReason)
 	case !c.Estimate.Available:
 		return 0, fmt.Errorf("cudacensus: calibration of %q has no error to report: the estimate was unavailable (%s)", c.Workload, c.Estimate.Derivation.UnavailableReason)
+	case c.Estimate.AchievedTFLOPS < 0 || math.IsNaN(c.Estimate.AchievedTFLOPS) || math.IsInf(c.Estimate.AchievedTFLOPS, 0):
+		return 0, fmt.Errorf("cudacensus: calibration of %q has invalid estimated throughput", c.Workload)
 	}
 	analytic := c.AnalyticTFLOPS()
 	if analytic == 0 {
 		return 0, fmt.Errorf("cudacensus: calibration of %q has a zero analytic throughput", c.Workload)
 	}
-	return (c.Estimate.AchievedTFLOPS - analytic) / analytic, nil
+	relative := (c.Estimate.AchievedTFLOPS - analytic) / analytic
+	if math.IsNaN(relative) || math.IsInf(relative, 0) {
+		return 0, fmt.Errorf("cudacensus: calibration of %q has nonfinite relative error", c.Workload)
+	}
+	return relative, nil
 }
 
 // Receipt turns the calibration into the receipt a threshold needs. failsWhen is
 // the caller's statement of where the separation is known or suspected to break,
 // and it is required: a calibration that found no failure mode did not look for
 // one.
+// A Calibration holds one estimated sampling tick, so its receipt records one
+// observation regardless of the number of metric fields read in that tick.
 func (c Calibration) Receipt(separates, failsWhen string) (CalibrationReceipt, error) {
 	relErr, err := c.RelativeError()
 	if err != nil {
 		return CalibrationReceipt{}, err
+	}
+	if len(c.Estimate.Derivation.Readings) == 0 {
+		return CalibrationReceipt{}, fmt.Errorf("cudacensus: calibration receipt has no counter evidence")
 	}
 	r := CalibrationReceipt{
 		Workload:   c.Workload,
 		Device:     c.Device,
 		Separates:  separates,
 		FailsWhen:  failsWhen,
-		Samples:    len(c.Estimate.Derivation.Readings),
+		Samples:    1,
 		Error:      math.Abs(relErr),
 		RecordedAt: c.RanAt,
 	}

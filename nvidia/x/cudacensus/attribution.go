@@ -2,6 +2,7 @@ package cudacensus
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -113,8 +114,8 @@ func (r CalibrationReceipt) Validate() error {
 		return fmt.Errorf("cudacensus: calibration receipt for %q does not say where the threshold fails", r.Workload)
 	case r.Samples <= 0:
 		return fmt.Errorf("cudacensus: calibration receipt for %q rests on %d samples", r.Workload, r.Samples)
-	case r.Error < 0:
-		return fmt.Errorf("cudacensus: calibration receipt for %q reports a negative error %v", r.Workload, r.Error)
+	case r.Error < 0 || math.IsNaN(r.Error) || math.IsInf(r.Error, 0):
+		return fmt.Errorf("cudacensus: calibration receipt for %q reports an invalid error %v", r.Workload, r.Error)
 	case r.RecordedAt.IsZero():
 		return fmt.Errorf("cudacensus: calibration receipt for %q has no timestamp", r.Workload)
 	}
@@ -133,7 +134,7 @@ type Threshold struct {
 // It refuses a value outside (0, 1], since the value is a share of tensor-pipe
 // activity, and it refuses a receipt that does not validate.
 func NewThreshold(value float64, r CalibrationReceipt) (Threshold, error) {
-	if value <= 0 || value > 1 {
+	if value <= 0 || value > 1 || math.IsNaN(value) {
 		return Threshold{}, fmt.Errorf("cudacensus: threshold %v is not a share in (0, 1]", value)
 	}
 	if err := r.Validate(); err != nil {

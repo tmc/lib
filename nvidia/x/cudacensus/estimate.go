@@ -2,6 +2,7 @@ package cudacensus
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaroofline"
@@ -14,10 +15,10 @@ import (
 type Confidence string
 
 const (
-	// ConfidenceIdle means the device reported zero activity on every counter
-	// read. Zero achieved FLOPs is then a measurement, and it is the one
-	// confident figure this package produces. It is not the same as an
-	// unavailable counter.
+	// ConfidenceIdle means a broad activity counter (graphics or SM activity)
+	// reported zero and no available counter contradicted it. It describes the
+	// supplied sampling window, not unobserved work between windows. A zero
+	// bandwidth or individual math-pipe counter alone cannot establish idle.
 	ConfidenceIdle Confidence = "idle"
 
 	// ConfidenceStaticMix means the precision came from the kernel's own
@@ -43,7 +44,7 @@ const (
 // derivation is missing is a number with no error mode, which is the thing this
 // package is built not to emit.
 type Derivation struct {
-	Readings []Reading // the counters read, including the ones reported absent
+	Readings []Reading // owned snapshot of the counters read, including absences
 
 	Architecture string                 // from the step 1 identity
 	Residency    cudaroofline.Residency // memory path the bandwidth figure describes
@@ -88,6 +89,9 @@ type Inputs struct {
 
 // NewEstimate estimates achieved FLOPs and arithmetic intensity from one tick of
 // counters, bounded by m's ceiling.
+// It copies the readings so reusing a sampling buffer cannot change the
+// returned derivation. Retaining an estimate allocates independently of the
+// allocation-free sampler read loop.
 //
 // It returns an unavailable estimate, rather than an error, for every ordinary
 // absence: an unattributed precision, a precision the peak table has no entry
@@ -96,7 +100,7 @@ type Inputs struct {
 // zero for them.
 func NewEstimate(m *cudaroofline.Model, in Inputs) Estimate {
 	d := Derivation{
-		Readings:         in.Readings,
+		Readings:         append([]Reading(nil), in.Readings...),
 		Architecture:     m.Ceiling.Architecture,
 		Residency:        m.Ceiling.Residency,
 		PeakMemoryGBps:   m.Ceiling.PeakMemoryGBps,
@@ -110,15 +114,14 @@ func NewEstimate(m *cudaroofline.Model, in Inputs) Estimate {
 		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
 	}
 
-	// Idle is a real state, and it is decided before precision: a device that
-	// answered every counter with zero has told us there were no FLOPs, whatever
-	// format it would have run them in.
+	// Broad activity can establish idle without precision attribution. A zero
+	// in one pipe cannot: another pipe may be doing the work.
 	switch idle, err := allZero(in.Readings); {
 	case err != nil:
 		d.UnavailableReason = err.Error()
 		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
 	case idle:
-		d.Note = "every counter read reported zero: the device was idle"
+		d.Note = "broad activity was zero and no available counter contradicted idle in the sampled window"
 		return Estimate{
 			AchievedTFLOPS: 0,
 			Available:      true,
@@ -132,12 +135,22 @@ func NewEstimate(m *cudaroofline.Model, in Inputs) Estimate {
 		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
 	}
 
-	peak, prov, err := cudaroofline.PeakTFLOPSFor(m.Ceiling.Architecture, in.Attribution.Precision)
-	if err != nil {
-		d.UnavailableReason = err.Error()
+	if in.Attribution.Precision != cudaroofline.FP32 {
+		d.UnavailableReason = fmt.Sprintf("no %s peak: the model holds an FP32 non-tensor peak only", in.Attribution.Precision)
 		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
 	}
+	// Use the same supplied peak for scaling and bounding. A table lookup here
+	// would discard a caller's calibrated or partition-specific ceiling.
+	peak, prov := m.Ceiling.PeakTFLOPS, m.Ceiling.ComputeProvenance
 	d.PeakTFLOPS, d.PeakProvenance = peak, prov
+	if peak <= 0 || math.IsNaN(peak) || math.IsInf(peak, 0) {
+		d.UnavailableReason = "no finite positive FP32 peak in the model"
+		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
+	}
+	if prov != cudaroofline.Measured && prov != cudaroofline.Unverified {
+		d.UnavailableReason = "FP32 peak has no recognized provenance"
+		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
+	}
 
 	activity, ok := activityFor(in.Readings, in.Attribution.Precision)
 	if !ok {
@@ -218,17 +231,20 @@ func readingValue(readings []Reading, c Counter) (float64, bool) {
 	return 0, false
 }
 
-// allZero reports whether every available reading is zero. It refuses a set in
-// which nothing at all was available, because a device that answered nothing is
-// not an idle device and the difference is the point.
+// allZero requires a zero broad-activity reading and no nonzero available
+// reading. Absence and zero in a single pipe do not establish device idle.
 func allZero(readings []Reading) (bool, error) {
 	var available int
+	var broad bool
 	for _, r := range readings {
 		v, ok := r.Get()
 		if !ok {
 			continue
 		}
 		available++
+		if r.Counter == GraphicsActive || r.Counter == SMActive {
+			broad = true
+		}
 		if v != 0 {
 			return false, nil
 		}
@@ -236,5 +252,5 @@ func allZero(readings []Reading) (bool, error) {
 	if available == 0 {
 		return false, fmt.Errorf("cudacensus: no counter was available: the device answered nothing, which is not an idle device")
 	}
-	return true, nil
+	return broad, nil
 }
