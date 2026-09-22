@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 )
 
 // RecordVersion is the version of the encoded floor record. It is written into
@@ -119,6 +120,9 @@ func NewRecord(m *Model, judgments []Judgment) Record {
 // Encode writes r as indented JSON with a trailing newline, so a committed
 // vector reads as a diff rather than as one line.
 func (r Record) Encode(w io.Writer) error {
+	if err := r.Validate(); err != nil {
+		return err
+	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(r)
@@ -136,11 +140,19 @@ func DecodeRecord(rd io.Reader) (Record, error) {
 	if err := r.Validate(); err != nil {
 		return Record{}, err
 	}
+	var extra any
+	if err := dec.Decode(&extra); err != io.EOF {
+		if err != nil {
+			return Record{}, fmt.Errorf("cudaroofline: trailing floor record data: %w", err)
+		}
+		return Record{}, fmt.Errorf("cudaroofline: multiple floor records")
+	}
 	return r, nil
 }
 
-// Validate reports whether a decoded record is usable: a version this package
-// understands, a named device, and no triple whose verdict it cannot name.
+// Validate checks the record's version, device name and internal consistency of
+// floor axes, basis and duration verdict. It does not establish that supplied
+// device peaks or operation counts are physically accurate or calibrated.
 //
 // It does not require the record to contain any particular verdict. A record of
 // judgments that all passed is a legitimate record; it is the committed golden
@@ -167,6 +179,54 @@ func (r Record) Validate() error {
 		default:
 			return fmt.Errorf("cudaroofline: triple %q: unknown floor basis %q", t.Name, t.Basis)
 		}
+		if err := r.validateTriple(t); err != nil {
+			return err
+		}
+	}
+	for _, peak := range []float64{r.Device.PeakTFLOPS, r.Device.PeakMemoryGBps} {
+		if math.IsNaN(peak) || math.IsInf(peak, 0) || peak < 0 {
+			return fmt.Errorf("cudaroofline: invalid device peak")
+		}
+	}
+	return nil
+}
+
+func (r Record) validateTriple(t Triple) error {
+	fail := func(what string) error { return fmt.Errorf("cudaroofline: triple %q: inconsistent %s", t.Name, what) }
+	for _, floor := range []float64{t.FloorNs, t.MemoryFloorNs, t.ComputeFloorNs} {
+		if math.IsNaN(floor) || math.IsInf(floor, 0) || (floor < 0 && floor != FloorUnavailable) {
+			return fail("floor value")
+		}
+	}
+	memory, compute := t.MemoryFloorNs >= 0, t.ComputeFloorNs >= 0
+	basis, axis, floor, provenance := FloorAbsent, NoLimit, FloorUnavailable, ""
+	switch {
+	case memory && compute:
+		basis = FloorFromBothAxes
+		if t.ComputeFloorNs > t.MemoryFloorNs {
+			axis, floor, provenance = ComputeLimited, t.ComputeFloorNs, r.Device.ComputeProvenance
+		} else {
+			axis, floor, provenance = MemoryLimited, t.MemoryFloorNs, r.Device.MemoryProvenance
+		}
+	case memory:
+		basis, axis, floor, provenance = FloorFromMemoryOnly, MemoryLimited, t.MemoryFloorNs, r.Device.MemoryProvenance
+	case compute:
+		basis, axis, floor, provenance = FloorFromComputeOnly, ComputeLimited, t.ComputeFloorNs, r.Device.ComputeProvenance
+	}
+	if t.Basis != string(basis) || t.Axis != string(axis) || t.FloorNs != floor {
+		return fail("floor basis or limiting axis")
+	}
+	if t.CeilingProvenance != provenance {
+		return fail("ceiling provenance")
+	}
+	verdict := VerdictAccepted
+	if basis == FloorAbsent {
+		verdict = VerdictUnjudged
+	} else if t.DurationNs == 0 || float64(t.DurationNs) < floor {
+		verdict = VerdictRejected
+	}
+	if t.Verdict != string(verdict) {
+		return fail("duration verdict")
 	}
 	return nil
 }

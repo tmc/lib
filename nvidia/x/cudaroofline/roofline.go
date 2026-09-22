@@ -3,6 +3,7 @@ package cudaroofline
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 )
@@ -84,7 +85,7 @@ type Ceiling struct {
 	Architecture string    // e.g. "sm_90", "sm_121"
 	Residency    Residency // memory path the bandwidth figures describe
 
-	PeakTFLOPS      float64 // Peak single-precision or target precision compute throughput in TFLOPS
+	PeakTFLOPS      float64 // Peak FP32 non-tensor compute throughput in TFLOPS
 	PeakMemoryGBps  float64 // Peak DRAM bandwidth in GB/s for this residency
 	L2BandwidthGBps float64 // Peak L2 cache bandwidth in GB/s; zero if unknown
 
@@ -398,15 +399,15 @@ func (m *Model) Evaluate(kernelName string, flops uint64, bytesTransferred uint6
 // who wants a different cutoff can reclassify from the ratio.
 const unconstrainedEfficiency = 0.35
 
-// ValidateCeiling returns an error if a ceiling is unusable: a non-positive
+// ValidateCeiling returns an error if a ceiling is unusable: a nonfinite or non-positive
 // limit, or a limit whose provenance is not stated. An unstated provenance is
 // an error because the number's kind determines what a ratio against it means.
 func ValidateCeiling(c Ceiling) error {
-	if c.PeakTFLOPS <= 0 {
-		return errors.New("cudaroofline: PeakTFLOPS must be positive")
+	if c.PeakTFLOPS <= 0 || math.IsNaN(c.PeakTFLOPS) || math.IsInf(c.PeakTFLOPS, 0) {
+		return errors.New("cudaroofline: PeakTFLOPS must be finite and positive")
 	}
-	if c.PeakMemoryGBps <= 0 {
-		return errors.New("cudaroofline: PeakMemoryGBps must be positive")
+	if c.PeakMemoryGBps <= 0 || math.IsNaN(c.PeakMemoryGBps) || math.IsInf(c.PeakMemoryGBps, 0) {
+		return errors.New("cudaroofline: PeakMemoryGBps must be finite and positive")
 	}
 	switch c.Residency {
 	case DeviceResident, HostPageTableResident:

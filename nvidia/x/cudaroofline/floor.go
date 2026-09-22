@@ -60,8 +60,9 @@ const (
 	// NewModelWithCeiling with an unstated bandwidth.
 	FloorFromComputeOnly FloorBasis = "compute_only"
 
-	// FloorAbsent means neither axis produced a floor: no ceiling for the
-	// architecture, or an operation that claims neither FLOPs nor bytes.
+	// FloorAbsent means neither axis produced a floor: the model has no memory
+	// peak and no compute peak for the operation's precision. Zero work has a
+	// zero floor when a peak is available.
 	FloorAbsent FloorBasis = "absent"
 )
 
@@ -120,7 +121,10 @@ func (m *Model) Floor(op Operation) Judgment {
 	if m.Ceiling.PeakMemoryGBps > 0 {
 		j.MemoryFloorNs = float64(op.Bytes) / m.Ceiling.PeakMemoryGBps
 	}
-	if peak, _, err := PeakTFLOPSFor(m.Ceiling.Architecture, op.Precision); err == nil && peak > 0 {
+	// The model may carry a caller-supplied peak for a part or partition the
+	// architecture table does not describe. Use that same peak and provenance
+	// for the floor and the encoded record. It describes only the FP32 pipe.
+	if peak := m.Ceiling.PeakTFLOPS; op.Precision == FP32 && peak > 0 {
 		j.ComputeFloorNs = float64(op.FLOPs) / (peak * 1000.0)
 	}
 
