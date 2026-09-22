@@ -1,10 +1,12 @@
 //go:build ignore
 
-// Gen regenerates the fixtures of this directory from the source-wiring
-// example, which builds its kernels with cudatensor and lowers them with
-// cudafuse. Taking the units from that path rather than writing them by hand
-// is what makes the fixtures carry the function and callers of every line as
-// the compiler recorded them.
+// Gen regenerates the fixtures of this directory. The fused_gate and
+// fused_layered units come from the source-wiring example, which builds its
+// kernels with cudatensor and lowers them with cudafuse; taking them from
+// that path rather than writing them by hand is what makes the fixtures carry
+// the function and callers of every line as the compiler recorded them. The
+// forward fixture is compiled from forward.cu, the hand-written CUDA the
+// package's tests embed.
 //
 // Usage:
 //
@@ -86,7 +88,25 @@ func run(ctx context.Context, arch string) error {
 	if err != nil {
 		return err
 	}
-	return write(ctx, unit, arch, "testdata/fused_gate-fast", []nvrtcx.Option{nvrtcx.WithFastMath()})
+	if err := write(ctx, unit, arch, "testdata/fused_gate-fast", []nvrtcx.Option{nvrtcx.WithFastMath()}); err != nil {
+		return err
+	}
+	return forward(ctx, arch)
+}
+
+// forward compiles testdata/forward.cu, which is hand-written CUDA rather
+// than a lowered unit: it has no line map, so its own lines are the program.
+// The package's tests embed the same file, and disassembling it is what tells
+// them the spellings a compiler really emits. Its kernels have C++ linkage,
+// and matching a caller's geglu against the _Z5gegluPKfPfi that comes back is
+// the case a hand-authored fixture is free to leave out.
+func forward(ctx context.Context, arch string) error {
+	src, err := os.ReadFile("testdata/forward.cu")
+	if err != nil {
+		return err
+	}
+	unit := cudalineinfo.Unit{Name: "forward", Source: string(src), Kernels: []string{"geglu", "rmsnorm"}}
+	return write(ctx, unit, arch, "testdata/forward", nil)
 }
 
 // write compiles the unit and writes its PTX and disassembly under prefix.

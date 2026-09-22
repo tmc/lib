@@ -1,0 +1,133 @@
+	.target	sm_121
+
+	.elftype	@"ET_EXEC"
+
+
+//--------------------- .text._Z7rmsnormPKfPfi    --------------------------
+	.section	.text._Z7rmsnormPKfPfi,"ax",@progbits
+	.align	128
+        .global         _Z7rmsnormPKfPfi
+        .type           _Z7rmsnormPKfPfi,@function
+        .size           _Z7rmsnormPKfPfi,(.L_x_2 - _Z7rmsnormPKfPfi)
+        .other          _Z7rmsnormPKfPfi,@"STO_CUDA_ENTRY STV_DEFAULT"
+_Z7rmsnormPKfPfi:
+.text._Z7rmsnormPKfPfi:
+	//## File "forward.cu", line 10
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;
+	//## File "forward.cu", line 11
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+	//## File "forward.cu", line 12
+        /*0030*/                   LDCU UR5, c[0x0][0x390] ;
+	//## File "forward.cu", line 11
+        /*0040*/                   LDC R7, c[0x0][0x360] ;
+        /*0050*/                   IMAD R7, R7, UR4, R0 ;
+	//## File "forward.cu", line 12
+        /*0060*/                   ISETP.GE.AND P0, PT, R7, UR5, PT ;
+        /*0070*/               @P0 EXIT ;
+	//## File "forward.cu", line 13
+        /*0080*/                   LDC.64 R2, c[0x0][0x380] ;
+        /*0090*/                   LDCU.64 UR4, c[0x0][0x358] ;
+        /*00a0*/                   LDC.64 R4, c[0x0][0x388] ;
+        /*00b0*/                   IMAD.WIDE R2, R7, 0x4, R2 ;
+        /*00c0*/                   LDG.E R2, desc[UR4][R2.64] ;
+	//## File "forward.cu", line 14
+        /*00d0*/                   IMAD.WIDE R4, R7, 0x4, R4 ;
+        /*00e0*/                   FFMA R0, R2, R2, 9.9999999747524270788e-07 ;
+        /*00f0*/                   FSETP.GEU.AND P0, PT, |R0|, 1.175494350822287508e-38, PT ;
+        /*0100*/              @!P0 FMUL R0, R0, 16777216 ;
+        /*0110*/                   MUFU.RSQ R9, R0 ;
+        /*0120*/              @!P0 FMUL R9, R9, 4096 ;
+        /*0130*/                   FMUL R9, R2, R9 ;
+        /*0140*/                   STG.E desc[UR4][R4.64], R9 ;
+	//## File "forward.cu", line 15
+        /*0150*/                   EXIT ;
+.L_x_0:
+        /*0160*/                   BRA `(.L_x_0);
+        /*0170*/                   NOP;
+        /*0180*/                   NOP;
+        /*0190*/                   NOP;
+        /*01a0*/                   NOP;
+        /*01b0*/                   NOP;
+        /*01c0*/                   NOP;
+        /*01d0*/                   NOP;
+        /*01e0*/                   NOP;
+        /*01f0*/                   NOP;
+.L_x_2:
+
+
+//--------------------- .text._Z5gegluPKfPfi      --------------------------
+	.section	.text._Z5gegluPKfPfi,"ax",@progbits
+	.align	128
+        .global         _Z5gegluPKfPfi
+        .type           _Z5gegluPKfPfi,@function
+        .size           _Z5gegluPKfPfi,(.L_x_3 - _Z5gegluPKfPfi)
+        .other          _Z5gegluPKfPfi,@"STO_CUDA_ENTRY STV_DEFAULT"
+_Z5gegluPKfPfi:
+.text._Z5gegluPKfPfi:
+	//## File "forward.cu", line 3
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;
+	//## File "forward.cu", line 4
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+	//## File "forward.cu", line 5
+        /*0030*/                   LDCU UR5, c[0x0][0x390] ;
+	//## File "forward.cu", line 4
+        /*0040*/                   LDC R7, c[0x0][0x360] ;
+        /*0050*/                   IMAD R7, R7, UR4, R0 ;
+	//## File "forward.cu", line 5
+        /*0060*/                   ISETP.GE.AND P0, PT, R7, UR5, PT ;
+        /*0070*/               @P0 EXIT ;
+	//## File "forward.cu", line 6
+        /*0080*/                   LDC.64 R2, c[0x0][0x380] ;
+        /*0090*/                   LDCU.64 UR4, c[0x0][0x358] ;
+	//## File "forward.cu", line 7
+        /*00a0*/                   MOV R10, 0x3c80f082 ;
+        /*00b0*/                   HFMA2 R11, -RZ, RZ, 1.875, 0 ;
+	//## File "forward.cu", line 6
+        /*00c0*/                   LDC.64 R4, c[0x0][0x388] ;
+        /*00d0*/                   IMAD.WIDE R2, R7, 0x4, R2 ;
+        /*00e0*/                   LDG.E R2, desc[UR4][R2.64] ;
+	//## File "forward.cu", line 7
+        /*00f0*/                   FMUL R0, |R2|.reuse, 2.8853900432586669922 ;
+        /*0100*/                   FMUL R9, R2.reuse, R2 ;
+        /*0110*/                   FSETP.GE.AND P1, PT, |R2|.reuse, 0.60000002384185791016, PT ;
+        /*0120*/                   FSETP.GE.AND P0, PT, |R2|, 9.010913848876953125, PT ;
+        /*0130*/                   FFMA R10, R9.reuse, R10, -0.052303962409496307373 ;
+        /*0140*/                   MUFU.EX2 R0, R0 ;
+        /*0150*/                   FADD R6, R0, 1 ;
+        /*0160*/                   FFMA R0, R9, R10, 0.1331529766321182251 ;
+        /*0170*/                   FFMA R0, R9.reuse, R0, -0.33332768082618713379 ;
+        /*0180*/                   MUFU.RCP R6, R6 ;
+        /*0190*/                   FFMA R9, R9, R0, RZ ;
+        /*01a0*/                   FMUL R0, R2, 0.5 ;
+        /*01b0*/                   FFMA R8, R6, -2, R11 ;
+        /*01c0*/                   FSEL R3, R8, 1, !P0 ;
+        /*01d0*/                   LOP3.LUT R3, R3, 0x80000000, R2.reuse, 0xb8, !PT ;
+        /*01e0*/              @!P1 FFMA R3, R2, R9, R2 ;
+        /*01f0*/                   FADD R9, R3, 1 ;
+        /*0200*/                   IMAD.WIDE R2, R7, 0x4, R4 ;
+        /*0210*/                   FMUL R9, R0, R9 ;
+        /*0220*/                   STG.E desc[UR4][R2.64], R9 ;
+	//## File "forward.cu", line 8
+        /*0230*/                   EXIT ;
+.L_x_1:
+        /*0240*/                   BRA `(.L_x_1);
+        /*0250*/                   NOP;
+        /*0260*/                   NOP;
+        /*0270*/                   NOP;
+        /*0280*/                   NOP;
+        /*0290*/                   NOP;
+        /*02a0*/                   NOP;
+        /*02b0*/                   NOP;
+        /*02c0*/                   NOP;
+        /*02d0*/                   NOP;
+        /*02e0*/                   NOP;
+        /*02f0*/                   NOP;
+.L_x_3:
+
+
+//--------------------- SYMBOLS --------------------------
+
+	.type		.nv.reservedSmem.offset0,@object
+	.size		.nv.reservedSmem.offset0,0x4

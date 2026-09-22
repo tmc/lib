@@ -2,6 +2,7 @@ package cudalineinfo
 
 import (
 	"bytes"
+	_ "embed"
 	"strings"
 	"testing"
 
@@ -12,31 +13,27 @@ import (
 // handWrittenSource is a hand-written CUDA file holding two kernels. Nothing
 // was lowered into it, so it has no line map and its own file is the
 // program: the lines a profile reports are lines of this text.
-const handWrittenSource = `#include <cuda_fp16.h>
-
-__global__ void geglu(const float *x, float *y, int n) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i >= n) return;
-  float g = x[i];
-  y[i] = g * 0.5f * (1.f + tanhf(g));
-}
-
-__global__ void rmsnorm(const float *x, float *y, int n) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i >= n) return;
-  float v = x[i];
-  y[i] = v * rsqrtf(v * v + 1e-6f);
-}`
+//
+// It is embedded rather than written here because testdata/gen.go compiles
+// the same file into testdata/forward.sass. One copy keeps the lines the
+// expectations below name and the lines the disassembly records from
+// drifting apart.
+//
+//go:embed testdata/forward.cu
+var handWrittenSource string
 
 // handWrittenSASS is the disassembly of handWrittenSource: one section per
-// kernel, with the file name the compiler recorded for both.
+// kernel, with the file name the compiler recorded for both. The kernels of
+// handWrittenSource have C++ linkage, so they reach the disassembly under
+// their mangled symbols, which is what a caller naming them geglu and
+// rmsnorm must still match.
 const handWrittenSASS = `
-//--------------------- .text.geglu          --------------------------
-	.section	.text.geglu,"ax",@progbits
-        .global         geglu
-        .type           geglu,@function
-geglu:
-.text.geglu:
+//--------------------- .text._Z5gegluPKfPfi          --------------------------
+	.section	.text._Z5gegluPKfPfi,"ax",@progbits
+        .global         _Z5gegluPKfPfi
+        .type           _Z5gegluPKfPfi,@function
+_Z5gegluPKfPfi:
+.text._Z5gegluPKfPfi:
 	//## File "forward.cu", line 4
         /*0000*/                   S2R R0, SR_TID.X ;
 	//## File "forward.cu", line 6
@@ -45,12 +42,12 @@ geglu:
         /*0020*/                   FMUL R3, R2, 0.5 ;
         /*0030*/                   EXIT ;
 
-//--------------------- .text.rmsnorm          --------------------------
-	.section	.text.rmsnorm,"ax",@progbits
-        .global         rmsnorm
-        .type           rmsnorm,@function
-rmsnorm:
-.text.rmsnorm:
+//--------------------- .text._Z7rmsnormPKfPfi          --------------------------
+	.section	.text._Z7rmsnormPKfPfi,"ax",@progbits
+        .global         _Z7rmsnormPKfPfi
+        .type           _Z7rmsnormPKfPfi,@function
+_Z7rmsnormPKfPfi:
+.text._Z7rmsnormPKfPfi:
 	//## File "forward.cu", line 13
         /*0000*/                   LDG.E R2, desc[UR4][R2.64] ;
 	//## File "forward.cu", line 14
@@ -88,7 +85,7 @@ func TestAttributeHandWritten(t *testing.T) {
 			name:       "one of the two",
 			unit:       Unit{Name: "forward", Source: handWrittenSource, Kernels: []string{"geglu"}},
 			attributed: 4,
-			subs:       map[string]int{"rmsnorm": 3},
+			subs:       map[string]int{"_Z7rmsnormPKfPfi": 3},
 		},
 		{
 			// Without Kernels the unit's name is its one kernel's name,
@@ -96,7 +93,7 @@ func TestAttributeHandWritten(t *testing.T) {
 			name:       "named but no kernels",
 			unit:       Unit{Name: "forward", Source: handWrittenSource},
 			attributed: 0,
-			subs:       map[string]int{"geglu": 4, "rmsnorm": 3},
+			subs:       map[string]int{"_Z5gegluPKfPfi": 4, "_Z7rmsnormPKfPfi": 3},
 		},
 		{
 			// The unit knows nothing but a name, so it may not claim its
@@ -270,8 +267,8 @@ func TestHandWrittenSASSParses(t *testing.T) {
 	for _, fn := range dis.Functions {
 		names = append(names, fn.Name)
 	}
-	if strings.Join(names, " ") != "geglu rmsnorm" {
-		t.Fatalf("functions = %v, want geglu rmsnorm", names)
+	if strings.Join(names, " ") != "_Z5gegluPKfPfi _Z7rmsnormPKfPfi" {
+		t.Fatalf("functions = %v, want _Z5gegluPKfPfi _Z7rmsnormPKfPfi", names)
 	}
 }
 

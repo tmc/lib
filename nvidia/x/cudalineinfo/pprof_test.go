@@ -29,7 +29,7 @@ func sampledBatch() (cuptipcsampling.ReasonInventory, cuptipcsampling.Batch) {
 		TotalSamples: 11,
 		PCs: []cuptipcsampling.PC{{
 			CRC:    1,
-			Name:   "geglu",
+			Name:   "_Z5gegluPKfPfi",
 			Offset: 0x20,
 			Reasons: []cuptipcsampling.StallSamples{
 				{Index: 1, Samples: 7},
