@@ -40,17 +40,19 @@ func (a *Attribution) Edges() []Edge {
 		}
 	}
 	kernel := a.Unit.Name
-	for _, s := range a.Sites() {
+	sites := a.Sites()
+	names := SiteNames(sites)
+	for _, s := range sites {
 		loc, _ := a.Unit.Location(s)
 		callee := loc.Function
 		for _, c := range loc.Callers {
 			add(c.Function, callee)
 			callee = c.Function
 		}
-		add(loc.Function, s.String())
-		add(s.String(), kernel)
+		add(loc.Function, names[s])
+		add(names[s], kernel)
 		for _, in := range a.SASS[s] {
-			add(s.String(), callTarget(in))
+			add(names[s], callTarget(in))
 		}
 	}
 	if a.Disassembly != nil {
@@ -125,8 +127,10 @@ func digraphWord(s string) string {
 func WriteDot(w io.Writer, a *Attribution) error {
 	bw := bufio.NewWriter(w)
 	fmt.Fprintf(bw, "digraph %s {\n\trankdir=LR;\n\tnode [shape=box, fontname=\"monospace\"];\n", strconv.Quote(a.Unit.Name))
-	for _, s := range a.Sites() {
-		fmt.Fprintf(bw, "\t%s [label=%s];\n", strconv.Quote(s.String()), strconv.Quote(fmt.Sprintf("%s\n%d SASS", s, len(a.SASS[s]))))
+	sites := a.Sites()
+	names := SiteNames(sites)
+	for _, s := range sites {
+		fmt.Fprintf(bw, "\t%s [label=%s];\n", strconv.Quote(names[s]), strconv.Quote(fmt.Sprintf("%s\n%d SASS", names[s], len(a.SASS[s]))))
 	}
 	fmt.Fprintf(bw, "\t%s [label=%s, shape=component];\n", strconv.Quote(a.Unit.Name), strconv.Quote(fmt.Sprintf("%s\n%d SASS", a.Unit.Name, a.Instructions-a.Remainder.subroutines())))
 	for _, name := range sortedKeys(a.Remainder.Subroutines) {

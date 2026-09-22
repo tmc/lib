@@ -234,8 +234,10 @@ func WriteProfile(w io.Writer, a *Attribution, p Profile) error {
 	fmt.Fprintf(bw, "%d %s by program line\n", total, p.Measure)
 	tw := tabwriter.NewWriter(bw, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(tw, "  SITE\tSOURCE\tSASS\t%s\tSHARE\n", strings.ToUpper(p.Measure))
-	for _, s := range profileSites(a, p) {
-		fmt.Fprintf(tw, "  %s\t%s\t%d\t%d\t%s\n", s, src.line(s), len(a.SASS[s]), p.Sites[s], pct(p.Sites[s]))
+	sites := profileSites(a, p)
+	names := SiteNames(sites)
+	for _, s := range sites {
+		fmt.Fprintf(tw, "  %s\t%s\t%d\t%d\t%s\n", names[s], src.line(s), len(a.SASS[s]), p.Sites[s], pct(p.Sites[s]))
 	}
 	tw.Flush()
 	fmt.Fprintf(bw, "  elsewhere: %d at instructions naming no program line, %d at unresolved PCs\n", p.Other, p.Unresolved)

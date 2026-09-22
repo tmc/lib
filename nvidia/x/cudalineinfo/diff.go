@@ -118,8 +118,14 @@ func WriteDiff(w io.Writer, base, target Side) error {
 		fmt.Fprintf(tw, "\t%s\t%s", strings.ToUpper(base.Label+" "+m), strings.ToUpper(target.Label+" "+m))
 	}
 	fmt.Fprint(tw, "\tREMOVED\tADDED\n")
-	for _, d := range Diff(base, target) {
-		fmt.Fprintf(tw, "  %s\t%d\t%d", d.Site, d.Base, d.Target)
+	diffs := Diff(base, target)
+	sites := make([]Site, len(diffs))
+	for i, d := range diffs {
+		sites[i] = d.Site
+	}
+	names := SiteNames(sites)
+	for _, d := range diffs {
+		fmt.Fprintf(tw, "  %s\t%d\t%d", names[d.Site], d.Base, d.Target)
 		if m != "" {
 			fmt.Fprintf(tw, "\t%s\t%s", count(base, d.BaseValue), count(target, d.TargetValue))
 		}

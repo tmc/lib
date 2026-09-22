@@ -25,9 +25,74 @@ func SiteOf(loc cudair.SourceLocation) Site {
 }
 
 // String formats the site as base name and line, the way a compiler
-// diagnostic would.
+// diagnostic would. Two files with the same base name print alike, so a
+// report that must tell every site of a set apart names them with
+// [SiteNames] instead.
 func (s Site) String() string {
 	return fmt.Sprintf("%s:%d", filepath.Base(s.File), s.Line)
+}
+
+// SiteNames returns a display name for each site: the shortest suffix of
+// path elements that tells its file apart from the others, with the line.
+// A report of one file prints base names, and one spanning two files that
+// share a base name prints enough of the directory to tell them apart, so
+// a row or a graph node names exactly one site.
+func SiteNames(sites []Site) map[Site]string {
+	files := map[string]bool{}
+	for _, s := range sites {
+		files[s.File] = true
+	}
+	suffix := fileSuffixes(files)
+	names := make(map[Site]string, len(sites))
+	for _, s := range sites {
+		names[s] = fmt.Sprintf("%s:%d", suffix[s.File], s.Line)
+	}
+	return names
+}
+
+// fileSuffixes names each file by the shortest tail of its path elements
+// that no other file shares. Paths are split on both separators, because a
+// file name reaches here from a compiler's line table and may have been
+// written on another system.
+func fileSuffixes(files map[string]bool) map[string]string {
+	elems := make(map[string][]string, len(files))
+	longest := 0
+	for f := range files {
+		e := strings.FieldsFunc(f, func(r rune) bool { return r == '/' || r == '\\' })
+		elems[f] = e
+		longest = max(longest, len(e))
+	}
+	names := make(map[string]string, len(files))
+	for n := 1; n <= longest; n++ {
+		count := map[string]int{}
+		for f := range files {
+			count[tail(elems[f], n)]++
+		}
+		for f := range files {
+			if _, done := names[f]; done {
+				continue
+			}
+			if t := tail(elems[f], n); count[t] == 1 {
+				names[f] = t
+			}
+		}
+	}
+	// Two files with identical paths are one file, so anything still
+	// unnamed has no distinguishing suffix and is named by its whole path.
+	for f := range files {
+		if _, done := names[f]; !done {
+			names[f] = f
+		}
+	}
+	return names
+}
+
+// tail joins the last n elements of a path.
+func tail(elems []string, n int) string {
+	if n > len(elems) {
+		n = len(elems)
+	}
+	return path.Join(elems[len(elems)-n:]...)
 }
 
 // less orders sites by file, then line.

@@ -15,12 +15,13 @@ import (
 // instructions name it, followed by the remainder.
 func WriteTable(w io.Writer, a *Attribution) error {
 	src := newSourceReader()
+	names := SiteNames(a.Sites())
 	bw := bufio.NewWriter(w)
 	fmt.Fprintf(bw, "%s: %d of %d SASS instructions name a program line\n", a.Unit.Name, a.Attributed, a.Instructions)
 	tw := tabwriter.NewWriter(bw, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "  SITE\tSOURCE\tCUDA\tPTX\tSASS")
 	for _, r := range a.Rows() {
-		fmt.Fprintf(tw, "  %s\t%s\t%d\t%d\t%d\n", r.Site, src.line(r.Site), len(r.CUDA), r.PTX, len(r.SASS))
+		fmt.Fprintf(tw, "  %s\t%s\t%d\t%d\t%d\n", names[r.Site], src.line(r.Site), len(r.CUDA), r.PTX, len(r.SASS))
 	}
 	tw.Flush()
 	fmt.Fprintf(bw, "  remainder: %s\n", a.Remainder)
@@ -30,6 +31,7 @@ func WriteTable(w io.Writer, a *Attribution) error {
 // WriteListing writes the attributed instructions, grouped by site.
 func WriteListing(w io.Writer, a *Attribution) error {
 	src := newSourceReader()
+	names := SiteNames(a.Sites())
 	bw := bufio.NewWriter(w)
 	fmt.Fprintf(bw, "%s: SASS by program line\n", a.Unit.Name)
 	for _, s := range a.Sites() {
@@ -37,7 +39,7 @@ func WriteListing(w io.Writer, a *Attribution) error {
 		if len(insts) == 0 {
 			continue
 		}
-		fmt.Fprintf(bw, "  %s  %s\n", s, src.line(s))
+		fmt.Fprintf(bw, "  %s  %s\n", names[s], src.line(s))
 		for _, in := range insts {
 			op := in.Opcode
 			if in.Predicate != "" {

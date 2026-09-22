@@ -77,12 +77,18 @@ func (a *Attribution) Callers(s Site) []cudair.Frame {
 // callers.
 func WriteRollup(w io.Writer, a *Attribution) error {
 	src := newSourceReader()
+	rollup := a.Rollup()
+	sites := make([]Site, len(rollup))
+	for i, r := range rollup {
+		sites[i] = r.Site
+	}
+	names := SiteNames(sites)
 	bw := bufio.NewWriter(w)
 	fmt.Fprintf(bw, "%s: SASS instructions by frame, cumulative\n", a.Unit.Name)
 	tw := tabwriter.NewWriter(bw, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "  SITE\tFUNCTION\tSOURCE\tFLAT\tCUM")
-	for _, r := range a.Rollup() {
-		fmt.Fprintf(tw, "  %s\t%s\t%s\t%d\t%d\n", r.Site, shortFunction(r.Function), src.line(r.Site), r.Flat, r.Cum)
+	for _, r := range rollup {
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%d\t%d\n", names[r.Site], shortFunction(r.Function), src.line(r.Site), r.Flat, r.Cum)
 	}
 	tw.Flush()
 	return bw.Flush()
