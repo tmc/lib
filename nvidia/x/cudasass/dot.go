@@ -10,9 +10,32 @@ type dotGraphSpan struct {
 	name  string
 	start int
 	end   int
+	// cluster reports that the span is a "cluster_<name>" subgraph of an
+	// enclosing digraph rather than a digraph itself, so rendering it needs a
+	// wrapper; see [dotGraphSpan.render].
+	cluster bool
 }
 
-// ListDOTGraphs returns the names of all top-level digraphs found in Graphviz DOT text.
+// render returns the span as a standalone digraph. A cluster is rewrapped
+// under the function's own name: nvdisasm puts every node and edge of a
+// function inside its cluster and nothing else, so the body stands alone.
+func (s dotGraphSpan) render(dot string) string {
+	text := strings.TrimSpace(dot[s.start:s.end])
+	if !s.cluster {
+		return text + "\n"
+	}
+	body := text[strings.IndexByte(text, '{')+1:]
+	body = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(body), "}"))
+	return "digraph " + strings.Trim(s.name, `"`) + " {\n" + body + "\n}\n"
+}
+
+// ListDOTGraphs returns the names of the function graphs in Graphviz DOT text.
+//
+// nvdisasm prints a whole module as one digraph named "f" and puts each
+// function in a "cluster_<function>" subgraph of it, so the top-level name
+// identifies nothing a caller can ask for. Where those clusters are present
+// they are the graphs, and the names returned are the functions'. A digraph
+// with no clusters is reported under its own name.
 func ListDOTGraphs(dot string) []string {
 	spans := parseDOTGraphs(dot)
 	names := make([]string, len(spans))
@@ -41,14 +64,14 @@ func ExtractDOTGraph(dot string, name string) (string, error) {
 	// 1. Exact match
 	for _, s := range spans {
 		if s.name == name || strings.Trim(s.name, `"`) == cleanName {
-			return strings.TrimSpace(dot[s.start:s.end]) + "\n", nil
+			return s.render(dot), nil
 		}
 	}
 
 	// 2. Case-insensitive exact match
 	for _, s := range spans {
 		if strings.EqualFold(strings.Trim(s.name, `"`), cleanName) {
-			return strings.TrimSpace(dot[s.start:s.end]) + "\n", nil
+			return s.render(dot), nil
 		}
 	}
 
@@ -61,7 +84,7 @@ func ExtractDOTGraph(dot string, name string) (string, error) {
 		}
 	}
 	if len(matched) == 1 {
-		return strings.TrimSpace(dot[matched[0].start:matched[0].end]) + "\n", nil
+		return matched[0].render(dot), nil
 	}
 	if len(matched) > 1 {
 		names := make([]string, len(matched))
@@ -222,11 +245,18 @@ func parseDOTGraphs(dot string) []dotGraphSpan {
 					}
 
 					if depth == 0 {
-						spans = append(spans, dotGraphSpan{
-							name:  graphName,
-							start: graphStart,
-							end:   i,
-						})
+						// nvdisasm names the whole module "f" and puts the
+						// functions in clusters, so the clusters are the graphs
+						// a caller can name. A digraph without them is its own.
+						if cs := clusterSpans(dot, graphStart, i); len(cs) > 0 {
+							spans = append(spans, cs...)
+						} else {
+							spans = append(spans, dotGraphSpan{
+								name:  graphName,
+								start: graphStart,
+								end:   i,
+							})
+						}
 						continue
 					}
 				}
@@ -237,4 +267,94 @@ func parseDOTGraphs(dot string) []dotGraphSpan {
 	}
 
 	return spans
+}
+
+// clusterSpans returns the "cluster_<name>" subgraphs of the digraph occupying
+// dot[start:end], with the prefix stripped from each name. It returns nothing
+// for a digraph that has no such subgraph, which is the shape a caller that
+// writes its own DOT produces.
+func clusterSpans(dot string, start, end int) []dotGraphSpan {
+	const prefix = "cluster_"
+	var spans []dotGraphSpan
+	for i := start; i < end; {
+		if !strings.HasPrefix(dot[i:end], "subgraph") {
+			i++
+			continue
+		}
+		j := i + len("subgraph")
+		for j < end && unicode.IsSpace(rune(dot[j])) {
+			j++
+		}
+		name, j := dotName(dot, j, end)
+		if !strings.HasPrefix(strings.Trim(name, `"`), prefix) {
+			i = j
+			continue
+		}
+		for j < end && dot[j] != '{' {
+			j++
+		}
+		body := skipBraced(dot, j, end)
+		if body < 0 {
+			break
+		}
+		spans = append(spans, dotGraphSpan{
+			name:    strings.TrimPrefix(strings.Trim(name, `"`), prefix),
+			start:   i,
+			end:     body,
+			cluster: true,
+		})
+		i = body
+	}
+	return spans
+}
+
+// dotName reads the identifier at dot[i:end], quoted or bare, and returns it
+// with the index just past it.
+func dotName(dot string, i, end int) (string, int) {
+	if i < end && dot[i] == '"' {
+		j := i + 1
+		for j < end && dot[j] != '"' {
+			if dot[j] == '\\' && j+1 < end {
+				j += 2
+				continue
+			}
+			j++
+		}
+		if j < end {
+			j++
+		}
+		return dot[i:j], j
+	}
+	j := i
+	for j < end && !unicode.IsSpace(rune(dot[j])) && dot[j] != '{' {
+		j++
+	}
+	return dot[i:j], j
+}
+
+// skipBraced returns the index just past the "}" matching the "{" at dot[i],
+// or -1 if the braces do not balance within end. Quoted strings are skipped,
+// because a node label holds braces of its own.
+func skipBraced(dot string, i, end int) int {
+	if i >= end || dot[i] != '{' {
+		return -1
+	}
+	depth := 0
+	for ; i < end; i++ {
+		switch dot[i] {
+		case '"':
+			for i++; i < end && dot[i] != '"'; i++ {
+				if dot[i] == '\\' && i+1 < end {
+					i++
+				}
+			}
+		case '{':
+			depth++
+		case '}':
+			if depth--; depth == 0 {
+				return i + 1
+			}
+		}
+	}
+	return -1
 }
