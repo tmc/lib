@@ -1,0 +1,34 @@
+commit 5aa6fa5f, 2026-09-22
+claude-code 2.1.280 (Claude Code), model claude-opus-5[1m]
+tty not a tty, pid 87486, ITERM_SESSION_ID=w16t0p13:82D66DD7-9369-4497-80A7-C22F2D8BB0AD
+session=41e006ea-c431-4858-a0f4-bc6efab3d868
+session_url=https://claude.ai/code/session_01N7MBqfPUrPrApoBSRgPQqu
+
+S2 + S4.1. Implemented by subagent S2-extents in the megakernel
+worktree; device evidence on spark-31db (GB10, sm_121a) under gpu-lock,
+goldens rebuilt with /usr/local/cuda-13.4/bin/nvcc for sm_80, sm_90 and
+sm_121a plus sm_121a SASS.
+
+Four value-changing controls fire on the device comparison, the emitted
+text and the CPU backend: drop the second input, shorten one task's
+extent, restore the shared n as the scratch stride, swap a task's two
+sources. Each reverted and re-verified by sha1.
+
+Two receipts worth more than the pass. The wrong-extent control did not
+fire on the CPU backend at first: the fixture's last element summed to
+exactly zero, indistinguishable from an untouched scratch word at
+precisely the element the mutation touched. The agent widened the
+fixture rather than adjusting the mutation, and added a precondition
+that no task's last oracle element is zero. And with the swap mutation
+in place it changed the consumer from Subtract back to Add: the
+comparison went green on a worker that had swapped its sources, which is
+why Subtract is in the package.
+
+TestFoldIsOrderedAndOverEverySource is labelled a discrimination check
+on the fixture and oracle, not a gate on the backend. It fired only for
+a mutation of the oracle.
+
+Peer-owned collateral, left unstaged: x/cudaplan/mega_test.go needs
+Elements on its synthetic ops. The peer reports its CTA-scope control
+had been firing on the extent refusal -- passing for a reason unrelated
+to what it guards -- and now asserts the scope in the message.
