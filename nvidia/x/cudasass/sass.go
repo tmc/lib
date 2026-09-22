@@ -230,7 +230,8 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			continue
 		}
 
-		// Detect function header (e.g. ".text._Z10LinearGEMV...", "Function : LinearGEMV", "--- Kernel: LinearGEMV ---")
+		// Detect a function header. See the package doc for the four
+		// spellings and which tools emit them.
 		if fnName := extractFunctionName(trimmed); fnName != "" {
 			pendingSymbol = ""
 			curSourceFile = ""

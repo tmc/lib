@@ -20,6 +20,19 @@
 // when the tool's capabilities can be determined: an executable that reports no
 // version and whose --help cannot be read is run, and diagnoses itself.
 //
+// # Kernel header spellings
+//
+// The parser starts a new kernel at four header spellings. Three come from
+// vendor tools: ".section .text.NAME" and a bare ".text.NAME:" label from
+// nvdisasm, and "Function : NAME" from cuobjdump --dump-sass. Those name a
+// kernel by its mangled symbol (_Z5scalePff); use [github.com/tmc/lib/nvidia/x/cudalowering.MatchKey]
+// to reduce one to the source spelling.
+//
+// The fourth, "--- Kernel: NAME ---", is project-local. No vendor tool emits
+// it; it exists for hand-written listings and carries a friendly name. Code
+// that handles only this spelling has not been exercised against real tool
+// output.
+//
 // # Cubin formats
 //
 // A cubin carries its producing toolkit's version in the ELF header: nvcc
