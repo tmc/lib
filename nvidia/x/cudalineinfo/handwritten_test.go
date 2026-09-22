@@ -1,6 +1,7 @@
 package cudalineinfo
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -241,5 +242,27 @@ func TestHandWrittenSASSParses(t *testing.T) {
 	}
 	if strings.Join(names, " ") != "geglu rmsnorm" {
 		t.Fatalf("functions = %v, want geglu rmsnorm", names)
+	}
+}
+
+// TestReportSourceFromUnit reads the SOURCE column out of the unit. The
+// fixture's forward.cu is not on disk anywhere, which is the ordinary case
+// for a source compiled through NVRTC from an embedded string.
+func TestReportSourceFromUnit(t *testing.T) {
+	a := Attribute(Unit{Name: "forward", Source: handWrittenSource, Kernels: []string{"geglu", "rmsnorm"}}, "", handWrittenDisassembly(t))
+	var buf bytes.Buffer
+	if err := WriteTable(&buf, a); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"float g = x[i];",
+		"y[i] = v * rsqrtf(v * v + 1e-6f);",
+	} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("table lacks %q:\n%s", want, buf.String())
+		}
+	}
+	if readLines("forward.cu") != nil {
+		t.Fatal("forward.cu is on disk, so the table may have read it there")
 	}
 }

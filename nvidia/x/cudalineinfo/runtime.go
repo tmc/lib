@@ -232,7 +232,7 @@ func (p *Profile) add(a *Attribution, function string, offset uint64, n int64) {
 // WriteProfile writes one row per site with its static instruction count
 // and its share of the measure, followed by the shares that reached no site.
 func WriteProfile(w io.Writer, a *Attribution, p Profile) error {
-	src := newSourceReader()
+	src := newSourceReader(a.Unit)
 	total := p.Total()
 	pct := func(n int64) string {
 		if total == 0 {

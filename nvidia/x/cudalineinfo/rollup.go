@@ -76,7 +76,7 @@ func (a *Attribution) Callers(s Site) []cudair.Frame {
 // count of zero; a table with no such row means no location recorded any
 // callers.
 func WriteRollup(w io.Writer, a *Attribution) error {
-	src := newSourceReader()
+	src := newSourceReader(a.Unit)
 	rollup := a.Rollup()
 	sites := make([]Site, len(rollup))
 	for i, r := range rollup {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -14,7 +15,7 @@ import (
 // disk, and how many generated CUDA lines, PTX locations, and SASS
 // instructions name it, followed by the remainder.
 func WriteTable(w io.Writer, a *Attribution) error {
-	src := newSourceReader()
+	src := newSourceReader(a.Unit)
 	names := SiteNames(a.Sites())
 	bw := bufio.NewWriter(w)
 	fmt.Fprintf(bw, "%s: %d of %d SASS instructions name a program line\n", a.Unit.Name, a.Attributed, a.Instructions)
@@ -30,7 +31,7 @@ func WriteTable(w io.Writer, a *Attribution) error {
 
 // WriteListing writes the attributed instructions, grouped by site.
 func WriteListing(w io.Writer, a *Attribution) error {
-	src := newSourceReader()
+	src := newSourceReader(a.Unit)
 	names := SiteNames(a.Sites())
 	bw := bufio.NewWriter(w)
 	fmt.Fprintf(bw, "%s: SASS by program line\n", a.Unit.Name)
@@ -51,20 +52,31 @@ func WriteListing(w io.Writer, a *Attribution) error {
 	return bw.Flush()
 }
 
-// A sourceReader returns lines of source files, reading each file once.
+// A sourceReader returns lines of source files, reading each file once. The
+// unit's own source comes from the unit rather than from disk: with NVRTC it
+// is often embedded in the program, and there is no file to open.
 type sourceReader struct {
+	unit  Unit
 	files map[string][]string
 }
 
-func newSourceReader() *sourceReader {
-	return &sourceReader{files: map[string][]string{}}
+func newSourceReader(u Unit) *sourceReader {
+	r := &sourceReader{unit: u, files: map[string][]string{}}
+	if u.Source != "" {
+		r.files[u.GeneratedName()] = strings.Split(u.Source, "\n")
+	}
+	return r
 }
 
 func (r *sourceReader) line(s Site) string {
-	lines, ok := r.files[s.File]
+	file := s.File
+	if r.unit.Source != "" && filepath.Base(file) == r.unit.GeneratedName() {
+		file = r.unit.GeneratedName()
+	}
+	lines, ok := r.files[file]
 	if !ok {
-		lines = readLines(s.File)
-		r.files[s.File] = lines
+		lines = readLines(file)
+		r.files[file] = lines
 	}
 	if lines == nil {
 		return ""
