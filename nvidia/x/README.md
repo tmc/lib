@@ -19,6 +19,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudabench](cudabench/) | Package cudabench provides precise GPU event-timed benchmarking utilities for Go testing. |
 | [cudablock](cudablock/) | Package cudablock provides high-performance CUDA thread-block and warp-level primitives for collective reductions, prefix scans, and cooperative tile staging into shared memory. |
 | [cudabpf](cudabpf/) | Package cudabpf is the NVIDIA-specific half of a driver-level BPF policy bridge: the hook semantics, chunk placement, eviction ranking and time-slice-group attributes of an open-source GPU kernel driver whose UVM and scheduler have been patched to export typed struct_ops tables. |
+| [cudabpfdev](cudabpfdev/) | Package cudabpfdev verifies and translates bounded warp instrumentation programs. |
 | [cudacache](cudacache/) | Package cudacache provides content-addressed local and remote caching for compiled CUDA kernel artifacts and search evaluation receipts. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
 | [cudacensus](cudacensus/) | Package cudacensus turns a GPU trace capture into a per-kernel census and, where the caller can supply a cost model, into roofline points. |
@@ -54,6 +55,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudapipeline](cudapipeline/) | Package cudapipeline provides static verification and transaction-barrier analysis for asynchronous tensor copy pipelines. |
 | [cudaplan](cudaplan/) | Package cudaplan provides executable plans, resource ownership, and completion tracking for CUDA execution graphs and compiled kernels. |
 | [cudaprepack](cudaprepack/) | Package cudaprepack provides ahead-of-time (AOT) hardware layout transformations for NVIDIA Blackwell TMA (cp.async.bulk.tensor.2d) tensor boxes and microscaled sub-byte formats. |
+| [cudaprobe](cudaprobe/) | Package cudaprobe decodes CUDA API observations and tracks allocation lifetimes within one observed process. |
 | [cudaprof](cudaprof/) | Package cudaprof writes caller-supplied CUDA execution observations as Go profiles, Perfetto traces, and bounded in-memory recordings. |
 | [cudaprofagent](cudaprofagent/) | Package cudaprofagent lets a Go program finalize an attached cudaprof CUPTI agent before it exits. |
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
