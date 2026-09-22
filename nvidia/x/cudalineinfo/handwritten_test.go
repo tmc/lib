@@ -176,10 +176,40 @@ GeGLU:
 		t.Errorf("bare unit attributed %d of %d, %d generated; want 0 attributed and all generated",
 			bare.Attributed, bare.Instructions, bare.Remainder.Generated)
 	}
+	// The bare unit is right to refuse the file it cannot vouch for, so the
+	// report must say the table below it is empty for want of a unit.
+	if !bare.Unattributed() {
+		t.Error("an attribution that reached no program line does not report it")
+	}
+	var buf bytes.Buffer
+	if err := WriteTable(&buf, bare); err != nil {
+		t.Fatal(err)
+	}
+	if want := `nothing attributed: none of the 3 instructions names a program line; the unit is bare, holding only the name "GeGLU"`; !strings.Contains(buf.String(), want) {
+		t.Errorf("table lacks %q:\n%s", want, buf.String())
+	}
+
+	buf.Reset()
+	if err := WriteProfile(&buf, bare, Profile{Measure: "samples", Sites: map[Site]int64{}, Other: 5}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "nothing attributed") {
+		t.Errorf("profile does not say the join failed:\n%s", buf.String())
+	}
 
 	full := Attribute(Unit{Name: "GeGLU", Source: "__global__ void GeGLU() {\n}\n"}, "", dis)
 	if full.Attributed != full.Instructions {
 		t.Errorf("unit with source attributed %d of %d, want all", full.Attributed, full.Instructions)
+	}
+	if full.Unattributed() {
+		t.Error("an attribution that reached every line reports nothing attributed")
+	}
+	buf.Reset()
+	if err := WriteTable(&buf, full); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "nothing attributed") {
+		t.Errorf("a populated table says nothing was attributed:\n%s", buf.String())
 	}
 }
 

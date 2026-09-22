@@ -114,6 +114,18 @@ func Attribute(unit Unit, ptx string, dis *cudasass.Disassembly) *Attribution {
 	return a
 }
 
+// Unattributed reports whether the join failed outright: the disassembly
+// holds instructions and not one of them names a line of the program.
+//
+// It is not the same as a program with no hot lines. Every report is empty
+// in this state, and the cause is upstream of the measurement -- a unit
+// that knows only a kernel's name, or file names that do not match the ones
+// the compiler recorded -- so a report says so rather than printing an
+// empty table under a heading.
+func (a *Attribution) Unattributed() bool {
+	return a.Attributed == 0 && a.Instructions > 0
+}
+
 // Sites returns every site any tier attributes to, in file and line order.
 func (a *Attribution) Sites() []Site {
 	seen := map[Site]bool{}

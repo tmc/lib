@@ -245,6 +245,7 @@ func WriteProfile(w io.Writer, a *Attribution, p Profile) error {
 		fmt.Fprintf(bw, "%s: ", a.Unit.Name)
 	}
 	fmt.Fprintf(bw, "%d %s by program line\n", total, p.Measure)
+	writeUnattributed(bw, a)
 	tw := tabwriter.NewWriter(bw, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(tw, "  SITE\tSOURCE\tSASS\t%s\tSHARE\n", strings.ToUpper(p.Measure))
 	sites := profileSites(a, p)

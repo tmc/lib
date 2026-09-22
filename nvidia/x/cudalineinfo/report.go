@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 )
@@ -19,6 +20,7 @@ func WriteTable(w io.Writer, a *Attribution) error {
 	names := SiteNames(a.Sites())
 	bw := bufio.NewWriter(w)
 	fmt.Fprintf(bw, "%s: %d of %d SASS instructions name a program line\n", a.Unit.Name, a.Attributed, a.Instructions)
+	writeUnattributed(bw, a)
 	tw := tabwriter.NewWriter(bw, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "  SITE\tSOURCE\tCUDA\tPTX\tSASS")
 	for _, r := range a.Rows() {
@@ -35,6 +37,7 @@ func WriteListing(w io.Writer, a *Attribution) error {
 	names := SiteNames(a.Sites())
 	bw := bufio.NewWriter(w)
 	fmt.Fprintf(bw, "%s: SASS by program line\n", a.Unit.Name)
+	writeUnattributed(bw, a)
 	for _, s := range a.Sites() {
 		insts := a.SASS[s]
 		if len(insts) == 0 {
@@ -50,6 +53,27 @@ func WriteListing(w io.Writer, a *Attribution) error {
 		}
 	}
 	return bw.Flush()
+}
+
+// writeUnattributed says that a report is empty because the join failed,
+// which is otherwise indistinguishable from a program with no hot lines.
+func writeUnattributed(w io.Writer, a *Attribution) {
+	if !a.Unattributed() {
+		return
+	}
+	fmt.Fprintf(w, "  nothing attributed: none of the %d instructions names a program line; the unit is %s\n", a.Instructions, unitDescription(a.Unit))
+}
+
+// unitDescription says what the unit brought to the join, which is what
+// decides whether anything could have been attributed.
+func unitDescription(u Unit) string {
+	switch {
+	case u.Source == "" && len(u.LineMap) == 0:
+		return "bare, holding only the name " + strconv.Quote(u.Name)
+	case len(u.LineMap) == 0:
+		return "hand-written " + u.GeneratedName()
+	}
+	return "generated " + u.GeneratedName()
 }
 
 // A sourceReader returns lines of source files, reading each file once. The
