@@ -21,17 +21,30 @@ type capturePhaseEdge struct {
 // capturePhaseReceipt is deliberately UNREAD unless every qualification gate
 // passes. It is host provenance, not a device or operand observation.
 type capturePhaseReceipt struct {
-	Status         string             `json:"status"`
-	Reason         string             `json:"reason,omitempty"`
-	API            string             `json:"api,omitempty"`
-	Index          uint32             `json:"index,omitempty"`
-	StartTimestamp uint64             `json:"start_timestamp,omitempty"`
-	StopTimestamp  uint64             `json:"stop_timestamp,omitempty"`
-	DurationNanos  uint64             `json:"duration_nanos,omitempty"`
-	KernelCount    uint64             `json:"kernel_count,omitempty"`
-	KernelNanos    uint64             `json:"kernel_nanos,omitempty"`
-	OmittedEdges   uint64             `json:"omitted_edges,omitempty"`
-	Edges          []capturePhaseEdge `json:"edges,omitempty"`
+	Status         string `json:"status"`
+	Reason         string `json:"reason,omitempty"`
+	API            string `json:"api,omitempty"`
+	Index          uint32 `json:"index,omitempty"`
+	StartTimestamp uint64 `json:"start_timestamp,omitempty"`
+	StopTimestamp  uint64 `json:"stop_timestamp,omitempty"`
+	DurationNanos  uint64 `json:"duration_nanos,omitempty"`
+	KernelCount    uint64 `json:"kernel_count,omitempty"`
+	KernelNanos    uint64 `json:"kernel_nanos,omitempty"`
+
+	// The Nanos totals above and below are SUMS over records, so work that
+	// overlaps on separate streams counts more than once and a sum may exceed
+	// DurationNanos. DeviceBusyNanos is a UNION of the same intervals and
+	// cannot: it is the time the device had at least one activity in flight.
+	// DeviceBusyNanos + DeviceIdleNanos == DurationNanos exactly.
+	MemcpyCount     uint64             `json:"memcpy_count,omitempty"`
+	MemcpyNanos     uint64             `json:"memcpy_nanos,omitempty"`
+	MemcpyBytes     uint64             `json:"memcpy_bytes,omitempty"`
+	MemsetCount     uint64             `json:"memset_count,omitempty"`
+	MemsetNanos     uint64             `json:"memset_nanos,omitempty"`
+	DeviceBusyNanos uint64             `json:"device_busy_nanos,omitempty"`
+	DeviceIdleNanos uint64             `json:"device_idle_nanos,omitempty"`
+	OmittedEdges    uint64             `json:"omitted_edges,omitempty"`
+	Edges           []capturePhaseEdge `json:"edges,omitempty"`
 
 	// Phases carries one MEASURED receipt per qualified pair when the target
 	// opened the capture range more than once. The enclosing receipt stays
@@ -131,13 +144,29 @@ func measurePhase(result captureResult, start, stop capturePhaseEdge) (capturePh
 		StopTimestamp:  stop.Timestamp,
 		DurationNanos:  stop.Timestamp - start.Timestamp,
 	}
+	busy := make([]interval, 0, len(result.Activities))
 	for _, activity := range result.Activities {
-		if activity.Subtype != "kernel" || !activity.Valid || activity.Start < start.Timestamp || activity.End > stop.Timestamp {
+		if !activity.Valid || activity.Start < start.Timestamp || activity.End > stop.Timestamp || activity.End < activity.Start {
 			continue
 		}
-		m.KernelCount++
-		m.KernelNanos += activity.End - activity.Start
+		switch activity.Subtype {
+		case "kernel":
+			m.KernelCount++
+			m.KernelNanos += activity.End - activity.Start
+		case "memcpy":
+			m.MemcpyCount++
+			m.MemcpyNanos += activity.End - activity.Start
+			m.MemcpyBytes += activity.Bytes
+		case "memset":
+			m.MemsetCount++
+			m.MemsetNanos += activity.End - activity.Start
+		default:
+			continue
+		}
+		busy = append(busy, interval{activity.Start, activity.End})
 	}
+	m.DeviceBusyNanos = unionNanos(busy)
+	m.DeviceIdleNanos = m.DurationNanos - m.DeviceBusyNanos
 	return m, true
 }
 

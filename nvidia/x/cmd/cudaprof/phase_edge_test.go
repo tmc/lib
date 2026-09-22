@@ -283,3 +283,77 @@ func TestBuildPhaseReceiptRejectsUnpairedEdges(t *testing.T) {
 		})
 	}
 }
+
+// TestMeasurePhaseSeparatesSumFromUnion pins the distinction that decides
+// whether a phase was GPU-bound. KernelNanos is a SUM over records, so
+// concurrent work on separate streams counts more than once and the sum can
+// exceed the phase. DeviceBusyNanos is the UNION and cannot, so busy and idle
+// must partition the phase exactly.
+func TestMeasurePhaseSeparatesSumFromUnion(t *testing.T) {
+	result := phaseResult(nil)
+	result.Activities = []captureActivity{
+		{Subtype: "kernel", Valid: true, Start: 10, End: 40}, // stream A
+		{Subtype: "kernel", Valid: true, Start: 20, End: 50}, // stream B, overlaps A
+		{Subtype: "memcpy", Valid: true, Start: 70, End: 80, Bytes: 4096},
+		{Subtype: "memset", Valid: true, Start: 75, End: 85},  // overlaps the memcpy
+		{Subtype: "kernel", Valid: true, Start: 95, End: 200}, // straddles the stop edge
+		{Subtype: "kernel", Valid: false, Start: 60, End: 65}, // invalid, not counted
+	}
+	r := buildPhaseReceipt(result, []capturePhaseEdge{
+		{Sequence: 1, Timestamp: 5, Edge: "start", API: "cuProfilerStart", Index: 0},
+		{Sequence: 2, Timestamp: 105, Edge: "stop", API: "cuProfilerStop", Index: 0},
+	})
+	if r.Status != "MEASURED" {
+		t.Fatalf("status = %q reason = %q, want MEASURED", r.Status, r.Reason)
+	}
+	// Kernels: [10,40) and [20,50) are contained; [95,200) straddles the stop
+	// edge and the Valid:false record is skipped.
+	if r.KernelCount != 2 || r.KernelNanos != 60 {
+		t.Errorf("kernels = %d/%dns, want 2/60ns (a sum: 30+30)", r.KernelCount, r.KernelNanos)
+	}
+	if r.MemcpyCount != 1 || r.MemcpyNanos != 10 || r.MemcpyBytes != 4096 {
+		t.Errorf("memcpy = %d/%dns/%dB, want 1/10ns/4096B", r.MemcpyCount, r.MemcpyNanos, r.MemcpyBytes)
+	}
+	if r.MemsetCount != 1 || r.MemsetNanos != 10 {
+		t.Errorf("memset = %d/%dns, want 1/10ns", r.MemsetCount, r.MemsetNanos)
+	}
+	// Union: [10,50) is 40, [70,85) is 15. Total 55, below the 80ns of sums.
+	if r.DeviceBusyNanos != 55 {
+		t.Errorf("device_busy = %dns, want 55ns (union, not the 80ns sum)", r.DeviceBusyNanos)
+	}
+	if sum := r.KernelNanos + r.MemcpyNanos + r.MemsetNanos; sum <= r.DeviceBusyNanos {
+		t.Errorf("sum %dns did not exceed union %dns; the fixture no longer overlaps", sum, r.DeviceBusyNanos)
+	}
+	if r.DeviceBusyNanos+r.DeviceIdleNanos != r.DurationNanos {
+		t.Errorf("busy %d + idle %d != duration %d", r.DeviceBusyNanos, r.DeviceIdleNanos, r.DurationNanos)
+	}
+}
+
+// TestMeasurePhaseBusyNeverExceedsDuration is the property the ds4 comparison
+// rests on: a GPU-busy fraction above 1 would mean the union leaked work from
+// outside the phase, and every ratio computed from it would be wrong.
+func TestMeasurePhaseBusyNeverExceedsDuration(t *testing.T) {
+	result := phaseResult(nil)
+	for i := 0; i < 64; i++ {
+		result.Activities = append(result.Activities, captureActivity{
+			Subtype: "kernel", Valid: true,
+			Start: uint64(10 + i%8), End: uint64(90 - i%8),
+		})
+	}
+	r := buildPhaseReceipt(result, []capturePhaseEdge{
+		{Sequence: 1, Timestamp: 5, Edge: "start", API: "cuProfilerStart", Index: 0},
+		{Sequence: 2, Timestamp: 105, Edge: "stop", API: "cuProfilerStop", Index: 0},
+	})
+	if r.Status != "MEASURED" {
+		t.Fatalf("status = %q", r.Status)
+	}
+	if r.KernelNanos <= r.DurationNanos {
+		t.Fatalf("kernel sum %d did not exceed duration %d; fixture is not concurrent", r.KernelNanos, r.DurationNanos)
+	}
+	if r.DeviceBusyNanos > r.DurationNanos {
+		t.Fatalf("device_busy %d exceeds duration %d", r.DeviceBusyNanos, r.DurationNanos)
+	}
+	if r.DeviceBusyNanos+r.DeviceIdleNanos != r.DurationNanos {
+		t.Fatalf("busy %d + idle %d != duration %d", r.DeviceBusyNanos, r.DeviceIdleNanos, r.DurationNanos)
+	}
+}
