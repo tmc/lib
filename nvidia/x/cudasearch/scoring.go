@@ -1,12 +1,43 @@
 package cudasearch
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudatrial"
 )
+
+type scoringSnapshot struct {
+	owner    *MockEvaluator
+	model    ScoringModel
+	evidence map[string]*ProfileEvidence
+}
+
+func snapshotScoring(m *MockEvaluator) *scoringSnapshot {
+	s := &scoringSnapshot{owner: m, model: m.Scoring, evidence: make(map[string]*ProfileEvidence, len(m.Evidence))}
+	if s.model == (ScoringModel{}) {
+		s.model = DefaultScoringModel("")
+	}
+	if s.model.EvidenceTime.IsZero() {
+		s.model.EvidenceTime = time.Now()
+	}
+	for key, evidence := range m.Evidence {
+		if evidence != nil {
+			copy := *evidence
+			s.evidence[key] = &copy
+		}
+	}
+	return s
+}
+
+func mockScoring(ctx context.Context, m *MockEvaluator) *scoringSnapshot {
+	if work, _ := ctx.Value(workBudgetKey{}).(*workBudget); work != nil && work.scoring != nil && work.scoring.owner == m {
+		return work.scoring
+	}
+	return snapshotScoring(m)
+}
 
 // ProfileEvidence captures hardware stall metrics and execution statistics from CUPTI/SASS profiling.
 type ProfileEvidence struct {
@@ -20,7 +51,7 @@ type ProfileEvidence struct {
 	Epoch               string    // Scoring epoch when evidence was gathered
 }
 
-// IsStale reports whether the evidence was gathered under an older scoring epoch or is expired.
+// IsStale reports whether evidence belongs to a different or unspecified epoch.
 func (pe ProfileEvidence) IsStale(currentEpoch string) bool {
 	if pe.Epoch == "" || pe.Epoch != currentEpoch {
 		return true
@@ -28,13 +59,18 @@ func (pe ProfileEvidence) IsStale(currentEpoch string) bool {
 	return false
 }
 
-// ScoringModel evaluates candidate costs by combining latency measurements with profile penalties.
+// ScoringModel evaluates latency costs. Profile observations retain their own
+// units and never add a fabricated duration to the latency objective.
 type ScoringModel struct {
-	Epoch               string  // Monotonic version/identifier of the scoring model
-	BaseLatencyWeight   float64 // Weight for measured execution latency (e.g. 1.0)
-	MemoryStallWeight   float64 // Penalty weight for stall_memory_throttle (e.g. 5000.0)
-	OccupancyPenalty    float64 // Penalty weight for falling below target occupancy (e.g. 2000.0)
-	RegisterSpillWeight float64 // Penalty per KB of register spilling (e.g. 10.0)
+	// EvidenceMaxAge enables timestamp checks when positive. Zero uses only
+	// epoch matching. Missing, future and expired timestamps fall back to timing.
+	EvidenceMaxAge time.Duration
+	// EvidenceTime is the reference time for age checks. Zero uses the current
+	// time; Search freezes it before evaluating any candidate.
+	EvidenceTime      time.Time
+	TimingKind        cudatrial.TimingKind // Device objective; empty means summed kernel time.
+	Epoch             string               // Monotonic version/identifier of the scoring model
+	BaseLatencyWeight float64              // Weight for measured execution latency (e.g. 1.0)
 }
 
 // DefaultScoringModel returns a baseline scoring model.
@@ -43,16 +79,13 @@ func DefaultScoringModel(epoch string) ScoringModel {
 		epoch = "epoch-v1"
 	}
 	return ScoringModel{
-		Epoch:               epoch,
-		BaseLatencyWeight:   1.0,
-		MemoryStallWeight:   5000.0,
-		OccupancyPenalty:    2000.0,
-		RegisterSpillWeight: 10.0,
+		Epoch:             epoch,
+		BaseLatencyWeight: 1.0,
 	}
 }
 
-// Score computes a composite cost for a candidate receipt and optional profile evidence.
-// Lower score is better. If profile evidence is missing or stale, it falls back cleanly to timing-only.
+// Score computes weighted latency and validates current profile evidence.
+// Lower score is better. Evidence never changes the returned latency cost.
 func (sm ScoringModel) Score(receipt *cudatrial.Receipt, evidence *ProfileEvidence) (float64, error) {
 	if receipt == nil {
 		return math.Inf(1), fmt.Errorf("cudasearch: nil receipt")
@@ -60,41 +93,64 @@ func (sm ScoringModel) Score(receipt *cudatrial.Receipt, evidence *ProfileEviden
 	if !receipt.Complete || receipt.Err != nil {
 		return math.Inf(1), fmt.Errorf("cudasearch: incomplete receipt")
 	}
+	if sm.EvidenceMaxAge < 0 {
+		return math.Inf(1), fmt.Errorf("cudasearch: negative evidence maximum age")
+	}
 
-	dur := receipt.Duration()
-	if dur <= 0 {
-		dur = time.Duration(receipt.DeviceNs)
+	if math.IsNaN(sm.BaseLatencyWeight) || math.IsInf(sm.BaseLatencyWeight, 0) || sm.BaseLatencyWeight < 0 {
+		return math.Inf(1), fmt.Errorf("cudasearch: invalid scoring weight")
+	}
+	if sm.BaseLatencyWeight == 0 {
+		return math.Inf(1), fmt.Errorf("cudasearch: latency weight must be positive")
+	}
+	kind := sm.TimingKind
+	if kind == "" {
+		kind = cudatrial.TimingSummedKernel
+	}
+	if kind != cudatrial.TimingSummedKernel && kind != cudatrial.TimingGPUBusy {
+		return math.Inf(1), ErrTimingKindMismatch
+	}
+	if receipt.TimingKind != "" && receipt.TimingKind != kind {
+		return math.Inf(1), ErrTimingKindMismatch
+	}
+	dur, err := receipt.DurationFor(kind)
+	if err != nil {
+		return math.Inf(1), err
 	}
 	if dur <= 0 {
-		dur = time.Duration(receipt.WallNs)
-	}
-	if dur <= 0 {
-		dur = time.Microsecond
+		return math.Inf(1), fmt.Errorf("cudasearch: nonpositive scoring duration")
 	}
 
 	cost := float64(dur.Nanoseconds()) * sm.BaseLatencyWeight
 
 	// Apply profile evidence if valid and current
-	if evidence != nil && !evidence.IsStale(sm.Epoch) {
-		// Penalty for memory throttle stalls
-		if evidence.StallMemoryThrottle > 0 {
-			cost += evidence.StallMemoryThrottle * sm.MemoryStallWeight * 1000.0
-		}
-		// Penalty for sub-target occupancy
-		target := evidence.TargetOccupancy
-		if target <= 0 {
-			target = 0.5
-		}
-		if evidence.Occupancy < target {
-			deficit := target - evidence.Occupancy
-			cost += deficit * sm.OccupancyPenalty * 1000.0
-		}
-		// Penalty for register spilling
-		if evidence.RegisterSpillBytes > 0 {
-			kb := float64(evidence.RegisterSpillBytes) / 1024.0
-			cost += kb * sm.RegisterSpillWeight * 1000.0
+	if sm.acceptsEvidence(evidence) {
+		for _, fraction := range []float64{evidence.StallMemoryThrottle, evidence.StallScoreboard, evidence.StallLGThrottle, evidence.Occupancy, evidence.TargetOccupancy} {
+			if math.IsNaN(fraction) || math.IsInf(fraction, 0) || fraction < 0 || fraction > 1 {
+				return math.Inf(1), fmt.Errorf("cudasearch: invalid profile fraction")
+			}
 		}
 	}
 
+	if math.IsNaN(cost) || math.IsInf(cost, 0) {
+		return math.Inf(1), fmt.Errorf("cudasearch: nonfinite score")
+	}
 	return cost, nil
+}
+
+func (sm ScoringModel) acceptsEvidence(evidence *ProfileEvidence) bool {
+	if evidence == nil || evidence.IsStale(sm.Epoch) {
+		return false
+	}
+	if sm.EvidenceMaxAge == 0 {
+		return true
+	}
+	now := sm.EvidenceTime
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if evidence.CollectedAt.IsZero() || evidence.CollectedAt.After(now) {
+		return false
+	}
+	return now.Sub(evidence.CollectedAt) <= sm.EvidenceMaxAge
 }

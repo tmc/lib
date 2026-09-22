@@ -12,9 +12,11 @@ import (
 
 // MCTSConfig specifies parameters for Monte Carlo Tree Search.
 type MCTSConfig struct {
+	EvaluatorID  string // Caller-qualified evaluator/callback policy identity, if needed.
+	Profile      *ProfileActions
 	Iterations   int          // Number of MCTS simulation iterations
 	ExplorationC float64      // UCT exploration constant (e.g. math.Sqrt(2))
-	Seed         int64        // Seed for local deterministic pseudo-random generator
+	Seed         int64        // Seed for each Search invocation; zero selects 42.
 	RolloutDepth int          // Maximum simulation rollout depth
 	Budget       SearchBudget // Resource limits
 	RootName     string       // E-graph named root (default: "root")
@@ -47,12 +49,18 @@ type mctsNode struct {
 
 // MCTSSearchEngine implements seeded, bounded Monte Carlo Tree Search over rewrite transitions.
 type MCTSSearchEngine struct {
-	cfg MCTSConfig
-	rng *rand.Rand
+	cfg       MCTSConfig
+	configErr error
 }
 
 // NewMCTSSearch creates an MCTS search engine.
 func NewMCTSSearch(cfg MCTSConfig) *MCTSSearchEngine {
+	if err := validateSearchBudget(cfg.Budget); err != nil {
+		return &MCTSSearchEngine{configErr: err}
+	}
+	if cfg.Iterations < 0 || cfg.RolloutDepth < 0 || cfg.ExplorationC < 0 || math.IsNaN(cfg.ExplorationC) || math.IsInf(cfg.ExplorationC, 0) {
+		return &MCTSSearchEngine{configErr: fmt.Errorf("cudasearch: invalid MCTS configuration")}
+	}
 	if cfg.Iterations <= 0 {
 		cfg.Iterations = 50
 	}
@@ -65,18 +73,35 @@ func NewMCTSSearch(cfg MCTSConfig) *MCTSSearchEngine {
 	if cfg.RootName == "" {
 		cfg.RootName = "root"
 	}
-	seed := cfg.Seed
-	if seed == 0 {
-		seed = 42
+	defaults := DefaultBudget()
+	if cfg.Budget.MaxTotalActions <= 0 {
+		cfg.Budget.MaxTotalActions = defaults.MaxTotalActions
+	}
+	if cfg.Budget.MaxStates <= 0 {
+		cfg.Budget.MaxStates = defaults.MaxStates
+	}
+	if cfg.Budget.MaxDepth <= 0 {
+		cfg.Budget.MaxDepth = defaults.MaxDepth
+	}
+	if cfg.Budget.MaxActions <= 0 {
+		cfg.Budget.MaxActions = defaults.MaxActions
+	}
+	if cfg.Budget.MaxEvaluations <= 0 {
+		cfg.Budget.MaxEvaluations = defaults.MaxEvaluations
+	}
+	if cfg.Seed == 0 {
+		cfg.Seed = 42
 	}
 	return &MCTSSearchEngine{
 		cfg: cfg,
-		rng: rand.New(rand.NewSource(seed)),
 	}
 }
 
 // Search executes MCTS exploration starting from initial.
 func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchState, rules []*egraph.Rewrite, eval Evaluator) (*SearchResult, error) {
+	if m.configErr != nil {
+		return nil, m.configErr
+	}
 	if initial == nil || initial.Graph == nil {
 		return nil, fmt.Errorf("cudasearch: nil initial search state")
 	}
@@ -85,29 +110,51 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	}
 
 	startTime := time.Now()
+	rng := rand.New(rand.NewSource(m.cfg.Seed))
 	budget := m.cfg.Budget
+	profile := freezeProfileActions(m.cfg.Profile)
+	ctx, work, err := searchWorkBudget(ctx, budget, eval)
+	if err != nil {
+		return nil, err
+	}
+	policy, policyComplete, err := makeSearchPolicy("mcts", m.cfg.RootName, budget, map[string]string{"iterations": fmt.Sprint(m.cfg.Iterations), "rollout_depth": fmt.Sprint(m.cfg.RolloutDepth), "exploration": fmt.Sprint(m.cfg.ExplorationC)}, m.cfg.Seed, rules, eval, work, profile, m.cfg.EvaluatorID)
+	if err != nil {
+		return nil, err
+	}
 	if budget.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, budget.Timeout)
 		defer cancel()
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrSearchCancelled, err)
+	}
 	rootID, ok := initial.CanonicalRoot(m.cfg.RootName)
 	if !ok {
-		for _, v := range initial.Roots {
-			rootID = v
-			ok = true
-			break
-		}
-		if !ok {
-			return nil, fmt.Errorf("cudasearch: no root e-class in initial state")
-		}
+		return nil, fmt.Errorf("cudasearch: missing search root %q", m.cfg.RootName)
+	}
+	if err := admitGraphBudget(initial, budget); err != nil {
+		return nil, err
+	}
+	accountedMemory := estimateStateMemory(initial)
+	if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
+		return nil, ErrMemoryBudgetExceeded
 	}
 
 	// Evaluate initial state to establish baseline cost
 	initCand, err := eval.Evaluate(ctx, initial, rootID)
+	if err == nil {
+		err = admitSearchCandidate(initCand)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
+		failure := fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
+		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Strategy: "mcts", Seed: m.cfg.Seed,
+			ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
+			Rejected: []CandidateRejection{rejection(initial, eval, err)}, StopReason: failure,
+			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
+			Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory,
+			Duration: time.Since(startTime)}, failure
 	}
 
 	baselineCost := initCand.Cost
@@ -121,6 +168,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		state:          initial.Clone(),
 		untriedActions: initialActions,
 		bestCandidate:  initCand,
+		isTerminal:     len(initialActions) == 0,
 	}
 
 	var bestGlobal *CandidatePlan = initCand
@@ -129,13 +177,28 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 
 	stateCount := 1
 	evalCount := 1
-	var accountedMemory int64 = estimateStateMemory(initial)
+	actionCount := 0
+	var rejected []CandidateRejection
+	var stopReason error
+	finish := func(err error) (*SearchResult, error) {
+		if work.exhausted {
+			stopReason = ErrBudgetExhausted
+		}
+		if err != nil {
+			stopReason = err
+		}
+		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Seed: m.cfg.Seed, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "mcts", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory, Duration: time.Since(startTime)}, err
+	}
 
 	for iter := 0; iter < m.cfg.Iterations; iter++ {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrSearchCancelled, err)
+			return finish(fmt.Errorf("%w: %w", ErrSearchCancelled, err))
 		}
-		if stateCount >= budget.MaxStates || evalCount >= budget.MaxEvaluations {
+		if stateCount >= budget.MaxStates || evalCount >= budget.MaxEvaluations || actionCount >= budget.MaxTotalActions {
+			stopReason = ErrBudgetExhausted
+			break
+		}
+		if rootNode.isTerminal {
 			break
 		}
 
@@ -143,25 +206,35 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		node := rootNode
 		depth := 0
 		for len(node.untriedActions) == 0 && len(node.children) > 0 && depth < budget.MaxDepth {
-			node = m.selectChild(node)
+			child := m.selectChild(node)
+			if child == nil {
+				node.isTerminal = true
+				break
+			}
+			node = child
 			depth++
 		}
 
 		// 2. Expansion
 		if len(node.untriedActions) > 0 && depth < budget.MaxDepth && stateCount < budget.MaxStates {
 			// Pop an untried action deterministically (or seeded random)
-			idx := m.rng.Intn(len(node.untriedActions))
+			idx := profile.choose(node.untriedActions, rng)
 			act := node.untriedActions[idx]
 			// Remove from untried
 			node.untriedActions = append(node.untriedActions[:idx], node.untriedActions[idx+1:]...)
 
+			actionCount++
+			stateCount++
 			res, applyErr := node.state.ApplyAction(act)
 			if applyErr == nil && !res.NoOp {
-				stateCount++
+				if err := admitGraphBudget(res.State, budget); err != nil {
+					stopReason = err
+					return finish(nil)
+				}
 				mem := estimateStateMemory(res.State)
 				accountedMemory += mem
 				if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
-					return nil, ErrMemoryBudgetExceeded
+					return finish(ErrMemoryBudgetExceeded)
 				}
 
 				nextActions := egraph.EnumerateActionsBounded(res.State.Graph, rules, budget.MaxActions)
@@ -170,6 +243,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 					parent:         node,
 					actionTaken:    &act,
 					untriedActions: nextActions,
+					isTerminal:     len(nextActions) == 0 || depth+1 >= budget.MaxDepth,
 				}
 
 				candRoot, found := res.State.CanonicalRoot(m.cfg.RootName)
@@ -177,21 +251,102 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 					cand, evalErr := eval.Evaluate(ctx, res.State, candRoot)
 					evalCount++
 					if evalErr == nil {
+						evalErr = admitComparableCandidate(cand, initCand)
+					}
+					if evalErr == nil {
 						childNode.bestCandidate = cand
 						allEvaluated = append(allEvaluated, cand)
 						if cand.Cost < bestGlobal.Cost {
 							bestGlobal = cand
+						}
+					} else {
+						rejected = append(rejected, rejection(res.State, eval, evalErr))
+						if work.exhausted {
+							return finish(nil)
 						}
 					}
 				}
 
 				node.children = append(node.children, childNode)
 				node = childNode
+				depth++
 			}
 		}
 
-		// 3. Rollout (Simulation)
-		reward := m.rollout(ctx, node, rules, baselineCost)
+		// 3. Evaluate rollout states using the same counters as tree expansion.
+		// ApplyAction produces a branch; no unaccounted initial clone is needed.
+		currState := node.state
+		rollCandidate := node.bestCandidate
+		for step := 0; step < m.cfg.RolloutDepth && depth < budget.MaxDepth && !node.isTerminal; step++ {
+			if err := ctx.Err(); err != nil {
+				return finish(fmt.Errorf("%w: %w", ErrSearchCancelled, err))
+			}
+			if stateCount >= budget.MaxStates || evalCount >= budget.MaxEvaluations {
+				stopReason = ErrBudgetExhausted
+				break
+			}
+			actions := egraph.EnumerateActionsBounded(currState.Graph, rules, budget.MaxActions)
+			var next *egraph.SearchState
+			for len(actions) > 0 {
+				if err := ctx.Err(); err != nil {
+					return finish(fmt.Errorf("%w: %w", ErrSearchCancelled, err))
+				}
+				if actionCount >= budget.MaxTotalActions || stateCount >= budget.MaxStates {
+					stopReason = ErrBudgetExhausted
+					return finish(nil)
+				}
+				idx := profile.choose(actions, rng)
+				act := actions[idx]
+				actions = append(actions[:idx], actions[idx+1:]...)
+				actionCount++
+				stateCount++
+				res, err := currState.ApplyAction(act)
+				if err == nil && !res.NoOp {
+					next = res.State
+					break
+				}
+			}
+			if next == nil {
+				if currState == node.state && len(node.children) == 0 {
+					node.isTerminal = true
+				}
+				break
+			}
+			depth++
+			if err := admitGraphBudget(next, budget); err != nil {
+				stopReason = err
+				return finish(nil)
+			}
+			accountedMemory += estimateStateMemory(next)
+			if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
+				return finish(ErrMemoryBudgetExceeded)
+			}
+			currState = next
+			id, ok := currState.CanonicalRoot(m.cfg.RootName)
+			if !ok {
+				rollCandidate = nil
+				break
+			}
+			cand, err := eval.Evaluate(ctx, currState, id)
+			evalCount++
+			if err == nil {
+				err = admitComparableCandidate(cand, initCand)
+			}
+			if err != nil {
+				rejected = append(rejected, rejection(currState, eval, err))
+				if work.exhausted {
+					return finish(nil)
+				}
+				rollCandidate = nil
+			} else {
+				rollCandidate = cand
+				allEvaluated = append(allEvaluated, cand)
+				if cand.Cost < bestGlobal.Cost {
+					bestGlobal = cand
+				}
+			}
+		}
+		reward := mctsReward(rollCandidate, baselineCost)
 
 		// 4. Backpropagation
 		curr := node
@@ -202,19 +357,14 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		}
 	}
 
+	if err := ctx.Err(); err != nil {
+		return finish(fmt.Errorf("%w: %w", ErrSearchCancelled, err))
+	}
 	if bestGlobal == nil {
 		return nil, ErrNoAdmittedPlan
 	}
 
-	return &SearchResult{
-		Strategy:       "mcts",
-		Winner:         bestGlobal,
-		AllCandidates:  allEvaluated,
-		StatesVisited:  stateCount,
-		Evaluations:    evalCount,
-		AccountedBytes: accountedMemory,
-		Duration:       time.Since(startTime),
-	}, nil
+	return finish(nil)
 }
 
 // selectChild selects the child maximizing UCT formula.
@@ -225,6 +375,9 @@ func (m *MCTSSearchEngine) selectChild(parent *mctsNode) *mctsNode {
 	logParentVisits := math.Log(float64(parent.visits + 1))
 
 	for _, child := range parent.children {
+		if child.isTerminal {
+			continue
+		}
 		if child.visits == 0 {
 			// Prioritize exploring unvisited children
 			return child
@@ -243,41 +396,14 @@ func (m *MCTSSearchEngine) selectChild(parent *mctsNode) *mctsNode {
 		}
 	}
 
-	if bestChild == nil && len(parent.children) > 0 {
-		return parent.children[0]
-	}
 	return bestChild
 }
 
-// rollout performs a bounded pseudo-random simulation from node.
-func (m *MCTSSearchEngine) rollout(ctx context.Context, start *mctsNode, rules []*egraph.Rewrite, baselineCost float64) float64 {
-	curr := start.state.Clone()
-	depth := 0
-
-	for depth < m.cfg.RolloutDepth {
-		if err := ctx.Err(); err != nil {
-			return 0.0 // Cancelled rollout receives zero reward
-		}
-
-		actions := egraph.EnumerateActionsBounded(curr.Graph, rules, 10)
-		if len(actions) == 0 {
-			break
-		}
-
-		// Random selection from legal actions
-		act := actions[m.rng.Intn(len(actions))]
-		res, err := curr.ApplyAction(act)
-		if err != nil || res.NoOp {
-			break
-		}
-		curr = res.State
-		depth++
-	}
-
+func mctsReward(candidate *CandidatePlan, baselineCost float64) float64 {
 	// Compute reward: bounded improvement over baseline
 	// Higher reward for lower cost. Normalized in [0, 1].
-	if start.bestCandidate != nil {
-		cost := start.bestCandidate.Cost
+	if candidate != nil {
+		cost := candidate.Cost
 		if cost <= 0 {
 			return 1.0
 		}
@@ -294,5 +420,5 @@ func (m *MCTSSearchEngine) rollout(ctx context.Context, start *mctsNode, rules [
 		return reward
 	}
 
-	return 0.5 // Default neutral reward
+	return 0 // A failed evaluation is not neutral evidence of a useful branch.
 }

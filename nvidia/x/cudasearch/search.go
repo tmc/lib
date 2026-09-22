@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/cudacache"
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudatrial"
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
@@ -18,30 +20,55 @@ type Evaluator interface {
 
 // SearchResult records the outcome of a search exploration run.
 type SearchResult struct {
-	Strategy       string
-	Winner         *CandidatePlan
-	AllCandidates  []*CandidatePlan
-	StatesVisited  int
-	Evaluations    int
-	AccountedBytes int64
-	Duration       time.Duration
+	PolicyID        cudacache.SearchPolicyID
+	PolicyComplete  bool  // False when policy inputs cannot be identified completely.
+	Seed            int64 // Effective per-search RNG seed, or zero for a deterministic strategy.
+	ProfileGuidance *cudaprof.SearchGuidance
+	ProfileFallback string // Reason configured evidence could not guide exploration.
+	ProfileDecision *ProfileDecision
+	// StopReason records why exploration stopped early. A nonnil result may
+	// accompany an error and still contain the best already validated plan.
+	StopReason       error
+	Rejected         []CandidateRejection
+	Strategy         string
+	Winner           *CandidatePlan
+	AllCandidates    []*CandidatePlan
+	StatesVisited    int // Initial state plus attempted transitions; excludes enumeration's internal probes.
+	Evaluations      int
+	Extractions      int
+	ExtractionWork   int
+	Compilations     int
+	WorkAccounted    bool // False means evaluator extraction/compile counts are unknown.
+	ActionsAttempted int  // Includes unsuccessful and no-op transitions.
+	AccountedBytes   int64
+	Duration         time.Duration
 }
 
-// MockEvaluator is a test and host evaluation engine that estimates AST cost
-// and optionally simulates execution timing receipts.
+// CandidateRejection retains a failed evaluation and its exact transition path.
+type CandidateRejection struct {
+	Derivation []egraph.Action
+	Err        error
+	Evidence   *EvaluationEvidence // Nil when the evaluator exposes no executable evidence.
+}
+
+// MockEvaluator estimates AST cost and produces synthetic timing receipts for
+// host strategy tests. Its admission flag does not qualify executable outputs;
+// use ExecutableEvaluator for numerical verification. Search freezes Scoring
+// and Evidence before its first evaluation; changes apply to the next search.
+// Concurrent mutation is not supported.
 type MockEvaluator struct {
 	CostModel     egraph.CostModel
 	Scoring       ScoringModel
 	Evidence      map[string]*ProfileEvidence
 	TimingDelay   time.Duration
 	FailCandidate func(expr *egraph.Expr) bool
-	ComputeDigest func(expr *egraph.Expr) string
 	Workload      WorkloadBindings
 	ResetCount    int
 }
 
 // Evaluate extracts the best AST from root and scores it.
 func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState, root egraph.Id) (*CandidatePlan, error) {
+	scoring := mockScoring(ctx, m)
 	if state == nil || state.Graph == nil {
 		return nil, fmt.Errorf("cudasearch: nil state in evaluate")
 	}
@@ -54,8 +81,10 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 		m.ResetCount++
 	}
 
-	ext := egraph.NewExtractor(state.Graph, m.CostModel)
-	expr, astCost, err := ext.Extract(root)
+	if err := chargeWork(ctx, false); err != nil {
+		return nil, err
+	}
+	expr, astCost, err := extractSearch(ctx, state, root, m.CostModel)
 	if err != nil {
 		return nil, fmt.Errorf("cudasearch: extraction failed: %w", err)
 	}
@@ -64,24 +93,9 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 		return nil, fmt.Errorf("cudasearch: candidate failed correctness validation")
 	}
 
-	digest := ""
-	if m.ComputeDigest != nil {
-		digest = m.ComputeDigest(expr)
-	} else {
-		h := sha256.Sum256([]byte(expr.Fingerprint()))
-		digest = fmt.Sprintf("%x", h)
-	}
-
-	// Verify against expected digest if present
-	if len(m.Workload.ExpectedDigests) > 0 {
-		// Verify default token length or first key
-		for _, want := range m.Workload.ExpectedDigests {
-			if want != "" && digest != want {
-				return nil, fmt.Errorf("%w: got digest %s, want %s", ErrVerificationFailed, digest, want)
-			}
-			break
-		}
-	}
+	// This identifies the extracted plan, not its floating-point outputs.
+	h := sha256.Sum256([]byte(expr.Fingerprint()))
+	digest := fmt.Sprintf("%x", h)
 
 	// Build evaluation receipt
 	dur := time.Duration(astCost*1000) * time.Microsecond
@@ -91,7 +105,6 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 	r := &cudatrial.Receipt{
 		Name:         expr.Op,
 		Complete:     true,
-		Digest:       digest,
 		Started:      time.Now(),
 		Finished:     time.Now().Add(dur),
 		TimingKind:   cudatrial.TimingSummedKernel,
@@ -101,26 +114,26 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 	_ = r.RecordTiming(cudatrial.TimingSummedKernel, dur)
 	_ = r.RecordTiming(cudatrial.TimingWallElapsed, dur+5*time.Microsecond)
 
-	var evidence *ProfileEvidence
-	if m.Evidence != nil {
-		evidence = m.Evidence[expr.Fingerprint()]
-	}
-
-	totalCost, scoreErr := m.Scoring.Score(r, evidence)
+	totalCost, scoreErr := scoring.model.Score(r, scoring.evidence[expr.Fingerprint()])
 	if scoreErr != nil {
-		totalCost = astCost
+		return nil, scoreErr
 	}
 
 	cand := &CandidatePlan{
-		ID:          fmt.Sprintf("cand-%s-%d", expr.Op, len(state.Derivation)),
-		Expr:        expr,
-		Derivation:  append([]egraph.Action(nil), state.Derivation...),
-		Cost:        totalCost,
-		Receipt:     r,
-		Generation:  1,
-		Validated:   true,
-		Digest:      digest,
-		ProfileCost: totalCost - float64(dur.Nanoseconds()),
+		ID:           fmt.Sprintf("cand-%s-%d", expr.Op, len(state.Derivation)),
+		Expr:         expr,
+		Derivation:   append([]egraph.Action(nil), state.Derivation...),
+		Cost:         totalCost,
+		CostSource:   CostEstimated,
+		Receipt:      r,
+		Generation:   1,
+		ScoringEpoch: scoring.model.Epoch,
+		Validated:    true,
+		Digest:       digest,
+	}
+	if evidence := scoring.evidence[expr.Fingerprint()]; scoring.model.acceptsEvidence(evidence) {
+		copy := *evidence
+		cand.Profile = &copy
 	}
 
 	return cand, nil

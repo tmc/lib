@@ -3,49 +3,71 @@ package cudasearch
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/cudatrial"
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
 
-// SearchBudget configures limits on search exploration.
+// SearchBudget configures limits on search exploration. Negative limits are
+// rejected by Search. Zero state, depth, action and evaluation limits select
+// defaults; zero memory, extraction, compilation and timeout limits are unlimited.
 type SearchBudget struct {
-	MaxStates      int           // Maximum total search states visited
-	MaxDepth       int           // Maximum transition depth from root
-	MaxActions     int           // Maximum candidate actions evaluated per state
-	MaxMemoryBytes int64         // Maximum accounted search state memory (or 0 for unlimited)
-	MaxEvaluations int           // Maximum number of compiler/evaluator calls
-	Timeout        time.Duration // Maximum wall time for search
+	MaxStates          int           // Initial state plus attempted transitions, including failures/no-ops.
+	MaxNodesPerState   int           // Maximum admitted e-nodes per state; zero is unlimited.
+	MaxClassesPerState int           // Maximum admitted e-classes per state; zero is unlimited.
+	MaxDepth           int           // Maximum transition depth from root
+	MaxActions         int           // Maximum candidate actions evaluated per state
+	MaxTotalActions    int           // Maximum attempted transitions across the search (default 1000)
+	MaxMemoryBytes     int64         // Maximum accounted search state memory (or 0 for unlimited)
+	MaxEvaluations     int           // Maximum number of compiler/evaluator calls
+	MaxExtractions     int           // Built-in evaluator extraction attempts; zero is unlimited.
+	MaxExtractionWork  int           // Total built-in extraction work units; zero is unlimited.
+	MaxCompilations    int           // Built-in evaluator compile attempts; zero is unlimited.
+	Timeout            time.Duration // Maximum wall time for search
 }
 
 // DefaultBudget provides sensible conservative limits.
 func DefaultBudget() SearchBudget {
 	return SearchBudget{
-		MaxStates:      200,
-		MaxDepth:       10,
-		MaxActions:     50,
-		MaxMemoryBytes: 64 * 1024 * 1024, // 64 MB
-		MaxEvaluations: 50,
-		Timeout:        30 * time.Second,
+		MaxStates:          200,
+		MaxNodesPerState:   4096,
+		MaxClassesPerState: 2048,
+		MaxDepth:           10,
+		MaxActions:         50,
+		MaxTotalActions:    1000,
+		MaxMemoryBytes:     64 * 1024 * 1024, // 64 MB
+		MaxEvaluations:     50,
+		Timeout:            30 * time.Second,
 	}
 }
 
 // BeamConfig specifies parameters for deterministic bounded beam search.
 type BeamConfig struct {
-	BeamWidth int          // Number of top candidate states retained per depth level
-	Budget    SearchBudget // Search resource budget
-	RootName  string       // E-graph named root to extract/evaluate (default: "root")
+	EvaluatorID string // Caller-qualified evaluator/callback policy identity, if needed.
+	Profile     *ProfileActions
+	BeamWidth   int          // Number of top candidate states retained per depth level
+	Budget      SearchBudget // Search resource budget
+	RootName    string       // E-graph named root to extract/evaluate (default: "root")
 }
 
 // BeamSearch executes deterministic beam exploration over e-graph rewrite transitions.
 type BeamSearch struct {
-	cfg BeamConfig
+	cfg       BeamConfig
+	configErr error
 }
 
 // NewBeamSearch creates a new BeamSearch engine with the given configuration.
 func NewBeamSearch(cfg BeamConfig) *BeamSearch {
+	if err := validateSearchBudget(cfg.Budget); err != nil {
+		return &BeamSearch{configErr: err}
+	}
+	if cfg.BeamWidth < 0 {
+		return &BeamSearch{configErr: fmt.Errorf("cudasearch: negative beam width")}
+	}
 	if cfg.BeamWidth <= 0 {
 		cfg.BeamWidth = 4
 	}
@@ -58,13 +80,21 @@ func NewBeamSearch(cfg BeamConfig) *BeamSearch {
 	if cfg.Budget.MaxDepth <= 0 {
 		cfg.Budget.MaxDepth = 10
 	}
+	if cfg.Budget.MaxEvaluations <= 0 {
+		cfg.Budget.MaxEvaluations = 50
+	}
+	if cfg.Budget.MaxActions == 0 {
+		cfg.Budget.MaxActions = DefaultBudget().MaxActions
+	}
+	if cfg.Budget.MaxTotalActions <= 0 {
+		cfg.Budget.MaxTotalActions = DefaultBudget().MaxTotalActions
+	}
 	return &BeamSearch{cfg: cfg}
 }
 
 type beamItem struct {
 	state      *egraph.SearchState
 	cost       float64
-	actionKey  string
 	derivation []egraph.Action
 	candidate  *CandidatePlan
 }
@@ -72,6 +102,9 @@ type beamItem struct {
 // Search executes beam exploration starting from initial, applying rules, and evaluating
 // candidates via evaluator.
 func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, rules []*egraph.Rewrite, eval Evaluator) (*SearchResult, error) {
+	if b.configErr != nil {
+		return nil, b.configErr
+	}
 	if initial == nil || initial.Graph == nil {
 		return nil, fmt.Errorf("cudasearch: nil initial search state")
 	}
@@ -81,6 +114,15 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 
 	startTime := time.Now()
 	budget := b.cfg.Budget
+	profile := freezeProfileActions(b.cfg.Profile)
+	ctx, work, err := searchWorkBudget(ctx, budget, eval)
+	if err != nil {
+		return nil, err
+	}
+	policy, policyComplete, err := makeSearchPolicy("beam", b.cfg.RootName, budget, map[string]string{"beam_width": fmt.Sprint(b.cfg.BeamWidth), "tie_order": "full-replay-path-v1"}, 0, rules, eval, work, profile, b.cfg.EvaluatorID)
+	if err != nil {
+		return nil, err
+	}
 	if budget.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, budget.Timeout)
@@ -89,62 +131,90 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 
 	stateCount := 0
 	evalCount := 0
+	actionCount := 0
 	var accountedMemory int64
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrSearchCancelled, err)
+	}
 
 	rootID, ok := initial.CanonicalRoot(b.cfg.RootName)
 	if !ok {
-		// Try any available root
-		for _, v := range initial.Roots {
-			rootID = v
-			ok = true
-			break
-		}
-		if !ok {
-			return nil, fmt.Errorf("cudasearch: no root e-class in initial state")
-		}
+		return nil, fmt.Errorf("cudasearch: missing search root %q", b.cfg.RootName)
+	}
+	if err := admitGraphBudget(initial, budget); err != nil {
+		return nil, err
+	}
+	accountedMemory = estimateStateMemory(initial)
+	if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
+		return nil, ErrMemoryBudgetExceeded
 	}
 
 	// Evaluate initial state candidate
 	initCand, err := eval.Evaluate(ctx, initial, rootID)
 	evalCount++
+	if err == nil {
+		err = admitSearchCandidate(initCand)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
+		failure := fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
+		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Strategy: "beam",
+			ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
+			Rejected: []CandidateRejection{rejection(initial, eval, err)}, StopReason: failure,
+			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
+			Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory,
+			Duration: time.Since(startTime)}, failure
 	}
 
 	initCost := initCand.Cost
 	initialItem := beamItem{
 		state:      initial.Clone(),
 		cost:       initCost,
-		actionKey:  "",
-		derivation: nil,
+		derivation: initial.Derivation,
 		candidate:  initCand,
 	}
 
-	accountedMemory += estimateStateMemory(initialItem.state)
-	if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
-		return nil, ErrMemoryBudgetExceeded
-	}
-
+	stateCount = 1
 	currentBeam := []beamItem{initialItem}
 	var bestGlobal *CandidatePlan = initCand
+	bestPath := initial.Derivation
 	var allEvaluated []*CandidatePlan
 	allEvaluated = append(allEvaluated, initCand)
+	var rejected []CandidateRejection
+	var stopReason error
+	finish := func(err error) (*SearchResult, error) {
+		if work.exhausted {
+			stopReason = ErrBudgetExhausted
+		}
+		if err != nil {
+			stopReason = err
+		}
+		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "beam", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory, Duration: time.Since(startTime)}, err
+	}
 
 	seenStates := make(map[string]bool)
 	seenStates[stateFingerprint(initial)] = true
 
 	for depth := 1; depth <= budget.MaxDepth; depth++ {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrSearchCancelled, err)
+			return finish(fmt.Errorf("%w: %w", ErrSearchCancelled, err))
 		}
 
 		var nextFrontier []beamItem
 
 		for _, item := range currentBeam {
+			if actionCount >= budget.MaxTotalActions {
+				stopReason = ErrBudgetExhausted
+				return finish(nil)
+			}
 			if err := ctx.Err(); err != nil {
-				return nil, fmt.Errorf("%w: %v", ErrSearchCancelled, err)
+				return finish(fmt.Errorf("%w: %w", ErrSearchCancelled, err))
 			}
 			if stateCount >= budget.MaxStates {
+				stopReason = ErrBudgetExhausted
+				break
+			}
+			if evalCount >= budget.MaxEvaluations {
+				stopReason = ErrBudgetExhausted
 				break
 			}
 
@@ -154,19 +224,34 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 				actionLimit = 50
 			}
 			actions := egraph.EnumerateActionsBounded(item.state.Graph, rules, actionLimit)
+			profile.order(actions)
 
 			for _, act := range actions {
+				if actionCount >= budget.MaxTotalActions {
+					stopReason = ErrBudgetExhausted
+					return finish(nil)
+				}
 				if err := ctx.Err(); err != nil {
-					return nil, fmt.Errorf("%w: %v", ErrSearchCancelled, err)
+					return finish(fmt.Errorf("%w: %w", ErrSearchCancelled, err))
 				}
 				if stateCount >= budget.MaxStates {
+					stopReason = ErrBudgetExhausted
+					break
+				}
+				if evalCount >= budget.MaxEvaluations {
+					stopReason = ErrBudgetExhausted
 					break
 				}
 				stateCount++
 
+				actionCount++
 				res, applyErr := item.state.ApplyAction(act)
 				if applyErr != nil || res.NoOp {
 					continue
+				}
+				if err := admitGraphBudget(res.State, budget); err != nil {
+					stopReason = err
+					return finish(nil)
 				}
 
 				fp := stateFingerprint(res.State)
@@ -178,7 +263,7 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 				mem := estimateStateMemory(res.State)
 				accountedMemory += mem
 				if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
-					return nil, ErrMemoryBudgetExceeded
+					return finish(ErrMemoryBudgetExceeded)
 				}
 
 				// Extract and evaluate candidate from this state
@@ -194,25 +279,30 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 
 				cand, evalErr := eval.Evaluate(ctx, res.State, candRoot)
 				evalCount++
+				if evalErr == nil {
+					evalErr = admitComparableCandidate(cand, initCand)
+				}
 				if evalErr != nil {
-					// Discard failing candidate
+					rejected = append(rejected, rejection(res.State, eval, evalErr))
+					if work.exhausted {
+						return finish(nil)
+					}
 					continue
 				}
 
 				allEvaluated = append(allEvaluated, cand)
 
-				actKey := act.ActionKey()
 				nextFrontier = append(nextFrontier, beamItem{
 					state:      res.State,
 					cost:       cand.Cost,
-					actionKey:  actKey,
 					derivation: res.State.Derivation,
 					candidate:  cand,
 				})
 
 				// Update best global independently of beam pruning
-				if cand.Cost < bestGlobal.Cost {
+				if cand.Cost < bestGlobal.Cost || (cand.Cost == bestGlobal.Cost && compareDerivations(res.State.Derivation, bestPath) < 0) {
 					bestGlobal = cand
+					bestPath = res.State.Derivation
 				}
 			}
 		}
@@ -224,12 +314,12 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 
 		// Sort nextFrontier with stable tie-breaking:
 		// Primary: Cost (ascending, lower is better)
-		// Secondary: Action key derivation lexicographical order
+		// Secondary: full replay-path lexicographical order
 		sort.SliceStable(nextFrontier, func(i, j int) bool {
 			if nextFrontier[i].cost != nextFrontier[j].cost {
 				return nextFrontier[i].cost < nextFrontier[j].cost
 			}
-			return nextFrontier[i].actionKey < nextFrontier[j].actionKey
+			return compareDerivations(nextFrontier[i].derivation, nextFrontier[j].derivation) < 0
 		})
 
 		// Retain up to BeamWidth items
@@ -240,32 +330,91 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		}
 	}
 
+	if err := ctx.Err(); err != nil {
+		return finish(fmt.Errorf("%w: %w", ErrSearchCancelled, err))
+	}
 	if bestGlobal == nil {
 		return nil, ErrNoAdmittedPlan
 	}
 
-	return &SearchResult{
-		Strategy:       "beam",
-		Winner:         bestGlobal,
-		AllCandidates:  allEvaluated,
-		StatesVisited:  stateCount,
-		Evaluations:    evalCount,
-		AccountedBytes: accountedMemory,
-		Duration:       time.Since(startTime),
-	}, nil
+	return finish(nil)
 }
 
+func admitSearchCandidate(c *CandidatePlan) error {
+	if c == nil || !c.Validated || math.IsNaN(c.Cost) || math.IsInf(c.Cost, 0) {
+		return fmt.Errorf("%w: evaluator returned no validated finite-cost candidate", ErrNoAdmittedPlan)
+	}
+	switch c.CostSource {
+	case "", CostEstimated:
+	case CostMeasured:
+		if c.Receipt == nil || !c.Receipt.Complete || c.Receipt.Err != nil {
+			return fmt.Errorf("%w: measured candidate has no complete receipt", ErrNoAdmittedPlan)
+		}
+		kind := c.Receipt.TimingKind
+		if kind != cudatrial.TimingSummedKernel && kind != cudatrial.TimingGPUBusy {
+			return ErrTimingKindMismatch
+		}
+		if duration, err := c.Receipt.DurationFor(kind); err != nil || duration <= 0 {
+			return fmt.Errorf("%w: measured candidate has no positive device duration", ErrNoAdmittedPlan)
+		}
+	default:
+		return fmt.Errorf("%w: unknown cost source %q", ErrNoAdmittedPlan, c.CostSource)
+	}
+	return nil
+}
+
+func admitComparableCandidate(c, baseline *CandidatePlan) error {
+	if err := admitSearchCandidate(c); err != nil {
+		return err
+	}
+	if c.CostSource != baseline.CostSource || c.ScoringEpoch != baseline.ScoringEpoch {
+		return fmt.Errorf("%w: candidate cost source or scoring epoch differs", ErrNoAdmittedPlan)
+	}
+	if c.CostSource == CostMeasured && c.Receipt.TimingKind != baseline.Receipt.TimingKind {
+		return ErrTimingKindMismatch
+	}
+	return nil
+}
+
+// stateFingerprint identifies a root mapping and exact replay path within one
+// search's initial graph. Different derivations remain distinct even when they
+// extract the same program; this is not a semantic graph-equivalence test.
 func stateFingerprint(s *egraph.SearchState) string {
 	if s == nil || s.Graph == nil {
 		return "<nil>"
 	}
 	var sb strings.Builder
-	for k, v := range s.Roots {
-		sb.WriteString(fmt.Sprintf("%s:%d;", k, s.Graph.Find(v)))
+	writeString := func(value string) {
+		fmt.Fprintf(&sb, "%d:", len(value))
+		sb.WriteString(value)
 	}
+	keys := make([]string, 0, len(s.Roots))
+	for key := range s.Roots {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	fmt.Fprintf(&sb, "%d;", len(keys))
+	for _, key := range keys {
+		writeString(key)
+		fmt.Fprintf(&sb, "%d;", s.Graph.Find(s.Roots[key]))
+	}
+	fmt.Fprintf(&sb, "%d;", len(s.Derivation))
 	for _, a := range s.Derivation {
-		sb.WriteString(a.Key())
-		sb.WriteString(";")
+		writeString(a.RuleName)
+		writeString(a.RuleID)
+		writeString(a.Source)
+		writeString(a.RHSNode)
+		fmt.Fprintf(&sb, "%d;%d;", a.ClassID, a.StepIndex)
+		keys = keys[:0]
+		for key := range a.Subst {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		fmt.Fprintf(&sb, "%d;", len(keys))
+		for _, key := range keys {
+			writeString(key)
+			fmt.Fprintf(&sb, "%d;", a.Subst[key])
+		}
 	}
 	return sb.String()
 }

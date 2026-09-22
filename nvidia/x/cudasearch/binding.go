@@ -2,6 +2,7 @@ package cudasearch
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -22,7 +23,7 @@ var (
 	ErrBudgetExhausted = errors.New("cudasearch: search budget exhausted")
 	// ErrMissingBinding is returned when a required workload binding parameter is missing or invalid.
 	ErrMissingBinding = errors.New("cudasearch: missing required workload binding")
-	// ErrVerificationFailed is returned when a candidate fails correctness verification or output digests diverge.
+	// ErrVerificationFailed is returned when a candidate fails numerical correctness verification.
 	ErrVerificationFailed = errors.New("cudasearch: candidate failed numerical correctness verification")
 	// ErrStaleGeneration is returned when attempting to promote a candidate from an older generation/epoch.
 	ErrStaleGeneration = errors.New("cudasearch: candidate generation is stale")
@@ -62,10 +63,10 @@ type WorkloadBindings struct {
 	DType            cudair.DataType   // Activation tensor primitive data type
 	Layout           string            // Memory layout ("row_major", "col_major", "strided")
 	InputNames       []string          // Expected input identities
+	InputIdentities  map[string]string // Input content digests or immutable versions
 	WeightIdentities map[string]string // Mapping of weight name to content digest/version
 	NumericalPolicy  NumericalPolicy   // Precision/numerical requirements
 	Objective        Objective         // Target optimization objective
-	ExpectedDigests  map[int]string    // Expected SHA-256 logit digests per sequence length N (e.g. 2..2048)
 	ResetState       func() error      // Callback to reset mutable state (KV cache, scratch buffers) between runs
 }
 
@@ -98,8 +99,10 @@ func (b WorkloadBindings) WorkloadIdentity() cudacache.WorkloadIdentity {
 func (b WorkloadBindings) Key() string {
 	h := sha256.New()
 	write := func(s string) {
+		var size [8]byte
+		binary.LittleEndian.PutUint64(size[:], uint64(len(s)))
+		h.Write(size[:])
 		h.Write([]byte(s))
-		h.Write([]byte{0})
 	}
 	write(b.Name)
 	write(fmt.Sprintf("%v", b.Shape.Dims()))
@@ -107,12 +110,27 @@ func (b WorkloadBindings) Key() string {
 	write(b.Layout)
 	write(string(b.NumericalPolicy))
 	write(string(b.Objective))
+	write(fmt.Sprintf("input-names:%d", len(b.InputNames)))
+	for _, name := range b.InputNames {
+		write(name)
+	}
+	inputKeys := make([]string, 0, len(b.InputIdentities))
+	for name := range b.InputIdentities {
+		inputKeys = append(inputKeys, name)
+	}
+	sort.Strings(inputKeys)
+	write(fmt.Sprintf("input-identities:%d", len(inputKeys)))
+	for _, name := range inputKeys {
+		write(name)
+		write(b.InputIdentities[name])
+	}
 
 	keys := make([]string, 0, len(b.WeightIdentities))
 	for k := range b.WeightIdentities {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	write(fmt.Sprintf("weight-identities:%d", len(keys)))
 	for _, k := range keys {
 		write(k)
 		write(b.WeightIdentities[k])
@@ -120,17 +138,35 @@ func (b WorkloadBindings) Key() string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// CostSource distinguishes host estimates from measured executable costs.
+// The zero value is unspecified and cannot be compared with either known source.
+type CostSource string
+
+const (
+	CostEstimated CostSource = "estimated"
+	CostMeasured  CostSource = "measured"
+)
+
 // CandidatePlan represents an admitted candidate with its derivation history and score.
 type CandidatePlan struct {
-	ID          string             // Unique identifier for the candidate
-	Expr        *egraph.Expr       // Extracted AST expression
-	Derivation  []egraph.Action    // Replayable sequence of actions from initial state
-	Cost        float64            // Heuristic or evaluated cost score (lower is better)
-	Receipt     *cudatrial.Receipt // Timing and qualification receipt from evaluation (if evaluated)
-	Generation  int                // Generation or epoch sequence number
-	Validated   bool               // True if validated against reference or held-out tests
-	Digest      string             // Numerical output digest (e.g. SHA-256)
-	ProfileCost float64            // Attributed stall/profile penalty cost
+	WorkloadKey        string          // Bound workload identity recorded by ExecutableEvaluator.
+	InputKey           string          // Declared input content identities, or empty when unavailable.
+	ConfirmationOf     string          // Screening executable ID when produced by Confirm.
+	VerificationPolicy OutputPolicy    // Numerical policy actually used by ExecutableEvaluator.
+	ID                 string          // Unique identifier for the candidate
+	Expr               *egraph.Expr    // Extracted AST expression
+	Derivation         []egraph.Action // Replayable sequence of actions from initial state
+	Cost               float64         // Heuristic or evaluated cost score (lower is better)
+	CostSource         CostSource
+	Receipt            *cudatrial.Receipt          // Timing and qualification receipt from evaluation (if evaluated)
+	Trials             []cudatrial.Receipt         // All interleaved baseline/candidate trials, detached from the evaluator.
+	Generation         int                         // Generation or epoch sequence number
+	ScoringEpoch       string                      // Scoring model version; empty when no profile scoring model is used.
+	Validated          bool                        // True if validated against reference or held-out tests
+	Digest             string                      // Optional structural plan digest; never a numerical acceptance criterion.
+	Profile            *ProfileEvidence            // Detached accepted observations; never interpreted as latency.
+	Comparison         map[string]OutputComparison // Observed numerical deviations, not output hashes
+	Preparation        []PreparationPhase          // Host preparation, separate from device Cost
 }
 
 // Fingerprint returns a stable structural identifier for the candidate's AST and derivation.
@@ -149,12 +185,17 @@ func (c CandidatePlan) Fingerprint() string {
 // PromotionProposal encapsulates a qualification receipt and executable generation
 // for an admitted candidate, proposed to execution owners for boundary switching.
 type PromotionProposal struct {
-	CandidateID string
-	Generation  int
-	Receipt     cudatrial.Receipt
-	WorkloadKey string
-	PolicyID    cudacache.SearchPolicyID
-	Digest      string
-	Promoted    bool
-	Reason      string
+	CandidateID        string
+	Generation         int
+	Receipt            cudatrial.Receipt
+	WorkloadKey        string
+	PolicyID           cudacache.SearchPolicyID
+	ConfirmationID     string
+	HeldOutWorkloadKey string
+	HeldOutReceipt     cudatrial.Receipt
+	ScreeningTrials    []cudatrial.Receipt
+	HeldOutTrials      []cudatrial.Receipt
+	Comparison         map[string]OutputComparison
+	HeldOutComparison  map[string]OutputComparison
+	VerificationPolicy OutputPolicy
 }

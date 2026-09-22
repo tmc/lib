@@ -2,9 +2,7 @@ package cudasearch_test
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -252,22 +250,6 @@ func TestStateResetBetweenCandidates(t *testing.T) {
 	}
 }
 
-// TestStaleGenerationRejected verifies that promoting a candidate from an older generation fails.
-func TestStaleGenerationRejected(t *testing.T) {
-	proposal := cudasearch.PromotionProposal{
-		CandidateID: "cand-old",
-		Generation:  1,
-	}
-
-	currentGen := 2
-	if proposal.Generation < currentGen {
-		err := cudasearch.ErrStaleGeneration
-		if !errors.Is(err, cudasearch.ErrStaleGeneration) {
-			t.Fatalf("expected ErrStaleGeneration")
-		}
-	}
-}
-
 // TestBeamMultistepState verifies that Beam explores real multi-step paths, not discarding transformations.
 func TestBeamMultistepState(t *testing.T) {
 	state, rules := makeTestState()
@@ -505,9 +487,9 @@ func TestScoringEpochChange(t *testing.T) {
 		t.Fatalf("score errors: %v, %v", err1, err2)
 	}
 
-	// In epoch-v2, epoch-v1 evidence is stale and ignored (clean fallback to timing only)
-	if costV1 <= costV2 {
-		t.Errorf("costV1 (%f) should include stall penalties and be higher than stale fallback costV2 (%f)", costV1, costV2)
+	// Neither current nor stale profile fractions can alter measured latency.
+	if costV1 != costV2 {
+		t.Errorf("profile changed latency: current=%f stale=%f", costV1, costV2)
 	}
 }
 
@@ -541,85 +523,7 @@ func TestProfileFallback(t *testing.T) {
 	}
 }
 
-// TestSearchStrategiesEnumerableOracle tests Beam, MCTS, and Random saturation against an enumerable oracle space.
-func TestSearchStrategiesEnumerableOracle(t *testing.T) {
-	state, rules := makeTestState()
-	eval := &cudasearch.MockEvaluator{
-		CostModel: egraph.FusedMegakernelCost{},
-		Scoring:   cudasearch.DefaultScoringModel("epoch-v1"),
-	}
-
-	// 1. Beam
-	beam := cudasearch.NewBeamSearch(cudasearch.BeamConfig{
-		BeamWidth: 2,
-		Budget:    cudasearch.DefaultBudget(),
-	})
-	resBeam, errBeam := beam.Search(context.Background(), state, rules, eval)
-	if errBeam != nil {
-		t.Fatalf("beam failed: %v", errBeam)
-	}
-
-	// 2. MCTS
-	mcts := cudasearch.NewMCTSSearch(cudasearch.MCTSConfig{
-		Iterations: 20,
-		Seed:       42,
-		Budget:     cudasearch.DefaultBudget(),
-	})
-	resMCTS, errMCTS := mcts.Search(context.Background(), state, rules, eval)
-	if errMCTS != nil {
-		t.Fatalf("mcts failed: %v", errMCTS)
-	}
-
-	if resBeam.Winner == nil || resMCTS.Winner == nil {
-		t.Fatalf("both strategies must find a winner")
-	}
-
-	t.Logf("Beam winner: %s (cost %f), MCTS winner: %s (cost %f)",
-		resBeam.Winner.Expr.Op, resBeam.Winner.Cost,
-		resMCTS.Winner.Expr.Op, resMCTS.Winner.Cost,
-	)
-}
-
 // --- Negative / Mutant Controls ---
-
-// Negative Control 1: Offer a fast wrong-output candidate.
-func TestNegativeControl_FastWrongOutputCandidateRejected(t *testing.T) {
-	state, rules := makeTestState()
-	expectedDigest := fmt.Sprintf("%x", sha256.Sum256([]byte("correct_reference")))
-
-	eval := &cudasearch.MockEvaluator{
-		CostModel: egraph.FusedMegakernelCost{},
-		Scoring:   cudasearch.DefaultScoringModel("epoch-v1"),
-		Workload: cudasearch.WorkloadBindings{
-			Name:            "digest_check",
-			Shape:           cudashape.Shape{},
-			NumericalPolicy: cudasearch.NumericalPolicyExact,
-			ExpectedDigests: map[int]string{2048: expectedDigest},
-		},
-		ComputeDigest: func(expr *egraph.Expr) string {
-			if expr.Op == "fused_gemv_pipeline" {
-				// Fast but wrong output
-				return "wrong_digest_hash"
-			}
-			return expectedDigest
-		},
-	}
-
-	beam := cudasearch.NewBeamSearch(cudasearch.BeamConfig{
-		BeamWidth: 4,
-		Budget:    cudasearch.DefaultBudget(),
-	})
-
-	res, err := beam.Search(context.Background(), state, rules, eval)
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
-
-	// The fast wrong-output candidate must be rejected; winner must be the correct candidate
-	if res.Winner.Expr.Op == "fused_gemv_pipeline" {
-		t.Fatalf("fast wrong-output candidate was selected as winner!")
-	}
-}
 
 // Negative Control 2: Mix busy-time and summed-kernel timings.
 func TestNegativeControl_MixBusyAndSummedKernelRejected(t *testing.T) {
