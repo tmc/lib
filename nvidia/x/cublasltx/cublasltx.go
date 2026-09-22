@@ -65,6 +65,8 @@ type Engine struct {
 // NewEngine initializes a cuBLASLt engine.
 // By default, it allocates a 32MB workspace buffer owned by the engine.
 // Optional functional options can customize workspace size or provide a caller-owned buffer.
+// A non-nil engine must be closed even when an error is returned. It may retain
+// a created handle or workspace after a later allocation or context error.
 func NewEngine(dev *cuda.Device, opts ...Option) (*Engine, error) {
 	cfg := engineConfig{}
 	for _, opt := range opts {
@@ -83,23 +85,30 @@ func NewEngine(dev *cuda.Device, opts ...Option) (*Engine, error) {
 		return nil, fmt.Errorf("cublasltx: nil device")
 	}
 
+	return newEngine(dev, cfg, dev.WithContext, cublaslt.Create, func(size int) (cudamem.Slice[byte], error) { return cudamem.Alloc[byte](dev, size) })
+}
+
+func newEngine(dev *cuda.Device, cfg engineConfig, run func(func() error) error, create func() (cublaslt.Handle, error), allocate func(int) (cudamem.Slice[byte], error)) (*Engine, error) {
 	var h cublaslt.Handle
-	err := dev.WithContext(func() error {
+	err := run(func() error {
 		var err error
-		h, err = cublaslt.Create()
+		h, err = create()
 		return err
 	})
+	var e *Engine
+	if h != 0 {
+		e = &Engine{dev: dev, handle: h}
+	}
 	if err != nil {
-		return nil, fmt.Errorf("cublasltx: create handle: %w", err)
+		return e, fmt.Errorf("cublasltx: create handle: %w", err)
+	}
+	if e == nil {
+		return nil, errors.New("cublasltx: create returned no handle")
 	}
 
-	var ws cudamem.Slice[byte]
-	var wsSize uint
-	ownedWS := false
-
 	if cfg.hasCustomWS {
-		ws = cfg.customWS
-		wsSize = uint(ws.Len())
+		e.workspace = cfg.customWS
+		e.workspaceSize = uint(e.workspace.Len())
 	} else {
 		size := 32 * 1024 * 1024
 		if cfg.workspaceBytes != nil {
@@ -107,23 +116,16 @@ func NewEngine(dev *cuda.Device, opts ...Option) (*Engine, error) {
 		}
 		if size > 0 {
 			var allocErr error
-			ws, allocErr = cudamem.Alloc[byte](dev, size)
+			e.workspace, allocErr = allocate(size)
+			e.ownedWorkspace = e.workspace.Ptr() != 0
+			e.workspaceSize = uint(e.workspace.Len())
 			if allocErr != nil {
-				_ = dev.WithContext(func() error { return h.Destroy() })
-				return nil, fmt.Errorf("cublasltx: alloc workspace: %w", allocErr)
+				return e, fmt.Errorf("cublasltx: alloc workspace: %w", allocErr)
 			}
-			wsSize = uint(size)
-			ownedWS = true
 		}
 	}
 
-	return &Engine{
-		dev:            dev,
-		handle:         h,
-		workspace:      ws,
-		workspaceSize:  wsSize,
-		ownedWorkspace: ownedWS,
-	}, nil
+	return e, nil
 }
 
 // Workspace returns the default workspace buffer configured for the engine.
@@ -181,31 +183,34 @@ func (e *Engine) Close() error {
 	if e == nil {
 		return nil
 	}
+	return e.closeWith(e.dev.WithContext, cublaslt.Handle.Destroy, func() error { return e.workspace.Free() })
+}
+
+func (e *Engine) closeWith(run func(func() error) error, destroy func(cublaslt.Handle) error, free func() error) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	var errs []error
 	if e.handle != 0 && !e.sharedHandle {
-		err := e.dev.WithContext(func() error {
-			return e.handle.Destroy()
+		err := run(func() error {
+			if err := destroy(e.handle); err != nil {
+				return err
+			}
+			e.handle = 0
+			return nil
 		})
 		if err != nil {
-			errs = append(errs, fmt.Errorf("cublasltx: destroy handle: %w", err))
-		} else {
-			e.handle = 0
+			return fmt.Errorf("cublasltx: destroy handle: %w", err)
 		}
 	} else if e.sharedHandle {
 		e.handle = 0
 	}
 	if e.ownedWorkspace && e.workspace.Len() > 0 {
-		if err := e.workspace.Free(); err != nil {
-			errs = append(errs, fmt.Errorf("cublasltx: free workspace: %w", err))
-		} else {
-			e.workspace = cudamem.Slice[byte]{}
+		if err := free(); err != nil {
+			return fmt.Errorf("cublasltx: free workspace: %w", err)
 		}
-	} else {
-		e.workspace = cudamem.Slice[byte]{}
 	}
-	return errors.Join(errs...)
+	e.workspace = cudamem.Slice[byte]{}
+	e.workspaceSize = 0
+	return nil
 }
 
 // MatMulConfig specifies options for raw matrix multiplication.
