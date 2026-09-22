@@ -1,6 +1,6 @@
 function hydrate(data) {
  for (const line of data.lines || []) {
-  line.text=data.sources[line.source];line.hover_doc=data.sources[line.doc];line.pressure_tooltip=data.sources[line.pressure_doc];line.stall_tooltip=data.sources[line.stall_doc];line.remark_tooltip=data.sources[line.remark_doc];
+  const t=data.sources;line.text=t[line.source||0];line.kernel=t[line.kernel_ref||0];line.source_file=t[line.file_ref||0];line.hover_doc=t[line.doc||0];line.pressure_tooltip=t[line.pressure_doc||0];line.stall_tooltip=t[line.stall_doc||0];line.remark_tooltip=t[line.remark_doc||0];
  }
  for (const tiers of [data.tiers,...Object.values(data.kernel_tiers||{})])
   for (const tier of tiers||[]) tier.lines=(tier.ranges||[]).flatMap(([start,end])=>data.lines.slice(start,end));

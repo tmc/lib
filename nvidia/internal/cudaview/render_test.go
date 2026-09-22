@@ -2,6 +2,7 @@ package cudaview
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -91,5 +92,29 @@ func TestBrowserFixtures(t *testing.T) {
 	}
 	if err := os.WriteFile(dir+"/diff-fixture.html", out.Bytes(), 0600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSnapshotOmitsEmptyFields(t *testing.T) {
+	data := &PipelineViewData{Tiers: []PipelineTier{{Name: "SASS", Lines: []PipelineLine{{Num: 1}, {Num: 2, Text: "EXIT ;", Kernel: "k"}}}}}
+	var b bytes.Buffer
+	if err := WriteSnapshot(&b, data); err != nil {
+		t.Fatal(err)
+	}
+	var s struct {
+		Sources []string         `json:"sources"`
+		Lines   []map[string]any `json:"lines"`
+	}
+	if err := json.Unmarshal(b.Bytes(), &s); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Sources) == 0 || s.Sources[0] != "" {
+		t.Fatalf("sources[0] = %q, want the empty string an omitted index stands for", s.Sources)
+	}
+	if len(s.Lines[0]) != 1 {
+		t.Errorf("empty line encoded as %v, want only num", s.Lines[0])
+	}
+	if got := s.Sources[int(s.Lines[1]["kernel_ref"].(float64))]; got != "k" {
+		t.Errorf("kernel = %q, want k", got)
 	}
 }

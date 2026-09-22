@@ -17,13 +17,33 @@ type snapshot struct {
 	KernelTiers  map[string][]snapshotTier `json:"kernel_tiers"`
 	ActiveKernel string                    `json:"active_kernel"`
 }
+
+// snapshotLine is a PipelineLine as the page reads it. Every string the
+// listings repeat is an index into snapshot.Sources, where index 0 is the
+// empty string, so an omitted index means an empty field. It is comparable,
+// which lets identical lines share one index without encoding them to find
+// out.
 type snapshotLine struct {
-	PipelineLine
-	Source      int `json:"source"`
-	Doc         int `json:"doc"`
-	PressureDoc int `json:"pressure_doc"`
-	StallDoc    int `json:"stall_doc"`
-	RemarkDoc   int `json:"remark_doc"`
+	Kernel       int     `json:"kernel_ref,omitempty"`
+	Predicate    string  `json:"predicate,omitempty"`
+	Operands     string  `json:"operands,omitempty"`
+	Encoding     string  `json:"encoding,omitempty"`
+	Num          int     `json:"num"`
+	Source       int     `json:"source,omitempty"`
+	Opcode       string  `json:"opcode,omitempty"`
+	Category     string  `json:"category,omitempty"`
+	Offset       string  `json:"offset,omitempty"`
+	StallPct     float64 `json:"stall_pct,omitempty"`
+	StallDoc     int     `json:"stall_doc,omitempty"`
+	Doc          int     `json:"doc,omitempty"`
+	RemarkBadge  string  `json:"remark_badge,omitempty"`
+	RemarkDoc    int     `json:"remark_doc,omitempty"`
+	LaunchKernel string  `json:"launch_kernel,omitempty"`
+	SemanticTag  string  `json:"semantic_tag,omitempty"`
+	SourceFile   int     `json:"file_ref,omitempty"`
+	SourceLine   int     `json:"source_line,omitempty"`
+	Pressure     string  `json:"pressure,omitempty"`
+	PressureDoc  int     `json:"pressure_doc,omitempty"`
 }
 type snapshotTier struct {
 	Name     string   `json:"name"`
@@ -44,29 +64,39 @@ func makeSnapshot(data *PipelineViewData) snapshot {
 		s.Sources = append(s.Sources, text)
 		return n
 	}
-	lines := make(map[string]int)
+	intern("")
+	lines := make(map[snapshotLine]int)
 	convert := func(tiers []PipelineTier) []snapshotTier {
 		out := make([]snapshotTier, len(tiers))
 		for i, t := range tiers {
 			v := snapshotTier{Name: t.Name, FileName: t.FileName, Language: t.Language}
 			for _, l := range t.Lines {
-				n, ok := texts[l.Text]
-				if !ok {
-					n = len(s.Sources)
-					texts[l.Text] = n
-					s.Sources = append(s.Sources, l.Text)
+				line := snapshotLine{
+					Kernel:       intern(l.Kernel),
+					Predicate:    l.Predicate,
+					Operands:     l.Operands,
+					Encoding:     l.Encoding,
+					Num:          l.Num,
+					Source:       intern(l.Text),
+					Opcode:       l.Opcode,
+					Category:     l.Category,
+					Offset:       l.Offset,
+					StallPct:     l.StallPct,
+					StallDoc:     intern(l.StallTooltip),
+					Doc:          intern(l.HoverDoc),
+					RemarkBadge:  l.RemarkBadge,
+					RemarkDoc:    intern(l.RemarkTooltip),
+					LaunchKernel: l.LaunchKernel,
+					SemanticTag:  l.SemanticTag,
+					SourceFile:   intern(l.SourceFile),
+					SourceLine:   l.SourceLine,
+					Pressure:     l.Pressure,
+					PressureDoc:  intern(l.PressureTooltip),
 				}
-				l.Text = ""
-				line := snapshotLine{PipelineLine: l, Source: n, Doc: intern(l.HoverDoc), PressureDoc: intern(l.PressureTooltip), StallDoc: intern(l.StallTooltip), RemarkDoc: intern(l.RemarkTooltip)}
-				line.HoverDoc = ""
-				line.PressureTooltip = ""
-				line.StallTooltip = ""
-				line.RemarkTooltip = ""
-				key, _ := json.Marshal(line)
-				index, ok := lines[string(key)]
+				index, ok := lines[line]
 				if !ok {
 					index = len(s.Lines)
-					lines[string(key)] = index
+					lines[line] = index
 					s.Lines = append(s.Lines, line)
 				}
 				if len(v.Ranges) > 0 && v.Ranges[len(v.Ranges)-1][1] == index {
