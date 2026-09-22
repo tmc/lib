@@ -1,0 +1,14 @@
+Commit: 7fba2fce1e91daf95dcf60eaacd2844bb5cdfa0f
+Date: 2026-09-22T08:31:43-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+n/a
+pid: 52207
+ITERM_SESSION_ID: w13t0p9:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url=https://claude.ai/code/session_01EtvqCzGak7aomYVo1jAaL4
+note: cherry-picked from 16492f11 on finish-20260920; patch-id b6d5a91025fb.
+Validation: builds and 65/68 tests pass on darwin, but TestInjectionAssembler,
+TestNativeInjection and TestPTXAssembler skip here (no ptxas). The test that
+found the bug did not run on this host; DGX validation pending.
