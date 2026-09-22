@@ -49,7 +49,9 @@ func TestRouteBiasSelectsWithoutReweighting(t *testing.T) {
 	}
 
 	// Push expert 2 to the front without touching its logit.
-	router.biases = []float32{0, 0, 5, 0}
+	if err := router.SetBiases([]float32{0, 0, 5, 0}); err != nil {
+		t.Fatalf("SetBiases: %v", err)
+	}
 	biased := router.Route(logits)
 	if want := []int{2, 0}; !equalInts(biased.SelectedExperts, want) {
 		t.Fatalf("biased SelectedExperts = %v, want %v", biased.SelectedExperts, want)
@@ -70,7 +72,45 @@ func TestRouteBiasSelectsWithoutReweighting(t *testing.T) {
 	}
 }
 
+// TestSetBiasesCopies checks that the router neither aliases the caller's
+// slice nor hands out its own, so a balancing scheme holding a scratch buffer
+// cannot change routing behind Route's back.
+func TestSetBiasesCopies(t *testing.T) {
+	router := NewGroupedTopKRouter(MoEConfig{NumRoutedExperts: 4, TopK: 2})
+
+	in := []float32{0, 0, 5, 0}
+	if err := router.SetBiases(in); err != nil {
+		t.Fatalf("SetBiases: %v", err)
+	}
+	in[2] = 0 // must not reach the router
+	if got := router.Biases(); !equalFloats(got, []float32{0, 0, 5, 0}) {
+		t.Errorf("Biases = %v after mutating the argument, want [0 0 5 0]", got)
+	}
+
+	out := router.Biases()
+	out[2] = 0 // must not reach the router either
+	if got := router.Biases(); !equalFloats(got, []float32{0, 0, 5, 0}) {
+		t.Errorf("Biases = %v after mutating a returned slice, want [0 0 5 0]", got)
+	}
+
+	if err := router.SetBiases([]float32{0, 0}); err == nil {
+		t.Error("SetBiases accepted 2 biases for 4 experts, want an error")
+	}
+}
+
 func equalInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func equalFloats(a, b []float32) bool {
 	if len(a) != len(b) {
 		return false
 	}

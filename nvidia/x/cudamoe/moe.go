@@ -92,6 +92,22 @@ func NewGroupedTopKRouter(cfg MoEConfig) *GroupedTopKRouter {
 	}
 }
 
+// SetBiases replaces the per-expert routing biases. Balancing schemes nudge
+// these between steps to spread load across experts. len(biases) must equal
+// NumRoutedExperts.
+func (r *GroupedTopKRouter) SetBiases(biases []float32) error {
+	if len(biases) != r.cfg.NumRoutedExperts {
+		return fmt.Errorf("cudamoe: %d biases for %d routed experts", len(biases), r.cfg.NumRoutedExperts)
+	}
+	copy(r.biases, biases)
+	return nil
+}
+
+// Biases returns a copy of the per-expert routing biases.
+func (r *GroupedTopKRouter) Biases() []float32 {
+	return append([]float32(nil), r.biases...)
+}
+
 type expertScore struct {
 	index int
 	score float32 // gate logit plus bias, used for ranking
