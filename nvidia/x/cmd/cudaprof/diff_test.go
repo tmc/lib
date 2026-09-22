@@ -617,3 +617,74 @@ func TestRunDiffExplainMismatchedOrMissing(t *testing.T) {
 		})
 	}
 }
+
+// TestRunDiffKernelFilterMangled exercises the filter against the symbol
+// spelling real tools produce. nvdisasm names a kernel by its mangled symbol,
+// so a filter written the way a user thinks of the kernel ("scale") has to
+// reach _Z5scalePff. The rest of the corpus uses friendly names, where any
+// matching rule works.
+func TestRunDiffKernelFilterMangled(t *testing.T) {
+	const baseSASS = `
+.section .text._Z5scalePff,"ax",@progbits
+/*0010*/ IMAD R0, R1, R2, R0 ;
+/*0020*/ EXIT ;
+
+.section .text._Z5gegluPKfPfi,"ax",@progbits
+/*0010*/ LDG.E.F32 R0, [R1] ;
+/*0020*/ EXIT ;
+`
+	const targetSASS = `
+.section .text._Z5scalePff,"ax",@progbits
+/*0010*/ IDP4A.U8.U8 R0, R1, R2, R0 ;
+/*0020*/ EXIT ;
+
+.section .text._Z5gegluPKfPfi,"ax",@progbits
+/*0010*/ LDG.E.F32 R0, [R1] ;
+/*0020*/ EXIT ;
+`
+
+	dir := t.TempDir()
+	basePath := filepath.Join(dir, "base.sass")
+	targetPath := filepath.Join(dir, "target.sass")
+	if err := os.WriteFile(basePath, []byte(baseSASS), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(targetPath, []byte(targetSASS), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name    string
+		filter  string
+		want    string
+		exclude string
+		wantErr bool
+	}{
+		{name: "demangled", filter: "scale", want: "_Z5scalePff", exclude: "_Z5gegluPKfPfi"},
+		{name: "mangled", filter: "_Z5scalePff", want: "_Z5scalePff", exclude: "_Z5gegluPKfPfi"},
+		{name: "other kernel", filter: "geglu", want: "_Z5gegluPKfPfi", exclude: "_Z5scalePff"},
+		{name: "absent", filter: "nosuchkernel", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := runDiff(&buf, []string{"--no-color", "--kernel=" + tt.filter, basePath, targetPath})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("filter %q: got nil error, want a not-found error", tt.filter)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("filter %q: %v", tt.filter, err)
+			}
+			out := buf.String()
+			if !strings.Contains(out, "=== Kernel: "+tt.want+" ===") {
+				t.Errorf("filter %q selected no kernel; want %s\n%s", tt.filter, tt.want, out)
+			}
+			if strings.Contains(out, "=== Kernel: "+tt.exclude+" ===") {
+				t.Errorf("filter %q also selected %s\n%s", tt.filter, tt.exclude, out)
+			}
+		})
+	}
+}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
@@ -194,6 +195,23 @@ func loadDisassembly(path string, limits cudacapture.Limits) (*cudasass.Disassem
 	return nil, fmt.Errorf("could not load SASS: %w", capErr)
 }
 
+// matchesKernel reports whether a kernel symbol satisfies the -kernel filter.
+//
+// The two halves of a diff report name kernels differently: nvdisasm writes a
+// mangled SASS symbol (_Z5scalePff) while a pprof sample carries the name the
+// profiler recorded. The filter is therefore applied to the symbol and to its
+// demangled base name, so -kernel scale selects the same kernel in every
+// section of one report.
+func matchesKernel(filter, name string) bool {
+	if filter == "" {
+		return true
+	}
+	if strings.Contains(name, filter) {
+		return true
+	}
+	return strings.Contains(cudalowering.MatchKey(name), cudalowering.MatchKey(filter))
+}
+
 func printDiff(w io.Writer, diff *cudasass.DisassemblyDiff, kernelFilter string, useColor bool) error {
 	red := func(s string) string {
 		if useColor {
@@ -222,7 +240,7 @@ func printDiff(w io.Writer, diff *cudasass.DisassemblyDiff, kernelFilter string,
 
 	printedCount := 0
 	for _, fd := range diff.Functions {
-		if kernelFilter != "" && fd.Name != kernelFilter {
+		if !matchesKernel(kernelFilter, fd.Name) {
 			continue
 		}
 		printedCount++
@@ -702,7 +720,7 @@ func computeDurationComparison(baseProf, targetProf *profile.Profile, bIdx, tIdx
 
 	for _, s := range baseProf.Sample {
 		kName := sampleKernelName(s)
-		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+		if !matchesKernel(kernelFilter, kName) {
 			continue
 		}
 		val := s.Value[bIdx]
@@ -712,7 +730,7 @@ func computeDurationComparison(baseProf, targetProf *profile.Profile, bIdx, tIdx
 
 	for _, s := range targetProf.Sample {
 		kName := sampleKernelName(s)
-		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+		if !matchesKernel(kernelFilter, kName) {
 			continue
 		}
 		val := s.Value[tIdx]
@@ -784,7 +802,7 @@ func computePCSampleComparison(baseProf, targetProf *profile.Profile, bIdx, tIdx
 
 	for _, s := range baseProf.Sample {
 		kName := sampleKernelName(s)
-		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+		if !matchesKernel(kernelFilter, kName) {
 			continue
 		}
 		val := s.Value[bIdx]
@@ -794,7 +812,7 @@ func computePCSampleComparison(baseProf, targetProf *profile.Profile, bIdx, tIdx
 
 	for _, s := range targetProf.Sample {
 		kName := sampleKernelName(s)
-		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+		if !matchesKernel(kernelFilter, kName) {
 			continue
 		}
 		val := s.Value[tIdx]
@@ -866,7 +884,7 @@ func collectStallCounts(p *profile.Profile, kernelFilter string) map[string]int6
 	}
 	for _, s := range p.Sample {
 		kName := sampleKernelName(s)
-		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+		if !matchesKernel(kernelFilter, kName) {
 			continue
 		}
 		for idx, name := range stallIndices {
