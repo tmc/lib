@@ -212,7 +212,17 @@ aggregation remain separate dispositions. Queue loss is reported by origin
 
 ## Building the CUPTI Producer Shared Library (.so)
 
-To compile `cupti_agent.c` into the loadable CUPTI producer library (`libcupti_agent.so`) for use with `cudaprof capture --inject`:
+`build_agent.sh` is this recipe as a script, and `go generate
+./x/cmd/cudaprof` runs it. With no argument it installs `cupti_agent.so`
+where `go install` puts binaries, which is one of the places `cudaprof
+capture` looks, so a capture then needs no `--inject`:
+
+```sh
+go generate ./x/cmd/cudaprof
+cudaprof capture -o cap.pprof -- ./target
+```
+
+The recipe itself, to build elsewhere or by hand:
 
 ```sh
 CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"

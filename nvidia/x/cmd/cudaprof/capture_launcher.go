@@ -648,11 +648,12 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			o.Inject = env
 		} else if env := os.Getenv("CUDAPROF_AGENT"); env != "" {
 			o.Inject = env
-		} else if exe, err := os.Executable(); err == nil {
-			adj := filepath.Join(filepath.Dir(exe), "cupti_agent.so")
-			if fi, err := os.Stat(adj); err == nil && !fi.IsDir() {
-				o.Inject = adj
+		} else {
+			var dir string
+			if exe, err := os.Executable(); err == nil {
+				dir = filepath.Dir(exe)
 			}
+			o.Inject = findAgent(dir, os.Getenv)
 		}
 	}
 	if o.Inject != "" {

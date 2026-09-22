@@ -863,7 +863,9 @@ func captureHelp() string {
 	return fmt.Sprintf(`Usage: cudaprof capture [options] -- command [args...]
 
 Options:
-  --inject <path>               path to CUPTI agent shared library (or set CUDAPROF_INJECT)
+  --inject <path>               path to CUPTI agent shared library (or set CUDAPROF_INJECT);
+                                the default is cupti_agent.so beside this command or in
+                                GOBIN, built by go generate ./x/cmd/cudaprof
   --no-inject                   run target uninstrumented without injection library
   --json                        write JSON status summary to stdout
   --launch-manifest             attach an opt-in metadata-only launch manifest;
