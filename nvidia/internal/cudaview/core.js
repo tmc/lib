@@ -5,9 +5,12 @@ function scheduleListings() {
   frame = requestAnimationFrame(() => {
     frame = 0;
     if (scrollSource && syncScroll) {
-      const s = scrollSource, ratio = s.element.scrollTop / Math.max(1, s.element.scrollHeight - s.element.clientHeight);
+      // Listings align on the source line at the top of the one scrolled;
+      // where it names none, they keep the same relative position.
+      const s = scrollSource, ratio = s.element.scrollTop / Math.max(1, s.element.scrollHeight - s.element.clientHeight), key = s.topSourceKey();
       for (const v of listings) if (v !== s && v.group === s.group) {
-        v.expectedScroll = ratio * Math.max(0, v.element.scrollHeight - v.element.clientHeight);
+        const max = Math.max(0, v.element.scrollHeight - v.element.clientHeight), hit = key && v.indexes?.source.get(key);
+        v.expectedScroll = Math.min(max, hit ? hit.values().next().value * 18 : ratio * max);
         v.element.scrollTop = v.expectedScroll;
       }
     }
@@ -48,6 +51,11 @@ class Listing {
     this.table.style.height = this.lines.length * 18 + 'px';
     this.table.style.width = Math.max(100,width*7+260) + 'px';
     this.element.scrollTop = 0; scheduleListings();
+  }
+  topSourceKey() {
+    const top = Math.floor(this.element.scrollTop / 18);
+    for (let i = top; i < Math.min(this.lines.length, top + 200); i++) { const k = sourceKey(this.lines[i]); if (k) return k; }
+    return '';
   }
   go(i) {
     if (i < 0 || i >= this.lines.length) return;
