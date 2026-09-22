@@ -1,0 +1,33 @@
+commit 74fee5f4, 2026-09-22
+claude-code 2.1.280 (Claude Code), model claude-opus-5[1m]
+tty not a tty, pid 93941, ITERM_SESSION_ID=w16t0p13:82D66DD7-9369-4497-80A7-C22F2D8BB0AD
+session=41e006ea-c431-4858-a0f4-bc6efab3d868
+session_url=https://claude.ai/code/session_01N7MBqfPUrPrApoBSRgPQqu
+
+Closes the gap recorded in 8c65b785's note. Built by subagent
+S2-extents; controls verified here before staging.
+
+The control that matters is the one the agent designed around a trap:
+hand-editing a .cu would also fire TestGoldenSourceMatchesGenerator,
+which would make 'the new gate is the only failure' false while looking
+true. It changed an inert character in the emitter and ran
+-update-golden instead, so the .cu was legitimately current and only the
+artifacts were stale -- the actual hole. Every PTX and SASS assertion
+passed beside the new gate firing on all four fixtures.
+
+Satisfiability checked as its own arm: rebuilding all four fixtures on
+dgx under gpu-lock did NOT satisfy the gate until -update-provenance
+ran, so source, artifacts and record are each separately necessary.
+Reverting reproduced the pre-control hashes byte for byte.
+
+Coverage swept from the directory listing: append one byte to each of
+the 20 files, 20 of 20 fire. Fail-open arms also run -- a deleted
+artifact, a new fixture with no record, a deleted record line, and
+PROVENANCE itself deleted, which fatals rather than treating an empty
+record as agreement.
+
+Verified here independently: appending one byte to cross-2cta.sm_80.ptx
+-- a change TestGoldenSourceMatchesGenerator structurally cannot see --
+fires the gate with the artifact-side message, and restoring it goes
+green. artifact_test.go is byte-identical to its parent; nothing was
+weakened to make room.
