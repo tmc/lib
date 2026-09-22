@@ -51,6 +51,14 @@ type CodeFiles struct {
 	PTX    string `json:"ptx"`
 	CUBIN  string `json:"cubin"`
 	SASS   string `json:"sass"`
+	// Unit names the JSON form of the generated translation unit the module
+	// was compiled from: its name, its generated source, and the map from
+	// each generated line to the program line and call stack it was lowered
+	// from. The other roles describe what the compiler produced; this one is
+	// the only thing that says what the program asked for, which is what a
+	// per-line total has to be reported in.
+	Unit string `json:"unit,omitempty"`
+
 	TileIR string `json:"tileir,omitempty"`
 	CFG    string `json:"cfg,omitempty"`
 	BBCFG  string `json:"bbcfg,omitempty"`
@@ -64,7 +72,7 @@ type CodeFiles struct {
 // read as having no code.
 func (f CodeFiles) Empty() bool {
 	return f.Source == "" && len(f.Sources) == 0 && f.PTX == "" && f.CUBIN == "" &&
-		f.SASS == "" && f.TileIR == "" && f.CFG == "" && f.BBCFG == ""
+		f.SASS == "" && f.Unit == "" && f.TileIR == "" && f.CFG == "" && f.BBCFG == ""
 }
 
 // Module identifies one loaded code image generation. File roles may be empty
@@ -288,7 +296,7 @@ func validateCapture(c *Capture, l Limits) error {
 			return fmt.Errorf("cudacapture: %s file %q not found in files", role, name)
 		}
 	}
-	for role, name := range map[string]string{"cfg": c.Code.CFG, "bbcfg": c.Code.BBCFG, "tileir": c.Code.TileIR} {
+	for role, name := range map[string]string{"cfg": c.Code.CFG, "bbcfg": c.Code.BBCFG, "tileir": c.Code.TileIR, "unit": c.Code.Unit} {
 		if name != "" {
 			if _, ok := c.Files[name]; !ok {
 				return fmt.Errorf("cudacapture: %s file %q not found in files", role, name)
@@ -300,7 +308,7 @@ func validateCapture(c *Capture, l Limits) error {
 		if module.ID == "" {
 			return errors.New("cudacapture: module is missing identity")
 		}
-		for role, name := range map[string]string{"source": module.Code.Source, "ptx": module.Code.PTX, "cubin": module.Code.CUBIN, "sass": module.Code.SASS, "tileir": module.Code.TileIR, "cfg": module.Code.CFG, "bbcfg": module.Code.BBCFG} {
+		for role, name := range map[string]string{"source": module.Code.Source, "ptx": module.Code.PTX, "cubin": module.Code.CUBIN, "sass": module.Code.SASS, "unit": module.Code.Unit, "tileir": module.Code.TileIR, "cfg": module.Code.CFG, "bbcfg": module.Code.BBCFG} {
 			if name == "" {
 				continue
 			}

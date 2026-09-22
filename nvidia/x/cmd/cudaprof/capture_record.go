@@ -411,6 +411,16 @@ func scratchAttachments(dir string) []captureAttachment {
 	for _, name := range []string{"capture.journal", "handshake.json", "python-profile.json", "python-result.json"} {
 		add(name, filepath.Join(dir, name))
 	}
+	// Units the target published for itself. They are not per generation:
+	// a unit is what the program's code generator produced, and every
+	// process of the capture that loaded it loaded the same one.
+	if units, err := os.ReadDir(filepath.Join(dir, "units")); err == nil {
+		for _, unit := range units {
+			if name := unit.Name(); strings.HasSuffix(name, ".json") {
+				add("unit-"+name, filepath.Join(dir, "units", name))
+			}
+		}
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return found
@@ -765,6 +775,7 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 			Code:     cudacapture.CodeFiles{CUBIN: a.name},
 		})
 	}
+	attachUnits(c, result.Activities, attachments)
 	// PC samples are projected after the modules are declared: a sample names
 	// its module by the driver's number, and this is where that number is
 	// attached to a stored image.

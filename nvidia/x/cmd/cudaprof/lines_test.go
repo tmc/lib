@@ -88,7 +88,7 @@ func TestPrintCaptureLines(t *testing.T) {
 		{"gate", "stall_wait", []string{"fused_gate: 3 stall_wait", "66.7%"}},
 	} {
 		var buf bytes.Buffer
-		if err := printCaptureLines(&buf, cap, tt.kernel, tt.sample); err != nil {
+		if err := printCaptureLines(&buf, cap, tt.kernel, tt.sample, "profile"); err != nil {
 			t.Fatalf("kernel %q sample %q: %v", tt.kernel, tt.sample, err)
 		}
 		for _, want := range tt.want {
@@ -97,10 +97,10 @@ func TestPrintCaptureLines(t *testing.T) {
 			}
 		}
 	}
-	if err := printCaptureLines(&bytes.Buffer{}, cap, "", "gpu_time"); err == nil {
+	if err := printCaptureLines(&bytes.Buffer{}, cap, "", "gpu_time", "profile"); err == nil {
 		t.Error("no error for a sample type the profile lacks")
 	}
-	if err := printCaptureLines(&bytes.Buffer{}, cap, "missing_kernel", ""); err == nil {
+	if err := printCaptureLines(&bytes.Buffer{}, cap, "missing_kernel", "", "profile"); err == nil {
 		t.Error("no error for a kernel the disassembly lacks")
 	}
 }
@@ -120,7 +120,7 @@ func TestPrintCaptureLinesModules(t *testing.T) {
 		s.Label = map[string][]string{"module_id": {[]string{"1", "2"}[i%2]}}
 	}
 	var buf bytes.Buffer
-	if err := printCaptureLines(&buf, cap, "", ""); err != nil {
+	if err := printCaptureLines(&buf, cap, "", "", "profile"); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -133,7 +133,7 @@ func TestPrintCaptureLinesModules(t *testing.T) {
 		t.Errorf("the site is not in both tables:\n%s", out)
 	}
 	buf.Reset()
-	if err := printCaptureLines(&buf, cap, "fused_gate", ""); err != nil {
+	if err := printCaptureLines(&buf, cap, "fused_gate", "", "profile"); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Count(buf.String(), "fused_gate: ") != 2 {
@@ -141,7 +141,7 @@ func TestPrintCaptureLinesModules(t *testing.T) {
 	}
 	cap.Profile.Sample[0].Label = nil
 	buf.Reset()
-	if err := printCaptureLines(&buf, cap, "", ""); err != nil {
+	if err := printCaptureLines(&buf, cap, "", "", "profile"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "kernel work naming no module: 1 records") {
@@ -150,16 +150,16 @@ func TestPrintCaptureLinesModules(t *testing.T) {
 	// A copy belongs to no module, so an unlabelled one is not a gap.
 	cap.Profile.Sample[0].Label = map[string][]string{"subtype": {"memcpy"}}
 	buf.Reset()
-	if err := printCaptureLines(&buf, cap, "", ""); err != nil {
+	if err := printCaptureLines(&buf, cap, "", "", "profile"); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(buf.String(), "naming no module") {
 		t.Errorf("an unlabelled copy was reported as a gap:\n%s", buf.String())
 	}
-	if err := printCaptureLines(&bytes.Buffer{}, cap, "missing_kernel", ""); err == nil {
+	if err := printCaptureLines(&bytes.Buffer{}, cap, "missing_kernel", "", "profile"); err == nil {
 		t.Error("no error for a sample type the profile lacks")
 	}
-	if err := printCaptureLines(&bytes.Buffer{}, cap, "missing_kernel", ""); err == nil {
+	if err := printCaptureLines(&bytes.Buffer{}, cap, "missing_kernel", "", "profile"); err == nil {
 		t.Error("no error for a kernel the disassembly lacks")
 	}
 }
@@ -175,6 +175,8 @@ func TestRunLinesCommand(t *testing.T) {
 		{"kernel and capture", []string{"fused_gate", path}, false},
 		{"sample flag", []string{"-sample", "stall_wait", path}, false},
 		{"unknown sample", []string{"-sample", "gpu_time", path}, true},
+		{"format flag", []string{"-format", "digraph", path}, false},
+		{"unknown format", []string{"-format", "flame", path}, true},
 		{"missing file", []string{"missing.pprof"}, true},
 		{"no args", nil, true},
 		{"too many args", []string{"a", "b", path}, true},
@@ -184,5 +186,76 @@ func TestRunLinesCommand(t *testing.T) {
 				t.Fatalf("runLinesCommand(%v) err = %v, wantErr %v", tt.args, err, tt.wantErr)
 			}
 		})
+	}
+}
+
+// TestPrintCaptureLinesWithUnit reads the same capture with the generated
+// translation unit attached. The unit is what says which files the program
+// wrote, so the sample whose kernel frame names the generated file is charged
+// to elsewhere rather than counted as a program line, and the callers it
+// records are what a rollup is a rollup over.
+func TestPrintCaptureLinesWithUnit(t *testing.T) {
+	cap, _ := testCaptureWithLines(t)
+	unit, err := os.ReadFile(filepath.Join("..", "..", "cudalineinfo", "testdata", "fused_gate.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap.Files["unit-fused_gate.json"] = unit
+	cap.Code.Unit = "unit-fused_gate.json"
+
+	var buf bytes.Buffer
+	if err := printCaptureLines(&buf, cap, "", "", "profile"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "fused_gate.cu:9") {
+		t.Errorf("a generated line was reported as a program line:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "elsewhere: 3 at instructions naming no program line") {
+		t.Errorf("generated and prologue samples were not charged to elsewhere:\n%s", buf.String())
+	}
+
+	buf.Reset()
+	if err := printCaptureLines(&buf, cap, "", "", "rollup"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "cumulative") {
+		t.Errorf("no rollup:\n%s", buf.String())
+	}
+	for _, format := range []string{"digraph", "dot"} {
+		buf.Reset()
+		if err := printCaptureLines(&buf, cap, "", "", format); err != nil {
+			t.Fatalf("%s: %v", format, err)
+		}
+		if buf.Len() == 0 {
+			t.Errorf("%s wrote nothing", format)
+		}
+	}
+}
+
+// A capture with no unit has no callers, so it has nothing to roll up to and
+// says so rather than printing an empty report.
+func TestRollupNeedsAUnit(t *testing.T) {
+	cap, _ := testCaptureWithLines(t)
+	if err := printCaptureLines(&bytes.Buffer{}, cap, "", "", "rollup"); err == nil {
+		t.Error("no error rolling up a capture that carries no unit")
+	}
+}
+
+// A capture that named the unit per module and has one module is naming it
+// for the capture.
+func TestCaptureUnitFallsBackToTheModule(t *testing.T) {
+	cap, _ := testCaptureWithLines(t)
+	unit, err := os.ReadFile(filepath.Join("..", "..", "cudalineinfo", "testdata", "fused_gate.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap.Files["unit-fused_gate.json"] = unit
+	cap.Modules = []cudacapture.Module{{DriverID: 22, Code: cudacapture.CodeFiles{Unit: "unit-fused_gate.json"}}}
+	if got := captureUnit(cap, "fused_gate"); len(got.LineMap) == 0 {
+		t.Error("the module's unit was not used")
+	}
+	cap.Files["unit-fused_gate.json"] = []byte("{")
+	if got := captureUnit(cap, "fused_gate"); got.Name != "fused_gate" || len(got.LineMap) != 0 {
+		t.Errorf("a malformed unit was not ignored: %+v", got)
 	}
 }

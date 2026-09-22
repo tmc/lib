@@ -60,7 +60,7 @@ func MergeRanks(inputs []RankCapture) (*Capture, error) {
 	// of each one rather than reading as though it was never recorded. The
 	// roles are the ones Capture.check walks; a role left out here is a file
 	// silently reported as having never existed.
-	for _, role := range []string{"source", "ptx", "cubin", "sass", "tileir", "cfg", "bbcfg"} {
+	for _, role := range []string{"source", "ptx", "cubin", "sass", "unit", "tileir", "cfg", "bbcfg"} {
 		out.CodeUnavailable[role] = "rank-specific availability is retained in original recordings and modules"
 	}
 	type rankManifest struct {
@@ -131,6 +131,7 @@ func MergeRanks(inputs []RankCapture) (*Capture, error) {
 				PTX:    fileName(v.PTX),
 				CUBIN:  fileName(v.CUBIN),
 				SASS:   fileName(v.SASS),
+				Unit:   fileName(v.Unit),
 				TileIR: fileName(v.TileIR),
 				CFG:    fileName(v.CFG),
 				BBCFG:  fileName(v.BBCFG),

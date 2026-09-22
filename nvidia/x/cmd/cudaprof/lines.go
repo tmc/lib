@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -21,7 +22,14 @@ import (
 // sampled instruction was compiled from, next to the number of instructions
 // the line has in the capture's disassembly.
 //
-//	cudaprof lines [-sample type] [kernel] capture.pprof
+//	cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [kernel] capture.pprof
+//
+// -format chooses the report: the per-line profile, a rollup charging each
+// line's instructions to its callers as well, or the call graph as a digraph
+// or in DOT. The last three read the capture's translation unit, which is
+// also what says which files the program wrote, so an instruction that came
+// from generated text is charged to elsewhere rather than counted as a
+// program line.
 func runLinesCommand(rawArgs []string) error {
 	args, limits, err := parseReadLimits(rawArgs)
 	if err != nil {
@@ -30,8 +38,14 @@ func runLinesCommand(rawArgs []string) error {
 	fs := flag.NewFlagSet("lines", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	sample := fs.String("sample", "", "sample type to total (default: the profile's default type)")
+	format := fs.String("format", "profile", "report to write: profile, rollup, digraph, or dot")
 	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("usage: cudaprof lines [-sample type] [kernel] capture.pprof: %w", err)
+		return fmt.Errorf("usage: cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [kernel] capture.pprof: %w", err)
+	}
+	switch *format {
+	case "profile", "rollup", "digraph", "dot":
+	default:
+		return fmt.Errorf("unknown -format %q; want profile, rollup, digraph, or dot", *format)
 	}
 	var kernel, capturePath string
 	switch fs.NArg() {
@@ -40,7 +54,7 @@ func runLinesCommand(rawArgs []string) error {
 	case 2:
 		kernel, capturePath = fs.Arg(0), fs.Arg(1)
 	default:
-		return errors.New("usage: cudaprof lines [-sample type] [kernel] capture.pprof")
+		return errors.New("usage: cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [kernel] capture.pprof")
 	}
 	path, err := filepath.Abs(capturePath)
 	if err != nil {
@@ -50,15 +64,15 @@ func runLinesCommand(rawArgs []string) error {
 	if err != nil {
 		return fmt.Errorf("read capture: %w", err)
 	}
-	return printCaptureLines(os.Stdout, cap, kernel, *sample)
+	return printCaptureLines(os.Stdout, cap, kernel, *sample, *format)
 }
 
-func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample string) error {
+func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, format string) error {
 	if cap.Profile == nil {
 		return errors.New("capture has no profile")
 	}
 	if len(cap.Modules) < 2 {
-		return printModuleLines(w, cap, kernel, sample)
+		return printModuleLines(w, cap, kernel, sample, format)
 	}
 	// Each module is its own build with its own disassembly, and two can
 	// hold a kernel of the same name; only samples labelled with the
@@ -78,6 +92,11 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample str
 	for _, mod := range cap.Modules {
 		local := *cap
 		local.Code, local.Modules = mod.Code, nil
+		// A module that names no unit of its own still belongs to whatever
+		// program the capture as a whole was generated from.
+		if local.Code.Unit == "" {
+			local.Code.Unit = cap.Code.Unit
+		}
 		local.Profile = cap.Profile.Copy()
 		local.Profile.Sample = nil
 		for _, s := range cap.Profile.Sample {
@@ -98,7 +117,7 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample str
 			name = mod.ID
 		}
 		fmt.Fprintf(w, "module %s\n", name)
-		if err := printModuleLines(w, &local, kernel, sample); err != nil {
+		if err := printModuleLines(w, &local, kernel, sample, format); err != nil {
 			return fmt.Errorf("module %s: %w", mod.ID, err)
 		}
 		printed++
@@ -122,7 +141,7 @@ func moduleLabel(mod cudacapture.Module) string {
 	return strconv.FormatUint(uint64(mod.DriverID), 10)
 }
 
-func printModuleLines(w io.Writer, cap *cudacapture.Capture, kernel, sample string) error {
+func printModuleLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, format string) error {
 	dis, err := captureDisassembly(cap)
 	if err != nil {
 		return err
@@ -135,12 +154,57 @@ func printModuleLines(w io.Writer, cap *cudacapture.Capture, kernel, sample stri
 		kernel = fn.Name
 	}
 	ptx, _, _ := findPTX(cap)
-	a := cudalineinfo.Attribute(cudalineinfo.Unit{Name: kernel}, string(ptx), dis)
+	a := cudalineinfo.Attribute(captureUnit(cap, kernel), string(ptx), dis)
+	switch format {
+	case "rollup":
+		// The cumulative view needs the callers the unit records, so a
+		// capture that carries no unit has nothing to roll anything up to.
+		if len(a.Unit.LineMap) == 0 {
+			return errors.New("capture carries no unit, so no line has a caller to roll up to")
+		}
+		return cudalineinfo.WriteRollup(w, a)
+	case "digraph":
+		return cudalineinfo.WriteDigraph(w, a)
+	case "dot":
+		return cudalineinfo.WriteDot(w, a)
+	}
 	p, err := lineProfile(cap.Profile, a, kernel, sample)
 	if err != nil {
 		return err
 	}
 	return cudalineinfo.WriteProfile(w, a, p)
+}
+
+// captureUnit is the generated translation unit the capture was built from,
+// or, when it carries none, the bare unit naming the kernel under report.
+//
+// The difference is what can be said about the result. A bare unit knows only
+// the kernel's name, so every line has to be taken on trust and a line in
+// generated code is indistinguishable from a line in the program. The unit
+// knows which lines are its own and which call stack each one came from, so
+// the report can roll lines up to their callers and say plainly that a line
+// belongs to generated code.
+func captureUnit(cap *cudacapture.Capture, kernel string) cudalineinfo.Unit {
+	file := cap.Code.Unit
+	if file == "" {
+		// A capture that named the unit per module and has only one module
+		// is naming it for the capture: the module is all there is.
+		for _, m := range cap.Modules {
+			if m.Code.Unit != "" {
+				file = m.Code.Unit
+				break
+			}
+		}
+	}
+	data, ok := cap.Files[file]
+	if !ok {
+		return cudalineinfo.Unit{Name: kernel}
+	}
+	var u cudalineinfo.Unit
+	if err := json.Unmarshal(data, &u); err != nil || u.Name == "" {
+		return cudalineinfo.Unit{Name: kernel}
+	}
+	return u
 }
 
 // findKernel returns the function named kernel, or else the first whose
