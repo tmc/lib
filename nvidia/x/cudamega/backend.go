@@ -77,27 +77,39 @@ func (f Fence) String() string {
 // persistent worker needs.
 //
 // The set is deliberately the smallest one that expresses the worker and no
-// smaller. Five of the methods are the synchronization primitives the model
+// smaller. Six of the methods are the synchronization primitives the model
 // rests on:
 //
 //   - [Backend.Barrier] is the workgroup barrier, over the threads of one
 //     worker.
-//   - [Backend.Publish] and [Backend.Await] are the device-scope atomic add
+//   - [Backend.Publish] and [Backend.Ready] are the device-scope atomic add
 //     and the acquiring load of a completion word. They are one primitive
 //     seen from its two ends; neither is usable without the other.
 //   - [Backend.Fence] is the release/acquire fence at a declared scope. At
 //     CTA scope a backend may serve it with a workgroup-scoped barrier
-//     primitive -- an mbarrier on CUDA -- which is why the optional sixth
+//     primitive -- an mbarrier on CUDA -- which is why the optional seventh
 //     primitive is a quality of this method rather than a method of its own.
+//   - [Backend.NextRound] is where a worker with nothing ready waits. It is
+//     the only method that may wait at all.
 //   - [Backend.Residency] is the residency query.
 //   - [Backend.ForwardProgress] is the co-residency guarantee, which is the
 //     actual boundary. See [ForwardProgress].
 //
 // The remaining methods are structure, not synchronization: they bracket the
-// run and the individual tasks and carry the elementwise payload. They are
-// here because the driver in [Runner.Run] must be the only description of the
-// worker's shape, and a driver that could not open a task's guarded region
-// would leave that shape in each backend.
+// run, the selection loop and the individual tasks, and carry the elementwise
+// payload. They are here because the driver in [Runner.Run] must be the only
+// description of the worker's shape, and a driver that could not open a
+// task's guarded region would leave that shape in each backend.
+//
+// Taking and waiting are separate methods, and that separation is the point
+// rather than a decomposition. [Backend.Ready] never waits: it performs one
+// acquiring load and reports what it saw. [Backend.Take] never waits either:
+// it commits to a task only when every Ready for that task was satisfied.
+// The waiting is [Backend.NextRound], which a worker reaches only by having
+// declined every task it owns. A backend that took a task and then blocked on
+// it would be one where a worker holding a consumer stops scanning, and a
+// grid whose every resident worker holds a consumer never reaches its
+// producers at all.
 //
 // A Backend value describes one worker's view of the program. A performing
 // backend therefore has one value per thread; a rendering backend has one
@@ -119,39 +131,76 @@ type Backend interface {
 	// program was built for, or an empty extent.
 	Begin(p *Program) error
 
-	// BeginTask opens step i's abort-guarded region and reports whether the
-	// step's remaining primitives are performed at all. A rendering backend
-	// emits the guard and reports true, because the test is made at run time
-	// by the code it emits. A performing backend makes the test itself, and
-	// must make it uniformly across the threads of one worker: a guard that
-	// some threads of a worker take and others do not leaves the barrier
-	// below short an arrival.
+	// BeginSelection opens the worker's selection loop and takes stock of the
+	// tasks this worker owns. A rendering backend emits the loop; a
+	// performing backend records what it has left to do.
+	BeginSelection() error
+
+	// BeginTask opens step i's guarded region and reports whether the step's
+	// remaining primitives are performed at all. The guard is ownership and
+	// completion -- does this worker perform step i, and has it not already
+	// done so -- and it never waits.
+	//
+	// A rendering backend emits the guard and reports true, because the test
+	// is made at run time by the code it emits. A performing backend makes
+	// the test itself, and must make it uniformly across the threads of one
+	// worker: a guard that some threads of a worker take and others do not
+	// leaves the barrier below short an arrival.
 	BeginTask(i int) (bool, error)
 
-	// Await waits until every worker has published step dep, reading that
-	// completion word with an acquiring load. It returns when the count is
-	// reached, when an abort is observed, or when the backend's own poll
-	// bound is exhausted -- never never.
-	Await(i, dep int) error
+	// Ready performs one acquiring load of step dep's completion word, at
+	// scope s, and records whether it has reached the number of workers that
+	// publish it. It does not wait, and it does not decide: what it saw is
+	// read back by Take, after the Barrier the driver performs.
+	//
+	// The number it compares against is dep's own [Owner.Count], not the
+	// grid. A task performed by a proper subrange of the grid publishes that
+	// many completions and never more, so a wait spelled against the grid is
+	// not a slow wait but an unsatisfiable one.
+	Ready(i, dep int, s cudataskgraph.Scope) error
 
 	// Barrier is the workgroup barrier over the threads of one worker.
 	Barrier() error
 
-	// Fence performs side k of step i's release/acquire pair at scope s. It
-	// reports an error for a scope the backend cannot order.
-	Fence(i int, s cudataskgraph.Scope, k Fence) error
+	// Take commits this worker to step i, and reports whether it did. It
+	// commits exactly when every Ready since the last BeginTask was
+	// satisfied, and a step with no dependencies is taken unconditionally.
+	// It never waits.
+	Take(i int) (bool, error)
+
+	// Fence performs side k of step i's release/acquire pair at scope s.
+	// For an acquire, dep is the step whose edge is being ordered; for a
+	// release, dep is negative. It reports an error for a scope the backend
+	// cannot order.
+	//
+	// There is one acquire per edge rather than one per task, which is what
+	// gives the max(producer, consumer) rule somewhere to live: a task with
+	// two dependencies at different scopes has two edges ordered at two
+	// scopes, and a single per-task fence could only be right for one of
+	// them.
+	Fence(i, dep int, s cudataskgraph.Scope, k Fence) error
 
 	// Compute applies step i's operation to this worker's share of the
-	// elements, reading from step src's output or, when src is negative,
-	// from the program input.
+	// step's elements, reading from step src's output or, when src is
+	// negative, from the program input. The share is taken over the step's
+	// owning CTA range, not over the grid.
 	Compute(i, src int, op Operation) error
 
 	// Publish increments step i's completion word with a device-scope atomic
 	// add, once per worker.
 	Publish(i int) error
 
-	// EndTask closes the region BeginTask opened.
+	// EndTask closes the regions BeginTask and Take opened.
 	EndTask(i int) error
+
+	// NextRound ends one pass over the worker's owned tasks and reports
+	// whether another is needed. It is the only method that waits, and a
+	// worker reaches it only having declined every task it owns, so what it
+	// waits for is another worker's publication and never its own.
+	NextRound() (bool, error)
+
+	// EndSelection closes the loop BeginSelection opened.
+	EndSelection() error
 
 	// End closes the run. A rendering backend writes whatever must follow
 	// the last task; a performing backend has nothing left to do.
@@ -164,6 +213,27 @@ type Step struct {
 	Operation Operation
 	// Deps are the indices, in program order, of this step's dependencies.
 	Deps []int
+
+	// Owner is the CTA range that performs this task. Its [Owner.Count] is
+	// how many completions the task publishes, and therefore the number a
+	// consumer's wait must reach.
+	Owner Owner
+
+	// EdgeScope[k] is the scope the edge from Deps[k] is ordered at: the
+	// higher of the producer's declared scope and this task's.
+	//
+	// The higher of the two, not the consumer's alone. An acquire is only as
+	// wide as the domain it names: a consumer acquiring at device scope has
+	// not ordered a producer whose stores were released at system scope, and
+	// a release at CTA scope publishes nothing a consumer in another CTA can
+	// acquire. The maximum is the weakest rule that orders both ends, which
+	// is why it is the rule rather than merely a safe choice.
+	EdgeScope []cudataskgraph.Scope
+
+	// ReleaseScope is the scope this task's release is performed at: the
+	// highest of its own declared scope and every consumer's. A task nothing
+	// depends on releases at its own.
+	ReleaseScope cudataskgraph.Scope
 }
 
 // A Program is a finite task graph bound to one worker geometry and one
@@ -225,6 +295,28 @@ func NewProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 			dependedOn[d] = true
 		}
 	}
+	owners, err := grid.Policy.Assign(tasks, grid.CTAs)
+	if err != nil {
+		return nil, err
+	}
+	// A task's release scope is the highest scope any edge leaving it is
+	// ordered at, which is known only once every consumer has been seen. It
+	// is resolved before the per-task loop because the loop emits it.
+	byID := make(map[string]cudataskgraph.Task, len(tasks))
+	for _, t := range tasks {
+		byID[t.ID] = t
+	}
+	release := make([]cudataskgraph.Scope, len(tasks))
+	for i, t := range tasks {
+		release[i] = t.Scope
+		for _, c := range tasks {
+			for _, d := range c.Deps {
+				if d == t.ID && c.Scope > release[i] {
+					release[i] = c.Scope
+				}
+			}
+		}
+	}
 	p := &Program{steps: make([]Step, 0, len(tasks)), grid: grid, target: target}
 	indices := make(map[string]int, len(tasks))
 	for i, t := range tasks {
@@ -243,23 +335,48 @@ func NewProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 			return nil, fmt.Errorf("task %q %s at CTA scope in a %d-CTA grid; an mbarrier orders one CTA", t.ID, side, grid.CTAs)
 		}
 		deps := make([]int, 0, len(t.Deps))
+		edges := make([]cudataskgraph.Scope, 0, len(t.Deps))
 		for _, d := range t.Deps {
 			n, ok := indices[d]
 			if !ok {
 				return nil, fmt.Errorf("task %q precedes dependency %q", t.ID, d)
 			}
+			// The edge is ordered at the higher of the two scopes it
+			// joins. It needs no admissibility check of its own: the
+			// higher of two scopes is one of them, and each end is
+			// refused above if this target cannot order it. The same
+			// argument covers release[i], which is a max over this
+			// task's scope and its consumers'.
+			e := byID[d].Scope
+			if t.Scope > e {
+				e = t.Scope
+			}
 			deps = append(deps, n)
+			edges = append(edges, e)
 		}
 		indices[t.ID] = i
-		p.steps = append(p.steps, Step{Task: t, Operation: op, Deps: deps})
+		p.steps = append(p.steps, Step{
+			Task:         t,
+			Operation:    op,
+			Deps:         deps,
+			Owner:        owners[i],
+			EdgeScope:    edges,
+			ReleaseScope: release[i],
+		})
 
 		if len(deps) > 0 {
 			p.needSpin = true
 		}
-		if t.Scope == cudataskgraph.ScopeCTA {
+		// The mbarrier and its phase are needed by the fence sites that
+		// order at CTA scope, which is not the same set as the tasks that
+		// declare it: a CTA-scope task with a device-scope consumer releases
+		// at device scope and arrives at no mbarrier.
+		if release[i] == cudataskgraph.ScopeCTA {
 			p.needBarrier = true
-			if len(deps) > 0 {
-				p.needPhase = true
+		}
+		for _, e := range edges {
+			if e == cudataskgraph.ScopeCTA {
+				p.needBarrier, p.needPhase = true, true
 			}
 		}
 	}
@@ -300,6 +417,7 @@ func (p *Program) Steps() []Step {
 	for i, s := range p.steps {
 		s.Task.Deps = append([]string(nil), s.Task.Deps...)
 		s.Deps = append([]int(nil), s.Deps...)
+		s.EdgeScope = append([]cudataskgraph.Scope(nil), s.EdgeScope...)
 		out[i] = s
 	}
 	return out
@@ -355,53 +473,94 @@ func NewRunner(p *Program, b Backend) (*Runner, error) {
 	return &Runner{p: p, b: b}, nil
 }
 
-// Run walks the program once, performing or rendering each primitive in the
-// order the persistent worker performs them.
+// Run walks the program, performing or rendering each primitive in the order
+// the persistent worker performs them.
 //
 // This is the only description of the worker's shape. A backend chooses what
-// each primitive means and nothing else; the acquire side of every dependency,
-// then the computation, then the release side, then the publishing store is
-// decided here, once, for every backend there will ever be.
+// each primitive means and nothing else; that a worker scans the tasks it
+// owns, takes only the ones already ready, acquires once per incoming edge,
+// computes, releases and publishes, and waits only between scans, is decided
+// here, once, for every backend there will ever be.
+//
+// The outer loop is the selection loop. The inner pass visits every step in
+// program order, which is the order the emitted text lays them down; a worker
+// that owns none of them, or that finds none of its own ready, falls through
+// to [Backend.NextRound], which is where waiting happens and the only place
+// it happens.
 func (r *Runner) Run() error {
 	p, b := r.p, r.b
 	if err := b.Begin(p); err != nil {
 		return fmt.Errorf("begin: %w", err)
 	}
-	for i, s := range p.steps {
-		run, err := b.BeginTask(i)
-		if err != nil {
-			return fmt.Errorf("task %q: %w", s.Task.ID, err)
-		}
-		if !run {
-			continue
-		}
-		for _, d := range s.Deps {
-			if err := b.Await(i, d); err != nil {
-				return fmt.Errorf("task %q: await %q: %w", s.Task.ID, p.steps[d].Task.ID, err)
+	if err := b.BeginSelection(); err != nil {
+		return fmt.Errorf("selection: %w", err)
+	}
+	for {
+		for i, s := range p.steps {
+			mine, err := b.BeginTask(i)
+			if err != nil {
+				return fmt.Errorf("task %q: %w", s.Task.ID, err)
 			}
-			if err := b.Barrier(); err != nil {
-				return fmt.Errorf("task %q: barrier: %w", s.Task.ID, err)
+			if !mine {
+				continue
 			}
-		}
-		src := -1
-		if len(s.Deps) > 0 {
-			src = s.Deps[0]
-			if err := b.Fence(i, s.Task.Scope, Acquire); err != nil {
+			// Every incoming edge is polled, not just enough of them to
+			// decide: a scan that stopped at the first unsatisfied edge
+			// would leave the emitted text with a data-dependent number of
+			// acquiring loads, and the artifact could no longer be checked
+			// against the edge list.
+			for k, d := range s.Deps {
+				if err := b.Ready(i, d, s.EdgeScope[k]); err != nil {
+					return fmt.Errorf("task %q: ready %q: %w", s.Task.ID, p.steps[d].Task.ID, err)
+				}
+			}
+			if len(s.Deps) > 0 {
+				if err := b.Barrier(); err != nil {
+					return fmt.Errorf("task %q: barrier: %w", s.Task.ID, err)
+				}
+			}
+			taken, err := b.Take(i)
+			if err != nil {
+				return fmt.Errorf("task %q: take: %w", s.Task.ID, err)
+			}
+			if !taken {
+				if err := b.EndTask(i); err != nil {
+					return fmt.Errorf("task %q: %w", s.Task.ID, err)
+				}
+				continue
+			}
+			for k, d := range s.Deps {
+				if err := b.Fence(i, d, s.EdgeScope[k], Acquire); err != nil {
+					return fmt.Errorf("task %q: %w", s.Task.ID, err)
+				}
+			}
+			src := -1
+			if len(s.Deps) > 0 {
+				src = s.Deps[0]
+			}
+			if err := b.Compute(i, src, s.Operation); err != nil {
+				return fmt.Errorf("task %q: compute: %w", s.Task.ID, err)
+			}
+			if err := b.Fence(i, -1, s.ReleaseScope, Release); err != nil {
+				return fmt.Errorf("task %q: %w", s.Task.ID, err)
+			}
+			if err := b.Publish(i); err != nil {
+				return fmt.Errorf("task %q: publish: %w", s.Task.ID, err)
+			}
+			if err := b.EndTask(i); err != nil {
 				return fmt.Errorf("task %q: %w", s.Task.ID, err)
 			}
 		}
-		if err := b.Compute(i, src, s.Operation); err != nil {
-			return fmt.Errorf("task %q: compute: %w", s.Task.ID, err)
+		more, err := b.NextRound()
+		if err != nil {
+			return fmt.Errorf("selection: %w", err)
 		}
-		if err := b.Fence(i, s.Task.Scope, Release); err != nil {
-			return fmt.Errorf("task %q: %w", s.Task.ID, err)
+		if !more {
+			break
 		}
-		if err := b.Publish(i); err != nil {
-			return fmt.Errorf("task %q: publish: %w", s.Task.ID, err)
-		}
-		if err := b.EndTask(i); err != nil {
-			return fmt.Errorf("task %q: %w", s.Task.ID, err)
-		}
+	}
+	if err := b.EndSelection(); err != nil {
+		return fmt.Errorf("selection: %w", err)
 	}
 	return b.End()
 }

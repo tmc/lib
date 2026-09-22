@@ -266,15 +266,16 @@ func checkEmittedFences(t *testing.T, f programFixture, target cudamega.Target) 
 			continue
 		}
 		dep := index[task.Deps[0]]
+		edge := edgeScope(tasks, index[task.ID], task.Deps[0])
 		found := false
 		for i := range body {
 			a, ok := pollAt[i]
 			if !ok || a.off != 4*dep {
 				continue
 			}
-			if got := pollScope[i]; got != acquireLoad[task.Scope] {
-				t.Fatalf("task %q at %s scope: its acquiring load is scoped %q, want %q",
-					task.ID, scopeLabel(task.Scope), got, acquireLoad[task.Scope])
+			if got := pollScope[i]; got != acquireLoad[edge] {
+				t.Fatalf("task %q depending on %q: the edge is at %s scope and its acquiring load is scoped %q, want %q",
+					task.ID, task.Deps[0], scopeLabel(edge), got, acquireLoad[edge])
 			}
 			found = true
 		}
@@ -287,12 +288,13 @@ func checkEmittedFences(t *testing.T, f programFixture, target cudamega.Target) 
 	// list accounts for. An extra one is as much a defect as a missing one:
 	// it means the artifact does something the progress argument does not
 	// describe.
+	// One release per task and one acquire per edge. The acquire is counted
+	// per edge rather than per dependent task because each edge carries its
+	// own scope and so its own fence; a task with two dependencies at
+	// different scopes cannot be covered by one of them.
 	wantSyncs := 0
 	for _, task := range tasks {
-		wantSyncs++
-		if len(task.Deps) > 0 {
-			wantSyncs++
-		}
+		wantSyncs += 1 + len(task.Deps)
 	}
 	var gotSyncs int
 	for _, ins := range body {
@@ -322,16 +324,17 @@ func checkEmittedFences(t *testing.T, f programFixture, target cudamega.Target) 
 				last, lastAt = k, j
 			}
 		}
-		want := releaseInstruction[task.Scope]
+		rel := releaseScope(tasks, i)
+		want := releaseInstruction[rel]
 		if want == "" {
-			t.Fatalf("task %q: scope %d has no declared release instruction", task.ID, task.Scope)
+			t.Fatalf("task %q: scope %d has no declared release instruction", task.ID, rel)
 		}
 		if last == "" {
 			t.Fatalf("task %q: nothing is released before its completion is published", task.ID)
 		}
 		if last != want {
-			t.Fatalf("task %q at %s scope: the instruction before its publication is %q, want %q",
-				task.ID, scopeLabel(task.Scope), last, want)
+			t.Fatalf("task %q releasing at %s scope: the instruction before its publication is %q, want %q",
+				task.ID, scopeLabel(rel), last, want)
 		}
 
 		if len(task.Deps) == 0 {
@@ -363,9 +366,10 @@ func checkEmittedFences(t *testing.T, f programFixture, target cudamega.Target) 
 		if acquire < 0 {
 			t.Fatalf("task %q: no acquire between polling %q's completion and releasing its own", task.ID, task.Deps[0])
 		}
-		if got := syncKind(window[acquire]); got != acquireInstruction[task.Scope] {
-			t.Fatalf("task %q at %s scope: acquires with %q, want %q",
-				task.ID, scopeLabel(task.Scope), got, acquireInstruction[task.Scope])
+		edge := edgeScope(tasks, i, task.Deps[0])
+		if got := syncKind(window[acquire]); got != acquireInstruction[edge] {
+			t.Fatalf("task %q on an edge at %s scope: acquires with %q, want %q",
+				task.ID, scopeLabel(edge), got, acquireInstruction[edge])
 		}
 	}
 }
@@ -446,6 +450,44 @@ func scopeLabel(s cudataskgraph.Scope) string {
 	return fmt.Sprintf("scope(%d)", s)
 }
 
+// edgeScope and releaseScope are the test's own statement of the scope rule,
+// computed from the task list alone.
+//
+// An edge is ordered at the higher of the two scopes it joins, because the
+// weaker of the two is by construction not enough: a device-scope producer
+// released at device scope has not made its stores visible to a system-scope
+// consumer's readers, and a consumer that acquires at device scope has not
+// ordered what a system-scope producer released. A task's release is at the
+// highest scope any of its consumers needs, for the same reason read from the
+// producer's side.
+//
+// These recompute the rule rather than reading [cudamega.Step.EdgeScope],
+// which is the value under test. See [TestFenceScopeIsTheMaxOfItsEdge] for the
+// same rule asserted against the generator's own resolution.
+func edgeScope(tasks []cudataskgraph.Task, consumer int, dep string) cudataskgraph.Scope {
+	s := tasks[consumer].Scope
+	for _, t := range tasks {
+		if t.ID == dep && t.Scope > s {
+			s = t.Scope
+		}
+	}
+	return s
+}
+
+func releaseScope(tasks []cudataskgraph.Task, producer int) cudataskgraph.Scope {
+	s := tasks[producer].Scope
+	for i, t := range tasks {
+		for _, d := range t.Deps {
+			if d == tasks[producer].ID {
+				if e := edgeScope(tasks, i, d); e > s {
+					s = e
+				}
+			}
+		}
+	}
+	return s
+}
+
 // TestArtifactDoesNotCarryAnotherDomainsInstruction is the other half of the
 // positional test. Each golden must contain the instructions its own scopes
 // declare and no instruction belonging to a domain it does not use, so that a
@@ -465,11 +507,12 @@ func TestArtifactDoesNotCarryAnotherDomainsInstruction(t *testing.T) {
 					present[k]++
 				}
 			}
+			tasks := f.graph.Tasks()
 			used := map[string]bool{}
-			for _, task := range f.graph.Tasks() {
-				used[releaseInstruction[task.Scope]] = true
-				if len(task.Deps) > 0 {
-					used[acquireInstruction[task.Scope]] = true
+			for i, task := range tasks {
+				used[releaseInstruction[releaseScope(tasks, i)]] = true
+				for _, d := range task.Deps {
+					used[acquireInstruction[edgeScope(tasks, i, d)]] = true
 				}
 			}
 			for k, n := range present {
@@ -544,11 +587,12 @@ func TestArtifactSurvivesToSASS(t *testing.T) {
 			}
 			body := strings.Join(sassFunction(t, string(raw), "dag_worker"), "\n")
 
+			tasks := f.graph.Tasks()
 			want := map[string]int{}
-			for _, task := range f.graph.Tasks() {
-				want[sassInstruction[releaseInstruction[task.Scope]]]++
-				if len(task.Deps) > 0 {
-					want[sassInstruction[acquireInstruction[task.Scope]]]++
+			for i, task := range tasks {
+				want[sassInstruction[releaseInstruction[releaseScope(tasks, i)]]]++
+				for _, d := range task.Deps {
+					want[sassInstruction[acquireInstruction[edgeScope(tasks, i, d)]]]++
 				}
 			}
 			for _, ins := range sassInstruction {
@@ -600,7 +644,7 @@ const wantSpinBound = 16777216 // DefaultSpinLimit as the fixtures were generate
 // the test non-vacuous in both directions: dropping the bad-extent guard
 // fails it just as a dropped bound does.
 func TestAbortCodesReachTheArtifact(t *testing.T) {
-	for _, f := range []programFixture{ctaFixture(t), deviceFixture(t)} {
+	for _, f := range goldenFixtures(t) {
 		t.Run(f.name, func(t *testing.T) {
 			raw, err := os.ReadFile(goldenPTX(f.name, goldenTarget))
 			if err != nil {
@@ -623,8 +667,16 @@ func TestAbortCodesReachTheArtifact(t *testing.T) {
 
 			// The bound itself. Without this, a CAS installing 4 could sit
 			// on a path no counter ever reaches.
-			if !strings.Contains(ptx, strconv.Itoa(wantSpinBound)) {
-				t.Errorf("%s.ptx compares no counter against the poll bound %d", f.name, wantSpinBound)
+			//
+			// Either spelling of the same comparison is accepted, because
+			// CUDA 13.4 canonicalizes the emitted `spins > spin_limit` into
+			// `setp.lt.u64 %p, %rd, 16777217` -- the negation, with the
+			// bound incremented. Both name the bound; neither is satisfied
+			// by an artifact that lost it or that carries a different one.
+			if !strings.Contains(ptx, strconv.Itoa(wantSpinBound)) &&
+				!strings.Contains(ptx, strconv.Itoa(wantSpinBound+1)) {
+				t.Errorf("%s.ptx compares no counter against the poll bound %d or its negation's %d",
+					f.name, wantSpinBound, wantSpinBound+1)
 			}
 		})
 	}
@@ -638,7 +690,7 @@ func TestAbortCodesReachTheArtifact(t *testing.T) {
 // for sm_121a and CUDA 13.4 only: ptxas keeps the comparison as an immediate
 // ISETP against the limit and the abort store as ATOMG.E.CAS.
 func TestSpinBoundSurvivesToSASS(t *testing.T) {
-	for _, f := range []programFixture{ctaFixture(t), deviceFixture(t)} {
+	for _, f := range goldenFixtures(t) {
 		t.Run(f.name, func(t *testing.T) {
 			raw, err := os.ReadFile(filepath.Join("testdata", "golden", f.name+"."+goldenArch+".sass"))
 			if err != nil {
@@ -646,8 +698,10 @@ func TestSpinBoundSurvivesToSASS(t *testing.T) {
 			}
 			sass := string(raw)
 			hex := fmt.Sprintf("0x%x", wantSpinBound)
-			if !strings.Contains(sass, hex) {
-				t.Errorf("%s.sass has no immediate %s; the poll bound did not survive ptxas", f.name, hex)
+			negated := fmt.Sprintf("0x%x", wantSpinBound+1)
+			if !strings.Contains(sass, hex) && !strings.Contains(sass, negated) {
+				t.Errorf("%s.sass has neither immediate %s nor %s; the poll bound did not survive ptxas",
+					f.name, hex, negated)
 			}
 			if !strings.Contains(sass, "ATOMG.E.CAS") {
 				t.Errorf("%s.sass has no ATOMG.E.CAS; no abort code can be installed", f.name)

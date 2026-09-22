@@ -97,8 +97,139 @@ func deviceFixture(t *testing.T) programFixture {
 	}
 }
 
+// crossFixture is the S1 demonstrator: every element each consumer reads was
+// written by the other worker.
+//
+// It exists because "matches the ordinary-launch reference" is blind to the
+// dependency wait in the other two fixtures. There the emitted worker gives
+// element e to the same (cta, tid) in every task, so the element a consumer
+// reads was written by the thread reading it, and deleting the wait leaves
+// the comparison green. Here the grid is partitioned by rank -- "lower" and
+// "cross" on CTA 0, "upper" and "swap" on CTA 1 -- and the two rank-1 tasks
+// depend across the partition: "cross" reads what CTA 1 wrote and "swap"
+// reads what CTA 0 wrote. The owner ranges are disjoint from their
+// dependencies' for every element, not for some of them, which
+// [TestDemonstratorDependsAcrossWorkers] states as an assertion rather than as
+// this comment.
+//
+// The scopes are deliberately mixed. "swap" is at system scope over a
+// device-scope producer, so its edge and its producer's release are ordered
+// at system scope by the max(producer, consumer) rule and by nothing the
+// consumer declares alone.
+func crossFixture(t *testing.T) programFixture {
+	t.Helper()
+	g, err := cudataskgraph.New([]cudataskgraph.Task{
+		{ID: "lower", Rank: 0, Bytes: 16, Scope: cudataskgraph.ScopeDevice},
+		{ID: "upper", Rank: 0, Bytes: 16, Scope: cudataskgraph.ScopeDevice},
+		{ID: "cross", Deps: []string{"upper"}, Rank: 1, Bytes: 16, Scope: cudataskgraph.ScopeDevice},
+		{ID: "swap", Deps: []string{"lower"}, Rank: 1, Bytes: 16, Scope: cudataskgraph.ScopeSystem},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return programFixture{
+		name:  "cross-2cta",
+		graph: g,
+		ops: map[string]cudamega.Operation{
+			"lower": {Kind: cudamega.Add, Scalar: 3},
+			"upper": {Kind: cudamega.Add, Scalar: 5},
+			"cross": {Kind: cudamega.Multiply, Scalar: 2},
+			"swap":  {Kind: cudamega.Add, Scalar: 7},
+		},
+		grid:   cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128, Policy: cudamega.CountedPolicy},
+		target: goldenTarget,
+	}
+}
+
+// skewFixture is crossFixture with the deal deliberately unbalanced, so that
+// a consumer reaches its edge before its producer has written anything.
+//
+// Rank 0 is three tasks over four CTAs, which CountedPolicy splits as [0,1),
+// [1,2) and [2,4): "pair" has two owners and each of them does half as many
+// elements as "base"'s single owner does. CTAs 2 and 3 therefore finish rank 0
+// in half the time CTA 0 takes, and "tail" -- which they own at rank 1 --
+// arrives at its edge with "base" only half written. crossFixture's deal is
+// balanced, so there its consumer reaches the edge exactly when its producer
+// leaves it; here the consumer is there first by construction.
+//
+// Both rank-1 owner ranges are disjoint from their dependencies', as in
+// crossFixture, so the comparison against the ordinary-launch reference is
+// not blind for either edge.
+//
+// It is a witness and not a gate. On sm_121a, with the emitted dependency
+// wait made a no-op, this fixture agreed with the reference in 3 of 3 runs at
+// n = 1048576 -- the same count crossFixture returns, 0 of 5. The skew makes
+// the consumer reach its edge first, but it does not make the race reachable:
+// producer and consumer sweep elements in the same increasing order at
+// comparable rates, so the read index trails the write index for the whole
+// task and a consumer that starts late cannot overtake. What deterministically
+// catches a wait that does not wait is the CPU backend's skewed worker, which
+// delays the producer's Compute rather than the consumer's start, and what
+// catches a wait counted against the wrong population is an unsatisfiable
+// wait: emitting "published < grid_ctas" aborts crossFixture on the device
+// with code 4.
+func skewFixture(t *testing.T) programFixture {
+	t.Helper()
+	g, err := cudataskgraph.New([]cudataskgraph.Task{
+		{ID: "base", Rank: 0, Bytes: 16, Scope: cudataskgraph.ScopeDevice},
+		{ID: "extra", Rank: 0, Bytes: 16, Scope: cudataskgraph.ScopeDevice},
+		{ID: "pair", Rank: 0, Bytes: 16, Scope: cudataskgraph.ScopeDevice},
+		{ID: "mirror", Deps: []string{"pair"}, Rank: 1, Bytes: 16, Scope: cudataskgraph.ScopeDevice},
+		{ID: "tail", Deps: []string{"base"}, Rank: 1, Bytes: 16, Scope: cudataskgraph.ScopeDevice},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return programFixture{
+		name:  "skew-4cta",
+		graph: g,
+		ops: map[string]cudamega.Operation{
+			"base":   {Kind: cudamega.Add, Scalar: 3},
+			"extra":  {Kind: cudamega.Add, Scalar: 5},
+			"pair":   {Kind: cudamega.Add, Scalar: 7},
+			"mirror": {Kind: cudamega.Multiply, Scalar: 2},
+			"tail":   {Kind: cudamega.Multiply, Scalar: 3},
+		},
+		grid:   cudamega.Grid{CTAs: 4, ThreadsPerCTA: 128, Policy: cudamega.CountedPolicy},
+		target: goldenTarget,
+	}
+}
+
 func goldenFixtures(t *testing.T) []programFixture {
-	return []programFixture{ctaFixture(t), deviceFixture(t)}
+	return []programFixture{ctaFixture(t), deviceFixture(t), crossFixture(t)}
+}
+
+// TestDemonstratorDependsAcrossWorkers is the precondition every other gate
+// over crossFixture rests on.
+//
+// A fixture whose consumer and producer share an owner range gives element e
+// to the same CTA in both tasks, and then no comparison of the result -- with
+// the ordinary-launch reference or with anything else -- can tell a run that
+// waited from a run that did not. This test states the property the fixture
+// must have for those comparisons to mean anything: every consumer's owner
+// range is disjoint from its dependency's, so every element it reads crossed
+// a worker boundary.
+func TestDemonstratorDependsAcrossWorkers(t *testing.T) {
+	f := crossFixture(t)
+	p, err := cudamega.NewProgram(f.graph, f.ops, f.grid, f.target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps := p.Steps()
+	edges := 0
+	for _, s := range steps {
+		for _, d := range s.Deps {
+			edges++
+			c, q := s.Owner, steps[d].Owner
+			if c.Lo < q.Hi && q.Lo < c.Hi {
+				t.Errorf("task %q owns %s and its dependency %q owns %s; the ranges overlap, so some element is read by the CTA that wrote it",
+					s.Task.ID, c, steps[d].Task.ID, q)
+			}
+		}
+	}
+	if edges == 0 {
+		t.Fatal("the demonstrator has no dependency edge; there is nothing for a wait to be load-bearing about")
+	}
 }
 
 // TestGoldenSourceMatchesGenerator keeps the committed .cu in step with the

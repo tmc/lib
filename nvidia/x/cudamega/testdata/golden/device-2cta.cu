@@ -2,6 +2,8 @@
 constexpr unsigned task_count = 4;
 constexpr unsigned grid_ctas = 2;
 constexpr unsigned long long spin_limit = 16777216ull;
+constexpr unsigned producers_1 = 2u; // task "seed" is performed by CTAs [0,2)
+constexpr unsigned producers_2 = 2u; // task "scale" is performed by CTAs [0,2)
 static_assert(task_count >= 1, "the generated worker has at least one task");
 __device__ unsigned op_0(unsigned x) { return x + 11u; }
 __device__ unsigned op_1(unsigned x) { return x + 3u; }
@@ -20,8 +22,14 @@ case 2: return op_2(x);
 case 3: return op_3(x);
 default: return 0; }}
 
+// start_order is the instrument, not part of the model: start_order[0] is a
+// ticket counter and start_order[1 + cta*task_count + task] is the ticket the
+// CTA held when it took that task, or zero for a task that CTA never took.
+// Tickets are dealt by one device-scope atomic add, so they are a total order
+// over task starts across the whole grid and can be compared between CTAs.
 extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
-    unsigned *completed, volatile unsigned *abort_code, unsigned n, unsigned long long epoch) {
+    unsigned *completed, unsigned long long *start_order, volatile unsigned *abort_code,
+    unsigned n, unsigned long long epoch) {
   if (gridDim.x != grid_ctas || gridDim.y != 1 || gridDim.z != 1 || blockDim.y != 1 || blockDim.z != 1) {
     if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, 2u);
     return;
@@ -38,72 +46,99 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
   __syncthreads();
   const unsigned cta_barrier_addr = (unsigned)__cvta_generic_to_shared(&cta_barrier);
 
-  // task 0 "local" scope=cta rank=0 deps=[]
-  if (!*abort_code) {
-    if (!*abort_code) {
-      const unsigned *src = input;
-      for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)grid_ctas*blockDim.x)
-        scratch[(size_t)0*n + e] = op_0(src[e]);
-    }
-    asm volatile("mbarrier.arrive.release.cta.shared::cta.b64 _, [%0];" :: "r"(cta_barrier_addr) : "memory"); // release for task 0
-    if (threadIdx.x == 0) atomicAdd(completed + 0, 1u); // publish task 0
-  }
+  __shared__ unsigned selection_abort;
+  __shared__ unsigned task_ready;
+  const bool owns_0 = (blockIdx.x < 2u); // task "local"
+  const bool owns_1 = (blockIdx.x < 2u); // task "seed"
+  const bool owns_2 = (blockIdx.x < 2u); // task "scale"
+  const bool owns_3 = (blockIdx.x < 2u); // task "offset"
+  unsigned done_0 = 0u;
+  unsigned done_1 = 0u;
+  unsigned done_2 = 0u;
+  unsigned done_3 = 0u;
+  unsigned remaining = 0u + (unsigned)owns_0 + (unsigned)owns_1 + (unsigned)owns_2 + (unsigned)owns_3;
+  unsigned long long spins = 0ull;
+  while (remaining) {
+    if (threadIdx.x == 0) selection_abort = *abort_code;
+    __syncthreads();
+    const unsigned stop = selection_abort;
+    __syncthreads();
+    if (stop) break;
 
-  // task 1 "seed" scope=device rank=0 deps=[]
-  if (!*abort_code) {
-    if (!*abort_code) {
-      const unsigned *src = input;
-      for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)grid_ctas*blockDim.x)
-        scratch[(size_t)1*n + e] = op_1(src[e]);
-    }
-    asm volatile("fence.sc.gpu;" ::: "memory"); // release for task 1
-    if (threadIdx.x == 0) atomicAdd(completed + 1, 1u); // publish task 1
-  }
-
-  // task 2 "scale" scope=device rank=1 deps=[1]
-  if (!*abort_code) {
-    if (threadIdx.x == 0) {
-      unsigned long long spins = 0ull;
-      unsigned done = 0u;
-      while (true) { // poll the completion word of task 1
-        asm volatile("ld.acquire.gpu.u32 %0, [%1+4];" : "=r"(done) : "l"(completed) : "memory");
-        if (done >= grid_ctas) break;
-        if (*abort_code) break;
-        if (++spins > spin_limit) { atomicCAS((unsigned *)abort_code, 0u, 4u); break; }
+    // task 0 "local" scope=cta rank=0 deps=[] owner=[0,2)
+    if (owns_0 && !done_0) {
+      { // no dependency: ready on sight
+        if (threadIdx.x == 0) start_order[1 + (size_t)blockIdx.x*task_count + 0] = atomicAdd(start_order, 1ull) + 1ull;
+        const unsigned *src_0 = input;
+        for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)2u*blockDim.x)
+          scratch[(size_t)0*n + e] = op_0(src_0[e]);
+        asm volatile("mbarrier.arrive.release.cta.shared::cta.b64 _, [%0];" :: "r"(cta_barrier_addr) : "memory"); // task 0: release at cta scope
+        if (threadIdx.x == 0) atomicAdd(completed + 0, 1u); // publish task 0
+        done_0 = 1u; remaining--;
       }
     }
-    __syncthreads();
-    asm volatile("fence.sc.gpu;" ::: "memory"); // acquire for task 2
-    if (!*abort_code) {
-      const unsigned *src = scratch + (size_t)1*n;
-      for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)grid_ctas*blockDim.x)
-        scratch[(size_t)2*n + e] = op_2(src[e]);
-    }
-    asm volatile("fence.sc.gpu;" ::: "memory"); // release for task 2
-    if (threadIdx.x == 0) atomicAdd(completed + 2, 1u); // publish task 2
-  }
 
-  // task 3 "offset" scope=system rank=2 deps=[2]
-  if (!*abort_code) {
-    if (threadIdx.x == 0) {
-      unsigned long long spins = 0ull;
-      unsigned done = 0u;
-      while (true) { // poll the completion word of task 2
-        asm volatile("ld.acquire.sys.u32 %0, [%1+8];" : "=r"(done) : "l"(completed) : "memory");
-        if (done >= grid_ctas) break;
-        if (*abort_code) break;
-        if (++spins > spin_limit) { atomicCAS((unsigned *)abort_code, 0u, 4u); break; }
+    // task 1 "seed" scope=device rank=0 deps=[] owner=[0,2)
+    if (owns_1 && !done_1) {
+      { // no dependency: ready on sight
+        if (threadIdx.x == 0) start_order[1 + (size_t)blockIdx.x*task_count + 1] = atomicAdd(start_order, 1ull) + 1ull;
+        const unsigned *src_1 = input;
+        for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)2u*blockDim.x)
+          scratch[(size_t)1*n + e] = op_1(src_1[e]);
+        asm volatile("fence.sc.gpu;" ::: "memory"); // task 1: release at device scope
+        if (threadIdx.x == 0) atomicAdd(completed + 1, 1u); // publish task 1
+        done_1 = 1u; remaining--;
       }
     }
-    __syncthreads();
-    asm volatile("fence.sc.sys;" ::: "memory"); // acquire for task 3
-    if (!*abort_code) {
-      const unsigned *src = scratch + (size_t)2*n;
-      for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)grid_ctas*blockDim.x)
-        scratch[(size_t)3*n + e] = op_3(src[e]);
+
+    // task 2 "scale" scope=device rank=1 deps=[1] owner=[0,2)
+    if (owns_2 && !done_2) {
+      if (threadIdx.x == 0) {
+        unsigned published = 0u;
+        task_ready = 1u;
+        asm volatile("ld.acquire.gpu.u32 %0, [%1+4];" : "=r"(published) : "l"(completed) : "memory"); // task 1
+        if (published < producers_1) task_ready = 0u;
+      }
+      __syncthreads();
+      const unsigned take_2 = task_ready;
+      __syncthreads();
+      if (take_2) {
+        if (threadIdx.x == 0) start_order[1 + (size_t)blockIdx.x*task_count + 2] = atomicAdd(start_order, 1ull) + 1ull;
+        asm volatile("fence.sc.gpu;" ::: "memory"); // task 2: acquire of task 1 at device scope
+        const unsigned *src_2 = scratch + (size_t)1*n;
+        for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)2u*blockDim.x)
+          scratch[(size_t)2*n + e] = op_2(src_2[e]);
+        asm volatile("fence.sc.sys;" ::: "memory"); // task 2: release at system scope
+        if (threadIdx.x == 0) atomicAdd(completed + 2, 1u); // publish task 2
+        done_2 = 1u; remaining--;
+      }
     }
-    asm volatile("fence.sc.sys;" ::: "memory"); // release for task 3
-    if (threadIdx.x == 0) atomicAdd(completed + 3, 1u); // publish task 3
+
+    // task 3 "offset" scope=system rank=2 deps=[2] owner=[0,2)
+    if (owns_3 && !done_3) {
+      if (threadIdx.x == 0) {
+        unsigned published = 0u;
+        task_ready = 1u;
+        asm volatile("ld.acquire.sys.u32 %0, [%1+8];" : "=r"(published) : "l"(completed) : "memory"); // task 2
+        if (published < producers_2) task_ready = 0u;
+      }
+      __syncthreads();
+      const unsigned take_3 = task_ready;
+      __syncthreads();
+      if (take_3) {
+        if (threadIdx.x == 0) start_order[1 + (size_t)blockIdx.x*task_count + 3] = atomicAdd(start_order, 1ull) + 1ull;
+        asm volatile("fence.sc.sys;" ::: "memory"); // task 3: acquire of task 2 at system scope
+        const unsigned *src_3 = scratch + (size_t)2*n;
+        for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)2u*blockDim.x)
+          scratch[(size_t)3*n + e] = op_3(src_3[e]);
+        asm volatile("fence.sc.sys;" ::: "memory"); // task 3: release at system scope
+        if (threadIdx.x == 0) atomicAdd(completed + 3, 1u); // publish task 3
+        done_3 = 1u; remaining--;
+      }
+    }
+
+    ++spins;
+    if (spins > spin_limit && threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, 4u);
   }
 
 }

@@ -229,11 +229,27 @@ func (r *recording) BeginTask(i int) (bool, error) {
 	r.note("BeginTask")
 	return r.Backend.BeginTask(i)
 }
-func (r *recording) Await(i, dep int) error { r.note("Await"); return r.Backend.Await(i, dep) }
-func (r *recording) Barrier() error         { r.note("Barrier"); return r.Backend.Barrier() }
-func (r *recording) Fence(i int, s cudataskgraph.Scope, k cudamega.Fence) error {
+func (r *recording) BeginSelection() error {
+	r.note("BeginSelection")
+	return r.Backend.BeginSelection()
+}
+func (r *recording) Ready(i, dep int, s cudataskgraph.Scope) error {
+	r.note("Ready")
+	return r.Backend.Ready(i, dep, s)
+}
+func (r *recording) Barrier() error { r.note("Barrier"); return r.Backend.Barrier() }
+func (r *recording) Take(i int) (bool, error) {
+	r.note("Take")
+	return r.Backend.Take(i)
+}
+func (r *recording) NextRound() (bool, error) {
+	r.note("NextRound")
+	return r.Backend.NextRound()
+}
+func (r *recording) EndSelection() error { r.note("EndSelection"); return r.Backend.EndSelection() }
+func (r *recording) Fence(i, dep int, s cudataskgraph.Scope, k cudamega.Fence) error {
 	r.note("Fence")
-	return r.Backend.Fence(i, s, k)
+	return r.Backend.Fence(i, dep, s, k)
 }
 func (r *recording) Compute(i, src int, op cudamega.Operation) error {
 	r.note("Compute")

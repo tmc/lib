@@ -2,6 +2,7 @@ package cudamega_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -128,15 +129,43 @@ func TestCTAScopeRefusedOnBothEndsOfACrossCTAEdge(t *testing.T) {
 	}
 }
 
+// blockAt returns the lines of the brace-delimited block opened on the line at
+// index i, not including the line that opens it or the line that closes it.
+//
+// It counts braces rather than looking for a closing line at a fixed indent
+// because the blocks the tests below examine contain nested blocks: a
+// selection loop contains a task, and a task contains its element loop.
+func blockAt(lines []string, i int) []string {
+	depth := 0
+	for k := i; k < len(lines); k++ {
+		depth += strings.Count(lines[k], "{") - strings.Count(lines[k], "}")
+		if depth == 0 {
+			return lines[i+1 : k]
+		}
+	}
+	return nil
+}
+
 // TestDependencySpinIsBounded checks that a dependency wait cannot spin
 // forever.
 //
 // The bound has to be in the kernel. A harness-side watchdog cannot stop a CTA
 // that will not yield: killing the host process leaves the grid resident, and
 // on a device that also drives the display that costs the desktop. So the test
-// asserts the bound is inside the poll loop -- between the `while` and the
-// brace that closes it -- rather than merely somewhere in the file, and that it
-// raises a code distinguishable from a clean finish and from every other abort.
+// asserts the bound is inside the loop a waiting CTA actually revisits --
+// between the `while` and the brace that closes it -- rather than merely
+// somewhere in the file, and that it raises a code distinguishable from a
+// clean finish and from every other abort.
+//
+// The loop it asserts on is the selection loop, not a per-dependency poll
+// loop: since ready-only selection there is no poll loop to bound, because a
+// CTA that finds a dependency unmet does not sit on it. It reads the
+// completion word once, declines to take the task, and comes back around. The
+// bound moved onto the round counter with the waiting, and this test moved
+// with it. The assertion is stronger for it -- one bound now covers every way
+// a worker can fail to make progress, not only the one shape of wait -- and
+// [TestBoundedLoopIsReachedOnEveryRound] holds it to being reached
+// unconditionally rather than on some path through the body.
 func TestDependencySpinIsBounded(t *testing.T) {
 	f := deviceFixture(t)
 	src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid, f.target)
@@ -147,43 +176,31 @@ func TestDependencySpinIsBounded(t *testing.T) {
 
 	var loops int
 	for i, ln := range lines {
-		// The loop is found by the comment the emitter writes on it, because
-		// the poll's own shape is no longer distinctive: the acquiring load
-		// that replaced the volatile one sits inside the loop rather than in
-		// its condition, and "while (true)" appears wherever a loop exits
-		// only by breaking.
-		if !strings.Contains(ln, "// poll the completion word of task ") {
+		if !strings.Contains(ln, "while (remaining)") {
 			continue
 		}
 		loops++
-		var body []string
-		for _, in := range lines[i+1:] {
-			if strings.TrimSpace(in) == "}" {
-				break
-			}
-			body = append(body, in)
-		}
-		joined := strings.Join(body, "\n")
+		joined := strings.Join(blockAt(lines, i), "\n")
 		if !strings.Contains(joined, "spin_limit") {
-			t.Errorf("poll loop at line %d has no iteration bound in its body:\n%s", i+1, joined)
+			t.Errorf("selection loop at line %d has no iteration bound in its body:\n%s", i+1, joined)
 			continue
 		}
-		// The load the loop exits on must be an acquiring load. A poll that
-		// observed the count without acquiring would let the reads that
-		// follow it be satisfied from lines written before the producer's
+		// The read the loop's progress depends on must be an acquiring load. A
+		// read that observed the count without acquiring would let the reads
+		// that follow it be satisfied from lines written before the producer's
 		// stores, which is the defect the volatile form had.
 		if !strings.Contains(joined, "ld.acquire.") {
-			t.Errorf("poll loop at line %d reads the completion word without acquiring it:\n%s", i+1, joined)
+			t.Errorf("selection loop at line %d reads the completion word without acquiring it:\n%s", i+1, joined)
 		}
 		if strings.Contains(joined, "volatile unsigned*)completed") {
-			t.Errorf("poll loop at line %d still reads the completion word through a volatile cast:\n%s", i+1, joined)
+			t.Errorf("selection loop at line %d still reads the completion word through a volatile cast:\n%s", i+1, joined)
 		}
 		if !strings.Contains(joined, fmt.Sprintf("%du", cudamega.AbortSpinExhausted)) {
-			t.Errorf("poll loop at line %d bounds the spin but does not raise cudamega.AbortSpinExhausted:\n%s", i+1, joined)
+			t.Errorf("selection loop at line %d bounds the spin but does not raise cudamega.AbortSpinExhausted:\n%s", i+1, joined)
 		}
 	}
-	if loops == 0 {
-		t.Fatal("no dependency poll loop in the device fixture; the bound has nothing to guard")
+	if loops != 1 {
+		t.Fatalf("the device fixture emits %d bounded loops; a worker has exactly one loop to bound", loops)
 	}
 
 	// A code the host cannot tell apart from a clean finish is not a
@@ -197,6 +214,91 @@ func TestDependencySpinIsBounded(t *testing.T) {
 		if code == cudamega.AbortSpinExhausted {
 			t.Errorf("cudamega.AbortSpinExhausted collides with %s (%d)", name, code)
 		}
+	}
+}
+
+// TestBoundedLoopIsReachedOnEveryRound checks that the bound is on the loop
+// rather than inside a branch of it.
+//
+// A counter incremented under `if (owns_3 && !done_3)` bounds the rounds in
+// which that CTA had that task left, which for a CTA waiting on a dependency
+// it does not own is no rounds at all. The increment and the test of it must
+// both sit directly in the loop body, at the depth the loop opens.
+func TestBoundedLoopIsReachedOnEveryRound(t *testing.T) {
+	f := deviceFixture(t)
+	src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid, f.target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(src, "\n")
+	i := slices.IndexFunc(lines, func(ln string) bool { return strings.Contains(ln, "while (remaining)") })
+	if i < 0 {
+		t.Fatal("no selection loop in the device fixture")
+	}
+	body := blockAt(lines, i)
+
+	depth := 0
+	var top []string
+	for _, ln := range body {
+		if depth == 0 {
+			top = append(top, ln)
+		}
+		depth += strings.Count(ln, "{") - strings.Count(ln, "}")
+	}
+	joined := strings.Join(top, "\n")
+	for _, want := range []string{"++spins;", "spins > spin_limit"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("%q is not at the top level of the selection loop, so a round that takes no task does not reach it:\n%s", want, joined)
+		}
+	}
+}
+
+// TestTakingATaskIsNotWaitingForIt is the S1.2 gate on emitted text.
+//
+// Pop-then-block is the failure it rules out: a CTA that takes a task and then
+// waits inside it holds that task while it waits, and when every resident CTA
+// holds a consumer there is no CTA left to run the producer. The shape that
+// cannot do that is the one asserted here -- a task's body, from the brace
+// that admits the CTA to the brace that retires the task, contains no wait at
+// all. All the waiting is outside it, in the round the CTA comes back around
+// on, where holding nothing is what lets the producer run.
+//
+// The element loop is the one loop a task body may contain, and it is bounded
+// by n.
+func TestTakingATaskIsNotWaitingForIt(t *testing.T) {
+	for _, f := range goldenFixtures(t) {
+		t.Run(f.name, func(t *testing.T) {
+			src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid, f.target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lines := strings.Split(src, "\n")
+			bodies := 0
+			for i, ln := range lines {
+				trimmed := strings.TrimSpace(ln)
+				taken := strings.HasPrefix(trimmed, "if (take_") ||
+					strings.HasPrefix(trimmed, "{ // no dependency")
+				if !taken {
+					continue
+				}
+				bodies++
+				for k, in := range blockAt(lines, i) {
+					switch {
+					case strings.Contains(in, "while"):
+						t.Errorf("%s: line %d, inside a taken task, is a wait: %s", f.name, i+k+2, strings.TrimSpace(in))
+					case strings.Contains(in, "ld.acquire."):
+						t.Errorf("%s: line %d, inside a taken task, reads a dependency: %s", f.name, i+k+2, strings.TrimSpace(in))
+					case strings.Contains(in, "spin"):
+						t.Errorf("%s: line %d, inside a taken task, counts a spin: %s", f.name, i+k+2, strings.TrimSpace(in))
+					case strings.Contains(in, "for ") && !strings.Contains(in, "for (size_t e ="):
+						t.Errorf("%s: line %d, inside a taken task, is a loop that is not the element loop: %s", f.name, i+k+2, strings.TrimSpace(in))
+					}
+				}
+			}
+			if want := len(f.graph.Tasks()); bodies != want {
+				t.Fatalf("%s: found %d task bodies for %d tasks; the assertion above ran over the wrong text", f.name, bodies, want)
+			}
+		})
 	}
 }
 

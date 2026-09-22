@@ -38,19 +38,41 @@ func megaTarget() string {
 // belong to the epoch-2³² launch, which is what makes the 64-bit epoch
 // parameter observable: a 32-bit parameter takes that epoch to zero and the
 // run comes back with [cudamega.AbortBadExtent] as status 11.
-func nativeMain(f programFixture) string {
-	tasks := len(f.graph.Tasks())
+func nativeMain(t *testing.T, f programFixture) string {
+	t.Helper()
+	p, err := cudamega.NewProgram(f.graph, f.ops, f.grid, f.target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps := p.Steps()
+	tasks := len(steps)
+	// The owner ranges the harness checks the start-order buffer against are
+	// written into the harness as literals rather than read back from the
+	// device, so that a kernel which started a task on the wrong CTA is
+	// caught by a number this side computed.
+	var lo, hi []string
+	total := 0
+	for _, s := range steps {
+		lo = append(lo, fmt.Sprintf("%du", s.Owner.Lo))
+		hi = append(hi, fmt.Sprintf("%du", s.Owner.Hi))
+		total += int(s.Owner.Count())
+	}
 	return fmt.Sprintf(`
 #include <cstdio>
 int main() {
-  const unsigned n = 32, nt = %[1]du, threads = %[2]du;
-  const size_t words = (size_t)nt*n, sb = words*sizeof(unsigned);
-  unsigned h[n]; for (unsigned i=0;i<n;i++) h[i]=i;
-  unsigned *in=0,*sp=0,*so=0,*completed=0,*abort=0;
-  if (cudaMalloc(&in,sizeof h)||cudaMalloc(&sp,sb)||cudaMalloc(&so,sb)||
+  // n is larger than threads on purpose. At n <= threads every thread has
+  // exactly one element, so the strided loop the worker emits runs its body
+  // once and the per-owner stride is never taken; the reference launch below
+  // is sized from n for the same reason.
+  const unsigned n = 1048576, nt = %[1]du, threads = %[2]du;
+  const size_t words = (size_t)nt*n, sb = words*sizeof(unsigned), ib = (size_t)n*sizeof(unsigned);
+  unsigned *h=(unsigned*)malloc(ib); for (unsigned i=0;i<n;i++) h[i]=i;
+  const size_t ow = (size_t)1 + (size_t)nt*grid_ctas, ob = ow*sizeof(unsigned long long);
+  unsigned *in=0,*sp=0,*so=0,*completed=0,*abort=0; unsigned long long *order=0;
+  if (cudaMalloc(&in,ib)||cudaMalloc(&sp,sb)||cudaMalloc(&so,sb)||cudaMalloc(&order,ob)||
       cudaMalloc(&completed,nt*sizeof(unsigned))||cudaMalloc(&abort,sizeof(unsigned))) return 2;
-  cudaMemcpy(in,h,sizeof h,cudaMemcpyHostToDevice);
-  cudaMemset(sp,0,sb); cudaMemset(so,0,sb);
+  cudaMemcpy(in,h,ib,cudaMemcpyHostToDevice); free(h);
+  cudaMemset(sp,0,sb); cudaMemset(so,0,sb); cudaMemset(order,0,ob);
   cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(abort,0,sizeof(unsigned));
   int blocks=0, sms=0, dev=0;
   if (cudaGetDevice(&dev)!=cudaSuccess||cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,dev)!=cudaSuccess||sms<1) return 3;
@@ -61,11 +83,42 @@ int main() {
   // passes without ever reaching the admission it claims to check.
   if ((unsigned long long)blocks*(unsigned long long)sms < grid_ctas) {
     printf("residency %%d/SM * %%d SMs < grid_ctas %%u\n", blocks, sms, grid_ctas); return 3; }
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,1ull);
+  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,order,abort,n,1ull);
   if (cudaDeviceSynchronize()!=cudaSuccess) { printf("persistent: %%s\n", cudaGetErrorString(cudaGetLastError())); return 4; }
   unsigned ac=0; cudaMemcpy(&ac,abort,sizeof ac,cudaMemcpyDeviceToHost);
   if (ac) { printf("persistent run aborted with code %%u\n", ac); return 9; }
-  for (unsigned t=0;t<nt;t++) ordinary_task<<<1,threads>>>(in,so,n,t);
+  // The start-order buffer. Word 0 is the ticket counter; word 1+cta*nt+i is
+  // the ticket CTA cta took when it started task i, or 0 if it never did.
+  // What this checks is ownership as the device actually performed it: the
+  // set of CTAs that started a task must be exactly the range this package
+  // dealt it, and the tickets must be a permutation of 1..total. A kernel in
+  // which every CTA ran every task -- the shape before per-task ownership --
+  // fails the first check with a count, not with a wrong answer.
+  unsigned long long *ord=(unsigned long long*)malloc(ob);
+  cudaMemcpy(ord,order,ob,cudaMemcpyDeviceToHost);
+  {
+    const unsigned olo[]={%[3]s}, ohi[]={%[4]s};
+    const unsigned long long total=%[5]dull;
+    if (ord[0]!=total) { printf("start-order counter %%llu, want %%llu\n", ord[0], total); return 13; }
+    unsigned char *seen=(unsigned char*)calloc(total+1,1);
+    for (unsigned c=0;c<grid_ctas;c++) for (unsigned i=0;i<nt;i++) {
+      unsigned long long tk=ord[1+(size_t)c*nt+i];
+      int owns = c>=olo[i] && c<ohi[i];
+      if (owns != (tk!=0)) {
+        printf("task %%u on cta %%u: ticket %%llu, owner range [%%u,%%u)\n", i, c, tk, olo[i], ohi[i]); return 14; }
+      if (!tk) continue;
+      if (tk>total||seen[tk]) { printf("task %%u on cta %%u has ticket %%llu, which is out of range or reused\n", i, c, tk); return 15; }
+      seen[tk]=1;
+    }
+    printf("start order:");
+    for (unsigned long long k=1;k<=total;k++)
+      for (unsigned c=0;c<grid_ctas;c++) for (unsigned i=0;i<nt;i++)
+        if (ord[1+(size_t)c*nt+i]==k) printf(" t%%u@cta%%u", i, c);
+    printf("\n");
+    free(seen);
+  }
+  free(ord);
+  for (unsigned t=0;t<nt;t++) ordinary_task<<<(n+threads-1)/threads,threads>>>(in,so,n,t);
   if (cudaDeviceSynchronize()!=cudaSuccess) return 5;
   unsigned *a=(unsigned*)malloc(sb), *b=(unsigned*)malloc(sb);
   cudaMemcpy(a,sp,sb,cudaMemcpyDeviceToHost); cudaMemcpy(b,so,sb,cudaMemcpyDeviceToHost);
@@ -73,7 +126,7 @@ int main() {
     printf("task %%zu element %%zu: persistent %%u ordinary %%u\n", i/n, i%%n, a[i], b[i]); return 6; }
   cudaMemset(sp,0xa5,sb); cudaMemset(completed,0,nt*sizeof(unsigned));
   unsigned one=1; cudaMemcpy(abort,&one,sizeof one,cudaMemcpyHostToDevice);
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,2ull);
+  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,order,abort,n,2ull);
   if (cudaDeviceSynchronize()!=cudaSuccess) return 7;
   cudaMemcpy(a,sp,sb,cudaMemcpyDeviceToHost);
   for (size_t i=0;i<words;i++) if (a[i]!=0xa5a5a5a5u) {
@@ -84,7 +137,8 @@ int main() {
   // to 0, the unpublished value the worker refuses with AbortBadExtent, and
   // is therefore the smallest epoch that tells the two widths apart.
   cudaMemset(sp,0,sb); cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(abort,0,sizeof(unsigned));
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,1ull<<32);
+  cudaMemset(order,0,ob);
+  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,order,abort,n,1ull<<32);
   if (cudaDeviceSynchronize()!=cudaSuccess) return 10;
   cudaMemcpy(&ac,abort,sizeof ac,cudaMemcpyDeviceToHost);
   if (ac) { printf("launch at epoch 2^32 aborted with code %%u\n", ac); return 11; }
@@ -93,18 +147,25 @@ int main() {
     printf("epoch 2^32: task %%zu element %%zu: persistent %%u ordinary %%u\n", i/n, i%%n, a[i], b[i]); return 12; }
   printf("OK n=%%u tasks=%%u ctas=%%u threads=%%u\n", n, nt, grid_ctas, threads);
   free(a); free(b);
-  cudaFree(in);cudaFree(sp);cudaFree(so);cudaFree(completed);cudaFree(abort);
+  cudaFree(in);cudaFree(sp);cudaFree(so);cudaFree(order);cudaFree(completed);cudaFree(abort);
   return 0;
 }
-`, tasks, f.grid.ThreadsPerCTA)
+`, tasks, f.grid.ThreadsPerCTA, strings.Join(lo, ","), strings.Join(hi, ","), total)
 }
 
 // TestNativePersistentReference launches the persistent grid on the authorized
 // device and requires it to agree with the ordinary-launch reference.
 //
-// The fixtures run in the order cta-1cta, device-2cta: a one-CTA grid that
-// hangs is the cheapest version of the failure, so the cheap one goes first
-// and a hang there stops the rest.
+// The fixtures run in the order cta-1cta, device-2cta, cross-2cta: a one-CTA
+// grid that hangs is the cheapest version of the failure, so the cheap one
+// goes first and a hang there stops the rest.
+//
+// cross-2cta is the fixture this comparison is not blind on. In the other two
+// the emitted worker gives element e to the same (cta, tid) in every task, so
+// the element a consumer reads was written by the thread reading it and
+// agreement with the ordinary-launch reference survives a dependency wait that
+// does nothing. In cross-2cta each consumer's owner range is disjoint from its
+// producer's, so every element it reads crossed a CTA boundary.
 //
 // The context timeout below is a harness convenience for a host process that
 // will not exit, not a recovery mechanism. It cannot stop a resident CTA that
@@ -130,7 +191,7 @@ func TestNativePersistentReference(t *testing.T) {
 	// on its own: -run '/cta-1cta' launches the one-CTA grid and nothing
 	// else. Ordering here also means a hang on cta-1cta never reaches
 	// device-2cta.
-	for _, f := range []programFixture{ctaFixture(t), deviceFixture(t)} {
+	for _, f := range []programFixture{ctaFixture(t), deviceFixture(t), crossFixture(t), skewFixture(t)} {
 		t.Run(f.name, func(t *testing.T) {
 			src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid, f.target)
 			if err != nil {
@@ -138,7 +199,7 @@ func TestNativePersistentReference(t *testing.T) {
 			}
 			cu := filepath.Join(dir, f.name+".cu")
 			exe := filepath.Join(dir, f.name)
-			if err := os.WriteFile(cu, []byte(src+nativeMain(f)), 0600); err != nil {
+			if err := os.WriteFile(cu, []byte(src+nativeMain(t, f)), 0600); err != nil {
 				t.Fatal(err)
 			}
 			if out, err := exec.Command(nvcc, "-arch="+target, cu, "-o", exe).CombinedOutput(); err != nil {
@@ -212,29 +273,30 @@ func TestNativeSpinBoundReleasesAGridThatWouldHang(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const publish = "    if (threadIdx.x == 0) atomicAdd(completed + 0, 1u); // publish task 0\n"
+	const publish = "        if (threadIdx.x == 0) atomicAdd(completed + 0, 1u); // publish task 0\n"
 	if !strings.Contains(src, publish) {
 		t.Fatalf("producer publication not found in generated source; the probe would test nothing:\n%s", src)
 	}
-	src = strings.Replace(src, publish, "    // publication deleted: the consumer below can only exit at the bound\n", 1)
+	src = strings.Replace(src, publish, "        // publication deleted: the consumer below can only exit at the bound\n", 1)
 
 	src += fmt.Sprintf(`
 #include <cstdio>
 int main() {
   const unsigned n = 32, nt = 2u, threads = %du;
   unsigned h[n]; for (unsigned i=0;i<n;i++) h[i]=i;
-  unsigned *in=0,*sp=0,*completed=0,*abort=0;
-  if (cudaMalloc(&in,sizeof h)||cudaMalloc(&sp,(size_t)nt*n*sizeof(unsigned))||
+  const size_t ob = ((size_t)1+(size_t)nt*grid_ctas)*sizeof(unsigned long long);
+  unsigned *in=0,*sp=0,*completed=0,*abort=0; unsigned long long *order=0;
+  if (cudaMalloc(&in,sizeof h)||cudaMalloc(&sp,(size_t)nt*n*sizeof(unsigned))||cudaMalloc(&order,ob)||
       cudaMalloc(&completed,nt*sizeof(unsigned))||cudaMalloc(&abort,sizeof(unsigned))) return 2;
   cudaMemcpy(in,h,sizeof h,cudaMemcpyHostToDevice);
-  cudaMemset(sp,0,(size_t)nt*n*sizeof(unsigned));
+  cudaMemset(sp,0,(size_t)nt*n*sizeof(unsigned)); cudaMemset(order,0,ob);
   cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(abort,0,sizeof(unsigned));
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,1ull);
+  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,order,abort,n,1ull);
   if (cudaDeviceSynchronize()!=cudaSuccess) { printf("sync: %%s\n", cudaGetErrorString(cudaGetLastError())); return 4; }
   unsigned ac=0; cudaMemcpy(&ac,abort,sizeof ac,cudaMemcpyDeviceToHost);
   printf("abort_code=%%u\n", ac);
   if (ac != %du) return 9;
-  cudaFree(in);cudaFree(sp);cudaFree(completed);cudaFree(abort);
+  cudaFree(in);cudaFree(sp);cudaFree(order);cudaFree(completed);cudaFree(abort);
   return 0;
 }
 `, f.grid.ThreadsPerCTA, cudamega.AbortSpinExhausted)

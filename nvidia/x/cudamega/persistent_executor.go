@@ -18,6 +18,16 @@ type Grid struct {
 	CTAs          uint32
 	ThreadsPerCTA uint32
 
+	// Policy is how the grid's CTAs are dealt to the graph's tasks. The zero
+	// value is [WavePolicy], under which every CTA performs every task, which
+	// is what this package emitted before per-task ownership existed.
+	//
+	// It lives here rather than beside the graph because it is the static
+	// task-to-CTA mapping this type is named for: a grid and a policy
+	// together say which CTA performs which element of which task, and
+	// neither says it alone.
+	Policy Policy
+
 	// SpinLimit bounds how many times a CTA polls a dependency's completion
 	// word before giving up with [AbortSpinExhausted]. Zero means
 	// [DefaultSpinLimit].
