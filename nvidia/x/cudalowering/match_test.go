@@ -36,12 +36,60 @@ func TestMatchKey(t *testing.T) {
 		{"_Z", "_Z"},
 		{"_Z0x", "_Z0x"},
 		{"_Z99short", "_Z99short"},
+		{"_ZN3foo", "_ZN3foo"},
 		{"", ""},
 		{"  compute  ", "compute"},
+		{" _Z10atomicDropPfPKfi ", "atomicDrop"},
+
+		// Symbols an MLX CUDA build writes: nested names whose template
+		// arguments hold substitutions and further nested names.
+		{"_ZN3mlx4core2cu9binary_vvINS1_3AddE13__nv_bfloat16S4_jLi8EEEvPKT0_S7_PT1_T2_",
+			"mlx::core::cu::binary_vv"},
+		{"_ZN3mlx4core2cu18arg_reduce_generalI13__nv_bfloat16NS1_6ArgMaxIS3_EELi1024ELi4EEEvPKT_PjmN4cuda3std3__45arrayIiLm10EEENSD_IlLm10EEESF_ili",
+			"mlx::core::cu::arg_reduce_general"},
+		{"_ZN3mlx4core2cu59custom_kernel_prealloc_decode_sdpav_bfloat16_t_128_256_16_8EPK13__nv_bfloat16S4_S4_PKiPKfPS2_",
+			"mlx::core::cu::custom_kernel_prealloc_decode_sdpav_bfloat16_t_128_256_16_8"},
+
+		// Encodings that are not a run of length-prefixed components: a
+		// cv-qualifier, an internal-linkage marker, a template argument in
+		// the middle of a nested name, and a suffix nvcc appends.
+		{"_ZNK3foo3barEv", "foo::bar"},
+		{"_ZL10staticFuncPf", "staticFunc"},
+		{"_ZN3foo3barILi3EE3bazEv", "foo::bar::baz"},
+		{"_Z10atomicDropPfPKfi_param_0", "atomicDrop"},
 	}
 	for _, tt := range tests {
 		if got := MatchKey(tt.name); got != tt.want {
 			t.Errorf("MatchKey(%q) = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+// TestMatchKeyUnifiesSpellings checks the invariant the package rests on: the
+// mangled symbol nvcc writes and the demangled text cu++filt writes for the
+// same function reduce to one key. The demangled spellings are as the SASS
+// section parser hands them over, which keeps only the first word.
+func TestMatchKeyUnifiesSpellings(t *testing.T) {
+	pairs := []struct{ mangled, demangled string }{
+		{"_Z10atomicDropPfPKfi", "atomicDrop(float"},
+		{"_ZN5cudnn6kernel6matmulEPfS1_", "cudnn::kernel::matmul(float*,"},
+		{"_ZNK3foo3barEv", "foo::bar()"},
+		{"_ZL10staticFuncPf", "staticFunc(float"},
+		{"_ZN3fooC1Ev", "foo::foo()"},
+		{"_ZN3fooD1Ev", "foo::~foo()"},
+		{"_ZN3fooplERKS_", "foo::operator+(foo"},
+		{"_Z3fooB5cxx11v", "foo[abi:cxx11]()"},
+		{"_ZN3mlx4core2cu9binary_vvINS1_3AddE13__nv_bfloat16S4_jLi8EEEvPKT0_S7_PT1_T2_",
+			"mlx::core::cu::binary_vv<mlx::core::cu::Add,"},
+	}
+	for _, p := range pairs {
+		mk, dk := MatchKey(p.mangled), MatchKey(p.demangled)
+		if mk != dk {
+			t.Errorf("MatchKey(%q) = %q, MatchKey(%q) = %q, want one key",
+				p.mangled, mk, p.demangled, dk)
+		}
+		if mk == p.mangled {
+			t.Errorf("MatchKey(%q) did not decode the symbol", p.mangled)
 		}
 	}
 }

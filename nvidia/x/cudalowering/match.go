@@ -3,6 +3,7 @@ package cudalowering
 import (
 	"strings"
 
+	"github.com/ianlancetaylor/demangle"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
@@ -169,46 +170,14 @@ func MatchKey(name string) string {
 }
 
 // mangledKey decodes the qualified name of an Itanium-mangled symbol, the only
-// part of the encoding this package needs. It reports false for a name it
-// cannot read as one, including the extern "C" names that carry no encoding.
+// part of the encoding this package needs. [demangle.NoParams] drops the
+// signature and [demangle.NoTemplateParams] the template arguments, which
+// leaves the qualified name and nothing else. It reports false for a name that
+// is not mangled, including the extern "C" names that carry no encoding.
 func mangledKey(sym string) (string, bool) {
-	rest, ok := strings.CutPrefix(sym, "_Z")
-	if !ok {
+	name, err := demangle.ToString(sym, demangle.NoParams, demangle.NoTemplateParams)
+	if err != nil || name == "" || name == sym {
 		return "", false
 	}
-	nested := false
-	if r, ok := strings.CutPrefix(rest, "N"); ok {
-		nested = true
-		rest = r
-	}
-	var parts []string
-	for {
-		name, r, ok := lengthPrefixed(rest)
-		if !ok {
-			break
-		}
-		parts = append(parts, name)
-		rest = r
-		if !nested {
-			break
-		}
-	}
-	if len(parts) == 0 {
-		return "", false
-	}
-	return strings.Join(parts, "::"), true
-}
-
-// lengthPrefixed splits one <length><identifier> component off the front of s,
-// returning the identifier and what follows it.
-func lengthPrefixed(s string) (name, rest string, ok bool) {
-	n := 0
-	i := 0
-	for ; i < len(s) && s[i] >= '0' && s[i] <= '9'; i++ {
-		n = n*10 + int(s[i]-'0')
-	}
-	if i == 0 || n == 0 || i+n > len(s) {
-		return "", s, false
-	}
-	return s[i : i+n], s[i+n:], true
+	return name, true
 }
