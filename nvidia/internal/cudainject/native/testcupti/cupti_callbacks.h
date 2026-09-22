@@ -37,9 +37,36 @@ typedef enum {
 } CUpti_runtime_api_trace_cbid_subset;
 
 typedef enum {
+	CUPTI_DRIVER_TRACE_CBID_cuModuleLoad = 18,
+	CUPTI_DRIVER_TRACE_CBID_cuModuleLoadData = 19,
+	CUPTI_DRIVER_TRACE_CBID_cuModuleLoadDataEx = 20,
+	CUPTI_DRIVER_TRACE_CBID_cuModuleLoadFatBinary = 21,
+	CUPTI_DRIVER_TRACE_CBID_cuModuleGetFunction = 23,
+	CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel = 307,
 	CUPTI_DRIVER_TRACE_CBID_cuProfilerStart = 308,
-	CUPTI_DRIVER_TRACE_CBID_cuProfilerStop = 309
+	CUPTI_DRIVER_TRACE_CBID_cuProfilerStop = 309,
+	CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel_ptsz = 442,
+	CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel = 477,
+	CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz = 478,
+	CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx = 652,
+	CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz = 653
 } CUpti_driver_api_trace_cbid_subset;
+
+/* The resource callback ids module attribution follows. A module is announced
+   here and nowhere else: the activity record of a kernel names the kernel and
+   not the image it was loaded from. */
+typedef enum {
+	CUPTI_CBID_RESOURCE_CONTEXT_CREATED = 1,
+	CUPTI_CBID_RESOURCE_MODULE_LOADED = 6
+} CUpti_CallbackIdResource;
+
+/* The driver handles module attribution threads together. They are opaque
+   pointers to the agent, which never dereferences one: a handle is only ever
+   compared against another handle. */
+typedef struct CUmod_st *CUmodule;
+typedef struct CUfunc_st *CUfunction;
+typedef struct CUstream_st *CUstream;
+typedef struct CUlaunchConfig_st CUlaunchConfig;
 
 typedef uint32_t CUpti_CallbackId;
 typedef struct CUpti_Subscriber_st *CUpti_SubscriberHandle;
@@ -57,6 +84,56 @@ typedef struct {
 	uint64_t *correlationData;
 	uint32_t correlationId;
 } CUpti_CallbackData;
+
+typedef struct {
+	CUcontext context;
+	union {
+		CUstream stream;
+	} resourceHandle;
+	void *resourceDescriptor;
+} CUpti_ResourceData;
+
+typedef struct {
+	uint32_t moduleId;
+	size_t cubinSize;
+	const char *pCubin;
+} CUpti_ModuleResourceData;
+
+/* The driver parameter blocks the agent reads, transcribed from CUDA 13.0
+   targets/sbsa-linux/include/generated_cuda_meta.h. Only the leading fields
+   the agent reads have to match, but the whole block is carried so the next
+   field it needs is already right. */
+typedef struct {
+	CUmodule *module;
+	const char *fname;
+} cuModuleLoad_params;
+
+typedef struct {
+	CUfunction *hfunc;
+	CUmodule hmod;
+	const char *name;
+} cuModuleGetFunction_params;
+
+typedef struct {
+	CUfunction f;
+	unsigned int gridDimX;
+	unsigned int gridDimY;
+	unsigned int gridDimZ;
+	unsigned int blockDimX;
+	unsigned int blockDimY;
+	unsigned int blockDimZ;
+	unsigned int sharedMemBytes;
+	CUstream hStream;
+	void **kernelParams;
+	void **extra;
+} cuLaunchKernel_params;
+
+typedef struct {
+	const CUlaunchConfig *config;
+	CUfunction f;
+	void **kernelParams;
+	void **extra;
+} cuLaunchKernelEx_params;
 
 CUptiResult cuptiSubscribe(CUpti_SubscriberHandle *subscriber, CUpti_CallbackFunc callback, void *userdata);
 CUptiResult cuptiUnsubscribe(CUpti_SubscriberHandle subscriber);
