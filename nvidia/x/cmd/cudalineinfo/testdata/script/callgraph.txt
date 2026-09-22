@@ -1,0 +1,15 @@
+# The digraph a unit prints names the program's functions the way the
+# runtime does, so it composes with the call graph of the program itself.
+# golang.org/x/tools/cmd/callgraph names a function by its package path,
+# which for a main package is the import path rather than "main", so one
+# rename joins the two graphs. The composed graph then answers a question
+# neither half can: which path through the program's code reaches the
+# division slowpath in the compiled kernel.
+[!exec:callgraph] skip
+[!exec:digraph] skip
+[!exec:sh] skip
+[short] skip
+exec sh -c 'cd $PKGDIR && callgraph -algo=static -format=digraph . | sed "s|github.com/tmc/lib/nvidia/x/examples/source-wiring\.|main.|g" > $WORK/all.txt && cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format digraph $TESTDATA/fused_layered.json >> $WORK/all.txt && digraph somepath main.fastMath "\$__internal_1_\$__cuda_sm3x_div_rn_noftz_f32_slowpath" < $WORK/all.txt'
+stdout 'main.fastMath main.attribute'
+stdout 'main.attribute main.layered'
+stdout '\$__internal_1_\$__cuda_sm3x_div_rn_noftz_f32_slowpath'
