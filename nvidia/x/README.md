@@ -38,6 +38,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
 | [cudalayer](cudalayer/) | Package cudalayer provides experimental CUDA decoder-layer kernels and JIT compilation for the llama inference example. |
 | [cudalayout](cudalayout/) | Package cudalayout describes checked physical tile layouts. |
+| [cudalineinfo](cudalineinfo/) | Package cudalineinfo attributes device code to the source it was generated from. |
 | [cudalmvet](cudalmvet/) | Package cudalmvet validates numerical accuracy and catches precision drift by comparing GPU activations against CPU reference implementations. |
 | [cudalock](cudalock/) | Package cudalock coordinates exclusive GPU access across processes and tests. |
 | [cudalowering](cudalowering/) | Package cudalowering compares the PTX for a kernel with the SASS it lowered to. |
