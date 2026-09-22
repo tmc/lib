@@ -37,13 +37,42 @@ import (
 // figure read AS occupancy), and register spills (real work, not residency).
 const occupancyCaveat = " Occupancy bounds residency, not throughput: A/B this. It pays only if the kernel is latency-bound (a bandwidth-bound streaming kernel will see no speedup), and it can regress when freeing the resource costs coalescing."
 
-// Severity denotes the impact of an advice finding.
+// Severity denotes what a reader should do with an advice finding.
+//
+// These are not defect levels. This report ranks where a captured span went
+// and proposes leads; almost nothing in it is broken. "Critical" borrowed from
+// linters and incident tooling asserted an urgency the analysis had not earned,
+// and it read as alarm on findings that were merely large -- a kernel family
+// holding most of the device time is what a well-tuned program looks like.
+// How much to trust a finding is EvidenceLevel's job, and how much it is worth
+// is the magnitude in the header; Severity answers only "in what order, and
+// does this change how I read the rest".
 type Severity string
 
 const (
-	SeverityCritical Severity = "Critical"
-	SeverityWarning  Severity = "Warning"
-	SeverityInfo     Severity = "Info"
+	// SeverityReadFirst marks a finding that changes how the rest of the
+	// report should be read: the capture may not be usable, or the ordering
+	// below it ranks a quantity that is not the one that matters. It is
+	// earned by kind, never by cost, because the reader's first position is
+	// worth more than the largest item in a list.
+	SeverityReadFirst Severity = "Read first"
+
+	// SeverityCost ranks where the captured time went. A finding here is a
+	// measurement or a lead, not a problem: read the magnitude in the header
+	// for how much it is worth and EvidenceLevel for how much it is known.
+	SeverityCost Severity = "Cost"
+
+	// SeverityContext carries findings too small to act on alone and
+	// observations that bound the others.
+	SeverityContext Severity = "Context"
+)
+
+// Prior names for the three tiers. Retained so existing callers and receipts
+// keep compiling; they denote the new vocabulary, not the old one.
+const (
+	SeverityCritical = SeverityReadFirst
+	SeverityWarning  = SeverityCost
+	SeverityInfo     = SeverityContext
 )
 
 // EvidenceLevel classifies the empirical basis of an advice finding.
@@ -185,22 +214,22 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 		return sb.String()
 	}
 
-	var criticals, warnings, infos int
+	var readFirst, cost, context int
 	for _, item := range r.Items {
 		switch item.Severity {
-		case SeverityCritical:
-			criticals++
-		case SeverityWarning:
-			warnings++
-		case SeverityInfo:
-			infos++
+		case SeverityReadFirst:
+			readFirst++
+		case SeverityCost:
+			cost++
+		case SeverityContext:
+			context++
 		}
 	}
 
 	sb.WriteString("## Summary\n\n")
-	sb.WriteString(fmt.Sprintf("- **Critical**: %d\n", criticals))
-	sb.WriteString(fmt.Sprintf("- **Warning**: %d\n", warnings))
-	sb.WriteString(fmt.Sprintf("- **Info**: %d\n\n", infos))
+	sb.WriteString(fmt.Sprintf("- **Read first**: %d\n", readFirst))
+	sb.WriteString(fmt.Sprintf("- **Cost**: %d\n", cost))
+	sb.WriteString(fmt.Sprintf("- **Context**: %d\n\n", context))
 
 	sb.WriteString("## Findings\n\n")
 	count := len(r.Items)
@@ -3940,11 +3969,11 @@ func auditKernelFamilyDominance(cap *cudacapture.Capture, report *AdviceReport, 
 
 func severityRank(s Severity) int {
 	switch s {
-	case SeverityCritical:
+	case SeverityReadFirst:
 		return 0
-	case SeverityWarning:
+	case SeverityCost:
 		return 1
-	case SeverityInfo:
+	case SeverityContext:
 		return 2
 	default:
 		return 3
@@ -3980,17 +4009,40 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 		}
 	}
 
-	// Critical is a claim about what to work on first, so a finding that earns
-	// it by cost has to account for some. Without this floor a 2-launch
-	// single-thread kernel worth 0.006 ms was the only Critical in a 66-finding
-	// report, above a kernel holding 536.58 ms as a Warning -- the reader's
-	// first instruction pointed at 0.0002% of the profile.
+	// Read first is earned by kind, never by cost. The largest item in a list
+	// is still an item in the list: it tells the reader what to look at next,
+	// not that the report's own ordering is untrustworthy. Cost used to be
+	// able to buy the top tier, guarded only by a share floor, and the floor
+	// was a patch over the conflation -- it kept a 0.006 ms finding out of
+	// first place without making first place mean anything.
 	for i := range report.Items {
 		item := &report.Items[i]
-		if item.Severity == SeverityCritical && !item.severityByKind &&
-			item.ShareOfProfile > 0 && item.ShareOfProfile < criticalShareFloorPct {
-			item.Severity = SeverityWarning
+		if item.Severity == SeverityReadFirst && !item.severityByKind {
+			item.Severity = SeverityCost
 		}
+	}
+
+	// Findings too small to act on stop competing with findings that are not.
+	// They stay in the report -- each may still be true -- but they rank below
+	// everything worth a reader's attention instead of beside it.
+	//
+	// Small has to mean both things at once. An absolute floor alone demotes
+	// every finding in a short capture, including one holding all of it; a
+	// share floor alone keeps a 0.006 ms finding in a 0.01 ms capture ranked
+	// beside real expense. A finding is negligible when it is a rounding
+	// error in wall time AND a rounding error in the profile.
+	for i := range report.Items {
+		item := &report.Items[i]
+		if item.Severity != SeverityCost || item.severityByKind {
+			continue
+		}
+		if item.DeviceTimeNanos <= 0 || item.DeviceTimeNanos >= negligibleDeviceNanos {
+			continue
+		}
+		if item.ShareOfProfile >= negligibleSharePct {
+			continue
+		}
+		item.Severity = SeverityContext
 	}
 
 	sort.SliceStable(report.Items, func(i, j int) bool {
@@ -4011,11 +4063,19 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 	})
 }
 
-// criticalShareFloorPct is the share of the profile a cost-based finding must
-// account for to stay Critical. A finding below it may still be true and worth
-// fixing; it is not what to do first, and putting it first costs the reader
-// the one position in the report they are certain to read.
-const criticalShareFloorPct = 0.1
+// negligibleDeviceNanos is the device time below which a cost finding ranks as
+// context rather than beside findings worth acting on. Half a millisecond is
+// not a claim about what matters on every capture; it is the point below which
+// a reader cannot act on the difference, and three findings worth 0.01 ms,
+// 0.01 ms and 0.00 ms rendered as peers of a 9.52 ms one is how a report
+// spends attention it did not need to.
+const negligibleDeviceNanos = 500_000
+
+// negligibleSharePct is the share of profiled device time below which a cost
+// finding is a rounding error in the profile as well as in wall time. Both
+// conditions must hold before a finding is demoted: see the demotion loop in
+// finalizeAndRankFindingsWithTiming.
+const negligibleSharePct = 1.0
 
 // deviceIdleCriticalPct is the whole-capture duty cycle below which the idle
 // time outweighs everything a kernel-time ranking can see. It is deliberately
@@ -4204,10 +4264,15 @@ func auditOpaqueDutyCeiling(streams map[uint32][]streamEvent, pct float64, spanN
 		return
 	}
 	report.Items = append(report.Items, AdviceItem{
-		Severity:      SeverityWarning,
-		Category:      CategoryArchitectureDispatch,
-		EvidenceLevel: EvidenceUnmeasured,
-		magnitude:     fmt.Sprintf("duty cycle %.2f%% measured, %.2f%% on resolved records alone", pct, floor),
+		// Read first by kind: this finding's whole content is that the
+		// ordering below it ranks a quantity the capture cannot establish.
+		// Ranked by cost it would sort last, having no device time of its
+		// own -- which is exactly where it must not be.
+		Severity:       SeverityReadFirst,
+		severityByKind: true,
+		Category:       CategoryArchitectureDispatch,
+		EvidenceLevel:  EvidenceUnmeasured,
+		magnitude:      fmt.Sprintf("duty cycle %.2f%% measured, %.2f%% on resolved records alone", pct, floor),
 		Finding: fmt.Sprintf("The device measured %.2f%% busy, which is why no idle finding appears in this report. That number is a ceiling, not a measurement: this capture counts each graph replay as busy from its envelope alone, so whatever the device did not do between a replay's nodes is counted as work. On the records this capture can resolve, the busy share is %.2f%%. The true duty cycle is somewhere between the two, and a run that is mostly replay reads as busy whichever it is.",
 			pct, floor),
 		ActionableRecommendation: "Do not read the absence of an idle finding here as evidence that the device was busy: on this capture that finding could not have fired regardless of the idle. Re-capture with graph node records resolved -- device records naming their graph ids -- before concluding anything about this run's duty cycle, and before comparing its duty cycle against a capture whose replays were resolved.",

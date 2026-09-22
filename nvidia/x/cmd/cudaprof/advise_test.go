@@ -140,7 +140,7 @@ func TestAdvice_HighRegisterPressure(t *testing.T) {
 			name:         "local_spill_points",
 			sass:         sampleSpillSASS,
 			wantCategory: CategoryRegisterPressure,
-			wantSeverity: SeverityCritical,
+			wantSeverity: SeverityCost,
 			wantFinding:  "spill point",
 			wantCaveat:   false, // a spill is real work, not a residency figure
 		},
@@ -471,11 +471,11 @@ func TestAdvice_MarkdownAndJSON(t *testing.T) {
 	if !strings.Contains(md, "# CUDA Kernel Advice Report") {
 		t.Errorf("Markdown missing header: %s", md)
 	}
-	if !strings.Contains(md, "- **Critical**: 1") {
-		t.Errorf("Markdown missing Critical count: %s", md)
+	if !strings.Contains(md, "- **Read first**: 1") {
+		t.Errorf("Markdown missing Read first count: %s", md)
 	}
-	if !strings.Contains(md, "- **Warning**: 1") {
-		t.Errorf("Markdown missing Warning count: %s", md)
+	if !strings.Contains(md, "- **Cost**: 1") {
+		t.Errorf("Markdown missing Cost count: %s", md)
 	}
 	if !strings.Contains(md, "gemm.cu:42") {
 		t.Errorf("Markdown missing location gemm.cu:42: %s", md)
@@ -492,8 +492,8 @@ func TestAdvice_MarkdownAndJSON(t *testing.T) {
 	if len(decoded.Items) != 2 {
 		t.Fatalf("len(decoded.Items) = %d, want 2", len(decoded.Items))
 	}
-	if decoded.Items[0].Severity != SeverityCritical {
-		t.Errorf("item 0 severity = %s, want Critical", decoded.Items[0].Severity)
+	if decoded.Items[0].Severity != SeverityReadFirst {
+		t.Errorf("item 0 severity = %s, want %s", decoded.Items[0].Severity, SeverityReadFirst)
 	}
 }
 
@@ -984,7 +984,7 @@ uncoalesced_load:
 			},
 			wantWarning:  true,
 			wantCategory: CategoryMemory,
-			wantSeverity: SeverityCritical,
+			wantSeverity: SeverityCost,
 			wantFinding:  "Memory stalls dominate this load: stall_mem is 60.0% of stalls",
 			wantRec:      "Check whether adjacent lane IDs access contiguous bytes",
 		},
@@ -1652,7 +1652,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantKernel:   "spilling_kernel",
 			wantFinding:  "allocates 256 bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE)",
 			wantRec:      "eliminate local memory stack frame spills",
-			wantSeverity: SeverityCritical,
+			wantSeverity: SeverityCost,
 			wantEvidence: EvidenceObserved,
 			wantCaveat:   false, // a local stack frame spill is real work, not a residency figure
 		},
@@ -2964,7 +2964,7 @@ func TestAdvice_HostDispatchOverhead(t *testing.T) {
 	}
 	for _, item := range report.Items {
 		if strings.Contains(item.Finding, "Host dispatch overhead accounts for") {
-			if item.EvidenceLevel != EvidenceObserved || item.Severity != SeverityCritical {
+			if item.EvidenceLevel != EvidenceObserved || item.Severity != SeverityCost {
 				t.Fatalf("dispatch finding = %+v", item)
 			}
 			return
@@ -3082,10 +3082,10 @@ func TestAdvice_OutputLimitAndFlags(t *testing.T) {
 
 	// 1. Default Markdown() should truncate to 10 findings and show omission note
 	mdDefault := rep.Markdown()
-	if !strings.Contains(mdDefault, "### 10. [Warning]") {
+	if !strings.Contains(mdDefault, "### 10. [Cost]") {
 		t.Errorf("expected finding #10 in default output: %s", mdDefault)
 	}
-	if strings.Contains(mdDefault, "### 11. [Warning]") {
+	if strings.Contains(mdDefault, "### 11. [Cost]") {
 		t.Errorf("finding #11 should be truncated in default output: %s", mdDefault)
 	}
 	if !strings.Contains(mdDefault, "*... 5 additional findings omitted (use --format=json for all, -e, or -limit=N).*") {
@@ -3094,7 +3094,7 @@ func TestAdvice_OutputLimitAndFlags(t *testing.T) {
 
 	// 2. MarkdownWithLimit(0) should print all 15 findings
 	mdAll := rep.MarkdownWithLimit(0)
-	if !strings.Contains(mdAll, "### 15. [Warning]") {
+	if !strings.Contains(mdAll, "### 15. [Cost]") {
 		t.Errorf("expected finding #15 in unlimited output: %s", mdAll)
 	}
 	if strings.Contains(mdAll, "additional findings omitted") {
@@ -3103,10 +3103,10 @@ func TestAdvice_OutputLimitAndFlags(t *testing.T) {
 
 	// 3. MarkdownWithLimit(5) should print exactly 5 findings
 	md5 := rep.MarkdownWithLimit(5)
-	if !strings.Contains(md5, "### 5. [Warning]") {
+	if !strings.Contains(md5, "### 5. [Cost]") {
 		t.Errorf("expected finding #5 in limit 5 output: %s", md5)
 	}
-	if strings.Contains(md5, "### 6. [Warning]") {
+	if strings.Contains(md5, "### 6. [Cost]") {
 		t.Errorf("finding #6 should be truncated in limit 5 output: %s", md5)
 	}
 	if !strings.Contains(md5, "*... 10 additional findings omitted (use --format=json for all, -e, or -limit=N).*") {
@@ -3706,24 +3706,28 @@ func TestProfileDutyCycleUnionsOverlappingStreams(t *testing.T) {
 	}
 }
 
-// TestCriticalRequiresAShareOfTheProfile pins the floor and, as importantly,
-// the two exemptions.
+// TestTopTierIsEarnedByKindNotByCost pins the rule that replaced the share
+// floor, and the two things it must not disturb.
 //
-// Severity is the reader's ordering. A cost-based finding that accounts for
-// almost none of the profile is not what to do first, however severe its
-// local ratio: one report's only Critical was a 2-launch single-thread kernel
-// worth 0.006 ms, ranked above a kernel holding 536.58 ms as a Warning. But a
-// finding that is Critical for what it IS rather than for what it costs --
-// the module targets the wrong architecture, or the report's own ordering is
-// misleading -- has no share to clear, and flooring it would delete the
-// warning entirely.
-func TestCriticalRequiresAShareOfTheProfile(t *testing.T) {
+// Severity is the reader's ordering, not a defect level. Cost is already
+// stated in the header -- share of device time, milliseconds, share of the
+// captured span -- so letting cost also buy the top tier said the same thing
+// twice and said it as alarm: a kernel family holding most of the device time
+// is what a well-tuned program looks like, not a finding to read first. So no
+// amount of device time promotes an item; only severityByKind does, for
+// findings that are what they are regardless of what they cost -- the module
+// targets the wrong architecture, or the report's own ordering is misleading.
+//
+// The one thing cost still decides is demotion out of Cost: a finding worth
+// less than negligibleDeviceNanos is context, not an expense.
+func TestTopTierIsEarnedByKindNotByCost(t *testing.T) {
 	const total = 1_000_000_000
 	report := &AdviceReport{Items: []AdviceItem{
-		{Severity: SeverityCritical, Category: CategoryArchitectureCompute, Finding: "tiny by cost", DeviceTimeNanos: 6_000},
-		{Severity: SeverityCritical, Category: CategoryArchitecture, Finding: "big by cost", DeviceTimeNanos: 536_000_000},
-		{Severity: SeverityCritical, Category: CategoryArchitecture, Finding: "wrong architecture", DeviceTimeNanos: 6_000, severityByKind: true},
-		{Severity: SeverityWarning, Category: CategoryMemory, Finding: "a warning stays one", DeviceTimeNanos: 6_000},
+		{Severity: SeverityReadFirst, Category: CategoryArchitectureCompute, Finding: "tiny by cost", DeviceTimeNanos: 6_000},
+		{Severity: SeverityReadFirst, Category: CategoryArchitecture, Finding: "big by cost", DeviceTimeNanos: 536_000_000},
+		{Severity: SeverityReadFirst, Category: CategoryArchitecture, Finding: "wrong architecture", DeviceTimeNanos: 6_000, severityByKind: true},
+		{Severity: SeverityCost, Category: CategoryMemory, Finding: "a negligible cost becomes context", DeviceTimeNanos: 6_000},
+		{Severity: SeverityCost, Category: CategoryMemory, Finding: "a real cost stays one", DeviceTimeNanos: 536_000_000},
 	}}
 	finalizeAndRankFindingsWithTiming(report, nil, total, true)
 
@@ -3735,24 +3739,36 @@ func TestCriticalRequiresAShareOfTheProfile(t *testing.T) {
 		finding string
 		want    Severity
 	}{
-		{"tiny by cost", SeverityWarning},
-		{"big by cost", SeverityCritical},
-		{"wrong architecture", SeverityCritical},
-		{"a warning stays one", SeverityWarning},
+		{"tiny by cost", SeverityContext},
+		{"big by cost", SeverityCost},
+		{"wrong architecture", SeverityReadFirst},
+		{"a negligible cost becomes context", SeverityContext},
+		{"a real cost stays one", SeverityCost},
 	} {
 		if got[tc.finding] != tc.want {
 			t.Errorf("%q = %s, want %s", tc.finding, got[tc.finding], tc.want)
 		}
 	}
 
-	// The floor must not be reachable by rounding: a finding exactly at it
-	// keeps Critical, so the boundary is stated rather than discovered.
+	// The negligible boundary must not be reachable by rounding: a finding
+	// exactly at it stays a Cost, so the boundary is stated rather than
+	// discovered.
 	at := &AdviceReport{Items: []AdviceItem{
-		{Severity: SeverityCritical, Category: CategoryMemory, Finding: "exactly at the floor", ShareOfProfile: criticalShareFloorPct},
+		{Severity: SeverityCost, Category: CategoryMemory, Finding: "exactly at the boundary", DeviceTimeNanos: negligibleDeviceNanos},
 	}}
 	finalizeAndRankFindingsWithTiming(at, nil, total, true)
-	if at.Items[0].Severity != SeverityCritical {
-		t.Errorf("a finding exactly at the floor was demoted to %s", at.Items[0].Severity)
+	if at.Items[0].Severity != SeverityCost {
+		t.Errorf("a finding exactly at the negligible boundary was demoted to %s", at.Items[0].Severity)
+	}
+
+	// A finding with no device time of its own is not negligible, it is
+	// unmeasured: it must keep whatever tier its kind gave it.
+	none := &AdviceReport{Items: []AdviceItem{
+		{Severity: SeverityCost, Category: CategoryDispatch, Finding: "no device time", DeviceTimeNanos: 0},
+	}}
+	finalizeAndRankFindingsWithTiming(none, nil, total, true)
+	if none.Items[0].Severity != SeverityCost {
+		t.Errorf("a finding with no device time was demoted to %s", none.Items[0].Severity)
 	}
 }
 
