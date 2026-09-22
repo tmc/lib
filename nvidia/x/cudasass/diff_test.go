@@ -139,13 +139,13 @@ func TestDiffFunctions(t *testing.T) {
 		{
 			name: "identical kernels",
 			baseSASS: `
---- Kernel: test_kernel ---
+.section .text.test_kernel,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ FFMA R0, R4, R5, R0 ;
 /*0030*/ EXIT ;
 `,
 			targetSASS: `
---- Kernel: test_kernel ---
+.section .text.test_kernel,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ FFMA R0, R4, R5, R0 ;
 /*0030*/ EXIT ;
@@ -158,7 +158,7 @@ func TestDiffFunctions(t *testing.T) {
 		{
 			name: "scalar vs SIMD IDP4A",
 			baseSASS: `
---- Kernel: gemv ---
+.section .text.gemv,"ax",@progbits
 /*0100*/ LDG.E.F32 R4, [R2.64] ;
 /*0110*/ SHR.B64 R5, R4, 0x8 ;
 /*0120*/ IMAD.WIDE R0, R5, R6, R0 ;
@@ -166,7 +166,7 @@ func TestDiffFunctions(t *testing.T) {
 /*0140*/ EXIT ;
 `,
 			targetSASS: `
---- Kernel: gemv ---
+.section .text.gemv,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ LOP3.LUT R6, R4, R5, 0xca ;
 /*0030*/ IDP4A.U8.U8 R0, R6, R7, R0 ;
@@ -187,13 +187,13 @@ func TestDiffFunctions(t *testing.T) {
 		{
 			name: "loop unrolling with memory offset drift",
 			baseSASS: `
---- Kernel: loop_kernel ---
+.section .text.loop_kernel,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ FFMA R0, R4, R5, R0 ;
 /*0030*/ BRA 0x10 ;
 `,
 			targetSASS: `
---- Kernel: loop_kernel ---
+.section .text.loop_kernel,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ FFMA R0, R4, R5, R0 ;
 /*0030*/ LDG.E.F32 R4, [R2.64+0x4] ;
@@ -210,13 +210,13 @@ func TestDiffFunctions(t *testing.T) {
 		{
 			name: "register spill additions",
 			baseSASS: `
---- Kernel: spill_kernel ---
+.section .text.spill_kernel,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ FFMA R0, R4, R5, R0 ;
 /*0030*/ EXIT ;
 `,
 			targetSASS: `
---- Kernel: spill_kernel ---
+.section .text.spill_kernel,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ STL.32 [R1+0x10], R4 ;
 /*0030*/ LDL.32 R4, [R1+0x10] ;
@@ -234,7 +234,7 @@ func TestDiffFunctions(t *testing.T) {
 		{
 			name: "register spill removals",
 			baseSASS: `
---- Kernel: unspill_kernel ---
+.section .text.unspill_kernel,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ STL.32 [R1+0x10], R4 ;
 /*0030*/ LDL.32 R4, [R1+0x10] ;
@@ -242,7 +242,7 @@ func TestDiffFunctions(t *testing.T) {
 /*0050*/ EXIT ;
 `,
 			targetSASS: `
---- Kernel: unspill_kernel ---
+.section .text.unspill_kernel,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ FFMA R0, R4, R5, R0 ;
 /*0030*/ EXIT ;
@@ -258,13 +258,13 @@ func TestDiffFunctions(t *testing.T) {
 		{
 			name: "opcode substitution FFMA to HFMA2 and HMMA",
 			baseSASS: `
---- Kernel: tensor_kernel ---
+.section .text.tensor_kernel,"ax",@progbits
 /*0010*/ FFMA R0, R4, R5, R0 ;
 /*0020*/ FFMA R1, R6, R7, R1 ;
 /*0030*/ EXIT ;
 `,
 			targetSASS: `
---- Kernel: tensor_kernel ---
+.section .text.tensor_kernel,"ax",@progbits
 /*0010*/ HFMA2 R0, R4, R5, R0 ;
 /*0020*/ HMMA.16816.F32 R1, R6, R7, R1 ;
 /*0030*/ EXIT ;
@@ -346,20 +346,20 @@ func TestDiffFunctions(t *testing.T) {
 
 func TestDiffDisassembly(t *testing.T) {
 	baseSASS := `
---- Kernel: k1 ---
+.section .text.k1,"ax",@progbits
 /*0010*/ IMAD R0, R1, R2, R0 ;
 /*0020*/ EXIT ;
 
---- Kernel: k2 ---
+.section .text.k2,"ax",@progbits
 /*0010*/ LDG.E.F32 R0, [R1] ;
 /*0020*/ EXIT ;
 `
 	targetSASS := `
---- Kernel: k1 ---
+.section .text.k1,"ax",@progbits
 /*0010*/ IDP4A.U8.U8 R0, R1, R2, R0 ;
 /*0020*/ EXIT ;
 
---- Kernel: k3 ---
+.section .text.k3,"ax",@progbits
 /*0010*/ EXIT ;
 `
 
@@ -416,12 +416,12 @@ func TestDiffDisassembly(t *testing.T) {
 
 func ExampleDiff() {
 	baseSASS := `
---- Kernel: gemv ---
+.section .text.gemv,"ax",@progbits
 /*0010*/ IMAD.WIDE R0, R1, R2, R0 ;
 /*0020*/ EXIT ;
 `
 	targetSASS := `
---- Kernel: gemv ---
+.section .text.gemv,"ax",@progbits
 /*0010*/ IDP4A.U8.U8 R0, R1, R2, R0 ;
 /*0020*/ EXIT ;
 `

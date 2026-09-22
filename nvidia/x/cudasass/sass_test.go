@@ -8,14 +8,14 @@ import (
 )
 
 const sampleSASS = `
---- Kernel: LinearGEMV ---
+.section .text.LinearGEMV,"ax",@progbits
 /* 0x7f001200 */   MOV R1, c[0x0][0x28] ;              // Initialize block stack pointer
 /* 0x7f001210 */   ISETP.GE.AND P0, PT, R1, R8, PT ;   // Check bound
 /* 0x7f001220 */   @P0 RET.REL.NODEC ;                 // Early return
 /* 0x7f001230 */   LDG.E.CONSTANT.F32 R4, [R2.64] ;    // Global load
 /* 0x7f001250 */   FFMA R0, R4, R5, R0 ;               // Fused multiply-add accumulation
 
---- Kernel: RMSNorm ---
+.section .text.RMSNorm,"ax",@progbits
 /* 0x7f001100 */   LDG.E.F32 R4, [R2.64] ;             // Global load x[i]
 /* 0x7f001110 */   FFMA R0, R4, R4, R0 ;               // Accumulate sum of squares
 /* 0x7f001140 */   BAR.SYNC 0x0 ;                      // Sync warps
@@ -99,14 +99,14 @@ func TestDataDirectives(t *testing.T) {
 
 func TestParseLineInfo(t *testing.T) {
 	input := `
---- Kernel: compute ---
+.section .text.compute,"ax",@progbits
 //## File "kernels.cu", line 10
 /* 0000 */   MOV R1, c[0x0][0x28] ;
 /* 0010 */   ISETP.GE.AND P0, PT, R1, R8, PT ;
 //## File "kernels.cu", line 15
 /* 0020 */   @P0 RET.REL.NODEC ;
 
---- Kernel: other ---
+.section .text.other,"ax",@progbits
 //## File "other.cu", line 99
 /* 0000 */   EXIT ;
 `
@@ -141,7 +141,7 @@ func TestParseLineInfo(t *testing.T) {
 
 func TestParseInlineAndPTXInfo(t *testing.T) {
 	input := `
---- Kernel: compute ---
+.section .text.compute,"ax",@progbits
 //## File "kernels.cu", line 27 inlined at "kernels.cu", line 98
 //## File ".nv_debug_ptx_txt", line 1695
 /* 0000 */   MOV R1, c[0x0][0x28] ;
@@ -173,5 +173,40 @@ func TestParseInlineAndPTXInfo(t *testing.T) {
 	}
 	if inst1.InlinedFile != "" || inst1.InlinedLine != 0 {
 		t.Errorf("inst1 inlined = %s:%d, want empty", inst1.InlinedFile, inst1.InlinedLine)
+	}
+}
+
+// TestParseHeaderSpellings covers the four headers that start a kernel.
+// Three are vendor output; "--- Kernel: NAME ---" is project-local and has no
+// emitter outside hand-written listings, so it needs a test of its own now
+// that the rest of the corpus uses the spellings nvdisasm and cuobjdump write.
+func TestParseHeaderSpellings(t *testing.T) {
+	const body = "/*0000*/ MOV R1, c[0x0][0x28] ;\n/*0010*/ EXIT ;\n"
+	tests := []struct {
+		name   string
+		header string
+		want   string
+	}{
+		{name: "nvdisasm section", header: `	.section	.text._Z5scalePff,"ax",@progbits`, want: "_Z5scalePff"},
+		{name: "nvdisasm label", header: ".text._Z5scalePff:", want: "_Z5scalePff"},
+		{name: "cuobjdump", header: "Function : _Z5scalePff", want: "_Z5scalePff"},
+		{name: "project-local", header: "--- Kernel: scale ---", want: "scale"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := cudasass.ParseString(tt.header + "\n" + body)
+			if err != nil {
+				t.Fatalf("ParseString: %v", err)
+			}
+			if len(d.Functions) != 1 {
+				t.Fatalf("got %d functions, want 1", len(d.Functions))
+			}
+			if got := d.Functions[0].Name; got != tt.want {
+				t.Errorf("Name = %q, want %q", got, tt.want)
+			}
+			if n := len(d.Functions[0].Instructions); n != 2 {
+				t.Errorf("got %d instructions, want 2", n)
+			}
+		})
 	}
 }

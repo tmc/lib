@@ -95,7 +95,7 @@ func createTestCapture(t *testing.T, kernelName, sassText string) string {
 
 func TestRunDiffSASSFiles(t *testing.T) {
 	baseSASS := `
---- Kernel: gemv ---
+.section .text.gemv,"ax",@progbits
 /*0100*/ LDG.E.F32 R4, [R2.64] ;
 /*0110*/ SHR.B64 R5, R4, 0x8 ;
 /*0120*/ IMAD.WIDE R0, R5, R6, R0 ;
@@ -103,7 +103,7 @@ func TestRunDiffSASSFiles(t *testing.T) {
 /*0140*/ EXIT ;
 `
 	targetSASS := `
---- Kernel: gemv ---
+.section .text.gemv,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ LOP3.LUT R6, R4, R5, 0xca ;
 /*0030*/ IDP4A.U8.U8 R0, R6, R7, R0 ;
@@ -147,13 +147,13 @@ func TestRunDiffSASSFiles(t *testing.T) {
 
 func TestRunDiffPprofCaptures(t *testing.T) {
 	baseSASS := `
---- Kernel: kernelA ---
+.section .text.kernelA,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ FFMA R0, R4, R5, R0 ;
 /*0030*/ EXIT ;
 `
 	targetSASS := `
---- Kernel: kernelA ---
+.section .text.kernelA,"ax",@progbits
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
 /*0020*/ STL.32 [R1+0x10], R4 ;
 /*0030*/ LDL.32 R4, [R1+0x10] ;
@@ -187,20 +187,20 @@ func TestRunDiffPprofCaptures(t *testing.T) {
 
 func TestRunDiffKernelFilter(t *testing.T) {
 	baseSASS := `
---- Kernel: k1 ---
+.section .text.k1,"ax",@progbits
 /*0010*/ IMAD R0, R1, R2, R0 ;
 /*0020*/ EXIT ;
 
---- Kernel: k2 ---
+.section .text.k2,"ax",@progbits
 /*0010*/ LDG.E.F32 R0, [R1] ;
 /*0020*/ EXIT ;
 `
 	targetSASS := `
---- Kernel: k1 ---
+.section .text.k1,"ax",@progbits
 /*0010*/ IDP4A.U8.U8 R0, R1, R2, R0 ;
 /*0020*/ EXIT ;
 
---- Kernel: k2 ---
+.section .text.k2,"ax",@progbits
 /*0010*/ LDG.E.F32 R0, [R1] ;
 /*0020*/ EXIT ;
 `

@@ -8,34 +8,34 @@ import (
 )
 
 const testSASSFixture = `
---- Kernel: ds4_iq2_simd ---
+.section .text.ds4_iq2_simd,"ax",@progbits
 /* 0010 */   @P0 LDG.E.CONSTANT.F32 R4, [R2.64] ;
 /* 0020 */   LOP3.LUT R6, R4, R5, 0xca ;
 /* 0030 */   IDP4A.U8.U8 R0, R6, R7, R0 ;
 /* 0040 */   IDP4A.S8.S8 R1, R8, R9, R1 ;
 /* 0050 */   EXIT ;
 
---- Kernel: ds4_iq2_scalar ---
+.section .text.ds4_iq2_scalar,"ax",@progbits
 /* 0100 */   LDG.E.F32 R4, [R2.64] ;
 /* 0110 */   SHR.B64 R5, R4, 0x8 ;
 /* 0120 */   IMAD.WIDE R0, R5, R6, R0 ;
 /* 0130 */   IMAD.WIDE R1, R7, R8, R1 ;
 /* 0140 */   EXIT ;
 
---- Kernel: ds4_iq2_scalar_unpack ---
+.section .text.ds4_iq2_scalar_unpack,"ax",@progbits
 /* 0150 */   SHF.R.WRAP.B32 R5, R4, 0x8, R5 ;
 /* 0160 */   BFE.U32 R6, R4, 0x808 ;
 /* 0170 */   IMAD R0, R5, R6, R0 ;
 /* 0180 */   EXIT ;
 
---- Kernel: fma_unfused_fallback ---
+.section .text.fma_unfused_fallback,"ax",@progbits
 /* 0200 */   FMUL R0, R1, R2 ;
 /* 0210 */   FADD R3, R0, R4 ;
 /* 0220 */   DMUL R6, R7, R8 ;
 /* 0230 */   DADD R10, R6, R9 ;
 /* 0240 */   EXIT ;
 
---- Kernel: shuffle_shared_fallback ---
+.section .text.shuffle_shared_fallback,"ax",@progbits
 /* 0300 */   STS.128 [R0], R4 ;
 /* 0310 */   LDS.128 R8, [R0] ;
 /* 0320 */   EXIT ;

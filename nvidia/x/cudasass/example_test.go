@@ -13,7 +13,7 @@ import (
 
 func ExampleParseString() {
 	sass := `
---- Kernel: LinearGEMV ---
+.section .text.LinearGEMV,"ax",@progbits
 /* 0x7f001230 */   LDG.E.CONSTANT.F32 R4, [R2.64] ;    // Global load
 /* 0x7f001250 */   FFMA R0, R4, R5, R0 ;               // Fused multiply-add
 `
@@ -34,7 +34,7 @@ func ExampleParseString() {
 
 func ExampleDisassembly_AssertOpcodes() {
 	sass := `
---- Kernel: QuantizedDotProduct ---
+.section .text.QuantizedDotProduct,"ax",@progbits
 /* 0010 */   LDG.E.CONSTANT.F32 R4, [R2.64] ;
 /* 0020 */   IDP4A.U8.U8 R0, R4, R5, R0 ;
 `
