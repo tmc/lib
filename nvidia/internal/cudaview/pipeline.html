@@ -513,7 +513,7 @@ select:focus, input[type="text"]:focus {
         <span class="dot {{if eq $tier.Language "go"}}dot-go{{else if eq $tier.Language "cuda"}}dot-cuda{{else if eq $tier.Language "mlir"}}dot-tile{{else if eq $tier.Language "ptx"}}dot-ptx{{else}}dot-sass{{end}}"></span>
         {{$tier.Name}}
       </div>
-      <div class="tier-filename">{{$tier.FileName}}</div>
+      <div class="tier-filename">{{or $tier.FileName "not in capture"}}</div>
     </div>
     <div class="code-container" id="code-scroll-{{$idx}}">
       <div class="code-table">

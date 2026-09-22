@@ -848,3 +848,113 @@ func TestSampleLookupRequiresExactKernel(t *testing.T) {
 		})
 	}
 }
+
+func TestKernelSpan(t *testing.T) {
+	nvdisasm := `	.target	sm_121
+//--------------------- .text.matvec_f16 --------------------------
+.text.matvec_f16:
+        /*0000*/                   EXIT ;
+//--------------------- .text.matvec --------------------------
+.text.matvec:
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;
+        /*0010*/                   EXIT ;
+//--------------------- .nv.info.matvec --------------------------
+	.align	4`
+	cuobjdump := `	code for sm_80
+		Function : matvec
+	/*0000*/                   EXIT ;
+		Function : rms
+	/*0000*/                   EXIT ;`
+	ptx := `.visible .entry matvec_f16(
+{
+	ret;
+}
+.visible .entry matvec(
+	.param .u64 p
+)
+{
+	ret;
+}
+.func (.param .b32 r) helper(
+{
+	ret;
+}`
+	tileir := `cuda_tile.module @m {
+  cuda_tile.entry @matvec() {
+    cuda_tile.return
+  }
+  cuda_tile.entry @rms() {
+    cuda_tile.return
+  }
+}`
+	cuda := `__global__ void matvec(int n);
+__global__ void matvec_f16(int n) {
+}
+__global__ void matvec(int n)
+{
+	if (n) { n--; }
+}
+__global__ void rms() {}`
+	tests := []struct {
+		name, lang, text, kernel string
+		want                     string // first and last line of the span, or "" if absent
+	}{
+		{"nvdisasm", "sass", nvdisasm, "matvec", "//--------------------- .text.matvec --------------------------\n        /*0010*/                   EXIT ;"},
+		{"nvdisasm prefix", "sass", nvdisasm, "matvec_f16", "//--------------------- .text.matvec_f16 --------------------------\n        /*0000*/                   EXIT ;"},
+		{"cuobjdump", "sass", cuobjdump, "matvec", "\t\tFunction : matvec\n\t/*0000*/                   EXIT ;"},
+		{"ptx", "ptx", ptx, "matvec", ".visible .entry matvec(\n}"},
+		{"tileir", "tileir", tileir, "matvec", "  cuda_tile.entry @matvec() {\n  }"},
+		{"cuda skips declaration", "cuda", cuda, "matvec", "__global__ void matvec(int n)\n}"},
+		{"cuda one line", "cuda", cuda, "rms", "__global__ void rms() {}\n__global__ void rms() {}"},
+		{"absent", "ptx", ptx, "rms", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var lines []cudaview.PipelineLine
+			for _, s := range strings.Split(tt.text, "\n") {
+				lines = append(lines, cudaview.PipelineLine{Text: s})
+			}
+			start, end, ok := kernelSpan(lines, tt.kernel, tt.lang)
+			got := ""
+			if ok {
+				got = lines[start].Text + "\n" + lines[end-1].Text
+			}
+			if got != tt.want {
+				t.Errorf("kernelSpan(%q) = %q, want %q", tt.kernel, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunViewCommandFlags(t *testing.T) {
+	_, capPath := createTest5TierCapture(t)
+	outHTML := filepath.Join(t.TempDir(), "report.html")
+	if err := runViewCommand([]string{"view", capPath, "-html", outHTML}); err != nil {
+		t.Fatalf("flag after capture: %v", err)
+	}
+	if _, err := os.Stat(outHTML); err != nil {
+		t.Fatalf("flag after capture wrote no page: %v", err)
+	}
+	if err := runViewCommand([]string{"view", "-h"}); err != nil {
+		t.Errorf("-h: %v", err)
+	}
+	if err := runViewCommand([]string{"view", "-bogus", capPath}); err == nil || !strings.Contains(err.Error(), "-bogus") {
+		t.Errorf("unknown flag: err = %v, want it named", err)
+	}
+}
+
+func TestAbsentTiers(t *testing.T) {
+	cap := &cudacapture.Capture{Files: map[string][]byte{}}
+	data, err := buildPipelineViewData(cap, "journal.pprof", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tier := range data.Tiers {
+		if tier.FileName != "" || len(tier.Lines) != 0 {
+			t.Errorf("absent %s tier listed as %q with %d lines", tier.Name, tier.FileName, len(tier.Lines))
+		}
+	}
+	if len(data.Diagnostics) == 0 {
+		t.Error("no diagnostic for a capture with nothing to list")
+	}
+}

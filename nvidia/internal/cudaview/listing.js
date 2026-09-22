@@ -22,7 +22,7 @@ function showTab(i) {document.querySelectorAll('.tier-column').forEach((c,j)=>c.
 function onKernelChange(name) {
   document.getElementById('kernelSelect').value=name;
   const tiers=activeData.kernel_tiers?.[name]||activeData.tiers;
-  tiers.forEach((t,i)=>mainListings[i].set(t));
+  tiers.forEach((t,i)=>{mainListings[i].set(t);document.querySelector('#tier-col-'+i+' .tier-filename').textContent=t.file_name||'not in capture';});
   document.getElementById('inspector').textContent='Select an instruction';
   searchMatches=[];searchPosition=-1;
 }
@@ -49,4 +49,5 @@ async function copyRange() {
 }
 const mainListings=viewData.tiers.map((t,i)=>new Listing(document.getElementById('code-scroll-'+i),'main'));
 onKernelChange(viewData.active_kernel||'');
+showTab(Math.max(0,viewData.tiers.findIndex(t=>t.lines.length)));
 requestAnimationFrame(()=>requestAnimationFrame(()=>{document.documentElement.dataset.initialized='true';}));

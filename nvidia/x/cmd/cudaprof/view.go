@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
-	"github.com/tmc/lib/nvidia/internal/cudaview"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/pprof/profile"
+	"github.com/tmc/lib/nvidia/internal/cudaview"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
@@ -26,78 +28,70 @@ import (
 	"github.com/tmc/lib/nvidia/x/tileiras"
 )
 
+const viewUsage = "usage: cudaprof view [-http addr] [-html file] [-no-browser] [-diff candidate.pprof] [kernel] [capture.pprof]"
+
 func runViewCommand(rawArgs []string) error {
 	args, limits, err := parseReadLimits(rawArgs)
 	if err != nil {
 		return err
 	}
-	if len(args) == 0 {
-		return errors.New("usage: cudaprof view [-http=addr] [-html=file] [-no-browser] [kernel] capture.pprof")
-	}
-
-	cmd := args[0]
-	if cmd == "view" || cmd == "web" || cmd == "-web" || cmd == "--web" {
-		args = args[1:]
-	}
-
-	httpAddr := ":8088"
-	htmlOut := ""
-	noBrowser := false
-	var diffPath string
-	var kernel string
-	var posArgs []string
-
-	for _, a := range args {
-		switch {
-		case strings.HasPrefix(a, "-http="):
-			httpAddr = strings.TrimPrefix(a, "-http=")
-		case strings.HasPrefix(a, "--http="):
-			httpAddr = strings.TrimPrefix(a, "--http=")
-		case strings.HasPrefix(a, "-html="):
-			htmlOut = strings.TrimPrefix(a, "-html=")
-		case strings.HasPrefix(a, "--html="):
-			htmlOut = strings.TrimPrefix(a, "--html=")
-		case strings.HasPrefix(a, "-output="):
-			htmlOut = strings.TrimPrefix(a, "-output=")
-		case strings.HasPrefix(a, "--output="):
-			htmlOut = strings.TrimPrefix(a, "--output=")
-		case a == "-no-browser" || a == "--no-browser" || a == "-no_browser":
-			noBrowser = true
-		case strings.HasPrefix(a, "-diff="):
-			diffPath = strings.TrimPrefix(a, "-diff=")
-		case strings.HasPrefix(a, "--diff="):
-			diffPath = strings.TrimPrefix(a, "--diff=")
-		default:
-			posArgs = append(posArgs, a)
+	if len(args) > 0 {
+		switch args[0] {
+		case "view", "web", "-web", "--web":
+			args = args[1:]
 		}
 	}
 
-	var capturePath string
+	fs := flag.NewFlagSet("view", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	httpAddr := fs.String("http", ":8088", "serve the view on this address")
+	htmlOut := fs.String("html", "", "write a static page to this file instead of serving")
+	fs.StringVar(htmlOut, "output", "", "alias for -html")
+	noBrowser := fs.Bool("no-browser", false, "do not open a browser")
+	fs.BoolVar(noBrowser, "no_browser", false, "alias for -no-browser, as the pprof web view spells it")
+	diffPath := fs.String("diff", "", "compare the capture with this candidate")
+	// Flags may follow the capture, as in "cudaprof view x.pprof -html=x.html".
+	var posArgs []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				fmt.Fprintln(os.Stderr, viewUsage)
+				fs.SetOutput(os.Stderr)
+				fs.PrintDefaults()
+				return nil
+			}
+			return fmt.Errorf("%s: %w", viewUsage, err)
+		}
+		if fs.NArg() == 0 {
+			break
+		}
+		posArgs = append(posArgs, fs.Arg(0))
+		args = fs.Args()[1:]
+	}
+
+	var kernel, capturePath string
 	switch len(posArgs) {
 	case 0:
-		// Default to capture.pprof in current directory if present
-		if _, err := os.Stat("capture.pprof"); err == nil {
-			capturePath = "capture.pprof"
-		} else {
-			return errors.New("usage: cudaprof view [-http=addr] [-html=file] [-diff=candidate.pprof] [kernel] capture.pprof")
+		if _, err := os.Stat("capture.pprof"); err != nil {
+			return errors.New(viewUsage)
 		}
+		capturePath = "capture.pprof"
 	case 1:
 		capturePath = posArgs[0]
 	case 2:
-		kernel = posArgs[0]
-		capturePath = posArgs[1]
+		kernel, capturePath = posArgs[0], posArgs[1]
 	default:
-		return errors.New("usage: cudaprof view [-http=addr] [-html=file] [-diff=candidate.pprof] [kernel] capture.pprof")
+		return errors.New(viewUsage)
 	}
 
-	if diffPath != "" {
+	if *diffPath != "" {
 		return runDiffWeb(DiffWebOptions{
 			BaseFile:     capturePath,
-			TargetFile:   diffPath,
+			TargetFile:   *diffPath,
 			KernelFilter: kernel,
-			HTTPAddr:     httpAddr,
-			HTMLOut:      htmlOut,
-			NoBrowser:    noBrowser,
+			HTTPAddr:     *httpAddr,
+			HTMLOut:      *htmlOut,
+			NoBrowser:    *noBrowser,
 			Limits:       limits,
 			Writer:       os.Stdout,
 		})
@@ -120,24 +114,24 @@ func runViewCommand(rawArgs []string) error {
 
 	// Static HTML export mode. The NVRTC panel needs the live server to
 	// compile, so the exported page does not offer it.
-	if htmlOut != "" {
+	if *htmlOut != "" {
 		data.Recompile = nil
 		var buf bytes.Buffer
 		if err := cudaview.Render(&buf, data); err != nil {
 			return fmt.Errorf("view: render HTML: %w", err)
 		}
-		if err := os.WriteFile(htmlOut, buf.Bytes(), 0644); err != nil {
+		if err := os.WriteFile(*htmlOut, buf.Bytes(), 0644); err != nil {
 			return fmt.Errorf("view: write HTML output: %w", err)
 		}
-		fmt.Printf("Wrote 5-tier pipeline report to %s (%d bytes)\n", htmlOut, buf.Len())
+		fmt.Printf("Wrote 5-tier pipeline report to %s (%d bytes)\n", *htmlOut, buf.Len())
 		return nil
 	}
 
 	// Interactive HTTP Server mode
 	handler := newPipelineServerHandler(data)
-	listener, err := net.Listen("tcp", httpAddr)
+	listener, err := net.Listen("tcp", *httpAddr)
 	if err != nil {
-		return fmt.Errorf("view: listen on %s: %w", httpAddr, err)
+		return fmt.Errorf("view: listen on %s: %w", *httpAddr, err)
 	}
 	defer listener.Close()
 
@@ -150,7 +144,7 @@ func runViewCommand(rawArgs []string) error {
 	fmt.Printf("Tiers: Go -> CUDA C++ -> Tile IR -> PTX -> SASS\n")
 	fmt.Printf("Press Ctrl+C to stop.\n")
 
-	if !noBrowser {
+	if !*noBrowser {
 		openBrowser(url)
 	}
 
@@ -306,20 +300,28 @@ func buildSinglePipelineViewData(cap *cudacapture.Capture, capName, activeKernel
 		buildTier("PTX", ptxFileName, "ptx", ptxContent, nil, "", nil, kernelNames, nil),
 		buildTier("SASS", sassFileName, "sass", sassContent, stallMap, activeKernel, nil, kernelNames, pressureMap),
 	}
+	if fusion != nil {
+		// The disassembly's line table is the binding that was refused, so
+		// the listing must not show it, as the diagnostic says it does not.
+		sass := data.Tiers[len(data.Tiers)-1].Lines
+		for i := range sass {
+			sass[i].SourceFile, sass[i].SourceLine = "", 0
+		}
+	}
+	if goContent == "" && cuContent == "" && tileContent == "" && ptxContent == "" && sassContent == "" {
+		data.Diagnostics = append(data.Diagnostics, "this capture holds no source, Tile IR, PTX or SASS, so there is nothing to list; "+
+			"it records activity only (see cudaprof -top and cudaprof gaps), or its code was not bundled")
+	}
 
 	// Kernel listings select existing annotated lines; source and annotations
-	// are built once per module.
-	contents := []string{goContent, cuContent, tileContent, ptxContent, sassContent}
-	languages := []string{"go", "cuda", "tileir", "ptx", "sass"}
+	// are built once per module. A kernel a machine tier does not define gets
+	// an empty listing there, not the whole module: showing every other
+	// kernel's code under its name would say it was compiled to all of it.
 	for _, kName := range kernelNames {
 		tiers := make([]cudaview.PipelineTier, len(data.Tiers))
 		for i, full := range data.Tiers {
 			tiers[i] = full
-			section := extractKernelSection(contents[i], kName, languages[i])
-			if section == contents[i] {
-				continue
-			}
-			if i == 0 {
+			if full.Language == "go" {
 				tiers[i].Lines = nil
 				for _, line := range full.Lines {
 					if strings.Contains(strings.ToLower(line.Text), strings.ToLower(kName)) {
@@ -328,10 +330,12 @@ func buildSinglePipelineViewData(cap *cudacapture.Capture, capName, activeKernel
 				}
 				continue
 			}
-			if offset := strings.Index(contents[i], section); offset >= 0 {
-				start := strings.Count(contents[i][:offset], "\n")
-				end := start + strings.Count(section, "\n") + 1
+			start, end, ok := kernelSpan(full.Lines, kName, full.Language)
+			switch {
+			case ok:
 				tiers[i].Lines = full.Lines[start:end]
+			case full.Language != "cuda":
+				tiers[i].Lines = nil
 			}
 		}
 		data.KernelTiers[kName] = tiers
@@ -547,6 +551,11 @@ func extractPressureMap(disasm *cudasass.Disassembly) map[string]map[uint64]cuda
 }
 
 func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, activeKernel string, remarks []tileiras.Remark, knownKernels []string, pressureMap map[string]map[uint64]cudasass.RegisterPressure) cudaview.PipelineTier {
+	if content == "" {
+		// A tier the capture does not carry is listed as absent, not as
+		// one empty line of a file that does not exist.
+		return cudaview.PipelineTier{Name: name, Language: lang}
+	}
 	rawLines := strings.Split(content, "\n")
 	lines := make([]cudaview.PipelineLine, len(rawLines))
 
@@ -772,16 +781,11 @@ func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, act
 			}
 
 		case "sass":
-			if strings.HasPrefix(trimmed, "Function :") || strings.HasPrefix(trimmed, "Function ") {
-				fields := strings.Fields(trimmed)
-				if len(fields) >= 2 {
-					if fields[1] == ":" && len(fields) >= 3 {
-						currentKernel = fields[2]
-					} else if fields[1] != ":" {
-						currentKernel = fields[1]
-					}
+			if name, ok := sassSection(trimmed); ok {
+				currentKernel = name
+				if name != "" && !strings.HasPrefix(name, ".") {
+					line.SemanticTag = "entry"
 				}
-				line.SemanticTag = "entry"
 			}
 
 			// Parse SASS DWARF line info: ## File "kernels.cu", line 47
@@ -936,75 +940,122 @@ func discoverKernelNames(ptxText, sassText, cuText, tileText string) []string {
 	return names
 }
 
-func extractKernelSection(content, kernelName, lang string) string {
-	if content == "" {
-		return ""
+// kernelSpan returns the lines [start, end) of a listing in the given language
+// that define kernel, and false if the listing does not define it.
+func kernelSpan(lines []cudaview.PipelineLine, kernel, lang string) (start, end int, ok bool) {
+	if lang == "cuda" {
+		return cudaKernelSpan(lines, kernel)
 	}
-	lines := strings.Split(content, "\n")
-	var result []string
-	recording := false
+	start = -1
+	for i, l := range lines {
+		name, isDecl := definedFunction(strings.TrimSpace(l.Text), lang)
+		if !isDecl {
+			continue
+		}
+		if start >= 0 {
+			return start, i, true
+		}
+		if name == kernel {
+			start = i
+		}
+	}
+	if start < 0 {
+		return 0, 0, false
+	}
+	return start, len(lines), true
+}
 
+// definedFunction reports whether line begins a function or, in SASS, any
+// section of the disassembly, and the function's name if it begins one.
+func definedFunction(line, lang string) (name string, ok bool) {
 	switch lang {
 	case "sass":
-		for _, line := range lines {
-			if strings.Contains(line, "Function : "+kernelName) || strings.Contains(line, "Function "+kernelName) {
-				recording = true
-			} else if recording && strings.Contains(line, "Function :") {
-				break
-			}
-			if recording {
-				result = append(result, line)
-			}
-		}
+		return sassSection(line)
 	case "ptx":
-		for _, line := range lines {
-			if strings.Contains(line, ".entry "+kernelName) {
-				recording = true
-			} else if recording && strings.HasPrefix(strings.TrimSpace(line), ".entry ") {
-				break
-			}
-			if recording {
-				result = append(result, line)
-			}
+		fields := strings.Fields(line)
+		for len(fields) > 0 && (fields[0] == ".visible" || fields[0] == ".weak" || fields[0] == ".extern") {
+			fields = fields[1:]
 		}
-	case "tileir":
-		for _, line := range lines {
-			if strings.Contains(line, "@"+kernelName) {
-				recording = true
-			} else if recording && strings.Contains(line, "cuda_tile.entry @") {
-				break
-			}
-			if recording {
-				result = append(result, line)
-			}
+		if len(fields) < 2 || (fields[0] != ".entry" && fields[0] != ".func") {
+			return "", false
 		}
-	case "cuda":
-		braceCount := 0
-		for _, line := range lines {
-			if strings.Contains(line, "void "+kernelName) {
-				recording = true
-			}
-			if recording {
-				result = append(result, line)
-				braceCount += strings.Count(line, "{") - strings.Count(line, "}")
-				if braceCount == 0 && strings.Contains(line, "}") {
-					break
+		if fields[0] == ".func" {
+			return "", true
+		}
+		name, _, _ = strings.Cut(fields[1], "(")
+		return name, true
+	case "mlir", "tileir":
+		for _, prefix := range []string{"cuda_tile.entry @", "cuda_tile.func @"} {
+			if _, rest, found := strings.Cut(line, prefix); found {
+				if end := strings.IndexAny(rest, "( \t{"); end >= 0 {
+					rest = rest[:end]
 				}
-			}
-		}
-	case "go":
-		for _, line := range lines {
-			if strings.Contains(strings.ToLower(line), strings.ToLower(kernelName)) {
-				result = append(result, line)
+				return rest, true
 			}
 		}
 	}
+	return "", false
+}
 
-	if len(result) == 0 {
-		// If kernel-specific snippet wasn't cleanly isolated, return full text
-		return content
+// sassSection reports whether line begins a section of a disassembly, and the
+// function's name if it begins one. It reads both cuobjdump's "Function : name"
+// and nvdisasm's "//----- .text.name -----" headers.
+func sassSection(line string) (name string, ok bool) {
+	if rest, found := strings.CutPrefix(line, "Function"); found {
+		fields := strings.Fields(strings.TrimPrefix(strings.TrimSpace(rest), ":"))
+		if len(fields) == 0 {
+			return "", false
+		}
+		return fields[0], true
 	}
-	return strings.Join(result, "\n")
+	rest, found := strings.CutPrefix(line, "//--")
+	if !found {
+		return "", false
+	}
+	fields := strings.Fields(strings.Trim(rest, "-"))
+	if len(fields) == 0 {
+		return "", false
+	}
+	return strings.TrimPrefix(fields[0], ".text."), strings.HasPrefix(fields[0], ".")
+}
+
+// cudaKernelSpan returns the lines of the definition of kernel in CUDA C++:
+// from the line naming it to the brace that closes its body. A declaration,
+// which ends before any body opens, is skipped.
+func cudaKernelSpan(lines []cudaview.PipelineLine, kernel string) (start, end int, ok bool) {
+	start, depth, opened := -1, 0, false
+	for i, l := range lines {
+		if start < 0 {
+			if !namesKernel(l.Text, kernel) {
+				continue
+			}
+			start = i
+		}
+		depth += strings.Count(l.Text, "{") - strings.Count(l.Text, "}")
+		opened = opened || strings.Contains(l.Text, "{")
+		switch {
+		case opened && depth <= 0:
+			return start, i + 1, true
+		case !opened && strings.HasSuffix(strings.TrimSpace(l.Text), ";"):
+			start, depth = -1, 0
+		}
+	}
+	return 0, 0, false
+}
+
+// namesKernel reports whether line holds "void kernel" followed by something
+// other than more of an identifier.
+func namesKernel(line, kernel string) bool {
+	for rest := line; ; {
+		_, after, found := strings.Cut(rest, "void "+kernel)
+		if !found {
+			return false
+		}
+		if after == "" || !isIdentByte(after[0]) {
+			return true
+		}
+		rest = after
+	}
 }
 
 func openBrowser(url string) {
