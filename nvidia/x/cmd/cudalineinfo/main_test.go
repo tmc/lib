@@ -67,3 +67,16 @@ func TestUnknownFormat(t *testing.T) {
 		t.Error("no error for an unknown format")
 	}
 }
+
+// A CUBIN carries no PTX, so attributing one without -ptx would report every
+// line as named by no PTX. The refusal is what keeps the missing tier from
+// reading as an empty one.
+func TestCubinNeedsPTX(t *testing.T) {
+	oldCubin, oldPTX := *cubin, *ptxFile
+	*cubin, *ptxFile = filepath.Join(testdata, "fused_gate.cubin"), ""
+	t.Cleanup(func() { *cubin, *ptxFile = oldCubin, oldPTX })
+	err := run(context.Background(), filepath.Join(testdata, "fused_gate.cu"), &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "-ptx") {
+		t.Errorf("err = %v, want a refusal naming -ptx", err)
+	}
+}

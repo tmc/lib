@@ -1,0 +1,8 @@
+# A CUBIN carries no PTX. Without -ptx every line would be reported as named
+# by no PTX, so the missing tier is refused rather than printed as empty.
+! exec cudalineinfo -cubin $TESTDATA/fused_gate.cubin $TESTDATA/fused_gate.json
+stderr '-ptx'
+
+# With -ptx the CUBIN is read, and one that is not there is an error.
+! exec cudalineinfo -cubin $TESTDATA/missing.cubin -ptx $TESTDATA/fused_gate.ptx $TESTDATA/fused_gate.json
+stderr 'no such file'

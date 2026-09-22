@@ -1,0 +1,18 @@
+# Attributing artifacts that were built earlier needs no compiler: the SASS
+# and the PTX are read as they are, and the unit says what the lines mean.
+exec cudalineinfo -sass $TESTDATA/fused_gate.sass -ptx $TESTDATA/fused_gate.ptx $TESTDATA/fused_gate.cu
+stdout 'fused_gate: 37 of 168 SASS instructions name a program line'
+stdout 'kernels.go:14'
+
+# The unit's own JSON form says the same, and carries the callers as well.
+exec cudalineinfo -sass $TESTDATA/fused_gate.sass -ptx $TESTDATA/fused_gate.ptx $TESTDATA/fused_gate.json
+stdout 'kernels.go:14'
+
+# SASS that names no unit's lines attributes nothing, and says so rather
+# than printing an empty table.
+exec cudalineinfo -sass $TESTDATA/fused_gate.sass -ptx $TESTDATA/fused_gate.ptx $TESTDATA/fused_layered.cu
+stdout 'fused_layered'
+
+# A file that is not there is an error, not an empty report.
+! exec cudalineinfo -sass $TESTDATA/missing.sass $TESTDATA/fused_gate.cu
+stderr 'no such file'

@@ -13,7 +13,7 @@
 //	cudalineinfo -arch sm_121 -format rollup unit.json   lines charged to their callers
 //	cudalineinfo -arch sm_121 -diff -use_fast_math k.cu  opcodes a second build adds and drops
 //	cudalineinfo -sass k.sass -ptx k.ptx k.cu            attribute artifacts without compiling
-//	cudalineinfo -cubin k.cubin k.cu                     disassemble a CUBIN instead
+//	cudalineinfo -cubin k.cubin -ptx k.ptx k.cu          disassemble a CUBIN instead
 //
 // The formats digraph and dot print the unit as a call graph: program
 // functions to the functions they called, down to the line that built each
@@ -52,7 +52,7 @@ var (
 	nvrtc    = flag.String("nvrtc", "", "further NVRTC flags, space separated")
 	sassFile = flag.String("sass", "", "nvdisasm output to attribute instead of compiling")
 	ptxFile  = flag.String("ptx", "", "PTX to attribute with -sass or -cubin")
-	cubin    = flag.String("cubin", "", "CUBIN to disassemble instead of compiling")
+	cubin    = flag.String("cubin", "", "CUBIN to disassemble instead of compiling; needs -ptx")
 	format   = flag.String("format", "table", "output: table, listing, rollup, digraph, or dot")
 	diff     = flag.String("diff", "", "NVRTC flags of a second build to compare with, such as -use_fast_math")
 )
@@ -80,14 +80,17 @@ func run(ctx context.Context, path string, w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	// The refusals come before the artifacts are read, so that asking for a
+	// comparison the tool cannot make is reported as that, rather than as
+	// whatever the first file it opened had to say.
+	if *diff != "" && (*sassFile != "" || *cubin != "") {
+		return errors.New("-diff compiles a second build and needs -arch, not -sass or -cubin")
+	}
 	a, err := attribute(ctx, unit, nil)
 	if err != nil {
 		return err
 	}
 	if *diff != "" {
-		if *sassFile != "" || *cubin != "" {
-			return errors.New("-diff compiles a second build and needs -arch, not -sass or -cubin")
-		}
 		target, err := attribute(ctx, unit, strings.Fields(*diff))
 		if err != nil {
 			return fmt.Errorf("second build: %w", err)
@@ -152,6 +155,12 @@ func attribute(ctx context.Context, unit cudalineinfo.Unit, extra []string) (*cu
 		}
 		return cudalineinfo.Attribute(unit, string(ptx), dis), nil
 	case *cubin != "":
+		// A CUBIN is one tier below PTX and carries none of it, so without
+		// -ptx every line's PTX count would be zero -- which reads as a line
+		// that no PTX names, not as PTX nobody supplied.
+		if *ptxFile == "" {
+			return nil, errors.New("-cubin holds no PTX; give -ptx too, or compile with -arch")
+		}
 		data, err := os.ReadFile(*cubin)
 		if err != nil {
 			return nil, err

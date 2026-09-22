@@ -1,0 +1,21 @@
+# Every report reads the same artifacts. The unit JSON is what the rollup
+# and the graphs need: they are written in terms of the callers it records.
+exec cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format table $TESTDATA/fused_layered.json
+stdout 'kernels.go:45'
+
+exec cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format listing $TESTDATA/fused_layered.json
+stdout 'MUFU'
+
+exec cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format rollup $TESTDATA/fused_layered.json
+stdout 'CUM'
+stdout 'main.activate'
+
+exec cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format digraph $TESTDATA/fused_layered.json
+stdout 'main.activate kernels.go:45'
+
+exec cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format dot $TESTDATA/fused_layered.json
+stdout 'digraph'
+stdout '"kernels.go:45" -> '
+
+! exec cudalineinfo -sass $TESTDATA/fused_layered.sass -format csv $TESTDATA/fused_layered.json
+stderr 'unknown format'

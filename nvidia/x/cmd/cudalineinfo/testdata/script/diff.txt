@@ -1,0 +1,11 @@
+# A diff compiles a second build of the same unit, so it cannot be asked of
+# artifacts that were built elsewhere: there is nothing to vary.
+! exec cudalineinfo -diff -use_fast_math -sass $TESTDATA/fused_gate.sass -ptx $TESTDATA/fused_gate.ptx $TESTDATA/fused_gate.cu
+stderr '-diff compiles a second build'
+
+! exec cudalineinfo -diff -use_fast_math -cubin $TESTDATA/fused_gate.cubin -ptx $TESTDATA/fused_gate.ptx $TESTDATA/fused_gate.cu
+stderr '-diff compiles a second build'
+
+# Compiling needs an architecture, and says so rather than guessing one.
+! exec cudalineinfo -diff -use_fast_math $TESTDATA/fused_gate.cu
+stderr 'needs -arch'
