@@ -1,0 +1,11 @@
+commit: 7205ad4c
+date: 2026-09-22T17:21:55Z
+claude-code: 2.1.272 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 2225
+iterm_session: w16t0p13:82D66DD7-9369-4497-80A7-C22F2D8BB0AD
+session=41e006ea-c431-4858-a0f4-bc6efab3d868
+subagent: S05-primitives (roadmap S0.5, lane 38)
+device receipts: dgx GB10 sm_121a under gpu-lock, cta-1cta and device-2cta native PASS
+control verified by lead: Await no-op leaves TestCPUBackendMatchesReference green and fails TestDependencyWaitIsLoadBearing (32 workers)
