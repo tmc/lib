@@ -1,6 +1,7 @@
 package cudamega
 
 import (
+	_ "embed"
 	"fmt"
 	"math"
 	"strings"
@@ -274,7 +275,25 @@ const ctaBarrierArrive = `asm volatile("mbarrier.arrive.release.cta.shared::cta.
 // arrivals so the barrier is never reset, which is contract 5.
 const ctaBarrierWait = `{ asm volatile("{ .reg .pred p; L_wait_%=: mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 p, [%0], %1; @!p bra L_wait_%=; }" :: "r"(cta_barrier_addr), "r"(cta_phase) : "memory"); cta_phase ^= 1u; }`
 
-const programPrologue = "#include <cuda_runtime.h>\n"
+// The fixed CUDA of the generated program, held as CUDA rather than as Go
+// string literals so that it can be read, diffed and syntax-highlighted as
+// what it is. Each file is a fragment of one translation unit, not a
+// standalone one: the entry refers to constants the emitter writes above it,
+// and the reference kernel calls the dispatch table it writes. The only
+// substitutions are the abort codes, which are %-verbs so that the Go
+// constants stay the single authority for their values.
+//
+//go:embed cudasrc/prologue.cu
+var programPrologue string
+
+//go:embed cudasrc/worker_entry.cu
+var workerEntry string
+
+//go:embed cudasrc/cta_barrier.cu
+var ctaBarrierInit string
+
+//go:embed cudasrc/ordinary_task.cu
+var ordinaryKernel string
 
 // workerPrologue is the generated worker's entry: the geometry and extent
 // refusals of contract 6, then the shared mbarrier. The barrier and its phase
@@ -282,31 +301,9 @@ const programPrologue = "#include <cuda_runtime.h>\n"
 // synchronization does not carry a barrier nothing arrives at.
 func workerPrologue(barrier, phase bool) string {
 	var b strings.Builder
-	b.WriteString(`
-extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
-    unsigned *completed, volatile unsigned *abort_code, unsigned n, unsigned long long epoch) {
-  if (gridDim.x != grid_ctas || gridDim.y != 1 || gridDim.z != 1 || blockDim.y != 1 || blockDim.z != 1) {
-    if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, `)
-	fmt.Fprintf(&b, "%du", AbortBadLaunch)
-	b.WriteString(`);
-    return;
-  }
-  if (!n || !epoch) {
-    if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, `)
-	fmt.Fprintf(&b, "%du", AbortBadExtent)
-	b.WriteString(`);
-    return;
-  }
-`)
+	fmt.Fprintf(&b, workerEntry, AbortBadLaunch, AbortBadExtent)
 	if barrier {
-		b.WriteString(`  __shared__ __align__(8) unsigned long long cta_barrier;
-  if (threadIdx.x == 0) {
-    asm volatile("mbarrier.init.shared::cta.b64 [%0], %1;" ::
-        "r"((unsigned)__cvta_generic_to_shared(&cta_barrier)), "r"(blockDim.x) : "memory");
-  }
-  __syncthreads();
-  const unsigned cta_barrier_addr = (unsigned)__cvta_generic_to_shared(&cta_barrier);
-`)
+		b.WriteString(ctaBarrierInit)
 	}
 	if phase {
 		b.WriteString("  unsigned cta_phase = 0u;\n")
@@ -315,22 +312,6 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
 }
 
 const workerEpilogue = `
-}
-`
-
-const ordinaryKernel = `
-// ordinary_task is the reference implementation: the same tasks, one ordinary
-// launch each, in rank order, with the host's stream ordering standing in for
-// every fence above. It exists so the persistent result has something to be
-// equal to.
-extern "C" __global__ void ordinary_task(const unsigned *input, unsigned *scratch,
-    unsigned n, unsigned task) {
-  size_t i = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
-  int dep = dependency(task);
-  if (i < n) {
-    const unsigned *src = dep < 0 ? input : scratch + (size_t)dep*n;
-    scratch[(size_t)task*n+i] = dispatch(task, src[i]);
-  }
 }
 `
 
