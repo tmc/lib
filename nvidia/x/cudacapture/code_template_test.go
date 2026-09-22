@@ -15,8 +15,13 @@ const templateSymbol = "_Z19down_q2k_d2r_kernelILi64ELi64EEvPi"
 
 // cubinWithTextSection builds the smallest CUBIN LoadCode accepts: an ELF64
 // header, a section-name table, and one .text section holding two 16-byte
-// instructions. It mirrors testdata/kernels.cubin.hex, parameterized by the
-// kernel symbol.
+// instructions.
+//
+// The artifacts in this test are written rather than compiled, which the
+// fixtures in testdata are not: a template instantiation's symbol is chosen by
+// the instantiation, so pinning one here states which symbol the join is being
+// asked about. Every other property of the join is covered by the compiled
+// fixtures.
 func cubinWithTextSection(symbol string, text []byte) []byte {
 	const (
 		ehsize    = 64

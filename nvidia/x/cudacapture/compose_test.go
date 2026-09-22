@@ -49,7 +49,7 @@ func TestVerifyModule(t *testing.T) {
 		kernels []string
 		want    string
 	}{
-		{name: "match", id: "m1", kernels: []string{"compute"}},
+		{name: "match", id: "m1", kernels: []string{"fill", "_Z5scalePfPKff"}},
 		{name: "unknown module", id: "m2", want: `no module "m2"`},
 		{name: "empty module", id: "", want: "empty module id"},
 		{name: "duplicate module", id: "m1", mutate: func(c *cudacapture.Capture, _ *string) {
@@ -86,8 +86,13 @@ func TestVerifyModule(t *testing.T) {
 				if err != nil {
 					t.Fatalf("VerifyModule: %v", err)
 				}
-				if code.Kernel("compute") == nil {
+				// The mangled name is the one the CUBIN holds; asking for
+				// the source spelling must not find it.
+				if code.Kernel("_Z5scalePfPKff") == nil {
 					t.Fatal("VerifyModule returned code without the module's kernel")
+				}
+				if code.Kernel("scale") != nil {
+					t.Fatal("VerifyModule matched a kernel by its source spelling")
 				}
 				return
 			}

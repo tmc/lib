@@ -11,64 +11,32 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
 
-// The shape below is the one that exposed the defect: the unit's primary file
-// is an include list that defines nothing, and the kernel lives in another file
-// of the same translation unit. A single-file capture makes Code.SourceFile,
-// Kernel.SourceFile and Instruction.SourceFile the same string, so every
-// assertion about "the file" passes whichever one the resolver actually read.
-// Only a unit whose files disagree can tell them apart.
-const (
-	resolverMainCU = `// Translation unit; defines nothing itself.
-#include "impl.cu"
-`
-	// impl.cu is padded so that its kernel sits at a line number the two-line
-	// main.cu does not have. That is the real case in miniature: ds4_math.cu is
-	// a thirteen-line include list and the attribution landed on line 516 of
-	// it. A short impl.cu would put every line in range for both files, and the
-	// file-and-line consistency check below would pass on the broken code.
-	resolverImplCU = `// Implementation.
-// pad
-// pad
-// pad
-// pad
-// pad
-void compute(int *a) {
-    *a = 1;
-}
-`
-	resolverPTX = `.version 8.0
-.target sm_90
-.address_size 64
-
-.file 1 "main.cu"
-.file 2 "impl.cu"
-
-.visible .entry compute(
-	.param .u64 a
-)
-{
-	.loc 2 8 0;
-	mov.u64 %rd1, %rd2;
-	.loc 2 9 0;
-	ret;
-}
-`
-	resolverSASS = `.section .text.compute
-//## File "impl.cu", line 8
-/* 0x0000 */   MOV R1, c[0x0][0x28] ;
-//## File "impl.cu", line 9
-/* 0x0010 */   RET ;
-`
-)
+// The main.* fixture in ../cudacapture/testdata is the shape that exposed the
+// defect: the unit's primary file is an include list that defines nothing, and
+// the kernel lives in another file of the same translation unit, at a line
+// number the two-file main.cu does not have. That is the real case in
+// miniature -- ds4_math.cu is a thirteen-line include list and the attribution
+// landed on line 516 of it.
+//
+// A single-file capture makes Code.SourceFile, Kernel.SourceFile and
+// Instruction.SourceFile the same string, so every assertion about "the file"
+// passes whichever one the resolver actually read. Only a unit whose files
+// disagree can tell them apart, and only a kernel past main.cu's end can tell
+// a wrong file from a plausible one.
+const multiKernel = "_Z10accumulatePfPKfi"
 
 func loadMultiSourceCode(t *testing.T) (*cudacapture.Code, *cudacapture.Capture) {
 	t.Helper()
 	dir := filepath.Join("..", "cudacapture", "testdata")
-	cubinHex, err := os.ReadFile(filepath.Join(dir, "kernels.cubin.hex"))
-	if err != nil {
-		t.Fatalf("read kernels.cubin.hex: %v", err)
+	read := func(name string) []byte {
+		t.Helper()
+		b, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		return b
 	}
-	cubinBytes, err := hex.DecodeString(strings.TrimSpace(string(cubinHex)))
+	cubinBytes, err := hex.DecodeString(strings.TrimSpace(string(read("main.cubin.hex"))))
 	if err != nil {
 		t.Fatalf("decode cubin hex: %v", err)
 	}
@@ -81,11 +49,11 @@ func loadMultiSourceCode(t *testing.T) (*cudacapture.Code, *cudacapture.Capture)
 			SASS:    "main.sass",
 		},
 		Files: map[string][]byte{
-			"main.cu":    []byte(resolverMainCU),
-			"impl.cu":    []byte(resolverImplCU),
-			"main.ptx":   []byte(resolverPTX),
+			"main.cu":    read("main.cu"),
+			"impl.cu":    read("impl.cu"),
+			"main.ptx":   read("main.ptx"),
 			"main.cubin": cubinBytes,
-			"main.sass":  []byte(resolverSASS),
+			"main.sass":  read("main.sass"),
 		},
 	}
 	code, err := cudacapture.LoadCode(cap)
@@ -110,16 +78,16 @@ func TestResolvePCReportsTheDefiningFile(t *testing.T) {
 	if code.SourceFile != "main.cu" {
 		t.Fatalf("fixture no longer disagrees: Code.SourceFile = %q", code.SourceFile)
 	}
-	k := code.Kernel("compute")
+	k := code.Kernel(multiKernel)
 	if k == nil {
-		t.Fatal("compute not decoded")
+		t.Fatalf("%s not decoded", multiKernel)
 	}
 	if k.SourceFile != "impl.cu" {
 		t.Fatalf("fixture no longer disagrees: Kernel.SourceFile = %q", k.SourceFile)
 	}
 
 	for _, pc := range []uint64{0x0, 0x10} {
-		loc := r.ResolvePC(cuptipcsampling.ModuleID{}, "compute", pc)
+		loc := r.ResolvePC(cuptipcsampling.ModuleID{}, multiKernel, pc)
 		if !loc.Resolved {
 			t.Fatalf("pc %#x: not resolved", pc)
 		}
@@ -142,7 +110,7 @@ func TestResolvePCFileAndLineComeFromOneTier(t *testing.T) {
 	r := cuptipcsampling.NewCaptureResolverFromCapture(code, capture)
 
 	for _, pc := range []uint64{0x0, 0x10} {
-		loc := r.ResolvePC(cuptipcsampling.ModuleID{}, "compute", pc)
+		loc := r.ResolvePC(cuptipcsampling.ModuleID{}, multiKernel, pc)
 		body, ok := capture.Files[loc.SourceFile]
 		if !ok {
 			t.Fatalf("pc %#x: resolved to %q, which the capture does not bundle", pc, loc.SourceFile)
@@ -161,7 +129,7 @@ func TestResolvePCFileAndLineComeFromOneTier(t *testing.T) {
 func TestResolvePCSingleSourceUnchanged(t *testing.T) {
 	code, capture := loadTestCode(t)
 	r := cuptipcsampling.NewCaptureResolverFromCapture(code, capture)
-	loc := r.ResolvePC(cuptipcsampling.ModuleID{}, "compute", 0)
+	loc := r.ResolvePC(cuptipcsampling.ModuleID{}, "_Z5scalePfPKff", 0)
 	if loc.SourceFile != "kernels.cu" {
 		t.Errorf("SourceFile = %q, want kernels.cu", loc.SourceFile)
 	}

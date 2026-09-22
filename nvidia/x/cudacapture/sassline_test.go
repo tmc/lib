@@ -1,6 +1,8 @@
 package cudacapture_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,25 +18,35 @@ import (
 // the whole capture is refused. The address is the same number on both
 // sides, and is already the identity the ordering and bounds checks trust.
 func TestSASSLineSurvivesCRLF(t *testing.T) {
-	crlf := func(s string) string {
-		return strings.ReplaceAll(s, "\n", "\r\n")
+	sass, err := os.ReadFile(filepath.Join("testdata", "inline.sass"))
+	if err != nil {
+		t.Fatalf("read inline.sass: %v", err)
 	}
-	code, err := cudacapture.LoadCode(loadFixtureCapture(t, headerPTX, crlf(headerSASS)))
+	crlf := strings.ReplaceAll(string(sass), "\n", "\r\n")
+	code, err := cudacapture.LoadCode(loadInlineCapture(t, crlf))
 	if err != nil {
 		t.Fatalf("LoadCode: %v", err)
 	}
-	k := code.Kernels[0]
-	if len(k.Instructions) != 2 {
-		t.Fatalf("got %d instructions, want 2", len(k.Instructions))
+	k := code.Kernel(inlineKernel)
+	if k == nil {
+		t.Fatalf("%s not decoded", inlineKernel)
 	}
-	// The //## comment precedes each instruction, so the recorded SASS line
-	// is the instruction's own line in the disassembly text.
-	for i, want := range []int{3, 5} {
-		if got := k.Instructions[i].SASSLine; got != want {
-			t.Errorf("instruction %d SASSLine = %d, want %d", i, got, want)
+	// The same fixture read with LF, so the comparison is against what the
+	// loader itself reports rather than against a transcribed line number.
+	lf, err := cudacapture.LoadCode(loadInlineCapture(t, ""))
+	if err != nil {
+		t.Fatalf("LoadCode on the LF disassembly: %v", err)
+	}
+	want := lf.Kernel(inlineKernel)
+	if len(k.Instructions) != len(want.Instructions) {
+		t.Fatalf("got %d instructions, want %d", len(k.Instructions), len(want.Instructions))
+	}
+	for i, inst := range k.Instructions {
+		if inst.SASSLine != want.Instructions[i].SASSLine {
+			t.Errorf("instruction %d SASSLine = %d, want %d", i, inst.SASSLine, want.Instructions[i].SASSLine)
 		}
 	}
-	if got := k.Instructions[0].SourceFile; got != "helpers.cuh" {
+	if got := k.Instruction(inlinedOffset).SourceFile; got != "helpers.cuh" {
 		t.Errorf("SourceFile = %q, want helpers.cuh", got)
 	}
 }

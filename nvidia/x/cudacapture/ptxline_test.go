@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -44,100 +46,104 @@ func loadFixtureCapture(t *testing.T, ptx, sass string) *cudacapture.Capture {
 	}
 }
 
-// ambiguousPTX puts two instructions on source line 2, so the source line no
-// longer identifies one of them.
-const ambiguousPTX = `.version 8.0
-.target sm_90
-.address_size 64
+var ptxLoc = regexp.MustCompile(`(?m)^(\t\.loc\t1 )(\d+)( .*)$`)
 
-.file 1 "kernels.cu"
-
-.visible .entry compute(
-	.param .u64 a
-)
-{
-	.loc 1 2 0;
-	mov.u64 %rd1, %rd2;
-	add.u64 %rd1, %rd1, 1;
-	.loc 1 3 0;
-	ret;
+// movePTXLines returns testdata/kernels.ptx with every source line the line
+// table names replaced by move(line).
+//
+// The controls below are transformations of the committed compiler output
+// rather than second, hand-written PTX files. A PTX nobody compiled cannot
+// show that the binding check reads the one the CUBIN was built from: it would
+// differ from the fixture in its header, its register declarations and its
+// instruction text as well as in the line table under test.
+func movePTXLines(t *testing.T, move func(int) int) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("testdata", "kernels.ptx"))
+	if err != nil {
+		t.Fatalf("read kernels.ptx: %v", err)
+	}
+	moved := ptxLoc.ReplaceAllStringFunc(string(b), func(m string) string {
+		g := ptxLoc.FindStringSubmatch(m)
+		n, err := strconv.Atoi(g[2])
+		if err != nil {
+			t.Fatalf("unreadable .loc line %q", m)
+		}
+		return g[1] + strconv.Itoa(move(n)) + g[3]
+	})
+	if moved == string(b) {
+		t.Fatal("movePTXLines changed nothing; the .loc spelling in the fixture has moved")
+	}
+	return moved
 }
-`
 
 func TestPTXLineUnknownWhenSourceLineIsAmbiguous(t *testing.T) {
-	code, err := cudacapture.LoadCode(loadFixtureCapture(t, ambiguousPTX, ""))
+	// The fixture supplies the ambiguity itself: nvcc puts the three parameter
+	// loads of scale on the kernel's declaration line, so that line names no
+	// one PTX instruction. The SASS carries no PTX line of its own, so nothing
+	// identifies which of the three this first instruction came from. Choosing
+	// by opcode text would name PTX line 27 with no more evidence than line 29.
+	code, err := cudacapture.LoadCode(loadFixtureCapture(t, "", ""))
 	if err != nil {
 		t.Fatalf("LoadCode: %v", err)
 	}
-	inst := code.Kernels[0].Instruction(0)
+	k := code.Kernel("_Z5scalePfPKff")
+	if k == nil {
+		t.Fatal("_Z5scalePfPKff not decoded")
+	}
+	inst := k.Instruction(0)
 	if inst == nil {
 		t.Fatal("no instruction at offset 0")
 	}
-	if inst.SourceLine != 2 {
-		t.Errorf("SourceLine = %d, want 2; the source tier is unaffected", inst.SourceLine)
+	if inst.SourceLine != 11 {
+		t.Errorf("SourceLine = %d, want 11; the source tier is unaffected", inst.SourceLine)
 	}
-	// Two PTX instructions claim line 2 and the SASS carries no PTX line, so
-	// nothing identifies which one this MOV came from. Choosing by opcode text
-	// would name line 12 with no more evidence than line 13.
 	if inst.PTXLine != 0 {
 		t.Errorf("PTXLine = %d, want 0 (unknown)", inst.PTXLine)
 	}
+	// The same kernel's exit sits on a source line exactly one PTX
+	// instruction claims, and is identified. Without this the test above
+	// would also pass on a loader that never reported a PTX line at all.
+	exit := k.Instruction(0xe0)
+	if exit == nil {
+		t.Fatal("no instruction at offset 0xe0")
+	}
+	if exit.PTXLine != 45 {
+		t.Errorf("PTXLine at 0xe0 = %d, want 45", exit.PTXLine)
+	}
 }
-
-// unmappedRetPTX leaves source line 3, where the SASS RET sits, with no PTX
-// instruction at all.
-const unmappedRetPTX = `.version 8.0
-.target sm_90
-.address_size 64
-
-.file 1 "kernels.cu"
-
-.visible .entry compute(
-	.param .u64 a
-)
-{
-	.loc 1 2 0;
-	mov.u64 %rd1, %rd2;
-	ret;
-}
-`
 
 func TestUnclaimedSourceLineIsRefused(t *testing.T) {
-	// The PTX names only line 2; the SASS attributes its RET to line 3. The
-	// two cannot be one compilation, and the previous behaviour was to fuse
-	// them and report the RET at the PTX line of the last "ret" it could find.
-	_, err := cudacapture.LoadCode(loadFixtureCapture(t, unmappedRetPTX, ""))
+	// The SASS attributes scale's exit to kernels.cu:14, where the PTX puts
+	// its "ret". Moving that one .loc back onto line 13 leaves line 14 claimed
+	// by the disassembly and by nothing in the PTX: the two cannot be one
+	// compilation. The previous behaviour was to fuse them and report those
+	// instructions at the PTX line of the last "ret" it could find.
+	ptx := movePTXLines(t, func(n int) int {
+		if n == 14 {
+			return 13
+		}
+		return n
+	})
+	_, err := cudacapture.LoadCode(loadFixtureCapture(t, ptx, ""))
 	if err == nil {
 		t.Fatal("LoadCode accepted a SASS claiming a source line the PTX never names")
 	}
-	for _, want := range []string{"not from one compilation", "kernels.cu", "[3]"} {
+	for _, want := range []string{"not from one compilation", "kernels.cu", "14"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %q", err, want)
 		}
 	}
 }
 
-// shiftedPTX is the fixture PTX with every source line moved by two, as a
+// shiftedPTX returns the fixture PTX with every source line moved by two, as a
 // second compilation of a file of the same name would have.
-const shiftedPTX = `.version 8.0
-.target sm_90
-.address_size 64
-
-.file 1 "kernels.cu"
-
-.visible .entry compute(
-	.param .u64 a
-)
-{
-	.loc 1 4 0;
-	mov.u64 %rd1, %rd2;
-	.loc 1 5 0;
-	ret;
+func shiftedPTX(t *testing.T) string {
+	t.Helper()
+	return movePTXLines(t, func(n int) int { return n + 2 })
 }
-`
 
 func TestFusedPairIsRefused(t *testing.T) {
-	_, err := cudacapture.LoadCode(loadFixtureCapture(t, shiftedPTX, ""))
+	_, err := cudacapture.LoadCode(loadFixtureCapture(t, shiftedPTX(t), ""))
 	if err == nil {
 		t.Fatal("LoadCode fused a PTX and SASS whose line tables disagree")
 	}

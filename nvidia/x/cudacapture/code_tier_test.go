@@ -13,7 +13,7 @@ import (
 // that pprof itself reads correctly, and the kernel ranking a reader wants from
 // such a profile is built from the CUBIN sections and the disassembly alone.
 func TestFusionFailureKeepsTheKernelTier(t *testing.T) {
-	code, err := cudacapture.LoadCode(loadFixtureCapture(t, shiftedPTX, ""))
+	code, err := cudacapture.LoadCode(loadFixtureCapture(t, shiftedPTX(t), ""))
 	var fusion *cudacapture.SourceFusionError
 	if !errors.As(err, &fusion) {
 		t.Fatalf("LoadCode error = %v, want *SourceFusionError", err)

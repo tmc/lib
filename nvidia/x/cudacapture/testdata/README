@@ -1,0 +1,57 @@
+cudacapture loader fixtures.
+
+Every .ptx, .sass and .cubin.hex here is byte-exact toolchain output, produced
+by gen.sh from the .cu and .cuh sources beside it. Do not edit the generated
+files: a fixture adjusted to agree with the loader tests nothing. To change
+what a fixture covers, change the source and regenerate.
+
+	CUDA=/usr/local/cuda-13.4 ./gen.sh
+
+Generated 2026-09-22 on gpu-host, an NVIDIA GB10 host, with CUDA 13.4 --
+nvcc V13.4.59, nvdisasm V13.4.49, NVVM 7.0.1, PTX ISA 9.4. Target sm_90, which
+is not this host's architecture: nothing here is run, so the target is chosen
+for a widely available ISA rather than for the machine that built it. gen.sh
+builds in /tmp/cudacapture-fixtures so that the absolute path NVVM embeds in
+.file is reproducible on any host.
+
+No GPU was used. nvcc, ptxas and nvdisasm compile and disassemble; none of
+them touches a device, and nothing here qualifies any claim about GPU
+behaviour.
+
+The CUBINs are stored hex-encoded, as the other CUBIN fixtures in this tree
+are, so that the repository holds no binary files; the tests decode them on
+read.
+
+The three units
+---------------
+
+kernels.*   Two entry points with different linkage. scale is a C++ symbol and
+            reaches the CUBIN mangled as _Z5scalePfPKff; fill is extern "C" and
+            reaches it verbatim. LoadCode joins the CUBIN section, the PTX
+            entry and the SASS function on that symbol, so a unit that spells
+            every kernel the same way on both sides never exercises the join.
+            nvcc also supplies an ambiguity this package needs and cannot
+            fabricate honestly: the three parameter loads of scale all sit on
+            the declaration line, so that source line identifies no single PTX
+            instruction and the PTX tier must report it unknown.
+
+main.*      One translation unit compiled from two files: main.cu includes
+            impl.cu, which defines _Z10accumulatePfPKfi at impl.cu:11, a line
+            main.cu does not have. A reader that reports the unit's primary
+            file with the kernel's line names a location that does not exist.
+
+inline.*    A kernel that force-inlines a device function from helpers.cuh, so
+            the disassembler attributes part of the kernel to a header the
+            capture does not bundle and carries the call site in an inline
+            chain. Those lines are unknowable rather than unclaimed.
+
+The tests that perturb a fixture -- a shifted PTX line table, a stray source
+directive, a CRLF disassembly -- transform the generated file in the test
+rather than shipping a second, hand-written one. A PTX nobody compiled differs
+from the fixture in its header, its registers and its instruction text as well
+as in the line table under test, so a loader that refused it would not have
+shown that it read the line table at all.
+
+code_template_test.go is the exception in this package: it builds its
+artifacts in Go, because a template instantiation's symbol is chosen by the
+instantiation and the test varies it.

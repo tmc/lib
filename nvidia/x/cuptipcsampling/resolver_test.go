@@ -64,52 +64,60 @@ func TestCaptureResolverResolvePC(t *testing.T) {
 	res := cuptipcsampling.NewCaptureResolver(code, expectedCRC)
 	mod := cuptipcsampling.ModuleID{CRC: expectedCRC}
 
-	// Offset 0 (entry instruction)
-	loc0 := res.ResolvePC(mod, "compute", 0)
+	// scale is a C++ symbol, so the CUBIN holds it Itanium-mangled and that
+	// is the name CUPTI reports for it.
+	const kernel = "_Z5scalePfPKff"
+
+	// Offset 0 (entry instruction). nvcc puts the kernel's three parameter
+	// loads on its declaration line, so no one PTX instruction claims it and
+	// the reported PTX line falls back to the entry's own.
+	loc0 := res.ResolvePC(mod, kernel, 0)
 	if !loc0.Resolved {
 		t.Fatal("expected loc0 to be resolved")
 	}
-	if loc0.KernelName != "compute" {
-		t.Errorf("KernelName = %q, want compute", loc0.KernelName)
+	if loc0.KernelName != kernel {
+		t.Errorf("KernelName = %q, want %s", loc0.KernelName, kernel)
 	}
 	if loc0.SourceFile != "kernels.cu" {
 		t.Errorf("SourceFile = %q, want kernels.cu", loc0.SourceFile)
 	}
-	if loc0.SourceLine != 2 {
-		t.Errorf("SourceLine = %d, want 2", loc0.SourceLine)
+	if loc0.SourceLine != 11 {
+		t.Errorf("SourceLine = %d, want 11", loc0.SourceLine)
 	}
 	if loc0.PTXFile != "kernels.ptx" {
 		t.Errorf("PTXFile = %q, want kernels.ptx", loc0.PTXFile)
 	}
-	if loc0.PTXLine != 12 {
-		t.Errorf("PTXLine = %d, want 12", loc0.PTXLine)
+	if loc0.PTXLine != 15 {
+		t.Errorf("PTXLine = %d, want 15", loc0.PTXLine)
 	}
 	if loc0.SASSFile != "kernels.sass" {
 		t.Errorf("SASSFile = %q, want kernels.sass", loc0.SASSFile)
 	}
-	if loc0.SASSLine != 3 {
-		t.Errorf("SASSLine = %d, want 3", loc0.SASSLine)
+	if loc0.SASSLine != 59 {
+		t.Errorf("SASSLine = %d, want 59", loc0.SASSLine)
 	}
-	if loc0.CUBINOffset != 96 {
-		t.Errorf("CUBINOffset = %d, want 96", loc0.CUBINOffset)
+	if loc0.CUBINOffset != 4352 {
+		t.Errorf("CUBINOffset = %d, want 4352", loc0.CUBINOffset)
 	}
 
-	// Offset 0x10 (second instruction)
-	loc1 := res.ResolvePC(mod, "compute", 0x10)
+	// Offset 0xe0, the kernel's exit. Its source line names exactly one PTX
+	// instruction, so the PTX line here is the instruction's own and not the
+	// entry's.
+	loc1 := res.ResolvePC(mod, kernel, 0xe0)
 	if !loc1.Resolved {
 		t.Fatal("expected loc1 to be resolved")
 	}
-	if loc1.SourceLine != 3 {
-		t.Errorf("SourceLine = %d, want 3", loc1.SourceLine)
+	if loc1.SourceLine != 14 {
+		t.Errorf("SourceLine = %d, want 14", loc1.SourceLine)
 	}
-	if loc1.PTXLine != 14 {
-		t.Errorf("PTXLine = %d, want 14", loc1.PTXLine)
+	if loc1.PTXLine != 45 {
+		t.Errorf("PTXLine = %d, want 45", loc1.PTXLine)
 	}
-	if loc1.SASSLine != 5 {
-		t.Errorf("SASSLine = %d, want 5", loc1.SASSLine)
+	if loc1.SASSLine != 80 {
+		t.Errorf("SASSLine = %d, want 80", loc1.SASSLine)
 	}
-	if loc1.CUBINOffset != 96+0x10 {
-		t.Errorf("CUBINOffset = %d, want %d", loc1.CUBINOffset, 96+0x10)
+	if loc1.CUBINOffset != 4352+0xe0 {
+		t.Errorf("CUBINOffset = %d, want %d", loc1.CUBINOffset, 4352+0xe0)
 	}
 }
 
@@ -127,11 +135,14 @@ func TestCaptureResolverMismatches(t *testing.T) {
 		wantName   string
 	}{
 		{
+			// The kernel is one the code really holds, so the CRC is
+			// what refuses it: naming an absent kernel here would pass
+			// on a resolver that never checked the CRC at all.
 			name:       "mismatched CRC",
 			mod:        cuptipcsampling.ModuleID{CRC: 0xdeadbeef},
-			kernelName: "compute",
+			kernelName: "_Z5scalePfPKff",
 			pcOffset:   0,
-			wantName:   "compute",
+			wantName:   "_Z5scalePfPKff",
 		},
 		{
 			name:       "unknown kernel",
@@ -157,12 +168,12 @@ func TestCaptureResolverMismatches(t *testing.T) {
 	// Nil receiver and nil code
 	var nilRes *cuptipcsampling.CaptureResolver
 	mod := cuptipcsampling.ModuleID{CRC: expectedCRC}
-	if loc := nilRes.ResolvePC(mod, "compute", 0); loc.Resolved {
+	if loc := nilRes.ResolvePC(mod, "_Z5scalePfPKff", 0); loc.Resolved {
 		t.Error("nil resolver: expected Resolved=false")
 	}
 
 	emptyRes := &cuptipcsampling.CaptureResolver{}
-	if loc := emptyRes.ResolvePC(mod, "compute", 0); loc.Resolved {
+	if loc := emptyRes.ResolvePC(mod, "_Z5scalePfPKff", 0); loc.Resolved {
 		t.Error("empty resolver: expected Resolved=false")
 	}
 }

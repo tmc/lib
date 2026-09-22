@@ -451,25 +451,17 @@ func TestReadDirRejectsSymlinkedControlFiles(t *testing.T) {
 }
 
 func TestLoadCodeWithFixture(t *testing.T) {
-	cubinHex, err := os.ReadFile(filepath.Join("testdata", "kernels.cubin.hex"))
-	if err != nil {
-		t.Fatalf("read kernels.cubin.hex: %v", err)
+	read := func(name string) []byte {
+		t.Helper()
+		b, err := os.ReadFile(filepath.Join("testdata", name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		return b
 	}
-	cubinBytes, err := hex.DecodeString(strings.TrimSpace(string(cubinHex)))
+	cubinBytes, err := hex.DecodeString(strings.TrimSpace(string(read("kernels.cubin.hex"))))
 	if err != nil {
 		t.Fatalf("decode cubin hex: %v", err)
-	}
-	cuBytes, err := os.ReadFile(filepath.Join("testdata", "kernels.cu"))
-	if err != nil {
-		t.Fatalf("read kernels.cu: %v", err)
-	}
-	ptxBytes, err := os.ReadFile(filepath.Join("testdata", "kernels.ptx"))
-	if err != nil {
-		t.Fatalf("read kernels.ptx: %v", err)
-	}
-	sassBytes, err := os.ReadFile(filepath.Join("testdata", "kernels.sass"))
-	if err != nil {
-		t.Fatalf("read kernels.sass: %v", err)
 	}
 
 	cap := &cudacapture.Capture{
@@ -480,10 +472,10 @@ func TestLoadCodeWithFixture(t *testing.T) {
 			SASS:   "kernels.sass",
 		},
 		Files: map[string][]byte{
-			"kernels.cu":    cuBytes,
-			"kernels.ptx":   ptxBytes,
+			"kernels.cu":    read("kernels.cu"),
+			"kernels.ptx":   read("kernels.ptx"),
 			"kernels.cubin": cubinBytes,
-			"kernels.sass":  sassBytes,
+			"kernels.sass":  read("kernels.sass"),
 		},
 	}
 
@@ -492,44 +484,60 @@ func TestLoadCodeWithFixture(t *testing.T) {
 		t.Fatalf("LoadCode: %v", err)
 	}
 
-	if len(code.Kernels) != 1 {
-		t.Fatalf("got %d kernels, want 1", len(code.Kernels))
+	// The fixture's two entry points differ in linkage, so the CUBIN spells
+	// one of them Itanium-mangled and the other verbatim. Both must join, and
+	// the mangled one must still resolve to its source definition, which the
+	// source spells "scale".
+	tests := []struct {
+		name       string
+		offset     uint64
+		size       uint64
+		sourceLine int
+		ptxLine    int
+		insts      int
+	}{
+		{name: "fill", offset: 3968, size: 384, sourceLine: 16, ptxLine: 49, insts: 24},
+		{name: "_Z5scalePfPKff", offset: 4352, size: 384, sourceLine: 11, ptxLine: 15, insts: 24},
 	}
-	k := code.Kernels[0]
-	if k.Name != "compute" {
-		t.Errorf("Kernel.Name = %q, want %q", k.Name, "compute")
+	if len(code.Kernels) != len(tests) {
+		t.Fatalf("got %d kernels, want %d", len(code.Kernels), len(tests))
 	}
-	if k.Offset != 96 {
-		t.Errorf("Kernel.Offset = %d, want 96", k.Offset)
-	}
-	if k.Size != 32 {
-		t.Errorf("Kernel.Size = %d, want 32", k.Size)
-	}
-	if k.SourceLine != 2 {
-		t.Errorf("Kernel.SourceLine = %d, want 2", k.SourceLine)
-	}
-	if len(k.Instructions) != 2 {
-		t.Fatalf("got %d instructions, want 2", len(k.Instructions))
-	}
-	inst0 := k.Instruction(0)
-	if inst0 == nil {
-		t.Fatal("instruction at offset 0 not found")
-	}
-	if inst0.SourceLine != 2 {
-		t.Errorf("inst0.SourceLine = %d, want 2", inst0.SourceLine)
-	}
-	if inst0.PTXLine != 12 {
-		t.Errorf("inst0.PTXLine = %d, want 12", inst0.PTXLine)
-	}
-	inst1 := k.Instruction(0x10)
-	if inst1 == nil {
-		t.Fatal("instruction at offset 0x10 not found")
-	}
-	if inst1.SourceLine != 3 {
-		t.Errorf("inst1.SourceLine = %d, want 3", inst1.SourceLine)
-	}
-	if inst1.PTXLine != 14 {
-		t.Errorf("inst1.PTXLine = %d, want 14", inst1.PTXLine)
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// The kernels are ordered by CUBIN offset, which is ptxas's
+			// layout and not the source order.
+			k := code.Kernels[i]
+			if k.Name != tt.name {
+				t.Fatalf("Kernel.Name = %q, want %q", k.Name, tt.name)
+			}
+			if k.Offset != tt.offset {
+				t.Errorf("Kernel.Offset = %d, want %d", k.Offset, tt.offset)
+			}
+			if k.Size != tt.size {
+				t.Errorf("Kernel.Size = %d, want %d", k.Size, tt.size)
+			}
+			if k.SourceFile != "kernels.cu" {
+				t.Errorf("Kernel.SourceFile = %q, want kernels.cu", k.SourceFile)
+			}
+			if k.SourceLine != tt.sourceLine {
+				t.Errorf("Kernel.SourceLine = %d, want %d", k.SourceLine, tt.sourceLine)
+			}
+			if k.PTXLine != tt.ptxLine {
+				t.Errorf("Kernel.PTXLine = %d, want %d", k.PTXLine, tt.ptxLine)
+			}
+			if len(k.Instructions) != tt.insts {
+				t.Fatalf("got %d instructions, want %d", len(k.Instructions), tt.insts)
+			}
+			inst0 := k.Instruction(0)
+			if inst0 == nil {
+				t.Fatal("instruction at offset 0 not found")
+			}
+			// The entry instruction sets up the stack pointer and the
+			// disassembler attributes it to the kernel's own declaration line.
+			if inst0.SourceLine != tt.sourceLine {
+				t.Errorf("inst0.SourceLine = %d, want %d", inst0.SourceLine, tt.sourceLine)
+			}
+		})
 	}
 }
 

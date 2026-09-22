@@ -1,5 +1,97 @@
-.section .text.compute
-//## File "kernels.cu", line 2
-/* 0x0000 */   MOV R1, c[0x0][0x28] ;
-//## File "kernels.cu", line 3
-/* 0x0010 */   RET ;
+	.target	sm_90
+
+	.elftype	@"ET_EXEC"
+
+
+//--------------------- .text.fill                --------------------------
+	.section	.text.fill,"ax",@progbits
+	.align	128
+        .global         fill
+        .type           fill,@function
+        .size           fill,(.L_x_2 - fill)
+        .other          fill,@"STO_CUDA_ENTRY STV_DEFAULT"
+fill:
+.text.fill:
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 16
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 17
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+        /*0030*/                   LDC R5, c[0x0][RZ] ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 18
+        /*0040*/                   LDC.64 R2, c[0x0][0x210] ;
+        /*0050*/                   LDC R7, c[0x0][0x218] ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 17
+        /*0060*/                   IMAD R5, R5, UR4, R0 ;
+        /*0070*/                   ULDC.64 UR4, c[0x0][0x208] ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 18
+        /*0080*/                   IMAD.WIDE R2, R5, 0x4, R2 ;
+        /*0090*/                   STG.E desc[UR4][R2.64], R7 ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 19
+        /*00a0*/                   EXIT ;
+.L_x_0:
+        /*00b0*/                   BRA `(.L_x_0);
+        /*00c0*/                   NOP;
+        /*00d0*/                   NOP;
+        /*00e0*/                   NOP;
+        /*00f0*/                   NOP;
+        /*0100*/                   NOP;
+        /*0110*/                   NOP;
+        /*0120*/                   NOP;
+        /*0130*/                   NOP;
+        /*0140*/                   NOP;
+        /*0150*/                   NOP;
+        /*0160*/                   NOP;
+        /*0170*/                   NOP;
+.L_x_2:
+
+
+//--------------------- .text._Z5scalePfPKff      --------------------------
+	.section	.text._Z5scalePfPKff,"ax",@progbits
+	.align	128
+        .global         _Z5scalePfPKff
+        .type           _Z5scalePfPKff,@function
+        .size           _Z5scalePfPKff,(.L_x_3 - _Z5scalePfPKff)
+        .other          _Z5scalePfPKff,@"STO_CUDA_ENTRY STV_DEFAULT"
+_Z5scalePfPKff:
+.text._Z5scalePfPKff:
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 11
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 12
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 13
+        /*0030*/                   ULDC UR6, c[0x0][0x220] ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 12
+        /*0040*/                   LDC R7, c[0x0][RZ] ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 13
+        /*0050*/                   LDC.64 R2, c[0x0][0x218] ;
+        /*0060*/                   LDC.64 R4, c[0x0][0x210] ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 12
+        /*0070*/                   IMAD R7, R7, UR4, R0 ;
+        /*0080*/                   ULDC.64 UR4, c[0x0][0x208] ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 13
+        /*0090*/                   IMAD.WIDE R2, R7, 0x4, R2 ;
+        /*00a0*/                   LDG.E R2, desc[UR4][R2.64] ;
+        /*00b0*/                   IMAD.WIDE R4, R7, 0x4, R4 ;
+        /*00c0*/                   FMUL R7, R2, UR6 ;
+        /*00d0*/                   STG.E desc[UR4][R4.64], R7 ;
+	//## File "/tmp/cudacapture-fixtures/kernels.cu", line 14
+        /*00e0*/                   EXIT ;
+.L_x_1:
+        /*00f0*/                   BRA `(.L_x_1);
+        /*0100*/                   NOP;
+        /*0110*/                   NOP;
+        /*0120*/                   NOP;
+        /*0130*/                   NOP;
+        /*0140*/                   NOP;
+        /*0150*/                   NOP;
+        /*0160*/                   NOP;
+        /*0170*/                   NOP;
+.L_x_3:
+
+
+//--------------------- SYMBOLS --------------------------
+
+	.type		.nv.reservedSmem.offset0,@object
+	.size		.nv.reservedSmem.offset0,0x4
