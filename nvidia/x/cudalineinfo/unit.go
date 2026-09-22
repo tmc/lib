@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ianlancetaylor/demangle"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
@@ -131,11 +132,36 @@ type Unit struct {
 // Kernel reports whether a function of the unit's disassembly is one of its
 // kernels. Instructions of any other function are the compiler's, such as a
 // division slowpath, and are not attributed to the program.
+//
+// A __global__ function declared without extern "C" reaches the disassembly
+// under its C++ mangled symbol, so a name is matched against three spellings
+// of the function: the symbol itself, which is how an extern "C" kernel
+// arrives; the demangled name without parameters or template arguments, such
+// as ns::geglu; and that name's last :: component. A caller therefore names a
+// kernel the way it is written in the source, whether or not the compiler
+// mangled it. The full demangled signature is not a spelling: its parameter
+// text is the demangler's, not the source's.
 func (u Unit) Kernel(name string) bool {
 	if len(u.Kernels) == 0 {
 		return u.Name == "" || name == u.Name
 	}
-	return slices.Contains(u.Kernels, name)
+	return slices.ContainsFunc(u.Kernels, func(k string) bool {
+		return slices.Contains(kernelSpellings(name), k)
+	})
+}
+
+// kernelSpellings returns the names a disassembly function answers to.
+func kernelSpellings(name string) []string {
+	spellings := []string{name}
+	d, err := demangle.ToString(name, demangle.NoParams, demangle.NoTemplateParams)
+	if err != nil || d == "" || d == name {
+		return spellings
+	}
+	spellings = append(spellings, d)
+	if i := strings.LastIndex(d, "::"); i >= 0 {
+		spellings = append(spellings, d[i+len("::"):])
+	}
+	return spellings
 }
 
 // GeneratedName is the file name the unit's own lines are reported under.
