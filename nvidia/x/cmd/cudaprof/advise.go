@@ -167,6 +167,14 @@ type AdviceReport struct {
 	// "17.66% of observed samples" as "17.66% of elapsed time".
 	SampleOnly bool `json:"sample_only,omitempty"`
 
+	// SpanNanos is the captured device span, when a duty-cycle reading
+	// established one. Cost headers state a finding's share of device time,
+	// which is a share of however long the device was busy -- on an idle
+	// capture that is a small fraction of the elapsed span, and a reader who
+	// does not know the difference reads "59.74% of device time" as most of
+	// the run. With a span the header can say both.
+	SpanNanos int64 `json:"span_nanos,omitempty"`
+
 	// SourceFusion reports that the capture's PTX and SASS are not from one
 	// compilation, so LoadCode refused the source binding and every finding
 	// below carries an empty file and a zero line. Without this a reader cannot
@@ -248,7 +256,15 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 		} else if item.ShareOfProfile > 0 || item.DeviceTimeNanos > 0 {
 			if item.DeviceTimeNanos > 0 {
 				durMs := float64(item.DeviceTimeNanos) / 1e6
-				header = fmt.Sprintf("### %d. [%s] (%.2f%% of GPU time, %.2f ms) %s: %s\n\n", i+1, item.Severity, item.ShareOfProfile, durMs, item.Category, item.Finding)
+				// "GPU time" named the busy union, not the elapsed span, and
+				// the two diverge by an order of magnitude on an idle
+				// capture. Both are printed where the span is known so the
+				// larger share cannot be read as the smaller one.
+				scope := fmt.Sprintf("%.2f%% of device time, %.2f ms", item.ShareOfProfile, durMs)
+				if r.SpanNanos > 0 {
+					scope = fmt.Sprintf("%s, %.2f%% of the captured span", scope, float64(item.DeviceTimeNanos)/float64(r.SpanNanos)*100.0)
+				}
+				header = fmt.Sprintf("### %d. [%s] (%s) %s: %s\n\n", i+1, item.Severity, scope, item.Category, item.Finding)
 			} else {
 				header = fmt.Sprintf("### %d. [%s] (%.2f%% of observed samples) %s: %s\n\n", i+1, item.Severity, item.ShareOfProfile, item.Category, item.Finding)
 			}
@@ -4286,6 +4302,7 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *AdviceReport) {
 	if !ok {
 		return
 	}
+	report.SpanNanos = int64(spanNs)
 	if pct >= deviceIdleCriticalPct {
 		// A busy capture can still lose a quarter of its span to a single
 		// stall, and the duty cycle is exactly what hides it: the same stall

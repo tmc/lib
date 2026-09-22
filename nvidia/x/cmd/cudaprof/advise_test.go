@@ -4809,3 +4809,37 @@ func TestUnionNanos(t *testing.T) {
 		})
 	}
 }
+
+// TestCostHeaderStatesBothDenominators pins the two scopes a cost header
+// prints, and pins that it prints only one when only one is known.
+//
+// "GPU time" named the busy union rather than the elapsed span. The two
+// diverge by an order of magnitude on an idle capture: a ds4 Go prefill
+// finding worth 59.74% of device time was 5.93% of the span it was captured
+// in, and a reader with one number reads the larger as the smaller. A capture
+// that never established a span has no second number to print, and must not
+// invent one.
+func TestCostHeaderStatesBothDenominators(t *testing.T) {
+	item := AdviceItem{
+		Severity:        SeverityCost,
+		Category:        CategoryArchitecture,
+		Finding:         "a family holds the device time",
+		DeviceTimeNanos: 202_340_000,
+		ShareOfProfile:  59.74,
+	}
+
+	withSpan := (&AdviceReport{Items: []AdviceItem{item}, SpanNanos: 3_410_950_000}).Markdown()
+	const want = "### 1. [Cost] (59.74% of device time, 202.34 ms, 5.93% of the captured span)"
+	if !strings.Contains(withSpan, want) {
+		t.Errorf("header missing the span share\ngot:  %s\nwant: %s", withSpan, want)
+	}
+
+	// No span measured: one denominator, and no claim about the other.
+	noSpan := (&AdviceReport{Items: []AdviceItem{item}}).Markdown()
+	if !strings.Contains(noSpan, "### 1. [Cost] (59.74% of device time, 202.34 ms)") {
+		t.Errorf("header without a span did not state device time alone: %s", noSpan)
+	}
+	if strings.Contains(noSpan, "captured span") {
+		t.Errorf("header claimed a span share with no span measured: %s", noSpan)
+	}
+}
