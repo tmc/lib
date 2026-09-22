@@ -20,7 +20,7 @@ two text files that are.
 - target: `sm_121a`, the arch-specific target. `sm_121` is the family and is
   not this target. `ptxas -arch=sm_121a` requires CUDA 12.9 or newer; the
   `nvcc` first on the host's `PATH` reports 12.0 and rejects it.
-- date: 2026-09-18
+- date: 2026-09-22
 
 Commands, per fixture:
 
@@ -35,6 +35,11 @@ Nothing in this directory is evidence about runtime behavior. Compiling for a
 target is not running on it. Both fixtures have since been launched on the host
 above under recorded authorization, but that is a separate receipt in the lane
 10 handoff -- these files are artifacts, not results.
+
+`dag_worker`'s sixth parameter is 64 bits wide (`.param .u64` in the PTX). A
+32-bit parameter takes epoch 2³² to zero, which the worker refuses as the
+unpublished value; the native harness launches at that epoch so the width is
+observable rather than asserted.
 
 The `.ptx` and `.sass` also carry the in-kernel poll bound that makes a
 dependency wait terminate: `setp.eq.b64` against 16777216 and a CAS installing

@@ -34,7 +34,10 @@ func megaTarget() string {
 // Every failure has its own exit status so that a nonzero exit says what went
 // wrong. Status 9 in particular is the abort buffer coming back nonzero: the
 // in-kernel poll bound raises [cudamega.AbortSpinExhausted] there, and a run
-// that hit the bound must never be read as a run that finished.
+// that hit the bound must never be read as a run that finished. Statuses 10-12
+// belong to the epoch-2³² launch, which is what makes the 64-bit epoch
+// parameter observable: a 32-bit parameter takes that epoch to zero and the
+// run comes back with [cudamega.AbortBadExtent] as status 11.
 func nativeMain(f programFixture) string {
 	tasks := len(f.graph.Tasks())
 	return fmt.Sprintf(`
@@ -49,10 +52,16 @@ int main() {
   cudaMemcpy(in,h,sizeof h,cudaMemcpyHostToDevice);
   cudaMemset(sp,0,sb); cudaMemset(so,0,sb);
   cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(abort,0,sizeof(unsigned));
-  int blocks=0;
+  int blocks=0, sms=0, dev=0;
+  if (cudaGetDevice(&dev)!=cudaSuccess||cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,dev)!=cudaSuccess||sms<1) return 3;
   if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,dag_worker,threads,0)!=cudaSuccess||blocks<1) return 3;
-  if ((unsigned)blocks < grid_ctas) { printf("occupancy %%d < grid_ctas %%u\n", blocks, grid_ctas); return 3; }
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,1);
+  // Residency is blocks-per-SM times SM count. Comparing the per-SM figure
+  // against the whole grid is a different quantity: it refuses every grid
+  // wider than one SM's residency, and on these one- and two-CTA fixtures it
+  // passes without ever reaching the admission it claims to check.
+  if ((unsigned long long)blocks*(unsigned long long)sms < grid_ctas) {
+    printf("residency %%d/SM * %%d SMs < grid_ctas %%u\n", blocks, sms, grid_ctas); return 3; }
+  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,1ull);
   if (cudaDeviceSynchronize()!=cudaSuccess) { printf("persistent: %%s\n", cudaGetErrorString(cudaGetLastError())); return 4; }
   unsigned ac=0; cudaMemcpy(&ac,abort,sizeof ac,cudaMemcpyDeviceToHost);
   if (ac) { printf("persistent run aborted with code %%u\n", ac); return 9; }
@@ -64,11 +73,24 @@ int main() {
     printf("task %%zu element %%zu: persistent %%u ordinary %%u\n", i/n, i%%n, a[i], b[i]); return 6; }
   cudaMemset(sp,0xa5,sb); cudaMemset(completed,0,nt*sizeof(unsigned));
   unsigned one=1; cudaMemcpy(abort,&one,sizeof one,cudaMemcpyHostToDevice);
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,2);
+  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,2ull);
   if (cudaDeviceSynchronize()!=cudaSuccess) return 7;
   cudaMemcpy(a,sp,sb,cudaMemcpyDeviceToHost);
   for (size_t i=0;i<words;i++) if (a[i]!=0xa5a5a5a5u) {
     printf("aborted launch wrote task %%zu element %%zu\n", i/n, i%%n); return 8; }
+  // Epoch 2^32 exactly. 2^32+1 is the value that looks like the test and is
+  // not: it truncates to 1, which a 32-bit parameter accepts, so a run at
+  // 2^32+1 passes whether the parameter is 32 or 64 bits wide. 2^32 truncates
+  // to 0, the unpublished value the worker refuses with AbortBadExtent, and
+  // is therefore the smallest epoch that tells the two widths apart.
+  cudaMemset(sp,0,sb); cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(abort,0,sizeof(unsigned));
+  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,1ull<<32);
+  if (cudaDeviceSynchronize()!=cudaSuccess) return 10;
+  cudaMemcpy(&ac,abort,sizeof ac,cudaMemcpyDeviceToHost);
+  if (ac) { printf("launch at epoch 2^32 aborted with code %%u\n", ac); return 11; }
+  cudaMemcpy(a,sp,sb,cudaMemcpyDeviceToHost);
+  for (size_t i=0;i<words;i++) if (a[i]!=b[i]) {
+    printf("epoch 2^32: task %%zu element %%zu: persistent %%u ordinary %%u\n", i/n, i%%n, a[i], b[i]); return 12; }
   printf("OK n=%%u tasks=%%u ctas=%%u threads=%%u\n", n, nt, grid_ctas, threads);
   free(a); free(b);
   cudaFree(in);cudaFree(sp);cudaFree(so);cudaFree(completed);cudaFree(abort);
@@ -207,7 +229,7 @@ int main() {
   cudaMemcpy(in,h,sizeof h,cudaMemcpyHostToDevice);
   cudaMemset(sp,0,(size_t)nt*n*sizeof(unsigned));
   cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(abort,0,sizeof(unsigned));
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,1);
+  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,abort,n,1ull);
   if (cudaDeviceSynchronize()!=cudaSuccess) { printf("sync: %%s\n", cudaGetErrorString(cudaGetLastError())); return 4; }
   unsigned ac=0; cudaMemcpy(&ac,abort,sizeof ac,cudaMemcpyDeviceToHost);
   printf("abort_code=%%u\n", ac);

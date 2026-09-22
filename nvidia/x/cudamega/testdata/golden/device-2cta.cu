@@ -21,7 +21,7 @@ case 3: return op_3(x);
 default: return 0; }}
 
 extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
-    unsigned *completed, volatile unsigned *abort_code, unsigned n, unsigned epoch) {
+    unsigned *completed, volatile unsigned *abort_code, unsigned n, unsigned long long epoch) {
   if (gridDim.x != grid_ctas || gridDim.y != 1 || gridDim.z != 1 || blockDim.y != 1 || blockDim.z != 1) {
     if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, 2u);
     return;

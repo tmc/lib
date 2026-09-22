@@ -65,8 +65,13 @@ const DefaultSpinLimit = 1 << 24
 //
 // Buffers: scratch has len(tasks)*n uint32 elements; completed has len(tasks)
 // words, zeroed by the host before each epoch, and counts arriving CTAs;
-// abort_code is one volatile word. Epoch must be nonzero. The caller retains
-// every buffer until stream completion.
+// abort_code is one volatile word. The caller retains every buffer until
+// stream completion.
+//
+// Epoch must be nonzero, and the parameter is 64 bits wide because the host's
+// epoch counter is: a 32-bit parameter takes epoch 2³² to zero, which the
+// worker refuses as the unpublished value, and takes 2³²+k to k, which it
+// accepts as a different epoch. Neither is caught by anything narrower.
 //
 // Unsupported, reported rather than approximated:
 //
@@ -279,7 +284,7 @@ func workerPrologue(barrier, phase bool) string {
 	var b strings.Builder
 	b.WriteString(`
 extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
-    unsigned *completed, volatile unsigned *abort_code, unsigned n, unsigned epoch) {
+    unsigned *completed, volatile unsigned *abort_code, unsigned n, unsigned long long epoch) {
   if (gridDim.x != grid_ctas || gridDim.y != 1 || gridDim.z != 1 || blockDim.y != 1 || blockDim.z != 1) {
     if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, `)
 	fmt.Fprintf(&b, "%du", AbortBadLaunch)
