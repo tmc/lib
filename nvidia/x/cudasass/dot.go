@@ -24,9 +24,90 @@ func (s dotGraphSpan) render(dot string) string {
 	if !s.cluster {
 		return text + "\n"
 	}
-	body := text[strings.IndexByte(text, '{')+1:]
+	open := openBrace(text)
+	if open < 0 {
+		return "digraph " + dotID(s.name) + " {\n}\n"
+	}
+	body := text[open+1:]
 	body = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(body), "}"))
-	return "digraph " + strings.Trim(s.name, `"`) + " {\n" + body + "\n}\n"
+	return "digraph " + dotID(s.name) + " {\n" + body + "\n}\n"
+}
+
+// openBrace returns the index of the "{" opening a graph body, or -1. The
+// quoted name before it may hold a brace of its own.
+func openBrace(text string) int {
+	for i := 0; i < len(text); i++ {
+		switch text[i] {
+		case '"':
+			for i++; i < len(text) && text[i] != '"'; i++ {
+				if text[i] == '\\' {
+					i++
+				}
+			}
+		case '{':
+			return i
+		}
+	}
+	return -1
+}
+
+// skipBlockComment returns the index just past the "/*" comment opening at
+// dot[i]. An unterminated comment runs to the end: everything after it is
+// comment, including a "}" that would otherwise close a graph.
+func skipBlockComment(dot string, i int) int {
+	if j := strings.Index(dot[i+2:], "*/"); j >= 0 {
+		return i + 2 + j + len("*/")
+	}
+	return len(dot)
+}
+
+// isDOTNameByte reports whether c can appear in a bare DOT identifier.
+func isDOTNameByte(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_'
+}
+
+// dotUnquote returns the text a DOT identifier denotes: a quoted name loses
+// its quotes and its \" and \\ escapes, a bare name is itself. It is the
+// inverse of [dotID], so a name survives being extracted and read back.
+func dotUnquote(name string) string {
+	if len(name) < 2 || name[0] != '"' || name[len(name)-1] != '"' {
+		return name
+	}
+	inner := name[1 : len(name)-1]
+	if !strings.Contains(inner, `\`) {
+		return inner
+	}
+	var b strings.Builder
+	for i := 0; i < len(inner); i++ {
+		if inner[i] == '\\' && i+1 < len(inner) && (inner[i+1] == '"' || inner[i+1] == '\\') {
+			i++
+		}
+		b.WriteByte(inner[i])
+	}
+	return b.String()
+}
+
+// dotID returns name as a DOT identifier, quoted unless it is already a bare
+// one. The symbols a disassembler prints are not all bare identifiers: an
+// internal function such as $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath
+// emitted unquoted would head a graph no renderer reads. DOT admits bytes above
+// 0x7f in a bare name too, but the reader here compares each byte to
+// unicode.IsSpace, for which 0x85 and 0xa0 are spaces, so only ASCII is left
+// bare.
+func dotID(name string) string {
+	bare := name != ""
+	for i := 0; i < len(name) && bare; i++ {
+		switch c := name[i]; {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c == '_':
+		case c >= '0' && c <= '9' && i > 0:
+		default:
+			bare = false
+		}
+	}
+	if bare {
+		return name
+	}
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(name) + `"`
 }
 
 // ListDOTGraphs returns the names of the function graphs in Graphviz DOT text.
@@ -36,20 +117,27 @@ func (s dotGraphSpan) render(dot string) string {
 // identifies nothing a caller can ask for. Where those clusters are present
 // they are the graphs, and the names returned are the functions'. A digraph
 // with no clusters is reported under its own name.
+//
+// Every name returned is one [ExtractDOTGraph] will extract. A name that
+// unquotes to nothing is not reported: DOT permits an anonymous graph, and an
+// empty name is how ExtractDOTGraph is asked for the whole document, so such a
+// graph names nothing a caller can ask for.
 func ListDOTGraphs(dot string) []string {
-	spans := parseDOTGraphs(dot)
-	names := make([]string, len(spans))
-	for i, s := range spans {
-		names[i] = strings.Trim(s.name, `"`)
+	var names []string
+	for _, s := range parseDOTGraphs(dot) {
+		if dotUnquote(s.name) != "" {
+			names = append(names, s.name)
+		}
 	}
 	return names
 }
 
 // ExtractDOTGraph extracts the digraph definition for the named kernel from Graphviz DOT text.
-// If name is empty, the entire dot text is returned.
+// If name is empty once unquoted, it names no kernel and the entire dot text is returned.
 // Matching checks exact name, trimmed quoted name, and substring match against mangled symbols.
 func ExtractDOTGraph(dot string, name string) (string, error) {
-	if name == "" {
+	cleanName := dotUnquote(name)
+	if cleanName == "" {
 		if strings.TrimSpace(dot) == "" {
 			return "", fmt.Errorf("empty control flow graph")
 		}
@@ -60,17 +148,22 @@ func ExtractDOTGraph(dot string, name string) (string, error) {
 		return "", fmt.Errorf("no control flow graphs found")
 	}
 
-	cleanName := strings.Trim(name, `"`)
-	// 1. Exact match
+	// 1. Exact match, on the name as given and then as it unquotes, so that
+	// a name [ListDOTGraphs] reported is found whichever form it is in.
 	for _, s := range spans {
-		if s.name == name || strings.Trim(s.name, `"`) == cleanName {
+		if s.name == name {
+			return s.render(dot), nil
+		}
+	}
+	for _, s := range spans {
+		if s.name == cleanName {
 			return s.render(dot), nil
 		}
 	}
 
 	// 2. Case-insensitive exact match
 	for _, s := range spans {
-		if strings.EqualFold(strings.Trim(s.name, `"`), cleanName) {
+		if strings.EqualFold(s.name, cleanName) {
 			return s.render(dot), nil
 		}
 	}
@@ -78,8 +171,7 @@ func ExtractDOTGraph(dot string, name string) (string, error) {
 	// 3. Substring match
 	var matched []dotGraphSpan
 	for _, s := range spans {
-		sClean := strings.Trim(s.name, `"`)
-		if strings.Contains(sClean, cleanName) {
+		if strings.Contains(s.name, cleanName) {
 			matched = append(matched, s)
 		}
 	}
@@ -89,14 +181,14 @@ func ExtractDOTGraph(dot string, name string) (string, error) {
 	if len(matched) > 1 {
 		names := make([]string, len(matched))
 		for i, m := range matched {
-			names[i] = strings.Trim(m.name, `"`)
+			names[i] = m.name
 		}
 		return "", fmt.Errorf("ambiguous kernel name %q (matches: %s)", name, strings.Join(names, ", "))
 	}
 
 	available := make([]string, len(spans))
 	for i, s := range spans {
-		available[i] = strings.Trim(s.name, `"`)
+		available[i] = s.name
 	}
 	return "", fmt.Errorf("kernel %q not found in control flow graph (available: %s)", name, strings.Join(available, ", "))
 }
@@ -122,13 +214,7 @@ func parseDOTGraphs(dot string) []dotGraphSpan {
 			continue
 		}
 		if dot[i] == '/' && i+1 < n && dot[i+1] == '*' {
-			i += 2
-			for i+1 < n && !(dot[i] == '*' && dot[i+1] == '/') {
-				i++
-			}
-			if i+1 < n {
-				i += 2
-			}
+			i = skipBlockComment(dot, i)
 			continue
 		}
 		if dot[i] == '#' {
@@ -162,13 +248,7 @@ func parseDOTGraphs(dot string) []dotGraphSpan {
 						continue
 					}
 					if dot[i] == '/' && i+1 < n && dot[i+1] == '*' {
-						i += 2
-						for i+1 < n && !(dot[i] == '*' && dot[i+1] == '/') {
-							i++
-						}
-						if i+1 < n {
-							i += 2
-						}
+						i = skipBlockComment(dot, i)
 						continue
 					}
 					break
@@ -190,15 +270,18 @@ func parseDOTGraphs(dot string) []dotGraphSpan {
 					graphName = dot[nameStart:i]
 				} else if i < n && dot[i] != '{' {
 					nameStart := i
-					for i < n && !unicode.IsSpace(rune(dot[i])) && dot[i] != '{' && dot[i] != '/' {
+					for i < n && !unicode.IsSpace(rune(dot[i])) && dot[i] != '{' && dot[i] != '/' && dot[i] != '"' {
 						i++
 					}
 					graphName = dot[nameStart:i]
 				}
 
-				// Find opening brace '{'
-				for i < n && dot[i] != '{' {
-					i++
+				// Find opening brace '{', which a quoted name or a stray
+				// string before it may hold a copy of.
+				if rel := openBrace(dot[i:]); rel >= 0 {
+					i += rel
+				} else {
+					i = n
 				}
 
 				if i < n && dot[i] == '{' {
@@ -227,13 +310,7 @@ func parseDOTGraphs(dot string) []dotGraphSpan {
 							continue
 						}
 						if dot[i] == '/' && i+1 < n && dot[i+1] == '*' {
-							i += 2
-							for i+1 < n && !(dot[i] == '*' && dot[i+1] == '/') {
-								i++
-							}
-							if i+1 < n {
-								i += 2
-							}
+							i = skipBlockComment(dot, i)
 							continue
 						}
 						if dot[i] == '{' {
@@ -252,7 +329,7 @@ func parseDOTGraphs(dot string) []dotGraphSpan {
 							spans = append(spans, cs...)
 						} else {
 							spans = append(spans, dotGraphSpan{
-								name:  graphName,
+								name:  dotUnquote(graphName),
 								start: graphStart,
 								end:   i,
 							})
@@ -277,28 +354,61 @@ func clusterSpans(dot string, start, end int) []dotGraphSpan {
 	const prefix = "cluster_"
 	var spans []dotGraphSpan
 	for i := start; i < end; {
-		if !strings.HasPrefix(dot[i:end], "subgraph") {
+		// A node label holds arbitrary text, so the keyword counts only
+		// where the scanner is reading DOT and not a string or a comment.
+		switch {
+		case dot[i] == '"':
+			for i++; i < end && dot[i] != '"'; i++ {
+				if dot[i] == '\\' {
+					i++
+				}
+			}
 			i++
+			continue
+		case dot[i] == '/' && i+1 < end && dot[i+1] == '/':
+			for i += 2; i < end && dot[i] != '\n'; i++ {
+			}
+			continue
+		case dot[i] == '/' && i+1 < end && dot[i+1] == '*':
+			i = skipBlockComment(dot, i)
 			continue
 		}
 		j := i + len("subgraph")
+		// "subgraph" is a keyword only as a whole token: a graph named
+		// subgraphcluster_x holds the text of one and is not a cluster.
+		if !strings.HasPrefix(dot[i:end], "subgraph") ||
+			(i > start && isDOTNameByte(dot[i-1])) ||
+			(j < end && isDOTNameByte(dot[j])) {
+			i++
+			continue
+		}
 		for j < end && unicode.IsSpace(rune(dot[j])) {
 			j++
 		}
 		name, j := dotName(dot, j, end)
-		if !strings.HasPrefix(strings.Trim(name, `"`), prefix) {
+		clean := dotUnquote(name)
+		if !strings.HasPrefix(clean, prefix) {
 			i = j
 			continue
 		}
-		for j < end && dot[j] != '{' {
-			j++
+		fn := strings.TrimPrefix(clean, prefix)
+		if dotUnquote(fn) == "" {
+			// A cluster carrying no function name names nothing a caller
+			// can ask for, so it is not one of the graphs.
+			i = j
+			continue
 		}
+		rel := openBrace(dot[j:end])
+		if rel < 0 {
+			break
+		}
+		j += rel
 		body := skipBraced(dot, j, end)
 		if body < 0 {
 			break
 		}
 		spans = append(spans, dotGraphSpan{
-			name:    strings.TrimPrefix(strings.Trim(name, `"`), prefix),
+			name:    fn,
 			start:   i,
 			end:     body,
 			cluster: true,
@@ -309,7 +419,9 @@ func clusterSpans(dot string, start, end int) []dotGraphSpan {
 }
 
 // dotName reads the identifier at dot[i:end], quoted or bare, and returns it
-// with the index just past it.
+// with the index just past it. A bare name stops at a quote: letting one
+// absorb a quote puts the scan out of phase with every scanner here that
+// skips quoted text, so a brace inside a string would open a graph body.
 func dotName(dot string, i, end int) (string, int) {
 	if i < end && dot[i] == '"' {
 		j := i + 1
@@ -326,7 +438,7 @@ func dotName(dot string, i, end int) (string, int) {
 		return dot[i:j], j
 	}
 	j := i
-	for j < end && !unicode.IsSpace(rune(dot[j])) && dot[j] != '{' {
+	for j < end && !unicode.IsSpace(rune(dot[j])) && dot[j] != '{' && dot[j] != '"' {
 		j++
 	}
 	return dot[i:j], j
