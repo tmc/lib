@@ -17,10 +17,18 @@ const (
 )
 
 type Task struct {
-	ID    string
-	Deps  []string
-	Rank  int
+	ID   string
+	Deps []string
+	Rank int
+
+	// Bytes is the task's dynamic shared-memory claim, in bytes. It is not
+	// the size of the task's output and not a cost: a scheduler that reads
+	// it as either will rank tasks by a quantity that says nothing about
+	// them. The megakernel executor budgets it against the shared memory the
+	// compiled worker admits (cudamega.Progress); apart from that it is only
+	// hashed into the graph fingerprint.
 	Bytes uint64
+
 	Scope Scope
 }
 type Graph struct {
