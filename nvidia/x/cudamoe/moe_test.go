@@ -14,8 +14,8 @@ func TestGatherGeneratedSources(t *testing.T) {
 	if err != nil || !strings.Contains(s, "moe_gather") {
 		t.Fatal(err)
 	}
-	if _, err := PrefillW256Source(); err == nil {
-		t.Fatal("accepted unsupported W256 lowering")
+	if s, err := PrefillW256Source(); err != nil || !strings.Contains(s, "moe_prefill_w256") {
+		t.Fatalf("prefill source: %v", err)
 	}
 }
 

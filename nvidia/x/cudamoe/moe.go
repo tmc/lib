@@ -59,19 +59,49 @@ func Gather16Checked(experts [][]float32, indices []int, width, expertCount int)
 }
 
 // GatherSource emits a bounds-checked expert-major gather. uint4 loads are
-// used only on aligned groups; the scalar loop handles tails.
-func GatherSource(width int) (string, error) {
-	if width != 16 && width != 32 {
+// used only when both input and output groups are aligned. Each output has
+// one writer; unaligned groups and tails use scalar loads. Each group of tile
+// threads handles tile adjacent columns; the final group of each row may have
+// inactive threads. Use GatherGeometry for the padded launch dimensions.
+// Input and output must not overlap. Invalid expert routes leave output untouched.
+func GatherSource(tile int) (string, error) {
+	if tile != 16 && tile != 32 {
 		return "", fmt.Errorf("cudamoe: admitted tiles are 16 or 32")
 	}
 	return fmt.Sprintf(`#include <cuda_runtime.h>
-// tile width=%d
-extern "C" __global__ void moe_gather(const float* experts,float* out,const int* route,int tokens,int width,int expert_count){int i=blockIdx.x*blockDim.x+threadIdx.x;int t=i/width,c=i%%width;if(t<tokens&&c<width){int e=route[t];if(e<0||e>=expert_count)return;const float* p=experts+(size_t)e*width+c;if(c%%4==0&&c+4<=width&&(((unsigned long long)p)&15)==0){uint4 v=*(const uint4*)p;((uint4*)(out+i))[0]=v;}else out[i]=*p;}}`, width), nil
+extern "C" __global__ void moe_gather(const float* experts, float* out,
+    const int* route, int tokens, int width, int expert_count) {
+  if (tokens <= 0 || width <= 0 || expert_count <= 0) return;
+  size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+  const size_t tile_width = %d;
+  size_t tiles_per_row = ((size_t)width + tile_width - 1) / tile_width;
+  size_t tile = i / tile_width;
+  size_t t = tile / tiles_per_row;
+  if (t >= (size_t)tokens) return;
+  size_t column = (tile %% tiles_per_row) * tile_width + i %% tile_width;
+  if (column >= (size_t)width) return;
+  int c = (int)column;
+  int e = route[t];
+  if (e < 0 || e >= expert_count) return;
+  int group = c - c %% 4;
+  const float* src = experts + (size_t)e * width + group;
+  float* dst = out + t * width + group;
+  if (width - group >= 4 &&
+      (((unsigned long long)src | (unsigned long long)dst) & 15) == 0) {
+    if (c == group) *(uint4*)dst = *(const uint4*)src;
+  } else {
+    out[t * width + c] = experts[(size_t)e * width + c];
+  }
+}`, tile), nil
 }
 
-// PrefillW256Source emits the bounded cross-token W=256 GEMM fallback.
+// PrefillW256Source emits a 256-row FP16-input, FP32-output Tensor Core GEMM.
+// Inputs are row-major A[256,K] and B[K,N]; output is row-major C[256,N].
+// K and N must be positive multiples of 16, pointers 32-byte aligned, and
+// buffers nonoverlapping. Launch grid (N/16,4,1) with block (128,1,1).
+// The caller must group independent tokens for one expert before launch.
 func PrefillW256Source() (string, error) {
-	return "", fmt.Errorf("cudamoe: W=256 Tensor Core prefill lowering unsupported")
+	return prefillW256Source, nil
 }
 
 // GroupedTopKRouter computes bias-balanced grouped top-K routing.
