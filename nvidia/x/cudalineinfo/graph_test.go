@@ -5,50 +5,47 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
-const slowpath = "$__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath"
+// The layered fixture builds its lines inside two helpers, so its call
+// graph reaches the kernel through the stack the compiler recorded. Its
+// division and square root each fall back to a subroutine.
+const (
+	divSlowpath  = "$__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath"
+	sqrtSlowpath = "$__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath"
+)
 
 func TestEdges(t *testing.T) {
-	a := loadFixture(t, "")
-	for line, loc := range a.Unit.LineMap {
-		if loc.Line == 19 {
-			loc.Function = "main.silu"
-			loc.Callers = []cudair.Frame{
-				{File: "kernels.go", Line: 40, Function: "main.gate"},
-				{File: "main.go", Line: 9, Function: "main.main"},
-			}
-			a.Unit.LineMap[line] = loc
-		}
-	}
+	a := loadFixture(t, "fused_layered", "")
 	got := map[Edge]bool{}
 	for _, e := range a.Edges() {
 		got[e] = true
 	}
 	for _, want := range []Edge{
-		{"main.main", "main.gate"},
-		{"main.gate", "main.silu"},
-		{"main.silu", "kernels.go:19"},
-		{"main.main", "kernels.go:17"},
-		{"kernels.go:19", "fused_gate"},
-		{"kernels.go:19", slowpath},
-		{"kernels.go:17", "fused_gate"},
+		{"main.main", "main.run"},
+		{"main.run", "main.attribute"},
+		{"main.attribute", "main.layered"},
+		{"main.layered", "main.activate"},
+		{"main.activate", "kernels.go:45"},
+		{"main.layered", "kernels.go:38"},
+		{"kernels.go:45", divSlowpath},
+		{"kernels.go:45", "fused_layered"},
+		{"kernels.go:38", "fused_layered"},
 	} {
 		if !got[want] {
 			t.Errorf("missing edge %s -> %s", want.From, want.To)
 		}
 	}
 	for e := range got {
-		if e.From == "kernels.go:17" && e.To == slowpath {
-			t.Error("the input line calls the slowpath")
+		if e.From == "kernels.go:38" && (e.To == divSlowpath || e.To == sqrtSlowpath) {
+			t.Error("the input line calls a slowpath")
 		}
-		if e.From == "fused_gate" && e.To == slowpath {
-			t.Error("the kernel calls the slowpath from an instruction naming no line")
+		if e.From == "fused_layered" && (e.To == divSlowpath || e.To == sqrtSlowpath) {
+			t.Error("the kernel calls a slowpath from an instruction naming no line")
 		}
-		if e.From == slowpath {
-			t.Errorf("the slowpath's RET became an edge to %s", e.To)
+		if e.From == divSlowpath || e.From == sqrtSlowpath {
+			t.Errorf("a slowpath's RET became an edge to %s", e.To)
 		}
 	}
 
@@ -57,23 +54,23 @@ func TestEdges(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, line := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
-		if strings.HasPrefix(line, "kernels.go:19 ") && line != "kernels.go:19 "+slowpath+" fused_gate" {
-			t.Errorf("digraph line for the silu site = %q", line)
+		if strings.HasPrefix(line, "kernels.go:45 ") && line != "kernels.go:45 "+divSlowpath+" fused_layered" {
+			t.Errorf("digraph line for the activate site = %q", line)
 		}
 	}
 	buf.Reset()
 	if err := WriteDot(&buf, a); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), `"kernels.go:19" -> "`+slowpath+`";`) || !strings.Contains(buf.String(), "118 SASS") {
+	if !strings.Contains(buf.String(), `"kernels.go:45" -> "`+divSlowpath+`";`) || !strings.Contains(buf.String(), "24 SASS") {
 		t.Errorf("dot output:\n%s", buf.String())
 	}
 }
 
 func TestCallTarget(t *testing.T) {
 	for _, tt := range []struct{ opcode, operands, want string }{
-		{"CALL.REL.NOINC", "`($__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath)", "$__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath"},
-		{"RET.REL.NODEC", "R14 `(fused_gate)", ""},
+		{"CALL.REL.NOINC", "`(" + divSlowpath + ")", divSlowpath},
+		{"RET.REL.NODEC", "R14 `(fused_layered)", ""},
 		{"BRA", "`(.L_x_1)", ""},
 		{"CALL.REL.NOINC", "`(.L_x_1)", ""},
 		{"FMUL", "R3, R0", ""},
@@ -86,7 +83,7 @@ func TestCallTarget(t *testing.T) {
 }
 
 func TestParseUnit(t *testing.T) {
-	u := fixtureUnit()
+	u := fixtureUnit(t, "fused_gate")
 	got := ParseUnit(u.Name, u.SourceWithLineDirectives())
 	if got.Source != u.Source {
 		t.Errorf("source did not round-trip:\n%s\nwant:\n%s", got.Source, u.Source)

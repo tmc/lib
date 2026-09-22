@@ -22,31 +22,32 @@ fused_gate:
         /*0050*/                   IMAD R0, R0, UR4, R3 ;
         /*0060*/                   ISETP.GE.AND P0, PT, R0, UR8, PT ;
         /*0070*/               @P0 EXIT ;
-	//## File "kernels.go", line 19
+	//## File "x/examples/source-wiring/kernels.go", line 15
         /*0080*/                   LDC.64 R12, c[0x0][0x390] ;
         /*0090*/                   LDCU UR5, c[0x0][0x370] ;
         /*00a0*/                   LDCU.64 UR6, c[0x0][0x358] ;
-	//## File "kernels.go", line 17
+	//## File "x/examples/source-wiring/kernels.go", line 12
         /*00b0*/                   LDC.64 R8, c[0x0][0x380] ;
         /*00c0*/                   LDC.64 R10, c[0x0][0x388] ;
         /*00d0*/                   UIMAD UR4, UR4, UR5, URZ ;
 .L_x_0:
         /*00e0*/                   IMAD.WIDE R2, R0, 0x4, R8 ;
         /*00f0*/                   LDG.E.CONSTANT R2, desc[UR6][R2.64] ;
-	//## File "kernels.go", line 18
+	//## File "x/examples/source-wiring/kernels.go", line 13
         /*0100*/                   IMAD.WIDE R4, R0, 0x4, R10 ;
         /*0110*/                   LDG.E.CONSTANT R4, desc[UR6][R4.64] ;
-	//## File "kernels.go", line 19
+	//## File "x/examples/source-wiring/kernels.go", line 15
         /*0120*/                   IMAD.WIDE R6, R0.reuse, 0x4, R12 ;
 	//## File "fused_gate.cu", line 9
         /*0130*/                   IADD3 R0, PT, PT, R0, UR4, RZ ;
         /*0140*/                   ISETP.GE.AND P0, PT, R0, UR8, PT ;
-	//## File "kernels.go", line 19
+	//## File "x/examples/source-wiring/kernels.go", line 14
         /*0150*/                   FMUL.FTZ R14, R2, -1.4426950216293334961 ;
         /*0160*/                   MUFU.EX2 R14, R14 ;
         /*0170*/                   FADD.FTZ R15, R14, 1 ;
         /*0180*/                   MUFU.RCP R15, R15 ;
         /*0190*/                   FMUL.FTZ R17, R2, R15 ;
+	//## File "x/examples/source-wiring/kernels.go", line 15
         /*01a0*/                   FMUL.FTZ R17, R4, R17 ;
         /*01b0*/                   STG.E desc[UR6][R6.64], R17 ;
 	//## File "fused_gate.cu", line 9

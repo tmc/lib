@@ -12,7 +12,7 @@ import (
 )
 
 // testCaptureWithLines is the fused_gate fixture of cudalineinfo with four
-// kinds of sample: a full stack whose kernel frame names kernels.go:19 by a
+// kinds of sample: a full stack whose kernel frame names kernels.go:14 by a
 // path the disassembly does not use, a bare SASS frame at the same
 // instruction, a bare SASS frame in the prologue, which names no program
 // line, and a prologue sample whose kernel frame names the generated file.
@@ -22,15 +22,15 @@ func testCaptureWithLines(t *testing.T) (*cudacapture.Capture, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Instruction 32 of fused_gate is at offset 0x1f0, on kernels.go:19,
-	// the line that both activates and multiplies in this fixture.
+	// Instruction 32 of fused_gate is at offset 0x1f0, on kernels.go:14,
+	// the line the fixture's activation was built on.
 	fnSASS := &profile.Function{ID: 1, Name: "fused_gate.SASS", Filename: "fused_gate.sass"}
 	fnKernel := &profile.Function{ID: 2, Name: "fused_gate", Filename: "/src/kernels.go"}
 	fnGenerated := &profile.Function{ID: 4, Name: "fused_gate", Filename: "/tmp/fused_gate.cu"}
 	fnHost := &profile.Function{ID: 3, Name: "main.gate", Filename: "kernels.go"}
 	locSilu := &profile.Location{ID: 1, Line: []profile.Line{{Function: fnSASS, Line: 32}}}
-	locSite := &profile.Location{ID: 2, Line: []profile.Line{{Function: fnKernel, Line: 19}}}
-	locHost := &profile.Location{ID: 3, Line: []profile.Line{{Function: fnHost, Line: 14}}}
+	locSite := &profile.Location{ID: 2, Line: []profile.Line{{Function: fnKernel, Line: 14}}}
+	locHost := &profile.Location{ID: 3, Line: []profile.Line{{Function: fnHost, Line: 11}}}
 	locPrologue := &profile.Location{ID: 4, Line: []profile.Line{{Function: fnSASS, Line: 1}}}
 	locGenerated := &profile.Location{ID: 5, Line: []profile.Line{{Function: fnGenerated, Line: 9}}}
 	p := &profile.Profile{
@@ -83,8 +83,8 @@ func TestPrintCaptureLines(t *testing.T) {
 	}{
 		// Without a kernel the generated file is a program file too, so
 		// the prologue sample lands on its line rather than elsewhere.
-		{"", "", []string{"12 pc_samples by program line", "kernels.go:19  ", "29    9           75.0%", "fused_gate.cu:3           1     1", "fused_gate.cu:9           11    2", "elsewhere: 0 at instructions naming no program line, 0 at unresolved PCs"}},
-		{"fused_gate", "", []string{"fused_gate: 12 pc_samples", "29    9           75.0%", "elsewhere: 3 at instructions naming no program line, 0 at unresolved PCs"}},
+		{"", "", []string{"12 pc_samples by program line", "kernels.go:14  ", "23    9           75.0%", "fused_gate.cu:3           1     1", "fused_gate.cu:9           11    2", "elsewhere: 0 at instructions naming no program line, 0 at unresolved PCs"}},
+		{"fused_gate", "", []string{"fused_gate: 12 pc_samples", "23    9           75.0%", "elsewhere: 3 at instructions naming no program line, 0 at unresolved PCs"}},
 		{"gate", "stall_wait", []string{"fused_gate: 3 stall_wait", "66.7%"}},
 	} {
 		var buf bytes.Buffer
@@ -122,12 +122,12 @@ func TestPrintCaptureLinesModules(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"module first\n7 pc_samples", "module second\n5 pc_samples", "29    6           85.7%", "29    3           60.0%"} {
+	for _, want := range []string{"module first\n7 pc_samples", "module second\n5 pc_samples", "23    6           85.7%", "23    3           60.0%"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}
 	}
-	if strings.Count(out, "kernels.go:19") != 2 {
+	if strings.Count(out, "kernels.go:14") != 2 {
 		t.Errorf("the site is not in both tables:\n%s", out)
 	}
 	buf.Reset()

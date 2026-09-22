@@ -11,14 +11,14 @@ import (
 // line must lose its slowpath call and the slowpath itself must be gone from
 // the remainder.
 func TestDiffFastMath(t *testing.T) {
-	base, fast := loadFixture(t, ""), loadFixture(t, "-fast")
+	base, fast := loadFixture(t, "fused_gate", ""), loadFixture(t, "fused_gate", "-fast")
 	diffs := Diff(base, fast)
-	if len(diffs) != 3 {
-		t.Fatalf("got %d site diffs, want 3", len(diffs))
+	if len(diffs) != 4 {
+		t.Fatalf("got %d site diffs, want 4", len(diffs))
 	}
 	silu := diffs[2]
-	if silu.Site != (Site{"kernels.go", 19}) || silu.Base != 29 || silu.Target != 11 {
-		t.Errorf("silu diff = %+v, want kernels.go:19 29 -> 11", silu)
+	if silu.Site != (Site{kernelsFile, 14}) || silu.Base != 23 || silu.Target != 5 {
+		t.Errorf("silu diff = %+v, want kernels.go:14 23 -> 5", silu)
 	}
 	// Opcodes compare by base mnemonic, so the slowpath call is CALL and
 	// the range check FCHK. Both builds keep a MUFU exponential and
@@ -43,14 +43,14 @@ func TestDiffFastMath(t *testing.T) {
 	if err := WriteDiff(&buf, base, fast, "ieee", "fast"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "kernels.go:19") || !strings.Contains(buf.String(), "CALL") {
+	if !strings.Contains(buf.String(), "kernels.go:14") || !strings.Contains(buf.String(), "CALL") {
 		t.Errorf("diff output lacks the silu row:\n%s", buf.String())
 	}
 }
 
 func TestDiffSiteOnOneSide(t *testing.T) {
-	base := Attribute(fixtureUnit(), "", nil)
-	target := loadFixture(t, "")
+	base := Attribute(fixtureUnit(t, "fused_gate"), "", nil)
+	target := loadFixture(t, "fused_gate", "")
 	for _, d := range Diff(base, target) {
 		if d.Base != 0 || len(d.Removed) != 0 {
 			t.Errorf("site %v has base instructions in an attribution without SASS: %+v", d.Site, d)

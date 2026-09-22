@@ -8,37 +8,37 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudair"
 )
 
-// TestRollup charges the silu line's instructions to the helper that built
-// it and to the caller of that helper, and leaves the input lines alone.
+// TestRollup charges the instructions of the lines inside the two helpers to
+// the calls that reached them and to the frames above those, and leaves the
+// input lines of the kernel body alone. The callers are the ones the
+// compiler path recorded in the fixture, not values set here.
 func TestRollup(t *testing.T) {
-	a := loadFixture(t, "")
-	helper := []cudair.Frame{
-		{File: "kernels.go", Line: 40, Function: "main.gate"},
-		{File: "main.go", Line: 9, Function: "main.main"},
-	}
-	for line, loc := range a.Unit.LineMap {
-		if loc.Line == 19 {
-			loc.Function = "main.silu"
-			loc.Callers = helper
-			a.Unit.LineMap[line] = loc
-		}
-	}
-
+	a := loadFixture(t, "fused_layered", "")
 	got := map[string]Rollup{}
 	for _, r := range a.Rollup() {
 		got[r.Site.String()] = r
 	}
-	silu := len(a.SASS[Site{File: "kernels.go", Line: 19}])
+	var (
+		activate   = len(a.SASS[Site{File: kernelsFile, Line: 45}])
+		sqrt       = len(a.SASS[Site{File: kernelsFile, Line: 49}])
+		div        = len(a.SASS[Site{File: kernelsFile, Line: 50}])
+		attributed = a.Attributed
+	)
 	for _, tt := range []struct {
 		site      string
 		function  string
 		flat, cum int
 	}{
-		{"kernels.go:17", "main.main", 5, 5},
-		{"kernels.go:18", "main.main", 3, 3},
-		{"kernels.go:19", "main.silu", silu, silu},
-		{"kernels.go:40", "main.gate", 0, silu},
-		{"main.go:9", "main.main", 0, silu},
+		{"kernels.go:38", "main.layered", 5, 5},
+		{"kernels.go:39", "main.layered", 3, 3},
+		{"kernels.go:40", "main.layered", 0, activate},
+		{"kernels.go:41", "main.layered", 0, sqrt + div},
+		{"kernels.go:45", "main.activate", activate, activate},
+		{"kernels.go:49", "main.normalize", sqrt, sqrt},
+		{"kernels.go:50", "main.normalize", div, div},
+		{"main.go:113", "main.attribute", 0, attributed},
+		{"main.go:79", "main.run", 0, attributed},
+		{"main.go:70", "main.main", 0, attributed},
 	} {
 		r, ok := got[tt.site]
 		if !ok {
@@ -49,31 +49,33 @@ func TestRollup(t *testing.T) {
 			t.Errorf("%s = %s flat %d cum %d, want %s flat %d cum %d", tt.site, r.Function, r.Flat, r.Cum, tt.function, tt.flat, tt.cum)
 		}
 	}
-	if len(got) != 5 {
-		t.Errorf("got %d rollups, want 5", len(got))
+	if len(got) != 10 {
+		t.Errorf("got %d rollups, want 10", len(got))
 	}
 
 	var buf bytes.Buffer
 	if err := WriteRollup(&buf, a); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "kernels.go:40  main.gate") {
+	if !strings.Contains(buf.String(), "kernels.go:40  main.layered") {
 		t.Errorf("rollup table lacks the caller row:\n%s", buf.String())
 	}
 }
 
 // TestRollupRecursion counts a frame that appears twice in one stack once.
+// The callers are set here because no fixture has a recursive stack: the
+// example's kernels are built by straight-line calls.
 func TestRollupRecursion(t *testing.T) {
-	a := loadFixture(t, "")
-	self := cudair.Frame{File: "kernels.go", Line: 19, Function: "main.main"}
+	a := loadFixture(t, "fused_gate", "")
+	self := cudair.Frame{File: kernelsFile, Line: 14, Function: "main.gate"}
 	for line, loc := range a.Unit.LineMap {
-		if loc.Line == 19 {
+		if loc.Line == 14 {
 			loc.Callers = []cudair.Frame{self, self}
 			a.Unit.LineMap[line] = loc
 		}
 	}
 	for _, r := range a.Rollup() {
-		if r.Site.Line == 19 && r.Cum != r.Flat {
+		if r.Site.Line == 14 && r.Cum != r.Flat {
 			t.Errorf("recursive frame counted twice: flat %d cum %d", r.Flat, r.Cum)
 		}
 	}

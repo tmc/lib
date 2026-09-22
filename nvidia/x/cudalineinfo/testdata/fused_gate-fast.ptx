@@ -44,18 +44,19 @@
 	cvta.to.global.u64 	%rd2, %rd5;
 	cvta.to.global.u64 	%rd3, %rd6;
 $L__BB0_2:
-	.loc	2 17 9
+	.loc	2 12 9
 	mul.wide.s32 	%rd7, %r10, 4;
 	add.s64 	%rd8, %rd1, %rd7;
 	ld.global.nc.f32 	%f1, [%rd8];
-	.loc	2 18 9
+	.loc	2 13 9
 	add.s64 	%rd9, %rd2, %rd7;
 	ld.global.nc.f32 	%f2, [%rd9];
-	.loc	2 19 9
+	.loc	2 14 9
 	mul.ftz.f32 	%f3, %f1, 0fBFB8AA3B;
 	ex2.approx.ftz.f32 	%f4, %f3;
 	add.ftz.f32 	%f5, %f4, 0f3F800000;
 	div.approx.ftz.f32 	%f6, %f1, %f5;
+	.loc	2 15 9
 	mul.ftz.f32 	%f7, %f2, %f6;
 	add.s64 	%rd10, %rd3, %rd7;
 	st.global.f32 	[%rd10], %f7;
@@ -70,4 +71,4 @@ $L__BB0_3:
 
 }
 	.file	1 "fused_gate.cu"
-	.file	2 "kernels.go"
+	.file	2 "x/examples/source-wiring/kernels.go"

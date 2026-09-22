@@ -1,41 +1,47 @@
 package cudalineinfo
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
-// fixtureUnit is the fused_gate kernel of testdata: x.Silu().Mul(w) over two
-// inputs declared on kernels.go lines 17 and 18 and combined on line 19. The
-// line map is the one cudafuse recorded when the fixtures were generated.
-func fixtureUnit() Unit {
-	src, err := os.ReadFile("testdata/fused_gate.cu")
-	if err != nil {
-		panic(err)
-	}
-	at := func(line int) cudair.SourceLocation {
-		return cudair.SourceLocation{File: "kernels.go", Line: line, Function: "main.main"}
-	}
-	return Unit{
-		Name:   "fused_gate",
-		Source: stripDirectives(string(src)),
-		LineMap: map[int]cudair.SourceLocation{
-			4: at(17), 5: at(18), 6: at(19),
-			10: at(17), 11: at(18), 12: at(19), 13: at(19), 14: at(19),
-		},
-	}
-}
+// The fixtures are the fused_gate and fused_layered kernels of the
+// source-wiring example, exported by testdata/gen.go. gate builds both
+// inputs and the multiply in one function; layered builds its operations
+// inside two helpers, so its line map is the one that carries callers worth
+// rolling up.
+const (
+	kernelsFile = "x/examples/source-wiring/kernels.go"
+	mainFile    = "x/examples/source-wiring/main.go"
+)
 
-func loadFixture(t *testing.T, suffix string) *Attribution {
+// fixtureUnit reads a unit of testdata. Its functions and callers are the
+// ones cudafuse recorded while the example ran, not values a test invented.
+func fixtureUnit(t *testing.T, name string) Unit {
 	t.Helper()
-	ptx, err := os.ReadFile("testdata/fused_gate" + suffix + ".ptx")
+	data, err := os.ReadFile("testdata/" + name + ".json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	sass, err := os.ReadFile("testdata/fused_gate" + suffix + ".sass")
+	var u Unit
+	if err := json.Unmarshal(data, &u); err != nil {
+		t.Fatal(err)
+	}
+	return u
+}
+
+// loadFixture attributes a unit's artifacts. suffix selects a build other
+// than the default one, such as "-fast".
+func loadFixture(t *testing.T, name, suffix string) *Attribution {
+	t.Helper()
+	ptx, err := os.ReadFile("testdata/" + name + suffix + ".ptx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sass, err := os.ReadFile("testdata/" + name + suffix + ".sass")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,5 +49,5 @@ func loadFixture(t *testing.T, suffix string) *Attribution {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Attribute(fixtureUnit(), string(ptx), dis)
+	return Attribute(fixtureUnit(t, name), string(ptx), dis)
 }

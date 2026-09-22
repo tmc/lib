@@ -1,0 +1,182 @@
+{
+	"Name": "fused_gate",
+	"Source": "#include \u003ccuda_runtime.h\u003e\n\nextern \"C\" __global__ void fused_gate(\n    const float* __restrict__ x,\n    const float* __restrict__ w,\n    float* __restrict__ out_mul_3,\n    int n\n) {\n    for (int idx = blockDim.x * blockIdx.x + threadIdx.x; idx \u003c n; idx += blockDim.x * gridDim.x) {\n        float v_x = x[idx];\n        float v_w = w[idx];\n        float v_silu_2 = v_x / (1.0f + expf(-v_x));\n        float v_mul_3 = v_silu_2 * v_w;\n        out_mul_3[idx] = v_mul_3;\n    }\n}",
+	"LineMap": {
+		"10": {
+			"File": "x/examples/source-wiring/kernels.go",
+			"Line": 12,
+			"Function": "main.gate",
+			"Callers": [
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 113,
+					"Function": "main.attribute"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 79,
+					"Function": "main.run"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 70,
+					"Function": "main.main"
+				}
+			]
+		},
+		"11": {
+			"File": "x/examples/source-wiring/kernels.go",
+			"Line": 13,
+			"Function": "main.gate",
+			"Callers": [
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 113,
+					"Function": "main.attribute"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 79,
+					"Function": "main.run"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 70,
+					"Function": "main.main"
+				}
+			]
+		},
+		"12": {
+			"File": "x/examples/source-wiring/kernels.go",
+			"Line": 14,
+			"Function": "main.gate",
+			"Callers": [
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 113,
+					"Function": "main.attribute"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 79,
+					"Function": "main.run"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 70,
+					"Function": "main.main"
+				}
+			]
+		},
+		"13": {
+			"File": "x/examples/source-wiring/kernels.go",
+			"Line": 15,
+			"Function": "main.gate",
+			"Callers": [
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 113,
+					"Function": "main.attribute"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 79,
+					"Function": "main.run"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 70,
+					"Function": "main.main"
+				}
+			]
+		},
+		"14": {
+			"File": "x/examples/source-wiring/kernels.go",
+			"Line": 15,
+			"Function": "main.gate",
+			"Callers": [
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 113,
+					"Function": "main.attribute"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 79,
+					"Function": "main.run"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 70,
+					"Function": "main.main"
+				}
+			]
+		},
+		"4": {
+			"File": "x/examples/source-wiring/kernels.go",
+			"Line": 12,
+			"Function": "main.gate",
+			"Callers": [
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 113,
+					"Function": "main.attribute"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 79,
+					"Function": "main.run"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 70,
+					"Function": "main.main"
+				}
+			]
+		},
+		"5": {
+			"File": "x/examples/source-wiring/kernels.go",
+			"Line": 13,
+			"Function": "main.gate",
+			"Callers": [
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 113,
+					"Function": "main.attribute"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 79,
+					"Function": "main.run"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 70,
+					"Function": "main.main"
+				}
+			]
+		},
+		"6": {
+			"File": "x/examples/source-wiring/kernels.go",
+			"Line": 15,
+			"Function": "main.gate",
+			"Callers": [
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 113,
+					"Function": "main.attribute"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 79,
+					"Function": "main.run"
+				},
+				{
+					"File": "x/examples/source-wiring/main.go",
+					"Line": 70,
+					"Function": "main.main"
+				}
+			]
+		}
+	}
+}

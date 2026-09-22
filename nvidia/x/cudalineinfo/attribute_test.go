@@ -9,7 +9,7 @@ import (
 )
 
 func TestAttribute(t *testing.T) {
-	a := loadFixture(t, "")
+	a := loadFixture(t, "fused_gate", "")
 	if a.Instructions != 168 || a.Attributed != 37 {
 		t.Errorf("attributed %d of %d, want 37 of 168", a.Attributed, a.Instructions)
 	}
@@ -18,9 +18,10 @@ func TestAttribute(t *testing.T) {
 		cuda      []int
 		ptx, sass int
 	}{
-		{Site{"kernels.go", 17}, []int{4, 10}, 1, 5},
-		{Site{"kernels.go", 18}, []int{5, 11}, 1, 3},
-		{Site{"kernels.go", 19}, []int{6, 12, 13, 14}, 1, 29},
+		{Site{kernelsFile, 12}, []int{4, 10}, 1, 5},
+		{Site{kernelsFile, 13}, []int{5, 11}, 1, 3},
+		{Site{kernelsFile, 14}, []int{12}, 1, 23},
+		{Site{kernelsFile, 15}, []int{6, 13, 14}, 1, 6},
 	}
 	rows := a.Rows()
 	if len(rows) != len(tests) {
@@ -50,36 +51,48 @@ func TestAttribute(t *testing.T) {
 	}
 }
 
-// TestAttributeSilu checks the instructions themselves, not only the counts:
-// Silu is x / (1 + expf(-x)), and the line that holds it must own the
-// exponential, the reciprocal, and the call into the division slowpath.
+// TestAttributeSilu checks the instructions themselves, not only the counts.
+// Silu is x / (1 + expf(-x)), so the line that holds it owns the
+// exponential, the reciprocal, and the call into the division slowpath,
+// while the multiply and the store belong to the line below it.
 func TestAttributeSilu(t *testing.T) {
-	a := loadFixture(t, "")
-	var ops []string
-	for _, in := range a.SASS[Site{"kernels.go", 19}] {
-		ops = append(ops, in.Opcode)
+	a := loadFixture(t, "fused_gate", "")
+	ops := func(line int) string {
+		var out []string
+		for _, in := range a.SASS[Site{kernelsFile, line}] {
+			out = append(out, in.Opcode)
+		}
+		return strings.Join(out, " ")
 	}
-	joined := strings.Join(ops, " ")
-	for _, want := range []string{"MUFU.EX2", "MUFU.RCP", "CALL.REL.NOINC", "FMUL", "STG.E"} {
-		if !strings.Contains(joined, want) {
-			t.Errorf("line 19 lacks %s; has %s", want, joined)
+	for _, tt := range []struct {
+		line int
+		want []string
+	}{
+		{14, []string{"MUFU.EX2", "MUFU.RCP", "FCHK", "CALL.REL.NOINC"}},
+		{15, []string{"FMUL", "STG.E"}},
+	} {
+		joined := ops(tt.line)
+		for _, want := range tt.want {
+			if !strings.Contains(joined, want) {
+				t.Errorf("line %d lacks %s; has %s", tt.line, want, joined)
+			}
 		}
 	}
 }
 
 func TestSiteAt(t *testing.T) {
-	a := loadFixture(t, "")
+	a := loadFixture(t, "fused_gate", "")
 	tests := []struct {
 		offset uint64
 		want   Site
 		ok     bool
 	}{
-		{0x000, Site{}, false},                // prologue, names the generated file
-		{0x080, Site{"kernels.go", 19}, true}, // first attributed instruction
-		{0x0b0, Site{"kernels.go", 17}, true},
-		{0x1f0, Site{"kernels.go", 19}, true}, // MUFU.EX2
-		{0x320, Site{}, false},                // slowpath entry
-		{0xfff0, Site{}, false},               // no such instruction
+		{0x000, Site{}, false},               // prologue, names the generated file
+		{0x080, Site{kernelsFile, 15}, true}, // first attributed instruction
+		{0x0b0, Site{kernelsFile, 12}, true},
+		{0x1f0, Site{kernelsFile, 14}, true}, // MUFU.EX2
+		{0x320, Site{}, false},               // slowpath entry
+		{0xfff0, Site{}, false},              // no such instruction
 	}
 	for _, tt := range tests {
 		got, ok := a.SiteAt("fused_gate", tt.offset)
@@ -93,8 +106,8 @@ func TestSiteAt(t *testing.T) {
 }
 
 func TestAttributeWithoutArtifacts(t *testing.T) {
-	a := Attribute(fixtureUnit(), "", nil)
-	if len(a.CUDA) != 3 || len(a.PTXLines) != 0 || len(a.SASS) != 0 || a.Instructions != 0 {
+	a := Attribute(fixtureUnit(t, "fused_gate"), "", nil)
+	if len(a.CUDA) != 4 || len(a.PTXLines) != 0 || len(a.SASS) != 0 || a.Instructions != 0 {
 		t.Errorf("attribution from the unit alone = cuda %d ptx %d sass %d insts %d", len(a.CUDA), len(a.PTXLines), len(a.SASS), a.Instructions)
 	}
 }
@@ -122,7 +135,7 @@ func TestPTXSites(t *testing.T) {
 }
 
 func TestWriteTable(t *testing.T) {
-	a := loadFixture(t, "")
+	a := loadFixture(t, "fused_gate", "")
 	var buf bytes.Buffer
 	if err := WriteTable(&buf, a); err != nil {
 		t.Fatal(err)
@@ -130,7 +143,7 @@ func TestWriteTable(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"fused_gate: 37 of 168 SASS instructions name a program line",
-		"kernels.go:19",
+		"kernels.go:14",
 		"remainder: 13 generated, 0 unlocated, 118 in $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath",
 	} {
 		if !strings.Contains(out, want) {
@@ -158,12 +171,12 @@ func TestUnitSourceWithLineDirectives(t *testing.T) {
 }
 
 func TestUnitLocation(t *testing.T) {
-	u := fixtureUnit()
-	loc, ok := u.Location(Site{"kernels.go", 19})
-	if !ok || loc.Function != "main.main" || loc.Line != 19 {
+	u := fixtureUnit(t, "fused_gate")
+	loc, ok := u.Location(Site{kernelsFile, 14})
+	if !ok || loc.Function != "main.gate" || loc.Line != 14 {
 		t.Errorf("Location = %+v, %v", loc, ok)
 	}
-	if _, ok := u.Location(Site{"kernels.go", 1}); ok {
+	if _, ok := u.Location(Site{kernelsFile, 1}); ok {
 		t.Error("found a location for a site no line maps to")
 	}
 }

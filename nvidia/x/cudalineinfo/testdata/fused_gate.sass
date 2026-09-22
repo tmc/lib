@@ -22,34 +22,34 @@ fused_gate:
         /*0050*/                   IMAD R11, R11, UR4, R0 ;
         /*0060*/                   ISETP.GE.AND P0, PT, R11, UR5, PT ;
         /*0070*/               @P0 EXIT ;
-	//## File "kernels.go", line 19
+	//## File "x/examples/source-wiring/kernels.go", line 15
         /*0080*/                   LDC.64 R4, c[0x0][0x390] ;
         /*0090*/                   LDCU UR5, c[0x0][0x370] ;
         /*00a0*/                   LDCU.64 UR6, c[0x0][0x358] ;
-	//## File "kernels.go", line 17
+	//## File "x/examples/source-wiring/kernels.go", line 12
         /*00b0*/                   LDC.64 R6, c[0x0][0x380] ;
 	//## File "fused_gate.cu", line 9
         /*00c0*/                   LDCU UR8, c[0x0][0x398] ;
-	//## File "kernels.go", line 17
+	//## File "x/examples/source-wiring/kernels.go", line 12
         /*00d0*/                   LDC.64 R8, c[0x0][0x388] ;
         /*00e0*/                   UIMAD UR4, UR4, UR5, URZ ;
 .L_x_2:
         /*00f0*/                   IMAD.WIDE R12, R11, 0x4, R6 ;
         /*0100*/                   LDG.E.CONSTANT R0, desc[UR6][R12.64] ;
-	//## File "kernels.go", line 19
+	//## File "x/examples/source-wiring/kernels.go", line 14
         /*0110*/                   HFMA2 R15, -RZ, RZ, 0.96630859375, -0.0022525787353515625 ;
         /*0120*/                   MOV R17, 0x437c0000 ;
-	//## File "kernels.go", line 18
+	//## File "x/examples/source-wiring/kernels.go", line 13
         /*0130*/                   IMAD.WIDE R2, R11, 0x4, R8 ;
         /*0140*/                   LDG.E.CONSTANT R2, desc[UR6][R2.64] ;
         /*0150*/                   MOV R13, R11 ;
 	//## File "fused_gate.cu", line 9
         /*0160*/                   IADD3 R11, PT, PT, R11, UR4, RZ ;
-	//## File "kernels.go", line 19
+	//## File "x/examples/source-wiring/kernels.go", line 14
         /*0170*/                   BSSY.RECONVERGENT B0, `(.L_x_0) ;
 	//## File "fused_gate.cu", line 9
         /*0180*/                   ISETP.GE.AND P2, PT, R11, UR8, PT ;
-	//## File "kernels.go", line 19
+	//## File "x/examples/source-wiring/kernels.go", line 14
         /*0190*/                   FFMA.SAT R10, R0, -R15, 0.5 ;
         /*01a0*/                   FFMA.RM R10, R10, R17, 12582913 ;
         /*01b0*/                   FADD R15, R10.reuse, -12583039 ;
@@ -72,6 +72,7 @@ fused_gate:
 .L_x_1:
         /*02c0*/                   BSYNC.RECONVERGENT B0 ;
 .L_x_0:
+	//## File "x/examples/source-wiring/kernels.go", line 15
         /*02d0*/                   FMUL R15, R2, R3 ;
         /*02e0*/                   IMAD.WIDE R2, R13, 0x4, R4 ;
         /*02f0*/                   STG.E desc[UR6][R2.64], R15 ;

@@ -5,13 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 	"github.com/tmc/lib/nvidia/x/cuptisass"
 )
 
-// siluOffset is an FFMA on the silu line of the fixture and gateOffset a
-// load on the x input line; prologueOffset is a generated-line instruction
+// siluOffset is an FFMA on the silu line of the gate fixture and gateOffset
+// a load on the x input line; prologueOffset is a generated-line instruction
 // and slowpathOffset is inside the division subroutine.
 const (
 	siluOffset     = 0x1f0
@@ -21,7 +20,7 @@ const (
 )
 
 func TestResolvePC(t *testing.T) {
-	a := loadFixture(t, "")
+	a := loadFixture(t, "fused_gate", "")
 	r, err := NewResolver(a, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -31,8 +30,8 @@ func TestResolvePC(t *testing.T) {
 		resolved bool
 		line     int64
 	}{
-		{siluOffset, true, 19},
-		{gateOffset, true, 17},
+		{siluOffset, true, 14},
+		{gateOffset, true, 12},
 		{prologueOffset, true, 0},
 		{slowpathOffset, true, 0},
 		{0xfff0, false, 0},
@@ -74,32 +73,39 @@ func TestResolvePC(t *testing.T) {
 	}
 }
 
+// TestHostFrames walks the stack the compiler recorded for the line a PC
+// falls on. The layered kernel is the one whose lines were built inside
+// helpers, so its stack is deeper than the call that launched the kernel.
 func TestHostFrames(t *testing.T) {
-	a := loadFixture(t, "")
-	for line, loc := range a.Unit.LineMap {
-		if loc.Line == 19 {
-			loc.Callers = []cudair.Frame{{File: "main.go", Line: 9, Function: "main.run"}}
-			a.Unit.LineMap[line] = loc
+	a := loadFixture(t, "fused_layered", "")
+	r, _ := NewResolver(a, nil)
+	frames := a.HostFrames(r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_layered", siluOffset))
+	want := []struct {
+		function, file string
+		line           int64
+	}{
+		{"main.activate", kernelsFile, 45},
+		{"main.layered", kernelsFile, 40},
+		{"main.attribute", mainFile, 113},
+		{"main.run", mainFile, 79},
+		{"main.main", mainFile, 70},
+	}
+	if len(frames) != len(want) {
+		t.Fatalf("got %d frames, want %d: %+v", len(frames), len(want), frames)
+	}
+	for i, w := range want {
+		f := frames[i]
+		if f.FunctionName != w.function || f.FileName != w.file || f.Line != w.line {
+			t.Errorf("frame %d = %+v, want %s %s:%d", i, f, w.function, w.file, w.line)
 		}
 	}
-	r, _ := NewResolver(a, nil)
-	frames := a.HostFrames(r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_gate", siluOffset))
-	if len(frames) != 2 {
-		t.Fatalf("got %d frames, want 2: %+v", len(frames), frames)
-	}
-	if frames[0].FunctionName != "main.main" || frames[0].Line != 19 {
-		t.Errorf("leaf = %+v", frames[0])
-	}
-	if frames[1].FunctionName != "main.run" || frames[1].FileName != "main.go" || frames[1].Line != 9 {
-		t.Errorf("caller = %+v", frames[1])
-	}
-	if got := a.HostFrames(r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_gate", prologueOffset)); got != nil {
+	if got := a.HostFrames(r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_layered", prologueOffset)); got != nil {
 		t.Errorf("prologue has host frames %+v", got)
 	}
 }
 
 func TestCountSamples(t *testing.T) {
-	a := loadFixture(t, "")
+	a := loadFixture(t, "fused_gate", "")
 	inv := cuptipcsampling.ReasonInventory{Reasons: []cuptipcsampling.StallReason{
 		{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_math_pipe_throttle"},
 		{Index: 2, Name: "smsp__pcsamp_warps_issue_stalled_math_pipe_throttle_not_issued"},
@@ -121,8 +127,8 @@ func TestCountSamples(t *testing.T) {
 		{Name: "", Offset: siluOffset, Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 99}}},
 	}}
 	p := CountSamples(a, inv, batch, cuptipcsampling.Batch{Valid: false, PCs: batch.PCs})
-	silu := Site{File: "kernels.go", Line: 19}
-	gate := Site{File: "kernels.go", Line: 17}
+	silu := Site{File: kernelsFile, Line: 14}
+	gate := Site{File: kernelsFile, Line: 12}
 	if p.Sites[silu] != 15 || p.Sites[gate] != 3 || len(p.Sites) != 2 {
 		t.Errorf("sites = %v, want silu 15 and gate 3", p.Sites)
 	}
@@ -135,7 +141,7 @@ func TestCountSamples(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"fused_gate: 28 samples by program line", "kernels.go:19", "53.6%", "elsewhere: 9 at instructions naming no program line, 1 at unresolved PCs"} {
+	for _, want := range []string{"fused_gate: 28 samples by program line", "kernels.go:14", "53.6%", "elsewhere: 9 at instructions naming no program line, 1 at unresolved PCs"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("profile lacks %q:\n%s", want, out)
 		}
@@ -143,7 +149,7 @@ func TestCountSamples(t *testing.T) {
 }
 
 func TestCountExecuted(t *testing.T) {
-	a := loadFixture(t, "")
+	a := loadFixture(t, "fused_gate", "")
 	const metric = 42
 	rec := func(offset uint32, vals ...cuptisass.InstanceValue) cuptisass.Record {
 		return cuptisass.Record{FunctionName: "fused_gate", PCOffset: offset, Values: vals}
@@ -154,21 +160,21 @@ func TestCountExecuted(t *testing.T) {
 		rec(gateOffset, cuptisass.InstanceValue{MetricID: metric, Value: 2}),
 		rec(slowpathOffset, cuptisass.InstanceValue{MetricID: metric, Value: 1}),
 	)
-	if p.Measure != "executed" || p.Sites[Site{File: "kernels.go", Line: 19}] != 10 || p.Sites[Site{File: "kernels.go", Line: 17}] != 2 || p.Other != 1 || p.Unresolved != 0 {
+	if p.Measure != "executed" || p.Sites[Site{File: kernelsFile, Line: 14}] != 10 || p.Sites[Site{File: kernelsFile, Line: 12}] != 2 || p.Other != 1 || p.Unresolved != 0 {
 		t.Errorf("profile = %+v", p)
 	}
 }
 
 func TestSiteAtLine(t *testing.T) {
-	a := loadFixture(t, "")
+	a := loadFixture(t, "fused_gate", "")
 	fn := a.Disassembly.Function("fused_gate")
 	for i, in := range fn.Instructions {
 		if in.Address != siluOffset {
 			continue
 		}
 		s, ok := a.SiteAtLine("fused_gate", i+1)
-		if !ok || s != (Site{"kernels.go", 19}) {
-			t.Errorf("SiteAtLine(fused_gate, %d) = %v, %v; want kernels.go:19", i+1, s, ok)
+		if !ok || s != (Site{kernelsFile, 14}) {
+			t.Errorf("SiteAtLine(fused_gate, %d) = %v, %v; want kernels.go:14", i+1, s, ok)
 		}
 	}
 	if _, ok := a.SiteAtLine("fused_gate", 1); ok {
@@ -183,8 +189,8 @@ func TestSiteAtLine(t *testing.T) {
 }
 
 func TestWriteProfileUnattributedSite(t *testing.T) {
-	a := loadFixture(t, "")
-	p := Profile{Measure: "pc_samples", Sites: map[Site]int64{{"kernels.go", 19}: 3, {"other.go", 7}: 1}}
+	a := loadFixture(t, "fused_gate", "")
+	p := Profile{Measure: "pc_samples", Sites: map[Site]int64{{kernelsFile, 14}: 3, {"other.go", 7}: 1}}
 	var buf bytes.Buffer
 	if err := WriteProfile(&buf, a, p); err != nil {
 		t.Fatal(err)

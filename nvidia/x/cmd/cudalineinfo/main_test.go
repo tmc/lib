@@ -3,38 +3,33 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/tmc/lib/nvidia/x/cudair"
-	"github.com/tmc/lib/nvidia/x/cudalineinfo"
 )
 
 const testdata = "../../cudalineinfo/testdata"
 
-// setFlags points the artifact flags at the fused_gate fixture, which was
-// compiled from the annotated source beside it.
-func setFlags(t *testing.T, f string) {
+// setFlags points the artifact flags at a fixture, which was compiled from
+// the annotated source beside it.
+func setFlags(t *testing.T, unit, f string) {
 	t.Helper()
 	oldSASS, oldPTX, oldFormat := *sassFile, *ptxFile, *format
-	*sassFile = filepath.Join(testdata, "fused_gate.sass")
-	*ptxFile = filepath.Join(testdata, "fused_gate.ptx")
+	*sassFile = filepath.Join(testdata, unit+".sass")
+	*ptxFile = filepath.Join(testdata, unit+".ptx")
 	*format = f
 	t.Cleanup(func() { *sassFile, *ptxFile, *format = oldSASS, oldPTX, oldFormat })
 }
 
 func TestFormats(t *testing.T) {
 	for _, tt := range []struct{ format, want string }{
-		{"table", "kernels.go:19"},
+		{"table", "kernels.go:14"},
 		{"listing", "FMUL"},
-		{"rollup", "kernels.go:19"},
-		{"digraph", "kernels.go:19 $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath fused_gate\n"},
-		{"dot", `"kernels.go:19" -> "fused_gate";`},
+		{"rollup", "kernels.go:14"},
+		{"digraph", "kernels.go:14 $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath fused_gate\n"},
+		{"dot", `"kernels.go:14" -> "fused_gate";`},
 	} {
-		setFlags(t, tt.format)
+		setFlags(t, "fused_gate", tt.format)
 		var buf bytes.Buffer
 		if err := run(context.Background(), filepath.Join(testdata, "fused_gate.cu"), &buf); err != nil {
 			t.Fatalf("%s: %v", tt.format, err)
@@ -45,37 +40,29 @@ func TestFormats(t *testing.T) {
 	}
 }
 
+// TestUnitJSON reads a unit exported by the compiler path, whose line map
+// carries the function and callers of every line, and checks that the graph
+// reaches the kernel through them.
 func TestUnitJSON(t *testing.T) {
-	src, err := os.ReadFile(filepath.Join(testdata, "fused_gate.cu"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	u := cudalineinfo.ParseUnit("fused_gate", string(src))
-	for n, loc := range u.LineMap {
-		loc.Function = "main.gate"
-		loc.Callers = []cudair.Frame{{File: "main.go", Line: 9, Function: "main.main"}}
-		u.LineMap[n] = loc
-	}
-	data, err := json.Marshal(u)
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(t.TempDir(), "fused_gate.json")
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	setFlags(t, "digraph")
+	setFlags(t, "fused_layered", "digraph")
 	var buf bytes.Buffer
-	if err := run(context.Background(), path, &buf); err != nil {
+	if err := run(context.Background(), filepath.Join(testdata, "fused_layered.json"), &buf); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "main.main main.gate\n") || !strings.Contains(buf.String(), "main.gate kernels.go:17 kernels.go:18 kernels.go:19\n") {
-		t.Errorf("digraph lacks the program frames:\n%s", buf.String())
+	for _, want := range []string{
+		"main.main main.run\n",
+		"main.attribute main.layered\n",
+		"main.layered kernels.go:38 kernels.go:39 main.activate main.normalize\n",
+		"main.activate kernels.go:45\n",
+	} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("digraph lacks %q:\n%s", want, buf.String())
+		}
 	}
 }
 
 func TestUnknownFormat(t *testing.T) {
-	setFlags(t, "csv")
+	setFlags(t, "fused_gate", "csv")
 	if err := run(context.Background(), filepath.Join(testdata, "fused_gate.cu"), &bytes.Buffer{}); err == nil {
 		t.Error("no error for an unknown format")
 	}
