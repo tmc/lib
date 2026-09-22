@@ -31,4 +31,19 @@
 //	}
 //
 //	receipts, err := cudatrial.Interleave(ctx, arms, 5)
+//
+// Each receipt also carries the conditions the arm ran under, observed at the
+// arm boundaries into Receipt.Before and Receipt.After. Conditions records host
+// available memory (MemAvailable, not MemFree), host page cache, retained
+// artifact bytes, and a device memory pool readout, distinguishing a measured
+// zero from a value that could not be read the same way Timings does.
+// SameArmDisagreements pairs each same-arm digest disagreement with the
+// conditions that differed between the two rounds, so that a result produced
+// under a neighbouring arm's memory footprint is not charged to the code:
+//
+//	for _, d := range cudatrial.SameArmDisagreements(receipts, 1<<30) {
+//		if d.Confounded() {
+//			log.Printf("not attributable to code: %v", d)
+//		}
+//	}
 package cudatrial

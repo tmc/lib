@@ -74,6 +74,8 @@ type Receipt struct {
 	QueueNs            int64                        // Host queue submission wait duration in nanoseconds (or Unmeasured)
 	GpuIntervalUnionNs int64                        // Union of device busy intervals across streams in nanoseconds (or Unmeasured)
 	Timings            map[TimingKind]time.Duration // Explicitly measured durations, distinguishing measured 0 from unmeasured
+	Before             Conditions                   // Machine state observed immediately before the arm ran
+	After              Conditions                   // Machine state observed immediately after the arm ran
 	Provenance         map[string]string
 	Err                error
 }
@@ -246,6 +248,14 @@ type Options struct {
 	// HardwareLockChecker is an optional custom predicate to check if the GPU lock is held.
 	// If nil and RequireHardwareLock is true, it defaults to checking os.Getenv("GPU_LOCK_HELD") != "".
 	HardwareLockChecker func() bool
+
+	// Observe records the conditions an arm runs under. Interleave calls it
+	// immediately before and immediately after each arm's Run and stores the
+	// results in Receipt.Before and Receipt.After, leaving whatever Run set
+	// itself in place. If nil, ObserveHost is used, which reads the host and
+	// never the device; to record a device pool, wrap ObserveHost and add the
+	// device kinds with Conditions.RecordDevicePool.
+	Observe func(context.Context) Conditions
 }
 
 // Interleave executes arms across the specified number of rounds using ABBA
@@ -304,9 +314,21 @@ func InterleaveWithOptions(ctx context.Context, arms []Arm, rounds int, opts Opt
 				return receipts, fmt.Errorf("cudatrial: %w", err)
 			}
 
+			observe := opts.Observe
+			if observe == nil {
+				observe = ObserveHost
+			}
+			before := observe(ctx)
 			start := time.Now()
 			receipt, err := arm.Run(ctx)
 			finish := time.Now()
+			after := observe(ctx)
+			if !receipt.Before.Any() && receipt.Before.Observed.IsZero() {
+				receipt.Before = before
+			}
+			if !receipt.After.Any() && receipt.After.Observed.IsZero() {
+				receipt.After = after
+			}
 
 			// Stamp standard fields if not already populated.
 			receipt.Name = arm.Name
