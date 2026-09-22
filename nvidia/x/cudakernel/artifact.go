@@ -298,6 +298,9 @@ func (a *Artifact) ValidateTarget(deviceArch string) error {
 
 // Load loads the compiled module onto the provided CUDA device.
 // Attempting to load an unlinked artifact (e.g. LTOIR) returns an explicit error.
+// A nonzero module belongs to the caller even when an error is returned, for
+// example when restoring the previous context fails after loading. The caller
+// must unload it in dev's context before closing dev.
 func (a *Artifact) Load(dev *cuda.Device) (driver.Module, error) {
 	if a == nil {
 		return 0, errors.New("cudakernel: nil artifact")
@@ -309,10 +312,9 @@ func (a *Artifact) Load(dev *cuda.Device) (driver.Module, error) {
 		return 0, errors.New("cudakernel: nil device passed to Load")
 	}
 
-	var mod driver.Module
-	var loadErr error
-
-	err := dev.WithContext(func() error {
+	mod, err := loadInContext(dev.WithContext, func() (driver.Module, error) {
+		var mod driver.Module
+		var loadErr error
 		switch a.Kind {
 		case KindPTX:
 			ptxBytes := append(bytes.TrimRight(a.Raw, "\x00"), 0)
@@ -328,14 +330,24 @@ func (a *Artifact) Load(dev *cuda.Device) (driver.Module, error) {
 			mod, loadErr = driver.NewModuleLoadData(unsafe.Pointer(&rawBytes[0]))
 			runtime.KeepAlive(rawBytes)
 		default:
-			return fmt.Errorf("cudakernel: artifact kind %s cannot be loaded directly", a.Kind)
+			return 0, fmt.Errorf("cudakernel: artifact kind %s cannot be loaded directly", a.Kind)
 		}
-		return loadErr
+		return mod, loadErr
 	})
 	if err != nil {
-		return 0, fmt.Errorf("cudakernel: load module on %s: %w", a.Target, err)
+		return mod, fmt.Errorf("cudakernel: load module on %s: %w", a.Target, err)
 	}
 	return mod, nil
+}
+
+func loadInContext(run func(func() error) error, load func() (driver.Module, error)) (driver.Module, error) {
+	var mod driver.Module
+	err := run(func() error {
+		var err error
+		mod, err = load()
+		return err
+	})
+	return mod, err
 }
 
 // MarshalJSON serializes the Artifact into JSON.
