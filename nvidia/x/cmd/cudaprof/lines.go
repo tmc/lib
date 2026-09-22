@@ -22,7 +22,7 @@ import (
 // sampled instruction was compiled from, next to the number of instructions
 // the line has in the capture's disassembly.
 //
-//	cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [kernel] capture.pprof
+//	cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [-diff other.pprof] [kernel] capture.pprof
 //
 // -format chooses the report: the per-line profile, a rollup charging each
 // line's instructions to its callers as well, or the call graph as a digraph
@@ -39,8 +39,9 @@ func runLinesCommand(rawArgs []string) error {
 	fs.SetOutput(io.Discard)
 	sample := fs.String("sample", "", "sample type to total (default: the profile's default type)")
 	format := fs.String("format", "profile", "report to write: profile, rollup, digraph, or dot")
+	diff := fs.String("diff", "", "compare the capture with this one, line by line")
 	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("usage: cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [kernel] capture.pprof: %w", err)
+		return fmt.Errorf("usage: cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [-diff other.pprof] [kernel] capture.pprof: %w", err)
 	}
 	switch *format {
 	case "profile", "rollup", "digraph", "dot":
@@ -54,7 +55,7 @@ func runLinesCommand(rawArgs []string) error {
 	case 2:
 		kernel, capturePath = fs.Arg(0), fs.Arg(1)
 	default:
-		return errors.New("usage: cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [kernel] capture.pprof")
+		return errors.New("usage: cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [-diff other.pprof] [kernel] capture.pprof")
 	}
 	path, err := filepath.Abs(capturePath)
 	if err != nil {
@@ -64,7 +65,21 @@ func runLinesCommand(rawArgs []string) error {
 	if err != nil {
 		return fmt.Errorf("read capture: %w", err)
 	}
-	return printCaptureLines(os.Stdout, cap, kernel, *sample, *format)
+	if *diff == "" {
+		return printCaptureLines(os.Stdout, cap, kernel, *sample, *format)
+	}
+	if *format != "profile" {
+		return fmt.Errorf("-diff writes the per-line comparison, so it cannot also write -format %s", *format)
+	}
+	otherPath, err := filepath.Abs(*diff)
+	if err != nil {
+		return err
+	}
+	other, err := readCapturePathLimits(otherPath, limits)
+	if err != nil {
+		return fmt.Errorf("read capture: %w", err)
+	}
+	return diffCaptures(os.Stdout, cap, other, kernel, *sample, filepath.Base(path), filepath.Base(otherPath))
 }
 
 func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, format string) error {
@@ -90,22 +105,9 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, fo
 		}
 	}
 	for _, mod := range cap.Modules {
-		local := *cap
-		local.Code, local.Modules = mod.Code, nil
-		// A module that names no unit of its own still belongs to whatever
-		// program the capture as a whole was generated from.
-		if local.Code.Unit == "" {
-			local.Code.Unit = cap.Code.Unit
-		}
-		local.Profile = cap.Profile.Copy()
-		local.Profile.Sample = nil
-		for _, s := range cap.Profile.Sample {
-			if ids := s.Label["module_id"]; len(ids) == 1 && ids[0] == moduleLabel(mod) {
-				local.Profile.Sample = append(local.Profile.Sample, s)
-			}
-		}
+		local := moduleView(cap, mod)
 		if kernel != "" {
-			if dis, err := captureDisassembly(&local); err != nil || findKernel(dis, kernel) == nil {
+			if dis, err := captureDisassembly(local); err != nil || findKernel(dis, kernel) == nil {
 				continue
 			}
 		}
@@ -117,7 +119,7 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, fo
 			name = mod.ID
 		}
 		fmt.Fprintf(w, "module %s\n", name)
-		if err := printModuleLines(w, &local, kernel, sample, format); err != nil {
+		if err := printModuleLines(w, local, kernel, sample, format); err != nil {
 			return fmt.Errorf("module %s: %w", mod.ID, err)
 		}
 		printed++
@@ -129,6 +131,27 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, fo
 		fmt.Fprintf(w, "\nkernel work naming no module: %d records, counted in none of the tables above\n", unlabelled)
 	}
 	return nil
+}
+
+// moduleView is the capture as that one module saw it: the module's own code
+// files and the samples labelled with its identity. Two modules can hold a
+// kernel of the same name, so only labelled samples are a module's own.
+func moduleView(cap *cudacapture.Capture, mod cudacapture.Module) *cudacapture.Capture {
+	local := *cap
+	local.Code, local.Modules = mod.Code, nil
+	// A module that names no unit of its own still belongs to whatever
+	// program the capture as a whole was generated from.
+	if local.Code.Unit == "" {
+		local.Code.Unit = cap.Code.Unit
+	}
+	local.Profile = cap.Profile.Copy()
+	local.Profile.Sample = nil
+	for _, s := range cap.Profile.Sample {
+		if ids := s.Label["module_id"]; len(ids) == 1 && ids[0] == moduleLabel(mod) {
+			local.Profile.Sample = append(local.Profile.Sample, s)
+		}
+	}
+	return &local
 }
 
 // moduleLabel is the value a producer writes in a sample's "module_id"

@@ -12,7 +12,7 @@ import (
 // the remainder.
 func TestDiffFastMath(t *testing.T) {
 	base, fast := loadFixture(t, "fused_gate", ""), loadFixture(t, "fused_gate", "-fast")
-	diffs := Diff(base, fast)
+	diffs := Diff(Side{Attribution: base}, Side{Attribution: fast})
 	if len(diffs) != 4 {
 		t.Fatalf("got %d site diffs, want 4", len(diffs))
 	}
@@ -40,7 +40,7 @@ func TestDiffFastMath(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WriteDiff(&buf, base, fast, "ieee", "fast"); err != nil {
+	if err := WriteDiff(&buf, Side{Attribution: base, Label: "ieee"}, Side{Attribution: fast, Label: "fast"}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "kernels.go:14") || !strings.Contains(buf.String(), "CALL") {
@@ -48,10 +48,59 @@ func TestDiffFastMath(t *testing.T) {
 	}
 }
 
+// TestDiffProfiles gives each side a profile: the measured column is what
+// says whether the instructions a line lost were instructions the device was
+// spending its time on, and a side that was not run reads as unmeasured
+// rather than as zero.
+func TestDiffProfiles(t *testing.T) {
+	base, fast := loadFixture(t, "fused_gate", ""), loadFixture(t, "fused_gate", "-fast")
+	silu := Site{kernelsFile, 14}
+	baseSide := Side{Attribution: base, Label: "ieee", Profile: &Profile{
+		Measure: "pc_samples",
+		Sites:   map[Site]int64{silu: 900},
+	}}
+	fastSide := Side{Attribution: fast, Label: "fast", Profile: &Profile{
+		Measure: "pc_samples",
+		Sites:   map[Site]int64{silu: 120},
+	}}
+	for _, d := range Diff(baseSide, fastSide) {
+		if d.Site != silu {
+			continue
+		}
+		if d.BaseValue != 900 || d.TargetValue != 120 {
+			t.Errorf("silu measured %d -> %d, want 900 -> 120", d.BaseValue, d.TargetValue)
+		}
+	}
+	var buf bytes.Buffer
+	if err := WriteDiff(&buf, baseSide, fastSide); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "IEEE PC_SAMPLES") || !strings.Contains(buf.String(), "900") {
+		t.Errorf("no measured column:\n%s", buf.String())
+	}
+	// One side run and the other not: the column is there, and the side
+	// that was not run says so.
+	buf.Reset()
+	if err := WriteDiff(&buf, baseSide, Side{Attribution: fast, Label: "fast"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "900") || !strings.Contains(buf.String(), "-") {
+		t.Errorf("an unmeasured side did not read as unmeasured:\n%s", buf.String())
+	}
+	// Neither side run: no column at all.
+	buf.Reset()
+	if err := WriteDiff(&buf, Side{Attribution: base, Label: "ieee"}, Side{Attribution: fast, Label: "fast"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "PC_SAMPLES") {
+		t.Errorf("a measured column with nothing measured:\n%s", buf.String())
+	}
+}
+
 func TestDiffSiteOnOneSide(t *testing.T) {
 	base := Attribute(fixtureUnit(t, "fused_gate"), "", nil)
 	target := loadFixture(t, "fused_gate", "")
-	for _, d := range Diff(base, target) {
+	for _, d := range Diff(Side{Attribution: base}, Side{Attribution: target}) {
 		if d.Base != 0 || len(d.Removed) != 0 {
 			t.Errorf("site %v has base instructions in an attribution without SASS: %+v", d.Site, d)
 		}

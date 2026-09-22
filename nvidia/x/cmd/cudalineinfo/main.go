@@ -92,7 +92,7 @@ func run(ctx context.Context, path string, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("second build: %w", err)
 		}
-		return cudalineinfo.WriteDiff(w, a, target, "default", *diff)
+		return cudalineinfo.WriteDiff(w, cudalineinfo.Side{Attribution: a, Label: "default"}, cudalineinfo.Side{Attribution: target, Label: *diff})
 	}
 	switch *format {
 	case "table":
