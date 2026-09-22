@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -107,16 +108,34 @@ func sortSites(sites []Site) {
 	sort.Slice(sites, func(i, j int) bool { return sites[i].less(sites[j]) })
 }
 
-// A Unit is one generated CUDA C++ source with its provenance: for each
-// generated line that has one, the source location it was lowered from.
+// A Unit is one CUDA C++ source with its provenance: for each generated
+// line that has one, the source location it was lowered from. A unit with
+// no line map is hand-written, and its own file is the program.
 //
-// Name is the kernel's name and is also used, with a .cu suffix, as the file
-// name the unit's own lines are reported under. Source carries no #line
-// directives; [Unit.SourceWithLineDirectives] adds them.
+// Name is used, with a .cu suffix, as the file name the unit's own lines are
+// reported under, and, when Kernels is empty, as the name of its one kernel.
+// Source carries no #line directives; [Unit.SourceWithLineDirectives] adds
+// them.
 type Unit struct {
 	Name    string
 	Source  string
 	LineMap map[int]cudair.SourceLocation
+
+	// Kernels names the functions of the compiled unit that are its
+	// kernels, for a source holding more than one. Empty means the unit
+	// has the one kernel Name names, or, when Name is empty too, that
+	// every function of the disassembly is a kernel of the unit.
+	Kernels []string
+}
+
+// Kernel reports whether a function of the unit's disassembly is one of its
+// kernels. Instructions of any other function are the compiler's, such as a
+// division slowpath, and are not attributed to the program.
+func (u Unit) Kernel(name string) bool {
+	if len(u.Kernels) == 0 {
+		return u.Name == "" || name == u.Name
+	}
+	return slices.Contains(u.Kernels, name)
 }
 
 // GeneratedName is the file name the unit's own lines are reported under.
@@ -211,12 +230,20 @@ func (u Unit) Lines(s Site) []int {
 // carry, and an instruction naming one of them is not attributed to the
 // program. The unit's own file is matched by base name, since the compiler
 // and a profile may record it under different paths.
+//
+// The unit's own file is the program when the unit has source and no line
+// map, which is how hand-written CUDA reaches here: nothing was lowered
+// into it, so there is no generated tier to keep out.
 func (u Unit) ProgramFile(file string) bool {
 	if file == "" || file == cudasass.PTXTextFile {
 		return false
 	}
 	if file == u.GeneratedName() || filepath.Base(file) == u.GeneratedName() {
-		return false
+		// A unit carrying source but no line map is hand-written: there is
+		// no generated tier below it, so its own file is the program. A
+		// bare unit, which holds neither, knows only a name and is not
+		// entitled to say what its file is.
+		return len(u.LineMap) == 0 && u.Source != ""
 	}
 	switch strings.ToLower(path.Ext(file)) {
 	case ".h", ".hpp", ".hxx", ".hh", ".cuh", ".inl":

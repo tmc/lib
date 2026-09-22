@@ -51,9 +51,9 @@ type Remainder struct {
 	// Unlocated counts instructions carrying no line information at all.
 	Unlocated int
 	// Subroutines counts, by symbol, the instructions of every function
-	// other than the unit's kernel, such as the compiler's division
-	// slowpath, whether it has a section of its own or follows the kernel
-	// in the kernel's. Line information inside them describes the
+	// that is not one of the unit's kernels, such as the compiler's
+	// division slowpath, whether it has a section of its own or follows a
+	// kernel in the kernel's. Line information inside them describes the
 	// subroutine, so they are counted here whatever file they name.
 	Subroutines map[string]int
 }
@@ -97,7 +97,7 @@ func Attribute(unit Unit, ptx string, dis *cudasass.Disassembly) *Attribution {
 			s := Site{File: in.SourceFile, Line: in.SourceLine}
 			owner := fn.SymbolAt(in.Address)
 			switch {
-			case owner != fn.Name || unit.Name != "" && fn.Name != unit.Name:
+			case owner != fn.Name || !unit.Kernel(fn.Name):
 				a.Remainder.Subroutines[owner]++
 			case unit.ProgramFile(s.File):
 				a.Attributed++
