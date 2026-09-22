@@ -35,16 +35,26 @@ type capturePhaseReceipt struct {
 	// overlaps on separate streams counts more than once and a sum may exceed
 	// DurationNanos. DeviceBusyNanos is a UNION of the same intervals and
 	// cannot: it is the time the device had at least one activity in flight.
-	// DeviceBusyNanos + DeviceIdleNanos == DurationNanos exactly.
-	MemcpyCount     uint64             `json:"memcpy_count,omitempty"`
-	MemcpyNanos     uint64             `json:"memcpy_nanos,omitempty"`
-	MemcpyBytes     uint64             `json:"memcpy_bytes,omitempty"`
-	MemsetCount     uint64             `json:"memset_count,omitempty"`
-	MemsetNanos     uint64             `json:"memset_nanos,omitempty"`
-	DeviceBusyNanos uint64             `json:"device_busy_nanos,omitempty"`
-	DeviceIdleNanos uint64             `json:"device_idle_nanos,omitempty"`
-	OmittedEdges    uint64             `json:"omitted_edges,omitempty"`
-	Edges           []capturePhaseEdge `json:"edges,omitempty"`
+	//
+	// DeviceUnresolvedNanos is graph replay time that no resolved record
+	// covers. A replay whose nodes produced no records is known only by its
+	// envelope, and the device may have been busy or idle anywhere inside it,
+	// so that time is neither busy nor idle. Counting it as idle is how an
+	// opaque replay read as a mostly idle device. When it is nonzero
+	// DeviceIdleStatus is UNREAD and DeviceIdleNanos is only a floor.
+	// DeviceBusyNanos + DeviceIdleNanos + DeviceUnresolvedNanos ==
+	// DurationNanos exactly.
+	MemcpyCount           uint64             `json:"memcpy_count,omitempty"`
+	MemcpyNanos           uint64             `json:"memcpy_nanos,omitempty"`
+	MemcpyBytes           uint64             `json:"memcpy_bytes,omitempty"`
+	MemsetCount           uint64             `json:"memset_count,omitempty"`
+	MemsetNanos           uint64             `json:"memset_nanos,omitempty"`
+	DeviceBusyNanos       uint64             `json:"device_busy_nanos,omitempty"`
+	DeviceIdleNanos       uint64             `json:"device_idle_nanos,omitempty"`
+	DeviceUnresolvedNanos uint64             `json:"device_unresolved_nanos,omitempty"`
+	DeviceIdleStatus      string             `json:"device_idle_status,omitempty"`
+	OmittedEdges          uint64             `json:"omitted_edges,omitempty"`
+	Edges                 []capturePhaseEdge `json:"edges,omitempty"`
 
 	// Phases carries one MEASURED receipt per qualified pair when the target
 	// opened the capture range more than once. The enclosing receipt stays
@@ -132,6 +142,10 @@ func buildPhaseReceipt(result captureResult, edges []capturePhaseEdge) *captureP
 // measurePhase qualifies one start/stop pair and measures the kernels that fall
 // entirely inside it. It reports false rather than a partial receipt, so a pair
 // that fails any gate cannot be read as a measurement.
+//
+// Graph replay envelopes are clipped to the pair rather than required to fall
+// inside it: an envelope that crosses an edge still hides device time within
+// the phase.
 func measurePhase(result captureResult, start, stop capturePhaseEdge) (capturePhaseReceipt, bool) {
 	if start.Edge != "start" || stop.Edge != "stop" || !matchingPhaseAPIs(start.API, stop.API) || start.Index != stop.Index || start.ToggleFailures != 0 || stop.ToggleFailures != 0 || start.Sequence >= stop.Sequence || start.Timestamp == 0 || stop.Timestamp <= start.Timestamp {
 		return capturePhaseReceipt{}, false
@@ -145,8 +159,18 @@ func measurePhase(result captureResult, start, stop capturePhaseEdge) (capturePh
 		DurationNanos:  stop.Timestamp - start.Timestamp,
 	}
 	busy := make([]interval, 0, len(result.Activities))
+	var replays []interval
 	for _, activity := range result.Activities {
-		if !activity.Valid || activity.Start < start.Timestamp || activity.End > stop.Timestamp || activity.End < activity.Start {
+		if !activity.Valid || activity.End < activity.Start {
+			continue
+		}
+		if activity.Subtype == "graph_trace" {
+			if lo, hi := max(activity.Start, start.Timestamp), min(activity.End, stop.Timestamp); lo < hi {
+				replays = append(replays, interval{lo, hi})
+			}
+			continue
+		}
+		if activity.Start < start.Timestamp || activity.End > stop.Timestamp {
 			continue
 		}
 		switch activity.Subtype {
@@ -166,7 +190,14 @@ func measurePhase(result captureResult, start, stop capturePhaseEdge) (capturePh
 		busy = append(busy, interval{activity.Start, activity.End})
 	}
 	m.DeviceBusyNanos = unionNanos(busy)
-	m.DeviceIdleNanos = m.DurationNanos - m.DeviceBusyNanos
+	covered := unionNanos(append(busy, replays...))
+	m.DeviceUnresolvedNanos = covered - m.DeviceBusyNanos
+	m.DeviceIdleNanos = m.DurationNanos - covered
+	m.DeviceIdleStatus = "MEASURED"
+	if m.DeviceUnresolvedNanos > 0 {
+		m.DeviceIdleStatus = "UNREAD"
+		m.Reason = "graph_replay_unresolved"
+	}
 	return m, true
 }
 
@@ -184,6 +215,9 @@ func (r *capturePhaseReceipt) String() string {
 			return fmt.Sprintf("UNREAD: %s (%d qualified phases; select one by index)", r.Reason, len(r.Phases))
 		}
 		return fmt.Sprintf("UNREAD: %s", r.Reason)
+	}
+	if r.DeviceIdleStatus == "UNREAD" {
+		return fmt.Sprintf("MEASURED: %s [%d,%d); device idle UNREAD: %s", r.API, r.StartTimestamp, r.StopTimestamp, r.Reason)
 	}
 	return fmt.Sprintf("MEASURED: %s [%d,%d)", r.API, r.StartTimestamp, r.StopTimestamp)
 }

@@ -357,3 +357,87 @@ func TestMeasurePhaseBusyNeverExceedsDuration(t *testing.T) {
 		t.Fatalf("busy %d + idle %d != duration %d", r.DeviceBusyNanos, r.DeviceIdleNanos, r.DurationNanos)
 	}
 }
+
+// TestMeasurePhaseSeparatesUnresolvedFromIdle covers a replay whose nodes
+// left no records. Its envelope is the only evidence the device did anything,
+// and before the unresolved term existed its whole duration was reported as
+// idle under a MEASURED label.
+func TestMeasurePhaseSeparatesUnresolvedFromIdle(t *testing.T) {
+	edges := []capturePhaseEdge{
+		{Sequence: 1, Timestamp: 100, Edge: "start", API: "cuProfilerStart", Index: 0},
+		{Sequence: 2, Timestamp: 200, Edge: "stop", API: "cuProfilerStop", Index: 0},
+	}
+	tests := []struct {
+		name                   string
+		activities             []captureActivity
+		busy, idle, unresolved uint64
+		idleStatus, reason     string
+	}{
+		{
+			name: "kernels only",
+			activities: []captureActivity{
+				{Subtype: "kernel", Valid: true, Start: 110, End: 130},
+				{Subtype: "kernel", Valid: true, Start: 150, End: 160},
+			},
+			busy: 30, idle: 70, unresolved: 0,
+			idleStatus: "MEASURED",
+		},
+		{
+			name: "opaque replay",
+			activities: []captureActivity{
+				{Subtype: "graph_trace", Valid: true, Start: 120, End: 180, GraphID: 5},
+			},
+			busy: 0, idle: 40, unresolved: 60,
+			idleStatus: "UNREAD", reason: "graph_replay_unresolved",
+		},
+		{
+			name: "replay partly covered by records",
+			activities: []captureActivity{
+				{Subtype: "graph_trace", Valid: true, Start: 120, End: 180, GraphID: 5},
+				{Subtype: "kernel", Valid: true, Start: 110, End: 130}, // straddles the envelope start
+				{Subtype: "kernel", Valid: true, Start: 140, End: 150, GraphID: 5},
+				{Subtype: "memcpy", Valid: true, Start: 190, End: 195},
+			},
+			// Busy is [110,130) [140,150) [190,195), 35ns. The envelope adds
+			// [130,140) and [150,180), 40ns unresolved; idle is the rest.
+			busy: 35, idle: 25, unresolved: 40,
+			idleStatus: "UNREAD", reason: "graph_replay_unresolved",
+		},
+		{
+			name: "replay crossing the stop edge",
+			activities: []captureActivity{
+				{Subtype: "graph_trace", Valid: true, Start: 190, End: 250, GraphID: 5},
+			},
+			busy: 0, idle: 90, unresolved: 10,
+			idleStatus: "UNREAD", reason: "graph_replay_unresolved",
+		},
+		{
+			name: "replay outside the phase",
+			activities: []captureActivity{
+				{Subtype: "kernel", Valid: true, Start: 110, End: 120},
+				{Subtype: "graph_trace", Valid: true, Start: 300, End: 400, GraphID: 5},
+			},
+			busy: 10, idle: 90, unresolved: 0,
+			idleStatus: "MEASURED",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := phaseResult(nil)
+			result.Activities = tt.activities
+			r := buildPhaseReceipt(result, edges)
+			if r.Status != "MEASURED" {
+				t.Fatalf("status = %q reason = %q, want MEASURED: the interval itself qualified", r.Status, r.Reason)
+			}
+			if r.DeviceBusyNanos+r.DeviceIdleNanos+r.DeviceUnresolvedNanos != r.DurationNanos {
+				t.Errorf("busy %d + idle %d + unresolved %d != duration %d", r.DeviceBusyNanos, r.DeviceIdleNanos, r.DeviceUnresolvedNanos, r.DurationNanos)
+			}
+			if r.DeviceBusyNanos != tt.busy || r.DeviceIdleNanos != tt.idle || r.DeviceUnresolvedNanos != tt.unresolved {
+				t.Errorf("busy/idle/unresolved = %d/%d/%d, want %d/%d/%d", r.DeviceBusyNanos, r.DeviceIdleNanos, r.DeviceUnresolvedNanos, tt.busy, tt.idle, tt.unresolved)
+			}
+			if r.DeviceIdleStatus != tt.idleStatus || r.Reason != tt.reason {
+				t.Errorf("device_idle_status = %q reason = %q, want %q %q", r.DeviceIdleStatus, r.Reason, tt.idleStatus, tt.reason)
+			}
+		})
+	}
+}
