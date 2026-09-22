@@ -32,6 +32,12 @@ type capturePhaseReceipt struct {
 	KernelNanos    uint64             `json:"kernel_nanos,omitempty"`
 	OmittedEdges   uint64             `json:"omitted_edges,omitempty"`
 	Edges          []capturePhaseEdge `json:"edges,omitempty"`
+
+	// Phases carries one MEASURED receipt per qualified pair when the target
+	// opened the capture range more than once. The enclosing receipt stays
+	// UNREAD in that case: several intervals have no single duration, and a
+	// consumer must name which phase it means rather than be handed one.
+	Phases []capturePhaseReceipt `json:"phases,omitempty"`
 }
 
 type phaseCapability struct {
@@ -84,26 +90,55 @@ func buildPhaseReceipt(result captureResult, edges []capturePhaseEdge) *captureP
 		}
 		primary = append(primary, edge)
 	}
-	if len(primary) != 2 {
+	if len(primary) == 0 || len(primary)%2 != 0 {
 		r.Reason = "edge_pair_invalid"
 		return r
 	}
-	start, stop := primary[0], primary[1]
+	measured := make([]capturePhaseReceipt, 0, len(primary)/2)
+	for i := 0; i+1 < len(primary); i += 2 {
+		m, ok := measurePhase(result, primary[i], primary[i+1])
+		if !ok {
+			r.Reason = "edge_pair_invalid"
+			return r
+		}
+		measured = append(measured, m)
+	}
+	if len(measured) == 1 {
+		edges, omitted := r.Edges, r.OmittedEdges
+		*r = measured[0]
+		r.Edges, r.OmittedEdges = edges, omitted
+		return r
+	}
+	// The pairs are individually well formed, so the edges are not invalid;
+	// there is simply no one interval this receipt could describe.
+	r.Reason = "multiple_phases"
+	r.Phases = measured
+	return r
+}
+
+// measurePhase qualifies one start/stop pair and measures the kernels that fall
+// entirely inside it. It reports false rather than a partial receipt, so a pair
+// that fails any gate cannot be read as a measurement.
+func measurePhase(result captureResult, start, stop capturePhaseEdge) (capturePhaseReceipt, bool) {
 	if start.Edge != "start" || stop.Edge != "stop" || !matchingPhaseAPIs(start.API, stop.API) || start.Index != stop.Index || start.ToggleFailures != 0 || stop.ToggleFailures != 0 || start.Sequence >= stop.Sequence || start.Timestamp == 0 || stop.Timestamp <= start.Timestamp {
-		r.Reason = "edge_pair_invalid"
-		return r
+		return capturePhaseReceipt{}, false
 	}
-	r.Status, r.API, r.Index = "MEASURED", start.API, start.Index
-	r.StartTimestamp, r.StopTimestamp = start.Timestamp, stop.Timestamp
-	r.DurationNanos = stop.Timestamp - start.Timestamp
+	m := capturePhaseReceipt{
+		Status:         "MEASURED",
+		API:            start.API,
+		Index:          start.Index,
+		StartTimestamp: start.Timestamp,
+		StopTimestamp:  stop.Timestamp,
+		DurationNanos:  stop.Timestamp - start.Timestamp,
+	}
 	for _, activity := range result.Activities {
 		if activity.Subtype != "kernel" || !activity.Valid || activity.Start < start.Timestamp || activity.End > stop.Timestamp {
 			continue
 		}
-		r.KernelCount++
-		r.KernelNanos += activity.End - activity.Start
+		m.KernelCount++
+		m.KernelNanos += activity.End - activity.Start
 	}
-	return r
+	return m, true
 }
 
 func matchingPhaseAPIs(start, stop string) bool {
@@ -116,6 +151,9 @@ func (r *capturePhaseReceipt) String() string {
 		return "UNREAD: no capture-range edges"
 	}
 	if r.Status != "MEASURED" {
+		if len(r.Phases) > 0 {
+			return fmt.Sprintf("UNREAD: %s (%d qualified phases; select one by index)", r.Reason, len(r.Phases))
+		}
 		return fmt.Sprintf("UNREAD: %s", r.Reason)
 	}
 	return fmt.Sprintf("MEASURED: %s [%d,%d)", r.API, r.StartTimestamp, r.StopTimestamp)

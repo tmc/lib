@@ -189,3 +189,97 @@ func TestPhaseEdgeJournalRejectsMalformedAndTruncatedInput(t *testing.T) {
 		t.Fatal("truncated phase edge journal decoded successfully")
 	}
 }
+
+// TestBuildPhaseReceiptMultiplePhases covers a target that opens the capture
+// range once per phase, which is what ds4-min does with -cuda-profiler-range.
+// The enclosing receipt must stay UNREAD, because several intervals have no one
+// duration, while still carrying a qualified receipt per phase: refusing to
+// summarize must not mean discarding the measurement.
+func TestBuildPhaseReceiptMultiplePhases(t *testing.T) {
+	result := phaseResult(nil)
+	result.Activities = []captureActivity{
+		{Subtype: "kernel", Valid: true, Start: 12, End: 18}, // phase 0
+		{Subtype: "kernel", Valid: true, Start: 14, End: 16}, // phase 0
+		{Subtype: "kernel", Valid: true, Start: 32, End: 39}, // phase 1
+		{Subtype: "kernel", Valid: true, Start: 20, End: 28}, // between phases, in neither
+	}
+	r := buildPhaseReceipt(result, []capturePhaseEdge{
+		{Sequence: 1, Timestamp: 10, Edge: "start", API: "cuProfilerStart", Index: 0},
+		{Sequence: 2, Timestamp: 19, Edge: "stop", API: "cuProfilerStop", Index: 0},
+		{Sequence: 3, Timestamp: 30, Edge: "start", API: "cuProfilerStart", Index: 1},
+		{Sequence: 4, Timestamp: 40, Edge: "stop", API: "cuProfilerStop", Index: 1},
+	})
+	if r.Status != "UNREAD" || r.Reason != "multiple_phases" {
+		t.Fatalf("status/reason = %q/%q, want UNREAD/multiple_phases", r.Status, r.Reason)
+	}
+	if r.DurationNanos != 0 || r.KernelCount != 0 {
+		t.Fatalf("enclosing receipt reported a measurement: duration=%d kernels=%d", r.DurationNanos, r.KernelCount)
+	}
+	if len(r.Phases) != 2 {
+		t.Fatalf("phases = %d, want 2", len(r.Phases))
+	}
+	for i, want := range []struct {
+		index                uint32
+		start, stop, kernels uint64
+		nanos                uint64
+	}{
+		{0, 10, 19, 2, 8},
+		{1, 30, 40, 1, 7},
+	} {
+		got := r.Phases[i]
+		if got.Status != "MEASURED" {
+			t.Errorf("phase %d status = %q, want MEASURED", i, got.Status)
+		}
+		if got.Index != want.index || got.StartTimestamp != want.start || got.StopTimestamp != want.stop {
+			t.Errorf("phase %d = index %d [%d,%d), want index %d [%d,%d)", i,
+				got.Index, got.StartTimestamp, got.StopTimestamp, want.index, want.start, want.stop)
+		}
+		if got.KernelCount != want.kernels || got.KernelNanos != want.nanos {
+			t.Errorf("phase %d kernels = %d/%dns, want %d/%dns", i, got.KernelCount, got.KernelNanos, want.kernels, want.nanos)
+		}
+	}
+}
+
+// TestBuildPhaseReceiptRejectsUnpairedEdges checks that an odd or malformed
+// edge run is still refused outright. Splitting edges into pairs must not make
+// a half-open range readable.
+func TestBuildPhaseReceiptRejectsUnpairedEdges(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		edges []capturePhaseEdge
+	}{
+		{"odd count", []capturePhaseEdge{
+			{Sequence: 1, Timestamp: 10, Edge: "start", API: "cuProfilerStart", Index: 0},
+			{Sequence: 2, Timestamp: 19, Edge: "stop", API: "cuProfilerStop", Index: 0},
+			{Sequence: 3, Timestamp: 30, Edge: "start", API: "cuProfilerStart", Index: 1},
+		}},
+		{"second pair inverted", []capturePhaseEdge{
+			{Sequence: 1, Timestamp: 10, Edge: "start", API: "cuProfilerStart", Index: 0},
+			{Sequence: 2, Timestamp: 19, Edge: "stop", API: "cuProfilerStop", Index: 0},
+			{Sequence: 3, Timestamp: 40, Edge: "stop", API: "cuProfilerStop", Index: 1},
+			{Sequence: 4, Timestamp: 30, Edge: "start", API: "cuProfilerStart", Index: 1},
+		}},
+		{"second pair index mismatch", []capturePhaseEdge{
+			{Sequence: 1, Timestamp: 10, Edge: "start", API: "cuProfilerStart", Index: 0},
+			{Sequence: 2, Timestamp: 19, Edge: "stop", API: "cuProfilerStop", Index: 0},
+			{Sequence: 3, Timestamp: 30, Edge: "start", API: "cuProfilerStart", Index: 1},
+			{Sequence: 4, Timestamp: 40, Edge: "stop", API: "cuProfilerStop", Index: 2},
+		}},
+		{"toggle failure in the second pair", []capturePhaseEdge{
+			{Sequence: 1, Timestamp: 10, Edge: "start", API: "cuProfilerStart", Index: 0},
+			{Sequence: 2, Timestamp: 19, Edge: "stop", API: "cuProfilerStop", Index: 0},
+			{Sequence: 3, Timestamp: 30, Edge: "start", API: "cuProfilerStart", Index: 1, ToggleFailures: 1},
+			{Sequence: 4, Timestamp: 40, Edge: "stop", API: "cuProfilerStop", Index: 1},
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r := buildPhaseReceipt(phaseResult(nil), tt.edges)
+			if r.Status != "UNREAD" || r.Reason != "edge_pair_invalid" {
+				t.Fatalf("status/reason = %q/%q, want UNREAD/edge_pair_invalid", r.Status, r.Reason)
+			}
+			if len(r.Phases) != 0 {
+				t.Fatalf("refused receipt still carried %d phases", len(r.Phases))
+			}
+		})
+	}
+}
