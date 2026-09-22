@@ -37,6 +37,13 @@ type CodeResolver interface {
 }
 
 // ProfileBridge routes native PC sampling batches into a cudaprof session.
+//
+// The session writes only the sample types the caller selected with
+// [cudaprof.Session.SetSampleTypes], which selects rather than declares: an
+// unknown name is rejected, but a valid name left out of the selection is
+// dropped without a word while the bridge goes on counting into it. Select at
+// least [StallSampleTypes] plus "pc_samples" and "inst_executed", which
+// RecordBatch writes for every batch.
 type ProfileBridge struct {
 	Session   *cudaprof.Session
 	Inventory ReasonInventory
@@ -263,6 +270,36 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 	}
 
 	return nil
+}
+
+// StallSampleTypes reports the cudaprof sample types this package's stall
+// classification counts into, in the order [cudaprof.SampleTypeNames] gives
+// them. A caller selects them instead of restating them:
+//
+//	prof.SetSampleTypes(append(cuptipcsampling.StallSampleTypes(), "pc_samples", "inst_executed")...)
+//
+// It is the stall set and nothing else. RecordBatch also writes pc_samples,
+// the base-reason total at each PC, and inst_executed, the samples of the
+// reason counting warps the scheduler selected; both are written for every
+// batch, so a caller recording batches selects them too. samples and gpu_time
+// are the caller's own: they hold one row per launch and the bridge records no
+// launches.
+func StallSampleTypes() []string {
+	return []string{
+		"stall_scoreboard",
+		"stall_wait",
+		"stall_math",
+		"stall_mem",
+		"stall_branch",
+		"stall_fetch",
+		"stall_drain",
+		"stall_dispatch",
+		"stall_not_selected",
+		// A reason classifyStall does not model counts here rather than
+		// vanishing, so the set is not the arms of that switch: it is the
+		// arms plus the one that says the breakdown is incomplete.
+		"stall_other",
+	}
 }
 
 // RecordSASSMetric records a decoded SASS instruction metric into the profile session.
