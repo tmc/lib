@@ -40,23 +40,41 @@ func Float16ToFloat32(h uint16) float32 {
 	return math.Float32frombits(sign | (exp << 23) | mant)
 }
 
-// Float32ToFloat16 converts float32 to IEEE 754 half-precision bits.
+// Float32ToFloat16 converts float32 to IEEE 754 half-precision bits, rounding
+// to nearest with ties to even. Overflow produces signed infinity. NaNs keep
+// their sign and high payload bits and are quieted.
 func Float32ToFloat16(f float32) uint16 {
 	bits := math.Float32bits(f)
 	sign := uint16((bits >> 16) & 0x8000)
 	exp := int((bits>>23)&0xFF) - 127 + 15
 	mant := bits & 0x007FFFFF
-
+	if bits&0x7f800000 == 0x7f800000 {
+		if mant == 0 {
+			return sign | 0x7c00
+		}
+		return sign | 0x7c00 | uint16(mant>>13) | 0x0200
+	}
+	if exp >= 31 {
+		return sign | 0x7c00
+	}
+	shift := uint(13)
+	var value uint32
 	if exp <= 0 {
 		if exp < -10 {
 			return sign
 		}
-		mant = (mant | 0x00800000) >> (1 - exp)
-		return sign | uint16((mant+0x00001000)>>13)
-	} else if exp >= 0x1F {
-		return sign | 0x7C00
+		mant |= 0x00800000
+		shift = uint(14 - exp)
+		value = mant >> shift
+	} else {
+		value = uint32(exp)<<10 | mant>>13
 	}
-	return sign | uint16(exp<<10) | uint16((mant+0x00001000)>>13)
+	remainder := mant & ((uint32(1) << shift) - 1)
+	halfway := uint32(1) << (shift - 1)
+	if remainder > halfway || remainder == halfway && value&1 != 0 {
+		value++
+	}
+	return sign | uint16(value)
 }
 
 // Float32ToE4M3 converts float32 to FP8 E4M3FN format (1 sign, 4 exp bias 7, 3 mantissa).
