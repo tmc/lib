@@ -1,6 +1,7 @@
 package cudamega
 
 import (
+	_ "embed"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/x/cudataskgraph"
@@ -79,15 +80,19 @@ func (s *Scheduler) Admission() Admission { return s.admission }
 // Graph returns an independent snapshot of the scheduled graph.
 func (s *Scheduler) Graph() cudataskgraph.Graph { return s.graph.Clone() }
 
+//go:embed cudasrc/finite_worker.cu
+var finiteWorker string
+
 // FiniteWorkerSource emits the legacy ordinary fallback for opcode 1
 // (elementwise increment). It is not the persistent taskgraph qualification
 // fixture; use ProgramSource for that finite subset.
+//
+// Its epoch parameter is 64 bits wide for the same reason [ProgramSource]'s
+// is, and it is read rather than merely accepted: a parameter nothing looks
+// at cannot truncate anything observable, so widening one would be a change
+// to the signature and to nothing else.
 func FiniteWorkerSource() string {
-	return `extern "C" __global__ void finite_worker(const unsigned* in, unsigned* out, volatile unsigned* abort, unsigned n, unsigned epoch) {
-  unsigned i=blockIdx.x*blockDim.x+threadIdx.x;
-  if (i<n && *abort==0) { out[i]=in[i]+1; __threadfence(); }
-  __syncthreads();
-}`
+	return fmt.Sprintf(finiteWorker, AbortBadExtent)
 }
 
 // OrdinaryReference is the CPU oracle for the legacy ordinary fallback.

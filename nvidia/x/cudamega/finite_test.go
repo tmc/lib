@@ -8,7 +8,7 @@ import (
 
 func TestFiniteWorkerSource(t *testing.T) {
 	s := cudamega.FiniteWorkerSource()
-	for _, x := range []string{"finite_worker", "abort", "__syncthreads"} {
+	for _, x := range []string{"finite_worker", "abort", "__syncthreads", "unsigned long long epoch"} {
 		if !strings.Contains(s, x) {
 			t.Fatalf("missing %q", x)
 		}
