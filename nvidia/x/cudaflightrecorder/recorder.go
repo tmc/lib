@@ -414,6 +414,13 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 			rec.TimestampNs, rec.KernelName, rec.DurationNs, rec.CorrelationID)...)
 	}
 	bundle.Files["gpu_records.txt"] = recBuf
+	// Preserve labels and numeric fields for consumers of policy and profiling
+	// evidence. The text file above remains available to existing readers.
+	recordJSON, err := json.Marshal(records)
+	if err != nil {
+		return nil, fmt.Errorf("cudaflightrecorder: marshal records: %w", err)
+	}
+	bundle.Files["gpu_records.json"] = recordJSON
 
 	maxProviderBytes := cfg.MaxProviderOutputBytes
 	if maxProviderBytes <= 0 {
@@ -650,6 +657,11 @@ func (r *Recorder) FaultSnapshot(ctx context.Context, w io.Writer, fault FaultIn
 			rec.TimestampNs, rec.KernelName, rec.DurationNs, rec.CorrelationID)...)
 	}
 	bundle.Files["gpu_records.txt"] = recBuf
+	recordJSON, err := json.Marshal(records)
+	if err != nil {
+		return nil, fmt.Errorf("cudaflightrecorder: marshal records: %w", err)
+	}
+	bundle.Files["gpu_records.json"] = recordJSON
 
 	// 1. Serialize fault.json
 	faultBytes, err := json.MarshalIndent(fault, "", "  ")

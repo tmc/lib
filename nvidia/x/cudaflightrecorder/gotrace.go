@@ -337,7 +337,7 @@ func AlignSpans(
 	var gpuMinTs, gpuMaxTs int64
 	seenGPU := false
 	for _, rec := range records {
-		if rec.Labels["activity.uncalibrated"] == "true" {
+		if rec.Labels["activity.uncalibrated"] == "true" || rec.Labels["duration_status"] == "unavailable" || rec.Labels["record_kind"] == "driver_policy" {
 			continue
 		}
 		end := rec.TimestampNs + int64(rec.DurationNs)
