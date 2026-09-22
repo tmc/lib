@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"runtime/pprof"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -43,7 +44,8 @@ type CodeResolver interface {
 // unknown name is rejected, but a valid name left out of the selection is
 // dropped without a word while the bridge goes on counting into it. Select at
 // least [StallSampleTypes] plus "pc_samples" and "inst_executed", which
-// RecordBatch writes for every batch.
+// RecordBatch writes for every batch, and ask [ProfileBridge.DroppedSampleTypes]
+// what the selection left out.
 type ProfileBridge struct {
 	Session   *cudaprof.Session
 	Inventory ReasonInventory
@@ -66,6 +68,9 @@ type ProfileBridge struct {
 	// reasons this package does not model. They reach no sample type, so a
 	// nonempty map means the stall breakdown is not the whole measurement.
 	UnmappedStalls map[string]int64
+	// filled records every sample type RecordBatch counted into, which is the
+	// half of DroppedSampleTypes the session cannot report.
+	filled map[string]bool
 	// ReasonSamples accumulates every reason's samples under its native name,
 	// modelled or not. Routing says where a reason would be counted;
 	// ReasonSamples says how much was, which is what makes the routing
@@ -266,10 +271,68 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 			sampleCtx = pprof.WithLabels(ctx, pprof.Labels(pairs...))
 		}
 
+		b.note(vals)
 		b.Session.RecordStackSample(sampleCtx, vals, frames)
 	}
 
 	return nil
+}
+
+// note records the sample types vals counts into. The pairing is written out
+// rather than derived because cudaprof names a sample type and this package
+// names a field, and nothing connects the two but this list; TestBridgeNotes
+// AllItFills checks it against what RecordBatch actually wrote.
+func (b *ProfileBridge) note(vals cudaprof.SampleValues) {
+	for name, n := range map[string]int64{
+		"pc_samples":         vals.PCSamples,
+		"inst_executed":      vals.InstExecuted,
+		"stall_scoreboard":   vals.StallScoreboard,
+		"stall_wait":         vals.StallWait,
+		"stall_math":         vals.StallMath,
+		"stall_mem":          vals.StallMem,
+		"stall_branch":       vals.StallBranch,
+		"stall_fetch":        vals.StallFetch,
+		"stall_drain":        vals.StallDrain,
+		"stall_dispatch":     vals.StallDispatch,
+		"stall_not_selected": vals.StallNotSelected,
+		"stall_other":        vals.StallOther,
+	} {
+		if n != 0 {
+			if b.filled == nil {
+				b.filled = make(map[string]bool)
+			}
+			b.filled[name] = true
+		}
+	}
+}
+
+// DroppedSampleTypes reports the sample types this bridge counted into that
+// the session does not write, in the order [cudaprof.SampleTypeNames] gives
+// them. It is empty for a session that selected everything the bridge filled,
+// and empty before the first batch is recorded.
+//
+// The selection is what a profile carries, and omitting a valid name from it
+// is silent by construction: the caller declares what it means to record and
+// the bridge cannot know what that was. What the bridge does know is what it
+// filled, and comparing that against the session's own types turns an omitted
+// column into something a caller can report rather than a measurement that
+// leaves no trace. Ask after the last batch and before Close.
+//
+// It covers RecordBatch only. The values RecordSASSMetric writes are
+// classified inside cudaprof, so a type filled only by a SASS metric is not
+// tracked here.
+func (b *ProfileBridge) DroppedSampleTypes() []string {
+	if b == nil || b.Session == nil || len(b.filled) == 0 {
+		return nil
+	}
+	carried := b.Session.SampleTypes()
+	var dropped []string
+	for _, name := range cudaprof.SampleTypeNames() {
+		if b.filled[name] && !slices.Contains(carried, name) {
+			dropped = append(dropped, name)
+		}
+	}
+	return dropped
 }
 
 // StallSampleTypes reports the cudaprof sample types this package's stall
