@@ -175,3 +175,47 @@ func TestRunInspectCFG(t *testing.T) {
 		})
 	}
 }
+
+// nvdisasmCFG is real nvdisasm control flow graph output, borrowed from
+// x/cudasass's round-trip fixture. The DOT the tests above use is written here
+// and has one digraph per function; nvdisasm does not do that. It prints the
+// module as a single digraph named "f" holding a "cluster_<function>" subgraph
+// per function, so a --cfg that filtered on the digraph name found no kernel
+// in any real capture and refused them all.
+const nvdisasmCFG = "../../cudasass/testdata/roundtrip/sm121a-roundtrip.bbcfg.dot"
+
+func TestPrintCaptureCFGOnDisassemblerOutput(t *testing.T) {
+	dot, err := os.ReadFile(nvdisasmCFG)
+	if err != nil {
+		t.Fatalf("read nvdisasm CFG fixture: %v", err)
+	}
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "gpu_time", Unit: "nanoseconds"}},
+		},
+		Code: cudacapture.CodeFiles{
+			Source: "kernel.cu",
+			BBCFG:  "kernel.bbcfg.dot",
+		},
+		Files: map[string][]byte{
+			"kernel.cu":        []byte("// not read by this test\n"),
+			"kernel.bbcfg.dot": dot,
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := printCaptureCFG(&buf, cap, "addk", true); err != nil {
+		t.Fatalf("printCaptureCFG(addk): %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "digraph addk {") {
+		t.Errorf("output does not name the kernel:\n%s", out)
+	}
+	if strings.Contains(out, "intmix") {
+		t.Error("output carries the other kernel of the module")
+	}
+
+	if err := printCaptureCFG(&buf, cap, "f", true); err == nil {
+		t.Error("printCaptureCFG accepted the module name as a kernel")
+	}
+}
