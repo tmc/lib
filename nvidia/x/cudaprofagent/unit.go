@@ -32,47 +32,63 @@ import (
 // Without a capture it writes nothing and returns false, so the call is safe
 // to leave in a program that is usually run without one.
 func WriteUnit(name string, unitJSON []byte) (bool, error) {
-	dir := os.Getenv("CUDAPROF_TRANSPORT")
-	if dir == "" {
+	switch err := publish("units", name, unitJSON); {
+	case errors.Is(err, errNoCapture):
 		return false, nil
-	}
-	if err := validUnitName(name); err != nil {
-		return false, err
-	}
-	dir = filepath.Join(dir, "units")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return false, fmt.Errorf("publish unit %s: %w", name, err)
-	}
-	// Written through a temporary file: the capture harvests this directory
-	// when the target exits, and a half-written unit is worse than a missing
-	// one because it reads as a unit that lost its line map.
-	tmp, err := os.CreateTemp(dir, ".unit-")
-	if err != nil {
-		return false, fmt.Errorf("publish unit %s: %w", name, err)
-	}
-	defer os.Remove(tmp.Name())
-	if _, err := tmp.Write(unitJSON); err != nil {
-		tmp.Close()
-		return false, fmt.Errorf("publish unit %s: %w", name, err)
-	}
-	if err := tmp.Close(); err != nil {
-		return false, fmt.Errorf("publish unit %s: %w", name, err)
-	}
-	if err := os.Rename(tmp.Name(), filepath.Join(dir, name+".json")); err != nil {
+	case err != nil:
 		return false, fmt.Errorf("publish unit %s: %w", name, err)
 	}
 	return true, nil
 }
 
-// validUnitName rejects a name that would name a file outside the capture's
-// own directory. A unit name reaches this from a code generator, which is one
-// step from the program's own identifiers.
-func validUnitName(name string) error {
+// publish writes data as <transport>/<kind>/<name>.json, and reports
+// errNoCapture when this process is running under no capture.
+//
+// Written through a temporary file: the capture harvests these directories
+// when the target exits, and a half-written file is worse than a missing one,
+// because it reads as one that lost part of what it was published to carry.
+func publish(kind, name string, data []byte) error {
+	transport := os.Getenv("CUDAPROF_TRANSPORT")
+	if transport == "" {
+		return errNoCapture
+	}
+	if err := validName(name); err != nil {
+		return err
+	}
+	dir := filepath.Join(transport, kind)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, "."+kind+"-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), filepath.Join(dir, name+".json"))
+}
+
+// errNoCapture reports that this process runs under no capture. It never
+// reaches a caller: the exported functions turn it into a false return, so
+// that a call left in a program usually run without a capture is not an
+// error path.
+var errNoCapture = errors.New("no capture")
+
+// validName rejects a name that would name a file outside the capture's own
+// directory. A name reaches this from a code generator, which is one step
+// from the program's own identifiers.
+func validName(name string) error {
 	if name == "" {
-		return errors.New("unit has no name")
+		return errors.New("no name")
 	}
 	if strings.ContainsAny(name, `/\`) || strings.Contains(name, "..") {
-		return fmt.Errorf("invalid unit name %q", name)
+		return fmt.Errorf("invalid name %q", name)
 	}
 	return nil
 }

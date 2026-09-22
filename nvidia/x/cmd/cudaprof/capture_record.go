@@ -421,6 +421,15 @@ func scratchAttachments(dir string) []captureAttachment {
 			}
 		}
 	}
+	// Executed-instruction counts the target measured for itself, which
+	// CUPTI only lets the process owning the context collect.
+	if counts, err := os.ReadDir(filepath.Join(dir, "counts")); err == nil {
+		for _, count := range counts {
+			if name := count.Name(); strings.HasSuffix(name, ".json") {
+				add("count-"+name, filepath.Join(dir, "counts", name))
+			}
+		}
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return found
@@ -780,6 +789,7 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	// its module by the driver's number, and this is where that number is
 	// attached to a stored image.
 	projectPCSamples(c, result.PCSamples, attachments)
+	projectExecuted(c, attachments)
 	// The top-level code roles describe the capture as a whole and stay
 	// unavailable: there is no single cubin for a process that loaded several.
 	// Saying so, rather than dropping the role, is what keeps a reader from

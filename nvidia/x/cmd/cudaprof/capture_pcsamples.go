@@ -29,12 +29,33 @@ const pcSampleType = "pc_samples"
 // as unresolved rather than disappearing: the device did the work either way,
 // and a total that silently omits it is wrong in the direction that matters.
 func projectPCSamples(c *cudacapture.Capture, samples []capturePCSample, attachments map[string][]byte) {
+	counts := make([]deviceCount, 0, len(samples))
+	for _, s := range samples {
+		counts = append(counts, deviceCount{ModuleID: s.ModuleID, Function: s.Function, Offset: s.Offset, Value: int64(s.Samples)})
+	}
+	projectCounts(c, pcSampleType, "samples", counts, attachments)
+}
+
+// A deviceCount is a quantity one instruction of one module accounted for:
+// samples the hardware took there, or instructions it executed there. Both
+// are measured per program counter and read the same way once projected, so
+// they are projected by the same code.
+type deviceCount struct {
+	ModuleID uint32
+	Function string
+	Offset   uint64
+	Value    int64
+}
+
+// projectCounts adds per-instruction counts to the capture's profile as a
+// sample type of their own, in the stack shape described above.
+func projectCounts(c *cudacapture.Capture, dimension, unit string, samples []deviceCount, attachments map[string][]byte) {
 	if len(samples) == 0 || c.Profile == nil {
 		return
 	}
 	// Every existing sample gains a zero in the new dimension: a kernel's
 	// wall time is not a PC sample count.
-	c.Profile.SampleType = append(c.Profile.SampleType, &profile.ValueType{Type: pcSampleType, Unit: "samples"})
+	c.Profile.SampleType = append(c.Profile.SampleType, &profile.ValueType{Type: dimension, Unit: unit})
 	width := len(c.Profile.SampleType)
 	for _, s := range c.Profile.Sample {
 		for len(s.Value) < width {
@@ -67,7 +88,7 @@ func projectPCSamples(c *cudacapture.Capture, samples []capturePCSample, attachm
 		return samples[i].Offset < samples[j].Offset
 	})
 	for _, s := range samples {
-		if s.Samples == 0 {
+		if s.Value == 0 {
 			continue
 		}
 		b.add(s, code[s.ModuleID])
@@ -132,7 +153,7 @@ type pcBuilder struct {
 	nextLocation uint64
 }
 
-func (b *pcBuilder) add(s capturePCSample, code *moduleCode) {
+func (b *pcBuilder) add(s deviceCount, code *moduleCode) {
 	name, ordinal, file, line := code.resolve(s.Function, s.Offset)
 	unit := "module"
 	if code != nil && code.name != "" {
@@ -141,7 +162,7 @@ func (b *pcBuilder) add(s capturePCSample, code *moduleCode) {
 	locs := []*profile.Location{b.location(name+".SASS", unit+".sass", int64(ordinal))}
 	locs = append(locs, b.location(name, file, int64(line)))
 	sample := &profile.Sample{Location: locs, Value: make([]int64, b.width)}
-	sample.Value[b.width-1] = int64(s.Samples)
+	sample.Value[b.width-1] = s.Value
 	if s.ModuleID != 0 {
 		sample.Label = map[string][]string{"module_id": {strconv.FormatUint(uint64(s.ModuleID), 10)}}
 	}

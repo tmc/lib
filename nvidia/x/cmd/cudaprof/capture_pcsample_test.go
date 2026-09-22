@@ -141,7 +141,7 @@ func TestPCSamplesProjectFrames(t *testing.T) {
 	b := &pcBuilder{p: c.Profile, width: 2, functions: map[string]*profile.Function{}, locations: map[string]*profile.Location{}}
 	c.Profile.SampleType = append(c.Profile.SampleType, &profile.ValueType{Type: pcSampleType, Unit: "samples"})
 	c.Profile.Sample[0].Value = append(c.Profile.Sample[0].Value, 0)
-	b.add(capturePCSample{ModuleID: 22, Function: "fused_gate", Offset: 0x10, Samples: 7}, &moduleCode{name: "module-0000-id22", dis: dis})
+	b.add(deviceCount{ModuleID: 22, Function: "fused_gate", Offset: 0x10, Value: 7}, &moduleCode{name: "module-0000-id22", dis: dis})
 
 	if len(c.Profile.Sample) != 2 {
 		t.Fatalf("got %d samples, want 2", len(c.Profile.Sample))
