@@ -335,6 +335,20 @@ func (p *ExecutablePlan) RequiredInputs() map[string]int {
 	return res
 }
 
+// Steps returns the plan's dispatches in execution order.
+//
+// The slices each step holds are shared with the plan; treat the result as
+// read-only. It is here so that a region of a compiled plan can be lowered by
+// [LowerRegion] without the plan having to know what it is lowered into.
+func (p *ExecutablePlan) Steps() []StepPlan {
+	if p == nil {
+		return nil
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]StepPlan(nil), p.steps...)
+}
+
 // RequiredOutputs returns the map of output node names to required buffer byte lengths.
 func (p *ExecutablePlan) RequiredOutputs() map[string]int {
 	if p == nil {

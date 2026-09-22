@@ -19,6 +19,12 @@ const (
 
 	// BackendCuBLASLt executes dense matrix multiplication using cublasltx.
 	BackendCuBLASLt
+
+	// BackendMega executes a contiguous region of steps as tasks of one
+	// persistent worker, scheduled on the device from their dependencies.
+	// A region reaches it through [LowerRegion], which refuses the steps it
+	// cannot derive a schedule for.
+	BackendMega
 )
 
 func (b TargetBackend) String() string {
@@ -29,6 +35,8 @@ func (b TargetBackend) String() string {
 		return "Graph"
 	case BackendCuBLASLt:
 		return "CuBLASLt"
+	case BackendMega:
+		return "Mega"
 	default:
 		return fmt.Sprintf("Backend(%d)", uint8(b))
 	}
