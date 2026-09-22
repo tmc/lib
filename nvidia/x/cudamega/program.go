@@ -52,9 +52,11 @@ const (
 const DefaultSpinLimit = 1 << 24
 
 // ProgramSource emits the persistent worker and the ordinary-launch reference
-// for the same tasks.
+// for the same tasks, as CUDA C++ for target.
 //
-// The task loop is unrolled: one block of code per task, in rank order, each
+// It is [NewProgram] followed by rendering on the CUDA backend, and exists
+// because emitting the source is what most callers want from the pair. The
+// task loop is unrolled: one block of code per task, in rank order, each
 // carrying the synchronization its own scope declares. That is what makes the
 // six contracts visible in the artifact rather than only in this comment.
 //
@@ -74,154 +76,29 @@ const DefaultSpinLimit = 1 << 24
 // worker refuses as the unpublished value, and takes 2³²+k to k, which it
 // accepts as a different epoch. Neither is caught by anything narrower.
 //
-// Unsupported, reported rather than approximated:
-//
-//   - [cudataskgraph.ScopeCluster]. A cluster arrival needs distributed shared
-//     memory and the participation contract lane 09 owns, and an mbarrier in
-//     the local CTA's shared window is not a cluster barrier.
-//   - Either end of a dependency edge at CTA scope in a multi-CTA grid. An
-//     mbarrier in one CTA's shared memory orders that CTA only, so it can
-//     neither publish to another CTA nor observe what another CTA published.
-//     The producer's end is refused as well as the consumer's: a CTA-scope
-//     release publishes a completion word that a CTA in another block will
-//     read, and that is the same defect seen from the other side.
-func ProgramSource(g cudataskgraph.Graph, operations map[string]Operation, grid Grid) (string, error) {
-	tasks := g.Tasks()
-	if len(tasks) == 0 || len(tasks) > 1024 || len(operations) != len(tasks) {
-		return "", fmt.Errorf("finite program requires 1..1024 operations matching its tasks")
-	}
-	if err := grid.Validate(); err != nil {
+// See [NewProgram] for what the pair refuses.
+func ProgramSource(g cudataskgraph.Graph, operations map[string]Operation, grid Grid, target Target) (string, error) {
+	p, err := NewProgram(g, operations, grid, target)
+	if err != nil {
 		return "", err
 	}
-	dependedOn := make(map[string]bool, len(tasks))
-	for _, t := range tasks {
-		for _, d := range t.Deps {
-			dependedOn[d] = true
-		}
-	}
-	indices := make(map[string]int, len(tasks))
-	needBarrier, needPhase, needSpin := false, false, false
-	for _, t := range tasks {
-		if len(t.Deps) > 0 {
-			needSpin = true
-		}
-		if t.Scope == cudataskgraph.ScopeCTA {
-			needBarrier = true
-			if len(t.Deps) > 0 {
-				needPhase = true
-			}
-		}
-	}
-	var defs, body strings.Builder
-	fmt.Fprintf(&defs, "constexpr unsigned task_count = %d;\n", len(tasks))
-	fmt.Fprintf(&defs, "constexpr unsigned grid_ctas = %d;\n", grid.CTAs)
-	// Only a dependency wait polls, so only a graph with a dependency edge
-	// declares the bound. Declaring it unconditionally leaves an unreferenced
-	// constant in every dependency-free worker, which nvcc reports.
-	if needSpin {
-		fmt.Fprintf(&defs, "constexpr unsigned long long spin_limit = %dull;\n", grid.spinLimit())
-	}
-	defs.WriteString("static_assert(task_count >= 1, \"the generated worker has at least one task\");\n")
-
-	for i, t := range tasks {
-		op, ok := operations[t.ID]
-		if !ok || op.Kind != Add && op.Kind != Multiply {
-			return "", fmt.Errorf("task %q has no supported operation", t.ID)
-		}
-		if t.Scope == cudataskgraph.ScopeCluster {
-			return "", fmt.Errorf("task %q declares cluster scope, which needs lane 09's participation contract", t.ID)
-		}
-		if t.Scope == cudataskgraph.ScopeCTA && grid.CTAs > 1 && (len(t.Deps) > 0 || dependedOn[t.ID]) {
-			side := "depends on another task"
-			if len(t.Deps) == 0 {
-				side = "is depended on by another task"
-			}
-			return "", fmt.Errorf("task %q %s at CTA scope in a %d-CTA grid; an mbarrier orders one CTA", t.ID, side, grid.CTAs)
-		}
-		deps := make([]int, 0, len(t.Deps))
-		for _, d := range t.Deps {
-			n, ok := indices[d]
-			if !ok {
-				return "", fmt.Errorf("task %q precedes dependency %q", t.ID, d)
-			}
-			deps = append(deps, n)
-		}
-		indices[t.ID] = i
-
-		operator := "+"
-		if op.Kind == Multiply {
-			operator = "*"
-		}
-		fmt.Fprintf(&defs, "__device__ unsigned op_%d(unsigned x) { return x %s %du; }\n", i, operator, op.Scalar)
-		src := "input"
-		if len(deps) > 0 {
-			src = fmt.Sprintf("scratch + (size_t)%d*n", deps[0])
-		}
-		if err := emitTask(&body, i, t, deps, src); err != nil {
-			return "", err
-		}
-	}
-	defs.WriteString("__device__ int dependency(unsigned task) { switch(task) {\n")
-	for i, t := range tasks {
-		dep := -1
-		if len(t.Deps) > 0 {
-			dep = indices[t.Deps[0]]
-		}
-		fmt.Fprintf(&defs, "case %d: return %d;\n", i, dep)
-	}
-	defs.WriteString("default: return -2; }}\n__device__ unsigned dispatch(unsigned task, unsigned x) { switch(task) {\n")
-	for i := range tasks {
-		fmt.Fprintf(&defs, "case %d: return op_%d(x);\n", i, i)
-	}
-	defs.WriteString("default: return 0; }}\n")
-
-	return programPrologue + defs.String() + workerPrologue(needBarrier, needPhase) + body.String() + workerEpilogue + ordinaryKernel, nil
+	return p.Source()
 }
 
-// emitTask writes one task's block: the acquire side of every dependency, the
-// computation, the release side, and the publishing store. The order of those
-// four is the whole of contract 4, and it is the order the artifact is
-// asserted against.
-func emitTask(b *strings.Builder, i int, t cudataskgraph.Task, deps []int, src string) error {
-	fmt.Fprintf(b, "\n  // task %d %q scope=%s rank=%d deps=%v\n", i, t.ID, scopeName(t.Scope), t.Rank, deps)
-	fmt.Fprintf(b, "  if (!*abort_code) {\n")
-
-	// Acquire: wait for every dependency, then fence so the reads below cannot
-	// be hoisted above the wait.
-	for _, d := range deps {
-		fmt.Fprintf(b, "    if (threadIdx.x == 0) {\n")
-		fmt.Fprintf(b, "      unsigned long long spins = 0ull;\n")
-		fmt.Fprintf(b, "      while (((volatile unsigned*)completed)[%d] < grid_ctas) {\n", d)
-		fmt.Fprintf(b, "        if (*abort_code) break;\n")
-		fmt.Fprintf(b, "        if (++spins > spin_limit) { atomicCAS((unsigned *)abort_code, 0u, %du); break; }\n", AbortSpinExhausted)
-		fmt.Fprintf(b, "      }\n")
-		fmt.Fprintf(b, "    }\n")
-		fmt.Fprintf(b, "    __syncthreads();\n")
-	}
-	if len(deps) > 0 {
-		acq, err := acquireFence(t.Scope)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(b, "    %s // acquire for task %d\n", acq, i)
-	}
-
-	fmt.Fprintf(b, "    if (!*abort_code) {\n")
-	fmt.Fprintf(b, "      const unsigned *src = %s;\n", src)
-	fmt.Fprintf(b, "      for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)grid_ctas*blockDim.x)\n")
-	fmt.Fprintf(b, "        scratch[(size_t)%d*n + e] = op_%d(src[e]);\n", i, i)
-	fmt.Fprintf(b, "    }\n")
-
-	// Release: every thread of the CTA is past its stores, then the fence the
-	// scope declares, then the publishing store.
-	rel, err := releaseFence(t.Scope)
+// Source renders the program as CUDA C++ for its target.
+//
+// The text is what the CUDA backend writes when the driver walks the program,
+// so it cannot drift from what that backend does: there is no second emitter.
+func (p *Program) Source() (string, error) {
+	c := &cudaSource{p: p}
+	r, err := NewRunner(p, c)
 	if err != nil {
-		return err
+		return "", err
 	}
-	fmt.Fprintf(b, "    %s // release for task %d\n", rel, i)
-	fmt.Fprintf(b, "    if (threadIdx.x == 0) atomicAdd(completed + %d, 1u); // publish task %d\n", i, i)
-	fmt.Fprintf(b, "  }\n")
-	return nil
+	if err := r.Run(); err != nil {
+		return "", err
+	}
+	return c.source(), nil
 }
 
 // acquireFence returns the acquire side for a scope. ScopeCTA's is the
@@ -268,7 +145,8 @@ func scopeName(s cudataskgraph.Scope) string {
 
 // ctaBarrierArrive is the CTA-scope release: every thread arrives at the
 // shared mbarrier with release semantics, which orders its stores before the
-// arrival token other threads observe.
+// arrival token other threads observe. It is the optional sixth primitive:
+// a backend without an mbarrier serves CTA scope with its workgroup barrier.
 const ctaBarrierArrive = `asm volatile("mbarrier.arrive.release.cta.shared::cta.b64 _, [%0];" :: "r"(cta_barrier_addr) : "memory");`
 
 // ctaBarrierWait is the CTA-scope acquire. The phase parity alternates across

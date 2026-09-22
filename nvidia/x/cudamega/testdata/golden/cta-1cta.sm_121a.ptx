@@ -27,15 +27,15 @@
 	.reg .b64 	%rd<98>;
 	// demoted variable
 	.shared .align 8 .u64 _ZZ10dag_workerE11cta_barrier;
-	ld.param.b64 	%rd40, [dag_worker_param_0];
-	ld.param.b64 	%rd41, [dag_worker_param_1];
-	ld.param.b64 	%rd42, [dag_worker_param_2];
+	ld.param.b64 	%rd41, [dag_worker_param_0];
+	ld.param.b64 	%rd42, [dag_worker_param_1];
+	ld.param.b64 	%rd39, [dag_worker_param_2];
 	ld.param.b64 	%rd43, [dag_worker_param_3];
 	ld.param.b32 	%r2, [dag_worker_param_4];
-	ld.param.b64 	%rd39, [dag_worker_param_5];
-	cvta.to.global.u64 	%rd1, %rd40;
-	cvta.to.global.u64 	%rd2, %rd41;
-	cvta.to.global.u64 	%rd3, %rd42;
+	ld.param.b64 	%rd40, [dag_worker_param_5];
+	cvta.to.global.u64 	%rd1, %rd41;
+	cvta.to.global.u64 	%rd2, %rd42;
+	cvta.to.global.u64 	%rd3, %rd39;
 	cvta.to.global.u64 	%rd4, %rd43;
 	mov.u32 	%r3, %nctaid.x;
 	setp.eq.b32 	%p1, %r3, 1;
@@ -59,7 +59,7 @@
 	bra.uni 	$L__BB0_49;
 $L__BB0_3:
 	setp.ne.b32 	%p10, %r2, 0;
-	setp.ne.b64 	%p11, %rd39, 0;
+	setp.ne.b64 	%p11, %rd40, 0;
 	and.pred 	%p12, %p10, %p11;
 	@%p12 bra 	$L__BB0_6;
 	mov.u32 	%r59, %tid.x;
@@ -190,7 +190,9 @@ $L__BB0_22:
 	@%p25 bra 	$L__BB0_36;
 	mov.b64 	%rd92, 0;
 $L__BB0_25:
-	ld.volatile.global.b32 	%r30, [%rd3];
+	// begin inline asm
+	ld.acquire.cta.u32 %r30, [%rd39];
+	// end inline asm
 	setp.ne.b32 	%p26, %r30, 0;
 	@%p26 bra 	$L__BB0_36;
 	ld.volatile.global.b32 	%r31, [%rd4];
@@ -198,19 +200,25 @@ $L__BB0_25:
 	@%p27 bra 	$L__BB0_36;
 	setp.eq.b64 	%p28, %rd92, 16777216;
 	@%p28 bra 	$L__BB0_35;
-	ld.volatile.global.b32 	%r32, [%rd3];
+	// begin inline asm
+	ld.acquire.cta.u32 %r32, [%rd39];
+	// end inline asm
 	setp.ne.b32 	%p29, %r32, 0;
 	@%p29 bra 	$L__BB0_36;
 	ld.volatile.global.b32 	%r33, [%rd4];
 	setp.ne.b32 	%p30, %r33, 0;
 	@%p30 bra 	$L__BB0_36;
-	ld.volatile.global.b32 	%r34, [%rd3];
+	// begin inline asm
+	ld.acquire.cta.u32 %r34, [%rd39];
+	// end inline asm
 	setp.ne.b32 	%p31, %r34, 0;
 	@%p31 bra 	$L__BB0_36;
 	ld.volatile.global.b32 	%r35, [%rd4];
 	setp.ne.b32 	%p32, %r35, 0;
 	@%p32 bra 	$L__BB0_36;
-	ld.volatile.global.b32 	%r36, [%rd3];
+	// begin inline asm
+	ld.acquire.cta.u32 %r36, [%rd39];
+	// end inline asm
 	setp.ne.b32 	%p33, %r36, 0;
 	@%p33 bra 	$L__BB0_36;
 	ld.volatile.global.b32 	%r37, [%rd4];

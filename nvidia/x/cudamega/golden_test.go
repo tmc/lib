@@ -16,6 +16,18 @@ import (
 // family rather than this target.
 const goldenArch = "sm_121a"
 
+// goldenTarget is goldenArch as the emitter's own type. The two spellings are
+// kept apart deliberately: goldenArch is what the toolchain is invoked with
+// and what the artifacts announce, goldenTarget is what the program is built
+// for, and a test that used one value for both could not notice them
+// disagreeing.
+const goldenTarget = cudamega.Target(goldenArch)
+
+// ptxTargets are the architectures a PTX golden is committed for. The emitted
+// text is the same for all three -- see TestEmittedTextIsTargetInvariant --
+// so only the PTX is per-target.
+var ptxTargets = []cudamega.Target{cudamega.SM80, cudamega.SM90, cudamega.SM121a}
+
 var updateGolden = flag.Bool("update-golden", false, "rewrite the generated .cu goldens under testdata/golden")
 
 // A programFixture is one graph, its operations, and the grid its source was
@@ -26,6 +38,10 @@ type programFixture struct {
 	graph cudataskgraph.Graph
 	ops   map[string]cudamega.Operation
 	grid  cudamega.Grid
+	// target is part of the fixture for the same reason the grid is: a
+	// program is built for one architecture, and an artifact generated for
+	// one target is no evidence about another.
+	target cudamega.Target
 }
 
 // ctaFixture exercises the CTA synchronization domain: a dependency edge
@@ -47,7 +63,8 @@ func ctaFixture(t *testing.T) programFixture {
 			"add3":      {Kind: cudamega.Add, Scalar: 3},
 			"multiply2": {Kind: cudamega.Multiply, Scalar: 2},
 		},
-		grid: cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128},
+		grid:   cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128},
+		target: goldenTarget,
 	}
 }
 
@@ -75,7 +92,8 @@ func deviceFixture(t *testing.T) programFixture {
 			"scale":  {Kind: cudamega.Multiply, Scalar: 2},
 			"offset": {Kind: cudamega.Add, Scalar: 7},
 		},
-		grid: cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128},
+		grid:   cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128},
+		target: goldenTarget,
 	}
 }
 
@@ -88,7 +106,7 @@ func goldenFixtures(t *testing.T) []programFixture {
 // nothing in this package still emits.
 func TestGoldenSourceMatchesGenerator(t *testing.T) {
 	for _, f := range goldenFixtures(t) {
-		src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid)
+		src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid, f.target)
 		if err != nil {
 			t.Fatalf("%s: %v", f.name, err)
 		}

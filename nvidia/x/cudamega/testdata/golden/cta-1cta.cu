@@ -48,7 +48,10 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
   if (!*abort_code) {
     if (threadIdx.x == 0) {
       unsigned long long spins = 0ull;
-      while (((volatile unsigned*)completed)[0] < grid_ctas) {
+      unsigned done = 0u;
+      while (true) { // poll the completion word of task 0
+        asm volatile("ld.acquire.cta.u32 %0, [%1];" : "=r"(done) : "l"(completed) : "memory");
+        if (done >= grid_ctas) break;
         if (*abort_code) break;
         if (++spins > spin_limit) { atomicCAS((unsigned *)abort_code, 0u, 4u); break; }
       }

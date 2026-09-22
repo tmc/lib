@@ -132,7 +132,7 @@ func TestNativePersistentReference(t *testing.T) {
 	// device-2cta.
 	for _, f := range []programFixture{ctaFixture(t), deviceFixture(t)} {
 		t.Run(f.name, func(t *testing.T) {
-			src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid)
+			src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid, f.target)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -168,7 +168,7 @@ func TestCompileProgramSource(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	for _, f := range []programFixture{ctaFixture(t), deviceFixture(t)} {
-		src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid)
+		src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid, f.target)
 		if err != nil {
 			t.Fatalf("%s: %v", f.name, err)
 		}
@@ -208,7 +208,7 @@ func TestNativeSpinBoundReleasesAGridThatWouldHang(t *testing.T) {
 
 	f := ctaFixture(t)
 	f.grid.SpinLimit = 1 << 20 // reached in well under a second; the default is not a deadline
-	src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid)
+	src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid, f.target)
 	if err != nil {
 		t.Fatal(err)
 	}

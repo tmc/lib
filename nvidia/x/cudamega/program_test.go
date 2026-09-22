@@ -30,7 +30,7 @@ func programOps() map[string]cudamega.Operation {
 
 func TestProgramSourceFiniteNumericalFixture(t *testing.T) {
 	g := programGraph(t, 16)
-	s, err := cudamega.ProgramSource(g, programOps(), cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128})
+	s, err := cudamega.ProgramSource(g, programOps(), cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128}, goldenTarget)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,13 +83,13 @@ func TestProgramSourceFailsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := cudamega.ProgramSource(cluster, map[string]cudamega.Operation{"x": {Kind: cudamega.Add, Scalar: 1}}, grid); err == nil {
+	if _, err := cudamega.ProgramSource(cluster, map[string]cudamega.Operation{"x": {Kind: cudamega.Add, Scalar: 1}}, grid, goldenTarget); err == nil {
 		t.Fatal("accepted unsupported scope")
 	}
-	if _, err := cudamega.ProgramSource(g, map[string]cudamega.Operation{"add3": ops["add3"]}, grid); err == nil {
+	if _, err := cudamega.ProgramSource(g, map[string]cudamega.Operation{"add3": ops["add3"]}, grid, goldenTarget); err == nil {
 		t.Fatal("accepted incomplete operation set")
 	}
-	if _, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 100}); err == nil {
+	if _, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 100}, goldenTarget); err == nil {
 		t.Fatal("accepted a block that is not a whole number of warps")
 	}
 }
@@ -113,10 +113,10 @@ func TestCTAScopeRefusedOnBothEndsOfACrossCTAEdge(t *testing.T) {
 		"produce": {Kind: cudamega.Add, Scalar: 1},
 		"consume": {Kind: cudamega.Multiply, Scalar: 2},
 	}
-	if _, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}); err != nil {
+	if _, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}, goldenTarget); err != nil {
 		t.Fatalf("one CTA: a CTA-scope edge is orderable and must be accepted: %v", err)
 	}
-	_, err = cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32})
+	_, err = cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32}, goldenTarget)
 	if err == nil {
 		t.Fatal("two CTAs: accepted a CTA-scope producer whose consumer runs in another CTA")
 	}
@@ -139,7 +139,7 @@ func TestCTAScopeRefusedOnBothEndsOfACrossCTAEdge(t *testing.T) {
 // raises a code distinguishable from a clean finish and from every other abort.
 func TestDependencySpinIsBounded(t *testing.T) {
 	f := deviceFixture(t)
-	src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid)
+	src, err := cudamega.ProgramSource(f.graph, f.ops, f.grid, f.target)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,12 @@ func TestDependencySpinIsBounded(t *testing.T) {
 
 	var loops int
 	for i, ln := range lines {
-		if !strings.Contains(ln, "while (((volatile unsigned*)completed)") {
+		// The loop is found by the comment the emitter writes on it, because
+		// the poll's own shape is no longer distinctive: the acquiring load
+		// that replaced the volatile one sits inside the loop rather than in
+		// its condition, and "while (true)" appears wherever a loop exits
+		// only by breaking.
+		if !strings.Contains(ln, "// poll the completion word of task ") {
 			continue
 		}
 		loops++
@@ -162,6 +167,16 @@ func TestDependencySpinIsBounded(t *testing.T) {
 		if !strings.Contains(joined, "spin_limit") {
 			t.Errorf("poll loop at line %d has no iteration bound in its body:\n%s", i+1, joined)
 			continue
+		}
+		// The load the loop exits on must be an acquiring load. A poll that
+		// observed the count without acquiring would let the reads that
+		// follow it be satisfied from lines written before the producer's
+		// stores, which is the defect the volatile form had.
+		if !strings.Contains(joined, "ld.acquire.") {
+			t.Errorf("poll loop at line %d reads the completion word without acquiring it:\n%s", i+1, joined)
+		}
+		if strings.Contains(joined, "volatile unsigned*)completed") {
+			t.Errorf("poll loop at line %d still reads the completion word through a volatile cast:\n%s", i+1, joined)
 		}
 		if !strings.Contains(joined, fmt.Sprintf("%du", cudamega.AbortSpinExhausted)) {
 			t.Errorf("poll loop at line %d bounds the spin but does not raise cudamega.AbortSpinExhausted:\n%s", i+1, joined)
@@ -198,7 +213,7 @@ func TestIndependentTaskHasNoSpinToBound(t *testing.T) {
 		t.Fatal(err)
 	}
 	ops := map[string]cudamega.Operation{"solo": {Kind: cudamega.Add, Scalar: 1}}
-	src, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128})
+	src, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128}, goldenTarget)
 	if err != nil {
 		t.Fatal(err)
 	}

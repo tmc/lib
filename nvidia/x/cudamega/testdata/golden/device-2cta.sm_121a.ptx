@@ -27,15 +27,15 @@
 	.reg .b64 	%rd<220>;
 	// demoted variable
 	.shared .align 8 .u64 _ZZ10dag_workerE11cta_barrier;
-	ld.param.b64 	%rd82, [dag_worker_param_0];
-	ld.param.b64 	%rd83, [dag_worker_param_1];
-	ld.param.b64 	%rd84, [dag_worker_param_2];
+	ld.param.b64 	%rd83, [dag_worker_param_0];
+	ld.param.b64 	%rd84, [dag_worker_param_1];
+	ld.param.b64 	%rd81, [dag_worker_param_2];
 	ld.param.b64 	%rd85, [dag_worker_param_3];
 	ld.param.b32 	%r5, [dag_worker_param_4];
-	ld.param.b64 	%rd81, [dag_worker_param_5];
-	cvta.to.global.u64 	%rd1, %rd82;
-	cvta.to.global.u64 	%rd219, %rd83;
-	cvta.to.global.u64 	%rd2, %rd84;
+	ld.param.b64 	%rd82, [dag_worker_param_5];
+	cvta.to.global.u64 	%rd1, %rd83;
+	cvta.to.global.u64 	%rd219, %rd84;
+	cvta.to.global.u64 	%rd2, %rd81;
 	cvta.to.global.u64 	%rd3, %rd85;
 	mov.u32 	%r6, %nctaid.x;
 	setp.eq.b32 	%p1, %r6, 2;
@@ -59,7 +59,7 @@
 	bra.uni 	$L__BB0_90;
 $L__BB0_3:
 	setp.ne.b32 	%p10, %r5, 0;
-	setp.ne.b64 	%p11, %rd81, 0;
+	setp.ne.b64 	%p11, %rd82, 0;
 	and.pred 	%p12, %p10, %p11;
 	@%p12 bra 	$L__BB0_6;
 	mov.u32 	%r102, %tid.x;
@@ -304,7 +304,9 @@ $L__BB0_36:
 	@%p35 bra 	$L__BB0_50;
 	mov.b64 	%rd208, 0;
 $L__BB0_39:
-	ld.volatile.global.b32 	%r49, [%rd2+4];
+	// begin inline asm
+	ld.acquire.gpu.u32 %r49, [%rd81+4];
+	// end inline asm
 	setp.gt.u32 	%p36, %r49, 1;
 	@%p36 bra 	$L__BB0_50;
 	ld.volatile.global.b32 	%r50, [%rd3];
@@ -312,19 +314,25 @@ $L__BB0_39:
 	@%p37 bra 	$L__BB0_50;
 	setp.eq.b64 	%p38, %rd208, 16777216;
 	@%p38 bra 	$L__BB0_49;
-	ld.volatile.global.b32 	%r51, [%rd2+4];
+	// begin inline asm
+	ld.acquire.gpu.u32 %r51, [%rd81+4];
+	// end inline asm
 	setp.gt.u32 	%p39, %r51, 1;
 	@%p39 bra 	$L__BB0_50;
 	ld.volatile.global.b32 	%r52, [%rd3];
 	setp.ne.b32 	%p40, %r52, 0;
 	@%p40 bra 	$L__BB0_50;
-	ld.volatile.global.b32 	%r53, [%rd2+4];
+	// begin inline asm
+	ld.acquire.gpu.u32 %r53, [%rd81+4];
+	// end inline asm
 	setp.gt.u32 	%p41, %r53, 1;
 	@%p41 bra 	$L__BB0_50;
 	ld.volatile.global.b32 	%r54, [%rd3];
 	setp.ne.b32 	%p42, %r54, 0;
 	@%p42 bra 	$L__BB0_50;
-	ld.volatile.global.b32 	%r55, [%rd2+4];
+	// begin inline asm
+	ld.acquire.gpu.u32 %r55, [%rd81+4];
+	// end inline asm
 	setp.gt.u32 	%p43, %r55, 1;
 	@%p43 bra 	$L__BB0_50;
 	ld.volatile.global.b32 	%r56, [%rd3];
@@ -462,7 +470,9 @@ $L__BB0_63:
 	@%p55 bra 	$L__BB0_77;
 	mov.b64 	%rd214, 0;
 $L__BB0_66:
-	ld.volatile.global.b32 	%r77, [%rd2+8];
+	// begin inline asm
+	ld.acquire.sys.u32 %r77, [%rd81+8];
+	// end inline asm
 	setp.gt.u32 	%p56, %r77, 1;
 	@%p56 bra 	$L__BB0_77;
 	ld.volatile.global.b32 	%r78, [%rd3];
@@ -470,19 +480,25 @@ $L__BB0_66:
 	@%p57 bra 	$L__BB0_77;
 	setp.eq.b64 	%p58, %rd214, 16777216;
 	@%p58 bra 	$L__BB0_76;
-	ld.volatile.global.b32 	%r79, [%rd2+8];
+	// begin inline asm
+	ld.acquire.sys.u32 %r79, [%rd81+8];
+	// end inline asm
 	setp.gt.u32 	%p59, %r79, 1;
 	@%p59 bra 	$L__BB0_77;
 	ld.volatile.global.b32 	%r80, [%rd3];
 	setp.ne.b32 	%p60, %r80, 0;
 	@%p60 bra 	$L__BB0_77;
-	ld.volatile.global.b32 	%r81, [%rd2+8];
+	// begin inline asm
+	ld.acquire.sys.u32 %r81, [%rd81+8];
+	// end inline asm
 	setp.gt.u32 	%p61, %r81, 1;
 	@%p61 bra 	$L__BB0_77;
 	ld.volatile.global.b32 	%r82, [%rd3];
 	setp.ne.b32 	%p62, %r82, 0;
 	@%p62 bra 	$L__BB0_77;
-	ld.volatile.global.b32 	%r83, [%rd2+8];
+	// begin inline asm
+	ld.acquire.sys.u32 %r83, [%rd81+8];
+	// end inline asm
 	setp.gt.u32 	%p63, %r83, 1;
 	@%p63 bra 	$L__BB0_77;
 	ld.volatile.global.b32 	%r84, [%rd3];

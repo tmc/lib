@@ -64,7 +64,10 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
   if (!*abort_code) {
     if (threadIdx.x == 0) {
       unsigned long long spins = 0ull;
-      while (((volatile unsigned*)completed)[1] < grid_ctas) {
+      unsigned done = 0u;
+      while (true) { // poll the completion word of task 1
+        asm volatile("ld.acquire.gpu.u32 %0, [%1+4];" : "=r"(done) : "l"(completed) : "memory");
+        if (done >= grid_ctas) break;
         if (*abort_code) break;
         if (++spins > spin_limit) { atomicCAS((unsigned *)abort_code, 0u, 4u); break; }
       }
@@ -84,7 +87,10 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
   if (!*abort_code) {
     if (threadIdx.x == 0) {
       unsigned long long spins = 0ull;
-      while (((volatile unsigned*)completed)[2] < grid_ctas) {
+      unsigned done = 0u;
+      while (true) { // poll the completion word of task 2
+        asm volatile("ld.acquire.sys.u32 %0, [%1+8];" : "=r"(done) : "l"(completed) : "memory");
+        if (done >= grid_ctas) break;
         if (*abort_code) break;
         if (++spins > spin_limit) { atomicCAS((unsigned *)abort_code, 0u, 4u); break; }
       }
