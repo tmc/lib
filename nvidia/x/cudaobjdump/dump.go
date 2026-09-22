@@ -186,63 +186,108 @@ type Artifact struct {
 // files, then removes that directory. The original input is never an output.
 // It trusts the selected executable, not arbitrary scripts or hostile tools.
 func (t Tool) Extract(ctx context.Context, input string, kind Kind) (artifacts []Artifact, output Output, err error) {
+	artifacts, receipts, err := t.ExtractWithReceipts(ctx, input, kind)
+	if len(receipts) > 0 {
+		output = receipts[len(receipts)-1]
+	}
+	return artifacts, output, err
+}
+
+// ExtractWithReceipts extracts images as Extract does, retaining both the
+// inventory and extraction command outputs, including the failing command.
+// The returned artifacts and receipts belong to the caller.
+func (t Tool) ExtractWithReceipts(ctx context.Context, input string, kind Kind) (artifacts []Artifact, receipts []Output, err error) {
+	return t.extract(ctx, input, kind, "")
+}
+
+// ExtractImage extracts one exactly named image and retains inventory and
+// extraction receipts. cuobjdump matches substrings, so names matching other
+// inventory entries are refused before extraction. Empty names, commas and the
+// special selector "all" are not exact selectors.
+func (t Tool) ExtractImage(ctx context.Context, input string, kind Kind, name string) (Artifact, []Output, error) {
+	if name == "" || name == "all" || strings.Contains(name, ",") {
+		return Artifact{}, nil, fmt.Errorf("invalid exact image selector %q", name)
+	}
+	images, receipts, err := t.extract(ctx, input, kind, name)
+	if err != nil {
+		return Artifact{}, receipts, err
+	}
+	return images[0], receipts, nil
+}
+
+func (t Tool) extract(ctx context.Context, input string, kind Kind, selected string) (artifacts []Artifact, receipts []Output, err error) {
 	option, err := kind.extractOption()
 	if err != nil {
-		return nil, Output{}, err
+		return nil, nil, err
 	}
 	p, err := inputPath(input)
 	if err != nil {
-		return nil, Output{}, err
+		return nil, nil, err
 	}
 	images, inventory, err := t.List(ctx, p, kind)
+	receipts = append(receipts, inventory)
 	if err != nil {
-		return nil, inventory, err
+		return nil, receipts, err
 	}
 	names := make(map[string]bool)
 	for _, image := range images {
 		name := image.Name
 		if name == "." || name == ".." || strings.ContainsAny(name, "/\\\x00") || names[name] {
-			return nil, inventory, fmt.Errorf("unsafe or duplicate extraction name %q", name)
+			return nil, receipts, fmt.Errorf("unsafe or duplicate extraction name %q", name)
 		}
 		names[name] = true
 	}
+	selector := "all"
+	if selected != "" {
+		if !names[selected] {
+			return nil, receipts, fmt.Errorf("image %q not found", selected)
+		}
+		for name := range names {
+			if name != selected && strings.Contains(name, selected) {
+				return nil, receipts, fmt.Errorf("image selector %q also matches %q", selected, name)
+			}
+		}
+		selector = selected
+		names = map[string]bool{selected: true}
+	}
 	dir, err := os.MkdirTemp(t.TempDir, "cudaobjdump-")
 	if err != nil {
-		return nil, Output{}, err
+		return nil, receipts, err
 	}
 	defer func() {
 		if e := os.RemoveAll(dir); e != nil {
 			err = errors.Join(err, fmt.Errorf("remove scratch %s: %w", dir, e))
 		}
 	}()
-	out, err := cudatool.Run(ctx, t.path(), dir, nil, option, "all", p)
+	out, err := cudatool.Run(ctx, t.path(), dir, nil, option, selector, p)
+	receipts = append(receipts, out)
 	if err != nil {
-		return nil, out, err
+		return nil, receipts, err
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, out, err
+		return nil, receipts, err
 	}
 	var result []Artifact
 	for _, e := range entries {
 		if !names[e.Name()] {
-			return nil, out, fmt.Errorf("unexpected extracted file %q", e.Name())
+			return nil, receipts, fmt.Errorf("unexpected extracted file %q", e.Name())
 		}
 		info, err := e.Info()
 		if err != nil {
-			return nil, out, err
+			return nil, receipts, err
 		}
 		if !info.Mode().IsRegular() {
-			return nil, out, fmt.Errorf("extracted %q is not a regular file", e.Name())
+			return nil, receipts, fmt.Errorf("extracted %q is not a regular file", e.Name())
 		}
 		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
 		if err != nil {
-			return nil, out, err
+			return nil, receipts, err
 		}
 		result = append(result, Artifact{e.Name(), b})
 	}
-	if len(result) != len(images) {
-		return nil, out, fmt.Errorf("extracted %d images, inventory listed %d", len(result), len(images))
+	if len(result) != len(names) {
+		return nil, receipts, fmt.Errorf("extracted %d images, expected %d selected images", len(result), len(names))
 	}
-	return result, out, nil
+	return result, receipts, nil
 }
