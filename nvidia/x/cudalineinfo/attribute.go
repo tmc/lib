@@ -84,7 +84,7 @@ func Attribute(unit Unit, ptx string, dis *cudasass.Disassembly) *Attribution {
 		a.CUDA[s] = unit.Lines(s)
 	}
 	for s, lines := range ptxSites(ptx) {
-		if unit.isUserFile(s.File) {
+		if unit.ProgramFile(s.File) {
 			a.PTXLines[s] = lines
 		}
 	}
@@ -99,7 +99,7 @@ func Attribute(unit Unit, ptx string, dis *cudasass.Disassembly) *Attribution {
 			switch {
 			case owner != fn.Name || unit.Name != "" && fn.Name != unit.Name:
 				a.Remainder.Subroutines[owner]++
-			case unit.isUserFile(s.File):
+			case unit.ProgramFile(s.File):
 				a.Attributed++
 				a.SASS[s] = append(a.SASS[s], in)
 			case s.File == "":
@@ -177,7 +177,7 @@ func (a *Attribution) Instruction(function string, offset uint64) (cudasass.Inst
 // site of the program.
 func (a *Attribution) SiteAt(function string, offset uint64) (Site, bool) {
 	in, ok := a.Instruction(function, offset)
-	if !ok || !a.Unit.isUserFile(in.SourceFile) {
+	if !ok || !a.Unit.ProgramFile(in.SourceFile) {
 		return Site{}, false
 	}
 	return Site{File: in.SourceFile, Line: in.SourceLine}, true

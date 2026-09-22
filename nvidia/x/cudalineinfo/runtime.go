@@ -108,6 +108,20 @@ func (a *Attribution) HostFrames(loc cuptipcsampling.CodeLocation) []cudaprof.Fr
 // ordinal returns the one-based position of the instruction at offset in
 // the named function, or 0. nvdisasm text has no stable line numbers, so the
 // ordinal stands in for a SASS line.
+// SiteAtLine returns the site of the instruction at a one-based position in
+// a function's disassembly, which is the line a profile's SASS frames
+// record, and false if no instruction is there or it names no program line.
+func (a *Attribution) SiteAtLine(function string, line int) (Site, bool) {
+	if a.Disassembly == nil || line <= 0 {
+		return Site{}, false
+	}
+	fn := a.Disassembly.Function(function)
+	if fn == nil || line > len(fn.Instructions) {
+		return Site{}, false
+	}
+	return a.SiteAt(function, fn.Instructions[line-1].Address)
+}
+
 func (a *Attribution) ordinal(function string, offset uint64) int {
 	if a.Disassembly == nil {
 		return 0
@@ -214,13 +228,35 @@ func WriteProfile(w io.Writer, a *Attribution, p Profile) error {
 		return fmt.Sprintf("%.1f%%", 100*float64(n)/float64(total))
 	}
 	bw := bufio.NewWriter(w)
-	fmt.Fprintf(bw, "%s: %d %s by program line\n", a.Unit.Name, total, p.Measure)
+	if a.Unit.Name != "" {
+		fmt.Fprintf(bw, "%s: ", a.Unit.Name)
+	}
+	fmt.Fprintf(bw, "%d %s by program line\n", total, p.Measure)
 	tw := tabwriter.NewWriter(bw, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(tw, "  SITE\tSOURCE\tSASS\t%s\tSHARE\n", strings.ToUpper(p.Measure))
-	for _, s := range a.Sites() {
+	for _, s := range profileSites(a, p) {
 		fmt.Fprintf(tw, "  %s\t%s\t%d\t%d\t%s\n", s, src.line(s), len(a.SASS[s]), p.Sites[s], pct(p.Sites[s]))
 	}
 	tw.Flush()
 	fmt.Fprintf(bw, "  elsewhere: %d at instructions naming no program line, %d at unresolved PCs\n", p.Other, p.Unresolved)
 	return bw.Flush()
+}
+
+// profileSites returns the attribution's sites and any the profile measured
+// that the attribution lacks, in file and line order. A profile whose
+// frames carry source lines can name lines the disassembly in hand does not.
+func profileSites(a *Attribution, p Profile) []Site {
+	sites := a.Sites()
+	seen := make(map[Site]bool, len(sites))
+	for _, s := range sites {
+		seen[s] = true
+	}
+	for s := range p.Sites {
+		if !seen[s] {
+			seen[s] = true
+			sites = append(sites, s)
+		}
+	}
+	sortSites(sites)
+	return sites
 }

@@ -184,8 +184,8 @@ func TestIsUserFile(t *testing.T) {
 		{".nv_debug_ptx_txt", false},
 		{"", false},
 	} {
-		if got := u.isUserFile(tt.file); got != tt.want {
-			t.Errorf("isUserFile(%q) = %v, want %v", tt.file, got, tt.want)
+		if got := u.ProgramFile(tt.file); got != tt.want {
+			t.Errorf("ProgramFile(%q) = %v, want %v", tt.file, got, tt.want)
 		}
 	}
 }

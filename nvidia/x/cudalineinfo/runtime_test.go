@@ -158,3 +158,38 @@ func TestCountExecuted(t *testing.T) {
 		t.Errorf("profile = %+v", p)
 	}
 }
+
+func TestSiteAtLine(t *testing.T) {
+	a := loadFixture(t, "")
+	fn := a.Disassembly.Function("fused_gate")
+	for i, in := range fn.Instructions {
+		if in.Address != siluOffset {
+			continue
+		}
+		s, ok := a.SiteAtLine("fused_gate", i+1)
+		if !ok || s != (Site{"kernels.go", 19}) {
+			t.Errorf("SiteAtLine(fused_gate, %d) = %v, %v; want kernels.go:19", i+1, s, ok)
+		}
+	}
+	if _, ok := a.SiteAtLine("fused_gate", 1); ok {
+		t.Error("the prologue names a program line")
+	}
+	if _, ok := a.SiteAtLine("fused_gate", len(fn.Instructions)+1); ok {
+		t.Error("a line past the end resolved")
+	}
+	if _, ok := a.SiteAtLine("missing", 1); ok {
+		t.Error("a missing function resolved")
+	}
+}
+
+func TestWriteProfileUnattributedSite(t *testing.T) {
+	a := loadFixture(t, "")
+	p := Profile{Measure: "pc_samples", Sites: map[Site]int64{{"kernels.go", 19}: 3, {"other.go", 7}: 1}}
+	var buf bytes.Buffer
+	if err := WriteProfile(&buf, a, p); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "other.go:7") || !strings.Contains(buf.String(), "25.0%") {
+		t.Errorf("profile omits the site the attribution lacks:\n%s", buf.String())
+	}
+}

@@ -140,12 +140,13 @@ func (u Unit) Lines(s Site) []int {
 	return lines
 }
 
-// isUserFile reports whether a file named by the toolchain belongs to the
+// ProgramFile reports whether a file named by the toolchain belongs to the
 // program rather than to the unit itself, a header, or nvdisasm's embedded
 // PTX text. Those are the three other kinds of name a line directive can
 // carry, and an instruction naming one of them is not attributed to the
-// program.
-func (u Unit) isUserFile(file string) bool {
+// program. The unit's own file is matched by base name, since the compiler
+// and a profile may record it under different paths.
+func (u Unit) ProgramFile(file string) bool {
 	if file == "" || file == cudasass.PTXTextFile {
 		return false
 	}
