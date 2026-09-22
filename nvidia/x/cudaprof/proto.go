@@ -448,6 +448,32 @@ func (b *Builder) SetNumericLabels(unitByKey map[string]string) {
 	b.numericLabels = maps.Clone(unitByKey)
 }
 
+// SampleTypes reports, in order, the names of the sample types this builder
+// writes: the selection [Builder.SetSampleTypes] made, the schema
+// [Builder.SetDeclaredSampleTypes] declared, or every builtin name when
+// neither was called.
+//
+// It is what a producer recording into the builder has to check its own
+// values against. Selection is silent about omission -- a value recorded for
+// a type the selection leaves out is written nowhere -- so the producer's
+// only way to notice is to compare what it filled against what will be
+// written.
+func (b *Builder) SampleTypes() []string {
+	if len(b.declaredTypes) != 0 {
+		names := make([]string, len(b.declaredTypes))
+		for i, t := range b.declaredTypes {
+			names[i] = t.Name
+		}
+		return names
+	}
+	sel := b.selectedTypes()
+	names := make([]string, len(sel))
+	for i, idx := range sel {
+		names[i] = profileSampleTypes[idx].name
+	}
+	return names
+}
+
 // selectedTypes returns the configured sample type indexes, defaulting to all.
 func (b *Builder) selectedTypes() []int {
 	if len(b.sampleTypes) > 0 {

@@ -121,6 +121,14 @@ func (s *Session) SetSampleTypes(names ...string) error {
 	return s.builder.SetSampleTypes(names...)
 }
 
+// SampleTypes reports the sample types the session writes; see
+// [Builder.SampleTypes].
+func (s *Session) SampleTypes() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.builder.SampleTypes()
+}
+
 // SetBinaryPath requests the legacy generated ELF sidecar. A nonempty path
 // causes Close to fail without writing an inferred instruction image.
 //
