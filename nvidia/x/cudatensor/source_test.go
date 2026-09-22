@@ -145,3 +145,42 @@ func TestCapturedCallers(t *testing.T) {
 func viaHelper(a, b Tensor) Tensor {
 	return a.Add(b)
 }
+
+// keptCallers is the number of frames the capture keeps above the building
+// statement. TestMaxCallersIsTheDocumentedBound holds it to the constant.
+const keptCallers = 8
+
+// TestCallersAreTruncated checks the bound on kept frames. A graph built
+// deep inside a program has more frames above it than a report can use, so
+// the capture keeps the nearest ones and drops the rest. Nearest is the
+// useful end: those are the helpers that chose the operation, while the
+// frames further up are the program's plumbing.
+func TestCallersAreTruncated(t *testing.T) {
+	g := cudair.NewGraph()
+	a := NewInput(g, "A", []int{4, 4}, cudair.Float32)
+	b := NewInput(g, "B", []int{4, 4}, cudair.Float32)
+	got := nest(keptCallers+4, a, b)
+	if err := got.Err(); err != nil {
+		t.Fatal(err)
+	}
+	loc := got.Node().SourceLoc
+	if len(loc.Callers) != keptCallers {
+		t.Fatalf("kept %d callers, want %d", len(loc.Callers), keptCallers)
+	}
+	if !strings.Contains(loc.Function, "nest") {
+		t.Errorf("leaf function = %q, want nest", loc.Function)
+	}
+	for i, c := range loc.Callers {
+		if !strings.Contains(c.Function, "nest") {
+			t.Errorf("Callers[%d].Function = %q, want a frame of nest: the nearest frames are the ones kept", i, c.Function)
+		}
+	}
+}
+
+// nest builds a node depth frames below its caller.
+func nest(depth int, a, b Tensor) Tensor {
+	if depth == 0 {
+		return a.Add(b)
+	}
+	return nest(depth-1, a, b)
+}
