@@ -1,0 +1,26 @@
+commit c90fdb92, 2026-09-22
+claude-code 2.1.280 (Claude Code), model claude-opus-5[1m]
+tty not a tty, pid 67625, ITERM_SESSION_ID=w16t0p13:82D66DD7-9369-4497-80A7-C22F2D8BB0AD
+session=41e006ea-c431-4858-a0f4-bc6efab3d868
+session_url=https://claude.ai/code/session_01N7MBqfPUrPrApoBSRgPQqu
+
+S6.0. Implemented by subagent S60-fraction; measured on spark-31db (GB10,
+sm_121a, driver 580.173.02, CUPTI 130202, NVRTC 13.2), 16 reps per arm in
+ABBA order, 5 warmup, under gpu-lock, 2026-09-22.
+
+Result: the non-cuBLASLt-GEMM fraction is 14.2-14.6% of device busy at
+2048x4096 and device idle between kernels is 0.13-0.14% under graph
+replay. Recommendation is DO NOT BUILD S6, which the roadmap admits as an
+outcome. Two claims verified here before accepting the verdict: Epilogue
+appears zero times in x/cudaplan's non-test sources while x/cublasltx
+exposes it (cublasltx.go:230, epilogue.go:45), and the transformer block
+in x/cudaplan/integration_test.go compiles with WithPeakWorkspaceBudget
+alone -- no WithDevice -- so it never executes at this revision and the
+fraction is measured against kernels the agent supplied at cudaplan's own
+geometry. Disclosed by the agent rather than smuggled.
+
+Stated limits carried forward: the 2048x4096 arm skips the CPU reference
+check (1.4e11 MACs), so its numbers rest on record counts and
+plausibility, not a verified result; the GEMM bucket is defined as every
+record that is not a census entry point, so split-K reducers and epilogue
+helpers land in it by definition.
