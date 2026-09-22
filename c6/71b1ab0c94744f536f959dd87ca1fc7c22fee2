@@ -6,11 +6,11 @@ pid: 1768501
 iterm-session: none
 
 re-measured on this base (fuse-base-20260920), 6 paired reps, lane claude-laya-cmp:
-  base 91c6ef47  143.99 ms   after 782992f5  140.03 ms   paired delta -3.96 ms
+  base 2ac04ae6  143.99 ms   after c671b1ab  140.03 ms   paired delta -3.96 ms
   sd(delta) 2.68, sem 1.09, t = 3.62 on df 5 (p < 0.05), negative in 5/6
 Reps 1-3 ran base-first, 4-6 after-first, to balance an order effect: the
 absolute baseline drifts ~5 ms upward over a session (thermal), which hits both
-arms. The commit message's 143 -> 140 was measured on 640ec646; on this base the
+arms. The commit message's 143 -> 140 was measured on 6ae2c9e2; on this base the
 baseline is ~1 ms higher and the delta ~1 ms larger, so the stated 3 ms is
 conservative. Absolute ms endpoints here are good to a few ms; the paired delta
 within one hold is the claim that survives.
