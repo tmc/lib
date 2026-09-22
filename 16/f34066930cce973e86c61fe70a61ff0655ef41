@@ -1,0 +1,10 @@
+commit: 16f34066
+date: 2026-09-22T16:54:46Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 74623
+iterm_session: w16t0p13:82D66DD7-9369-4497-80A7-C22F2D8BB0AD
+session=41e006ea-c431-4858-a0f4-bc6efab3d868
+subagent: S30-agreement (S3.0, lane 36 slices 1-3)
+device receipts: dgx GB10 sm_121a driver 13000 under gpu-lock, 4 native tests / 6 subtests / 0 skips, rc=0
