@@ -288,10 +288,11 @@ func captureDisassembly(cap *cudacapture.Capture) (*cudasass.Disassembly, error)
 // lineProfile totals one sample type per site. A sample's site is the one
 // its kernel frame names, or, for a sample recorded with only a SASS frame,
 // the one the disassembly gives that instruction. Samples in the kernel
-// on a file that is not the program's count as elsewhere; samples with no
-// instruction-level location at all, such as a kernel's whole time, and
-// samples in a function the disassembly lacks, count as unresolved. With a
-// kernel, samples in other kernels are skipped.
+// on a file that is not the program's count as elsewhere; samples in a
+// function the disassembly lacks are in another module and count as
+// foreign; samples with no instruction-level location at all, such as a
+// kernel's whole time, count as unresolved. With a kernel, samples in
+// other kernels are skipped.
 //
 // A profile records files by the path the profiler resolved, which need
 // not be the path the compiler recorded, so a frame's site that the
@@ -335,7 +336,7 @@ func lineProfile(prof *profile.Profile, a *cudalineinfo.Attribution, kernel, sam
 			continue
 		}
 		if a.Disassembly.Function(f.kernel) == nil {
-			p.Unresolved += n
+			p.Foreign += n
 			continue
 		}
 		switch {

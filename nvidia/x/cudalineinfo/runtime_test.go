@@ -199,3 +199,38 @@ func TestWriteProfileUnattributedSite(t *testing.T) {
 		t.Errorf("profile omits the site the attribution lacks:\n%s", buf.String())
 	}
 }
+
+// TestCountSamplesForeign separates the two kinds of PC the disassembly
+// cannot place. A sample in a function it has never heard of is in another
+// module, which every real program has; a sample in one of its own
+// functions at an offset that function lacks means the disassembly no
+// longer describes the binary that ran.
+func TestCountSamplesForeign(t *testing.T) {
+	a := loadFixture(t, "fused_gate", "")
+	inv := cuptipcsampling.ReasonInventory{Reasons: []cuptipcsampling.StallReason{
+		{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_selected"},
+	}}
+	pc := func(name string, offset uint64, samples uint32) cuptipcsampling.PC {
+		return cuptipcsampling.PC{
+			Name:    name,
+			Offset:  offset,
+			Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: samples}},
+		}
+	}
+	p := CountSamples(a, inv, cuptipcsampling.Batch{Valid: true, PCs: []cuptipcsampling.PC{
+		pc("fused_gate", siluOffset, 2),
+		pc("ampere_sgemm_128x64_nn", 0x40, 11),
+		pc("fused_gate", 0xfff0, 3),
+	}})
+	if p.Foreign != 11 || p.Unresolved != 3 || p.Total() != 16 {
+		t.Errorf("foreign %d unresolved %d total %d, want 11 3 16", p.Foreign, p.Unresolved, p.Total())
+	}
+
+	var buf bytes.Buffer
+	if err := WriteProfile(&buf, a, p); err != nil {
+		t.Fatal(err)
+	}
+	if want := "11 in functions of another module, 3 at unresolved PCs"; !strings.Contains(buf.String(), want) {
+		t.Errorf("profile lacks %q:\n%s", want, buf.String())
+	}
+}

@@ -141,11 +141,20 @@ func (a *Attribution) ordinal(function string, offset uint64) int {
 // A Profile is a runtime measure of one unit distributed over its sites:
 // hardware PC samples, or instructions executed. Sites holds the measure at
 // instructions that name a site, Other the measure at instructions that name
-// none, and Unresolved the measure at PCs the disassembly does not have.
+// none, and Foreign and Unresolved the measure at PCs the disassembly does
+// not have.
+//
+// Foreign and Unresolved are told apart because they mean opposite things.
+// A PC in a function the disassembly has never heard of is in another
+// module -- cuBLAS, cuDNN, a kernel this unit did not compile -- and is
+// expected in any real program. A PC in one of the unit's own functions at
+// an offset that function does not have means the disassembly no longer
+// describes the binary that ran, which is a failure.
 type Profile struct {
 	Measure    string // what is counted, for reports
 	Sites      map[Site]int64
 	Other      int64
+	Foreign    int64
 	Unresolved int64
 }
 
@@ -155,7 +164,7 @@ func (p Profile) Total() int64 {
 	for _, v := range p.Sites {
 		n += v
 	}
-	return n + p.Other + p.Unresolved
+	return n + p.Other + p.Foreign + p.Unresolved
 }
 
 // CountSamples distributes the PC samples of batches over the sites of a.
@@ -206,7 +215,11 @@ func (p *Profile) add(a *Attribution, function string, offset uint64, n int64) {
 		return
 	}
 	if _, ok := a.Instruction(function, offset); !ok {
-		p.Unresolved += n
+		if a.Disassembly != nil && a.Disassembly.Function(function) == nil {
+			p.Foreign += n
+		} else {
+			p.Unresolved += n
+		}
 		return
 	}
 	if s, ok := a.SiteAt(function, offset); ok {
@@ -240,7 +253,11 @@ func WriteProfile(w io.Writer, a *Attribution, p Profile) error {
 		fmt.Fprintf(tw, "  %s\t%s\t%d\t%d\t%s\n", names[s], src.line(s), len(a.SASS[s]), p.Sites[s], pct(p.Sites[s]))
 	}
 	tw.Flush()
-	fmt.Fprintf(bw, "  elsewhere: %d at instructions naming no program line, %d at unresolved PCs\n", p.Other, p.Unresolved)
+	fmt.Fprintf(bw, "  elsewhere: %d at instructions naming no program line", p.Other)
+	if p.Foreign > 0 {
+		fmt.Fprintf(bw, ", %d in functions of another module", p.Foreign)
+	}
+	fmt.Fprintf(bw, ", %d at unresolved PCs\n", p.Unresolved)
 	return bw.Flush()
 }
 

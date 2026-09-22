@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudalineinfo"
 )
 
 // testCaptureWithLines is the fused_gate fixture of cudalineinfo with four
@@ -260,5 +261,34 @@ func TestCaptureUnitFallsBackToTheModule(t *testing.T) {
 	cap.Files["unit-fused_gate.json"] = []byte("{")
 	if got := captureUnit(cap, "fused_gate"); got.Name != "fused_gate" || len(got.LineMap) != 0 {
 		t.Errorf("a malformed unit was not ignored: %+v", got)
+	}
+}
+
+// TestLineProfileForeign separates samples in another module from samples
+// with no location. Both used to be unresolved, which made a profile of a
+// program that calls cuBLAS look as though the join had failed.
+func TestLineProfileForeign(t *testing.T) {
+	cap, _ := testCaptureWithLines(t)
+	dis, err := captureDisassembly(cap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := cudalineinfo.Attribute(captureUnit(cap, ""), "", dis)
+	fnGemm := &profile.Function{ID: 10, Name: "ampere_sgemm_128x64_nn", Filename: ""}
+	fnSASS := &profile.Function{ID: 11, Name: "fused_gate.SASS", Filename: "fused_gate.sass"}
+	prof := &profile.Profile{
+		SampleType:        []*profile.ValueType{{Type: "pc_samples", Unit: "count"}},
+		DefaultSampleType: "pc_samples",
+		Sample: []*profile.Sample{
+			{Location: []*profile.Location{{ID: 1, Line: []profile.Line{{Function: fnGemm}}}}, Value: []int64{7}},
+			{Location: []*profile.Location{{ID: 2, Line: []profile.Line{{Function: fnSASS, Line: 0}}}}, Value: []int64{2}},
+		},
+	}
+	p, err := lineProfile(prof, a, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Foreign != 7 || p.Unresolved != 2 {
+		t.Errorf("foreign %d unresolved %d, want 7 2", p.Foreign, p.Unresolved)
 	}
 }
