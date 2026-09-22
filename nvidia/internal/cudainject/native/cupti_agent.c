@@ -239,6 +239,9 @@ static int memcpy_enabled;
 static int memset_enabled;
 static int overhead_enabled;
 static int graph_trace_enabled;
+/* graph_trace_mode is the graph trace mode the capability record reports:
+   "node", "graph" or "requested_unavailable". See graph_trace_requested. */
+static const char *graph_trace_mode = "node";
 static int sync_enabled;
 static int external_enabled;
 static int marker_enabled;
@@ -986,11 +989,25 @@ static int append_overhead(const CUpti_ActivityOverhead *o) {
 	return queue_pending(KIND_ACTIVITY, o->start, payload, (size_t)n);
 }
 
-/* The graph replay envelope. Per-node visibility already exists -- kernel
-   records carry graphId and graphNodeId -- so what this adds is the complement:
-   the span the whole replay occupied, against which the nodes inside it can be
-   measured. The difference between the two is graph launch and scheduling
-   cost, and no per-node record holds it.
+/* graph_trace_requested reports whether CUDAPROF_GRAPH_TRACE asks for graph
+   trace mode. Only "graph" does; unset, "node" or anything else is node mode. */
+static int graph_trace_requested(void) {
+	const char *v = getenv("CUDAPROF_GRAPH_TRACE");
+	return v != NULL && strcmp(v, "graph") == 0;
+}
+
+/* The graph replay envelope: one record per graph launch, spanning the whole
+   replay. It is recorded only in graph trace mode (CUDAPROF_GRAPH_TRACE=graph).
+
+   It is not a complement to per-node records. cupti_activity.h describes
+   CUpti_ActivityGraphTrace as execution "for a graph without giving
+   visibility about the execution of its nodes. This is intended to reduce
+   overheads in tracing each node." (CUDA 13.4 cupti_activity.h:9897-9903;
+   the same text in 12.8, 13.0 and 13.2). With the kind enabled, the kernels
+   inside a replay were not delivered as kernel records: a ds4 prefill capture
+   had 86 envelopes and 0 of 8,686 kernel records carrying a graph node id.
+   Node mode, the default, leaves the kind off so each node kernel arrives as
+   a kernel record carrying graphId and graphNodeId.
 
    Unlike an overhead or a synchronization, a graph trace does carry a device
    id, so nothing downstream has to resolve one for it. */
@@ -2564,9 +2581,23 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_OVERHEAD);
 		if (result == CUPTI_SUCCESS) overhead_enabled = 1;
 	}
-	if (graph_trace_layout_ok) {
-		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_GRAPH_TRACE);
-		if (result == CUPTI_SUCCESS) graph_trace_enabled = 1;
+	/* Graph replays are traced one of two ways, and the reader chooses. In
+	   node mode, the default, GRAPH_TRACE stays off and every kernel node of
+	   a replay arrives as a kernel record carrying graphId and graphNodeId.
+	   In graph mode GRAPH_TRACE is enabled and CUPTI reports one envelope per
+	   replay instead, without the nodes inside it (see append_graph_trace):
+	   cheaper to trace, but the kernels in a replay are then invisible. A
+	   graph request CUPTI refuses leaves node mode in effect, and the
+	   capability record says the request went unmet. */
+	if (graph_trace_requested()) {
+		graph_trace_mode = "requested_unavailable";
+		if (graph_trace_layout_ok) {
+			result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_GRAPH_TRACE);
+			if (result == CUPTI_SUCCESS) {
+				graph_trace_enabled = 1;
+				graph_trace_mode = "graph";
+			}
+		}
 	}
 	if (sync_layout_ok) {
 		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_SYNCHRONIZATION);
@@ -2778,7 +2809,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
 		}
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"graph_trace_mode\":\"%s\",\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", graph_trace_mode, sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))

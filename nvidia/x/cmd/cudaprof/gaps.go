@@ -683,6 +683,11 @@ type GapReport struct {
 	// device activity from their envelopes alone. The idle inside them is not
 	// observable and is reported as busy.
 	OpaqueGraphReplays bool `json:"opaque_graph_replays,omitempty"`
+
+	// GraphTraceMode is the graph trace mode the agent reported: node records
+	// per graph node, or one envelope per replay. Empty is UNREAD: the agent
+	// predates the field or the capture carries no capability record.
+	GraphTraceMode graphTraceMode `json:"graph_trace_mode,omitempty"`
 }
 
 // GapDevice holds the whole-run and steady-state timelines of one device.
@@ -856,6 +861,11 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 		OpaqueGraphReplays:  graphsAreOpaque,
 		UnresolvedSyncs:     records.unresolvedSyncs,
 		UnresolvedSyncNanos: records.unresolvedNanos,
+	}
+	if status, ok := readGapStatus(cap); ok {
+		if m, ok := captureGraphTraceMode(status.Capability); ok {
+			report.GraphTraceMode = m
+		}
 	}
 	report.Kernels, report.UnnamedKernelRecords = kernelCensus(records.activities)
 	byDevice := make(map[uint32][]gapActivity)
@@ -1224,8 +1234,13 @@ func (r *GapReport) text() string {
 	if r.UnresolvedSyncs > 0 {
 		fmt.Fprintf(&b, "  %d synchronization record(s) totalling %s could not be placed on a device: no record named their context\n", r.UnresolvedSyncs, millis(r.UnresolvedSyncNanos))
 	}
+	if r.GraphTraceMode != "" {
+		fmt.Fprintf(&b, "  graph trace mode %s\n", r.GraphTraceMode)
+	} else {
+		fmt.Fprintf(&b, "  graph trace mode UNREAD: the agent capability does not state one\n")
+	}
 	if r.OpaqueGraphReplays {
-		fmt.Fprintf(&b, "  graph replays are opaque: the capture holds replay envelopes and no device record naming a graph id, so each replay is counted as activity from its envelope alone. The idle between nodes of a graph is not observable here and is reported as busy.\n")
+		fmt.Fprintf(&b, "  graph replays are opaque: the capture holds replay envelopes and no device record naming a graph id, so each replay is counted as activity from its envelope alone. The idle between nodes of a graph is not observable here and is reported as busy. Capturing with --graph-trace=node records each graph node as a kernel instead.\n")
 	}
 	for _, d := range r.Devices {
 		for _, s := range []*GapStats{d.Overall, d.SteadyState} {

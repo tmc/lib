@@ -342,6 +342,79 @@ int cudaprof_test_offer_undecoded(unsigned kernels, unsigned memcpys, unsigned a
 	return cudaprof_test_offer_tiers(kernels, memcpys, apis, externals, markers, memsets, undecoded, 0, 0, 0);
 }
 
+/* cudaprof_test_offer_graph_replays offers what CUPTI delivers for a graph of
+   nodes kernel nodes launched replays times, in one buffer.
+
+   It models the trade the graph trace kind makes. With
+   CUPTI_ACTIVITY_KIND_GRAPH_TRACE enabled, each replay is one envelope and
+   the kernels inside it are not delivered (cupti_activity.h: a graph trace
+   "represents execution for a graph without giving visibility about the
+   execution of its nodes"). With it off, each replay delivers one kernel
+   record per node, carrying the graph id and the node's id. The kernels of
+   one replay share the replay's correlation id, as the launch's do. Graph and
+   node ids exist only in the CUDA 13 kernel layout, so a CUDA 12 build
+   delivers the node kernels with no ids, as that CUPTI would.
+
+   Returns the number of records placed, or -1 without buffer callbacks. */
+int cudaprof_test_offer_graph_replays(unsigned nodes, unsigned replays) {
+	if (request_cb == NULL || complete_cb == NULL) return -1;
+	uint8_t *buffer = NULL;
+	size_t size = 0, max_records = 0;
+	request_cb(&buffer, &size, &max_records);
+	if (buffer == NULL || size == 0) return 0;
+	int envelopes = kind_enabled(CUPTI_ACTIVITY_KIND_GRAPH_TRACE);
+	int kernels = kind_enabled(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL);
+	size_t offset = 0;
+	int placed = 0;
+	for (unsigned r = 0; r < replays; r++) {
+		uint32_t correlation = atomic_fetch_add(&next_correlation, 1) + 1;
+		uint64_t start = 20000 + (uint64_t)r * 1000;
+		if (envelopes) {
+			size_t n = record_size(CUPTI_ACTIVITY_KIND_GRAPH_TRACE);
+			if (offset + n > size) break;
+			CUpti_ActivityGraphTrace *g = (CUpti_ActivityGraphTrace *)(buffer + offset);
+			memset(g, 0, n);
+			g->kind = CUPTI_ACTIVITY_KIND_GRAPH_TRACE;
+			g->correlationId = correlation;
+			g->start = start;
+			g->end = start + 100 * (uint64_t)nodes + 50;
+			g->graphId = 5;
+			g->contextId = 1;
+			g->streamId = 7;
+			offset += n;
+			placed++;
+			continue;
+		}
+		if (!kernels) continue;
+		for (unsigned i = 0; i < nodes; i++) {
+			size_t n = record_size(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL);
+			if (offset + n > size) break;
+			TEST_KERNEL_TYPE *k = (TEST_KERNEL_TYPE *)(buffer + offset);
+			memset(k, 0, n);
+			k->kind = CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL;
+			k->name = "cudaprof_graph_node";
+			k->start = start + 25 + (uint64_t)i * 100;
+			k->end = k->start + 80;
+			k->queued = k->start - 10;
+			k->submitted = k->start - 5;
+			k->contextId = 1;
+			k->streamId = 7;
+			k->correlationId = correlation;
+			k->gridX = k->gridY = k->gridZ = 1;
+			k->blockX = 32;
+			k->blockY = k->blockZ = 1;
+#if CUPTI_API_VERSION >= 130000
+			k->graphId = 5;
+			k->graphNodeId = (uint64_t)i + 1;
+#endif
+			offset += n;
+			placed++;
+		}
+	}
+	complete_cb(NULL, 7, buffer, size, offset);
+	return placed;
+}
+
 /* Overheads, graph traces and syncs are offered above the other counts on the
    same rule as markers and memsets: a scenario calibrated on a kernel/memcpy/
    api mix keeps that mix when one of them is added to it.
@@ -532,7 +605,7 @@ CUptiResult cuptiActivityGetStructSize(CUpti_ActivityKind kind, uint32_t flags, 
 	switch (kind) {
 	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL:
 	case CUPTI_ACTIVITY_KIND_KERNEL:
-		*size = sizeof(CUpti_ActivityKernel9);
+		*size = sizeof(TEST_KERNEL_TYPE);
 		return CUPTI_SUCCESS;
 	case CUPTI_ACTIVITY_KIND_MEMCPY:
 		*size = sizeof(CUpti_ActivityMemcpy6);
@@ -613,6 +686,37 @@ CUptiResult cudaprof_test_mock_short_memcpy_struct_size(CUpti_ActivityKind kind,
 		return CUPTI_SUCCESS;
 	}
 	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+/* cudaprof_test_mock_short_graph_trace_struct_size reports every layout at its
+   compiled size except the graph trace record, which it reports short. It is
+   the runtime on which a graph trace request cannot be met. */
+CUptiResult cudaprof_test_mock_short_graph_trace_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size) {
+	(void)flags;
+	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
+	switch (kind) {
+	case CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL:
+	case CUPTI_ACTIVITY_KIND_KERNEL:
+		*size = sizeof(TEST_KERNEL_TYPE);
+		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_MEMCPY:
+		*size = sizeof(CUpti_ActivityMemcpy6);
+		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_MEMSET:
+		*size = sizeof(CUpti_ActivityMemset4);
+		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_OVERHEAD:
+		*size = sizeof(CUpti_ActivityOverhead);
+		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_GRAPH_TRACE:
+		*size = sizeof(CUpti_ActivityGraphTrace) - 8;
+		return CUPTI_SUCCESS;
+	case CUPTI_ACTIVITY_KIND_SYNCHRONIZATION:
+		*size = sizeof(CUpti_ActivitySynchronization);
+		return CUPTI_SUCCESS;
+	default:
+		return CUPTI_ERROR_NOT_SUPPORTED;
+	}
 }
 
 /* PC sampling. The harness has no hardware sampler, so the surface reports

@@ -148,8 +148,10 @@ type capture struct {
 	memsets        []memsetRecord
 	overheads      []overheadRecord
 	graphs         []graphTraceRecord
-	syncs          []syncRecord
-	hosts          []hostSampleRecord
+	// graphNodes are the kernel records that name a graph node.
+	graphNodes []graphNodeKernel
+	syncs      []syncRecord
+	hosts      []hostSampleRecord
 	// order is every record's kind in journal order. The producer's ordering
 	// invariant -- nothing before bootstrap and capability, nothing after
 	// finalized -- is a property of the sequence, not of the counts, so it
@@ -261,6 +263,7 @@ type capabilityRecord struct {
 	Memsets         bool   `json:"memsets"`
 	Overheads       bool   `json:"overheads"`
 	GraphTraces     bool   `json:"graph_traces"`
+	GraphTraceMode  string `json:"graph_trace_mode"`
 	Synchronization bool   `json:"synchronization"`
 	ClocksUnified   bool   `json:"clocks_unified"`
 	CUPTIClock      string `json:"cupti_clock"`
@@ -578,6 +581,15 @@ func decode(t *testing.T, path, wantRevision string) capture {
 					t.Fatalf("overhead payload %q: %v", r.Payload, err)
 				}
 				c.overheads = append(c.overheads, o)
+			}
+			// Kernel records are decoded only when they name a graph, for
+			// the same reason markers are decoded alone.
+			if bytes.Contains(r.Payload, []byte(`"subtype":"kernel"`)) && !bytes.Contains(r.Payload, []byte(`"graph_id":0,`)) {
+				var k graphNodeKernel
+				if err := json.Unmarshal(r.Payload, &k); err != nil {
+					t.Fatalf("kernel payload %q: %v", r.Payload, err)
+				}
+				c.graphNodes = append(c.graphNodes, k)
 			}
 			if bytes.Contains(r.Payload, []byte(`"subtype":"graph_trace"`)) {
 				var g graphTraceRecord
@@ -2819,10 +2831,8 @@ type overheadRecord struct {
 }
 
 // graphTraceRecord is one CUPTI_ACTIVITY_KIND_GRAPH_TRACE activity: the span
-// of one graph replay. Per-node visibility already exists on the kernel
-// records, which carry graph_id and graph_node_id; this is the envelope they
-// sit inside, and the difference between the two is launch and scheduling
-// cost no per-node record holds.
+// of one graph replay, recorded in graph trace mode only. CUPTI reports it
+// instead of the node kernels inside the replay, not beside them.
 type graphTraceRecord struct {
 	Subtype     string `json:"subtype"`
 	Valid       bool   `json:"valid"`
@@ -2833,6 +2843,14 @@ type graphTraceRecord struct {
 	Stream      uint32 `json:"stream"`
 	Correlation uint32 `json:"correlation"`
 	GraphID     uint32 `json:"graph_id"`
+}
+
+// graphNodeKernel is a kernel record that names the graph node it ran as.
+type graphNodeKernel struct {
+	Name        string `json:"name"`
+	Correlation uint32 `json:"correlation"`
+	GraphID     uint32 `json:"graph_id"`
+	GraphNodeID uint64 `json:"graph_node_id"`
 }
 
 // syncRecord is one CUPTI_ACTIVITY_KIND_SYNCHRONIZATION activity: the window
@@ -2918,18 +2936,15 @@ func TestOverheadsReachTheJournal(t *testing.T) {
 }
 
 // TestGraphTracesReachTheJournal covers CUPTI_ACTIVITY_KIND_GRAPH_TRACE end to
-// end.
+// end in graph trace mode, where it is enabled.
 //
-// Per-node visibility is not what this adds: kernel records already carry
-// graph_id and graph_node_id, and the consumer reads both. What was missing is
-// the complement -- the span the replay as a whole occupied. Without it the
-// launch and scheduling cost of a graph is not merely unmeasured, it is
-// unmeasurable: it is exactly the part of the replay no node record covers,
-// and summing the nodes cannot recover a number that is defined as what the
-// nodes leave out.
+// The envelope is the span a replay as a whole occupied, and in this mode it
+// is the only record of the replay: CUPTI does not deliver the kernels inside
+// it. Without the envelope a graph-mode capture would hold no trace of its
+// graph work at all.
 func TestGraphTracesReachTheJournal(t *testing.T) {
 	// argv: ... markers memsets undecoded overheads graph_traces
-	_, status, captures := run(t, "sustained", "1", "1", "8", "0", "0", "0", "0", "0", "0", "4")
+	_, status, captures := runEnv(t, []string{"CUDAPROF_GRAPH_TRACE=graph"}, "sustained", "1", "1", "8", "0", "0", "0", "0", "0", "0", "4")
 	c := only(t, captures)
 	if !c.capability.GraphTraces {
 		t.Fatal("capability reports graph_traces = false: the producer never enabled CUPTI_ACTIVITY_KIND_GRAPH_TRACE, so every assertion below would be about an empty set")
@@ -2975,6 +2990,126 @@ func TestGraphTracesReachTheJournal(t *testing.T) {
 	}
 	if len(c.failures) != 0 {
 		t.Errorf("producer reported failures: %q", c.failures)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// cuda13Build is the harness built against the CUDA 13 kernel layout, the
+// first that carries graphId and graphNodeId.
+var cuda13Build = []string{"-DCUPTI_API_VERSION=130202"}
+
+// graphReplays is the done-test's workload: a graph of three kernel nodes
+// replayed five times.
+const (
+	graphNodes   = 3
+	graphReplays = 5
+)
+
+// TestGraphTraceModeNodeResolvesNodes covers node mode, the default: with
+// CUPTI_ACTIVITY_KIND_GRAPH_TRACE left off, every node of every replay reaches
+// the journal as a kernel record naming its graph and node, and no envelope
+// does. A value other than "graph" is node mode too, and says so.
+func TestGraphTraceModeNodeResolvesNodes(t *testing.T) {
+	tests := []struct {
+		name string
+		env  []string
+	}{
+		{"unset", nil},
+		{"node", []string{"CUDAPROF_GRAPH_TRACE=node"}},
+		{"unknown", []string{"CUDAPROF_GRAPH_TRACE=envelope"}},
+	}
+	bin := controlBinary(t, cuda13Build...)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, status, captures := runBuilt(t, bin, tc.env, "graph-replay", strconv.Itoa(graphNodes), strconv.Itoa(graphReplays))
+			c := only(t, captures)
+			if got := c.capability.GraphTraceMode; got != "node" {
+				t.Errorf("capability graph_trace_mode = %q, want \"node\"", got)
+			}
+			if c.capability.GraphTraces {
+				t.Error("capability graph_traces = true in node mode: the envelope kind was enabled, and it hides the nodes")
+			}
+			if len(c.graphs) != 0 {
+				t.Errorf("got %d graph_trace records in node mode, want 0", len(c.graphs))
+			}
+			if got, want := len(c.graphNodes), graphNodes*graphReplays; got != want {
+				t.Fatalf("got %d kernel records naming a graph node, want %d (%d nodes x %d replays)", got, want, graphNodes, graphReplays)
+			}
+			perNode := map[uint64]int{}
+			perReplay := map[uint32]int{}
+			for _, k := range c.graphNodes {
+				if k.GraphID != 5 {
+					t.Errorf("kernel %q: graph_id = %d, want 5", k.Name, k.GraphID)
+				}
+				perNode[k.GraphNodeID]++
+				perReplay[k.Correlation]++
+			}
+			for id := uint64(1); id <= graphNodes; id++ {
+				if perNode[id] != graphReplays {
+					t.Errorf("graph node %d appears %d times, want %d", id, perNode[id], graphReplays)
+				}
+			}
+			if len(perReplay) != graphReplays {
+				t.Errorf("node kernels carry %d distinct correlations, want one per replay (%d)", len(perReplay), graphReplays)
+			}
+			if len(c.failures) != 0 {
+				t.Errorf("producer reported failures: %q", c.failures)
+			}
+			if !status.Exited() || status.ExitStatus() != 0 {
+				t.Errorf("status = %v, want clean exit", status)
+			}
+		})
+	}
+}
+
+// TestGraphTraceModeGraphReportsEnvelopes covers graph mode: one envelope per
+// replay and no node kernels, which is what CUPTI delivers with
+// CUPTI_ACTIVITY_KIND_GRAPH_TRACE enabled.
+func TestGraphTraceModeGraphReportsEnvelopes(t *testing.T) {
+	bin := controlBinary(t, cuda13Build...)
+	_, status, captures := runBuilt(t, bin, []string{"CUDAPROF_GRAPH_TRACE=graph"}, "graph-replay", strconv.Itoa(graphNodes), strconv.Itoa(graphReplays))
+	c := only(t, captures)
+	if got := c.capability.GraphTraceMode; got != "graph" {
+		t.Errorf("capability graph_trace_mode = %q, want \"graph\"", got)
+	}
+	if !c.capability.GraphTraces {
+		t.Error("capability graph_traces = false in graph mode")
+	}
+	if len(c.graphs) != graphReplays {
+		t.Errorf("got %d graph_trace records, want %d, one per replay", len(c.graphs), graphReplays)
+	}
+	if len(c.graphNodes) != 0 {
+		t.Errorf("got %d node kernel records in graph mode, want 0", len(c.graphNodes))
+	}
+	if len(c.failures) != 0 {
+		t.Errorf("producer reported failures: %q", c.failures)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestGraphTraceModeRequestedUnavailable covers a graph request the runtime
+// cannot meet: its graph trace record is shorter than the producer reads. The
+// capability record says the request went unmet, and collection stays in node
+// mode rather than losing the graph work altogether.
+func TestGraphTraceModeRequestedUnavailable(t *testing.T) {
+	bin := controlBinary(t, append([]string{"-DCUDAPROF_TEST_STRUCT_SIZE_FN=cudaprof_test_mock_short_graph_trace_struct_size"}, cuda13Build...)...)
+	_, status, captures := runBuilt(t, bin, []string{"CUDAPROF_GRAPH_TRACE=graph"}, "graph-replay", strconv.Itoa(graphNodes), strconv.Itoa(graphReplays))
+	c := only(t, captures)
+	if got := c.capability.GraphTraceMode; got != "requested_unavailable" {
+		t.Errorf("capability graph_trace_mode = %q, want \"requested_unavailable\"", got)
+	}
+	if c.capability.GraphTraces {
+		t.Error("capability graph_traces = true, but the layout check refused the kind")
+	}
+	if len(c.graphs) != 0 {
+		t.Errorf("got %d graph_trace records, want 0", len(c.graphs))
+	}
+	if got, want := len(c.graphNodes), graphNodes*graphReplays; got != want {
+		t.Errorf("got %d node kernel records, want %d: an unmet graph request must leave node mode in effect", got, want)
 	}
 	if !status.Exited() || status.ExitStatus() != 0 {
 		t.Errorf("status = %v, want clean exit", status)

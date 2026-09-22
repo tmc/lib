@@ -255,6 +255,18 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
+	/* graph-replay offers a graph of <nodes> kernel nodes launched <replays>
+	   times, as CUPTI delivers it in whichever graph trace mode the producer
+	   chose: node kernel records, or one envelope per replay. */
+	if (strcmp(scenario, "graph-replay") == 0) {
+		unsigned nodes = arg_uint(argc, argv, 2, 3);
+		unsigned replays = arg_uint(argc, argv, 3, 4);
+		int offered = cudaprof_test_offer_graph_replays(nodes, replays);
+		printf("{\"scenario\":\"graph-replay\",\"offered\":%d}\n", offered);
+		fflush(stdout);
+		return 0;
+	}
+
 	/* host-sample idles while the producer's own host-state sampler runs.
 	   The sampler reads whatever CUDAPROF_HOST_SAMPLE_ROOT names, so this
 	   scenario deliberately does no CUPTI work: the thread set under test is

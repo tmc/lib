@@ -901,6 +901,12 @@ Options:
                                 the capture. Independent of --capture-range, which decides
                                 what is collected rather than when it is published; sets
                                 CUDAPROF_FINALIZE
+  --graph-trace <mode>          how CUDA graph replays are traced: %[9]s (default), one
+                                kernel record per graph node carrying its graph and node
+                                ids, or %[10]s, one envelope per replay and no records for
+                                the kernels inside it (CUPTI's GRAPH_TRACE kind, cheaper to
+                                trace). The capture states the mode in effect as the agent
+                                capability's graph_trace_mode; sets CUDAPROF_GRAPH_TRACE
   --flush-interval <duration>   have the agent flush CUPTI's activity buffers this often, so a
                                 target that never finalizes still publishes records (sets
                                 CUDAPROF_FLUSH_INTERVAL_MS, whole milliseconds). Such a run
@@ -947,7 +953,8 @@ counter collection needs the CUPTI Profiling API with replay. That exists in-pro
 github.com/tmc/lib/nvidia/x/cuptirange profiles ranges with user replay (Plan.Capture), and
 cuptimetrics lists the metrics a given chip offers.
 `, controllerMaxJournalRecords, cudacapture.MaxCaptureFileBytes, cudacapture.MaxCaptureTotalBytes,
-		captureRangeNone, captureRangeProfilerAPI, finalizeExit, finalizeProfilerStop, captureOutcomePartialRecovered)
+		captureRangeNone, captureRangeProfilerAPI, finalizeExit, finalizeProfilerStop, captureOutcomePartialRecovered,
+		graphTraceNode, graphTraceGraph)
 }
 
 type deviceProvenance struct {

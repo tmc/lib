@@ -260,8 +260,11 @@ type captureOptions struct {
 	// still inert against an agent that does not know it. The names are the
 	// contract: CUDAPROF_CAPTURE_RANGE, CUDAPROF_FINALIZE and
 	// CUDAPROF_FLUSH_INTERVAL_MS.
-	CaptureRange      string
-	Finalize          string
+	CaptureRange string
+	Finalize     string
+	// GraphTrace is how the agent traces CUDA graph replays, exported as
+	// CUDAPROF_GRAPH_TRACE. Empty leaves the agent's default, node mode.
+	GraphTrace        graphTraceMode
 	FlushInterval     time.Duration
 	MaxJournalRecords int64
 	// StampEnv names environment variables whose values are recorded in the
@@ -530,6 +533,17 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, fmt.Errorf("invalid capture range %q (%s or %s)", v, captureRangeNone, captureRangeProfilerAPI)
 			}
 			o.CaptureRange = v
+		case "--graph-trace", "-graph-trace":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			m, err := parseGraphTraceMode(v)
+			if err != nil {
+				return o, err
+			}
+			o.GraphTrace = m
 		case "--finalize", "-finalize":
 			v, next, err := captureValue(args, i, value, hasValue)
 			if err != nil {
@@ -822,6 +836,9 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 	}
 	if o.Finalize != "" {
 		env = setCaptureEnv(env, "CUDAPROF_FINALIZE", o.Finalize)
+	}
+	if o.GraphTrace != "" {
+		env = setCaptureEnv(env, "CUDAPROF_GRAPH_TRACE", string(o.GraphTrace))
 	}
 	// Module images are requested by this process because this process is the
 	// one that can decode the record kind they arrive under. An agent old
