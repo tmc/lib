@@ -1,0 +1,28 @@
+commit 69e7eb6d, 2026-09-22
+claude-code 2.1.280 (Claude Code), model claude-opus-5[1m]
+tty not a tty, pid 95120, ITERM_SESSION_ID=w16t0p13:82D66DD7-9369-4497-80A7-C22F2D8BB0AD
+session=41e006ea-c431-4858-a0f4-bc6efab3d868
+session_url=https://claude.ai/code/session_01N7MBqfPUrPrApoBSRgPQqu
+
+Written by subagent S2-extents, which verified each clause against the
+code rather than against its own belief, and named the line for each:
+epoch check persistent_executor.go:188, admission via Progress ->
+CTAGrid -> Validate, grid.Validate at :75, shared bytes at :143, the
+Claim loop at :200, and the device-side refusal at device-2cta.cu:48.
+Spot-checked here: the Executor struct is {grid, progress, epoch,
+graph} and holds no *Program, Program.ScratchWords is backend.go:479,
+and AbortBadExtent = 3 covers a zero epoch as well as a wrong extent,
+which is why the comment names the constant without claiming it means
+only one thing.
+
+Signature unchanged deliberately. Making NewExecutor take the Program
+so the layout could be checked on the host is exported-API surgery and
+wants its own stage with its own controls.
+
+Also settled here, not in a commit: (cudamega.Opcode).String stays.
+The call graph reported it as the one production node unreachable from
+any test root, but callgraph -algo=cha cannot model fmt's dynamic
+dispatch, so that is partly a property of the instrument. The seam
+claim is 1 of 93 with the name attached, never 0 -- the 0 was true
+before S2 added the method and was repeated after it stopped being
+true.
