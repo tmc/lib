@@ -24,31 +24,40 @@ type Graph struct {
 }
 
 // New creates an empty CUDA graph.
+// A non-nil graph must be destroyed even when an error is returned, including
+// an error restoring the previous context after successful creation.
 func New(dev ...*cuda.Device) (*Graph, error) {
 	var d *cuda.Device
 	if len(dev) > 0 {
 		d = dev[0]
 	}
-	var raw driver.Graph
-	create := func() error {
-		var err error
-		raw, err = driver.NewGraph(0)
-		return err
-	}
-	var err error
+	run := func(fn func() error) error { return fn() }
 	if d != nil {
-		err = d.WithContext(create)
-	} else {
-		err = create()
+		run = d.WithContext
+	}
+	return newGraph(d, run, func() (driver.Graph, error) { return driver.NewGraph(0) })
+}
+
+func newGraph(d *cuda.Device, run func(func() error) error, create func() (driver.Graph, error)) (*Graph, error) {
+	var raw driver.Graph
+	err := run(func() error {
+		var err error
+		raw, err = create()
+		return err
+	})
+	var g *Graph
+	if raw != 0 {
+		g = &Graph{raw: raw, device: d}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cudagraph: create graph: %w", err)
+		return g, fmt.Errorf("cudagraph: create graph: %w", err)
 	}
-	return &Graph{raw: raw, device: d}, nil
+	return g, nil
 }
 
 // Capture executes fn on stream while recording all enqueued operations into a Graph.
 // The caller must not destroy stream until Capture returns.
+// A non-nil graph must be destroyed even when an error is returned.
 func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
 	if s == nil {
 		return nil, errors.New("cudagraph: nil stream passed to Capture")
@@ -57,40 +66,42 @@ func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
 		return nil, errors.New("cudagraph: nil capture function")
 	}
 
-	// A capture sequence belongs to the OS thread that began it: ending it
-	// from another thread fails with CUDA_ERROR_STREAM_CAPTURE_WRONG_THREAD.
-	// Pinning has to span all three steps because cuda.Context.Run locks the
-	// thread for one call and releases it on return, which leaves fn running
-	// unpinned -- and fn is where a capture spends its time, so it is where
-	// the scheduler has the most opportunity to move the goroutine. The
-	// failure needs that move to actually happen, so it presents as an
-	// intermittent flake in whatever the capture was recording rather than as
-	// a capture that never works.
+	// Begin and end must run on the same OS thread. Keep both and fn inside
+	// one context entry so restoration cannot interrupt an active capture.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if err := s.Device().WithContext(func() error {
-		return s.Raw().BeginCapture(driver.StreamCaptureModeGlobal)
-	}); err != nil {
-		return nil, fmt.Errorf("cudagraph: begin capture: %w", err)
-	}
+	return captureGraph(s.Device(), s.Device().WithContext,
+		func() error { return s.Raw().BeginCapture(driver.StreamCaptureModeGlobal) },
+		s.Raw().EndCapture, fn)
+}
 
-	fn()
-
+func captureGraph(dev *cuda.Device, run func(func() error) error, begin func() error, end func() (driver.Graph, error), fn func()) (*Graph, error) {
 	var rawGraph driver.Graph
-	err := s.Device().WithContext(func() error {
+	err := run(func() error {
+		if err := begin(); err != nil {
+			return fmt.Errorf("cudagraph: begin capture: %w", err)
+		}
+		fn()
 		var err error
-		rawGraph, err = s.Raw().EndCapture()
-		return err
+		rawGraph, err = end()
+		if err != nil {
+			return fmt.Errorf("cudagraph: end capture: %w", err)
+		}
+		return nil
 	})
-	if err != nil {
-		return nil, fmt.Errorf("cudagraph: end capture: %w", err)
+	var graph *Graph
+	if rawGraph != 0 {
+		graph = &Graph{raw: rawGraph, device: dev}
 	}
-
-	return &Graph{raw: rawGraph, device: s.Device()}, nil
+	if err != nil {
+		return graph, fmt.Errorf("cudagraph: capture: %w", err)
+	}
+	return graph, nil
 }
 
 // Instantiate validates and instantiates the graph for execution on the GPU.
+// A non-nil executable must be destroyed even when an error is returned.
 func (g *Graph) Instantiate() (*Exec, error) {
 	return g.InstantiateWithOptions(InstantiateOptions{})
 }
@@ -132,6 +143,7 @@ func (o InstantiateOptions) flags() (uint64, error) {
 // InstantiateWithOptions validates options and instantiates the graph. Upload
 // is separate because the native upload-on-instantiation flag requires the
 // parameter-based API and an upload stream, not cuGraphInstantiateWithFlags.
+// A non-nil executable must be destroyed even when an error is returned.
 func (g *Graph) InstantiateWithOptions(options InstantiateOptions) (*Exec, error) {
 	if g == nil || g.raw == 0 {
 		return nil, errors.New("cudagraph: graph is closed")
@@ -154,16 +166,24 @@ func (g *Graph) InstantiateWithOptions(options InstantiateOptions) (*Exec, error
 			return nil, fmt.Errorf("cudagraph: retain kernel order: %w", err)
 		}
 	}
+	return g.instantiate(order, g.withContext, func() (driver.GraphExec, error) { return g.raw.Instantiate(flags) })
+}
+
+func (g *Graph) instantiate(order []string, run func(func() error) error, create func() (driver.GraphExec, error)) (*Exec, error) {
 	var rawExec driver.GraphExec
-	err = g.withContext(func() error {
+	err := run(func() error {
 		var err error
-		rawExec, err = g.raw.Instantiate(flags)
+		rawExec, err = create()
 		return err
 	})
-	if err != nil {
-		return nil, fmt.Errorf("cudagraph: instantiate graph: %w", err)
+	var exec *Exec
+	if rawExec != 0 {
+		exec = &Exec{raw: rawExec, device: g.device, kernelOrder: order, retained: g.launchStorage()}
 	}
-	return &Exec{raw: rawExec, device: g.device, kernelOrder: order, retained: g.launchStorage()}, nil
+	if err != nil {
+		return exec, fmt.Errorf("cudagraph: instantiate graph: %w", err)
+	}
+	return exec, nil
 }
 
 // Raw returns the underlying driver.Graph handle.
@@ -179,10 +199,23 @@ func (g *Graph) Destroy() error {
 	if g == nil || g.raw == 0 {
 		return nil
 	}
-	if err := g.withContext(g.raw.Destroy); err != nil {
+	return g.destroy(g.withContext, g.raw.Destroy)
+}
+
+func (g *Graph) destroy(run func(func() error) error, destroy func() error) error {
+	if g == nil || g.raw == 0 {
+		return nil
+	}
+	if err := run(func() error {
+		if err := destroy(); err != nil {
+			return err
+		}
+		// Context restoration can fail after destruction succeeds.
+		g.raw = 0
+		return nil
+	}); err != nil {
 		return fmt.Errorf("cudagraph: destroy graph: %w", err)
 	}
-	g.raw = 0
 	return nil
 }
 
@@ -285,11 +318,23 @@ func (e *Exec) Destroy() error {
 	if e == nil || e.raw == 0 {
 		return nil
 	}
-	e.kernelOrder = nil
-	if err := e.withContext(e.raw.Destroy); err != nil {
+	return e.destroy(e.withContext, e.raw.Destroy)
+}
+
+func (e *Exec) destroy(run func(func() error) error, destroy func() error) error {
+	if e == nil || e.raw == 0 {
+		return nil
+	}
+	if err := run(func() error {
+		if err := destroy(); err != nil {
+			return err
+		}
+		e.raw = 0
+		e.kernelOrder = nil
+		return nil
+	}); err != nil {
 		return fmt.Errorf("cudagraph: destroy exec graph: %w", err)
 	}
-	e.raw = 0
 	return nil
 }
 
