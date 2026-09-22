@@ -5,8 +5,11 @@ package cudaquant
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"math"
+	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudakernel"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
 // QuantFormat identifies a weight quantization format.
@@ -152,18 +155,69 @@ extern "C" __global__ void ds4_rms_quant_q8(const float* in, const float* weight
 }`
 }
 
-// RMSNormQ8_1Artifact describes the generated kernel and its fixed ABI.
+// RMSNormQ8_1Artifact compiles the generated kernel for a physical CUDA target
+// (for example, sm_121a), preserving its fixed ABI and compiled resources.
+// It requires NVRTC and CUDA headers; it does not load or launch the kernel.
 func RMSNormQ8_1Artifact(target string) (*cudakernel.Artifact, error) {
+	return normQuantArtifact(target, func(src string, opts ...nvrtcx.Option) (normQuantModule, error) {
+		return nvrtcx.Compile(src, opts...)
+	})
+}
+
+type normQuantModule interface {
+	ToArtifact(string, cudakernel.Schema, string) (*cudakernel.Artifact, error)
+}
+
+func normQuantArtifact(target string, compile func(string, ...nvrtcx.Option) (normQuantModule, error)) (*cudakernel.Artifact, error) {
+	artifacts, err := normQuantArtifacts(target, RMSNormQ8_1Source(), []string{"ds4_rms_quant_q8"}, compile)
+	if err != nil {
+		return nil, err
+	}
+	return artifacts[0], nil
+}
+
+func normQuantArtifacts(target, source string, entries []string, compile func(string, ...nvrtcx.Option) (normQuantModule, error)) ([]*cudakernel.Artifact, error) {
+	if !strings.HasPrefix(target, "sm_") {
+		return nil, fmt.Errorf("cudaquant: expected physical target, got %q", target)
+	}
+	major, minor, suffix, err := cudakernel.ParseArch(target)
+	if err != nil {
+		return nil, fmt.Errorf("cudaquant: target: %w", err)
+	}
+	if (suffix != "" && suffix != "a" && suffix != "f") || target != fmt.Sprintf("sm_%d%d%s", major, minor, suffix) {
+		return nil, fmt.Errorf("cudaquant: invalid physical target %q", target)
+	}
 	schema, err := cudakernel.NewSchema(
 		cudakernel.Param{Name: "in", Type: "ptr", IsPointer: true}, cudakernel.Param{Name: "weight", Type: "ptr", IsPointer: true}, cudakernel.Param{Name: "out", Type: "ptr", IsPointer: true},
 		cudakernel.Param{Name: "rows", Type: "u32"}, cudakernel.Param{Name: "cols", Type: "u32"}, cudakernel.Param{Name: "eps", Type: "f32"}, cudakernel.Param{Name: "weighted", Type: "u32"})
 	if err != nil {
 		return nil, err
 	}
-	if target == "" {
-		return nil, fmt.Errorf("cudaquant: empty target")
+	opts := []nvrtcx.Option{nvrtcx.WithPhysicalArchTarget(target), nvrtcx.WithStandard("c++17"), nvrtcx.WithToolkitIncludes(), nvrtcx.WithOutput(nvrtcx.OutputCUBIN)}
+	flags, err := nvrtcx.CompileFlags(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("cudaquant: compiler options: %w", err)
 	}
-	return cudakernel.NewArtifact(cudakernel.KindPTX, []byte(RMSNormQ8_1Source()), "ds4_rms_quant_q8", schema, target, cudakernel.WithCompilerOptions([]string{"--std=c++17"}))
+	cm, err := compile(source, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("cudaquant: compile norm quant: %w", err)
+	}
+	if cm == nil {
+		return nil, fmt.Errorf("cudaquant: compile norm quant returned no module")
+	}
+	var artifacts []*cudakernel.Artifact
+	for _, entry := range entries {
+		artifact, err := cm.ToArtifact(entry, schema, target)
+		if err != nil {
+			return nil, fmt.Errorf("cudaquant: %s artifact: %w", entry, err)
+		}
+		if artifact == nil {
+			return nil, fmt.Errorf("cudaquant: %s returned no artifact", entry)
+		}
+		artifact.CompilerOpts = append([]string(nil), flags...)
+		artifacts = append(artifacts, artifact)
+	}
+	return artifacts, nil
 }
 
 // DequantizeQ4_0 unpacks Q4_0 blocks into a float32 slice.
