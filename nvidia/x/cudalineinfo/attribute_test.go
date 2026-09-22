@@ -94,8 +94,8 @@ func TestSiteAt(t *testing.T) {
 
 func TestAttributeWithoutArtifacts(t *testing.T) {
 	a := Attribute(fixtureUnit(), "", nil)
-	if len(a.CUDA) != 3 || len(a.Locs) != 0 || len(a.SASS) != 0 || a.Instructions != 0 {
-		t.Errorf("attribution from the unit alone = cuda %d locs %d sass %d insts %d", len(a.CUDA), len(a.Locs), len(a.SASS), a.Instructions)
+	if len(a.CUDA) != 3 || len(a.PTXLines) != 0 || len(a.SASS) != 0 || a.Instructions != 0 {
+		t.Errorf("attribution from the unit alone = cuda %d ptx %d sass %d insts %d", len(a.CUDA), len(a.PTXLines), len(a.SASS), a.Instructions)
 	}
 }
 
@@ -110,13 +110,13 @@ func TestPTXSites(t *testing.T) {
 	.file	2 "kernels.go"
 `
 	got := ptxSites(ptx)
-	want := map[Site]int{{"k.cu", 3}: 1, {"kernels.go", 17}: 2}
+	want := map[Site][]int{{"k.cu", 3}: {2}, {"kernels.go", 17}: {3, 4}}
 	if len(got) != len(want) {
 		t.Fatalf("ptxSites = %v, want %v", got, want)
 	}
-	for s, n := range want {
-		if got[s] != n {
-			t.Errorf("ptxSites[%v] = %d, want %d", s, got[s], n)
+	for s, lines := range want {
+		if !equalInts(got[s], lines) {
+			t.Errorf("ptxSites[%v] = %v, want %v", s, got[s], lines)
 		}
 	}
 }

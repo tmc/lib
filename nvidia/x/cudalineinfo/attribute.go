@@ -12,10 +12,10 @@ import (
 
 // An Attribution joins every tier of one compiled unit back to its sites.
 //
-// CUDA, Locs, and SASS are keyed by site and hold what each tier attributes
-// to it: the generated lines lowered from it, the number of PTX .loc
-// directives naming it, and the SASS instructions naming it. A site absent
-// from a map produced nothing at that tier.
+// CUDA, PTXLines, and SASS are keyed by site and hold what each tier
+// attributes to it: the generated lines lowered from it, the lines of the PTX
+// text holding a .loc directive naming it, and the SASS instructions naming
+// it. A site absent from a map produced nothing at that tier.
 type Attribution struct {
 	Unit        Unit
 	PTX         string
@@ -26,9 +26,9 @@ type Attribution struct {
 	// for an attribution built from artifacts.
 	Module *nvrtcx.CompiledModule
 
-	CUDA map[Site][]int
-	Locs map[Site]int
-	SASS map[Site][]cudasass.Instruction
+	CUDA     map[Site][]int
+	PTXLines map[Site][]int
+	SASS     map[Site][]cudasass.Instruction
 
 	// Instructions counts every instruction in the disassembly, in every
 	// function. Attributed counts those naming a site of the program.
@@ -68,23 +68,24 @@ func (r Remainder) Total() int {
 }
 
 // Attribute joins the tiers of a unit from its PTX and disassembly. Either may
-// be absent: an empty ptx leaves Locs empty, and a nil dis leaves SASS empty.
+// be absent: an empty ptx leaves PTXLines empty, and a nil dis leaves SASS
+// empty.
 func Attribute(unit Unit, ptx string, dis *cudasass.Disassembly) *Attribution {
 	a := &Attribution{
 		Unit:        unit,
 		PTX:         ptx,
 		Disassembly: dis,
 		CUDA:        map[Site][]int{},
-		Locs:        map[Site]int{},
+		PTXLines:    map[Site][]int{},
 		SASS:        map[Site][]cudasass.Instruction{},
 		Remainder:   Remainder{Subroutines: map[string]int{}},
 	}
 	for _, s := range unit.Sites() {
 		a.CUDA[s] = unit.Lines(s)
 	}
-	for s, n := range ptxSites(ptx) {
+	for s, lines := range ptxSites(ptx) {
 		if unit.isUserFile(s.File) {
-			a.Locs[s] = n
+			a.PTXLines[s] = lines
 		}
 	}
 	if dis == nil {
@@ -126,7 +127,7 @@ func (a *Attribution) Sites() []Site {
 	for s := range a.CUDA {
 		add(s)
 	}
-	for s := range a.Locs {
+	for s := range a.PTXLines {
 		add(s)
 	}
 	for s := range a.SASS {
@@ -148,7 +149,7 @@ type Row struct {
 func (a *Attribution) Rows() []Row {
 	var rows []Row
 	for _, s := range a.Sites() {
-		rows = append(rows, Row{Site: s, CUDA: a.CUDA[s], PTX: a.Locs[s], SASS: a.SASS[s]})
+		rows = append(rows, Row{Site: s, CUDA: a.CUDA[s], PTX: len(a.PTXLines[s]), SASS: a.SASS[s]})
 	}
 	return rows
 }
@@ -182,11 +183,11 @@ func (a *Attribution) SiteAt(function string, offset uint64) (Site, bool) {
 	return Site{File: in.SourceFile, Line: in.SourceLine}, true
 }
 
-// ptxSites counts the .loc directives in ptx by the site they name. PTX
-// refers to files by index and emits the .file table after the directives
-// that use it, so the names are collected in a pass of their own. A .loc with
-// line 0 names no line and is skipped.
-func ptxSites(ptx string) map[Site]int {
+// ptxSites lists, by the site they name, the one-based lines of ptx holding
+// a .loc directive. PTX refers to files by index and emits the .file table
+// after the directives that use it, so the names are collected in a pass of
+// their own. A .loc with line 0 names no line and is skipped.
+func ptxSites(ptx string) map[Site][]int {
 	if ptx == "" {
 		return nil
 	}
@@ -198,8 +199,8 @@ func ptxSites(ptx string) map[Site]int {
 			files[f[1]] = strings.Trim(f[2], `"`)
 		}
 	}
-	sites := map[Site]int{}
-	for _, text := range lines {
+	sites := map[Site][]int{}
+	for i, text := range lines {
 		f := strings.Fields(text)
 		if len(f) < 3 || f[0] != ".loc" {
 			continue
@@ -212,7 +213,8 @@ func ptxSites(ptx string) map[Site]int {
 		if err != nil || line <= 0 {
 			continue
 		}
-		sites[Site{File: name, Line: line}]++
+		s := Site{File: name, Line: line}
+		sites[s] = append(sites[s], i+1)
 	}
 	return sites
 }
