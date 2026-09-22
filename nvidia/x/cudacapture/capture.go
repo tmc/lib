@@ -74,6 +74,13 @@ type Module struct {
 	Generation uint64    `json:"generation,omitempty"`
 	Name       string    `json:"name,omitempty"`
 	Code       CodeFiles `json:"code,omitempty"`
+
+	// DriverID is the number the driver gave this module, as CUPTI reports
+	// it. ID names the stored image and is unique across a merged capture;
+	// this is what a profile sample's "module_id" label carries, because
+	// that label is written by the producer, which knows the number and not
+	// the file it will be stored as.
+	DriverID uint32 `json:"driver_id,omitempty"`
 }
 
 // MetricDescriptor describes the native meaning and scope of an observation.

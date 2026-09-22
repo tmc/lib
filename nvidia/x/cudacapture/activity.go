@@ -34,6 +34,13 @@ type ActivityRecord struct {
 	GraphID             uint32    `json:"graph_id,omitempty"`
 	GraphNodeID         uint64    `json:"graph_node_id,omitempty"`
 
+	// ModuleID is the driver's number for the module the kernel was loaded
+	// from, or zero when the producer could not tell. A kernel activity
+	// record names only the kernel, so two builds of one graph produce
+	// records that are otherwise identical; this is what charges a sample to
+	// the build that ran.
+	ModuleID uint32 `json:"module_id,omitempty"`
+
 	// Value is the byte a memset wrote, set only when Subtype is "memset".
 	// It carries omitempty like its neighbours, so a memset of zero -- the
 	// common case -- is indistinguishable from an absent value; the subtype
@@ -244,7 +251,8 @@ func (a ActivityRecord) MarshalJSON() ([]byte, error) {
 }
 
 // AttachKernelLabels adds kernel launch geometry and register allocation labels
-// ('grid', 'block', 'registers', 'smem') to the provided label map.
+// ('grid', 'block', 'registers', 'smem') to the provided label map, and
+// 'module_id' when the producer knew which module the kernel came from.
 // If labels is nil or rec is not a kernel, AttachKernelLabels does nothing.
 func AttachKernelLabels(labels map[string][]string, rec ActivityRecord) {
 	if labels == nil || rec.Subtype != "kernel" {
@@ -263,6 +271,13 @@ func AttachKernelLabels(labels map[string][]string, rec ActivityRecord) {
 	}
 	if rec.GraphNodeID != 0 {
 		labels["graph_node_id"] = []string{strconv.FormatUint(rec.GraphNodeID, 10)}
+	}
+	// Absent rather than zero, for the same reason as the graph labels: a
+	// producer that could not follow the kernel back to a module says
+	// nothing, and a consumer splitting its tables by module counts those
+	// records in none of them and says how many there were.
+	if rec.ModuleID != 0 {
+		labels["module_id"] = []string{strconv.FormatUint(uint64(rec.ModuleID), 10)}
 	}
 }
 

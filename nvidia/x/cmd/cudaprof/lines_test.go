@@ -110,9 +110,11 @@ func TestPrintCaptureLines(t *testing.T) {
 // its identity, and the kernel filter finds the kernel in both.
 func TestPrintCaptureLinesModules(t *testing.T) {
 	cap, _ := testCaptureWithLines(t)
+	// A module's identity in a sample label is the number the driver gave
+	// it, not the name of the stored image.
 	cap.Modules = []cudacapture.Module{
-		{ID: "1", Name: "first", Code: cap.Code},
-		{ID: "2", Name: "second", Code: cap.Code},
+		{ID: "worker-1-module-0000-id1", DriverID: 1, Name: "first", Code: cap.Code},
+		{ID: "worker-1-module-0001-id2", DriverID: 2, Name: "second", Code: cap.Code},
 	}
 	for i, s := range cap.Profile.Sample {
 		s.Label = map[string][]string{"module_id": {[]string{"1", "2"}[i%2]}}
@@ -142,8 +144,17 @@ func TestPrintCaptureLinesModules(t *testing.T) {
 	if err := printCaptureLines(&buf, cap, "", ""); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "1 profile records name no module") {
+	if !strings.Contains(buf.String(), "kernel work naming no module: 1 records") {
 		t.Errorf("unlabelled sample not reported:\n%s", buf.String())
+	}
+	// A copy belongs to no module, so an unlabelled one is not a gap.
+	cap.Profile.Sample[0].Label = map[string][]string{"subtype": {"memcpy"}}
+	buf.Reset()
+	if err := printCaptureLines(&buf, cap, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "naming no module") {
+		t.Errorf("an unlabelled copy was reported as a gap:\n%s", buf.String())
 	}
 	if err := printCaptureLines(&bytes.Buffer{}, cap, "missing_kernel", ""); err == nil {
 		t.Error("no error for a sample type the profile lacks")

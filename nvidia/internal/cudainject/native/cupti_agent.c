@@ -796,6 +796,102 @@ static void write_module(uint32_t module_id, const char *cubin, size_t size) {
 	if (n > 0 && (size_t)n < sizeof(payload)) (void)write_record(KIND_MODULE, now_ns(), payload, (size_t)n);
 }
 
+/* Which module a kernel came from. A CUPTI kernel activity record names the
+   kernel and nothing else: two modules holding a kernel of the same name --
+   a default and a fast-math build of one graph, say -- produce records a
+   consumer cannot tell apart, so `cudaprof lines` has no way to charge a
+   sample to the build that ran.
+
+   The driver does say, in pieces, and the pieces arrive on the thread that
+   loads the code. CUPTI's module-loaded resource callback fires inside the
+   load call with the module id; the load's own exit callback hands back the
+   CUmodule that id belongs to; cuModuleGetFunction pairs a CUfunction with
+   that module; and a launch callback names the CUfunction alongside the
+   correlation id the kernel record will carry. Following that chain leaves a
+   correlation-to-module answer waiting by the time the activity record is
+   decoded.
+
+   A target that launches through the CUDA runtime's own loader never calls
+   cuModuleGetFunction, so its kernels keep a zero module id, which the
+   consumer reads as unknown rather than as module zero. The tables are
+   split only for a capture that holds more than one module, so the cost of
+   not knowing is the same note the consumer printed before any of this. */
+#define MODULE_HANDLE_SLOTS 256
+#define FUNCTION_HANDLE_SLOTS 1024
+#define LAUNCH_SLOTS 8192
+
+static pthread_mutex_t handle_mu = PTHREAD_MUTEX_INITIALIZER;
+static struct { CUmodule handle; uint32_t id; } module_handles[MODULE_HANDLE_SLOTS];
+static int module_handle_count;
+static struct { CUfunction handle; uint32_t id; } function_handles[FUNCTION_HANDLE_SLOTS];
+static int function_handle_count;
+/* Correlation ids rise monotonically, so the slot is the id itself modulo the
+   table size. A launch whose slot is taken before its record is decoded is
+   one the reader loses the module of, which is the same outcome as never
+   having recorded it. */
+static struct { _Atomic uint32_t correlation; _Atomic uint32_t id; } launch_modules[LAUNCH_SLOTS];
+/* The module id of the load running on this thread, published by the
+   resource callback and read by the exit callback of the same call. */
+static _Thread_local uint32_t loading_module_id;
+
+static void bind_module_handle(CUmodule handle, uint32_t id) {
+	if (handle == NULL || id == 0) return;
+	pthread_mutex_lock(&handle_mu);
+	for (int i = 0; i < module_handle_count; i++) {
+		if (module_handles[i].handle == handle) { module_handles[i].id = id; pthread_mutex_unlock(&handle_mu); return; }
+	}
+	if (module_handle_count < MODULE_HANDLE_SLOTS) {
+		module_handles[module_handle_count].handle = handle;
+		module_handles[module_handle_count].id = id;
+		module_handle_count++;
+	}
+	pthread_mutex_unlock(&handle_mu);
+}
+
+static void bind_function_handle(CUfunction fn, CUmodule handle) {
+	if (fn == NULL || handle == NULL) return;
+	pthread_mutex_lock(&handle_mu);
+	uint32_t id = 0;
+	for (int i = 0; i < module_handle_count; i++) {
+		if (module_handles[i].handle == handle) { id = module_handles[i].id; break; }
+	}
+	if (id != 0) {
+		int found = 0;
+		for (int i = 0; i < function_handle_count; i++) {
+			if (function_handles[i].handle == fn) { function_handles[i].id = id; found = 1; break; }
+		}
+		if (!found && function_handle_count < FUNCTION_HANDLE_SLOTS) {
+			function_handles[function_handle_count].handle = fn;
+			function_handles[function_handle_count].id = id;
+			function_handle_count++;
+		}
+	}
+	pthread_mutex_unlock(&handle_mu);
+}
+
+static void note_launch_module(CUfunction fn, uint32_t correlation) {
+	if (fn == NULL || correlation == 0) return;
+	uint32_t id = 0;
+	pthread_mutex_lock(&handle_mu);
+	for (int i = 0; i < function_handle_count; i++) {
+		if (function_handles[i].handle == fn) { id = function_handles[i].id; break; }
+	}
+	pthread_mutex_unlock(&handle_mu);
+	if (id == 0) return;
+	size_t slot = correlation % LAUNCH_SLOTS;
+	atomic_store(&launch_modules[slot].id, id);
+	atomic_store(&launch_modules[slot].correlation, correlation);
+}
+
+/* launch_module answers for one kernel record, or zero when the chain above
+   was never completed for it. */
+static uint32_t launch_module(uint32_t correlation) {
+	if (correlation == 0) return 0;
+	size_t slot = correlation % LAUNCH_SLOTS;
+	if (atomic_load(&launch_modules[slot].correlation) != correlation) return 0;
+	return atomic_load(&launch_modules[slot].id);
+}
+
 /* A record that did not fit its buffer is a record nothing downstream will
    ever hear about: queue_pending never sees it, so it is not counted as
    dropped either, and the journal reads as if the work never happened. Say
@@ -814,7 +910,7 @@ static int append_activity(const char *kind, const char *name, uint64_t start, u
 	uint32_t grid_x, uint32_t grid_y, uint32_t grid_z,
 	uint32_t block_x, uint32_t block_y, uint32_t block_z,
 	uint32_t registers_per_thread, uint32_t dynamic_shared_memory,
-	uint32_t graph_id, uint64_t graph_node_id) {
+	uint32_t graph_id, uint64_t graph_node_id, uint32_t module_id) {
 	char payload[MAX_PAYLOAD];
 	int n = snprintf(payload, sizeof(payload), "{\"kind\":\"activity\",\"subtype\":\"%s\",\"name\":\"", kind);
 	if (n < 0 || n >= (int)sizeof(payload)) return -1;
@@ -830,11 +926,11 @@ static int append_activity(const char *kind, const char *name, uint64_t start, u
 	}
 	int valid = start != CUPTI_TIMESTAMP_UNKNOWN && end != CUPTI_TIMESTAMP_UNKNOWN && end >= start;
 	n += snprintf(payload + n, sizeof(payload) - (size_t)n,
-		"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"bytes\":%" PRIu64 ",\"queued\":%" PRIu64 ",\"submitted\":%" PRIu64 ",\"copy_kind\":%u,\"value\":%u,\"runtime_correlation\":%u,\"device\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u,\"grid\":[%u,%u,%u],\"block\":[%u,%u,%u],\"grid_x\":%u,\"grid_y\":%u,\"grid_z\":%u,\"block_x\":%u,\"block_y\":%u,\"block_z\":%u,\"registers_per_thread\":%u,\"dynamic_shared_memory\":%u,\"graph_id\":%u,\"graph_node_id\":%" PRIu64 "}",
+		"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"bytes\":%" PRIu64 ",\"queued\":%" PRIu64 ",\"submitted\":%" PRIu64 ",\"copy_kind\":%u,\"value\":%u,\"runtime_correlation\":%u,\"device\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u,\"grid\":[%u,%u,%u],\"block\":[%u,%u,%u],\"grid_x\":%u,\"grid_y\":%u,\"grid_z\":%u,\"block_x\":%u,\"block_y\":%u,\"block_z\":%u,\"registers_per_thread\":%u,\"dynamic_shared_memory\":%u,\"graph_id\":%u,\"graph_node_id\":%" PRIu64 ",\"module_id\":%u}",
 		valid ? "true" : "false", start, end, bytes, queued, submitted, copy_kind, memset_value, runtime_correlation, device, context, stream, correlation,
 		grid_x, grid_y, grid_z, block_x, block_y, block_z,
 		grid_x, grid_y, grid_z, block_x, block_y, block_z,
-		registers_per_thread, dynamic_shared_memory, graph_id, graph_node_id);
+		registers_per_thread, dynamic_shared_memory, graph_id, graph_node_id, module_id);
 	/* The name guard above reserves one escaped byte, not the several hundred
 	   the fields below take, so a name within a tail's length of the buffer
 	   passes it and overflows here. */
@@ -1402,17 +1498,17 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 				(uint32_t)(k->blockZ > 0 ? k->blockZ : 0),
 				(uint32_t)k->registersPerThread,
 				(uint32_t)(k->dynamicSharedMemory > 0 ? k->dynamicSharedMemory : 0),
-				CUDAPROF_GRAPH_ID(k), CUDAPROF_GRAPH_NODE_ID(k));
+				CUDAPROF_GRAPH_ID(k), CUDAPROF_GRAPH_NODE_ID(k), launch_module(k->correlationId));
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_MEMCPY) {
 			if (rp + sizeof(CUpti_ActivityMemcpy6) < rp || rp + sizeof(CUpti_ActivityMemcpy6) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Memcpy6 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityMemcpy6 *m6 = (const CUpti_ActivityMemcpy6 *)record;
 			(void)append_activity("memcpy", "", m6->start, m6->end, m6->bytes, 0, 0, m6->copyKind, 0, m6->runtimeCorrelationId, m6->deviceId, m6->contextId, m6->streamId, m6->correlationId,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_MEMSET) {
 			if (rp + sizeof(CUpti_ActivityMemset4) < rp || rp + sizeof(CUpti_ActivityMemset4) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Memset4 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityMemset4 *ms = (const CUpti_ActivityMemset4 *)record;
 			(void)append_activity("memset", "", ms->start, ms->end, ms->bytes, 0, 0, 0, ms->value, 0, ms->deviceId, ms->contextId, ms->streamId, ms->correlationId,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_DRIVER || record->kind == CUPTI_ACTIVITY_KIND_RUNTIME) {
 			if (rp + sizeof(CUpti_ActivityAPI) < rp || rp + sizeof(CUpti_ActivityAPI) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short API record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityAPI *api = (const CUpti_ActivityAPI *)record;
@@ -1670,6 +1766,51 @@ static void write_range_edge(const char *edge, const char *api, unsigned index, 
 	if (n > 0 && (size_t)n < sizeof(payload)) (void)write_record(KIND_ACTIVITY, now_ns(), payload, (size_t)n);
 }
 
+/* track_module_callback follows the driver's own words about where a kernel
+   came from and reports whether cbid was one of them. Nothing here calls into
+   CUDA: every value it needs is already in the callback's parameter block, so
+   the callback stays a read of memory the driver handed over. */
+static int track_module_callback(CUpti_CallbackId cbid, const CUpti_CallbackData *data) {
+	switch (cbid) {
+	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoad:
+	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoadData:
+	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoadDataEx:
+	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoadFatBinary: {
+		/* Every load takes CUmodule* first, so one layout reads all four. */
+		if (data->callbackSite != CUPTI_API_EXIT || data->functionParams == NULL) return 1;
+		const cuModuleLoad_params *p = (const cuModuleLoad_params *)data->functionParams;
+		if (p->module != NULL && loading_module_id != 0) bind_module_handle(*p->module, loading_module_id);
+		loading_module_id = 0;
+		return 1;
+	}
+	case CUPTI_DRIVER_TRACE_CBID_cuModuleGetFunction: {
+		if (data->callbackSite != CUPTI_API_EXIT || data->functionParams == NULL) return 1;
+		const cuModuleGetFunction_params *p = (const cuModuleGetFunction_params *)data->functionParams;
+		if (p->hfunc != NULL) bind_function_handle(*p->hfunc, p->hmod);
+		return 1;
+	}
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel:
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel_ptsz:
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel:
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz: {
+		/* CUfunction is the first parameter of all four. */
+		if (data->callbackSite != CUPTI_API_ENTER || data->functionParams == NULL) return 1;
+		const cuLaunchKernel_params *p = (const cuLaunchKernel_params *)data->functionParams;
+		note_launch_module(p->f, data->correlationId);
+		return 1;
+	}
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx:
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz: {
+		if (data->callbackSite != CUPTI_API_ENTER || data->functionParams == NULL) return 1;
+		const cuLaunchKernelEx_params *p = (const cuLaunchKernelEx_params *)data->functionParams;
+		note_launch_module(p->f, data->correlationId);
+		return 1;
+	}
+	default:
+		return 0;
+	}
+}
+
 static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const void *cbdata) {
 	(void)userdata;
 	if (cbdata == NULL || atomic_load(&shutdown_started)) return;
@@ -1690,9 +1831,13 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 		atomic_fetch_add(&callback_active, 1);
 		if (!atomic_load(&shutdown_started)) write_module(mod->moduleId, mod->pCubin, mod->cubinSize);
 		atomic_fetch_sub(&callback_active, 1);
+		/* The load that caused this callback is still on the stack; its exit
+		   callback below is what turns the id into a handle. */
+		loading_module_id = mod->moduleId;
 		return;
 	}
 	const CUpti_CallbackData *data = (const CUpti_CallbackData *)cbdata;
+	if (modules_enabled && domain == CUPTI_CB_DOMAIN_DRIVER_API && track_module_callback(cbid, data)) return;
 	int start;
 	const char *api;
 	if (domain == CUPTI_CB_DOMAIN_RUNTIME_API) {
@@ -2132,6 +2277,30 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 				if (mr != CUPTI_SUCCESS) {
 					record_cupti_failure("cuptiEnableCallback(module loaded)", mr);
 					modules_enabled = 0;
+				}
+			}
+			/* The chain that tells a kernel record which module it came
+			   from. A refusal here costs the module id on the affected
+			   records and nothing else, so each is recorded and the capture
+			   continues: the consumer already says how many records named
+			   no module. */
+			if (modules_enabled) {
+				static const CUpti_CallbackId module_trace[] = {
+					CUPTI_DRIVER_TRACE_CBID_cuModuleLoad,
+					CUPTI_DRIVER_TRACE_CBID_cuModuleLoadData,
+					CUPTI_DRIVER_TRACE_CBID_cuModuleLoadDataEx,
+					CUPTI_DRIVER_TRACE_CBID_cuModuleLoadFatBinary,
+					CUPTI_DRIVER_TRACE_CBID_cuModuleGetFunction,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel_ptsz,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel,
+					CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz,
+				};
+				for (size_t i = 0; i < sizeof(module_trace) / sizeof(module_trace[0]); i++) {
+					CUptiResult r = cuptiEnableCallback(1, range_subscriber, CUPTI_CB_DOMAIN_DRIVER_API, module_trace[i]);
+					if (r != CUPTI_SUCCESS) record_cupti_failure("cuptiEnableCallback(module attribution)", r);
 				}
 			}
 			static const struct { CUpti_CallbackDomain domain; CUpti_CallbackId cbid; int opens; const char *what; } triggers[] = {

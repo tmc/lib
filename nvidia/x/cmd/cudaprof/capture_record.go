@@ -743,13 +743,26 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	// agent reported writing. The journal census in capture-status.json says
 	// what the target loaded; this says what the reader can disassemble, and
 	// the two differ exactly by the budget.
+	// The driver's number for each stored image, so a sample labelled with
+	// it can be matched to the module it came from. The census names the
+	// file the agent wrote; the attachment carries that name under its
+	// worker namespace, so the census name is a suffix of it.
+	driverID := func(attachment string) uint32 {
+		for _, m := range result.Modules {
+			if m.File != "" && (attachment == m.File || strings.HasSuffix(attachment, "-"+m.File)) {
+				return m.ID
+			}
+		}
+		return 0
+	}
 	for _, a := range kept {
 		if !strings.HasSuffix(a.name, ".cubin") {
 			continue
 		}
 		c.Modules = append(c.Modules, cudacapture.Module{
-			ID:   strings.TrimSuffix(a.name, ".cubin"),
-			Code: cudacapture.CodeFiles{CUBIN: a.name},
+			ID:       strings.TrimSuffix(a.name, ".cubin"),
+			DriverID: driverID(a.name),
+			Code:     cudacapture.CodeFiles{CUBIN: a.name},
 		})
 	}
 	// The top-level code roles describe the capture as a whole and stay

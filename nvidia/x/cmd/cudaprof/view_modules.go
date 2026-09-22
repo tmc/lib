@@ -26,7 +26,7 @@ func buildPipelineViewData(cap *cudacapture.Capture, name, kernel string) (*cuda
 				samples := local.Profile.Sample
 				local.Profile.Sample = nil
 				for _, sample := range samples {
-					if ids := sample.Label["module_id"]; len(ids) == 1 && ids[0] == mod.ID {
+					if ids := sample.Label["module_id"]; len(ids) == 1 && ids[0] == moduleLabel(mod) {
 						local.Profile.Sample = append(local.Profile.Sample, sample)
 					}
 				}

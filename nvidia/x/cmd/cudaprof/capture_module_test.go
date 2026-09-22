@@ -36,7 +36,7 @@ func TestModuleRecordsDecode(t *testing.T) {
 		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
 		{Kind: recordModule, Payload: []byte(`{"kind":"module","module_id":22,"module_size":4096,"module_file":"module-0000-id22.cubin","module_stored":true,"module_reason":""}`)},
 		{Kind: recordModule, Payload: []byte(`{"kind":"module","module_id":23,"module_size":99999999,"module_file":"","module_stored":false,"module_reason":"file_budget"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200,"module_id":22}`)},
 		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
 	})
 
@@ -46,6 +46,12 @@ func TestModuleRecordsDecode(t *testing.T) {
 	}
 	if len(activities) != 1 {
 		t.Fatalf("got %d activities, want 1: module records must not enter the activity totals", len(activities))
+	}
+	// The module a kernel came from rides on the kernel's own record: a
+	// kernel activity names only the kernel, so this is the only thing that
+	// says which of two builds of one graph ran.
+	if activities[0].ModuleID != 22 {
+		t.Errorf("kernel activity module = %d, want 22", activities[0].ModuleID)
 	}
 	if len(metrics.modules) != 2 {
 		t.Fatalf("got %d modules, want 2", len(metrics.modules))
@@ -146,5 +152,57 @@ func TestModuleImagesAreEmbedded(t *testing.T) {
 	}
 	if !strings.Contains(reason, "module") {
 		t.Errorf("cubin disposition %q does not point at the modules that carry it", reason)
+	}
+}
+
+// TestModuleAttributionLabelsSamples runs a numbered module and a kernel that
+// names it through the published capture. The label the profile carries is
+// the driver's number, which is what a consumer splitting its tables by
+// module matches against; the name of the stored image is not it, because
+// the producer never learns that name.
+func TestModuleAttributionLabelsSamples(t *testing.T) {
+	scratch := t.TempDir()
+	worker := filepath.Join(scratch, "process-1234-1")
+	if err := os.MkdirAll(filepath.Join(worker, "modules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(worker, "modules", "module-0000-id22.cubin"), []byte("\x7fELFcubin-a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "capture.pprof")
+	result := captureResult{
+		Session:    moduleSession,
+		TargetPID:  1234,
+		Outcome:    captureOutcomeCollected,
+		ScratchDir: scratch,
+		Modules:    []captureModule{{ID: 22, Size: 12, File: "module-0000-id22.cubin", Stored: true}},
+		Activities: []captureActivity{{Subtype: "kernel", Name: "k", Valid: true, Start: 100, End: 200, ModuleID: 22}},
+	}
+	if err := writeCaptureStatus(out, result, captureArtifactBudget{}); err != nil {
+		t.Fatalf("write capture: %v", err)
+	}
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	c, err := cudacapture.Read(f)
+	if err != nil {
+		t.Fatalf("read capture: %v", err)
+	}
+	if len(c.Modules) != 1 || c.Modules[0].DriverID != 22 {
+		t.Fatalf("modules = %+v, want one numbered 22", c.Modules)
+	}
+	var labelled int
+	for _, s := range c.Profile.Sample {
+		if ids := s.Label["module_id"]; len(ids) == 1 && ids[0] == "22" {
+			labelled++
+		}
+	}
+	if labelled != 1 {
+		t.Errorf("%d samples name module 22, want 1", labelled)
+	}
+	if got := moduleLabel(c.Modules[0]); got != "22" {
+		t.Errorf("moduleLabel = %q, want \"22\"", got)
 	}
 }

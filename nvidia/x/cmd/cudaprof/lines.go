@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/google/pprof/profile"
@@ -65,6 +66,11 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample str
 	printed := 0
 	unlabelled := 0
 	for _, s := range cap.Profile.Sample {
+		// A copy or a synchronization runs no code and belongs to no
+		// module, so only unlabelled kernel work is worth reporting.
+		if subtype := s.Label["subtype"]; len(subtype) == 1 && subtype[0] != "kernel" {
+			continue
+		}
 		if len(s.Label["module_id"]) != 1 {
 			unlabelled++
 		}
@@ -75,7 +81,7 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample str
 		local.Profile = cap.Profile.Copy()
 		local.Profile.Sample = nil
 		for _, s := range cap.Profile.Sample {
-			if ids := s.Label["module_id"]; len(ids) == 1 && ids[0] == mod.ID {
+			if ids := s.Label["module_id"]; len(ids) == 1 && ids[0] == moduleLabel(mod) {
 				local.Profile.Sample = append(local.Profile.Sample, s)
 			}
 		}
@@ -101,9 +107,19 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample str
 		return fmt.Errorf("kernel %q not in any module's disassembly", kernel)
 	}
 	if unlabelled > 0 {
-		fmt.Fprintf(w, "\n%d profile records name no module and are counted in none of the tables above\n", unlabelled)
+		fmt.Fprintf(w, "\nkernel work naming no module: %d records, counted in none of the tables above\n", unlabelled)
 	}
 	return nil
+}
+
+// moduleLabel is the value a producer writes in a sample's "module_id"
+// label for this module: the driver's number, not the name of the stored
+// image. A module the census did not number matches no sample.
+func moduleLabel(mod cudacapture.Module) string {
+	if mod.DriverID == 0 {
+		return ""
+	}
+	return strconv.FormatUint(uint64(mod.DriverID), 10)
 }
 
 func printModuleLines(w io.Writer, cap *cudacapture.Capture, kernel, sample string) error {

@@ -1024,6 +1024,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				DynamicSharedMemory: smem,
 				GraphID:             payload.GraphID,
 				GraphNodeID:         payload.GraphNodeID,
+				ModuleID:            payload.ModuleID,
 			})
 			if !valid {
 				continue
