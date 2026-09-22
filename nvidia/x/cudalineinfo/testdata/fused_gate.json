@@ -9,17 +9,17 @@
 			"Callers": [
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 113,
+					"Line": 121,
 					"Function": "main.attribute"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 79,
+					"Line": 81,
 					"Function": "main.run"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 70,
+					"Line": 72,
 					"Function": "main.main"
 				}
 			]
@@ -31,17 +31,17 @@
 			"Callers": [
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 113,
+					"Line": 121,
 					"Function": "main.attribute"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 79,
+					"Line": 81,
 					"Function": "main.run"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 70,
+					"Line": 72,
 					"Function": "main.main"
 				}
 			]
@@ -53,17 +53,17 @@
 			"Callers": [
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 113,
+					"Line": 121,
 					"Function": "main.attribute"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 79,
+					"Line": 81,
 					"Function": "main.run"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 70,
+					"Line": 72,
 					"Function": "main.main"
 				}
 			]
@@ -75,17 +75,17 @@
 			"Callers": [
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 113,
+					"Line": 121,
 					"Function": "main.attribute"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 79,
+					"Line": 81,
 					"Function": "main.run"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 70,
+					"Line": 72,
 					"Function": "main.main"
 				}
 			]
@@ -97,17 +97,17 @@
 			"Callers": [
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 113,
+					"Line": 121,
 					"Function": "main.attribute"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 79,
+					"Line": 81,
 					"Function": "main.run"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 70,
+					"Line": 72,
 					"Function": "main.main"
 				}
 			]
@@ -119,17 +119,17 @@
 			"Callers": [
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 113,
+					"Line": 121,
 					"Function": "main.attribute"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 79,
+					"Line": 81,
 					"Function": "main.run"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 70,
+					"Line": 72,
 					"Function": "main.main"
 				}
 			]
@@ -141,17 +141,17 @@
 			"Callers": [
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 113,
+					"Line": 121,
 					"Function": "main.attribute"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 79,
+					"Line": 81,
 					"Function": "main.run"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 70,
+					"Line": 72,
 					"Function": "main.main"
 				}
 			]
@@ -163,20 +163,21 @@
 			"Callers": [
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 113,
+					"Line": 121,
 					"Function": "main.attribute"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 79,
+					"Line": 81,
 					"Function": "main.run"
 				},
 				{
 					"File": "x/examples/source-wiring/main.go",
-					"Line": 70,
+					"Line": 72,
 					"Function": "main.main"
 				}
 			]
 		}
-	}
+	},
+	"Kernels": null
 }

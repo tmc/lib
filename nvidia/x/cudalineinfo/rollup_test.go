@@ -36,9 +36,9 @@ func TestRollup(t *testing.T) {
 		{"kernels.go:45", "main.activate", activate, activate},
 		{"kernels.go:49", "main.normalize", sqrt, sqrt},
 		{"kernels.go:50", "main.normalize", div, div},
-		{"main.go:113", "main.attribute", 0, attributed},
-		{"main.go:79", "main.run", 0, attributed},
-		{"main.go:70", "main.main", 0, attributed},
+		{"main.go:121", "main.attribute", 0, attributed},
+		{"main.go:81", "main.run", 0, attributed},
+		{"main.go:72", "main.main", 0, attributed},
 	} {
 		r, ok := got[tt.site]
 		if !ok {

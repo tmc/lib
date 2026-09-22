@@ -86,9 +86,9 @@ func TestHostFrames(t *testing.T) {
 	}{
 		{"main.activate", kernelsFile, 45},
 		{"main.layered", kernelsFile, 40},
-		{"main.attribute", mainFile, 113},
-		{"main.run", mainFile, 79},
-		{"main.main", mainFile, 70},
+		{"main.attribute", mainFile, 121},
+		{"main.run", mainFile, 81},
+		{"main.main", mainFile, 72},
 	}
 	if len(frames) != len(want) {
 		t.Fatalf("got %d frames, want %d: %+v", len(frames), len(want), frames)
