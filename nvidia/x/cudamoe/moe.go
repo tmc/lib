@@ -93,7 +93,8 @@ type expertScore struct {
 	score float32
 }
 
-// Route computes top-K expert selection with softmax weights.
+// Route computes top-K expert selection with softmax weights. Experts with
+// equal scores are ordered by index, so routing is reproducible across runs.
 func (r *GroupedTopKRouter) Route(gateLogits []float32) RoutingDecision {
 	n := r.cfg.NumRoutedExperts
 	if len(gateLogits) < n {
@@ -108,8 +109,13 @@ func (r *GroupedTopKRouter) Route(gateLogits []float32) RoutingDecision {
 		}
 	}
 
+	// Sort descending by score, breaking ties on the expert index. sort.Slice
+	// is not stable, so without the tiebreak equal scores route arbitrarily.
 	sort.Slice(scores, func(i, j int) bool {
-		return scores[i].score > scores[j].score
+		if scores[i].score != scores[j].score {
+			return scores[i].score > scores[j].score
+		}
+		return scores[i].index < scores[j].index
 	})
 
 	k := r.cfg.TopK
