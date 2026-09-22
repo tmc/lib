@@ -266,3 +266,16 @@ func TestReportSourceFromUnit(t *testing.T) {
 		t.Fatal("forward.cu is on disk, so the table may have read it there")
 	}
 }
+
+// TestOptionsName checks the file name a unit is compiled under. A unit
+// named for something other than its file needs the file name stated,
+// since it reaches the line table and is what every tier then reports.
+func TestOptionsName(t *testing.T) {
+	u := Unit{Name: "forward"}
+	if got := (Options{}).name(u); got != "forward.cu" {
+		t.Errorf("default name = %q, want forward.cu", got)
+	}
+	if got := (Options{Name: "laya_forward.cu"}).name(u); got != "laya_forward.cu" {
+		t.Errorf("name = %q, want laya_forward.cu", got)
+	}
+}

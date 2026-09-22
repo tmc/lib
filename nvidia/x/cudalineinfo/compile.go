@@ -20,13 +20,32 @@ type Options struct {
 	// understand Arch; a CUDA 12 nvdisasm rejects sm_121.
 	Nvdisasm string
 
+	// Name is the file name the compiler records for the unit's source, and
+	// so the name every tier reports its own lines under. Empty uses
+	// [Unit.GeneratedName]. Set it when the unit is named for something
+	// other than its file, such as a hand-written source holding several
+	// kernels.
+	Name string
+
 	// NoDirectives compiles the unit's source as written, without #line
 	// directives. Every tier then names only the generated file, which is
 	// the control that shows the directives carry the attribution.
 	NoDirectives bool
 
 	// NVRTC holds further compiler options, such as [nvrtcx.WithFastMath].
+	// They are applied after the ones Compile sets, but an option that
+	// appends rather than assigns, such as [nvrtcx.WithPhysicalArchTarget],
+	// does not replace what is already there. Use Arch and Name instead of
+	// repeating those here.
 	NVRTC []nvrtcx.Option
+}
+
+// name is the file name to compile the unit under.
+func (o Options) name(u Unit) string {
+	if o.Name != "" {
+		return o.Name
+	}
+	return u.GeneratedName()
 }
 
 // Compile compiles the unit with line information, disassembles the result,
@@ -41,7 +60,7 @@ func Compile(ctx context.Context, unit Unit, opts Options) (*Attribution, error)
 	}
 	nopts := []nvrtcx.Option{
 		nvrtcx.WithContext(ctx),
-		nvrtcx.WithName(unit.GeneratedName()),
+		nvrtcx.WithName(opts.name(unit)),
 		nvrtcx.WithLineInfo(),
 		nvrtcx.WithPhysicalArchTarget(opts.Arch),
 	}
