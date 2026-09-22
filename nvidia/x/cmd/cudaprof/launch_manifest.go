@@ -18,6 +18,21 @@ func buildLaunchManifest(result captureResult) json.RawMessage {
 	m := newLaunchManifest(launchManifestOptions{Enabled: true})
 	b, err := marshalBoundedLaunchManifest(m, manifestRecords(result))
 	if err != nil {
+		return launchManifestError(err)
+	}
+	return b
+}
+
+// launchManifestError reports why no manifest was produced. The reason is
+// carried in the status record because a consumer that sees only a missing
+// manifest cannot tell a bounded omission from a defect.
+func launchManifestError(cause error) json.RawMessage {
+	b, err := json.Marshal(struct {
+		Schema       string `json:"schema"`
+		Completeness string `json:"completeness"`
+		Error        string `json:"error"`
+	}{"cudaprof-launch-manifest/v1", "metadata-only", cause.Error()})
+	if err != nil {
 		return json.RawMessage(`{"schema":"cudaprof-launch-manifest/v1","completeness":"metadata-only","error":"marshal failed"}`)
 	}
 	return b
@@ -179,12 +194,24 @@ func marshalBoundedLaunchManifest(m *launchManifest, records []launchManifestRec
 			break
 		}
 	}
-	b, err := m.marshalJSON()
-	if err != nil {
-		return nil, err
+	// Omission and OmittedRecords are set after the size check that triggered
+	// them, so they are not in the length that check measured. Recording an
+	// omission can therefore push a manifest that just fit back over the
+	// limit. Drop records until the marshaled form, those fields included,
+	// fits.
+	for {
+		b, err := m.marshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		if len(b) <= m.MaxBytes {
+			return b, nil
+		}
+		if len(m.Records) == 0 {
+			return nil, fmt.Errorf("bounded launch manifest envelope exceeds max_bytes=%d with no records", m.MaxBytes)
+		}
+		m.Records = m.Records[:len(m.Records)-1]
+		m.OmittedRecords++
+		m.Omission = "byte_limit"
 	}
-	if len(b) > m.MaxBytes {
-		return nil, fmt.Errorf("bounded launch manifest metadata exceeds %d bytes", m.MaxBytes)
-	}
-	return b, nil
 }

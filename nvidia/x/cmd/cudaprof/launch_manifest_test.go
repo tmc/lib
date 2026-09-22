@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -142,5 +143,79 @@ func TestQualifiedLaunchBytesRequiresMatchingVersionAndBound(t *testing.T) {
 				t.Fatalf("status = %q, want %q", got.Status, tt.wantStatus)
 			}
 		})
+	}
+}
+
+// TestLaunchManifestByteLimitFitsWithOmission sweeps the byte budget across the
+// whole range where records are dropped. Recording an omission adds fields that
+// were not in the length the byte check measured, so a manifest that just fit
+// could be pushed back over it and marshal as an error instead of a bounded
+// result. The assertion is the property, not the absence of an error: whatever
+// comes back must be within max_bytes and must say what it dropped.
+func TestLaunchManifestByteLimitFitsWithOmission(t *testing.T) {
+	records := make([]launchManifestRecord, 200)
+	for i := range records {
+		records[i] = launchManifestRecord{
+			CallbackID:  uint32(i),
+			Correlation: uint32(i),
+			Domain:      "DRIVER",
+			Function:    "someKernelNameOfModerateLength",
+			Module:      "UNREAD",
+			Parameters:  launchBytes{Status: "UNREAD"},
+		}
+	}
+	// The floor is the envelope with the omission fields populated, not the
+	// bare envelope: a manifest that drops records must have room to say so.
+	floor := newLaunchManifest(launchManifestOptions{Enabled: true, MaxBytes: 1 << 20})
+	floor.OmittedRecords = uint64(len(records))
+	floor.Omission = "byte_limit"
+	envelope, err := floor.marshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for max := len(envelope); max < 4000; max++ {
+		m := newLaunchManifest(launchManifestOptions{Enabled: true, MaxBytes: max})
+		b, err := marshalBoundedLaunchManifest(m, records)
+		if err != nil {
+			t.Fatalf("max_bytes=%d: %v", max, err)
+		}
+		if len(b) > max {
+			t.Fatalf("max_bytes=%d: manifest is %d bytes, over its own limit", max, len(b))
+		}
+		var got launchManifest
+		if err := json.Unmarshal(b, &got); err != nil {
+			t.Fatalf("max_bytes=%d: %v", max, err)
+		}
+		if len(got.Records) == len(records) {
+			continue
+		}
+		if got.Omission == "" || got.OmittedRecords == 0 {
+			t.Fatalf("max_bytes=%d: kept %d of %d records but omission=%q omitted=%d",
+				max, len(got.Records), len(records), got.Omission, got.OmittedRecords)
+		}
+		if int(got.OmittedRecords) != len(records)-len(got.Records) {
+			t.Fatalf("max_bytes=%d: omitted_records=%d, want %d",
+				max, got.OmittedRecords, len(records)-len(got.Records))
+		}
+	}
+}
+
+// TestLaunchManifestErrorNamesItsCause checks that a failure reaches the status
+// record as a reason. "marshal failed" told a reader nothing, and a consumer
+// cannot otherwise tell a bounded omission from a defect.
+func TestLaunchManifestErrorNamesItsCause(t *testing.T) {
+	b := launchManifestError(errors.New("envelope exceeds max_bytes=8 with no records"))
+	var got struct {
+		Schema string `json:"schema"`
+		Error  string `json:"error"`
+	}
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Schema != "cudaprof-launch-manifest/v1" {
+		t.Fatalf("schema = %q", got.Schema)
+	}
+	if got.Error == "marshal failed" || !strings.Contains(got.Error, "max_bytes=8") {
+		t.Fatalf("error = %q, want the cause", got.Error)
 	}
 }
