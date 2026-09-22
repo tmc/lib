@@ -1,6 +1,7 @@
 package cudaview
 
 import (
+	"path"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudaptx"
@@ -20,7 +21,7 @@ func Annotate(tier *PipelineTier) {
 	switch tier.Language {
 	case "go", "cuda":
 		for i := range tier.Lines {
-			tier.Lines[i].SourceFile = tier.FileName
+			tier.Lines[i].SourceFile = sourceName(tier.FileName)
 			tier.Lines[i].SourceLine = tier.Lines[i].Num
 		}
 	case "ptx":
@@ -34,7 +35,7 @@ func Annotate(tier *PipelineTier) {
 					continue
 				}
 				line := &tier.Lines[inst.Line-1]
-				line.SourceFile = inst.Loc.File
+				line.SourceFile = sourceName(inst.Loc.File)
 				line.SourceLine = inst.Loc.Line
 				line.Opcode = inst.Opcode
 				line.Predicate = inst.Predicate
@@ -67,7 +68,7 @@ func Annotate(tier *PipelineTier) {
 			}
 			e := queue[0]
 			entries[key] = queue[1:]
-			line.SourceFile = e.inst.SourceFile
+			line.SourceFile = sourceName(e.inst.SourceFile)
 			if e.inst.SourceFile != "" {
 				line.SourceLine = e.inst.SourceLine
 			}
@@ -80,4 +81,15 @@ func Annotate(tier *PipelineTier) {
 			}
 		}
 	}
+}
+
+// sourceName is the name by which every tier refers to a source file. The
+// PTX and the disassembly record the path the compiler was given, which is a
+// build-host path; the listings name the file as the capture bundles it. Only
+// the base name is common to all of them.
+func sourceName(file string) string {
+	if file == "" {
+		return ""
+	}
+	return path.Base(file)
 }

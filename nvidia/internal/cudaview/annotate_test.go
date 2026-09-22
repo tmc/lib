@@ -9,6 +9,7 @@ func TestSourceIdentity(t *testing.T) {
 	for _, tt := range []struct{ name, source, want string }{
 		{"first", ".file 1 \"first.cu\"", "first.cu"},
 		{"second", ".file 1 \"second.cu\"", "second.cu"},
+		{"build-host path", ".file 1 \"/home/builder/src/third.cu\"", "third.cu"},
 		{"missing", "", ""},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
