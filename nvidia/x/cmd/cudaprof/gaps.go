@@ -355,6 +355,10 @@ type gapActivity struct {
 	stream      uint32
 	graphID     uint32
 	grid, block [3]int
+
+	// Set only for a memcpy, and read only by compare.
+	bytes    uint64
+	copyKind uint8
 }
 
 // gapInterval is one span on one device's timeline. Overhead spans carry no
@@ -380,6 +384,8 @@ type gapPayload struct {
 	Subtype      string `json:"subtype"`
 	Name         string `json:"name"`
 	Stream       uint32 `json:"stream"`
+	Bytes        uint64 `json:"bytes"`
+	CopyKind     uint8  `json:"copy_kind"`
 	GridX        uint32 `json:"grid_x"`
 	GridY        uint32 `json:"grid_y"`
 	GridZ        uint32 `json:"grid_z"`
@@ -625,6 +631,8 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 				graphID:     payload.GraphID,
 				grid:        [3]int{int(payload.GridX), int(payload.GridY), int(payload.GridZ)},
 				block:       [3]int{int(payload.BlockX), int(payload.BlockY), int(payload.BlockZ)},
+				bytes:       payload.Bytes,
+				copyKind:    payload.CopyKind,
 			})
 		case recordAPI:
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {
