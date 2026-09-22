@@ -150,23 +150,29 @@ func (p *Pattern) Search(g *EGraph) []MatchMatch {
 	return matches
 }
 
-// SearchBounded searches in class order and stops once limit matches have
-// been produced. This bounds the candidate pool exposed to search policies.
+// SearchBounded searches in class order and returns at most limit matches.
+// Matching has a separate 100000-step allowance for calls and node visits;
+// a small output limit does not prohibit nested patterns. The bool reports reaching either
+// allowance, so it does not imply that another match exists.
 func (p *Pattern) SearchBounded(g *EGraph, limit int) ([]MatchMatch, bool) {
 	if limit <= 0 {
 		return nil, false
 	}
 	var matches []MatchMatch
 	work := 0
+	const maxWork = 100000
 	for _, c := range g.Classes() {
-		for _, s := range p.matchEClassBudget(g, c.ID, make(Subst), &work, limit) {
+		for _, s := range p.matchEClassBudget(g, c.ID, make(Subst), &work, maxWork) {
+			matches = append(matches, MatchMatch{ClassID: c.ID, Subst: s})
 			if len(matches) >= limit {
 				return matches, true
 			}
-			matches = append(matches, MatchMatch{ClassID: c.ID, Subst: s})
+		}
+		if work > maxWork {
+			return matches, true
 		}
 	}
-	return matches, work > limit
+	return matches, false
 }
 
 // MatchEClass checks if this pattern matches against a specific e-class.
@@ -175,7 +181,9 @@ func (p *Pattern) MatchEClass(g *EGraph, classID Id, current Subst) []Subst {
 	return p.matchEClassBudget(g, classID, current, &work, 100000)
 }
 
-// MatchEClassBounded matches with a finite recursive work budget.
+// MatchEClassBounded matches with a finite budget for recursive calls and
+// e-node visits, including nodes that do not match. Exhaustion returns no matches
+// and ErrMatchWorkLimit.
 func (p *Pattern) MatchEClassBounded(g *EGraph, classID Id, current Subst, limit int) ([]Subst, error) {
 	if limit <= 0 {
 		return nil, ErrMatchWorkLimit
@@ -215,6 +223,10 @@ func (p *Pattern) matchEClassBudget(g *EGraph, classID Id, current Subst, work *
 
 	var results []Subst
 	for _, node := range eclass.Nodes {
+		(*work)++
+		if *work > limit {
+			return results
+		}
 		if node.Op != p.Op || len(node.Children) != len(p.Children) {
 			continue
 		}
@@ -226,6 +238,9 @@ func (p *Pattern) matchEClassBudget(g *EGraph, classID Id, current Subst, work *
 			var nextSubsts []Subst
 			for _, sub := range currentSubsts {
 				res := childPat.matchEClassBudget(g, childClassID, sub, work, limit)
+				if *work > limit {
+					return results
+				}
 				nextSubsts = append(nextSubsts, res...)
 			}
 			currentSubsts = nextSubsts

@@ -118,6 +118,14 @@ func NewExtractor(g *EGraph, costModel CostModel) *Extractor {
 }
 
 func (ext *Extractor) computeCosts() {
+	_ = ext.computeCostsBounded(nil)
+}
+
+func (ext *Extractor) computeCostsBounded(budget *extractionBudget) error {
+	if budget != nil && len(ext.g.classes) > budget.limits.MaxWork-budget.work {
+		budget.workExhausted = true
+		return ErrExtractionLimit
+	}
 	// Fixed-point iteration to compute optimal bottom-up costs.
 	// Bounded iteration limit: at most len(classes) + 2 passes to prevent infinite loop on cyclic dependencies.
 	classes := ext.g.Classes()
@@ -133,6 +141,9 @@ func (ext *Extractor) computeCosts() {
 			canonicalID := ext.g.Find(eclass.ID)
 
 			for _, node := range eclass.Nodes {
+				if err := budget.take(1 + len(node.Children)); err != nil {
+					return err
+				}
 				allChildrenKnown := true
 				childCosts := make([]float64, len(node.Children))
 				for i, c := range node.Children {
@@ -150,6 +161,9 @@ func (ext *Extractor) computeCosts() {
 				}
 
 				nodeCost := ext.costModel.NodeCost(node, childCosts)
+				if err := budget.take(0); err != nil {
+					return err
+				}
 				// Reject non-finite costs (NaN or +/-Inf)
 				if math.IsNaN(nodeCost) || math.IsInf(nodeCost, 0) {
 					continue
@@ -164,6 +178,7 @@ func (ext *Extractor) computeCosts() {
 			}
 		}
 	}
+	return nil
 }
 
 // Extract returns the minimum-cost AST Expr and its total cost for the specified e-class root.
@@ -191,6 +206,13 @@ func (ext *Extractor) buildExpr(id Id) *Expr {
 }
 
 func (ext *Extractor) buildExprChecked(id Id, visited map[Id]bool) (*Expr, error) {
+	return ext.buildExprBounded(id, visited, nil, 1)
+}
+
+func (ext *Extractor) buildExprBounded(id Id, visited map[Id]bool, budget *extractionBudget, depth int) (*Expr, error) {
+	if err := budget.node(depth); err != nil {
+		return nil, err
+	}
 	canonicalID := ext.g.Find(id)
 	if visited[canonicalID] {
 		return nil, fmt.Errorf("cyclic extraction detected at e-class %d", canonicalID)
@@ -203,9 +225,12 @@ func (ext *Extractor) buildExprChecked(id Id, visited map[Id]bool) (*Expr, error
 	visited[canonicalID] = true
 	defer delete(visited, canonicalID)
 
+	if budget != nil && len(bestNode.Children) > budget.limits.MaxNodes-budget.nodes {
+		return nil, ErrExtractionLimit
+	}
 	children := make([]*Expr, len(bestNode.Children))
 	for i, childID := range bestNode.Children {
-		child, err := ext.buildExprChecked(childID, visited)
+		child, err := ext.buildExprBounded(childID, visited, budget, depth+1)
 		if err != nil {
 			return nil, err
 		}

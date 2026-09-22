@@ -148,6 +148,9 @@ func EnumerateActionsBounded(g *EGraph, rules []*Rewrite, limit int) []ActionCan
 	var candidates []ActionCandidate
 
 	for _, rule := range rules {
+		if len(candidates) == limit {
+			break
+		}
 		matches, _ := rule.LHS.SearchBounded(g, limit-len(candidates))
 		for _, m := range matches {
 			candidate := ActionCandidate{
@@ -182,10 +185,10 @@ func EnumerateActionsBounded(g *EGraph, rules []*Rewrite, limit int) []ActionCan
 }
 
 func actionIsNoOp(g *EGraph, c ActionCandidate) bool {
-	probe := g.Clone()
-	target := probe.Find(c.Match.ClassID)
-	rhs := c.Rule.RHS.Instantiate(probe, c.Match.Subst)
-	return probe.Find(target) == probe.Find(rhs)
+	if c.Rule == nil {
+		return false
+	}
+	return patternIsExistingClass(g, c.Rule.RHS, c.Match.Subst, c.Match.ClassID)
 }
 
 // TransitionResult details the outcome of applying an action to a search state.
