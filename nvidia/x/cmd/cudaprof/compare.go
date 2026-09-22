@@ -722,23 +722,11 @@ func (c *Comparison) write(w io.Writer) error {
 	}
 	fmt.Fprintln(w)
 
-	rest := fmt.Sprintf("%+d %+d %+d %+d", c.term("memcpy").Delta, c.term("memset").Delta, c.term("idle").Delta, c.term("unresolved").Delta)
+	fmt.Fprint(w, c.identity())
 	if c.OpStatus != "MEASURED" {
-		fmt.Fprintf(w, "identity: Δwindow = Δkernel + Δmemcpy + Δmemset + Δidle + Δunresolved\n          %+d = %+d %s (exact)\n",
-			c.term("window").Delta, c.term("kernel").Delta, rest)
 		fmt.Fprintln(w, "per-op: UNREAD (graph replay hides the per-op census)")
 		return nil
 	}
-	var named, unmatched int64
-	for _, o := range c.Ops {
-		if o.Op == unmatchedOp {
-			unmatched = o.DeltaExclusiveNanos
-			continue
-		}
-		named += o.DeltaExclusiveNanos
-	}
-	fmt.Fprintf(w, "identity: Δwindow = ΣΔop + Δunmatched + Δmemcpy + Δmemset + Δidle + Δunresolved\n          %+d = %+d %+d %s (exact)\n",
-		c.term("window").Delta, named, unmatched, rest)
 	fmt.Fprintf(w, "coverage: (unmatched) is %.1f%% of Σ|Δ| over the identity's terms\n\n", 100*c.UnmatchedShare)
 
 	fmt.Fprintln(w, "per op, ns. exclusive: each busy instant charged once (kernel > memcpy > memset, then earliest start); it sums to busy.")
@@ -754,6 +742,25 @@ func (c *Comparison) write(w io.Writer) error {
 			o.BaseMeanNanos, o.TargetMeanNanos, o.Op)
 	}
 	return tw.Flush()
+}
+
+// identity returns the two lines stating the identity and its deltas.
+func (c *Comparison) identity() string {
+	rest := fmt.Sprintf("%+d %+d %+d %+d", c.term("memcpy").Delta, c.term("memset").Delta, c.term("idle").Delta, c.term("unresolved").Delta)
+	if c.OpStatus != "MEASURED" {
+		return fmt.Sprintf("identity: Δwindow = Δkernel + Δmemcpy + Δmemset + Δidle + Δunresolved\n          %+d = %+d %s (exact)\n",
+			c.term("window").Delta, c.term("kernel").Delta, rest)
+	}
+	var named, unmatched int64
+	for _, o := range c.Ops {
+		if o.Op == unmatchedOp {
+			unmatched = o.DeltaExclusiveNanos
+			continue
+		}
+		named += o.DeltaExclusiveNanos
+	}
+	return fmt.Sprintf("identity: Δwindow = ΣΔop + Δunmatched + Δmemcpy + Δmemset + Δidle + Δunresolved\n          %+d = %+d %+d %s (exact)\n",
+		c.term("window").Delta, named, unmatched, rest)
 }
 
 func (s *CompareSide) windowLine() string {

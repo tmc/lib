@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -99,6 +98,9 @@ const (
 	CategoryArchitectureDispatch Category = "Architecture/Dispatch"
 	CategoryMemoryCompute        Category = "Memory/Compute"
 	CategoryDispatch             Category = "Dispatch"
+
+	// CategoryKernel holds several patterns found in one kernel's code.
+	CategoryKernel Category = "Kernel"
 )
 
 // Location specifies the source or machine code position associated with an advice item.
@@ -111,6 +113,11 @@ type Location struct {
 	// CallSite is the host call site of a host API finding, or UNREAD with
 	// the reason when the capture does not hold one.
 	CallSite string `json:"call_site,omitempty"`
+
+	// Source is UNREAD with the reason when the kernel's code carried a
+	// source location that is not provably from the compilation the kernel
+	// ran, and File and Line were cleared for it.
+	Source string `json:"source,omitempty"`
 }
 
 func (l Location) String() string {
@@ -124,6 +131,9 @@ func (l Location) String() string {
 		} else {
 			parts = append(parts, l.File)
 		}
+	}
+	if l.Source != "" {
+		parts = append(parts, "source "+l.Source)
 	}
 	if l.PC > 0 {
 		parts = append(parts, fmt.Sprintf("PC 0x%04x", l.PC))
@@ -151,6 +161,19 @@ type AdviceItem struct {
 	// orders a finding by the larger of the two.
 	HostTimeNanos  int64   `json:"host_time_nanos,omitempty"`
 	ShareOfProfile float64 `json:"share_of_profile,omitempty"`
+
+	// Patterns are the findings in one kernel's code that a CategoryKernel
+	// item holds. They carry no time of their own: the kernel's time is the
+	// item's, counted once.
+	Patterns []AdviceItem `json:"patterns,omitempty"`
+
+	// Gap is what the finding could explain of the gap to a base capture,
+	// or nil when there is no base or no term of the comparison it moves.
+	Gap *GapBound `json:"gap,omitempty"`
+
+	// terms names the comparison terms this finding moves, when its category
+	// and location do not say; see gapBound.
+	terms []string
 
 	// magnitude overrides the parenthetical the markdown header prints for
 	// this item. The default reads "(N% of GPU time, M ms)", which is a claim
@@ -193,6 +216,10 @@ type AdviceReport struct {
 	// below carries an empty file and a zero line. Without this a reader cannot
 	// tell a refused binding from a compiler that emitted no line information.
 	SourceFusion string `json:"source_fusion_failure,omitempty"`
+
+	// Base is the comparison against a base capture that ranks the items,
+	// when advise was given one.
+	Base *Comparison `json:"base,omitempty"`
 }
 
 // sampleOnlyCaveat names what PC sampling cannot see. Activity tracing is the
@@ -226,6 +253,9 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 	if r.SourceFusion != "" {
 		sb.WriteString(sourceFusionMarkdownCaveat(r.SourceFusion))
 	}
+	if r.Base != nil {
+		r.writeBase(&sb)
+	}
 	// The caveats above are written before this return, not after it: a report
 	// with no findings on a capture that refused its source binding is not the
 	// same as a clean report, and rendering them identically is how a refusal
@@ -252,7 +282,9 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 	sb.WriteString(fmt.Sprintf("- **Cost**: %d\n", cost))
 	sb.WriteString(fmt.Sprintf("- **Context**: %d\n\n", context))
 
-	sb.WriteString("## Findings\n\n")
+	if r.Base == nil {
+		sb.WriteString("## Findings\n\n")
+	}
 	count := len(r.Items)
 	if limit > 0 && limit < count {
 		count = limit
@@ -261,8 +293,13 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 		// reaches after forming an impression of how much there was.
 		sb.WriteString(fmt.Sprintf("*Showing %d of %d findings (use --format=json for all, or -limit=0).*\n\n", count, len(r.Items)))
 	}
+	section := -1
 	for i := 0; i < count; i++ {
 		item := r.Items[i]
+		if r.Base != nil && gapSection(item) != section {
+			section = gapSection(item)
+			sb.WriteString(gapHeadings[section] + "\n\n")
+		}
 		header := fmt.Sprintf("### %d. [%s] %s: %s\n\n", i+1, item.Severity, item.Category, item.Finding)
 		if item.magnitude != "" {
 			header = fmt.Sprintf("### %d. [%s] (%s) %s: %s\n\n", i+1, item.Severity, item.magnitude, item.Category, item.Finding)
@@ -283,16 +320,10 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 			}
 		}
 		sb.WriteString(header)
-		if item.EvidenceLevel != "" {
-			sb.WriteString(fmt.Sprintf("- **Evidence**: %s\n", item.EvidenceLevel))
-		}
-		locStr := item.Location.String()
-		if locStr != "" {
-			sb.WriteString(fmt.Sprintf("- **Location**: %s\n", locStr))
-		}
-		sb.WriteString(fmt.Sprintf("- **Recommendation**: %s\n", item.ActionableRecommendation))
-		if item.NextMeasurement != "" {
-			sb.WriteString(fmt.Sprintf("- **Next Measurement**: %s\n", item.NextMeasurement))
+		writeAdviceBody(&sb, item, "")
+		for j, p := range item.Patterns {
+			fmt.Fprintf(&sb, "%d. %s: %s\n", j+1, p.Category, p.Finding)
+			writeAdviceBody(&sb, p, "   ")
 		}
 		sb.WriteString("\n")
 	}
@@ -303,6 +334,26 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 	}
 
 	return sb.String()
+}
+
+// writeAdviceBody writes the list under a finding's header, each line
+// prefixed by indent.
+func writeAdviceBody(sb *strings.Builder, item AdviceItem, indent string) {
+	if item.Gap != nil {
+		fmt.Fprintf(sb, "%s- **Gap**: %s\n", indent, gapLine(item.Gap))
+	}
+	if item.EvidenceLevel != "" {
+		fmt.Fprintf(sb, "%s- **Evidence**: %s\n", indent, item.EvidenceLevel)
+	}
+	if loc := item.Location.String(); loc != "" {
+		fmt.Fprintf(sb, "%s- **Location**: %s\n", indent, loc)
+	}
+	if item.ActionableRecommendation != "" {
+		fmt.Fprintf(sb, "%s- **Recommendation**: %s\n", indent, item.ActionableRecommendation)
+	}
+	if item.NextMeasurement != "" {
+		fmt.Fprintf(sb, "%s- **Next Measurement**: %s\n", indent, item.NextMeasurement)
+	}
 }
 
 // JSON formats the advice report as formatted JSON.
@@ -401,14 +452,8 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 		launchesByKernel[l.Kernel] = l
 	}
 
-	disasm, _ := loadDisassemblyWithPressure(cap)
-	if disasm == nil {
-		if sassData, ok := findSASS(cap); ok && len(sassData) > 0 {
-			if parsed, err := cudasass.Parse(bytes.NewReader(sassData)); err == nil {
-				disasm = parsed
-			}
-		}
-	}
+	images, unread := kernelImages(cap)
+	disasm := adviseDisassembly(cap, images)
 	if disasm != nil {
 		arch := parseArchFromCapture(cap)
 		if arch == "" {
@@ -450,33 +495,21 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 				}
 			}
 
-			// Report SASS IMAD.WIDE scalar address arithmetic fallbacks (capped to avoid flooding)
-			for i, inst := range imadWides {
-				if i >= 3 {
-					report.Items = append(report.Items, AdviceItem{
-						Severity:      SeverityWarning,
-						Category:      CategoryArchitecture,
-						EvidenceLevel: EvidenceSuspected,
-						Location: Location{
-							Kernel: fn.Name,
-						},
-						Finding:                  fmt.Sprintf("Scalar address arithmetic fallback: kernel %q has %d instructions (%s) on target architecture", fn.Name, len(imadWides), inst.Opcode),
-						ActionableRecommendation: "If address patterns are regular and aligned, use vectorized 128-bit memory addressing or hardware TMA descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications.",
-						NextMeasurement:          "A/B wall-clock timing or profiling with hardware instruction counters",
-					})
-					break
-				}
+			// One finding per pattern per kernel: the pattern is one lead, and
+			// a finding per instruction charged the kernel's time to each.
+			if len(imadWides) > 0 {
+				first := imadWides[0]
 				report.Items = append(report.Items, AdviceItem{
 					Severity:      SeverityWarning,
 					Category:      CategoryArchitecture,
 					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: fn.Name,
-						PC:     inst.Address,
-						File:   inst.SourceFile,
-						Line:   inst.SourceLine,
+						PC:     first.Address,
+						File:   first.SourceFile,
+						Line:   first.SourceLine,
 					},
-					Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected at PC 0x%04x", inst.Opcode, inst.Address),
+					Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) in kernel %q: %d instructions, at %s", first.Opcode, fn.Name, len(imadWides), formatPCs(imadWides)),
 					ActionableRecommendation: "If address patterns are regular and aligned, use vectorized 128-bit memory addressing or hardware TMA descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications.",
 					NextMeasurement:          "A/B wall-clock timing or profiling with hardware instruction counters",
 				})
@@ -501,33 +534,19 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 				})
 			}
 
-			// Report register spill points
-			for i, spill := range spills {
-				if i >= 5 {
-					report.Items = append(report.Items, AdviceItem{
-						Severity:      SeverityCritical,
-						Category:      CategoryRegisterPressure,
-						EvidenceLevel: EvidenceObserved,
-						Location: Location{
-							Kernel: fn.Name,
-						},
-						Finding:                  fmt.Sprintf("Kernel %q has %d total register spill instructions to local memory", fn.Name, len(spills)),
-						ActionableRecommendation: "Reduce live variable ranges or specify __launch_bounds__ to eliminate register spills.",
-						NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
-					})
-					break
-				}
+			if len(spills) > 0 {
+				first := spills[0]
 				report.Items = append(report.Items, AdviceItem{
 					Severity:      SeverityCritical,
 					Category:      CategoryRegisterPressure,
 					EvidenceLevel: EvidenceObserved,
 					Location: Location{
 						Kernel: fn.Name,
-						PC:     spill.Address,
-						File:   spill.SourceFile,
-						Line:   spill.SourceLine,
+						PC:     first.Address,
+						File:   first.SourceFile,
+						Line:   first.SourceLine,
 					},
-					Finding:                  fmt.Sprintf("Register spill point detected at PC 0x%04x (%s): memory spilled to local stack", spill.Address, formatInstruction(spill)),
+					Finding:                  fmt.Sprintf("Register spill point detected in kernel %q: %d local-memory instructions, first %s, at %s", fn.Name, len(spills), formatInstruction(first), formatPCs(spills)),
 					ActionableRecommendation: "Reduce register lifetimes or apply __launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor) to eliminate spills to slow local memory.",
 					NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
 				})
@@ -735,7 +754,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	auditCaptureStatus(cap, report)
 
 	// 3. CUBIN ELF Resource & Microarchitecture Occupancy Audit (via x/cudaoccupancy)
-	auditCUBINResourceOccupancy(cap, report, launchesByKernel)
+	auditCUBINResourceOccupancy(cap, report, images, launchesByKernel)
 
 	// 4. Launch Geometry Audits (Underpopulated Thread Block & SM Grid Starvation)
 	auditLaunchGeometry(cap, report)
@@ -744,7 +763,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	auditUnderSubscribedLaunches(cap, report)
 
 	// 6. Uncoalesced Memory Access Audit (SASS & PC Sampling & Remarks)
-	auditUncoalescedMemory(cap, report)
+	auditUncoalescedMemory(cap, report, disasm)
 
 	// 7. Stream Kernel Sequences (CUDA Graph Candidates & Pointwise Fusion)
 	auditStreamKernelSequences(cap, report)
@@ -760,6 +779,8 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	hasTiming := hasDeviceTiming(cap)
 	auditKernelFamilyDominance(cap, report, kernelTimes, totalTime, hasTiming)
 
+	markUnreadSources(report, unread)
+
 	// Finalize device times and rank findings by device time
 	report.SampleOnly = !hasTiming
 	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, hasTiming)
@@ -772,64 +793,12 @@ func runAdviseCommand(rawArgs []string) error {
 	if err != nil {
 		return err
 	}
-	var format string
-	var capturePath string
-	limit := defaultAdviceLimit
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "-json" || arg == "--json" || arg == "--format=json" {
-			format = "json"
-		} else if arg == "-markdown" || arg == "--markdown" || arg == "--format=markdown" {
-			format = "markdown"
-		} else if arg == "-e" || arg == "--e" || arg == "-all" || arg == "--all" {
-			limit = 0
-		} else if strings.HasPrefix(arg, "-limit=") || strings.HasPrefix(arg, "--limit=") {
-			val := strings.TrimPrefix(strings.TrimPrefix(arg, "--limit="), "-limit=")
-			n, err := strconv.Atoi(val)
-			if err != nil {
-				return fmt.Errorf("invalid -limit value: %s", val)
-			}
-			limit = n
-		} else if arg == "-limit" || arg == "--limit" {
-			if i+1 >= len(args) {
-				return errors.New("flag -limit requires an argument")
-			}
-			i++
-			n, err := strconv.Atoi(args[i])
-			if err != nil {
-				return fmt.Errorf("invalid -limit value: %s", args[i])
-			}
-			limit = n
-		} else if strings.HasPrefix(arg, "-n=") || strings.HasPrefix(arg, "--n=") {
-			val := strings.TrimPrefix(strings.TrimPrefix(arg, "--n="), "-n=")
-			n, err := strconv.Atoi(val)
-			if err != nil {
-				return fmt.Errorf("invalid -n value: %s", val)
-			}
-			limit = n
-		} else if arg == "-n" {
-			if i+1 >= len(args) {
-				return errors.New("flag -n requires an argument")
-			}
-			i++
-			n, err := strconv.Atoi(args[i])
-			if err != nil {
-				return fmt.Errorf("invalid -n value: %s", args[i])
-			}
-			limit = n
-		} else if strings.HasPrefix(arg, "-") {
-			return fmt.Errorf("unknown flag: %s", arg)
-		} else if capturePath == "" {
-			capturePath = arg
-		} else {
-			return errors.New("multiple capture files specified")
-		}
-	}
-	if capturePath == "" {
-		return errors.New("usage: cudaprof advise [-e] [-limit N] [--format=json|markdown] capture.pprof")
+	opts, err := parseAdviseArgs(args)
+	if err != nil {
+		return err
 	}
 
-	path, err := filepath.Abs(capturePath)
+	path, err := filepath.Abs(opts.capture)
 	if err != nil {
 		return err
 	}
@@ -842,8 +811,13 @@ func runAdviseCommand(rawArgs []string) error {
 	if err != nil {
 		return fmt.Errorf("analyze capture: %w", err)
 	}
+	if opts.base != "" {
+		if err := adviseAgainstBase(report, cap, path, opts, limits); err != nil {
+			return fmt.Errorf("advise: %w", err)
+		}
+	}
 
-	if format == "json" {
+	if opts.format == "json" {
 		// -limit governs how much the markdown report prints, not how much
 		// the tool knows. The summary counts every finding, so one format has
 		// to be able to reach every finding; JSON is it. Truncating here left
@@ -856,8 +830,89 @@ func runAdviseCommand(rawArgs []string) error {
 		return nil
 	}
 
-	fmt.Print(report.MarkdownWithLimit(limit))
+	fmt.Print(report.MarkdownWithLimit(opts.limit))
 	return nil
+}
+
+const adviseUsage = "usage: cudaprof advise [-e] [-limit N] [--format=json|markdown] [-base base.pprof [-ops ops.txt] [-phase i]] capture.pprof"
+
+type adviseOptions struct {
+	format  string
+	limit   int
+	capture string
+
+	// base, ops and phase select a comparison against a base capture, as
+	// compare's arguments of the same names do.
+	base  string
+	ops   string
+	phase int
+}
+
+// parseAdviseArgs parses advise's flags, each spelled with one dash or two
+// and taking its value as -flag=v or -flag v.
+func parseAdviseArgs(args []string) (adviseOptions, error) {
+	opts := adviseOptions{limit: defaultAdviceLimit, phase: -1}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") {
+			if opts.capture != "" {
+				return opts, errors.New("multiple capture files specified")
+			}
+			opts.capture = arg
+			continue
+		}
+		name, val, hasVal := strings.Cut(strings.TrimPrefix(strings.TrimPrefix(arg, "-"), "-"), "=")
+		value := func() (string, error) {
+			if hasVal {
+				return val, nil
+			}
+			if i+1 >= len(args) {
+				return "", fmt.Errorf("flag -%s requires an argument", name)
+			}
+			i++
+			return args[i], nil
+		}
+		intValue := func() (int, error) {
+			v, err := value()
+			if err != nil {
+				return 0, err
+			}
+			n, err := strconv.Atoi(v)
+			if err != nil {
+				return 0, fmt.Errorf("invalid -%s value: %s", name, v)
+			}
+			return n, nil
+		}
+		var err error
+		switch {
+		case !hasVal && (name == "json" || name == "markdown"):
+			opts.format = name
+		case hasVal && name == "format" && (val == "json" || val == "markdown"):
+			opts.format = val
+		case !hasVal && (name == "e" || name == "all"):
+			opts.limit = 0
+		case name == "limit" || name == "n":
+			opts.limit, err = intValue()
+		case name == "base":
+			opts.base, err = value()
+		case name == "ops":
+			opts.ops, err = value()
+		case name == "phase":
+			opts.phase, err = intValue()
+		default:
+			return opts, fmt.Errorf("unknown flag: %s", arg)
+		}
+		if err != nil {
+			return opts, err
+		}
+	}
+	if opts.capture == "" {
+		return opts, errors.New(adviseUsage)
+	}
+	if opts.base == "" && (opts.ops != "" || opts.phase >= 0) {
+		return opts, errors.New("-ops and -phase select a comparison and need -base")
+	}
+	return opts, nil
 }
 
 func findPTX(cap *cudacapture.Capture) ([]byte, string, error) {
@@ -1652,17 +1707,23 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport
 // auditCUBINResourceOccupancy inspects CUBIN ELF .nv.info sections (EIATTR_REG_COUNT,
 // EIATTR_SHARED_SIZE_SYSMEM, EIATTR_FRAME_SIZE, EIATTR_MAXREG_COUNT) using x/cudaoccupancy
 // to calculate target-specific SM warp occupancy, occupancy cliffs, and hardware limiting factors.
-func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport, launchesByKernel map[string]launchRecord) {
+func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport, images []kernelImage, launchesByKernel map[string]launchRecord) {
 	if cap == nil {
 		return
 	}
-	cubinData, ok := findCUBIN(cap)
-	if !ok || len(cubinData) == 0 {
-		return
+	var infos []cudaoccupancy.KernelResourceInfo
+	for _, img := range images {
+		kinfos, err := cudaoccupancy.ReadKernelInfoBytes(img.cubin)
+		if err != nil {
+			continue
+		}
+		for _, k := range kinfos {
+			if img.answers(k.Name) {
+				infos = append(infos, k)
+			}
+		}
 	}
-
-	infos, err := cudaoccupancy.ReadKernelInfoBytes(cubinData)
-	if err != nil || len(infos) == 0 {
+	if len(infos) == 0 {
 		return
 	}
 
@@ -1911,7 +1972,7 @@ func extractKernelNameFromSample(s *profile.Sample) string {
 	return ""
 }
 
-func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
+func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disasm *cudasass.Disassembly) {
 	if cap == nil {
 		return
 	}
@@ -1923,14 +1984,6 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 	code, fusion, _ := loadCodeTiered(cap)
 	if fusion != nil {
 		report.SourceFusion = fusion.Error()
-	}
-	disasm, _ := loadDisassemblyWithPressure(cap)
-	if disasm == nil {
-		if sassData, ok := findSASS(cap); ok && len(sassData) > 0 {
-			if parsed, err := cudasass.Parse(bytes.NewReader(sassData)); err == nil {
-				disasm = parsed
-			}
-		}
 	}
 
 	reportedLocations := make(map[string]bool)
@@ -4018,6 +4071,7 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 	if report == nil || len(report.Items) == 0 {
 		return
 	}
+	report.Items = foldKernelPatterns(report.Items)
 	for i := range report.Items {
 		item := &report.Items[i]
 		if hasTiming {
@@ -4049,6 +4103,11 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 		item := &report.Items[i]
 		if item.Severity == SeverityReadFirst && !item.severityByKind {
 			item.Severity = SeverityCost
+		}
+		for j := range item.Patterns {
+			if p := &item.Patterns[j]; p.Severity == SeverityReadFirst {
+				p.Severity = SeverityCost
+			}
 		}
 	}
 
@@ -4091,6 +4150,62 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 		}
 		return a.Finding < b.Finding
 	})
+}
+
+// takesKernelTime reports whether item is a pattern in one kernel's code
+// whose size is that kernel's time, filled in when the report is ranked.
+// A dispatch finding names a kernel for how it is launched, not for its code.
+func takesKernelTime(item AdviceItem) bool {
+	return item.Location.Kernel != "" && !strings.Contains(item.Location.Kernel, " -> ") &&
+		!isDispatch(item.Category) &&
+		item.DeviceTimeNanos == 0 && item.HostTimeNanos == 0 && item.ShareOfProfile == 0 &&
+		item.magnitude == "" && !item.severityByKind && len(item.Patterns) == 0
+}
+
+func isDispatch(c Category) bool {
+	return c == CategoryDispatch || c == CategoryArchitectureDispatch
+}
+
+// foldKernelPatterns replaces the findings that take their size from the same
+// kernel with one finding for the kernel that holds them as patterns. Each
+// would otherwise be charged the kernel's whole time, and a kernel showing
+// five patterns ranked as five findings each worth all of it. A kernel with
+// one such finding keeps it as it is.
+func foldKernelPatterns(items []AdviceItem) []AdviceItem {
+	byKernel := make(map[string][]AdviceItem)
+	for _, item := range items {
+		if takesKernelTime(item) {
+			byKernel[item.Location.Kernel] = append(byKernel[item.Location.Kernel], item)
+		}
+	}
+	var out []AdviceItem
+	folded := make(map[string]bool)
+	for _, item := range items {
+		k := item.Location.Kernel
+		patterns := byKernel[k]
+		if !takesKernelTime(item) || len(patterns) < 2 {
+			out = append(out, item)
+			continue
+		}
+		if folded[k] {
+			continue
+		}
+		folded[k] = true
+		kernel := AdviceItem{
+			Severity: SeverityContext,
+			Category: CategoryKernel,
+			Location: Location{Kernel: k},
+			Finding:  fmt.Sprintf("%d patterns in kernel %q; the kernel's time is counted once", len(patterns), k),
+			Patterns: patterns,
+		}
+		for _, p := range patterns {
+			if severityRank(p.Severity) < severityRank(kernel.Severity) {
+				kernel.Severity = p.Severity
+			}
+		}
+		out = append(out, kernel)
+	}
+	return out
 }
 
 // negligibleDeviceNanos is the device time below which a cost finding ranks as

@@ -447,6 +447,8 @@ func hostCostItem(g *hostCostGroup, launches int, window int64) AdviceItem {
 			device = fmt.Sprintf("device copy time %.2f ms", float64(g.deviceNanos)/1e6)
 		}
 		magnitude += "; " + device
+		// The device runs the copy, and waits idle while the host waits.
+		item.terms = []string{"memcpy", "idle"}
 		item.Finding = fmt.Sprintf("Synchronous copy %s repeats %d times (%s); the host waits out each one", g.name, g.calls, what)
 		item.ActionableRecommendation = "Move the copy out of the loop if its data does not change per iteration; otherwise issue it as an async copy from pinned host memory on a non-default stream, so the host does not wait for the transfer."
 		item.NextMeasurement = "recapture and compare this finding's host time; locate the call with a host profiler, since the capture holds no call site"

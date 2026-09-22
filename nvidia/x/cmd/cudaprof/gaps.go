@@ -359,6 +359,10 @@ type gapActivity struct {
 	// Set only for a memcpy, and read only by compare.
 	bytes    uint64
 	copyKind uint8
+
+	// module is the driver's id of the module a kernel ran from, or 0 when
+	// the record does not say. Read only by advise.
+	module uint32
 }
 
 // gapInterval is one span on one device's timeline. Overhead spans carry no
@@ -401,6 +405,7 @@ type gapPayload struct {
 	Context      uint32 `json:"context"`
 	Correlation  uint32 `json:"correlation"`
 	GraphID      uint32 `json:"graph_id"`
+	ModuleID     uint32 `json:"module_id"`
 	OverheadKind uint32 `json:"overhead_kind"`
 	SyncType     uint32 `json:"sync_type"`
 	Dropped      uint64 `json:"dropped"`
@@ -633,6 +638,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 				block:       [3]int{int(payload.BlockX), int(payload.BlockY), int(payload.BlockZ)},
 				bytes:       payload.Bytes,
 				copyKind:    payload.CopyKind,
+				module:      payload.ModuleID,
 			})
 		case recordAPI:
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {

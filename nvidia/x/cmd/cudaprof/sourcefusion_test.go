@@ -132,7 +132,7 @@ func TestPressureStatesSourceFusion(t *testing.T) {
 // failure zeroes, so the report has to say so above them.
 func TestAdviseStatesSourceFusion(t *testing.T) {
 	fused := &AdviceReport{}
-	auditUncoalescedMemory(fusionFixture(t, 2), fused)
+	auditUncoalescedMemory(fusionFixture(t, 2), fused, nil)
 	if fused.SourceFusion == "" {
 		t.Fatal("advise report carries no source-fusion failure for a fused capture")
 	}
@@ -140,7 +140,7 @@ func TestAdviseStatesSourceFusion(t *testing.T) {
 		t.Fatalf("markdown report withheld the caveat:\n%s", md)
 	}
 	clean := &AdviceReport{}
-	auditUncoalescedMemory(fusionFixture(t, 0), clean)
+	auditUncoalescedMemory(fusionFixture(t, 0), clean, nil)
 	if clean.SourceFusion != "" {
 		t.Fatalf("clean capture reported a source-fusion failure: %s", clean.SourceFusion)
 	}

@@ -207,7 +207,7 @@ func TestAdvice_TMAFailureRemark(t *testing.T) {
 
 	// Should contain TMA failure (Memory) and Tensor Core failure (Compute)
 	var foundTMA, foundTensorCore bool
-	for _, item := range report.Items {
+	for _, item := range findings(report) {
 		if item.Category == CategoryMemory && item.Severity == SeverityWarning {
 			if strings.Contains(item.Finding, "non-contiguous stride along dim 1") {
 				foundTMA = true
@@ -1048,7 +1048,7 @@ uncoalesced_load:
 			}
 
 			var found bool
-			for _, item := range report.Items {
+			for _, item := range findings(report) {
 				if item.Category == tt.wantCategory && (tt.wantSeverity == "" || item.Severity == tt.wantSeverity) &&
 					strings.Contains(item.Finding, tt.wantFinding) {
 					found = true
@@ -1578,7 +1578,7 @@ deepseek_decode:
 	for _, ef := range expectedFindings {
 		t.Run(ef.name, func(t *testing.T) {
 			var found bool
-			for _, item := range report.Items {
+			for _, item := range findings(report) {
 				if item.Category == ef.category && strings.Contains(item.Finding, ef.finding) {
 					found = true
 					if !strings.Contains(item.ActionableRecommendation, ef.rec) {
@@ -1696,7 +1696,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 				Files:    map[string][]byte{"kernels.cubin": cubinBytes},
 			}
 			var report AdviceReport
-			auditCUBINResourceOccupancy(cap, &report, nil)
+			auditCUBINResourceOccupancy(cap, &report, []kernelImage{{cubin: cubinBytes}}, nil)
 			var frameFound bool
 			for _, item := range report.Items {
 				if strings.Contains(item.Finding, "Microarchitecture theoretical occupancy") {
@@ -1730,7 +1730,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			}
 
 			var found bool
-			for _, item := range report.Items {
+			for _, item := range findings(report) {
 				if item.Location.Kernel == tt.wantKernel &&
 					item.Severity == tt.wantSeverity &&
 					strings.Contains(item.Finding, tt.wantFinding) {
@@ -2719,22 +2719,16 @@ func TestAdvice_SASSIMADCapping(t *testing.T) {
 		t.Fatalf("AnalyzeCapture failed: %v", err)
 	}
 
-	var imadItems int
-	var summaryItem bool
+	var imad []string
 	for _, item := range report.Items {
 		if strings.Contains(item.Finding, "Scalar address arithmetic fallback") {
-			imadItems++
-			if strings.Contains(item.Finding, "has 10 instructions") {
-				summaryItem = true
-			}
+			imad = append(imad, item.Finding)
 		}
 	}
-	// 3 individual items + 1 summary item = 4 items total
-	if imadItems != 4 {
-		t.Errorf("expected 4 IMAD items (3 detailed + 1 summary), got %d", imadItems)
-	}
-	if !summaryItem {
-		t.Errorf("expected summary IMAD item not found")
+	// One finding for the kernel's pattern, however many instructions show it.
+	const want = "Scalar address arithmetic fallback (IMAD.WIDE) in kernel \"imad_kernel\": 10 instructions, at 0x0000, 0x0010, 0x0020, +7 more"
+	if len(imad) != 1 || imad[0] != want {
+		t.Errorf("IMAD findings = %q, want [%q]", imad, want)
 	}
 }
 
@@ -2865,7 +2859,7 @@ func TestAdvice_ScoreboardAndBranchStalls(t *testing.T) {
 	}
 
 	var foundScoreboard, foundBranch bool
-	for _, it := range report.Items {
+	for _, it := range findings(report) {
 		if strings.Contains(it.Finding, "Register scoreboard latency stall") {
 			foundScoreboard = true
 			if !strings.Contains(it.ActionableRecommendation, "software pipelining") {
@@ -2914,7 +2908,7 @@ Function : ds4_q2_k_selected_q8_1_gather
 		t.Fatal(err)
 	}
 	var scoreboard, branch bool
-	for _, item := range report.Items {
+	for _, item := range findings(report) {
 		if strings.Contains(item.Finding, "Register scoreboard latency stall") {
 			scoreboard = true
 			if !strings.Contains(item.Finding, "instructions later") {
