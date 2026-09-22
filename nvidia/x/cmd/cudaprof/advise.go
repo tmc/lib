@@ -107,6 +107,10 @@ type Location struct {
 	PC     uint64 `json:"pc,omitempty"`
 	File   string `json:"file,omitempty"`
 	Line   int    `json:"line,omitempty"`
+
+	// CallSite is the host call site of a host API finding, or UNREAD with
+	// the reason when the capture does not hold one.
+	CallSite string `json:"call_site,omitempty"`
 }
 
 func (l Location) String() string {
@@ -124,6 +128,9 @@ func (l Location) String() string {
 	if l.PC > 0 {
 		parts = append(parts, fmt.Sprintf("PC 0x%04x", l.PC))
 	}
+	if l.CallSite != "" {
+		parts = append(parts, "call site "+l.CallSite)
+	}
 	return strings.Join(parts, ", ")
 }
 
@@ -137,7 +144,13 @@ type AdviceItem struct {
 	ActionableRecommendation string        `json:"actionable_recommendation"`
 	NextMeasurement          string        `json:"next_measurement,omitempty"`
 	DeviceTimeNanos          int64         `json:"device_time_nanos,omitempty"`
-	ShareOfProfile           float64       `json:"share_of_profile,omitempty"`
+
+	// HostTimeNanos is host time a finding accounts for: time a host thread
+	// spent inside API calls, which no kernel profile holds. It is kept apart
+	// from DeviceTimeNanos so neither is read as the other, and the ranking
+	// orders a finding by the larger of the two.
+	HostTimeNanos  int64   `json:"host_time_nanos,omitempty"`
+	ShareOfProfile float64 `json:"share_of_profile,omitempty"`
 
 	// magnitude overrides the parenthetical the markdown header prints for
 	// this item. The default reads "(N% of GPU time, M ms)", which is a claim
@@ -736,6 +749,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	// 7. Stream Kernel Sequences (CUDA Graph Candidates & Pointwise Fusion)
 	auditStreamKernelSequences(cap, report)
 	auditHostDispatchOverhead(cap, report)
+	auditHostAPICost(cap, report)
 
 	// 7a. Whole-capture duty cycle. This runs before the dominance audit so
 	// that an idle-dominated capture says so above every kernel-time finding.
@@ -4066,8 +4080,8 @@ func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[str
 		if a.Severity != b.Severity {
 			return severityRank(a.Severity) < severityRank(b.Severity)
 		}
-		if a.DeviceTimeNanos != b.DeviceTimeNanos {
-			return a.DeviceTimeNanos > b.DeviceTimeNanos
+		if ra, rb := max(a.DeviceTimeNanos, a.HostTimeNanos), max(b.DeviceTimeNanos, b.HostTimeNanos); ra != rb {
+			return ra > rb
 		}
 		if a.ShareOfProfile != b.ShareOfProfile {
 			return a.ShareOfProfile > b.ShareOfProfile
