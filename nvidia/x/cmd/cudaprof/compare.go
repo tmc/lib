@@ -206,6 +206,9 @@ type CompareSide struct {
 	PhaseIndex        int    `json:"phase_index"`
 	Device            string `json:"device,omitempty"`
 	ComputeCapability string `json:"compute_capability,omitempty"`
+	// GraphTraceMode is how the agent traced graph replays, or empty when
+	// the capture predates the key and the mode is UNREAD.
+	GraphTraceMode graphTraceMode `json:"graph_trace_mode,omitempty"`
 
 	StartTimestamp  int64 `json:"start_timestamp"`
 	StopTimestamp   int64 `json:"stop_timestamp"`
@@ -451,6 +454,7 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, opts compareOpt
 			side.Device, side.ComputeCapability = prov.Device, prov.ComputeCapability
 		}
 	}
+	side.GraphTraceMode, _ = captureGraphTraceMode(status.Capability)
 	if err := side.selectWindow(status.PhaseReceipt, opts.phase, records); err != nil {
 		return nil, err
 	}
@@ -458,7 +462,7 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, opts compareOpt
 		return nil, err
 	}
 	if side.UnresolvedNanos > 0 && !opts.allowUnresolved {
-		return nil, fmt.Errorf("%d ns of graph replay in the window is covered by no resolved record, so the per-op census is hidden; capture with graphs disabled, or pass -allow-unresolved for window totals only", side.UnresolvedNanos)
+		return nil, fmt.Errorf("%d ns of graph replay in the window is covered by no resolved record, so the per-op census is hidden (graph trace mode %s); capture with --graph-trace=node or graphs disabled, or pass -allow-unresolved for window totals only", side.UnresolvedNanos, side.graphTraceModeString())
 	}
 	return side, nil
 }
@@ -760,10 +764,18 @@ func (s *CompareSide) windowLine() string {
 	if s.Device != "" || s.ComputeCapability != "" {
 		line += fmt.Sprintf("  device %q cc %s", s.Device, s.ComputeCapability)
 	}
+	line += "  graph trace " + s.graphTraceModeString()
 	if s.WindowNote != "" {
 		line += "\n        " + s.WindowNote
 	}
 	return line
+}
+
+func (s *CompareSide) graphTraceModeString() string {
+	if s.GraphTraceMode == "" {
+		return "UNREAD"
+	}
+	return string(s.GraphTraceMode)
 }
 
 func formatKinds(kinds map[string]int) string {

@@ -497,3 +497,31 @@ func TestCompareJSON(t *testing.T) {
 		t.Errorf("ops = %v", ops)
 	}
 }
+
+// TestCompareGraphTraceMode checks that the mode comes from the capability
+// record and is UNREAD, not assumed, when a capture predates the key.
+func TestCompareGraphTraceMode(t *testing.T) {
+	recs := []rec{{subtype: "kernel", name: "k", start: 1100, end: 1200}}
+	tests := []struct {
+		name       string
+		capability map[string]any
+		want       string
+	}{
+		{"node", map[string]any{"capture_range": "cudaProfilerApi", "graph_trace_mode": "node"}, "node"},
+		{"graph", map[string]any{"capture_range": "cudaProfilerApi", "graph_trace_mode": "graph"}, "graph"},
+		{"absent", map[string]any{"capture_range": "cudaProfilerApi"}, "UNREAD"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := phaseStatus(1000, 2000)
+			status["capability"] = tt.capability
+			side, err := measureCompareSide(compareCapture(recs, status), nil, compareOptions{phase: -1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := side.graphTraceModeString(); got != tt.want {
+				t.Errorf("graph trace mode = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
