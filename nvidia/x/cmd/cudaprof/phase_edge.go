@@ -73,7 +73,7 @@ func buildPhaseReceipt(result captureResult, edges []capturePhaseEdge) *captureP
 	r.Edges = append([]capturePhaseEdge(nil), edges...)
 	completeness := result.RunCompleteness
 	if completeness == "" {
-		completeness = runCompletenessOf(result.TransportReady, result.CollectorFinalized, unqualifiedGenerations(result.WorkerGenerations), result.DroppedRecords)
+		completeness = runCompletenessOf(result.TransportReady, result.CollectorFinalized, unqualifiedGenerations(result.WorkerGenerations), result.DroppedRecords, result.ActivityRecords)
 	}
 	if completeness != runComplete {
 		r.Reason = "capture_incomplete"

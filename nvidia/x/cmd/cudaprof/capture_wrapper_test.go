@@ -121,8 +121,10 @@ func TestObserveCaptureSessionKeepsAWrapperTargetsChildren(t *testing.T) {
 		if got.Outcome != "initialized-no-activity" || got.CaptureSuccess {
 			t.Fatalf("outcome = %q, success = %v", got.Outcome, got.CaptureSuccess)
 		}
-		if got.RunCompleteness != runComplete {
-			t.Errorf("run_completeness = %q: a run that collected nothing because there was nothing to collect lost nothing", got.RunCompleteness)
+		// Nothing was lost, so it is not partial; nothing was observed
+		// either, so it is not complete.
+		if got.RunCompleteness != runEmpty {
+			t.Errorf("run_completeness = %q, want %q: a run that collected nothing certifies nothing", got.RunCompleteness, runEmpty)
 		}
 	})
 

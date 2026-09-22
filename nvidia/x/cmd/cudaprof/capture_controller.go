@@ -173,13 +173,13 @@ func observeCaptureSession(result captureResult, dir, session string, opts obser
 // for a run whose worker generations failed.
 func withRunCompleteness(result captureResult) captureResult {
 	result.UnqualifiedGenerations = unqualifiedGenerations(result.WorkerGenerations)
-	result.RunCompleteness = runCompletenessOf(result.TransportReady, result.CollectorFinalized, result.UnqualifiedGenerations, result.DroppedRecords)
+	result.RunCompleteness = runCompletenessOf(result.TransportReady, result.CollectorFinalized, result.UnqualifiedGenerations, result.DroppedRecords, result.ActivityRecords)
 	return result
 }
 
 // runCompletenessOf is the single classification rule, shared by the writer and
 // by inspect so a reader can never report a different answer than the capture.
-func runCompletenessOf(transportReady, collectorFinalized bool, unqualified uint64, dropped uint64) string {
+func runCompletenessOf(transportReady, collectorFinalized bool, unqualified, dropped, records uint64) string {
 	switch {
 	case !transportReady:
 		return runUnknown
@@ -187,6 +187,8 @@ func runCompletenessOf(transportReady, collectorFinalized bool, unqualified uint
 		return runFailed
 	case unqualified > 0 || dropped > 0:
 		return runPartial
+	case records == 0:
+		return runEmpty
 	}
 	return runComplete
 }

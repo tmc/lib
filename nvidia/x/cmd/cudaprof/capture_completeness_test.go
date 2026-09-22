@@ -229,6 +229,33 @@ func TestRunCompletenessUnknownWithoutTransport(t *testing.T) {
 	}
 }
 
+// TestRunCompletenessOf pins the rule itself. A run that retained no activity
+// records is empty, not complete: "complete" on zero records certified a
+// capture whose outcome was initialized-no-activity.
+func TestRunCompletenessOf(t *testing.T) {
+	tests := []struct {
+		name                          string
+		transportReady, finalized     bool
+		unqualified, dropped, records uint64
+		want                          string
+	}{
+		{"collected", true, true, 0, 0, 5, runComplete},
+		{"zero records", true, true, 0, 0, 0, runEmpty},
+		{"zero records and a failed generation", true, true, 1, 0, 0, runPartial},
+		{"zero records and drops", true, true, 0, 3, 0, runPartial},
+		{"not finalized", true, false, 0, 0, 0, runFailed},
+		{"no transport", false, false, 0, 0, 0, runUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := runCompletenessOf(tt.transportReady, tt.finalized, tt.unqualified, tt.dropped, tt.records)
+			if got != tt.want {
+				t.Errorf("runCompletenessOf = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestRunCompletenessRecoveredGenerationIsPartial keeps the F1 recovery path
 // consistent with this verdict: a recovered unfinalized generation never
 // qualifies, whatever its records say.

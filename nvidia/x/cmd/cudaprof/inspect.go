@@ -230,7 +230,7 @@ func addCoverageDetails(coverage *inspectCoverage, status []byte) {
 		if len(coverage.Workers) != 0 {
 			coverage.UnqualifiedGenerations = unqualifiedGenerations(workerDispositions(coverage.Workers))
 		}
-		coverage.RunCompleteness = runCompletenessOf(coverage.TransportReady, coverage.CollectorFinalized, coverage.UnqualifiedGenerations, coverage.DroppedRecords)
+		coverage.RunCompleteness = runCompletenessOf(coverage.TransportReady, coverage.CollectorFinalized, coverage.UnqualifiedGenerations, coverage.DroppedRecords, coverage.ActivityRecords)
 	}
 	coverage.MissingJournals = missingJournals(coverage.OmittedFiles)
 	coverage.ArtifactCompleteness = artifactComplete

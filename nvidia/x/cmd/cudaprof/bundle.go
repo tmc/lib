@@ -166,7 +166,7 @@ func (b *FlightRecorderBundle) ToCapture() (*cudacapture.Capture, error) {
 				"transport_ready":     true,
 				"activity_records":    uint64(b.Manifest.GPURecords),
 				"dropped_records":     dropped,
-				"run_completeness":    runCompletenessOf(true, true, 0, dropped),
+				"run_completeness":    runCompletenessOf(true, true, 0, dropped, uint64(b.Manifest.GPURecords)),
 				"outcome":             b.Manifest.Reason,
 			},
 		})

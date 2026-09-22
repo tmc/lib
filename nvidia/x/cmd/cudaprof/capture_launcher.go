@@ -55,12 +55,19 @@ const (
 // whole so target success can never imply that every generation qualified.
 //
 // A generation qualifies only when it finalized and reported no failure. Zero
-// retained records is not a fault: a finalized generation that ran no GPU work
-// is complete, and nothing here infers lost or unobserved work from a count.
+// retained records is not a fault in a generation: a finalized generation that
+// ran no GPU work qualifies, and nothing here infers lost work from a count.
+// A run that retained no records at all is not complete either, though: it is
+// empty, and "complete" on zero records would certify a capture that observed
+// nothing.
 const (
-	// runComplete means every observed generation qualified and no records
-	// were dropped.
+	// runComplete means every observed generation qualified, no records
+	// were dropped, and at least one activity record was retained.
 	runComplete = "complete"
+	// runEmpty means every observed generation qualified and nothing was
+	// dropped, but the run retained no activity records. It is not a claim
+	// that work was lost, nor that the run did no device work.
+	runEmpty = "empty"
 	// runPartial means the target finalized but at least one generation did
 	// not qualify or records were lost. Totals are a floor, never a run total.
 	runPartial = "partial"
