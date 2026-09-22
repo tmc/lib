@@ -11,4 +11,4 @@ re-measured on this base (fuse-base-20260920), 3 paired reps, one hold:
 Control: regions the LAYA_FUSED_ATTN switch should not touch stayed flat across
 arms (split 5.26 -> 5.22, enc_proj 12.27 -> 12.32, enc_mlp 66.80 -> 65.87), so
 the whole delta sits in sdpa. Correctness gate re-run green on this base. The
-131 ms fused region-mode outlier seen on 640ec646 did not recur.
+131 ms fused region-mode outlier seen on 6ae2c9e2 did not recur.
