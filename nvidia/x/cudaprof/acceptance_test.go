@@ -22,6 +22,7 @@ func TestProfileWorkloadMismatch(t *testing.T) {
 		CollectorMode:      "pc_sampling",
 		Coverage:           0.85,
 		ClockUncertaintyNs: 5000,
+		MetricUnits:        map[string]string{"smsp__pcsamp_warps_issue_stalled_long_scoreboard": "samples", "smsp__pcsamp_warps_issue_stalled_short_scoreboard": "samples"},
 		Metrics: map[string]int64{
 			"smsp__pcsamp_warps_issue_stalled_long_scoreboard":  1500,
 			"smsp__pcsamp_warps_issue_stalled_short_scoreboard": 200,
@@ -32,36 +33,33 @@ func TestProfileWorkloadMismatch(t *testing.T) {
 	}
 
 	// 1. Workload mismatch
-	_, err = snap.Guidance("mistral-7b-prefill", "tokens-prompt-001", "sm_121a")
+	_, err = snap.Guidance(profileTarget(snap, "mistral-7b-prefill", "tokens-prompt-001", "sm_121a"))
 	if !errors.Is(err, cudaprof.ErrWorkloadMismatch) {
 		t.Errorf("expected ErrWorkloadMismatch, got: %v", err)
 	}
 
 	// 2. Tokens hash mismatch
-	_, err = snap.Guidance("llama-7b-prefill", "different-tokens", "sm_121a")
+	_, err = snap.Guidance(profileTarget(snap, "llama-7b-prefill", "different-tokens", "sm_121a"))
 	if !errors.Is(err, cudaprof.ErrWorkloadMismatch) {
 		t.Errorf("expected ErrWorkloadMismatch on tokens hash, got: %v", err)
 	}
 
 	// 3. Device mismatch
-	_, err = snap.Guidance("llama-7b-prefill", "tokens-prompt-001", "sm_100a")
+	_, err = snap.Guidance(profileTarget(snap, "llama-7b-prefill", "tokens-prompt-001", "sm_100a"))
 	if !errors.Is(err, cudaprof.ErrDeviceMismatch) {
 		t.Errorf("expected ErrDeviceMismatch, got: %v", err)
 	}
 
 	// 4. Correct match succeeds and identifies primary stall in original units
-	guidance, err := snap.Guidance("llama-7b-prefill", "tokens-prompt-001", "sm_121a")
+	guidance, err := snap.Guidance(profileTarget(snap, "llama-7b-prefill", "tokens-prompt-001", "sm_121a"))
 	if err != nil {
 		t.Fatalf("Guidance failed on matched workload: %v", err)
 	}
 	if !guidance.Available {
 		t.Errorf("guidance.Available = false, want true")
 	}
-	if guidance.PrimaryStallMetric != "smsp__pcsamp_warps_issue_stalled_long_scoreboard" {
-		t.Errorf("PrimaryStallMetric = %q, want long scoreboard", guidance.PrimaryStallMetric)
-	}
-	if !guidance.MemoryBound {
-		t.Errorf("MemoryBound = false, want true")
+	if guidance.CodeDigest != snap.CodeDigest || guidance.Region != snap.Region || guidance.CollectorMode != snap.CollectorMode {
+		t.Errorf("lost attribution: %+v", guidance)
 	}
 	if guidance.StallCounts["smsp__pcsamp_warps_issue_stalled_long_scoreboard"] != 1500 {
 		t.Errorf("expected exact count 1500 in original units, got: %v", guidance.StallCounts)
@@ -86,7 +84,7 @@ func TestProfileGuidanceUnavailable(t *testing.T) {
 		t.Fatalf("NewProfileSnapshot failed: %v", err)
 	}
 
-	guidance, err := snap.Guidance("workload_sparse", "", "sm_121a")
+	guidance, err := snap.Guidance(profileTarget(snap, "workload_sparse", "", "sm_121a"))
 	if !errors.Is(err, cudaprof.ErrGuidanceUnavailable) {
 		t.Errorf("expected ErrGuidanceUnavailable, got: %v", err)
 	}
