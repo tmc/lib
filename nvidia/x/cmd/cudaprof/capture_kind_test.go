@@ -53,6 +53,7 @@ func TestRecordKindsMatchProducer(t *testing.T) {
 		"KIND_API":        recordAPI,
 		"KIND_HOST":       recordHost,
 		"KIND_MODULE":     recordModule,
+		"KIND_PCSAMPLE":   recordPCSample,
 	}
 	goSpelling := map[string]string{
 		"KIND_BOOTSTRAP":  "recordBootstrap",
@@ -64,6 +65,7 @@ func TestRecordKindsMatchProducer(t *testing.T) {
 		"KIND_API":        "recordAPI",
 		"KIND_HOST":       "recordHost",
 		"KIND_MODULE":     "recordModule",
+		"KIND_PCSAMPLE":   "recordPCSample",
 	}
 
 	agent := filepath.Join("..", "..", "..", "internal", "cudainject", "native", "cupti_agent.c")

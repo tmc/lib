@@ -765,6 +765,10 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 			Code:     cudacapture.CodeFiles{CUBIN: a.name},
 		})
 	}
+	// PC samples are projected after the modules are declared: a sample names
+	// its module by the driver's number, and this is where that number is
+	// attached to a stored image.
+	projectPCSamples(c, result.PCSamples, attachments)
 	// The top-level code roles describe the capture as a whole and stay
 	// unavailable: there is no single cubin for a process that loaded several.
 	// Saying so, rather than dropping the role, is what keeps a reader from
@@ -889,6 +893,12 @@ Options:
                                 lever that cuts journal volume by an order of magnitude. It
                                 changes what is collected, not what is reported: sets
                                 CUDAPROF_API_ACTIVITY in the target
+  --pcsampling                  sample program counters inside the target, so the capture
+                                carries per-line device work and not only per-kernel time
+                                (sets CUDAPROF_PCSAMPLING). Off by default: measured on GB10
+                                it costs 25-27 microseconds of host drain per launch
+  --pcsampling-period <n>       sampling period exponent, 5 to 31, smaller is more frequent
+                                (implies --pcsampling, sets CUDAPROF_PCSAMPLING_PERIOD)
   --follow-children[=false]     count the generations of processes the target spawned in this
                                 capture's totals and projection (default true). Injection is
                                 inherited across exec, so a child runs the agent and writes its

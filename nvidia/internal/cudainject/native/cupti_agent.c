@@ -6,6 +6,7 @@
  */
 #include <cupti.h>
 #include <cupti_activity.h>
+#include <cupti_pcsampling.h>
 #include <cupti_version.h>
 #include <dirent.h>
 #include <dlfcn.h>
@@ -97,6 +98,10 @@
    of the sample projection, where a zero-length record would read as a kernel
    that took no time. */
 #define KIND_MODULE 9
+/* One folded PC sample, or the run's sampling summary. Gated on
+   CUDAPROF_PCSAMPLING for the same reason modules are gated: a consumer that
+   meets a kind it cannot decode refuses the whole journal. */
+#define KIND_PCSAMPLE 10
 
 /* Host-state sampling. CUPTI can say the device was idle for 8 ms; it cannot
    say what the host was doing during those 8 ms, so every device gap reads the
@@ -196,7 +201,7 @@ static _Atomic uint64_t offered_count;
    kind identity through admission and out to the finalized record so that a
    per-kind loss statement is derivable rather than inferred. Indexed by the
    KIND_ constants; only kinds that pass through the ring are ever nonzero. */
-#define KIND_COUNT 10
+#define KIND_COUNT 11
 static _Atomic uint64_t offered_by_kind[KIND_COUNT];
 static _Atomic uint64_t retained_by_kind[KIND_COUNT];
 static _Atomic uint64_t dropped_by_kind[KIND_COUNT];
@@ -1811,6 +1816,379 @@ static int track_module_callback(CUpti_CallbackId cbid, const CUpti_CallbackData
 	}
 }
 
+/* PC sampling. The activity records above say how long a kernel ran; nothing
+   in them says which of its instructions the warps were sitting on. CUPTI's
+   continuous PC sampler does, and it is off unless CUDAPROF_PCSAMPLING asks
+   for it, because it is not free: measured on a GB10 it costs a roughly
+   constant 25 to 27 microseconds of host drain per launch, 3% of a kernel
+   that runs for 0.8 ms and triple the cost of one that runs for 14
+   microseconds.
+
+   A sample arrives as a cubin CRC, a function name and a function-relative
+   byte offset. The CRC is what joins it to a stored module: cuptiGetCubinCrc
+   over the image the module-loaded callback hands us computes the same number
+   CUPTI stamps on the samples, so the two meet without matching names, which
+   two builds of one graph would make ambiguous -- the same reason the kernel
+   records above follow handles rather than names.
+
+   Samples fold into a fixed table keyed by module, function and offset, and
+   are written once at finalize. A record per drain would be one record per PC
+   per wakeup for the whole run, all of them saying the same thing about the
+   same instruction. */
+
+#define PCSAMPLE_NAME_BYTES 256
+#define PCSAMPLE_SLOTS 8192
+#define MODULE_CRC_SLOTS 256
+
+static int pcsampling_requested;
+static int pcsampling_running;
+static uint32_t pcsampling_period = 10;
+static uint32_t pcsampling_sleep_ms = 10;
+static uint64_t pcsampling_scratch_bytes = 4ull << 20;
+static uint64_t pcsampling_hardware_bytes = 16ull << 20;
+static uint64_t pcsampling_hardware_used;
+static size_t pcsampling_pcs = 1024;
+static CUcontext pcsampling_context;
+static CUpti_PCSamplingData *pcsampling_output;
+static CUpti_PCSamplingData *pcsampling_drain;
+static uint32_t *pcsampling_reasons;
+static size_t pcsampling_reason_count;
+static pthread_t pcsampling_thread;
+static int pcsampling_thread_started;
+static _Atomic int pcsampling_stop;
+static _Atomic uint64_t pcsampling_folded;
+static _Atomic uint64_t pcsampling_total;
+static _Atomic uint64_t pcsampling_hw_dropped;
+static _Atomic uint64_t pcsampling_unkeyed;
+static _Atomic uint64_t pcsampling_overflows;
+static pthread_mutex_t pcsampling_mu = PTHREAD_MUTEX_INITIALIZER;
+static struct pc_row {
+	char name[PCSAMPLE_NAME_BYTES];
+	uint64_t offset;
+	uint64_t samples;
+	uint32_t module_id;
+} pc_table[PCSAMPLE_SLOTS];
+static unsigned pc_table_used;
+static struct { uint64_t crc; uint32_t id; } module_crcs[MODULE_CRC_SLOTS];
+static unsigned module_crc_count;
+
+/* bind_module_crc records the CRC CUPTI will stamp on this module's samples
+   against the number the agent stored the image under, so a sample can name
+   the file a reader can disassemble. A module whose CRC will not compute
+   still samples; its PCs name module 0, which reads downstream as kernel work
+   belonging to no stored image. */
+static void bind_module_crc(const void *cubin, size_t size, uint32_t id) {
+	if (!pcsampling_requested || cubin == NULL || size == 0) return;
+	CUpti_GetCubinCrcParams p;
+	memset(&p, 0, sizeof(p));
+	p.size = CUpti_GetCubinCrcParamsSize;
+	p.cubinSize = size;
+	p.cubin = cubin;
+	CUptiResult r = cuptiGetCubinCrc(&p);
+	if (r != CUPTI_SUCCESS) { record_cupti_failure("cuptiGetCubinCrc", r); return; }
+	pthread_mutex_lock(&pcsampling_mu);
+	for (unsigned i = 0; i < module_crc_count; i++) {
+		if (module_crcs[i].crc == p.cubinCrc) { pthread_mutex_unlock(&pcsampling_mu); return; }
+	}
+	if (module_crc_count < MODULE_CRC_SLOTS) {
+		module_crcs[module_crc_count].crc = p.cubinCrc;
+		module_crcs[module_crc_count].id = id;
+		module_crc_count++;
+	}
+	pthread_mutex_unlock(&pcsampling_mu);
+}
+
+/* pcsampling_fold adds one PC's samples to the table. A name too long for a
+   row is counted as unkeyed rather than truncated: a truncated symbol reads
+   as a different symbol, and two kernels sharing a prefix would silently
+   merge, which is the rule the kernel records follow too. */
+static void pcsampling_fold(uint64_t crc, const char *name, uint64_t offset, uint64_t samples) {
+	if (samples == 0 || name == NULL || *name == '\0') return;
+	if (strnlen(name, PCSAMPLE_NAME_BYTES) >= PCSAMPLE_NAME_BYTES) {
+		atomic_fetch_add(&pcsampling_unkeyed, samples);
+		return;
+	}
+	uint64_t h = 1469598103934665603ull;
+	for (const unsigned char *p = (const unsigned char *)name; *p; p++) { h ^= *p; h *= 1099511628211ull; }
+	h ^= offset; h *= 1099511628211ull;
+	h ^= crc; h *= 1099511628211ull;
+	pthread_mutex_lock(&pcsampling_mu);
+	uint32_t id = 0;
+	for (unsigned i = 0; i < module_crc_count; i++) {
+		if (module_crcs[i].crc == crc) { id = module_crcs[i].id; break; }
+	}
+	for (unsigned probe = 0; probe < PCSAMPLE_SLOTS; probe++) {
+		struct pc_row *row = &pc_table[(h + probe) % PCSAMPLE_SLOTS];
+		if (row->name[0] == '\0') {
+			memcpy(row->name, name, strlen(name) + 1);
+			row->offset = offset;
+			row->module_id = id;
+			row->samples = samples;
+			pc_table_used++;
+			pthread_mutex_unlock(&pcsampling_mu);
+			return;
+		}
+		if (row->offset == offset && row->module_id == id && strcmp(row->name, name) == 0) {
+			row->samples += samples;
+			pthread_mutex_unlock(&pcsampling_mu);
+			return;
+		}
+	}
+	pthread_mutex_unlock(&pcsampling_mu);
+	atomic_fetch_add(&pcsampling_unkeyed, samples);
+}
+
+/* pcsampling_collect folds a filled buffer and empties it for reuse. Only the
+   selected reasons are summed, and the selection leaves out the _not_issued
+   companions, each of which counts a subset of the cycles its base reason
+   already counted: including them doubles the total against CUPTI's own. */
+static void pcsampling_collect(CUpti_PCSamplingData *d) {
+	if (d == NULL) return;
+	atomic_fetch_add(&pcsampling_total, d->totalSamples);
+	atomic_fetch_add(&pcsampling_hw_dropped, d->droppedSamples);
+	size_t n = d->totalNumPcs < d->collectNumPcs ? d->totalNumPcs : d->collectNumPcs;
+	for (size_t i = 0; i < n; i++) {
+		CUpti_PCSamplingPCData *pc = &d->pPcData[i];
+		uint64_t samples = 0;
+		for (size_t j = 0; j < pc->stallReasonCount; j++) samples += pc->stallReason[j].samples;
+		pcsampling_fold(pc->cubinCrc, pc->functionName, pc->pcOffset, samples);
+		atomic_fetch_add(&pcsampling_folded, samples);
+	}
+	d->totalNumPcs = 0;
+	d->totalSamples = 0;
+	d->droppedSamples = 0;
+	d->remainingNumPcs = 0;
+}
+
+/* pcsampling_drain_once reads one buffer's worth and reports whether CUPTI
+   still holds PCs, so a caller can drain to empty. A full hardware buffer is
+   counted rather than failed: the samples in it are lost, the ones after it
+   are not, and the count is what tells a reader the period was too short for
+   the run. */
+static int pcsampling_drain_once(void) {
+	if (!pcsampling_running || pcsampling_drain == NULL) return 0;
+	CUpti_PCSamplingGetDataParams p;
+	memset(&p, 0, sizeof(p));
+	p.size = CUpti_PCSamplingGetDataParamsSize;
+	p.ctx = pcsampling_context;
+	p.pcSamplingData = pcsampling_drain;
+	CUptiResult r = cuptiPCSamplingGetData(&p);
+	if (r == CUPTI_ERROR_OUT_OF_MEMORY) {
+		atomic_fetch_add(&pcsampling_overflows, 1);
+	} else if (r != CUPTI_SUCCESS) {
+		record_cupti_failure("cuptiPCSamplingGetData", r);
+		return 0;
+	}
+	int more = pcsampling_drain->remainingNumPcs > 0;
+	pcsampling_collect(pcsampling_drain);
+	return more;
+}
+
+/* The drain thread. CUPTI parses the hardware buffer on its own workers and
+   holds the result until it is read; nothing on the target's threads reads
+   it, so this one wakes on a fixed span and empties whatever is there.
+   Finalize joins it before it touches CUPTI itself. */
+static void *pcsampling_worker_main(void *arg) {
+	(void)arg;
+	while (!atomic_load(&pcsampling_stop)) {
+		struct timespec ts = {pcsampling_sleep_ms / 1000, (long)(pcsampling_sleep_ms % 1000) * 1000000L};
+		nanosleep(&ts, NULL);
+		for (int i = 0; i < 256 && !atomic_load(&pcsampling_stop); i++) {
+			if (!pcsampling_drain_once()) break;
+		}
+	}
+	return NULL;
+}
+
+/* pcsampling_alloc_buffer builds one parsed-data buffer: the header, the PC
+   array, and one stall-reason array per PC. CUPTI writes into all three. */
+static CUpti_PCSamplingData *pcsampling_alloc_buffer(size_t pcs, size_t reasons) {
+	CUpti_PCSamplingData *d = calloc(1, sizeof(*d));
+	if (d == NULL) return NULL;
+	d->size = sizeof(CUpti_PCSamplingData);
+	d->collectNumPcs = pcs;
+	d->pPcData = calloc(pcs, sizeof(CUpti_PCSamplingPCData));
+	if (d->pPcData == NULL) { free(d); return NULL; }
+	for (size_t i = 0; i < pcs; i++) {
+		d->pPcData[i].size = sizeof(CUpti_PCSamplingPCData);
+		d->pPcData[i].stallReason = calloc(reasons, sizeof(CUpti_PCSamplingStallReason));
+		if (d->pPcData[i].stallReason == NULL) return NULL;
+	}
+	return d;
+}
+
+/* pcsampling_apply writes the whole configuration for one hardware buffer
+   size. It is a function because that size is retried: CUPTI allocates the
+   hardware buffer on the device, and a device with a resident model on it
+   refuses the default. */
+static CUptiResult pcsampling_apply(CUcontext ctx, uint64_t hardware_bytes) {
+	CUpti_PCSamplingConfigurationInfo info[9];
+	memset(info, 0, sizeof(info));
+	info[0].attributeType = CUPTI_PC_SAMPLING_CONFIGURATION_ATTR_TYPE_SAMPLING_PERIOD;
+	info[0].attributeData.samplingPeriodData.samplingPeriod = pcsampling_period;
+	info[1].attributeType = CUPTI_PC_SAMPLING_CONFIGURATION_ATTR_TYPE_STALL_REASON;
+	info[1].attributeData.stallReasonData.stallReasonCount = pcsampling_reason_count;
+	info[1].attributeData.stallReasonData.pStallReasonIndex = pcsampling_reasons;
+	info[2].attributeType = CUPTI_PC_SAMPLING_CONFIGURATION_ATTR_TYPE_SCRATCH_BUFFER_SIZE;
+	info[2].attributeData.scratchBufferSizeData.scratchBufferSize = pcsampling_scratch_bytes;
+	info[3].attributeType = CUPTI_PC_SAMPLING_CONFIGURATION_ATTR_TYPE_HARDWARE_BUFFER_SIZE;
+	info[3].attributeData.hardwareBufferSizeData.hardwareBufferSize = hardware_bytes;
+	info[4].attributeType = CUPTI_PC_SAMPLING_CONFIGURATION_ATTR_TYPE_COLLECTION_MODE;
+	info[4].attributeData.collectionModeData.collectionMode = CUPTI_PC_SAMPLING_COLLECTION_MODE_CONTINUOUS;
+	info[5].attributeType = CUPTI_PC_SAMPLING_CONFIGURATION_ATTR_TYPE_ENABLE_START_STOP_CONTROL;
+	info[5].attributeData.enableStartStopControlData.enableStartStopControl = 1;
+	info[6].attributeType = CUPTI_PC_SAMPLING_CONFIGURATION_ATTR_TYPE_OUTPUT_DATA_FORMAT;
+	info[6].attributeData.outputDataFormatData.outputDataFormat = CUPTI_PC_SAMPLING_OUTPUT_DATA_FORMAT_PARSED;
+	info[7].attributeType = CUPTI_PC_SAMPLING_CONFIGURATION_ATTR_TYPE_SAMPLING_DATA_BUFFER;
+	info[7].attributeData.samplingDataBufferData.samplingDataBuffer = pcsampling_output;
+	info[8].attributeType = CUPTI_PC_SAMPLING_CONFIGURATION_ATTR_TYPE_WORKER_THREAD_PERIODIC_SLEEP_SPAN;
+	info[8].attributeData.workerThreadPeriodicSleepSpanData.workerThreadPeriodicSleepSpan = pcsampling_sleep_ms;
+	CUpti_PCSamplingConfigurationInfoParams params;
+	memset(&params, 0, sizeof(params));
+	params.size = CUpti_PCSamplingConfigurationInfoParamsSize;
+	params.ctx = ctx;
+	params.numAttributes = sizeof(info) / sizeof(info[0]);
+	params.pPCSamplingConfigurationInfo = info;
+	return cuptiPCSamplingSetConfigurationAttribute(&params);
+}
+
+/* pcsampling_begin configures and starts sampling on the first context the
+   target creates. A second context is left alone and recorded: CUPTI
+   configures per context, and sampling two would need two buffers, two drains
+   and a way for a record to say which context a PC came from, none of which
+   the record shape carries.
+
+   The reason selection drops the _not_issued companions, so the buffer holds
+   what pcsampling_collect is allowed to sum. */
+static void pcsampling_begin(CUcontext ctx) {
+	if (!pcsampling_requested || ctx == NULL) return;
+	if (pcsampling_running || pcsampling_context != NULL) {
+		if (ctx != pcsampling_context) record_cupti_failure("pc sampling covers the first context only", CUPTI_ERROR_NOT_SUPPORTED);
+		return;
+	}
+	pcsampling_context = ctx;
+	CUpti_PCSamplingEnableParams enable;
+	memset(&enable, 0, sizeof(enable));
+	enable.size = CUpti_PCSamplingEnableParamsSize;
+	enable.ctx = ctx;
+	CUptiResult r = cuptiPCSamplingEnable(&enable);
+	if (r != CUPTI_SUCCESS) { record_cupti_failure("cuptiPCSamplingEnable", r); return; }
+
+	size_t count = 0;
+	CUpti_PCSamplingGetNumStallReasonsParams num;
+	memset(&num, 0, sizeof(num));
+	num.size = CUpti_PCSamplingGetNumStallReasonsParamsSize;
+	num.ctx = ctx;
+	num.numStallReasons = &count;
+	r = cuptiPCSamplingGetNumStallReasons(&num);
+	if (r != CUPTI_SUCCESS || count == 0) { record_cupti_failure("cuptiPCSamplingGetNumStallReasons", r); return; }
+
+	uint32_t *indexes = calloc(count, sizeof(*indexes));
+	char **names = calloc(count, sizeof(*names));
+	if (indexes == NULL || names == NULL) { free(indexes); free(names); return; }
+	for (size_t i = 0; i < count; i++) {
+		names[i] = calloc(CUPTI_STALL_REASON_STRING_SIZE, 1);
+		if (names[i] == NULL) return;
+	}
+	CUpti_PCSamplingGetStallReasonsParams reasons;
+	memset(&reasons, 0, sizeof(reasons));
+	reasons.size = CUpti_PCSamplingGetStallReasonsParamsSize;
+	reasons.ctx = ctx;
+	reasons.numStallReasons = count;
+	reasons.stallReasonIndex = indexes;
+	reasons.stallReasons = names;
+	r = cuptiPCSamplingGetStallReasons(&reasons);
+	if (r != CUPTI_SUCCESS) { record_cupti_failure("cuptiPCSamplingGetStallReasons", r); return; }
+	pcsampling_reasons = calloc(count, sizeof(*pcsampling_reasons));
+	if (pcsampling_reasons == NULL) return;
+	for (size_t i = 0; i < count; i++) {
+		const char *companion = "_not_issued";
+		size_t n = strlen(names[i]), c = strlen(companion);
+		if (n > c && strcmp(names[i] + n - c, companion) == 0) continue;
+		pcsampling_reasons[pcsampling_reason_count++] = indexes[i];
+	}
+	for (size_t i = 0; i < count; i++) free(names[i]);
+	free(names);
+	free(indexes);
+	if (pcsampling_reason_count == 0) return;
+
+	pcsampling_output = pcsampling_alloc_buffer(pcsampling_pcs, pcsampling_reason_count);
+	pcsampling_drain = pcsampling_alloc_buffer(pcsampling_pcs, pcsampling_reason_count);
+	if (pcsampling_output == NULL || pcsampling_drain == NULL) return;
+
+	uint64_t bytes = pcsampling_hardware_bytes;
+	for (;;) {
+		r = pcsampling_apply(ctx, bytes);
+		if (r != CUPTI_ERROR_OUT_OF_MEMORY || bytes <= (1ull << 20)) break;
+		record_cupti_failure("cuptiPCSamplingSetConfigurationAttribute(hardware buffer)", r);
+		bytes /= 2;
+	}
+	if (r != CUPTI_SUCCESS) { record_cupti_failure("cuptiPCSamplingSetConfigurationAttribute", r); return; }
+	pcsampling_hardware_used = bytes;
+
+	CUpti_PCSamplingStartParams start;
+	memset(&start, 0, sizeof(start));
+	start.size = CUpti_PCSamplingStartParamsSize;
+	start.ctx = ctx;
+	r = cuptiPCSamplingStart(&start);
+	if (r != CUPTI_SUCCESS) { record_cupti_failure("cuptiPCSamplingStart", r); return; }
+	pcsampling_running = 1;
+	if (pthread_create(&pcsampling_thread, NULL, pcsampling_worker_main, NULL) == 0) pcsampling_thread_started = 1;
+}
+
+static void stop_pcsampling_worker(void) {
+	if (!pcsampling_thread_started) return;
+	atomic_store(&pcsampling_stop, 1);
+	if (pthread_join(pcsampling_thread, NULL) != 0) atomic_store(&producer_failed, 1);
+	pcsampling_thread_started = 0;
+}
+
+/* flush_pcsampling ends collection and writes the table. Stop closes the
+   range, the drain loop takes what CUPTI has parsed, and Disable copies what
+   is left into the configured buffer -- which is why that buffer is collected
+   after the disable and not before. */
+static void flush_pcsampling(void) {
+	if (!pcsampling_running) return;
+	CUpti_PCSamplingStopParams stop;
+	memset(&stop, 0, sizeof(stop));
+	stop.size = CUpti_PCSamplingStopParamsSize;
+	stop.ctx = pcsampling_context;
+	CUptiResult r = cuptiPCSamplingStop(&stop);
+	if (r != CUPTI_SUCCESS) record_cupti_failure("cuptiPCSamplingStop", r);
+	for (int i = 0; i < 4096; i++) {
+		if (!pcsampling_drain_once()) break;
+	}
+	CUpti_PCSamplingDisableParams disable;
+	memset(&disable, 0, sizeof(disable));
+	disable.size = CUpti_PCSamplingDisableParamsSize;
+	disable.ctx = pcsampling_context;
+	r = cuptiPCSamplingDisable(&disable);
+	if (r != CUPTI_SUCCESS) record_cupti_failure("cuptiPCSamplingDisable", r);
+	pcsampling_running = 0;
+	pcsampling_collect(pcsampling_output);
+
+	unsigned written = 0;
+	for (unsigned i = 0; i < PCSAMPLE_SLOTS; i++) {
+		struct pc_row *row = &pc_table[i];
+		if (row->name[0] == '\0' || row->samples == 0) continue;
+		char payload[MAX_PAYLOAD];
+		int n = snprintf(payload, sizeof(payload), "{\"kind\":\"pcsample\",\"module_id\":%" PRIu32 ",\"pc_offset\":%" PRIu64 ",\"pc_samples\":%" PRIu64 ",\"pc_function\":\"", row->module_id, row->offset, row->samples);
+		if (n < 0 || (size_t)n >= sizeof(payload)) continue;
+		if ((n = append_escaped(payload, sizeof(payload), n, row->name, "pc sample function")) < 0) continue;
+		if ((size_t)n + 2 >= sizeof(payload)) continue;
+		payload[n++] = '"';
+		payload[n++] = '}';
+		if (queue_pending(KIND_PCSAMPLE, now_ns(), payload, (size_t)n) == 0) written++;
+	}
+	char payload[MAX_PAYLOAD];
+	int n = snprintf(payload, sizeof(payload),
+		"{\"kind\":\"pcsampling\",\"pc_period\":%" PRIu32 ",\"pc_hardware_bytes\":%" PRIu64 ",\"pc_distinct\":%u,\"pc_written\":%u,\"pc_folded\":%" PRIu64 ",\"pc_total\":%" PRIu64 ",\"pc_hw_dropped\":%" PRIu64 ",\"pc_unkeyed\":%" PRIu64 ",\"pc_overflows\":%" PRIu64 "}",
+		pcsampling_period, pcsampling_hardware_used, pc_table_used, written,
+		atomic_load(&pcsampling_folded), atomic_load(&pcsampling_total), atomic_load(&pcsampling_hw_dropped),
+		atomic_load(&pcsampling_unkeyed), atomic_load(&pcsampling_overflows));
+	if (n > 0 && (size_t)n < sizeof(payload)) (void)queue_pending(KIND_PCSAMPLE, now_ns(), payload, (size_t)n);
+}
+
 static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const void *cbdata) {
 	(void)userdata;
 	if (cbdata == NULL || atomic_load(&shutdown_started)) return;
@@ -1822,6 +2200,17 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 	   resourceDescriptor -- reading cbdata itself as the module data yields a
 	   plausible-looking module id and a zero size. */
 	if (domain == CUPTI_CB_DOMAIN_RESOURCE) {
+		if (cbid == CUPTI_CBID_RESOURCE_CONTEXT_CREATED) {
+			/* The first point at which there is a context to configure. PC
+			   sampling is per context and the target's first kernel may
+			   follow immediately, so it is set up here rather than on a
+			   later launch. */
+			const CUpti_ResourceData *res = (const CUpti_ResourceData *)cbdata;
+			atomic_fetch_add(&callback_active, 1);
+			if (!atomic_load(&shutdown_started)) pcsampling_begin(res->context);
+			atomic_fetch_sub(&callback_active, 1);
+			return;
+		}
 		if (cbid != CUPTI_CBID_RESOURCE_MODULE_LOADED || !modules_enabled) return;
 		const CUpti_ResourceData *res = (const CUpti_ResourceData *)cbdata;
 		const CUpti_ModuleResourceData *mod = (const CUpti_ModuleResourceData *)res->resourceDescriptor;
@@ -1829,7 +2218,12 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 		/* Counted like the range edges below so finalize can wait for it: this
 		   writes the journal, and teardown closes that descriptor. */
 		atomic_fetch_add(&callback_active, 1);
-		if (!atomic_load(&shutdown_started)) write_module(mod->moduleId, mod->pCubin, mod->cubinSize);
+		if (!atomic_load(&shutdown_started)) {
+			write_module(mod->moduleId, mod->pCubin, mod->cubinSize);
+			/* While the image is still mapped: the CRC is what a PC sample
+			   carries in place of a module id. */
+			bind_module_crc(mod->pCubin, mod->cubinSize, mod->moduleId);
+		}
 		atomic_fetch_sub(&callback_active, 1);
 		/* The load that caused this callback is still on the stack; its exit
 		   callback below is what turns the id into a handle. */
@@ -2262,16 +2656,35 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	modules_enabled = modules_env != NULL && strcmp(modules_env, "0") != 0 && strcmp(modules_env, "off") != 0;
 	module_file_limit = env_bytes("CUDAPROF_MODULE_FILE_BYTES", module_file_limit);
 	module_total_limit = env_bytes("CUDAPROF_MODULE_TOTAL_BYTES", module_total_limit);
+	/* PC sampling is gated the same way and for the same two reasons: the
+	   record kind is new, and the collector is not free. The period is the
+	   knob that decides both how fine the profile is and whether the hardware
+	   buffer survives the run. */
+	const char *pcsampling_env = getenv("CUDAPROF_PCSAMPLING");
+	pcsampling_requested = pcsampling_env != NULL && strcmp(pcsampling_env, "0") != 0 && strcmp(pcsampling_env, "off") != 0;
+	uint64_t period = env_bytes("CUDAPROF_PCSAMPLING_PERIOD", pcsampling_period);
+	if (period >= 5 && period <= 31) pcsampling_period = (uint32_t)period;
+	pcsampling_hardware_bytes = env_bytes("CUDAPROF_PCSAMPLING_HARDWARE_BYTES", pcsampling_hardware_bytes);
+	pcsampling_scratch_bytes = env_bytes("CUDAPROF_PCSAMPLING_SCRATCH_BYTES", pcsampling_scratch_bytes);
 	int modules_requested = modules_enabled;
-	if (range_requested || stop_requested || modules_enabled) {
+	int pcsampling_requested_at_start = pcsampling_requested;
+	if (range_requested || stop_requested || modules_enabled || pcsampling_requested) {
 		CUptiResult sub = cuptiSubscribe(&range_subscriber, range_callback, NULL);
 		if (sub != CUPTI_SUCCESS) {
 			record_cupti_failure("cuptiSubscribe(profiler API)", sub);
 			if (range_requested) range_gated = RANGE_UNAVAILABLE;
 			if (stop_requested) finalize_mode = FINALIZE_UNAVAILABLE;
 			modules_enabled = 0;
+			pcsampling_requested = 0;
 		} else {
 			range_subscribed = 1;
+			if (pcsampling_requested) {
+				CUptiResult cr = cuptiEnableCallback(1, range_subscriber, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_CONTEXT_CREATED);
+				if (cr != CUPTI_SUCCESS) {
+					record_cupti_failure("cuptiEnableCallback(context created)", cr);
+					pcsampling_requested = 0;
+				}
+			}
 			if (modules_enabled) {
 				CUptiResult mr = cuptiEnableCallback(1, range_subscriber, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_MODULE_LOADED);
 				if (mr != CUPTI_SUCCESS) {
@@ -2365,7 +2778,7 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
 		}
 	}
-	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", cupti_library_path());
+	int capability_len = snprintf(capability, sizeof(capability), "{\"kind\":\"capability\",\"activity\":true,\"api_records\":%s,\"driver_api\":%s,\"runtime_api\":%s,\"external_correlation\":true,\"nvtx_markers\":%s,\"capture_range\":\"%s\",\"compile_cupti\":%d,\"runtime_cupti\":%u,%s\"layout_check\":\"%s\",\"kernel_mode\":\"%s\",\"kernel_layout\":\"%s\",\"memcpy_layout\":\"Memcpy6\",\"memsets\":%s,\"overheads\":%s,\"graph_traces\":%s,\"synchronization\":%s,\"clocks_unified\":%s,\"cupti_clock\":\"%s\",\"device_active_note\":true,\"sigterm_finalize\":%s,\"finalize\":\"%s\",\"flush_interval_ms\":%ld,\"atfork_guard\":%s,\"drain_batch\":%d,\"queue_capacity\":%d,\"admit_wait_nanos\":%ld,\"host_sample\":\"%s\",\"host_sample_hz\":%d,\"host_sample_root\":\"%s\",\"host_sample_root_override\":%s,\"clock_ticks_per_second\":%ld,\"modules\":\"%s\",\"pc_sampling\":\"%s\",\"pc_sampling_period\":%u,\"library\":\"%s\"}", api_requested ? "true" : "false", driver_enabled ? "true" : "false", runtime_enabled ? "true" : "false", marker_enabled ? "true" : "false", range_gated == RANGE_GATED ? "cudaProfilerApi" : range_gated == RANGE_UNAVAILABLE ? "requested_unavailable" : "none", CUPTI_API_VERSION, runtime_version, agent_revision_field, layout_check, kernel_mode, CUDAPROF_KERNEL_LAYOUT, memset_enabled ? "true" : "false", overhead_enabled ? "true" : "false", graph_trace_enabled ? "true" : "false", sync_enabled ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "true" : "false", clock_state == AGENT_CLOCK_UNIFIED ? "monotonic" : clock_state == AGENT_CLOCK_REFUSED ? "platform_default_callback_refused" : "platform_default_callback_unsupported", sigterm_installed ? "true" : "false", finalize_mode == FINALIZE_PROFILER_STOP ? "profiler-stop" : finalize_mode == FINALIZE_UNAVAILABLE ? "requested_unavailable" : "exit", flush_interval_ms, atfork_guard ? "true" : "false", DRAIN_BATCH, PENDING_RECORDS, (long)ADMIT_WAIT_NANOS, host_sample_disposition, host_sample_hz, host_sample_root, host_sample_root_override ? "true" : "false", host_sample_clk_tck, modules_enabled ? "collected" : modules_requested ? "requested_unavailable" : "off", pcsampling_requested ? "requested" : pcsampling_requested_at_start ? "requested_unavailable" : "off", pcsampling_period, cupti_library_path());
 	(void)write_record(KIND_BOOTSTRAP, now_ns(), bootstrap, strlen(bootstrap));
 	int capability_written = 0;
 	if (capability_len > 0 && (size_t)capability_len < sizeof(capability))
@@ -2418,6 +2831,9 @@ static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback) 
 	   the only one inside CUPTI, and while the drain is still running to take
 	   whatever a flush in flight is delivering. */
 	stop_flush_worker();
+	/* Joined here for the same reason: from this point this thread is the
+	   only one inside CUPTI. */
+	stop_pcsampling_worker();
 	int flush_error = 0;
 	if (callback_registered && (concurrent_enabled || legacy_enabled || memcpy_enabled || memset_enabled || overhead_enabled || graph_trace_enabled || sync_enabled || external_enabled || marker_enabled || runtime_enabled || driver_enabled)) {
 		if (cuptiActivityFlushAll(1) != CUPTI_SUCCESS) flush_error = 1;
@@ -2450,17 +2866,21 @@ static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback) 
 	if (atomic_load(&callback_active) != 0 || buffers_in_use()) flush_error = 1;
 	if (flush_error) atomic_store(&producer_failed, 1);
 	stop_host_sampler();
+	/* Before the ring is closed: the folded table is written as ordinary
+	   records and needs the drain to still be taking them. */
+	flush_pcsampling();
 	pthread_mutex_lock(&pending_mu); worker_stop = 1; pthread_cond_signal(&pending_cond); pthread_cond_broadcast(&pending_space_cond); pthread_mutex_unlock(&pending_mu);
 	if (pthread_join(worker, NULL) != 0) atomic_store(&producer_failed, 1);
 	char payload[MAX_PAYLOAD];
 	const char *state = atomic_load(&producer_failed) ? "producer_failure" : (atomic_load(&activity_count) ? "collected" : "initialized_no_activity");
-	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"host\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"module\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}},\"modules_written\":%u,\"modules_omitted\":%u,\"module_bytes\":%" PRIu64 ",\"host_samples\":%" PRIu64 ",\"host_sample_records\":%" PRIu64 "}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
+	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"host\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"module\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"pcsample\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}},\"modules_written\":%u,\"modules_omitted\":%u,\"module_bytes\":%" PRIu64 ",\"host_samples\":%" PRIu64 ",\"host_sample_records\":%" PRIu64 "}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
 		atomic_load(&offered_by_kind[KIND_ACTIVITY]), atomic_load(&retained_by_kind[KIND_ACTIVITY]), atomic_load(&dropped_by_kind[KIND_ACTIVITY]),
 		atomic_load(&offered_by_kind[KIND_API]), atomic_load(&retained_by_kind[KIND_API]), atomic_load(&dropped_by_kind[KIND_API]),
 		atomic_load(&offered_by_kind[KIND_EXTERNAL]), atomic_load(&retained_by_kind[KIND_EXTERNAL]), atomic_load(&dropped_by_kind[KIND_EXTERNAL]),
 		atomic_load(&offered_by_kind[KIND_FAILURE]), atomic_load(&retained_by_kind[KIND_FAILURE]), atomic_load(&dropped_by_kind[KIND_FAILURE]),
 		atomic_load(&offered_by_kind[KIND_HOST]), atomic_load(&retained_by_kind[KIND_HOST]), atomic_load(&dropped_by_kind[KIND_HOST]),
 		atomic_load(&offered_by_kind[KIND_MODULE]), atomic_load(&retained_by_kind[KIND_MODULE]), atomic_load(&dropped_by_kind[KIND_MODULE]),
+		atomic_load(&offered_by_kind[KIND_PCSAMPLE]), atomic_load(&retained_by_kind[KIND_PCSAMPLE]), atomic_load(&dropped_by_kind[KIND_PCSAMPLE]),
 		module_seq - module_omitted, module_omitted, module_total_bytes,
 		atomic_load(&host_samples_taken), atomic_load(&host_sample_records));
 	if (n < 0 || (size_t)n >= sizeof(payload) || write_record(KIND_FINALIZED, now_ns(), payload, (size_t)n) != 0) atomic_store(&producer_failed, 1);

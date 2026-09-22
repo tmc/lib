@@ -3,6 +3,7 @@
 
 #include "cupti_activity.h"
 #include "cupti_callbacks.h"
+#include "cupti_pcsampling.h"
 #include "cupti_version.h"
 
 CUptiResult cuptiGetVersion(uint32_t *version);

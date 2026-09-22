@@ -34,6 +34,7 @@ const (
 	recordAPI        uint16 = 7
 	recordHost       uint16 = 8
 	recordModule     uint16 = 9
+	recordPCSample   uint16 = 10
 )
 
 type captureRecordPayload struct {
@@ -45,6 +46,9 @@ type captureRecordPayload struct {
 	ModuleFile          string     `json:"module_file"`
 	ModuleStored        bool       `json:"module_stored"`
 	ModuleReason        string     `json:"module_reason"`
+	PCFunction          string     `json:"pc_function"`
+	PCOffset            uint64     `json:"pc_offset"`
+	PCSamples           uint64     `json:"pc_samples"`
 	Name                string     `json:"name"`
 	Error               string     `json:"error"`
 	Message             string     `json:"message"`
@@ -100,13 +104,25 @@ type captureRecordPayload struct {
 	// The finalized record carries the breakdown of what the producer lost.
 	// Dropped above is their sum, and a sum cannot be acted on: the mechanisms
 	// have different remedies and one of them is not a remedy the reader has.
-	NativeDropped        uint64 `json:"native_dropped"`
-	QueueDropped         uint64 `json:"queue_dropped"`
-	QueueOversize        uint64 `json:"queue_oversize_dropped"`
-	QueueContention      uint64 `json:"queue_contention_dropped"`
-	QueueCapacity        uint64 `json:"queue_capacity_dropped"`
-	Offered              uint64 `json:"offered"`
-	Retained             uint64 `json:"retained"`
+	NativeDropped   uint64 `json:"native_dropped"`
+	QueueDropped    uint64 `json:"queue_dropped"`
+	QueueOversize   uint64 `json:"queue_oversize_dropped"`
+	QueueContention uint64 `json:"queue_contention_dropped"`
+	QueueCapacity   uint64 `json:"queue_capacity_dropped"`
+	Offered         uint64 `json:"offered"`
+	Retained        uint64 `json:"retained"`
+	// The pcsampling summary record. The agent folds samples in fixed-size
+	// tables, so these say how much of the run the pcsample records above
+	// actually account for.
+	PCPeriod             uint32 `json:"pc_period"`
+	PCHardwareBytes      uint64 `json:"pc_hardware_bytes"`
+	PCDistinct           uint32 `json:"pc_distinct"`
+	PCWritten            uint32 `json:"pc_written"`
+	PCFolded             uint64 `json:"pc_folded"`
+	PCTotal              uint64 `json:"pc_total"`
+	PCHardwareLost       uint64 `json:"pc_hw_dropped"`
+	PCUnkeyed            uint64 `json:"pc_unkeyed"`
+	PCOverflows          uint64 `json:"pc_overflows"`
 	BackpressureMaxNanos uint64 `json:"backpressure_max_nanos"`
 	DrainWriteMaxNanos   uint64 `json:"drain_write_max_nanos"`
 }
@@ -240,6 +256,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	var workerAPIs []captureAPI
 	var workerDuration, workerCopyBytes, workerExternal, workerHostSamples, workerDropped, workerRecords uint64
 	var workerModules []captureModule
+	var workerPCSamples []capturePCSample
 	workers := make([]captureWorker, 0)
 	var targetHandshakeSeen bool
 	var targetInjectionFailure string
@@ -286,6 +303,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 					workerExternal += metrics.external
 					workerHostSamples += metrics.hostSamples
 					workerModules = append(workerModules, metrics.modules...)
+					workerPCSamples = append(workerPCSamples, metrics.pcSamples...)
 					workerDropped += records.Dropped
 					workerRecords += records.Records
 				}
@@ -392,6 +410,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		// loaded device code and launched none of it still loaded it, and the
 		// image is the evidence of what was there to launch.
 		result.Modules = append(result.Modules, workerModules...)
+		result.PCSamples = append(result.PCSamples, workerPCSamples...)
 		if len(workerActivities) == 0 {
 			return result
 		}
@@ -502,6 +521,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	result.ExternalRecords = selectedMetrics.external
 	result.HostSampleRecords = selectedMetrics.hostSamples
 	result.Modules = selectedMetrics.modules
+	result.PCSamples, result.PCSampling = selectedMetrics.pcSamples, selectedMetrics.pcSampling
 	result.RecordLoss = selectedMetrics.loss.orNil()
 	result.ActivityNanos, result.CopyBytes, result.Activities = selectedMetrics.duration, selectedMetrics.copyBytes, selectedActivities
 	result.APIRecords = selectedAPIs
@@ -700,6 +720,35 @@ type journalMetrics struct {
 	loss                                       captureLoss
 	phaseEdges                                 []capturePhaseEdge
 	modules                                    []captureModule
+	pcSamples                                  []capturePCSample
+	pcSampling                                 *capturePCSampling
+}
+
+// capturePCSample is one program counter the agent's sampler saw, folded over
+// the whole run. Offset is relative to Function, which is how CUPTI reports a
+// sampled PC; ModuleID is the module whose image CUPTI's cubin CRC matched, 0
+// when no loaded image did.
+type capturePCSample struct {
+	ModuleID uint32 `json:"module_id"`
+	Function string `json:"function"`
+	Offset   uint64 `json:"offset"`
+	Samples  uint64 `json:"samples"`
+}
+
+// capturePCSampling is what the sampler itself did. Folded against Total says
+// how many samples reached the table, and the rest name the three ways a
+// sample does not: the hardware buffer filled, the fold table filled, or a
+// function name was too long to key on.
+type capturePCSampling struct {
+	Period        uint32 `json:"period"`
+	HardwareBytes uint64 `json:"hardware_bytes"`
+	Distinct      uint32 `json:"distinct"`
+	Written       uint32 `json:"written"`
+	Folded        uint64 `json:"folded"`
+	Total         uint64 `json:"total"`
+	HardwareLost  uint64 `json:"hardware_dropped"`
+	Unkeyed       uint64 `json:"unkeyed"`
+	Overflows     uint64 `json:"buffer_overflows"`
 }
 
 // captureModule is one module image the agent saw the driver load. File names
@@ -1102,6 +1151,37 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				Stored: payload.ModuleStored,
 				Reason: payload.ModuleReason,
 			})
+		case recordPCSample:
+			// PC samples and the sampler's own summary, gated like module
+			// records on nothing more than the producer having identified
+			// itself: both are written at finalization, after the ring has
+			// stopped taking device work.
+			if terminal || !state.bootstrap {
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("out-of-order PC sample record")
+			}
+			switch payload.Kind {
+			case "pcsample":
+				metrics.pcSamples = append(metrics.pcSamples, capturePCSample{
+					ModuleID: payload.ModuleID,
+					Function: payload.PCFunction,
+					Offset:   payload.PCOffset,
+					Samples:  payload.PCSamples,
+				})
+			case "pcsampling":
+				metrics.pcSampling = &capturePCSampling{
+					Period:        payload.PCPeriod,
+					HardwareBytes: payload.PCHardwareBytes,
+					Distinct:      payload.PCDistinct,
+					Written:       payload.PCWritten,
+					Folded:        payload.PCFolded,
+					Total:         payload.PCTotal,
+					HardwareLost:  payload.PCHardwareLost,
+					Unkeyed:       payload.PCUnkeyed,
+					Overflows:     payload.PCOverflows,
+				}
+			default:
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped PC sample record")
+			}
 		case recordFinalized:
 			if terminal || !state.bootstrap || !state.capability {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid finalized ordering")

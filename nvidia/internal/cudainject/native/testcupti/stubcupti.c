@@ -614,3 +614,51 @@ CUptiResult cudaprof_test_mock_short_memcpy_struct_size(CUpti_ActivityKind kind,
 	}
 	return CUPTI_ERROR_NOT_SUPPORTED;
 }
+
+/* PC sampling. The harness has no hardware sampler, so the surface reports
+   itself unavailable: a producer that treats an unavailable sampler as a
+   failure of the whole capture would fail here, which is the point. */
+CUptiResult cuptiPCSamplingEnable(CUpti_PCSamplingEnableParams *pParams) {
+	(void)pParams;
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+CUptiResult cuptiPCSamplingDisable(CUpti_PCSamplingDisableParams *pParams) {
+	(void)pParams;
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+CUptiResult cuptiPCSamplingStart(CUpti_PCSamplingStartParams *pParams) {
+	(void)pParams;
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+CUptiResult cuptiPCSamplingStop(CUpti_PCSamplingStopParams *pParams) {
+	(void)pParams;
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+CUptiResult cuptiPCSamplingGetData(CUpti_PCSamplingGetDataParams *pParams) {
+	(void)pParams;
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+CUptiResult cuptiPCSamplingSetConfigurationAttribute(CUpti_PCSamplingConfigurationInfoParams *pParams) {
+	(void)pParams;
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+CUptiResult cuptiPCSamplingGetNumStallReasons(CUpti_PCSamplingGetNumStallReasonsParams *pParams) {
+	(void)pParams;
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+CUptiResult cuptiPCSamplingGetStallReasons(CUpti_PCSamplingGetStallReasonsParams *pParams) {
+	(void)pParams;
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+CUptiResult cuptiGetCubinCrc(CUpti_GetCubinCrcParams *pParams) {
+	(void)pParams;
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}

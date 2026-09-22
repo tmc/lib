@@ -216,11 +216,19 @@ type captureOptions struct {
 	// cuts journal volume by an order of magnitude. apiActivitySet records
 	// whether the caller said anything, so an untouched flag leaves the
 	// target's own environment alone, as the collection policy below does.
-	APIActivity     bool
-	apiActivitySet  bool
-	RequireComplete bool
-	NoInject        bool
-	JSON            bool
+	APIActivity    bool
+	apiActivitySet bool
+	// PCSampling turns on the agent's program-counter sampler, which is what
+	// turns a capture into per-line counts. It is off by default because it is
+	// not free: measured on GB10 it costs 25-27 microseconds of host drain per
+	// launch, which a kernel timeline should not pay for work it never reads.
+	PCSampling bool
+	// PCSamplingPeriod is the agent's sampling period exponent, 5 to 31. Zero
+	// leaves the agent's own default.
+	PCSamplingPeriod int
+	RequireComplete  bool
+	NoInject         bool
+	JSON             bool
 	// LaunchManifest enables the bounded, metadata-only launch manifest in the
 	// capture status. It never enables parameter decoding by itself.
 	LaunchManifest bool
@@ -342,6 +350,11 @@ type captureResult struct {
 	// either absent here, meaning the target never loaded it, or present with
 	// Stored false, meaning the capture chose not to keep it.
 	Modules []captureModule `json:"modules,omitempty"`
+	// PCSamples and PCSampling report the agent's program-counter sampler:
+	// one entry per distinct sampled PC and one summary of what the sampler
+	// itself saw. They are absent unless the capture asked for sampling.
+	PCSamples  []capturePCSample  `json:"pc_samples,omitempty"`
+	PCSampling *capturePCSampling `json:"pc_sampling,omitempty"`
 	// RecoveredGenerations and RecoveredActivityRecords count only what came
 	// from unfinalized generations, so a reader can subtract the recovered
 	// contribution from the totals above. They are zero unless recovery was
@@ -455,6 +468,23 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, err
 			}
 			o.APIActivity, o.apiActivitySet = v, true
+		case "--pcsampling", "-pcsampling":
+			v, err := captureBool(name, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			o.PCSampling = v
+		case "--pcsampling-period":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 5 || n > 31 {
+				return o, fmt.Errorf("invalid %s %q", name, v)
+			}
+			o.PCSamplingPeriod, o.PCSampling = n, true
 		case "--require-complete":
 			o.RequireComplete = true
 		case "--recover-unfinalized":
@@ -799,6 +829,15 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 	// enough to ignore the variable simply writes no modules, and the capture
 	// is what it would have been.
 	env = setCaptureEnv(env, "CUDAPROF_MODULES", "1")
+	// PC sampling is exported only when asked for, and asking for it is what
+	// makes the agent write the record kind this process has just learned to
+	// decode. An agent that predates the kind ignores the variable.
+	if o.PCSampling {
+		env = setCaptureEnv(env, "CUDAPROF_PCSAMPLING", "1")
+		if o.PCSamplingPeriod > 0 {
+			env = setCaptureEnv(env, "CUDAPROF_PCSAMPLING_PERIOD", strconv.Itoa(o.PCSamplingPeriod))
+		}
+	}
 	if o.FlushInterval > 0 {
 		env = setCaptureEnv(env, "CUDAPROF_FLUSH_INTERVAL_MS", strconv.FormatInt(o.FlushInterval.Milliseconds(), 10))
 	}
