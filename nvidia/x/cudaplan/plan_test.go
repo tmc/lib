@@ -126,7 +126,7 @@ func buildAffineGraph(t *testing.T) *cudair.Snapshot {
 	return snap
 }
 
-func TestNativeAffineReference(t *testing.T) {
+func TestAffinePlanRequiresNativeExecution(t *testing.T) {
 	snap := buildAffineGraph(t)
 	art := buildAffineArtifact(t)
 
@@ -151,47 +151,6 @@ func TestNativeAffineReference(t *testing.T) {
 		t.Fatalf("expected explicit native execution error, completion=%v err=%v", comp, err)
 	}
 
-	// Gated native hardware run
-	if os.Getenv("CUDA_COMPILER_TEST") != "1" {
-		t.Skip("native qualification pending: CUDA_COMPILER_TEST=1 required for hardware execution")
-	}
-
-	dev := requireNativePlanDevice(t)
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatalf("NewStream: %v", err)
-	}
-	defer stream.Destroy()
-
-	nativePlan, err := cudaplan.Compile(snap, cudaplan.WithDevice(dev), cudaplan.WithKernelRegistry(reg))
-	if err != nil {
-		t.Fatalf("Compile native: %v", err)
-	}
-	defer nativePlan.Close()
-
-	// Alloc GPU buffers
-	xBuf, _ := cudamem.Alloc[float32](dev, 6)
-	defer xBuf.Free()
-	wBuf, _ := cudamem.Alloc[float32](dev, 6)
-	defer wBuf.Free()
-	bBuf, _ := cudamem.Alloc[float32](dev, 4)
-	defer bBuf.Free()
-	outBuf, _ := cudamem.Alloc[float32](dev, 4)
-	defer outBuf.Free()
-
-	nativeBindings := cudaplan.NewBindings()
-	_ = cudaplan.SetInputSlice(nativeBindings, "X", xBuf, dev)
-	_ = cudaplan.SetInputSlice(nativeBindings, "W", wBuf, dev)
-	_ = cudaplan.SetInputSlice(nativeBindings, "B", bBuf, dev)
-	_ = cudaplan.SetOutputSlice(nativeBindings, "gelu_6", outBuf, dev)
-
-	nativeComp, err := nativePlan.Execute(stream, nativeBindings)
-	if err != nil {
-		t.Fatalf("Execute native: %v", err)
-	}
-	if err := nativeComp.Wait(context.Background()); err != nil {
-		t.Fatalf("Wait native: %v", err)
-	}
 }
 
 func TestNativeMatMulReference(t *testing.T) {

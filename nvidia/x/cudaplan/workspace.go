@@ -90,19 +90,22 @@ func (wm *WorkspaceManager) EnsureSize(requiredBytes int) error {
 	}
 
 	buf, err := cudamem.Alloc[byte](wm.dev, requiredBytes)
+	// Adopt before inspecting the error: context restoration can fail after
+	// allocation succeeds. Close must retain the opportunity to free it.
+	wm.buffer = buf
+	wm.totalBytes = requiredBytes
+	wm.ownedBuffer = buf.Ptr() != 0
 	if err != nil {
+		wm.closed = true
 		return fmt.Errorf("cudaplan: alloc workspace buffer (%d bytes): %w", requiredBytes, err)
 	}
 
 	// Verify 256-byte alignment
 	if uintptr(buf.Ptr())%256 != 0 {
-		_ = buf.Free()
+		wm.closed = true
 		return fmt.Errorf("cudaplan: allocated workspace pointer 0x%x not 256-byte aligned", buf.Ptr())
 	}
 
-	wm.buffer = buf
-	wm.totalBytes = requiredBytes
-	wm.ownedBuffer = true
 	return nil
 }
 
@@ -142,26 +145,28 @@ func (wm *WorkspaceManager) Buffer() cudamem.Slice[byte] {
 	return wm.buffer
 }
 
-// Close frees the owned workspace memory.
+// Close frees the owned workspace memory. Failure retains ownership for retry
+// while preventing further allocations and slices from this manager.
 func (wm *WorkspaceManager) Close() error {
+	return wm.closeWith(func() error { return wm.buffer.Free() })
+}
+
+func (wm *WorkspaceManager) closeWith(free func() error) error {
 	if wm == nil {
 		return nil
 	}
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 
-	if wm.closed {
-		return nil
-	}
 	wm.closed = true
 
-	if wm.ownedBuffer && wm.buffer.Len() > 0 {
-		err := wm.buffer.Free()
-		wm.buffer = cudamem.Slice[byte]{}
-		wm.ownedBuffer = false
-		if err != nil {
+	if wm.ownedBuffer {
+		if err := free(); err != nil {
 			return fmt.Errorf("cudaplan: free workspace: %w", err)
 		}
+		wm.buffer = cudamem.Slice[byte]{}
+		wm.ownedBuffer = false
+		wm.totalBytes = 0
 	}
 	return nil
 }

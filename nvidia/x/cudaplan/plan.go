@@ -3,7 +3,6 @@ package cudaplan
 import (
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -53,7 +52,9 @@ func WithPeakWorkspaceBudget(bytes int) PlanOption {
 	}
 }
 
-// WithGraphReplay requests graph replay. Compile currently rejects an enabled request.
+// WithGraphReplay requests replay of registered kernel steps as a CUDA graph.
+// Matmul regions use stream capture. The first Execute fixes
+// buffer addresses until RebindGraph requests rebuilding with new bindings.
 func WithGraphReplay(enable bool) PlanOption {
 	return func(c *planConfig) error {
 		c.enableGraph = enable
@@ -88,9 +89,14 @@ type ExecutablePlan struct {
 	steps            []StepPlan
 	workspace        *WorkspaceManager
 	modules          map[*cudakernel.Artifact]*cuda.Module
+	pendingModules   []driver.Module // Loaded modules whose context ownership was not adopted.
 	cublasEngine     *cublasltx.Engine
 	graphExec        *cudagraph.Exec
 	graphObj         *cudagraph.Graph
+	graphReplay      bool
+	graphCapture     bool
+	graphPointers    map[string]driver.DevicePtr
+	rebuildGraph     bool
 	requiredInputs   map[string]int
 	requiredOutputs  map[string]int
 	intermediateLoc  map[string]int // intermediate node name -> workspace offset
@@ -101,8 +107,9 @@ type ExecutablePlan struct {
 }
 
 // Compile builds an ExecutablePlan from a validated cudair.Snapshot.
-// If any stage of compilation fails, all acquired resources (modules, engines, workspaces)
-// are strictly cleaned up without leaking device state.
+// On compilation failure, acquired resources are closed. If cleanup also fails,
+// Compile returns the closed-to-execution plan with the error; the caller must
+// retry its Close before releasing the device. Otherwise the error result is nil.
 func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err error) {
 	if snap == nil {
 		return nil, errors.New("cudaplan: nil snapshot")
@@ -119,11 +126,19 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 		}
 	}
 	if cfg.enableGraph {
-		return nil, fmt.Errorf("%w: graph replay is not implemented", ErrUnsupportedBackend)
+		if cfg.dev == nil || !graphAvailable() {
+			return nil, fmt.Errorf("%w: graph replay requires a device and CUDA graph entry points", ErrUnsupportedBackend)
+		}
+		for _, node := range snap.Order() {
+			if node.Kind == cudair.KindMatMul && (!driver.HasStreamBeginCapture() || !driver.HasStreamEndCapture()) {
+				return nil, fmt.Errorf("%w: matmul graph replay requires stream capture entry points", ErrUnsupportedBackend)
+			}
+		}
 	}
 
 	plan := &ExecutablePlan{
 		dev:             cfg.dev,
+		graphReplay:     cfg.enableGraph,
 		snap:            snap,
 		modules:         make(map[*cudakernel.Artifact]*cuda.Module),
 		requiredInputs:  make(map[string]int),
@@ -134,8 +149,7 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 	// Defer cleanup on any error during compilation
 	defer func() {
 		if err != nil {
-			_ = plan.Close()
-			p = nil
+			p, err = failedCompilation(plan, err, plan.Close)
 		}
 	}()
 
@@ -196,11 +210,12 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 	}
 
 	if hasMatMul && cfg.dev != nil {
+		plan.graphCapture = cfg.enableGraph
 		engine, err := cublasltx.NewEngine(cfg.dev, cublasltx.WithWorkspaceBytes(16*1024*1024))
+		plan.cublasEngine = engine
 		if err != nil {
 			return nil, fmt.Errorf("cudaplan: init cublaslt engine: %w", err)
 		}
-		plan.cublasEngine = engine
 	}
 
 	// Build step plans
@@ -227,10 +242,10 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 				art = cfg.registry.Get(n.Name)
 			}
 		}
-		if cfg.dev != nil && backend == BackendLaunch && art == nil {
+		if cfg.dev != nil && (backend == BackendLaunch || backend == BackendGraph) && art == nil {
 			return nil, fmt.Errorf("%w: no kernel artifact for %s", ErrUnsupportedBackend, n.Name)
 		}
-		if cfg.dev != nil && art != nil && backend == BackendLaunch {
+		if cfg.dev != nil && art != nil && (backend == BackendLaunch || backend == BackendGraph) {
 			if len(art.Schema.Params) != len(n.Inputs)+1 {
 				return nil, fmt.Errorf("%w: artifact schema for %s has %d parameters, want %d", ErrUnsupportedBackend, n.Name, len(art.Schema.Params), len(n.Inputs)+1)
 			}
@@ -244,16 +259,11 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 		// Load module if artifact is present and device is bound
 		if art != nil && cfg.dev != nil {
 			if _, exists := plan.modules[art]; !exists {
-				rawMod, err := art.Load(cfg.dev)
-				if err != nil {
-					return nil, fmt.Errorf("cudaplan: load module for %s: %w", n.Name, err)
+				load := func() (driver.Module, error) { return art.Load(cfg.dev) }
+				own := func(raw driver.Module) (*cuda.Module, error) { return cuda.OwnModule(cfg.dev, raw) }
+				if err := plan.loadModule(art, load, own); err != nil {
+					return nil, fmt.Errorf("cudaplan: module for %s: %w", n.Name, err)
 				}
-				mod, err := cuda.OwnModule(cfg.dev, rawMod)
-				if err != nil {
-					_ = cfg.dev.WithContext(rawMod.Unload)
-					return nil, fmt.Errorf("cudaplan: own module for %s: %w", n.Name, err)
-				}
-				plan.modules[art] = mod
 			}
 		}
 
@@ -289,6 +299,26 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 	}
 
 	return plan, nil
+}
+
+func (p *ExecutablePlan) loadModule(art *cudakernel.Artifact, load func() (driver.Module, error), own func(driver.Module) (*cuda.Module, error)) error {
+	raw, err := load()
+	if raw != 0 {
+		p.pendingModules = append(p.pendingModules, raw)
+	}
+	if err != nil {
+		return fmt.Errorf("load: %w", err)
+	}
+	if raw == 0 {
+		return errors.New("cudaplan: loader returned no module")
+	}
+	mod, err := own(raw)
+	if err != nil {
+		return fmt.Errorf("retain context: %w", err)
+	}
+	p.modules[art] = mod
+	p.pendingModules = p.pendingModules[:len(p.pendingModules)-1]
+	return nil
 }
 
 // RequiredInputs returns the map of input node names to required buffer byte lengths.
@@ -406,6 +436,13 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (compl
 		}
 	}
 
+	if p.graphReplay {
+		if err := p.prepareGraphOn(stream, nodePointers); err != nil {
+			p.inFlight = false
+			return nil, err
+		}
+	}
+
 	// Record completion event
 	event, err := p.dev.NewEvent()
 	if err != nil {
@@ -422,14 +459,31 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (compl
 		}
 	}()
 
-	// Enqueue operations
+	if p.graphReplay {
+		if err := p.graphExec.Launch(stream); err != nil {
+			_ = event.Destroy()
+			return nil, fmt.Errorf("cudaplan: replay graph: %w", err)
+		}
+	} else if err := p.enqueue(stream, nodePointers); err != nil {
+		_ = event.Destroy()
+		return nil, err
+	}
+
+	if err := event.Record(stream); err != nil {
+		_ = event.Destroy()
+		p.inFlight = false
+		return nil, fmt.Errorf("cudaplan: record completion event: %w", err)
+	}
+
+	return newEventCompletion(p.dev, stream, event, releases)
+}
+
+func (p *ExecutablePlan) enqueue(stream *cuda.Stream, nodePointers map[string]driver.DevicePtr) error {
 	for _, step := range p.steps {
 		switch step.Backend {
 		case BackendCuBLASLt:
 			if p.cublasEngine == nil {
-				_ = event.Destroy()
-				p.inFlight = false
-				return nil, errors.New("cudaplan: cuBLASLt engine not initialized for matmul")
+				return errors.New("cudaplan: cuBLASLt engine not initialized for matmul")
 			}
 			// Dispatch matmul
 			// Look up input and output pointers
@@ -440,14 +494,10 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (compl
 			// Find node shapes
 			node := p.snap.NodeByID(step.NodeID)
 			if node == nil {
-				_ = event.Destroy()
-				p.inFlight = false
-				return nil, fmt.Errorf("cudaplan: node %d not found in snapshot", step.NodeID)
+				return fmt.Errorf("cudaplan: node %d not found in snapshot", step.NodeID)
 			}
 			if err := validateMatMulNode(node); err != nil {
-				_ = event.Destroy()
-				p.inFlight = false
-				return nil, err
+				return err
 			}
 			m := node.Inputs[0].Shape[0]
 			k := node.Inputs[0].Shape[1]
@@ -463,76 +513,38 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (compl
 			// bRows = k, bCols = m, ldb = k (from A)
 			// dRows = n, dCols = m, ldd = n (from D)
 			if err := p.cublasEngine.MatMulRaw(stream, cfg, bPtr, n, k, n, aPtr, k, m, k, dPtr, n, m, n); err != nil {
-				_ = event.Destroy()
-				p.inFlight = false
-				return nil, fmt.Errorf("cudaplan: execute matmul for %s: %w", step.NodeName, err)
+				return fmt.Errorf("cudaplan: execute matmul for %s: %w", step.NodeName, err)
 			}
 
-		case BackendLaunch:
+		case BackendLaunch, BackendGraph:
 			if step.Artifact != nil {
 				mod := p.modules[step.Artifact]
 				if mod == nil {
-					_ = event.Destroy()
-					p.inFlight = false
-					return nil, fmt.Errorf("cudaplan: module not loaded for %s", step.NodeName)
+					return fmt.Errorf("cudaplan: module not loaded for %s", step.NodeName)
 				}
 				kernel, err := mod.Function(step.Artifact.EntryPoint)
 				if err != nil {
-					_ = event.Destroy()
-					p.inFlight = false
-					return nil, fmt.Errorf("cudaplan: get function %s: %w", step.Artifact.EntryPoint, err)
+					return fmt.Errorf("cudaplan: get function %s: %w", step.Artifact.EntryPoint, err)
 				}
 
-				// Pack arguments
-				var args []any
-				for _, inName := range step.InputNames {
-					args = append(args, nodePointers[inName])
-				}
-				args = append(args, nodePointers[step.OutputName])
-
-				node := p.snap.NodeByID(step.NodeID)
-				numElems := uint32(1024)
-				if node != nil {
-					if node.NumElements() < 0 || uint64(node.NumElements()) > math.MaxUint32 {
-						_ = event.Destroy()
-						p.inFlight = false
-						return nil, fmt.Errorf("%w: node %s element count overflows launch dimensions", ErrUnsupportedBackend, step.NodeName)
-					}
-					numElems = uint32(node.NumElements())
-				}
-				if len(step.Artifact.Schema.Params) != len(step.InputNames)+1 {
-					_ = event.Destroy()
-					p.inFlight = false
-					return nil, fmt.Errorf("%w: kernel %s parameter schema has %d parameters, graph supplies %d pointers", ErrUnsupportedBackend, step.NodeName, len(step.Artifact.Schema.Params), len(step.InputNames)+1)
-				}
-
-				threads := uint32(256)
-				blocks := (numElems + threads - 1) / threads
-				if blocks == 0 {
-					blocks = 1
+				args, blocks, err := p.kernelArguments(step, nodePointers)
+				if err != nil {
+					return err
 				}
 
 				launcher := cudalaunch.OwnedKernel(kernel).
 					Grid(blocks).
-					Block(threads).
+					Block(256).
 					On(stream)
 
 				if err := launcher.Launch(args...); err != nil {
-					_ = event.Destroy()
-					p.inFlight = false
-					return nil, fmt.Errorf("cudaplan: launch %s: %w", step.NodeName, err)
+					return fmt.Errorf("cudaplan: launch %s: %w", step.NodeName, err)
 				}
 			}
 		}
 	}
 
-	if err := event.Record(stream); err != nil {
-		_ = event.Destroy()
-		p.inFlight = false
-		return nil, fmt.Errorf("cudaplan: record completion event: %w", err)
-	}
-
-	return newEventCompletion(p.dev, stream, event, releases)
+	return nil
 }
 
 func validateMatMulNode(node *cudair.Node) error {
@@ -562,7 +574,9 @@ func (p *ExecutablePlan) InvalidateGraphBindings() {
 	p.staleGraph = true
 }
 
-// RebindGraph marks the graph bindings as refreshed and valid.
+// RebindGraph requests rebuilding the graph with the next Execute's bindings.
+// It does not modify an in-flight graph; Execute still requires completion of
+// the previous invocation before replacing graph resources.
 func (p *ExecutablePlan) RebindGraph() {
 	if p == nil {
 		return
@@ -570,10 +584,40 @@ func (p *ExecutablePlan) RebindGraph() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.staleGraph = false
+	p.rebuildGraph = true
 }
 
-// Close destroys all owned modules, workspaces, cuBLASLt engines, and CUDA Graph executables.
+// Close destroys owned resources after completion. A failed destruction retains
+// that resource and its dependencies for another Close; further execution is
+// forbidden once resource teardown begins. Active invocations return
+// ErrInvocationInFlight and must be completed or drained first.
 func (p *ExecutablePlan) Close() error {
+	return p.closeWith(planCloseOps{
+		run: func(fn func() error) error { return p.dev.WithContext(fn) }, unload: driver.Module.Unload,
+		graphExec: (*cudagraph.Exec).Destroy, graph: (*cudagraph.Graph).Destroy,
+		engine: (*cublasltx.Engine).Close, workspace: (*WorkspaceManager).Close,
+		module: (*cuda.Module).Close,
+	})
+}
+
+type planCloseOps struct {
+	run       func(func() error) error
+	unload    func(driver.Module) error
+	graphExec func(*cudagraph.Exec) error
+	graph     func(*cudagraph.Graph) error
+	engine    func(*cublasltx.Engine) error
+	workspace func(*WorkspaceManager) error
+	module    func(*cuda.Module) error
+}
+
+func failedCompilation(p *ExecutablePlan, cause error, close func() error) (*ExecutablePlan, error) {
+	if err := close(); err != nil {
+		return p, errors.Join(cause, fmt.Errorf("cudaplan: cleanup after compile failure: %w", err))
+	}
+	return nil, cause
+}
+
+func (p *ExecutablePlan) closeWith(ops planCloseOps) error {
 	if p == nil {
 		return nil
 	}
@@ -589,56 +633,63 @@ func (p *ExecutablePlan) Close() error {
 		}
 	}
 
-	if p.closed {
-		p.mu.Unlock()
-		return nil
-	}
 	if p.inFlight {
 		p.mu.Unlock()
 		return ErrInvocationInFlight
 	}
+	defer p.mu.Unlock()
 	p.closed = true
 
-	var errs []error
-
 	if p.graphExec != nil {
-		if err := p.graphExec.Destroy(); err != nil {
-			errs = append(errs, fmt.Errorf("cudaplan: destroy graph exec: %w", err))
+		if err := ops.graphExec(p.graphExec); err != nil {
+			return fmt.Errorf("cudaplan: destroy graph exec: %w", err)
 		}
 		p.graphExec = nil
 	}
 	if p.graphObj != nil {
-		if err := p.graphObj.Destroy(); err != nil {
-			errs = append(errs, fmt.Errorf("cudaplan: destroy graph object: %w", err))
+		if err := ops.graph(p.graphObj); err != nil {
+			return fmt.Errorf("cudaplan: destroy graph object: %w", err)
 		}
 		p.graphObj = nil
 	}
 
 	if p.cublasEngine != nil {
-		if err := p.cublasEngine.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("cudaplan: close cublaslt engine: %w", err))
+		if err := ops.engine(p.cublasEngine); err != nil {
+			return fmt.Errorf("cudaplan: close cublaslt engine: %w", err)
 		}
 		p.cublasEngine = nil
 	}
 
 	if p.workspace != nil {
-		if err := p.workspace.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("cudaplan: close workspace: %w", err))
+		if err := ops.workspace(p.workspace); err != nil {
+			return fmt.Errorf("cudaplan: close workspace: %w", err)
 		}
 		p.workspace = nil
 	}
 
 	if len(p.modules) > 0 {
-		for _, mod := range p.modules {
+		for artifact, mod := range p.modules {
 			if mod != nil {
-				if err := mod.Close(); err != nil {
-					errs = append(errs, fmt.Errorf("cudaplan: close module: %w", err))
+				if err := ops.module(mod); err != nil {
+					return fmt.Errorf("cudaplan: close module: %w", err)
 				}
 			}
+			delete(p.modules, artifact)
 		}
 		p.modules = nil
 	}
+	for len(p.pendingModules) > 0 {
+		i := len(p.pendingModules) - 1
+		if err := ops.run(func() error {
+			if err := ops.unload(p.pendingModules[i]); err != nil {
+				return err
+			}
+			p.pendingModules = p.pendingModules[:i]
+			return nil
+		}); err != nil {
+			return fmt.Errorf("cudaplan: unload pending module: %w", err)
+		}
+	}
 
-	p.mu.Unlock()
-	return errors.Join(errs...)
+	return nil
 }
