@@ -743,7 +743,7 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 		}
 	}
 	limits := cudacapture.Limits{FileBytes: budget.FileBytes, TotalBytes: budget.TotalBytes}
-	p, sampleRecords := cudacapture.BuildActivityProfileIndex(result.Session, uint64(result.TargetPID), result.Activities)
+	p, sampleRecords := cudacapture.BuildActivityProfileIndex(result.Session, uint64(result.TargetPID), result.Activities, result.APIRecords)
 	p, err := labelExternalCorrelation(p, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords)
 	if err != nil {
 		return err

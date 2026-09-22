@@ -90,11 +90,28 @@ const (
 	markerFlagEnd           = 1 << 2
 )
 
-// nvtxRange is one paired NVTX range: a name and the window it was open.
+// APIRecord is one host call into the CUDA driver or runtime API. Its
+// timestamps are host times, not device times. Correlation is the id CUPTI
+// also stamps on the device work the call launched, which is what joins that
+// work back to the host thread and moment that launched it.
+type APIRecord struct {
+	Domain      string `json:"domain"`
+	CallbackID  uint32 `json:"callback_id"`
+	Start       uint64 `json:"start"`
+	End         uint64 `json:"end"`
+	ProcessID   uint32 `json:"process_id"`
+	ThreadID    uint32 `json:"thread_id"`
+	Correlation uint32 `json:"correlation"`
+	ReturnValue uint32 `json:"return_value"`
+}
+
+// nvtxRange is one paired NVTX range: a name, the host thread that pushed
+// it, and the host window it was open.
 type nvtxRange struct {
-	name  string
-	start uint64
-	end   uint64
+	name     string
+	pid, tid uint32
+	start    uint64
+	end      uint64
 }
 
 // nvtxRanges pairs the marker records in activities into ranges.
@@ -135,7 +152,7 @@ func nvtxRanges(activities []ActivityRecord) []nvtxRange {
 			}
 			start := stack[len(stack)-1]
 			open[k] = stack[:len(stack)-1]
-			out = append(out, nvtxRange{name: nvtxName(start), start: start.Start, end: m.End})
+			out = append(out, nvtxRange{name: nvtxName(start), pid: m.ProcessID, tid: m.ThreadID, start: start.Start, end: m.End})
 		}
 		// An instantaneous marker is a point, not a window, so it encloses
 		// nothing and is not a range.
@@ -152,21 +169,22 @@ func nvtxName(m ActivityRecord) string {
 	return m.MarkerDomain + "/" + m.Name
 }
 
-// nvtxLabels returns the names of every range open at t, outermost first.
+// nvtxLabels returns the names of every range open on host thread (pid, tid)
+// at host time t, outermost first.
 //
-// An activity is attributed to the ranges that were open when it STARTED, so
-// every activity belongs to a well-defined set and the per-range times sum to
-// the total device time. A kernel still running when a range closes counts
-// wholly to the range it began in; attributing it by overlap instead would
-// count it under two ranges and make the per-range times sum to more than the
-// device ever spent.
+// An activity is attributed at one instant, its launch, so every activity
+// belongs to a well-defined set and the per-range times sum to the total
+// device time. Attributing by overlap with the device interval instead would
+// count one kernel under several ranges and make the parts sum to more than
+// the device ever spent.
 //
 // Every enclosing range is named, not just the innermost, so that focusing an
-// outer range in pprof also finds the work inside its nested children.
-func nvtxLabels(ranges []nvtxRange, t uint64) []string {
+// outer range in pprof also finds the work inside its nested children. The
+// innermost range is the last name.
+func nvtxLabels(ranges []nvtxRange, pid, tid uint32, t uint64) []string {
 	var open []nvtxRange
 	for _, r := range ranges {
-		if r.start <= t && t < r.end {
+		if r.pid == pid && r.tid == tid && r.start <= t && t < r.end {
 			open = append(open, r)
 		}
 	}
@@ -186,6 +204,72 @@ func nvtxLabels(ranges []nvtxRange, t uint64) []string {
 		names = append(names, r.name)
 	}
 	return names
+}
+
+// launchIndex holds the host API calls of a capture by correlation id.
+type launchIndex map[uint32][]APIRecord
+
+func newLaunchIndex(apis []APIRecord) launchIndex {
+	idx := make(launchIndex)
+	for _, a := range apis {
+		if a.Correlation != 0 {
+			idx[a.Correlation] = append(idx[a.Correlation], a)
+		}
+	}
+	return idx
+}
+
+// launch returns the host call that launched a, or the reason it cannot.
+//
+// NVTX ranges are pushed and popped on the host around the launch call, while
+// the device may run the work long after the range closed: behind an
+// asynchronous queue, or as a node of a graph replayed later. So what places
+// device work in a range is the host start of the API call that launched it,
+// found through the correlation id CUPTI stamps on both, and the range must be
+// open on that call's thread. A kernel that ran as a graph node carries the
+// correlation of the graph launch that replayed it, if the capture recorded
+// one, so the same join places it under the range around that launch.
+//
+// There is no fallback to the device start time. That is the attribution this
+// join replaces, and the range it picks is wrong exactly when the device runs
+// behind the host. Work the join cannot place is reported with a reason.
+//
+// A runtime call and the driver call it makes share one correlation id and one
+// thread, so several records for an id are one launch, and the earliest start
+// is the outermost call. Records for one id on different threads are not one
+// launch, and the join refuses to choose between them.
+func (idx launchIndex) launch(a ActivityRecord) (APIRecord, string) {
+	if a.Correlation == 0 && a.RuntimeCorrelation == 0 {
+		return APIRecord{}, "no correlation id"
+	}
+	calls := idx[a.Correlation]
+	if len(calls) == 0 && a.RuntimeCorrelation != 0 {
+		calls = idx[a.RuntimeCorrelation]
+	}
+	// Correlation ids are per process. Activity from a worker process carries
+	// its pid, and only that process's calls can have launched it.
+	if a.Process != 0 {
+		var own []APIRecord
+		for _, c := range calls {
+			if uint64(c.ProcessID) == a.Process {
+				own = append(own, c)
+			}
+		}
+		calls = own
+	}
+	if len(calls) == 0 {
+		return APIRecord{}, "no api record"
+	}
+	first := calls[0]
+	for _, c := range calls[1:] {
+		if c.ProcessID != first.ProcessID || c.ThreadID != first.ThreadID {
+			return APIRecord{}, "api records on different threads"
+		}
+		if c.Start < first.Start {
+			first = c
+		}
+	}
+	return first, ""
 }
 
 // UnmarshalJSON unmarshals an ActivityRecord from JSON. It supports array
@@ -285,8 +369,14 @@ func AttachKernelLabels(labels map[string][]string, rec ActivityRecord) {
 // Kernel samples are annotated with launch geometry and register labels
 // ('grid', 'block', 'registers', 'smem'), and with 'graph_id' and
 // 'graph_node_id' when the kernel ran as a node of a CUDA graph.
-func BuildActivityProfile(session string, targetPID uint64, activities []ActivityRecord) *profile.Profile {
-	p, _ := BuildActivityProfileIndex(session, targetPID, activities)
+//
+// When activities carry NVTX markers, each sample is labelled 'nvtx' with the
+// ranges open on the host thread that launched it, at the moment it was
+// launched, outermost first. The launch is found among apis by correlation id.
+// A sample whose launch cannot be found is labelled 'nvtx_unassigned' with
+// the reason instead, never placed by its device time.
+func BuildActivityProfile(session string, targetPID uint64, activities []ActivityRecord, apis []APIRecord) *profile.Profile {
+	p, _ := BuildActivityProfileIndex(session, targetPID, activities, apis)
 	return p
 }
 
@@ -296,7 +386,7 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 // that association from the projection itself: the profile holds fewer samples
 // than there are records, and which records were skipped is this function's
 // decision, not one a caller can safely re-derive.
-func BuildActivityProfileIndex(session string, targetPID uint64, activities []ActivityRecord) (*profile.Profile, []int) {
+func BuildActivityProfileIndex(session string, targetPID uint64, activities []ActivityRecord, apis []APIRecord) (*profile.Profile, []int) {
 	var indices []int
 	p := &profile.Profile{
 		SampleType: []*profile.ValueType{
@@ -314,6 +404,7 @@ func BuildActivityProfileIndex(session string, targetPID uint64, activities []Ac
 	// that define them are interleaved with the device work they enclose, so
 	// the windows have to be known before any activity can be placed in them.
 	ranges := nvtxRanges(activities)
+	launches := newLaunchIndex(apis)
 	functions := make(map[string]*profile.Function)
 	var nextFunctionID uint64 = 1
 	var nextLocationID uint64 = 1
@@ -375,12 +466,18 @@ func BuildActivityProfileIndex(session string, targetPID uint64, activities []Ac
 		if activity.Process != 0 {
 			labels["pid"] = []string{strconv.FormatUint(activity.Process, 10)}
 		}
-		// The NVTX ranges this activity ran inside, outermost first. The label
-		// is absent rather than empty when it ran inside none, so that pprof's
-		// -tagfocus separates "outside every range" from "inside a range whose
-		// name happens to be empty".
-		if names := nvtxLabels(ranges, activity.Start); len(names) > 0 {
-			labels["nvtx"] = names
+		// The NVTX ranges open around this activity's launch, outermost
+		// first. The label is absent rather than empty when the launch was
+		// inside none, so that pprof's -tagfocus separates "outside every
+		// range" from "inside a range whose name happens to be empty";
+		// nvtx_unassigned separates both from "launch not found". A capture
+		// with no ranges has nothing to assign and gets neither.
+		if len(ranges) > 0 {
+			if call, reason := launches.launch(activity); reason != "" {
+				labels["nvtx_unassigned"] = []string{reason}
+			} else if names := nvtxLabels(ranges, call.ProcessID, call.ThreadID, call.Start); len(names) > 0 {
+				labels["nvtx"] = names
+			}
 		}
 		if activity.Subtype == "kernel" {
 			AttachKernelLabels(labels, activity)

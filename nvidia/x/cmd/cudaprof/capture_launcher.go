@@ -389,16 +389,7 @@ type ActivityRecord = cudacapture.ActivityRecord
 
 // captureAPI retains driver/runtime launch context separately from GPU
 // activity totals. Its timestamps describe the host API call, not GPU work.
-type captureAPI struct {
-	Domain      string `json:"domain"`
-	CallbackID  uint32 `json:"callback_id"`
-	Start       uint64 `json:"start"`
-	End         uint64 `json:"end"`
-	ProcessID   uint32 `json:"process_id"`
-	ThreadID    uint32 `json:"thread_id"`
-	Correlation uint32 `json:"correlation"`
-	ReturnValue uint32 `json:"return_value"`
-}
+type captureAPI = cudacapture.APIRecord
 
 // captureArtifactBudget bounds the artifact a capture writes. It is a producer
 // policy, applied before anything is embedded, not a limit discovered at the

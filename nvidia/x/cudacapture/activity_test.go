@@ -225,7 +225,7 @@ func TestBuildActivityProfile(t *testing.T) {
 		},
 	}
 
-	p := cudacapture.BuildActivityProfile("session-42", 100, activities)
+	p := cudacapture.BuildActivityProfile("session-42", 100, activities, nil)
 	if p == nil {
 		t.Fatal("BuildActivityProfile returned nil")
 	}
@@ -292,7 +292,7 @@ func TestBuildActivityProfileDefaultSampleType(t *testing.T) {
 		Valid:   true,
 		Start:   1000,
 		End:     2000,
-	}})
+	}}, nil)
 	if p.DefaultSampleType != "kernel_time" {
 		t.Errorf("DefaultSampleType = %q, want %q", p.DefaultSampleType, "kernel_time")
 	}
@@ -390,7 +390,7 @@ func TestBuildActivityProfileSkipsNVTXMarkers(t *testing.T) {
 		{Subtype: "marker", Name: "prefill", Valid: true, Start: 500, End: 500},
 		{Subtype: "marker", Name: "prefill", Valid: true, Start: 9000, End: 9000},
 	}
-	p := cudacapture.BuildActivityProfile("session", 4242, activities)
+	p := cudacapture.BuildActivityProfile("session", 4242, activities, nil)
 	if len(p.Sample) != 1 {
 		t.Fatalf("got %d samples, want 1: only the kernel is device activity", len(p.Sample))
 	}
@@ -421,7 +421,7 @@ func TestBuildActivityProfileSkipsCaptureRangeEdges(t *testing.T) {
 		{Subtype: "capture_range", Name: "cudaProfilerStart", Valid: true, Start: 500, End: 600},
 		{Subtype: "capture_range", Name: "cudaProfilerStop", Valid: true, Start: 9000, End: 9100},
 	}
-	p := cudacapture.BuildActivityProfile("session", 4242, activities)
+	p := cudacapture.BuildActivityProfile("session", 4242, activities, nil)
 	if len(p.Sample) != 1 {
 		t.Fatalf("got %d samples, want 1: only the kernel is device activity", len(p.Sample))
 	}
@@ -437,84 +437,246 @@ func TestBuildActivityProfileSkipsCaptureRangeEdges(t *testing.T) {
 	}
 }
 
-// marker builds the two records CUPTI reports for one NVTX range. A range is
-// never a single record: the open and the close are separate, share a marker
-// id, and carry the timestamp in both Start and End.
-func nvtxOpen(id uint32, name string, at uint64) cudacapture.ActivityRecord {
-	return cudacapture.ActivityRecord{Subtype: "marker", Name: name, Valid: true, Start: at, End: at, MarkerID: id, MarkerFlags: 1 << 1, ThreadID: 7, ProcessID: 1}
+// nvtxOpen and nvtxClose build the two records CUPTI reports for one NVTX
+// range pushed on host thread tid. A range is never a single record: the open
+// and the close are separate, share a marker id, and carry the timestamp in
+// both Start and End.
+func nvtxOpen(tid, id uint32, name string, at uint64) cudacapture.ActivityRecord {
+	return cudacapture.ActivityRecord{Subtype: "marker", Name: name, Valid: true, Start: at, End: at, MarkerID: id, MarkerFlags: 1 << 1, ThreadID: tid, ProcessID: 1}
 }
 
-func nvtxClose(id uint32, name string, at uint64) cudacapture.ActivityRecord {
-	return cudacapture.ActivityRecord{Subtype: "marker", Name: name, Valid: true, Start: at, End: at, MarkerID: id, MarkerFlags: 1 << 2, ThreadID: 7, ProcessID: 1}
+func nvtxClose(tid, id uint32, name string, at uint64) cudacapture.ActivityRecord {
+	return cudacapture.ActivityRecord{Subtype: "marker", Name: name, Valid: true, Start: at, End: at, MarkerID: id, MarkerFlags: 1 << 2, ThreadID: tid, ProcessID: 1}
 }
 
-func nvtxLabelOf(t *testing.T, p *profile.Profile, kernel string) []string {
+// kernel is device work with correlation corr that ran on the device over
+// [start, end).
+func kernel(name string, corr uint32, start, end uint64) cudacapture.ActivityRecord {
+	return cudacapture.ActivityRecord{Subtype: "kernel", Name: name, Valid: true, Start: start, End: end, Correlation: corr}
+}
+
+// launchCall is the host API call with correlation corr, made on thread tid
+// of process 1 at host time at.
+func launchCall(tid, corr uint32, at uint64) cudacapture.APIRecord {
+	return cudacapture.APIRecord{Domain: "runtime", Start: at, End: at + 5, ProcessID: 1, ThreadID: tid, Correlation: corr}
+}
+
+func labelOf(t *testing.T, p *profile.Profile, kernel, key string) []string {
 	t.Helper()
 	for _, s := range p.Sample {
 		if len(s.Label["name"]) == 1 && s.Label["name"][0] == kernel {
-			return s.Label["nvtx"]
+			return s.Label[key]
 		}
 	}
 	t.Fatalf("no sample named %q", kernel)
 	return nil
 }
 
-// TestBuildActivityProfileLabelsEnclosingNVTXRanges covers nesting: a kernel
-// inside several ranges is labelled with all of them, outermost first, so that
-// focusing an outer range in pprof also finds the work inside its children.
-// Labelling only the innermost would make -tagfocus=train_step silently miss
-// every kernel that ran in a nested range.
-func TestBuildActivityProfileLabelsEnclosingNVTXRanges(t *testing.T) {
-	p := cudacapture.BuildActivityProfile("session", 1, []cudacapture.ActivityRecord{
-		nvtxOpen(1, "train_step", 100),
-		nvtxOpen(2, "forward", 200),
-		nvtxOpen(3, "attention", 300),
-		{Subtype: "kernel", Name: "inner", Valid: true, Start: 400, End: 450},
-		nvtxClose(3, "attention", 500),
-		{Subtype: "kernel", Name: "mid", Valid: true, Start: 520, End: 540},
-		nvtxClose(2, "forward", 600),
-		{Subtype: "kernel", Name: "outer", Valid: true, Start: 700, End: 750},
-		nvtxClose(1, "train_step", 1000),
-		{Subtype: "kernel", Name: "after", Valid: true, Start: 1100, End: 1200},
-	})
-	for _, tt := range []struct {
-		kernel string
-		want   []string
+func nvtxLabelOf(t *testing.T, p *profile.Profile, kernel string) []string {
+	t.Helper()
+	return labelOf(t, p, kernel, "nvtx")
+}
+
+// TestBuildActivityProfileAssignsNVTXByLaunch pins the join that places
+// device work in an NVTX range. A range is pushed and popped on the host
+// around the launch call; the device runs the work whenever its queue gets
+// there. So the range is the one open on the launching thread when the launch
+// call started, found through the correlation id the kernel shares with that
+// call, and never the one that happens to be open when the device started.
+func TestBuildActivityProfileAssignsNVTXByLaunch(t *testing.T) {
+	type want struct {
+		nvtx       []string
+		unassigned string
+	}
+	tests := []struct {
+		name       string
+		activities []cudacapture.ActivityRecord
+		apis       []cudacapture.APIRecord
+		want       map[string]want
 	}{
-		{"inner", []string{"train_step", "forward", "attention"}},
-		{"mid", []string{"train_step", "forward"}},
-		{"outer", []string{"train_step"}},
-		{"after", nil},
-	} {
-		if got := nvtxLabelOf(t, p, tt.kernel); !reflect.DeepEqual(got, tt.want) {
-			t.Errorf("kernel %q: nvtx = %v, want %v", tt.kernel, got, tt.want)
+		{
+			// The device start of k falls long after the range closed, and
+			// that of late falls inside a range opened after it was launched.
+			// By device time both would be wrong.
+			name: "device start after the host range closed",
+			activities: []cudacapture.ActivityRecord{
+				nvtxOpen(7, 1, "step", 100),
+				nvtxClose(7, 1, "step", 200),
+				nvtxOpen(7, 2, "next", 300),
+				nvtxClose(7, 2, "next", 400),
+				kernel("k", 1, 5000, 5100),
+				kernel("late", 2, 350, 360),
+			},
+			apis: []cudacapture.APIRecord{launchCall(7, 1, 150), launchCall(7, 2, 250)},
+			want: map[string]want{
+				"k":    {nvtx: []string{"step"}},
+				"late": {},
+			},
+		},
+		{
+			// Thread 7 and thread 8 each hold a range over the same interval.
+			// Each kernel belongs to its own launching thread's range only.
+			name: "two threads with overlapping ranges",
+			activities: []cudacapture.ActivityRecord{
+				nvtxOpen(7, 1, "A", 100),
+				nvtxOpen(8, 1, "B", 150),
+				kernel("k7", 1, 320, 330),
+				kernel("k8", 2, 330, 340),
+				nvtxClose(7, 1, "A", 500),
+				nvtxClose(8, 1, "B", 600),
+			},
+			apis: []cudacapture.APIRecord{launchCall(7, 1, 300), launchCall(8, 2, 310)},
+			want: map[string]want{
+				"k7": {nvtx: []string{"A"}},
+				"k8": {nvtx: []string{"B"}},
+			},
+		},
+		{
+			// The path is outermost first, so the innermost range is last.
+			name: "nested ranges",
+			activities: []cudacapture.ActivityRecord{
+				nvtxOpen(7, 1, "outer", 100),
+				nvtxOpen(7, 2, "inner", 200),
+				nvtxClose(7, 2, "inner", 500),
+				nvtxClose(7, 1, "outer", 1000),
+				kernel("in", 1, 2000, 2100),
+				kernel("out", 2, 2200, 2300),
+			},
+			apis: []cudacapture.APIRecord{launchCall(7, 1, 300), launchCall(7, 2, 600)},
+			want: map[string]want{
+				"in":  {nvtx: []string{"outer", "inner"}},
+				"out": {nvtx: []string{"outer"}},
+			},
+		},
+		{
+			// Both kernels start on the device inside the range. Neither has
+			// a launch to join, so neither may be placed in it.
+			name: "no matching api record",
+			activities: []cudacapture.ActivityRecord{
+				nvtxOpen(7, 1, "step", 100),
+				kernel("orphan", 99, 150, 160),
+				kernel("uncorrelated", 0, 170, 180),
+				nvtxClose(7, 1, "step", 500),
+			},
+			apis: []cudacapture.APIRecord{launchCall(7, 1, 120)},
+			want: map[string]want{
+				"orphan":       {unassigned: "no api record"},
+				"uncorrelated": {unassigned: "no correlation id"},
+			},
+		},
+		{
+			// A graph node kernel carries the correlation of the graph launch
+			// that replayed it. With that launch recorded it is placed; a node
+			// whose launch was not recorded is not guessed at.
+			name: "graph nodes",
+			activities: []cudacapture.ActivityRecord{
+				nvtxOpen(7, 1, "decode", 100),
+				nvtxClose(7, 1, "decode", 200),
+				{Subtype: "kernel", Name: "node", Valid: true, Start: 900, End: 950, Correlation: 3, GraphID: 5, GraphNodeID: 1},
+				{Subtype: "kernel", Name: "lost", Valid: true, Start: 150, End: 160, Correlation: 4, GraphID: 5, GraphNodeID: 2},
+			},
+			apis: []cudacapture.APIRecord{launchCall(7, 3, 150)},
+			want: map[string]want{
+				"node": {nvtx: []string{"decode"}},
+				"lost": {unassigned: "no api record"},
+			},
+		},
+		{
+			// The runtime call and the driver call beneath it share the id;
+			// the runtime call is the outer one and starts first.
+			name: "runtime and driver records for one launch",
+			activities: []cudacapture.ActivityRecord{
+				nvtxOpen(7, 1, "step", 100),
+				nvtxClose(7, 1, "step", 160),
+				kernel("k", 1, 900, 950),
+			},
+			apis: []cudacapture.APIRecord{
+				{Domain: "driver", Start: 170, End: 175, ProcessID: 1, ThreadID: 7, Correlation: 1},
+				{Domain: "runtime", Start: 150, End: 180, ProcessID: 1, ThreadID: 7, Correlation: 1},
+			},
+			want: map[string]want{"k": {nvtx: []string{"step"}}},
+		},
+		{
+			name: "one correlation on two threads",
+			activities: []cudacapture.ActivityRecord{
+				nvtxOpen(7, 1, "A", 100),
+				nvtxClose(7, 1, "A", 500),
+				kernel("k", 1, 900, 950),
+			},
+			apis: []cudacapture.APIRecord{launchCall(7, 1, 150), launchCall(8, 1, 160)},
+			want: map[string]want{"k": {unassigned: "api records on different threads"}},
+		},
+		{
+			// Correlation ids are per process. Process 2 reuses id 1 on its
+			// own thread 8; its kernel joins its own call, not process 1's.
+			name: "worker process",
+			activities: []cudacapture.ActivityRecord{
+				nvtxOpen(7, 1, "A", 100),
+				nvtxClose(7, 1, "A", 500),
+				{Subtype: "marker", Name: "B", Valid: true, Start: 100, End: 100, MarkerID: 1, MarkerFlags: 1 << 1, ThreadID: 8, ProcessID: 2},
+				{Subtype: "marker", Name: "B", Valid: true, Start: 500, End: 500, MarkerID: 1, MarkerFlags: 1 << 2, ThreadID: 8, ProcessID: 2},
+				{Subtype: "kernel", Name: "k", Valid: true, Start: 900, End: 950, Correlation: 1, Process: 2},
+			},
+			apis: []cudacapture.APIRecord{
+				launchCall(7, 1, 150),
+				{Domain: "runtime", Start: 160, End: 165, ProcessID: 2, ThreadID: 8, Correlation: 1},
+			},
+			want: map[string]want{"k": {nvtx: []string{"B"}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := cudacapture.BuildActivityProfile("session", 1, tt.activities, tt.apis)
+			for name, w := range tt.want {
+				if got := nvtxLabelOf(t, p, name); !reflect.DeepEqual(got, w.nvtx) {
+					t.Errorf("kernel %q: nvtx = %v, want %v", name, got, w.nvtx)
+				}
+				var wantUnassigned []string
+				if w.unassigned != "" {
+					wantUnassigned = []string{w.unassigned}
+				}
+				if got := labelOf(t, p, name, "nvtx_unassigned"); !reflect.DeepEqual(got, wantUnassigned) {
+					t.Errorf("kernel %q: nvtx_unassigned = %v, want %v", name, got, wantUnassigned)
+				}
+			}
+		})
+	}
+}
+
+// TestBuildActivityProfileWithoutNVTXLabelsNothing covers the capture with no
+// ranges at all. There is nothing to assign, so no sample is unassigned
+// either: marking every sample of an unannotated capture would bury the label
+// that means the join failed.
+func TestBuildActivityProfileWithoutNVTXLabelsNothing(t *testing.T) {
+	p := cudacapture.BuildActivityProfile("session", 1, []cudacapture.ActivityRecord{kernel("k", 1, 100, 200)}, nil)
+	for _, key := range []string{"nvtx", "nvtx_unassigned"} {
+		if got := labelOf(t, p, "k", key); got != nil {
+			t.Errorf("%s = %v, want absent in a capture with no ranges", key, got)
 		}
 	}
 }
 
-// TestBuildActivityProfileAttributesNVTXByStartTime pins the containment rule
-// and the property it exists to buy: an activity belongs to the ranges open
-// when it STARTED, so every activity is attributed exactly once and the
-// per-range device time sums to the total.
+// TestBuildActivityProfileAttributesNVTXOnce pins the property the launch
+// instant buys: an activity is attributed at one moment, so it counts under
+// exactly one set of ranges and the per-range device time sums to the total.
 //
-// The kernel that straddles the close is the whole point. Attributing it by
-// overlap would count it under the range and again outside, making the parts
-// sum to more than the device ever spent; requiring full containment would
-// drop it from both, making them sum to less, with the shortfall invisible.
-func TestBuildActivityProfileAttributesNVTXByStartTime(t *testing.T) {
+// The kernel that runs past the close is the point. Attributing it by overlap
+// would count it under the range and again outside, making the parts sum to
+// more than the device ever spent.
+func TestBuildActivityProfileAttributesNVTXOnce(t *testing.T) {
 	p := cudacapture.BuildActivityProfile("session", 1, []cudacapture.ActivityRecord{
-		{Subtype: "kernel", Name: "before", Valid: true, Start: 50, End: 80},
-		nvtxOpen(1, "forward", 100),
-		{Subtype: "kernel", Name: "straddles", Valid: true, Start: 200, End: 1000},
-		nvtxClose(1, "forward", 500),
-		{Subtype: "kernel", Name: "after", Valid: true, Start: 600, End: 700},
-	})
+		kernel("before", 1, 50, 80),
+		nvtxOpen(7, 1, "forward", 100),
+		kernel("straddles", 2, 200, 1000),
+		nvtxClose(7, 1, "forward", 500),
+		kernel("after", 3, 600, 700),
+	}, []cudacapture.APIRecord{launchCall(7, 1, 40), launchCall(7, 2, 150), launchCall(7, 3, 550)})
 	if got := nvtxLabelOf(t, p, "straddles"); !reflect.DeepEqual(got, []string{"forward"}) {
-		t.Errorf("a kernel that began inside the range is labelled %v, want [forward]", got)
+		t.Errorf("a kernel launched inside the range is labelled %v, want [forward]", got)
 	}
 	for _, k := range []string{"before", "after"} {
 		if got := nvtxLabelOf(t, p, k); got != nil {
-			t.Errorf("kernel %q ran outside every range but is labelled %v", k, got)
+			t.Errorf("kernel %q was launched outside every range but is labelled %v", k, got)
 		}
 	}
 
@@ -534,7 +696,7 @@ func TestBuildActivityProfileAttributesNVTXByStartTime(t *testing.T) {
 		t.Errorf("in-range %d + outside %d = %d, want %d: an activity was attributed twice or not at all", inRange, outside, inRange+outside, total)
 	}
 	if inRange != 800 {
-		t.Errorf("in-range kernel time = %d, want 800: the straddling kernel counts wholly to the range it began in", inRange)
+		t.Errorf("in-range kernel time = %d, want 800: the straddling kernel counts wholly to the range it was launched in", inRange)
 	}
 }
 
@@ -544,16 +706,18 @@ func TestBuildActivityProfileAttributesNVTXByStartTime(t *testing.T) {
 // enclose anything, and inventing an end for one would attribute work to a
 // range whose extent nothing recorded.
 func TestNVTXRangesIgnoreUnpairedMarkers(t *testing.T) {
-	// The kernel sits AFTER the orphan open and BEFORE the orphan close, so
+	// The launch sits AFTER the orphan open and BEFORE the orphan close, so
 	// that either of the two tempting repairs -- running an unclosed open to
 	// the end of the capture, or backdating an unopened close to its start --
-	// would enclose it. A fixture where the kernel falls outside the invented
+	// would enclose it. A fixture where the launch falls outside the invented
 	// window passes whether or not the window is invented.
 	p := cudacapture.BuildActivityProfile("session", 1, []cudacapture.ActivityRecord{
-		nvtxOpen(1, "never_closed", 100),
-		{Subtype: "kernel", Name: "k", Valid: true, Start: 200, End: 300},
-		nvtxClose(2, "never_opened", 400),
-	})
+		nvtxOpen(7, 1, "never_closed", 100),
+		kernel("k", 1, 200, 300),
+		nvtxClose(7, 2, "never_opened", 400),
+		nvtxOpen(7, 3, "closed", 1000),
+		nvtxClose(7, 3, "closed", 1100),
+	}, []cudacapture.APIRecord{launchCall(7, 1, 200)})
 	if got := nvtxLabelOf(t, p, "k"); got != nil {
 		t.Errorf("nvtx = %v, want none: neither an unclosed open nor an unopened close is a window", got)
 	}
@@ -568,7 +732,7 @@ func TestNVTXRangesIgnoreUnpairedMarkers(t *testing.T) {
 func TestBuildActivityProfileCountsMemsetTime(t *testing.T) {
 	p := cudacapture.BuildActivityProfile("session-42", 100, []cudacapture.ActivityRecord{
 		{Subtype: "memset", Valid: true, Start: 3000, End: 3500, Bytes: 8192, Value: 0, Device: 0},
-	})
+	}, nil)
 	if p == nil || len(p.Sample) != 1 {
 		t.Fatalf("samples = %d, want 1", len(p.Sample))
 	}
@@ -612,7 +776,7 @@ func TestBuildActivityProfileSkipsExternalCorrelation(t *testing.T) {
 	p := cudacapture.BuildActivityProfile("session", 1, []cudacapture.ActivityRecord{
 		{Subtype: "kernel", Name: "k", Valid: true, Start: 100, End: 200, Correlation: 9},
 		{Subtype: "external_correlation", Valid: true, Correlation: 9, ExternalKind: 3, ExternalID: 770},
-	})
+	}, nil)
 	if len(p.Sample) != 1 {
 		t.Fatalf("got %d samples, want 1: an external correlation link is not device work", len(p.Sample))
 	}
@@ -639,7 +803,7 @@ func TestBuildActivityProfileSkipsTheIdleExplainingTiers(t *testing.T) {
 		{Subtype: "overhead", Valid: true, Start: 2000, End: 2070, OverheadKind: 1 << 16, ObjectKind: 2},
 		{Subtype: "graph_trace", Valid: true, Start: 900, End: 1600, Device: 1, GraphID: 5},
 		{Subtype: "sync", Valid: true, Start: 3000, End: 3060, SyncType: 3, Context: 4},
-	})
+	}, nil)
 	if p == nil {
 		t.Fatal("no profile")
 	}

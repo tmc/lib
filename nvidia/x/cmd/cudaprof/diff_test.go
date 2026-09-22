@@ -23,7 +23,7 @@ func sampleTypeIsReal(name string) bool {
 	if err := cudaprof.NewBuilder().SetSampleTypes(name); err == nil {
 		return true
 	}
-	for _, st := range cudacapture.BuildActivityProfile("", 0, nil).SampleType {
+	for _, st := range cudacapture.BuildActivityProfile("", 0, nil, nil).SampleType {
 		if st.Type == name {
 			return true
 		}

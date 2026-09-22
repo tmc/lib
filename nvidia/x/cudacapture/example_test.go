@@ -87,7 +87,7 @@ func ExampleBuildActivityProfile() {
 			DynamicSharedMemory: 256,
 		},
 	}
-	p := cudacapture.BuildActivityProfile("session-1", 1234, activities)
+	p := cudacapture.BuildActivityProfile("session-1", 1234, activities, nil)
 	fmt.Println("samples:", len(p.Sample))
 	fmt.Println("grid:", p.Sample[0].Label["grid"][0])
 

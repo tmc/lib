@@ -1027,6 +1027,13 @@ func TestObserveJournalStillRejectsUnknownSubtypes(t *testing.T) {
 // dropped markers, the profile was built from what the controller returned, and
 // the ranges are paired from that same slice. Nothing failed anywhere -- the
 // label was simply always absent.
+//
+// The API records ride the same path: a kernel is placed by the host call
+// that launched it, so the controller has to return them and the caller has
+// to pass them on. The device times are chosen so that placing either kernel
+// by its device start gets it wrong: "early" runs inside the range but was
+// launched before it opened, "inside" was launched inside it but runs after
+// it closed.
 func TestObserveJournalCarriesMarkersToNVTXLabels(t *testing.T) {
 	dir := t.TempDir()
 	sessionHex := "0123456789abcdef0123456789abcdef"
@@ -1042,18 +1049,20 @@ func TestObserveJournalCarriesMarkersToNVTXLabels(t *testing.T) {
 	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
 		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
 		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordAPI, Payload: []byte(`{"kind":"api","domain":"runtime","callback_id":211,"start":50,"end":60,"process_id":1234,"thread_id":7,"correlation":1}`)},
 		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"decode","marker_domain":"ds4","valid":true,"start":100,"end":100,"marker_id":1,"marker_flags":2,"process_id":1234,"thread_id":7}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"inside","valid":true,"start":200,"end":300,"device":0}`)},
+		{Kind: recordAPI, Payload: []byte(`{"kind":"api","domain":"runtime","callback_id":211,"start":150,"end":160,"process_id":1234,"thread_id":7,"correlation":2}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"early","valid":true,"start":200,"end":300,"device":0,"correlation":1}`)},
 		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"decode","marker_domain":"ds4","valid":true,"start":400,"end":400,"marker_id":1,"marker_flags":4,"process_id":1234,"thread_id":7}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"outside","valid":true,"start":500,"end":600,"device":0}`)},
+		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"inside","valid":true,"start":500,"end":600,"device":0,"correlation":2}`)},
 		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":4}`)},
 	})
 
-	_, _, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
+	_, _, _, activities, apis, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
 	if err != nil {
 		t.Fatalf("observeJournal: %v", err)
 	}
-	p := cudacapture.BuildActivityProfile(sessionHex, 1234, activities)
+	p := cudacapture.BuildActivityProfile(sessionHex, 1234, activities, apis)
 
 	got := map[string][]string{}
 	for _, s := range p.Sample {
@@ -1065,10 +1074,10 @@ func TestObserveJournalCarriesMarkersToNVTXLabels(t *testing.T) {
 		t.Fatalf("got %d samples, want 2: only the two kernels are device work", len(p.Sample))
 	}
 	if want := []string{"ds4/decode"}; !reflect.DeepEqual(got["inside"], want) {
-		t.Errorf("kernel inside the range has nvtx = %v, want %v", got["inside"], want)
+		t.Errorf("kernel launched inside the range has nvtx = %v, want %v", got["inside"], want)
 	}
-	if got["outside"] != nil {
-		t.Errorf("kernel after the range closed has nvtx = %v, want none", got["outside"])
+	if got["early"] != nil {
+		t.Errorf("kernel launched before the range opened has nvtx = %v, want none", got["early"])
 	}
 }
 
