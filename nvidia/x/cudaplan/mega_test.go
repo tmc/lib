@@ -133,7 +133,7 @@ func TestLowerRegionRoundTripsAPlanRegion(t *testing.T) {
 		ops[id] = cudamega.Operation{Kind: cudamega.Add, Scalar: 1}
 	}
 	grid := cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128}
-	src, err := cudamega.ProgramSource(low.Graph(), ops, grid)
+	src, err := cudamega.ProgramSource(low.Graph(), ops, grid, cudamega.SM80)
 	if err != nil {
 		t.Fatalf("ProgramSource on the lowered graph: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestLowerRegionRoundTripsAPlanRegion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("control graph: %v", err)
 	}
-	if _, err := cudamega.ProgramSource(ctaGraph, ops, grid); err == nil {
+	if _, err := cudamega.ProgramSource(ctaGraph, ops, grid, cudamega.SM80); err == nil {
 		t.Fatal("control did not fire: the emitter accepted a CTA-scope edge in a 2-CTA grid, so the scope derivation proves nothing")
 	} else {
 		t.Logf("control fired: %v", err)
