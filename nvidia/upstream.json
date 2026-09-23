@@ -5702,7 +5702,11 @@
           "nccl",
           "-deprecated=true",
           "-docs-dir",
-          "${DOCS_DIR}"
+          "${DOCS_DIR}",
+          "-ffi-register",
+          "github.com/tmc/lib/nvidia/internal/ffi",
+          "-ffi-register-symbols",
+          "ncclTeamRankToWorld,ncclTeamRankToLsa,ncclGinBarrierCreateRequirement,ncclLsaBarrierCreateRequirement,ncclCftBarrierCreateRequirement,ncclGetCftDeviceLeInfo"
         ],
         "comparison": "Regenerated from pinned/nccl/2.31.2-1 rather than the fetched nccl/ tree, which cuda-headers expands from nccl.h.in at fetch time and which carried 2.29.7. The recorded argv was replayed into a scratch directory after the move and all 20 generated Go files matched the committed output byte-for-byte; provenance.json is excluded from outputs because it records the invocation and so varies with -output and -docs-dir. 2.31.2 adds 33 exported declarations, all of them upstream's: a worktree control at the prior generator commit produced the same exported set as the package previously shipped, so none of the 33 is generator drift. Six of the eight new entry points are bound; ncclGinWindowRegister and ncclGinWindowDeregister are declared only in nccl_device/gin_win_stub.h, which is #error-guarded to Windows, and are not bound. No runtime or GPU claim: this host has no libnccl 2.31.2.",
         "cwd": "${CODEGEN_REPO}",
@@ -5888,7 +5892,7 @@
           },
           {
             "path": "nvidia/nccl/devcomm.gen.go",
-            "sha256": "59c0e7651e949c28127746c828ab84e489ee3174c6118f619b201d38c66cdd04"
+            "sha256": "1159ff8aef8b92d7694f91da89545ae5354335b5829e246f886347dd71201749"
           },
           {
             "path": "nvidia/nccl/devptr.gen.go",
@@ -5917,7 +5921,7 @@
           },
           {
             "path": "nvidia/nccl/init.gen.go",
-            "sha256": "510e8f9045e0c03b2108b47e156cde14270bbb7eac0113db8d5e9764a2ab9a64"
+            "sha256": "38d75d01c10274e8a6390d66d21a8e8dd949c97127a797b23b862bbc599e156d"
           },
           {
             "path": "nvidia/nccl/layout.gen_test.go",
@@ -5964,7 +5968,7 @@
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "note": "Restamped 2026-09-18 for one byte. contrib/cuda GenerateDefaults returned its buffer without format.Source, so defaults.gen.go shipped with a blank line at end of file -- the only generated file in nvidia that gofmt would change. The emitter now formats (libgen), and this record holds the digest of the formatted file. Nothing else moved: the same pinned header, the same recipe, and the other 19 outputs reproduce byte for byte. The pin did not move."
+        "note": "Restamped 2026-09-18 for one byte. contrib/cuda GenerateDefaults returned its buffer without format.Source, so defaults.gen.go shipped with a blank line at end of file -- the only generated file in nvidia that gofmt would change. The emitter now formats (libgen), and this record holds the digest of the formatted file. Nothing else moved: the same pinned header, the same recipe, and the other 19 outputs reproduce byte for byte. The pin did not move. Restamped again for the local FFI registrar: the recipe gained -ffi-register and -ffi-register-symbols, which route six Team and barrier entry points through internal/ffi. Replaying this argv with libgen at 79b7720 reproduces all 20 outputs byte for byte; devcomm.gen.go and init.gen.go carry the new digests."
       },
       "header": {
         "path": "pinned/nccl/2.31.2-1/nccl.h",
