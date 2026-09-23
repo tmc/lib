@@ -774,6 +774,12 @@ type targetEnvironment struct {
 	Env        map[string]string `json:"env,omitempty"`
 	EnvUnset   []string          `json:"env_unset,omitempty"`
 	StampedFor []string          `json:"env_stamped_for,omitempty"`
+
+	// Executable is the program the command ran, read through a leading
+	// env(1), and Agent the injection library it was given. Both are
+	// identified before the target starts.
+	Executable *executableIdentity `json:"executable,omitempty"`
+	Agent      *executableIdentity `json:"agent,omitempty"`
 }
 
 // stampTargetEnvironment records the environment the target actually received,
@@ -1008,6 +1014,14 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	cmd := exec.Command(o.command[0], o.command[1:]...)
 	cmd.Dir, cmd.Env = o.Dir, captureEnvironment(o, session, dir)
 	result.Target = stampTargetEnvironment(o.command, o.Dir, cmd.Env, o.StampEnv)
+	if cmd.Err != nil {
+		result.Target.Executable = &executableIdentity{Path: o.command[0], Error: cmd.Err.Error()}
+	} else {
+		result.Target.Executable = identifyTarget(cmd.Path, o.command, cmd.Env, o.Dir)
+	}
+	if o.Inject != "" {
+		result.Target.Agent = identifyExecutable(o.Inject)
+	}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = o.Stdin, o.Stdout, o.Stderr
 	if cmd.Stdin == nil {
 		cmd.Stdin = os.Stdin
