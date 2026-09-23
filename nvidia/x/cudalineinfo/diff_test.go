@@ -9,7 +9,8 @@ import (
 // TestDiffFastMath compares the fixture with its -use_fast_math build. Fast
 // math replaces the IEEE division with an approximate reciprocal, so the Silu
 // line must lose its slowpath call and the slowpath itself must be gone from
-// the remainder.
+// the remainder. The loop's 64-bit integer division is not floating point
+// and stays.
 func TestDiffFastMath(t *testing.T) {
 	base, fast := loadFixture(t, "fused_gate", ""), loadFixture(t, "fused_gate", "-fast")
 	diffs := Diff(Side{Attribution: base}, Side{Attribution: fast})
@@ -17,8 +18,8 @@ func TestDiffFastMath(t *testing.T) {
 		t.Fatalf("got %d site diffs, want 4", len(diffs))
 	}
 	silu := diffs[2]
-	if silu.Site != (Site{kernelsFile, 14}) || silu.Base != 23 || silu.Target != 5 {
-		t.Errorf("silu diff = %+v, want kernels.go:14 23 -> 5", silu)
+	if silu.Site != (Site{kernelsFile, 14}) || silu.Base != 117 || silu.Target != 25 {
+		t.Errorf("silu diff = %+v, want kernels.go:14 117 -> 25", silu)
 	}
 	// Opcodes compare by base mnemonic, so the slowpath call is CALL and
 	// the range check FCHK. Both builds keep a MUFU exponential and
@@ -32,11 +33,23 @@ func TestDiffFastMath(t *testing.T) {
 	if strings.Contains(removed, " MUFU ") {
 		t.Errorf("fast math lost a MUFU on the silu line; removed %s", removed)
 	}
-	if len(fast.Remainder.Subroutines) != 0 {
-		t.Errorf("fast build still has subroutines: %v", fast.Remainder.Subroutines)
+	for name := range fast.Remainder.Subroutines {
+		if strings.HasSuffix(name, divSlowpath) {
+			t.Errorf("fast build still has %s", name)
+		}
 	}
-	if diffs[0].Base != diffs[0].Target || len(diffs[0].Removed) != 0 {
-		t.Errorf("input load line changed under fast math: %+v", diffs[0])
+	// The input line keeps its instructions. Scheduling may still move a
+	// convergence barrier or a constant load across it, so only the
+	// arithmetic is required to be untouched.
+	x := diffs[0]
+	if x.Base != x.Target {
+		t.Errorf("input load line changed size under fast math: %+v", x)
+	}
+	for _, op := range append(x.Removed, x.Added...) {
+		if strings.HasPrefix(op, "F") || op == "MUFU" {
+			t.Errorf("input load line changed arithmetic under fast math: %+v", x)
+			break
+		}
 	}
 
 	var buf bytes.Buffer

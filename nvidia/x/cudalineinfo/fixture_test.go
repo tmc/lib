@@ -9,14 +9,15 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
-// The fixtures are the fused_gate and fused_layered kernels of the
-// source-wiring example, exported by testdata/gen.go. gate builds both
+// The fixtures are the fused_gate and fused_layered kernels of
+// testdata/wiring, a copy of the source-wiring example's, exported by
+// testdata/gen.go. gate builds both
 // inputs and the multiply in one function; layered builds its operations
 // inside two helpers, so its line map is the one that carries callers worth
 // rolling up.
 const (
-	kernelsFile = "x/examples/source-wiring/kernels.go"
-	mainFile    = "x/examples/source-wiring/main.go"
+	kernelsFile = "x/cudalineinfo/testdata/wiring/kernels.go"
+	mainFile    = "x/cudalineinfo/testdata/wiring/main.go"
 )
 
 // fixtureUnit reads a unit of testdata. Its functions and callers are the

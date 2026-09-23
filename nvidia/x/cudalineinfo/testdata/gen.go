@@ -1,11 +1,13 @@
 //go:build ignore
 
 // Gen regenerates the fixtures of this directory. The fused_gate and
-// fused_layered units come from the source-wiring example, which builds its
-// kernels with cudatensor and lowers them with cudafuse; taking them from
-// that path rather than writing them by hand is what makes the fixtures carry
-// the function and callers of every line as the compiler recorded them. The
-// forward fixture is compiled from forward.cu, the hand-written CUDA the
+// fused_layered units come from testdata/wiring, a copy of the source-wiring
+// example's kernels that builds them with cudatensor and lowers them with
+// cudafuse; taking them from that path rather than writing them by hand is
+// what makes the fixtures carry the function and callers of every line as
+// the compiler recorded them. The copy, rather than the example itself, is
+// what keeps the lines the tests name from moving when the example is
+// edited. The forward fixture is compiled from forward.cu, the hand-written CUDA the
 // package's tests embed.
 //
 // Usage:
@@ -13,7 +15,7 @@
 //	go run testdata/gen.go [-arch sm_121]
 //
 // It needs a GPU with NVRTC and an nvdisasm that understands the target. The
-// example records absolute paths, so each unit's files are rewritten relative
+// program records absolute paths, so each unit's files are rewritten relative
 // to the module root before anything is compiled: the checked-in artifacts
 // then name the same files on every machine.
 package main
@@ -56,12 +58,12 @@ func run(ctx context.Context, arch string) error {
 		return err
 	}
 	defer os.RemoveAll(dir)
-	cmd := exec.CommandContext(ctx, "go", "run", "./x/examples/source-wiring", "-units", dir)
+	cmd := exec.CommandContext(ctx, "go", "run", "./x/cudalineinfo/testdata/wiring", dir)
 	cmd.Dir = moduleRoot
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("run source-wiring: %w", err)
+		return fmt.Errorf("run wiring: %w", err)
 	}
 	for _, name := range []string{"fused_gate", "fused_layered"} {
 		unit, err := readUnit(filepath.Join(dir, name+".json"))
@@ -83,7 +85,7 @@ func run(ctx context.Context, arch string) error {
 		}
 	}
 	// The fast-math build of the first kernel is the other side of the diff
-	// the package reports, and the example does not export it.
+	// the package reports.
 	unit, err := readUnit(filepath.Join(dir, "fused_gate.json"))
 	if err != nil {
 		return err

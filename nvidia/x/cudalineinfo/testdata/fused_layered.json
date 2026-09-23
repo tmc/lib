@@ -1,226 +1,226 @@
 {
 	"Name": "fused_layered",
-	"Source": "#include \u003ccuda_runtime.h\u003e\n\nextern \"C\" __global__ void fused_layered(\n    const float* __restrict__ x,\n    const float* __restrict__ w,\n    float* __restrict__ out_div_4,\n    int n\n) {\n    for (int idx = blockDim.x * blockIdx.x + threadIdx.x; idx \u003c n; idx += blockDim.x * gridDim.x) {\n        float v_x = x[idx];\n        float v_w = w[idx];\n        float v_silu_2 = v_x / (1.0f + expf(-v_x));\n        float v_sqrt_3 = sqrtf(v_w);\n        float v_div_4 = v_silu_2 / v_sqrt_3;\n        out_div_4[idx] = v_div_4;\n    }\n}",
+	"Source": "#include \u003ccuda_runtime.h\u003e\n\nextern \"C\" __global__ void fused_layered(\n    const float* __restrict__ x,\n    const float* __restrict__ w,\n    float* __restrict__ out_div_4,\n    int n\n) {\n    if (n \u003c= 0 || blockDim.x == 0 || gridDim.x == 0 || blockDim.y != 1 || blockDim.z != 1 || gridDim.y != 1 || gridDim.z != 1) return;\n    for (unsigned long long idx = (unsigned long long)blockDim.x * blockIdx.x + threadIdx.x; idx \u003c (unsigned int)n; idx += (unsigned long long)blockDim.x * gridDim.x) {\n        float v_x = x[idx];\n        float v_w = w[idx];\n        float v_silu_2 = v_x / (1.0f + expf(-v_x));\n        float v_sqrt_3 = sqrtf(v_w);\n        float v_div_4 = v_silu_2 / v_sqrt_3;\n        out_div_4[idx] = v_div_4;\n    }\n}",
 	"LineMap": {
-		"10": {
-			"File": "x/examples/source-wiring/kernels.go",
+		"11": {
+			"File": "x/cudalineinfo/testdata/wiring/kernels.go",
 			"Line": 38,
 			"Function": "main.layered",
 			"Callers": [
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 121,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 47,
 					"Function": "main.attribute"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 81,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 37,
 					"Function": "main.run"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 72,
-					"Function": "main.main"
-				}
-			]
-		},
-		"11": {
-			"File": "x/examples/source-wiring/kernels.go",
-			"Line": 39,
-			"Function": "main.layered",
-			"Callers": [
-				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 121,
-					"Function": "main.attribute"
-				},
-				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 81,
-					"Function": "main.run"
-				},
-				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 72,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 30,
 					"Function": "main.main"
 				}
 			]
 		},
 		"12": {
-			"File": "x/examples/source-wiring/kernels.go",
-			"Line": 45,
-			"Function": "main.activate",
+			"File": "x/cudalineinfo/testdata/wiring/kernels.go",
+			"Line": 39,
+			"Function": "main.layered",
 			"Callers": [
 				{
-					"File": "x/examples/source-wiring/kernels.go",
-					"Line": 40,
-					"Function": "main.layered"
-				},
-				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 121,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 47,
 					"Function": "main.attribute"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 81,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 37,
 					"Function": "main.run"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 72,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 30,
 					"Function": "main.main"
 				}
 			]
 		},
 		"13": {
-			"File": "x/examples/source-wiring/kernels.go",
-			"Line": 49,
-			"Function": "main.normalize",
+			"File": "x/cudalineinfo/testdata/wiring/kernels.go",
+			"Line": 45,
+			"Function": "main.activate",
 			"Callers": [
 				{
-					"File": "x/examples/source-wiring/kernels.go",
-					"Line": 41,
+					"File": "x/cudalineinfo/testdata/wiring/kernels.go",
+					"Line": 40,
 					"Function": "main.layered"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 121,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 47,
 					"Function": "main.attribute"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 81,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 37,
 					"Function": "main.run"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 72,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 30,
 					"Function": "main.main"
 				}
 			]
 		},
 		"14": {
-			"File": "x/examples/source-wiring/kernels.go",
-			"Line": 50,
+			"File": "x/cudalineinfo/testdata/wiring/kernels.go",
+			"Line": 49,
 			"Function": "main.normalize",
 			"Callers": [
 				{
-					"File": "x/examples/source-wiring/kernels.go",
+					"File": "x/cudalineinfo/testdata/wiring/kernels.go",
 					"Line": 41,
 					"Function": "main.layered"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 121,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 47,
 					"Function": "main.attribute"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 81,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 37,
 					"Function": "main.run"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 72,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 30,
 					"Function": "main.main"
 				}
 			]
 		},
 		"15": {
-			"File": "x/examples/source-wiring/kernels.go",
+			"File": "x/cudalineinfo/testdata/wiring/kernels.go",
 			"Line": 50,
 			"Function": "main.normalize",
 			"Callers": [
 				{
-					"File": "x/examples/source-wiring/kernels.go",
+					"File": "x/cudalineinfo/testdata/wiring/kernels.go",
 					"Line": 41,
 					"Function": "main.layered"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 121,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 47,
 					"Function": "main.attribute"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 81,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 37,
 					"Function": "main.run"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 72,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 30,
+					"Function": "main.main"
+				}
+			]
+		},
+		"16": {
+			"File": "x/cudalineinfo/testdata/wiring/kernels.go",
+			"Line": 50,
+			"Function": "main.normalize",
+			"Callers": [
+				{
+					"File": "x/cudalineinfo/testdata/wiring/kernels.go",
+					"Line": 41,
+					"Function": "main.layered"
+				},
+				{
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 47,
+					"Function": "main.attribute"
+				},
+				{
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 37,
+					"Function": "main.run"
+				},
+				{
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 30,
 					"Function": "main.main"
 				}
 			]
 		},
 		"4": {
-			"File": "x/examples/source-wiring/kernels.go",
+			"File": "x/cudalineinfo/testdata/wiring/kernels.go",
 			"Line": 38,
 			"Function": "main.layered",
 			"Callers": [
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 121,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 47,
 					"Function": "main.attribute"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 81,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 37,
 					"Function": "main.run"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 72,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 30,
 					"Function": "main.main"
 				}
 			]
 		},
 		"5": {
-			"File": "x/examples/source-wiring/kernels.go",
+			"File": "x/cudalineinfo/testdata/wiring/kernels.go",
 			"Line": 39,
 			"Function": "main.layered",
 			"Callers": [
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 121,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 47,
 					"Function": "main.attribute"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 81,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 37,
 					"Function": "main.run"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 72,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 30,
 					"Function": "main.main"
 				}
 			]
 		},
 		"6": {
-			"File": "x/examples/source-wiring/kernels.go",
+			"File": "x/cudalineinfo/testdata/wiring/kernels.go",
 			"Line": 50,
 			"Function": "main.normalize",
 			"Callers": [
 				{
-					"File": "x/examples/source-wiring/kernels.go",
+					"File": "x/cudalineinfo/testdata/wiring/kernels.go",
 					"Line": 41,
 					"Function": "main.layered"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 121,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 47,
 					"Function": "main.attribute"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 81,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 37,
 					"Function": "main.run"
 				},
 				{
-					"File": "x/examples/source-wiring/main.go",
-					"Line": 72,
+					"File": "x/cudalineinfo/testdata/wiring/main.go",
+					"Line": 30,
 					"Function": "main.main"
 				}
 			]
