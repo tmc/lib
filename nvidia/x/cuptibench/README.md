@@ -7,11 +7,6 @@ regions, and individual kernel ranges. `Collect` also works in ordinary tests.
 The implementation has unit, race, real Go-runner, and profile round-trip tests.
 Physical GPU tests are opt-in. Cross-compilation does not qualify GPU behavior.
 
-For runnable workloads, see [cuptibench](../../examples/cuptibench), a three-stage
-pipeline with full and isolated benchmarks, and
-[cuptibench-capture](../../examples/cuptibench-capture), which retains source,
-PTX, CUBIN and SASS with the counter profile for offline viewing in cudaprof.
-
 ## Workloads and sub-benchmarks
 
 A workload supplies its streams, a preparation callback, the operation to execute,
@@ -311,9 +306,9 @@ not successful hardware qualification.
 ## Portability
 
 CUPTI layout admission is based on observed header and runtime evidence, not
-only the CUDA toolkit release name. CUPTI 27 is admitted using the CUDA 12.9.41
-L4 evidence described in [QUALIFICATION.md](QUALIFICATION.md). That admission
-does not qualify KernelReplay, which remains restricted to 130200 and 130202.
+only the CUDA toolkit release name. CUPTI 27 is admitted using CUDA 12.9.41
+evidence recorded on an L4. That admission does not qualify KernelReplay,
+which remains restricted to 130200 and 130202.
 The reported L4 run passed Whole and Regions controls; Kernels returned zero
 ranges and remains unqualified on that configuration.
 
@@ -322,10 +317,3 @@ Linux NVRTC loader currently selects `libnvrtc.so.13`, so these fixtures need
 that library and a compiler whose emitted PTX the installed driver accepts.
 `cuptibench` itself does not import NVRTC or compile kernels; a workload using
 precompiled kernels does not acquire this compiler dependency from the package.
-
-## Design and qualification
-
-See the [design contract](design/cuptibench-spec-final.md),
-[C adapter alternatives](design/c-workload-adapter-spec.md), and
-[qualification status](QUALIFICATION.md). Hardware receipts describe the
-recorded source snapshots, not a new hardware run of the main integration.

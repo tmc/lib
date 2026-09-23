@@ -128,7 +128,7 @@ func TestBuildRejectsIncomplete(t *testing.T) {
 }
 
 // TestInstall builds a real grammar. It downloads and compiles, so it runs
-// only when TREE_SITTER_INSTALL_TEST is set; see manual-gates.md.
+// only when TREE_SITTER_INSTALL_TEST is set.
 func TestInstall(t *testing.T) {
 	if os.Getenv("TREE_SITTER_INSTALL_TEST") == "" {
 		t.Skip("set TREE_SITTER_INSTALL_TEST=1 to download and compile grammars")

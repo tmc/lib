@@ -277,7 +277,7 @@ func BackendMethods() []string {
 // not have: each backend would still be obliged to implement it, and nothing
 // would ever find out whether it did. This is the interface half of the
 // falsifier; the other half -- that no primitive has only one implementation
-// -- is in cudamegacpu, because it takes two backends to state.
+// -- belongs with a second backend, because it takes two backends to state.
 func TestDriverExercisesEveryPrimitive(t *testing.T) {
 	f := deviceFixture(t)
 	p, err := cudamega.NewProgram(f.graph, f.ops, f.grid, f.target)

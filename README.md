@@ -4,9 +4,6 @@ Purego bindings and tooling for GPU compute: NVIDIA CUDA, Apple Metal, and the
 OpenXLA/PJRT runtimes that sit on top of them. No cgo, no vendor SDK headers at
 build time.
 
-Everything in this repository is listed in `go.work` and is built and tested
-by `make`.
-
 ## Repository layout
 
 There is no root module. Each directory below is an independent Go module with
@@ -18,19 +15,17 @@ its own release tags (`<dir>/vX.Y.Z`).
 | `rocm` | `github.com/tmc/lib/rocm` | Purego HIP runtime bindings |
 | `apple` | `github.com/tmc/lib/apple` | Purego bindings for Metal, plus Metal capture and profiling |
 | `openxla` | `github.com/tmc/lib/openxla` | Purego bindings for the PJRT C API |
-| `x/xla` | `github.com/tmc/lib/x/xla` | XLA client, compilation, and execution over `openxla` |
-| `x/stablehlo` | `github.com/tmc/lib/x/stablehlo` | StableHLO module construction and serialization |
 | `hf/hftokenizer` | `github.com/tmc/lib/hf/hftokenizer` | HuggingFace tokenizer.json loading and encoding |
 | `tpu` | `github.com/tmc/lib/tpu` | PJRT TPU plugin discovery and loading |
 | `lm` | `github.com/tmc/lib/lm` | Language model loading and sampling helpers |
 | `hf/hfsync` | `github.com/tmc/lib/hf/hfsync` | HuggingFace repository mirroring |
 | `lldb` | `github.com/tmc/lib/lldb` | Purego LLDB C API bindings |
 | `treesitter` | `github.com/tmc/lib/treesitter` | Purego tree-sitter parsing bindings |
-| `examples` | `github.com/tmc/lib/examples` | Runnable programs that exercise the modules above |
+| `gguf` | `github.com/tmc/lib/gguf` | GGUF model container reading |
 
-The `x/` prefix marks a module whose API is still moving. It will change without
-a major version bump. `hf/hftokenizer` carries the same notice in its package
-documentation.
+Packages under a module's `x/` directory, such as `nvidia/x`, have an API that
+is still moving. They will change without a major version bump.
+`hf/hftokenizer` carries the same notice in its package documentation.
 
 ## Usage
 
@@ -43,15 +38,17 @@ go get github.com/tmc/lib/nvidia@latest
 
 ## Development
 
-`go.work` covers every module in the repository, which is the invariant that
-keeps a module from quietly rotting: if it is here, `make` builds and tests it.
-`make check` checks tracked files and nonignored untracked files. It fails if a
-module is missing from the workspace or a Go file has no enclosing module.
+`go.work` is not checked in. Create one that uses every module:
 
 ```bash
-make               # check, build, and test every module
-make check         # verify workspace coverage and Go file ownership
-make gate-selftest # exercise the gates in temporary fixtures
+go work init
+go work use -r .
+```
+
+Build and test a module from its directory:
+
+```bash
+cd nvidia && go build ./... && go test ./...
 ```
 
 To check a module without workspace dependency selection:
@@ -62,4 +59,4 @@ cd nvidia && GOWORK=off go build ./... && GOWORK=off go test ./...
 
 Some modules still use relative `replace` directives and unpublished dependency
 versions. Building them in this checkout does not prove that consumers can
-install them. See [release readiness](RELEASE.md) for the remaining gates.
+install them.

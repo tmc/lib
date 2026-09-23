@@ -73,14 +73,11 @@ a matched comparison. The Go result must report the exact requested case.
 
 ## Scope still to close
 
-See [COVERAGE.md](COVERAGE.md) for the source-checked option inventory and
-remaining implementation and physical-validation requirements.
-The remaining floating-format codecs have independent CUDA conformance checks;
-[SMALLFLOAT.md](SMALLFLOAT.md) describes their implemented runner integration and pending GPU validation.
-`TestTeamCalls` qualifies the six host calls that take an `nccl.Team` by value
-against a real communicator; [TEAMCALLS.md](TEAMCALLS.md) records which
-qualified, why the two CFT calls do not on a host without CFT support, and the
-multi-rank coverage that remains open.
+The remaining floating-format codecs have independent CUDA conformance checks
+but are not yet validated on a GPU through the runner. `TestTeamCalls`
+qualifies the six host calls that take an `nccl.Team` by value against a real
+communicator; the two CFT calls need a host with CFT support, and multi-rank
+coverage remains open.
 
 This is an active implementation, not a claim of full nccl-tests equivalence.
 GPU validation of half, bfloat16, and FP8, traffic matrices/spread selection, and coverage of advanced graph, registration,

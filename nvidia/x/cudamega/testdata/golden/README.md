@@ -107,8 +107,8 @@ instrument, not part of the model: word 0 is a ticket counter and word
 `1 + cta*task_count + task` is the 1-based ticket that CTA took that task with,
 or 0 if it never did. The counter is `unsigned long long` deliberately -- the
 publication census in `artifact_test.go` matches `atom.global.add.u32 ...,1`,
-and a 32-bit ticket counter would add hits to that census. `cudamegacpu`
-reports the same layout in `Result.StartOrder` so one test can read both.
+and a 32-bit ticket counter would add hits to that census. A second backend
+that reports the same layout lets one test read both.
 
 ## The fence scope rule
 

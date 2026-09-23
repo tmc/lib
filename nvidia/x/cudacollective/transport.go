@@ -139,7 +139,8 @@ func (t *NVLSHMTransport) Execute(ctx context.Context, comm *Communicator, op Op
 
 func (t *NVLSHMTransport) Close() error { return nil }
 
-// MoonEPTransport implements Transport backed by x/moonep.
+// MoonEPTransport implements Transport for the MoonEP protocol over nvlshm
+// multicast.
 type MoonEPTransport struct {
 	Boot   nvlshm.Bootstrap
 	Device driver.Device

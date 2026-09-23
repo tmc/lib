@@ -81,8 +81,7 @@ by the tree-sitter CLI, and the parsers Neovim installs, satisfy this.
 ## Platforms
 
 Linux and macOS on amd64 and arm64, the targets on which purego passes
-structs by value. `Load` fails elsewhere. `manual-gates.md` records which
-configurations the live tests have been run on.
+structs by value. `Load` fails elsewhere.
 
 ## Layout
 
@@ -106,4 +105,4 @@ go generate ./grammars
 ## Testing
 
 The generated layout tests run everywhere. The remaining tests need the
-library and a C grammar and skip otherwise; see `manual-gates.md`.
+library and a C grammar and skip otherwise.

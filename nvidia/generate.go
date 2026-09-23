@@ -34,9 +34,9 @@ package nvidia
 // check to run in CI; it is not run by go generate. nvgen -list prints all 35
 // recipes, marking one whose gate is unset as skipped rather than omitting it.
 //
-// What nvgen does not cover. Two packages are generated entirely elsewhere:
-// x/cudamlx and x/cudaptx carry their own go:generate directives, because
-// their inputs are not the CUDA profile. See their package docs.
+// What nvgen does not cover. One package is generated entirely elsewhere:
+// x/cudaptx carries its own go:generate directive, because its input is not
+// the CUDA profile. See its package doc.
 //
 // Three more packages are generated from here but hold one file that is not.
 // nvjitlink, nvrtc and nvvm each take flags.gen.go from genoptions, whose
@@ -72,18 +72,15 @@ package nvidia
 // goes. A defect in a generated file is a defect in the generator: fix it in
 // libgen and regenerate. That the fix is one character is not a reason to make
 // an exception. The cost is not the edit; it is that the file and its inputs
-// stop agreeing and nothing says so. The converse does not hold: x/cudamlx and
-// x/tileir each carry a generated file spelled _gen rather than .gen, and
-// neither is nvgen's.
+// stop agreeing and nothing says so. The converse does not hold: x/tileir
+// carries a generated file spelled _gen rather than .gen, and it is not
+// nvgen's.
 //
 // What a regeneration has to clear. Regenerating moves an exported API, and the
 // test suite is not the check for that: a constant whose value changes and a
-// parameter that is renamed both compile and both pass. api/nvidia.log, at the
-// repository root, is the reviewed set of incompatible changes against the last
-// nvidia/v* tag, and make version-check fails when a regeneration's set differs
-// from it. The order is regenerate, read what moved, then make api-update to
-// record it. Accepting an entry means having read it; the gate reports only
-// that the file and the tree agree.
+// parameter that is renamed both compile and both pass. Compare the
+// result against the last nvidia/v* tag with apidiff -m -incompatible and read
+// what moved before committing.
 
 // Eject the pinned local ARM64 registrar before generating its NCCL callers.
 // FFI_SRC may name a clean checkout of the revision in scripts/ffi.sh.

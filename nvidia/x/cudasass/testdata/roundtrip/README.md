@@ -29,7 +29,6 @@ and nothing here qualifies any claim about GPU behaviour or performance.
 - `sm121a-roundtrip.sass` -- disassembly with encodings.
 - `sm121a-roundtrip.bbcfg.dot` -- nvdisasm's own basic-block control-flow
   graph, used as the authority in `TestBasicBlockReconstructionAgainstNvdisasm`.
-- `probe.py` -- the bit-flip probe that produced the encoding facts below.
 - `sm121a-roundtrip.cubin.hex` -- the CUBIN the two text artifacts were
   disassembled from, kept for the step 5 patch path, which needs the container
   and not only the text. Built here from `kernel.cu`; md5
@@ -78,8 +77,8 @@ instruction, so the patch is coherent to the toolchain that produced the file.
 
 ## How the encoding facts were obtained
 
-`probe.py` takes a known-good encoding, flips each of the 128 bits in turn, and
-disassembles each variant with `nvdisasm --binary SM121a`. A bit whose flip
+A probe took a known-good encoding, flipped each of the 128 bits in turn, and
+disassembled each variant with `nvdisasm --binary SM121a`. A bit whose flip
 changes the printed text names a field; a bit whose flip is rejected is a field
 whose value became illegal; a bit whose flip changes nothing is invisible in the
 text.

@@ -5,9 +5,10 @@ import (
 	"time"
 )
 
-// PushPolicyRecord records a driver policy observation. It implements the
-// cudabpf.RecordSink contract without importing the policy package. Call it
-// after draining policy events, never from a driver fault handler.
+// PushPolicyRecord records a driver policy observation. It has the shape of a
+// policy record sink, so a policy package can use it without this package
+// importing that one. Call it after draining policy events, never from a
+// driver fault handler.
 //
 // timestampNs is a host timestamp in Unix nanoseconds. Zero uses collector
 // receipt time, marked in the record labels. The record has no kernel name or

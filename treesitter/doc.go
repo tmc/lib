@@ -64,6 +64,5 @@
 //
 // The package builds on the platforms purego supports for calling C with
 // struct arguments: Linux and macOS on amd64 and arm64. Other systems have
-// no library search names and Load fails on them. See manual-gates.md for
-// the configurations the live tests have been run on.
+// no library search names and Load fails on them.
 package treesitter

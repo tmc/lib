@@ -8060,7 +8060,6 @@
         "sha256": "3f2b1619b009e70a99751fb0b4f1119c0c9a91e7e042bd024737fab1524729ca"
       },
       "maintained_files_excluded": [
-        "AUDIT-vs-go-nvml.md",
         "example_test.go",
         "physical_test.go"
       ],
