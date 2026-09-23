@@ -58,10 +58,12 @@ GOWORK=off go run ./x/cmd/cudaprof "$capture_dir/device.pprof.capture"
 Inspect the retained capture without a GPU:
 
 ```sh
-GOWORK=off go run ./x/cmd/cudaprof -top "$capture_dir/device.pprof.capture"
 GOWORK=off go run ./x/cmd/cudaprof -list=compute "$capture_dir/device.pprof.capture"
 GOWORK=off go run ./x/cmd/cudaprof -disasm=compute "$capture_dir/device.pprof.capture"
 ```
+
+`-top` refuses the capture: its counters carry no device time, so there is no
+total to rank by.
 
 The disassembly view shows retained PTX and SASS without instruction costs.
 These counters measure a region; they contain no sampled instruction addresses.

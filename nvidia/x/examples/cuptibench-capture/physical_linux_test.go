@@ -150,6 +150,9 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 		Mode: cuptibench.Regions, Metrics: metrics, Operations: 1,
 		CachePolicy: cuptirange.CachePreserve, MaxDepth: 2, MaxConfigBytes: 1 << 20,
 		Limits: cuptirange.Limits{MaxRanges: 8, MaxRangeTreeNodes: 8, MaxCounterBytes: 8 << 20, MaxPasses: 8},
+		// The default set's traffic counters are read against whatever the
+		// caches hold; say so rather than evict.
+		AllowWarmCacheTraffic: true,
 	})
 	if plan == nil && err != nil {
 		b.Fatalf("plan: %v", err)
