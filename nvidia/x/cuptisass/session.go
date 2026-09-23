@@ -37,10 +37,19 @@ type Session struct {
 	closed     bool
 }
 
+// configuredDevices records the devices that have held a SASS metrics
+// configuration in this process.
+var configuredDevices sync.Map
+
 // NewSession reserves the device and configures SASS collection on ctx. The
 // context must belong to cfg.DeviceIndex and stay live until Close succeeds.
 // Cooperating range and PM collectors are excluded until Close succeeds. A
 // nonnil session returned with an error retains cleanup ownership; retry Close.
+//
+// CUPTI accepts one SASS metrics configuration per device per process: once a
+// session on a device is closed, a later NewSession on that device fails, even
+// after a successful Close. To measure several launches, keep one session
+// open and call Flush after each.
 func NewSession(ctx uintptr, cfg Config) (*Session, error) {
 	return newSession(ctx, cfg, sessionAPI{CheckVersion, initProfiler, contextDevice, cupti.SassMetricsSetConfig, cupti.SassMetricsUnsetConfig, cupti.SassMetricsEnable, cupti.SassMetricsDisable})
 }
@@ -105,9 +114,13 @@ func newSession(ctx uintptr, cfg Config, api sessionAPI) (result *Session, err e
 
 	if err := api.config(&setParams); err != nil {
 		runtime.KeepAlive(pConfigs)
+		if _, ok := configuredDevices.Load(device); ok && errors.Is(err, cupti.ErrOutOfMemory) {
+			return nil, fmt.Errorf("cuptisass: set config: device %d was already configured in this process; CUPTI allows one configuration per device per process: %w", device, err)
+		}
 		return nil, fmt.Errorf("cuptisass: set config: %w", err)
 	}
 	runtime.KeepAlive(pConfigs)
+	configuredDevices.Store(device, true)
 
 	sess.configured = true
 	return sess, nil

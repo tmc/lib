@@ -49,6 +49,7 @@ func initProfiler() error {
 }
 
 // DeviceChipName queries the chip name (e.g. "GH100", "GB100", "AD102") for a device index.
+// It needs a current CUDA context; without one, CUPTI reports an invalid parameter.
 func DeviceChipName(deviceIndex uint32) (string, error) {
 	if err := initProfiler(); err != nil {
 		return "", err

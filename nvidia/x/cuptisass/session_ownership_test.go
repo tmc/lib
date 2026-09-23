@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/internal/cuptiowner"
+	"strings"
 	"testing"
 )
 
@@ -160,5 +161,34 @@ func TestSessionEnableErrorRetainsOnlyOwnedConfiguration(t *testing.T) {
 	unsetFails = false
 	if err = s.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSessionReconfigure(t *testing.T) {
+	cfg := mockSessionConfig()
+	cfg.DeviceIndex = 74002
+	api := mockSessionAPI()
+	api.device = func(uintptr) (uint32, error) { return cfg.DeviceIndex, nil }
+	configs := 0
+	api.config = func(*cupti.SassMetricsSetConfigParams) error {
+		configs++
+		if configs > 1 {
+			return cupti.ErrOutOfMemory
+		}
+		return nil
+	}
+	s, err := newSession(1, cfg, api)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = newSession(1, cfg, api)
+	if s != nil || err == nil {
+		t.Fatalf("second session: s=%v err=%v", s, err)
+	}
+	if !errors.Is(err, cupti.ErrOutOfMemory) || !strings.Contains(err.Error(), "already configured") {
+		t.Errorf("second session error = %v, want the one-configuration explanation wrapping ErrOutOfMemory", err)
 	}
 }
