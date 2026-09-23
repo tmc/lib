@@ -16,7 +16,7 @@ and all recorded files in pprof metadata. That is the file to share.
 From the NVIDIA module directory on a CUDA host with NVRTC:
 
 ```sh
-GOWORK=off go run ./examples/ptx-sass-trace \
+GOWORK=off go run ./x/examples/ptx-sass-trace \
   -nvdisasm /usr/local/cuda-13/bin/nvdisasm
 ```
 
@@ -26,8 +26,8 @@ or use `-elements`, `-rounds`, and `-passes` to change the workload.
 Copy just `capture.pprof` to your viewing machine, then run:
 
 ```sh
-GOWORK=off go run ./cmd/cudaprof -http=127.0.0.1:8087 ~/tmp/capture.pprof
-GOWORK=off go run ./cmd/cudaprof -disasm=compute ~/tmp/capture.pprof
+GOWORK=off go run ./x/cmd/cudaprof -http=127.0.0.1:8087 ~/tmp/capture.pprof
+GOWORK=off go run ./x/cmd/cudaprof -disasm=compute ~/tmp/capture.pprof
 ```
 
 The viewer uses upstream pprof with an object reader for saved NVIDIA SASS.
@@ -42,8 +42,8 @@ when rewriting the profile, but do not interpret it as source or disassembly.
 To embed an older capture, or extract recorded files for inspection:
 
 ```sh
-GOWORK=off go run ./cmd/cudaprof -pack ~/tmp/capture.pprof ~/tmp/capture/gpu.pprof
-GOWORK=off go run ./cmd/cudaprof -extract ~/tmp/extracted ~/tmp/capture.pprof
+GOWORK=off go run ./x/cmd/cudaprof -pack ~/tmp/capture.pprof ~/tmp/capture/gpu.pprof
+GOWORK=off go run ./x/cmd/cudaprof -extract ~/tmp/extracted ~/tmp/capture.pprof
 ```
 
 For Go trace, use the producer's Go version recorded in `manifest.json`:
@@ -60,7 +60,7 @@ To make a shareable directory and `.tar.gz` with macOS/Linux viewers for arm64
 and amd64, plus buildable source and vendored dependencies:
 
 ```sh
-./examples/ptx-sass-trace/package.sh ~/tmp/capture ~/tmp/go-cuda-profile
+./x/examples/ptx-sass-trace/package.sh ~/tmp/capture ~/tmp/go-cuda-profile
 ```
 
 The recipient extracts the archive and runs `./view`. `./trace` uses Go to open

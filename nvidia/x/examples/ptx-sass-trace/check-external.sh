@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-nvidia_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
+nvidia_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/../../.." && pwd)
 tmp_root=$(mktemp -d "${HOME}/tmp/check-external-XXXXXX")
 trap 'rm -rf "$tmp_root"' EXIT
 
@@ -9,9 +9,10 @@ client_dir="$tmp_root/client"
 mkdir -p "$client_dir"
 
 # Copy example files
-cp "$nvidia_dir/examples/ptx-sass-trace/"*.go "$client_dir/"
-cp "$nvidia_dir/examples/ptx-sass-trace/"*.cu "$client_dir/" 2>/dev/null || true
-cp "$nvidia_dir/examples/ptx-sass-trace/"bundle.README.md "$client_dir/" 2>/dev/null || true
+cp "$nvidia_dir/x/examples/ptx-sass-trace/"*.go "$client_dir/"
+cp "$nvidia_dir/x/examples/ptx-sass-trace/"*.cu "$client_dir/" 2>/dev/null || true
+cp "$nvidia_dir/x/examples/ptx-sass-trace/"bundle.README.md "$client_dir/"
+cp "$nvidia_dir/x/examples/ptx-sass-trace/"kernels.tileir "$nvidia_dir/x/examples/ptx-sass-trace/"tileiras-remarks.yaml "$client_dir/"
 
 cd "$client_dir"
 export GOWORK=off

@@ -5,7 +5,7 @@ if [ "$#" -ne 2 ]; then
     echo "usage: $0 capture-directory new-output-directory" >&2
     exit 2
 fi
-module=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
+module=$(CDPATH='' cd -- "$(dirname -- "$0")/../../.." && pwd)
 capture=$(CDPATH='' cd -- "$1" && pwd)
 mkdir -- "$2"
 out=$(CDPATH='' cd -- "$2" && pwd)
@@ -17,7 +17,7 @@ if [ -e "$out.tar.gz" ]; then
     exit 1
 fi
 for name in main.go capture.go workload.go kernels.cu; do
-    cmp "$capture/$name" "$module/examples/ptx-sass-trace/$name"
+    cmp "$capture/$name" "$module/x/examples/ptx-sass-trace/$name"
 done
 cp -R "$capture/." "$out/"
 mkdir "$out/bin" "$out/src"
@@ -29,7 +29,7 @@ export GOWORK=off
 go mod vendor
 for target in darwin-arm64 darwin-amd64 linux-arm64 linux-amd64; do
     GOOS=${target%-*} GOARCH=${target#*-} CGO_ENABLED=0 \
-        go build -mod=vendor -trimpath -o "$out/bin/cudaprof-$target" ./cmd/cudaprof
+        go build -mod=vendor -trimpath -o "$out/bin/cudaprof-$target" ./x/cmd/cudaprof
 done
 cat > "$out/view" <<'VIEW'
 #!/bin/sh
@@ -63,14 +63,14 @@ cat > "$out/src/BUILD.md" <<'BUILD'
 # Build and capture
 
 This directory is a snapshot of the NVIDIA Go module used for this capture.
-Dependencies and their license files are in vendor. Go 1.26.2 or later is
+Dependencies and their license files are in vendor. Go 1.27.0 or later is
 required; use the producer's version in ../manifest.json to match its toolchain.
 
 Build the viewer without downloading dependencies, from this directory:
 
 ```sh
 GOWORK=off GOPROXY=off GOSUMDB=off CGO_ENABLED=0 \
-  go build -mod=vendor -trimpath -o ../cudaprof ./cmd/cudaprof
+  go build -mod=vendor -trimpath -o ../cudaprof ./x/cmd/cudaprof
 ../cudaprof -http=127.0.0.1:8087 ../gpu.pprof
 ```
 
@@ -78,7 +78,7 @@ Capture again on an NVIDIA host with the CUDA driver, NVRTC, and a matching
 nvdisasm installed:
 
 ```sh
-GOWORK=off GOPROXY=off GOSUMDB=off go run -mod=vendor ./examples/ptx-sass-trace \
+GOWORK=off GOPROXY=off GOSUMDB=off go run -mod=vendor ./x/examples/ptx-sass-trace \
   -nvdisasm /usr/local/cuda-13/bin/nvdisasm
 ```
 
