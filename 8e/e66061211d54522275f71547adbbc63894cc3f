@@ -1,0 +1,10 @@
+commit: 8ee66061 2026-09-22 19:33:59 PDT
+claude-code: 2.1.280 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+none
+pid: 19630
+ITERM_SESSION_ID: w13t3p2:D9C3E538-EEBC-44CC-B4E7-470DC89DA216
+session: b4ac7619-7c4b-490c-b92e-ed886a7b0ef0
+session_url: none provided
+gpu-evidence: spark-31db GB10, NCCL 23102; TestTeamCalls run 2026-09-22
