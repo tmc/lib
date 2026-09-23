@@ -141,7 +141,7 @@ func TestCompareSidePartition(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := measureCompareSide(compareCapture(tt.recs, tt.status), nil, compareOptions{phase: -1, allowUnresolved: true})
+			got, err := measureCompareSide(compareCapture(tt.recs, tt.status), nil, nil, compareOptions{phase: -1, allowUnresolved: true})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -205,7 +205,7 @@ func TestCompareRefuses(t *testing.T) {
 			if target == nil {
 				target = compareCapture(good, phaseStatus(1000, 2000))
 			}
-			c, err := compareCaptures(tt.base, target, nil, tt.opts)
+			c, err := compareCaptures(tt.base, target, nil, nil, tt.opts)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("err = %v, want it to contain %q", err, tt.want)
 			}
@@ -226,7 +226,7 @@ func TestComparePhaseSelectsWindow(t *testing.T) {
 		{subtype: "kernel", name: "first", start: 1100, end: 1200},
 		{subtype: "kernel", name: "second", start: 3500, end: 3700},
 	}, s)
-	side, err := measureCompareSide(cap, nil, compareOptions{phase: 1})
+	side, err := measureCompareSide(cap, nil, nil, compareOptions{phase: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +241,7 @@ func TestCompareAllowUnresolved(t *testing.T) {
 		{subtype: "graph_trace", start: 1000, end: 1800, graphID: 1},
 		{subtype: "kernel", name: "k", start: 1100, end: 1300, graphID: 1},
 	}, phaseStatus(1000, 2000))
-	c, err := compareCaptures(base, target, nil, compareOptions{phase: -1, allowUnresolved: true})
+	c, err := compareCaptures(base, target, nil, nil, compareOptions{phase: -1, allowUnresolved: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +337,7 @@ func TestCompareJoinsOpsAcrossNames(t *testing.T) {
 		{subtype: "kernel", name: "go_rms", start: 1500, end: 1700, stream: 2},
 		{subtype: "memcpy", start: 1650, end: 1800, bytes: 64, copyKind: 2},
 	}, phaseStatus(1000, 2500))
-	c, err := compareCaptures(base, target, rules, compareOptions{phase: -1})
+	c, err := compareCaptures(base, target, rules, nil, compareOptions{phase: -1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +401,7 @@ func TestCheckIdentityRejectsABrokenSum(t *testing.T) {
 			{subtype: "kernel", name: "a", start: 1100, end: 1300},
 			{subtype: "memcpy", start: 1300, end: 1350},
 		}, phaseStatus(1000, 3000))
-		c, err := compareCaptures(base, target, nil, compareOptions{phase: -1})
+		c, err := compareCaptures(base, target, nil, nil, compareOptions{phase: -1})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -477,7 +477,7 @@ func TestParseCompareArgs(t *testing.T) {
 
 func TestCompareJSON(t *testing.T) {
 	cap := compareCapture([]rec{{subtype: "kernel", name: "k", start: 1100, end: 1200}}, phaseStatus(1000, 2000))
-	c, err := compareCaptures(cap, cap, nil, compareOptions{phase: -1})
+	c, err := compareCaptures(cap, cap, nil, nil, compareOptions{phase: -1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -515,12 +515,113 @@ func TestCompareGraphTraceMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			status := phaseStatus(1000, 2000)
 			status["capability"] = tt.capability
-			side, err := measureCompareSide(compareCapture(recs, status), nil, compareOptions{phase: -1})
+			side, err := measureCompareSide(compareCapture(recs, status), nil, nil, compareOptions{phase: -1})
 			if err != nil {
 				t.Fatal(err)
 			}
 			if got := side.graphTraceModeString(); got != tt.want {
 				t.Errorf("graph trace mode = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// sequence returns back-to-back kernels of the given names and durations,
+// starting at 1000.
+func sequence(kernels ...any) []rec {
+	var recs []rec
+	at := uint64(1000)
+	for i := 0; i < len(kernels); i += 2 {
+		d := uint64(kernels[i+1].(int))
+		recs = append(recs, rec{subtype: "kernel", name: kernels[i].(string), start: at, end: at + d})
+		at += d
+	}
+	return recs
+}
+
+// TestCompareStages checks that stages join work the two sides split
+// differently, that a repeated anchor names different stages by position,
+// and that a misaligned boundary is reported rather than silently absorbed.
+func TestCompareStages(t *testing.T) {
+	// Two layers. Base fuses the attention output into one kernel; target
+	// runs it as two. expand runs twice per layer on both sides.
+	const stages = "expand pre\nattn attn\n. out\nexpand ffn\n"
+	base := sequence(
+		"embed", 5,
+		"expand", 10, "c_norm", 20, "c_attn", 30, "c_out_fused", 40, "expand", 10, "c_ffn", 50,
+		"expand", 10, "c_norm", 20, "c_attn", 30, "c_out_fused", 40, "expand", 10, "c_ffn", 50,
+	)
+	target := sequence(
+		"embed", 5,
+		"expand", 10, "go_norm", 20, "go_attn", 35, "go_out_a", 15, "go_out_b", 15, "expand", 10, "go_ffn", 60,
+		"expand", 10, "go_norm", 20, "go_attn", 35, "go_out_a", 15, "go_out_b", 15, "expand", 10, "go_ffn", 60,
+	)
+	tests := []struct {
+		name   string
+		target []rec
+		want   map[string][3]int64 // stage: base entries, base exclusive, target exclusive
+		note   string
+	}{
+		{
+			name:   "aligned",
+			target: target,
+			want: map[string][3]int64{
+				stageUnstarted: {1, 5, 5},
+				"pre":          {2, 60, 60},
+				"attn":         {2, 60, 70},
+				"out":          {2, 80, 60},
+				"ffn":          {2, 120, 140},
+			},
+		},
+		{
+			// The second layer's attention is missing, so the machine keeps
+			// waiting for it and charges the rest of the capture to pre.
+			name:   "misaligned",
+			target: append(append([]rec(nil), target[:8]...), target[9:]...),
+			note:   "stage attn began 2 times in base and 1 in target",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := compareCapture(base, phaseStatus(1000, 1500))
+			g := compareCapture(tt.target, phaseStatus(1000, 1500))
+			c, err := compareCaptures(b, g, nil, stageBoundaries(mustRules(t, stages)), compareOptions{phase: -1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.note != "" {
+				if !strings.Contains(strings.Join(c.Notes, "\n"), tt.note) {
+					t.Errorf("notes %q, want %q", c.Notes, tt.note)
+				}
+				return
+			}
+			for _, n := range c.Notes {
+				if strings.Contains(n, "did not align") {
+					t.Errorf("aligned stages reported as misaligned: %s", n)
+				}
+			}
+			if len(c.Stages) != len(tt.want) {
+				t.Fatalf("stages = %+v, want %d rows", c.Stages, len(tt.want))
+			}
+			for _, st := range c.Stages {
+				w, ok := tt.want[st.Stage]
+				if !ok {
+					t.Errorf("unexpected stage %q", st.Stage)
+					continue
+				}
+				if int64(st.BaseEntries) != w[0] || st.TargetEntries != st.BaseEntries || st.BaseExclusiveNanos != w[1] || st.TargetExclusiveNanos != w[2] {
+					t.Errorf("%s = %+v, want entries %d, exclusive %d -> %d", st.Stage, st, w[0], w[1], w[2])
+				}
+			}
+			if c.Stages[0].Stage != stageUnstarted {
+				t.Errorf("first row %q, want %q", c.Stages[0].Stage, stageUnstarted)
+			}
+			var out bytes.Buffer
+			if err := c.write(&out); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out.String(), "per stage") {
+				t.Errorf("text output has no stage table:\n%s", out.String())
 			}
 		})
 	}

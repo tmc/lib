@@ -61,7 +61,7 @@ func adviseAgainstBase(report *AdviceReport, target *cudacapture.Capture, path s
 	if err != nil {
 		return fmt.Errorf("read base capture %s: %w", opts.base, err)
 	}
-	c, err := compareCaptures(base, target, rules, compareOptions{phase: opts.phase, opsPath: opts.ops})
+	c, err := compareCaptures(base, target, rules, nil, compareOptions{phase: opts.phase, opsPath: opts.ops})
 	if err != nil {
 		return fmt.Errorf("compare: %w", err)
 	}
