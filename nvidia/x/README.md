@@ -31,6 +31,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudahf](cudahf/) | Package cudahf finds model files in the local Hugging Face hub cache. |
 | [cudair](cudair/) | Package cudair provides a typed Intermediate Representation (IR) graph, immutable validated snapshots, and waterfall memory arena planning for GPU tensor graphs. |
 | [cudakernel](cudakernel/) | Package cudakernel provides immutable kernel artifact descriptors, ABI parameter schemas, fixed-width argument packing, and hardware resource contracts for CUDA execution. |
+| [cudakv](cudakv/) | Package cudakv provides static and paged key-value caches for autoregressive transformer decoding, plus host-side residency and prefix bookkeeping. |
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
 | [cudalayout](cudalayout/) | Package cudalayout describes checked physical tile layouts. |
 | [cudalineinfo](cudalineinfo/) | Package cudalineinfo attributes device code to the source it was generated from. |
