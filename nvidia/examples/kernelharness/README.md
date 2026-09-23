@@ -221,7 +221,7 @@ These are things the design wants and this implementation does not do.
    identity across tiers is unmeasured beyond the line tables. Attribution
    built on that would be reported at a confidence the chain has not earned.
 2. **No counter collection.** `x/cuptibench` collects hardware counters through
-   CUPTI, and `examples/cuptibench` shows the lifecycle. Adding it here would
+   CUPTI, and `x/examples/cuptibench` shows the lifecycle. Adding it here would
    let the report carry achieved occupancy and memory throughput instead of
    listing them as unmeasured. Counters come from separate replay executions,
    not the timed iteration, so this is a second measurement to design, not a

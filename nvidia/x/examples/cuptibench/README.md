@@ -28,7 +28,7 @@ embedded from [kernels.cu](kernels.cu) and compiled with NVRTC.
 From the `nvidia` module directory, on an exclusively owned CUDA device:
 
 ```sh
-CUPTIBENCH_EXAMPLE=1 GOWORK=off go test ./examples/cuptibench \
+CUPTIBENCH_EXAMPLE=1 GOWORK=off go test ./x/examples/cuptibench \
   -run '^$' -bench '^BenchmarkPipeline$' -benchtime=1x -count=1
 ```
 
@@ -45,7 +45,7 @@ export LD_LIBRARY_PATH=/usr/local/cuda-13.2/targets/sbsa-linux/lib
 Select only the final stage, with no sibling benchmark prerequisite:
 
 ```sh
-CUPTIBENCH_EXAMPLE=1 GOWORK=off go test ./examples/cuptibench \
+CUPTIBENCH_EXAMPLE=1 GOWORK=off go test ./x/examples/cuptibench \
   -run '^$' -bench '^BenchmarkPipeline$/^isolated$/^silu$' -benchtime=1x -count=1
 ```
 
@@ -54,7 +54,7 @@ Create a new output directory and export a pprof profile plus a JSON manifest:
 ```sh
 mkdir -p "$HOME/tmp"
 profile_dir=$(mktemp -d "$HOME/tmp/cuptibench-example.XXXXXX")
-CUPTIBENCH_EXAMPLE=1 GOWORK=off go test ./examples/cuptibench \
+CUPTIBENCH_EXAMPLE=1 GOWORK=off go test ./x/examples/cuptibench \
   -run '^$' -bench '^BenchmarkPipeline$' -benchtime=1x -count=1 \
   -cuptiprofile="$profile_dir/pipeline.pprof"
 go tool pprof -top -tagfocus="view=full" "$profile_dir/pipeline.pprof"

@@ -5,7 +5,7 @@ of results beside it. Neither carries the compiled code, so a reader can see
 that a range executed 258 thread blocks but cannot get from that number back to
 a source line. This example packages the two together with the exact source,
 PTX, CUBIN and SASS of the module the benchmark loaded, as a portable capture
-`cmd/cudaprof` opens without a GPU.
+`x/cmd/cudaprof` opens without a GPU.
 
 It composes existing packages and adds nothing to them:
 
@@ -49,18 +49,18 @@ counter permission:
 
 ```sh
 capture_dir=$(mktemp -d "$HOME/tmp/cuptibench-capture.XXXXXX")
-GOWORK=off go test ./examples/cuptibench-capture \
+GOWORK=off go test ./x/examples/cuptibench-capture \
   -run '^$' -bench '^BenchmarkComposeFromDevice$' -benchtime=1x -count=1 -v \
   -cuptiprofile="$capture_dir/device.pprof"
-GOWORK=off go run ./cmd/cudaprof "$capture_dir/device.pprof.capture"
+GOWORK=off go run ./x/cmd/cudaprof "$capture_dir/device.pprof.capture"
 ```
 
 Inspect the retained capture without a GPU:
 
 ```sh
-GOWORK=off go run ./cmd/cudaprof -top "$capture_dir/device.pprof.capture"
-GOWORK=off go run ./cmd/cudaprof -list=compute "$capture_dir/device.pprof.capture"
-GOWORK=off go run ./cmd/cudaprof -disasm=compute "$capture_dir/device.pprof.capture"
+GOWORK=off go run ./x/cmd/cudaprof -top "$capture_dir/device.pprof.capture"
+GOWORK=off go run ./x/cmd/cudaprof -list=compute "$capture_dir/device.pprof.capture"
+GOWORK=off go run ./x/cmd/cudaprof -disasm=compute "$capture_dir/device.pprof.capture"
 ```
 
 The disassembly view shows retained PTX and SASS without instruction costs.
@@ -85,7 +85,7 @@ files it wrote together with the artifacts that benchmark compiled:
 
 ```sh
 profile_dir=$(mktemp -d "$HOME/tmp/cuptibench-example.XXXXXX")
-CUPTIBENCH_EXAMPLE=1 GOWORK=off go test ./examples/cuptibench \
+CUPTIBENCH_EXAMPLE=1 GOWORK=off go test ./x/examples/cuptibench \
   -run '^$' -bench '^BenchmarkPipeline$' -benchtime=1x -count=1 \
   -cuptiprofile="$profile_dir/pipeline.pprof"
 ```
@@ -102,7 +102,7 @@ c, err := cuptibenchcapture.Compose(
 Then open it:
 
 ```sh
-GOWORK=off go run ./cmd/cudaprof capture.pprof
+GOWORK=off go run ./x/cmd/cudaprof capture.pprof
 ```
 
 ## Offline tests
