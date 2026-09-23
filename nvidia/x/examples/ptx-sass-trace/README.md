@@ -1,6 +1,6 @@
 # Go → CUDA → PTX → SASS
 
-This example runs a realistic DeepSeek-V4 (ds4) inference pipeline:
+This example runs a DeepSeek-V4 (ds4) inference micro-workload:
 RMSNorm, Q8_0 quantized matrix-vector multiplication with warp reductions,
 SwiGLU activation, and sparse MoE expert dispatch with indirect indexing,
 along with sub-byte IQ2 SIMD vs scalar dot products and shared-memory staging.
@@ -16,9 +16,11 @@ and all recorded files in pprof metadata. That is the file to share.
 From the NVIDIA module directory on a CUDA host with NVRTC:
 
 ```sh
-GOWORK=off go run ./x/examples/ptx-sass-trace \
-  -nvdisasm /usr/local/cuda-13/bin/nvdisasm
+GOWORK=off go run ./x/examples/ptx-sass-trace
 ```
+
+`nvdisasm` is found on `PATH`; `-nvdisasm` names another one. It must
+understand the GPU's architecture.
 
 The output is a new directory under `~/tmp`. Set `-out` to choose a new directory,
 or use `-elements`, `-rounds`, and `-passes` to change the workload.
@@ -46,10 +48,12 @@ GOWORK=off go run ./x/cmd/cudaprof -pack ~/tmp/capture.pprof ~/tmp/capture/gpu.p
 GOWORK=off go run ./x/cmd/cudaprof -extract ~/tmp/extracted ~/tmp/capture.pprof
 ```
 
-For Go trace, use the producer's Go version recorded in `manifest.json`:
+For Go trace, use the producer's Go version, recorded as `go_version` in
+`manifest.json`:
 
 ```sh
-GOTOOLCHAIN=go1.26.7 go tool trace ~/tmp/extracted/go.trace
+GOTOOLCHAIN=$(sed -n 's/.*"go_version": "\([^"]*\)".*/\1/p' ~/tmp/extracted/manifest.json) \
+  go tool trace ~/tmp/extracted/go.trace
 ```
 
 Open **User-defined tasks → CUDA pipeline** for numbered CUDA/PTX/SASS events.
@@ -88,7 +92,7 @@ It is off by default. `cuptiactivity.Start` validates the native record size of
 build was generated for -- not only the kinds the session asks to collect --
 and refuses to start on a CUPTI whose layouts it does not know. The error names
 the kind and says every decodable kind is checked; it is a toolkit mismatch,
-not a fault in the tier. On the GB10 host, CUPTI 13.2 and 13.4 both collect.
+not a fault in the tier.
 
 The tier fails closed: any status other than `collected` refuses the capture
 rather than writing a bundle with a plausible zero in it, because a zero record

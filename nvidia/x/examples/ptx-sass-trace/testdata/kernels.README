@@ -18,7 +18,7 @@ example actually compiles.
 
 Toolchain
 ---------
-Generated 2026-09-22 on gpu-host, an NVIDIA GB10 host, with CUDA 13.4 --
+Generated 2026-09-22 on an NVIDIA GB10 host with CUDA 13.4 --
 nvcc V13.4.59, nvdisasm V13.4.49, NVVM 7.0.1, PTX ISA 9.4. Target sm_90.
 
 No GPU was used: nvcc, ptxas and nvdisasm compile and disassemble, and neither
