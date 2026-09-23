@@ -206,6 +206,10 @@ type gapJournal struct {
 	Compressed bool   `json:"compressed"`
 	Bytes      int    `json:"bytes"`
 	Records    int    `json:"records"`
+	// NoCUDA reports a journal that never finalized because its process ran
+	// no CUDA: it contributes nothing to the timeline, and it is listed so
+	// that nothing was set aside silently.
+	NoCUDA bool `json:"no_cuda,omitempty"`
 }
 
 // gapStatus is the part of capture-status.json that says whether the
@@ -414,7 +418,9 @@ type gapPayload struct {
 // decodeJournals decodes every journal member. A journal whose frames do not
 // decode to completion, or that never finalized, is refused: both leave a
 // timeline whose end is unknown, and a truncated prefix is indistinguishable
-// from a short run once the records are counted.
+// from a short run once the records are counted. The one unfinalized journal
+// admitted is a process that ran no CUDA (see noCUDAJournal), which has no
+// timeline to end.
 func decodeJournals(journals map[string][]byte, maxRecords, maxBytes int64) (gapRecords, error) {
 	out := gapRecords{apis: make(map[uint32]gapAPI), contextDevice: make(map[uint32]uint32)}
 	names := make([]string, 0, len(journals))
@@ -449,6 +455,42 @@ func decodeJournals(journals map[string][]byte, maxRecords, maxBytes int64) (gap
 	// been drained into the same journal member.
 	out.resolveSyncDevices()
 	return out, nil
+}
+
+// noCUDAJournal collects what an unfinalized journal must show to be read as
+// a process that ran no CUDA rather than one that lost its records. The test
+// is the controller's (noCUDAGeneration), applied to a journal the artifact
+// carries: the controller admits such a generation as no-cuda and publishes
+// its journal beside the others, and a reader that refuses it refuses a
+// capture the controller called complete. A shell or launcher in front of
+// the CUDA program is the ordinary case.
+type noCUDAJournal struct {
+	state journalState
+	// work counts activity records other than the producer's bookkeeping.
+	// Any one of them means CUPTI delivered a buffer, which a process that
+	// ran no CUDA never has.
+	work uint64
+}
+
+func (j *noCUDAJournal) observe(kind uint16, subtype string, payload []byte) {
+	switch kind {
+	case recordCapability:
+		j.state.capabilityData = append(json.RawMessage(nil), payload...)
+	case recordFailure:
+		j.state.failure = "failure"
+	case recordActivity:
+		switch subtype {
+		case "device_active":
+			j.state.deviceActive = true
+		case "capture_range":
+		default:
+			j.work++
+		}
+	}
+}
+
+func (j *noCUDAJournal) ranNoCUDA() bool {
+	return noCUDAGeneration(j.state, wire.Stats{Records: j.work})
 }
 
 // resolveSyncDevices places each synchronization span on the device its
@@ -525,6 +567,10 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 	}
 	d := wire.NewDecoder(reader, wire.Limits{MaxRecords: limitsMaxRecords})
 	first, finalized := true, false
+	var noCUDA noCUDAJournal
+	// API records are held until the journal is admitted: a journal set
+	// aside as having run no CUDA must leave nothing behind.
+	apis := make(map[uint32]gapAPI)
 	for {
 		r, err := d.Next()
 		if err != nil {
@@ -534,10 +580,17 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 					return fmt.Errorf("journal %s is empty, so no device timeline was recorded", name)
 				}
 				if !finalized {
+					if noCUDA.ranNoCUDA() {
+						summary.NoCUDA = true
+						return nil
+					}
 					return fmt.Errorf("journal %s decoded %d record(s) but never finalized, so the recorded timeline has no known end", name, summary.Records)
 				}
 				if stats := d.Stats(); stats.Gaps > 0 || stats.Dropped > 0 {
 					return fmt.Errorf("journal %s lost records (%d sequence gap(s), %d dropped), so activities the idle gaps would span are absent", name, stats.Gaps, stats.Dropped)
+				}
+				for c, a := range apis {
+					out.apis[c] = a
 				}
 				return nil
 			case errors.Is(err, io.ErrUnexpectedEOF):
@@ -555,6 +608,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 		if len(r.Payload) > 0 && json.Unmarshal(r.Payload, &payload) != nil {
 			return fmt.Errorf("journal %s record %d is not a typed capture record", name, r.Sequence)
 		}
+		noCUDA.observe(r.Kind, payload.Subtype, r.Payload)
 		switch r.Kind {
 		case recordActivity:
 			if payload.Dropped > 0 {
@@ -644,7 +698,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {
 				continue
 			}
-			out.apis[payload.Correlation] = gapAPI{start: int64(payload.Start), end: int64(payload.End)}
+			apis[payload.Correlation] = gapAPI{start: int64(payload.Start), end: int64(payload.End)}
 		case recordFinalized:
 			finalized = true
 			if payload.Dropped > 0 {
@@ -1234,7 +1288,11 @@ func (r *GapReport) text() string {
 		if j.Compressed {
 			form = "gzip"
 		}
-		fmt.Fprintf(&b, "  journal %s (%s, %d bytes, %d records)\n", j.Name, form, j.Bytes, j.Records)
+		fmt.Fprintf(&b, "  journal %s (%s, %d bytes, %d records)", j.Name, form, j.Bytes, j.Records)
+		if j.NoCUDA {
+			b.WriteString(" ran no CUDA")
+		}
+		b.WriteString("\n")
 	}
 	fmt.Fprintf(&b, "  activities %d  api records %d  correlated %.1f%%\n", r.Activities, r.APIRecords, r.Correlated)
 	if r.UnresolvedSyncs > 0 {

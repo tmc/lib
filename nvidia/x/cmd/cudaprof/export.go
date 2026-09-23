@@ -492,6 +492,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 	}
 	d := wire.NewDecoder(reader, wire.Limits{MaxRecords: limit})
 	first, finalized, decoded := true, false, 0
+	var noCUDA noCUDAJournal
 	var markers []tracePayload
 	var externals []cuptiactivity.Record
 	var session string
@@ -505,6 +506,12 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 					return fmt.Errorf("journal %s is empty, so no timeline was recorded", name)
 				}
 				if !finalized {
+					if noCUDA.ranNoCUDA() {
+						// Host records are all it can hold, and they
+						// belong to no device timeline.
+						*out = (*out)[:base]
+						return nil
+					}
 					return fmt.Errorf("journal %s decoded %d record(s) but never finalized, so the timeline has no known end", name, decoded)
 				}
 				if stats := d.Stats(); stats.Gaps > 0 || stats.Dropped > 0 {
@@ -531,6 +538,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 		if len(r.Payload) > 0 && json.Unmarshal(r.Payload, &p) != nil {
 			return fmt.Errorf("journal %s record %d is not a typed capture record", name, r.Sequence)
 		}
+		noCUDA.observe(r.Kind, p.Subtype, r.Payload)
 		switch r.Kind {
 		case recordActivity:
 			if p.Dropped > 0 {

@@ -1523,3 +1523,75 @@ func TestUnnamedKernelRecordsAreCounted(t *testing.T) {
 		t.Errorf("census = %+v, want only the named kernel", report.Kernels)
 	}
 }
+
+// TestUnfinalizedNoCUDAJournal checks that a journal the controller admits as
+// a process that ran no CUDA -- a shell in front of the program, say -- does
+// not make gaps, compare or export refuse the capture, and that every other
+// unfinalized journal still does. The evidence must be the producer's: it
+// says it writes the device_active note, and the note is absent.
+func TestUnfinalizedNoCUDAJournal(t *testing.T) {
+	worker := func(capability map[string]any, body func(*journalBuilder)) []byte {
+		b := &journalBuilder{}
+		b.session[0] = 0x42
+		b.append(recordBootstrap, map[string]any{"kind": "bootstrap"})
+		b.append(recordCapability, capability)
+		if body != nil {
+			body(b)
+		}
+		return b.unfinalized()
+	}
+	noted := map[string]any{"kind": "capability", "device_active_note": true}
+	tests := []struct {
+		name    string
+		journal []byte
+		wantErr string // "" admits the journal as no-CUDA
+	}{
+		{name: "bootstrap and capability only", journal: worker(noted, nil)},
+		{name: "host api only", journal: worker(noted, func(b *journalBuilder) { b.api(1, 2, 99) })},
+		{name: "capture range edge only", journal: worker(noted, func(b *journalBuilder) {
+			b.append(recordActivity, map[string]any{"kind": "activity", "subtype": "capture_range", "valid": true, "start": 1, "end": 1})
+		})},
+		{name: "producer without the note", journal: worker(map[string]any{"kind": "capability"}, nil), wantErr: "never finalized"},
+		{name: "device active", journal: worker(noted, func(b *journalBuilder) {
+			b.append(recordActivity, map[string]any{"kind": "activity", "subtype": "device_active"})
+		}), wantErr: "never finalized"},
+		{name: "device work", journal: worker(noted, func(b *journalBuilder) { b.kernel(10, 20, 1) }), wantErr: "never finalized"},
+		{name: "producer failure", journal: worker(noted, func(b *journalBuilder) {
+			b.append(recordFailure, map[string]any{"kind": "failure", "state": "producer_failure"})
+		}), wantErr: "never finalized"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			journals := map[string][]byte{
+				"worker-a-capture.journal": tt.journal,
+				"worker-b-capture.journal": newJournalBuilder().kernel(100, 200, 1).api(90, 95, 1).finalize(),
+			}
+			got, err := decodeJournals(journals, controllerMaxJournalRecords, 1<<20)
+			_, _, _, exportErr := decodeTraceJournals(journals, controllerMaxJournalRecords, 1<<20)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("gaps error = %v, want %q", err, tt.wantErr)
+				}
+				if exportErr == nil || !strings.Contains(exportErr.Error(), tt.wantErr) {
+					t.Errorf("export error = %v, want %q", exportErr, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("gaps refused a no-CUDA journal: %v", err)
+			}
+			if exportErr != nil {
+				t.Fatalf("export refused a no-CUDA journal: %v", exportErr)
+			}
+			if len(got.journals) != 2 || !got.journals[0].NoCUDA || got.journals[1].NoCUDA {
+				t.Errorf("journals = %+v, want worker-a marked no-CUDA and worker-b not", got.journals)
+			}
+			if len(got.activities) != 1 {
+				t.Errorf("activities = %d, want 1: the no-CUDA journal contributes none", len(got.activities))
+			}
+			if _, ok := got.apis[99]; ok || len(got.apis) != 1 {
+				t.Errorf("apis = %v, want only worker-b's: a set-aside journal leaves nothing behind", got.apis)
+			}
+		})
+	}
+}
