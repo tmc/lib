@@ -1,0 +1,538 @@
+//go:build !darwin && !tpu
+
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudaattn"
+	"github.com/tmc/lib/nvidia/x/cudakv"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudamem"
+)
+
+// GPULayerWeights holds GPU-resident parameter slices for one transformer layer.
+type GPULayerWeights struct {
+	InputNorm WeightSlice
+	PostNorm  WeightSlice
+	WQ        WeightSlice
+	WK        WeightSlice
+	WV        WeightSlice
+	QBias     WeightSlice
+	KBias     WeightSlice
+	VBias     WeightSlice
+	WO        WeightSlice
+	WGate     WeightSlice
+	WUp       WeightSlice
+	WDown     WeightSlice
+}
+
+// GPUModelWeights holds all model parameters in device GPU memory.
+type GPUModelWeights struct {
+	EmbedTokens WeightSlice
+	Layers      []GPULayerWeights
+	Norm        WeightSlice
+	LMHead      WeightSlice
+	dtype       WeightDType
+	arena       *cudamem.Arena
+
+	// mx holds MXFP4 copies of the linear projections when
+	// LLAMA_INFER_MXFP4=1; nil otherwise.
+	mx *mxfp4Weights
+}
+
+// Free releases all model parameter storage. It is safe to call more than once.
+func (w *GPUModelWeights) Free() {
+	if w == nil || w.arena == nil {
+		return
+	}
+	arena := w.arena
+	w.arena = nil
+	_ = w.mx.close()
+	w.mx = nil
+	_ = arena.Free()
+}
+
+// GPUScratchpad holds intermediate GPU-resident activation and logit buffers.
+type GPUScratchpad struct {
+	X            cudamem.Slice[float32]
+	NormX        cudamem.Slice[float32]
+	Q            cudamem.Slice[float32]
+	K            cudamem.Slice[float32]
+	V            cudamem.Slice[float32]
+	AttnOut      cudamem.Slice[float32]
+	Gate         cudamem.Slice[float32]
+	Up           cudamem.Slice[float32]
+	FFNAct       cudamem.Slice[float32]
+	FFNOut       cudamem.Slice[float32]
+	Logits       cudamem.Slice[float32]
+	TokenIn      cudamem.Slice[int32]
+	TokenOut     cudamem.Slice[int32]
+	HostTokenIn  []int32
+	HostTokenOut []int32
+
+	arena *cudamem.Arena
+
+	// graph replays the decode step when LLAMA_INFER_CUDA_GRAPH=1; nil
+	// otherwise. It lives here because it captures exactly these buffers.
+	graph *decodeGraph
+
+	// paged is the paged attention of the current step when the engine was
+	// compiled with LLAMA_INFER_PAGED_KV=1; nil otherwise. The engine binds
+	// it before every forward call (paged_kv_step_cuda.go). fp8 is the same
+	// for LLAMA_INFER_FP8_KV=1 (fp8_kv_cuda.go); at most one is set.
+	paged *pagedStep
+	fp8   *fp8Step
+}
+
+// NewGPUScratchpad allocates all intermediate scratchpad activation buffers on dev.
+func NewGPUScratchpad(dev *cuda.Device, tracker *cudamem.Tracker, cfg *ModelConfig) (*GPUScratchpad, error) {
+	headDim := cfg.HeadDim()
+	qDim := cfg.NumAttentionHeads * headDim
+	kvDim := cfg.NumKeyValueHeads * headDim
+
+	a := cudamem.NewTrackedArena(dev, tracker)
+	sp := &GPUScratchpad{
+		X:            cudamem.AllocIn[float32](a, "x", cfg.HiddenSize),
+		NormX:        cudamem.AllocIn[float32](a, "normX", cfg.HiddenSize),
+		Q:            cudamem.AllocIn[float32](a, "q", qDim),
+		K:            cudamem.AllocIn[float32](a, "k", kvDim),
+		V:            cudamem.AllocIn[float32](a, "v", kvDim),
+		AttnOut:      cudamem.AllocIn[float32](a, "attnOut", qDim),
+		Gate:         cudamem.AllocIn[float32](a, "gate", cfg.IntermediateSize),
+		Up:           cudamem.AllocIn[float32](a, "up", cfg.IntermediateSize),
+		FFNAct:       cudamem.AllocIn[float32](a, "ffnAct", cfg.IntermediateSize),
+		FFNOut:       cudamem.AllocIn[float32](a, "ffnOut", cfg.HiddenSize),
+		Logits:       cudamem.AllocIn[float32](a, "logits", cfg.VocabSize),
+		TokenIn:      cudamem.AllocIn[int32](a, "tokenIn", 1),
+		TokenOut:     cudamem.AllocIn[int32](a, "tokenOut", 1),
+		HostTokenIn:  make([]int32, 1),
+		HostTokenOut: make([]int32, 1),
+		arena:        a,
+	}
+	if err := a.Err(); err != nil {
+		_ = a.Free()
+		return nil, err
+	}
+	if cudaGraphEnabled() {
+		sp.graph = &decodeGraph{}
+	}
+	return sp, nil
+}
+
+// Free releases all allocated GPU intermediate buffers.
+func (sp *GPUScratchpad) Free() {
+	if sp == nil {
+		return
+	}
+	_ = sp.graph.close()
+	_ = sp.arena.Free()
+}
+
+// UploadModelToGPU transfers all host model weights directly into GPU VRAM.
+func UploadModelToGPU(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeights, cfg *ModelConfig) (*GPUModelWeights, error) {
+	return UploadModelToGPUAs(dev, tracker, w, cfg, WeightF32)
+}
+
+// UploadModelToGPUAs transfers all host model weights into GPU VRAM in dtype d.
+//
+// d decides both how many bytes each weight occupies on the device and which
+// kernel entry points will read it. Passing WeightF32 is the original behavior.
+func UploadModelToGPUAs(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeights, cfg *ModelConfig, d WeightDType) (*GPUModelWeights, error) {
+	if err := d.check(); err != nil {
+		return nil, err
+	}
+	arena := cudamem.NewTrackedArena(dev, tracker)
+	committed := false
+	defer func() {
+		if !committed {
+			_ = arena.Free()
+		}
+	}()
+	upload := func(host []float32) (WeightSlice, error) {
+		return uploadWeights(arena, d, host)
+	}
+
+	embed, err := upload(w.EmbedTokens)
+	if err != nil {
+		return nil, fmt.Errorf("upload embed: %w", err)
+	}
+	norm, err := upload(w.Norm)
+	if err != nil {
+		return nil, fmt.Errorf("upload norm: %w", err)
+	}
+	lmHead, err := upload(w.LMHead)
+	if err != nil {
+		return nil, fmt.Errorf("upload lm_head: %w", err)
+	}
+
+	layers := make([]GPULayerWeights, cfg.NumHiddenLayers)
+	for i := 0; i < cfg.NumHiddenLayers; i++ {
+		hw := &w.Layers[i]
+		inNorm, err := upload(hw.InputNorm)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d input_norm: %w", i, err)
+		}
+		postNorm, err := upload(hw.PostNorm)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d post_norm: %w", i, err)
+		}
+		wq, err := upload(hw.WQ)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wq: %w", i, err)
+		}
+		wk, err := upload(hw.WK)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wk: %w", i, err)
+		}
+		wv, err := upload(hw.WV)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wv: %w", i, err)
+		}
+		qbias, _ := upload(hw.QBias)
+		kbias, _ := upload(hw.KBias)
+		vbias, _ := upload(hw.VBias)
+		wo, err := upload(hw.WO)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wo: %w", i, err)
+		}
+		wgate, err := upload(hw.WGate)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wgate: %w", i, err)
+		}
+		wup, err := upload(hw.WUp)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wup: %w", i, err)
+		}
+		wdown, err := upload(hw.WDown)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wdown: %w", i, err)
+		}
+
+		layers[i] = GPULayerWeights{
+			InputNorm: inNorm,
+			PostNorm:  postNorm,
+			WQ:        wq,
+			WK:        wk,
+			WV:        wv,
+			QBias:     qbias,
+			KBias:     kbias,
+			VBias:     vbias,
+			WO:        wo,
+			WGate:     wgate,
+			WUp:       wup,
+			WDown:     wdown,
+		}
+	}
+
+	var mx *mxfp4Weights
+	if mxfp4Enabled() {
+		if mx, err = uploadMXFP4(dev, tracker, w, cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	committed = true
+	return &GPUModelWeights{
+		EmbedTokens: embed,
+		Layers:      layers,
+		Norm:        norm,
+		LMHead:      lmHead,
+		dtype:       d,
+		arena:       arena,
+		mx:          mx,
+	}, nil
+}
+
+// GPUForwardPassStep executes one full transformer decoder forward step on stream,
+// or on the device's default stream when stream is nil. Every operation is
+// stream-ordered; when syncHost is set the step synchronizes the stream and returns
+// the sampled token, and otherwise returns 0 with work still in flight.
+func GPUForwardPassStep(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	kv *cudakv.Cache,
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn *boundedKernel,
+	sampleFn *cuda.Kernel,
+	tokenID int32,
+	pos int,
+	stream *cuda.Stream,
+	syncHost bool,
+) (int32, error) {
+	return gpuForwardPassStep(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, tokenID, pos, stream, syncHost, nil)
+}
+
+func gpuForwardPassStep(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	kv *cudakv.Cache,
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn *boundedKernel,
+	sampleFn *cuda.Kernel,
+	tokenID int32,
+	pos int,
+	stream *cuda.Stream,
+	syncHost bool,
+	counter *cudalaunch.Counter,
+) (int32, error) {
+	// Every step is stream-ordered: a caller that named no stream gets the device's
+	// default one, and asks for a host-visible result with syncHost.
+	if stream == nil {
+		stream = sp.arena.Device().DefaultStream()
+	}
+	if err := gpuStageToken(sp, tokenID, stream); err != nil {
+		return 0, err
+	}
+	if err := gpuForwardPassBody(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, pos, stream, counter); err != nil {
+		return 0, err
+	}
+	if !syncHost {
+		return 0, nil
+	}
+	return gpuReadToken(sp, stream)
+}
+
+// gpuStageToken copies the input token to the device ahead of the step. It
+// uses an isolated per-step host slice to avoid an async lifetime hazard, and
+// is kept apart from the body because a pageable host copy cannot be captured
+// into a graph.
+func gpuStageToken(sp *GPUScratchpad, tokenID int32, stream *cuda.Stream) error {
+	hostTokenIn := []int32{tokenID}
+	return sp.TokenIn.CopyFromHostAsync(hostTokenIn, stream)
+}
+
+// gpuReadToken returns the sampled token once the stream has drained.
+func gpuReadToken(sp *GPUScratchpad, stream *cuda.Stream) (int32, error) {
+	if err := sp.TokenOut.CopyToHostAsync(sp.HostTokenOut, stream); err != nil {
+		return 0, err
+	}
+	if err := stream.Synchronize(context.Background()); err != nil {
+		return 0, err
+	}
+	return sp.HostTokenOut[0], nil
+}
+
+// gpuForwardPassBody runs one decode step from the embedding lookup through
+// sampling, all on stream and all from device-resident inputs: the token is
+// already in sp.TokenIn and the result is left in sp.TokenOut. Everything it
+// submits is stream work with no host synchronization, which is what lets a
+// graph capture it.
+func gpuForwardPassBody(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	kv *cudakv.Cache,
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn *boundedKernel,
+	sampleFn *cuda.Kernel,
+	pos int,
+	stream *cuda.Stream,
+	counter *cudalaunch.Counter,
+) error {
+	headDim := cfg.HeadDim()
+	qHeads := cfg.NumAttentionHeads
+	kvHeads := cfg.NumKeyValueHeads
+	hiddenSize := cfg.HiddenSize
+	interSize := cfg.IntermediateSize
+	vocabSize := cfg.VocabSize
+	seqLen := pos + 1
+
+	// noBias stands in for an absent optional kernel argument: an empty slice
+	// packs as a null device pointer.
+	var noBias WeightSlice
+
+	launcher := func(fn *cuda.Kernel) *cudalaunch.Launcher {
+		return cudalaunch.OwnedKernel(fn).On(stream).Count(counter)
+	}
+
+	// gemv is one linear projection, out = W x + bias. It reads the MXFP4 copy
+	// when the model carries one for this matrix and the dtype kernel otherwise.
+	gemv := func(x cudamem.Slice[float32], w, bias WeightSlice, out cudamem.Slice[float32], inDim, outDim int, mx *mxfp4Matrix) error {
+		if mx != nil {
+			return gpuW.mx.linear(stream, launcher, gm, x, mx, bias, out)
+		}
+		return launcher(gm.GEMV).Grid(uint32(outDim)).Block(128).
+			Launch(x, w, bias, out, int32(inDim), int32(outDim))
+	}
+
+	// 1. Embedding lookup
+	if err := launcher(gm.Embed).Grid(1).Block(256).
+		Launch(gpuW.EmbedTokens, sp.TokenIn, sp.X, int32(hiddenSize)); err != nil {
+		return err
+	}
+
+	// 2. Transformer Decoder Layers
+	for i := 0; i < cfg.NumHiddenLayers; i++ {
+		layerW := &gpuW.Layers[i]
+		layerMX := gpuW.mx.layer(i)
+
+		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
+		if cfg.FuseEGraph && layerW.QBias.Len() == 0 && layerMX == nil {
+			// Fused RMSNorm + QKV Projection (Single kernel launch, zero intermediate DRAM writes)
+			if err := launcher(gm.FusedQKV).Grid(uint32(qHeads*headDim)).Block(128).
+				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
+					sp.Q, sp.K, sp.V,
+					int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
+				return err
+			}
+		} else {
+			// Unfused fallback path
+			if err := launcher(gm.Norm).Grid(1).Block(256).
+				Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+				return err
+			}
+			if err := gemv(sp.NormX, layerW.WQ, layerW.QBias, sp.Q, hiddenSize, qHeads*headDim, layerMX.q()); err != nil {
+				return err
+			}
+			if err := gemv(sp.NormX, layerW.WK, layerW.KBias, sp.K, hiddenSize, kvHeads*headDim, layerMX.k()); err != nil {
+				return err
+			}
+			if err := gemv(sp.NormX, layerW.WV, layerW.VBias, sp.V, hiddenSize, kvHeads*headDim, layerMX.v()); err != nil {
+				return err
+			}
+		}
+
+		// Steps 2c-2e rotate q and k, store k and v at pos and attend over
+		// the cache. A paged step, bound by the engine when the engine was
+		// compiled with LLAMA_INFER_PAGED_KV=1, does all three through its
+		// block table; an FP8 step (LLAMA_INFER_FP8_KV=1) does them through
+		// its E4M3 cache; otherwise the dense cache is read and written in
+		// place.
+		if sp.paged != nil {
+			if err := sp.paged.attend(stream, counter, i, sp.Q, sp.K, sp.V, sp.AttnOut, 1, cfg.RopeTheta); err != nil {
+				return err
+			}
+		} else if sp.fp8 != nil {
+			if err := sp.fp8.attend(stream, counter, i, sp.Q, sp.K, sp.V, sp.AttnOut, 1, cfg.RopeTheta); err != nil {
+				return err
+			}
+		} else {
+			if kv == nil {
+				return fmt.Errorf("layer %d: no kv cache", i)
+			}
+			layerKV, err := kv.Layer(i)
+			if err != nil {
+				return err
+			}
+
+			// Step 2c: RoPE
+			if err := launcher(gm.RoPE).Grid(uint32(qHeads)).Block(uint32(headDim/2)).
+				Launch(sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
+				return err
+			}
+
+			// Step 2d: Store K and V in KV Cache
+			if err := launcher(gm.StoreKV).Grid(1).Block(128).
+				Launch(sp.K, sp.V, layerKV.K, layerKV.V, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
+				return err
+			}
+
+			// Step 2e: Causal FlashAttention Decode
+			// A one-thread block needs 4*seqLen bytes, per DecodeSharedMemoryBytes:
+			// the reduction scratch is never touched. The request grows with the
+			// position, so it is checked against the device on every step.
+			attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
+			attnShared, err := attnFn.sharedMem(seqLen * 4)
+			if err != nil {
+				return fmt.Errorf("attention at position %d: %w", pos, err)
+			}
+			if err := launcher(attnFn.fn).Grid(uint32(qHeads)).Block(1).SharedMem(attnShared).
+				Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
+				return err
+			}
+		}
+
+		// Step 2f: Output GEMV
+		if err := gemv(sp.AttnOut, layerW.WO, noBias, sp.NormX, qHeads*headDim, hiddenSize, layerMX.o()); err != nil {
+			return err
+		}
+
+		// Step 2g: Residual 1
+		if err := launcher(gm.AddResidual).Grid(1).Block(256).
+			Launch(sp.X, sp.NormX, int32(hiddenSize)); err != nil {
+			return err
+		}
+
+		// Step 2h: FFN Pre-RMSNorm
+		if err := launcher(gm.Norm).Grid(1).Block(256).
+			Launch(sp.X, layerW.PostNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+			return err
+		}
+
+		// Step 2i: Gate & Up GEMVs
+		if err := gemv(sp.NormX, layerW.WGate, noBias, sp.Gate, hiddenSize, interSize, layerMX.gate()); err != nil {
+			return err
+		}
+		if err := gemv(sp.NormX, layerW.WUp, noBias, sp.Up, hiddenSize, interSize, layerMX.up()); err != nil {
+			return err
+		}
+
+		// Step 2j & 2k: Fused SwiGLU + Down GEMV
+		if cfg.FuseEGraph && layerMX == nil {
+			// Fused SwiGLU Down Projection (Single kernel launch)
+			if err := launcher(gm.FusedSwiGLU).Grid(uint32(hiddenSize)).Block(128).
+				Launch(sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
+				return err
+			}
+		} else {
+			// Step 2j: SwiGLU: ffnAct = silu(gate) * up
+			if err := launcher(gm.SwiGLU).Grid(1).Block(256).
+				Launch(sp.Gate, sp.Up, sp.FFNAct, int32(interSize)); err != nil {
+				return err
+			}
+
+			// Step 2k: Down GEMV
+			if err := gemv(sp.FFNAct, layerW.WDown, noBias, sp.FFNOut, interSize, hiddenSize, layerMX.down()); err != nil {
+				return err
+			}
+		}
+
+		// Step 2l: Residual 2
+		if err := launcher(gm.AddResidual).Grid(1).Block(256).
+			Launch(sp.X, sp.FFNOut, int32(hiddenSize)); err != nil {
+			return err
+		}
+	}
+
+	// 3. Final RMSNorm
+	if err := launcher(gm.Norm).Grid(1).Block(256).
+		Launch(sp.X, gpuW.Norm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+		return err
+	}
+
+	// 4. LM Head Logits GEMV
+	if err := gemv(sp.NormX, gpuW.LMHead, noBias, sp.Logits, hiddenSize, vocabSize, gpuW.mx.head()); err != nil {
+		return err
+	}
+
+	// 5. In-GPU Argmax Sampling
+	if err := launcher(sampleFn).Grid(1).Block(256).
+		Launch(sp.Logits, sp.TokenOut, int32(vocabSize)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// GPUForwardPassStream executes one full transformer decoder forward step with synchronous host copy.
+func GPUForwardPassStream(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	kv *cudakv.Cache,
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn *boundedKernel,
+	sampleFn *cuda.Kernel,
+	tokenID int32,
+	pos int,
+	stream *cuda.Stream,
+) (int32, error) {
+	if sp.graph != nil {
+		return sp.graph.step(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, tokenID, pos, stream, nil)
+	}
+	return GPUForwardPassStep(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, tokenID, pos, stream, true)
+}
