@@ -899,7 +899,10 @@ Options:
   --capture-range <mode>        %[4]s (default) or %[5]s, which collects only between
                                 the target's own cuProfilerStart and cuProfilerStop
                                 (driver.ProfilerStart/ProfilerStop in Go); sets
-                                CUDAPROF_CAPTURE_RANGE in the target
+                                CUDAPROF_CAPTURE_RANGE in the target. Each range edge in
+                                phase_receipt records the GPUs' SM and memory clocks,
+                                temperature and power, read through NVML by cudaprof as
+                                it sees the edge, and lag_nanos after it
   --finalize <trigger>          when the agent flushes and finalizes: %[6]s (default) or
                                 %[7]s, on the target's cuProfilerStop. A Go target
                                 exits through exit_group and runs neither the agent's atexit

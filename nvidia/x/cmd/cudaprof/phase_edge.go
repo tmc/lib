@@ -21,6 +21,10 @@ type capturePhaseEdge struct {
 	// after a stop edge. The edge is stamped before the flush, so this time
 	// lies outside the range.
 	FlushNanos uint64 `json:"flush_nanos,omitempty"`
+
+	// GPU is the GPU state the controller read once it saw this edge. It is
+	// not a wire fact: see gpuEdgeSample for how far after the edge it lies.
+	GPU *gpuEdgeSample `json:"gpu,omitempty"`
 }
 
 // capturePhaseReceipt is deliberately UNREAD unless every qualification gate

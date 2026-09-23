@@ -282,6 +282,10 @@ type captureOptions struct {
 	Stdout, Stderr        io.Writer
 	command               []string
 
+	// openGPU opens the GPUs whose clocks are read at capture-range edges.
+	// Nil reads them through NVML.
+	openGPU gpuOpener
+
 	// ReplaceEmptyOutput records that Output exists and holds no activity
 	// records, so this run may take the name. The removal is deliberately not
 	// done at parse time: parsing arguments must not delete a file, and the
@@ -1035,10 +1039,23 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if err := configureCaptureProcess(cmd); err != nil {
 		return result, err
 	}
+	// A gated target writes capture-range edges, and each is given the GPU's
+	// clocks as the controller reads them. The GPU is opened before the
+	// target starts and followed only while it runs.
+	var clocks *edgeClocks
+	if lookupEnv(cmd.Env, "CUDAPROF_CAPTURE_RANGE") == captureRangeProfilerAPI {
+		clocks = openEdgeClocks(o.openGPU)
+	}
 	if err := cmd.Start(); err != nil {
+		if clocks != nil {
+			clocks.finish()
+		}
 		return result, fmt.Errorf("start capture target: %w", err)
 	}
 	result.State, result.TargetPID = captureStateSpawned, cmd.Process.Pid
+	if clocks != nil {
+		clocks.watch(dir, cmd.Process.Pid)
+	}
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	runctx := ctx
@@ -1065,7 +1082,14 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		}
 	}
 	result.State = captureStateFinalized
+	var edgeSamples map[edgeKey]*gpuEdgeSample
+	if clocks != nil {
+		edgeSamples = clocks.finish()
+	}
 	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", noInject: o.NoInject, targetOnly: !o.FollowChildren, recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
+	if clocks != nil {
+		attachEdgeClocks(result.PhaseReceipt, edgeSamples)
+	}
 	result = excludeKernels(result, o.Exclude)
 	if o.RequireComplete && result.RunCompleteness != runComplete {
 		result.CaptureSuccess = false
