@@ -6,8 +6,10 @@ import (
 	"github.com/tmc/lib/nvidia/cudnn"
 )
 
-// Example creates a cuDNN handle and queries the library version.
-// It returns early when the cuDNN library is not available.
+// Example creates a cuDNN handle, queries the library version, and creates a
+// tensor descriptor. It returns early when the cuDNN library is not
+// available. It has no Output comment, so it is compiled but not run: what it
+// prints depends on the host's cuDNN.
 func Example() {
 	h, err := cudnn.Create()
 	if err != nil {
@@ -23,4 +25,12 @@ func Example() {
 		return
 	}
 	fmt.Println("cuDNN major version:", major)
+
+	desc, err := cudnn.CreateTensorDescriptor()
+	if err != nil {
+		fmt.Println("tensor descriptor:", err)
+		return
+	}
+	defer desc.Destroy()
+	fmt.Println("tensor descriptor ready")
 }

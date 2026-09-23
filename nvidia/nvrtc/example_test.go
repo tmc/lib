@@ -8,9 +8,11 @@ import (
 
 // Example compiles a CUDA kernel to PTX at runtime. It returns early when
 // the NVRTC library is not available. The resulting PTX can be loaded and
-// launched with the driver package.
+// launched with the driver package. It has no Output comment, so it is
+// compiled but not run: what it prints depends on the host's NVRTC.
 func Example() {
-	if _, _, err := nvrtc.Version(); err != nil {
+	major, minor, err := nvrtc.Version()
+	if err != nil {
 		fmt.Println("NVRTC unavailable:", err)
 		return
 	}
@@ -37,5 +39,5 @@ extern "C" __global__ void saxpy(float a, float *x, float *y, int n) {
 		fmt.Println("ptx:", err)
 		return
 	}
-	fmt.Println("compiled", len(ptx), "bytes of PTX")
+	fmt.Printf("NVRTC %d.%d compiled %d bytes of PTX\n", major, minor, len(ptx))
 }

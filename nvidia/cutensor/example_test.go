@@ -8,7 +8,9 @@ import (
 )
 
 // Example creates a cuTENSOR handle and describes a rank-2 tensor.
-// It returns early when the cuTENSOR library is not available.
+// It returns early when the cuTENSOR library is not available. It has no
+// Output comment, so it is compiled but not run: what it prints depends on
+// the host's cuTENSOR.
 func Example() {
 	h, err := cutensor.Create()
 	if err != nil {
@@ -17,6 +19,7 @@ func Example() {
 	}
 	defer h.Destroy()
 	fmt.Println("cuTENSOR version:", cutensor.GetVersion())
+	fmt.Println("CUDA runtime version:", cutensor.GetCudartVersion())
 
 	// A 64x32 float32 tensor with dense (nil) strides, 128-byte aligned.
 	extent := []int64{64, 32}

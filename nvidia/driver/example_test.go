@@ -57,3 +57,47 @@ func Example() {
 	}
 	fmt.Println(name, back)
 }
+
+// ExampleDeviceGetCount prints the driver version and the name and compute
+// capability of each device. It returns early when no CUDA driver is
+// available. It has no Output comment, so it is compiled but not run: what
+// it prints depends on the host's driver and devices.
+func ExampleDeviceGetCount() {
+	if err := driver.Init(0); err != nil {
+		fmt.Println("CUDA driver unavailable:", err)
+		return
+	}
+	version, err := driver.DriverGetVersion()
+	if err != nil {
+		fmt.Println("version:", err)
+		return
+	}
+	count, err := driver.DeviceGetCount()
+	if err != nil {
+		fmt.Println("device count:", err)
+		return
+	}
+	for i := range count {
+		dev, err := driver.NewDeviceGet(i)
+		if err != nil {
+			fmt.Println("device:", err)
+			return
+		}
+		name, err := dev.GetName()
+		if err != nil {
+			fmt.Println("name:", err)
+			return
+		}
+		major, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMajor)
+		if err != nil {
+			fmt.Println("attribute:", err)
+			return
+		}
+		minor, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMinor)
+		if err != nil {
+			fmt.Println("attribute:", err)
+			return
+		}
+		fmt.Printf("CUDA %d: device %d: %s (sm_%d%d)\n", version, i, name, major, minor)
+	}
+}

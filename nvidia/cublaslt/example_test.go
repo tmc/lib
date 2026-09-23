@@ -10,7 +10,8 @@ import (
 // Example runs a single-precision matrix multiply through cublasLtMatmul.
 // It returns early when the cuBLASLt library is not available. The device
 // buffers dA..dD are CUDA device pointers, e.g. from the driver package's
-// MemAlloc.
+// MemAlloc. It has no Output comment, so it is compiled but not run: what it
+// prints depends on the host's cuBLASLt.
 func Example() {
 	h, err := cublaslt.Create()
 	if err != nil {
@@ -20,19 +21,17 @@ func Example() {
 	defer h.Destroy()
 
 	const m, n, k = 128, 128, 128
-	// DataType 0 is CUDA_R_32F (library_types.h).
-	r32f := cublaslt.DataType(0)
 
-	desc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32F, r32f)
+	desc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
 	if err != nil {
 		fmt.Println("matmul desc:", err)
 		return
 	}
 	defer desc.Destroy()
 
-	aLayout, _ := cublaslt.NewMatrixLayout(r32f, m, k, m)
-	bLayout, _ := cublaslt.NewMatrixLayout(r32f, k, n, k)
-	cLayout, _ := cublaslt.NewMatrixLayout(r32f, m, n, m)
+	aLayout, _ := cublaslt.NewMatrixLayout(cublaslt.R32F, m, k, m)
+	bLayout, _ := cublaslt.NewMatrixLayout(cublaslt.R32F, k, n, k)
+	cLayout, _ := cublaslt.NewMatrixLayout(cublaslt.R32F, m, n, m)
 	defer aLayout.Destroy()
 	defer bLayout.Destroy()
 	defer cLayout.Destroy()
