@@ -20,6 +20,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudacache](cudacache/) | Package cudacache provides content-addressed local and remote caching for compiled CUDA kernel artifacts and search evaluation receipts. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
 | [cudacensus](cudacensus/) | Package cudacensus turns a GPU trace capture into a per-kernel census and, where the caller can supply a cost model, into roofline points. |
+| [cudacluster](cudacluster/) | Package cudacluster expresses thread-block-cluster distributed shared memory. |
 | [cudacmp](cudacmp/) | Package cudacmp implements pure-Go differential CUDA performance analysis. |
 | [cudacollective](cudacollective/) | Package cudacollective defines collective communication plans, rank membership, communicator generations, multi-transport fallback resolution, and double-buffered pipelined transfers for distributed CUDA execution. |
 | [cudadevicetable](cudadevicetable/) | Package cudadevicetable holds GPU device facts that were read from a real device, separated from the ones that were not. |

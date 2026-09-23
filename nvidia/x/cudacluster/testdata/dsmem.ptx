@@ -1,0 +1,33 @@
+// Feature: dsmem -- distributed shared memory windows within a cluster.
+//
+// Written to the same shape as cudadevicetable/ptxprobe/cluster.ptx so it can
+// be adopted there unchanged. cluster.ptx asserts the cluster barrier and
+// %cluster_ctarank; this asserts the remote window, which cluster.ptx does not
+// touch. A target accepting cluster.ptx tells you nothing about this file.
+.version 9.0
+.target TARGET
+.address_size 64
+.visible .entry probe(.param .u64 p)
+{
+  .reg .b64 %rd<2>;
+  .reg .b32 %r<5>;
+  .shared .align 4 .b32 window[4];
+
+  ld.param.u64 %rd1, [p];
+  mov.u32 %r1, %cluster_ctarank;
+  st.shared.u32 [window], %r1;
+
+  barrier.cluster.arrive;
+  barrier.cluster.wait;
+
+  // Map this CTA's window into the peer at rank 0 and read it back. The
+  // mapping and the cluster-scoped load are the two constructs under test.
+  mov.u32 %r2, 0;
+  mapa.shared::cluster.u32 %r3, window, %r2;
+  ld.shared::cluster.u32 %r4, [%r3];
+  st.global.u32 [%rd1], %r4;
+
+  barrier.cluster.arrive;
+  barrier.cluster.wait;
+  ret;
+}
