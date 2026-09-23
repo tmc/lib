@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudalock"
 )
 
 // This file implements step 4 of lane 34: the feasibility gate for re-encoding.
@@ -911,16 +913,16 @@ func (p PatchedImage) Loadable() error {
 //
 // env is the environment lookup, normally os.Getenv. The GPU lock is required
 // because a candidate binary of unknown validity can hang or fault the device,
-// and the device is shared.
+// and the device is shared. The lock must be one an ancestor holds, as
+// [cudalock.Inherited] checks: run the load under gpu-lock itself, not under
+// "gpu-lock env GPU_LOCK_HELD=1", which replaces the holder's pid with a
+// value that names no holder.
 func AuthorizeLoad(p PatchedImage, env func(string) string) error {
 	if err := p.Loadable(); err != nil {
 		return err
 	}
-	if env == nil {
-		return fmt.Errorf("%w: no environment to check", ErrLockNotHeld)
-	}
-	if env("GPU_LOCK_HELD") != "1" {
-		return fmt.Errorf("%w: GPU_LOCK_HELD is %q, want \"1\"; run under gpu-lock", ErrLockNotHeld, env("GPU_LOCK_HELD"))
+	if _, err := cudalock.Inherited(env); err != nil {
+		return fmt.Errorf("%w: %w; run under gpu-lock", ErrLockNotHeld, err)
 	}
 	return nil
 }

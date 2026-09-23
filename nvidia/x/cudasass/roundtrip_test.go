@@ -2,12 +2,16 @@ package cudasass_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"errors"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
@@ -519,7 +523,7 @@ func TestPatchedCubinLoadFailsClosed(t *testing.T) {
 	}
 	// The gate refuses even with the lock held: the lock is a precondition,
 	// not a substitute for knowing the image is the one that executes.
-	if err := cudasass.AuthorizeLoad(patched, func(string) string { return "1" }); !errors.Is(err, cudasass.ErrMirroredText) {
+	if err := cudasass.AuthorizeLoad(patched, heldLockEnv(t)); !errors.Is(err, cudasass.ErrMirroredText) {
 		t.Errorf("AuthorizeLoad with the lock held = %v, want %v", err, cudasass.ErrMirroredText)
 	}
 	if _, err := im.Apply("intmix", nil); !errors.Is(err, cudasass.ErrNothingPatched) {
@@ -540,16 +544,21 @@ func TestCandidateLoadRequiresGPULock(t *testing.T) {
 		Section: ".text.intmix",
 		Patches: []cudasass.AppliedPatch{{Address: 0x10, FileOffset: 0x910}},
 	}
+	held := heldLockEnv(t)
+	dir := held("GPU_LOCKDIR")
 	for _, tc := range []struct {
 		name    string
 		env     map[string]string
 		wantErr bool
 	}{
-		{"unset", map[string]string{}, true},
-		{"empty", map[string]string{"GPU_LOCK_HELD": ""}, true},
-		{"zero", map[string]string{"GPU_LOCK_HELD": "0"}, true},
-		{"truthy but not 1", map[string]string{"GPU_LOCK_HELD": "yes"}, true},
-		{"held", map[string]string{"GPU_LOCK_HELD": "1"}, false},
+		{"unset", map[string]string{"GPU_LOCKDIR": dir}, true},
+		{"empty", map[string]string{"GPU_LOCK_HELD": "", "GPU_LOCKDIR": dir}, true},
+		{"zero", map[string]string{"GPU_LOCK_HELD": "0", "GPU_LOCKDIR": dir}, true},
+		{"truthy", map[string]string{"GPU_LOCK_HELD": "yes", "GPU_LOCKDIR": dir}, true},
+		// gpu-lock env GPU_LOCK_HELD=1 overwrites the holder's pid.
+		{"one", map[string]string{"GPU_LOCK_HELD": "1", "GPU_LOCKDIR": dir}, true},
+		{"pid the lock does not name", map[string]string{"GPU_LOCK_HELD": strconv.Itoa(os.Getpid() + 1), "GPU_LOCKDIR": dir}, true},
+		{"held", map[string]string{"GPU_LOCK_HELD": held("GPU_LOCK_HELD"), "GPU_LOCKDIR": dir}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := cudasass.AuthorizeLoad(patched, func(k string) string { return tc.env[k] })
@@ -567,4 +576,22 @@ func TestCandidateLoadRequiresGPULock(t *testing.T) {
 	if err := cudasass.AuthorizeLoad(patched, nil); !errors.Is(err, cudasass.ErrLockNotHeld) {
 		t.Errorf("AuthorizeLoad with no environment = %v, want %v", err, cudasass.ErrLockNotHeld)
 	}
+}
+
+// heldLockEnv acquires a GPU lock in a temporary directory and returns the
+// environment a process running under it would see.
+func heldLockEnv(t *testing.T) func(string) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "lock")
+	h, err := cudalock.Acquire(context.Background(), cudalock.WithDir(dir), cudalock.WithLabel(t.Name()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := h.Release(); err != nil {
+			t.Error(err)
+		}
+	})
+	env := map[string]string{"GPU_LOCK_HELD": strconv.Itoa(os.Getpid()), "GPU_LOCKDIR": dir}
+	return func(k string) string { return env[k] }
 }
