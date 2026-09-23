@@ -53,6 +53,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaobjdump](cudaobjdump/) | Package cudaobjdump inspects CUDA code embedded in host binaries and cubins using the installed cuobjdump executable. |
 | [cudaoccupancy](cudaoccupancy/) | Package cudaoccupancy models GPU hardware resource limits and calculates theoretical warp occupancy directly from compiled CUDA binary (CUBIN) images. |
 | [cudaoptim](cudaoptim/) | Package cudaoptim implements optimizer steps for training with hand-written CUDA kernels: AdamW with decoupled weight decay, global gradient-norm clipping, and non-finite gradient detection. |
+| [cudapdl](cudapdl/) | Package cudapdl implements Programmatic Dependent Launch (PDL) region composition, eligibility evaluation, and hardware/software fallback policies for NVIDIA GPUs. |
 | [cudapipeline](cudapipeline/) | Package cudapipeline provides static verification and transaction-barrier analysis for asynchronous tensor copy pipelines. |
 | [cudaplan](cudaplan/) | Package cudaplan provides executable plans, resource ownership, and completion tracking for CUDA execution graphs and compiled kernels. |
 | [cudaprepack](cudaprepack/) | Package cudaprepack provides ahead-of-time (AOT) hardware layout transformations for NVIDIA Blackwell TMA (cp.async.bulk.tensor.2d) tensor boxes and microscaled sub-byte formats. |
