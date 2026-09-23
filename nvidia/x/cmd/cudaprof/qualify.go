@@ -75,7 +75,7 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 		}
 	}
 	q := qualify(entries, opts.noiseMultiplier, opts.noiseFloorMS)
-	q.Window = describeWarmup(opts.gaps)
+	q.Window = describeWarmup(opts.gaps) + " excluded"
 	if opts.json {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
@@ -248,10 +248,6 @@ func qualifySpan(path string, opts gapOptions) (steady, whole int64, err error) 
 		return d.Overall.SpanNanos, d.Overall.SpanNanos, nil
 	}
 	return d.SteadyState.SpanNanos, d.Overall.SpanNanos, nil
-}
-
-func describeWarmup(opts gapOptions) string {
-	return (&GapReport{WarmupMS: opts.warmupMS, WarmupUntil: opts.warmupUntil}).warmup() + " excluded"
 }
 
 // Qualification is the verdict of one campaign. Every duration is in

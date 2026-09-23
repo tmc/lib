@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -622,6 +624,98 @@ func TestCompareStages(t *testing.T) {
 			}
 			if !strings.Contains(out.String(), "per stage") {
 				t.Errorf("text output has no stage table:\n%s", out.String())
+			}
+		})
+	}
+}
+
+func TestCompareWarmupDropsPrologue(t *testing.T) {
+	// A prologue -- two weight loads and a copy -- then the anchor kernel
+	// and the work, inside one phase [1000, 10000).
+	cap := compareCapture([]rec{
+		{subtype: "kernel", name: "load", start: 1100, end: 1300},
+		{subtype: "kernel", name: "load", start: 1400, end: 1500},
+		{subtype: "memcpy", start: 1600, end: 1700, bytes: 64},
+		{subtype: "kernel", name: "anchor", start: 2000, end: 2100},
+		{subtype: "kernel", name: "work", start: 2200, end: 2500},
+	}, phaseStatus(1000, 10000))
+	stages := stageBoundaries(mustRules(t, "anchor layer\n"))
+	tests := []struct {
+		name    string
+		warmup  *gapOptions
+		window  int64
+		cut     int64
+		kernel  int64
+		ops     []string
+		stages  []string
+		wantErr string
+	}{
+		{name: "none", window: 9000, kernel: 700, ops: []string{"anchor", "load", "work"}, stages: []string{stageUnstarted, "layer"}},
+		{name: "until", warmup: &gapOptions{warmupUntil: "^anch"}, window: 8000, cut: 1000, kernel: 400, ops: []string{"anchor", "work"}, stages: []string{"layer"}},
+		{name: "ms", warmup: &gapOptions{warmupMS: 0.0005}, window: 8000, cut: 1000, kernel: 400, ops: []string{"anchor", "work"}, stages: []string{"layer"}},
+		{name: "unmatched", warmup: &gapOptions{warmupUntil: "no_such_kernel"}, wantErr: "warmup"},
+		{name: "longer than the window", warmup: &gapOptions{warmupMS: 1}, wantErr: "never ended"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			side, err := measureCompareSide(cap, nil, stages, compareOptions{phase: -1, warmup: tt.warmup})
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if side.WindowNanos != tt.window || side.WarmupNanos != tt.cut || side.KernelNanos != tt.kernel {
+				t.Errorf("window %d cut %d kernel %d, want %d %d %d", side.WindowNanos, side.WarmupNanos, side.KernelNanos, tt.window, tt.cut, tt.kernel)
+			}
+			if ops := slices.Sorted(maps.Keys(side.ops)); !reflect.DeepEqual(ops, tt.ops) {
+				t.Errorf("ops = %q, want %q", ops, tt.ops)
+			}
+			if st := slices.Sorted(maps.Keys(side.stages)); !reflect.DeepEqual(st, tt.stages) {
+				t.Errorf("stages = %q, want %q", st, tt.stages)
+			}
+			wantCopies := 1
+			if tt.warmup != nil {
+				wantCopies = 0
+			}
+			if side.MemcpyCount != wantCopies {
+				t.Errorf("memcpy count = %d, want %d", side.MemcpyCount, wantCopies)
+			}
+		})
+	}
+}
+
+func TestParseCompareWarmup(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		want    *gapOptions
+		wantErr string
+	}{
+		{"none", nil, nil, ""},
+		{"until", []string{"-warmup-until=hc_expand"}, &gapOptions{warmupUntil: "hc_expand"}, ""},
+		{"ms zero", []string{"-warmup-ms=0"}, &gapOptions{}, ""},
+		{"both", []string{"-warmup-ms=1", "-warmup-until=k"}, nil, "exclusive"},
+		{"bad pattern", []string{"-warmup-until=("}, nil, "warmup-until"},
+		{"negative", []string{"-warmup-ms=-1"}, nil, "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts, _, err := parseCompareArgs(append(tt.args, "a.pprof", "b.pprof"), io.Discard)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(opts.warmup, tt.want) {
+				t.Errorf("warmup = %+v, want %+v", opts.warmup, tt.want)
 			}
 		})
 	}

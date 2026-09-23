@@ -1010,6 +1010,11 @@ func steadyActivities(acts []gapActivity, warmupNanos int64, until *regexp.Regex
 	return nil
 }
 
+// describeWarmup describes what opts excludes from the steady state.
+func describeWarmup(opts gapOptions) string {
+	return (&GapReport{WarmupMS: opts.warmupMS, WarmupUntil: opts.warmupUntil}).warmup()
+}
+
 // warmup describes what the steady-state window excludes.
 func (r *GapReport) warmup() string {
 	if r.WarmupUntil != "" {

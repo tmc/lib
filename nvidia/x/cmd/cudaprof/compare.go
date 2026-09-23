@@ -50,6 +50,13 @@ import (
 // stage was entered; a count that differs between the captures says the
 // boundaries did not align, and its rows then hold different work. Stages
 // partition kernel exclusive time just as ops do.
+//
+// -warmup-until and -warmup-ms cut a prologue off the front of each window
+// by the rule gaps uses for its steady state: the window then starts at the
+// first kernel matching the pattern, or at the first device record more than
+// N ms after the window's first. Weight loading and warmup launches then
+// drop out of every op and stage total. A window in which the warmup never
+// ends is refused, never compared whole.
 
 const (
 	classKernel = iota
@@ -68,6 +75,11 @@ type compareOptions struct {
 	stagesPath      string
 	json            bool
 	allowUnresolved bool
+
+	// warmup, when set, cuts the prologue off the front of each window the
+	// way gaps cuts its steady state; its maxRecords and journalBytes are
+	// unused.
+	warmup *gapOptions
 }
 
 // runCompareCommand implements "cudaprof compare".
@@ -114,7 +126,7 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	return c.write(stdout)
 }
 
-const compareUsage = "usage: cudaprof compare [-phase i] [-ops ops.txt] [-stages stages.txt] [-allow-unresolved] [-json] base.pprof target.pprof"
+const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt] [-allow-unresolved] [-json] base.pprof target.pprof"
 
 // parseCompareArgs returns nil paths and a nil error when help was requested
 // and printed.
@@ -127,6 +139,9 @@ func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string
 	fs.StringVar(&opts.stagesPath, "stages", "", "file of `regex stage` lines naming the boundaries of a repeating sequence of stages")
 	fs.BoolVar(&opts.json, "json", false, "write the comparison as JSON")
 	fs.BoolVar(&opts.allowUnresolved, "allow-unresolved", false, "report window totals even when graph replay hides the per-op census")
+	var warmup gapOptions
+	fs.Float64Var(&warmup.warmupMS, "warmup-ms", 0, "start each window `N` ms after its first device activity, as gaps does")
+	fs.StringVar(&warmup.warmupUntil, "warmup-until", "", "start each window at its first kernel matching `RE`, as gaps does")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			fmt.Fprintln(stdout, compareUsage)
@@ -135,6 +150,24 @@ func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string
 			return opts, nil, nil
 		}
 		return opts, nil, fmt.Errorf("compare: %w\n%s", err, compareUsage)
+	}
+	set := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	switch {
+	case set["warmup-ms"] && set["warmup-until"]:
+		return opts, nil, errors.New("compare: -warmup-ms and -warmup-until are exclusive")
+	case set["warmup-ms"] && warmup.warmupMS < 0:
+		return opts, nil, fmt.Errorf("compare: invalid -warmup-ms %g", warmup.warmupMS)
+	case set["warmup-until"]:
+		if warmup.warmupUntil == "" {
+			return opts, nil, errors.New("compare: empty -warmup-until pattern")
+		}
+		if _, err := regexp.Compile(warmup.warmupUntil); err != nil {
+			return opts, nil, fmt.Errorf("compare: -warmup-until: %w", err)
+		}
+	}
+	if set["warmup-ms"] || set["warmup-until"] {
+		opts.warmup = &warmup
 	}
 	if fs.NArg() != 2 {
 		return opts, nil, errors.New(compareUsage)
@@ -311,6 +344,12 @@ type CompareSide struct {
 	// GraphTraceMode is how the agent traced graph replays, or empty when
 	// the capture predates the key and the mode is UNREAD.
 	GraphTraceMode graphTraceMode `json:"graph_trace_mode,omitempty"`
+
+	// Warmup describes what -warmup-ms or -warmup-until cut off the front of
+	// the window, and WarmupNanos how long that was. StartTimestamp is the
+	// start of what remains.
+	Warmup      string `json:"warmup,omitempty"`
+	WarmupNanos int64  `json:"warmup_ns,omitempty"`
 
 	StartTimestamp  int64 `json:"start_timestamp"`
 	StopTimestamp   int64 `json:"stop_timestamp"`
@@ -627,6 +666,11 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 	if err := side.selectWindow(status.PhaseReceipt, opts.phase, records); err != nil {
 		return nil, err
 	}
+	if opts.warmup != nil {
+		if err := side.cutWarmup(records, *opts.warmup); err != nil {
+			return nil, err
+		}
+	}
 	if err := side.measure(records, rules, stages); err != nil {
 		return nil, err
 	}
@@ -679,6 +723,45 @@ func (s *CompareSide) selectWindow(r *capturePhaseReceipt, phase int, records ga
 	}
 	s.Window, s.PhaseIndex = "phase", phase
 	s.StartTimestamp, s.StopTimestamp = int64(r.StartTimestamp), int64(r.StopTimestamp)
+	return nil
+}
+
+// cutWarmup moves the window's start to the first activity of its steady
+// state, chosen by steadyActivities from the device records inside the
+// window. A record that began before the new start is then an edge
+// straddler or outside the window, so the prologue drops out of every total.
+func (s *CompareSide) cutWarmup(records gapRecords, opts gapOptions) error {
+	var until *regexp.Regexp
+	if opts.warmupUntil != "" {
+		re, err := regexp.Compile(opts.warmupUntil)
+		if err != nil {
+			return fmt.Errorf("warmup kernel pattern: %w", err)
+		}
+		until = re
+	}
+	var acts []gapActivity
+	for _, a := range records.activities {
+		if activityClass(a.subtype) < 0 || a.end < a.start || a.start < s.StartTimestamp || a.end > s.StopTimestamp {
+			continue
+		}
+		acts = append(acts, a)
+	}
+	if len(acts) == 0 {
+		return fmt.Errorf("no kernel, memcpy or memset lies inside the window [%d,%d)", s.StartTimestamp, s.StopTimestamp)
+	}
+	sort.SliceStable(acts, func(i, j int) bool {
+		if acts[i].start != acts[j].start {
+			return acts[i].start < acts[j].start
+		}
+		return acts[i].end < acts[j].end
+	})
+	s.Warmup = describeWarmup(opts)
+	steady := steadyActivities(acts, int64(opts.warmupMS*1e6), until)
+	if len(steady) == 0 {
+		return fmt.Errorf("no steady state in the window [%d,%d): the warmup (%s) never ended", s.StartTimestamp, s.StopTimestamp, s.Warmup)
+	}
+	s.WarmupNanos = steady[0].start - s.StartTimestamp
+	s.StartTimestamp = steady[0].start
 	return nil
 }
 
@@ -962,6 +1045,9 @@ func (s *CompareSide) windowLine() string {
 		line += fmt.Sprintf("  device %q cc %s", s.Device, s.ComputeCapability)
 	}
 	line += "  graph trace " + s.graphTraceModeString()
+	if s.Warmup != "" {
+		line += fmt.Sprintf("\n        warmup: %d ns cut, %s", s.WarmupNanos, s.Warmup)
+	}
 	if s.WindowNote != "" {
 		line += "\n        " + s.WindowNote
 	}
