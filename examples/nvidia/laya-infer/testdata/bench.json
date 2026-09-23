@@ -1,0 +1,57 @@
+{
+  "state": {
+    "ticket": "SUP-44112",
+    "from": "ops@northwind.example",
+    "subject": "Duplicate charge on invoice #4411 and intermittent 502s",
+    "body": "We were billed twice for March on invoice #4411 and again on #4419. Please refund the duplicate or we will cancel the annual contract. Separately, our staging cluster has been returning 502 from the ingest endpoint for about six hours; roughly one request in twenty fails and the retries make it worse. We have already rotated the API keys and redeployed, with no change. Attaching the request ids in the thread.",
+    "account": {"plan": "enterprise", "seats": 240, "since": "2021-04-02", "mrr": 18400.0, "past_due": true},
+    "history": [
+      {"at": "2026-03-02", "kind": "billing", "note": "invoice #4411 issued"},
+      {"at": "2026-03-04", "kind": "billing", "note": "invoice #4411 charged"},
+      {"at": "2026-03-04", "kind": "billing", "note": "invoice #4411 charged again"},
+      {"at": "2026-03-09", "kind": "incident", "note": "ingest 502s reported in staging"}
+    ]
+  },
+  "questions": {
+    "department": {
+      "type": "choice",
+      "instructions": "Which department should own the first response to this email?",
+      "criteria": {
+        "billing": "invoices, duplicate charges, payments, refunds, credits",
+        "technical": "bugs, outages, elevated error rates, system errors",
+        "sales": "pricing, renewals, new contracts, upsell",
+        "success": "onboarding, training, adoption, account health",
+        "other": "anything that fits none of the above"
+      }
+    },
+    "urgency": {
+      "type": "score",
+      "instructions": "Rate how urgently a human must respond, where 1 is routine and 5 is drop everything.",
+      "criteria": [
+        "no revenue or availability impact, can wait a week",
+        "minor impact, handle within a few days",
+        "real impact on one team, handle today",
+        "revenue or availability at risk, handle within the hour",
+        "active outage or imminent churn, respond now"
+      ]
+    },
+    "escalate": {
+      "type": "noul",
+      "instructions": "Should this be escalated to an on-call engineer before the billing question is resolved?",
+      "criteria": {
+        "true": "there is an active availability problem affecting the customer",
+        "false": "the technical report is cosmetic, historical, or already mitigated"
+      }
+    },
+    "refund": {
+      "type": "choice",
+      "instructions": "What billing action should be taken on the duplicate charge?",
+      "criteria": {
+        "refund_full": "return the duplicated amount to the original payment method",
+        "credit_note": "issue account credit against the next invoice",
+        "investigate": "the duplication is not established and needs review first",
+        "no_action": "the second charge is legitimate"
+      }
+    }
+  }
+}
