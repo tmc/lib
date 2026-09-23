@@ -771,6 +771,12 @@ type GapDevice struct {
 	Device      uint32    `json:"device"`
 	Overall     *GapStats `json:"overall"`
 	SteadyState *GapStats `json:"steady_state,omitempty"`
+
+	// SteadyActivities counts the activities past the warmup. SteadyState is
+	// omitted both when the warmup never ended -- zero here -- and when it
+	// excluded nothing, and those two must not read alike: the first means
+	// the steady-state window does not exist.
+	SteadyActivities int `json:"steady_state_activities"`
 }
 
 // GapStats describes one merged device timeline.
@@ -972,8 +978,8 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 			sync:     spansForDevice(records.syncs, d),
 			graph:    graphSpansForDevice(records.graphs, d),
 		}
-		entry := GapDevice{Device: d, Overall: computeGapStats(acts, records.apis, "overall", spans)}
 		steady := steadyActivities(acts, warmupNanos, warmupUntil)
+		entry := GapDevice{Device: d, Overall: computeGapStats(acts, records.apis, "overall", spans), SteadyActivities: len(steady)}
 		if len(steady) != 0 && len(steady) != len(acts) {
 			entry.SteadyState = computeGapStats(steady, records.apis, "steady-state", spans)
 		}
@@ -1356,6 +1362,9 @@ func (r *GapReport) text() string {
 		fmt.Fprintf(&b, "  graph replays are opaque: the capture holds replay envelopes and no device record naming a graph id, so each replay is counted as activity from its envelope alone. The idle between nodes of a graph is not observable here and is reported as busy. Capturing with --graph-trace=node records each graph node as a kernel instead.\n")
 	}
 	for _, d := range r.Devices {
+		if d.SteadyActivities == 0 {
+			fmt.Fprintf(&b, "\ndevice %d, steady-state: none, the warmup (%s) never ended\n", d.Device, r.warmup())
+		}
 		for _, s := range []*GapStats{d.Overall, d.SteadyState} {
 			if s == nil {
 				continue
