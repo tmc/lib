@@ -39,6 +39,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudalayer](cudalayer/) | Package cudalayer provides experimental CUDA decoder-layer kernels and JIT compilation for the llama inference example. |
 | [cudalayout](cudalayout/) | Package cudalayout describes checked physical tile layouts. |
 | [cudalineinfo](cudalineinfo/) | Package cudalineinfo attributes device code to the source it was generated from. |
+| [cudaliveness](cudaliveness/) | Package cudaliveness asserts that an instrumentation probe was live for a run. |
 | [cudalock](cudalock/) | Package cudalock coordinates exclusive GPU access across processes and tests. |
 | [cudalowering](cudalowering/) | Package cudalowering compares the PTX for a kernel with the SASS it lowered to. |
 | [cudamega](cudamega/) | Instead of dispatching hundreds of short-lived individual CUDA kernels from the host CPU, cudamega launches a single persistent grid of thread blocks that stay resident on GPU SMs, popping dynamic work items from a ring buffer queue in device memory with atomic synchronization. |
