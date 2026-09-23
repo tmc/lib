@@ -22,6 +22,7 @@ its own release tags (`<dir>/vX.Y.Z`).
 | `lldb` | `github.com/tmc/lib/lldb` | Purego LLDB C API bindings |
 | `treesitter` | `github.com/tmc/lib/treesitter` | Purego tree-sitter parsing bindings |
 | `gguf` | `github.com/tmc/lib/gguf` | GGUF model container reading |
+| `examples` | `github.com/tmc/lib/examples` | Programs that span modules; not released |
 
 Packages under a module's `x/` directory, such as `nvidia/x`, have an API that
 is still moving. They will change without a major version bump.
