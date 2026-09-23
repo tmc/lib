@@ -1,0 +1,3177 @@
+	.target	sm_90
+
+	.elftype	@"ET_EXEC"
+
+
+//--------------------- .text.compute             --------------------------
+	.section	.text.compute,"ax",@progbits
+	.align	128
+        .global         compute
+        .type           compute,@function
+        .size           compute,(.L_x_86 - compute)
+        .other          compute,@"STO_CUDA_ENTRY STV_DEFAULT"
+compute:
+.text.compute:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 275
+	//## File ".nv_debug_ptx_txt", line 1704
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 276
+	//## File ".nv_debug_ptx_txt", line 1718
+        /*0010*/                   S2R R0, SR_TID.X ;
+	//## File ".nv_debug_ptx_txt", line 1716
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+	//## File ".nv_debug_ptx_txt", line 1717
+        /*0030*/                   LDC R5, c[0x0][RZ] ;
+	//## File ".nv_debug_ptx_txt", line 1719
+        /*0040*/                   IMAD R5, R5, UR4, R0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 277
+	//## File ".nv_debug_ptx_txt", line 1721
+        /*0050*/                   ULDC UR4, c[0x0][0x218] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R5, UR4, PT ;
+	//## File ".nv_debug_ptx_txt", line 1722
+        /*0070*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 279
+	//## File ".nv_debug_ptx_txt", line 1731
+        /*0080*/                   LDC R7, c[0x0][0x21c] ;
+	//## File ".nv_debug_ptx_txt", line 1704
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 278
+	//## File ".nv_debug_ptx_txt", line 1728
+        /*00a0*/                   LDC.64 R2, c[0x0][0x210] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 279
+	//## File ".nv_debug_ptx_txt", line 1731
+        /*00b0*/                   ISETP.GE.AND P0, PT, R7, 0x1, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 278
+	//## File ".nv_debug_ptx_txt", line 1728
+        /*00c0*/                   IMAD.WIDE R2, R5, 0x4, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1729
+        /*00d0*/                   LDG.E R5, desc[UR4][R2.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 279
+	//## File ".nv_debug_ptx_txt", line 1732
+        /*00e0*/              @!P0 BRA `(.L_x_0) ;
+	//## File ".nv_debug_ptx_txt", line 1734
+        /*00f0*/                   IADD3 R0, R7, -0x1, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1736
+        /*0100*/                   ISETP.GE.U32.AND P0, PT, R0, 0x3, PT ;
+	//## File ".nv_debug_ptx_txt", line 1735
+        /*0110*/                   LOP3.LUT R0, R7, 0x3, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1737
+        /*0120*/              @!P0 BRA `(.L_x_1) ;
+	//## File ".nv_debug_ptx_txt", line 1739
+        /*0130*/                   IADD3 R4, -R0, R7, RZ ;
+        /*0140*/                   ISETP.GT.AND P0, PT, R4, RZ, PT ;
+        /*0150*/              @!P0 BRA `(.L_x_2) ;
+	//## File ".nv_debug_ptx_txt", line 1749
+        /*0160*/                   ISETP.GT.AND P1, PT, R4, 0xc, PT ;
+        /*0170*/                   PLOP3.LUT P0, PT, PT, PT, PT, 0x80, 0x0 ;
+	//## File ".nv_debug_ptx_txt", line 1750
+        /*0180*/              @!P1 BRA `(.L_x_3) ;
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*0190*/                   HFMA2.MMA R6, -RZ, RZ, 1.875, 4.76837158203125e-07 ;
+	//## File ".nv_debug_ptx_txt", line 1749
+        /*01a0*/                   PLOP3.LUT P0, PT, PT, PT, PT, 0x8, 0x0 ;
+.L_x_4:
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*01b0*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1748
+        /*01c0*/                   IADD3 R4, R4, -0x10, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1745
+        /*01d0*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+        /*01e0*/                   ISETP.GT.AND P1, PT, R4, 0xc, PT ;
+	//## File ".nv_debug_ptx_txt", line 1746
+        /*01f0*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1747
+        /*0200*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*0210*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1745
+        /*0220*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1746
+        /*0230*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1747
+        /*0240*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*0250*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1745
+        /*0260*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1746
+        /*0270*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1747
+        /*0280*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*0290*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1745
+        /*02a0*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1746
+        /*02b0*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1747
+        /*02c0*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1750
+        /*02d0*/               @P1 BRA `(.L_x_4) ;
+.L_x_3:
+	//## File ".nv_debug_ptx_txt", line 1749
+        /*02e0*/                   ISETP.GT.AND P1, PT, R4, 0x4, PT ;
+	//## File ".nv_debug_ptx_txt", line 1750
+        /*02f0*/              @!P1 BRA `(.L_x_5) ;
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*0300*/                   MOV R6, 0x3f800008 ;
+        /*0310*/                   PLOP3.LUT P0, PT, PT, PT, PT, 0x8, 0x0 ;
+	//## File ".nv_debug_ptx_txt", line 1748
+        /*0320*/                   IADD3 R4, R4, -0x8, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*0330*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1745
+        /*0340*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1746
+        /*0350*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1747
+        /*0360*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*0370*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1745
+        /*0380*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1746
+        /*0390*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1747
+        /*03a0*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+.L_x_5:
+        /*03b0*/                   ISETP.NE.OR P0, PT, R4, RZ, P0 ;
+	//## File ".nv_debug_ptx_txt", line 1750
+        /*03c0*/              @!P0 BRA `(.L_x_1) ;
+.L_x_2:
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*03d0*/                   HFMA2.MMA R6, -RZ, RZ, 1.875, 4.76837158203125e-07 ;
+.L_x_6:
+	//## File ".nv_debug_ptx_txt", line 1748
+        /*03e0*/                   IADD3 R4, R4, -0x4, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1744
+        /*03f0*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1749
+        /*0400*/                   ISETP.NE.AND P0, PT, R4, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 1745
+        /*0410*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1746
+        /*0420*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1747
+        /*0430*/                   FFMA R5, R5, R6, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1750
+        /*0440*/               @P0 BRA `(.L_x_6) ;
+.L_x_1:
+	//## File ".nv_debug_ptx_txt", line 1753
+        /*0450*/                   ISETP.NE.AND P0, PT, R0, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 1754
+        /*0460*/              @!P0 BRA `(.L_x_0) ;
+	//## File ".nv_debug_ptx_txt", line 1760
+        /*0470*/                   MOV R4, 0x3f800008 ;
+.L_x_7:
+	//## File ".nv_debug_ptx_txt", line 1761
+        /*0480*/                   IADD3 R0, R0, -0x1, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1760
+        /*0490*/                   FFMA R5, R5, R4, 9.9999997473787516356e-05 ;
+	//## File ".nv_debug_ptx_txt", line 1762
+        /*04a0*/                   ISETP.NE.AND P0, PT, R0, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 1763
+        /*04b0*/               @P0 BRA `(.L_x_7) ;
+.L_x_0:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 280
+	//## File ".nv_debug_ptx_txt", line 1767
+        /*04c0*/                   STG.E desc[UR4][R2.64], R5 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 281
+	//## File ".nv_debug_ptx_txt", line 1771
+        /*04d0*/                   EXIT ;
+.L_x_8:
+        /*04e0*/                   BRA `(.L_x_8);
+        /*04f0*/                   NOP;
+        /*0500*/                   NOP;
+        /*0510*/                   NOP;
+        /*0520*/                   NOP;
+        /*0530*/                   NOP;
+        /*0540*/                   NOP;
+        /*0550*/                   NOP;
+        /*0560*/                   NOP;
+        /*0570*/                   NOP;
+.L_x_86:
+
+
+//--------------------- .text.vector_add          --------------------------
+	.section	.text.vector_add,"ax",@progbits
+	.align	128
+        .global         vector_add
+        .type           vector_add,@function
+        .size           vector_add,(.L_x_87 - vector_add)
+        .other          vector_add,@"STO_CUDA_ENTRY STV_DEFAULT"
+vector_add:
+.text.vector_add:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 269
+	//## File ".nv_debug_ptx_txt", line 1654
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 270
+	//## File ".nv_debug_ptx_txt", line 1669
+        /*0010*/                   S2R R0, SR_TID.X ;
+	//## File ".nv_debug_ptx_txt", line 1667
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+	//## File ".nv_debug_ptx_txt", line 1668
+        /*0030*/                   LDC R9, c[0x0][RZ] ;
+	//## File ".nv_debug_ptx_txt", line 1670
+        /*0040*/                   IMAD R9, R9, UR4, R0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 271
+	//## File ".nv_debug_ptx_txt", line 1672
+        /*0050*/                   ULDC UR4, c[0x0][0x228] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R9, UR4, PT ;
+	//## File ".nv_debug_ptx_txt", line 1673
+        /*0070*/               @P0 EXIT ;
+	//## File ".nv_debug_ptx_txt", line 1679
+        /*0080*/                   LDC.64 R2, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 1654
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+	//## File ".nv_debug_ptx_txt", line 1683
+        /*00a0*/                   LDC.64 R4, c[0x0][0x218] ;
+	//## File ".nv_debug_ptx_txt", line 1690
+        /*00b0*/                   LDC.64 R6, c[0x0][0x220] ;
+	//## File ".nv_debug_ptx_txt", line 1679
+        /*00c0*/                   IMAD.WIDE R2, R9, 0x4, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1685
+        /*00d0*/                   LDG.E R3, desc[UR4][R2.64] ;
+	//## File ".nv_debug_ptx_txt", line 1683
+        /*00e0*/                   IMAD.WIDE R4, R9, 0x4, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1684
+        /*00f0*/                   LDG.E R4, desc[UR4][R4.64] ;
+	//## File ".nv_debug_ptx_txt", line 1690
+        /*0100*/                   IMAD.WIDE R6, R9, 0x4, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1686
+        /*0110*/                   FADD R9, R4, R3 ;
+	//## File ".nv_debug_ptx_txt", line 1691
+        /*0120*/                   STG.E desc[UR4][R6.64], R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 272
+	//## File ".nv_debug_ptx_txt", line 1695
+        /*0130*/                   EXIT ;
+.L_x_9:
+        /*0140*/                   BRA `(.L_x_9);
+        /*0150*/                   NOP;
+        /*0160*/                   NOP;
+        /*0170*/                   NOP;
+        /*0180*/                   NOP;
+        /*0190*/                   NOP;
+        /*01a0*/                   NOP;
+        /*01b0*/                   NOP;
+        /*01c0*/                   NOP;
+        /*01d0*/                   NOP;
+        /*01e0*/                   NOP;
+        /*01f0*/                   NOP;
+.L_x_87:
+
+
+//--------------------- .text.ds4_swiglu          --------------------------
+	.section	.text.ds4_swiglu,"ax",@progbits
+	.align	128
+        .global         ds4_swiglu
+        .type           ds4_swiglu,@function
+        .size           ds4_swiglu,(.L_x_84 - ds4_swiglu)
+        .other          ds4_swiglu,@"STO_CUDA_ENTRY STV_DEFAULT"
+ds4_swiglu:
+.text.ds4_swiglu:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 254
+	//## File ".nv_debug_ptx_txt", line 1598
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 260
+	//## File ".nv_debug_ptx_txt", line 1613
+        /*0010*/                   S2R R3, SR_TID.X ;
+	//## File ".nv_debug_ptx_txt", line 1611
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+	//## File ".nv_debug_ptx_txt", line 1612
+        /*0030*/                   LDC R2, c[0x0][RZ] ;
+	//## File ".nv_debug_ptx_txt", line 1614
+        /*0040*/                   IMAD R2, R2, UR4, R3 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 261
+	//## File ".nv_debug_ptx_txt", line 1616
+        /*0050*/                   ULDC UR4, c[0x0][0x228] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R2, UR4, PT ;
+	//## File ".nv_debug_ptx_txt", line 1617
+        /*0070*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 262
+	//## File ".nv_debug_ptx_txt", line 1623
+        /*0080*/                   LDC.64 R4, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 1598
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+	//## File ".nv_debug_ptx_txt", line 1623
+        /*00a0*/                   IMAD.WIDE R4, R2, 0x4, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1624
+        /*00b0*/                   LDG.E R0, desc[UR4][R4.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 263
+	//## File ".nv_debug_ptx_txt", line 1629
+        /*00c0*/                   BSSY B0, `(.L_x_10) ;
+	//## File ".nv_debug_ptx_txt", line 1626
+        /*00d0*/                   FMUL R3, R0, -1.4426950216293334961 ;
+	//## File ".nv_debug_ptx_txt", line 1627
+        /*00e0*/                   FSETP.GEU.AND P0, PT, R3, -126, PT ;
+        /*00f0*/              @!P0 FMUL R3, R3, 0.5 ;
+        /*0100*/                   MUFU.EX2 R6, R3 ;
+        /*0110*/              @!P0 FMUL R6, R6, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1628
+        /*0120*/                   FADD R3, R6, 1 ;
+	//## File ".nv_debug_ptx_txt", line 1629
+        /*0130*/                   MUFU.RCP R6, R3 ;
+        /*0140*/                   FCHK P0, R0, R3 ;
+        /*0150*/                   FFMA R7, -R3, R6, 1 ;
+        /*0160*/                   FFMA R7, R6, R7, R6 ;
+        /*0170*/                   FFMA R4, R0, R7, RZ ;
+        /*0180*/                   FFMA R5, -R3, R4, R0 ;
+        /*0190*/                   FFMA R8, R7, R5, R4 ;
+        /*01a0*/              @!P0 BRA `(.L_x_11) ;
+        /*01b0*/                   MOV R4, 0x1d0 ;
+        /*01c0*/                   CALL.REL.NOINC `($__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
+        /*01d0*/                   IMAD.MOV.U32 R8, RZ, RZ, R0 ;
+.L_x_11:
+        /*01e0*/                   BSYNC B0 ;
+.L_x_10:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 264
+	//## File ".nv_debug_ptx_txt", line 1633
+        /*01f0*/                   LDC.64 R4, c[0x0][0x218] ;
+	//## File ".nv_debug_ptx_txt", line 1639
+        /*0200*/                   LDC.64 R6, c[0x0][0x220] ;
+	//## File ".nv_debug_ptx_txt", line 1633
+        /*0210*/                   IMAD.WIDE R4, R2, 0x4, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1634
+        /*0220*/                   LDG.E R5, desc[UR4][R4.64] ;
+	//## File ".nv_debug_ptx_txt", line 1639
+        /*0230*/                   IMAD.WIDE R2, R2, 0x4, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1635
+        /*0240*/                   FMUL R7, R5, R8 ;
+	//## File ".nv_debug_ptx_txt", line 1640
+        /*0250*/                   STG.E desc[UR4][R2.64], R7 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 266
+	//## File ".nv_debug_ptx_txt", line 1644
+        /*0260*/                   EXIT ;
+        .type           $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath,@function
+        .size           $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath,(.L_x_84 - $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath)
+$__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath:
+        /*0270*/                   SHF.R.U32.HI R6, RZ, 0x17, R3.reuse ;
+        /*0280*/                   BSSY B1, `(.L_x_12) ;
+        /*0290*/                   SHF.R.U32.HI R5, RZ, 0x17, R0.reuse ;
+        /*02a0*/                   IMAD.MOV.U32 R7, RZ, RZ, R0 ;
+        /*02b0*/                   LOP3.LUT R6, R6, 0xff, RZ, 0xc0, !PT ;
+        /*02c0*/                   IMAD.MOV.U32 R8, RZ, RZ, R3 ;
+        /*02d0*/                   LOP3.LUT R5, R5, 0xff, RZ, 0xc0, !PT ;
+        /*02e0*/                   VIADD R11, R6, 0xffffffff ;
+        /*02f0*/                   VIADD R10, R5, 0xffffffff ;
+        /*0300*/                   ISETP.GT.U32.AND P0, PT, R11, 0xfd, PT ;
+        /*0310*/                   ISETP.GT.U32.OR P0, PT, R10, 0xfd, P0 ;
+        /*0320*/              @!P0 IMAD.MOV.U32 R9, RZ, RZ, RZ ;
+        /*0330*/              @!P0 BRA `(.L_x_13) ;
+        /*0340*/                   FSETP.GTU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*0350*/                   FSETP.GTU.FTZ.AND P1, PT, |R3|, +INF , PT ;
+        /*0360*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xa8, 0x0 ;
+        /*0370*/               @P0 BRA `(.L_x_14) ;
+        /*0380*/                   LOP3.LUT P0, RZ, R8, 0x7fffffff, R7, 0xc8, !PT ;
+        /*0390*/              @!P0 BRA `(.L_x_15) ;
+        /*03a0*/                   FSETP.NEU.FTZ.AND P2, PT, |R0|.reuse, +INF , PT ;
+        /*03b0*/                   FSETP.NEU.FTZ.AND P1, PT, |R3|, +INF , PT ;
+        /*03c0*/                   FSETP.NEU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*03d0*/              @!P1 BRA !P2, `(.L_x_15) ;
+        /*03e0*/                   LOP3.LUT P2, RZ, R7, 0x7fffffff, RZ, 0xc0, !PT ;
+        /*03f0*/                   PLOP3.LUT P1, PT, P1, P2, PT, 0x2a, 0x0 ;
+        /*0400*/               @P1 BRA `(.L_x_16) ;
+        /*0410*/                   LOP3.LUT P1, RZ, R8, 0x7fffffff, RZ, 0xc0, !PT ;
+        /*0420*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0x2a, 0x0 ;
+        /*0430*/               @P0 BRA `(.L_x_17) ;
+        /*0440*/                   ISETP.GE.AND P0, PT, R10, RZ, PT ;
+        /*0450*/                   ISETP.GE.AND P1, PT, R11, RZ, PT ;
+        /*0460*/               @P0 IMAD.MOV.U32 R9, RZ, RZ, RZ ;
+        /*0470*/              @!P0 FFMA R7, R0, 1.84467440737095516160e+19, RZ ;
+        /*0480*/              @!P0 IMAD.MOV.U32 R9, RZ, RZ, -0x40 ;
+        /*0490*/              @!P1 FFMA R8, R3, 1.84467440737095516160e+19, RZ ;
+        /*04a0*/              @!P1 VIADD R9, R9, 0x40 ;
+.L_x_13:
+        /*04b0*/                   LEA R3, R6, 0xc0800000, 0x17 ;
+        /*04c0*/                   VIADD R5, R5, 0xffffff81 ;
+        /*04d0*/                   BSSY B2, `(.L_x_18) ;
+        /*04e0*/                   IMAD.IADD R3, R8, 0x1, -R3 ;
+        /*04f0*/                   IADD3 R6, R5.reuse, 0x7f, -R6 ;
+        /*0500*/                   IMAD R0, R5, -0x800000, R7 ;
+        /*0510*/                   MUFU.RCP R8, R3 ;
+        /*0520*/                   FADD.FTZ R11, -R3, -RZ ;
+        /*0530*/                   IMAD.IADD R6, R6, 0x1, R9 ;
+        /*0540*/                   FFMA R13, R8, R11, 1 ;
+        /*0550*/                   FFMA R10, R8, R13, R8 ;
+        /*0560*/                   FFMA R7, R0, R10, RZ ;
+        /*0570*/                   FFMA R8, R11, R7, R0 ;
+        /*0580*/                   FFMA R7, R10, R8, R7 ;
+        /*0590*/                   FFMA R8, R11, R7, R0 ;
+        /*05a0*/                   FFMA R0, R10, R8, R7 ;
+        /*05b0*/                   SHF.R.U32.HI R3, RZ, 0x17, R0 ;
+        /*05c0*/                   LOP3.LUT R3, R3, 0xff, RZ, 0xc0, !PT ;
+        /*05d0*/                   IMAD.IADD R9, R3, 0x1, R6 ;
+        /*05e0*/                   VIADD R3, R9, 0xffffffff ;
+        /*05f0*/                   ISETP.GE.U32.AND P0, PT, R3, 0xfe, PT ;
+        /*0600*/              @!P0 BRA `(.L_x_19) ;
+        /*0610*/                   ISETP.GT.AND P0, PT, R9, 0xfe, PT ;
+        /*0620*/               @P0 BRA `(.L_x_20) ;
+        /*0630*/                   ISETP.GE.AND P0, PT, R9, 0x1, PT ;
+        /*0640*/               @P0 BRA `(.L_x_21) ;
+        /*0650*/                   ISETP.GE.AND P0, PT, R9, -0x18, PT ;
+        /*0660*/                   LOP3.LUT R0, R0, 0x80000000, RZ, 0xc0, !PT ;
+        /*0670*/              @!P0 BRA `(.L_x_21) ;
+        /*0680*/                   FFMA.RZ R3, R10.reuse, R8.reuse, R7.reuse ;
+        /*0690*/                   FFMA.RM R6, R10.reuse, R8.reuse, R7.reuse ;
+        /*06a0*/                   ISETP.NE.AND P2, PT, R9.reuse, RZ, PT ;
+        /*06b0*/                   ISETP.NE.AND P1, PT, R9, RZ, PT ;
+        /*06c0*/                   LOP3.LUT R5, R3, 0x7fffff, RZ, 0xc0, !PT ;
+        /*06d0*/                   FFMA.RP R3, R10, R8, R7 ;
+        /*06e0*/                   VIADD R8, R9, 0x20 ;
+        /*06f0*/                   LOP3.LUT R5, R5, 0x800000, RZ, 0xfc, !PT ;
+        /*0700*/                   IMAD.MOV R7, RZ, RZ, -R9 ;
+        /*0710*/                   FSETP.NEU.FTZ.AND P0, PT, R3, R6, PT ;
+        /*0720*/                   SHF.L.U32 R8, R5, R8, RZ ;
+        /*0730*/                   SEL R6, R7, RZ, P2 ;
+        /*0740*/                   ISETP.NE.AND P1, PT, R8, RZ, P1 ;
+        /*0750*/                   SHF.R.U32.HI R6, RZ, R6, R5 ;
+        /*0760*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xa8, 0x0 ;
+        /*0770*/                   SHF.R.U32.HI R8, RZ, 0x1, R6 ;
+        /*0780*/                   SEL R3, RZ, 0x1, !P0 ;
+        /*0790*/                   LOP3.LUT R3, R3, 0x1, R8, 0xf8, !PT ;
+        /*07a0*/                   LOP3.LUT R3, R3, R6, RZ, 0xc0, !PT ;
+        /*07b0*/                   IMAD.IADD R3, R8, 0x1, R3 ;
+        /*07c0*/                   LOP3.LUT R0, R3, R0, RZ, 0xfc, !PT ;
+        /*07d0*/                   BRA `(.L_x_21) ;
+.L_x_20:
+        /*07e0*/                   LOP3.LUT R0, R0, 0x80000000, RZ, 0xc0, !PT ;
+        /*07f0*/                   LOP3.LUT R0, R0, 0x7f800000, RZ, 0xfc, !PT ;
+        /*0800*/                   BRA `(.L_x_21) ;
+.L_x_19:
+        /*0810*/                   IMAD R0, R6, 0x800000, R0 ;
+.L_x_21:
+        /*0820*/                   BSYNC B2 ;
+.L_x_18:
+        /*0830*/                   BRA `(.L_x_22) ;
+.L_x_17:
+        /*0840*/                   LOP3.LUT R0, R8, 0x80000000, R7, 0x48, !PT ;
+        /*0850*/                   LOP3.LUT R0, R0, 0x7f800000, RZ, 0xfc, !PT ;
+        /*0860*/                   BRA `(.L_x_22) ;
+.L_x_16:
+        /*0870*/                   LOP3.LUT R0, R8, 0x80000000, R7, 0x48, !PT ;
+        /*0880*/                   BRA `(.L_x_22) ;
+.L_x_15:
+        /*0890*/                   MUFU.RSQ R0, -QNAN  ;
+        /*08a0*/                   BRA `(.L_x_22) ;
+.L_x_14:
+        /*08b0*/                   FADD.FTZ R0, R0, R3 ;
+.L_x_22:
+        /*08c0*/                   BSYNC B1 ;
+.L_x_12:
+        /*08d0*/                   IMAD.MOV.U32 R5, RZ, RZ, 0x0 ;
+        /*08e0*/                   RET.REL.NODEC R4 `(ds4_swiglu) ;
+.L_x_23:
+        /*08f0*/                   BRA `(.L_x_23);
+        /*0900*/                   NOP;
+        /*0910*/                   NOP;
+        /*0920*/                   NOP;
+        /*0930*/                   NOP;
+        /*0940*/                   NOP;
+        /*0950*/                   NOP;
+        /*0960*/                   NOP;
+        /*0970*/                   NOP;
+.L_x_84:
+
+
+//--------------------- .text.ds4_rmsnorm         --------------------------
+	.section	.text.ds4_rmsnorm,"ax",@progbits
+	.align	128
+        .global         ds4_rmsnorm
+        .type           ds4_rmsnorm,@function
+        .size           ds4_rmsnorm,(.L_x_85 - ds4_rmsnorm)
+        .other          ds4_rmsnorm,@"STO_CUDA_ENTRY STV_DEFAULT"
+ds4_rmsnorm:
+.text.ds4_rmsnorm:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 207
+	//## File ".nv_debug_ptx_txt", line 1233
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 215
+	//## File ".nv_debug_ptx_txt", line 1254
+        /*0010*/                   S2UR UR6, SR_CTAID.X ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 216
+	//## File ".nv_debug_ptx_txt", line 1256
+        /*0020*/                   LDC R0, c[0x0][0x228] ;
+        /*0030*/                   ISETP.LE.AND P0, PT, R0, UR6, PT ;
+	//## File ".nv_debug_ptx_txt", line 1257
+        /*0040*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 217
+	//## File ".nv_debug_ptx_txt", line 1260
+        /*0050*/                   S2R R4, SR_TID.X ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 221
+	//## File ".nv_debug_ptx_txt", line 1264
+        /*0060*/                   LDC R3, c[0x0][0x22c] ;
+	//## File ".nv_debug_ptx_txt", line 1233
+        /*0070*/                   ULDC.64 UR8, c[0x0][0x208] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 222
+	//## File ".nv_debug_ptx_txt", line 1314
+        /*0080*/                   ULDC.64 UR10, c[0x0][0x210] ;
+        /*0090*/                   BSSY B0, `(.L_x_24) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 221
+	//## File ".nv_debug_ptx_txt", line 1266
+        /*00a0*/                   IMAD.MOV.U32 R0, RZ, RZ, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 218
+	//## File ".nv_debug_ptx_txt", line 1262
+        /*00b0*/                   LDC R2, c[0x0][RZ] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 221
+	//## File ".nv_debug_ptx_txt", line 1264
+        /*00c0*/                   ISETP.GE.AND P2, PT, R4, R3, PT ;
+	//## File ".nv_debug_ptx_txt", line 1266
+        /*00d0*/               @P2 BRA `(.L_x_25) ;
+	//## File ".nv_debug_ptx_txt", line 1273
+        /*00e0*/                   I2F.U32.RP R8, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1271
+        /*00f0*/                   LOP3.LUT R0, RZ, R4, RZ, 0x33, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1279
+        /*0100*/                   BSSY B1, `(.L_x_26) ;
+	//## File ".nv_debug_ptx_txt", line 1273
+        /*0110*/                   ISETP.NE.U32.AND P3, PT, R2, RZ, PT ;
+        /*0120*/                   MUFU.RCP R8, R8 ;
+        /*0130*/                   VIADD R6, R8, 0xffffffe ;
+        /*0140*/                   F2I.FTZ.U32.TRUNC.NTZ R7, R6 ;
+        /*0150*/                   IMAD.MOV.U32 R6, RZ, RZ, RZ ;
+        /*0160*/                   IADD3 R5, RZ, -R7, RZ ;
+        /*0170*/                   IMAD R5, R5, R2, RZ ;
+        /*0180*/                   IMAD.HI.U32 R10, R7, R5, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1272
+        /*0190*/                   IMAD.IADD R5, R0, 0x1, R3 ;
+	//## File ".nv_debug_ptx_txt", line 1273
+        /*01a0*/                   IMAD.HI.U32 R10, R10, R5, RZ ;
+        /*01b0*/                   IADD3 R0, -R10, RZ, RZ ;
+        /*01c0*/                   IMAD R5, R2, R0, R5 ;
+        /*01d0*/                   ISETP.GE.U32.AND P0, PT, R5, R2, PT ;
+        /*01e0*/               @P0 IMAD.IADD R5, R5, 0x1, -R2 ;
+        /*01f0*/               @P0 VIADD R10, R10, 0x1 ;
+        /*0200*/                   ISETP.GE.U32.AND P1, PT, R5, R2, PT ;
+	//## File ".nv_debug_ptx_txt", line 1279
+        /*0210*/                   MOV R5, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1273
+        /*0220*/               @P1 IADD3 R10, R10, 0x1, RZ ;
+        /*0230*/              @!P3 LOP3.LUT R10, RZ, R2, RZ, 0x33, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1304
+        /*0240*/                   ISETP.GE.U32.AND P0, PT, R10.reuse, 0x3, PT ;
+	//## File ".nv_debug_ptx_txt", line 1274
+        /*0250*/                   VIADD R0, R10, 0x1 ;
+	//## File ".nv_debug_ptx_txt", line 1275
+        /*0260*/                   LOP3.LUT P1, R8, R0, 0x3, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1279
+        /*0270*/                   IMAD.MOV.U32 R0, RZ, RZ, RZ ;
+        /*0280*/              @!P1 BRA `(.L_x_27) ;
+	//## File ".nv_debug_ptx_txt", line 1281
+        /*0290*/                   SHF.R.S32.HI R5, RZ, 0x1f, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1284
+        /*02a0*/                   ULDC.64 UR4, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 1279
+        /*02b0*/                   IMAD.MOV.U32 R10, RZ, RZ, R8 ;
+	//## File ".nv_debug_ptx_txt", line 1287
+        /*02c0*/                   IMAD.MOV.U32 R0, RZ, RZ, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1282
+        /*02d0*/                   IMAD.WIDE R6, R3, UR6, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1287
+        /*02e0*/                   MOV R5, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1284
+        /*02f0*/                   LEA R12, P1, R6, UR4, 0x2 ;
+        /*0300*/                   LEA.HI.X R7, R6, UR5, R7, 0x2, P1 ;
+.L_x_28:
+        /*0310*/                   IMAD.MOV.U32 R8, RZ, RZ, R12 ;
+        /*0320*/                   IMAD.MOV.U32 R9, RZ, RZ, R7 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 222
+	//## File ".nv_debug_ptx_txt", line 1292
+        /*0330*/                   LDG.E R11, desc[UR8][R8.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 221
+	//## File ".nv_debug_ptx_txt", line 1299
+        /*0340*/                   IADD3 R10, R10, -0x1, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1298
+        /*0350*/                   IMAD.WIDE R6, R2, 0x4, R8 ;
+	//## File ".nv_debug_ptx_txt", line 1300
+        /*0360*/                   ISETP.NE.AND P1, PT, R10, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 1301
+        /*0370*/                   IMAD.MOV.U32 R12, RZ, RZ, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1296
+        /*0380*/                   IMAD.IADD R5, R2, 0x1, R5 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 223
+	//## File ".nv_debug_ptx_txt", line 1294
+        /*0390*/                   FFMA R0, R11, R11, R0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 221
+	//## File ".nv_debug_ptx_txt", line 1301
+        /*03a0*/               @P1 BRA `(.L_x_28) ;
+.L_x_27:
+        /*03b0*/                   BSYNC B1 ;
+.L_x_26:
+	//## File ".nv_debug_ptx_txt", line 1305
+        /*03c0*/              @!P0 BRA `(.L_x_25) ;
+.L_x_29:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 222
+	//## File ".nv_debug_ptx_txt", line 1311
+        /*03d0*/                   SHF.R.S32.HI R7, RZ, 0x1f, R5 ;
+        /*03e0*/                   MOV R6, R5 ;
+	//## File ".nv_debug_ptx_txt", line 1312
+        /*03f0*/                   IMAD.WIDE R8, R3, UR6, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1314
+        /*0400*/                   LEA R6, P0, R8, UR10, 0x2 ;
+        /*0410*/                   LEA.HI.X R7, R8, UR11, R9, 0x2, P0 ;
+	//## File ".nv_debug_ptx_txt", line 1319
+        /*0420*/                   IMAD.WIDE R8, R2, 0x4, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1315
+        /*0430*/                   LDG.E R7, desc[UR8][R6.64] ;
+	//## File ".nv_debug_ptx_txt", line 1327
+        /*0440*/                   IMAD.WIDE R10, R2, 0x4, R8 ;
+	//## File ".nv_debug_ptx_txt", line 1320
+        /*0450*/                   LDG.E R9, desc[UR8][R8.64] ;
+	//## File ".nv_debug_ptx_txt", line 1334
+        /*0460*/                   IMAD.WIDE R12, R2, 0x4, R10 ;
+	//## File ".nv_debug_ptx_txt", line 1328
+        /*0470*/                   LDG.E R11, desc[UR8][R10.64] ;
+	//## File ".nv_debug_ptx_txt", line 1335
+        /*0480*/                   LDG.E R13, desc[UR8][R12.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 221
+	//## File ".nv_debug_ptx_txt", line 1325
+        /*0490*/                   IADD3 R5, R2, R5, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1339
+        /*04a0*/                   IADD3 R5, R2, R5, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1341
+        /*04b0*/                   ISETP.GE.AND P0, PT, R5, R3, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 223
+	//## File ".nv_debug_ptx_txt", line 1317
+        /*04c0*/                   FFMA R0, R7, R7, R0 ;
+	//## File ".nv_debug_ptx_txt", line 1322
+        /*04d0*/                   FFMA R0, R9, R9, R0 ;
+	//## File ".nv_debug_ptx_txt", line 1330
+        /*04e0*/                   FFMA R0, R11, R11, R0 ;
+	//## File ".nv_debug_ptx_txt", line 1337
+        /*04f0*/                   FFMA R0, R13, R13, R0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 221
+	//## File ".nv_debug_ptx_txt", line 1342
+        /*0500*/              @!P0 BRA `(.L_x_29) ;
+.L_x_25:
+        /*0510*/                   BSYNC B0 ;
+.L_x_24:
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1352
+        /*0520*/                   SHFL.DOWN PT, R5, R0, 0x10, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 229
+	//## File ".nv_debug_ptx_txt", line 1389
+        /*0530*/                   SHF.R.S32.HI R9, RZ, 0x1f, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1391
+        /*0540*/                   LEA.HI R10, R9, R4, RZ, 0x5 ;
+	//## File ".nv_debug_ptx_txt", line 1392
+        /*0550*/                   LOP3.LUT R9, R10, 0xffffffe0, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1393
+        /*0560*/                   IMAD.IADD R12, R4, 0x1, -R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 231
+	//## File ".nv_debug_ptx_txt", line 1395
+        /*0570*/                   ISETP.NE.AND P0, PT, R12, RZ, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1356
+        /*0580*/                   FADD R5, R5, R0 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1360
+        /*0590*/                   SHFL.DOWN PT, R6, R5, 0x8, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 230
+	//## File ".nv_debug_ptx_txt", line 1399
+        /*05a0*/              @!P0 SHF.R.S32.HI R0, RZ, 0x5, R10 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 231
+	//## File ".nv_debug_ptx_txt", line 1402
+        /*05b0*/              @!P0 S2R R9, SR_CgaCtaId ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1364
+        /*05c0*/                   FADD R6, R5, R6 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1368
+        /*05d0*/                   SHFL.DOWN PT, R7, R6, 0x4, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1372
+        /*05e0*/                   FADD R7, R6, R7 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 231
+	//## File ".nv_debug_ptx_txt", line 1402
+        /*05f0*/              @!P0 MOV R6, 0x400 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1375
+        /*0600*/                   SHFL.DOWN PT, R8, R7, 0x2, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 231
+	//## File ".nv_debug_ptx_txt", line 1402
+        /*0610*/              @!P0 LEA R9, R9, R6, 0x18 ;
+	//## File ".nv_debug_ptx_txt", line 1403
+        /*0620*/              @!P0 IMAD R0, R0, 0x4, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1379
+        /*0630*/                   FADD R8, R7, R8 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1383
+        /*0640*/                   SHFL.DOWN PT, R5, R8, 0x1, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 226
+	//## File ".nv_debug_ptx_txt", line 1387
+        /*0650*/                   FADD R9, R8, R5 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 235
+	//## File ".nv_debug_ptx_txt", line 1410
+        /*0660*/                   IADD3 R5, R4, 0x1f, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1411
+        /*0670*/                   ISETP.GT.U32.AND P1, PT, R5, 0x3e, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 231
+	//## File ".nv_debug_ptx_txt", line 1404
+        /*0680*/              @!P0 STS [R0], R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 232
+	//## File ".nv_debug_ptx_txt", line 1408
+        /*0690*/                   BAR.SYNC.DEFER_BLOCKING 0x0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 235
+	//## File ".nv_debug_ptx_txt", line 1412
+        /*06a0*/               @P1 BRA `(.L_x_30) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 236
+	//## File ".nv_debug_ptx_txt", line 1415
+        /*06b0*/                   SHF.R.S32.HI R5, RZ, 0x1f, R2 ;
+        /*06c0*/                   UMOV UR4, 0xffffffff ;
+	//## File ".nv_debug_ptx_txt", line 1417
+        /*06d0*/                   LEA.HI R5, R5, R2, RZ, 0x5 ;
+	//## File ".nv_debug_ptx_txt", line 1418
+        /*06e0*/                   SHF.R.S32.HI R5, RZ, 0x5, R5 ;
+	//## File ".nv_debug_ptx_txt", line 1419
+        /*06f0*/                   ISETP.GE.AND P1, PT, R12, R5, PT ;
+	//## File ".nv_debug_ptx_txt", line 1424
+        /*0700*/              @!P1 S2R R5, SR_CgaCtaId ;
+        /*0710*/              @!P1 MOV R0, 0x400 ;
+        /*0720*/              @!P1 LEA R5, R5, R0, 0x18 ;
+	//## File ".nv_debug_ptx_txt", line 1421
+        /*0730*/                   IMAD.MOV.U32 R0, RZ, RZ, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1425
+        /*0740*/              @!P1 IMAD R5, R12, 0x4, R5 ;
+	//## File ".nv_debug_ptx_txt", line 1426
+        /*0750*/              @!P1 LDS R0, [R5] ;
+        /*0760*/                   BRA.DIV UR4, `(.L_x_31) ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1436
+        /*0770*/                   SHFL.DOWN PT, R5, R0, 0x10, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1440
+        /*0780*/                   FADD R5, R5, R0 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1444
+        /*0790*/                   SHFL.DOWN PT, R6, R5, 0x8, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1448
+        /*07a0*/                   FADD R6, R5, R6 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1452
+        /*07b0*/                   SHFL.DOWN PT, R7, R6, 0x4, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1456
+        /*07c0*/                   FADD R7, R6, R7 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1459
+        /*07d0*/                   SHFL.DOWN PT, R8, R7, 0x2, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1463
+        /*07e0*/                   FADD R8, R7, R8 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1467
+        /*07f0*/                   SHFL.DOWN PT, R9, R8, 0x1, 0x1f ;
+.L_x_43:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1471
+        /*0800*/                   FADD R0, R8, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 240
+	//## File ".nv_debug_ptx_txt", line 1473
+        /*0810*/               @P0 BRA `(.L_x_30) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 241
+	//## File ".nv_debug_ptx_txt", line 1476
+        /*0820*/                   I2FP.F32.S32 R3, R3 ;
+	//## File ".nv_debug_ptx_txt", line 1477
+        /*0830*/                   BSSY B0, `(.L_x_32) ;
+        /*0840*/                   MUFU.RCP R6, R3 ;
+        /*0850*/                   FCHK P0, R0, R3 ;
+        /*0860*/                   FFMA R5, -R3, R6, 1 ;
+        /*0870*/                   FFMA R5, R6, R5, R6 ;
+        /*0880*/                   FFMA R6, R0, R5, RZ ;
+        /*0890*/                   FFMA R7, -R3, R6, R0 ;
+        /*08a0*/                   FFMA R5, R5, R7, R6 ;
+        /*08b0*/              @!P0 BRA `(.L_x_33) ;
+        /*08c0*/                   MOV R6, 0x8e0 ;
+        /*08d0*/                   CALL.REL.NOINC `($__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
+        /*08e0*/                   MOV R5, R0 ;
+.L_x_33:
+        /*08f0*/                   BSYNC B0 ;
+.L_x_32:
+	//## File ".nv_debug_ptx_txt", line 1478
+        /*0900*/                   ULDC UR4, c[0x0][0x230] ;
+	//## File ".nv_debug_ptx_txt", line 1480
+        /*0910*/                   S2UR UR5, SR_CgaCtaId ;
+	//## File ".nv_debug_ptx_txt", line 1478
+        /*0920*/                   FADD R5, R5, UR4 ;
+	//## File ".nv_debug_ptx_txt", line 1480
+        /*0930*/                   UMOV UR4, 0x400 ;
+	//## File ".nv_debug_ptx_txt", line 1479
+        /*0940*/                   FSETP.GEU.AND P0, PT, |R5|, 1.175494350822287508e-38, PT ;
+        /*0950*/              @!P0 FMUL R5, R5, 16777216 ;
+        /*0960*/                   MUFU.RSQ R0, R5 ;
+        /*0970*/                   ULEA UR4, UR5, UR4, 0x18 ;
+        /*0980*/              @!P0 FMUL R0, R0, 4096 ;
+	//## File ".nv_debug_ptx_txt", line 1480
+        /*0990*/                   STS [UR4+0x80], R0 ;
+.L_x_30:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 244
+	//## File ".nv_debug_ptx_txt", line 1484
+        /*09a0*/                   WARPSYNC.ALL ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 246
+	//## File ".nv_debug_ptx_txt", line 1486
+        /*09b0*/                   S2UR UR5, SR_CgaCtaId ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 244
+	//## File ".nv_debug_ptx_txt", line 1484
+        /*09c0*/                   BAR.SYNC.DEFER_BLOCKING 0x0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 246
+	//## File ".nv_debug_ptx_txt", line 1486
+        /*09d0*/                   UMOV UR4, 0x400 ;
+        /*09e0*/                   ULEA UR4, UR5, UR4, 0x18 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 247
+	//## File ".nv_debug_ptx_txt", line 1488
+        /*09f0*/               @P2 EXIT ;
+	//## File ".nv_debug_ptx_txt", line 1495
+        /*0a00*/                   I2F.U32.RP R8, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1494
+        /*0a10*/                   LDC R3, c[0x0][0x22c] ;
+	//## File ".nv_debug_ptx_txt", line 1493
+        /*0a20*/                   LOP3.LUT R0, RZ, R4, RZ, 0x33, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1529
+        /*0a30*/                   BSSY B0, `(.L_x_34) ;
+	//## File ".nv_debug_ptx_txt", line 1495
+        /*0a40*/                   ISETP.NE.U32.AND P2, PT, R2, RZ, PT ;
+        /*0a50*/                   MUFU.RCP R8, R8 ;
+        /*0a60*/                   VIADD R6, R8, 0xffffffe ;
+        /*0a70*/                   F2I.FTZ.U32.TRUNC.NTZ R7, R6 ;
+        /*0a80*/                   HFMA2.MMA R6, -RZ, RZ, 0, 0 ;
+        /*0a90*/                   IMAD.MOV R5, RZ, RZ, -R7 ;
+        /*0aa0*/                   IMAD R5, R5, R2, RZ ;
+        /*0ab0*/                   IMAD.HI.U32 R10, R7, R5, R6 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 249
+	//## File ".nv_debug_ptx_txt", line 1544
+        /*0ac0*/                   LDC.64 R6, c[0x0][0x218] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 247
+	//## File ".nv_debug_ptx_txt", line 1494
+        /*0ad0*/                   IMAD.IADD R5, R0, 0x1, R3 ;
+	//## File ".nv_debug_ptx_txt", line 1495
+        /*0ae0*/                   IMAD.HI.U32 R10, R10, R5, RZ ;
+        /*0af0*/                   IMAD.MOV R0, RZ, RZ, -R10 ;
+        /*0b00*/                   IMAD R5, R2, R0, R5 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 246
+	//## File ".nv_debug_ptx_txt", line 1486
+        /*0b10*/                   LDS R0, [UR4+0x80] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 247
+	//## File ".nv_debug_ptx_txt", line 1495
+        /*0b20*/                   ISETP.GE.U32.AND P0, PT, R5, R2, PT ;
+        /*0b30*/               @P0 IADD3 R5, R5, -R2, RZ ;
+        /*0b40*/               @P0 VIADD R10, R10, 0x1 ;
+        /*0b50*/                   ISETP.GE.U32.AND P1, PT, R5, R2, PT ;
+        /*0b60*/               @P1 VIADD R10, R10, 0x1 ;
+        /*0b70*/              @!P2 LOP3.LUT R10, RZ, R2, RZ, 0x33, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1496
+        /*0b80*/                   IADD3 R5, R10.reuse, 0x1, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1529
+        /*0b90*/                   ISETP.GE.U32.AND P0, PT, R10, 0x3, PT ;
+	//## File ".nv_debug_ptx_txt", line 1497
+        /*0ba0*/                   LOP3.LUT P1, R12, R5, 0x3, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1499
+        /*0bb0*/              @!P1 BRA `(.L_x_35) ;
+	//## File ".nv_debug_ptx_txt", line 1503
+        /*0bc0*/                   LDC.64 R8, c[0x0][0x218] ;
+	//## File ".nv_debug_ptx_txt", line 1501
+        /*0bd0*/                   SHF.R.S32.HI R5, RZ, 0x1f, R4.reuse ;
+	//## File ".nv_debug_ptx_txt", line 1507
+        /*0be0*/                   ULDC.64 UR4, c[0x0][0x220] ;
+	//## File ".nv_debug_ptx_txt", line 1508
+        /*0bf0*/                   ULDC.64 UR10, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 1505
+        /*0c00*/                   IMAD.WIDE R10, R3, UR6, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1506
+        /*0c10*/                   IMAD.SHL.U32 R5, R10.reuse, 0x4, RZ ;
+        /*0c20*/                   SHF.L.U64.HI R11, R10, 0x2, R11 ;
+	//## File ".nv_debug_ptx_txt", line 1507
+        /*0c30*/                   IADD3 R18, P1, R5.reuse, UR4, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1508
+        /*0c40*/                   IADD3 R10, P2, R5, UR10, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1499
+        /*0c50*/                   IMAD.MOV.U32 R5, RZ, RZ, R12 ;
+	//## File ".nv_debug_ptx_txt", line 1507
+        /*0c60*/                   IADD3.X R21, R11.reuse, UR5, RZ, P1, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1508
+        /*0c70*/                   IADD3.X R11, R11, UR11, RZ, P2, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1503
+        /*0c80*/                   IMAD.WIDE R8, R4, 0x4, R8 ;
+.L_x_36:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 249
+	//## File ".nv_debug_ptx_txt", line 1513
+        /*0c90*/                   LDG.E R13, desc[UR8][R10.64] ;
+	//## File ".nv_debug_ptx_txt", line 1515
+        /*0ca0*/                   LDG.E R12, desc[UR8][R8.64] ;
+        /*0cb0*/                   MOV R16, R18 ;
+        /*0cc0*/                   IMAD.MOV.U32 R17, RZ, RZ, R21 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 247
+	//## File ".nv_debug_ptx_txt", line 1524
+        /*0cd0*/                   VIADD R5, R5, 0xffffffff ;
+	//## File ".nv_debug_ptx_txt", line 1523
+        /*0ce0*/                   IMAD.WIDE R14, R2, 0x4, R10 ;
+	//## File ".nv_debug_ptx_txt", line 1525
+        /*0cf0*/                   ISETP.NE.AND P1, PT, R5, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 1526
+        /*0d00*/                   IMAD.MOV.U32 R10, RZ, RZ, R14 ;
+        /*0d10*/                   MOV R11, R15 ;
+	//## File ".nv_debug_ptx_txt", line 1519
+        /*0d20*/                   IMAD.IADD R4, R2.reuse, 0x1, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1521
+        /*0d30*/                   IMAD.WIDE R8, R2, 0x4, R8 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 249
+	//## File ".nv_debug_ptx_txt", line 1514
+        /*0d40*/                   FMUL R13, R0, R13 ;
+	//## File ".nv_debug_ptx_txt", line 1516
+        /*0d50*/                   FMUL R19, R13, R12 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 247
+	//## File ".nv_debug_ptx_txt", line 1522
+        /*0d60*/                   IMAD.WIDE R12, R2, 0x4, R16 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 249
+	//## File ".nv_debug_ptx_txt", line 1517
+        /*0d70*/                   STG.E desc[UR8][R16.64], R19 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 247
+	//## File ".nv_debug_ptx_txt", line 1526
+        /*0d80*/                   MOV R18, R12 ;
+        /*0d90*/                   IMAD.MOV.U32 R21, RZ, RZ, R13 ;
+        /*0da0*/               @P1 BRA `(.L_x_36) ;
+.L_x_35:
+        /*0db0*/                   BSYNC B0 ;
+.L_x_34:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 249
+	//## File ".nv_debug_ptx_txt", line 1540
+        /*0dc0*/                   ULDC.64 UR4, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 1547
+        /*0dd0*/                   ULDC.64 UR10, c[0x0][0x220] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 247
+	//## File ".nv_debug_ptx_txt", line 1530
+        /*0de0*/              @!P0 EXIT ;
+.L_x_37:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 248
+	//## File ".nv_debug_ptx_txt", line 1536
+        /*0df0*/                   SHF.R.S32.HI R5, RZ, 0x1f, R4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 249
+	//## File ".nv_debug_ptx_txt", line 1544
+        /*0e00*/                   IMAD.WIDE R14, R4, 0x4, R6 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 248
+	//## File ".nv_debug_ptx_txt", line 1537
+        /*0e10*/                   IMAD.WIDE R8, R3, UR6, R4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 249
+	//## File ".nv_debug_ptx_txt", line 1545
+        /*0e20*/                   LDG.E R10, desc[UR8][R14.64] ;
+	//## File ".nv_debug_ptx_txt", line 1539
+        /*0e30*/                   IMAD.SHL.U32 R11, R8.reuse, 0x4, RZ ;
+        /*0e40*/                   SHF.L.U64.HI R9, R8, 0x2, R9 ;
+	//## File ".nv_debug_ptx_txt", line 1540
+        /*0e50*/                   IADD3 R16, P0, R11, UR4, RZ ;
+        /*0e60*/                   IADD3.X R17, R9, UR5, RZ, P0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1541
+        /*0e70*/                   LDG.E R5, desc[UR8][R16.64] ;
+	//## File ".nv_debug_ptx_txt", line 1547
+        /*0e80*/                   IADD3 R8, P0, R11, UR10, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1549
+        /*0e90*/                   IMAD.WIDE R12, R2, 0x4, R16 ;
+	//## File ".nv_debug_ptx_txt", line 1547
+        /*0ea0*/                   IADD3.X R9, R9, UR11, RZ, P0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1542
+        /*0eb0*/                   FMUL R5, R0, R5 ;
+	//## File ".nv_debug_ptx_txt", line 1546
+        /*0ec0*/                   FMUL R5, R5, R10 ;
+	//## File ".nv_debug_ptx_txt", line 1552
+        /*0ed0*/                   IMAD.WIDE R10, R2, 0x4, R14 ;
+	//## File ".nv_debug_ptx_txt", line 1548
+        /*0ee0*/                   STG.E desc[UR8][R8.64], R5 ;
+	//## File ".nv_debug_ptx_txt", line 1550
+        /*0ef0*/                   LDG.E R19, desc[UR8][R12.64] ;
+	//## File ".nv_debug_ptx_txt", line 1553
+        /*0f00*/                   LDG.E R18, desc[UR8][R10.64] ;
+	//## File ".nv_debug_ptx_txt", line 1555
+        /*0f10*/                   IMAD.WIDE R14, R2, 0x4, R8 ;
+	//## File ".nv_debug_ptx_txt", line 1564
+        /*0f20*/                   IMAD.WIDE R16, R2, 0x4, R10 ;
+	//## File ".nv_debug_ptx_txt", line 1551
+        /*0f30*/                   FMUL R19, R0, R19 ;
+	//## File ".nv_debug_ptx_txt", line 1554
+        /*0f40*/                   FMUL R21, R19, R18 ;
+	//## File ".nv_debug_ptx_txt", line 1561
+        /*0f50*/                   IMAD.WIDE R18, R2, 0x4, R12 ;
+	//## File ".nv_debug_ptx_txt", line 1556
+        /*0f60*/                   STG.E desc[UR8][R14.64], R21 ;
+	//## File ".nv_debug_ptx_txt", line 1562
+        /*0f70*/                   LDG.E R23, desc[UR8][R18.64] ;
+	//## File ".nv_debug_ptx_txt", line 1565
+        /*0f80*/                   LDG.E R20, desc[UR8][R16.64] ;
+	//## File ".nv_debug_ptx_txt", line 1567
+        /*0f90*/                   IMAD.WIDE R8, R2, 0x4, R14 ;
+	//## File ".nv_debug_ptx_txt", line 1572
+        /*0fa0*/                   IMAD.WIDE R10, R2, 0x4, R18 ;
+	//## File ".nv_debug_ptx_txt", line 1575
+        /*0fb0*/                   IMAD.WIDE R12, R2, 0x4, R16 ;
+	//## File ".nv_debug_ptx_txt", line 1563
+        /*0fc0*/                   FMUL R23, R0, R23 ;
+	//## File ".nv_debug_ptx_txt", line 1566
+        /*0fd0*/                   FMUL R23, R23, R20 ;
+	//## File ".nv_debug_ptx_txt", line 1568
+        /*0fe0*/                   STG.E desc[UR8][R8.64], R23 ;
+	//## File ".nv_debug_ptx_txt", line 1573
+        /*0ff0*/                   LDG.E R11, desc[UR8][R10.64] ;
+	//## File ".nv_debug_ptx_txt", line 1576
+        /*1000*/                   LDG.E R12, desc[UR8][R12.64] ;
+	//## File ".nv_debug_ptx_txt", line 1578
+        /*1010*/                   IMAD.WIDE R14, R2, 0x4, R8 ;
+	//## File ".nv_debug_ptx_txt", line 1574
+        /*1020*/                   FMUL R5, R0, R11 ;
+	//## File ".nv_debug_ptx_txt", line 1577
+        /*1030*/                   FMUL R17, R5, R12 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 247
+	//## File ".nv_debug_ptx_txt", line 1559
+        /*1040*/                   IADD3 R5, R2, R4, R2 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 249
+	//## File ".nv_debug_ptx_txt", line 1579
+        /*1050*/                   STG.E desc[UR8][R14.64], R17 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 247
+	//## File ".nv_debug_ptx_txt", line 1581
+        /*1060*/                   IADD3 R4, R2, R5, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1583
+        /*1070*/                   ISETP.GE.AND P0, PT, R4, R3, PT ;
+	//## File ".nv_debug_ptx_txt", line 1584
+        /*1080*/              @!P0 BRA `(.L_x_37) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 251
+	//## File ".nv_debug_ptx_txt", line 1588
+        /*1090*/                   EXIT ;
+.L_x_31:
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1436
+        /*10a0*/                   HFMA2.MMA R11, -RZ, RZ, 0, 9.5367431640625e-07 ;
+        /*10b0*/                   IMAD.MOV.U32 R13, RZ, RZ, 0x1f ;
+        /*10c0*/                   IMAD.MOV.U32 R10, RZ, RZ, -0x1 ;
+        /*10d0*/                   WARPSYNC.COLLECTIVE R10, `(.L_x_38) ;
+        /*10e0*/                   SHFL.DOWN P1, R9, R0, R11, R13 ;
+        /*10f0*/                   ENDCOLLECTIVE ;
+.L_x_38:
+	//## File ".nv_debug_ptx_txt", line 1444
+        /*1100*/                   IMAD.MOV.U32 R11, RZ, RZ, 0x8 ;
+        /*1110*/                   MOV R5, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1440
+        /*1120*/                   FADD R5, R5, R0 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1444
+        /*1130*/                   IMAD.MOV.U32 R0, RZ, RZ, R5 ;
+        /*1140*/                   WARPSYNC.COLLECTIVE R10, `(.L_x_39) ;
+        /*1150*/                   SHFL.DOWN P1, R9, R0, R11, R13 ;
+        /*1160*/                   ENDCOLLECTIVE ;
+.L_x_39:
+	//## File ".nv_debug_ptx_txt", line 1452
+        /*1170*/                   IMAD.MOV.U32 R11, RZ, RZ, 0x4 ;
+        /*1180*/                   MOV R6, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1448
+        /*1190*/                   FADD R6, R5, R6 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1452
+        /*11a0*/                   IMAD.MOV.U32 R0, RZ, RZ, R6 ;
+        /*11b0*/                   WARPSYNC.COLLECTIVE R10, `(.L_x_40) ;
+        /*11c0*/                   SHFL.DOWN P1, R9, R0, R11, R13 ;
+        /*11d0*/                   ENDCOLLECTIVE ;
+.L_x_40:
+	//## File ".nv_debug_ptx_txt", line 1459
+        /*11e0*/                   IMAD.MOV.U32 R11, RZ, RZ, 0x2 ;
+        /*11f0*/                   MOV R7, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1456
+        /*1200*/                   FADD R7, R6, R7 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1459
+        /*1210*/                   IMAD.MOV.U32 R0, RZ, RZ, R7 ;
+        /*1220*/                   WARPSYNC.COLLECTIVE R10, `(.L_x_41) ;
+        /*1230*/                   SHFL.DOWN P1, R9, R0, R11, R13 ;
+        /*1240*/                   ENDCOLLECTIVE ;
+.L_x_41:
+	//## File ".nv_debug_ptx_txt", line 1467
+        /*1250*/                   IMAD.MOV.U32 R11, RZ, RZ, 0x1 ;
+        /*1260*/                   MOV R8, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1463
+        /*1270*/                   FADD R8, R7, R8 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 238
+	//## File ".nv_debug_ptx_txt", line 1467
+        /*1280*/                   IMAD.MOV.U32 R0, RZ, RZ, R8 ;
+        /*1290*/                   WARPSYNC.COLLECTIVE R10, `(.L_x_42) ;
+        /*12a0*/                   SHFL.DOWN P1, R9, R0, R11, R13 ;
+        /*12b0*/                   ENDCOLLECTIVE ;
+.L_x_42:
+        /*12c0*/                   BRA `(.L_x_43) ;
+        .type           $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath,@function
+        .size           $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath,(.L_x_85 - $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath)
+$__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath:
+        /*12d0*/                   SHF.R.U32.HI R7, RZ, 0x17, R3 ;
+        /*12e0*/                   BSSY B1, `(.L_x_44) ;
+        /*12f0*/                   SHF.R.U32.HI R5, RZ, 0x17, R0.reuse ;
+        /*1300*/                   LOP3.LUT R7, R7, 0xff, RZ, 0xc0, !PT ;
+        /*1310*/                   LOP3.LUT R12, R5, 0xff, RZ, 0xc0, !PT ;
+        /*1320*/                   IMAD.MOV.U32 R5, RZ, RZ, R0 ;
+        /*1330*/                   IADD3 R10, R7, -0x1, RZ ;
+        /*1340*/                   MOV R8, R3 ;
+        /*1350*/                   VIADD R11, R12, 0xffffffff ;
+        /*1360*/                   ISETP.GT.U32.AND P0, PT, R10, 0xfd, PT ;
+        /*1370*/                   ISETP.GT.U32.OR P0, PT, R11, 0xfd, P0 ;
+        /*1380*/              @!P0 IMAD.MOV.U32 R9, RZ, RZ, RZ ;
+        /*1390*/              @!P0 BRA `(.L_x_45) ;
+        /*13a0*/                   FSETP.GTU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*13b0*/                   FSETP.GTU.FTZ.AND P1, PT, |R3|, +INF , PT ;
+        /*13c0*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xa8, 0x0 ;
+        /*13d0*/               @P0 BRA `(.L_x_46) ;
+        /*13e0*/                   LOP3.LUT P0, RZ, R8, 0x7fffffff, R5, 0xc8, !PT ;
+        /*13f0*/              @!P0 BRA `(.L_x_47) ;
+        /*1400*/                   FSETP.NEU.FTZ.AND P3, PT, |R0|.reuse, +INF , PT ;
+        /*1410*/                   FSETP.NEU.FTZ.AND P1, PT, |R3|, +INF , PT ;
+        /*1420*/                   FSETP.NEU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*1430*/              @!P1 BRA !P3, `(.L_x_47) ;
+        /*1440*/                   LOP3.LUT P3, RZ, R5, 0x7fffffff, RZ, 0xc0, !PT ;
+        /*1450*/                   PLOP3.LUT P1, PT, P1, P3, PT, 0x2a, 0x0 ;
+        /*1460*/               @P1 BRA `(.L_x_48) ;
+        /*1470*/                   LOP3.LUT P1, RZ, R8, 0x7fffffff, RZ, 0xc0, !PT ;
+        /*1480*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0x2a, 0x0 ;
+        /*1490*/               @P0 BRA `(.L_x_49) ;
+        /*14a0*/                   ISETP.GE.AND P0, PT, R11, RZ, PT ;
+        /*14b0*/                   ISETP.GE.AND P1, PT, R10, RZ, PT ;
+        /*14c0*/               @P0 MOV R9, RZ ;
+        /*14d0*/              @!P0 IMAD.MOV.U32 R9, RZ, RZ, -0x40 ;
+        /*14e0*/              @!P0 FFMA R5, R0, 1.84467440737095516160e+19, RZ ;
+        /*14f0*/              @!P1 FFMA R8, R3, 1.84467440737095516160e+19, RZ ;
+        /*1500*/              @!P1 IADD3 R9, R9, 0x40, RZ ;
+.L_x_45:
+        /*1510*/                   LEA R3, R7, 0xc0800000, 0x17 ;
+        /*1520*/                   BSSY B2, `(.L_x_50) ;
+        /*1530*/                   IMAD.IADD R3, R8, 0x1, -R3 ;
+        /*1540*/                   IADD3 R8, R12, -0x7f, RZ ;
+        /*1550*/                   MUFU.RCP R10, R3 ;
+        /*1560*/                   FADD.FTZ R11, -R3, -RZ ;
+        /*1570*/                   IMAD R0, R8.reuse, -0x800000, R5 ;
+        /*1580*/                   IADD3 R8, R8, 0x7f, -R7 ;
+        /*1590*/                   IMAD.IADD R8, R8, 0x1, R9 ;
+        /*15a0*/                   FFMA R13, R10, R11, 1 ;
+        /*15b0*/                   FFMA R12, R10, R13, R10 ;
+        /*15c0*/                   FFMA R5, R0, R12, RZ ;
+        /*15d0*/                   FFMA R10, R11, R5, R0 ;
+        /*15e0*/                   FFMA R13, R12, R10, R5 ;
+        /*15f0*/                   FFMA R10, R11, R13, R0 ;
+        /*1600*/                   FFMA R0, R12, R10, R13 ;
+        /*1610*/                   SHF.R.U32.HI R3, RZ, 0x17, R0 ;
+        /*1620*/                   LOP3.LUT R3, R3, 0xff, RZ, 0xc0, !PT ;
+        /*1630*/                   IADD3 R7, R3, R8, RZ ;
+        /*1640*/                   VIADD R3, R7, 0xffffffff ;
+        /*1650*/                   ISETP.GE.U32.AND P0, PT, R3, 0xfe, PT ;
+        /*1660*/              @!P0 BRA `(.L_x_51) ;
+        /*1670*/                   ISETP.GT.AND P0, PT, R7, 0xfe, PT ;
+        /*1680*/               @P0 BRA `(.L_x_52) ;
+        /*1690*/                   ISETP.GE.AND P0, PT, R7, 0x1, PT ;
+        /*16a0*/               @P0 BRA `(.L_x_53) ;
+        /*16b0*/                   ISETP.GE.AND P0, PT, R7, -0x18, PT ;
+        /*16c0*/                   LOP3.LUT R0, R0, 0x80000000, RZ, 0xc0, !PT ;
+        /*16d0*/              @!P0 BRA `(.L_x_53) ;
+        /*16e0*/                   FFMA.RZ R3, R12.reuse, R10.reuse, R13.reuse ;
+        /*16f0*/                   FFMA.RM R8, R12.reuse, R10.reuse, R13.reuse ;
+        /*1700*/                   ISETP.NE.AND P3, PT, R7.reuse, RZ, PT ;
+        /*1710*/                   ISETP.NE.AND P1, PT, R7, RZ, PT ;
+        /*1720*/                   LOP3.LUT R5, R3, 0x7fffff, RZ, 0xc0, !PT ;
+        /*1730*/                   FFMA.RP R3, R12, R10, R13 ;
+        /*1740*/                   IADD3 R10, R7, 0x20, RZ ;
+        /*1750*/                   IMAD.MOV R7, RZ, RZ, -R7 ;
+        /*1760*/                   LOP3.LUT R5, R5, 0x800000, RZ, 0xfc, !PT ;
+        /*1770*/                   FSETP.NEU.FTZ.AND P0, PT, R3, R8, PT ;
+        /*1780*/                   SHF.L.U32 R10, R5, R10, RZ ;
+        /*1790*/                   SEL R8, R7, RZ, P3 ;
+        /*17a0*/                   ISETP.NE.AND P1, PT, R10, RZ, P1 ;
+        /*17b0*/                   SHF.R.U32.HI R8, RZ, R8, R5 ;
+        /*17c0*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xa8, 0x0 ;
+        /*17d0*/                   SHF.R.U32.HI R10, RZ, 0x1, R8 ;
+        /*17e0*/                   SEL R3, RZ, 0x1, !P0 ;
+        /*17f0*/                   LOP3.LUT R3, R3, 0x1, R10, 0xf8, !PT ;
+        /*1800*/                   LOP3.LUT R3, R3, R8, RZ, 0xc0, !PT ;
+        /*1810*/                   IADD3 R3, R10, R3, RZ ;
+        /*1820*/                   LOP3.LUT R0, R3, R0, RZ, 0xfc, !PT ;
+        /*1830*/                   BRA `(.L_x_53) ;
+.L_x_52:
+        /*1840*/                   LOP3.LUT R0, R0, 0x80000000, RZ, 0xc0, !PT ;
+        /*1850*/                   LOP3.LUT R0, R0, 0x7f800000, RZ, 0xfc, !PT ;
+        /*1860*/                   BRA `(.L_x_53) ;
+.L_x_51:
+        /*1870*/                   IMAD R0, R8, 0x800000, R0 ;
+.L_x_53:
+        /*1880*/                   BSYNC B2 ;
+.L_x_50:
+        /*1890*/                   BRA `(.L_x_54) ;
+.L_x_49:
+        /*18a0*/                   LOP3.LUT R0, R8, 0x80000000, R5, 0x48, !PT ;
+        /*18b0*/                   LOP3.LUT R0, R0, 0x7f800000, RZ, 0xfc, !PT ;
+        /*18c0*/                   BRA `(.L_x_54) ;
+.L_x_48:
+        /*18d0*/                   LOP3.LUT R0, R8, 0x80000000, R5, 0x48, !PT ;
+        /*18e0*/                   BRA `(.L_x_54) ;
+.L_x_47:
+        /*18f0*/                   MUFU.RSQ R0, -QNAN  ;
+        /*1900*/                   BRA `(.L_x_54) ;
+.L_x_46:
+        /*1910*/                   FADD.FTZ R0, R0, R3 ;
+.L_x_54:
+        /*1920*/                   BSYNC B1 ;
+.L_x_44:
+        /*1930*/                   HFMA2.MMA R7, -RZ, RZ, 0, 0 ;
+        /*1940*/                   RET.REL.NODEC R6 `(ds4_rmsnorm) ;
+.L_x_55:
+        /*1950*/                   BRA `(.L_x_55);
+        /*1960*/                   NOP;
+        /*1970*/                   NOP;
+        /*1980*/                   NOP;
+        /*1990*/                   NOP;
+        /*19a0*/                   NOP;
+        /*19b0*/                   NOP;
+        /*19c0*/                   NOP;
+        /*19d0*/                   NOP;
+        /*19e0*/                   NOP;
+        /*19f0*/                   NOP;
+.L_x_85:
+
+
+//--------------------- .text.ds4_smem_stage_matvec --------------------------
+	.section	.text.ds4_smem_stage_matvec,"ax",@progbits
+	.align	128
+        .global         ds4_smem_stage_matvec
+        .type           ds4_smem_stage_matvec,@function
+        .size           ds4_smem_stage_matvec,(.L_x_90 - ds4_smem_stage_matvec)
+        .other          ds4_smem_stage_matvec,@"STO_CUDA_ENTRY STV_DEFAULT"
+ds4_smem_stage_matvec:
+.text.ds4_smem_stage_matvec:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 153
+	//## File ".nv_debug_ptx_txt", line 874
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 162
+	//## File ".nv_debug_ptx_txt", line 890
+        /*0010*/                   S2R R23, SR_CTAID.X ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 163
+	//## File ".nv_debug_ptx_txt", line 892
+        /*0020*/                   ULDC UR4, c[0x0][0x228] ;
+        /*0030*/                   ISETP.GE.AND P0, PT, R23, UR4, PT ;
+	//## File ".nv_debug_ptx_txt", line 893
+        /*0040*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 164
+	//## File ".nv_debug_ptx_txt", line 905
+        /*0050*/                   S2R R2, SR_TID.X ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 168
+	//## File ".nv_debug_ptx_txt", line 900
+        /*0060*/                   ULDC UR7, c[0x0][0x22c] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 165
+	//## File ".nv_debug_ptx_txt", line 898
+        /*0070*/                   LDC R0, c[0x0][RZ] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 168
+	//## File ".nv_debug_ptx_txt", line 900
+        /*0080*/                   USHF.R.S32.HI UR4, URZ, 0x1f, UR7 ;
+	//## File ".nv_debug_ptx_txt", line 874
+        /*0090*/                   BSSY B0, `(.L_x_56) ;
+        /*00a0*/                   ULDC.64 UR8, c[0x0][0x208] ;
+	//## File ".nv_debug_ptx_txt", line 902
+        /*00b0*/                   ULEA.HI UR4, UR4, UR7, URZ, 0x2 ;
+	//## File ".nv_debug_ptx_txt", line 903
+        /*00c0*/                   USHF.R.S32.HI UR4, URZ, 0x2, UR4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 172
+	//## File ".nv_debug_ptx_txt", line 907
+        /*00d0*/                   ISETP.GE.AND P0, PT, R2, UR4, PT ;
+	//## File ".nv_debug_ptx_txt", line 908
+        /*00e0*/               @P0 BRA `(.L_x_57) ;
+	//## File ".nv_debug_ptx_txt", line 912
+        /*00f0*/                   I2F.U32.RP R7, R0 ;
+	//## File ".nv_debug_ptx_txt", line 910
+        /*0100*/                   LOP3.LUT R6, RZ, R2, RZ, 0x33, !PT ;
+	//## File ".nv_debug_ptx_txt", line 917
+        /*0110*/                   BSSY B1, `(.L_x_58) ;
+	//## File ".nv_debug_ptx_txt", line 912
+        /*0120*/                   ISETP.NE.U32.AND P2, PT, R0, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 917
+        /*0130*/                   IMAD.MOV.U32 R25, RZ, RZ, R2 ;
+	//## File ".nv_debug_ptx_txt", line 912
+        /*0140*/                   MUFU.RCP R7, R7 ;
+        /*0150*/                   VIADD R4, R7, 0xffffffe ;
+        /*0160*/                   F2I.FTZ.U32.TRUNC.NTZ R5, R4 ;
+        /*0170*/                   HFMA2.MMA R4, -RZ, RZ, 0, 0 ;
+        /*0180*/                   IMAD.MOV R9, RZ, RZ, -R5 ;
+        /*0190*/                   IMAD R9, R9, R0, RZ ;
+        /*01a0*/                   IMAD.HI.U32 R8, R5, R9, R4 ;
+	//## File ".nv_debug_ptx_txt", line 911
+        /*01b0*/                   VIADD R5, R6, UR4 ;
+	//## File ".nv_debug_ptx_txt", line 912
+        /*01c0*/                   IMAD.HI.U32 R8, R8, R5, RZ ;
+        /*01d0*/                   IMAD.MOV R6, RZ, RZ, -R8 ;
+        /*01e0*/                   IMAD R5, R0, R6, R5 ;
+        /*01f0*/                   ISETP.GE.U32.AND P0, PT, R5, R0, PT ;
+        /*0200*/               @P0 IADD3 R5, R5, -R0, RZ ;
+        /*0210*/               @P0 VIADD R8, R8, 0x1 ;
+        /*0220*/                   ISETP.GE.U32.AND P1, PT, R5, R0, PT ;
+        /*0230*/               @P1 VIADD R8, R8, 0x1 ;
+        /*0240*/              @!P2 LOP3.LUT R8, RZ, R0, RZ, 0x33, !PT ;
+	//## File ".nv_debug_ptx_txt", line 913
+        /*0250*/                   IADD3 R4, R8.reuse, 0x1, RZ ;
+	//## File ".nv_debug_ptx_txt", line 944
+        /*0260*/                   ISETP.GE.U32.AND P1, PT, R8, 0x3, PT ;
+	//## File ".nv_debug_ptx_txt", line 914
+        /*0270*/                   LOP3.LUT P0, R4, R4, 0x3, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 917
+        /*0280*/              @!P0 BRA `(.L_x_59) ;
+	//## File ".nv_debug_ptx_txt", line 924
+        /*0290*/                   S2UR UR6, SR_CgaCtaId ;
+        /*02a0*/                   UMOV UR5, 0x400 ;
+	//## File ".nv_debug_ptx_txt", line 917
+        /*02b0*/                   IMAD.MOV.U32 R10, RZ, RZ, R4 ;
+	//## File ".nv_debug_ptx_txt", line 924
+        /*02c0*/                   UIADD3 UR5, UR5, 0x80, URZ ;
+	//## File ".nv_debug_ptx_txt", line 927
+        /*02d0*/                   MOV R25, R2 ;
+	//## File ".nv_debug_ptx_txt", line 921
+        /*02e0*/                   LDC.64 R8, c[0x0][0x218] ;
+	//## File ".nv_debug_ptx_txt", line 924
+        /*02f0*/                   ULEA UR5, UR6, UR5, 0x18 ;
+	//## File ".nv_debug_ptx_txt", line 925
+        /*0300*/                   LEA R11, R2.reuse, UR5, 0x4 ;
+	//## File ".nv_debug_ptx_txt", line 921
+        /*0310*/                   IMAD.WIDE R8, R2, 0x10, R8 ;
+.L_x_60:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 173
+	//## File ".nv_debug_ptx_txt", line 932
+        /*0320*/                   LDG.E.128 R4, desc[UR8][R8.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 172
+	//## File ".nv_debug_ptx_txt", line 939
+        /*0330*/                   VIADD R10, R10, 0xffffffff ;
+	//## File ".nv_debug_ptx_txt", line 935
+        /*0340*/                   IMAD.IADD R25, R0, 0x1, R25 ;
+	//## File ".nv_debug_ptx_txt", line 940
+        /*0350*/                   ISETP.NE.AND P0, PT, R10, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 937
+        /*0360*/                   IMAD.WIDE R8, R0.reuse, 0x10, R8 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 173
+	//## File ".nv_debug_ptx_txt", line 933
+        /*0370*/                   STS.128 [R11], R4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 172
+	//## File ".nv_debug_ptx_txt", line 938
+        /*0380*/                   LEA R11, R0, R11, 0x4 ;
+	//## File ".nv_debug_ptx_txt", line 941
+        /*0390*/               @P0 BRA `(.L_x_60) ;
+.L_x_59:
+        /*03a0*/                   BSYNC B1 ;
+.L_x_58:
+	//## File ".nv_debug_ptx_txt", line 945
+        /*03b0*/              @!P1 BRA `(.L_x_57) ;
+	//## File ".nv_debug_ptx_txt", line 949
+        /*03c0*/                   S2UR UR6, SR_CgaCtaId ;
+        /*03d0*/                   UMOV UR5, 0x400 ;
+        /*03e0*/                   UIADD3 UR5, UR5, 0x80, URZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 173
+	//## File ".nv_debug_ptx_txt", line 956
+        /*03f0*/                   LDC.64 R20, c[0x0][0x218] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 172
+	//## File ".nv_debug_ptx_txt", line 949
+        /*0400*/                   ULEA UR5, UR6, UR5, 0x18 ;
+	//## File ".nv_debug_ptx_txt", line 950
+        /*0410*/                   LEA R27, R25, UR5, 0x4 ;
+.L_x_61:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 173
+	//## File ".nv_debug_ptx_txt", line 956
+        /*0420*/                   IMAD.WIDE R4, R25, 0x10, R20 ;
+	//## File ".nv_debug_ptx_txt", line 959
+        /*0430*/                   IMAD.WIDE R8, R0.reuse, 0x10, R4 ;
+	//## File ".nv_debug_ptx_txt", line 957
+        /*0440*/                   LDG.E.128 R4, desc[UR8][R4.64] ;
+	//## File ".nv_debug_ptx_txt", line 967
+        /*0450*/                   IMAD.WIDE R12, R0.reuse, 0x10, R8 ;
+	//## File ".nv_debug_ptx_txt", line 960
+        /*0460*/                   LDG.E.128 R8, desc[UR8][R8.64] ;
+	//## File ".nv_debug_ptx_txt", line 974
+        /*0470*/                   IMAD.WIDE R16, R0.reuse, 0x10, R12 ;
+	//## File ".nv_debug_ptx_txt", line 968
+        /*0480*/                   LDG.E.128 R12, desc[UR8][R12.64] ;
+	//## File ".nv_debug_ptx_txt", line 975
+        /*0490*/                   LDG.E.128 R16, desc[UR8][R16.64] ;
+	//## File ".nv_debug_ptx_txt", line 961
+        /*04a0*/                   IMAD R29, R0, 0x10, R27 ;
+	//## File ".nv_debug_ptx_txt", line 969
+        /*04b0*/                   IMAD R22, R0.reuse, 0x10, R29 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 172
+	//## File ".nv_debug_ptx_txt", line 965
+        /*04c0*/                   IADD3 R25, R0, R25, R0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 173
+	//## File ".nv_debug_ptx_txt", line 976
+        /*04d0*/                   LEA R24, R0.reuse, R22, 0x4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 172
+	//## File ".nv_debug_ptx_txt", line 980
+        /*04e0*/                   IADD3 R25, R0, R25, R0 ;
+	//## File ".nv_debug_ptx_txt", line 982
+        /*04f0*/                   ISETP.GE.AND P0, PT, R25, UR4, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 173
+	//## File ".nv_debug_ptx_txt", line 958
+        /*0500*/                   STS.128 [R27], R4 ;
+	//## File ".nv_debug_ptx_txt", line 962
+        /*0510*/                   STS.128 [R29], R8 ;
+	//## File ".nv_debug_ptx_txt", line 970
+        /*0520*/                   STS.128 [R22], R12 ;
+	//## File ".nv_debug_ptx_txt", line 978
+        /*0530*/                   STS.128 [R24], R16 ;
+	//## File ".nv_debug_ptx_txt", line 977
+        /*0540*/                   IMAD R27, R0, 0x10, R24 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 172
+	//## File ".nv_debug_ptx_txt", line 983
+        /*0550*/              @!P0 BRA `(.L_x_61) ;
+.L_x_57:
+        /*0560*/                   BSYNC B0 ;
+.L_x_56:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 175
+	//## File ".nv_debug_ptx_txt", line 987
+        /*0570*/                   BAR.SYNC.DEFER_BLOCKING 0x0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 179
+	//## File ".nv_debug_ptx_txt", line 989
+        /*0580*/                   ISETP.GE.AND P0, PT, R2, UR7, PT ;
+	//## File ".nv_debug_ptx_txt", line 991
+        /*0590*/                   IMAD.MOV.U32 R4, RZ, RZ, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 180
+	//## File ".nv_debug_ptx_txt", line 1048
+        /*05a0*/                   ULDC.64 UR12, c[0x0][0x210] ;
+        /*05b0*/                   BSSY B0, `(.L_x_62) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 179
+	//## File ".nv_debug_ptx_txt", line 991
+        /*05c0*/               @P0 BRA `(.L_x_63) ;
+	//## File ".nv_debug_ptx_txt", line 998
+        /*05d0*/                   I2F.U32.RP R7, R0 ;
+        /*05e0*/                   IMAD.MOV.U32 R4, RZ, RZ, RZ ;
+	//## File ".nv_debug_ptx_txt", line 996
+        /*05f0*/                   LOP3.LUT R6, RZ, R2, RZ, 0x33, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1004
+        /*0600*/                   BSSY B1, `(.L_x_64) ;
+	//## File ".nv_debug_ptx_txt", line 998
+        /*0610*/                   ISETP.NE.U32.AND P2, PT, R0, RZ, PT ;
+        /*0620*/                   MUFU.RCP R7, R7 ;
+        /*0630*/                   IADD3 R8, R7, 0xffffffe, RZ ;
+        /*0640*/                   F2I.FTZ.U32.TRUNC.NTZ R5, R8 ;
+        /*0650*/                   IMAD.MOV R9, RZ, RZ, -R5 ;
+        /*0660*/                   IMAD R9, R9, R0, RZ ;
+        /*0670*/                   IMAD.HI.U32 R4, R5, R9, R4 ;
+	//## File ".nv_debug_ptx_txt", line 997
+        /*0680*/                   IADD3 R5, R6, UR7, RZ ;
+	//## File ".nv_debug_ptx_txt", line 998
+        /*0690*/                   IMAD.HI.U32 R4, R4, R5, RZ ;
+        /*06a0*/                   IMAD.MOV R6, RZ, RZ, -R4 ;
+        /*06b0*/                   IMAD R5, R0, R6, R5 ;
+        /*06c0*/                   ISETP.GE.U32.AND P0, PT, R5, R0, PT ;
+        /*06d0*/               @P0 IMAD.IADD R5, R5, 0x1, -R0 ;
+        /*06e0*/               @P0 IADD3 R4, R4, 0x1, RZ ;
+        /*06f0*/                   ISETP.GE.U32.AND P1, PT, R5, R0, PT ;
+        /*0700*/               @P1 VIADD R4, R4, 0x1 ;
+        /*0710*/              @!P2 LOP3.LUT R4, RZ, R0, RZ, 0x33, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1034
+        /*0720*/                   ISETP.GE.U32.AND P0, PT, R4.reuse, 0x3, PT ;
+	//## File ".nv_debug_ptx_txt", line 999
+        /*0730*/                   VIADD R5, R4, 0x1 ;
+	//## File ".nv_debug_ptx_txt", line 1004
+        /*0740*/                   MOV R4, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1000
+        /*0750*/                   LOP3.LUT P1, R6, R5, 0x3, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1004
+        /*0760*/                   IMAD.MOV.U32 R5, RZ, RZ, R2 ;
+        /*0770*/              @!P1 BRA `(.L_x_65) ;
+	//## File ".nv_debug_ptx_txt", line 1007
+        /*0780*/                   S2UR UR5, SR_CgaCtaId ;
+	//## File ".nv_debug_ptx_txt", line 1010
+        /*0790*/                   SHF.R.S32.HI R3, RZ, 0x1f, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1007
+        /*07a0*/                   UMOV UR4, 0x400 ;
+	//## File ".nv_debug_ptx_txt", line 1013
+        /*07b0*/                   ULDC.64 UR10, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 1007
+        /*07c0*/                   UIADD3 UR4, UR4, 0x80, URZ ;
+	//## File ".nv_debug_ptx_txt", line 1004
+        /*07d0*/                   IMAD.MOV.U32 R10, RZ, RZ, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1011
+        /*07e0*/                   IMAD.WIDE R4, R23, UR7, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1013
+        /*07f0*/                   LEA R8, P1, R4, UR10, 0x2 ;
+        /*0800*/                   LEA.HI.X R7, R4, UR11, R5, 0x2, P1 ;
+	//## File ".nv_debug_ptx_txt", line 1016
+        /*0810*/                   HFMA2.MMA R4, -RZ, RZ, 0, 0 ;
+        /*0820*/                   IMAD.MOV.U32 R5, RZ, RZ, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1007
+        /*0830*/                   ULEA UR4, UR5, UR4, 0x18 ;
+	//## File ".nv_debug_ptx_txt", line 1008
+        /*0840*/                   LEA R11, R2, UR4, 0x2 ;
+.L_x_66:
+        /*0850*/                   MOV R9, R7 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 180
+	//## File ".nv_debug_ptx_txt", line 1021
+        /*0860*/                   LDS R13, [R11] ;
+	//## File ".nv_debug_ptx_txt", line 1022
+        /*0870*/                   LDG.E R12, desc[UR8][R8.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 179
+	//## File ".nv_debug_ptx_txt", line 1029
+        /*0880*/                   VIADD R10, R10, 0xffffffff ;
+	//## File ".nv_debug_ptx_txt", line 1028
+        /*0890*/                   IMAD.WIDE R6, R0.reuse, 0x4, R8 ;
+	//## File ".nv_debug_ptx_txt", line 1027
+        /*08a0*/                   LEA R11, R0, R11, 0x2 ;
+	//## File ".nv_debug_ptx_txt", line 1030
+        /*08b0*/                   ISETP.NE.AND P1, PT, R10, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 1025
+        /*08c0*/                   IMAD.IADD R5, R0, 0x1, R5 ;
+	//## File ".nv_debug_ptx_txt", line 1031
+        /*08d0*/                   MOV R8, R6 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 180
+	//## File ".nv_debug_ptx_txt", line 1023
+        /*08e0*/                   FFMA R4, R13, R12, R4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 179
+	//## File ".nv_debug_ptx_txt", line 1031
+        /*08f0*/               @P1 BRA `(.L_x_66) ;
+.L_x_65:
+        /*0900*/                   BSYNC B1 ;
+.L_x_64:
+	//## File ".nv_debug_ptx_txt", line 1035
+        /*0910*/              @!P0 BRA `(.L_x_63) ;
+	//## File ".nv_debug_ptx_txt", line 1038
+        /*0920*/                   S2UR UR5, SR_CgaCtaId ;
+        /*0930*/                   UMOV UR4, 0x400 ;
+        /*0940*/                   UIADD3 UR4, UR4, 0x80, URZ ;
+        /*0950*/                   ULEA UR4, UR5, UR4, 0x18 ;
+	//## File ".nv_debug_ptx_txt", line 1039
+        /*0960*/                   LEA R15, R5, UR4, 0x2 ;
+.L_x_67:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 180
+	//## File ".nv_debug_ptx_txt", line 1045
+        /*0970*/                   SHF.R.S32.HI R7, RZ, 0x1f, R5.reuse ;
+        /*0980*/                   IMAD.MOV.U32 R6, RZ, RZ, R5 ;
+	//## File ".nv_debug_ptx_txt", line 1046
+        /*0990*/                   IMAD.WIDE R8, R23, UR7, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1048
+        /*09a0*/                   LEA R6, P0, R8, UR12, 0x2 ;
+        /*09b0*/                   LEA.HI.X R7, R8, UR13, R9, 0x2, P0 ;
+	//## File ".nv_debug_ptx_txt", line 1052
+        /*09c0*/                   IMAD.WIDE R8, R0.reuse, 0x4, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1050
+        /*09d0*/                   LDG.E R6, desc[UR8][R6.64] ;
+	//## File ".nv_debug_ptx_txt", line 1061
+        /*09e0*/                   IMAD.WIDE R10, R0.reuse, 0x4, R8 ;
+	//## File ".nv_debug_ptx_txt", line 1055
+        /*09f0*/                   LDG.E R8, desc[UR8][R8.64] ;
+	//## File ".nv_debug_ptx_txt", line 1069
+        /*0a00*/                   IMAD.WIDE R12, R0.reuse, 0x4, R10 ;
+	//## File ".nv_debug_ptx_txt", line 1064
+        /*0a10*/                   LDG.E R10, desc[UR8][R10.64] ;
+	//## File ".nv_debug_ptx_txt", line 1073
+        /*0a20*/                   LDG.E R12, desc[UR8][R12.64] ;
+	//## File ".nv_debug_ptx_txt", line 1053
+        /*0a30*/                   LEA R17, R0, R15, 0x2 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 179
+	//## File ".nv_debug_ptx_txt", line 1059
+        /*0a40*/                   IADD3 R5, R0.reuse, R5, R0.reuse ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 180
+	//## File ".nv_debug_ptx_txt", line 1049
+        /*0a50*/                   LDS R15, [R15] ;
+	//## File ".nv_debug_ptx_txt", line 1062
+        /*0a60*/                   IMAD R19, R0.reuse, 0x4, R17 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 179
+	//## File ".nv_debug_ptx_txt", line 1076
+        /*0a70*/                   IADD3 R5, R0.reuse, R5, R0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 180
+	//## File ".nv_debug_ptx_txt", line 1054
+        /*0a80*/                   LDS R17, [R17] ;
+	//## File ".nv_debug_ptx_txt", line 1070
+        /*0a90*/                   LEA R21, R0, R19, 0x2 ;
+	//## File ".nv_debug_ptx_txt", line 1063
+        /*0aa0*/                   LDS R19, [R19] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 179
+	//## File ".nv_debug_ptx_txt", line 1078
+        /*0ab0*/                   ISETP.GE.AND P0, PT, R5, UR7, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 180
+	//## File ".nv_debug_ptx_txt", line 1072
+        /*0ac0*/                   LDS R7, [R21] ;
+	//## File ".nv_debug_ptx_txt", line 1051
+        /*0ad0*/                   FFMA R6, R15, R6, R4 ;
+	//## File ".nv_debug_ptx_txt", line 1071
+        /*0ae0*/                   IMAD R15, R0, 0x4, R21 ;
+	//## File ".nv_debug_ptx_txt", line 1056
+        /*0af0*/                   FFMA R6, R17, R8, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1065
+        /*0b00*/                   FFMA R6, R19, R10, R6 ;
+	//## File ".nv_debug_ptx_txt", line 1074
+        /*0b10*/                   FFMA R4, R7, R12, R6 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 179
+	//## File ".nv_debug_ptx_txt", line 1079
+        /*0b20*/              @!P0 BRA `(.L_x_67) ;
+.L_x_63:
+        /*0b30*/                   BSYNC B0 ;
+.L_x_62:
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1089
+        /*0b40*/                   SHFL.DOWN PT, R3, R4, 0x10, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 188
+	//## File ".nv_debug_ptx_txt", line 1126
+        /*0b50*/                   SHF.R.S32.HI R7, RZ, 0x1f, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1128
+        /*0b60*/                   LEA.HI R7, R7, R2, RZ, 0x5 ;
+	//## File ".nv_debug_ptx_txt", line 1129
+        /*0b70*/                   LOP3.LUT R9, R7, 0xffffffe0, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 1130
+        /*0b80*/                   IADD3 R9, -R9, R2, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 195
+	//## File ".nv_debug_ptx_txt", line 1147
+        /*0b90*/                   VIADD R2, R2, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 190
+	//## File ".nv_debug_ptx_txt", line 1132
+        /*0ba0*/                   ISETP.NE.AND P1, PT, R9, RZ, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 195
+	//## File ".nv_debug_ptx_txt", line 1148
+        /*0bb0*/                   ISETP.GT.U32.AND P0, PT, R2, 0x3e, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1093
+        /*0bc0*/                   FADD R3, R3, R4 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1097
+        /*0bd0*/                   SHFL.DOWN PT, R6, R3, 0x8, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 191
+	//## File ".nv_debug_ptx_txt", line 1139
+        /*0be0*/              @!P1 MOV R4, 0x400 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 189
+	//## File ".nv_debug_ptx_txt", line 1136
+        /*0bf0*/              @!P1 SHF.R.S32.HI R7, RZ, 0x5, R7 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 191
+	//## File ".nv_debug_ptx_txt", line 1139
+        /*0c00*/              @!P1 S2R R11, SR_CgaCtaId ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1101
+        /*0c10*/                   FADD R6, R3, R6 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1105
+        /*0c20*/                   SHFL.DOWN PT, R5, R6, 0x4, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 191
+	//## File ".nv_debug_ptx_txt", line 1139
+        /*0c30*/              @!P1 LEA R4, R11, R4, 0x18 ;
+	//## File ".nv_debug_ptx_txt", line 1140
+        /*0c40*/              @!P1 LEA R4, R7, R4, 0x2 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1109
+        /*0c50*/                   FADD R5, R6, R5 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1112
+        /*0c60*/                   SHFL.DOWN PT, R8, R5, 0x2, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1116
+        /*0c70*/                   FADD R8, R5, R8 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1120
+        /*0c80*/                   SHFL.DOWN PT, R3, R8, 0x1, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 184
+	//## File ".nv_debug_ptx_txt", line 1124
+        /*0c90*/                   FADD R3, R8, R3 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 191
+	//## File ".nv_debug_ptx_txt", line 1141
+        /*0ca0*/              @!P1 STS [R4], R3 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 193
+	//## File ".nv_debug_ptx_txt", line 1145
+        /*0cb0*/                   BAR.SYNC.DEFER_BLOCKING 0x0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 195
+	//## File ".nv_debug_ptx_txt", line 1149
+        /*0cc0*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 196
+	//## File ".nv_debug_ptx_txt", line 1152
+        /*0cd0*/                   SHF.R.S32.HI R3, RZ, 0x1f, R0 ;
+	//## File ".nv_debug_ptx_txt", line 1154
+        /*0ce0*/                   LEA.HI R3, R3, R0, RZ, 0x5 ;
+	//## File ".nv_debug_ptx_txt", line 1155
+        /*0cf0*/                   SHF.R.S32.HI R0, RZ, 0x5, R3 ;
+	//## File ".nv_debug_ptx_txt", line 1156
+        /*0d00*/                   ISETP.GE.AND P0, PT, R9, R0, PT ;
+	//## File ".nv_debug_ptx_txt", line 1161
+        /*0d10*/              @!P0 S2R R3, SR_CgaCtaId ;
+        /*0d20*/              @!P0 MOV R0, 0x400 ;
+        /*0d30*/              @!P0 LEA R2, R3, R0, 0x18 ;
+	//## File ".nv_debug_ptx_txt", line 1158
+        /*0d40*/                   IMAD.MOV.U32 R0, RZ, RZ, RZ ;
+	//## File ".nv_debug_ptx_txt", line 1162
+        /*0d50*/              @!P0 LEA R9, R9, R2, 0x2 ;
+	//## File ".nv_debug_ptx_txt", line 1163
+        /*0d60*/              @!P0 LDS R0, [R9] ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1173
+        /*0d70*/                   SHFL.DOWN PT, R3, R0, 0x10, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1177
+        /*0d80*/                   FADD R3, R3, R0 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1181
+        /*0d90*/                   SHFL.DOWN PT, R2, R3, 0x8, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1185
+        /*0da0*/                   FADD R2, R3, R2 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1189
+        /*0db0*/                   SHFL.DOWN PT, R5, R2, 0x4, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1193
+        /*0dc0*/                   FADD R5, R2, R5 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1196
+        /*0dd0*/                   SHFL.DOWN PT, R4, R5, 0x2, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1200
+        /*0de0*/                   FADD R4, R5, R4 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1204
+        /*0df0*/                   SHFL.DOWN PT, R7, R4, 0x1, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 200
+	//## File ".nv_debug_ptx_txt", line 1210
+        /*0e00*/               @P1 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 201
+	//## File ".nv_debug_ptx_txt", line 1216
+        /*0e10*/                   LDC.64 R2, c[0x0][0x220] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 198
+	//## File ".nv_debug_ptx_txt", line 1208
+        /*0e20*/                   FADD R7, R4, R7 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 201
+	//## File ".nv_debug_ptx_txt", line 1216
+        /*0e30*/                   IMAD.WIDE R2, R23, 0x4, R2 ;
+	//## File ".nv_debug_ptx_txt", line 1217
+        /*0e40*/                   STG.E desc[UR8][R2.64], R7 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 204
+	//## File ".nv_debug_ptx_txt", line 1221
+        /*0e50*/                   EXIT ;
+.L_x_68:
+        /*0e60*/                   BRA `(.L_x_68);
+        /*0e70*/                   NOP;
+        /*0e80*/                   NOP;
+        /*0e90*/                   NOP;
+        /*0ea0*/                   NOP;
+        /*0eb0*/                   NOP;
+        /*0ec0*/                   NOP;
+        /*0ed0*/                   NOP;
+        /*0ee0*/                   NOP;
+        /*0ef0*/                   NOP;
+.L_x_90:
+
+
+//--------------------- .text.ds4_moe_expert_dispatch --------------------------
+	.section	.text.ds4_moe_expert_dispatch,"ax",@progbits
+	.align	128
+        .global         ds4_moe_expert_dispatch
+        .type           ds4_moe_expert_dispatch,@function
+        .size           ds4_moe_expert_dispatch,(.L_x_91 - ds4_moe_expert_dispatch)
+        .other          ds4_moe_expert_dispatch,@"STO_CUDA_ENTRY STV_DEFAULT"
+ds4_moe_expert_dispatch:
+.text.ds4_moe_expert_dispatch:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 131
+	//## File ".nv_debug_ptx_txt", line 742
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 140
+	//## File ".nv_debug_ptx_txt", line 761
+        /*0010*/                   S2R R2, SR_CTAID.X ;
+	//## File ".nv_debug_ptx_txt", line 760
+        /*0020*/                   ULDC UR4, c[0x0][0x0] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 141
+	//## File ".nv_debug_ptx_txt", line 765
+        /*0030*/                   ULDC UR10, c[0x0][0x234] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 140
+	//## File ".nv_debug_ptx_txt", line 762
+        /*0040*/                   S2R R3, SR_TID.X ;
+	//## File ".nv_debug_ptx_txt", line 763
+        /*0050*/                   IMAD R2, R2, UR4, R3 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 141
+	//## File ".nv_debug_ptx_txt", line 765
+        /*0060*/                   ISETP.GE.AND P0, PT, R2, UR10, PT ;
+	//## File ".nv_debug_ptx_txt", line 766
+        /*0070*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 779
+        /*0080*/                   LDC R0, c[0x0][0x238] ;
+	//## File ".nv_debug_ptx_txt", line 742
+        /*0090*/                   ULDC.64 UR8, c[0x0][0x208] ;
+	//## File ".nv_debug_ptx_txt", line 781
+        /*00a0*/                   HFMA2.MMA R14, -RZ, RZ, 0, 0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 143
+	//## File ".nv_debug_ptx_txt", line 772
+        /*00b0*/                   LDC R9, c[0x0][0x230] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 779
+        /*00c0*/                   ISETP.GE.AND P0, PT, R0, 0x1, PT ;
+	//## File ".nv_debug_ptx_txt", line 781
+        /*00d0*/              @!P0 BRA `(.L_x_69) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 143
+	//## File ".nv_debug_ptx_txt", line 772
+        /*00e0*/                   LDC.64 R4, c[0x0][0x228] ;
+        /*00f0*/                   IMAD.WIDE R4, R9, 0x4, R4 ;
+	//## File ".nv_debug_ptx_txt", line 773
+        /*0100*/                   LDG.E R11, desc[UR8][R4.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 783
+        /*0110*/                   IADD3 R3, R0.reuse, -0x1, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 144
+	//## File ".nv_debug_ptx_txt", line 775
+        /*0120*/                   USHF.R.S32.HI UR5, URZ, 0x1f, UR10 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 784
+        /*0130*/                   LOP3.LUT R13, R0, 0x3, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 788
+        /*0140*/                   UMOV UR4, URZ ;
+	//## File ".nv_debug_ptx_txt", line 785
+        /*0150*/                   ISETP.GE.U32.AND P0, PT, R3, 0x3, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 144
+	//## File ".nv_debug_ptx_txt", line 776
+        /*0160*/                   SHF.R.S32.HI R3, RZ, 0x1f, R2 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 788
+        /*0170*/                   MOV R14, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 144
+	//## File ".nv_debug_ptx_txt", line 777
+        /*0180*/                   SHF.R.S32.HI R8, RZ, 0x1f, R0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 143
+	//## File ".nv_debug_ptx_txt", line 773
+        /*0190*/                   SHF.R.S32.HI R10, RZ, 0x1f, R11 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 788
+        /*01a0*/              @!P0 BRA `(.L_x_70) ;
+	//## File ".nv_debug_ptx_txt", line 792
+        /*01b0*/                   IMAD R4, R10, UR10, RZ ;
+	//## File ".nv_debug_ptx_txt", line 795
+        /*01c0*/                   ULDC.64 UR6, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 792
+        /*01d0*/                   IMAD.WIDE.U32 R6, R11, UR10, R2 ;
+	//## File ".nv_debug_ptx_txt", line 790
+        /*01e0*/                   IADD3 R12, -R13, R0, RZ ;
+	//## File ".nv_debug_ptx_txt", line 799
+        /*01f0*/                   UMOV UR4, URZ ;
+        /*0200*/                   HFMA2.MMA R14, -RZ, RZ, 0, 0 ;
+	//## File ".nv_debug_ptx_txt", line 792
+        /*0210*/                   IMAD R5, R11, UR5, R4 ;
+        /*0220*/                   IMAD.IADD R5, R7, 0x1, R5 ;
+	//## File ".nv_debug_ptx_txt", line 793
+        /*0230*/                   IMAD R7, R5, R0.reuse, RZ ;
+        /*0240*/                   IMAD.WIDE.U32 R4, R6, R0, RZ ;
+        /*0250*/                   IMAD R7, R8, R6, R7 ;
+	//## File ".nv_debug_ptx_txt", line 795
+        /*0260*/                   LEA R6, P0, R4, UR6, 0x2 ;
+	//## File ".nv_debug_ptx_txt", line 793
+        /*0270*/                   IADD3 R5, R5, R7, RZ ;
+	//## File ".nv_debug_ptx_txt", line 796
+        /*0280*/                   IADD3 R6, P1, R6, 0x8, RZ ;
+	//## File ".nv_debug_ptx_txt", line 795
+        /*0290*/                   LEA.HI.X R4, R4, UR7, R5, 0x2, P0 ;
+	//## File ".nv_debug_ptx_txt", line 799
+        /*02a0*/                   ULDC.64 UR6, c[0x0][0x218] ;
+        /*02b0*/                   ISETP.GT.AND P0, PT, R12, RZ, PT ;
+        /*02c0*/                   IMAD.U32 R5, RZ, RZ, UR7 ;
+	//## File ".nv_debug_ptx_txt", line 796
+        /*02d0*/                   IMAD.X R7, RZ, RZ, R4, P1 ;
+	//## File ".nv_debug_ptx_txt", line 799
+        /*02e0*/                   MOV R4, UR6 ;
+        /*02f0*/              @!P0 BRA `(.L_x_71) ;
+	//## File ".nv_debug_ptx_txt", line 821
+        /*0300*/                   ISETP.GT.AND P1, PT, R12, 0xc, PT ;
+        /*0310*/                   PLOP3.LUT P0, PT, PT, PT, PT, 0x80, 0x0 ;
+	//## File ".nv_debug_ptx_txt", line 822
+        /*0320*/              @!P1 BRA `(.L_x_72) ;
+	//## File ".nv_debug_ptx_txt", line 821
+        /*0330*/                   PLOP3.LUT P0, PT, PT, PT, PT, 0x8, 0x0 ;
+.L_x_73:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 803
+        /*0340*/                   LDG.E R19, desc[UR8][R4.64] ;
+	//## File ".nv_debug_ptx_txt", line 804
+        /*0350*/                   LDG.E R20, desc[UR8][R6.64+-0x8] ;
+	//## File ".nv_debug_ptx_txt", line 806
+        /*0360*/                   LDG.E R26, desc[UR8][R4.64+0x4] ;
+	//## File ".nv_debug_ptx_txt", line 807
+        /*0370*/                   LDG.E R21, desc[UR8][R6.64+-0x4] ;
+	//## File ".nv_debug_ptx_txt", line 809
+        /*0380*/                   LDG.E R18, desc[UR8][R4.64+0x8] ;
+	//## File ".nv_debug_ptx_txt", line 810
+        /*0390*/                   LDG.E R17, desc[UR8][R6.64] ;
+	//## File ".nv_debug_ptx_txt", line 812
+        /*03a0*/                   LDG.E R15, desc[UR8][R4.64+0xc] ;
+	//## File ".nv_debug_ptx_txt", line 813
+        /*03b0*/                   LDG.E R16, desc[UR8][R6.64+0x4] ;
+	//## File ".nv_debug_ptx_txt", line 803
+        /*03c0*/                   LDG.E R22, desc[UR8][R4.64+0x10] ;
+	//## File ".nv_debug_ptx_txt", line 804
+        /*03d0*/                   LDG.E R23, desc[UR8][R6.64+0x8] ;
+	//## File ".nv_debug_ptx_txt", line 806
+        /*03e0*/                   LDG.E R24, desc[UR8][R4.64+0x14] ;
+	//## File ".nv_debug_ptx_txt", line 807
+        /*03f0*/                   LDG.E R25, desc[UR8][R6.64+0xc] ;
+	//## File ".nv_debug_ptx_txt", line 805
+        /*0400*/                   FFMA R19, R19, R20, R14 ;
+	//## File ".nv_debug_ptx_txt", line 809
+        /*0410*/                   LDG.E R20, desc[UR8][R4.64+0x18] ;
+	//## File ".nv_debug_ptx_txt", line 808
+        /*0420*/                   FFMA R19, R26, R21, R19 ;
+	//## File ".nv_debug_ptx_txt", line 810
+        /*0430*/                   LDG.E R21, desc[UR8][R6.64+0x10] ;
+	//## File ".nv_debug_ptx_txt", line 811
+        /*0440*/                   FFMA R14, R18, R17, R19 ;
+	//## File ".nv_debug_ptx_txt", line 812
+        /*0450*/                   LDG.E R18, desc[UR8][R4.64+0x1c] ;
+	//## File ".nv_debug_ptx_txt", line 813
+        /*0460*/                   LDG.E R19, desc[UR8][R6.64+0x14] ;
+	//## File ".nv_debug_ptx_txt", line 814
+        /*0470*/                   FFMA R27, R15, R16, R14 ;
+	//## File ".nv_debug_ptx_txt", line 803
+        /*0480*/                   LDG.E R14, desc[UR8][R4.64+0x20] ;
+	//## File ".nv_debug_ptx_txt", line 804
+        /*0490*/                   LDG.E R15, desc[UR8][R6.64+0x18] ;
+	//## File ".nv_debug_ptx_txt", line 806
+        /*04a0*/                   LDG.E R16, desc[UR8][R4.64+0x24] ;
+	//## File ".nv_debug_ptx_txt", line 807
+        /*04b0*/                   LDG.E R17, desc[UR8][R6.64+0x1c] ;
+	//## File ".nv_debug_ptx_txt", line 805
+        /*04c0*/                   FFMA R23, R22, R23, R27 ;
+	//## File ".nv_debug_ptx_txt", line 810
+        /*04d0*/                   LDG.E R22, desc[UR8][R6.64+0x20] ;
+	//## File ".nv_debug_ptx_txt", line 808
+        /*04e0*/                   FFMA R25, R24, R25, R23 ;
+	//## File ".nv_debug_ptx_txt", line 809
+        /*04f0*/                   LDG.E R23, desc[UR8][R4.64+0x28] ;
+	//## File ".nv_debug_ptx_txt", line 813
+        /*0500*/                   LDG.E R24, desc[UR8][R6.64+0x34] ;
+	//## File ".nv_debug_ptx_txt", line 811
+        /*0510*/                   FFMA R25, R20, R21, R25 ;
+	//## File ".nv_debug_ptx_txt", line 812
+        /*0520*/                   LDG.E R20, desc[UR8][R4.64+0x2c] ;
+	//## File ".nv_debug_ptx_txt", line 813
+        /*0530*/                   LDG.E R21, desc[UR8][R6.64+0x24] ;
+	//## File ".nv_debug_ptx_txt", line 814
+        /*0540*/                   FFMA R25, R18, R19, R25 ;
+	//## File ".nv_debug_ptx_txt", line 803
+        /*0550*/                   LDG.E R18, desc[UR8][R4.64+0x30] ;
+	//## File ".nv_debug_ptx_txt", line 804
+        /*0560*/                   LDG.E R19, desc[UR8][R6.64+0x28] ;
+	//## File ".nv_debug_ptx_txt", line 805
+        /*0570*/                   FFMA R25, R14, R15, R25 ;
+	//## File ".nv_debug_ptx_txt", line 806
+        /*0580*/                   LDG.E R14, desc[UR8][R4.64+0x34] ;
+	//## File ".nv_debug_ptx_txt", line 807
+        /*0590*/                   LDG.E R15, desc[UR8][R6.64+0x2c] ;
+	//## File ".nv_debug_ptx_txt", line 808
+        /*05a0*/                   FFMA R26, R16, R17, R25 ;
+	//## File ".nv_debug_ptx_txt", line 809
+        /*05b0*/                   LDG.E R25, desc[UR8][R4.64+0x38] ;
+	//## File ".nv_debug_ptx_txt", line 810
+        /*05c0*/                   LDG.E R16, desc[UR8][R6.64+0x30] ;
+	//## File ".nv_debug_ptx_txt", line 812
+        /*05d0*/                   LDG.E R17, desc[UR8][R4.64+0x3c] ;
+	//## File ".nv_debug_ptx_txt", line 811
+        /*05e0*/                   FFMA R23, R23, R22, R26 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 820
+        /*05f0*/                   IADD3 R12, R12, -0x10, RZ ;
+	//## File ".nv_debug_ptx_txt", line 816
+        /*0600*/                   UIADD3 UR4, UR4, 0x10, URZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 814
+        /*0610*/                   FFMA R21, R20, R21, R23 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 818
+        /*0620*/                   IADD3 R20, P1, R4, 0x40, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 805
+        /*0630*/                   FFMA R19, R18, R19, R21 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 818
+        /*0640*/                   IADD3.X R21, RZ, R5, RZ, P1, !PT ;
+        /*0650*/                   ISETP.GT.AND P1, PT, R12, 0xc, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 808
+        /*0660*/                   FFMA R14, R14, R15, R19 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 819
+        /*0670*/                   IADD3 R15, P2, R6, 0x40, RZ ;
+	//## File ".nv_debug_ptx_txt", line 822
+        /*0680*/                   MOV R4, R20 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 811
+        /*0690*/                   FFMA R14, R25, R16, R14 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 819
+        /*06a0*/                   IMAD.X R7, RZ, RZ, R7, P2 ;
+	//## File ".nv_debug_ptx_txt", line 822
+        /*06b0*/                   MOV R5, R21 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 814
+        /*06c0*/                   FFMA R14, R17, R24, R14 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 822
+        /*06d0*/                   MOV R6, R15 ;
+        /*06e0*/               @P1 BRA `(.L_x_73) ;
+.L_x_72:
+	//## File ".nv_debug_ptx_txt", line 821
+        /*06f0*/                   ISETP.GT.AND P1, PT, R12, 0x4, PT ;
+	//## File ".nv_debug_ptx_txt", line 822
+        /*0700*/              @!P1 BRA `(.L_x_74) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 803
+        /*0710*/                   LDG.E R21, desc[UR8][R4.64] ;
+	//## File ".nv_debug_ptx_txt", line 804
+        /*0720*/                   LDG.E R22, desc[UR8][R6.64+-0x8] ;
+	//## File ".nv_debug_ptx_txt", line 806
+        /*0730*/                   LDG.E R25, desc[UR8][R4.64+0x4] ;
+	//## File ".nv_debug_ptx_txt", line 807
+        /*0740*/                   LDG.E R26, desc[UR8][R6.64+-0x4] ;
+	//## File ".nv_debug_ptx_txt", line 809
+        /*0750*/                   LDG.E R15, desc[UR8][R4.64+0x8] ;
+	//## File ".nv_debug_ptx_txt", line 810
+        /*0760*/                   LDG.E R16, desc[UR8][R6.64] ;
+	//## File ".nv_debug_ptx_txt", line 812
+        /*0770*/                   LDG.E R17, desc[UR8][R4.64+0xc] ;
+	//## File ".nv_debug_ptx_txt", line 813
+        /*0780*/                   LDG.E R18, desc[UR8][R6.64+0x4] ;
+	//## File ".nv_debug_ptx_txt", line 803
+        /*0790*/                   LDG.E R19, desc[UR8][R4.64+0x10] ;
+	//## File ".nv_debug_ptx_txt", line 804
+        /*07a0*/                   LDG.E R20, desc[UR8][R6.64+0x8] ;
+	//## File ".nv_debug_ptx_txt", line 807
+        /*07b0*/                   LDG.E R23, desc[UR8][R6.64+0xc] ;
+	//## File ".nv_debug_ptx_txt", line 805
+        /*07c0*/                   FFMA R24, R21, R22, R14 ;
+	//## File ".nv_debug_ptx_txt", line 806
+        /*07d0*/                   LDG.E R22, desc[UR8][R4.64+0x14] ;
+	//## File ".nv_debug_ptx_txt", line 809
+        /*07e0*/                   LDG.E R14, desc[UR8][R4.64+0x18] ;
+	//## File ".nv_debug_ptx_txt", line 810
+        /*07f0*/                   LDG.E R21, desc[UR8][R6.64+0x10] ;
+	//## File ".nv_debug_ptx_txt", line 808
+        /*0800*/                   FFMA R26, R25, R26, R24 ;
+	//## File ".nv_debug_ptx_txt", line 812
+        /*0810*/                   LDG.E R24, desc[UR8][R4.64+0x1c] ;
+	//## File ".nv_debug_ptx_txt", line 813
+        /*0820*/                   LDG.E R25, desc[UR8][R6.64+0x14] ;
+	//## File ".nv_debug_ptx_txt", line 811
+        /*0830*/                   FFMA R16, R15, R16, R26 ;
+	//## File ".nv_debug_ptx_txt", line 814
+        /*0840*/                   FFMA R16, R17, R18, R16 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 818
+        /*0850*/                   IADD3 R4, P1, R4, 0x20, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 805
+        /*0860*/                   FFMA R19, R19, R20, R16 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 819
+        /*0870*/                   IADD3 R6, P2, R6, 0x20, RZ ;
+	//## File ".nv_debug_ptx_txt", line 818
+        /*0880*/                   IMAD.X R5, RZ, RZ, R5, P1 ;
+        /*0890*/                   PLOP3.LUT P0, PT, PT, PT, PT, 0x8, 0x0 ;
+	//## File ".nv_debug_ptx_txt", line 819
+        /*08a0*/                   IADD3.X R7, RZ, R7, RZ, P2, !PT ;
+	//## File ".nv_debug_ptx_txt", line 820
+        /*08b0*/                   IADD3 R12, R12, -0x8, RZ ;
+	//## File ".nv_debug_ptx_txt", line 816
+        /*08c0*/                   UIADD3 UR4, UR4, 0x8, URZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 808
+        /*08d0*/                   FFMA R19, R22, R23, R19 ;
+	//## File ".nv_debug_ptx_txt", line 811
+        /*08e0*/                   FFMA R19, R14, R21, R19 ;
+	//## File ".nv_debug_ptx_txt", line 814
+        /*08f0*/                   FFMA R14, R24, R25, R19 ;
+.L_x_74:
+        /*0900*/                   ISETP.NE.OR P0, PT, R12, RZ, P0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 822
+        /*0910*/              @!P0 BRA `(.L_x_70) ;
+.L_x_71:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 803
+        /*0920*/                   LDG.E R15, desc[UR8][R4.64] ;
+	//## File ".nv_debug_ptx_txt", line 804
+        /*0930*/                   LDG.E R16, desc[UR8][R6.64+-0x8] ;
+	//## File ".nv_debug_ptx_txt", line 806
+        /*0940*/                   LDG.E R18, desc[UR8][R4.64+0x4] ;
+	//## File ".nv_debug_ptx_txt", line 807
+        /*0950*/                   LDG.E R17, desc[UR8][R6.64+-0x4] ;
+	//## File ".nv_debug_ptx_txt", line 809
+        /*0960*/                   LDG.E R20, desc[UR8][R4.64+0x8] ;
+	//## File ".nv_debug_ptx_txt", line 810
+        /*0970*/                   LDG.E R19, desc[UR8][R6.64] ;
+	//## File ".nv_debug_ptx_txt", line 812
+        /*0980*/                   LDG.E R22, desc[UR8][R4.64+0xc] ;
+	//## File ".nv_debug_ptx_txt", line 813
+        /*0990*/                   LDG.E R21, desc[UR8][R6.64+0x4] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 818
+        /*09a0*/                   IADD3 R23, P0, R4, 0x10, RZ ;
+	//## File ".nv_debug_ptx_txt", line 816
+        /*09b0*/                   UIADD3 UR4, UR4, 0x4, URZ ;
+	//## File ".nv_debug_ptx_txt", line 820
+        /*09c0*/                   IADD3 R12, R12, -0x4, RZ ;
+	//## File ".nv_debug_ptx_txt", line 818
+        /*09d0*/                   IMAD.X R24, RZ, RZ, R5, P0 ;
+	//## File ".nv_debug_ptx_txt", line 821
+        /*09e0*/                   ISETP.NE.AND P0, PT, R12, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 822
+        /*09f0*/                   MOV R4, R23 ;
+        /*0a00*/                   MOV R5, R24 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 805
+        /*0a10*/                   FFMA R15, R15, R16, R14 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 819
+        /*0a20*/                   IADD3 R16, P1, R6, 0x10, RZ ;
+	//## File ".nv_debug_ptx_txt", line 822
+        /*0a30*/                   IMAD.MOV.U32 R6, RZ, RZ, R16 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 808
+        /*0a40*/                   FFMA R15, R18, R17, R15 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 819
+        /*0a50*/                   IADD3.X R17, RZ, R7, RZ, P1, !PT ;
+	//## File ".nv_debug_ptx_txt", line 822
+        /*0a60*/                   MOV R7, R17 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 811
+        /*0a70*/                   FFMA R15, R20, R19, R15 ;
+	//## File ".nv_debug_ptx_txt", line 814
+        /*0a80*/                   FFMA R14, R22, R21, R15 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 822
+        /*0a90*/               @P0 BRA `(.L_x_71) ;
+.L_x_70:
+	//## File ".nv_debug_ptx_txt", line 825
+        /*0aa0*/                   ISETP.NE.AND P0, PT, R13, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 826
+        /*0ab0*/              @!P0 BRA `(.L_x_69) ;
+	//## File ".nv_debug_ptx_txt", line 832
+        /*0ac0*/                   IMAD R10, R10, UR10, RZ ;
+	//## File ".nv_debug_ptx_txt", line 836
+        /*0ad0*/                   ULDC.64 UR12, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 832
+        /*0ae0*/                   IMAD.WIDE.U32 R6, R11, UR10, R2 ;
+	//## File ".nv_debug_ptx_txt", line 830
+        /*0af0*/                   ULDC.64 UR6, c[0x0][0x218] ;
+	//## File ".nv_debug_ptx_txt", line 832
+        /*0b00*/                   IMAD R5, R11, UR5, R10 ;
+	//## File ".nv_debug_ptx_txt", line 828
+        /*0b10*/                   USHF.R.S32.HI UR5, URZ, 0x1f, UR4 ;
+	//## File ".nv_debug_ptx_txt", line 832
+        /*0b20*/                   IADD3 R5, R7, R5, RZ ;
+	//## File ".nv_debug_ptx_txt", line 834
+        /*0b30*/                   IMAD R7, R5, R0.reuse, RZ ;
+        /*0b40*/                   IMAD.WIDE.U32 R4, R6, R0, UR4 ;
+	//## File ".nv_debug_ptx_txt", line 830
+        /*0b50*/                   UIMAD.WIDE UR4, UR4, 0x4, UR6 ;
+	//## File ".nv_debug_ptx_txt", line 834
+        /*0b60*/                   IMAD R7, R8, R6, R7 ;
+	//## File ".nv_debug_ptx_txt", line 836
+        /*0b70*/                   LEA R6, P0, R4, UR12, 0x2 ;
+	//## File ".nv_debug_ptx_txt", line 834
+        /*0b80*/                   IADD3 R7, R7, R5, RZ ;
+	//## File ".nv_debug_ptx_txt", line 836
+        /*0b90*/                   LEA.HI.X R7, R4, UR13, R7, 0x2, P0 ;
+.L_x_75:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 841
+        /*0ba0*/                   MOV R5, UR5 ;
+        /*0bb0*/                   IMAD.U32 R4, RZ, RZ, UR4 ;
+	//## File ".nv_debug_ptx_txt", line 842
+        /*0bc0*/                   LDG.E R0, desc[UR8][R6.64] ;
+	//## File ".nv_debug_ptx_txt", line 841
+        /*0bd0*/                   LDG.E R5, desc[UR8][R4.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 847
+        /*0be0*/                   IADD3 R13, R13, -0x1, RZ ;
+	//## File ".nv_debug_ptx_txt", line 845
+        /*0bf0*/                   UIADD3 UR4, UP0, UR4, 0x4, URZ ;
+	//## File ".nv_debug_ptx_txt", line 848
+        /*0c00*/                   ISETP.NE.AND P0, PT, R13, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 845
+        /*0c10*/                   UIADD3.X UR5, URZ, UR5, URZ, UP0, !UPT ;
+	//## File ".nv_debug_ptx_txt", line 846
+        /*0c20*/                   IADD3 R6, P1, R6, 0x4, RZ ;
+        /*0c30*/                   IADD3.X R7, RZ, R7, RZ, P1, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 147
+	//## File ".nv_debug_ptx_txt", line 843
+        /*0c40*/                   FFMA R14, R5, R0, R14 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 146
+	//## File ".nv_debug_ptx_txt", line 849
+        /*0c50*/               @P0 BRA `(.L_x_75) ;
+.L_x_69:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 149
+	//## File ".nv_debug_ptx_txt", line 858
+        /*0c60*/                   LDC.64 R4, c[0x0][0x220] ;
+	//## File ".nv_debug_ptx_txt", line 853
+        /*0c70*/                   IMAD R3, R9, UR10, R2 ;
+	//## File ".nv_debug_ptx_txt", line 858
+        /*0c80*/                   IMAD.WIDE R2, R3, 0x4, R4 ;
+	//## File ".nv_debug_ptx_txt", line 859
+        /*0c90*/                   STG.E desc[UR8][R2.64], R14 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 150
+	//## File ".nv_debug_ptx_txt", line 863
+        /*0ca0*/                   EXIT ;
+.L_x_76:
+        /*0cb0*/                   BRA `(.L_x_76);
+        /*0cc0*/                   NOP;
+        /*0cd0*/                   NOP;
+        /*0ce0*/                   NOP;
+        /*0cf0*/                   NOP;
+        /*0d00*/                   NOP;
+        /*0d10*/                   NOP;
+        /*0d20*/                   NOP;
+        /*0d30*/                   NOP;
+        /*0d40*/                   NOP;
+        /*0d50*/                   NOP;
+        /*0d60*/                   NOP;
+        /*0d70*/                   NOP;
+.L_x_91:
+
+
+//--------------------- .text.ds4_iq2_scalar      --------------------------
+	.section	.text.ds4_iq2_scalar,"ax",@progbits
+	.align	128
+        .global         ds4_iq2_scalar
+        .type           ds4_iq2_scalar,@function
+        .size           ds4_iq2_scalar,(.L_x_92 - ds4_iq2_scalar)
+        .other          ds4_iq2_scalar,@"STO_CUDA_ENTRY STV_DEFAULT"
+ds4_iq2_scalar:
+.text.ds4_iq2_scalar:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 107
+	//## File ".nv_debug_ptx_txt", line 576
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 114
+	//## File ".nv_debug_ptx_txt", line 591
+        /*0010*/                   S2R R0, SR_CTAID.X ;
+	//## File ".nv_debug_ptx_txt", line 590
+        /*0020*/                   ULDC UR4, c[0x0][0x0] ;
+	//## File ".nv_debug_ptx_txt", line 592
+        /*0030*/                   S2R R3, SR_TID.X ;
+	//## File ".nv_debug_ptx_txt", line 593
+        /*0040*/                   IMAD R0, R0, UR4, R3 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 115
+	//## File ".nv_debug_ptx_txt", line 595
+        /*0050*/                   ULDC UR4, c[0x0][0x22c] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R0, UR4, PT ;
+	//## File ".nv_debug_ptx_txt", line 596
+        /*0070*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 117
+	//## File ".nv_debug_ptx_txt", line 603
+        /*0080*/                   LDC.64 R4, c[0x0][0x210] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 607
+        /*0090*/                   IMAD.SHL.U32 R3, R0, 0x10, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 124
+	//## File ".nv_debug_ptx_txt", line 613
+        /*00a0*/                   ULDC.64 UR6, c[0x0][0x218] ;
+	//## File ".nv_debug_ptx_txt", line 576
+        /*00b0*/                   ULDC.64 UR4, c[0x0][0x208] ;
+	//## File ".nv_debug_ptx_txt", line 613
+        /*00c0*/                   IADD3 R2, P0, R3, UR6, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 127
+	//## File ".nv_debug_ptx_txt", line 723
+        /*00d0*/                   ULDC UR6, c[0x0][0x228] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 124
+	//## File ".nv_debug_ptx_txt", line 613
+        /*00e0*/                   LEA.HI.X.SX32 R3, R3, UR7, 0x1, P0 ;
+	//## File ".nv_debug_ptx_txt", line 614
+        /*00f0*/                   LDG.E.S8 R20, desc[UR4][R2.64] ;
+	//## File ".nv_debug_ptx_txt", line 621
+        /*0100*/                   LDG.E.S8 R23, desc[UR4][R2.64+0x1] ;
+	//## File ".nv_debug_ptx_txt", line 628
+        /*0110*/                   LDG.E.S8 R18, desc[UR4][R2.64+0x2] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 117
+	//## File ".nv_debug_ptx_txt", line 603
+        /*0120*/                   IMAD.WIDE R4, R0, 0x4, R4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 124
+	//## File ".nv_debug_ptx_txt", line 635
+        /*0130*/                   LDG.E.S8 R17, desc[UR4][R2.64+0x3] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 117
+	//## File ".nv_debug_ptx_txt", line 604
+        /*0140*/                   LDG.E R5, desc[UR4][R4.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 124
+	//## File ".nv_debug_ptx_txt", line 642
+        /*0150*/                   LDG.E.S8 R16, desc[UR4][R2.64+0x4] ;
+	//## File ".nv_debug_ptx_txt", line 649
+        /*0160*/                   LDG.E.S8 R15, desc[UR4][R2.64+0x5] ;
+	//## File ".nv_debug_ptx_txt", line 656
+        /*0170*/                   LDG.E.S8 R14, desc[UR4][R2.64+0x6] ;
+	//## File ".nv_debug_ptx_txt", line 663
+        /*0180*/                   LDG.E.S8 R13, desc[UR4][R2.64+0x7] ;
+	//## File ".nv_debug_ptx_txt", line 670
+        /*0190*/                   LDG.E.S8 R12, desc[UR4][R2.64+0x8] ;
+	//## File ".nv_debug_ptx_txt", line 677
+        /*01a0*/                   LDG.E.S8 R11, desc[UR4][R2.64+0x9] ;
+	//## File ".nv_debug_ptx_txt", line 684
+        /*01b0*/                   LDG.E.S8 R10, desc[UR4][R2.64+0xa] ;
+	//## File ".nv_debug_ptx_txt", line 691
+        /*01c0*/                   LDG.E.S8 R9, desc[UR4][R2.64+0xb] ;
+	//## File ".nv_debug_ptx_txt", line 698
+        /*01d0*/                   LDG.E.S8 R4, desc[UR4][R2.64+0xc] ;
+	//## File ".nv_debug_ptx_txt", line 705
+        /*01e0*/                   LDG.E.S8 R7, desc[UR4][R2.64+0xd] ;
+	//## File ".nv_debug_ptx_txt", line 712
+        /*01f0*/                   LDG.E.S8 R6, desc[UR4][R2.64+0xe] ;
+	//## File ".nv_debug_ptx_txt", line 718
+        /*0200*/                   LDG.E.S8 R8, desc[UR4][R2.64+0xf] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 606
+        /*0210*/                   LOP3.LUT R19, R5, 0x3, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 618
+        /*0220*/                   SHF.R.U32.HI R21, RZ, 0x2, R5.reuse ;
+	//## File ".nv_debug_ptx_txt", line 625
+        /*0230*/                   SHF.R.U32.HI R24, RZ, 0x4, R5.reuse ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 616
+        /*0240*/                   IMAD R19, R19, R20, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 619
+        /*0250*/                   LOP3.LUT R22, R21, 0x3, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 632
+        /*0260*/                   SHF.R.U32.HI R20, RZ, 0x6, R5 ;
+	//## File ".nv_debug_ptx_txt", line 626
+        /*0270*/                   LOP3.LUT R24, R24, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 623
+        /*0280*/                   IMAD R19, R22, R23, R19 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 639
+        /*0290*/                   SHF.R.U32.HI R21, RZ, 0x8, R5 ;
+	//## File ".nv_debug_ptx_txt", line 633
+        /*02a0*/                   LOP3.LUT R20, R20, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 630
+        /*02b0*/                   IMAD R18, R24, R18, R19 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 646
+        /*02c0*/                   SHF.R.U32.HI R2, RZ, 0xa, R5.reuse ;
+	//## File ".nv_debug_ptx_txt", line 640
+        /*02d0*/                   LOP3.LUT R21, R21, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 637
+        /*02e0*/                   IMAD R17, R20, R17, R18 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 653
+        /*02f0*/                   SHF.R.U32.HI R3, RZ, 0xc, R5 ;
+	//## File ".nv_debug_ptx_txt", line 647
+        /*0300*/                   LOP3.LUT R2, R2, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 644
+        /*0310*/                   IMAD R16, R21, R16, R17 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 660
+        /*0320*/                   SHF.R.U32.HI R17, RZ, 0xe, R5 ;
+	//## File ".nv_debug_ptx_txt", line 654
+        /*0330*/                   LOP3.LUT R3, R3, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 651
+        /*0340*/                   IMAD R15, R2, R15, R16 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 667
+        /*0350*/                   SHF.R.U32.HI R2, RZ, 0x10, R5 ;
+	//## File ".nv_debug_ptx_txt", line 661
+        /*0360*/                   LOP3.LUT R17, R17, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 658
+        /*0370*/                   IMAD R14, R3, R14, R15 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 674
+        /*0380*/                   SHF.R.U32.HI R3, RZ, 0x12, R5.reuse ;
+	//## File ".nv_debug_ptx_txt", line 668
+        /*0390*/                   LOP3.LUT R2, R2, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 665
+        /*03a0*/                   IMAD R13, R17, R13, R14 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 681
+        /*03b0*/                   SHF.R.U32.HI R14, RZ, 0x14, R5 ;
+	//## File ".nv_debug_ptx_txt", line 675
+        /*03c0*/                   LOP3.LUT R3, R3, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 672
+        /*03d0*/                   IMAD R2, R2, R12, R13 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 688
+        /*03e0*/                   SHF.R.U32.HI R12, RZ, 0x16, R5.reuse ;
+	//## File ".nv_debug_ptx_txt", line 682
+        /*03f0*/                   LOP3.LUT R14, R14, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 679
+        /*0400*/                   IMAD R3, R3, R11, R2 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 695
+        /*0410*/                   SHF.R.U32.HI R2, RZ, 0x18, R5 ;
+	//## File ".nv_debug_ptx_txt", line 689
+        /*0420*/                   LOP3.LUT R12, R12, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 686
+        /*0430*/                   IMAD R10, R14, R10, R3 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 702
+        /*0440*/                   SHF.R.U32.HI R13, RZ, 0x1a, R5 ;
+	//## File ".nv_debug_ptx_txt", line 696
+        /*0450*/                   LOP3.LUT R11, R2, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 693
+        /*0460*/                   IMAD R9, R12, R9, R10 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 127
+	//## File ".nv_debug_ptx_txt", line 724
+        /*0470*/                   LDC.64 R2, c[0x0][0x220] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 709
+        /*0480*/                   SHF.R.U32.HI R10, RZ, 0x1c, R5 ;
+	//## File ".nv_debug_ptx_txt", line 703
+        /*0490*/                   LOP3.LUT R13, R13, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 700
+        /*04a0*/                   IMAD R4, R11, R4, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 710
+        /*04b0*/                   LOP3.LUT R10, R10, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 707
+        /*04c0*/                   IMAD R7, R13, R7, R4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 123
+	//## File ".nv_debug_ptx_txt", line 716
+        /*04d0*/                   SHF.R.U32.HI R5, RZ, 0x1e, R5 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 125
+	//## File ".nv_debug_ptx_txt", line 714
+        /*04e0*/                   IMAD R7, R10, R6, R7 ;
+	//## File ".nv_debug_ptx_txt", line 720
+        /*04f0*/                   IMAD R5, R5, R8, R7 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 127
+	//## File ".nv_debug_ptx_txt", line 722
+        /*0500*/                   I2FP.F32.S32 R5, R5 ;
+	//## File ".nv_debug_ptx_txt", line 724
+        /*0510*/                   IMAD.WIDE R2, R0, 0x4, R2 ;
+	//## File ".nv_debug_ptx_txt", line 723
+        /*0520*/                   FMUL R5, R5, UR6 ;
+	//## File ".nv_debug_ptx_txt", line 725
+        /*0530*/                   STG.E desc[UR4][R2.64], R5 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 128
+	//## File ".nv_debug_ptx_txt", line 729
+        /*0540*/                   EXIT ;
+.L_x_77:
+        /*0550*/                   BRA `(.L_x_77);
+        /*0560*/                   NOP;
+        /*0570*/                   NOP;
+        /*0580*/                   NOP;
+        /*0590*/                   NOP;
+        /*05a0*/                   NOP;
+        /*05b0*/                   NOP;
+        /*05c0*/                   NOP;
+        /*05d0*/                   NOP;
+        /*05e0*/                   NOP;
+        /*05f0*/                   NOP;
+.L_x_92:
+
+
+//--------------------- .text.ds4_iq2_simd        --------------------------
+	.section	.text.ds4_iq2_simd,"ax",@progbits
+	.align	128
+        .global         ds4_iq2_simd
+        .type           ds4_iq2_simd,@function
+        .size           ds4_iq2_simd,(.L_x_93 - ds4_iq2_simd)
+        .other          ds4_iq2_simd,@"STO_CUDA_ENTRY STV_DEFAULT"
+ds4_iq2_simd:
+.text.ds4_iq2_simd:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 79
+	//## File ".nv_debug_ptx_txt", line 422
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 86
+	//## File ".nv_debug_ptx_txt", line 438
+        /*0010*/                   S2R R3, SR_TID.X ;
+	//## File ".nv_debug_ptx_txt", line 436
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+	//## File ".nv_debug_ptx_txt", line 437
+        /*0030*/                   LDC R0, c[0x0][RZ] ;
+	//## File ".nv_debug_ptx_txt", line 439
+        /*0040*/                   IMAD R0, R0, UR4, R3 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 87
+	//## File ".nv_debug_ptx_txt", line 441
+        /*0050*/                   ULDC UR4, c[0x0][0x22c] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R0, UR4, PT ;
+	//## File ".nv_debug_ptx_txt", line 442
+        /*0070*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 89
+	//## File ".nv_debug_ptx_txt", line 449
+        /*0080*/                   LDC.64 R8, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 422
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 101
+	//## File ".nv_debug_ptx_txt", line 475
+        /*00a0*/                   LDC.64 R10, c[0x0][0x218] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 100
+	//## File ".nv_debug_ptx_txt", line 472
+        /*00b0*/                   IMAD.SHL.U32 R3, R0.reuse, 0x4, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 103
+	//## File ".nv_debug_ptx_txt", line 559
+        /*00c0*/                   ULDC UR6, c[0x0][0x228] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 89
+	//## File ".nv_debug_ptx_txt", line 449
+        /*00d0*/                   IMAD.WIDE R8, R0, 0x4, R8 ;
+	//## File ".nv_debug_ptx_txt", line 453
+        /*00e0*/                   LDG.E R8, desc[UR4][R8.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 101
+	//## File ".nv_debug_ptx_txt", line 475
+        /*00f0*/                   IMAD.WIDE R10, R3, 0x4, R10 ;
+	//## File ".nv_debug_ptx_txt", line 476
+        /*0100*/                   LDG.E R4, desc[UR4][R10.64] ;
+	//## File ".nv_debug_ptx_txt", line 503
+        /*0110*/                   LDG.E R3, desc[UR4][R10.64+0x4] ;
+	//## File ".nv_debug_ptx_txt", line 528
+        /*0120*/                   LDG.E R2, desc[UR4][R10.64+0x8] ;
+	//## File ".nv_debug_ptx_txt", line 552
+        /*0130*/                   LDG.E R5, desc[UR4][R10.64+0xc] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 95
+	//## File ".nv_debug_ptx_txt", line 455
+        /*0140*/                   LOP3.LUT R12, R8, 0xff, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 534
+        /*0150*/                   SHF.R.U32.HI R6, RZ, 0x18, R8.reuse ;
+	//## File ".nv_debug_ptx_txt", line 484
+        /*0160*/                   SHF.R.U32.HI R13, RZ, 0x8, R8.reuse ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 96
+	//## File ".nv_debug_ptx_txt", line 457
+        /*0170*/                   IMAD R7, R12, 0x1010101, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 95
+	//## File ".nv_debug_ptx_txt", line 509
+        /*0180*/                   SHF.R.U32.HI R14, RZ, 0x10, R8 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 96
+	//## File ".nv_debug_ptx_txt", line 536
+        /*0190*/                   IMAD R15, R6, 0x1010101, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 95
+	//## File ".nv_debug_ptx_txt", line 485
+        /*01a0*/                   LOP3.LUT R8, R13, 0xff, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 98
+	//## File ".nv_debug_ptx_txt", line 461
+        /*01b0*/                   SHF.R.U32.HI R9, RZ, 0x2, R7 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 97
+	//## File ".nv_debug_ptx_txt", line 459
+        /*01c0*/                   LOP3.LUT R7, R7, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 98
+	//## File ".nv_debug_ptx_txt", line 540
+        /*01d0*/                   SHF.R.U32.HI R11, RZ, 0x2, R15 ;
+	//## File ".nv_debug_ptx_txt", line 463
+        /*01e0*/                   IMAD.SHL.U32 R16, R9, 0x100, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 95
+	//## File ".nv_debug_ptx_txt", line 510
+        /*01f0*/                   LOP3.LUT R10, R14, 0xff, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 99
+	//## File ".nv_debug_ptx_txt", line 465
+        /*0200*/                   IMAD R14, R12.reuse, 0x10101000, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 100
+	//## File ".nv_debug_ptx_txt", line 469
+        /*0210*/                   IMAD R12, R12, 0x4040000, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 98
+	//## File ".nv_debug_ptx_txt", line 463
+        /*0220*/                   LOP3.LUT R9, R16, 0x300, R7, 0xe2, !PT ;
+	//## File ".nv_debug_ptx_txt", line 542
+        /*0230*/                   IMAD.SHL.U32 R16, R11, 0x100, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 97
+	//## File ".nv_debug_ptx_txt", line 538
+        /*0240*/                   LOP3.LUT R7, R15, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 96
+	//## File ".nv_debug_ptx_txt", line 487
+        /*0250*/                   IMAD R11, R8, 0x1010101, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 99
+	//## File ".nv_debug_ptx_txt", line 467
+        /*0260*/                   LOP3.LUT R9, R9, 0x30000, R14, 0xf8, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 96
+	//## File ".nv_debug_ptx_txt", line 512
+        /*0270*/                   IMAD R15, R10, 0x1010101, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 98
+	//## File ".nv_debug_ptx_txt", line 542
+        /*0280*/                   LOP3.LUT R7, R16, 0x300, R7, 0xe2, !PT ;
+	//## File ".nv_debug_ptx_txt", line 491
+        /*0290*/                   SHF.R.U32.HI R13, RZ, 0x2, R11 ;
+	//## File ".nv_debug_ptx_txt", line 516
+        /*02a0*/                   SHF.R.U32.HI R14, RZ, 0x2, R15 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 97
+	//## File ".nv_debug_ptx_txt", line 489
+        /*02b0*/                   LOP3.LUT R11, R11, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 98
+	//## File ".nv_debug_ptx_txt", line 493
+        /*02c0*/                   IMAD.SHL.U32 R16, R13, 0x100, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 97
+	//## File ".nv_debug_ptx_txt", line 514
+        /*02d0*/                   LOP3.LUT R15, R15, 0x3, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 98
+	//## File ".nv_debug_ptx_txt", line 518
+        /*02e0*/                   IMAD.SHL.U32 R18, R14, 0x100, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 99
+	//## File ".nv_debug_ptx_txt", line 495
+        /*02f0*/                   IMAD R14, R8, 0x10101000, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 98
+	//## File ".nv_debug_ptx_txt", line 493
+        /*0300*/                   LOP3.LUT R13, R16, 0x300, R11, 0xe2, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 99
+	//## File ".nv_debug_ptx_txt", line 520
+        /*0310*/                   IMAD R16, R10, 0x10101000, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 100
+	//## File ".nv_debug_ptx_txt", line 471
+        /*0320*/                   LOP3.LUT R11, R9, 0x3000000, R12, 0xf8, !PT ;
+	//## File ".nv_debug_ptx_txt", line 499
+        /*0330*/                   IMAD R12, R8, 0x4040000, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 98
+	//## File ".nv_debug_ptx_txt", line 518
+        /*0340*/                   LOP3.LUT R15, R18, 0x300, R15, 0xe2, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 103
+	//## File ".nv_debug_ptx_txt", line 560
+        /*0350*/                   LDC.64 R8, c[0x0][0x220] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 99
+	//## File ".nv_debug_ptx_txt", line 497
+        /*0360*/                   LOP3.LUT R13, R13, 0x30000, R14, 0xf8, !PT ;
+	//## File ".nv_debug_ptx_txt", line 544
+        /*0370*/                   IMAD R14, R6, 0x10101000, RZ ;
+	//## File ".nv_debug_ptx_txt", line 522
+        /*0380*/                   LOP3.LUT R15, R15, 0x30000, R16, 0xf8, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 100
+	//## File ".nv_debug_ptx_txt", line 524
+        /*0390*/                   IMAD R10, R10, 0x4040000, RZ ;
+	//## File ".nv_debug_ptx_txt", line 501
+        /*03a0*/                   LOP3.LUT R12, R13, 0x3000000, R12, 0xf8, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 30 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 101
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 101
+	//## File ".nv_debug_ptx_txt", line 481
+        /*03b0*/                   IDP.4A.S8.S8 R4, R11, R4, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 99
+	//## File ".nv_debug_ptx_txt", line 546
+        /*03c0*/                   LOP3.LUT R7, R7, 0x30000, R14, 0xf8, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 100
+	//## File ".nv_debug_ptx_txt", line 548
+        /*03d0*/                   IMAD R6, R6, 0x4040000, RZ ;
+	//## File ".nv_debug_ptx_txt", line 526
+        /*03e0*/                   LOP3.LUT R10, R15, 0x3000000, R10, 0xf8, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 30 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 101
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 101
+	//## File ".nv_debug_ptx_txt", line 506
+        /*03f0*/                   IDP.4A.S8.S8 R3, R12, R3, R4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 100
+	//## File ".nv_debug_ptx_txt", line 550
+        /*0400*/                   LOP3.LUT R6, R7, 0x3000000, R6, 0xf8, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 30 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 101
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 101
+	//## File ".nv_debug_ptx_txt", line 531
+        /*0410*/                   IDP.4A.S8.S8 R2, R10, R2, R3 ;
+	//## File ".nv_debug_ptx_txt", line 555
+        /*0420*/                   IDP.4A.S8.S8 R2, R6, R5, R2 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 103
+	//## File ".nv_debug_ptx_txt", line 558
+        /*0430*/                   I2FP.F32.S32 R2, R2 ;
+	//## File ".nv_debug_ptx_txt", line 560
+        /*0440*/                   IMAD.WIDE R8, R0, 0x4, R8 ;
+	//## File ".nv_debug_ptx_txt", line 559
+        /*0450*/                   FMUL R3, R2, UR6 ;
+	//## File ".nv_debug_ptx_txt", line 561
+        /*0460*/                   STG.E desc[UR4][R8.64], R3 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 104
+	//## File ".nv_debug_ptx_txt", line 565
+        /*0470*/                   EXIT ;
+.L_x_78:
+        /*0480*/                   BRA `(.L_x_78);
+        /*0490*/                   NOP;
+        /*04a0*/                   NOP;
+        /*04b0*/                   NOP;
+        /*04c0*/                   NOP;
+        /*04d0*/                   NOP;
+        /*04e0*/                   NOP;
+        /*04f0*/                   NOP;
+        /*0500*/                   NOP;
+        /*0510*/                   NOP;
+        /*0520*/                   NOP;
+        /*0530*/                   NOP;
+        /*0540*/                   NOP;
+        /*0550*/                   NOP;
+        /*0560*/                   NOP;
+        /*0570*/                   NOP;
+.L_x_93:
+
+
+//--------------------- .text.ds4_q8_0_matvec     --------------------------
+	.section	.text.ds4_q8_0_matvec,"ax",@progbits
+	.align	128
+        .global         ds4_q8_0_matvec
+        .type           ds4_q8_0_matvec,@function
+        .size           ds4_q8_0_matvec,(.L_x_94 - ds4_q8_0_matvec)
+        .other          ds4_q8_0_matvec,@"STO_CUDA_ENTRY STV_DEFAULT"
+ds4_q8_0_matvec:
+.text.ds4_q8_0_matvec:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 44
+	//## File ".nv_debug_ptx_txt", line 26
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 51
+	//## File ".nv_debug_ptx_txt", line 44
+        /*0010*/                   S2R R0, SR_CTAID.X ;
+	//## File ".nv_debug_ptx_txt", line 43
+        /*0020*/                   ULDC UR4, c[0x0][0x0] ;
+	//## File ".nv_debug_ptx_txt", line 45
+        /*0030*/                   S2R R5, SR_TID.X ;
+	//## File ".nv_debug_ptx_txt", line 46
+        /*0040*/                   IMAD R0, R0, UR4, R5 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 53
+	//## File ".nv_debug_ptx_txt", line 51
+        /*0050*/                   ULDC UR4, c[0x0][0x228] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 51
+	//## File ".nv_debug_ptx_txt", line 47
+        /*0060*/                   SHF.R.U32.HI R0, RZ, 0x5, R0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 53
+	//## File ".nv_debug_ptx_txt", line 51
+        /*0070*/                   ISETP.GE.AND P0, PT, R0, UR4, PT ;
+	//## File ".nv_debug_ptx_txt", line 52
+        /*0080*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 56
+	//## File ".nv_debug_ptx_txt", line 55
+        /*0090*/                   LDC R4, c[0x0][0x22c] ;
+	//## File ".nv_debug_ptx_txt", line 26
+        /*00a0*/                   ULDC.64 UR4, c[0x0][0x208] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 62
+        /*00b0*/                   HFMA2.MMA R16, -RZ, RZ, 0, 0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 52
+	//## File ".nv_debug_ptx_txt", line 49
+        /*00c0*/                   LOP3.LUT R2, R5, 0x1f, RZ, 0xc0, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 60
+        /*00d0*/                   ISETP.GE.AND P0, PT, R4, 0x20, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 56
+	//## File ".nv_debug_ptx_txt", line 55
+        /*00e0*/                   SHF.R.S32.HI R3, RZ, 0x1f, R4 ;
+	//## File ".nv_debug_ptx_txt", line 57
+        /*00f0*/                   LEA.HI R13, R3, R4, RZ, 0x5 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 62
+        /*0100*/              @!P0 BRA `(.L_x_79) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 56
+	//## File ".nv_debug_ptx_txt", line 58
+        /*0110*/                   SHF.R.S32.HI R13, RZ, 0x5, R13 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 66
+	//## File ".nv_debug_ptx_txt", line 72
+        /*0120*/                   CS2R R16, SRZ ;
+	//## File ".nv_debug_ptx_txt", line 68
+        /*0130*/                   IADD3 R4, R13.reuse, -0x1, RZ ;
+	//## File ".nv_debug_ptx_txt", line 67
+        /*0140*/                   LOP3.LUT R14, R13, 0x3, RZ, 0xc0, !PT ;
+	//## File ".nv_debug_ptx_txt", line 69
+        /*0150*/                   ISETP.GE.U32.AND P1, PT, R4, 0x3, PT ;
+	//## File ".nv_debug_ptx_txt", line 313
+        /*0160*/                   ISETP.NE.AND P0, PT, R14, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 72
+        /*0170*/              @!P1 BRA `(.L_x_80) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 63
+	//## File ".nv_debug_ptx_txt", line 100
+        /*0180*/                   LDC.64 R4, c[0x0][0x218] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 66
+	//## File ".nv_debug_ptx_txt", line 77
+        /*0190*/                   MOV R3, RZ ;
+	//## File ".nv_debug_ptx_txt", line 75
+        /*01a0*/                   IMAD R15, R0, R13, RZ ;
+	//## File ".nv_debug_ptx_txt", line 74
+        /*01b0*/                   LOP3.LUT R26, R2, 0x60, RZ, 0xfc, !PT ;
+	//## File ".nv_debug_ptx_txt", line 82
+        /*01c0*/                   CS2R R16, SRZ ;
+	//## File ".nv_debug_ptx_txt", line 79
+        /*01d0*/                   IADD3 R27, -R13, R14, RZ ;
+	//## File ".nv_debug_ptx_txt", line 77
+        /*01e0*/                   IMAD.WIDE R18, R15, 0x22, R2 ;
+	//## File ".nv_debug_ptx_txt", line 82
+        /*01f0*/                   ULDC.64 UR6, c[0x0][0x210] ;
+.L_x_81:
+        /*0200*/                   IADD3 R10, P1, R18, UR6, RZ ;
+        /*0210*/                   IADD3.X R11, R19, UR7, RZ, P1, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 62
+	//## File ".nv_debug_ptx_txt", line 95
+        /*0220*/                   LDG.E.S8 R20, desc[UR4][R10.64+0x2] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 63
+	//## File ".nv_debug_ptx_txt", line 98
+        /*0230*/                   IADD3 R7, R26, -0x60, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 62
+	//## File ".nv_debug_ptx_txt", line 156
+        /*0240*/                   LDG.E.S8 R21, desc[UR4][R10.64+0x24] ;
+	//## File ".nv_debug_ptx_txt", line 206
+        /*0250*/                   LDG.E.S8 R12, desc[UR4][R10.64+0x46] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 63
+	//## File ".nv_debug_ptx_txt", line 100
+        /*0260*/                   IMAD.WIDE R6, R7, 0x4, R4 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 62
+	//## File ".nv_debug_ptx_txt", line 256
+        /*0270*/                   LDG.E.S8 R22, desc[UR4][R10.64+0x68] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 63
+	//## File ".nv_debug_ptx_txt", line 101
+        /*0280*/                   LDG.E R24, desc[UR4][R6.64] ;
+	//## File ".nv_debug_ptx_txt", line 159
+        /*0290*/                   LDG.E R25, desc[UR4][R6.64+0x80] ;
+	//## File ".nv_debug_ptx_txt", line 209
+        /*02a0*/                   LDG.E R23, desc[UR4][R6.64+0x100] ;
+	//## File ".nv_debug_ptx_txt", line 259
+        /*02b0*/                   LDG.E R28, desc[UR4][R6.64+0x180] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File ".nv_debug_ptx_txt", line 86
+        /*02c0*/                   MOV R8, UR6 ;
+        /*02d0*/                   MOV R9, UR7 ;
+        /*02e0*/                   IMAD.WIDE R8, R15, 0x22, R8 ;
+	//## File ".nv_debug_ptx_txt", line 87
+        /*02f0*/                   LDG.E.U16 R29, desc[UR4][R8.64] ;
+	//## File ".nv_debug_ptx_txt", line 150
+        /*0300*/                   LDG.E.U16 R11, desc[UR4][R8.64+0x22] ;
+	//## File ".nv_debug_ptx_txt", line 200
+        /*0310*/                   LDG.E.U16 R10, desc[UR4][R8.64+0x44] ;
+	//## File ".nv_debug_ptx_txt", line 250
+        /*0320*/                   LDG.E.U16 R8, desc[UR4][R8.64+0x66] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 307
+        /*0330*/                   IADD3 R27, R27, 0x4, RZ ;
+	//## File ".nv_debug_ptx_txt", line 306
+        /*0340*/                   UIADD3 UR6, UP0, UR6, 0x88, URZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 69
+	//## File ".nv_debug_ptx_txt", line 300
+        /*0350*/                   ISETP.NE.AND P1, PT, R2, RZ, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 308
+        /*0360*/                   ISETP.NE.AND P2, PT, R27, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 306
+        /*0370*/                   UIADD3.X UR7, URZ, UR7, URZ, UP0, !UPT ;
+	//## File ".nv_debug_ptx_txt", line 303
+        /*0380*/                   IADD3 R17, R17, 0x4, RZ ;
+	//## File ".nv_debug_ptx_txt", line 305
+        /*0390*/                   IADD3 R26, R26, 0x80, RZ ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 62
+	//## File ".nv_debug_ptx_txt", line 96
+        /*03a0*/                   I2F.S16 R20, R20 ;
+	//## File ".nv_debug_ptx_txt", line 157
+        /*03b0*/                   I2F.S16 R21, R21 ;
+	//## File ".nv_debug_ptx_txt", line 207
+        /*03c0*/                   I2F.S16 R12, R12 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 64
+	//## File ".nv_debug_ptx_txt", line 103
+        /*03d0*/                   FMUL R24, R20, R24 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 111
+        /*03e0*/                   SHFL.DOWN PT, R6, R24, 0x10, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 64
+	//## File ".nv_debug_ptx_txt", line 161
+        /*03f0*/                   FMUL R25, R21, R25 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 62
+	//## File ".nv_debug_ptx_txt", line 257
+        /*0400*/                   I2F.S16 R7, R22 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 64
+	//## File ".nv_debug_ptx_txt", line 211
+        /*0410*/                   FMUL R23, R12, R23 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 164
+        /*0420*/                   SHFL.DOWN PT, R12, R25, 0x10, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 64
+	//## File ".nv_debug_ptx_txt", line 261
+        /*0430*/                   FMUL R28, R7, R28 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 214
+        /*0440*/                   SHFL.DOWN PT, R7, R23, 0x10, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 22 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File ".nv_debug_ptx_txt", line 91
+        /*0450*/                   HADD2.F32 R29, -RZ, R29.H0_H0 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 264
+        /*0460*/                   SHFL.DOWN PT, R9, R28, 0x10, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 115
+        /*0470*/                   FADD R6, R24, R6 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 22 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File ".nv_debug_ptx_txt", line 203
+        /*0480*/                   HADD2.F32 R10, -RZ, R10.H0_H0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 168
+        /*0490*/                   FADD R25, R25, R12 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 119
+        /*04a0*/                   SHFL.DOWN PT, R12, R6, 0x8, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 22 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File ".nv_debug_ptx_txt", line 253
+        /*04b0*/                   HADD2.F32 R8, -RZ, R8.H0_H0 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 171
+        /*04c0*/                   SHFL.DOWN PT, R22, R25, 0x8, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 218
+        /*04d0*/                   FADD R7, R23, R7 ;
+	//## File ".nv_debug_ptx_txt", line 268
+        /*04e0*/                   FADD R20, R28, R9 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 221
+        /*04f0*/                   SHFL.DOWN PT, R28, R7, 0x8, 0x1f ;
+	//## File ".nv_debug_ptx_txt", line 271
+        /*0500*/                   SHFL.DOWN PT, R21, R20, 0x8, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 123
+        /*0510*/                   FADD R9, R6, R12 ;
+	//## File ".nv_debug_ptx_txt", line 175
+        /*0520*/                   FADD R6, R25, R22 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 127
+        /*0530*/                   SHFL.DOWN PT, R24, R9, 0x4, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 225
+        /*0540*/                   FADD R12, R7, R28 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 178
+        /*0550*/                   SHFL.DOWN PT, R28, R6, 0x4, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 275
+        /*0560*/                   FADD R22, R20, R21 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 228
+        /*0570*/                   SHFL.DOWN PT, R25, R12, 0x4, 0x1f ;
+	//## File ".nv_debug_ptx_txt", line 278
+        /*0580*/                   SHFL.DOWN PT, R23, R22, 0x4, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 131
+        /*0590*/                   FADD R21, R9, R24 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 134
+        /*05a0*/                   SHFL.DOWN PT, R20, R21, 0x2, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 182
+        /*05b0*/                   FADD R7, R6, R28 ;
+	//## File ".nv_debug_ptx_txt", line 232
+        /*05c0*/                   FADD R24, R12, R25 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 185
+        /*05d0*/                   SHFL.DOWN PT, R12, R7, 0x2, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 282
+        /*05e0*/                   FADD R25, R22, R23 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 235
+        /*05f0*/                   SHFL.DOWN PT, R23, R24, 0x2, 0x1f ;
+	//## File ".nv_debug_ptx_txt", line 285
+        /*0600*/                   SHFL.DOWN PT, R28, R25, 0x2, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 138
+        /*0610*/                   FADD R6, R21, R20 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 142
+        /*0620*/                   SHFL.DOWN PT, R9, R6, 0x1, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 189
+        /*0630*/                   FADD R7, R7, R12 ;
+	//## File ".nv_debug_ptx_txt", line 239
+        /*0640*/                   FADD R12, R24, R23 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 192
+        /*0650*/                   SHFL.DOWN PT, R20, R7, 0x1, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 289
+        /*0660*/                   FADD R22, R25, R28 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 242
+        /*0670*/                   SHFL.DOWN PT, R23, R12, 0x1, 0x1f ;
+	//## File ".nv_debug_ptx_txt", line 292
+        /*0680*/                   SHFL.DOWN PT, R21, R22, 0x1, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 146
+        /*0690*/                   FADD R9, R6, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 70
+	//## File ".nv_debug_ptx_txt", line 148
+        /*06a0*/                   FFMA R9, R29, R9, R16 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 196
+        /*06b0*/                   FADD R24, R7, R20 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 22 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File ".nv_debug_ptx_txt", line 153
+        /*06c0*/                   HADD2.F32 R20, -RZ, R11.H0_H0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 246
+        /*06d0*/                   FADD R23, R12, R23 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 70
+	//## File ".nv_debug_ptx_txt", line 198
+        /*06e0*/                   FFMA R9, R20, R24, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 296
+        /*06f0*/                   FADD R21, R22, R21 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 70
+	//## File ".nv_debug_ptx_txt", line 248
+        /*0700*/                   FFMA R9, R10, R23, R9 ;
+	//## File ".nv_debug_ptx_txt", line 298
+        /*0710*/              @!P1 FFMA R16, R8, R21, R9 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 309
+        /*0720*/               @P2 BRA `(.L_x_81) ;
+.L_x_80:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 66
+	//## File ".nv_debug_ptx_txt", line 314
+        /*0730*/              @!P0 BRA `(.L_x_79) ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 321
+        /*0740*/                   LDC.64 R8, c[0x0][0x210] ;
+	//## File ".nv_debug_ptx_txt", line 319
+        /*0750*/                   IMAD R13, R0, R13, R17 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 69
+	//## File ".nv_debug_ptx_txt", line 387
+        /*0760*/                   ISETP.NE.AND P0, PT, R2, RZ, PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 318
+        /*0770*/                   LEA R17, R17, R2, 0x5 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 63
+	//## File ".nv_debug_ptx_txt", line 338
+        /*0780*/                   LDC.64 R4, c[0x0][0x218] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 321
+        /*0790*/                   IMAD.WIDE R8, R13, 0x22, R8 ;
+	//## File ".nv_debug_ptx_txt", line 323
+        /*07a0*/                   IADD3 R6, P1, P2, R8, 0x2, R2 ;
+        /*07b0*/                   MOV R7, R9 ;
+        /*07c0*/                   IADD3.X R9, R9, RZ, RZ, P1, P2 ;
+.L_x_82:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 62
+	//## File ".nv_debug_ptx_txt", line 334
+        /*07d0*/                   MOV R12, R6 ;
+        /*07e0*/                   MOV R13, R9 ;
+        /*07f0*/                   LDG.E.S8 R12, desc[UR4][R12.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 63
+	//## File ".nv_debug_ptx_txt", line 338
+        /*0800*/                   IMAD.WIDE R10, R17, 0x4, R4 ;
+	//## File ".nv_debug_ptx_txt", line 339
+        /*0810*/                   LDG.E R19, desc[UR4][R10.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File ".nv_debug_ptx_txt", line 328
+        /*0820*/                   MOV R10, R8 ;
+        /*0830*/                   MOV R11, R7 ;
+        /*0840*/                   LDG.E.U16 R15, desc[UR4][R10.64] ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 393
+        /*0850*/                   IADD3 R14, R14, -0x1, RZ ;
+	//## File ".nv_debug_ptx_txt", line 391
+        /*0860*/                   IADD3 R6, P2, R6, 0x22, RZ ;
+	//## File ".nv_debug_ptx_txt", line 394
+        /*0870*/                   ISETP.NE.AND P1, PT, R14, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 392
+        /*0880*/                   IADD3 R8, P3, R8, 0x22, RZ ;
+	//## File ".nv_debug_ptx_txt", line 390
+        /*0890*/                   IADD3 R17, R17, 0x20, RZ ;
+	//## File ".nv_debug_ptx_txt", line 391
+        /*08a0*/                   IADD3.X R9, RZ, R9, RZ, P2, !PT ;
+	//## File ".nv_debug_ptx_txt", line 392
+        /*08b0*/                   IADD3.X R7, RZ, R7, RZ, P3, !PT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 62
+	//## File ".nv_debug_ptx_txt", line 335
+        /*08c0*/                   I2F.S16 R18, R12 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 64
+	//## File ".nv_debug_ptx_txt", line 341
+        /*08d0*/                   FMUL R18, R18, R19 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 348
+        /*08e0*/                   SHFL.DOWN PT, R19, R18, 0x10, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 22 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 61
+	//## File ".nv_debug_ptx_txt", line 331
+        /*08f0*/                   HADD2.F32 R15, -RZ, R15.H0_H0 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 352
+        /*0900*/                   FADD R19, R18, R19 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 356
+        /*0910*/                   SHFL.DOWN PT, R20, R19, 0x8, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 360
+        /*0920*/                   FADD R20, R19, R20 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 364
+        /*0930*/                   SHFL.DOWN PT, R13, R20, 0x4, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 368
+        /*0940*/                   FADD R13, R20, R13 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 371
+        /*0950*/                   SHFL.DOWN PT, R22, R13, 0x2, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 375
+        /*0960*/                   FADD R22, R13, R22 ;
+	//## File "/usr/local/cuda-13/bin/../targets/sbsa-linux/include/sm_30_intrinsics.hpp", line 439 inlined at "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 379
+        /*0970*/                   SHFL.DOWN PT, R11, R22, 0x1, 0x1f ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 67
+	//## File ".nv_debug_ptx_txt", line 383
+        /*0980*/                   FADD R11, R22, R11 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 70
+	//## File ".nv_debug_ptx_txt", line 385
+        /*0990*/              @!P0 FFMA R16, R15, R11, R16 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 59
+	//## File ".nv_debug_ptx_txt", line 395
+        /*09a0*/               @P1 BRA `(.L_x_82) ;
+.L_x_79:
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 73
+	//## File ".nv_debug_ptx_txt", line 399
+        /*09b0*/                   ISETP.NE.AND P0, PT, R2, RZ, PT ;
+	//## File ".nv_debug_ptx_txt", line 400
+        /*09c0*/               @P0 EXIT ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 74
+	//## File ".nv_debug_ptx_txt", line 406
+        /*09d0*/                   LDC.64 R2, c[0x0][0x220] ;
+        /*09e0*/                   IMAD.WIDE.U32 R2, R0, 0x4, R2 ;
+	//## File ".nv_debug_ptx_txt", line 407
+        /*09f0*/                   STG.E desc[UR4][R2.64], R16 ;
+	//## File "/tmp/ptx-sass-trace-fixtures/kernels.cu", line 76
+	//## File ".nv_debug_ptx_txt", line 411
+        /*0a00*/                   EXIT ;
+.L_x_83:
+        /*0a10*/                   BRA `(.L_x_83);
+        /*0a20*/                   NOP;
+        /*0a30*/                   NOP;
+        /*0a40*/                   NOP;
+        /*0a50*/                   NOP;
+        /*0a60*/                   NOP;
+        /*0a70*/                   NOP;
+        /*0a80*/                   NOP;
+        /*0a90*/                   NOP;
+        /*0aa0*/                   NOP;
+        /*0ab0*/                   NOP;
+        /*0ac0*/                   NOP;
+        /*0ad0*/                   NOP;
+        /*0ae0*/                   NOP;
+        /*0af0*/                   NOP;
+.L_x_94:
+
+
+//--------------------- SYMBOLS --------------------------
+
+	.type		.nv.reservedSmem.offset0,@object
+	.size		.nv.reservedSmem.offset0,0x4

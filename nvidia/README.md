@@ -125,8 +125,9 @@ exercise Linux-only cuFile on macOS, or opt-in hardware tests behind build
 tags. Compilation, an unavailable-library return path and a successful native
 workflow are different checks.
 
-The [x package inventory](x/README.md) lists higher-level memory,
-compilation, graph and tracing helpers.
+The [PTX/SASS trace example](x/examples/ptx-sass-trace/) demonstrates a
+larger compile-and-launch workflow. The [x package inventory](x/README.md)
+lists higher-level memory, compilation, graph and tracing helpers.
 
 ## Regeneration
 

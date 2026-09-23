@@ -1,0 +1,46 @@
+kernels.{cu,ptx,sass,cubin.hex,cfg.dot,bbcfg.dot}: the example's own
+translation unit, compiled and disassembled by gen.sh.
+
+Why it is here
+--------------
+The example compiles ../kernels.cu through NVRTC for whichever device it
+finds and writes the results into a bundle. These fixtures let the tests read
+that bundle's contents without a device. gen.sh copies ../kernels.cu into this
+directory rather than reaching outside it, because go:embed cannot: the
+package's testdata has to be self-contained while the unit keeps one author.
+A cmp of the two files is the check that the copy is current.
+
+The same generated files used to be a byte-identical copy of
+x/cudacapture/testdata's, which were hand-written and named an entry point
+"compute" that no __global__ function declared. Sharing them is not possible
+for the same go:embed reason, so they are generated here from the source this
+example actually compiles.
+
+Toolchain
+---------
+Generated 2026-09-22 on gpu-host, an NVIDIA GB10 host, with CUDA 13.4 --
+nvcc V13.4.59, nvdisasm V13.4.49, NVVM 7.0.1, PTX ISA 9.4. Target sm_90.
+
+No GPU was used: nvcc, ptxas and nvdisasm compile and disassemble, and neither
+touches a device. The example itself does launch kernels; these files do not.
+
+The nvdisasm options in gen.sh are the ones capture.go passes, so the fixture
+is the disassembly this example really writes. The one difference from a live
+run is the compiler: the example goes through NVRTC for the device it finds,
+gen.sh goes through nvcc for sm_90.
+
+The control flow graphs are what nvdisasm prints, which is one digraph named
+"f" holding a "cluster_<function>" subgraph per function -- not one digraph
+per kernel. x/cudasass reads the clusters.
+
+padding.{ptx,sass} and ds4_math.cu are a different fixture with its own
+provenance; see padding.README. gen.sh does not touch them.
+
+sha256
+------
+39ad9d93ab43d5805babc8ecdd49dd966958b202c5a12d4d55511ec6fb00d07f  kernels.cu
+edbc6b4cd507d203fdcc1a6a04a84e31789b3306053f8f51feb8fc40c5aa1307  kernels.ptx
+30711e700a87553e9b548bba8d13131a3f4094754199ca22aa21c43a176cadf6  kernels.sass
+4b750f6c26df232874e54d7d30c34b4387b7e8a6db2a1c9d8f3cf96b4db83637  kernels.cubin.hex
+d1415e91681d6b0e4d8bf4ebe74c07a4e27b554085a868116a93907f0d92bf1e  kernels.cfg.dot
+f8b0bdbb2fe0ee92d91fc354cdc272ea9ec7dc244c3aed4fdf35822e6fefa132  kernels.bbcfg.dot
