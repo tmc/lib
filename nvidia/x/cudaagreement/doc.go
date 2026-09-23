@@ -1,0 +1,31 @@
+// Package cudaagreement executes one plan through more than one CUDA backend
+// and reports, per step, the backend that actually ran it.
+//
+// The record is made by the executor after submission, from the path it took.
+// It is not the backend a planner asked for: an executor that cannot admit a
+// step to its backend falls back, runs the step another way, and records the
+// fallback. Agreement that holds only over steps an arm declined says nothing
+// about that arm, so [Verify] fails on a declined step even when the outputs
+// match.
+//
+// Outputs are compared bitwise. That is the whole comparison: an integer path
+// must agree exactly, and a float path needs a tolerance this package does not
+// supply.
+//
+// A run needs a device, a stream, and one [Modules] to own the loaded kernel
+// modules:
+//
+//	mods := cudaagreement.NewModules(dev)
+//	defer mods.Close()
+//	launch := &cudaagreement.LaunchExecutor{Modules: mods}
+//	graph := &cudaagreement.GraphExecutor{Device: dev, Modules: mods}
+//	defer graph.Close()
+//
+//	var arms []cudaagreement.Arm
+//	for _, e := range []cudaagreement.Executor{launch, graph} {
+//	    rec, err := e.Execute(stream, plan, buffers)
+//	    // ... synchronize, read the output buffer ...
+//	    arms = append(arms, cudaagreement.Arm{Record: rec, Output: out})
+//	}
+//	err := cudaagreement.Verify(arms)
+package cudaagreement
