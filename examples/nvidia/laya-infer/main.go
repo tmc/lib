@@ -14,8 +14,9 @@
 // evaluated in a single padded batch.
 //
 // Matrix products run on the tensor cores in tf32 by default. --exact runs
-// them in float32 instead, which reproduces laya.c byte for byte and takes
-// roughly 2.7 times as long.
+// them in float32 instead, which reproduces laya.c byte for byte but is
+// slower: full float32 GEMMs forgo the tf32 tensor-core path and the fused
+// attention kernel.
 //
 // --lines answers the request a second time under CUPTI PC sampling and
 // reports the device time by line of forward.cu. --pprof writes those same
@@ -59,7 +60,8 @@ func usage() error {
        laya-infer MODEL_DIR --serve [PORT] [--bind ADDR]   (HTTP server, default 127.0.0.1:%d)
 
        --exact   compute the matrix products in float32 rather than tf32,
-                 reproducing laya.c byte for byte at about 2.7x the time
+                 reproducing laya.c byte for byte; slower, since float32
+                 GEMMs do not use the tf32 tensor-core path
        --lines[=N]
                  answer the request under CUPTI PC sampling and report the
                  device time by line of forward.cu, sampling every 2^N

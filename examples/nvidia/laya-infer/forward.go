@@ -49,7 +49,8 @@ type blasScalars struct{ scale, one, zero float32 }
 // fast is the default because the answers are the same decisions -- the
 // difference lands in the 4th decimal of a probability, well inside the
 // spread between a tiled CPU GEMM and cuBLAS that the port already has. exact
-// is what reproduces laya.c byte for byte, and costs roughly 2.7x.
+// is what reproduces laya.c byte for byte, at the cost of running without
+// tf32 tensor cores or the fused attention kernel.
 type precision int
 
 const (

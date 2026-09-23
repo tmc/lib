@@ -234,7 +234,7 @@ func runGPUInference(
 	}
 
 	if *benchFlag {
-		prefix := "BenchmarkLlama32_1B/backend=cuda_gb10/gen_tokens=16/prompt=neural_network/search_graphs=100"
+		prefix := "BenchmarkLlama32_1B/backend=cuda/gen_tokens=16/prompt=neural_network/search_graphs=100"
 		// Warmup
 		for pos, tokID := range promptTokens {
 			_, _ = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)

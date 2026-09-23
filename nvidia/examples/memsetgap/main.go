@@ -73,7 +73,7 @@ func main() {
 	// exit(3), and a SIGTERM terminator whose handler the Go runtime has
 	// already replaced -- and runtime.exit issues exit_group directly, so a Go
 	// target that simply returns from main leaves the journal unfinalized with
-	// no activity in it. Measured on GB10: this target collected zero records
+	// no activity in it. In a measured run this target collected zero records
 	// where a C++ target doing the same device work under the same agent and
 	// the same cudaprof collected cleanly. It is not a defer: os.Exit below
 	// would skip it.
