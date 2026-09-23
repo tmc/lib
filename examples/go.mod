@@ -3,7 +3,7 @@ module github.com/tmc/lib/examples
 go 1.27.0
 
 require (
-	github.com/ebitengine/purego v0.11.0
+	github.com/ebitengine/purego v0.11.1
 	github.com/google/pprof v0.0.0-20260906184651-6331bc6350fe
 	github.com/tmc/apple v0.6.18
 	github.com/tmc/go-iroh v0.2.0
@@ -15,12 +15,13 @@ require (
 	github.com/tmc/lib/openxla v0.0.0-00010101000000-000000000000
 	github.com/tmc/lib/tpu v0.0.0-00010101000000-000000000000
 	github.com/tmc/modelir v0.0.0
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.48.0
 )
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
+	github.com/ianlancetaylor/demangle v0.0.0-20250417193237-f615e6bd150b // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/quic-go/quic-go v0.62.0 // indirect
 	github.com/tmc/ffi v0.0.0-20260906092449-1be2d95a8044 // indirect
