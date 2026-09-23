@@ -37,7 +37,7 @@ func runLinesCommand(rawArgs []string) error {
 	}
 	fs := flag.NewFlagSet("lines", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	sample := fs.String("sample", "", "sample type to total (default: the profile's default type)")
+	sample := fs.String("sample", "", "sample type to total (default: the profile's default type, or its per-instruction type when the default is per launch)")
 	format := fs.String("format", "profile", "report to write: profile, rollup, digraph, or dot")
 	diff := fs.String("diff", "", "compare the capture with this one, line by line")
 	if err := fs.Parse(args); err != nil {
@@ -85,6 +85,12 @@ func runLinesCommand(rawArgs []string) error {
 func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, format string) error {
 	if cap.Profile == nil {
 		return errors.New("capture has no profile")
+	}
+	if format == "profile" {
+		var err error
+		if sample, err = lineSample(cap.Profile, sample); err != nil {
+			return err
+		}
 	}
 	if len(cap.Modules) < 2 {
 		return printModuleLines(w, cap, kernel, sample, format)
@@ -310,11 +316,7 @@ func lineProfile(prof *profile.Profile, a *cudalineinfo.Attribution, kernel, sam
 		}
 	}
 	if idx < 0 {
-		var names []string
-		for _, st := range prof.SampleType {
-			names = append(names, st.Type)
-		}
-		return cudalineinfo.Profile{}, fmt.Errorf("no sample type %q; the profile has %s", sample, strings.Join(names, ", "))
+		return cudalineinfo.Profile{}, fmt.Errorf("no sample type %q; the profile has %s", sample, sampleTypeNames(prof))
 	}
 	byBase := map[cudalineinfo.Site][]cudalineinfo.Site{}
 	for _, s := range a.Sites() {
@@ -365,12 +367,88 @@ func lineProfile(prof *profile.Profile, a *cudalineinfo.Attribution, kernel, sam
 	return p, nil
 }
 
+// lineSample names the sample type lines totals: sample, or when it is empty
+// the profile's default, or when the default is not measured per instruction
+// the first type that is. It refuses a type measured only per launch.
+//
+// A kernel's device time is measured per launch: its sample's stack is the
+// kernel alone, with no instruction under it. Totalled by line, all of it
+// lands at unresolved PCs, which reads as a capture whose PCs could not be
+// resolved when it holds none to resolve. Activity captures, the injected
+// agent's among them, default to kernel_time, and carry PC samples beside it
+// only when captured with --pcsampling.
+//
+// It is resolved against the whole capture, before any split by module: a
+// module whose kernels were never sampled still has its launches timed.
+func lineSample(prof *profile.Profile, sample string) (string, error) {
+	explicit := sample != ""
+	if !explicit {
+		sample = prof.DefaultSampleType
+	}
+	idx := -1
+	for i, st := range prof.SampleType {
+		if sample == "" || st.Type == sample {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return "", fmt.Errorf("no sample type %q; the profile has %s", sample, sampleTypeNames(prof))
+	}
+	carried, located := measured(prof, idx)
+	if !carried || located {
+		return prof.SampleType[idx].Type, nil
+	}
+	var pcs []string
+	for i, st := range prof.SampleType {
+		if carried, located := measured(prof, i); carried && located {
+			pcs = append(pcs, st.Type)
+		}
+	}
+	name := prof.SampleType[idx].Type
+	switch {
+	case len(pcs) == 0:
+		return "", fmt.Errorf("%s is measured per launch, not per instruction, so it has no line to total by, "+
+			"and this capture holds no per-instruction measure; capture with --pcsampling for one", name)
+	case explicit:
+		return "", fmt.Errorf("%s is measured per launch, not per instruction, so it has no line to total by; "+
+			"this capture's per-instruction measures: %s", name, strings.Join(pcs, ", "))
+	}
+	return pcs[0], nil
+}
+
+// measured reports whether any sample carries sample type idx, and whether
+// any that does names an instruction, by a SASS frame or a program line. A
+// carrying sample that names none is an unresolved PC of a measure that
+// resolves others, or, if no sample names one, a measure taken per launch.
+func measured(prof *profile.Profile, idx int) (carried, located bool) {
+	for _, s := range prof.Sample {
+		if idx >= len(s.Value) || s.Value[idx] == 0 {
+			continue
+		}
+		carried = true
+		if f := deviceFrames(s); f.sass || f.site.File != "" {
+			return true, true
+		}
+	}
+	return carried, false
+}
+
+func sampleTypeNames(prof *profile.Profile) string {
+	var names []string
+	for _, st := range prof.SampleType {
+		names = append(names, st.Type)
+	}
+	return strings.Join(names, ", ")
+}
+
 // frames is what a sample's stack says about the device: the kernel it
 // was in, the program line its kernel frame names, and the position of
 // its SASS frame in the disassembly.
 type frames struct {
 	kernel   string
 	site     cudalineinfo.Site
+	sass     bool // the stack has a SASS frame, even one at no known ordinal
 	sassLine int
 }
 
@@ -390,6 +468,7 @@ func deviceFrames(s *profile.Sample) frames {
 			case strings.HasSuffix(name, ".SASS"):
 				if f.kernel == "" {
 					f.kernel = strings.TrimSuffix(name, ".SASS")
+					f.sass = true
 					f.sassLine = int(line.Line)
 				}
 			case strings.HasSuffix(name, ".PTX"), strings.HasSuffix(name, ".inlined"):

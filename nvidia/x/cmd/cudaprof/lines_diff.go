@@ -35,6 +35,10 @@ func captureSide(cap *cudacapture.Capture, kernel, sample, label string) (cudali
 	if cap.Profile == nil {
 		return cudalineinfo.Side{}, errors.New("capture has no profile")
 	}
+	sample, err := lineSample(cap.Profile, sample)
+	if err != nil {
+		return cudalineinfo.Side{}, err
+	}
 	local, err := kernelModule(cap, kernel)
 	if err != nil {
 		return cudalineinfo.Side{}, err

@@ -327,3 +327,82 @@ func TestLineProfileForeign(t *testing.T) {
 		t.Errorf("foreign %d unresolved %d, want 7 2", p.Foreign, p.Unresolved)
 	}
 }
+
+// agentCaptureForLines is a capture the way the injected agent writes one:
+// the activity projection, whose default measure is kernel_time and whose
+// kernel samples carry the kernel frame alone, over fused_gate's disassembly
+// in two modules. With pcSamples it also carries the agent's PC samples.
+func agentCaptureForLines(t *testing.T, pcSamples bool) *cudacapture.Capture {
+	t.Helper()
+	sass, err := os.ReadFile(filepath.Join("..", "..", "cudalineinfo", "testdata", "fused_gate.sass"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cap := &cudacapture.Capture{
+		Profile: cudacapture.BuildActivityProfile("s", 1, []cudacapture.ActivityRecord{
+			{Subtype: "kernel", Name: "fused_gate", Valid: true, Start: 100, End: 1668, ModuleID: 22},
+			{Subtype: "kernel", Name: "fused_gate", Valid: true, Start: 2000, End: 3600, ModuleID: 23},
+			{Subtype: "memcpy", Valid: true, Start: 10, End: 50, Bytes: 16384},
+		}, nil),
+		Files: map[string][]byte{"fused_gate.sass": sass},
+	}
+	for _, id := range []uint32{22, 23} {
+		cap.Modules = append(cap.Modules, cudacapture.Module{
+			ID: fmt.Sprintf("module-id%d", id), DriverID: id, Code: cudacapture.CodeFiles{SASS: "fused_gate.sass"},
+		})
+	}
+	if pcSamples {
+		// No CUBIN is attached, so the samples project at no known ordinal:
+		// unresolved PCs of a measure that is still taken per instruction.
+		projectPCSamples(cap, []capturePCSample{{ModuleID: 22, Function: "fused_gate", Offset: 0x10, Samples: 9}}, nil)
+	}
+	return cap
+}
+
+// TestLinesPerLaunchMeasure is the agent-capture case. kernel_time is one
+// duration per launch with no instruction under it, so totalled by line all
+// of it landed at unresolved PCs, which reads as a failure to resolve PCs the
+// capture never held. By default lines totals the capture's per-instruction
+// measure instead; asked for a per-launch one, or given a capture with none,
+// it says what the measure is.
+func TestLinesPerLaunchMeasure(t *testing.T) {
+	tests := []struct {
+		name      string
+		pcSamples bool
+		sample    string
+		want      []string // in the output, or in the error when wantErr
+		wantErr   bool
+	}{
+		{"activity only", false, "", []string{"kernel_time is measured per launch", "no per-instruction measure", "--pcsampling"}, true},
+		{"activity only, named", false, "kernel_time", []string{"kernel_time is measured per launch"}, true},
+		{"copy time", false, "copy_time", []string{"copy_time is measured per launch"}, true},
+		// Module 23's kernel was timed but never sampled; it still gets a
+		// table rather than a refusal of its own.
+		{"with PC samples", true, "", []string{"module module-id22\n9 pc_samples by program line", "module module-id23\n0 pc_samples by program line"}, false},
+		{"with PC samples, kernel_time named", true, "kernel_time", []string{"kernel_time is measured per launch", "per-instruction measures: pc_samples"}, true},
+		{"PC samples named", true, "pc_samples", []string{"9 pc_samples"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := printCaptureLines(&buf, agentCaptureForLines(t, tt.pcSamples), "", tt.sample, "profile")
+			got := buf.String()
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("lines totalled a per-launch measure by line:\n%s", got)
+				}
+				if got != "" {
+					t.Errorf("a table was printed before the refusal:\n%s", got)
+				}
+				got = err.Error()
+			} else if err != nil {
+				t.Fatalf("lines failed: %v", err)
+			}
+			for _, w := range tt.want {
+				if !strings.Contains(got, w) {
+					t.Errorf("lacks %q:\n%s", w, got)
+				}
+			}
+		})
+	}
+}
