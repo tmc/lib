@@ -1,0 +1,139 @@
+{
+	"source": "github.com/MoonshotAI/MoonEP",
+	"revision": "51e64aa",
+	"generator": "gen_golden.py",
+	"cases": [
+		{
+			"name": "production-8rank",
+			"config": {
+				"S": 4096,
+				"H": 7168,
+				"K": 8,
+				"E": 256,
+				"R": 8,
+				"B": null,
+				"token_padding": 128
+			},
+			"vmm_granularity": 2097152,
+			"mc_granularity": 2097152,
+			"want": {
+				"N": 32768,
+				"NvS": 40896,
+				"NvS_padded": 40960,
+				"num_vblocks": 16,
+				"WEIGHTS_OFF": 0,
+				"TPE_OFF": 40896,
+				"PLAN_OFF": 42944,
+				"planning_out_elems": 13328,
+				"TOPK0_OFF": 56272,
+				"ORDER_OFF": 89040,
+				"ORDER0_OFF": 121808,
+				"BARRIER_OFF": 154576,
+				"SRC_INFO_OFF": 154579,
+				"meta_chunk_logical": 195475,
+				"meta_chunk_padded": 524288,
+				"B": 32,
+				"num_sms": 32
+			}
+		},
+		{
+			"name": "small-mixed-granularity",
+			"config": {
+				"S": 128,
+				"H": 512,
+				"K": 2,
+				"E": 16,
+				"R": 4,
+				"B": 2,
+				"token_padding": 4
+			},
+			"vmm_granularity": 65536,
+			"mc_granularity": 131072,
+			"want": {
+				"N": 256,
+				"NvS": 280,
+				"NvS_padded": 320,
+				"num_vblocks": 1,
+				"WEIGHTS_OFF": 0,
+				"TPE_OFF": 280,
+				"PLAN_OFF": 344,
+				"planning_out_elems": 424,
+				"TOPK0_OFF": 768,
+				"ORDER_OFF": 1024,
+				"ORDER0_OFF": 1280,
+				"BARRIER_OFF": 1536,
+				"SRC_INFO_OFF": 1539,
+				"meta_chunk_logical": 1819,
+				"meta_chunk_padded": 32768,
+				"B": 2,
+				"num_sms": 32
+			}
+		},
+		{
+			"name": "no-token-padding",
+			"config": {
+				"S": 1024,
+				"H": 2048,
+				"K": 4,
+				"E": 64,
+				"R": 8,
+				"B": null,
+				"token_padding": 1
+			},
+			"vmm_granularity": 2097152,
+			"mc_granularity": 4194304,
+			"want": {
+				"N": 4096,
+				"NvS": 4096,
+				"NvS_padded": 4096,
+				"num_vblocks": 2,
+				"WEIGHTS_OFF": 0,
+				"TPE_OFF": 4096,
+				"PLAN_OFF": 4608,
+				"planning_out_elems": 3344,
+				"TOPK0_OFF": 7952,
+				"ORDER_OFF": 12048,
+				"ORDER0_OFF": 16144,
+				"BARRIER_OFF": 20240,
+				"SRC_INFO_OFF": 20243,
+				"meta_chunk_logical": 24339,
+				"meta_chunk_padded": 1048576,
+				"B": 8,
+				"num_sms": 32
+			}
+		},
+		{
+			"name": "defaults",
+			"config": {
+				"S": 1000,
+				"H": 1536,
+				"K": 6,
+				"E": 96,
+				"R": 8,
+				"B": null,
+				"token_padding": 128
+			},
+			"vmm_granularity": 2097152,
+			"mc_granularity": 4194304,
+			"want": {
+				"N": 6000,
+				"NvS": 9048,
+				"NvS_padded": 10240,
+				"num_vblocks": 3,
+				"WEIGHTS_OFF": 0,
+				"TPE_OFF": 9048,
+				"PLAN_OFF": 9816,
+				"planning_out_elems": 5008,
+				"TOPK0_OFF": 14824,
+				"ORDER_OFF": 20824,
+				"ORDER0_OFF": 26824,
+				"BARRIER_OFF": 32824,
+				"SRC_INFO_OFF": 32827,
+				"meta_chunk_logical": 41875,
+				"meta_chunk_padded": 1048576,
+				"B": 12,
+				"num_sms": 32
+			}
+		}
+	]
+}
