@@ -742,7 +742,14 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 			attachments[a.name] = data
 		}
 	}
-	limits := cudacapture.Limits{FileBytes: budget.FileBytes, TotalBytes: budget.TotalBytes}
+	// The budget governs attachments. The status and provenance are written
+	// whatever their size, as the selection above already assumes, so the
+	// writer's limits are raised to admit them; otherwise a budget smaller
+	// than the status refuses the capture that selection decided to write.
+	limits := cudacapture.Limits{
+		FileBytes:  max(budget.FileBytes, int64(len(metadata)), int64(len(provData))),
+		TotalBytes: max(budget.TotalBytes, int64(len(metadata))+int64(len(provData))),
+	}
 	p, sampleRecords := cudacapture.BuildActivityProfileIndex(result.Session, uint64(result.TargetPID), result.Activities, result.APIRecords)
 	p, err := labelExternalCorrelation(p, result.Session, uint64(result.TargetPID), result.Activities, sampleRecords)
 	if err != nil {
