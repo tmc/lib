@@ -17,6 +17,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudabatch](cudabatch/) | Package cudabatch provides continuous batch scheduling, admission control, token and memory budgeting, fairness policies, validated shape binding, and KV cache lifetime tracking for LLM inference. |
 | [cudabench](cudabench/) | Package cudabench provides precise GPU event-timed benchmarking utilities for Go testing. |
 | [cudablock](cudablock/) | Package cudablock provides high-performance CUDA thread-block and warp-level primitives for collective reductions, prefix scans, and cooperative tile staging into shared memory. |
+| [cudabpf](cudabpf/) | Package cudabpf is the NVIDIA-specific half of a driver-level BPF policy bridge: the hook semantics, chunk placement, eviction ranking and time-slice-group attributes of an open-source GPU kernel driver whose UVM and scheduler have been patched to export typed struct_ops tables. |
 | [cudacache](cudacache/) | Package cudacache provides content-addressed local and remote caching for compiled CUDA kernel artifacts and search evaluation receipts. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
 | [cudacensus](cudacensus/) | Package cudacensus turns a GPU trace capture into a per-kernel census and, where the caller can supply a cost model, into roofline points. |
