@@ -5,7 +5,10 @@
 # by brute force: a composition must compute A(B(i)) for every i, and a
 # complement must make (L, R) a bijection onto [0, size(L)*size(R)). A pycute
 # result that fails its check is recorded as "error", because cudalayout
-# rejects rather than approximates. Run from this directory:
+# rejects rather than approximates. $CUTLASS is a checkout of
+# https://github.com/NVIDIA/cutlass; the golden file's first line records its
+# revision. Regenerate with CUTLASS set and go generate in the package
+# directory, or from this directory:
 #
 #	PYTHONPATH=$CUTLASS/python python3 pycute_golden.py > pycute.golden
 import random

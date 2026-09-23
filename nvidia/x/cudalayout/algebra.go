@@ -495,7 +495,9 @@ func mustLayout(shape Shape, stride Stride) Layout {
 // condition). b's modes must also not carry into one another when their
 // offsets add in a's coordinates (the additivity condition), since the
 // result evaluates them separately. A violated condition is an error, not an
-// approximation.
+// approximation. CuTe and pycute check only some of these conditions, and
+// where they do not they can return a layout that is not a∘b: pycute
+// composes (4,3):(1,8) with 6:1 as 4:1, losing two of b's six offsets.
 //
 // For an F2 a, b must have power-of-two extents and offsets whose bit images
 // are disjoint, so that b is itself F2-linear, and b's offsets must stay

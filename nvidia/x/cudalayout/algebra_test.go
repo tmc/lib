@@ -584,6 +584,8 @@ func TestLogicalDivideTilePartitioning(t *testing.T) {
 	}
 }
 
+//go:generate sh -c "cd testdata && PYTHONPATH=$CUTLASS/python python3 pycute_golden.py > pycute.golden"
+
 // TestPycuteGolden checks the algebra against testdata/pycute.golden, written
 // by testdata/pycute_golden.py. pycute is an independent implementation (the
 // one CUTLASS ships), and the generator checks each of its answers by brute
