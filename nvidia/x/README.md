@@ -85,6 +85,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cuptirange](cuptirange/) | Package cuptirange configures, collects and evaluates CUPTI Range Profiling metrics with explicit memory and replay limits. |
 | [cuptisass](cuptisass/) | Package cuptisass provides CUPTI SASS metrics data collection for NVIDIA GPUs. |
 | [egraph](egraph/) | Package egraph implements a lightweight, pure-Go E-Graph (equivalence graph) and equality saturation engine for term rewriting, program optimization, kernel fusion, declarative C++ Tile IR lowering, and sub-byte quantized inference. |
+| [mxfp4](mxfp4/) | Package mxfp4 provides OCP Microscaling FP4 (E2M1) quantization, dequantization, and CUDA fused GEMV kernels. |
 | [nccltest](nccltest/) | Package nccltest provides Go testing support for NCCL collective correctness and performance comparisons with NVIDIA/nccl-tests. |
 | [nvfatbinx](nvfatbinx/) | Package nvfatbinx packages alternative CUDA device images into a fatbinary. |
 | [nvjitlinkx](nvjitlinkx/) | Package nvjitlinkx links CUDA device-code inputs with nvJitLink. |
