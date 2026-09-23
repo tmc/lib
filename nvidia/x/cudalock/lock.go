@@ -39,10 +39,14 @@ var (
 
 // DefaultDir returns the default lock directory.
 func DefaultDir() string {
-	if dir := os.Getenv("GPU_LOCKDIR"); dir != "" {
+	return defaultDir(os.Getenv)
+}
+
+func defaultDir(env func(string) string) string {
+	if dir := env("GPU_LOCKDIR"); dir != "" {
 		return dir
 	}
-	home := os.Getenv("HOME")
+	home := env("HOME")
 	if home == "" {
 		home = "/tmp"
 	}
