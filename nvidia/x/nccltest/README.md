@@ -41,7 +41,7 @@ GOWORK=off go build -o ncclcompare ./x/nccltest/cmd/ncclcompare
 On a CUDA host, explicitly require physical execution:
 
 ```sh
-NCCLTEST_CUDA=1 GOWORK=off go test ./x/nccltest -run 'TestCollectives|TestMissingCollective' -count=1 -v
+NCCLTEST_CUDA=1 GOWORK=off go test ./x/nccltest -run 'TestCollectives|TestMissingCollective|TestTeamCalls' -count=1 -v
 NCCLTEST_CUDA=1 GOWORK=off go test ./x/nccltest -run '^$' -bench BenchmarkCollectives -benchtime=20x -count=1
 ./nccltest -op all_reduce -bytes 65536 -devices 0 -warmup 5 -iterations 20 -checks 2
 ```
@@ -77,6 +77,10 @@ See [COVERAGE.md](COVERAGE.md) for the source-checked option inventory and
 remaining implementation and physical-validation requirements.
 The remaining floating-format codecs have independent CUDA conformance checks;
 [SMALLFLOAT.md](SMALLFLOAT.md) describes their implemented runner integration and pending GPU validation.
+`TestTeamCalls` qualifies the six host calls that take an `nccl.Team` by value
+against a real communicator; [TEAMCALLS.md](TEAMCALLS.md) records which
+qualified, why the two CFT calls do not on a host without CFT support, and the
+multi-rank coverage that remains open.
 
 This is an active implementation, not a claim of full nccl-tests equivalence.
 GPU validation of half, bfloat16, and FP8, traffic matrices/spread selection, and coverage of advanced graph, registration,

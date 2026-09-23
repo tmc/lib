@@ -6,4 +6,6 @@
 // it does not infer correctness from NCCL's success status. Sizes builds finite
 // message-size sweeps. Run executes integer, float32, and float64 cases on CUDA devices;
 // physical multi-GPU equivalence and additional datatypes remain unverified.
+// CheckTeamCalls separately qualifies the host calls that take an nccl.Team by
+// value, reporting each call's status instead of failing on the first rejection.
 package nccltest
