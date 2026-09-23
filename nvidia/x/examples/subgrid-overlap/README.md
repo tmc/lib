@@ -81,14 +81,14 @@ When enabled, subsequent work in the stream is released when all CTAs in this gr
 These figures come from the analytic cycle model in `simulate.go`. No kernel is
 launched: durations are model cycles divided by an assumed clock, not measurements.
 
-Below are benchmark results comparing unpipelined launches, standard sequential CUDA Graph
-nodes, and PDL sub-grid early release across 25%, 50%, and 75% trigger thresholds on the Hopper H100
-(132 SMs, 1755 MHz):
+Below are modeled results comparing unpipelined launches, standard sequential CUDA Graph
+nodes, and PDL sub-grid early release across 25%, 50%, and 75% trigger thresholds, for an
+assumed Hopper H100 (132 SMs, 1755 MHz). `go run .` prints them:
 
 ### Scenario 1: Low Occupancy (64 CTAs, 4 Tiles)
 *Co-resident SM capacity available immediately upon trigger.*
 
-| Execution Mode | Total Latency (µs) | Overlap Window (µs) | Overlap % | Mean SM Occupancy | Speedup vs Seq | Speedup vs Graph |
+| Execution Mode | Modeled Latency (µs) | Modeled Overlap (µs) | Overlap % | Modeled SM Occupancy | Speedup vs Seq | Speedup vs Graph |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | Unpipelined Sequential | 122.00 µs | 0.00 µs | 0.0% | 5.6% | 1.00x | 1.07x |
 | Sequential CUDA Graph | 114.00 µs | 0.00 µs | 0.0% | 5.9% | 1.07x | 1.00x |
@@ -97,7 +97,7 @@ nodes, and PDL sub-grid early release across 25%, 50%, and 75% trigger threshold
 | **PDL Overlap (75%)** | **99.00 µs** | **14.00 µs** | **14.3%** | **6.9%** | **1.23x** | **1.15x** |
 
 ```
-SM Occupancy Timeline [PDL Sub-Grid Overlap (50%)]
+SM Occupancy Timeline [PDL Sub-Grid Overlap]
 Legend: '=' Producer only, '#' Overlap (both active), '*' Consumer only
 100% |                                                            |
  85% |                                                            |
@@ -114,7 +114,7 @@ Legend: '=' Producer only, '#' Overlap (both active), '*' Consumer only
 ### Scenario 2: Full Occupancy (132 CTAs, 4 Tiles)
 *1 CTA per SM; consumer warps interleave into unoccupied warp slots.*
 
-| Execution Mode | Total Latency (µs) | Overlap Window (µs) | Overlap % | Mean SM Occupancy | Speedup vs Seq | Speedup vs Graph |
+| Execution Mode | Modeled Latency (µs) | Modeled Overlap (µs) | Overlap % | Modeled SM Occupancy | Speedup vs Seq | Speedup vs Graph |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | Unpipelined Sequential | 122.00 µs | 0.00 µs | 0.0% | 11.5% | 1.00x | 1.07x |
 | Sequential CUDA Graph | 114.00 µs | 0.00 µs | 0.0% | 12.3% | 1.07x | 1.00x |
@@ -125,7 +125,7 @@ Legend: '=' Producer only, '#' Overlap (both active), '*' Consumer only
 ### Scenario 3: Oversubscribed (264 CTAs, 8 Tiles)
 *Multi-wave CTA scheduling.*
 
-| Execution Mode | Total Latency (µs) | Overlap Window (µs) | Overlap % | Mean SM Occupancy | Speedup vs Seq | Speedup vs Graph |
+| Execution Mode | Modeled Latency (µs) | Modeled Overlap (µs) | Overlap % | Modeled SM Occupancy | Speedup vs Seq | Speedup vs Graph |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | Unpipelined Sequential | 350.00 µs | 0.00 µs | 0.0% | 16.1% | 1.00x | 1.02x |
 | Sequential CUDA Graph | 342.00 µs | 0.00 µs | 0.0% | 16.5% | 1.02x | 1.00x |
@@ -137,10 +137,11 @@ Legend: '=' Producer only, '#' Overlap (both active), '*' Consumer only
 
 ## 4. Key Takeaways and Architectural Observations
 
-1. **Intra-Kernel Overlap Delivers 1.20x - 1.43x Speedup:**
+1. **The Model Predicts a 1.20x - 1.43x Speedup at the 50% Trigger:**
    Standard CUDA Graph nodes eliminate host CPU launch latency but enforce strict barrier
-   synchronization between kernels. PDL unlocks concurrent execution between grid nodes,
-   yielding up to 34% reduction in GPU execution wall time over CUDA Graph sequential dispatches.
+   synchronization between kernels. PDL unlocks concurrent execution between grid nodes;
+   the model predicts up to a 25% reduction in GPU time over CUDA Graph sequential dispatches
+   (85 µs against 114 µs). None of this is measured on a device.
 
 2. **Trigger Point Selection:**
    - **25% Trigger:** Maximizes overlap duration (up to 42.9% of total timeline). Ideal when consumer
@@ -163,7 +164,7 @@ Legend: '=' Producer only, '#' Overlap (both active), '*' Consumer only
 
 ## 5. Usage and Verification Commands
 
-Run the empirical benchmark suite:
+Evaluate the cost model (no GPU is used):
 ```sh
 go run .
 ```
