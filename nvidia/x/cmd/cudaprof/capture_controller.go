@@ -100,6 +100,7 @@ type captureRecordPayload struct {
 	API                 string     `json:"api"`
 	Index               uint32     `json:"index"`
 	ToggleFailures      uint32     `json:"toggle_failures"`
+	FlushNanos          uint64     `json:"flush_nanos"`
 	Dropped             uint64     `json:"dropped"`
 	// The finalized record carries the breakdown of what the producer lost.
 	// Dropped above is their sum, and a sum cannot be acted on: the mechanisms
@@ -984,6 +985,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 					API:            payload.API,
 					Index:          payload.Index,
 					ToggleFailures: payload.ToggleFailures,
+					FlushNanos:     payload.FlushNanos,
 				})
 				continue
 			}

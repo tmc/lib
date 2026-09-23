@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #if CUPTI_API_VERSION >= 130000
 #define TEST_KERNEL_TYPE CUpti_ActivityKernel10
@@ -256,8 +257,17 @@ unsigned cudaprof_test_flush_count(void) { return atomic_load(&flush_calls); }
 unsigned cudaprof_test_flush_delivered(void) { return atomic_load(&flush_delivered); }
 
 CUptiResult cuptiActivityFlushAll(uint32_t flag) {
-	(void)flag;
 	atomic_fetch_add(&flush_calls, 1);
+	/* A real flush costs time in proportion to the records it delivers. A
+	   delay on the non-forced flush, the one a range stop issues, lets a test
+	   tell an edge stamped before the flush from one stamped after it. */
+	const char *delay = getenv("CUDAPROF_TEST_FLUSH_DELAY_MS");
+	if (flag == 0 && delay != NULL) {
+		long ms = strtol(delay, NULL, 10);
+		struct timespec ts = {ms / 1000, (ms % 1000) * 1000000L};
+		while (nanosleep(&ts, &ts) != 0) {
+		}
+	}
 	unsigned kernels = atomic_exchange(&staged_kernels, 0);
 	unsigned memcpys = atomic_exchange(&staged_memcpys, 0);
 	unsigned apis = atomic_exchange(&staged_apis, 0);

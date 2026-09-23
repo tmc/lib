@@ -16,6 +16,11 @@ type capturePhaseEdge struct {
 	API            string `json:"api"`
 	Index          uint32 `json:"index"`
 	ToggleFailures uint32 `json:"toggle_failures"`
+
+	// FlushNanos is how long the producer spent flushing activity buffers
+	// after a stop edge. The edge is stamped before the flush, so this time
+	// lies outside the range.
+	FlushNanos uint64 `json:"flush_nanos,omitempty"`
 }
 
 // capturePhaseReceipt is deliberately UNREAD unless every qualification gate

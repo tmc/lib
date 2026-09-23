@@ -1780,12 +1780,12 @@ static int set_activity_collection(int on) {
    called cudaProfilerStart is indistinguishable from one whose work produced
    no activity, which is the "complete means nothing dropped" trap this
    producer already has elsewhere. */
-static void write_range_edge(const char *edge, const char *api, unsigned index, int failures) {
+static void write_range_edge(const char *edge, const char *api, unsigned index, int failures, uint64_t ts, uint64_t flush_ns) {
 	char payload[MAX_PAYLOAD];
 	int n = snprintf(payload, sizeof(payload),
-		"{\"kind\":\"activity\",\"subtype\":\"capture_range\",\"edge\":\"%s\",\"api\":\"%s\",\"index\":%u,\"toggle_failures\":%d}",
-		edge, api, index, failures);
-	if (n > 0 && (size_t)n < sizeof(payload)) (void)write_record(KIND_ACTIVITY, now_ns(), payload, (size_t)n);
+		"{\"kind\":\"activity\",\"subtype\":\"capture_range\",\"edge\":\"%s\",\"api\":\"%s\",\"index\":%u,\"toggle_failures\":%d,\"flush_nanos\":%llu}",
+		edge, api, index, failures, (unsigned long long)flush_ns);
+	if (n > 0 && (size_t)n < sizeof(payload)) (void)write_record(KIND_ACTIVITY, ts, payload, (size_t)n);
 }
 
 /* track_module_callback follows the driver's own words about where a kernel
@@ -2306,9 +2306,24 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 		int expected = start ? 0 : 1;
 		if (atomic_compare_exchange_strong(&collecting, &expected, start)) {
 			unsigned index = start ? atomic_fetch_add(&range_opens, 1) : atomic_load(&range_opens) - 1;
+			/* A stop edge is stamped before collection is disabled and the
+			   buffers flushed, not after: the flush delivers every record the
+			   range produced, so its cost grows with the record count, and a
+			   stamp taken after it put that cost inside the range. A target
+			   with three times the launches read a tail three times as long.
+			   A start edge is stamped once collection is on, so the range
+			   opens no earlier than the gate. */
+			uint64_t ts = start ? 0 : now_ns();
 			int failures = set_activity_collection(start);
-			if (!start) (void)cuptiActivityFlushAll(0);
-			write_range_edge(start ? "start" : "stop", api, index, failures);
+			uint64_t flush_ns = 0;
+			if (!start) {
+				uint64_t t0 = now_ns();
+				(void)cuptiActivityFlushAll(0);
+				flush_ns = now_ns() - t0;
+			} else {
+				ts = now_ns();
+			}
+			write_range_edge(start ? "start" : "stop", api, index, failures, ts, flush_ns);
 		} else {
 			/* A redundant edge belongs to no range of its own, so it carries the
 			   index of the range it was talking about: the open one for a second
@@ -2317,7 +2332,7 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 			   the end, which a consumer grouping edges by index reads as a range
 			   that opened and never closed. */
 			unsigned opens = atomic_load(&range_opens);
-			write_range_edge(start ? "redundant_start" : "redundant_stop", api, start && opens > 0 ? opens - 1 : opens, 0);
+			write_range_edge(start ? "redundant_start" : "redundant_stop", api, start && opens > 0 ? opens - 1 : opens, 0, now_ns(), 0);
 		}
 	}
 	/* Every stop finalizes in this mode, including one the gate called

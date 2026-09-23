@@ -25,6 +25,7 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 )
@@ -138,9 +139,11 @@ const (
 
 // capture is one decoded producer journal.
 type capture struct {
-	counts     map[uint16]uint64
-	finalized  *finalizedRecord
-	capability capabilityRecord
+	counts    map[uint16]uint64
+	finalized *finalizedRecord
+	// finalizedAt is the finalized record's header timestamp.
+	finalizedAt uint64
+	capability  capabilityRecord
 	// capabilityJSON is the record as written, for assertions about absence.
 	capabilityJSON []byte
 	failures       []string
@@ -177,6 +180,8 @@ type rangeEdgeRecord struct {
 	API            string `json:"api"`
 	Index          uint   `json:"index"`
 	ToggleFailures int    `json:"toggle_failures"`
+	FlushNanos     uint64 `json:"flush_nanos"`
+	Timestamp      uint64 `json:"-"`
 }
 
 // markerRecord is one NVTX marker as the producer transcribed it. A range
@@ -532,6 +537,7 @@ func decode(t *testing.T, path, wantRevision string) capture {
 				t.Fatalf("finalized payload %q: %v", r.Payload, err)
 			}
 			c.finalized = &fin
+			c.finalizedAt = r.Timestamp
 		case kindCapability:
 			if err := json.Unmarshal(r.Payload, &c.capability); err != nil {
 				t.Fatalf("capability payload %q: %v", r.Payload, err)
@@ -559,6 +565,7 @@ func decode(t *testing.T, path, wantRevision string) capture {
 				if err := json.Unmarshal(r.Payload, &e); err != nil {
 					t.Fatalf("capture_range payload %q: %v", r.Payload, err)
 				}
+				e.Timestamp = r.Timestamp
 				c.ranges = append(c.ranges, e)
 			}
 			if bytes.Contains(r.Payload, []byte(`"subtype":"marker"`)) {
@@ -1834,6 +1841,40 @@ func TestCaptureRangeGatesCollection(t *testing.T) {
 				t.Errorf("ungated run wrote %d capture-range edges, want none: %+v", len(open.Edges), open.Edges)
 			}
 		})
+	}
+}
+
+// TestStopEdgePrecedesFlush checks that a range's stop edge is stamped
+// before the producer flushes the range's records. The flush takes time in
+// proportion to the records it delivers, so an edge stamped after it charged
+// that time to the range: on a GB10 prefill it was 62 ms for C's 3427 kernels
+// and 176 ms for Go's 11538, read as device idle at the end of the phase.
+func TestStopEdgePrecedesFlush(t *testing.T) {
+	const delay = 50 * time.Millisecond
+	got := runRange(t, []string{
+		"CUDAPROF_CAPTURE_RANGE=cudaProfilerApi",
+		fmt.Sprintf("CUDAPROF_TEST_FLUSH_DELAY_MS=%d", delay.Milliseconds()),
+	}, "2")
+	if len(got.Edges) != 2 || got.Edges[1].Edge != "stop" {
+		t.Fatalf("edges = %+v, want a start and a stop", got.Edges)
+	}
+	stop := got.Edges[1]
+	if stop.FlushNanos < uint64(delay) {
+		t.Errorf("stop edge flush_nanos = %v, want at least the stub's %v", time.Duration(stop.FlushNanos), delay)
+	}
+	var fin *capture
+	for i := range got.Captures {
+		if got.Captures[i].finalized != nil && len(got.Captures[i].ranges) > 0 {
+			fin = &got.Captures[i]
+		}
+	}
+	if fin == nil {
+		t.Fatal("no finalized journal holds the range edges")
+	}
+	// The flush lies between the stop edge and finalization. An edge stamped
+	// after the flush sits within microseconds of the finalized record.
+	if d := time.Duration(fin.finalizedAt - stop.Timestamp); d < delay {
+		t.Errorf("finalized %v after the stop edge, want at least the %v flush between them", d, delay)
 	}
 }
 
