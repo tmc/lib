@@ -77,14 +77,14 @@ func RMSNormQ8_1Candidates(rows, cols int, weighted, materializeNorm bool) ([]No
 	}
 	b["norm"] = input
 	candidates := []NormQuantCandidate{{Name: "norm_quant_unfused", Buffers: b, WorkspaceBytes: workspace,
-		Launches: []NormQuantLaunch{launch("ds4_rms", "input", "norm"), launch("ds4_quant_q8", "norm", "output")}}}
+		Launches: []NormQuantLaunch{launch("rms_f32", "input", "norm"), launch("quant_q8_1", "norm", "output")}}}
 	if !materializeNorm {
 		b, err := buffers()
 		if err != nil {
 			return nil, err
 		}
 		candidates = append(candidates, NormQuantCandidate{Name: "norm_quant_fused", Buffers: b,
-			Launches: []NormQuantLaunch{launch("ds4_rms_quant_q8", "input", "output")}})
+			Launches: []NormQuantLaunch{launch("rms_quant_q8_1", "input", "output")}})
 	}
 	return candidates, nil
 }

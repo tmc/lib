@@ -388,7 +388,7 @@ func TestMandatoryRewriteRules(t *testing.T) {
 
 	fuseRule := egraph.MustRewrite("fuse_rmsnorm_quant_q8",
 		"(quantize_q8 (rmsnorm ?x ?w))",
-		"(ds4_rms_quant_q8 ?x ?w)",
+		"(rms_quant_q8_1 ?x ?w)",
 	)
 
 	if merges := fuseRule.Apply(g); merges != 0 {
@@ -534,8 +534,8 @@ func TestMultistepRewriteState(t *testing.T) {
 		t.Fatalf("extract failed: %v", err)
 	}
 
-	if best.Op != "ds4_rms_quant_q8" {
-		t.Errorf("expected ds4_rms_quant_q8, got %s", best.Op)
+	if best.Op != "rms_quant_q8_1" {
+		t.Errorf("expected rms_quant_q8_1, got %s", best.Op)
 	}
 }
 

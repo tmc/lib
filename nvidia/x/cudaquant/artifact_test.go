@@ -41,7 +41,7 @@ func TestNormQuantArtifactCompilation(t *testing.T) {
 			t.Fatal("unqualified numerical mode")
 		}
 		return normArtifactFunc(func(entry string, schema cudakernel.Schema, target string) (*cudakernel.Artifact, error) {
-			if entry != "ds4_rms_quant_q8" || target != "sm_121a" || schema.TotalParamBytes != 40 {
+			if entry != "rms_quant_q8_1" || target != "sm_121a" || schema.TotalParamBytes != 40 {
 				t.Fatalf("wrong kernel contract: %s %s %+v", entry, target, schema)
 			}
 			wantNames := []string{"in", "weight", "out", "rows", "cols", "eps", "weighted"}
@@ -106,7 +106,7 @@ func TestNormQuantArtifactErrors(t *testing.T) {
 
 func TestUnfusedNormArtifacts(t *testing.T) {
 	normQuantHeaderFixture(t)
-	entries := []string{"ds4_rms", "ds4_quant_q8"}
+	entries := []string{"rms_f32", "quant_q8_1"}
 	var calls []string
 	a, err := normQuantArtifacts("sm_121a", RMSNormQ8_1UnfusedSource(), entries,
 		func(source string, opts ...nvrtcx.Option) (normQuantModule, error) {

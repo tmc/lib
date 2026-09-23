@@ -29,7 +29,7 @@ func TransformerTileRules() []*Rewrite {
 			"(matmul (rmsnorm ?x ?w_norm ?eps) ?w_proj)",
 			"(tile_rmsnorm_proj ?x ?w_norm ?eps ?w_proj)"),
 
-		// 4. Matmul / GEMV -> SwiGLU FFN (Llama / DeepSeek ds4)
+		// 4. Matmul / GEMV -> SwiGLU FFN (Llama, DeepSeek)
 		MustRewrite("fuse_swiglu_gemv",
 			"(gemv (mul (silu (gemv ?x ?w_g)) (gemv ?x ?w_u)) ?w_d)",
 			"(tile_swiglu ?x ?w_g ?w_u ?w_d)"),
@@ -133,7 +133,7 @@ func SubByteRules() []*Rewrite {
 			"(fused_swiglu_q8_0 ?x ?wg ?wu ?wd)",
 			"(tile_swiglu ?x (ptx_unpack_q8_0 ?wg) (ptx_unpack_q8_0 ?wu) (ptx_unpack_q8_0 ?wd))"),
 
-		// 2. IQ2_XXS: 2-bit quantization for DeepSeek-V4 (ds4-min) inference
+		// 2. IQ2_XXS: 2-bit quantization (ggml IQ2_XXS)
 		MustRewrite("iq2_xxs_matmul_unswizzle",
 			"(matmul ?x (dequantize_iq2_xxs ?w ?scales ?grid))",
 			"(tile_mma ?x (ptx_unswizzle_iq2_xxs ?w ?scales ?grid))"),

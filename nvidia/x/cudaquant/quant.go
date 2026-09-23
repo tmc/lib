@@ -126,7 +126,7 @@ struct Q8_1 { __half d, s; int8_t q[32]; };
 static_assert(sizeof(Q8_1) == 36, "q8_1 layout");
 // Bounded correctness implementation: one serial thread per row. Input and
 // weights must be finite, cols positive and divisible by 32, epsilon nonnegative.
-extern "C" __global__ void ds4_rms_quant_q8(const float* in, const float* weight,
+extern "C" __global__ void rms_quant_q8_1(const float* in, const float* weight,
     Q8_1* out, unsigned rows, unsigned cols, float eps, unsigned weighted) {
   unsigned r = blockIdx.x;
   if (r >= rows || threadIdx.x != 0) return;
@@ -169,7 +169,7 @@ type normQuantModule interface {
 }
 
 func normQuantArtifact(target string, compile func(string, ...nvrtcx.Option) (normQuantModule, error)) (*cudakernel.Artifact, error) {
-	artifacts, err := normQuantArtifacts(target, RMSNormQ8_1Source(), []string{"ds4_rms_quant_q8"}, compile)
+	artifacts, err := normQuantArtifacts(target, RMSNormQ8_1Source(), []string{"rms_quant_q8_1"}, compile)
 	if err != nil {
 		return nil, err
 	}

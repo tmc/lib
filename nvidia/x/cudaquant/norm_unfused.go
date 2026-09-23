@@ -6,8 +6,8 @@ import (
 )
 
 // RMSNormQ8_1UnfusedSource emits a two-kernel alternative to RMSNormQ8_1Source.
-// ds4_rms writes rows*cols float32 values to a distinct intermediate buffer;
-// ds4_quant_q8 reads that buffer and writes rows*(cols/32) Q8_1 blocks. Launch
+// rms_f32 writes rows*cols float32 values to a distinct intermediate buffer;
+// quant_q8_1 reads that buffer and writes rows*(cols/32) Q8_1 blocks. Launch
 // them in order on the same stream, with one one-dimensional block per row.
 // Only thread zero computes. Inputs obey the fused kernel's numerical contract.
 // The intermediate remains available to secondary consumers after both launches.
@@ -19,7 +19,7 @@ func RMSNormQ8_1UnfusedSource() string {
 #include <math.h>
 struct Q8_1 { __half d, s; int8_t q[32]; };
 static_assert(sizeof(Q8_1) == 36, "q8_1 layout");
-extern "C" __global__ void ds4_rms(const float* in, const float* weight,
+extern "C" __global__ void rms_f32(const float* in, const float* weight,
     float* out, unsigned rows, unsigned cols, float eps, unsigned weighted) {
   unsigned r = blockIdx.x;
   if (r >= rows || threadIdx.x != 0) return;
@@ -32,7 +32,7 @@ extern "C" __global__ void ds4_rms(const float* in, const float* weight,
     out[(size_t)r*cols+c]=v;
   }
 }
-extern "C" __global__ void ds4_quant_q8(const float* in, const float* weight,
+extern "C" __global__ void quant_q8_1(const float* in, const float* weight,
     Q8_1* out, unsigned rows, unsigned cols, float eps, unsigned weighted) {
   unsigned r = blockIdx.x;
   if (r >= rows || threadIdx.x != 0) return;
@@ -59,7 +59,7 @@ extern "C" __global__ void ds4_quant_q8(const float* in, const float* weight,
 // entries, in launch order, for a physical target. Compilation preserves each
 // entry's resource requirements. This does not allocate, load or launch kernels.
 func RMSNormQ8_1UnfusedArtifacts(target string) ([2]*cudakernel.Artifact, error) {
-	a, err := normQuantArtifacts(target, RMSNormQ8_1UnfusedSource(), []string{"ds4_rms", "ds4_quant_q8"},
+	a, err := normQuantArtifacts(target, RMSNormQ8_1UnfusedSource(), []string{"rms_f32", "quant_q8_1"},
 		func(src string, opts ...nvrtcx.Option) (normQuantModule, error) { return nvrtcx.Compile(src, opts...) })
 	if err != nil {
 		return [2]*cudakernel.Artifact{}, err

@@ -18,14 +18,14 @@ func MandatoryRewriteRules() []*Rewrite {
 			"(iq2_xxs_matvec (hoist_block_iq2xxs ?w ?scales ?grid) ?x)"),
 
 		// b. Pointwise Norm/Quant Fusion:
-		// RMSNorm -> Quantization (ds4_rms_quant_q8) to eliminate intermediate DRAM activation roundtrips
+		// RMSNorm -> Quantization (rms_quant_q8_1) to eliminate intermediate DRAM activation roundtrips
 		MustRewrite("fuse_rmsnorm_quant_q8",
 			"(quantize_q8 (rmsnorm ?x ?w_norm ?eps))",
-			"(ds4_rms_quant_q8 ?x ?w_norm ?eps)"),
+			"(rms_quant_q8_1 ?x ?w_norm ?eps)"),
 		// Epsilon is optional in the compact IR used by older frontends.
 		MustRewrite("fuse_rmsnorm_quant_q8_default_eps",
 			"(quantize_q8 (rmsnorm ?x ?w_norm))",
-			"(ds4_rms_quant_q8 ?x ?w_norm)"),
+			"(rms_quant_q8_1 ?x ?w_norm)"),
 		// SwiGLU -> Q8_1 quantization fusion
 		MustRewrite("fuse_swiglu_quant_q8_1",
 			"(quantize_q8_1 (mul (silu (gemv ?x ?w_g)) (gemv ?x ?w_u)))",

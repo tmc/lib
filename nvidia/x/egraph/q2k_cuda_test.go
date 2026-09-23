@@ -53,8 +53,8 @@ func halfToFloat32(h uint16) float32 {
 // belongs to group i/16, whose two-bit field lives in byte
 // 32*(group/8) + 16*(group&1) + i%16 at shift ((group/2)&3)*2. Each scale byte
 // packs two nibbles, the low one scaling the quant and the high one scaling the
-// minimum that is subtracted. This mirrors q2_k_value_f32 in the ds4 oracle
-// (ds4.c:3608) and quant.DequantizeQ2_K (lm/quant/kquant.go:49); a kernel that
+// minimum that is subtracted. This mirrors ggml's Q2_K dequantization
+// and quant.DequantizeQ2_K (lm/quant/kquant.go:49); a kernel that
 // reads the quants sequentially, or that multiplies by the whole scale byte,
 // produces finite plausible numbers that are wrong for every element.
 func dequantizeQ2K(block []byte) []float32 {

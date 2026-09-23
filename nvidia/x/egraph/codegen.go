@@ -30,7 +30,7 @@ type CodegenOptions struct {
 // GenerateCUDA generates a complete, compilable CUDA C++ kernel from an
 // extracted AST Expr.
 //
-// It supports floating-point and DeepSeek-V4 (ds4-min) quantized operators:
+// It supports floating-point and quantized operators:
 //   - "fused_swiglu_gemv" (float / half FFN fusion)
 //   - "fused_swiglu_q8_0" (Q8_0 quantized FFN fusion)
 //   - "fused_rmsnorm_gemv" (RMSNorm reduction + GEMV projection)
@@ -111,7 +111,7 @@ struct block_q8_0 {
 };
 
 // Q2_K block: 256 2-bit quantized values with super-block scaling.
-// Laid out as block_q2_K (ds4.c:846, lm/quant/kquant.go:34).
+// Laid out as block_q2_K (lm/quant/kquant.go:34).
 struct block_q2_k {
     uint8_t scales[16]; // low nibble scales quant, high nibble scales min
     uint8_t qs[64];     // 256 2-bit weights, interleaved
