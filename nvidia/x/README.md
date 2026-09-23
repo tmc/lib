@@ -81,6 +81,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaspec](cudaspec/) | Package cudaspec provides high-throughput speculative decoding algorithms, explicit branch state, tree attention masks, proposal lifecycle management, prompt-cache n-gram drafting, and batched multi-token verification. |
 | [cudasrv](cudasrv/) | Package cudasrv provides an OpenAI-compatible HTTP inference server with Server-Sent Events (SSE) streaming, Prometheus metrics, and graceful cancellation. |
 | [cudataskgraph](cudataskgraph/) | Package cudataskgraph validates finite task DAGs and tracks epoch-scoped publication and abort state. |
+| [cudatemplate](cudatemplate/) | Package cudatemplate formats multi-turn chat messages into model-specific prompt strings. |
 | [cudatensor](cudatensor/) | Package cudatensor provides a fluent, checked tensor frontend for constructing computation graphs with deferred symbolic execution, shape verification, and frontend error propagation. |
 | [cudatest](cudatest/) | Package cudatest provides CUDA hardware requirements and scoped device-memory checks for tests. |
 | [cudatma](cudatma/) | Package cudatma describes checked tensor-map transfers and device-local multicast participation. |
