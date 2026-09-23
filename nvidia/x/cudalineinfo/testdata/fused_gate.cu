@@ -11,6 +11,7 @@ extern "C" __global__ void fused_gate(
     int n
 ) {
     if (n <= 0 || blockDim.x == 0 || gridDim.x == 0 || blockDim.y != 1 || blockDim.z != 1 || gridDim.y != 1 || gridDim.z != 1) return;
+#pragma unroll 1
     for (unsigned long long idx = (unsigned long long)blockDim.x * blockIdx.x + threadIdx.x; idx < (unsigned int)n; idx += (unsigned long long)blockDim.x * gridDim.x) {
 #line 12 "x/cudalineinfo/testdata/wiring/kernels.go"
         float v_x = x[idx];
@@ -22,6 +23,6 @@ extern "C" __global__ void fused_gate(
         float v_mul_3 = v_silu_2 * v_w;
 #line 15 "x/cudalineinfo/testdata/wiring/kernels.go"
         out_mul_3[idx] = v_mul_3;
-#line 16 "fused_gate.cu"
+#line 17 "fused_gate.cu"
     }
 }

@@ -11,18 +11,18 @@ import (
 
 func TestAttribute(t *testing.T) {
 	a := loadFixture(t, "fused_gate", "")
-	if a.Instructions != 464 || a.Attributed != 162 {
-		t.Errorf("attributed %d of %d, want 162 of 464", a.Attributed, a.Instructions)
+	if a.Instructions != 184 || a.Attributed != 32 {
+		t.Errorf("attributed %d of %d, want 32 of 184", a.Attributed, a.Instructions)
 	}
 	tests := []struct {
 		site      Site
 		cuda      []int
 		ptx, sass int
 	}{
-		{Site{kernelsFile, 12}, []int{4, 11}, 5, 14},
-		{Site{kernelsFile, 13}, []int{5, 12}, 5, 12},
-		{Site{kernelsFile, 14}, []int{13}, 5, 117},
-		{Site{kernelsFile, 15}, []int{6, 14, 15}, 5, 19},
+		{Site{kernelsFile, 12}, []int{4, 12}, 1, 4},
+		{Site{kernelsFile, 13}, []int{5, 13}, 1, 2},
+		{Site{kernelsFile, 14}, []int{14}, 1, 22},
+		{Site{kernelsFile, 15}, []int{6, 15, 16}, 1, 4},
 	}
 	rows := a.Rows()
 	if len(rows) != len(tests) {
@@ -40,10 +40,10 @@ func TestAttribute(t *testing.T) {
 	// the division slowpath must be counted as a subroutine rather than as
 	// generated code, which is what it would look like from the line
 	// directives alone: its instructions inherit the last one before its
-	// label. The 64-bit division is the one the loop's trip count needs.
+	// label. The loop is not unrolled, so no division sizes it and the
+	// float slowpath is the only subroutine.
 	div, _ := subroutine(t, a, "fused_gate", divSlowpath)
-	divU64, _ := subroutine(t, a, "fused_gate", "_$__cuda_sm20_div_u64")
-	want := Remainder{Generated: 125, Subroutines: map[string]int{div: 115, divU64: 62}}
+	want := Remainder{Generated: 31, Subroutines: map[string]int{div: 121}}
 	if a.Remainder.Total() != a.Instructions-a.Attributed {
 		t.Errorf("remainder totals %d, want %d", a.Remainder.Total(), a.Instructions-a.Attributed)
 	}

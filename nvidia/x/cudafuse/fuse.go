@@ -118,8 +118,14 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 	}
 	addLine("    int n\n) {", nil)
 
-	// Grid-stride loop
+	// Grid-stride loop. The index and stride are 64-bit because
+	// blockDim.x * blockIdx.x and blockDim.x * gridDim.x can exceed 32 bits
+	// even though n cannot. NVRTC unrolls the loop for sm_100 and later and
+	// sizes the unrolled loop with a 64-bit division, a __cuda_sm20_div_u64
+	// call. On GB10 that left fused_gate executing 91 instructions per warp
+	// outside its Go lines, against 29 on them; not unrolled, it executes 31.
 	addLine("    if (n <= 0 || blockDim.x == 0 || gridDim.x == 0 || blockDim.y != 1 || blockDim.z != 1 || gridDim.y != 1 || gridDim.z != 1) return;", nil)
+	addLine("#pragma unroll 1", nil)
 	addLine("    for (unsigned long long idx = (unsigned long long)blockDim.x * blockIdx.x + threadIdx.x; idx < (unsigned int)n; idx += (unsigned long long)blockDim.x * gridDim.x) {", nil)
 
 	// Load inputs into local variables

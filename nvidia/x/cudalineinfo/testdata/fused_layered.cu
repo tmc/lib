@@ -11,6 +11,7 @@ extern "C" __global__ void fused_layered(
     int n
 ) {
     if (n <= 0 || blockDim.x == 0 || gridDim.x == 0 || blockDim.y != 1 || blockDim.z != 1 || gridDim.y != 1 || gridDim.z != 1) return;
+#pragma unroll 1
     for (unsigned long long idx = (unsigned long long)blockDim.x * blockIdx.x + threadIdx.x; idx < (unsigned int)n; idx += (unsigned long long)blockDim.x * gridDim.x) {
 #line 38 "x/cudalineinfo/testdata/wiring/kernels.go"
         float v_x = x[idx];
@@ -24,6 +25,6 @@ extern "C" __global__ void fused_layered(
         float v_div_4 = v_silu_2 / v_sqrt_3;
 #line 50 "x/cudalineinfo/testdata/wiring/kernels.go"
         out_div_4[idx] = v_div_4;
-#line 17 "fused_layered.cu"
+#line 18 "fused_layered.cu"
     }
 }

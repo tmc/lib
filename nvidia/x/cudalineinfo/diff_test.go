@@ -9,8 +9,7 @@ import (
 // TestDiffFastMath compares the fixture with its -use_fast_math build. Fast
 // math replaces the IEEE division with an approximate reciprocal, so the Silu
 // line must lose its slowpath call and the slowpath itself must be gone from
-// the remainder. The loop's 64-bit integer division is not floating point
-// and stays.
+// the remainder.
 func TestDiffFastMath(t *testing.T) {
 	base, fast := loadFixture(t, "fused_gate", ""), loadFixture(t, "fused_gate", "-fast")
 	diffs := Diff(Side{Attribution: base}, Side{Attribution: fast})
@@ -18,8 +17,8 @@ func TestDiffFastMath(t *testing.T) {
 		t.Fatalf("got %d site diffs, want 4", len(diffs))
 	}
 	silu := diffs[2]
-	if silu.Site != (Site{kernelsFile, 14}) || silu.Base != 117 || silu.Target != 25 {
-		t.Errorf("silu diff = %+v, want kernels.go:14 117 -> 25", silu)
+	if silu.Site != (Site{kernelsFile, 14}) || silu.Base != 22 || silu.Target != 5 {
+		t.Errorf("silu diff = %+v, want kernels.go:14 22 -> 5", silu)
 	}
 	// Opcodes compare by base mnemonic, so the slowpath call is CALL and
 	// the range check FCHK. Both builds keep a MUFU exponential and

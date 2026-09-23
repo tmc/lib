@@ -8,7 +8,7 @@
 	.align	128
         .global         fused_layered
         .type           fused_layered,@function
-        .size           fused_layered,(.L_x_58 - fused_layered)
+        .size           fused_layered,(.L_x_22 - fused_layered)
         .other          fused_layered,@"STO_CUDA_ENTRY STV_DEFAULT"
 fused_layered:
 .text.fused_layered:
@@ -17,755 +17,282 @@ fused_layered:
 	//## File "fused_layered.cu", line 9
         /*0010*/                   LDC R0, c[0x0][0x364] ;
         /*0020*/                   LDC R2, c[0x0][0x368] ;
-        /*0030*/                   LDC R6, c[0x0][0x398] ;
+        /*0030*/                   LDC R4, c[0x0][0x398] ;
         /*0040*/                   LDC R3, c[0x0][0x374] ;
-        /*0050*/                   LDC R4, c[0x0][0x378] ;
+        /*0050*/                   LDC R6, c[0x0][0x378] ;
         /*0060*/                   ISETP.NE.AND P0, PT, R2, 0x1, PT ;
         /*0070*/                   ISETP.NE.OR P0, PT, R0, 0x1, P0 ;
-        /*0080*/                   ISETP.LT.OR P0, PT, R6, 0x1, P0 ;
+        /*0080*/                   ISETP.LT.OR P0, PT, R4, 0x1, P0 ;
         /*0090*/                   ISETP.NE.OR P0, PT, R3, 0x1, P0 ;
-        /*00a0*/                   ISETP.NE.OR P0, PT, R4, 0x1, P0 ;
+        /*00a0*/                   ISETP.NE.OR P0, PT, R6, 0x1, P0 ;
         /*00b0*/               @P0 EXIT ;
-	//## File "fused_layered.cu", line 10
-        /*00c0*/                   S2R R2, SR_CTAID.X ;
-        /*00d0*/                   LDCU UR10, c[0x0][0x360] ;
-        /*00e0*/                   HFMA2 R5, -RZ, RZ, 0, 0 ;
-        /*00f0*/                   MOV R7, RZ ;
-        /*0100*/                   S2R R4, SR_TID.X ;
-        /*0110*/                   IMAD.WIDE.U32 R10, R2, UR10, R4 ;
-        /*0120*/                   ISETP.GE.U64.AND P0, PT, R10, R6, PT ;
+	//## File "fused_layered.cu", line 11
+        /*00c0*/                   S2R R7, SR_CTAID.X ;
+        /*00d0*/                   LDCU UR4, c[0x0][0x360] ;
+        /*00e0*/                   HFMA2 R3, -RZ, RZ, 0, 0 ;
+        /*00f0*/                   MOV R5, RZ ;
+        /*0100*/                   S2R R2, SR_TID.X ;
+        /*0110*/                   IMAD.WIDE.U32 R6, R7, UR4, R2 ;
+        /*0120*/                   ISETP.GE.U64.AND P0, PT, R6, R4, PT ;
         /*0130*/               @P0 EXIT ;
-        /*0140*/                   LDCU UR11, c[0x0][0x370] ;
-        /*0150*/                   MOV R3, RZ ;
-        /*0160*/                   MOV R9, RZ ;
-        /*0170*/                   BSSY.RECONVERGENT B0, `(.L_x_0) ;
-        /*0180*/                   UMOV UR4, URZ ;
-        /*0190*/                   MOV R8, UR11 ;
-        /*01a0*/                   IADD.64 R2, R2, R8 ;
-        /*01b0*/                   IMAD.WIDE.U32 R4, R2, UR10, R4 ;
-        /*01c0*/                   IMAD R3, R3, UR10, RZ ;
-        /*01d0*/                   MOV R2, R4 ;
-        /*01e0*/                   UIMAD.WIDE.U32 UR10, UR10, UR11, URZ ;
-        /*01f0*/                   IADD3 R3, PT, PT, R5, R3, RZ ;
-        /*0200*/                   UIADD3 UR14, UPT, UPT, UR11, UR4, URZ ;
-        /*0210*/                   MOV.64 R4, R10 ;
-        /*0220*/                   ISETP.GE.U64.AND P0, PT, R2, R6, PT ;
-        /*0230*/                   IMNMX.U64 PT, PT, R8, R6, R2, !PT, !PT ;
-        /*0240*/                   SEL.64 R14, RZ, 0x1, P0 ;
-        /*0250*/                   IADD.64 R2, R2, R14 ;
-        /*0260*/                   IADD.64 R8, R8, -R2 ;
-        /*0270*/                   LOP3.LUT R0, R9, UR14, RZ, 0xfc, !PT ;
-        /*0280*/                   ISETP.NE.U32.AND P0, PT, R0, RZ, PT ;
-        /*0290*/               @P0 BRA `(.L_x_1) ;
-        /*02a0*/                   UI2F.U32.RP UR4, UR10 ;
-        /*02b0*/                   HFMA2 R2, -RZ, RZ, 0, 0 ;
-        /*02c0*/                   ISETP.NE.U32.AND P2, PT, RZ, UR10, PT ;
-        /*02d0*/                   MUFU.RCP R0, UR4 ;
-        /*02e0*/                   IADD3 R0, PT, PT, R0, 0xffffffe, RZ ;
-        /*02f0*/                   F2I.FTZ.U32.TRUNC.NTZ R3, R0 ;
-        /*0300*/                   IADD3 R9, PT, PT, RZ, -R3, RZ ;
-        /*0310*/                   IMAD R9, R9, UR10, RZ ;
-        /*0320*/                   IMAD.HI.U32 R3, R3, R9, R2 ;
-        /*0330*/                   IMAD.HI.U32 R2, R3, R8, RZ ;
-        /*0340*/                   IADD3 R3, PT, PT, -R2, RZ, RZ ;
-        /*0350*/                   IMAD R8, R3, UR10, R8 ;
-        /*0360*/                   MOV R3, RZ ;
-        /*0370*/                   ISETP.GE.U32.AND P0, PT, R8, UR10, PT ;
-        /*0380*/               @P0 IADD3 R8, PT, PT, R8, -UR10, RZ ;
-        /*0390*/               @P0 IADD3 R2, PT, PT, R2, 0x1, RZ ;
-        /*03a0*/                   ISETP.GE.U32.AND P1, PT, R8, UR10, PT ;
-        /*03b0*/               @P1 IADD3 R2, PT, PT, R2, 0x1, RZ ;
-        /*03c0*/              @!P2 LOP3.LUT R2, RZ, UR10, RZ, 0x33, !PT ;
-        /*03d0*/                   BRA `(.L_x_2) ;
-.L_x_1:
-        /*03e0*/                   MOV R0, 0x400 ;
-        /*03f0*/                   CALL.REL.NOINC `($__internal_0_$__cuda_sm20_div_u64) ;
-.L_x_2:
-        /*0400*/                   BSYNC.RECONVERGENT B0 ;
-.L_x_0:
-        /*0410*/                   IADD.64 R14, R14, R2 ;
-        /*0420*/                   HFMA2 R3, -RZ, RZ, 0, 0 ;
-        /*0430*/                   LDCU.64 UR28, c[0x0][0x358] ;
-        /*0440*/                   BSSY.RECONVERGENT B0, `(.L_x_3) ;
-        /*0450*/                   LOP3.LUT R2, R14, 0x3, RZ, 0xc0, !PT ;
+        /*0140*/                   LDCU UR5, c[0x0][0x370] ;
+        /*0150*/                   SHF.L.U64.HI R9, R6.reuse, 0x2, R7 ;
+        /*0160*/                   IMAD.SHL.U32 R8, R6, 0x4, RZ ;
+        /*0170*/                   LDCU.64 UR8, c[0x0][0x358] ;
 	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*0460*/                   LDCU.64 UR6, c[0x0][0x390] ;
-	//## File "fused_layered.cu", line 10
-        /*0470*/                   ISETP.NE.S64.AND P0, PT, R2, 0x3, PT ;
+        /*0180*/                   LDCU.64 UR10, c[0x0][0x390] ;
 	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 38
-        /*0480*/                   LDCU.128 UR16, c[0x0][0x380] ;
-	//## File "fused_layered.cu", line 10
-        /*0490*/              @!P0 BRA `(.L_x_4) ;
-        /*04a0*/                   IADD3 R0, PT, PT, R14, 0x1, RZ ;
-        /*04b0*/                   MOV R10, UR10 ;
-        /*04c0*/                   MOV R11, UR14 ;
-        /*04d0*/                   MOV R2, UR10 ;
-        /*04e0*/                   SHF.L.U64.HI R9, R4.reuse, 0x2, R5 ;
-        /*04f0*/                   IMAD.SHL.U32 R8, R4, 0x4, RZ ;
-        /*0500*/                   LOP3.LUT R0, R0, 0x3, RZ, 0xc0, !PT ;
-        /*0510*/                   SHF.L.U64.HI R11, R10, 0x2, R11 ;
-        /*0520*/                   IMAD.SHL.U32 R10, R2, 0x4, RZ ;
-        /*0530*/                   IADD3 R12, P0, PT, RZ, -R0, RZ ;
-        /*0540*/                   IADD3.X R13, PT, PT, RZ, -0x1, RZ, P0, !PT ;
-.L_x_12:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 38
-        /*0550*/                   IADD.64 R16, R8, UR16 ;
-        /*0560*/                   LDG.E.CONSTANT R0, desc[UR28][R16.64] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*0570*/                   MOV R19, 0x3bbb989d ;
-        /*0580*/                   HFMA2 R21, -RZ, RZ, 3.7421875, 0 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 39
-        /*0590*/                   IADD.64 R2, R8, UR18 ;
-        /*05a0*/                   LDG.E.CONSTANT R2, desc[UR28][R2.64] ;
-	//## File "fused_layered.cu", line 10
-        /*05b0*/                   IADD.64 R12, R12, 0x1 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*05c0*/                   BSSY.RECONVERGENT B3, `(.L_x_5) ;
-	//## File "fused_layered.cu", line 10
-        /*05d0*/                   ISETP.NE.S64.AND P2, PT, R12, RZ, PT ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*05e0*/                   FFMA.SAT R18, R0, -R19, 0.5 ;
-        /*05f0*/                   FFMA.RM R18, R18, R21, 12582913 ;
-        /*0600*/                   FADD R19, R18.reuse, -12583039 ;
-        /*0610*/                   IMAD.SHL.U32 R18, R18, 0x800000, RZ ;
-        /*0620*/                   FFMA R19, R0, -1.4426950216293334961, -R19 ;
-        /*0630*/                   FFMA R19, R0, -1.925963033500011079e-08, R19 ;
-        /*0640*/                   MUFU.EX2 R19, R19 ;
-        /*0650*/                   FFMA R21, R18, R19, 1 ;
-        /*0660*/                   MUFU.RCP R3, R21 ;
-        /*0670*/                   FCHK P0, R0, R21 ;
-        /*0680*/                   FFMA R16, -R21, R3, 1 ;
-        /*0690*/                   FFMA R3, R3, R16, R3 ;
-        /*06a0*/                   FFMA R16, R0, R3, RZ ;
-        /*06b0*/                   FFMA R17, -R21, R16, R0 ;
-        /*06c0*/                   FFMA R3, R3, R17, R16 ;
-        /*06d0*/              @!P0 BRA `(.L_x_6) ;
-        /*06e0*/                   MOV R3, R21 ;
-        /*06f0*/                   MOV R16, 0x710 ;
-        /*0700*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-.L_x_6:
-        /*0710*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_5:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 49
-        /*0720*/                   IADD3 R0, PT, PT, R2, -0xd000000, RZ ;
-        /*0730*/                   MUFU.RSQ R19, R2 ;
-        /*0740*/                   BSSY.RECONVERGENT B1, `(.L_x_7) ;
-        /*0750*/                   ISETP.GT.U32.AND P0, PT, R0, 0x727fffff, PT ;
-        /*0760*/              @!P0 BRA `(.L_x_8) ;
-        /*0770*/                   MOV R0, R2 ;
-        /*0780*/                   MOV R20, 0x7a0 ;
-        /*0790*/                   CALL.REL.NOINC `($__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath) ;
-        /*07a0*/                   BRA `(.L_x_9) ;
-.L_x_8:
-        /*07b0*/                   FMUL.FTZ R17, R2, R19 ;
-        /*07c0*/                   FMUL.FTZ R0, R19, 0.5 ;
-        /*07d0*/                   FFMA R2, -R17, R17, R2 ;
-        /*07e0*/                   FFMA R2, R2, R0, R17 ;
-.L_x_9:
-        /*07f0*/                   BSYNC.RECONVERGENT B1 ;
+        /*0190*/                   LDCU.128 UR12, c[0x0][0x380] ;
+        /*01a0*/                   UIMAD.WIDE.U32 UR4, UR4, UR5, URZ ;
+	//## File "fused_layered.cu", line 11
+        /*01b0*/                   USHF.L.U64.HI UR7, UR4, 0x2, UR5 ;
+        /*01c0*/                   USHF.L.U32 UR6, UR4, 0x2, URZ ;
 .L_x_7:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*0800*/                   MUFU.RCP R17, R2 ;
-        /*0810*/                   BSSY.RECONVERGENT B3, `(.L_x_10) ;
-        /*0820*/                   FCHK P0, R3, R2 ;
-        /*0830*/                   FFMA R0, R17, -R2, 1 ;
-        /*0840*/                   FFMA R0, R17, R0, R17 ;
-        /*0850*/                   FFMA R16, R0, R3, RZ ;
-        /*0860*/                   FFMA R17, R16, -R2, R3 ;
-        /*0870*/                   FFMA R17, R0, R17, R16 ;
-        /*0880*/              @!P0 BRA `(.L_x_11) ;
-        /*0890*/                   MOV R0, R3 ;
-        /*08a0*/                   MOV R3, R2 ;
-        /*08b0*/                   MOV R16, 0x8d0 ;
-        /*08c0*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-        /*08d0*/                   MOV R17, R3 ;
-.L_x_11:
-        /*08e0*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_10:
-        /*08f0*/                   IADD.64 R2, R8.reuse, UR6 ;
-	//## File "fused_layered.cu", line 10
-        /*0900*/                   UMOV UR4, UR10 ;
-        /*0910*/                   UMOV UR5, UR14 ;
-        /*0920*/                   IADD.64 R8, R8, R10 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*0930*/                   STG.E desc[UR28][R2.64], R17 ;
-	//## File "fused_layered.cu", line 10
-        /*0940*/                   IADD.64 R4, R4, UR4 ;
-        /*0950*/               @P2 BRA `(.L_x_12) ;
-.L_x_4:
-        /*0960*/                   BSYNC.RECONVERGENT B0 ;
+	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 38
+        /*01d0*/                   IADD.64 R10, R8, UR12 ;
+        /*01e0*/                   LDG.E.CONSTANT R0, desc[UR8][R10.64] ;
+	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
+        /*01f0*/                   HFMA2 R13, -RZ, RZ, 0.96630859375, -0.0022525787353515625 ;
+        /*0200*/                   MOV R15, 0x437c0000 ;
+	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 39
+        /*0210*/                   IADD.64 R2, R8, UR14 ;
+        /*0220*/                   LDG.E.CONSTANT R2, desc[UR8][R2.64] ;
+	//## File "fused_layered.cu", line 11
+        /*0230*/                   IADD.64 R6, R6, UR4 ;
+	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
+        /*0240*/                   BSSY.RECONVERGENT B0, `(.L_x_0) ;
+	//## File "fused_layered.cu", line 11
+        /*0250*/                   ISETP.GE.U64.AND P2, PT, R6, R4, PT ;
+	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
+        /*0260*/                   FFMA.SAT R12, R0, -R13, 0.5 ;
+        /*0270*/                   FFMA.RM R12, R12, R15, 12582913 ;
+        /*0280*/                   FADD R13, R12.reuse, -12583039 ;
+        /*0290*/                   IMAD.SHL.U32 R12, R12, 0x800000, RZ ;
+        /*02a0*/                   FFMA R13, R0, -1.4426950216293334961, -R13 ;
+        /*02b0*/                   FFMA R13, R0, -1.925963033500011079e-08, R13 ;
+        /*02c0*/                   MUFU.EX2 R13, R13 ;
+        /*02d0*/                   FFMA R15, R12, R13, 1 ;
+        /*02e0*/                   MUFU.RCP R3, R15 ;
+        /*02f0*/                   FCHK P0, R0, R15 ;
+        /*0300*/                   FFMA R10, -R15, R3, 1 ;
+        /*0310*/                   FFMA R3, R3, R10, R3 ;
+        /*0320*/                   FFMA R10, R0, R3, RZ ;
+        /*0330*/                   FFMA R11, -R15, R10, R0 ;
+        /*0340*/                   FFMA R11, R3, R11, R10 ;
+        /*0350*/              @!P0 BRA `(.L_x_1) ;
+        /*0360*/                   MOV R3, R15 ;
+        /*0370*/                   MOV R10, 0x390 ;
+        /*0380*/                   CALL.REL.NOINC `($__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
+        /*0390*/                   MOV R11, R13 ;
+.L_x_1:
+        /*03a0*/                   BSYNC.RECONVERGENT B0 ;
+.L_x_0:
+	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 49
+        /*03b0*/                   IADD3 R0, PT, PT, R2, -0xd000000, RZ ;
+        /*03c0*/                   MUFU.RSQ R13, R2 ;
+        /*03d0*/                   BSSY.RECONVERGENT B0, `(.L_x_2) ;
+        /*03e0*/                   ISETP.GT.U32.AND P0, PT, R0, 0x727fffff, PT ;
+        /*03f0*/              @!P0 BRA `(.L_x_3) ;
+        /*0400*/                   MOV R15, 0x420 ;
+        /*0410*/                   CALL.REL.NOINC `($__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath) ;
+        /*0420*/                   MOV R3, R0 ;
+        /*0430*/                   BRA `(.L_x_4) ;
 .L_x_3:
-        /*0970*/                   ISETP.GE.U64.AND P0, PT, R14, 0x3, PT ;
-        /*0980*/              @!P0 EXIT ;
-        /*0990*/                   LDCU.128 UR16, c[0x0][0x380] ;
-        /*09a0*/                   BSSY.RECONVERGENT B0, `(.L_x_13) ;
-        /*09b0*/                   SHF.L.U64.HI R9, R4.reuse, 0x2, R5 ;
-        /*09c0*/                   IMAD.SHL.U32 R8, R4, 0x4, RZ ;
-        /*09d0*/                   LDCU.64 UR12, c[0x0][0x390] ;
-        /*09e0*/                   USHF.L.U64.HI UR37, UR10, 0x2, UR14 ;
-        /*09f0*/                   USHF.L.U32 UR36, UR10, 0x2, URZ ;
-        /*0a00*/                   USHF.L.U64.HI UR5, UR10, 0x3, UR14 ;
-        /*0a10*/                   USHF.L.U32 UR4, UR10, 0x3, URZ ;
-        /*0a20*/                   UIMAD UR11, UR14, 0xc, URZ ;
+        /*0440*/                   FMUL.FTZ R3, R2, R13 ;
+        /*0450*/                   FMUL.FTZ R0, R13, 0.5 ;
+        /*0460*/                   FFMA R2, -R3, R3, R2 ;
+        /*0470*/                   FFMA R3, R2, R0, R3 ;
+.L_x_4:
+        /*0480*/                   BSYNC.RECONVERGENT B0 ;
+.L_x_2:
 	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*0a30*/                   LDCU.64 UR38, c[0x0][0x390] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 38
-        /*0a40*/                   LDCU.128 UR20, c[0x0][0x380] ;
-	//## File "fused_layered.cu", line 10
-        /*0a50*/                   UIMAD.WIDE.U32 UR32, UR10, 0xc, UR18 ;
-        /*0a60*/                   UIMAD.WIDE.U32 UR34, UR10, 0xc, UR16 ;
-        /*0a70*/                   UIMAD.WIDE.U32 UR30, UR10, 0xc, UR12 ;
-        /*0a80*/                   UIADD3.64 UR24, UPT, UPT, UR36, UR18, URZ ;
-        /*0a90*/                   UIADD3.64 UR6, UPT, UPT, UR4, UR18, URZ ;
-        /*0aa0*/                   UIADD3.64 UR26, UPT, UPT, UR36, UR16, URZ ;
-        /*0ab0*/                   UIADD3.64 UR8, UPT, UPT, UR4, UR16, URZ ;
-        /*0ac0*/                   USHF.L.U64.HI UR16, UR10, 0x4, UR14 ;
-        /*0ad0*/                   UIADD3.64 UR18, UPT, UPT, UR36, UR12, URZ ;
-        /*0ae0*/                   UIADD3.64 UR4, UPT, UPT, UR4, UR12, URZ ;
-        /*0af0*/                   USHF.L.U32 UR15, UR10, 0x4, URZ ;
-        /*0b00*/                   UIADD3 UR14, UPT, UPT, UR31, UR11, URZ ;
-        /*0b10*/                   UIADD3 UR13, UPT, UPT, UR11, UR33, URZ ;
-        /*0b20*/                   UIADD3 UR12, UPT, UPT, UR11, UR35, URZ ;
-.L_x_42:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 38
-        /*0b30*/                   IADD.64 R10, R8, UR20 ;
-        /*0b40*/                   LDG.E.CONSTANT R0, desc[UR28][R10.64] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*0b50*/                   HFMA2 R13, -RZ, RZ, 0.96630859375, -0.0022525787353515625 ;
-        /*0b60*/                   MOV R15, 0x437c0000 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 39
-        /*0b70*/                   IADD.64 R2, R8, UR22 ;
-        /*0b80*/                   LDG.E.CONSTANT R2, desc[UR28][R2.64] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*0b90*/                   BSSY.RECONVERGENT B3, `(.L_x_14) ;
-        /*0ba0*/                   FFMA.SAT R12, R0, -R13, 0.5 ;
-        /*0bb0*/                   FFMA.RM R12, R12, R15, 12582913 ;
-        /*0bc0*/                   FADD R13, R12.reuse, -12583039 ;
-        /*0bd0*/                   IMAD.SHL.U32 R12, R12, 0x800000, RZ ;
-        /*0be0*/                   FFMA R13, R0, -1.4426950216293334961, -R13 ;
-        /*0bf0*/                   FFMA R13, R0, -1.925963033500011079e-08, R13 ;
-        /*0c00*/                   MUFU.EX2 R13, R13 ;
-        /*0c10*/                   FFMA R15, R12, R13, 1 ;
-        /*0c20*/                   MUFU.RCP R3, R15 ;
-        /*0c30*/                   FCHK P0, R0, R15 ;
-        /*0c40*/                   FFMA R10, -R15, R3, 1 ;
-        /*0c50*/                   FFMA R3, R3, R10, R3 ;
-        /*0c60*/                   FFMA R10, R0, R3, RZ ;
-        /*0c70*/                   FFMA R11, -R15, R10, R0 ;
-        /*0c80*/                   FFMA R3, R3, R11, R10 ;
-        /*0c90*/              @!P0 BRA `(.L_x_15) ;
-        /*0ca0*/                   MOV R3, R15 ;
-        /*0cb0*/                   MOV R16, 0xcd0 ;
-        /*0cc0*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-.L_x_15:
-        /*0cd0*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_14:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 49
-        /*0ce0*/                   IADD3 R0, PT, PT, R2, -0xd000000, RZ ;
-        /*0cf0*/                   MUFU.RSQ R13, R2 ;
-        /*0d00*/                   BSSY.RECONVERGENT B1, `(.L_x_16) ;
-        /*0d10*/                   ISETP.GT.U32.AND P0, PT, R0, 0x727fffff, PT ;
-        /*0d20*/              @!P0 BRA `(.L_x_17) ;
-        /*0d30*/                   MOV R0, R2 ;
-        /*0d40*/                   MOV R20, 0xd60 ;
-        /*0d50*/                   CALL.REL.NOINC `($__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath) ;
-        /*0d60*/                   BRA `(.L_x_18) ;
+        /*0490*/                   MUFU.RCP R0, R3 ;
+        /*04a0*/                   BSSY.RECONVERGENT B0, `(.L_x_5) ;
+        /*04b0*/                   FCHK P0, R11, R3 ;
+        /*04c0*/                   FFMA R13, R0, -R3, 1 ;
+        /*04d0*/                   FFMA R0, R0, R13, R0 ;
+        /*04e0*/                   FFMA R2, R0, R11, RZ ;
+        /*04f0*/                   FFMA R13, R2, -R3, R11 ;
+        /*0500*/                   FFMA R13, R0, R13, R2 ;
+        /*0510*/              @!P0 BRA `(.L_x_6) ;
+        /*0520*/                   MOV R0, R11 ;
+        /*0530*/                   MOV R10, 0x550 ;
+        /*0540*/                   CALL.REL.NOINC `($__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
+.L_x_6:
+        /*0550*/                   BSYNC.RECONVERGENT B0 ;
+.L_x_5:
+        /*0560*/                   IADD.64 R2, R8.reuse, UR10 ;
+	//## File "fused_layered.cu", line 11
+        /*0570*/                   IADD.64 R8, R8, UR6 ;
+	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
+        /*0580*/                   STG.E desc[UR8][R2.64], R13 ;
+	//## File "fused_layered.cu", line 11
+        /*0590*/              @!P2 BRA `(.L_x_7) ;
+	//## File "fused_layered.cu", line 19
+        /*05a0*/                   EXIT ;
+        .weak           $__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath
+        .type           $__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath,@function
+        .size           $__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath,($__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath - $__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath)
+$__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath:
+        /*05b0*/                   LOP3.LUT P0, RZ, R2, 0x7fffffff, RZ, 0xc0, !PT ;
+        /*05c0*/              @!P0 BRA `(.L_x_8) ;
+        /*05d0*/                   FSETP.GEU.FTZ.AND P0, PT, R2, RZ, PT ;
+        /*05e0*/                   MOV R0, R2 ;
+        /*05f0*/              @!P0 MOV R2, 0x7fffffff ;
+        /*0600*/              @!P0 BRA `(.L_x_8) ;
+        /*0610*/                   FSETP.GTU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*0620*/               @P0 FADD.FTZ R2, R0, 1 ;
+        /*0630*/               @P0 BRA `(.L_x_8) ;
+        /*0640*/                   FSETP.NEU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*0650*/               @P0 FFMA R3, R0, 1.84467440737095516160e+19, RZ ;
+        /*0660*/               @P0 MUFU.RSQ R2, R3 ;
+        /*0670*/               @P0 FMUL.FTZ R10, R3, R2 ;
+        /*0680*/               @P0 FMUL.FTZ R14, R2, 0.5 ;
+        /*0690*/              @!P0 MOV R2, R0 ;
+        /*06a0*/               @P0 FADD.FTZ R12, -R10, -RZ ;
+        /*06b0*/               @P0 FFMA R13, R10, R12, R3 ;
+        /*06c0*/               @P0 FFMA R13, R13, R14, R10 ;
+        /*06d0*/               @P0 FMUL.FTZ R2, R13, 2.3283064365386962891e-10 ;
+.L_x_8:
+        /*06e0*/                   MOV R0, R2 ;
+        /*06f0*/                   MOV R2, R15 ;
+        /*0700*/                   HFMA2 R3, -RZ, RZ, 0, 0 ;
+        /*0710*/                   RET.REL.NODEC R2 `(fused_layered) ;
+        .weak           $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath
+        .type           $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath,@function
+        .size           $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath,(.L_x_22 - $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath)
+$__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath:
+        /*0720*/                   SHF.R.U32.HI R12, RZ, 0x17, R3 ;
+        /*0730*/                   BSSY.RECONVERGENT B1, `(.L_x_9) ;
+        /*0740*/                   SHF.R.U32.HI R11, RZ, 0x17, R0 ;
+        /*0750*/                   LOP3.LUT R16, R12, 0xff, RZ, 0xc0, !PT ;
+        /*0760*/                   LOP3.LUT R14, R11, 0xff, RZ, 0xc0, !PT ;
+        /*0770*/                   IADD3 R13, PT, PT, R16, -0x1, RZ ;
+        /*0780*/                   IADD3 R12, PT, PT, R14, -0x1, RZ ;
+        /*0790*/                   ISETP.GT.U32.AND P0, PT, R13, 0xfd, PT ;
+        /*07a0*/                   ISETP.GT.U32.OR P0, PT, R12, 0xfd, P0 ;
+        /*07b0*/              @!P0 MOV R11, RZ ;
+        /*07c0*/              @!P0 BRA `(.L_x_10) ;
+        /*07d0*/                   FSETP.GTU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*07e0*/                   FSETP.GTU.FTZ.AND P1, PT, |R3|, +INF , PT ;
+        /*07f0*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xf8, 0x8f ;
+        /*0800*/               @P0 BRA `(.L_x_11) ;
+        /*0810*/                   LOP3.LUT P0, RZ, R3, 0x7fffffff, R0, 0xc8, !PT ;
+        /*0820*/              @!P0 BRA `(.L_x_12) ;
+        /*0830*/                   FSETP.NEU.FTZ.AND P3, PT, |R0|.reuse, +INF , PT ;
+        /*0840*/                   FSETP.NEU.FTZ.AND P1, PT, |R3|, +INF , PT ;
+        /*0850*/                   FSETP.NEU.FTZ.AND P0, PT, |R0|, +INF , PT ;
+        /*0860*/              @!P1 BRA !P3, `(.L_x_12) ;
+        /*0870*/                   LOP3.LUT P3, RZ, R0, 0x7fffffff, RZ, 0xc0, !PT ;
+        /*0880*/                   PLOP3.LUT P1, PT, P1, P3, PT, 0x2f, 0xf2 ;
+        /*0890*/               @P1 BRA `(.L_x_13) ;
+        /*08a0*/                   LOP3.LUT P1, RZ, R3, 0x7fffffff, RZ, 0xc0, !PT ;
+        /*08b0*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0x2f, 0xf2 ;
+        /*08c0*/               @P0 BRA `(.L_x_14) ;
+        /*08d0*/                   ISETP.GE.AND P0, PT, R12, RZ, PT ;
+        /*08e0*/                   ISETP.GE.AND P1, PT, R13, RZ, PT ;
+        /*08f0*/               @P0 MOV R11, RZ ;
+        /*0900*/              @!P0 MOV R11, 0xffffffc0 ;
+        /*0910*/              @!P0 FFMA R0, R0, 1.84467440737095516160e+19, RZ ;
+        /*0920*/              @!P1 FFMA R3, R3, 1.84467440737095516160e+19, RZ ;
+        /*0930*/              @!P1 IADD3 R11, PT, PT, R11, 0x40, RZ ;
+.L_x_10:
+        /*0940*/                   LEA R12, R16, 0xc0800000, 0x17 ;
+        /*0950*/                   BSSY.RECONVERGENT B2, `(.L_x_15) ;
+        /*0960*/                   IADD3 R12, PT, PT, -R12, R3, RZ ;
+        /*0970*/                   IADD3 R3, PT, PT, R14, -0x7f, RZ ;
+        /*0980*/                   MUFU.RCP R13, R12 ;
+        /*0990*/                   FADD.FTZ R15, -R12, -RZ ;
+        /*09a0*/                   IMAD R0, R3.reuse, -0x800000, R0 ;
+        /*09b0*/                   IADD3 R12, PT, PT, R3, 0x7f, -R16 ;
+        /*09c0*/                   IADD3 R12, PT, PT, R12, R11, RZ ;
+        /*09d0*/                   FFMA R14, R13, R15, 1 ;
+        /*09e0*/                   FFMA R18, R13, R14, R13 ;
+        /*09f0*/                   FFMA R13, R0, R18, RZ ;
+        /*0a00*/                   FFMA R14, R15, R13, R0 ;
+        /*0a10*/                   FFMA R17, R18, R14, R13 ;
+        /*0a20*/                   FFMA R14, R15, R17, R0 ;
+        /*0a30*/                   FFMA R13, R18, R14, R17 ;
+        /*0a40*/                   SHF.R.U32.HI R0, RZ, 0x17, R13 ;
+        /*0a50*/                   LOP3.LUT R0, R0, 0xff, RZ, 0xc0, !PT ;
+        /*0a60*/                   IADD3 R15, PT, PT, R0, R12, RZ ;
+        /*0a70*/                   IADD3 R0, PT, PT, R15, -0x1, RZ ;
+        /*0a80*/                   ISETP.GE.U32.AND P0, PT, R0, 0xfe, PT ;
+        /*0a90*/              @!P0 BRA `(.L_x_16) ;
+        /*0aa0*/                   ISETP.GT.AND P0, PT, R15, 0xfe, PT ;
+        /*0ab0*/               @P0 BRA `(.L_x_17) ;
+        /*0ac0*/                   ISETP.GE.AND P0, PT, R15, 0x1, PT ;
+        /*0ad0*/               @P0 BRA `(.L_x_18) ;
+        /*0ae0*/                   ISETP.GE.AND P0, PT, R15, -0x18, PT ;
+        /*0af0*/                   LOP3.LUT R13, R13, 0x80000000, RZ, 0xc0, !PT ;
+        /*0b00*/              @!P0 BRA `(.L_x_18) ;
+        /*0b10*/                   FFMA.RZ R0, R18.reuse, R14.reuse, R17.reuse ;
+        /*0b20*/                   IADD3 R12, PT, PT, R15.reuse, 0x20, RZ ;
+        /*0b30*/                   FFMA.RM R3, R18, R14, R17 ;
+        /*0b40*/                   ISETP.NE.AND P1, PT, R15.reuse, RZ, PT ;
+        /*0b50*/                   ISETP.NE.AND P3, PT, R15, RZ, PT ;
+        /*0b60*/                   LOP3.LUT R0, R0, 0x7fffff, RZ, 0xc0, !PT ;
+        /*0b70*/                   LOP3.LUT R11, R0, 0x800000, RZ, 0xfc, !PT ;
+        /*0b80*/                   FFMA.RP R0, R18, R14, R17 ;
+        /*0b90*/                   IADD3 R14, PT, PT, -R15, RZ, RZ ;
+        /*0ba0*/                   SHF.L.U32 R12, R11, R12, RZ ;
+        /*0bb0*/                   FSETP.NEU.FTZ.AND P0, PT, R0, R3, PT ;
+        /*0bc0*/                   SEL R0, R14, RZ, P3 ;
+        /*0bd0*/                   ISETP.NE.AND P1, PT, R12, RZ, P1 ;
+        /*0be0*/                   SHF.R.U32.HI R0, RZ, R0, R11 ;
+        /*0bf0*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xf8, 0x8f ;
+        /*0c00*/                   SHF.R.U32.HI R12, RZ, 0x1, R0 ;
+        /*0c10*/                   SEL R3, RZ, 0x1, !P0 ;
+        /*0c20*/                   LOP3.LUT R3, R3, 0x1, R12, 0xf8, !PT ;
+        /*0c30*/                   LOP3.LUT R3, R3, R0, RZ, 0xc0, !PT ;
+        /*0c40*/                   IADD3 R12, PT, PT, R12, R3, RZ ;
+        /*0c50*/                   LOP3.LUT R13, R12, R13, RZ, 0xfc, !PT ;
+        /*0c60*/                   BRA `(.L_x_18) ;
 .L_x_17:
-        /*0d70*/                   FMUL.FTZ R11, R2, R13 ;
-        /*0d80*/                   FMUL.FTZ R0, R13, 0.5 ;
-        /*0d90*/                   FFMA R2, -R11, R11, R2 ;
-        /*0da0*/                   FFMA R2, R2, R0, R11 ;
-.L_x_18:
-        /*0db0*/                   BSYNC.RECONVERGENT B1 ;
+        /*0c70*/                   LOP3.LUT R13, R13, 0x80000000, RZ, 0xc0, !PT ;
+        /*0c80*/                   LOP3.LUT R13, R13, 0x7f800000, RZ, 0xfc, !PT ;
+        /*0c90*/                   BRA `(.L_x_18) ;
 .L_x_16:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*0dc0*/                   MUFU.RCP R11, R2 ;
-        /*0dd0*/                   BSSY.RECONVERGENT B3, `(.L_x_19) ;
-        /*0de0*/                   FCHK P0, R3, R2 ;
-        /*0df0*/                   FFMA R0, R11, -R2, 1 ;
-        /*0e00*/                   FFMA R0, R11, R0, R11 ;
-        /*0e10*/                   FFMA R10, R0, R3, RZ ;
-        /*0e20*/                   FFMA R11, R10, -R2, R3 ;
-        /*0e30*/                   FFMA R13, R0, R11, R10 ;
-        /*0e40*/              @!P0 BRA `(.L_x_20) ;
-        /*0e50*/                   MOV R0, R3 ;
-        /*0e60*/                   MOV R3, R2 ;
-        /*0e70*/                   MOV R16, 0xe90 ;
-        /*0e80*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-        /*0e90*/                   MOV R13, R3 ;
-.L_x_20:
-        /*0ea0*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_19:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 38
-        /*0eb0*/                   IADD.64 R10, R8, UR26 ;
-        /*0ec0*/                   LDG.E.CONSTANT R0, desc[UR28][R10.64] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*0ed0*/                   HFMA2 R15, -RZ, RZ, 0.96630859375, -0.0022525787353515625 ;
-        /*0ee0*/                   MOV R17, 0x437c0000 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 39
-        /*0ef0*/                   IADD.64 R2, R8, UR24 ;
-        /*0f00*/                   LDG.E.CONSTANT R2, desc[UR28][R2.64] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*0f10*/                   IADD.64 R10, R8, UR38 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*0f20*/                   BSSY.RECONVERGENT B3, `(.L_x_21) ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*0f30*/                   STG.E desc[UR28][R10.64], R13 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*0f40*/                   FFMA.SAT R12, R0, -R15, 0.5 ;
-        /*0f50*/                   FFMA.RM R12, R12, R17, 12582913 ;
-        /*0f60*/                   FADD R15, R12.reuse, -12583039 ;
-        /*0f70*/                   IMAD.SHL.U32 R12, R12, 0x800000, RZ ;
-        /*0f80*/                   FFMA R15, R0, -1.4426950216293334961, -R15 ;
-        /*0f90*/                   FFMA R15, R0, -1.925963033500011079e-08, R15 ;
-        /*0fa0*/                   MUFU.EX2 R15, R15 ;
-        /*0fb0*/                   FFMA R17, R12, R15, 1 ;
-        /*0fc0*/                   MUFU.RCP R3, R17 ;
-        /*0fd0*/                   FCHK P0, R0, R17 ;
-        /*0fe0*/                   FFMA R12, -R17, R3, 1 ;
-        /*0ff0*/                   FFMA R3, R3, R12, R3 ;
-        /*1000*/                   FFMA R12, R0, R3, RZ ;
-        /*1010*/                   FFMA R14, -R17, R12, R0 ;
-        /*1020*/                   FFMA R3, R3, R14, R12 ;
-        /*1030*/              @!P0 BRA `(.L_x_22) ;
-        /*1040*/                   MOV R3, R17 ;
-        /*1050*/                   MOV R16, 0x1070 ;
-        /*1060*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-.L_x_22:
-        /*1070*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_21:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 49
-        /*1080*/                   IADD3 R0, PT, PT, R2, -0xd000000, RZ ;
-        /*1090*/                   MUFU.RSQ R13, R2 ;
-        /*10a0*/                   BSSY.RECONVERGENT B1, `(.L_x_23) ;
-        /*10b0*/                   ISETP.GT.U32.AND P0, PT, R0, 0x727fffff, PT ;
-        /*10c0*/              @!P0 BRA `(.L_x_24) ;
-        /*10d0*/                   MOV R0, R2 ;
-        /*10e0*/                   MOV R20, 0x1100 ;
-        /*10f0*/                   CALL.REL.NOINC `($__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath) ;
-        /*1100*/                   BRA `(.L_x_25) ;
-.L_x_24:
-        /*1110*/                   FMUL.FTZ R11, R2, R13 ;
-        /*1120*/                   FMUL.FTZ R0, R13, 0.5 ;
-        /*1130*/                   FFMA R2, -R11, R11, R2 ;
-        /*1140*/                   FFMA R2, R2, R0, R11 ;
-.L_x_25:
-        /*1150*/                   BSYNC.RECONVERGENT B1 ;
-.L_x_23:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*1160*/                   MUFU.RCP R11, R2 ;
-        /*1170*/                   BSSY.RECONVERGENT B3, `(.L_x_26) ;
-        /*1180*/                   FCHK P0, R3, R2 ;
-        /*1190*/                   FFMA R0, R11, -R2, 1 ;
-        /*11a0*/                   FFMA R0, R11, R0, R11 ;
-        /*11b0*/                   FFMA R10, R0, R3, RZ ;
-        /*11c0*/                   FFMA R11, R10, -R2, R3 ;
-        /*11d0*/                   FFMA R13, R0, R11, R10 ;
-        /*11e0*/              @!P0 BRA `(.L_x_27) ;
-        /*11f0*/                   MOV R0, R3 ;
-        /*1200*/                   MOV R3, R2 ;
-        /*1210*/                   MOV R16, 0x1230 ;
-        /*1220*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-        /*1230*/                   MOV R13, R3 ;
-.L_x_27:
-        /*1240*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_26:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 38
-        /*1250*/                   IADD.64 R10, R8, UR8 ;
-        /*1260*/                   LDG.E.CONSTANT R0, desc[UR28][R10.64] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*1270*/                   HFMA2 R15, -RZ, RZ, 0.96630859375, -0.0022525787353515625 ;
-        /*1280*/                   MOV R17, 0x437c0000 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 39
-        /*1290*/                   IADD.64 R2, R8, UR6 ;
-        /*12a0*/                   LDG.E.CONSTANT R2, desc[UR28][R2.64] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*12b0*/                   IADD.64 R10, R8, UR18 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*12c0*/                   BSSY.RECONVERGENT B3, `(.L_x_28) ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*12d0*/                   STG.E desc[UR28][R10.64], R13 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*12e0*/                   FFMA.SAT R12, R0, -R15, 0.5 ;
-        /*12f0*/                   FFMA.RM R12, R12, R17, 12582913 ;
-        /*1300*/                   FADD R15, R12.reuse, -12583039 ;
-        /*1310*/                   IMAD.SHL.U32 R12, R12, 0x800000, RZ ;
-        /*1320*/                   FFMA R15, R0, -1.4426950216293334961, -R15 ;
-        /*1330*/                   FFMA R15, R0, -1.925963033500011079e-08, R15 ;
-        /*1340*/                   MUFU.EX2 R15, R15 ;
-        /*1350*/                   FFMA R17, R12, R15, 1 ;
-        /*1360*/                   MUFU.RCP R3, R17 ;
-        /*1370*/                   FCHK P0, R0, R17 ;
-        /*1380*/                   FFMA R12, -R17, R3, 1 ;
-        /*1390*/                   FFMA R3, R3, R12, R3 ;
-        /*13a0*/                   FFMA R12, R0, R3, RZ ;
-        /*13b0*/                   FFMA R14, -R17, R12, R0 ;
-        /*13c0*/                   FFMA R3, R3, R14, R12 ;
-        /*13d0*/              @!P0 BRA `(.L_x_29) ;
-        /*13e0*/                   MOV R3, R17 ;
-        /*13f0*/                   MOV R16, 0x1410 ;
-        /*1400*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-.L_x_29:
-        /*1410*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_28:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 49
-        /*1420*/                   IADD3 R0, PT, PT, R2, -0xd000000, RZ ;
-        /*1430*/                   MUFU.RSQ R13, R2 ;
-        /*1440*/                   BSSY.RECONVERGENT B1, `(.L_x_30) ;
-        /*1450*/                   ISETP.GT.U32.AND P0, PT, R0, 0x727fffff, PT ;
-        /*1460*/              @!P0 BRA `(.L_x_31) ;
-        /*1470*/                   MOV R0, R2 ;
-        /*1480*/                   MOV R20, 0x14a0 ;
-        /*1490*/                   CALL.REL.NOINC `($__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath) ;
-        /*14a0*/                   BRA `(.L_x_32) ;
-.L_x_31:
-        /*14b0*/                   FMUL.FTZ R11, R2, R13 ;
-        /*14c0*/                   FMUL.FTZ R0, R13, 0.5 ;
-        /*14d0*/                   FFMA R2, -R11, R11, R2 ;
-        /*14e0*/                   FFMA R2, R2, R0, R11 ;
-.L_x_32:
-        /*14f0*/                   BSYNC.RECONVERGENT B1 ;
-.L_x_30:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*1500*/                   MUFU.RCP R11, R2 ;
-        /*1510*/                   BSSY.RECONVERGENT B3, `(.L_x_33) ;
-        /*1520*/                   FCHK P0, R3, R2 ;
-        /*1530*/                   FFMA R0, R11, -R2, 1 ;
-        /*1540*/                   FFMA R0, R11, R0, R11 ;
-        /*1550*/                   FFMA R10, R0, R3, RZ ;
-        /*1560*/                   FFMA R11, R10, -R2, R3 ;
-        /*1570*/                   FFMA R13, R0, R11, R10 ;
-        /*1580*/              @!P0 BRA `(.L_x_34) ;
-        /*1590*/                   MOV R0, R3 ;
-        /*15a0*/                   MOV R3, R2 ;
-        /*15b0*/                   MOV R16, 0x15d0 ;
-        /*15c0*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-        /*15d0*/                   MOV R13, R3 ;
-.L_x_34:
-        /*15e0*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_33:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 38
-        /*15f0*/                   UMOV UR10, UR34 ;
-        /*1600*/                   UMOV UR11, UR12 ;
-        /*1610*/                   IADD.64 R10, R8, UR10 ;
-        /*1620*/                   LDG.E.CONSTANT R0, desc[UR28][R10.64] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*1630*/                   HFMA2 R15, -RZ, RZ, 0.96630859375, -0.0022525787353515625 ;
-        /*1640*/                   MOV R17, 0x437c0000 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 39
-        /*1650*/                   UMOV UR10, UR32 ;
-        /*1660*/                   UMOV UR11, UR13 ;
-        /*1670*/                   IADD.64 R2, R8, UR10 ;
-        /*1680*/                   LDG.E.CONSTANT R2, desc[UR28][R2.64] ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*1690*/                   IADD.64 R10, R8, UR4 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*16a0*/                   BSSY.RECONVERGENT B3, `(.L_x_35) ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*16b0*/                   STG.E desc[UR28][R10.64], R13 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 45
-        /*16c0*/                   FFMA.SAT R12, R0, -R15, 0.5 ;
-        /*16d0*/                   FFMA.RM R12, R12, R17, 12582913 ;
-        /*16e0*/                   FADD R15, R12.reuse, -12583039 ;
-        /*16f0*/                   IMAD.SHL.U32 R12, R12, 0x800000, RZ ;
-        /*1700*/                   FFMA R15, R0, -1.4426950216293334961, -R15 ;
-        /*1710*/                   FFMA R15, R0, -1.925963033500011079e-08, R15 ;
-        /*1720*/                   MUFU.EX2 R15, R15 ;
-        /*1730*/                   FFMA R17, R12, R15, 1 ;
-        /*1740*/                   MUFU.RCP R3, R17 ;
-        /*1750*/                   FCHK P0, R0, R17 ;
-        /*1760*/                   FFMA R12, -R17, R3, 1 ;
-        /*1770*/                   FFMA R3, R3, R12, R3 ;
-        /*1780*/                   FFMA R12, R0, R3, RZ ;
-        /*1790*/                   FFMA R14, -R17, R12, R0 ;
-        /*17a0*/                   FFMA R3, R3, R14, R12 ;
-        /*17b0*/              @!P0 BRA `(.L_x_36) ;
-        /*17c0*/                   MOV R3, R17 ;
-        /*17d0*/                   MOV R16, 0x17f0 ;
-        /*17e0*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-.L_x_36:
-        /*17f0*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_35:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 49
-        /*1800*/                   IADD3 R0, PT, PT, R2, -0xd000000, RZ ;
-        /*1810*/                   MUFU.RSQ R13, R2 ;
-        /*1820*/                   BSSY.RECONVERGENT B1, `(.L_x_37) ;
-        /*1830*/                   ISETP.GT.U32.AND P0, PT, R0, 0x727fffff, PT ;
-        /*1840*/              @!P0 BRA `(.L_x_38) ;
-        /*1850*/                   MOV R0, R2 ;
-        /*1860*/                   MOV R20, 0x1880 ;
-        /*1870*/                   CALL.REL.NOINC `($__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath) ;
-        /*1880*/                   BRA `(.L_x_39) ;
-.L_x_38:
-        /*1890*/                   FMUL.FTZ R11, R2, R13 ;
-        /*18a0*/                   FMUL.FTZ R0, R13, 0.5 ;
-        /*18b0*/                   FFMA R2, -R11, R11, R2 ;
-        /*18c0*/                   FFMA R2, R2, R0, R11 ;
-.L_x_39:
-        /*18d0*/                   BSYNC.RECONVERGENT B1 ;
-.L_x_37:
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*18e0*/                   MUFU.RCP R11, R2 ;
-        /*18f0*/                   BSSY.RECONVERGENT B3, `(.L_x_40) ;
-        /*1900*/                   FCHK P0, R3, R2 ;
-        /*1910*/                   FFMA R0, R11, -R2, 1 ;
-        /*1920*/                   FFMA R0, R11, R0, R11 ;
-        /*1930*/                   FFMA R10, R0, R3, RZ ;
-        /*1940*/                   FFMA R11, R10, -R2, R3 ;
-        /*1950*/                   FFMA R11, R0, R11, R10 ;
-        /*1960*/              @!P0 BRA `(.L_x_41) ;
-        /*1970*/                   MOV R0, R3 ;
-        /*1980*/                   MOV R3, R2 ;
-        /*1990*/                   MOV R16, 0x19b0 ;
-        /*19a0*/                   CALL.REL.NOINC `($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath) ;
-        /*19b0*/                   MOV R11, R3 ;
-.L_x_41:
-        /*19c0*/                   BSYNC.RECONVERGENT B3 ;
-.L_x_40:
-        /*19d0*/                   UMOV UR10, UR30 ;
-        /*19e0*/                   UMOV UR11, UR14 ;
-	//## File "fused_layered.cu", line 10
-        /*19f0*/                   IADD.64 R4, R4, UR36 ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*1a00*/                   IADD.64 R2, R8, UR10 ;
-	//## File "fused_layered.cu", line 10
-        /*1a10*/                   UMOV UR10, UR15 ;
-        /*1a20*/                   UMOV UR11, UR16 ;
-        /*1a30*/                   ISETP.GE.U64.AND P0, PT, R4, R6, PT ;
-	//## File "x/cudalineinfo/testdata/wiring/kernels.go", line 50
-        /*1a40*/                   STG.E desc[UR28][R2.64], R11 ;
-	//## File "fused_layered.cu", line 10
-        /*1a50*/                   IADD.64 R8, R8, UR10 ;
-        /*1a60*/              @!P0 BRA `(.L_x_42) ;
-        /*1a70*/                   BSYNC.RECONVERGENT B0 ;
+        /*0ca0*/                   IMAD R13, R12, 0x800000, R13 ;
+.L_x_18:
+        /*0cb0*/                   BSYNC.RECONVERGENT B2 ;
+.L_x_15:
+        /*0cc0*/                   BRA `(.L_x_19) ;
+.L_x_14:
+        /*0cd0*/                   LOP3.LUT R0, R3, 0x80000000, R0, 0x48, !PT ;
+        /*0ce0*/                   LOP3.LUT R13, R0, 0x7f800000, RZ, 0xfc, !PT ;
+        /*0cf0*/                   BRA `(.L_x_19) ;
 .L_x_13:
-	//## File "fused_layered.cu", line 18
-        /*1a80*/                   EXIT ;
-        .weak           $__internal_0_$__cuda_sm20_div_u64
-        .type           $__internal_0_$__cuda_sm20_div_u64,@function
-        .size           $__internal_0_$__cuda_sm20_div_u64,($__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath - $__internal_0_$__cuda_sm20_div_u64)
-$__internal_0_$__cuda_sm20_div_u64:
-        /*1a90*/                   MOV.64 R10, UR10 ;
-        /*1aa0*/                   MOV R3, UR14 ;
-        /*1ab0*/                   MOV R2, R10 ;
-        /*1ac0*/                   I2F.U64.RP R16, R2 ;
-        /*1ad0*/                   MUFU.RCP R16, R16 ;
-        /*1ae0*/                   IADD3 R10, PT, PT, R16, 0x1ffffffe, RZ ;
-        /*1af0*/                   NOP ;
-        /*1b00*/                   NOP ;
-        /*1b10*/                   NOP ;
-        /*1b20*/                   F2I.U64.TRUNC R10, R10 ;
-        /*1b30*/                   IMAD.WIDE.U32 R12, R10, UR10, RZ ;
-        /*1b40*/                   IMAD R13, R10, UR14, R13 ;
-        /*1b50*/                   IADD3 R17, P0, PT, RZ, -R12, RZ ;
-        /*1b60*/                   IMAD R13, R11, UR10, R13 ;
-        /*1b70*/                   IMAD.HI.U32 R12, R10, R17, RZ ;
-        /*1b80*/                   IADD3.X R19, PT, PT, RZ, ~R13, RZ, P0, !PT ;
-        /*1b90*/                   MOV R13, R10 ;
-        /*1ba0*/                   IMAD R21, R11, R19.reuse, RZ ;
-        /*1bb0*/                   IMAD.WIDE.U32 R12, P0, R10, R19, R12 ;
-        /*1bc0*/                   IMAD.HI.U32 R19, R11, R19, RZ ;
-        /*1bd0*/                   IMAD.HI.U32 R12, P1, R11, R17, R12 ;
-        /*1be0*/                   IADD3 R13, P2, PT, R21, R12, RZ ;
-        /*1bf0*/                   IADD3.X R12, PT, PT, R19, R11, RZ, P0, !PT ;
-        /*1c00*/                   IMAD.WIDE.U32 R10, R13, UR10, RZ ;
-        /*1c10*/                   IADD3.X R17, PT, PT, RZ, RZ, R12, P2, P1 ;
-        /*1c20*/                   IMAD R12, R13, UR14, R11 ;
-        /*1c30*/                   IADD3 R11, P0, PT, RZ, -R10, RZ ;
-        /*1c40*/                   IMAD R10, R17, UR10, R12 ;
-        /*1c50*/                   IMAD.HI.U32 R12, R13, R11, RZ ;
-        /*1c60*/                   IADD3.X R10, PT, PT, RZ, ~R10, RZ, P0, !PT ;
-        /*1c70*/                   IMAD.WIDE.U32 R12, P0, R13, R10, R12 ;
-        /*1c80*/                   IMAD R16, R17.reuse, R10, RZ ;
-        /*1c90*/                   IMAD.HI.U32 R13, P1, R17, R11, R12 ;
-        /*1ca0*/                   HFMA2 R11, -RZ, RZ, 0, 0 ;
-        /*1cb0*/                   IMAD.HI.U32 R10, R17, R10, RZ ;
-        /*1cc0*/                   IADD3 R13, P2, PT, R16, R13, RZ ;
-        /*1cd0*/                   IADD3.X R17, PT, PT, R10, R17, RZ, P0, !PT ;
-        /*1ce0*/                   IMAD.HI.U32 R10, R13, R8, RZ ;
-        /*1cf0*/                   IADD3.X R17, PT, PT, RZ, RZ, R17, P2, P1 ;
-        /*1d00*/                   IMAD.WIDE.U32 R10, R13, R9, R10 ;
-        /*1d10*/                   IMAD R13, R17.reuse, R9, RZ ;
-        /*1d20*/                   IMAD.HI.U32 R10, P0, R17, R8, R10 ;
-        /*1d30*/                   IMAD.HI.U32 R12, R17, R9, RZ ;
-        /*1d40*/                   IADD3 R13, P1, PT, R13, R10, RZ ;
-        /*1d50*/                   IADD3.X R12, PT, PT, R12, RZ, RZ, P0, !PT ;
-        /*1d60*/                   IMAD.WIDE.U32 R10, R13, UR10, RZ ;
-        /*1d70*/                   IADD3.X R12, PT, PT, RZ, R12, RZ, P1, !PT ;
-        /*1d80*/                   IMAD R11, R13, UR14, R11 ;
-        /*1d90*/                   IMAD R11, R12, UR10, R11 ;
-        /*1da0*/                   IADD.64 R8, R8, -R10 ;
-        /*1db0*/                   ISETP.GE.U64.AND P0, PT, R8, R2, PT ;
-        /*1dc0*/               @P0 IADD.64 R8, -R2, R8 ;
-        /*1dd0*/                   ISETP.GE.U64.AND P1, PT, R8, R2, PT ;
-        /*1de0*/                   MOV R8, R13 ;
-        /*1df0*/                   MOV R9, R12 ;
-        /*1e00*/               @P0 IADD.64 R8, R8, 0x1 ;
-        /*1e10*/                   ISETP.NE.S64.AND P0, PT, R2, RZ, PT ;
-        /*1e20*/               @P1 IADD.64 R8, R8, 0x1 ;
-        /*1e30*/                   SEL.64 R2, R8, -0x1, P0 ;
-        /*1e40*/                   MOV R8, R0 ;
-        /*1e50*/                   HFMA2 R9, -RZ, RZ, 0, 0 ;
-        /*1e60*/                   RET.REL.NODEC R8 `(fused_layered) ;
-        .weak           $__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath
-        .type           $__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath,@function
-        .size           $__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath,($__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath - $__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath)
-$__internal_1_$__cuda_sm20_sqrt_rn_f32_slowpath:
-        /*1e70*/                   LOP3.LUT P0, RZ, R0, 0x7fffffff, RZ, 0xc0, !PT ;
-        /*1e80*/              @!P0 MOV R2, R0 ;
-        /*1e90*/              @!P0 BRA `(.L_x_43) ;
-        /*1ea0*/                   FSETP.GEU.FTZ.AND P0, PT, R0, RZ, PT ;
-        /*1eb0*/              @!P0 MOV R2, 0x7fffffff ;
-        /*1ec0*/              @!P0 BRA `(.L_x_43) ;
-        /*1ed0*/                   FSETP.GTU.FTZ.AND P0, PT, |R0|, +INF , PT ;
-        /*1ee0*/               @P0 FADD.FTZ R2, R0, 1 ;
-        /*1ef0*/               @P0 BRA `(.L_x_43) ;
-        /*1f00*/                   FSETP.NEU.FTZ.AND P0, PT, |R0|, +INF , PT ;
-        /*1f10*/               @P0 FFMA R16, R0, 1.84467440737095516160e+19, RZ ;
-        /*1f20*/               @P0 MUFU.RSQ R17, R16 ;
-        /*1f30*/               @P0 FMUL.FTZ R19, R16, R17 ;
-        /*1f40*/               @P0 FMUL.FTZ R17, R17, 0.5 ;
-        /*1f50*/               @P0 FADD.FTZ R2, -R19, -RZ ;
-        /*1f60*/               @P0 FFMA R18, R19, R2, R16 ;
-        /*1f70*/              @!P0 MOV R2, R0 ;
-        /*1f80*/               @P0 FFMA R17, R18, R17, R19 ;
-        /*1f90*/               @P0 FMUL.FTZ R2, R17, 2.3283064365386962891e-10 ;
-.L_x_43:
-        /*1fa0*/                   MOV R16, R20 ;
-        /*1fb0*/                   HFMA2 R17, -RZ, RZ, 0, 0 ;
-        /*1fc0*/                   RET.REL.NODEC R16 `(fused_layered) ;
-        .weak           $__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath
-        .type           $__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath,@function
-        .size           $__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath,(.L_x_58 - $__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath)
-$__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath:
-        /*1fd0*/                   SHF.R.U32.HI R17, RZ, 0x17, R3 ;
-        /*1fe0*/                   BSSY.RECONVERGENT B1, `(.L_x_44) ;
-        /*1ff0*/                   SHF.R.U32.HI R18, RZ, 0x17, R0 ;
-        /*2000*/                   LOP3.LUT R17, R17, 0xff, RZ, 0xc0, !PT ;
-        /*2010*/                   LOP3.LUT R21, R18, 0xff, RZ, 0xc0, !PT ;
-        /*2020*/                   IADD3 R19, PT, PT, R17, -0x1, RZ ;
-        /*2030*/                   IADD3 R18, PT, PT, R21, -0x1, RZ ;
-        /*2040*/                   ISETP.GT.U32.AND P0, PT, R19, 0xfd, PT ;
-        /*2050*/                   ISETP.GT.U32.OR P0, PT, R18, 0xfd, P0 ;
-        /*2060*/              @!P0 MOV R18, RZ ;
-        /*2070*/              @!P0 BRA `(.L_x_45) ;
-        /*2080*/                   FSETP.GTU.FTZ.AND P0, PT, |R0|, +INF , PT ;
-        /*2090*/                   FSETP.GTU.FTZ.AND P1, PT, |R3|, +INF , PT ;
-        /*20a0*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xf8, 0x8f ;
-        /*20b0*/               @P0 BRA `(.L_x_46) ;
-        /*20c0*/                   LOP3.LUT P0, RZ, R3, 0x7fffffff, R0, 0xc8, !PT ;
-        /*20d0*/              @!P0 BRA `(.L_x_47) ;
-        /*20e0*/                   FSETP.NEU.FTZ.AND P3, PT, |R0|.reuse, +INF , PT ;
-        /*20f0*/                   FSETP.NEU.FTZ.AND P1, PT, |R3|, +INF , PT ;
-        /*2100*/                   FSETP.NEU.FTZ.AND P0, PT, |R0|, +INF , PT ;
-        /*2110*/              @!P1 BRA !P3, `(.L_x_47) ;
-        /*2120*/                   LOP3.LUT P3, RZ, R0, 0x7fffffff, RZ, 0xc0, !PT ;
-        /*2130*/                   PLOP3.LUT P1, PT, P1, P3, PT, 0x2f, 0xf2 ;
-        /*2140*/               @P1 BRA `(.L_x_48) ;
-        /*2150*/                   LOP3.LUT P1, RZ, R3, 0x7fffffff, RZ, 0xc0, !PT ;
-        /*2160*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0x2f, 0xf2 ;
-        /*2170*/               @P0 BRA `(.L_x_49) ;
-        /*2180*/                   IADD3 R18, PT, PT, R21, -0x1, RZ ;
-        /*2190*/                   ISETP.GE.AND P0, PT, R18, RZ, PT ;
-        /*21a0*/                   IADD3 R18, PT, PT, R17, -0x1, RZ ;
-        /*21b0*/                   ISETP.GE.AND P1, PT, R18, RZ, PT ;
-        /*21c0*/               @P0 MOV R18, RZ ;
-        /*21d0*/              @!P0 MOV R18, 0xffffffc0 ;
-        /*21e0*/              @!P0 FFMA R0, R0, 1.84467440737095516160e+19, RZ ;
-        /*21f0*/              @!P1 FFMA R3, R3, 1.84467440737095516160e+19, RZ ;
-        /*2200*/              @!P1 IADD3 R18, PT, PT, R18, 0x40, RZ ;
-.L_x_45:
-        /*2210*/                   LEA R20, R17, 0xc0800000, 0x17 ;
-        /*2220*/                   BSSY.RECONVERGENT B2, `(.L_x_50) ;
-        /*2230*/                   IADD3 R21, PT, PT, R21, -0x7f, RZ ;
-        /*2240*/                   IADD3 R22, PT, PT, -R20, R3, RZ ;
-        /*2250*/                   IMAD R0, R21.reuse, -0x800000, R0 ;
-        /*2260*/                   IADD3 R21, PT, PT, R21, 0x7f, -R17 ;
-        /*2270*/                   MUFU.RCP R3, R22 ;
-        /*2280*/                   FADD.FTZ R19, -R22, -RZ ;
-        /*2290*/                   IADD3 R21, PT, PT, R21, R18, RZ ;
-        /*22a0*/                   FFMA R20, R3, R19, 1 ;
-        /*22b0*/                   FFMA R3, R3, R20, R3 ;
-        /*22c0*/                   FFMA R20, R0, R3, RZ ;
-        /*22d0*/                   FFMA R23, R19, R20, R0 ;
-        /*22e0*/                   FFMA R20, R3, R23, R20 ;
-        /*22f0*/                   FFMA R19, R19, R20, R0 ;
-        /*2300*/                   FFMA R0, R3, R19, R20 ;
-        /*2310*/                   SHF.R.U32.HI R17, RZ, 0x17, R0 ;
-        /*2320*/                   LOP3.LUT R17, R17, 0xff, RZ, 0xc0, !PT ;
-        /*2330*/                   IADD3 R22, PT, PT, R17, R21, RZ ;
-        /*2340*/                   IADD3 R17, PT, PT, R22, -0x1, RZ ;
-        /*2350*/                   ISETP.GE.U32.AND P0, PT, R17, 0xfe, PT ;
-        /*2360*/              @!P0 BRA `(.L_x_51) ;
-        /*2370*/                   ISETP.GT.AND P0, PT, R22, 0xfe, PT ;
-        /*2380*/               @P0 BRA `(.L_x_52) ;
-        /*2390*/                   ISETP.GE.AND P0, PT, R22, 0x1, PT ;
-        /*23a0*/               @P0 BRA `(.L_x_53) ;
-        /*23b0*/                   ISETP.GE.AND P0, PT, R22, -0x18, PT ;
-        /*23c0*/                   LOP3.LUT R0, R0, 0x80000000, RZ, 0xc0, !PT ;
-        /*23d0*/              @!P0 BRA `(.L_x_53) ;
-        /*23e0*/                   FFMA.RZ R17, R3, R19, R20 ;
-        /*23f0*/                   IADD3 R21, PT, PT, R22.reuse, 0x20, RZ ;
-        /*2400*/                   ISETP.NE.AND P1, PT, R22.reuse, RZ, PT ;
-        /*2410*/                   ISETP.NE.AND P3, PT, R22, RZ, PT ;
-        /*2420*/                   LOP3.LUT R17, R17, 0x7fffff, RZ, 0xc0, !PT ;
-        /*2430*/                   LOP3.LUT R18, R17, 0x800000, RZ, 0xfc, !PT ;
-        /*2440*/                   FFMA.RP R17, R3.reuse, R19.reuse, R20.reuse ;
-        /*2450*/                   FFMA.RM R20, R3, R19, R20 ;
-        /*2460*/                   IADD3 R3, PT, PT, -R22, RZ, RZ ;
-        /*2470*/                   SHF.L.U32 R21, R18, R21, RZ ;
-        /*2480*/                   FSETP.NEU.FTZ.AND P0, PT, R17, R20, PT ;
-        /*2490*/                   SEL R3, R3, RZ, P3 ;
-        /*24a0*/                   ISETP.NE.AND P1, PT, R21, RZ, P1 ;
-        /*24b0*/                   SHF.R.U32.HI R3, RZ, R3, R18 ;
-        /*24c0*/                   PLOP3.LUT P0, PT, P0, P1, PT, 0xf8, 0x8f ;
-        /*24d0*/                   SHF.R.U32.HI R18, RZ, 0x1, R3 ;
-        /*24e0*/                   SEL R17, RZ, 0x1, !P0 ;
-        /*24f0*/                   LOP3.LUT R20, R17, 0x1, R18, 0xf8, !PT ;
-        /*2500*/                   LOP3.LUT R3, R20, R3, RZ, 0xc0, !PT ;
-        /*2510*/                   IADD3 R3, PT, PT, R18, R3, RZ ;
-        /*2520*/                   LOP3.LUT R0, R3, R0, RZ, 0xfc, !PT ;
-        /*2530*/                   BRA `(.L_x_53) ;
-.L_x_52:
-        /*2540*/                   LOP3.LUT R0, R0, 0x80000000, RZ, 0xc0, !PT ;
-        /*2550*/                   LOP3.LUT R0, R0, 0x7f800000, RZ, 0xfc, !PT ;
-        /*2560*/                   BRA `(.L_x_53) ;
-.L_x_51:
-        /*2570*/                   IMAD R0, R21, 0x800000, R0 ;
-.L_x_53:
-        /*2580*/                   BSYNC.RECONVERGENT B2 ;
-.L_x_50:
-        /*2590*/                   BRA `(.L_x_54) ;
-.L_x_49:
-        /*25a0*/                   LOP3.LUT R0, R3, 0x80000000, R0, 0x48, !PT ;
-        /*25b0*/                   LOP3.LUT R0, R0, 0x7f800000, RZ, 0xfc, !PT ;
-        /*25c0*/                   BRA `(.L_x_54) ;
-.L_x_48:
-        /*25d0*/                   LOP3.LUT R0, R3, 0x80000000, R0, 0x48, !PT ;
-        /*25e0*/                   BRA `(.L_x_54) ;
-.L_x_47:
-        /*25f0*/                   MUFU.RSQ R0, -QNAN  ;
-        /*2600*/                   BRA `(.L_x_54) ;
-.L_x_46:
-        /*2610*/                   FADD.FTZ R0, R0, R3 ;
-.L_x_54:
-        /*2620*/                   BSYNC.RECONVERGENT B1 ;
-.L_x_44:
-        /*2630*/                   HFMA2 R17, -RZ, RZ, 0, 0 ;
-        /*2640*/                   MOV R3, R0 ;
-        /*2650*/                   RET.REL.NODEC R16 `(fused_layered) ;
-.L_x_55:
-        /*2660*/                   BRA `(.L_x_55);
-        /*2670*/                   NOP;
-        /*2680*/                   NOP;
-        /*2690*/                   NOP;
-        /*26a0*/                   NOP;
-        /*26b0*/                   NOP;
-        /*26c0*/                   NOP;
-        /*26d0*/                   NOP;
-        /*26e0*/                   NOP;
-        /*26f0*/                   NOP;
-.L_x_58:
+        /*0d00*/                   LOP3.LUT R13, R3, 0x80000000, R0, 0x48, !PT ;
+        /*0d10*/                   BRA `(.L_x_19) ;
+.L_x_12:
+        /*0d20*/                   MUFU.RSQ R13, -QNAN  ;
+        /*0d30*/                   BRA `(.L_x_19) ;
+.L_x_11:
+        /*0d40*/                   FADD.FTZ R13, R0, R3 ;
+.L_x_19:
+        /*0d50*/                   BSYNC.RECONVERGENT B1 ;
+.L_x_9:
+        /*0d60*/                   HFMA2 R11, -RZ, RZ, 0, 0 ;
+        /*0d70*/                   RET.REL.NODEC R10 `(fused_layered) ;
+.L_x_20:
+        /*0d80*/                   BRA `(.L_x_20);
+        /*0d90*/                   NOP;
+        /*0da0*/                   NOP;
+        /*0db0*/                   NOP;
+        /*0dc0*/                   NOP;
+        /*0dd0*/                   NOP;
+        /*0de0*/                   NOP;
+        /*0df0*/                   NOP;
+        /*0e00*/                   NOP;
+        /*0e10*/                   NOP;
+        /*0e20*/                   NOP;
+        /*0e30*/                   NOP;
+        /*0e40*/                   NOP;
+        /*0e50*/                   NOP;
+        /*0e60*/                   NOP;
+        /*0e70*/                   NOP;
+.L_x_22:
 
 
 //--------------------- SYMBOLS --------------------------
