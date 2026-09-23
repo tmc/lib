@@ -83,19 +83,12 @@ intervals. A CUDA event interval covers only the launches this example chose to
 bracket, and a PC sample says where execution was but never for how long, so a
 share of samples is a share of samples and never a share of elapsed time.
 
-It is off by default, and it has a toolkit constraint worth knowing before you
-reach for it. `cuptiactivity.Start` validates the native record size of **every**
-activity kind the package can decode against the Go layouts this build was
-generated for -- not only the kinds the session asks to collect. CUDA 13.4's
-CUPTI emits a 112-byte `ActivityKindMemcpy` record where this build expects 96,
-so on that toolkit `-activity` is refused outright even though it collects
-nothing but concurrent kernels. The error names the kind and says that it was
-never requested; it is a toolkit mismatch, not a fault in the tier.
-
-Point the loader at a CUPTI whose layouts this build was generated against. On
-the GB10 host that is 13.2:
-
-    LD_LIBRARY_PATH=/usr/local/cuda-13.2/targets/sbsa-linux/lib ./ptx-sass-trace -activity
+It is off by default. `cuptiactivity.Start` validates the native record size of
+**every** activity kind the package can decode against the Go layouts this
+build was generated for -- not only the kinds the session asks to collect --
+and refuses to start on a CUPTI whose layouts it does not know. The error names
+the kind and says every decodable kind is checked; it is a toolkit mismatch,
+not a fault in the tier. On the GB10 host, CUPTI 13.2 and 13.4 both collect.
 
 The tier fails closed: any status other than `collected` refuses the capture
 rather than writing a bundle with a plausible zero in it, because a zero record
