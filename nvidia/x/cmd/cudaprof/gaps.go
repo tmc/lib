@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ type gapOptions struct {
 	capturePath  string
 	diffBase     string
 	warmupMS     float64
+	warmupUntil  string
 	maxRecords   int64
 	journalBytes int64
 	json         bool
@@ -125,6 +127,12 @@ func parseGapsArgs(rawArgs []string) (gapOptions, error) {
 				return gapOptions{}, fmt.Errorf("invalid warmup: %s", arg)
 			}
 			opts.warmupMS = v
+		case strings.HasPrefix(arg, "--warmup-until=") || strings.HasPrefix(arg, "-warmup-until="):
+			v := arg[strings.IndexByte(arg, '=')+1:]
+			if _, err := regexp.Compile(v); err != nil || v == "" {
+				return gapOptions{}, fmt.Errorf("invalid warmup kernel pattern: %s", arg)
+			}
+			opts.warmupUntil = v
 		case strings.HasPrefix(arg, "--diff_base=") || strings.HasPrefix(arg, "-diff_base="):
 			opts.diffBase = arg[strings.IndexByte(arg, '=')+1:]
 			if opts.diffBase == "" {
@@ -151,7 +159,7 @@ func parseGapsArgs(rawArgs []string) (gapOptions, error) {
 		}
 	}
 	if opts.capturePath == "" {
-		return gapOptions{}, errors.New("usage: cudaprof gaps [--warmup-ms=N] [--max-records=N] [--journal-bytes=N] [--diff_base=base.pprof] [--json] capture.pprof")
+		return gapOptions{}, errors.New("usage: cudaprof gaps [--warmup-ms=N | --warmup-until=REGEX] [--max-records=N] [--journal-bytes=N] [--diff_base=base.pprof] [--json] capture.pprof")
 	}
 	return opts, nil
 }
@@ -173,6 +181,10 @@ With --diff_base the two captures are compared instead: span, active, idle,
 duty cycle, gap count and every gap percentile are reported as a delta. Both
 captures are analyzed under the same options, so the two steady-state windows
 are cut at the same warmup. This is the form to use for a before/after test.
+A warmup of fixed length cuts the two runs at different points in their work
+when their startups differ in length; --warmup-until cuts each at the first
+kernel whose name matches, so both steady-state windows begin at the same
+point in the program.
 Summed per-kernel device time cannot see this axis: a change that moves work
 out of inter-kernel idle and into the kernels raises device-active time while
 the run gets faster, and a device-time-only diff scores that as a regression.
@@ -191,6 +203,7 @@ whenever the change cost more than it saved.
 Options:
   --diff_base=FILE  compare against this capture and report deltas
   --warmup-ms=N     warmup window excluded from the steady-state section (default 200)
+  --warmup-until=RE exclude instead everything before the first kernel matching RE
   --max-records=N   maximum journal records to decode (default 1048576)
   --journal-bytes=N maximum decompressed bytes per journal (default 536870912)
   --json            write the report as JSON
@@ -719,7 +732,10 @@ type GapReport struct {
 	APIRecords int          `json:"api_records"`
 	Correlated float64      `json:"correlation_match_pct"`
 	WarmupMS   float64      `json:"warmup_ms"`
-	Devices    []GapDevice  `json:"devices"`
+	// WarmupUntil, when set, replaces WarmupMS: the steady-state window
+	// begins at the first kernel whose name matches it.
+	WarmupUntil string      `json:"warmup_until,omitempty"`
+	Devices     []GapDevice `json:"devices"`
 
 	// Synchronization spans whose context no device-carrying record named, so
 	// no device timeline could claim them. They are stated here rather than
@@ -918,6 +934,7 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 		APIRecords:          len(records.apis),
 		Correlated:          float64(matched) / float64(len(records.activities)) * 100,
 		WarmupMS:            opts.warmupMS,
+		WarmupUntil:         opts.warmupUntil,
 		OpaqueGraphReplays:  graphsAreOpaque,
 		UnresolvedSyncs:     records.unresolvedSyncs,
 		UnresolvedSyncNanos: records.unresolvedNanos,
@@ -938,6 +955,14 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 	}
 	sort.Slice(devices, func(i, j int) bool { return devices[i] < devices[j] })
 	warmupNanos := int64(opts.warmupMS * 1e6)
+	var warmupUntil *regexp.Regexp
+	if opts.warmupUntil != "" {
+		re, err := regexp.Compile(opts.warmupUntil)
+		if err != nil {
+			return nil, fmt.Errorf("warmup kernel pattern: %w", err)
+		}
+		warmupUntil = re
+	}
 	for _, d := range devices {
 		acts := byDevice[d]
 		// Overhead spans carry no device, so every device is offered all of
@@ -948,19 +973,43 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 			graph:    graphSpansForDevice(records.graphs, d),
 		}
 		entry := GapDevice{Device: d, Overall: computeGapStats(acts, records.apis, "overall", spans)}
-		t0 := acts[0].start
-		var steady []gapActivity
-		for _, a := range acts {
-			if a.start-t0 > warmupNanos {
-				steady = append(steady, a)
-			}
-		}
+		steady := steadyActivities(acts, warmupNanos, warmupUntil)
 		if len(steady) != 0 && len(steady) != len(acts) {
 			entry.SteadyState = computeGapStats(steady, records.apis, "steady-state", spans)
 		}
 		report.Devices = append(report.Devices, entry)
 	}
 	return report, nil
+}
+
+// steadyActivities returns the activities past the warmup: those starting
+// at or after the first kernel matching until, or, when until is nil, those
+// starting more than warmupNanos after the first activity. acts is sorted by
+// start.
+func steadyActivities(acts []gapActivity, warmupNanos int64, until *regexp.Regexp) []gapActivity {
+	if until != nil {
+		for i, a := range acts {
+			if strings.EqualFold(a.subtype, "kernel") && until.MatchString(a.name) {
+				return acts[i:]
+			}
+		}
+		return nil
+	}
+	t0 := acts[0].start
+	for i, a := range acts {
+		if a.start-t0 > warmupNanos {
+			return acts[i:]
+		}
+	}
+	return nil
+}
+
+// warmup describes what the steady-state window excludes.
+func (r *GapReport) warmup() string {
+	if r.WarmupUntil != "" {
+		return fmt.Sprintf("activity before the first kernel matching %q", r.WarmupUntil)
+	}
+	return fmt.Sprintf("first %g ms", r.WarmupMS)
 }
 
 // KernelCensus is one kernel's launch count, device time, and place in the
@@ -1313,7 +1362,7 @@ func (r *GapReport) text() string {
 			}
 			fmt.Fprintf(&b, "\ndevice %d, %s", d.Device, s.Label)
 			if s.Label == "steady-state" {
-				fmt.Fprintf(&b, " (first %g ms excluded)", r.WarmupMS)
+				fmt.Fprintf(&b, " (%s excluded)", r.warmup())
 			}
 			b.WriteString("\n")
 			writeGapStats(&b, s)

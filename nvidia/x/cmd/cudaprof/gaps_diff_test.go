@@ -668,3 +668,81 @@ func TestNoPositionCaveatWhenNothingMoved(t *testing.T) {
 		t.Errorf("text names a position disagreement that did not occur:\n%s", diff.text())
 	}
 }
+
+// prologueJournal is two "embed" kernels separated by prologueGap, then three
+// identical "layer" kernels: a run whose startup length varies while its
+// steady-state work does not.
+func prologueJournal(prologueGap uint64) []byte {
+	b := newJournalBuilder()
+	start := uint64(10_000)
+	var corr uint32
+	for range 2 {
+		corr++
+		b.namedKernel("embed", start, start+1_000, corr)
+		start += 1_000 + prologueGap
+	}
+	for range 3 {
+		corr++
+		b.namedKernel("layer", start, start+8_000, corr)
+		start += 8_000 + 1_000
+	}
+	return b.finalize()
+}
+
+// TestGapsDiffWarmupUntil cuts both steady-state windows at the first kernel
+// of the same name. Two runs that differ only in the length of their startup
+// then have identical steady states, where a fixed warmup cuts them at
+// different points in their work and reports a difference in the steady state
+// that is really in the prologue.
+func TestGapsDiffWarmupUntil(t *testing.T) {
+	analyze := func(data []byte, opts gapOptions) *GapReport {
+		t.Helper()
+		opts.maxRecords = controllerMaxJournalRecords
+		r, err := analyzeGaps(testCapture(map[string][]byte{"capture.journal": data}, completeStatus()), opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	short, long := prologueJournal(1_000), prologueJournal(30_000)
+
+	// Control: a fixed 0.02 ms warmup keeps a prologue gap in the long run's
+	// window and not in the short one's, so the steady states differ.
+	fixed := gapOptions{warmupMS: 0.02}
+	diff, err := diffGapReports(analyze(short, fixed), analyze(long, fixed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := diff.Devices[0].SteadyState; s == nil || s.Span.Delta == 0 {
+		t.Fatalf("fixed warmup reported steady-state %+v, want a span difference for the cut to remove", s)
+	}
+
+	until := gapOptions{warmupUntil: "^layer$"}
+	diff, err = diffGapReports(analyze(short, until), analyze(long, until))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := diff.Devices[0].SteadyState
+	if s == nil {
+		t.Fatalf("steady-state window missing: %v", diff.Devices[0].Missing)
+	}
+	if s.Span.Delta != 0 || s.Idle.Delta != 0 || s.Active.Delta != 0 {
+		t.Errorf("steady-state deltas = span %+d active %+d idle %+d, want zero: the runs differ only before the first layer", s.Span.Delta, s.Active.Delta, s.Idle.Delta)
+	}
+	if !strings.Contains(diff.text(), `before the first kernel matching "^layer$" excluded from both`) {
+		t.Errorf("report does not name the warmup kernel:\n%s", diff.text())
+	}
+
+	none := gapOptions{warmupUntil: "^absent$"}
+	diff, err = diffGapReports(analyze(short, none), analyze(long, none))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff.Devices[0].SteadyState != nil || len(diff.Devices[0].Missing) == 0 || !strings.Contains(diff.Devices[0].Missing[0], `"^absent$"`) {
+		t.Errorf("unmatched pattern: steady %+v, missing %v; want the window absent and the pattern named", diff.Devices[0].SteadyState, diff.Devices[0].Missing)
+	}
+
+	if _, err := diffGapReports(analyze(short, until), analyze(long, fixed)); err == nil {
+		t.Error("diffGapReports accepted a kernel cut against a fixed one")
+	}
+}

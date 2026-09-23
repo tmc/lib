@@ -597,6 +597,8 @@ func TestGapsParseArgs(t *testing.T) {
 		{name: "bad journal bytes", args: []string{"--journal-bytes=0", "c.pprof"}, wantErr: "invalid journal bytes"},
 		{name: "unknown flag", args: []string{"--nope", "c.pprof"}, wantErr: "unknown flag"},
 		{name: "bad warmup", args: []string{"--warmup-ms=x", "c.pprof"}, wantErr: "invalid warmup"},
+		{name: "warmup until", args: []string{"--warmup-until=^hc_", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, warmupUntil: "^hc_", maxRecords: controllerMaxJournalRecords}},
+		{name: "bad warmup until", args: []string{"--warmup-until=(", "c.pprof"}, wantErr: "invalid warmup kernel pattern"},
 		{name: "two captures", args: []string{"a.pprof", "b.pprof"}, wantErr: "multiple capture files"},
 		{name: "no capture", args: []string{"--json"}, wantErr: "usage: cudaprof gaps"},
 	}
@@ -612,7 +614,7 @@ func TestGapsParseArgs(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.capturePath != tt.want.capturePath || got.warmupMS != tt.want.warmupMS ||
+			if got.capturePath != tt.want.capturePath || got.warmupMS != tt.want.warmupMS || got.warmupUntil != tt.want.warmupUntil ||
 				got.maxRecords != tt.want.maxRecords || got.json != tt.want.json ||
 				(tt.want.journalBytes != 0 && got.journalBytes != tt.want.journalBytes) {
 				t.Errorf("options = %+v, want %+v", got, tt.want)

@@ -306,8 +306,8 @@ type GapStatsDiff struct {
 
 // diffGapReports compares two reports produced under the same options.
 func diffGapReports(base, target *GapReport) (*GapDiff, error) {
-	if base.WarmupMS != target.WarmupMS {
-		return nil, fmt.Errorf("warmup windows differ: base excludes the first %g ms and target the first %g ms, so their steady-state sections cover unlike windows", base.WarmupMS, target.WarmupMS)
+	if base.WarmupMS != target.WarmupMS || base.WarmupUntil != target.WarmupUntil {
+		return nil, fmt.Errorf("warmup windows differ: base excludes the %s and target the %s, so their steady-state sections cover unlike windows", base.warmup(), target.warmup())
 	}
 	diff := &GapDiff{Base: base, Target: target, WarmupMS: base.WarmupMS}
 	baseByDevice := indexGapDevices(base)
@@ -328,7 +328,7 @@ func diffGapReports(base, target *GapReport) (*GapDiff, error) {
 				entry.Missing = append(entry.Missing, "overall window missing from one capture")
 			}
 			if entry.SteadyState == nil {
-				entry.Missing = append(entry.Missing, steadyStateAbsence(b, t, base.WarmupMS))
+				entry.Missing = append(entry.Missing, steadyStateAbsence(b, t, base.warmup()))
 			}
 		}
 		diff.Devices = append(diff.Devices, entry)
@@ -343,14 +343,14 @@ func diffGapReports(base, target *GapReport) (*GapDiff, error) {
 // steadyStateAbsence says which side lacks a steady-state section. A run whose
 // activities all fall inside the warmup has no such section, and reporting the
 // side that is missing keeps the absence from reading as a zero.
-func steadyStateAbsence(base, target GapDevice, warmupMS float64) string {
+func steadyStateAbsence(base, target GapDevice, warmup string) string {
 	switch {
 	case base.SteadyState == nil && target.SteadyState == nil:
-		return fmt.Sprintf("neither capture has activity past the first %g ms, so there is no steady-state window", warmupMS)
+		return fmt.Sprintf("neither capture has activity past the %s, so there is no steady-state window", warmup)
 	case base.SteadyState == nil:
-		return fmt.Sprintf("base capture has no activity past the first %g ms, so its steady-state window does not exist", warmupMS)
+		return fmt.Sprintf("base capture has no activity past the %s, so its steady-state window does not exist", warmup)
 	default:
-		return fmt.Sprintf("target capture has no activity past the first %g ms, so its steady-state window does not exist", warmupMS)
+		return fmt.Sprintf("target capture has no activity past the %s, so its steady-state window does not exist", warmup)
 	}
 }
 
@@ -515,7 +515,7 @@ func (d *GapDiff) text() string {
 			}
 			fmt.Fprintf(&b, "\ndevice %d, %s", dev.Device, s.Label)
 			if s.Label == "steady-state" {
-				fmt.Fprintf(&b, " (first %g ms excluded from both)", d.WarmupMS)
+				fmt.Fprintf(&b, " (%s excluded from both)", d.Base.warmup())
 			}
 			b.WriteString("\n")
 			writeGapStatsDiff(&b, s)
