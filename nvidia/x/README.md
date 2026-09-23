@@ -14,6 +14,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cublasltx](cublasltx/) | Package cublasltx provides an owning cuBLASLt matrix multiplication engine. |
 | [cuda](cuda/) | Package cuda provides idiomatic, high-level Go abstractions over NVIDIA CUDA devices, execution contexts, streams, and events. |
 | [cudaattn](cudaattn/) | Package cudaattn provides causal attention CUDA source and JIT compilation. |
+| [cudabatch](cudabatch/) | Package cudabatch provides continuous batch scheduling, admission control, token and memory budgeting, fairness policies, validated shape binding, and KV cache lifetime tracking for LLM inference. |
 | [cudabench](cudabench/) | Package cudabench provides precise GPU event-timed benchmarking utilities for Go testing. |
 | [cudablock](cudablock/) | Package cudablock provides high-performance CUDA thread-block and warp-level primitives for collective reductions, prefix scans, and cooperative tile staging into shared memory. |
 | [cudacache](cudacache/) | Package cudacache provides content-addressed local and remote caching for compiled CUDA kernel artifacts and search evaluation receipts. |
