@@ -20,7 +20,7 @@ import (
 // x/cudacapture's own tiering test uses.
 func fusionFixture(t *testing.T, shift int) *cudacapture.Capture {
 	t.Helper()
-	dir := filepath.Join("..", "..", "examples", "cuptibench-capture", "testdata")
+	dir := "testdata"
 	read := func(name string) []byte {
 		b, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {

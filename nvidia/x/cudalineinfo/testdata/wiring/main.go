@@ -1,7 +1,7 @@
 // Command wiring exports the units the package's fixtures are compiled
-// from. Its kernels.go is a copy of the source-wiring example's, kept here
-// so that the lines the fixtures name, and the callers recorded above them,
-// change only when this directory does.
+// from. Its kernels.go is kept here, beside the fixtures, so that the lines
+// the fixtures name, and the callers recorded above them, change only when
+// this directory does.
 //
 // Usage:
 //

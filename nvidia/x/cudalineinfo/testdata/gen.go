@@ -1,13 +1,11 @@
 //go:build ignore
 
 // Gen regenerates the fixtures of this directory. The fused_gate and
-// fused_layered units come from testdata/wiring, a copy of the source-wiring
-// example's kernels that builds them with cudatensor and lowers them with
-// cudafuse; taking them from that path rather than writing them by hand is
-// what makes the fixtures carry the function and callers of every line as
-// the compiler recorded them. The copy, rather than the example itself, is
-// what keeps the lines the tests name from moving when the example is
-// edited. The forward fixture is compiled from forward.cu, the hand-written CUDA the
+// fused_layered units come from testdata/wiring, a program that builds them
+// with cudatensor and lowers them with cudafuse; taking them from that path
+// rather than writing them by hand is what makes the fixtures carry the
+// function and callers of every line as the compiler recorded them. The
+// forward fixture is compiled from forward.cu, the hand-written CUDA the
 // package's tests embed.
 //
 // Usage:

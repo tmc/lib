@@ -33,10 +33,6 @@ func TestScript(t *testing.T) {
 		Cmds:  scripttest.DefaultCmds(),
 		Conds: scripttest.DefaultConds(),
 	}
-	pkg, err := filepath.Abs(filepath.Join("..", "..", "examples", "source-wiring"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	// HOME is the real one: a script that runs a Go tool needs the module
 	// and build caches under it, and no script writes there.
 	env := []string{
@@ -44,7 +40,6 @@ func TestScript(t *testing.T) {
 		"HOME=" + os.Getenv("HOME"),
 		"GOWORK=off",
 		"TESTDATA=" + fixtures,
-		"PKGDIR=" + pkg,
 	}
 	scripttest.Test(t, context.Background(), engine, env, "testdata/script/*.txt")
 }

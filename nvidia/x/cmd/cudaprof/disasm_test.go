@@ -14,7 +14,7 @@ import (
 )
 
 func TestRetainedDisasmRegionCounters(t *testing.T) {
-	dir := filepath.Join("..", "..", "examples", "cuptibench-capture", "testdata")
+	dir := "testdata"
 	files := map[string][]byte{}
 	for _, name := range []string{"kernels.cu", "kernels.ptx", "kernels.sass", "kernels.cubin.hex"} {
 		data, err := os.ReadFile(filepath.Join(dir, name))

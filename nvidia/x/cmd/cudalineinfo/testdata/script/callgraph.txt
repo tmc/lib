@@ -5,11 +5,35 @@
 # rename joins the two graphs. The composed graph then answers a question
 # neither half can: which path through the program's code reaches the
 # division slowpath in the compiled kernel.
+#
+# The program below has the call shape of the one the fused_layered fixture
+# was compiled from: fastMath reaches the kernel only through attribute,
+# which the unit records as the caller of layered.
 [!exec:callgraph] skip
 [!exec:digraph] skip
 [!exec:sh] skip
 [short] skip
-exec sh -c 'cd $PKGDIR && callgraph -algo=static -format=digraph . | sed "s|github.com/tmc/lib/nvidia/x/examples/source-wiring\.|main.|g" > $WORK/all.txt && cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format digraph $TESTDATA/fused_layered.json >> $WORK/all.txt && digraph somepath main.fastMath "$(digraph nodes < $WORK/all.txt | grep div_rn_noftz_f32_slowpath)" < $WORK/all.txt'
+exec sh -c 'cd $WORK/wiring && callgraph -algo=static -format=digraph . | sed "s|example.com/wiring\.|main.|g" > $WORK/all.txt && cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format digraph $TESTDATA/fused_layered.json >> $WORK/all.txt && digraph somepath main.fastMath "$(digraph nodes < $WORK/all.txt | grep div_rn_noftz_f32_slowpath)" < $WORK/all.txt'
 stdout 'main.fastMath main.attribute'
 stdout 'main.attribute main.layered'
 stdout '\$__internal_[0-9]+_\$__cuda_sm3x_div_rn_noftz_f32_slowpath'
+
+-- wiring/go.mod --
+module example.com/wiring
+
+go 1.22
+-- wiring/main.go --
+package main
+
+type kernel struct {
+	name  string
+	build func()
+}
+
+func main() { fastMath() }
+
+func fastMath() { attribute(kernel{"fused_layered", layered}) }
+
+func attribute(k kernel) { k.build() }
+
+func layered() {}

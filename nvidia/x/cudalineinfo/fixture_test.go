@@ -10,8 +10,7 @@ import (
 )
 
 // The fixtures are the fused_gate and fused_layered kernels of
-// testdata/wiring, a copy of the source-wiring example's, exported by
-// testdata/gen.go. gate builds both
+// testdata/wiring, exported by testdata/gen.go. gate builds both
 // inputs and the multiply in one function; layered builds its operations
 // inside two helpers, so its line map is the one that carries callers worth
 // rolling up.
