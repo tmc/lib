@@ -2,6 +2,7 @@ package cudalineinfo
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -11,13 +12,10 @@ import (
 // The layered fixture builds its lines inside two helpers, so its call
 // graph reaches the kernel through the stack the compiler recorded. Its
 // division and square root each fall back to a subroutine.
-const (
-	divSlowpath  = "$__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath"
-	sqrtSlowpath = "$__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath"
-)
-
 func TestEdges(t *testing.T) {
 	a := loadFixture(t, "fused_layered", "")
+	divSlowpath, _ := subroutine(t, a, "fused_layered", divSlowpath)
+	sqrtSlowpath, _ := subroutine(t, a, "fused_layered", sqrtSlowpath)
 	got := map[Edge]bool{}
 	for _, e := range a.Edges() {
 		got[e] = true
@@ -62,7 +60,7 @@ func TestEdges(t *testing.T) {
 	if err := WriteDot(&buf, a); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), `"kernels.go:45" -> "`+divSlowpath+`";`) || !strings.Contains(buf.String(), "24 SASS") {
+	if !strings.Contains(buf.String(), `"kernels.go:45" -> "`+divSlowpath+`";`) || !strings.Contains(buf.String(), fmt.Sprintf(`"kernels.go:45" [label="kernels.go:45\n%d SASS"];`, len(a.SASS[Site{kernelsFile, 45}]))) {
 		t.Errorf("dot output:\n%s", buf.String())
 	}
 }

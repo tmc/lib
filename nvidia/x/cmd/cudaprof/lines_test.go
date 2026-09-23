@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalineinfo"
+	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
 // testCaptureWithLines is the fused_gate fixture of cudalineinfo with four
@@ -23,13 +25,12 @@ func testCaptureWithLines(t *testing.T) (*cudacapture.Capture, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Instruction 32 of fused_gate is at offset 0x1f0, on kernels.go:14,
-	// the line the fixture's activation was built on.
+	silu, _ := siluInstruction(t)
 	fnSASS := &profile.Function{ID: 1, Name: "fused_gate.SASS", Filename: "fused_gate.sass"}
 	fnKernel := &profile.Function{ID: 2, Name: "fused_gate", Filename: "/src/kernels.go"}
 	fnGenerated := &profile.Function{ID: 4, Name: "fused_gate", Filename: "/tmp/fused_gate.cu"}
 	fnHost := &profile.Function{ID: 3, Name: "main.gate", Filename: "kernels.go"}
-	locSilu := &profile.Location{ID: 1, Line: []profile.Line{{Function: fnSASS, Line: 32}}}
+	locSilu := &profile.Location{ID: 1, Line: []profile.Line{{Function: fnSASS, Line: int64(silu)}}}
 	locSite := &profile.Location{ID: 2, Line: []profile.Line{{Function: fnKernel, Line: 14}}}
 	locHost := &profile.Location{ID: 3, Line: []profile.Line{{Function: fnHost, Line: 11}}}
 	locPrologue := &profile.Location{ID: 4, Line: []profile.Line{{Function: fnSASS, Line: 1}}}
@@ -76,6 +77,40 @@ func testCaptureWithLines(t *testing.T) (*cudacapture.Capture, string) {
 	return cap, path
 }
 
+// siluInstruction returns the 1-based ordinal in fused_gate of the first
+// instruction on kernels.go:14, the line the fixture's activation was built
+// on, and the number of instructions on that line.
+func siluInstruction(t *testing.T) (ordinal, count int) {
+	t.Helper()
+	sass, err := os.ReadFile(filepath.Join("..", "..", "cudalineinfo", "testdata", "fused_gate.sass"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dis, err := cudasass.ParseString(string(sass))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, in := range dis.Function("fused_gate").Instructions {
+		if in.SourceLine == 14 && strings.HasSuffix(in.SourceFile, "kernels.go") {
+			if ordinal == 0 {
+				ordinal = i + 1
+			}
+			count++
+		}
+	}
+	if ordinal == 0 {
+		t.Fatal("fused_gate has no instruction on kernels.go:14")
+	}
+	return ordinal, count
+}
+
+// siluRow is how a lines table prints the silu line's instruction count
+// and a sample count on it.
+func siluRow(t *testing.T, samples int, share string) string {
+	_, count := siluInstruction(t)
+	return fmt.Sprintf("%-6d%-12d%s", count, samples, share)
+}
+
 func TestPrintCaptureLines(t *testing.T) {
 	cap, _ := testCaptureWithLines(t)
 	for _, tt := range []struct {
@@ -84,8 +119,8 @@ func TestPrintCaptureLines(t *testing.T) {
 	}{
 		// Without a kernel the generated file is a program file too, so
 		// the prologue sample lands on its line rather than elsewhere.
-		{"", "", []string{"12 pc_samples by program line", "kernels.go:14  ", "23    9           75.0%", "fused_gate.cu:3           1     1", "fused_gate.cu:9           11    2", "elsewhere: 0 at instructions naming no program line, 0 at unresolved PCs"}},
-		{"fused_gate", "", []string{"fused_gate: 12 pc_samples", "23    9           75.0%", "elsewhere: 3 at instructions naming no program line, 0 at unresolved PCs"}},
+		{"", "", []string{"12 pc_samples by program line", "kernels.go:14  ", siluRow(t, 9, "75.0%"), "fused_gate.cu:3           1     1", "fused_gate.cu:9           11    2", "elsewhere: 0 at instructions naming no program line, 0 at unresolved PCs"}},
+		{"fused_gate", "", []string{"fused_gate: 12 pc_samples", siluRow(t, 9, "75.0%"), "elsewhere: 3 at instructions naming no program line, 0 at unresolved PCs"}},
 		{"gate", "stall_wait", []string{"fused_gate: 3 stall_wait", "66.7%"}},
 	} {
 		var buf bytes.Buffer
@@ -125,7 +160,7 @@ func TestPrintCaptureLinesModules(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"module first\n7 pc_samples", "module second\n5 pc_samples", "23    6           85.7%", "23    3           60.0%"} {
+	for _, want := range []string{"module first\n7 pc_samples", "module second\n5 pc_samples", siluRow(t, 6, "85.7%"), siluRow(t, 3, "60.0%")} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}

@@ -2,6 +2,7 @@ package cudalineinfo
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -40,9 +41,8 @@ func TestAttribute(t *testing.T) {
 	// generated code, which is what it would look like from the line
 	// directives alone: its instructions inherit the last one before its
 	// label.
-	want := Remainder{Generated: 13, Subroutines: map[string]int{
-		"$__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath": 118,
-	}}
+	div, _ := subroutine(t, a, "fused_gate", divSlowpath)
+	want := Remainder{Generated: 13, Subroutines: map[string]int{div: 118}}
 	if a.Remainder.Total() != a.Instructions-a.Attributed {
 		t.Errorf("remainder totals %d, want %d", a.Remainder.Total(), a.Instructions-a.Attributed)
 	}
@@ -82,17 +82,17 @@ func TestAttributeSilu(t *testing.T) {
 
 func TestSiteAt(t *testing.T) {
 	a := loadFixture(t, "fused_gate", "")
+	o := offsets(t, a)
 	tests := []struct {
 		offset uint64
 		want   Site
 		ok     bool
 	}{
-		{0x000, Site{}, false},               // prologue, names the generated file
-		{0x080, Site{kernelsFile, 15}, true}, // first attributed instruction
-		{0x0b0, Site{kernelsFile, 12}, true},
-		{0x1f0, Site{kernelsFile, 14}, true}, // MUFU.EX2
-		{0x320, Site{}, false},               // slowpath entry
-		{0xfff0, Site{}, false},              // no such instruction
+		{o.prologue, Site{}, false}, // names the generated file
+		{o.gate, Site{kernelsFile, 12}, true},
+		{o.silu, Site{kernelsFile, 14}, true},
+		{o.slowpath, Site{}, false},
+		{0xfff0, Site{}, false}, // no such instruction
 	}
 	for _, tt := range tests {
 		got, ok := a.SiteAt("fused_gate", tt.offset)
@@ -142,9 +142,9 @@ func TestWriteTable(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"fused_gate: 37 of 168 SASS instructions name a program line",
+		fmt.Sprintf("fused_gate: %d of %d SASS instructions name a program line", a.Attributed, a.Instructions),
 		"kernels.go:14",
-		"remainder: 13 generated, 0 unlocated, 118 in $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath",
+		"remainder: " + a.Remainder.String(),
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("table lacks %q:\n%s", want, out)

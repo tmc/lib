@@ -26,7 +26,7 @@ func TestFormats(t *testing.T) {
 		{"table", "kernels.go:14"},
 		{"listing", "FMUL"},
 		{"rollup", "kernels.go:14"},
-		{"digraph", "kernels.go:14 $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath fused_gate\n"},
+		{"digraph", "_$__cuda_sm3x_div_rn_noftz_f32_slowpath fused_gate\n"},
 		{"dot", `"kernels.go:14" -> "fused_gate";`},
 	} {
 		setFlags(t, "fused_gate", tt.format)

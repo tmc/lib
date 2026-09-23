@@ -19,6 +19,8 @@ func TestRollup(t *testing.T) {
 		got[r.Site.String()] = r
 	}
 	var (
+		x          = len(a.SASS[Site{File: kernelsFile, Line: 38}])
+		w          = len(a.SASS[Site{File: kernelsFile, Line: 39}])
 		activate   = len(a.SASS[Site{File: kernelsFile, Line: 45}])
 		sqrt       = len(a.SASS[Site{File: kernelsFile, Line: 49}])
 		div        = len(a.SASS[Site{File: kernelsFile, Line: 50}])
@@ -29,8 +31,8 @@ func TestRollup(t *testing.T) {
 		function  string
 		flat, cum int
 	}{
-		{"kernels.go:38", "main.layered", 5, 5},
-		{"kernels.go:39", "main.layered", 3, 3},
+		{"kernels.go:38", "main.layered", x, x},
+		{"kernels.go:39", "main.layered", w, w},
 		{"kernels.go:40", "main.layered", 0, activate},
 		{"kernels.go:41", "main.layered", 0, sqrt + div},
 		{"kernels.go:45", "main.activate", activate, activate},

@@ -1,14 +1,15 @@
 # The digraph form is what golang.org/x/tools/cmd/digraph reads, so the
 # question "which Go line pulled the division slowpath into the kernel" is a
-# query rather than a reading of the table.
+# query rather than a reading of the table. The compiler numbers its
+# subroutines, so the node is found by name rather than spelled out.
 [!exec:digraph] skip
 [!exec:sh] skip
-exec sh -c 'cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format digraph $TESTDATA/fused_layered.json | digraph somepath main.main "\$__internal_1_\$__cuda_sm3x_div_rn_noftz_f32_slowpath"'
+exec sh -c 'cudalineinfo -sass $TESTDATA/fused_layered.sass -ptx $TESTDATA/fused_layered.ptx -format digraph $TESTDATA/fused_layered.json > $WORK/g.txt && digraph somepath main.main "$(digraph nodes < $WORK/g.txt | grep div_rn_noftz_f32_slowpath)" < $WORK/g.txt'
 stdout 'main.main main.run'
 stdout 'main.attribute main.layered'
 # The last edge is a program line calling the subroutine; which of the two
 # dividing lines the shortest path runs through is the graph's to choose.
-stdout 'kernels.go:(45|50) \$__internal_1_\$__cuda_sm3x_div_rn_noftz_f32_slowpath'
+stdout 'kernels.go:(45|50) \$__internal_[0-9]+_\$__cuda_sm3x_div_rn_noftz_f32_slowpath'
 
 # The graph holds the paths that built the unit, so a line no function of
 # the program reached through this unit is not on any path to it.

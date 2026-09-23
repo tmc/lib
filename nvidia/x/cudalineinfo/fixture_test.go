@@ -3,6 +3,7 @@ package cudalineinfo
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudasass"
@@ -51,3 +52,38 @@ func loadFixture(t *testing.T, name, suffix string) *Attribution {
 	}
 	return Attribute(fixtureUnit(t, name), string(ptx), dis)
 }
+
+// offsetOn returns the offset of the first instruction of function that the
+// attribution files under site. Tests name an instruction by the line it
+// belongs to, so regenerating the fixtures does not move it.
+func offsetOn(t *testing.T, a *Attribution, function string, site Site) uint64 {
+	t.Helper()
+	for _, in := range a.Disassembly.Function(function).Instructions {
+		if s, ok := a.SiteAt(function, in.Address); ok && s == site {
+			return in.Address
+		}
+	}
+	t.Fatalf("%s has no instruction on %v", function, site)
+	return 0
+}
+
+// subroutine returns the name and entry offset of the subroutine of
+// function whose symbol ends in suffix. The compiler numbers its internal
+// symbols, so the full name depends on what else the kernel calls.
+func subroutine(t *testing.T, a *Attribution, function, suffix string) (string, uint64) {
+	t.Helper()
+	for _, s := range a.Disassembly.Function(function).Symbols {
+		if strings.HasSuffix(s.Name, suffix) {
+			return s.Name, s.Address
+		}
+	}
+	t.Fatalf("%s has no subroutine ending in %s", function, suffix)
+	return "", 0
+}
+
+// divSlowpath and sqrtSlowpath end the names of the subroutines a kernel's
+// IEEE division and square root fall back to.
+const (
+	divSlowpath  = "_$__cuda_sm3x_div_rn_noftz_f32_slowpath"
+	sqrtSlowpath = "_$__cuda_sm20_sqrt_rn_f32_slowpath"
+)

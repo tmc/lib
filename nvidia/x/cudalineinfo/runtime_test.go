@@ -9,18 +9,27 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuptisass"
 )
 
-// siluOffset is an FFMA on the silu line of the gate fixture and gateOffset
-// a load on the x input line; prologueOffset is a generated-line instruction
-// and slowpathOffset is inside the division subroutine.
-const (
-	siluOffset     = 0x1f0
-	gateOffset     = 0x0b0
-	prologueOffset = 0x000
-	slowpathOffset = 0x320
-)
+// gateOffsets names four instructions of the gate fixture: the first on the
+// silu line, the first on the x input line, the kernel's first instruction,
+// which is on a generated line, and the entry of the division slowpath.
+type gateOffsets struct {
+	silu, gate, prologue, slowpath uint64
+}
+
+func offsets(t *testing.T, a *Attribution) gateOffsets {
+	t.Helper()
+	_, slowpath := subroutine(t, a, "fused_gate", divSlowpath)
+	return gateOffsets{
+		silu:     offsetOn(t, a, "fused_gate", Site{kernelsFile, 14}),
+		gate:     offsetOn(t, a, "fused_gate", Site{kernelsFile, 12}),
+		prologue: a.Disassembly.Function("fused_gate").Instructions[0].Address,
+		slowpath: slowpath,
+	}
+}
 
 func TestResolvePC(t *testing.T) {
 	a := loadFixture(t, "fused_gate", "")
+	o := offsets(t, a)
 	r, err := NewResolver(a, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -30,10 +39,10 @@ func TestResolvePC(t *testing.T) {
 		resolved bool
 		line     int64
 	}{
-		{siluOffset, true, 14},
-		{gateOffset, true, 12},
-		{prologueOffset, true, 0},
-		{slowpathOffset, true, 0},
+		{o.silu, true, 14},
+		{o.gate, true, 12},
+		{o.prologue, true, 0},
+		{o.slowpath, true, 0},
 		{0xfff0, false, 0},
 	} {
 		loc := r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_gate", tt.offset)
@@ -50,25 +59,25 @@ func TestResolvePC(t *testing.T) {
 			t.Errorf("0x%x kernel = %q", tt.offset, loc.KernelName)
 		}
 	}
-	loc := r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_gate", siluOffset)
+	loc := r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_gate", o.silu)
 	if loc.PTXLine == 0 || loc.PTXFile != "fused_gate.ptx" {
 		t.Errorf("silu PTX = %s:%d, want a line of fused_gate.ptx", loc.PTXFile, loc.PTXLine)
 	}
 	if loc.SASSLine == 0 || loc.SASSFile != "fused_gate.sass" {
 		t.Errorf("silu SASS = %s:%d, want an ordinal in fused_gate.sass", loc.SASSFile, loc.SASSLine)
 	}
-	if loc.CUBINOffset != siluOffset {
-		t.Errorf("CUBINOffset without a cubin = 0x%x, want the function-relative 0x%x", loc.CUBINOffset, siluOffset)
+	if loc.CUBINOffset != o.silu {
+		t.Errorf("CUBINOffset without a cubin = 0x%x, want the function-relative 0x%x", loc.CUBINOffset, o.silu)
 	}
-	if other := r.ResolvePC(cuptipcsampling.ModuleID{}, "other_kernel", siluOffset); other.Resolved {
+	if other := r.ResolvePC(cuptipcsampling.ModuleID{}, "other_kernel", o.silu); other.Resolved {
 		t.Error("resolved a PC in a kernel the attribution does not have")
 	}
 
 	r.CRC = 7
-	if got := r.ResolvePC(cuptipcsampling.ModuleID{CRC: 8}, "fused_gate", siluOffset); got.Resolved {
+	if got := r.ResolvePC(cuptipcsampling.ModuleID{CRC: 8}, "fused_gate", o.silu); got.Resolved {
 		t.Error("resolved a PC from a module with the wrong CRC")
 	}
-	if got := r.ResolvePC(cuptipcsampling.ModuleID{CRC: 7}, "fused_gate", siluOffset); !got.Resolved {
+	if got := r.ResolvePC(cuptipcsampling.ModuleID{CRC: 7}, "fused_gate", o.silu); !got.Resolved {
 		t.Error("did not resolve a PC from the module with the right CRC")
 	}
 }
@@ -79,7 +88,8 @@ func TestResolvePC(t *testing.T) {
 func TestHostFrames(t *testing.T) {
 	a := loadFixture(t, "fused_layered", "")
 	r, _ := NewResolver(a, nil)
-	frames := a.HostFrames(r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_layered", siluOffset))
+	silu := offsetOn(t, a, "fused_layered", Site{kernelsFile, 45})
+	frames := a.HostFrames(r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_layered", silu))
 	want := []struct {
 		function, file string
 		line           int64
@@ -99,13 +109,14 @@ func TestHostFrames(t *testing.T) {
 			t.Errorf("frame %d = %+v, want %s %s:%d", i, f, w.function, w.file, w.line)
 		}
 	}
-	if got := a.HostFrames(r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_layered", prologueOffset)); got != nil {
+	if got := a.HostFrames(r.ResolvePC(cuptipcsampling.ModuleID{}, "fused_layered", 0)); got != nil {
 		t.Errorf("prologue has host frames %+v", got)
 	}
 }
 
 func TestCountSamples(t *testing.T) {
 	a := loadFixture(t, "fused_gate", "")
+	o := offsets(t, a)
 	inv := cuptipcsampling.ReasonInventory{Reasons: []cuptipcsampling.StallReason{
 		{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_math_pipe_throttle"},
 		{Index: 2, Name: "smsp__pcsamp_warps_issue_stalled_math_pipe_throttle_not_issued"},
@@ -119,12 +130,12 @@ func TestCountSamples(t *testing.T) {
 		return p
 	}
 	batch := cuptipcsampling.Batch{Valid: true, PCs: []cuptipcsampling.PC{
-		pc(siluOffset, 10, 4, 5), // the companion (index 2) is not counted
-		pc(gateOffset, 0, 0, 3),
-		pc(prologueOffset, 2),
-		pc(slowpathOffset, 7),
+		pc(o.silu, 10, 4, 5), // the companion (index 2) is not counted
+		pc(o.gate, 0, 0, 3),
+		pc(o.prologue, 2),
+		pc(o.slowpath, 7),
 		pc(0xfff0, 1),
-		{Name: "", Offset: siluOffset, Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 99}}},
+		{Name: "", Offset: o.silu, Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 99}}},
 	}}
 	p := CountSamples(a, inv, batch, cuptipcsampling.Batch{Valid: false, PCs: batch.PCs})
 	silu := Site{File: kernelsFile, Line: 14}
@@ -150,15 +161,16 @@ func TestCountSamples(t *testing.T) {
 
 func TestCountExecuted(t *testing.T) {
 	a := loadFixture(t, "fused_gate", "")
+	o := offsets(t, a)
 	const metric = 42
-	rec := func(offset uint32, vals ...cuptisass.InstanceValue) cuptisass.Record {
-		return cuptisass.Record{FunctionName: "fused_gate", PCOffset: offset, Values: vals}
+	rec := func(offset uint64, vals ...cuptisass.InstanceValue) cuptisass.Record {
+		return cuptisass.Record{FunctionName: "fused_gate", PCOffset: uint32(offset), Values: vals}
 	}
 	p := CountExecuted(a, metric,
-		rec(siluOffset, cuptisass.InstanceValue{MetricID: metric, Value: 6}, cuptisass.InstanceValue{MetricID: metric, Value: 4}),
-		rec(siluOffset, cuptisass.InstanceValue{MetricID: 1, Value: 100}),
-		rec(gateOffset, cuptisass.InstanceValue{MetricID: metric, Value: 2}),
-		rec(slowpathOffset, cuptisass.InstanceValue{MetricID: metric, Value: 1}),
+		rec(o.silu, cuptisass.InstanceValue{MetricID: metric, Value: 6}, cuptisass.InstanceValue{MetricID: metric, Value: 4}),
+		rec(o.silu, cuptisass.InstanceValue{MetricID: 1, Value: 100}),
+		rec(o.gate, cuptisass.InstanceValue{MetricID: metric, Value: 2}),
+		rec(o.slowpath, cuptisass.InstanceValue{MetricID: metric, Value: 1}),
 	)
 	if p.Measure != "executed" || p.Sites[Site{File: kernelsFile, Line: 14}] != 10 || p.Sites[Site{File: kernelsFile, Line: 12}] != 2 || p.Other != 1 || p.Unresolved != 0 {
 		t.Errorf("profile = %+v", p)
@@ -167,9 +179,10 @@ func TestCountExecuted(t *testing.T) {
 
 func TestSiteAtLine(t *testing.T) {
 	a := loadFixture(t, "fused_gate", "")
+	o := offsets(t, a)
 	fn := a.Disassembly.Function("fused_gate")
 	for i, in := range fn.Instructions {
-		if in.Address != siluOffset {
+		if in.Address != o.silu {
 			continue
 		}
 		s, ok := a.SiteAtLine("fused_gate", i+1)
@@ -207,6 +220,7 @@ func TestWriteProfileUnattributedSite(t *testing.T) {
 // longer describes the binary that ran.
 func TestCountSamplesForeign(t *testing.T) {
 	a := loadFixture(t, "fused_gate", "")
+	o := offsets(t, a)
 	inv := cuptipcsampling.ReasonInventory{Reasons: []cuptipcsampling.StallReason{
 		{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_selected"},
 	}}
@@ -218,7 +232,7 @@ func TestCountSamplesForeign(t *testing.T) {
 		}
 	}
 	p := CountSamples(a, inv, cuptipcsampling.Batch{Valid: true, PCs: []cuptipcsampling.PC{
-		pc("fused_gate", siluOffset, 2),
+		pc("fused_gate", o.silu, 2),
 		pc("ampere_sgemm_128x64_nn", 0x40, 11),
 		pc("fused_gate", 0xfff0, 3),
 	}})
