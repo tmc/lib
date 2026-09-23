@@ -1,0 +1,11 @@
+Commit: 3bb251d8
+Date: 2026-09-19T00:40:59Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+not a tty
+pid: 64481
+ITERM_SESSION_ID: w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+Restores blobs from 83647494, reverted by 433c7e97 (F76EF7EB). No new
+generation was run; the five blobs are byte-identical to 83647494's.

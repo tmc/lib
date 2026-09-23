@@ -1,0 +1,1 @@
+Commit 2026-09-17; host-only lane 24/25/26/28 slices. Added explicit unknown CUBIN facts, fail-closed interposition lookup, bounded synchronized descriptor ring with lifecycle, and rank-aware effectful collective intent. Tests/race/vet and C syntax checks passed; native qualification unmeasured.

@@ -1,0 +1,12 @@
+commit: 7b31075a
+date: 2026-09-14T14:24:59Z
+claude-code: 2.1.257 (Claude Code)
+model: Opus 5 (1M context) / claude-opus-5[1m]
+tty: not a tty
+not a tty
+pid: 53954
+ITERM_SESSION_ID: w0t0p0:A9D76F70-EB78-4DD7-88E2-32FBE435E2B7
+session: bc9e48ad-b246-47ea-97c8-9ae5685b8376
+session_url: https://claude.ai/code/session_017SP6brAXu6EirbthCEA9bv
+fixture-source: spark-31db:~/tmp/ctlprobe/k4.cu
+nvdisasm: V13.4.49; ptxas: 13.3.73 and 13.4.59, -arch sm_121a -m 64

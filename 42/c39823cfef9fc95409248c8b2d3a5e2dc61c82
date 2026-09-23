@@ -1,0 +1,1 @@
+commit=a83158d5bc91eb03281937387125f17bffad9f68; date=2026-09-17T00:27:05Z; agent=antigravity; model=gemini; tty=/dev/ttys507; pid=18052; ITERM_SESSION_ID=; Validation: go test ./nvidia/x/cudatrial/... ./nvidia/x/cudacapture/... ./nvidia/x/cudacmp/... passed

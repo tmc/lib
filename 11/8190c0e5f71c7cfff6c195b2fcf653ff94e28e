@@ -1,0 +1,1 @@
+2026-09-17; fixed YAML remark parser to ignore blank lines between documents; cmd/cudaprof TileIR and remarks integration test passes.

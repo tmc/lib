@@ -1,0 +1,5 @@
+commit: 71c900be9ea10e4496f9d47f5b33d8c7a96bfb90
+date: 2026-09-17T04:44:32Z
+agent: antigravity
+lane: 10-finite-taskgraph-and-persistent-executor
+status: host-verified; single-CTA DAG worker, scratch bounds checked; multi-CTA and native GPU harness pending

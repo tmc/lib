@@ -1,0 +1,3 @@
+claude-code 2.1.269 model=claude-opus-5[1m] pid=26643 ITERM_SESSION_ID=w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196 session=7cece841-7f85-4f43-b32f-40e5f835a6da
+Generator committed as libgen b413581. Reproduced byte-for-byte from that
+commit before recording the digests. Authorized by peer session A8AA3789.

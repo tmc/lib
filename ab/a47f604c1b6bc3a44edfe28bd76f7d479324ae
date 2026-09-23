@@ -1,0 +1,8 @@
+Tests verified as negative controls: all three fail against HEAD~1.
+Suites: darwin/arm64 ./cmd/cudaprof ok; linux/arm64 GB10 ./cmd/cudaprof has one
+pre-existing unrelated failure, TestWriteCaptureStatusIsPortableNoCodeRecording,
+present before this change and tracked separately.
+
+claude-code 2.1.257 (Claude Code)
+model=claude-opus-5[1m]
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814

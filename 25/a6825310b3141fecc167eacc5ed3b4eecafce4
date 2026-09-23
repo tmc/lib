@@ -1,0 +1,7 @@
+tool: claude-code 2.1.257 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty pid: 46815
+iterm_session: unset
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+date: 2026-09-17T14:42:53-07:00
+verified: GOWORK=off go test -count=1 (7 pkgs ok), go vet clean, gofmt clean, old import path absent repo-wide

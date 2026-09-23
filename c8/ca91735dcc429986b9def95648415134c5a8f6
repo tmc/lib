@@ -1,0 +1,10 @@
+Commit: 2f66785f88c3c04c63d6975b485a117dcd694b8a
+Commit date: 2026-09-15T17:56:25-07:00
+Recorded: 2026-09-16T00:56:36.612719+00:00
+Agent: Codex
+claude-code version: not used
+Model: unavailable in runtime metadata
+TTY: non-PTY exec
+Note process PID: 80776
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+Native deliberate invalid-argument recovery PASS on GB20B/CUPTI130202. Parent and export-agent independent review accepted; cuptirange race tests and LinuxARM64vet passed. Receipt ~/tmp/cuptibench-cleanup-receipts/run-disable-uR0utwTi. No remote push.

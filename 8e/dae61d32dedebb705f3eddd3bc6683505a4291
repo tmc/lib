@@ -1,0 +1,12 @@
+claude-code: 2.1.257
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty
+pid: 73573
+ITERM_SESSION_ID: w4t0p18:3CE9C186-B1C6-40B5-9B8F-2F1DD419299D
+session: 423f1bbf-df69-46f3-87ae-1b4a46c379e2
+session_url: https://claude.ai/code/session_0187SBsrLu3gqbktcLUwwiaV
+completes dc67ae72 (5F9AE590); gap reported by F6C226A5, verified independently.
+Run on GB10 (dgx), CUDA 13.0: PASS 0.33s, not a skip. Mutation: launching the
+original kernel in the second graph fails with 'Update reported success without
+applying the swap'. Two earlier mutation attempts were silent no-ops (gofmt
+spacing, unused variable) and were redone with a hard assert.

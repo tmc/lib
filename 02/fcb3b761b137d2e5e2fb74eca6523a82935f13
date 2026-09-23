@@ -1,0 +1,11 @@
+commit: 8a4ffe96
+date: 2026-09-14T17:29:26-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty
+n/a
+pid: 6160
+ITERM_SESSION_ID: w20t0p2:C2706282-CA28-4256-A4C9-719CE9FD3D88
+session: 214f4c56-968e-4eb2-ad6a-3088c7813b73
+session_url: https://claude.ai/code/session_01EogqhV28G9yGQmYA7cFmBr
+verified: 4/4 PASS on dgx (GB10), CUDA_DRIVER_HARDWARE_TEST=1 GOWORK=off, -count=1, positive controls fired

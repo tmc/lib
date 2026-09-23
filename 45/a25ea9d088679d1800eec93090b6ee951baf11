@@ -1,0 +1,8 @@
+tool: claude-code 2.1.257
+model: claude-opus-5[1m]
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+date: 2026-09-17T14:53:51-07:00
+probe: nvrtc.HasInstallBundledHeaders() = false on NVRTC 13.0, true on 13.4
+(measured on spark-31db via a throwaway program, not inferred).
+verified: go test -run TestCompileToolkitIncludesDefault ok under both
+NVRTC 13.0 and 13.4 on linux/arm64, and on darwin/arm64.

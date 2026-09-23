@@ -1,0 +1,14 @@
+commit: 17ca87ee
+date: 2026-09-14T18:05:51-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty
+n/a
+pid: 16629
+ITERM_SESSION_ID: w20t0p2:C2706282-CA28-4256-A4C9-719CE9FD3D88
+session: 214f4c56-968e-4eb2-ad6a-3088c7813b73
+session_url: https://claude.ai/code/session_01EogqhV28G9yGQmYA7cFmBr
+verified: GB10 (sm_121) two-arm capture, cudaprof cross-built from this tree and re-run on both
+  pprofs: control arm recommendation unchanged, graph arm suppressed. Package green, -count=1, vet clean.
+evidence: 20 kernels/20 correlations (direct) vs 20 kernels/5 correlations (5x replay of 4-node graph),
+  each of the 5 resolving to runtime callback_id=311 cudaGraphLaunch.

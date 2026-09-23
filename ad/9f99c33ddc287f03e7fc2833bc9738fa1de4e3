@@ -1,0 +1,5 @@
+agent: claude-code 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+date: 2026-09-18T17:21:10-07:00
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+verification: each recipe replayed in place from upstream.json; git status shows exactly provenance.gen.go and provenance.json changed per package; nvidia builds and vets; cmd/nvidia-reproduce reports 29 of 35 reproduced, up from 17

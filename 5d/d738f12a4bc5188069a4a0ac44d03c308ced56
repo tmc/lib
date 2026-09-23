@@ -1,0 +1,6 @@
+Mutation control: narrowing the allow-list to a name that is not recorded
+makes the file-set assertion fail, so it still discriminates.
+
+claude-code $(claude --version 2>/dev/null | head -1)
+model=claude-opus-5[1m]
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814

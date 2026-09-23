@@ -1,0 +1,8 @@
+commit: 0c3faff3
+date: 2026-09-20T22:58:29-07:00
+claude-code: 2.1.278
+model: claude-opus-5[1m]
+tty: none
+pid: 1817383
+iterm-session: none
+verified: go test -count=1 ./x/cmd/cudaprof/ ok 25.478s, vet and gofmt clean, in an isolated tree built from HEAD plus this content only (foreign uncommitted memset/NVTX-marker reverts in the shared checkout excluded)

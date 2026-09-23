@@ -1,0 +1,12 @@
+Found by the errata-triage subagent, which was right where my own earlier reading
+was wrong: I had read only the hasTiming=false half of
+TestAdvice_PurePCSampleProfileShareFormatting and concluded the defect was
+already closed. The second half of the same test asserted the fabricated output.
+
+Negative control: reverting advise.go alone fails the inverted test with
+'hasDeviceTiming returned true for a sample-only capture with a wall duration'.
+Suites green on darwin/arm64 and linux/arm64 (GB10).
+
+claude-code $(claude --version 2>/dev/null | head -1)
+model=claude-opus-5[1m]
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
