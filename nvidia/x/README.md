@@ -35,6 +35,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudakernel](cudakernel/) | Package cudakernel provides immutable kernel artifact descriptors, ABI parameter schemas, fixed-width argument packing, and hardware resource contracts for CUDA execution. |
 | [cudakv](cudakv/) | Package cudakv provides static and paged key-value caches for autoregressive transformer decoding, plus host-side residency and prefix bookkeeping. |
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
+| [cudalayer](cudalayer/) | Package cudalayer provides experimental CUDA decoder-layer kernels and JIT compilation for the llama inference example. |
 | [cudalayout](cudalayout/) | Package cudalayout describes checked physical tile layouts. |
 | [cudalineinfo](cudalineinfo/) | Package cudalineinfo attributes device code to the source it was generated from. |
 | [cudalock](cudalock/) | Package cudalock coordinates exclusive GPU access across processes and tests. |
