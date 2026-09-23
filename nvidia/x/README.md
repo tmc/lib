@@ -53,6 +53,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudamem](cudamem/) | Package cudamem provides typed, memory-safe abstractions for GPU device allocations, host-pinned memory, streaming I/O, and stream-ordered memory pools. |
 | [cudamemtrack](cudamemtrack/) | Package cudamemtrack tracks GPU memory allocations, calculates heap fragmentation ratios, and detects memory leaks at teardown. |
 | [cudamoe](cudamoe/) | Package cudamoe provides Mixture of Experts routing and expert cache offloading for CUDA. |
+| [cudamtp](cudamtp/) | Package cudamtp implements Multi-Token Prediction (MTP) and speculative tree decoding optimized via fused CUDA C++ megakernels on NVIDIA GPUs. |
 | [cudaobjdump](cudaobjdump/) | Package cudaobjdump inspects CUDA code embedded in host binaries and cubins using the installed cuobjdump executable. |
 | [cudaoccupancy](cudaoccupancy/) | Package cudaoccupancy models GPU hardware resource limits and calculates theoretical warp occupancy directly from compiled CUDA binary (CUBIN) images. |
 | [cudaoptim](cudaoptim/) | Package cudaoptim implements optimizer steps for training with hand-written CUDA kernels: AdamW with decoupled weight decay, global gradient-norm clipping, and non-finite gradient detection. |
