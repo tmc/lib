@@ -11,9 +11,9 @@ directory:
 
     go run ./x/examples/source-wiring -arch sm_121
 
-`nvdisasm` must understand the target architecture. A CUDA 12.x `nvdisasm` fails
-on `sm_121` with "does not contain Cuda architecture information"; pass a newer
-one with `-nvdisasm /usr/local/cuda-13.0/bin/nvdisasm`.
+`nvdisasm` must understand the target architecture; an older one fails with
+"does not contain Cuda architecture information". Pass a newer one with
+`-nvdisasm path`.
 
 ## What it shows
 
@@ -22,36 +22,28 @@ source map it already builds. NVRTC records them as ordinary line information,
 so every tier below Go inherits Go's coordinates. `cudalineinfo.Attribute`
 joins the three tiers on the Go file and line.
 
-    fused_gate: 162 of 464 SASS instructions name a program line
+Each kernel gets a table. The output looks like this; the counts vary with
+the toolchain and GPU:
+
+    fused_gate: 32 of 184 SASS instructions name a program line
       SITE           SOURCE                                                   CUDA  PTX  SASS
-      kernels.go:12  x := cudatensor.NewInput(g, "x", shape, cudair.Float32)  2     5    14
-      kernels.go:13  w := cudatensor.NewInput(g, "w", shape, cudair.Float32)  2     5    12
-      kernels.go:14  act := x.Silu()                                          1     5    117
-      kernels.go:15  return act.Mul(w)                                        3     5    19
-      remainder: 125 generated, 0 unlocated, 62 in $__internal_0_$__cuda_sm20_div_u64, 115 in $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath
+      kernels.go:12  x := cudatensor.NewInput(g, "x", shape, cudair.Float32)  2     1    4
+      kernels.go:13  w := cudatensor.NewInput(g, "w", shape, cudair.Float32)  2     1    2
+      kernels.go:14  act := x.Silu()                                          1     1    22
+      kernels.go:15  return act.Mul(w)                                        3     1    4
+      remainder: 31 generated, 0 unlocated, 121 in $__internal_0_$__cuda_sm3x_div_rn_noftz_f32_slowpath
 
-The kernel's grid-stride loop is unrolled five times, so each Go line appears
-in five PTX locations and its instructions come in five copies. The
-instruction listing is the part worth reading, because it can be checked
-against the Go line by eye (one copy of each line, abbreviated):
+CUDA, PTX, and SASS count the generated CUDA lines, PTX locations, and SASS
+instructions that name the Go line. The remainder line accounts for the
+instructions that name no Go line: those on generated lines (index
+arithmetic, bounds checks), those with no line at all, and those inside
+compiler subroutines such as the float division slowpath.
 
-      kernels.go:14  act := x.Silu()
-          FFMA.SAT                 R18, R0, -R19, 0.5
-          MUFU.EX2                 R19, R19
-          FFMA                     R21, R18, R19, 1
-          MUFU.RCP                 R3, R21
-          FCHK                     P0, R0, R21
-          @!P0 BRA                 `(.L_x_6)
-          CALL.REL.NOINC           `($__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath)
-      kernels.go:15  return act.Mul(w)
-          IADD.64                  R16, R14, UR6
-          FMUL                     R3, R2, R3
-          STG.E                    desc[UR28][R16.64], R3
-
-`Silu` is `x / (1 + expf(-x))`, and its instructions are an exponential, a
-reciprocal refined by Newton steps, a range check, and a call to the division
-slowpath for inputs the check rejects. `Mul` is one `FMUL`, the address, and
-the store.
+The listing of the first kernel is the part worth reading, because it can be
+checked against the Go line by eye. `Silu` is `x / (1 + expf(-x))`, and its
+instructions are an exponential, a reciprocal refined by Newton steps, a
+range check, and a call to the division slowpath for inputs the check
+rejects. `Mul` is one `FMUL`, the address, and the store.
 
 ## Through helpers
 
@@ -59,24 +51,13 @@ The last kernel builds its graph through two helper functions, so the lines
 that own the operations are inside `activate` and `normalize`, not in the
 kernel body a reader looks at. Every captured location also records the Go
 frames above it, and the roll-up charges instructions to those frames the way
-a profiler's cumulative column does:
+a profiler's cumulative column does. FLAT is the instructions a line owns;
+CUM adds those of every line it called.
 
-    fused_layered: SASS instructions by frame, cumulative
-      SITE           FUNCTION        SOURCE                                                      FLAT  CUM
-      kernels.go:38  main.layered    x := cudatensor.NewInput(g, "x", shape, cudair.Float32)     14    14
-      kernels.go:39  main.layered    w := cudatensor.NewInput(g, "w", shape, cudair.Float32)     12    12
-      kernels.go:40  main.layered    act := activate(x)                                          0     115
-      kernels.go:41  main.layered    return normalize(act, w)                                    0     159
-      kernels.go:45  main.activate   return t.Silu()                                             115   115
-      kernels.go:49  main.normalize  scale := w.Sqrt()                                           70    70
-      kernels.go:50  main.normalize  return t.Div(scale)                                         89    89
-      main.go:72     main.main       if err := run(*arch, *nvdisasm, *units, cfg); err != nil {  0     300
-      main.go:81     main.run        a, fk, err := attribute(ctx, k, opts)                       0     300
-      main.go:121    main.attribute  k.build(g)                                                  0     300
-
-The two call lines own no instructions of their own and account for all of
-them. The frames continue up to the driver, where the line that built the
-graph carries the whole kernel.
+The two call lines in `layered` own no instructions of their own and account
+for all of the helpers' instructions. The frames continue up through the
+driver in `main.go`, where the line that built the graph carries the whole
+kernel.
 
 ## At run time
 
@@ -86,36 +67,22 @@ patcher, and each measure is joined to the same Go lines:
 
     go run ./x/examples/source-wiring -pcsampling -sassmetrics -pprof gate.pb.gz
 
-    fused_gate: 31498 samples by program line
-      SITE           SOURCE                                                   SASS  SAMPLES  SHARE
-      kernels.go:12  x := cudatensor.NewInput(g, "x", shape, cudair.Float32)  14    469      1.5%
-      kernels.go:13  w := cudatensor.NewInput(g, "w", shape, cudair.Float32)  12    202      0.6%
-      kernels.go:14  act := x.Silu()                                          117   13593    43.2%
-      kernels.go:15  return act.Mul(w)                                        19    1639     5.2%
-      elsewhere: 15595 at instructions naming no program line, 0 at unresolved PCs
+`-n` sets the elements per launch and `-launches` the number of launches.
+Each table has the same shape: SASS is the line's static instruction count,
+SAMPLES or EXECUTED the measure, SHARE its fraction of the total, and an
+`elsewhere` line counts what landed on instructions naming no Go line.
 
-    fused_gate: 78643200 executed by program line
-      SITE           SOURCE                                                   SASS  EXECUTED  SHARE
-      kernels.go:12  x := cudatensor.NewInput(g, "x", shape, cudair.Float32)  14    1966080   2.5%
-      kernels.go:13  w := cudatensor.NewInput(g, "w", shape, cudair.Float32)  12    1310720   1.7%
-      kernels.go:14  act := x.Silu()                                          117   13107200  16.7%
-      kernels.go:15  return act.Mul(w)                                        19    2621440   3.3%
-      elsewhere: 59637760 at instructions naming no program line, 0 at unresolved PCs
+Samples and executed counts answer different questions. Samples are where
+the warps were, so they weight a line by its latency: a line with slow
+instructions takes more samples than its instruction count suggests.
+Executed counts are exact, counted per warp: a line's static count says what
+the line became, its executed count says which of it ran. Instructions that
+never run, such as the division slowpath call when no input takes the slow
+path, have a static count and no executed count.
 
-Samples are where the warps were, so they weight `Silu` by its latency: 43%
-of the time on a quarter of the static instructions. Executed counts are
-exact. Twenty launches of 2^20 elements are 655360 warp launches, one element
-per thread, so only the first of the five unrolled copies runs: the `x` input
-line ran 3 × 655360 instructions, `Mul` 4 × 655360, and `Silu` 20 × 655360,
-its copy of 23 less the `MOV`, `CALL` and `MOV` around the slowpath call,
-which never executed because no input took the slow division path. The static
-count says what the line became; the executed count says which of it ran.
-
-Most of what ran names no Go line: 91 instructions per warp of index
-arithmetic, the launch-shape guard, and the 64-bit division that computes
-the unrolled loop's trip count, a call into `$__cuda_sm20_div_u64`. That is the cost of the
-kernel's generated scaffolding, and for a kernel this small it outweighs the
-Go statements three to one.
+What executes outside any Go line is the kernel's generated scaffolding:
+index arithmetic and the launch-shape guard. For a kernel this small it is a
+large part of the work.
 
 `-pprof` writes the samples as a pprof profile. Each sample's stack runs from
 the SASS instruction through the PTX and generated CUDA lines to the Go
@@ -125,23 +92,14 @@ kernel by Go line and `-focus=main.gate` filters to one kernel's builder.
 ## What the collectors cost
 
 Both collectors time their own launches, so the run ends with the wall time
-of the same work under each. On a GB10 (`sm_121`, CUDA 13.4, driver 580.173),
-median per-launch time of five runs:
+of the same work under each, per launch and as overhead against the
+uninstrumented run.
 
-    go run ./x/examples/source-wiring -pcsampling -sassmetrics
-    go run ./x/examples/source-wiring -pcsampling -sassmetrics -n 16777216 -launches 100 -period 16
-
-| workload | none | -pcsampling | -sassmetrics |
-|---|---|---|---|
-| 2^20 elements, 20 launches, period 10 | 0.018 ms | 0.041 ms (+128%) | 8.98 ms (×499) |
-| 2^24 elements, 100 launches, period 16 | 0.895 ms | 0.932 ms (+4.1%) | 144.6 ms (×162) |
-
-PC sampling costs 23 to 37 microseconds per launch, which is the host
-draining the hardware buffer between launches. That is 4% of a kernel that
-runs for 0.9 ms and more than double the cost of one that runs for 18
-microseconds, so the overhead is a property of the launch, not of the kernel.
-The instruction patcher rewrites the kernel and is two orders of magnitude
-more expensive; it buys exact counts rather than a sample.
+PC sampling costs a roughly fixed time per launch, which is the host draining
+the hardware buffer between launches. Its relative overhead is therefore a
+property of the launch, not of the kernel: small for a long kernel, large for
+a short one. The instruction patcher rewrites the kernel and is far more
+expensive; it buys exact counts rather than a sample.
 
 The sampler's hardware buffer is fixed, so a short period over a long
 workload overflows it, which CUPTI reports as running out of memory. The
@@ -150,36 +108,25 @@ quarter as often, and says which period the numbers came from:
 
     $ go run ./x/examples/source-wiring -pcsampling -n 16777216 -launches 20 -period 10
       sampling period raised from 2^10 to 2^14 cycles: the hardware buffer overflowed
-    fused_gate: 136808 samples by program line
 
-At 2^24 elements the default period of 10 does not survive 20 launches and
-14 is the shortest that does.
+`-period` sets the exponent to start at, one sample per 2^n cycles.
 
-Both collectors need CUPTI 13 and exclusive use of the device's profiling
-hardware, so neither is on by default.
+Both collectors need CUPTI 13 or later and exclusive use of the device's
+profiling hardware, so neither is on by default.
 
 ## Fast math
 
 The first kernel is recompiled with `-use_fast_math` and the two builds are
-diffed per Go line, as multisets of opcodes:
+diffed per Go line, as multisets of opcodes: the instruction count of each
+build, and the opcodes the flag removed and added. Both builds then run on
+the same inputs, and the run reports the largest difference between their
+results, so the instruction diff and its cost in accuracy are read together.
 
-    fused_gate: default (162 of 464) vs -use_fast_math (69 of 264)
-      SITE           DEFAULT  -USE_FAST_MATH  REMOVED                                                           ADDED
-      kernels.go:12  14       14              LDCU                                                              BSSY
-      kernels.go:13  12       12              -                                                                 -
-      kernels.go:14  117      25              BRA×5 BSSY×5 BSYNC×5 CALL×5 FCHK×5 FFMA×50 HFMA2×5 IMAD×5 MOV×17  FMUL×10
-      kernels.go:15  19       18              LDCU                                                              -
-      remainder: default: 125 generated, 0 unlocated, 62 in $__internal_0_$__cuda_sm20_div_u64, 115 in $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath
-      remainder: -use_fast_math: 124 generated, 0 unlocated, 71 in $__internal_0_$__cuda_sm20_div_u64
-      max |fast - default| over 4096 elements: 7.63e-06 (max |default| 110)
-
-The flag's work is on one Go line. In each unrolled copy `Silu` lost its IEEE
-division (the `FCHK` range check, the `CALL` into the slowpath, and the Newton
-iterations) for two `FMUL`s around the reciprocal, and the float slowpath
-subroutine left the binary with it. The input and output lines changed only
-in where the scheduler put a constant load. The integer division that sizes
-the loop is not floating point, so it stays. Both builds then run on the same inputs, so the instruction diff and
-its cost in accuracy are read together.
+The flag's work lands on one Go line. `Silu` loses its IEEE division (the
+`FCHK` range check, the `CALL` into the slowpath, and the Newton iterations)
+for multiplications around the reciprocal, and the slowpath subroutine
+leaves the binary with it. The input and output lines change little or not
+at all.
 
 ## Afterwards
 
@@ -193,17 +140,18 @@ questions of the artifacts without rebuilding them:
 `-format digraph` prints the unit as a call graph in the form
 `golang.org/x/tools/cmd/digraph` reads: program functions down to the line
 that built each operation, the line to the kernel, and lines to the SASS
-subroutines their instructions call. Asking which Go path pulled the
-division slowpath into `fused_layered`:
+subroutines their instructions call. The subroutines are named as the
+disassembly names them, with a numbered prefix. Asking which Go path pulled
+the division slowpath into `fused_layered`:
 
-    $ go run ./x/cmd/cudalineinfo -sass /tmp/units/fused_layered.sass -format digraph /tmp/units/fused_layered.json |
-        digraph somepath main.main '$__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath'
+    $ go run ./x/cmd/cudalineinfo -sass /tmp/units/fused_layered.sass -format digraph /tmp/units/fused_layered.json >layered.digraph
+    $ digraph somepath main.main "$(grep -o '[^ ]*div_rn_noftz_f32_slowpath' layered.digraph | head -1)" <layered.digraph
     main.main main.run
     main.run main.attribute
     main.attribute main.layered
     main.layered main.activate
     main.activate kernels.go:45
-    kernels.go:45 $__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath
+    kernels.go:45 $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath
 
 The path ends at `return t.Silu()`, whose sigmoid divides. The JSON unit is
 what carries the functions and callers; the annotated `.cu` alone gives the
@@ -217,14 +165,13 @@ paths no run recorded:
 
     $ { callgraph -algo=static -format=digraph ./x/examples/source-wiring |
           sed 's|github.com/tmc/lib/nvidia/x/examples/source-wiring\.|main.|g'
-        go run ./x/cmd/cudalineinfo -sass /tmp/units/fused_layered.sass \
-          -format digraph /tmp/units/fused_layered.json; } |
-        digraph somepath main.fastMath '$__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath'
+        cat layered.digraph; } |
+        digraph somepath main.fastMath "$(grep -o '[^ ]*div_rn_noftz_f32_slowpath' layered.digraph | head -1)"
     main.fastMath main.attribute
     main.attribute main.layered
     main.layered main.activate
     main.activate kernels.go:45
-    kernels.go:45 $__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath
+    kernels.go:45 $__internal_1_$__cuda_sm3x_div_rn_noftz_f32_slowpath
 
 The static half supplies calls the unit never saw; the compiled half
 supplies what those calls became.
@@ -248,36 +195,31 @@ capture's `executed` sample type next to the sampled one.
 The last compares two captures line by line: the instructions each build gave
 a line, and what each run measured there.
 
-On a GB10 the executed counts do not reach a capture. While the injected
-agent holds activity tracing, CUPTI returns zero for every patched counter,
-so `-sassmetrics` under `cudaprof capture` prints an all-zero table and the
+The executed counts may not reach a capture. If CUPTI returns zero for every
+patched counter while the injected agent holds activity tracing,
+`-sassmetrics` under `cudaprof capture` prints an all-zero table and the
 capture has no `executed` sample type. The in-process PC sampler does run
-alongside the agent (32976 samples, half of them on `kernels.go:14`), but its
-samples go to the table and `-pprof`, not into the capture.
+alongside the agent, but its samples go to the table and `-pprof`, not into
+the capture.
 
 ## The control
 
 Withholding the `#line` directives and recompiling the same graph must remove
-the attribution entirely:
-
-    control (fused_gate): SASS instructions naming a Go file
-      with #line directives:    162 of 464
-      without #line directives: 0 of 464
-
-The program exits non-zero if the control arm attributes anything, or if the
-directive arm attributes nothing.
+the attribution entirely. The run prints the number of SASS instructions
+naming a Go file with and without the directives, and exits non-zero if the
+control arm attributes anything, or if the directive arm attributes nothing.
 
 ## What the numbers do not say
 
-The counts are honest about two things that are easy to misread.
+The counts are easy to misread in two ways.
 
-`162 of 464` is not 35% coverage of the program's work. The remainder line
-accounts for the rest: the loop's index arithmetic and bounds checks on
-generated lines, and the compiler's own subroutines for the 64-bit trip-count
-division and the float division slowpath, which belong to no line of user Go.
+The fraction of instructions that name a program line is not coverage of the
+program's work. The remainder line accounts for the rest: the loop's index
+arithmetic and bounds checks on generated lines, and compiler subroutines
+such as the float division slowpath, which belong to no line of user Go.
 
-A statement can reach zero. In `fused_rescale`, `scaled := v.Div(inv)` gets
-`PTX 0, SASS 0` while the following `Neg()` gets 84 instructions: the compiler
-fused the divide into its consumer and attributed the result to one line. That
-is the optimizer being visible through the mapping, not the mapping failing.
-A Go statement is not guaranteed to survive as instructions of its own.
+A statement can reach zero. When the compiler fuses an operation into its
+consumer, it attributes the result to one line, and the other line gets
+`PTX 0, SASS 0`. That is the optimizer being visible through the mapping, not
+the mapping failing. A Go statement is not guaranteed to survive as
+instructions of its own.
