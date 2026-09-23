@@ -83,7 +83,7 @@ launched: durations are model cycles divided by an assumed clock, not measuremen
 
 Below are modeled results comparing unpipelined launches, standard sequential CUDA Graph
 nodes, and PDL sub-grid early release across 25%, 50%, and 75% trigger thresholds, for an
-assumed Hopper H100 (132 SMs, 1755 MHz). `go run .` prints them:
+assumed Hopper H100 (132 SMs, 1755 MHz). `go run . -format=md` prints them:
 
 ### Scenario 1: Low Occupancy (64 CTAs, 4 Tiles)
 *Co-resident SM capacity available immediately upon trigger.*
@@ -137,7 +137,7 @@ Legend: '=' Producer only, '#' Overlap (both active), '*' Consumer only
 
 ## 4. Key Takeaways and Architectural Observations
 
-1. **The Model Predicts a 1.20x - 1.43x Speedup at the 50% Trigger:**
+1. **At the 50% Trigger the Model Predicts 1.23x - 1.43x over Sequential Launches and 1.20x - 1.34x over CUDA Graph:**
    Standard CUDA Graph nodes eliminate host CPU launch latency but enforce strict barrier
    synchronization between kernels. PDL unlocks concurrent execution between grid nodes;
    the model predicts up to a 25% reduction in GPU time over CUDA Graph sequential dispatches
