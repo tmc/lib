@@ -16,7 +16,9 @@
 //
 // Basic usage:
 //
-//	suite := NewBenchmarkSuite(DefaultConfig())
-//	report := suite.Run()
-//	fmt.Println(report.Table())
+//	report, err := DefaultBenchmarkSuite().Run()
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	fmt.Print(report.Table())
 package main

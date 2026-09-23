@@ -12,7 +12,6 @@ func main() {
 
 	formatFlag := flag.String("format", "text", "output format: text, markdown, json")
 	smsFlag := flag.Int("sms", 132, "SM count the cost model assumes; nothing is probed from a device")
-	tilesFlag := flag.Int("tiles", 4, "number of tiles per CTA")
 	ptxFlag := flag.Bool("ptx", false, "output generated PTX assembly and exit")
 	auditFlag := flag.Bool("audit", false, "audit generated PTX opcodes with x/cudaptx and exit")
 	flag.Parse()
@@ -40,9 +39,6 @@ func main() {
 	suite := DefaultBenchmarkSuite()
 	if *smsFlag > 0 {
 		suite.Hardware.SMCount = *smsFlag
-	}
-	if *tilesFlag > 0 {
-		suite.Workload.NumTiles = *tilesFlag
 	}
 
 	report, err := suite.Run()
