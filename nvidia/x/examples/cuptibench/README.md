@@ -34,13 +34,7 @@ CUPTIBENCH_EXAMPLE=1 GOWORK=off go test ./x/examples/cuptibench \
 
 Without `CUPTIBENCH_EXAMPLE=1`, benchmarks skip. With it set, unavailable CUDA,
 CUPTI, NVRTC, or metrics fail. The NVRTC binding currently loads
-`libnvrtc.so.13` on Linux. The NVRTC compiler must emit PTX supported by your
-driver. On the qualified DGX setup, use:
-
-```sh
-export PATH=/usr/local/cuda-13.0/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda-13.2/targets/sbsa-linux/lib
-```
+`libnvrtc.so.13` on Linux.
 
 Select only the final stage, with no sibling benchmark prerequisite:
 
