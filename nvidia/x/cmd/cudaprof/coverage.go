@@ -30,6 +30,9 @@ type coverage struct {
 	Busy    time.Duration // device time the profile measures, zero when it measures none
 	Samples int64         // total PC samples: the denominator of every share
 	Rows    int           // sample rows in the profile; zero means nothing was observed
+	// Counters names the profile's other sample types: range counters,
+	// neither time nor samples.
+	Counters []string
 
 	// Reason is empty exactly when the span's covered fraction is determined.
 	// A non-empty Reason means the fraction is unknown, not that it is small.
@@ -129,6 +132,8 @@ func captureCoverage(cap *cudacapture.Capture) coverage {
 					c.Samples += s.Value[i]
 				}
 			}
+		default:
+			c.Counters = append(c.Counters, vt.Type)
 		}
 	}
 	// A span of zero is a fact about the pprof projection, which is an
@@ -166,9 +171,16 @@ func captureCoverage(cap *cudacapture.Capture) coverage {
 		// and produces the same empty file.
 		c.Reason = "the profile holds no samples at all, so this capture observed nothing: " +
 			"an empty ranking drawn from it means the capture was empty, not that the workload ran no such kernels"
-	case c.Busy <= 0:
+	case c.Busy <= 0 && c.Samples > 0:
 		c.Reason = "the profile carries no device time, only sample counts, and a sample count " +
 			"has no duration: it says where execution was, never for how long"
+	case c.Busy <= 0:
+		// A counter capture (cuptibench's export) holds per-range hardware
+		// counters. They are not samples and they are not time: each totals
+		// what one range did, so there is no device-time total for a ranking
+		// to be a share of.
+		c.Reason = "the profile holds range counters (" + counterList(c.Counters) + "), not device time or PC samples: " +
+			"a counter totals what one range did, so there is no device-time total to rank by"
 	case c.Span <= 0:
 		c.Reason = "neither the profile nor a per-record journal gives a span for the " + c.Busy.Round(time.Microsecond).String() +
 			" of device time to be a fraction of"
@@ -237,11 +249,30 @@ func preflightCoverage(w io.Writer, cap *cudacapture.Capture, args []string, all
 	if allow || c.Rankable() {
 		return nil
 	}
-	return fmt.Errorf("%s would rank this profile by a total that has no duration.\n"+
+	if c.Samples > 0 {
+		return fmt.Errorf("%s would rank this profile by a total that has no duration.\n"+
+			"\t%s\n"+
+			"\tCapture activity tracing alongside PC sampling so the profile carries device time,\n"+
+			"\tor pass %s to read the ranking as a share of samples and nothing more.",
+			flag, c.Reason, allowUnknownCoverageFlag)
+	}
+	return fmt.Errorf("%s cannot rank this profile: it has no device-time total.\n"+
 		"\t%s\n"+
-		"\tCapture activity tracing alongside PC sampling so the profile carries device time,\n"+
-		"\tor pass %s to read the ranking as a share of samples and nothing more.",
+		"\tCapture activity tracing alongside the counters so the profile carries device time,\n"+
+		"\tor pass %s to rank by the counter's value and nothing more.",
 		flag, c.Reason, allowUnknownCoverageFlag)
+}
+
+// counterList names up to three counters and how many more there are.
+func counterList(names []string) string {
+	const max = 3
+	if len(names) == 0 {
+		return "no named type"
+	}
+	if len(names) <= max {
+		return strings.Join(names, ", ")
+	}
+	return fmt.Sprintf("%s and %d more", strings.Join(names[:max], ", "), len(names)-max)
 }
 
 // deviceTimeType reports whether a sample type carries device time. It is the

@@ -177,3 +177,67 @@ func TestEmptyProfileRefusesARankingUnderEveryFlag(t *testing.T) {
 		t.Errorf("sample-only ranking refused under the override: %v", err)
 	}
 }
+
+// counterCapture builds a capture like cuptibench's export: per-range hardware
+// counters, with neither device time nor PC samples.
+func counterCapture(metrics ...string) *cudacapture.Capture {
+	p := &profile.Profile{DurationNanos: 1e9}
+	s := &profile.Sample{}
+	for _, m := range metrics {
+		p.SampleType = append(p.SampleType, &profile.ValueType{Type: m, Unit: "count"})
+		s.Value = append(s.Value, 258)
+	}
+	p.Sample = []*profile.Sample{s}
+	return &cudacapture.Capture{Profile: p}
+}
+
+// TestRankingRefusalNamesWhatTheCaptureHolds checks that a refusal describes
+// the quantity the profile carries. A counter capture holds range counters,
+// and a message about sample counts sends its reader after a PC-sampling
+// problem the capture does not have.
+func TestRankingRefusalNamesWhatTheCaptureHolds(t *testing.T) {
+	tests := []struct {
+		name    string
+		cap     *cudacapture.Capture
+		want    []string
+		notWant []string
+	}{
+		{
+			name:    "range counters",
+			cap:     counterCapture("sm__ctas_launched.sum"),
+			want:    []string{"range counters (sm__ctas_launched.sum)", "no device-time total", "alongside the counters"},
+			notWant: []string{"sample count", "PC sampling so", "share of samples"},
+		},
+		{
+			name: "many range counters",
+			cap:  counterCapture("a", "b", "c", "d", "e"),
+			want: []string{"range counters (a, b, c and 2 more)"},
+		},
+		{
+			name:    "pc samples",
+			cap:     timedCapture(1e9, 0, 1000),
+			want:    []string{"only sample counts", "alongside PC sampling", "share of samples"},
+			notWant: []string{"range counters"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := preflightCoverage(&buf, tt.cap, []string{"-top"}, false)
+			if err == nil {
+				t.Fatalf("-top ranked a profile with no device time; output %q", buf.String())
+			}
+			msg := buf.String() + err.Error()
+			for _, w := range tt.want {
+				if !strings.Contains(msg, w) {
+					t.Errorf("refusal lacks %q:\n%s", w, msg)
+				}
+			}
+			for _, w := range tt.notWant {
+				if strings.Contains(msg, w) {
+					t.Errorf("refusal contains %q:\n%s", w, msg)
+				}
+			}
+		})
+	}
+}
