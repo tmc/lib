@@ -240,6 +240,81 @@ func TestF2SwizzleMatchesTMASwizzledTile(t *testing.T) {
 	}
 }
 
+// TestF2SwizzleLogicalDivide divides a swizzled tile into 4x8 tiles of
+// every other column and checks, through SwizzledTile, that each element of
+// each tile is the byte the divide says it is. The row and column each
+// divided index stands for comes from dividing the integer identity layouts
+// the same way, which TestPycuteGolden checks against pycute.
+func TestF2SwizzleLogicalDivide(t *testing.T) {
+	const rows, cols, eb = 8, 64, 2
+	for _, mode := range []TMASwizzle{TMASwizzle32B, TMASwizzle64B, TMASwizzle128B} {
+		tile, err := NewSwizzledTile(rows, cols, eb, mode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		l, err := TMASwizzleLayout(rows, cols, eb, mode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Flatten the column grouping so the tiler meets one column mode.
+		flat, err := NewLayout(TupleShape(IntShape(rows), IntShape(cols)), TupleStride(l.stride.modes[0], flatF2(t, l.stride.modes[1])))
+		if err != nil {
+			t.Fatal(err)
+		}
+		tiler := []Layout{mustParse(t, "4:1"), mustParse(t, "8:2")}
+		d, err := LogicalDivideByMode(flat, tiler)
+		if err != nil {
+			t.Fatalf("%s: LogicalDivideByMode(%v): %v", mode, flat, err)
+		}
+		rowOf, err := LogicalDivide(mustParse(t, "8:1"), tiler[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		colOf, err := LogicalDivide(mustParse(t, "64:1"), tiler[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for i := range rows {
+			for j := range cols {
+				row, _ := rowOf.Index(i)
+				col, _ := colOf.Index(j)
+				want, _ := tile.ByteOffset(row, col)
+				got, err := d.Offset(i, j)
+				if err != nil || got != want {
+					t.Fatalf("%s: divided %v at (%d,%d) = %d, %v; element (%d,%d) is at %d", mode, d, i, j, got, err, row, col, want)
+				}
+				n++
+			}
+		}
+		if n != rows*cols {
+			t.Fatalf("%s: compared %d elements, want %d", mode, n, rows*cols)
+		}
+	}
+}
+
+// flatF2 concatenates the bit images of an F2 stride tree, lowest
+// coordinate bit first, which is the F2 stride of the flattened mode.
+func flatF2(t *testing.T, d Stride) Stride {
+	t.Helper()
+	var bits []int
+	var walk func(Stride)
+	walk = func(d Stride) {
+		if d.tuple {
+			for _, m := range d.modes {
+				walk(m)
+			}
+			return
+		}
+		if d.kind != strideF2 {
+			t.Fatalf("stride %v is not F2", d)
+		}
+		bits = append(bits, d.bits...)
+	}
+	walk(d)
+	return F2Stride(bits...)
+}
+
 // bankConflicts returns the conflict degree of one warp's shared-memory
 // access: the largest number of distinct 4-byte words that fall in one of
 // the 32 banks. Two threads reading the same word are a broadcast, not a
