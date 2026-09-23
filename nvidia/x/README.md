@@ -36,6 +36,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
 | [cudagroup](cudagroup/) | Package cudagroup describes bounded CUDA execution-group contracts. |
 | [cudahf](cudahf/) | Package cudahf finds model files in the local Hugging Face hub cache. |
+| [cudahf](cudahf/) | Package cudahf resolves model repositories and snapshot files from the local Hugging Face cache directory. |
 | [cudair](cudair/) | Package cudair provides a typed Intermediate Representation (IR) graph, immutable validated snapshots, and waterfall memory arena planning for GPU tensor graphs. |
 | [cudakernel](cudakernel/) | Package cudakernel provides immutable kernel artifact descriptors, ABI parameter schemas, fixed-width argument packing, and hardware resource contracts for CUDA execution. |
 | [cudakv](cudakv/) | Package cudakv provides static and paged key-value caches for autoregressive transformer decoding, plus host-side residency and prefix bookkeeping. |
