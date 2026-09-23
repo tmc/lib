@@ -13,6 +13,8 @@ in four places, each noted below under **Departure**.
 
 ## Run
 
+From the `nvidia` module directory:
+
 ```sh
 go run ./examples/kernelharness -list
 go run ./examples/kernelharness -task axpby -kernel my_kernel.cu
@@ -32,22 +34,17 @@ different signals from a wrong answer.
 
 ### With no GPU
 
-The development host here is darwin/arm64 with no CUDA. The harness builds and
-its tests run there:
+The harness builds, and its pure-Go tests run, on a host with no CUDA:
 
-```
-$ go test ./examples/kernelharness
-ok      github.com/tmc/lib/nvidia/examples/kernelharness
-
-$ go test -v ./examples/kernelharness
---- SKIP: TestFixtureOutcomes (0.15s)
---- SKIP: TestCorrectCandidateIsMeasured (0.04s)
---- SKIP: TestBaselinesPassTheirOwnOracle (0.09s)
+```sh
+go test -v ./examples/kernelharness
 ```
 
-Every CUDA-touching test goes through `x/cudatest.Require`, which skips with a
-reason naming the missing driver. The skip is visible under `-v`; a green `ok`
-with no `-v` proves only that the pure-Go tests ran.
+Every CUDA-touching test (`TestFixtureOutcomes`,
+`TestCorrectCandidateIsMeasured`, `TestBaselinesPassTheirOwnOracle`) goes
+through `x/cudatest.Require`, which skips with a reason naming the missing
+driver. The skip is visible under `-v`; a green `ok` with no `-v` proves only
+that the pure-Go tests ran.
 
 The CLI on a host with no device prints outcome `no_device` and **exits 3**.
 Zero is success and one is a failed candidate, so a loop that reads only the
@@ -201,10 +198,7 @@ to the source this report names.
 
 They bind nothing else. No CUBIN or SASS digest is recorded, and nothing
 downstream consumes these — in particular `x/cudacapture.LoadCode` does not
-read them. `x/nvrtcx/QUALIFICATION.md` names the missing digest chain as the
-blocking gate for that package and records that **no producer in the tree
-records one**. This example is a producer that records one for two of the tiers;
-it does not close that gap, because closing it needs the consumer side as well.
+read them. A digest chain across the tiers needs the consumer side as well.
 
 ## Documented gaps
 
@@ -215,11 +209,7 @@ These are things the design wants and this implementation does not do.
    `x/cudacapture.LoadCode` fuses the tiers, `x/cudalowering.DefinitionLine`
    maps a mangled symbol to its definition — so a wrong answer could in
    principle be reported against the candidate's own source line. It is not
-   wired up here. `QUALIFICATION.md` gap 9 records that PTX carries absolute
-   build-host paths and that the cross-tier join discards the directory, so two
-   files sharing a base name join as one; and gap 1 records that artifact
-   identity across tiers is unmeasured beyond the line tables. Attribution
-   built on that would be reported at a confidence the chain has not earned.
+   wired up here.
 2. **No counter collection.** `x/cuptibench` collects hardware counters through
    CUPTI, and `x/examples/cuptibench` shows the lifecycle. Adding it here would
    let the report carry achieved occupancy and memory throughput instead of
@@ -238,7 +228,7 @@ These are things the design wants and this implementation does not do.
    `timing.input_policy` rather than controlled. Flushing the cache between
    samples is not implemented.
 5. **One shape per task.** Each task runs at a single element count. A candidate
-   that is correct at 2^20 elements and wrong at a non-multiple of the block
+   that is correct at that count and wrong at a non-multiple of the block
    size would pass. Sweeping shapes is the obvious next thing.
 6. **Three elementwise tasks.** The fixed ABI covers elementwise problems over
    two input vectors and one scalar. It does not reach reductions, GEMM, or
