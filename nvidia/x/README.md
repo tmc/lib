@@ -27,6 +27,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaflightrecorder](cudaflightrecorder/) | Package cudaflightrecorder coordinates continuous in-memory flight recording across host Go execution traces and GPU device observations. |
 | [cudafuse](cudafuse/) | Package cudafuse compiles sub-graphs of elementwise and reduction operations into single fused CUDA mega-kernels. |
 | [cudagradcheck](cudagradcheck/) | Package cudagradcheck checks gradients computed by hand-written GPU kernels against float64 host oracles. |
+| [cudagrammar](cudagrammar/) | Package cudagrammar constrains language model generation to JSON that conforms to a schema. |
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
 | [cudagroup](cudagroup/) | Package cudagroup describes bounded CUDA execution-group contracts. |
 | [cudahf](cudahf/) | Package cudahf finds model files in the local Hugging Face hub cache. |
