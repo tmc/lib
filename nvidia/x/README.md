@@ -58,6 +58,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaref](cudaref/) | Package cudaref provides an independent CPU reference implementation and numerical oracle for validating GPU kernel operations and semantic IR execution graphs. |
 | [cudareg](cudareg/) | Package cudareg checks a bounded setmaxnreg producer-consumer protocol. |
 | [cudaroofline](cudaroofline/) | Package cudaroofline models kernel arithmetic intensity (FLOPs/byte) and evaluates a launch against device ceilings. |
+| [cudasample](cudasample/) | Package cudasample provides a CUDA greedy-argmax kernel and its CPU reference. |
 | [cudasafetensors](cudasafetensors/) | Package cudasafetensors copies tensors from safetensors files into CUDA device memory. |
 | [cudasanitizer](cudasanitizer/) | Package cudasanitizer runs a program under the NVIDIA compute-sanitizer command-line tool and classifies what happened. |
 | [cudasass](cudasass/) | Package cudasass parses and inspects NVIDIA Streaming Multiprocessor (SASS) machine assembly. |
