@@ -1,0 +1,3 @@
+commit=395d3290aff1db85c82e234751c4ef3362d79148 date=2026-09-23T15:13:37-07:00 claude-code=2.1.280 (Claude Code) model=claude-opus-5-5[1m] tty=not a tty pid=95861 iterm=w19t0p2:56B33FFC-CE68-4F25-884A-584F75248DF7
+session=d8d893b5-0901-4968-ba59-536846bb8e69
+verified: dgx GB10 (GB20B), CUPTI 2026.3.0; repro dgx:~/tmp/claude-tmp/sessrepro (c/repro.c, main.go); physical tests pass with -tags cupti_physical
