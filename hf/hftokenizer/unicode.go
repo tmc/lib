@@ -2,7 +2,7 @@ package hftokenizer
 
 import "sort"
 
-//go:generate python3 internal/genunicode/generate.py
+//go:generate go run ./internal/genunicode
 //go:generate gofmt -w unicode_tables.go
 
 type runeRange struct{ lo, hi rune }
