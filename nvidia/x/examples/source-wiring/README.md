@@ -6,9 +6,10 @@ Four kernels are built with `cudatensor`, lowered to CUDA C++ by `cudafuse`,
 and attributed by `cudalineinfo`, which compiles them with NVRTC and
 disassembles them with `nvdisasm`. The program reports, per Go statement, how
 many generated CUDA lines, PTX locations, and SASS instructions name it, then
-lists the first kernel instruction by instruction.
+lists the first kernel instruction by instruction. From the `nvidia` module
+directory:
 
-    go run ./examples/source-wiring -arch sm_121
+    go run ./x/examples/source-wiring -arch sm_121
 
 `nvdisasm` must understand the target architecture. A CUDA 12.x `nvdisasm` fails
 on `sm_121` with "does not contain Cuda architecture information"; pass a newer
@@ -83,7 +84,7 @@ The tables above are static. With `-pcsampling` the first kernel also runs
 under CUPTI's PC sampler, and with `-sassmetrics` under its instruction
 patcher, and each measure is joined to the same Go lines:
 
-    go run ./examples/source-wiring -pcsampling -sassmetrics -pprof gate.pb.gz
+    go run ./x/examples/source-wiring -pcsampling -sassmetrics -pprof gate.pb.gz
 
     fused_gate: 31498 samples by program line
       SITE           SOURCE                                                   SASS  SAMPLES  SHARE
@@ -127,8 +128,8 @@ Both collectors time their own launches, so the run ends with the wall time
 of the same work under each. On a GB10 (`sm_121`, CUDA 13.4, driver 580.173),
 median per-launch time of five runs:
 
-    go run ./examples/source-wiring -pcsampling -sassmetrics
-    go run ./examples/source-wiring -pcsampling -sassmetrics -n 16777216 -launches 100 -period 16
+    go run ./x/examples/source-wiring -pcsampling -sassmetrics
+    go run ./x/examples/source-wiring -pcsampling -sassmetrics -n 16777216 -launches 100 -period 16
 
 | workload | none | -pcsampling | -sassmetrics |
 |---|---|---|---|
@@ -147,7 +148,7 @@ workload overflows it, which CUPTI reports as running out of memory. The
 run then retries with the period lengthened by two, each retry sampling a
 quarter as often, and says which period the numbers came from:
 
-    $ go run ./examples/source-wiring -pcsampling -n 16777216 -launches 20 -period 10
+    $ go run ./x/examples/source-wiring -pcsampling -n 16777216 -launches 20 -period 10
       sampling period raised from 2^10 to 2^14 cycles: the hardware buffer overflowed
     fused_gate: 136808 samples by program line
 
@@ -186,8 +187,8 @@ its cost in accuracy are read together.
 disassembly to a directory, and the `cudalineinfo` command asks the same
 questions of the artifacts without rebuilding them:
 
-    go run ./examples/source-wiring -units /tmp/units
-    go run ./cmd/cudalineinfo -sass /tmp/units/fused_layered.sass -format rollup /tmp/units/fused_layered.json
+    go run ./x/examples/source-wiring -units /tmp/units
+    go run ./x/cmd/cudalineinfo -sass /tmp/units/fused_layered.sass -format rollup /tmp/units/fused_layered.json
 
 `-format digraph` prints the unit as a call graph in the form
 `golang.org/x/tools/cmd/digraph` reads: program functions down to the line
@@ -195,7 +196,7 @@ that built each operation, the line to the kernel, and lines to the SASS
 subroutines their instructions call. Asking which Go path pulled the
 division slowpath into `fused_layered`:
 
-    $ go run ./cmd/cudalineinfo -sass /tmp/units/fused_layered.sass -format digraph /tmp/units/fused_layered.json |
+    $ go run ./x/cmd/cudalineinfo -sass /tmp/units/fused_layered.sass -format digraph /tmp/units/fused_layered.json |
         digraph somepath main.main '$__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath'
     main.main main.run
     main.run main.attribute
@@ -214,9 +215,9 @@ its package path, which for a main package is the import path rather than
 `main`, so one rename joins the two and the composed graph answers for
 paths no run recorded:
 
-    $ { callgraph -algo=static -format=digraph ./examples/source-wiring |
+    $ { callgraph -algo=static -format=digraph ./x/examples/source-wiring |
           sed 's|github.com/tmc/lib/nvidia/x/examples/source-wiring\.|main.|g'
-        go run ./cmd/cudalineinfo -sass /tmp/units/fused_layered.sass \
+        go run ./x/cmd/cudalineinfo -sass /tmp/units/fused_layered.sass \
           -format digraph /tmp/units/fused_layered.json; } |
         digraph somepath main.fastMath '$__internal_2_$__cuda_sm3x_div_rn_noftz_f32_slowpath'
     main.fastMath main.attribute
