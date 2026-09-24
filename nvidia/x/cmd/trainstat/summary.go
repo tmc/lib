@@ -101,6 +101,7 @@ func analyze(d *data, o *options) (*analysis, error) {
 		a.rep, repQuery = "seed", "seed,/seed"
 	}
 	ignore := []string{"run", "val_sha256"}
+	vals := make(map[string]bool) // val_sha256 of runs with a val-frac
 	for _, r := range results {
 		for _, c := range r.Config {
 			if c.File && strings.HasPrefix(c.Key, "out-") && !slices.Contains(ignore, c.Key) {
@@ -109,7 +110,13 @@ func analyze(d *data, o *options) (*analysis, error) {
 		}
 		if v := r.GetConfig("val-frac"); v != "" && v != "0" && r.GetConfig("val") == "" {
 			a.valFrac = v
+			vals[r.GetConfig("val_sha256")] = true
 		}
+	}
+	// A run given a validation file records val-frac but not a split:
+	// runs sharing one validation set need no note.
+	if len(vals) == 1 && !vals[""] {
+		a.valFrac = ""
 	}
 
 	filter, err := benchproc.NewFilter(o.filter)

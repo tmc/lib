@@ -43,6 +43,25 @@ stdout '^BenchmarkFinal/split=test/group=all/cal=raw 1 0\.5 accuracy$'
 ! exec trainstat jsonl -config conflict.json events.jsonl
 stderr 'events.jsonl: config mode=lora conflicts with mode=full from .*conflict.json'
 
+# Runs that record val-frac but share one validation set, as runs given
+# a validation file do, need no note; runs with their own sets do.
+exec trainstat same1.jsonl same2.jsonl
+! stdout 'each seed has its own validation set'
+exec trainstat same1.jsonl split2.jsonl
+stdout '^val-frac 0\.05: '
+
+-- same1.jsonl --
+{"event":"start","val_sha256":"aa","options":{"seed":1,"val-frac":0.05}}
+{"event":"eval","step":1,"split":"val","metrics":{"all":{"accuracy":0.5}}}
+{"event":"done","step":1}
+-- same2.jsonl --
+{"event":"start","val_sha256":"aa","options":{"seed":2,"val-frac":0.05}}
+{"event":"eval","step":1,"split":"val","metrics":{"all":{"accuracy":0.75}}}
+{"event":"done","step":1}
+-- split2.jsonl --
+{"event":"start","val_sha256":"bb","options":{"seed":2,"val-frac":0.05}}
+{"event":"eval","step":1,"split":"val","metrics":{"all":{"accuracy":0.75}}}
+{"event":"done","step":1}
 -- extra.json --
 {"data": {"data_sha256": "abc"}, "seed": 2}
 -- conflict.json --
