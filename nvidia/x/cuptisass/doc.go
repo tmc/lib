@@ -26,4 +26,10 @@
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
+//
+// [Channel] is the host end of NVBit's device-to-host record channel. It is
+// pure Go and runs on any platform: it drains batches from a doorbell and a
+// buffer the device writes, and [Channel.Receive] stops at the sentinel record
+// NVBit's record_reg_vals flush kernel pushes. No device channel has been
+// qualified by a native run yet; [CheckDeviceChannel] reports that as pending.
 package cuptisass
