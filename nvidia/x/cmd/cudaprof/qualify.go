@@ -113,13 +113,13 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 	if blocks := len(entries) / len(qualifyArms); opts.minBlocks > blocks {
 		return fmt.Errorf("qualify: -min-blocks %d exceeds the manifest's %d blocks", opts.minBlocks, blocks)
 	}
-	var violations []hostViolation
+	var log hostLog
 	if opts.violations != "" {
 		f, err := os.Open(opts.violations)
 		if err != nil {
 			return fmt.Errorf("qualify: %w", err)
 		}
-		violations, err = parseViolations(f)
+		log, err = parseHostLog(f)
 		f.Close()
 		if err != nil {
 			return fmt.Errorf("qualify: %s: %w", opts.violations, err)
@@ -147,7 +147,7 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 	}
 	host := qualifyHostLoad{}
 	if opts.violations != "" {
-		host = markHostLoad(entries, violations, opts.violationMargin)
+		host = markHostLoad(entries, log, opts.violationMargin)
 		host.Log = opts.violations
 	}
 	q := qualify(entries, opts.noiseMultiplier, opts.noiseFloorMS, opts.minBlocks)
@@ -278,20 +278,25 @@ With -violations, each arm's wall-clock window -- its first capture-range edge
 to its last, widened by -violation-margin on each side -- is checked against
 a log of processes that loaded the host outside the campaign. An arm with a
 violation in its window is excluded and named with the offending processes;
-an arm whose capture records no wall clock or no closed capture range cannot
-be checked and is excluded too, never passed. A block with an excluded arm is
-dropped whole, from the verdict and the breakdown alike, though its captures
-are still checked for identity and order; when fewer than -min-blocks blocks
-remain the verdict is REFUSED. Without -violations the report says that host load was not checked.
-The log format is one violation per line:
+an arm whose capture records no wall clock or no closed capture range, or
+whose widened window the watcher's heartbeats do not cover, cannot be checked
+and is excluded too, never passed. A block with an excluded arm is dropped
+whole, from the verdict and the breakdown alike, though its captures are
+still checked for identity and order; when fewer than -min-blocks blocks
+remain the verdict is REFUSED. Without -violations the report says that host
+load was not checked. The log has one violation or heartbeat per line:
 
   time pid comm cpu gpu holder
+  time heartbeat holder
 
 time RFC 3339, pid a positive integer, comm the process name without
 whitespace, cpu percent of one core, gpu device memory in MiB, holder the
-label of the lock holder or "-". Fields are separated by spaces or tabs;
-blank lines and lines starting with # are ignored, and any other line that
-does not parse is an error.
+label of the lock holder or "-". The watcher writes a heartbeat every
+sampling interval; an arm is covered when a heartbeat lies at or before the
+start of its widened window, one at or after its end, and no two consecutive
+heartbeats between them are further apart than -violation-margin. Fields are
+separated by spaces or tabs; blank lines and lines starting with # are
+ignored, and any other line that does not parse is an error.
 
 The exit status is 0 when both gates pass, 2 when either fails, and 1 when
 the verdict could not be computed or was REFUSED.

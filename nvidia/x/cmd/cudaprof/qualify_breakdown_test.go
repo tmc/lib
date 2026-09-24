@@ -179,8 +179,13 @@ func TestQualifyBreakdownDroppedBlocks(t *testing.T) {
 		}
 		return path
 	}
-	clean := writeLog("clean.log", "# no violations\n")
-	loaded := writeLog("loaded.log", breakdownBase.Add(102*time.Second).Format(time.RFC3339)+" 41822 python3 327.0 0 -\n")
+	// The watcher covers every capture, beating each second.
+	var beats strings.Builder
+	for _, hb := range heartbeats(breakdownBase.Add(-10*time.Second), breakdownBase.Add(130*time.Second), time.Second) {
+		fmt.Fprintf(&beats, "%s heartbeat -\n", hb.Format(time.RFC3339))
+	}
+	clean := writeLog("clean.log", "# no violations\n"+beats.String())
+	loaded := writeLog("loaded.log", beats.String()+breakdownBase.Add(102*time.Second).Format(time.RFC3339)+" 41822 python3 327.0 0 -\n")
 
 	tests := []struct {
 		name      string
