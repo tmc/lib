@@ -48,6 +48,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
 | [cudarecipe](cudarecipe/) | Package cudarecipe inspects supplied CUDA artifacts and emits bounded, schema-versioned reports. |
+| [cudareduce](cudareduce/) | Package cudareduce provides deterministic column reductions for backward passes: bias gradients, per-group embedding gradients, and the LayerNorm weight and bias gradients. |
 | [cudaref](cudaref/) | Package cudaref provides an independent CPU reference implementation and numerical oracle for validating GPU kernel operations and semantic IR execution graphs. |
 | [cudareg](cudareg/) | Package cudareg checks a bounded setmaxnreg producer-consumer protocol. |
 | [cudaroofline](cudaroofline/) | Package cudaroofline models kernel arithmetic intensity (FLOPs/byte) and evaluates a launch against device ceilings. |
