@@ -21,7 +21,7 @@ func TestConvert(t *testing.T) {
 			want: []string{
 				"BenchmarkTrain/step=1 1 2.5 loss 0.5 grad-norm-head 0.25 sec/step 100 tokens",
 				"BenchmarkTrain/step=2 1 2 loss 0.15 sec/step 100 tokens",
-				"BenchmarkRun 1 2 steps 200 tokens 0.4 train-sec 1 done",
+				"BenchmarkRun 1 2 steps 200 tokens 0.4 train-sec 1 done 0 nonfinite",
 			},
 		},
 		{
@@ -35,7 +35,7 @@ func TestConvert(t *testing.T) {
 				"BenchmarkEval/split=val/group=all/cal=temp/step=2 1 0.5 accuracy",
 				"BenchmarkFinal/split=val/group=all/cal=raw 1 0.5 accuracy",
 				"BenchmarkFinal/split=val/group=all/cal=temp 1 0.5 accuracy",
-				"BenchmarkRun 1 0 done",
+				"BenchmarkRun 1 0 done 0 nonfinite",
 			},
 			not: []string{"cal=raw 1 0.25"},
 		},
@@ -46,9 +46,24 @@ func TestConvert(t *testing.T) {
 			err: "x: object 2: Eval/group=all/cal=raw/step=2 differs from an earlier evaluation at the same step",
 		},
 		{
+			name: "stop nonfinite",
+			in:   `{"event":"stop","error":"update 1: not finite","nonfinite":true}`,
+			want: []string{"BenchmarkRun 1 0 done 1 nonfinite"},
+		},
+		{
+			name: "stop other error",
+			in:   `{"event":"stop","error":"out of memory"}`,
+			want: []string{"BenchmarkRun 1 0 done 0 nonfinite"},
+		},
+		{
+			name: "done after nonfinite stop",
+			in:   `{"event":"stop","nonfinite":true}` + "\n" + `{"event":"done"}`,
+			want: []string{"BenchmarkRun 1 1 done 0 nonfinite"},
+		},
+		{
 			name: "stop after done",
 			in:   `{"event":"done"}` + "\n" + `{"event":"stop"}`,
-			want: []string{"BenchmarkRun 1 0 done"},
+			want: []string{"BenchmarkRun 1 0 done 0 nonfinite"},
 		},
 		{
 			name: "no event",
@@ -62,7 +77,7 @@ func TestConvert(t *testing.T) {
 		{
 			name: "start config",
 			in:   `{"event":"start","mode":"lora","lr":{"head":0.001},"step":0}`,
-			want: []string{"mode: lora", "head: 0.001", "BenchmarkRun 1 0 done"},
+			want: []string{"mode: lora", "head: 0.001", "BenchmarkRun 1 0 done 0 nonfinite"},
 			not:  []string{"step:"},
 		},
 		{

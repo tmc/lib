@@ -13,7 +13,7 @@ stdout -count=12 '^BenchmarkEval/'
 stdout -count=8 '^BenchmarkFinal/'
 stdout '^BenchmarkEval/split=val/group=all/cal=temp/step=32 1 141 n '
 stdout '^BenchmarkFinal/split=val/group=all/cal=temp 1 141 n 1\.0328973446325462 loss '
-stdout '^BenchmarkRun 1 32 steps 2118 seqs 155852 tokens [0-9.]+ train-sec 1 done$'
+stdout '^BenchmarkRun 1 32 steps 2118 seqs 155852 tokens [0-9.]+ train-sec 1 done 0 nonfinite$'
 
 # A run directory is read the same way, and the summary derives Best and
 # Throughput from the Eval and Train results.
@@ -88,7 +88,8 @@ BenchmarkFinal/split=val/group=all/cal=raw 1 0.5 accuracy 1.5 loss
 BenchmarkFinal/split=val/group=all/cal=temp 1 0.5 accuracy 1.25 loss
 Unit train-sec better=lower kind=time
 Unit done better=higher delta=abs
-BenchmarkRun 1 2 steps 16 seqs 2048 tokens 0.45 train-sec 0 done
+Unit nonfinite better=lower delta=abs
+BenchmarkRun 1 2 steps 16 seqs 2048 tokens 0.45 train-sec 0 done 0 nonfinite
 -- nondet.jsonl --
 {"event":"eval","step":2,"split":"val","metrics":{"all":{"accuracy":0.5}}}
 {"event":"eval","step":2,"split":"val","metrics":{"all":{"accuracy":0.25}}}

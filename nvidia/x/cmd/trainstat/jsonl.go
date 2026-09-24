@@ -146,6 +146,7 @@ func (c *converter) convert(name string, b []byte, w io.Writer) error {
 		seqs, tokens, sec    float64
 		haveSeqs, haveTokens bool
 		haveTime, done       bool
+		nonfinite            bool // a stop event reports a non-finite value
 		events               bool // any object has an event field
 	)
 	dec := json.NewDecoder(bytes.NewReader(b))
@@ -215,9 +216,10 @@ func (c *converter) convert(name string, b []byte, w io.Writer) error {
 			}
 			lastEval = x.String()
 		case "done":
-			done = true
+			done, nonfinite = true, false
 		case "stop":
 			done = false
+			nonfinite, _ = get(obj, "nonfinite").(bool)
 		case "":
 			for _, r := range c.evalRows(obj, "") {
 				finals = append(finals, row{"Final" + r.name, r.vs})
@@ -255,7 +257,8 @@ func (c *converter) convert(name string, b []byte, w io.Writer) error {
 	}
 	// Objects without events are one evaluation, not a run.
 	if events {
-		run = append(run, trainstat.Value{V: b2f(done), Unit: "done"})
+		run = append(run, trainstat.Value{V: b2f(done), Unit: "done"},
+			trainstat.Value{V: b2f(nonfinite), Unit: "nonfinite"})
 		tw.Result("Run", 1, run...)
 	}
 	if err := tw.Err(); err != nil {

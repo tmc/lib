@@ -44,8 +44,9 @@
 //
 // Jsonl converts a JSONL event log to benchmark format: "step" events to
 // Train/step=N results, "eval" events to Eval/split=S/group=G/cal=raw|temp/step=N
-// results, the last evaluation also to Final results, and "done" to the
-// Run result. An object with no event field, such as a single evaluation,
+// results, the last evaluation also to Final results, and "done" and
+// "stop" to the Run result, with nonfinite 1 if the stop event has
+// "nonfinite": true. An object with no event field, such as a single evaluation,
 // becomes Final results. A "start" event's scalar fields, and those of
 // each -config file, become configuration.
 //

@@ -63,7 +63,7 @@ stdout '^seed: 4$'
 stdout '^test: TestLog$'
 stdout '^BenchmarkTrain/step=1 1 2\.5 loss'
 stdout '^BenchmarkFinal/split=val/group=all/cal=raw 1 0\.75 accuracy$'
-stdout '^BenchmarkRun .* 1 done$'
+stdout '^BenchmarkRun .* 1 done 0 nonfinite$'
 
 # One result reported twice with different values is an error.
 env DUP=1
