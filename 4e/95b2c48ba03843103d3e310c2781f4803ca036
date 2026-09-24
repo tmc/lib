@@ -1,0 +1,5 @@
+commit edd9f5291 2026-09-24 01:27:52 -0700
+agent: Claude Code 2.1.280 (Claude Code), model claude-opus-5-5
+tty: not a tty pid: 22799 ITERM_SESSION_ID: w8t3p6:241C535C-E85E-44BB-9285-43BE8B647448
+session=8bc9bbf9-7254-414c-bfc5-2030e14950b0
+rewritten-from: edd9f5291609bcc60510ad59d2e6c8b19f79cdcc (split of cudasafetensors out of edd9f5291)
