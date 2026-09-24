@@ -133,11 +133,11 @@ func NewEngine(dev *cuda.Device) (*Engine, error) {
 	e := &Engine{dev: dev, mod: loaded}
 	err = dev.WithContext(func() error {
 		var err error
-		e.dequantFn, err = loaded.GetFunction("MXFP4Dequantize")
+		e.dequantFn, err = loaded.Function("MXFP4Dequantize")
 		if err != nil {
 			return fmt.Errorf("mxfp4: load dequantize kernel: %w", err)
 		}
-		e.fusedGEMVFn, err = loaded.GetFunction("MXFP4LinearGEMV")
+		e.fusedGEMVFn, err = loaded.Function("MXFP4LinearGEMV")
 		if err != nil {
 			return fmt.Errorf("mxfp4: load linear kernel: %w", err)
 		}

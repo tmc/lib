@@ -183,9 +183,9 @@ extern "C" __global__ void add_one(unsigned int *p, int n) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	fn, err := mod.GetFunction("add_one")
+	fn, err := mod.Function("add_one")
 	if err != nil {
-		t.Fatalf("mod.GetFunction: %v", err)
+		t.Fatalf("mod.Function: %v", err)
 	}
 
 	buf, err := cudamem.Alloc[uint32](dev, 64)

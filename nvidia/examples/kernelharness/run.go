@@ -123,13 +123,13 @@ func Run(dev *cuda.Device, task *Task, name, source string, cfg Config) (rep *Re
 	var fn driver.Function
 	if ferr := dev.WithContext(func() error {
 		var e error
-		fn, e = module.GetFunction(task.Entry)
+		fn, e = module.Function(task.Entry)
 		return e
 	}); ferr != nil {
 		return rep.fail(fmt.Errorf("entry %q: %w", task.Entry, ferr)), nil
 	}
 
-	stream, serr := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, serr := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	if serr != nil {
 		return rep.fail(serr), nil
 	}
@@ -181,7 +181,7 @@ func Run(dev *cuda.Device, task *Task, name, source string, cfg Config) (rep *Re
 		var baseFn driver.Function
 		if gerr := dev.WithContext(func() error {
 			var e error
-			baseFn, e = baseModule.GetFunction(task.Entry)
+			baseFn, e = baseModule.Function(task.Entry)
 			return e
 		}); gerr != nil {
 			return nil, fmt.Errorf("task %s: its baseline kernel lacks entry %q: %w", task.Name, task.Entry, gerr)

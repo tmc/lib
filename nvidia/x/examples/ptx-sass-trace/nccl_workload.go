@@ -76,11 +76,11 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 				continue
 			}
 			if rc.sendPtr != 0 {
-				_ = rc.sendPtr.MemFree()
+				_ = rc.sendPtr.Free()
 				rc.sendPtr = 0
 			}
 			if rc.recvPtr != 0 {
-				_ = rc.recvPtr.MemFree()
+				_ = rc.recvPtr.Free()
 				rc.recvPtr = 0
 			}
 			if rc.start != nil {
@@ -110,7 +110,7 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 			return nil, fmt.Errorf("open device %d: %w", ord, err)
 		}
 		drvDev := driver.Device(ord)
-		uuid, err := drvDev.GetUuid()
+		uuid, err := drvDev.Uuid()
 		if err != nil {
 			dev.Close()
 			return nil, fmt.Errorf("get device %d UUID: %w", ord, err)
@@ -213,7 +213,7 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 			hostIn[i] = ncclInput(r, i)
 		}
 		_ = rc.dev.WithContext(func() error {
-			return rc.sendPtr.MemcpyHtoD(unsafe.Pointer(&hostIn[0]), sendBytes)
+			return rc.sendPtr.CopyFromHostPtr(unsafe.Pointer(&hostIn[0]), sendBytes)
 		})
 	}
 
@@ -340,7 +340,7 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 				}
 				hostOut := make([]int32, numExpected)
 				if err := rc.dev.WithContext(func() error {
-					return rc.recvPtr.MemcpyDtoH(unsafe.Pointer(&hostOut[0]), uint(numExpected*4))
+					return rc.recvPtr.CopyToHostPtr(unsafe.Pointer(&hostOut[0]), uint(numExpected*4))
 				}); err != nil {
 					return nil, fmt.Errorf("%s rank %d memcpy DtoH: %w", op, r, err)
 				}

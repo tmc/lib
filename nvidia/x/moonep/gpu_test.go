@@ -119,7 +119,7 @@ func bufferChildMain() int {
 		return fail("local meta: %v", err)
 	}
 	barrier := local + driver.DevicePtr(buf.Layout.BarrierOff*int32Bytes)
-	if err := barrier.MemcpyDtoH(unsafe.Pointer(&slots[0]), barrierSlots*int32Bytes); err != nil {
+	if err := barrier.CopyToHostPtr(unsafe.Pointer(&slots[0]), barrierSlots*int32Bytes); err != nil {
 		return fail("read barrier region: %v", err)
 	}
 	for i, v := range slots {
@@ -151,7 +151,7 @@ func bufferChildMain() int {
 		return fail("local meta: %v", err)
 	}
 	mine += driver.DevicePtr(buf.Layout.SrcInfoOff * int32Bytes)
-	if err := mine.MemcpyDtoH(unsafe.Pointer(&got[0]), 4*int32Bytes); err != nil {
+	if err := mine.CopyToHostPtr(unsafe.Pointer(&got[0]), 4*int32Bytes); err != nil {
 		return fail("read src_info: %v", err)
 	}
 	wantFrom := int32((rank+world-1)%world + 100)
@@ -180,7 +180,7 @@ func bufferChildMain() int {
 		return fail("local meta: %v", err)
 	}
 	plan += driver.DevicePtr(buf.Layout.PlanOff * int32Bytes)
-	if err := plan.MemcpyDtoH(unsafe.Pointer(&got[0]), 4*int32Bytes); err != nil {
+	if err := plan.CopyToHostPtr(unsafe.Pointer(&got[0]), 4*int32Bytes); err != nil {
 		return fail("read plan region: %v", err)
 	}
 	for i, v := range got {

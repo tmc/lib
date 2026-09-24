@@ -111,7 +111,7 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 	}
 
 	const n = 1024
-	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	if err != nil {
 		b.Fatalf("stream: %v", err)
 	}

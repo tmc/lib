@@ -24,7 +24,7 @@ func LoadModule(path string) (driver.Module, error) {
 	if _, err := os.Stat(path); err != nil {
 		return 0, fmt.Errorf("moonep: kernel module: %w", err)
 	}
-	m, err := driver.NewModuleLoad(path)
+	m, err := driver.ModuleLoad(path)
 	if err != nil {
 		return 0, fmt.Errorf("moonep: cuModuleLoad(%s): %w", path, err)
 	}
@@ -37,7 +37,7 @@ func LoadModuleData(image []byte) (driver.Module, error) {
 	if len(image) == 0 {
 		return 0, fmt.Errorf("moonep: empty kernel image")
 	}
-	m, err := driver.NewModuleLoadData(unsafe.Pointer(&image[0]))
+	m, err := driver.ModuleLoadData(image)
 	if err != nil {
 		return 0, fmt.Errorf("moonep: cuModuleLoadData: %w", err)
 	}

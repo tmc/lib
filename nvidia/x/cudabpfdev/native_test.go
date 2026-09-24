@@ -148,7 +148,7 @@ func TestNativeInjection(t *testing.T) {
 				}
 				for n, p := range allocations {
 					if p != 0 {
-						if err := p.MemFree(); err != nil {
+						if err := p.Free(); err != nil {
 							return err
 						}
 						allocations[n] = 0
@@ -184,7 +184,7 @@ func TestNativeInjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	uuid, err := dev.Raw().GetUuid()
+	uuid, err := dev.Raw().Uuid()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -406,9 +406,9 @@ func nativeFloatTransfer(dev *cuda.Device, ptr driver.DevicePtr, data []float32,
 	defer pin.Unpin()
 	return dev.WithContext(func() error {
 		if read {
-			return ptr.MemcpyDtoH(unsafe.Pointer(&data[0]), uint(len(data)*4))
+			return ptr.CopyToHostPtr(unsafe.Pointer(&data[0]), uint(len(data)*4))
 		}
-		return ptr.MemcpyHtoD(unsafe.Pointer(&data[0]), uint(len(data)*4))
+		return ptr.CopyFromHostPtr(unsafe.Pointer(&data[0]), uint(len(data)*4))
 	})
 }
 

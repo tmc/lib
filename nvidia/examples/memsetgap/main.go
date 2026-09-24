@@ -103,12 +103,12 @@ func run(iters, mib, gapUS int, markers bool) error {
 		if err != nil {
 			return fmt.Errorf("allocating %d MiB source: %w", mib, err)
 		}
-		defer src.MemFree()
+		defer src.Free()
 		dst, err := driver.MemAlloc(bytes)
 		if err != nil {
 			return fmt.Errorf("allocating %d MiB destination: %w", mib, err)
 		}
-		defer dst.MemFree()
+		defer dst.Free()
 
 		stream, err := dev.NewStream()
 		if err != nil {
@@ -124,10 +124,10 @@ func run(iters, mib, gapUS int, markers bool) error {
 		// count in the capture equal to the count this program reports: a
 		// primer the counter does not see would read as contamination by the
 		// check at the end.
-		if err := src.MemcpyDtoDAsync(dst, bytes, raw); err != nil {
+		if err := src.CopyFromDeviceAsync(dst, bytes, raw); err != nil {
 			return fmt.Errorf("priming source: %w", err)
 		}
-		if err := dst.MemcpyDtoDAsync(src, bytes, raw); err != nil {
+		if err := dst.CopyFromDeviceAsync(src, bytes, raw); err != nil {
 			return fmt.Errorf("priming destination: %w", err)
 		}
 		if err := stream.Synchronize(context.Background()); err != nil {
@@ -140,7 +140,7 @@ func run(iters, mib, gapUS int, markers bool) error {
 			}
 			// The copy is the anchor: it is collected by both arms, so its
 			// count and total must not move between them.
-			if err := dst.MemcpyDtoDAsync(src, bytes, raw); err != nil {
+			if err := dst.CopyFromDeviceAsync(src, bytes, raw); err != nil {
 				return fmt.Errorf("copy %d: %w", i, err)
 			}
 			if err := dst.MemsetD32Async(uint32(i), uint(bytes/4), raw); err != nil {
@@ -159,7 +159,7 @@ func run(iters, mib, gapUS int, markers bool) error {
 		}
 
 		// A final copy so the last activity in the capture is never a memset.
-		if err := dst.MemcpyDtoDAsync(src, bytes, raw); err != nil {
+		if err := dst.CopyFromDeviceAsync(src, bytes, raw); err != nil {
 			return fmt.Errorf("trailing copy: %w", err)
 		}
 		if err := stream.Synchronize(context.Background()); err != nil {

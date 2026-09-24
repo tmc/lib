@@ -78,7 +78,7 @@ func (p *CommPlan) Close() error {
 		&p.RemoteStats, &p.DupGroups, &p.DupLoffs, &p.DupCounts,
 	} {
 		if *d != 0 {
-			errs = append(errs, (*d).MemFree())
+			errs = append(errs, (*d).Free())
 			*d = 0
 		}
 	}

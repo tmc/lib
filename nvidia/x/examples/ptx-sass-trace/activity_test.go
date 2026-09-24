@@ -203,7 +203,7 @@ func TestActivityLaunchCount(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := dev.WithContext(p.MemFree); err != nil {
+		if err := dev.WithContext(p.Free); err != nil {
 			t.Error(err)
 		}
 	}()

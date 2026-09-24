@@ -266,9 +266,9 @@ type runOps struct {
 func nativeRunOps(dev *cuda.Device) runOps {
 	return runOps{
 		run: dev.WithContext, load: loadImage,
-		function:  driver.Module.GetFunction,
-		resources: func(fn driver.Function) (compiledResources, error) { return queryResources(fn.GetAttribute) },
-		stream:    func() (driver.Stream, error) { return driver.NewStream(uint32(driver.StreamNonBlocking)) },
+		function:  driver.Module.Function,
+		resources: func(fn driver.Function) (compiledResources, error) { return queryResources(fn.Attribute) },
+		stream:    func() (driver.Stream, error) { return driver.NewStream(driver.StreamNonBlocking) },
 		alloc:     driver.MemAlloc,
 		zero: func(ptr driver.DevicePtr, size uint, stream driver.Stream) error {
 			return ptr.MemsetD8Async(0, size, stream)
@@ -287,8 +287,8 @@ func nativeRunOps(dev *cuda.Device) runOps {
 			var pins runtime.Pinner
 			pins.Pin(&dst[0])
 			defer pins.Unpin()
-			return ptr.MemcpyDtoH(unsafe.Pointer(&dst[0]), uint(len(dst)))
+			return ptr.CopyToHostPtr(unsafe.Pointer(&dst[0]), uint(len(dst)))
 		},
-		free: driver.DevicePtr.MemFree, destroy: driver.Stream.Destroy, unload: driver.Module.Unload,
+		free: driver.DevicePtr.Free, destroy: driver.Stream.Destroy, unload: driver.Module.Unload,
 	}
 }

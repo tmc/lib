@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -112,9 +111,9 @@ func loadImage(image []byte, jit cudakernel.JITOptions) (driver.Module, error) {
 	var mod driver.Module
 	var err error
 	if len(opts) != 0 {
-		mod, err = driver.NewModuleLoadDataEx(unsafe.Pointer(&image[0]), uint32(len(opts)), &opts[0], &vals[0])
+		mod, err = driver.ModuleLoadDataEx(image, uint32(len(opts)), &opts[0], &vals[0])
 	} else {
-		mod, err = driver.NewModuleLoadData(unsafe.Pointer(&image[0]))
+		mod, err = driver.ModuleLoadData(image)
 	}
 	runtime.KeepAlive(image)
 	return mod, err

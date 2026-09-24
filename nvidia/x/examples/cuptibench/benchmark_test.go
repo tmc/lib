@@ -65,7 +65,7 @@ func benchmarkPipeline(b *testing.B, view string) {
 	dev, err := cuda.NewDevice(0)
 	check(b, err)
 	cleanup(dev.Close)
-	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	check(b, err)
 	cleanup(stream.Destroy)
 	const width, rows = 1024, 256

@@ -169,7 +169,7 @@ func (b *Buffer) freeLocal() {
 		&b.PrimaryPacked, &b.Kmask, &b.KidxToLoff, &b.BuilderBar,
 	} {
 		if *p != 0 {
-			(*p).MemFree()
+			(*p).Free()
 			*p = 0
 		}
 	}

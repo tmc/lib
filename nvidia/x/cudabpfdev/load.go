@@ -252,12 +252,12 @@ type injectionLoadOps struct {
 func nativeInjectionLoadOps(dev *cuda.Device) injectionLoadOps {
 	native := nativeRunOps(dev)
 	return injectionLoadOps{
-		run: dev.WithContext, load: loadImage, function: driver.Module.GetFunction,
-		resources: func(fn driver.Function) (compiledResources, error) { return queryResources(fn.GetAttribute) },
+		run: dev.WithContext, load: loadImage, function: driver.Module.Function,
+		resources: func(fn driver.Function) (compiledResources, error) { return queryResources(fn.Attribute) },
 		compile: func(a *cudakernel.Artifact) (*cudakernel.Artifact, *nvjitlinkx.Result, error) {
 			return compileInjection(a, nvjitlinkx.Link)
 		},
-		global: driver.Module.GetGlobal, unload: driver.Module.Unload,
+		global: driver.Module.Global, unload: driver.Module.Unload,
 		stream: native.stream, zero: native.zero, launch: launchInjection,
 		synchronize: native.synchronize, read: native.read, destroy: native.destroy,
 	}

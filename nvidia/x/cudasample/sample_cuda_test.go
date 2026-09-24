@@ -26,7 +26,7 @@ func TestArgmaxCUDAEdgeParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer mod.Unload()
-	fn, err := mod.GetFunction("ArgmaxLogits")
+	fn, err := mod.Function("ArgmaxLogits")
 	if err != nil {
 		t.Fatal(err)
 	}
