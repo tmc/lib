@@ -7,7 +7,7 @@
   "argv": [
     "gen-dcgm",
     "-headers",
-    "cmd/gen-dcgm/headers",
+    "headers",
     "-output",
     "dcgm"
   ],

@@ -9,7 +9,7 @@
     "-api",
     "cupti",
     "-headers-dir",
-    "../cuda-headers",
+    "cuda-headers",
     "-clang=false",
     "-output",
     "cupti"

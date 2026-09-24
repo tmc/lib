@@ -6,7 +6,6 @@
   "cwd": ".",
   "argv": [
     "gen-nvidia",
-    "-allow-api-removal",
     "-api",
     "cufft",
     "-headers-dir",

@@ -9,7 +9,7 @@
     "-api",
     "fabricmanager",
     "-headers-dir",
-    "../cuda-headers",
+    "cuda-headers",
     "-output",
     "fabricmanager",
     "-package",

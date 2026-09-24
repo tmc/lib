@@ -7,13 +7,13 @@
   "argv": [
     "nvml-survey",
     "-headers-dir",
-    "../cuda-headers",
+    "cuda-headers",
     "-header",
-    "../cuda-headers/nvml/nvml.h",
+    "nvml.h",
     "-docs-dir",
     "docs",
     "-output",
-    "../lib/nvidia/nvml"
+    "nvml"
   ],
   "inputs": [
     {

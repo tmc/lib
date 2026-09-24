@@ -9,8 +9,8 @@
     "-api",
     "nvdec",
     "-headers",
-    "cmd/gen-nvcodec/headers",
-    "-out",
+    "headers",
+    "-output",
     "nvdec"
   ],
   "inputs": [

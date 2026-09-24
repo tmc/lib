@@ -7,9 +7,9 @@
   "argv": [
     "gen-cudensitymat",
     "-headers",
-    "cmd/gen-cudensitymat/headers",
+    "headers",
     "-cuda-headers",
-    "../cuda-headers",
+    "cuda-headers",
     "-output",
     "cudensitymat"
   ],

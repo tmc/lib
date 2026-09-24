@@ -9,8 +9,8 @@
     "-api",
     "nvenc",
     "-headers",
-    "cmd/gen-nvcodec/headers/nvenc-13.0",
-    "-out",
+    "nvenc-13.0",
+    "-output",
     "nvenc"
   ],
   "inputs": [

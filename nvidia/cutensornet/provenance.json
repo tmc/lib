@@ -7,7 +7,7 @@
   "argv": [
     "gen-cutensornet",
     "-cuda-headers",
-    "../cuda-headers",
+    "cuda-headers",
     "-output",
     "cutensornet"
   ],
