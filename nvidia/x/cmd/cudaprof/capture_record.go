@@ -888,6 +888,10 @@ Options:
   --inject <path>               path to CUPTI agent shared library (or set CUDAPROF_INJECT);
                                 the default is cupti_agent.so beside this command or in
                                 GOBIN, built by go generate ./x/cmd/cudaprof
+  --inject-mode <mode>          how the agent is loaded: preload (default) sets LD_PRELOAD,
+                                so every process the target starts loads it; cuda-injection
+                                sets CUDA_INJECTION64_PATH, so the driver loads it during
+                                cuInit and only processes that use CUDA write a journal
   --no-inject                   run target uninstrumented without injection library
   --json                        write JSON status summary to stdout
   --launch-manifest             attach an opt-in metadata-only launch manifest;

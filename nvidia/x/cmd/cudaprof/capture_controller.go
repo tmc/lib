@@ -135,6 +135,11 @@ type captureRecordPayload struct {
 // processes the target spawned are part of the capture.
 type observeOptions struct {
 	injectionRequested bool
+	// cudaInjection says the agent was loaded through CUDA_INJECTION64_PATH,
+	// which only a process that initializes CUDA loads. A target with no
+	// generation of its own is then a target that ran no CUDA, as a
+	// preloaded target reports in a journal of its own.
+	cudaInjection bool
 	noInject           bool
 	// targetOnly restricts the totals and the projection to the target's own
 	// generation. It is spelled negatively because following children is the
@@ -246,6 +251,10 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		files = append(files, handshakeFile{path: filepath.Dir(path), h: h})
 	}
 	if len(files) == 0 {
+		if opts.cudaInjection {
+			result.Outcome = captureOutcomeNoCUDA
+			result.CaptureError = "no process loaded the agent: under --inject-mode=cuda-injection the driver loads it only during cuInit, so either nothing the target ran initialized CUDA or the driver did not load CUDA_INJECTION64_PATH"
+		}
 		return result
 	}
 	var selected *handshakeFile
@@ -277,6 +286,11 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	// failure and not a recovery: there was nothing to collect in that
 	// process, and the capture is whatever the processes it started collected.
 	var targetNoCUDA bool
+	// injectedWorker is the first finalized worker generation, which stands
+	// in for the target's own capability record when cuda-injection left the
+	// target without a generation.
+	var injectedWorker *journalState
+	var injectedWorkerTransport bool
 	// Recovering a worker generation means admitting its records, so it is
 	// only on offer when those records are being admitted at all.
 	recoverWorkers := opts.recoverUnfinalized && !opts.targetOnly
@@ -327,6 +341,10 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 					worker.Failure, worker.Disposition = state.failure, state.failure
 				case state.finalized:
 					worker.Disposition = "finalized"
+					if injectedWorker == nil {
+						st := state
+						injectedWorker, injectedWorkerTransport = &st, f.h.TransportReady
+					}
 				}
 			} else {
 				worker.Failure = err.Error()
@@ -403,6 +421,14 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		selected, selectedState, selectedMetrics, selectedRecords = f, state, metrics, records
 		selectedActivities, selectedAPIs = activities, apis
 		selectedPhaseEdges = selectedMetrics.phaseEdges
+	}
+	// Under cuda-injection a target that never initialized CUDA never loaded
+	// the agent, so it has no generation to say so. Its children's are the
+	// capture, exactly as they are behind a preloaded target that reported
+	// no CUDA, and the first of them supplies the capability record.
+	if opts.cudaInjection && !targetHandshakeSeen && injectedWorker != nil {
+		targetNoCUDA = true
+		targetObservedState, targetObservedTransport = *injectedWorker, injectedWorkerTransport
 	}
 	result.WorkerGenerations = workers
 	// mergeWorkers folds the followed generations into the totals. The target

@@ -3093,6 +3093,20 @@ int cudaprof_finalize(void) {
 	return atomic_load(&finalize_done) ? 0 : -1;
 }
 
+/* InitializeInjection is the entry point the CUDA driver calls in a library
+   named by CUDA_INJECTION64_PATH, which it loads during cuInit. The ELF
+   constructor has already run by then -- the driver's dlopen runs it -- so
+   there is nothing left to set up, and the agent is the same one LD_PRELOAD
+   loads. What differs is who loads it: only a process that initializes CUDA,
+   so a shell or launcher in front of the target writes no journal at all
+   rather than one that says it saw no CUDA. It returns 1, as the driver
+   expects of an injection library that loaded; whether the agent is
+   collecting is what its journal says, not this. */
+__attribute__((visibility("default"))) int InitializeInjection(void);
+int InitializeInjection(void) {
+	return 1;
+}
+
 /* Thin opt-in wrappers for Python/operator instrumentation. The caller must
    push, dispatch synchronously, and pop on the same OS thread. */
 CUptiResult cudaprof_push_external(uint32_t external_kind, uint64_t external_id) {

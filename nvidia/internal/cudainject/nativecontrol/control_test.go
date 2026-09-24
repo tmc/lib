@@ -148,6 +148,10 @@ type harnessResult struct {
 	FinalizeRCAgain int `json:"finalize_rc_again"`
 	Flushes         int `json:"flushes"`
 
+	// injection only: the two returns of InitializeInjection.
+	InitRC      int `json:"init_rc"`
+	InitRCAgain int `json:"init_rc_again"`
+
 	// module-chains only: how many API and resource callbacks the stub
 	// delivered to the producer.
 	Fired int `json:"fired"`
@@ -3413,4 +3417,26 @@ func TestLaunchModuleChains(t *testing.T) {
 			t.Errorf("%s: module_id = %d, want %d", tt.name, m, tt.want)
 		}
 	}
+}
+
+// TestInitializeInjectionIsTheConstructorsAgent calls the entry point the CUDA
+// driver calls in a CUDA_INJECTION64_PATH library. The constructor has already
+// set the agent up, so the call must change nothing: the same single journal,
+// one bootstrap, and every record accounted for.
+func TestInitializeInjectionIsTheConstructorsAgent(t *testing.T) {
+	result, status, captures := run(t, "injection", "1", "4")
+	if status.ExitStatus() != 0 {
+		t.Fatalf("harness exited %d", status.ExitStatus())
+	}
+	if result.InitRC != 1 || result.InitRCAgain != 1 {
+		t.Fatalf("InitializeInjection returned %d then %d, want 1 both times", result.InitRC, result.InitRCAgain)
+	}
+	c := only(t, captures)
+	if c.counts[kindBootstrap] != 1 {
+		t.Errorf("bootstrap records = %d, want 1", c.counts[kindBootstrap])
+	}
+	if c.finalized == nil || c.finalized.State != "collected" {
+		t.Fatalf("finalized = %+v, want a collected capture", c.finalized)
+	}
+	checkReconciles(t, c, result.Offered)
 }

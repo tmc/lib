@@ -421,3 +421,76 @@ func TestCaptureEnvironmentExportsAPIActivity(t *testing.T) {
 		})
 	}
 }
+
+func TestParseCaptureArgsInjectMode(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want string
+		bad  bool
+	}{
+		{args: []string{"--", "true"}},
+		{args: []string{"--inject-mode=cuda-injection", "--", "true"}, want: injectModeCUDA},
+		{args: []string{"-inject-mode", "preload", "--", "true"}, want: injectModePreload},
+		{args: []string{"--inject-mode=ld-preload", "--", "true"}, bad: true},
+	} {
+		o, err := parseCaptureArgs(tc.args)
+		if tc.bad {
+			if err == nil {
+				t.Errorf("parseCaptureArgs(%q) accepted", tc.args)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("parseCaptureArgs(%q): %v", tc.args, err)
+		}
+		if o.InjectMode != tc.want {
+			t.Errorf("parseCaptureArgs(%q) InjectMode = %q, want %q", tc.args, o.InjectMode, tc.want)
+		}
+	}
+}
+
+func TestCaptureEnvironmentCUDAInjection(t *testing.T) {
+	base := []string{"LD_PRELOAD=libother.so", "DYLD_INSERT_LIBRARIES=libother.dylib"}
+	env := captureEnvironment(captureOptions{Env: base, Inject: "agent.so", InjectMode: injectModeCUDA}, "session", "dir")
+	path := lookupEnv(env, "CUDA_INJECTION64_PATH")
+	if !filepath.IsAbs(path) || filepath.Base(path) != "agent.so" {
+		t.Errorf("CUDA_INJECTION64_PATH = %q, want an absolute path to agent.so", path)
+	}
+	for _, key := range []string{"LD_PRELOAD", "DYLD_INSERT_LIBRARIES"} {
+		if got, want := lookupEnv(env, key), lookupEnv(base, key); got != want {
+			t.Errorf("%s = %q, want the caller's %q untouched", key, got, want)
+		}
+	}
+	env = captureEnvironment(captureOptions{Env: []string{}, Inject: "agent.so", InjectMode: injectModePreload}, "session", "dir")
+	if v := lookupEnv(env, "CUDA_INJECTION64_PATH"); v != "" {
+		t.Errorf("preload set CUDA_INJECTION64_PATH = %q", v)
+	}
+}
+
+func TestRunCaptureCUDAInjection(t *testing.T) {
+	lib := filepath.Join(t.TempDir(), "libcapture.so")
+	if err := os.WriteFile(lib, []byte("test fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// A target that never calls cuInit never loads the agent.
+	result, err := runCapture(context.Background(), captureOptions{command: []string{"true"}, Inject: lib, InjectMode: injectModeCUDA})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.InjectMode != injectModeCUDA || result.Outcome != captureOutcomeNoCUDA || result.CaptureSuccess || !strings.Contains(result.CaptureError, "cuInit") {
+		t.Fatalf("result = %+v", result)
+	}
+
+	// The driver loads one injection library, so one already set is refused
+	// before the target runs.
+	sentinel := filepath.Join(t.TempDir(), "should_not_exist")
+	env := append(os.Environ(), "CUDA_INJECTION64_PATH=/opt/other/libtool.so")
+	_, err = runCapture(context.Background(), captureOptions{command: []string{"touch", sentinel}, Env: env, Inject: lib, InjectMode: injectModeCUDA})
+	if err == nil || !strings.Contains(err.Error(), "/opt/other/libtool.so") {
+		t.Fatalf("runCapture error = %v, want one naming the existing CUDA_INJECTION64_PATH", err)
+	}
+	if _, err := os.Stat(sentinel); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("target ran despite the refusal: %v", err)
+	}
+}

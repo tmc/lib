@@ -31,6 +31,7 @@
 CUptiResult cudaprof_push_external(uint32_t external_kind, uint64_t external_id);
 CUptiResult cudaprof_pop_external(uint32_t external_kind, uint64_t *external_id);
 int cudaprof_finalize(void);
+int InitializeInjection(void);
 
 /* Counts this process's open descriptors whose /proc/self/fd link matches a
    prefix or suffix, which is how the control observes that a forked child
@@ -263,6 +264,19 @@ int main(int argc, char **argv) {
 		unsigned replays = arg_uint(argc, argv, 3, 4);
 		int offered = cudaprof_test_offer_graph_replays(nodes, replays);
 		printf("{\"scenario\":\"graph-replay\",\"offered\":%d}\n", offered);
+		fflush(stdout);
+		return 0;
+	}
+
+	/* injection calls the entry point the CUDA driver calls in a library
+	   named by CUDA_INJECTION64_PATH, twice, as a driver initialized twice
+	   would, and then offers records. The journal must be the one the
+	   constructor opened, with one bootstrap and nothing lost. */
+	if (strcmp(scenario, "injection") == 0) {
+		int first = InitializeInjection();
+		int second = InitializeInjection();
+		int offered = cudaprof_test_offer(buffers, buffers, buffers, 0);
+		printf("{\"scenario\":\"injection\",\"offered\":%d,\"init_rc\":%d,\"init_rc_again\":%d}\n", offered, first, second);
 		fflush(stdout);
 		return 0;
 	}

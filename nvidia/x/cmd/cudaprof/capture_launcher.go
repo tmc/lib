@@ -277,6 +277,9 @@ type captureOptions struct {
 	Timeout, DrainTimeout time.Duration
 	Output                string
 	Inject                string
+	// InjectMode is how the agent is loaded: injectModePreload, the
+	// default when empty, or injectModeCUDA.
+	InjectMode string
 	Dir                   string
 	Env                   []string
 	Stdin                 io.Reader
@@ -304,6 +307,16 @@ type captureOptions struct {
 // target that calls only cuProfilerStop, to hand the agent the flush its exit
 // path will never run, wants the second and not the first, so neither value
 // implies the other and neither is refused without the other.
+// The values --inject-mode accepts. Preload puts the agent in LD_PRELOAD, so
+// every process the target starts loads it; cuda-injection names it in
+// CUDA_INJECTION64_PATH, which the driver loads during cuInit, so only a
+// process that initializes CUDA does. The agent is the same library either
+// way.
+const (
+	injectModePreload = "preload"
+	injectModeCUDA    = "cuda-injection"
+)
+
 const (
 	captureRangeNone        = "none"
 	captureRangeProfilerAPI = "cudaProfilerApi"
@@ -349,6 +362,11 @@ type captureResult struct {
 	// cannot see this field cannot tell a whole-run total from a target-only
 	// one, and the dangerous value is the false one.
 	ChildrenFollowed bool `json:"children_followed"`
+	// InjectMode records how the agent was loaded when one was: "preload"
+	// or "cuda-injection". Under cuda-injection a process that never
+	// initialized CUDA writes no journal, so a target with no generation of
+	// its own is expected there and is not a transport failure.
+	InjectMode string `json:"inject_mode,omitempty"`
 	// ExcludedPatterns, ExcludedRecords and ExcludedNanos report what --exclude
 	// removed from the projection. The totals above stay journal totals, so
 	// activity_samples == activity_records - excluded_records.
@@ -633,6 +651,16 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 					o.StampEnv = append(o.StampEnv, name)
 				}
 			}
+		case "--inject-mode", "-inject-mode":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			if v != injectModePreload && v != injectModeCUDA {
+				return o, fmt.Errorf("invalid inject mode %q (%s or %s)", v, injectModePreload, injectModeCUDA)
+			}
+			o.InjectMode = v
 		case "--no-inject":
 			o.NoInject = true
 		case "--json":
@@ -879,7 +907,15 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 		}
 		env = setCaptureEnv(env, "CUDAPROF_API_ACTIVITY", value)
 	}
-	if o.Inject != "" {
+	if o.Inject != "" && o.InjectMode == injectModeCUDA {
+		// The driver dlopens this path from whatever directory the target
+		// runs in, so a relative one would name a different file or none.
+		path := o.Inject
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		env = setCaptureEnv(env, "CUDA_INJECTION64_PATH", path)
+	} else if o.Inject != "" {
 		key := "LD_PRELOAD"
 		if runtime.GOOS == "darwin" {
 			key = "DYLD_INSERT_LIBRARIES"
@@ -1016,6 +1052,23 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		result.RunCompleteness = runUnknown
 		return result, nil
 	}
+	if o.Inject != "" {
+		if o.InjectMode == "" {
+			o.InjectMode = injectModePreload
+		}
+		result.InjectMode = o.InjectMode
+	}
+	// The driver loads one injection library. Replacing one the caller's
+	// environment already names would silently unload another tool.
+	if o.Inject != "" && o.InjectMode == injectModeCUDA {
+		base := o.Env
+		if base == nil {
+			base = os.Environ()
+		}
+		if v := lookupEnv(base, "CUDA_INJECTION64_PATH"); v != "" {
+			return result, fmt.Errorf("--inject-mode=%s: CUDA_INJECTION64_PATH is already set to %q", injectModeCUDA, v)
+		}
+	}
 	cmd := exec.Command(o.command[0], o.command[1:]...)
 	cmd.Dir, cmd.Env = o.Dir, captureEnvironment(o, session, dir)
 	result.Target = stampTargetEnvironment(o.command, o.Dir, cmd.Env, o.StampEnv)
@@ -1087,7 +1140,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if clocks != nil {
 		edgeSamples = clocks.finish()
 	}
-	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", noInject: o.NoInject, targetOnly: !o.FollowChildren, recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
+	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", cudaInjection: o.Inject != "" && o.InjectMode == injectModeCUDA, noInject: o.NoInject, targetOnly: !o.FollowChildren, recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
 	if clocks != nil {
 		attachEdgeClocks(result.PhaseReceipt, edgeSamples)
 	}

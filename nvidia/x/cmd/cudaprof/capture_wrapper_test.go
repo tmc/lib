@@ -136,6 +136,36 @@ func TestObserveCaptureSessionKeepsAWrapperTargetsChildren(t *testing.T) {
 		}
 	})
 
+	// Under cuda-injection the driver loads the agent only in a process that
+	// calls cuInit, so the wrapper writes no generation at all. Its child's
+	// are the capture; under preload the same layout is a missing target,
+	// which is the control.
+	t.Run("cuda-injection wrapper", func(t *testing.T) {
+		dir := t.TempDir()
+		writeGeneration(t, dir, "process-42-3", 42, 3, notes, []wire.Record{deviceActive, kernel}, `{"state":"collected"}`)
+		got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true, cudaInjection: true})
+		if got.Outcome != captureOutcomeCollected || !got.CaptureSuccess {
+			t.Fatalf("outcome = %q (%s), success = %v, want %q", got.Outcome, got.CaptureError, got.CaptureSuccess, captureOutcomeCollected)
+		}
+		if got.ActivityRecords != 1 || got.RunCompleteness != runComplete {
+			t.Errorf("activity records = %d, run_completeness = %q", got.ActivityRecords, got.RunCompleteness)
+		}
+		if len(got.Capability) == 0 {
+			t.Error("no capability record: the child's should stand in for the target's")
+		}
+		preload := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
+		if preload.CaptureSuccess {
+			t.Errorf("preload admitted a target that wrote no generation: outcome %q", preload.Outcome)
+		}
+	})
+
+	t.Run("cuda-injection loaded nowhere", func(t *testing.T) {
+		got := observeCaptureSession(captureResult{TargetPID: 41}, t.TempDir(), session, observeOptions{injectionRequested: true, cudaInjection: true})
+		if got.Outcome != captureOutcomeNoCUDA || got.CaptureSuccess || got.CaptureError == "" {
+			t.Fatalf("outcome = %q, success = %v, error = %q, want %q with a reason", got.Outcome, got.CaptureSuccess, got.CaptureError, captureOutcomeNoCUDA)
+		}
+	})
+
 	t.Run("producer writes no note", func(t *testing.T) {
 		dir := sessionDir(t, `{"kind":"capability"}`, nil)
 		got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
