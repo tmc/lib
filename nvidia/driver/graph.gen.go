@@ -4,28 +4,30 @@ package driver
 
 // AddBatchMemOpNode Creates a batch memory operation node and adds it to a graph.
 //
-// Creates a new batch memory operation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the node is added, the paramArray inside nodeParams is copied and therefore it can be freed after the call returns. Note: Warning: Improper use of this API may deadlock the application. Synchronization ordering established through this API is not visible to CUDA. CUDA tasks that are (even indirectly) ordered by this API should also have that order expressed with CUDA-visible dependencies such as events. This ensures that the scheduler does not serialize them in an improper order. See also: [Graph.AddNode], [Stream.BatchMemOp], [Stream.WaitValue32], [Stream.WriteValue32], [Stream.WaitValue64], [Stream.WriteValue64], [GraphNode.BatchMemOpNodeGetParams], [GraphNode.BatchMemOpNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new batch memory operation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the node is added, the paramArray inside nodeParams is copied and therefore it can be freed after the call returns. Note: Warning: Improper use of this API may deadlock the application. Synchronization ordering established through this API is not visible to CUDA. CUDA tasks that are (even indirectly) ordered by this API should also have that order expressed with CUDA-visible dependencies such as events. This ensures that the scheduler does not serialize them in an improper order. See also: [Graph.AddNode], [Stream.BatchMemOp], [Stream.WaitValue32], [Stream.WriteValue32], [Stream.WaitValue64], [Stream.WriteValue64], [BatchMemOpNode.Params], [BatchMemOpNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the node
 //
 // Wraps cuGraphAddBatchMemOpNode.
-func (g Graph) AddBatchMemOpNode(dependencies *GraphNode, numDependencies uint, nodeParams *BatchMemOpNodeParams) (GraphNode, error) {
-	return graphAddBatchMemOpNode(g, dependencies, numDependencies, nodeParams)
+func (g Graph) AddBatchMemOpNode(dependencies *GraphNode, numDependencies uint, nodeParams *BatchMemOpNodeParams) (BatchMemOpNode, error) {
+	h, err := graphAddBatchMemOpNode(g, dependencies, numDependencies, nodeParams)
+	return BatchMemOpNode{h}, err
 }
 
 // AddChildGraphNode Creates a child graph node and adds it to a graph.
 //
-// Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error. The node executes an embedded child graph. The child graph is cloned in this call. See also: [Graph.AddNode], [GraphChildGraphNodeGetGraph], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
+// Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error. The node executes an embedded child graph. The child graph is cloned in this call. See also: [Graph.AddNode], [ChildGraphNode.Graph], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - childGraph: The graph to clone into this node
 //
 // Wraps cuGraphAddChildGraphNode.
-func (g Graph) AddChildGraphNode(dependencies *GraphNode, numDependencies uint, childGraph Graph) (GraphNode, error) {
-	return graphAddChildGraphNode(g, dependencies, numDependencies, childGraph)
+func (g Graph) AddChildGraphNode(dependencies *GraphNode, numDependencies uint, childGraph Graph) (ChildGraphNode, error) {
+	h, err := graphAddChildGraphNode(g, dependencies, numDependencies, childGraph)
+	return ChildGraphNode{h}, err
 }
 
 // AddDependencies Adds dependency edges to a graph.
@@ -63,8 +65,9 @@ func (g Graph) AddEmptyNode(dependencies *GraphNode, numDependencies uint) (Grap
 //   - event: Event for the node
 //
 // Wraps cuGraphAddEventRecordNode.
-func (g Graph) AddEventRecordNode(dependencies *GraphNode, numDependencies uint, event Event) (GraphNode, error) {
-	return graphAddEventRecordNode(g, dependencies, numDependencies, event)
+func (g Graph) AddEventRecordNode(dependencies *GraphNode, numDependencies uint, event Event) (EventRecordNode, error) {
+	h, err := graphAddEventRecordNode(g, dependencies, numDependencies, event)
+	return EventRecordNode{h}, err
 }
 
 // AddEventWaitNode Creates an event wait node and adds it to a graph.
@@ -76,78 +79,84 @@ func (g Graph) AddEventRecordNode(dependencies *GraphNode, numDependencies uint,
 //   - event: Event for the node
 //
 // Wraps cuGraphAddEventWaitNode.
-func (g Graph) AddEventWaitNode(dependencies *GraphNode, numDependencies uint, event Event) (GraphNode, error) {
-	return graphAddEventWaitNode(g, dependencies, numDependencies, event)
+func (g Graph) AddEventWaitNode(dependencies *GraphNode, numDependencies uint, event Event) (EventWaitNode, error) {
+	h, err := graphAddEventWaitNode(g, dependencies, numDependencies, event)
+	return EventWaitNode{h}, err
 }
 
 // AddExternalSemaphoresSignalNode Creates an external semaphore signal node and adds it to a graph.
 //
-// Creates a new external semaphore signal node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. Performs a signal operation on a set of externally allocated semaphore objects when the node is launched. The operation(s) will occur after all of the node's dependencies have completed. See also: [Graph.AddNode], [GraphNode.ExternalSemaphoresSignalNodeGetParams], [GraphNode.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new external semaphore signal node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. Performs a signal operation on a set of externally allocated semaphore objects when the node is launched. The operation(s) will occur after all of the node's dependencies have completed. See also: [Graph.AddNode], [ExternalSemaphoresSignalNode.Params], [ExternalSemaphoresSignalNode.SetParams], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the node
 //
 // Wraps cuGraphAddExternalSemaphoresSignalNode.
-func (g Graph) AddExternalSemaphoresSignalNode(dependencies *GraphNode, numDependencies uint, nodeParams *ExtSemSignalNodeParams) (GraphNode, error) {
-	return graphAddExternalSemaphoresSignalNode(g, dependencies, numDependencies, nodeParams)
+func (g Graph) AddExternalSemaphoresSignalNode(dependencies *GraphNode, numDependencies uint, nodeParams *ExtSemSignalNodeParams) (ExternalSemaphoresSignalNode, error) {
+	h, err := graphAddExternalSemaphoresSignalNode(g, dependencies, numDependencies, nodeParams)
+	return ExternalSemaphoresSignalNode{h}, err
 }
 
 // AddExternalSemaphoresWaitNode Creates an external semaphore wait node and adds it to a graph.
 //
-// Creates a new external semaphore wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. Performs a wait operation on a set of externally allocated semaphore objects when the node is launched. The node's dependencies will not be launched until the wait operation has completed. See also: [Graph.AddNode], [GraphNode.ExternalSemaphoresWaitNodeGetParams], [GraphNode.ExternalSemaphoresWaitNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresSignalNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new external semaphore wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. Performs a wait operation on a set of externally allocated semaphore objects when the node is launched. The node's dependencies will not be launched until the wait operation has completed. See also: [Graph.AddNode], [ExternalSemaphoresWaitNode.Params], [ExternalSemaphoresWaitNode.SetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresSignalNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the node
 //
 // Wraps cuGraphAddExternalSemaphoresWaitNode.
-func (g Graph) AddExternalSemaphoresWaitNode(dependencies *GraphNode, numDependencies uint, nodeParams *ExtSemWaitNodeParams) (GraphNode, error) {
-	return graphAddExternalSemaphoresWaitNode(g, dependencies, numDependencies, nodeParams)
+func (g Graph) AddExternalSemaphoresWaitNode(dependencies *GraphNode, numDependencies uint, nodeParams *ExtSemWaitNodeParams) (ExternalSemaphoresWaitNode, error) {
+	h, err := graphAddExternalSemaphoresWaitNode(g, dependencies, numDependencies, nodeParams)
+	return ExternalSemaphoresWaitNode{h}, err
 }
 
 // AddHostNode Creates a host execution node and adds it to a graph.
 //
-// Creates a new CPU execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the graph is launched, the node will invoke the specified CPU function. Host nodes are not supported under MPS with pre-Volta GPUs. See also: [Graph.AddNode], [Stream.LaunchHostFunc], [GraphNode.HostNodeGetParams], [GraphNode.HostNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new CPU execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the graph is launched, the node will invoke the specified CPU function. Host nodes are not supported under MPS with pre-Volta GPUs. See also: [Graph.AddNode], [Stream.LaunchHostFunc], [HostNode.Params], [HostNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the host node
 //
 // Wraps cuGraphAddHostNode.
-func (g Graph) AddHostNode(dependencies *GraphNode, numDependencies uint, nodeParams *HostNodeParams) (GraphNode, error) {
-	return graphAddHostNode(g, dependencies, numDependencies, nodeParams)
+func (g Graph) AddHostNode(dependencies *GraphNode, numDependencies uint, nodeParams *HostNodeParams) (HostNode, error) {
+	h, err := graphAddHostNode(g, dependencies, numDependencies, nodeParams)
+	return HostNode{h}, err
 }
 
 // AddKernelNode Creates a kernel execution node and adds it to a graph.
 //
-// Creates a new kernel execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. The [KernelNodeParams] structure is defined as: When the graph is launched, the node will invoke kernel func on a ( gridDimX x gridDimY x gridDimZ) grid of blocks. Each block contains ( blockDimX x blockDimY x blockDimZ) threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. Kernel parameters to func can be specified in one of two ways: The error [ErrInvalidValue] will be returned if kernel parameters are specified with both kernelParams and extra (i.e. both kernelParams and extra are non-NULL). [ErrInvalidValue] will be returned if extra is used for a cooperative kernel. The kernelParams or extra array, as well as the argument values it points to, are copied during this call. Note: Kernels launched using graphs must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects. See also: [Graph.AddNode], [Function.LaunchKernel], [Function.LaunchCooperativeKernel], [GraphNode.KernelNodeGetParams], [GraphNode.KernelNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new kernel execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. The [KernelNodeParams] structure is defined as: When the graph is launched, the node will invoke kernel func on a ( gridDimX x gridDimY x gridDimZ) grid of blocks. Each block contains ( blockDimX x blockDimY x blockDimZ) threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. Kernel parameters to func can be specified in one of two ways: The error [ErrInvalidValue] will be returned if kernel parameters are specified with both kernelParams and extra (i.e. both kernelParams and extra are non-NULL). [ErrInvalidValue] will be returned if extra is used for a cooperative kernel. The kernelParams or extra array, as well as the argument values it points to, are copied during this call. Note: Kernels launched using graphs must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects. See also: [Graph.AddNode], [Function.LaunchKernel], [Function.LaunchCooperativeKernel], [KernelNode.Params], [KernelNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the GPU execution node
 //
 // Wraps cuGraphAddKernelNode, bound as cuGraphAddKernelNode_v2.
-func (g Graph) AddKernelNode(dependencies *GraphNode, numDependencies uint, nodeParams *KernelNodeParams) (GraphNode, error) {
-	return graphAddKernelNode(g, dependencies, numDependencies, nodeParams)
+func (g Graph) AddKernelNode(dependencies *GraphNode, numDependencies uint, nodeParams *KernelNodeParams) (KernelNode, error) {
+	h, err := graphAddKernelNode(g, dependencies, numDependencies, nodeParams)
+	return KernelNode{h}, err
 }
 
 // AddMemAllocNode Creates an allocation node and adds it to a graph.
 //
-// Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemFreeNode], [GraphNode.MemAllocNodeGetParams], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemFreeNode], [MemAllocNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
 //   - nodeParams: Parameters for the node When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: - passing the allocation to [DevicePtr.FreeAsync] or [DevicePtr.Free]; - launching a graph with a free node for that allocation; or - specifying [GraphInstantiateFlagAutoFreeOnLaunch] during instantiation, which makes each launch behave as though it called [DevicePtr.FreeAsync] for every unfreed allocation. It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: - Nodes and edges of the graph cannot be deleted. - The graph can only be used in a child node if the ownership is moved to the parent. - Only one instantiation of the graph may exist at any point in time. - The graph cannot be cloned
 //
 // Wraps cuGraphAddMemAllocNode.
-func (g Graph) AddMemAllocNode(dependencies *GraphNode, numDependencies uint, nodeParams *MemAllocNodeParams) (GraphNode, error) {
-	return graphAddMemAllocNode(g, dependencies, numDependencies, nodeParams)
+func (g Graph) AddMemAllocNode(dependencies *GraphNode, numDependencies uint, nodeParams *MemAllocNodeParams) (MemAllocNode, error) {
+	h, err := graphAddMemAllocNode(g, dependencies, numDependencies, nodeParams)
+	return MemAllocNode{h}, err
 }
 
 // AddMemFreeNode Creates a memory free node and adds it to a graph.
 //
-// Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [GraphNode.MemFreeNodeGetParams], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [MemFreeNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - phGraphNode: Returns newly created node
 //   - dependencies: Dependencies of the node
@@ -161,7 +170,7 @@ func (g Graph) AddMemFreeNode(phGraphNode *GraphNode, dependencies *GraphNode, n
 
 // AddMemcpyNode Creates a memcpy node and adds it to a graph.
 //
-// Creates a new memcpy node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the graph is launched, the node will perform the memcpy described by copyParams. See [Memcpy3D] for a description of the structure and its restrictions. Memcpy nodes have some additional restrictions with regards to managed memory, if the system contains at least one device which has a zero value for the device attribute [DevAttrConcurrentManagedAccess]. If one or more of the operands refer to managed memory, then using the memory type [MemoryTypeUnified] is disallowed for those operand(s). The managed memory will be treated as residing on either the host or the device, depending on which memory type is specified. See also: [Graph.AddNode], [Memcpy3D], [GraphNode.MemcpyNodeGetParams], [GraphNode.MemcpyNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemsetNode]
+// Creates a new memcpy node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the graph is launched, the node will perform the memcpy described by copyParams. See [Memcpy3D] for a description of the structure and its restrictions. Memcpy nodes have some additional restrictions with regards to managed memory, if the system contains at least one device which has a zero value for the device attribute [DevAttrConcurrentManagedAccess]. If one or more of the operands refer to managed memory, then using the memory type [MemoryTypeUnified] is disallowed for those operand(s). The managed memory will be treated as residing on either the host or the device, depending on which memory type is specified. See also: [Graph.AddNode], [Memcpy3D], [MemcpyNode.Params], [MemcpyNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
@@ -169,13 +178,14 @@ func (g Graph) AddMemFreeNode(phGraphNode *GraphNode, dependencies *GraphNode, n
 //   - ctx: Context on which to run the node
 //
 // Wraps cuGraphAddMemcpyNode.
-func (g Graph) AddMemcpyNode(dependencies *GraphNode, numDependencies uint, copyParams *Memcpy3d, ctx Context) (GraphNode, error) {
-	return graphAddMemcpyNode(g, dependencies, numDependencies, copyParams, ctx)
+func (g Graph) AddMemcpyNode(dependencies *GraphNode, numDependencies uint, copyParams *Memcpy3d, ctx Context) (MemcpyNode, error) {
+	h, err := graphAddMemcpyNode(g, dependencies, numDependencies, copyParams, ctx)
+	return MemcpyNode{h}, err
 }
 
 // AddMemsetNode Creates a memset node and adds it to a graph.
 //
-// Creates a new memset node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. The element size must be 1, 2, or 4 bytes. When the graph is launched, the node will perform the memset described by memsetParams. See also: [Graph.AddNode], [DevicePtr.MemsetD2D32], [GraphNode.MemsetNodeGetParams], [GraphNode.MemsetNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode]
+// Creates a new memset node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. The element size must be 1, 2, or 4 bytes. When the graph is launched, the node will perform the memset described by memsetParams. See also: [Graph.AddNode], [DevicePtr.MemsetD2D32], [MemsetNode.Params], [MemsetNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
@@ -183,8 +193,9 @@ func (g Graph) AddMemcpyNode(dependencies *GraphNode, numDependencies uint, copy
 //   - ctx: Context on which to run the node
 //
 // Wraps cuGraphAddMemsetNode.
-func (g Graph) AddMemsetNode(dependencies *GraphNode, numDependencies uint, memsetParams *MemsetNodeParams, ctx Context) (GraphNode, error) {
-	return graphAddMemsetNode(g, dependencies, numDependencies, memsetParams, ctx)
+func (g Graph) AddMemsetNode(dependencies *GraphNode, numDependencies uint, memsetParams *MemsetNodeParams, ctx Context) (MemsetNode, error) {
+	h, err := graphAddMemsetNode(g, dependencies, numDependencies, memsetParams, ctx)
+	return MemsetNode{h}, err
 }
 
 // AddNode Adds a node of arbitrary type to a graph.
@@ -348,17 +359,6 @@ func (g Graph) RemoveDependencies(from *GraphNode, to *GraphNode, edgeData *Grap
 // Wraps cuGraphRetainUserObject.
 func (g Graph) RetainUserObject(object UserObject, count uint32, flags UserobjectretainFlags) error {
 	return graphRetainUserObject(g, object, count, flags)
-}
-
-// GraphChildGraphNodeGetGraph Gets a handle to the embedded graph of a child graph node.
-//
-// Gets a handle to the embedded graph in a child graph node. This call does not clone the graph. Changes to the graph will be reflected in the node, and the node retains ownership of the graph. Allocation and free nodes cannot be added to the returned graph. Attempting to do so will return an error. See also: [Graph.AddChildGraphNode], [GraphNode.FindInClone]
-//
-//   - hNode: Node to get the embedded graph for
-//
-// Wraps cuGraphChildGraphNodeGetGraph.
-func GraphChildGraphNodeGetGraph(hNode GraphNode) (Graph, error) {
-	return graphChildGraphNodeGetGraph(hNode)
 }
 
 // NewGraph Creates a graph.

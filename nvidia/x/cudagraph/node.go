@@ -101,8 +101,8 @@ func (g *Graph) AddKernelNode(params *driver.KernelNodeParams, dependencies ...*
 	}
 	var rawNode driver.GraphNode
 	err := g.withContext(func() error {
-		var err error
-		rawNode, err = g.raw.AddKernelNode(depPtr, uint(len(dependencies)), params)
+		kernel, err := g.raw.AddKernelNode(depPtr, uint(len(dependencies)), params)
+		rawNode = kernel.GraphNode
 		return err
 	})
 	if err != nil {

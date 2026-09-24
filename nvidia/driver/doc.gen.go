@@ -179,19 +179,19 @@
 //   - [Graph.AddMemcpyNode]: Creates a memcpy node and adds it to a graph.
 //   - [Graph.AddMemsetNode]: Creates a memset node and adds it to a graph.
 //   - [Graph.AddNode]: Adds a node of arbitrary type to a graph.
-//   - [GraphNode.BatchMemOpNodeGetParams]: Returns a batch mem op node's parameters.
-//   - [GraphNode.BatchMemOpNodeSetParams]: Sets a batch mem op node's parameters.
-//   - [GraphChildGraphNodeGetGraph]: Gets a handle to the embedded graph of a child graph node.
+//   - [BatchMemOpNode.Params]: Returns a batch mem op node's parameters.
+//   - [BatchMemOpNode.SetParams]: Sets a batch mem op node's parameters.
+//   - [ChildGraphNode.Graph]: Gets a handle to the embedded graph of a child graph node.
 //   - [Graph.Clone]: Clones a graph.
 //   - [Graph.ConditionalHandleCreate]: Create a conditional handle.
 //   - [NewGraph]: Creates a graph.
 //   - [Graph.DebugDotPrint]: Write a DOT file describing graph structure.
 //   - [Graph.Destroy]: Destroys a graph.
 //   - [GraphNode.DestroyNode]: Remove a node from the graph.
-//   - [GraphNode.EventRecordNodeGetEvent]: Returns the event associated with an event record node.
-//   - [GraphNode.EventRecordNodeSetEvent]: Sets an event record node's event.
-//   - [GraphNode.EventWaitNodeGetEvent]: Returns the event associated with an event wait node.
-//   - [GraphNode.EventWaitNodeSetEvent]: Sets an event wait node's event.
+//   - [EventRecordNode.Event]: Returns the event associated with an event record node.
+//   - [EventRecordNode.SetEvent]: Sets an event record node's event.
+//   - [EventWaitNode.Event]: Returns the event associated with an event wait node.
+//   - [EventWaitNode.SetEvent]: Sets an event wait node's event.
 //   - [GraphExec.BatchMemOpNodeSetParams]: Sets the parameters for a batch mem op node in the given graphExec.
 //   - [GraphExec.ChildGraphNodeSetParams]: Updates node parameters in the child graph node in the given graphExec.
 //   - [GraphExec.Destroy]: Destroys an executable graph.
@@ -207,30 +207,30 @@
 //   - [GraphExec.MemsetNodeSetParams]: Sets the parameters for a memset node in the given graphExec.
 //   - [GraphExec.NodeSetParams]: Update a graph node's parameters in an instantiated graph.
 //   - [GraphExec.Update]: Check whether an executable graph can be updated with a graph and perform the update if possible.
-//   - [GraphNode.ExternalSemaphoresSignalNodeGetParams]: Returns an external semaphore signal node's parameters.
-//   - [GraphNode.ExternalSemaphoresSignalNodeSetParams]: Sets an external semaphore signal node's parameters.
-//   - [GraphNode.ExternalSemaphoresWaitNodeGetParams]: Returns an external semaphore wait node's parameters.
-//   - [GraphNode.ExternalSemaphoresWaitNodeSetParams]: Sets an external semaphore wait node's parameters.
+//   - [ExternalSemaphoresSignalNode.Params]: Returns an external semaphore signal node's parameters.
+//   - [ExternalSemaphoresSignalNode.SetParams]: Sets an external semaphore signal node's parameters.
+//   - [ExternalSemaphoresWaitNode.Params]: Returns an external semaphore wait node's parameters.
+//   - [ExternalSemaphoresWaitNode.SetParams]: Sets an external semaphore wait node's parameters.
 //   - [Graph.Edges]: Returns a graph's dependency edges.
 //   - [Graph.Id]: Returns the id of a given graph.
 //   - [Graph.GetNodes]: Returns a graph's nodes.
 //   - [Graph.RootNodes]: Returns a graph's root nodes.
-//   - [GraphNode.HostNodeGetParams]: Returns a host node's parameters.
-//   - [GraphNode.HostNodeSetParams]: Sets a host node's parameters.
+//   - [HostNode.Params]: Returns a host node's parameters.
+//   - [HostNode.SetParams]: Sets a host node's parameters.
 //   - [Graph.Instantiate]: Creates an executable graph from a graph.
 //   - [Graph.InstantiateWithParams]: Creates an executable graph from a graph.
-//   - [GraphNode.KernelNodeCopyAttributes]: Copies attributes from source node to destination node.
-//   - [GraphNode.KernelNodeGetAttribute]: Queries node attribute.
-//   - [GraphNode.KernelNodeGetParams]: Returns a kernel node's parameters.
-//   - [GraphNode.KernelNodeSetAttribute]: Sets node attribute.
-//   - [GraphNode.KernelNodeSetParams]: Sets a kernel node's parameters.
+//   - [KernelNode.CopyAttributes]: Copies attributes from source node to destination node.
+//   - [KernelNode.Attribute]: Queries node attribute.
+//   - [KernelNode.Params]: Returns a kernel node's parameters.
+//   - [KernelNode.SetAttribute]: Sets node attribute.
+//   - [KernelNode.SetParams]: Sets a kernel node's parameters.
 //   - [GraphExec.Launch]: Launches an executable graph in a stream.
-//   - [GraphNode.MemAllocNodeGetParams]: Returns a memory alloc node's parameters.
-//   - [GraphNode.MemFreeNodeGetParams]: Returns a memory free node's parameters.
-//   - [GraphNode.MemcpyNodeGetParams]: Returns a memcpy node's parameters.
-//   - [GraphNode.MemcpyNodeSetParams]: Sets a memcpy node's parameters.
-//   - [GraphNode.MemsetNodeGetParams]: Returns a memset node's parameters.
-//   - [GraphNode.MemsetNodeSetParams]: Sets a memset node's parameters.
+//   - [MemAllocNode.Params]: Returns a memory alloc node's parameters.
+//   - [MemFreeNode.Params]: Returns a memory free node's parameters.
+//   - [MemcpyNode.Params]: Returns a memcpy node's parameters.
+//   - [MemcpyNode.SetParams]: Sets a memcpy node's parameters.
+//   - [MemsetNode.Params]: Returns a memset node's parameters.
+//   - [MemsetNode.SetParams]: Sets a memset node's parameters.
 //   - [GraphNode.FindInClone]: Finds a cloned version of a node.
 //   - [GraphNode.ContainingGraph]: Returns the graph that contains a given graph node.
 //   - [GraphNode.Dependencies]: Returns a node's dependencies.

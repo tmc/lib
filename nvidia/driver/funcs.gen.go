@@ -2893,7 +2893,7 @@ func GetProcAddress(symbol string, cudaVersion int32, flags DriverprocaddressFla
 
 // graphAddBatchMemOpNode Creates a batch memory operation node and adds it to a graph.
 //
-// Creates a new batch memory operation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the node is added, the paramArray inside nodeParams is copied and therefore it can be freed after the call returns. Note: Warning: Improper use of this API may deadlock the application. Synchronization ordering established through this API is not visible to CUDA. CUDA tasks that are (even indirectly) ordered by this API should also have that order expressed with CUDA-visible dependencies such as events. This ensures that the scheduler does not serialize them in an improper order. See also: [Graph.AddNode], [Stream.BatchMemOp], [Stream.WaitValue32], [Stream.WriteValue32], [Stream.WaitValue64], [Stream.WriteValue64], [GraphNode.BatchMemOpNodeGetParams], [GraphNode.BatchMemOpNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new batch memory operation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the node is added, the paramArray inside nodeParams is copied and therefore it can be freed after the call returns. Note: Warning: Improper use of this API may deadlock the application. Synchronization ordering established through this API is not visible to CUDA. CUDA tasks that are (even indirectly) ordered by this API should also have that order expressed with CUDA-visible dependencies such as events. This ensures that the scheduler does not serialize them in an improper order. See also: [Graph.AddNode], [Stream.BatchMemOp], [Stream.WaitValue32], [Stream.WriteValue32], [Stream.WaitValue64], [Stream.WriteValue64], [BatchMemOpNode.Params], [BatchMemOpNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -2916,7 +2916,7 @@ func graphAddBatchMemOpNode(hGraph Graph, dependencies *GraphNode, numDependenci
 
 // graphAddChildGraphNode Creates a child graph node and adds it to a graph.
 //
-// Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error. The node executes an embedded child graph. The child graph is cloned in this call. See also: [Graph.AddNode], [GraphChildGraphNodeGetGraph], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
+// Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error. The node executes an embedded child graph. The child graph is cloned in this call. See also: [Graph.AddNode], [ChildGraphNode.Graph], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -3025,7 +3025,7 @@ func graphAddEventWaitNode(hGraph Graph, dependencies *GraphNode, numDependencie
 
 // graphAddExternalSemaphoresSignalNode Creates an external semaphore signal node and adds it to a graph.
 //
-// Creates a new external semaphore signal node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. Performs a signal operation on a set of externally allocated semaphore objects when the node is launched. The operation(s) will occur after all of the node's dependencies have completed. See also: [Graph.AddNode], [GraphNode.ExternalSemaphoresSignalNodeGetParams], [GraphNode.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new external semaphore signal node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. Performs a signal operation on a set of externally allocated semaphore objects when the node is launched. The operation(s) will occur after all of the node's dependencies have completed. See also: [Graph.AddNode], [ExternalSemaphoresSignalNode.Params], [ExternalSemaphoresSignalNode.SetParams], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -3048,7 +3048,7 @@ func graphAddExternalSemaphoresSignalNode(hGraph Graph, dependencies *GraphNode,
 
 // graphAddExternalSemaphoresWaitNode Creates an external semaphore wait node and adds it to a graph.
 //
-// Creates a new external semaphore wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. Performs a wait operation on a set of externally allocated semaphore objects when the node is launched. The node's dependencies will not be launched until the wait operation has completed. See also: [Graph.AddNode], [GraphNode.ExternalSemaphoresWaitNodeGetParams], [GraphNode.ExternalSemaphoresWaitNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresSignalNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new external semaphore wait node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. Performs a wait operation on a set of externally allocated semaphore objects when the node is launched. The node's dependencies will not be launched until the wait operation has completed. See also: [Graph.AddNode], [ExternalSemaphoresWaitNode.Params], [ExternalSemaphoresWaitNode.SetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresSignalNode], [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -3071,7 +3071,7 @@ func graphAddExternalSemaphoresWaitNode(hGraph Graph, dependencies *GraphNode, n
 
 // graphAddHostNode Creates a host execution node and adds it to a graph.
 //
-// Creates a new CPU execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the graph is launched, the node will invoke the specified CPU function. Host nodes are not supported under MPS with pre-Volta GPUs. See also: [Graph.AddNode], [Stream.LaunchHostFunc], [GraphNode.HostNodeGetParams], [GraphNode.HostNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new CPU execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the graph is launched, the node will invoke the specified CPU function. Host nodes are not supported under MPS with pre-Volta GPUs. See also: [Graph.AddNode], [Stream.LaunchHostFunc], [HostNode.Params], [HostNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -3094,7 +3094,7 @@ func graphAddHostNode(hGraph Graph, dependencies *GraphNode, numDependencies uin
 
 // graphAddKernelNode Creates a kernel execution node and adds it to a graph.
 //
-// Creates a new kernel execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. The [KernelNodeParams] structure is defined as: When the graph is launched, the node will invoke kernel func on a ( gridDimX x gridDimY x gridDimZ) grid of blocks. Each block contains ( blockDimX x blockDimY x blockDimZ) threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. Kernel parameters to func can be specified in one of two ways: The error [ErrInvalidValue] will be returned if kernel parameters are specified with both kernelParams and extra (i.e. both kernelParams and extra are non-NULL). [ErrInvalidValue] will be returned if extra is used for a cooperative kernel. The kernelParams or extra array, as well as the argument values it points to, are copied during this call. Note: Kernels launched using graphs must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects. See also: [Graph.AddNode], [Function.LaunchKernel], [Function.LaunchCooperativeKernel], [GraphNode.KernelNodeGetParams], [GraphNode.KernelNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new kernel execution node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. The [KernelNodeParams] structure is defined as: When the graph is launched, the node will invoke kernel func on a ( gridDimX x gridDimY x gridDimZ) grid of blocks. Each block contains ( blockDimX x blockDimY x blockDimZ) threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. Kernel parameters to func can be specified in one of two ways: The error [ErrInvalidValue] will be returned if kernel parameters are specified with both kernelParams and extra (i.e. both kernelParams and extra are non-NULL). [ErrInvalidValue] will be returned if extra is used for a cooperative kernel. The kernelParams or extra array, as well as the argument values it points to, are copied during this call. Note: Kernels launched using graphs must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects. See also: [Graph.AddNode], [Function.LaunchKernel], [Function.LaunchCooperativeKernel], [KernelNode.Params], [KernelNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -3117,7 +3117,7 @@ func graphAddKernelNode(hGraph Graph, dependencies *GraphNode, numDependencies u
 
 // graphAddMemAllocNode Creates an allocation node and adds it to a graph.
 //
-// Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemFreeNode], [GraphNode.MemAllocNodeGetParams], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemFreeNode], [MemAllocNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -3140,7 +3140,7 @@ func graphAddMemAllocNode(hGraph Graph, dependencies *GraphNode, numDependencies
 
 // graphAddMemFreeNode Creates a memory free node and adds it to a graph.
 //
-// Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [GraphNode.MemFreeNodeGetParams], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [MemFreeNode.Params], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - phGraphNode: Returns newly created node
 //   - hGraph: Graph to which to add the node
@@ -3158,7 +3158,7 @@ func graphAddMemFreeNode(phGraphNode *GraphNode, hGraph Graph, dependencies *Gra
 
 // graphAddMemcpyNode Creates a memcpy node and adds it to a graph.
 //
-// Creates a new memcpy node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the graph is launched, the node will perform the memcpy described by copyParams. See [Memcpy3D] for a description of the structure and its restrictions. Memcpy nodes have some additional restrictions with regards to managed memory, if the system contains at least one device which has a zero value for the device attribute [DevAttrConcurrentManagedAccess]. If one or more of the operands refer to managed memory, then using the memory type [MemoryTypeUnified] is disallowed for those operand(s). The managed memory will be treated as residing on either the host or the device, depending on which memory type is specified. See also: [Graph.AddNode], [Memcpy3D], [GraphNode.MemcpyNodeGetParams], [GraphNode.MemcpyNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemsetNode]
+// Creates a new memcpy node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When the graph is launched, the node will perform the memcpy described by copyParams. See [Memcpy3D] for a description of the structure and its restrictions. Memcpy nodes have some additional restrictions with regards to managed memory, if the system contains at least one device which has a zero value for the device attribute [DevAttrConcurrentManagedAccess]. If one or more of the operands refer to managed memory, then using the memory type [MemoryTypeUnified] is disallowed for those operand(s). The managed memory will be treated as residing on either the host or the device, depending on which memory type is specified. See also: [Graph.AddNode], [Memcpy3D], [MemcpyNode.Params], [MemcpyNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -3182,7 +3182,7 @@ func graphAddMemcpyNode(hGraph Graph, dependencies *GraphNode, numDependencies u
 
 // graphAddMemsetNode Creates a memset node and adds it to a graph.
 //
-// Creates a new memset node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. The element size must be 1, 2, or 4 bytes. When the graph is launched, the node will perform the memset described by memsetParams. See also: [Graph.AddNode], [DevicePtr.MemsetD2D32], [GraphNode.MemsetNodeGetParams], [GraphNode.MemsetNodeSetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode]
+// Creates a new memset node and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. The element size must be 1, 2, or 4 bytes. When the graph is launched, the node will perform the memset described by memsetParams. See also: [Graph.AddNode], [DevicePtr.MemsetD2D32], [MemsetNode.Params], [MemsetNode.SetParams], [NewGraph], [GraphNode.DestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -3230,7 +3230,7 @@ func graphAddNode(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEd
 
 // graphBatchMemOpNodeGetParams Returns a batch mem op node's parameters.
 //
-// Returns the parameters of batch mem op node hNode in nodeParamsOut. The paramArray returned in nodeParamsOut is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.BatchMemOpNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.BatchMemOpNodeSetParams]
+// Returns the parameters of batch mem op node hNode in nodeParamsOut. The paramArray returned in nodeParamsOut is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [BatchMemOpNode.SetParams] to update the parameters of this node. See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.SetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -3250,7 +3250,7 @@ func graphBatchMemOpNodeGetParams(hNode GraphNode) (BatchMemOpNodeParams, error)
 
 // graphBatchMemOpNodeSetParams Sets a batch mem op node's parameters.
 //
-// Sets the parameters of batch mem op node hNode to nodeParams. The paramArray inside nodeParams is copied and therefore it can be freed after the call returns. See also: [GraphNode.SetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.BatchMemOpNodeGetParams]
+// Sets the parameters of batch mem op node hNode to nodeParams. The paramArray inside nodeParams is copied and therefore it can be freed after the call returns. See also: [GraphNode.SetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params]
 //
 //   - hNode: Node to set the parameters for
 //   - nodeParams: Parameters to copy
@@ -3393,7 +3393,7 @@ func graphDestroyNode(hNode GraphNode) error {
 
 // graphEventRecordNodeGetEvent Returns the event associated with an event record node.
 //
-// Returns the event of event record node hNode in eventOut. See also: [Graph.AddEventRecordNode], [GraphNode.EventRecordNodeSetEvent], [GraphNode.EventWaitNodeGetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
+// Returns the event of event record node hNode in eventOut. See also: [Graph.AddEventRecordNode], [EventRecordNode.SetEvent], [EventWaitNode.Event], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 //   - hNode: Node to get the event for
 //
@@ -3413,7 +3413,7 @@ func graphEventRecordNodeGetEvent(hNode GraphNode) (Event, error) {
 
 // graphEventRecordNodeSetEvent Sets an event record node's event.
 //
-// Sets the event of event record node hNode to event. See also: [GraphNode.SetParams], [Graph.AddEventRecordNode], [GraphNode.EventRecordNodeGetEvent], [GraphNode.EventWaitNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
+// Sets the event of event record node hNode to event. See also: [GraphNode.SetParams], [Graph.AddEventRecordNode], [EventRecordNode.Event], [EventWaitNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 //   - hNode: Node to set the event for
 //   - event: Event to use
@@ -3428,7 +3428,7 @@ func graphEventRecordNodeSetEvent(hNode GraphNode, event Event) error {
 
 // graphEventWaitNodeGetEvent Returns the event associated with an event wait node.
 //
-// Returns the event of event wait node hNode in eventOut. See also: [Graph.AddEventWaitNode], [GraphNode.EventWaitNodeSetEvent], [GraphNode.EventRecordNodeGetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
+// Returns the event of event wait node hNode in eventOut. See also: [Graph.AddEventWaitNode], [EventWaitNode.SetEvent], [EventRecordNode.Event], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 //   - hNode: Node to get the event for
 //
@@ -3448,7 +3448,7 @@ func graphEventWaitNodeGetEvent(hNode GraphNode) (Event, error) {
 
 // graphEventWaitNodeSetEvent Sets an event wait node's event.
 //
-// Sets the event of event wait node hNode to event. See also: [GraphNode.SetParams], [Graph.AddEventWaitNode], [GraphNode.EventWaitNodeGetEvent], [GraphNode.EventRecordNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
+// Sets the event of event wait node hNode to event. See also: [GraphNode.SetParams], [Graph.AddEventWaitNode], [EventWaitNode.Event], [EventRecordNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 //   - hNode: Node to set the event for
 //   - event: Event to use
@@ -3463,7 +3463,7 @@ func graphEventWaitNodeSetEvent(hNode GraphNode, event Event) error {
 
 // graphExecBatchMemOpNodeSetParams Sets the parameters for a batch mem op node in the given graphExec.
 //
-// Sets the parameters of a batch mem op node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The following fields on operations may be modified on an executable graph: op.waitValue.address op.waitValue.value [64] op.waitValue.flags bits corresponding to wait type (i.e. [StreamWaitValueFlush] bit cannot be modified) op.writeValue.address op.writeValue.value [64] Other fields, such as the context, count or type of operations, and other types of operations such as membars, may not be modified. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The paramArray inside nodeParams is copied and therefore it can be freed after the call returns. See also: [GraphExec.NodeSetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.BatchMemOpNodeGetParams], [GraphNode.BatchMemOpNodeSetParams], [Graph.Instantiate]
+// Sets the parameters of a batch mem op node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The following fields on operations may be modified on an executable graph: op.waitValue.address op.waitValue.value [64] op.waitValue.flags bits corresponding to wait type (i.e. [StreamWaitValueFlush] bit cannot be modified) op.writeValue.address op.writeValue.value [64] Other fields, such as the context, count or type of operations, and other types of operations such as membars, may not be modified. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The paramArray inside nodeParams is copied and therefore it can be freed after the call returns. See also: [GraphExec.NodeSetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params], [BatchMemOpNode.SetParams], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: Batch mem op node from the graph from which graphExec was instantiated
@@ -3479,7 +3479,7 @@ func graphExecBatchMemOpNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nod
 
 // graphExecChildGraphNodeSetParams Updates node parameters in the child graph node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated. See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [GraphChildGraphNodeGetGraph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated. See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [ChildGraphNode.Graph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: Host node from the graph which was used to instantiate graphExec
@@ -3509,7 +3509,7 @@ func graphExecDestroy(hGraphExec GraphExec) error {
 
 // graphExecEventRecordNodeSetEvent Sets the event for an event record node in the given graphExec.
 //
-// Sets the event of an event record node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddEventRecordNode], [GraphNode.EventRecordNodeGetEvent], [GraphNode.EventWaitNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Sets the event of an event record node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddEventRecordNode], [EventRecordNode.Event], [EventWaitNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: event record node from the graph from which graphExec was instantiated
@@ -3525,7 +3525,7 @@ func graphExecEventRecordNodeSetEvent(hGraphExec GraphExec, hNode GraphNode, eve
 
 // graphExecEventWaitNodeSetEvent Sets the event for an event wait node in the given graphExec.
 //
-// Sets the event of an event wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddEventWaitNode], [GraphNode.EventWaitNodeGetEvent], [GraphNode.EventRecordNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Sets the event of an event wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddEventWaitNode], [EventWaitNode.Event], [EventRecordNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: event wait node from the graph from which graphExec was instantiated
@@ -3613,7 +3613,7 @@ func graphExecGetId(hGraphExec GraphExec) (uint32, error) {
 
 // graphExecHostNodeSetParams Sets the parameters for a host node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though hNode had contained nodeParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddHostNode], [GraphNode.HostNodeSetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though hNode had contained nodeParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddHostNode], [HostNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: Host node from the graph which was used to instantiate graphExec
@@ -3629,7 +3629,7 @@ func graphExecHostNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodeParam
 
 // graphExecKernelNodeSetParams Sets the parameters for a kernel node in the given graphExec.
 //
-// Sets the parameters of a kernel node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. All nodeParams fields may change, but the following restrictions apply to func updates: The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. See also: [GraphExec.NodeSetParams], [Graph.AddKernelNode], [GraphNode.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Sets the parameters of a kernel node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. All nodeParams fields may change, but the following restrictions apply to func updates: The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. See also: [GraphExec.NodeSetParams], [Graph.AddKernelNode], [KernelNode.SetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: kernel node from the graph from which graphExec was instantiated
@@ -3645,7 +3645,7 @@ func graphExecKernelNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodePar
 
 // graphExecMemcpyNodeSetParams Sets the parameters for a memcpy node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though hNode had contained copyParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The source and destination memory in copyParams must be allocated from the same contexts as the original source and destination memory. Both the instantiation-time memory operands and the memory operands in copyParams must be 1-dimensional. Zero-length operations are not supported. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. Returns [ErrInvalidValue] if the memory operands' mappings changed or either the original or new memory operands are multidimensional. See also: [GraphExec.NodeSetParams], [Graph.AddMemcpyNode], [GraphNode.MemcpyNodeSetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though hNode had contained copyParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The source and destination memory in copyParams must be allocated from the same contexts as the original source and destination memory. Both the instantiation-time memory operands and the memory operands in copyParams must be 1-dimensional. Zero-length operations are not supported. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. Returns [ErrInvalidValue] if the memory operands' mappings changed or either the original or new memory operands are multidimensional. See also: [GraphExec.NodeSetParams], [Graph.AddMemcpyNode], [MemcpyNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: Memcpy node from the graph which was used to instantiate graphExec
@@ -3662,7 +3662,7 @@ func graphExecMemcpyNodeSetParams(hGraphExec GraphExec, hNode GraphNode, copyPar
 
 // graphExecMemsetNodeSetParams Sets the parameters for a memset node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though hNode had contained memsetParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. Zero sized operations are not supported. The new destination pointer in memsetParams must be to the same kind of allocation as the original destination pointer and have the same context association and device mapping as the original destination pointer. Both the value and pointer address may be updated. Changing other aspects of the memset (width, height, element size or pitch) may cause the update to be rejected. Specifically, for 2d memsets, all dimension changes are rejected. For 1d memsets, changes in height are explicitly rejected and other changes are opportunistically allowed if the resulting work maps onto the work resources already allocated for the node. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddMemsetNode], [GraphNode.MemsetNodeSetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though hNode had contained memsetParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. Zero sized operations are not supported. The new destination pointer in memsetParams must be to the same kind of allocation as the original destination pointer and have the same context association and device mapping as the original destination pointer. Both the value and pointer address may be updated. Changing other aspects of the memset (width, height, element size or pitch) may cause the update to be rejected. Specifically, for 2d memsets, all dimension changes are rejected. For 1d memsets, changes in height are explicitly rejected and other changes are opportunistically allowed if the resulting work maps onto the work resources already allocated for the node. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddMemsetNode], [MemsetNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: Memset node from the graph which was used to instantiate graphExec
@@ -3711,7 +3711,7 @@ func graphExecUpdate(hGraphExec GraphExec, hGraph Graph, resultInfo *GraphExecUp
 
 // graphExternalSemaphoresSignalNodeGetParams Returns an external semaphore signal node's parameters.
 //
-// Returns the parameters of an external semaphore signal node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.ExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Returns the parameters of an external semaphore signal node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [ExternalSemaphoresSignalNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -3731,7 +3731,7 @@ func graphExternalSemaphoresSignalNodeGetParams(hNode GraphNode) (ExtSemSignalNo
 
 // graphExternalSemaphoresSignalNodeSetParams Sets an external semaphore signal node's parameters.
 //
-// Sets the parameters of an external semaphore signal node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Sets the parameters of an external semaphore signal node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresSignalNode], [ExternalSemaphoresSignalNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to set the parameters for
 //   - nodeParams: Parameters to copy
@@ -3746,7 +3746,7 @@ func graphExternalSemaphoresSignalNodeSetParams(hNode GraphNode, nodeParams *Ext
 
 // graphExternalSemaphoresWaitNodeGetParams Returns an external semaphore wait node's parameters.
 //
-// Returns the parameters of an external semaphore wait node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.ExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Returns the parameters of an external semaphore wait node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -3766,7 +3766,7 @@ func graphExternalSemaphoresWaitNodeGetParams(hNode GraphNode) (ExtSemWaitNodePa
 
 // graphExternalSemaphoresWaitNodeSetParams Sets an external semaphore wait node's parameters.
 //
-// Sets the parameters of an external semaphore wait node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Sets the parameters of an external semaphore wait node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to set the parameters for
 //   - nodeParams: Parameters to copy
@@ -3861,7 +3861,7 @@ func graphGetRootNodes(hGraph Graph, numRootNodes *uint) (GraphNode, error) {
 
 // graphHostNodeGetParams Returns a host node's parameters.
 //
-// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.HostNodeSetParams]
+// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.SetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -3881,7 +3881,7 @@ func graphHostNodeGetParams(hNode GraphNode) (HostNodeParams, error) {
 
 // graphHostNodeSetParams Sets a host node's parameters.
 //
-// Sets the parameters of host node hNode to nodeParams. See also: [GraphNode.SetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.HostNodeGetParams]
+// Sets the parameters of host node hNode to nodeParams. See also: [GraphNode.SetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.Params]
 //
 //   - hNode: Node to set the parameters for
 //   - nodeParams: Parameters to copy
@@ -3971,7 +3971,7 @@ func graphKernelNodeGetAttribute(hNode GraphNode, attr int32) ([8]uint64, error)
 
 // graphKernelNodeGetParams Returns a kernel node's parameters.
 //
-// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.KernelNodeSetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.KernelNodeSetParams]
+// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [KernelNode.SetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.SetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -4003,7 +4003,7 @@ func graphKernelNodeSetAttribute(hNode GraphNode, attr int32, value *[8]uint64) 
 
 // graphKernelNodeSetParams Sets a kernel node's parameters.
 //
-// Sets the parameters of kernel node hNode to nodeParams. See also: [GraphNode.SetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.KernelNodeGetParams]
+// Sets the parameters of kernel node hNode to nodeParams. See also: [GraphNode.SetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [KernelNode.Params]
 //
 //   - hNode: Node to set the parameters for
 //   - nodeParams: Parameters to copy
@@ -4033,7 +4033,7 @@ func graphLaunch(hGraphExec GraphExec, hStream Stream) error {
 
 // graphMemAllocNodeGetParams Returns a memory alloc node's parameters.
 //
-// Returns the parameters of a memory alloc node hNode in paramsOut. The poolProps and accessDescs returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.Params], [Graph.AddMemAllocNode], [GraphNode.MemFreeNodeGetParams]
+// Returns the parameters of a memory alloc node hNode in paramsOut. The poolProps and accessDescs returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.Params], [Graph.AddMemAllocNode], [MemFreeNode.Params]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -4053,7 +4053,7 @@ func graphMemAllocNodeGetParams(hNode GraphNode) (MemAllocNodeParams, error) {
 
 // graphMemFreeNodeGetParams Returns a memory free node's parameters.
 //
-// Returns the address of a memory free node hNode in dptrOut. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [GraphNode.MemAllocNodeGetParams]
+// Returns the address of a memory free node hNode in dptrOut. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [MemAllocNode.Params]
 //
 //   - hNode: Node to get the parameters for
 //   - dptrOut: Pointer to return the device address
@@ -4068,7 +4068,7 @@ func graphMemFreeNodeGetParams(hNode GraphNode, dptrOut *DevicePtr) error {
 
 // graphMemcpyNodeGetParams Returns a memcpy node's parameters.
 //
-// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.MemcpyNodeSetParams]
+// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.SetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -4088,7 +4088,7 @@ func graphMemcpyNodeGetParams(hNode GraphNode) (Memcpy3d, error) {
 
 // graphMemcpyNodeSetParams Sets a memcpy node's parameters.
 //
-// Sets the parameters of memcpy node hNode to nodeParams. See also: [GraphNode.SetParams], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.MemcpyNodeGetParams]
+// Sets the parameters of memcpy node hNode to nodeParams. See also: [GraphNode.SetParams], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.Params]
 //
 //   - hNode: Node to set the parameters for
 //   - nodeParams: Parameters to copy
@@ -4103,7 +4103,7 @@ func graphMemcpyNodeSetParams(hNode GraphNode, nodeParams *Memcpy3d) error {
 
 // graphMemsetNodeGetParams Returns a memset node's parameters.
 //
-// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.MemsetNodeSetParams]
+// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.SetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -4123,7 +4123,7 @@ func graphMemsetNodeGetParams(hNode GraphNode) (MemsetNodeParams, error) {
 
 // graphMemsetNodeSetParams Sets a memset node's parameters.
 //
-// Sets the parameters of memset node hNode to nodeParams. See also: [GraphNode.SetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.MemsetNodeGetParams]
+// Sets the parameters of memset node hNode to nodeParams. See also: [GraphNode.SetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.Params]
 //
 //   - hNode: Node to set the parameters for
 //   - nodeParams: Parameters to copy
@@ -4304,7 +4304,7 @@ func graphNodeGetToolsId(hNode GraphNode) (uint64, error) {
 
 // graphNodeGetType Returns a node's type.
 //
-// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.RootNodes], [GraphChildGraphNodeGetGraph], [GraphNode.KernelNodeGetParams], [GraphNode.KernelNodeSetParams], [GraphNode.HostNodeGetParams], [GraphNode.HostNodeSetParams], [GraphNode.MemcpyNodeGetParams], [GraphNode.MemcpyNodeSetParams], [GraphNode.MemsetNodeGetParams], [GraphNode.MemsetNodeSetParams]
+// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.RootNodes], [ChildGraphNode.Graph], [KernelNode.Params], [KernelNode.SetParams], [HostNode.Params], [HostNode.SetParams], [MemcpyNode.Params], [MemcpyNode.SetParams], [MemsetNode.Params], [MemsetNode.SetParams]
 //
 //   - hNode: Node to query type- Pointer to return the node type
 //

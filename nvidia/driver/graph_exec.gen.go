@@ -4,26 +4,26 @@ package driver
 
 // BatchMemOpNodeSetParams Sets the parameters for a batch mem op node in the given graphExec.
 //
-// Sets the parameters of a batch mem op node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The following fields on operations may be modified on an executable graph: op.waitValue.address op.waitValue.value [64] op.waitValue.flags bits corresponding to wait type (i.e. [StreamWaitValueFlush] bit cannot be modified) op.writeValue.address op.writeValue.value [64] Other fields, such as the context, count or type of operations, and other types of operations such as membars, may not be modified. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The paramArray inside nodeParams is copied and therefore it can be freed after the call returns. See also: [GraphExec.NodeSetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.BatchMemOpNodeGetParams], [GraphNode.BatchMemOpNodeSetParams], [Graph.Instantiate]
+// Sets the parameters of a batch mem op node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The following fields on operations may be modified on an executable graph: op.waitValue.address op.waitValue.value [64] op.waitValue.flags bits corresponding to wait type (i.e. [StreamWaitValueFlush] bit cannot be modified) op.writeValue.address op.writeValue.value [64] Other fields, such as the context, count or type of operations, and other types of operations such as membars, may not be modified. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The paramArray inside nodeParams is copied and therefore it can be freed after the call returns. See also: [GraphExec.NodeSetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [BatchMemOpNode.Params], [BatchMemOpNode.SetParams], [Graph.Instantiate]
 //
 //   - hNode: Batch mem op node from the graph from which graphExec was instantiated
 //   - nodeParams: Updated Parameters to set
 //
 // Wraps cuGraphExecBatchMemOpNodeSetParams.
-func (g GraphExec) BatchMemOpNodeSetParams(hNode GraphNode, nodeParams *BatchMemOpNodeParams) error {
-	return graphExecBatchMemOpNodeSetParams(g, hNode, nodeParams)
+func (g GraphExec) BatchMemOpNodeSetParams(hNode BatchMemOpNode, nodeParams *BatchMemOpNodeParams) error {
+	return graphExecBatchMemOpNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
 // ChildGraphNodeSetParams Updates node parameters in the child graph node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated. See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [GraphChildGraphNodeGetGraph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated. See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [ChildGraphNode.Graph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: Host node from the graph which was used to instantiate graphExec
 //   - childGraph: The graph supplying the updated parameters
 //
 // Wraps cuGraphExecChildGraphNodeSetParams.
-func (g GraphExec) ChildGraphNodeSetParams(hNode GraphNode, childGraph Graph) error {
-	return graphExecChildGraphNodeSetParams(g, hNode, childGraph)
+func (g GraphExec) ChildGraphNodeSetParams(hNode ChildGraphNode, childGraph Graph) error {
+	return graphExecChildGraphNodeSetParams(g, hNode.GraphNode, childGraph)
 }
 
 // Destroy Destroys an executable graph.
@@ -37,26 +37,26 @@ func (g GraphExec) Destroy() error {
 
 // EventRecordNodeSetEvent Sets the event for an event record node in the given graphExec.
 //
-// Sets the event of an event record node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddEventRecordNode], [GraphNode.EventRecordNodeGetEvent], [GraphNode.EventWaitNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Sets the event of an event record node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddEventRecordNode], [EventRecordNode.Event], [EventWaitNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: event record node from the graph from which graphExec was instantiated
 //   - event: Updated event to use
 //
 // Wraps cuGraphExecEventRecordNodeSetEvent.
-func (g GraphExec) EventRecordNodeSetEvent(hNode GraphNode, event Event) error {
-	return graphExecEventRecordNodeSetEvent(g, hNode, event)
+func (g GraphExec) EventRecordNodeSetEvent(hNode EventRecordNode, event Event) error {
+	return graphExecEventRecordNodeSetEvent(g, hNode.GraphNode, event)
 }
 
 // EventWaitNodeSetEvent Sets the event for an event wait node in the given graphExec.
 //
-// Sets the event of an event wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddEventWaitNode], [GraphNode.EventWaitNodeGetEvent], [GraphNode.EventRecordNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Sets the event of an event wait node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddEventWaitNode], [EventWaitNode.Event], [EventRecordNode.SetEvent], [Event.RecordWithFlags], [Stream.WaitEvent], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: event wait node from the graph from which graphExec was instantiated
 //   - event: Updated event to use
 //
 // Wraps cuGraphExecEventWaitNodeSetEvent.
-func (g GraphExec) EventWaitNodeSetEvent(hNode GraphNode, event Event) error {
-	return graphExecEventWaitNodeSetEvent(g, hNode, event)
+func (g GraphExec) EventWaitNodeSetEvent(hNode EventWaitNode, event Event) error {
+	return graphExecEventWaitNodeSetEvent(g, hNode.GraphNode, event)
 }
 
 // ExternalSemaphoresSignalNodeSetParams Sets the parameters for an external semaphore signal node in the given graphExec.
@@ -67,8 +67,8 @@ func (g GraphExec) EventWaitNodeSetEvent(hNode GraphNode, event Event) error {
 //   - nodeParams: Updated Parameters to set
 //
 // Wraps cuGraphExecExternalSemaphoresSignalNodeSetParams.
-func (g GraphExec) ExternalSemaphoresSignalNodeSetParams(hNode GraphNode, nodeParams *ExtSemSignalNodeParams) error {
-	return graphExecExternalSemaphoresSignalNodeSetParams(g, hNode, nodeParams)
+func (g GraphExec) ExternalSemaphoresSignalNodeSetParams(hNode ExternalSemaphoresSignalNode, nodeParams *ExtSemSignalNodeParams) error {
+	return graphExecExternalSemaphoresSignalNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
 // ExternalSemaphoresWaitNodeSetParams Sets the parameters for an external semaphore wait node in the given graphExec.
@@ -79,8 +79,8 @@ func (g GraphExec) ExternalSemaphoresSignalNodeSetParams(hNode GraphNode, nodePa
 //   - nodeParams: Updated Parameters to set
 //
 // Wraps cuGraphExecExternalSemaphoresWaitNodeSetParams.
-func (g GraphExec) ExternalSemaphoresWaitNodeSetParams(hNode GraphNode, nodeParams *ExtSemWaitNodeParams) error {
-	return graphExecExternalSemaphoresWaitNodeSetParams(g, hNode, nodeParams)
+func (g GraphExec) ExternalSemaphoresWaitNodeSetParams(hNode ExternalSemaphoresWaitNode, nodeParams *ExtSemWaitNodeParams) error {
+	return graphExecExternalSemaphoresWaitNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
 // Flags Query the instantiation flags of an executable graph.
@@ -103,52 +103,52 @@ func (g GraphExec) Id() (uint32, error) {
 
 // HostNodeSetParams Sets the parameters for a host node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though hNode had contained nodeParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddHostNode], [GraphNode.HostNodeSetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though hNode had contained nodeParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddHostNode], [HostNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: Host node from the graph which was used to instantiate graphExec
 //   - nodeParams: The updated parameters to set
 //
 // Wraps cuGraphExecHostNodeSetParams.
-func (g GraphExec) HostNodeSetParams(hNode GraphNode, nodeParams *HostNodeParams) error {
-	return graphExecHostNodeSetParams(g, hNode, nodeParams)
+func (g GraphExec) HostNodeSetParams(hNode HostNode, nodeParams *HostNodeParams) error {
+	return graphExecHostNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
 // KernelNodeSetParams Sets the parameters for a kernel node in the given graphExec.
 //
-// Sets the parameters of a kernel node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. All nodeParams fields may change, but the following restrictions apply to func updates: The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. See also: [GraphExec.NodeSetParams], [Graph.AddKernelNode], [GraphNode.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Sets the parameters of a kernel node in an executable graph hGraphExec. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. All nodeParams fields may change, but the following restrictions apply to func updates: The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. See also: [GraphExec.NodeSetParams], [Graph.AddKernelNode], [KernelNode.SetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: kernel node from the graph from which graphExec was instantiated
 //   - nodeParams: Updated Parameters to set
 //
 // Wraps cuGraphExecKernelNodeSetParams, bound as cuGraphExecKernelNodeSetParams_v2.
-func (g GraphExec) KernelNodeSetParams(hNode GraphNode, nodeParams *KernelNodeParams) error {
-	return graphExecKernelNodeSetParams(g, hNode, nodeParams)
+func (g GraphExec) KernelNodeSetParams(hNode KernelNode, nodeParams *KernelNodeParams) error {
+	return graphExecKernelNodeSetParams(g, hNode.GraphNode, nodeParams)
 }
 
 // MemcpyNodeSetParams Sets the parameters for a memcpy node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though hNode had contained copyParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The source and destination memory in copyParams must be allocated from the same contexts as the original source and destination memory. Both the instantiation-time memory operands and the memory operands in copyParams must be 1-dimensional. Zero-length operations are not supported. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. Returns [ErrInvalidValue] if the memory operands' mappings changed or either the original or new memory operands are multidimensional. See also: [GraphExec.NodeSetParams], [Graph.AddMemcpyNode], [GraphNode.MemcpyNodeSetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though hNode had contained copyParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The source and destination memory in copyParams must be allocated from the same contexts as the original source and destination memory. Both the instantiation-time memory operands and the memory operands in copyParams must be 1-dimensional. Zero-length operations are not supported. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. Returns [ErrInvalidValue] if the memory operands' mappings changed or either the original or new memory operands are multidimensional. See also: [GraphExec.NodeSetParams], [Graph.AddMemcpyNode], [MemcpyNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: Memcpy node from the graph which was used to instantiate graphExec
 //   - copyParams: The updated parameters to set
 //   - ctx: Context on which to run the node
 //
 // Wraps cuGraphExecMemcpyNodeSetParams.
-func (g GraphExec) MemcpyNodeSetParams(hNode GraphNode, copyParams *Memcpy3d, ctx Context) error {
-	return graphExecMemcpyNodeSetParams(g, hNode, copyParams, ctx)
+func (g GraphExec) MemcpyNodeSetParams(hNode MemcpyNode, copyParams *Memcpy3d, ctx Context) error {
+	return graphExecMemcpyNodeSetParams(g, hNode.GraphNode, copyParams, ctx)
 }
 
 // MemsetNodeSetParams Sets the parameters for a memset node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though hNode had contained memsetParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. Zero sized operations are not supported. The new destination pointer in memsetParams must be to the same kind of allocation as the original destination pointer and have the same context association and device mapping as the original destination pointer. Both the value and pointer address may be updated. Changing other aspects of the memset (width, height, element size or pitch) may cause the update to be rejected. Specifically, for 2d memsets, all dimension changes are rejected. For 1d memsets, changes in height are explicitly rejected and other changes are opportunistically allowed if the resulting work maps onto the work resources already allocated for the node. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddMemsetNode], [GraphNode.MemsetNodeSetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though hNode had contained memsetParams at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. Zero sized operations are not supported. The new destination pointer in memsetParams must be to the same kind of allocation as the original destination pointer and have the same context association and device mapping as the original destination pointer. Both the value and pointer address may be updated. Changing other aspects of the memset (width, height, element size or pitch) may cause the update to be rejected. Specifically, for 2d memsets, all dimension changes are rejected. For 1d memsets, changes in height are explicitly rejected and other changes are opportunistically allowed if the resulting work maps onto the work resources already allocated for the node. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. See also: [GraphExec.NodeSetParams], [Graph.AddMemsetNode], [MemsetNode.SetParams], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.ChildGraphNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: Memset node from the graph which was used to instantiate graphExec
 //   - memsetParams: The updated parameters to set
 //   - ctx: Context on which to run the node
 //
 // Wraps cuGraphExecMemsetNodeSetParams.
-func (g GraphExec) MemsetNodeSetParams(hNode GraphNode, memsetParams *MemsetNodeParams, ctx Context) error {
-	return graphExecMemsetNodeSetParams(g, hNode, memsetParams, ctx)
+func (g GraphExec) MemsetNodeSetParams(hNode MemsetNode, memsetParams *MemsetNodeParams, ctx Context) error {
+	return graphExecMemsetNodeSetParams(g, hNode.GraphNode, memsetParams, ctx)
 }
 
 // NodeSetParams Update a graph node's parameters in an instantiated graph.

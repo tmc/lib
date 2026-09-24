@@ -160,6 +160,12 @@ func EncodeDeviceUpdates(updates []KernelNodeUpdate) []DeviceKernelNodeUpdate {
 	return res
 }
 
+// kernel returns the node as a kernel node. The driver rejects the kernel
+// node calls on a node of another kind.
+func (n *Node) kernel() driver.KernelNode {
+	return driver.KernelNode{GraphNode: n.raw}
+}
+
 // Params returns a copy of the kernel node's parameters.
 func (n *Node) Params() (driver.KernelNodeParams, error) {
 	if n == nil || n.raw == 0 {
@@ -171,7 +177,7 @@ func (n *Node) Params() (driver.KernelNodeParams, error) {
 	var params driver.KernelNodeParams
 	err := n.graph.withContext(func() error {
 		var err error
-		params, err = n.raw.KernelNodeGetParams()
+		params, err = n.kernel().Params()
 		return err
 	})
 	if err != nil {
@@ -192,7 +198,7 @@ func (n *Node) SetParams(params *driver.KernelNodeParams) error {
 		return errors.New("cudagraph: nil kernel node params")
 	}
 	err := n.graph.withContext(func() error {
-		return n.raw.KernelNodeSetParams(params)
+		return n.kernel().SetParams(params)
 	})
 	if err != nil {
 		return fmt.Errorf("cudagraph: set kernel node params: %w", err)
@@ -228,7 +234,7 @@ func (n *Node) SetDeviceUpdatable(enable bool) error {
 		val[0] = 1
 	}
 	err := n.graph.withContext(func() error {
-		return n.raw.KernelNodeSetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode), &val)
+		return n.kernel().SetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode), &val)
 	})
 	if err != nil {
 		return fmt.Errorf("cudagraph: set device updatable: %w", err)
@@ -247,7 +253,7 @@ func (n *Node) IsDeviceUpdatable() (bool, error) {
 	var val [8]uint64
 	err := n.graph.withContext(func() error {
 		var err error
-		val, err = n.raw.KernelNodeGetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
+		val, err = n.kernel().Attribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
 		return err
 	})
 	if err != nil {
@@ -268,7 +274,7 @@ func (n *Node) DeviceNode() (DeviceNode, error) {
 	var val [8]uint64
 	err := n.graph.withContext(func() error {
 		var err error
-		val, err = n.raw.KernelNodeGetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
+		val, err = n.kernel().Attribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
 		return err
 	})
 	if err != nil {
@@ -294,7 +300,7 @@ func (e *Exec) SetKernelNodeParams(node *Node, params *driver.KernelNodeParams) 
 	}
 	e.kernelOrder = nil
 	err := e.withContext(func() error {
-		return e.raw.KernelNodeSetParams(node.raw, params)
+		return e.raw.KernelNodeSetParams(node.kernel(), params)
 	})
 	if err != nil {
 		return fmt.Errorf("cudagraph: set exec kernel node params: %w", err)

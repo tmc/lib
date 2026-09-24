@@ -69,14 +69,14 @@ func snapshotKernelOrder(g driver.Graph) ([]string, error) {
 			// A profiler must still reconcile its native range count; this topology
 			// does not prove how the driver implements allocation or other actions.
 		case driver.GraphNodeTypeKernel:
-			attr, err := node.KernelNodeGetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
+			attr, err := driver.KernelNode{GraphNode: node}.Attribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
 			if err != nil {
 				return nil, err
 			}
 			if attr[0]&0xffffffff != 0 {
 				return nil, errors.New("cudagraph: kernel order does not support device-updatable nodes")
 			}
-			params, err := node.KernelNodeGetParams()
+			params, err := driver.KernelNode{GraphNode: node}.Params()
 			if err != nil {
 				return nil, err
 			}
