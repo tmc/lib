@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
@@ -56,22 +57,43 @@ import (
 // (G - C) exclusive time and the range of the delta. Each median is taken
 // over its own column, so a row's delta median is not its target median
 // minus its base median, and the rows' medians do not sum to the median of
-// the total. The breakdown is description only; it is not gated.
+// the total. The breakdown is description only; it is not gated, and it is
+// taken over the blocks the verdict scores.
+//
+// An arm that ran while some other process loaded the host measures that
+// process as much as its own code; on a GB10 the CPU and GPU share memory,
+// so CPU load alone slows kernels. Given a violations log, an arm with a
+// violation in its wall-clock window, or whose window the capture cannot
+// place, is excluded, and so is every block it belongs to: a block without
+// all four arms has neither the ABBA order that cancels drift nor both
+// within-arm differences. The verdict is REFUSED, not scored, when fewer
+// blocks remain than -min-blocks. Identity and order are still checked over
+// every capture: a wrong executable is a manifest error either way.
 
 // qualifyArms is the run order within a block.
 var qualifyArms = []string{"C1", "G1", "G2", "C2"}
+
+// The verdicts. REFUSED means there was not enough clean evidence to score.
+const (
+	verdictPass    = "PASS"
+	verdictFail    = "FAIL"
+	verdictRefused = "REFUSED"
+)
 
 type qualifyOptions struct {
 	manifest        string
 	gaps            gapOptions
 	noiseMultiplier float64
 	noiseFloorMS    float64
+	violations      string
+	violationMargin time.Duration
+	minBlocks       int
 	json            bool
 	opsPath         string
 	stagesPath      string
 }
 
-const qualifyUsage = "usage: cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-ops ops.txt] [-stages stages.txt] [-json] manifest.txt"
+const qualifyUsage = "usage: cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-violations=FILE [-violation-margin=2s] [-min-blocks=N]] [-ops ops.txt] [-stages stages.txt] [-max-records=N] [-json] manifest.txt"
 
 // runQualifyCommand implements "cudaprof qualify".
 func runQualifyCommand(args []string, stdout io.Writer) error {
@@ -88,6 +110,21 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("qualify: %s: %w", opts.manifest, err)
 	}
+	if blocks := len(entries) / len(qualifyArms); opts.minBlocks > blocks {
+		return fmt.Errorf("qualify: -min-blocks %d exceeds the manifest's %d blocks", opts.minBlocks, blocks)
+	}
+	var violations []hostViolation
+	if opts.violations != "" {
+		f, err := os.Open(opts.violations)
+		if err != nil {
+			return fmt.Errorf("qualify: %w", err)
+		}
+		violations, err = parseViolations(f)
+		f.Close()
+		if err != nil {
+			return fmt.Errorf("qualify: %s: %w", opts.violations, err)
+		}
+	}
 	rules, err := readOpRules(opts.opsPath)
 	if err != nil {
 		return fmt.Errorf("qualify: %w", err)
@@ -102,16 +139,24 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 			return fmt.Errorf("qualify: block %s arm %s: %w", e.Block, e.Arm, err)
 		}
 	}
+	// Identity and order are checked over every capture, dropped or not: a
+	// capture that ran the wrong executable is a manifest error either way.
 	identity, order, err := checkQualifyRuns(entries)
 	if err != nil {
 		return fmt.Errorf("qualify: %s: %w", opts.manifest, err)
 	}
-	q := qualify(entries, opts.noiseMultiplier, opts.noiseFloorMS)
+	host := qualifyHostLoad{}
+	if opts.violations != "" {
+		host = markHostLoad(entries, violations, opts.violationMargin)
+		host.Log = opts.violations
+	}
+	q := qualify(entries, opts.noiseMultiplier, opts.noiseFloorMS, opts.minBlocks)
 	q.Identity, q.Order = identity, order
 	q.Window = describeWarmup(opts.gaps) + " excluded"
+	q.HostLoad = host
 	q.Cudaprof = currentBuild()
-	if rules != nil || stages != nil {
-		q.Breakdown, err = breakDownPairs(entries, rules, stages)
+	if (rules != nil || stages != nil) && q.Verdict != verdictRefused {
+		q.Breakdown, err = breakDownPairs(q.scored(), rules, stages)
 		if err != nil {
 			return fmt.Errorf("qualify: %w", err)
 		}
@@ -125,10 +170,13 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 	} else {
 		q.write(stdout)
 	}
-	if q.Verdict != "PASS" {
-		return &exitCodeError{Code: 2, Err: fmt.Errorf("qualify: verdict %s: noise gate %s, sign gate %s", q.Verdict, q.NoiseGate, q.SignGate)}
+	switch q.Verdict {
+	case verdictPass:
+		return nil
+	case verdictRefused:
+		return fmt.Errorf("qualify: verdict %s: %s", q.Verdict, q.Reason)
 	}
-	return nil
+	return &exitCodeError{Code: 2, Err: fmt.Errorf("qualify: verdict %s: noise gate %s, sign gate %s", q.Verdict, q.NoiseGate, q.SignGate)}
 }
 
 // parseQualifyArgs returns options with an empty manifest and a nil error
@@ -141,6 +189,9 @@ func parseQualifyArgs(args []string, stdout io.Writer) (qualifyOptions, error) {
 	fs.StringVar(&opts.gaps.warmupUntil, "warmup-until", "", "exclude everything before the first kernel matching `RE`")
 	fs.Float64Var(&opts.noiseMultiplier, "noise-multiplier", 3, "the noise gate passes when |effect| exceeds this many noise floors")
 	fs.Float64Var(&opts.noiseFloorMS, "noise-floor-ms", 1, "the least noise floor, in `ms`")
+	fs.StringVar(&opts.violations, "violations", "", "exclude arms that ran while a process in this violations `file` loaded the host")
+	fs.DurationVar(&opts.violationMargin, "violation-margin", 2*time.Second, "widen each arm's window by this much on each side; at least the watcher's sampling interval")
+	fs.IntVar(&opts.minBlocks, "min-blocks", 0, "the fewest blocks the verdict may be scored from after exclusions; 0 means every block")
 	fs.Int64Var(&opts.gaps.maxRecords, "max-records", opts.gaps.maxRecords, "maximum journal records to decode per capture")
 	fs.BoolVar(&opts.json, "json", false, "write the verdict as JSON")
 	fs.StringVar(&opts.opsPath, "ops", "", "break the pairs down by op, from a file of `regex op` lines as compare reads")
@@ -169,6 +220,12 @@ func parseQualifyArgs(args []string, stdout io.Writer) (qualifyOptions, error) {
 		return qualifyOptions{}, errors.New("qualify: -noise-multiplier must be positive and -noise-floor-ms nonnegative")
 	case opts.gaps.maxRecords <= 0:
 		return qualifyOptions{}, fmt.Errorf("qualify: invalid -max-records %d", opts.gaps.maxRecords)
+	case opts.violationMargin < 0:
+		return qualifyOptions{}, fmt.Errorf("qualify: invalid -violation-margin %s", opts.violationMargin)
+	case opts.minBlocks < 0:
+		return qualifyOptions{}, fmt.Errorf("qualify: invalid -min-blocks %d", opts.minBlocks)
+	case (set["violation-margin"] || set["min-blocks"]) && opts.violations == "":
+		return qualifyOptions{}, errors.New("qualify: -violation-margin and -min-blocks need -violations")
 	}
 	if opts.gaps.warmupUntil != "" {
 		if _, err := regexp.Compile(opts.gaps.warmupUntil); err != nil {
@@ -217,9 +274,27 @@ the median of C, of G and of G - C exclusive time, the least and greatest
 G - C, and the range of launch counts. Each median is of its own column, so
 the rows' medians do not sum to the total's. The breakdown is not gated.
 
-The exit status is 0
-when both gates pass, 2 when either fails, and 1 when the verdict could not be
-computed.
+With -violations, each arm's wall-clock window -- its first capture-range edge
+to its last, widened by -violation-margin on each side -- is checked against
+a log of processes that loaded the host outside the campaign. An arm with a
+violation in its window is excluded and named with the offending processes;
+an arm whose capture records no wall clock or no closed capture range cannot
+be checked and is excluded too, never passed. A block with an excluded arm is
+dropped whole, from the verdict and the breakdown alike, though its captures
+are still checked for identity and order; when fewer than -min-blocks blocks
+remain the verdict is REFUSED. Without -violations the report says that host load was not checked.
+The log format is one violation per line:
+
+  time pid comm cpu gpu holder
+
+time RFC 3339, pid a positive integer, comm the process name without
+whitespace, cpu percent of one core, gpu device memory in MiB, holder the
+label of the lock holder or "-". Fields are separated by spaces or tabs;
+blank lines and lines starting with # are ignored, and any other line that
+does not parse is an error.
+
+The exit status is 0 when both gates pass, 2 when either fails, and 1 when
+the verdict could not be computed or was REFUSED.
 
 Options:
 `, qualifyUsage)
@@ -244,6 +319,20 @@ type qualifyEntry struct {
 	// Each is empty or zero when the capture does not record it.
 	Executable string `json:"executable_sha256,omitempty"`
 	Start      uint64 `json:"range_start_timestamp,omitempty"`
+
+	// Window is the arm's wall-clock window, or nil and Unchecked says why
+	// the capture cannot place it. The fields after it are set only when a
+	// violations log was given: HostLoad is hostClean, hostLoaded or
+	// hostUnchecked, and Violations lists the log lines inside the window.
+	Window     *qualifyWindow  `json:"wall_window,omitempty"`
+	Unchecked  string          `json:"unchecked,omitempty"`
+	HostLoad   string          `json:"host_load,omitempty"`
+	Violations []hostViolation `json:"violations,omitempty"`
+}
+
+// excluded reports whether the entry must be left out of the verdict.
+func (e *qualifyEntry) excluded() bool {
+	return e.HostLoad == hostLoaded || e.HostLoad == hostUnchecked
 }
 
 // parseQualifyManifest reads "block arm path" lines. The result is in
@@ -296,10 +385,10 @@ func parseQualifyManifest(r io.Reader, dir string) ([]qualifyEntry, error) {
 	return entries, nil
 }
 
-// measureQualifyEntry reads the capture e names and fills in its spans, the
-// executable it ran and the start of its measured range. With rules or
-// stages it also partitions the capture as compare does, after the same
-// warmup cut.
+// measureQualifyEntry reads the capture e names, once, and fills in its
+// spans, the executable it ran, the start of its measured range and its
+// wall-clock window. With rules or stages it also partitions the capture as
+// compare does, after the same warmup cut.
 func measureQualifyEntry(e *qualifyEntry, opts gapOptions, rules opRules, stages stageBoundaries) error {
 	path, err := filepath.Abs(e.Path)
 	if err != nil {
@@ -324,21 +413,26 @@ func measureQualifyEntry(e *qualifyEntry, opts gapOptions, rules opRules, stages
 			return fmt.Errorf("partition %s: %w", e.Path, err)
 		}
 	}
+	data, ok := cap.Files["capture-status.json"]
+	if !ok {
+		e.Unchecked = "capture has no capture-status.json"
+		return nil
+	}
 	var envelope struct {
-		Status struct {
-			PhaseReceipt *capturePhaseReceipt `json:"phase_receipt"`
-			Target       *targetEnvironment   `json:"target_environment"`
-		} `json:"status"`
+		Status captureResult `json:"status"`
 	}
-	if data, ok := cap.Files["capture-status.json"]; ok && json.Unmarshal(data, &envelope) == nil {
-		st := envelope.Status
-		if st.Target != nil && st.Target.Executable != nil {
-			e.Executable = st.Target.Executable.SHA256
-		}
-		if st.PhaseReceipt != nil {
-			e.Start = st.PhaseReceipt.StartTimestamp
-		}
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		e.Unchecked = fmt.Sprintf("read capture-status.json: %v", err)
+		return nil
 	}
+	st := &envelope.Status
+	if st.Target != nil && st.Target.Executable != nil {
+		e.Executable = st.Target.Executable.SHA256
+	}
+	if st.PhaseReceipt != nil {
+		e.Start = st.PhaseReceipt.StartTimestamp
+	}
+	e.Window, e.Unchecked = armWindow(st)
 	return nil
 }
 
@@ -383,12 +477,12 @@ func checkQualifyRuns(entries []qualifyEntry) (identity, order string, err error
 // report, the gap report of the capture at path.
 func qualifySpan(path string, report *GapReport) (steady, whole int64, err error) {
 	if len(report.Devices) != 1 {
-		return 0, 0, fmt.Errorf("%s: capture ran on %d devices, want 1", path, len(report.Devices))
+		return 0, 0, fmt.Errorf("capture ran on %d devices, want 1", len(report.Devices))
 	}
 	d := report.Devices[0]
 	switch {
 	case d.SteadyActivities == 0:
-		return 0, 0, fmt.Errorf("%s: no steady-state window: the warmup (%s) never ended", path, report.warmup())
+		return 0, 0, fmt.Errorf("no steady-state window: the warmup (%s) never ended", report.warmup())
 	case d.SteadyState == nil:
 		// The warmup excluded nothing: the window is the whole timeline.
 		return d.Overall.SpanNanos, d.Overall.SpanNanos, nil
@@ -403,13 +497,20 @@ type Qualification struct {
 	// Identity and Order say whether each arm was seen to run one executable
 	// and each block to run in manifest order: "verified", or "unverified"
 	// and why. A campaign that contradicts either is refused, not scored.
-	Identity string         `json:"identity"`
-	Order    string         `json:"order"`
-	Captures []qualifyEntry `json:"captures"`
-	Blocks   []qualifyBlock `json:"blocks"`
+	// Both cover every capture, including those of dropped blocks.
+	Identity string          `json:"identity"`
+	Order    string          `json:"order"`
+	HostLoad qualifyHostLoad `json:"host_load"`
+	Captures []qualifyEntry  `json:"captures"`
 
-	// Breakdown is the pairs by op and stage, when -ops or -stages was
-	// given. It is description only.
+	// Blocks are the blocks scored. DroppedBlocks had an excluded arm, and
+	// MinBlocks is the fewest Blocks the verdict may be scored from.
+	Blocks        []qualifyBlock `json:"blocks"`
+	DroppedBlocks []string       `json:"dropped_blocks,omitempty"`
+	MinBlocks     int            `json:"min_blocks"`
+
+	// Breakdown is the pairs of Blocks by op and stage, when -ops or -stages
+	// was given and the verdict was scored. It is description only.
 	Breakdown *qualifyBreakdown `json:"breakdown,omitempty"`
 
 	// Steady is gated; Whole, over the whole device timeline of each
@@ -422,10 +523,26 @@ type Qualification struct {
 	NoiseThresholdMS float64 `json:"noise_threshold_ms"`
 	NoiseGate        string  `json:"noise_gate"`
 	SignGate         string  `json:"sign_gate"`
-	Verdict          string  `json:"verdict"`
+
+	// Verdict is PASS, FAIL or REFUSED. A REFUSED verdict computes no
+	// statistics or gates, and Reason says why.
+	Verdict string `json:"verdict"`
+	Reason  string `json:"reason,omitempty"`
 
 	// Cudaprof is the build that computed the verdict.
 	Cudaprof buildStamp `json:"cudaprof"`
+}
+
+// scored returns the captures of the blocks the verdict scores, in run
+// order: every block but those dropped for host load.
+func (q *Qualification) scored() []qualifyEntry {
+	var entries []qualifyEntry
+	for _, e := range q.Captures {
+		if !slices.Contains(q.DroppedBlocks, e.Block) {
+			entries = append(entries, e)
+		}
+	}
+	return entries
 }
 
 type qualifyBlock struct {
@@ -453,12 +570,22 @@ type qualifyStats struct {
 }
 
 // qualify computes the verdict. entries holds whole blocks of four in run
-// order, as parseQualifyManifest returns them.
-func qualify(entries []qualifyEntry, multiplier, floorMS float64) *Qualification {
-	q := &Qualification{Captures: entries, NoiseMultiplier: multiplier}
+// order, as parseQualifyManifest returns them. A block with an excluded
+// entry is dropped, and the verdict is REFUSED when fewer than minBlocks
+// blocks remain; minBlocks 0 means every block.
+func qualify(entries []qualifyEntry, multiplier, floorMS float64, minBlocks int) *Qualification {
+	n := len(entries) / len(qualifyArms)
+	if minBlocks == 0 {
+		minBlocks = n
+	}
+	q := &Qualification{Captures: entries, NoiseMultiplier: multiplier, MinBlocks: minBlocks}
 	var steady, whole []qualifyDiffs
 	for i := 0; i+len(qualifyArms) <= len(entries); i += len(qualifyArms) {
 		c1, g1, g2, c2 := entries[i], entries[i+1], entries[i+2], entries[i+3]
+		if slices.ContainsFunc(entries[i:i+len(qualifyArms)], func(e qualifyEntry) bool { return e.excluded() }) {
+			q.DroppedBlocks = append(q.DroppedBlocks, c1.Block)
+			continue
+		}
 		b := qualifyBlock{
 			Block:  c1.Block,
 			Steady: blockDiffs(c1.SteadyNanos, g1.SteadyNanos, g2.SteadyNanos, c2.SteadyNanos),
@@ -467,6 +594,11 @@ func qualify(entries []qualifyEntry, multiplier, floorMS float64) *Qualification
 		q.Blocks = append(q.Blocks, b)
 		steady = append(steady, b.Steady)
 		whole = append(whole, b.Whole)
+	}
+	if len(q.Blocks) == 0 || len(q.Blocks) < minBlocks {
+		q.Verdict = verdictRefused
+		q.Reason = fmt.Sprintf("%d of %d blocks remain after excluding arms that ran under host load or could not be checked, and the verdict needs %d", len(q.Blocks), n, max(minBlocks, 1))
+		return q
 	}
 	q.Steady, q.Whole = campaignStats(steady), campaignStats(whole)
 	q.NoiseFloorMS = max(floorMS, q.Steady.MADCMS, q.Steady.MADGMS)
@@ -508,9 +640,9 @@ func campaignStats(blocks []qualifyDiffs) qualifyStats {
 
 func gate(pass bool) string {
 	if pass {
-		return "PASS"
+		return verdictPass
 	}
-	return "FAIL"
+	return verdictFail
 }
 
 // median returns the median of xs, the mean of the middle two when len(xs)
@@ -541,6 +673,15 @@ func (q *Qualification) write(w io.Writer) {
 	fmt.Fprintf(w, "%-6s %-4s %12s %12s  %s\n", "block", "arm", "steady ms", "whole ms", "capture")
 	for _, e := range q.Captures {
 		fmt.Fprintf(w, "%-6s %-4s %12.3f %12.3f  %s\n", e.Block, e.Arm, float64(e.SteadyNanos)/1e6, float64(e.WholeNanos)/1e6, e.Path)
+	}
+	fmt.Fprintln(w)
+	q.writeHostLoad(w)
+	if len(q.DroppedBlocks) > 0 {
+		fmt.Fprintf(w, "dropped blocks: %s\n", strings.Join(q.DroppedBlocks, ", "))
+	}
+	if q.Verdict == verdictRefused {
+		fmt.Fprintf(w, "\nverdict                %s: %s\n", q.Verdict, q.Reason)
+		return
 	}
 	fmt.Fprintf(w, "\nsteady-state span, ms (pairs are G - C)\n")
 	fmt.Fprintf(w, "%-6s %10s %10s %10s %10s %10s\n", "block", "G1-C1", "G2-C2", "mean", "C2-C1", "G2-G1")

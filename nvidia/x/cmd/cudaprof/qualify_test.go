@@ -147,7 +147,7 @@ func TestQualifyVerdict(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			q := qualify(tt.entries, tt.multiplier, tt.floor)
+			q := qualify(tt.entries, tt.multiplier, tt.floor, 0)
 			if len(q.Blocks) != len(tt.means) {
 				t.Fatalf("got %d blocks, want %d", len(q.Blocks), len(tt.means))
 			}
@@ -186,7 +186,7 @@ func TestQualifyDS4MinSummary(t *testing.T) {
 		[4]float64{2188.634, 2290.717, 2251.514, 2173.358},
 		[4]float64{2154.571, 2259.494, 2267.928, 2157.263},
 		[4]float64{2160.343, 2264.582, 2261.837, 2156.793},
-	), 3, 1)
+	), 3, 1, 0)
 	for _, c := range []struct {
 		name      string
 		got, want float64
