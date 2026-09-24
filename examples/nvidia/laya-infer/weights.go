@@ -254,7 +254,7 @@ func float16to32(h uint16) float32 {
 			e++
 		}
 		man &= 0x3ff
-		return math.Float32frombits(sign | (127-15-e)<<23 | man<<13)
+		return math.Float32frombits(sign | (127-14-e)<<23 | man<<13)
 	case 0x1f:
 		return math.Float32frombits(sign | 0xff<<23 | man<<13)
 	}
