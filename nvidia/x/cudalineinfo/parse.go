@@ -45,21 +45,28 @@ func ParseUnit(name, annotated string) Unit {
 	return u
 }
 
-// parseLineDirective parses `#line N "file"`.
+// parseLineDirective parses `#line N "file"`. The file is a quoted string as
+// [Unit.SourceWithLineDirectives] writes it, and may hold spaces.
 func parseLineDirective(text string) (file string, line int, ok bool) {
 	rest, ok := strings.CutPrefix(strings.TrimSpace(text), "#line")
 	if !ok {
 		return "", 0, false
 	}
-	f := strings.Fields(rest)
-	if len(f) != 2 {
+	rest = strings.TrimLeft(rest, " \t")
+	i := strings.IndexAny(rest, " \t")
+	if i < 0 {
 		return "", 0, false
 	}
-	line, err := strconv.Atoi(f[0])
+	num, name := rest[:i], strings.TrimLeft(rest[i:], " \t")
+	line, err := strconv.Atoi(num)
 	if err != nil || line <= 0 {
 		return "", 0, false
 	}
-	file, err = strconv.Unquote(f[1])
+	q, err := strconv.QuotedPrefix(name)
+	if err != nil || strings.TrimSpace(name[len(q):]) != "" {
+		return "", 0, false
+	}
+	file, err = strconv.Unquote(q)
 	if err != nil {
 		return "", 0, false
 	}

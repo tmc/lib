@@ -198,30 +198,62 @@ func (a *Attribution) SiteAt(function string, offset uint64) (Site, bool) {
 // ptxSites lists, by the site they name, the one-based lines of ptx holding
 // a .loc directive. PTX refers to files by index and emits the .file table
 // after the directives that use it, so the names are collected in a pass of
-// their own. A .loc with line 0 names no line and is skipped.
+// their own. A .loc with line 0 names no line and is skipped, and a directive
+// inside a comment is not a directive.
 func ptxSites(ptx string) map[Site][]int {
 	if ptx == "" {
 		return nil
 	}
 	lines := strings.Split(ptx, "\n")
-	files := map[string]string{}
+	inComment := false
+	for i, text := range lines {
+		lines[i], inComment = stripPTXComments(text, inComment)
+	}
+	files := map[int]string{}
 	for _, text := range lines {
-		f := strings.Fields(text)
-		if len(f) >= 3 && f[0] == ".file" {
-			files[f[1]] = strings.Trim(f[2], `"`)
+		rest, ok := directive(text, ".file")
+		if !ok {
+			continue
+		}
+		f := strings.Fields(rest)
+		if len(f) < 2 {
+			continue
+		}
+		idx, err := strconv.Atoi(f[0])
+		if err != nil {
+			continue
+		}
+		// The name is quoted and may hold spaces: take it from the text,
+		// not from the fields.
+		_, name, ok := strings.Cut(rest, `"`)
+		if !ok {
+			continue
+		}
+		if name, _, ok = strings.Cut(name, `"`); ok {
+			files[idx] = name
 		}
 	}
 	sites := map[Site][]int{}
 	for i, text := range lines {
-		f := strings.Fields(text)
-		if len(f) < 3 || f[0] != ".loc" {
-			continue
-		}
-		name, ok := files[f[1]]
+		rest, ok := directive(text, ".loc")
 		if !ok {
 			continue
 		}
-		line, err := strconv.Atoi(f[2])
+		// ".loc 1 5 3, inlined_at 1 9 2": the first triple is the location.
+		triple, _, _ := strings.Cut(rest, ",")
+		f := strings.Fields(triple)
+		if len(f) < 2 {
+			continue
+		}
+		idx, err := strconv.Atoi(f[0])
+		if err != nil {
+			continue
+		}
+		name, ok := files[idx]
+		if !ok {
+			continue
+		}
+		line, err := strconv.Atoi(f[1])
 		if err != nil || line <= 0 {
 			continue
 		}
@@ -229,6 +261,46 @@ func ptxSites(ptx string) map[Site][]int {
 		sites[s] = append(sites[s], i+1)
 	}
 	return sites
+}
+
+// directive returns the text after name when text is that directive.
+func directive(text, name string) (string, bool) {
+	rest, ok := strings.CutPrefix(strings.TrimSpace(text), name)
+	if !ok || rest == "" || !strings.ContainsRune(" \t", rune(rest[0])) {
+		return "", false
+	}
+	return rest, true
+}
+
+// stripPTXComments removes the // and /* */ comments of one line of PTX,
+// where inComment reports a block comment left open by the line before, and
+// reports whether one is open at the end of this line. A comment marker
+// inside a quoted file name is part of the name.
+func stripPTXComments(text string, inComment bool) (string, bool) {
+	var b strings.Builder
+	quoted := false
+	for i := 0; i < len(text); i++ {
+		switch {
+		case inComment:
+			if strings.HasPrefix(text[i:], "*/") {
+				inComment = false
+				i++
+				b.WriteByte(' ')
+			}
+		case quoted:
+			quoted = text[i] != '"'
+			b.WriteByte(text[i])
+		case strings.HasPrefix(text[i:], "//"):
+			return b.String(), false
+		case strings.HasPrefix(text[i:], "/*"):
+			inComment = true
+			i++
+		default:
+			quoted = text[i] == '"'
+			b.WriteByte(text[i])
+		}
+	}
+	return b.String(), inComment
 }
 
 func (r Remainder) String() string {
