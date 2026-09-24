@@ -1,0 +1,694 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/google/pprof/profile"
+	"github.com/tmc/lib/nvidia/x/cudacapture"
+)
+
+func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
+	tests := []struct {
+		name         string
+		cap          *cudacapture.Capture
+		wantWarning  bool
+		wantKernel   string
+		wantCategory Category
+		wantSeverity Severity
+		wantFinding  string
+		wantRec      string
+	}{
+		{
+			name: "single_warp_32_threads_profile",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"decode_gemv"},
+								"block":  {"32,1,1"},
+								"grid":   {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "decode_gemv",
+			wantCategory: CategoryArchitectureCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Single-warp thread blocks",
+			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
+		},
+		{
+			name: "underpopulated_16_threads_json",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`),
+				Files: map[string][]byte{
+					"activities.json": []byte(`[
+						{"name": "tiny_kernel", "subtype": "kernel", "threads": 16, "grid": 64}
+					]`),
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "tiny_kernel",
+			wantCategory: CategoryArchitectureCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Single-warp thread blocks",
+			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
+		},
+		{
+			name: "ptx_reqntid_single_warp",
+			cap: &cudacapture.Capture{
+				Code: cudacapture.CodeFiles{PTX: "test.ptx"},
+				Files: map[string][]byte{
+					"test.ptx": []byte(`.version 9.0
+.target sm_121a
+.address_size 64
+.visible .entry ptx_warp_kernel()
+.reqntid 32, 1, 1
+{
+	ret;
+}`),
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "ptx_warp_kernel",
+			wantCategory: CategoryArchitectureCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Single-warp thread blocks",
+			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
+		},
+		{
+			name: "single_warp_unspecified_arch_suppressed",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"decode_gemv"},
+								"block":  {"32,1,1"},
+								"grid":   {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "single_warp_grid_1_suppressed",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"setup_kernel"},
+								"block":  {"32,1,1"},
+								"grid":   {"1,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "rtx_4090_sm_89_limits",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_89", "sm_count": 128, "device": "NVIDIA GeForce RTX 4090"}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"ada_gemv"},
+								"block":  {"32,1,1"},
+								"grid":   {"256,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "ada_gemv",
+			wantCategory: CategoryArchitectureCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "reaches 50% theoretical occupancy with 24/48 resident warps/SM across 24 blocks/SM",
+			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
+		},
+		{
+			name: "well_populated_128_threads",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"good_kernel"},
+								"block":  {"128,1,1"},
+								"grid":   {"256,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := AnalyzeCapture(tt.cap)
+			if err != nil {
+				t.Fatalf("AnalyzeCapture failed: %v", err)
+			}
+
+			var found bool
+			for _, item := range report.Items {
+				if item.Category == tt.wantCategory && item.Severity == tt.wantSeverity &&
+					strings.Contains(item.Finding, tt.wantFinding) {
+					found = true
+					if tt.wantKernel != "" && !strings.Contains(item.Finding, tt.wantKernel) && item.Location.Kernel != tt.wantKernel {
+						t.Errorf("expected finding to mention kernel %q, got: %s", tt.wantKernel, item.Finding)
+					}
+					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+					}
+					break
+				}
+			}
+
+			if tt.wantWarning && !found {
+				t.Errorf("did not find expected underpopulated thread block warning; items: %+v", report.Items)
+			} else if !tt.wantWarning && found {
+				t.Errorf("unexpected underpopulated thread block warning found in %+v", report.Items)
+			}
+		})
+	}
+}
+
+func TestAdvice_SMGridStarvation(t *testing.T) {
+	tests := []struct {
+		name         string
+		cap          *cudacapture.Capture
+		wantWarning  bool
+		wantKernel   string
+		wantCategory Category
+		wantSeverity Severity
+		wantFinding  string
+		wantRec      string
+	}{
+		{
+			name: "grid_64_on_136_sm_blackwell",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a", "sm_count": 136}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"decode_attention"},
+								"grid":   {"64,1,1"},
+								"block":  {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "decode_attention",
+			wantCategory: CategoryArchitecture,
+			wantSeverity: SeverityInfo,
+			wantFinding:  "launched with fewer grid blocks than the GPU has SMs",
+			wantRec:      "Compare achieved occupancy against these grids before changing any of them",
+		},
+		{
+			name: "grid_starvation_json_activities",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"device": "NVIDIA B200"}`), // 132 SMs
+				Files: map[string][]byte{
+					"activities.json": []byte(`[
+						{"name": "starved_kernel", "subtype": "kernel", "grid_blocks": 32, "block_threads": 256}
+					]`),
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "starved_kernel",
+			wantCategory: CategoryArchitecture,
+			wantSeverity: SeverityInfo,
+			wantFinding:  "launched with fewer grid blocks than the GPU has SMs",
+			wantRec:      "Compare achieved occupancy against these grids before changing any of them",
+		},
+		{
+			name: "sufficient_grid_256_blocks",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"sm_count": 136}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"fully_saturated_kernel"},
+								"grid":   {"256,1,1"},
+								"block":  {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "grid_starvation_unspecified_sm_count_suppressed",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"some_kernel"},
+								"grid":   {"64,1,1"},
+								"block":  {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "gb10_60_blocks_fills_48_sms_no_starvation",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`), // GB10 has 48 SMs; 60 blocks >= 48 SMs
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"gb10_batch_kernel"},
+								"grid":   {"60,1,1"},
+								"block":  {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := AnalyzeCapture(tt.cap)
+			if err != nil {
+				t.Fatalf("AnalyzeCapture failed: %v", err)
+			}
+
+			var found bool
+			for _, item := range report.Items {
+				if item.Category == tt.wantCategory && item.Severity == tt.wantSeverity &&
+					strings.Contains(item.Finding, tt.wantFinding) {
+					found = true
+					if tt.wantKernel != "" && !strings.Contains(item.Finding, tt.wantKernel) && item.Location.Kernel != tt.wantKernel {
+						t.Errorf("expected finding to mention kernel %q, got: %s", tt.wantKernel, item.Finding)
+					}
+					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+					}
+					break
+				}
+			}
+
+			if tt.wantWarning && !found {
+				t.Errorf("did not find expected grid starvation warning; items: %+v", report.Items)
+			} else if !tt.wantWarning && found {
+				t.Errorf("unexpected grid starvation warning found in %+v", report.Items)
+			}
+		})
+	}
+}
+
+func TestAdvice_MultiWarpReductionStarvation(t *testing.T) {
+	// Verifies detection of multi-warp thread blocks executing sequential chunk reductions with idle warps.
+	cap := &cudacapture.Capture{
+		Metadata: []byte(`{"arch": "sm_121a"}`),
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "samples", Unit: "count"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{100},
+					Label: map[string][]string{
+						"kernel": {"ds4_f16_pair_ordered_chunks"},
+						"block":  {"128,1,1"},
+						"grid":   {"256,1,1"},
+					},
+				},
+			},
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var found bool
+	for _, item := range report.Items {
+		if item.Category == CategoryArchitectureCompute && strings.Contains(item.Finding, "Multi-warp thread block underutilization in row reduction") {
+			found = true
+			if !strings.Contains(item.ActionableRecommendation, "Group multiple rows per thread block") {
+				t.Errorf("recommendation = %q, want containing Group multiple rows per thread block", item.ActionableRecommendation)
+			}
+			// This advisory names ds4_f16_pair_ordered_chunks, the one kernel where
+			// the transformation it recommends was measured 2.84% slower. It must
+			// not issue that as an instruction.
+			if !strings.Contains(item.ActionableRecommendation, occupancyCaveat) {
+				t.Errorf("recommendation = %q, want occupancyCaveat appended", item.ActionableRecommendation)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected Multi-Warp reduction starvation advisory not found; items: %+v", report.Items)
+	}
+}
+
+// geometrySample builds one kernel activity sample with launch geometry labels.
+func geometrySample(name, grid, block string, durationNs int64) *profile.Sample {
+	return &profile.Sample{
+		Value: []int64{durationNs},
+		Label: map[string][]string{
+			"name":    {name},
+			"subtype": {"kernel"},
+			"stream":  {"1"},
+			"grid":    {grid},
+			"block":   {block},
+		},
+	}
+}
+
+func TestAdvice_UnderSubscribedLaunchGeometry(t *testing.T) {
+	const gb10Metadata = `{"arch":"sm_121a","sm_count":48,"device":"NVIDIA GB10"}`
+	// 48 SMs x 32 threads per warp.
+	const warpPerSM = 1536
+
+	tests := []struct {
+		name         string
+		metadata     string
+		samples      []*profile.Sample
+		wantSeverity Severity
+		wantFindings []string
+		wantRec      string
+		wantAbsent   []string
+		// wantCaveat is false for every row here on purpose: grid starvation
+		// leaves SMs literally idle, so its advice is not a capacity figure being
+		// read as throughput. This pins those sites bare against a later sweep
+		// that appends occupancyCaveat to everything mentioning occupancy.
+		wantCaveat bool
+	}{
+		{
+			name:     "single_threaded_launches",
+			metadata: gb10Metadata,
+			samples: []*profile.Sample{
+				geometrySample("ds4_compressor_attention", "1,1,1", "1,1,1", 361300),
+				geometrySample("ds4_compressor_attention", "1,1,1", "1,1,1", 361300),
+				geometrySample("ds4_hc_cached_split", "1,1,1", "1,1,1", 15200),
+				geometrySample("ds4_hc_cached_split", "1,1,1", "1,1,1", 15200),
+				geometrySample("ds4_hc_cached_split", "1,1,1", "1,1,1", 15200),
+				geometrySample("ds4_moe_gemm", "96,1,1", "256,1,1", 100000),
+			},
+			wantSeverity: SeverityCritical,
+			wantFindings: []string{
+				"Single-threaded kernel launches leave the device idle",
+				"5 of 6 captured launches (83.3%) ran one thread (grid 1 x block 1)",
+				"consuming 0.77 ms of device time",
+				"ds4_compressor_attention (1 thread, 2 launches, 361.3 µs mean, 0.72 ms total)",
+			},
+			wantRec: "Parallelize these kernels across threads and blocks",
+		},
+		{
+			name:     "cannot_fill_one_warp_per_sm",
+			metadata: gb10Metadata,
+			samples: []*profile.Sample{
+				geometrySample("ds4_compressor_indexer", "4,1,1", "32,1,1", 78800),
+				geometrySample("ds4_compressor_indexer", "4,1,1", "32,1,1", 78800),
+				geometrySample("ds4_moe_gemm", "96,1,1", "256,1,1", 100000),
+			},
+			wantSeverity: SeverityWarning,
+			wantFindings: []string{
+				"Launch geometry cannot fill one warp per SM",
+				"2 of 3 captured launches (66.7%) ran fewer than 1536 total threads (48 SMs x 32 threads per warp)",
+				"ds4_compressor_indexer (128 threads, 2 launches, 78.8 µs mean, 0.16 ms total)",
+			},
+			wantRec:    "Grow the grid so at least one warp is resident per SM (>= 1536 total threads)",
+			wantAbsent: []string{"Single-threaded kernel launches leave the device idle"},
+		},
+		{
+			name:     "fully_subscribed_launches",
+			metadata: gb10Metadata,
+			samples: []*profile.Sample{
+				geometrySample("ds4_moe_gemm", "96,1,1", "256,1,1", 100000),
+				geometrySample("ds4_attention", "48,2,1", "128,1,1", 200000),
+			},
+			wantAbsent: []string{
+				"Single-threaded kernel launches leave the device idle",
+				"Launch geometry cannot fill one warp per SM",
+			},
+		},
+	}
+
+	if warpPerSM != 48*32 {
+		t.Fatalf("warpPerSM constant %d does not match 48 SMs x 32 threads", warpPerSM)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cap := &cudacapture.Capture{
+				Metadata: []byte(tt.metadata),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+					Sample:     tt.samples,
+				},
+			}
+			report := &AdviceReport{}
+			auditUnderSubscribedLaunches(cap, report)
+
+			for _, want := range tt.wantFindings {
+				var found bool
+				for _, item := range report.Items {
+					if strings.Contains(item.Finding, want) {
+						found = true
+						if item.Severity != tt.wantSeverity {
+							t.Errorf("severity = %q, want %q", item.Severity, tt.wantSeverity)
+						}
+						if item.Category != CategoryArchitectureCompute {
+							t.Errorf("category = %q, want %q", item.Category, CategoryArchitectureCompute)
+						}
+						if tt.wantRec != "" && !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+							t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+						}
+						if got := strings.Contains(item.ActionableRecommendation, occupancyCaveat); got != tt.wantCaveat {
+							t.Errorf("occupancyCaveat present = %v, want %v in %q", got, tt.wantCaveat, item.ActionableRecommendation)
+						}
+						break
+					}
+				}
+				if !found {
+					t.Errorf("finding containing %q not found; items: %+v", want, report.Items)
+				}
+			}
+			for _, absent := range tt.wantAbsent {
+				for _, item := range report.Items {
+					if strings.Contains(item.Finding, absent) {
+						t.Errorf("unexpected finding containing %q: %+v", absent, item)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestAdvice_UnderSubscribedWithoutSMCount(t *testing.T) {
+	// Without a recorded SM count the one-warp-per-SM rule cannot run, and the
+	// single-thread finding has to say so.
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+			Sample: []*profile.Sample{
+				geometrySample("ds4_compressor_attention", "1,1,1", "1,1,1", 361300),
+				geometrySample("ds4_compressor_indexer", "4,1,1", "32,1,1", 78800),
+			},
+		},
+	}
+
+	// A CUDA host answers determineSMCount from the live device; this case only
+	// exists where nothing can.
+	if _, _, hasSMCount := determineSMCount(cap); hasSMCount {
+		t.Skip("local CUDA device supplies an SM count; degraded path not reachable here")
+	}
+
+	report := &AdviceReport{}
+	auditUnderSubscribedLaunches(cap, report)
+
+	var found bool
+	for _, item := range report.Items {
+		if strings.Contains(item.Finding, "Single-threaded kernel launches leave the device idle") {
+			found = true
+			if !strings.Contains(item.Finding, "one-warp-per-SM rule was skipped") {
+				t.Errorf("finding = %q, want it to disclose the skipped one-warp-per-SM rule", item.Finding)
+			}
+		}
+		if strings.Contains(item.Finding, "Launch geometry cannot fill one warp per SM") {
+			t.Errorf("warp-per-SM finding emitted without an SM count: %+v", item)
+		}
+	}
+	if !found {
+		t.Fatalf("expected single-threaded launch finding; items: %+v", report.Items)
+	}
+}
+
+func TestAdvice_MissingDeviceProvenanceInfoFinding(t *testing.T) {
+	// Profile has launches with grid and block dimensions, but no device identity or target arch.
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{100000},
+					Label: map[string][]string{
+						"name":    {"my_kernel"},
+						"subtype": {"kernel"},
+						"grid":    {"16,1,1"},
+						"block":   {"32,1,1"},
+					},
+				},
+			},
+		},
+	}
+
+	report := &AdviceReport{}
+	auditLaunchGeometry(cap, report)
+
+	// If no live device is available (e.g. non-CUDA host), an Info finding must be emitted.
+	_, _, _, hasLimits := determineDeviceLimits(cap)
+	_, _, hasSMCount := determineSMCount(cap)
+	if !hasLimits && !hasSMCount {
+		var found bool
+		for _, item := range report.Items {
+			if item.Severity == SeverityInfo && strings.Contains(item.Finding, "Device architecture and SM count metadata are not recorded") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected Info finding for missing device provenance, got items: %+v", report.Items)
+		}
+	}
+}
+
+func TestAdvice_DeviceProvenanceDisclosure(t *testing.T) {
+	// When SM count or hardware limits are inferred from local device, finding text must disclose it.
+	launches := []launchRecord{
+		{Kernel: "starved_kernel", GridBlocks: 16, BlockThreads: 256},
+		{Kernel: "single_warp_kernel", GridBlocks: 100, BlockThreads: 32},
+	}
+
+	// Emulate live device source
+	smCount := 48
+	smSrc := sourceLiveDevice
+	maxWarpsPerSM := 48
+	maxBlocksPerSM := 24
+	limitSrc := sourceLiveDevice
+
+	// Single warp check
+	provSuffixLimit := ""
+	if limitSrc == sourceLiveDevice {
+		provSuffixLimit = " (hardware limits inferred from local host device, not recorded in capture)"
+	}
+	f1 := fmt.Sprintf("Single-warp thread blocks limit theoretical SM occupancy: kernel %q launched with %d block threads (<= 32) reaches 50%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM%s",
+		launches[1].Kernel, launches[1].BlockThreads, maxBlocksPerSM*1, maxWarpsPerSM, maxBlocksPerSM, provSuffixLimit)
+	if !strings.Contains(f1, "(hardware limits inferred from local host device, not recorded in capture)") {
+		t.Errorf("f1 missing live device disclosure: %s", f1)
+	}
+
+	// Starvation check
+	provSuffixSM := ""
+	if smSrc == sourceLiveDevice {
+		provSuffixSM = " (SM count inferred from local host device, not recorded in capture)"
+	}
+	f2 := fmt.Sprintf("%d kernel(s) launched with fewer grid blocks than the GPU has SMs (%d SMs)%s: %s (%d blocks, 66%% idle)",
+		1, smCount, provSuffixSM, launches[0].Kernel, launches[0].GridBlocks)
+	if !strings.Contains(f2, "(SM count inferred from local host device, not recorded in capture)") {
+		t.Errorf("f2 missing live device disclosure: %s", f2)
+	}
+}
+
+// TestGridStarvationIsOneFindingWithoutAPrescription pins both halves of the
+// collapse: many starved kernels produce one finding, and that finding stops
+// at the observation.
+//
+// Per-kernel it was 23 of 66 findings on a ds4 capture, all the same sentence,
+// each recommending 2D tiling -- a remedy for a tuning decision that was never
+// made. The grids were literals mirroring a .cu define and they were correct.
+// A capture cannot tell a tuned grid from a fixed one, so the tool must not
+// name a cause it cannot see.
+func TestGridStarvationIsOneFindingWithoutAPrescription(t *testing.T) {
+	var acts []string
+	for i := 0; i < 12; i++ {
+		acts = append(acts, fmt.Sprintf(`{"name":"k%02d","subtype":"kernel","grid_blocks":%d,"block_threads":256}`, i, 8+i))
+	}
+	cap := &cudacapture.Capture{
+		Metadata: []byte(`{"device": "NVIDIA B200"}`), // 132 SMs
+		Files:    map[string][]byte{"activities.json": []byte("[" + strings.Join(acts, ",") + "]")},
+	}
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture: %v", err)
+	}
+	var found []AdviceItem
+	for _, it := range report.Items {
+		if strings.Contains(it.Finding, "fewer grid blocks than the GPU has SMs") {
+			found = append(found, it)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("12 starved kernels produced %d findings, want 1", len(found))
+	}
+	got := found[0]
+	// Worst first, and the tail named as a count rather than dropped.
+	if !strings.Contains(got.Finding, "12 kernel(s)") {
+		t.Errorf("finding does not state how many kernels it covers: %s", got.Finding)
+	}
+	if !strings.Contains(got.Finding, "k00 (8 blocks") {
+		t.Errorf("finding does not lead with the worst offender: %s", got.Finding)
+	}
+	if !strings.Contains(got.Finding, "and 4 more") {
+		t.Errorf("finding does not account for the kernels it did not name: %s", got.Finding)
+	}
+	// The prescription is the part that was wrong on the merits.
+	for _, gone := range []string{"2D tiling", "split-K", "griddepcontrol", "Decompose"} {
+		if strings.Contains(got.ActionableRecommendation, gone) {
+			t.Errorf("recommendation still prescribes %q for a grid whose origin the capture cannot see: %s", gone, got.ActionableRecommendation)
+		}
+	}
+}
