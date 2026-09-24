@@ -66,8 +66,10 @@ unchanged and are the only copy on the device. The products run on the f16
 tensor cores with float32 accumulation, and attention is `FlashAttentionHalf`,
 the same kernel on `mma.sync` m16n8k16, which keeps the probabilities in
 registers between its two products. The residual stream, the LayerNorm
-statistics and the softmax stay float32. Unlike the reference, every question in a request is padded into one
-batch and evaluated together.
+statistics and the softmax stay float32; the LayerNorms that write a half
+operand accumulate their statistics in float rather than laya.c's double,
+which the GB10 runs at a fraction of the rate. Unlike the reference, every
+question in a request is padded into one batch and evaluated together.
 
 ## Performance
 
