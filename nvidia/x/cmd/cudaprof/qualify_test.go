@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -311,6 +312,9 @@ func TestQualifyCLI(t *testing.T) {
 	// of the steady span and stay in the whole one.
 	if c := q.Captures[0]; c.SteadyNanos != 1e6 || c.WholeNanos != 1e6+5_000 {
 		t.Errorf("C1 steady, whole = %d, %d ns, want 1000000, 1005000", c.SteadyNanos, c.WholeNanos)
+	}
+	if q.Cudaprof.Revision == "" || q.Cudaprof.GoVersion != runtime.Version() {
+		t.Errorf("cudaprof = %+v, want this build", q.Cudaprof)
 	}
 	if !near(q.Steady.MedianMS, 0.5) || q.Verdict != "PASS" {
 		t.Errorf("median %.3f ms verdict %s, want 0.500 PASS", q.Steady.MedianMS, q.Verdict)

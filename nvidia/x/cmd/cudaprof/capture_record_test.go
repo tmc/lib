@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -54,6 +55,43 @@ func TestWriteCaptureStatusIsPortableNoCodeRecording(t *testing.T) {
 	}
 	if err := c.Profile.CheckValid(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestWriteCaptureStatusStampsBuild checks that capture-status.json names the
+// cudaprof build that wrote it, with every field present even when the build
+// recorded no VCS information.
+func TestWriteCaptureStatusStampsBuild(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "capture.pprof")
+	result := captureResult{Protocol: 1, Session: "session", State: captureStateFinalized, Outcome: captureOutcomeNoCUDA, CaptureSuccess: true, TransportReady: true}
+	if err := writeCaptureStatus(path, result, captureArtifactBudget{}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := cudacapture.Read(f)
+	_ = f.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file struct {
+		Status struct {
+			Cudaprof map[string]string `json:"cudaprof"`
+		} `json:"status"`
+	}
+	if err := json.Unmarshal(c.Files["capture-status.json"], &file); err != nil {
+		t.Fatal(err)
+	}
+	stamp := file.Status.Cudaprof
+	for _, key := range []string{"module", "revision", "time", "modified", "go_version"} {
+		if stamp[key] == "" {
+			t.Errorf("capture-status.json cudaprof.%s is empty: %v", key, stamp)
+		}
+	}
+	if stamp["go_version"] != runtime.Version() {
+		t.Errorf("cudaprof.go_version = %q, want %q", stamp["go_version"], runtime.Version())
 	}
 }
 

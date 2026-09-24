@@ -234,8 +234,8 @@ func captureHeadlineTotals(result captureResult) string {
 // captureStatus is the compact projection published as capture-status.json.
 // It keeps everything a consumer needs to judge the capture -- outcome,
 // identity, counts and totals, worker dispositions, capability, losses and
-// omissions -- and deliberately excludes the per-record Activities and
-// APIRecords arrays.
+// omissions, and the cudaprof build that wrote it -- and deliberately
+// excludes the per-record Activities and APIRecords arrays.
 //
 // Those arrays are O(journal bytes): embedding them made the written artifact
 // grow to roughly 1.66x the journal bytes it already contained, and a serving
@@ -254,10 +254,12 @@ type captureStatus struct {
 	Devices         []uint32          `json:"devices,omitempty"`
 	ActivityKinds   map[string]uint64 `json:"activity_kinds,omitempty"`
 	DetailedRecords string            `json:"detailed_records"`
+	// Cudaprof is the build that wrote the status.
+	Cudaprof buildStamp `json:"cudaprof"`
 }
 
 func compactCaptureStatus(result captureResult) captureStatus {
-	status := captureStatus{ActivitySamples: len(result.Activities), APIRecordCount: len(result.APIRecords)}
+	status := captureStatus{ActivitySamples: len(result.Activities), APIRecordCount: len(result.APIRecords), Cudaprof: currentBuild()}
 	seen := make(map[uint32]bool)
 	kinds := make(map[string]uint64)
 	for _, activity := range result.Activities {

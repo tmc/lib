@@ -109,6 +109,7 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 	q := qualify(entries, opts.noiseMultiplier, opts.noiseFloorMS)
 	q.Identity, q.Order = identity, order
 	q.Window = describeWarmup(opts.gaps) + " excluded"
+	q.Cudaprof = currentBuild()
 	if rules != nil || stages != nil {
 		q.Breakdown, err = breakDownPairs(entries, rules, stages)
 		if err != nil {
@@ -422,6 +423,9 @@ type Qualification struct {
 	NoiseGate        string  `json:"noise_gate"`
 	SignGate         string  `json:"sign_gate"`
 	Verdict          string  `json:"verdict"`
+
+	// Cudaprof is the build that computed the verdict.
+	Cudaprof buildStamp `json:"cudaprof"`
 }
 
 type qualifyBlock struct {
