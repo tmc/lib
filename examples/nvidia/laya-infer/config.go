@@ -61,8 +61,22 @@ type config struct {
 // HeadDim returns the per-head width of the encoder attention.
 func (c *config) HeadDim() int { return c.D / c.NumHeads }
 
-// loadConfig reads rl_agent_config.json and config.json from dir, applying the
-// same defaults laya.c uses when a field is absent.
+// modelFile returns the path of the file name that sub holds in the upstream
+// checkpoint. convaiinnovations/laya keeps the encoder config and tokenizer
+// in encoder/ and tokenizer/ subdirectories, where the Python agent reads
+// them; laya.c expects the same files beside model.safetensors. Either
+// layout loads, and the upstream one wins when a directory has both, since
+// it is what the model was published and trained with.
+func modelFile(dir, sub, name string) string {
+	p := filepath.Join(dir, sub, name)
+	if _, err := os.Stat(p); err == nil {
+		return p
+	}
+	return filepath.Join(dir, name)
+}
+
+// loadConfig reads rl_agent_config.json and the encoder's config.json from
+// dir, applying the same defaults laya.c uses when a field is absent.
 func loadConfig(dir string) (*config, error) {
 	var ac agentConfig
 	if err := readJSON(filepath.Join(dir, "rl_agent_config.json"), &ac); err != nil {
@@ -82,7 +96,7 @@ func loadConfig(dir string) (*config, error) {
 	}
 
 	var ec encoderConfig
-	path := filepath.Join(dir, "config.json")
+	path := modelFile(dir, "encoder", "config.json")
 	if err := readJSON(path, &ec); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err

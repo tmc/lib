@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/tmc/lib/hf/hftokenizer"
@@ -27,7 +26,7 @@ type tokenizer struct {
 }
 
 func loadTokenizer(dir string) (*tokenizer, error) {
-	path := filepath.Join(dir, "tokenizer.json")
+	path := modelFile(dir, "tokenizer", "tokenizer.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
