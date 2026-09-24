@@ -6,10 +6,14 @@
 //	laya-infer MODEL_DIR REQUEST.json|-
 //	laya-infer MODEL_DIR --tokenize TEXT
 //	laya-infer MODEL_DIR --list-tensors
-//	laya-infer MODEL_DIR --serve [PORT] [--bind ADDR]
+//	laya-infer MODEL_DIR --serve [PORT] [--bind ADDR] [--api-key KEY]
 //
-// A request is {"state": ..., "questions": {ID: {...}}}; the reply gives one
-// answer per question. It is a port of laya.c, and answers agree with it to
+// MODEL_DIR is the convaiinnovations/laya checkpoint, with encoder/config.json
+// and tokenizer/tokenizer.json, or laya.c's flat copy of it.
+//
+// A request is {"state": ..., "questions": {ID: {...}}}, or with the
+// questions as a list [{"id": ID, ...}]; the reply gives one answer per
+// question, in request order. It is a port of laya.c, and answers agree with it to
 // within float32 rounding. Unlike laya.c, every question in a request is
 // evaluated in a single padded batch.
 //
@@ -18,6 +22,9 @@
 // slower: full float32 GEMMs forgo the tf32 tensor-core path and the fused
 // attention kernel.
 //
+// --serve answers POST /predict over HTTP. With --api-key, or LAYA_API_KEY
+// in the environment, each POST must send "Authorization: Bearer KEY".
+//
 // --lines answers the request a second time under CUPTI PC sampling and
 // reports the device time by line of forward.cu. --pprof writes those same
 // samples to a file as a pprof profile, which keeps the stall reasons the
@@ -25,6 +32,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,7 +64,9 @@ func usage() error {
 	fmt.Fprintf(os.Stderr, `usage: laya-infer MODEL_DIR REQUEST.json|-
        laya-infer MODEL_DIR --tokenize TEXT
        laya-infer MODEL_DIR --list-tensors
-       laya-infer MODEL_DIR --serve [PORT] [--bind ADDR]   (HTTP server, default 127.0.0.1:%d)
+       laya-infer MODEL_DIR --serve [PORT] [--bind ADDR] [--api-key KEY]
+                 (HTTP server, default 127.0.0.1:%d; the key, or
+                 $LAYA_API_KEY, is required of every POST)
 
        --exact   compute the matrix products in float32 rather than tf32,
                  reproducing laya.c byte for byte; slower, since float32
@@ -172,11 +182,14 @@ func run(args []string) error {
 	case "--list-tensors":
 		return listTensors(dir)
 	case "--serve":
-		addr, err := serveAddr(args[2:])
+		addr, key, err := serveArgs(args[2:])
 		if err != nil {
 			return err
 		}
-		return serve(dir, addr, prec)
+		if key == "" {
+			key = os.Getenv("LAYA_API_KEY")
+		}
+		return serve(dir, addr, key, prec)
 	}
 
 	if period != 0 {
@@ -247,22 +260,49 @@ func listTensors(dir string) error {
 	return nil
 }
 
-func serveAddr(args []string) (string, error) {
+// serveArgs parses the arguments after --serve: an optional port, --bind
+// ADDR and --api-key KEY.
+func serveArgs(args []string) (addr, key string, err error) {
 	host, port := "127.0.0.1", defaultPort
 	for i := 0; i < len(args); i++ {
 		switch {
 		case args[i] == "--bind" && i+1 < len(args):
 			i++
 			host = args[i]
+		case args[i] == "--api-key" && i+1 < len(args):
+			i++
+			if key = args[i]; key == "" {
+				return "", "", errors.New("--api-key needs a non-empty key")
+			}
 		default:
 			n, err := strconv.Atoi(args[i])
 			if err != nil || n <= 0 || n >= 65536 {
-				return "", fmt.Errorf("unknown argument %q (usage: MODEL_DIR --serve [PORT] [--bind ADDR])", args[i])
+				return "", "", fmt.Errorf("unknown argument %q (usage: MODEL_DIR --serve [PORT] [--bind ADDR] [--api-key KEY])", args[i])
 			}
 			port = n
 		}
 	}
-	return net.JoinHostPort(host, strconv.Itoa(port)), nil
+	return net.JoinHostPort(host, strconv.Itoa(port)), key, nil
+}
+
+// requireKey wraps h so that it answers only requests carrying
+// "Authorization: Bearer key". An empty key disables the check. The
+// comparison is constant-time, so the time a rejection takes does not tell a
+// caller how much of a guess was right.
+func requireKey(key string, h http.HandlerFunc) http.HandlerFunc {
+	if key == "" {
+		return h
+	}
+	want := []byte("Bearer " + key)
+	return func(w http.ResponseWriter, r *http.Request) {
+		got := []byte(r.Header.Get("Authorization"))
+		if subtle.ConstantTimeCompare(got, want) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="laya"`)
+			httpError(w, http.StatusUnauthorized, "missing or wrong API key")
+			return
+		}
+		h(w, r)
+	}
 }
 
 // server serializes inference so concurrent requests queue instead of
@@ -282,7 +322,10 @@ type server struct {
 	totalMS  float64
 }
 
-func serve(dir, addr string, prec precision) error {
+// serve answers requests on addr. A non-empty key is required of every
+// POST; /status and the health checks stay open so that a load balancer or
+// supervisor can probe the server without holding the key.
+func serve(dir, addr, key string, prec precision) error {
 	start := time.Now()
 	m, err := newModel(dir, prec)
 	if err != nil {
@@ -296,7 +339,7 @@ func serve(dir, addr string, prec precision) error {
 		mux.HandleFunc(p, s.status)
 	}
 	for _, p := range []string{"/predict", "/questions", "/"} {
-		mux.HandleFunc(p, s.predict)
+		mux.HandleFunc(p, requireKey(key, s.predict))
 	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {

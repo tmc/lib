@@ -14,14 +14,25 @@ Build it from the `examples` module directory with
     laya-infer MODEL_DIR request.json --pprof FILE
     laya-infer MODEL_DIR --tokenize TEXT
     laya-infer MODEL_DIR --list-tensors
-    laya-infer MODEL_DIR --serve [PORT] [--bind ADDR]
+    laya-infer MODEL_DIR --serve [PORT] [--bind ADDR] [--api-key KEY]
 
-`MODEL_DIR` holds `model.safetensors`, `tokenizer.json`, `config.json` and
-`rl_agent_config.json` from `convaiinnovations/laya`. A request is
+`MODEL_DIR` is a checkout of `convaiinnovations/laya`: `model.safetensors` and
+`rl_agent_config.json` beside `encoder/config.json` and
+`tokenizer/tokenizer.json`. The flat layout laya.c reads, with `config.json`
+and `tokenizer.json` beside the weights, loads too. A request is
 
     {"state": ..., "questions": {"id": {"type": "choice", "instructions": ..., "criteria": ...}}}
 
-and each question is answered as `choice`, `score` or `noul`.
+and each question is answered as `choice`, `score` or `noul`. The questions
+may instead be a list, `[{"id": "id", "type": "choice", ...}]`, as
+mlx-go-sys1 accepts; either way ids must be unique and the reply lists the
+answers in request order. A choice's criteria are an object from label to
+description, a list of labels, or a list of `{"label": ..., "description":
+...}` objects, which render into the prompt exactly as the object form does.
+
+`--serve` answers `POST /predict`. With `--api-key KEY`, or `LAYA_API_KEY` in
+the environment, every POST must carry `Authorization: Bearer KEY` and is
+refused with 401 otherwise; `GET /status` and the health checks stay open.
 
 ## Structure
 
