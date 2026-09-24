@@ -14,6 +14,7 @@
 // trainstat attributes and artifact directories become runs; or a JSONL
 // event log. A directory is a run directory: DIR/trainstat.txt, or else
 // DIR/progress.jsonl converted with DIR/train/state.json as configuration.
+// A test's artifact directory is read as a run directory.
 // An input "-" is standard input, and label=path names an input's label.
 //
 // The summary compares each run's Final, Best, Run and Throughput results

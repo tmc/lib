@@ -51,6 +51,20 @@ exec trainstat -filter .name:Final lora.txt
 stdout '^runs: 3 done, 0 stopped$'
 stdout '^Final/split=val +0\.820 ± 0\.025$'
 
+# An artifact directory holding a progress log is read as a run
+# directory.
+env LOG=1
+exec go test -json -count=1 -run TestLog -artifacts -outputdir $WORK/out .
+cp stdout log.json
+env LOG=
+exec trainstat -format benchfmt log.json
+stdout '^mode: heads$'
+stdout '^seed: 4$'
+stdout '^test: TestLog$'
+stdout '^BenchmarkTrain/step=1 1 2\.5 loss'
+stdout '^BenchmarkFinal/split=val/group=all/cal=raw 1 0\.75 accuracy$'
+stdout '^BenchmarkRun .* 1 done$'
+
 # One result reported twice with different values is an error.
 env DUP=1
 ! exec go test -json -count=1 -run TestDup .
@@ -70,6 +84,7 @@ package fit
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/trainstat"
@@ -99,6 +114,20 @@ func TestDup(t *testing.T) {
 	trainstat.Report(t, "Final", trainstat.Value{V: 1, Unit: "loss"})
 	trainstat.Report(t, "Final", trainstat.Value{V: 2, Unit: "loss"})
 	t.Fail()
+}
+
+func TestLog(t *testing.T) {
+	if os.Getenv("LOG") == "" {
+		t.Skip("LOG not set")
+	}
+	log := `{"event":"start","mode":"heads","seed":4}
+{"event":"step","step":1,"loss":2.5,"ms":250,"seqs":8,"tokens":1024}
+{"event":"eval","step":1,"split":"val","metrics":{"all":{"accuracy":0.75}}}
+{"event":"done","step":1}
+`
+	if err := os.WriteFile(filepath.Join(t.ArtifactDir(), "progress.jsonl"), []byte(log), 0o666); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func BenchmarkUpdate(b *testing.B) {

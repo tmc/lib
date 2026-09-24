@@ -82,38 +82,48 @@ func (d *data) readPath(label, path string) error {
 	return d.readBytes(label, path, b)
 }
 
-// readDir reads a run directory: DIR/trainstat.txt, or else
-// DIR/progress.jsonl converted with DIR/train/state.json as configuration.
+// readDir reads a run directory with runText.
 func (d *data) readDir(label, dir string) error {
-	name := filepath.Join(dir, "trainstat.txt")
-	b, err := os.ReadFile(name)
-	if err == nil {
-		_, err := d.readBench(label, name, b, nil, "")
+	name, b, err := runText(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("%s: no trainstat.txt or progress.jsonl", dir)
+	}
+	if err != nil {
 		return err
 	}
+	_, err = d.readBench(label, name, b, nil, "")
+	return err
+}
+
+// runText returns the benchfmt text of a run directory and the name of the
+// file it came from: DIR/trainstat.txt, or else DIR/progress.jsonl
+// converted with DIR/train/state.json as configuration. The error is
+// fs.ErrNotExist when the directory holds neither.
+func runText(dir string) (name string, text []byte, err error) {
+	name = filepath.Join(dir, "trainstat.txt")
+	b, err := os.ReadFile(name)
 	if !errors.Is(err, fs.ErrNotExist) {
-		return err
+		return name, b, err
 	}
 	name = filepath.Join(dir, "progress.jsonl")
 	progress, err := os.ReadFile(name)
 	if err != nil {
-		return fmt.Errorf("%s: no trainstat.txt or progress.jsonl", dir)
+		return name, nil, err
 	}
 	c := newConverter()
 	state := filepath.Join(dir, "train", "state.json")
 	if b, err := os.ReadFile(state); err == nil {
 		if err := c.addConfig(state, b); err != nil {
-			return err
+			return name, nil, err
 		}
 	} else if !errors.Is(err, fs.ErrNotExist) {
-		return err
+		return name, nil, err
 	}
 	var out bytes.Buffer
 	if err := c.convert(name, progress, &out); err != nil {
-		return err
+		return name, nil, err
 	}
-	_, err = d.readBench(label, name, out.Bytes(), nil, "")
-	return err
+	return name, out.Bytes(), nil
 }
 
 // readBytes reads one input by content: go test -json, go test -v text,

@@ -10,8 +10,6 @@ import (
 	"io/fs"
 	"log"
 	"math"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -247,8 +245,7 @@ func (t *testReader) finishTest(g *goTest) error {
 	done := b2f(g.action == "pass")
 	var haveRun bool
 	if g.artifacts != "" {
-		name := filepath.Join(g.artifacts, "trainstat.txt")
-		b, err := os.ReadFile(name)
+		name, b, err := runText(g.artifacts)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
