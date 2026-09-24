@@ -359,6 +359,42 @@ func (s Slice[T]) CopyDeviceToDevice(src Slice[T]) error {
 	return nil
 }
 
+// MemsetAsync enqueues on stream a write of value to every byte of s, as
+// zeroing a gradient buffer before accumulation needs. It uses a 32-bit
+// memset when s is 4-byte aligned and a whole number of words long, and a
+// byte memset otherwise. Like the other asynchronous methods it retains the
+// allocation until the stream is synchronized or destroyed, and it may be
+// captured in a CUDA graph.
+func (s Slice[T]) MemsetAsync(value byte, stream *cuda.Stream) error {
+	if s.len == 0 {
+		return nil
+	}
+	if stream == nil {
+		return errors.New("cudamem: nil stream passed to MemsetAsync")
+	}
+	release, err := s.retain(stream.Device())
+	if err != nil {
+		return err
+	}
+	bytes := uintptr(s.len) * s.elemSize
+	attempted := false
+	err = s.withPointer(func(p driver.DevicePtr) error {
+		return stream.WithHandle(func(h driver.Stream) error {
+			attempted = true
+			if p%4 == 0 && bytes%4 == 0 {
+				return p.MemsetD32Async(uint32(value)*0x01010101, uint(bytes/4), h)
+			}
+			return p.MemsetD8Async(value, uint(bytes), h)
+		})
+	})
+	if err != nil {
+		failedTransferCleanup(attempted, stream.AddCleanup, release)
+		return fmt.Errorf("cudamem: async memset: %w", err)
+	}
+	stream.AddCleanup(release)
+	return nil
+}
+
 // CopyDeviceToDeviceAsync asynchronously enqueues a device-to-device copy onto the specified stream.
 // Both allocations are retained until successful stream synchronization or
 // destruction. Free returns ErrInUse until then.

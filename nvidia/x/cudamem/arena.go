@@ -3,6 +3,7 @@ package cudamem
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -23,11 +24,21 @@ type Arena struct {
 	frees   []func() error
 
 	// chunk, when nonzero, is the size of the blocks the arena carves
-	// allocations out of. block is the current one and offset the bytes of it
-	// already handed out.
+	// allocations out of. blocks holds every block in the order allocations
+	// use them; blocks[cur] is the current one and offset the bytes of it
+	// already handed out. Release and Reset move cur and offset back, and
+	// later allocations reuse the blocks after them.
 	chunk  int
-	block  Slice[byte]
+	blocks []Slice[byte]
+	cur    int
 	offset int
+
+	// newBlock allocates a block; tests replace it to count allocations.
+	newBlock func(bytes int) (Slice[byte], error)
+
+	// inUse is the bytes handed out and not released, and highWater the
+	// most inUse has been.
+	inUse, highWater int
 
 	// spans records each device allocation the arena made, so [Arena.Fill] can
 	// reach memory that AllocIn has handed out but nothing has written yet.
@@ -94,8 +105,15 @@ func AllocIn[T any](a *Arena, name string, length int) Slice[T] {
 	if a.err != nil {
 		return Slice[T]{}
 	}
-	a.spans = append(a.spans, arenaSpan{s.ptr, length * int(unsafe.Sizeof(*new(T)))})
+	bytes := length * int(unsafe.Sizeof(*new(T)))
+	a.spans = append(a.spans, arenaSpan{s.ptr, bytes})
+	a.use(bytes)
 	return s
+}
+
+func (a *Arena) use(bytes int) {
+	a.inUse += bytes
+	a.highWater = max(a.highWater, a.inUse)
 }
 
 func allocIn[T any](a *Arena, name string, allocate func() (Slice[T], error)) Slice[T] {
@@ -135,24 +153,140 @@ func allocInBlock[T any](a *Arena, length int) (Slice[T], error) {
 	if size == 0 {
 		size = arenaBlockAlign
 	}
-	if a.block.len-a.offset < size {
-		block, err := AllocTracked[byte](a.dev, a.tracker, max(size, a.chunk))
-		if err != nil {
+	if len(a.blocks) == 0 || a.blocks[a.cur].len-a.offset < size {
+		if err := a.nextBlock(size); err != nil {
 			return Slice[T]{}, err
 		}
-		a.frees = append(a.frees, block.Free)
-		a.spans = append(a.spans, arenaSpan{block.ptr, block.len})
-		a.block, a.offset = block, 0
 	}
+	block := a.blocks[a.cur]
 	s := Slice[T]{
-		ptr:      a.block.ptr + driver.DevicePtr(a.offset),
+		ptr:      block.ptr + driver.DevicePtr(a.offset),
 		len:      length,
 		cap:      length,
 		elemSize: elemSize,
-		alloc:    a.block.alloc,
+		alloc:    block.alloc,
 	}
 	a.offset += size
+	a.use(size)
 	return s, nil
+}
+
+// nextBlock makes the block after the current one current, allocating a new
+// one there if the next block is missing or smaller than size. With the
+// blocks reused in order, a sequence of requests repeated after a Reset gets
+// the same pointers and allocates nothing.
+func (a *Arena) nextBlock(size int) error {
+	next := a.cur + 1
+	if len(a.blocks) == 0 {
+		next = 0
+	}
+	if next < len(a.blocks) && a.blocks[next].len >= size {
+		a.cur, a.offset = next, 0
+		return nil
+	}
+	alloc := a.newBlock
+	if alloc == nil {
+		alloc = func(bytes int) (Slice[byte], error) { return AllocTracked[byte](a.dev, a.tracker, bytes) }
+	}
+	block, err := alloc(max(size, a.chunk))
+	if err != nil {
+		return err
+	}
+	a.frees = append(a.frees, block.Free)
+	a.spans = append(a.spans, arenaSpan{block.ptr, block.len})
+	a.blocks = slices.Insert(a.blocks, next, block)
+	a.cur, a.offset = next, 0
+	return nil
+}
+
+// A Mark records a point in an arena's allocations for [Arena.Release].
+// The zero Mark is the arena's start.
+type Mark struct {
+	block, offset int // chunked arenas: the cursor
+	frees, spans  int // other arenas: the allocations made before the mark
+	inUse         int
+}
+
+// Mark returns the current point in the arena's allocations.
+func (a *Arena) Mark() Mark {
+	if a.chunk > 0 {
+		return Mark{block: a.cur, offset: a.offset, inUse: a.inUse}
+	}
+	return Mark{frees: len(a.frees), spans: len(a.spans), inUse: a.inUse}
+}
+
+// Release releases everything allocated through the arena since m was
+// taken. Slices allocated since then must no longer be used, and marks
+// taken since then are invalid. Release also clears [Arena.Err], since the
+// failed allocation it reports came after the mark or was never made.
+//
+// A chunked arena ([NewChunkedArena]) keeps its blocks and hands the
+// released space out again, so a training step that calls Reset, or
+// Release to a mark taken at its start, and then makes the same requests
+// as the step before gets the same pointers and makes no driver
+// allocations. That is what lets a captured CUDA graph keep pointing at
+// valid buffers. The device memory is not cleared; see [Arena.Fill] and
+// [Slice.MemsetAsync].
+//
+// An unchunked arena frees the allocations made since m, most recent
+// first, and keeps any whose free fails for [Arena.Free].
+func (a *Arena) Release(m Mark) error {
+	if m.inUse > a.inUse {
+		return errors.New("cudamem: arena release to a mark past the current allocations")
+	}
+	a.err = nil
+	a.inUse = m.inUse
+	if a.chunk > 0 {
+		a.cur, a.offset = m.block, m.offset
+		return nil
+	}
+	if m.frees > len(a.frees) || m.spans > len(a.spans) {
+		return errors.New("cudamem: arena release to a mark from another arena or a freed one")
+	}
+	var errs []error
+	released := slices.Clone(a.frees[m.frees:])
+	a.frees = a.frees[:m.frees]
+	var failed []func() error
+	for i := len(released) - 1; i >= 0; i-- {
+		if err := released[i](); err != nil {
+			errs = append(errs, err)
+			failed = append(failed, released[i])
+		}
+	}
+	slices.Reverse(failed)
+	a.frees = append(a.frees, failed...)
+	a.spans = a.spans[:m.spans]
+	return errors.Join(errs...)
+}
+
+// Reset releases everything allocated through the arena, as Release to the
+// zero Mark does. A chunked arena keeps its blocks for reuse; [Arena.Free]
+// returns them to the driver.
+func (a *Arena) Reset() error {
+	return a.Release(Mark{})
+}
+
+// ArenaStats describes an arena's memory use in bytes.
+type ArenaStats struct {
+	// InUse is the memory handed out and not yet released. A chunked
+	// arena counts each allocation rounded up to its 256-byte alignment.
+	InUse int
+	// HighWater is the most InUse has been since the arena was created
+	// or last freed. It is the size to give a chunked arena's blocks so
+	// a step fits in one.
+	HighWater int
+	// Reserved is the device memory the arena holds: its blocks for a
+	// chunked arena, its live allocations otherwise.
+	Reserved int
+}
+
+// Stats returns the arena's memory use.
+func (a *Arena) Stats() ArenaStats {
+	st := ArenaStats{InUse: a.inUse, HighWater: a.highWater}
+	for _, s := range a.spans {
+		st.Reserved += s.bytes
+	}
+	return st
 }
 
 // Fill sets every byte the arena has allocated to the low byte of word. Device
@@ -200,6 +334,8 @@ func (a *Arena) Err() error {
 func (a *Arena) Free() error {
 	frees := a.frees
 	a.spans = nil
+	a.blocks, a.cur, a.offset = nil, 0, 0
+	a.inUse, a.highWater = 0, 0
 	var errs []error
 	for i := len(frees) - 1; i >= 0; i-- {
 		if err := frees[i](); err != nil {
