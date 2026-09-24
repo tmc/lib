@@ -280,7 +280,7 @@ func nativeRunOps(dev *cuda.Device) runOps {
 				pins.Pin(arg)
 			}
 			defer pins.Unpin()
-			return fn.LaunchKernel(1, 1, 1, 32, 1, 1, 0, stream, args)
+			return fn.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: 32, Y: 1, Z: 1}, 0, stream, args)
 		},
 		synchronize: driver.Stream.Synchronize,
 		read: func(ptr driver.DevicePtr, dst []byte) error {

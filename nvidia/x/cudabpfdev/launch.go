@@ -186,7 +186,7 @@ func launchInjection(fn driver.Function, g Geometry, stream driver.Stream, schem
 	if len(ptrs) > 0 {
 		pins.Pin(&ptrs[0])
 	}
-	err := fn.LaunchKernel(g.Grid[0], g.Grid[1], g.Grid[2], g.Block[0], g.Block[1], g.Block[2], g.SharedBytes, stream, ptrs)
+	err := fn.LaunchKernel(driver.Dim3{X: g.Grid[0], Y: g.Grid[1], Z: g.Grid[2]}, driver.Dim3{X: g.Block[0], Y: g.Block[1], Z: g.Block[2]}, g.SharedBytes, stream, ptrs)
 	runtime.KeepAlive(packed)
 	runtime.KeepAlive(ptrs)
 	return err

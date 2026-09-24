@@ -186,13 +186,13 @@ func TestTelemetryChannel_NativeMappedChannel(t *testing.T) {
 			t.Fatal(err)
 		}
 		sz := uint64(size)
-		if err := initK.LaunchKernel(1, 1, 1, 1, 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&bufd), unsafe.Pointer(&sz), unsafe.Pointer(&dbd)}); err != nil {
+		if err := initK.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: 1, Y: 1, Z: 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&bufd), unsafe.Pointer(&sz), unsafe.Pointer(&dbd)}); err != nil {
 			t.Fatalf("launch chan_init: %v", err)
 		}
-		if err := produce.LaunchKernel(blocks, 1, 1, threads, 1, 1, 0, 0, nil); err != nil {
+		if err := produce.LaunchKernel(driver.Dim3{X: blocks, Y: 1, Z: 1}, driver.Dim3{X: threads, Y: 1, Z: 1}, 0, 0, nil); err != nil {
 			t.Fatalf("launch chan_produce: %v", err)
 		}
-		if err := finish.LaunchKernel(1, 1, 1, 1, 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&sentinel)}); err != nil {
+		if err := finish.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: 1, Y: 1, Z: 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&sentinel)}); err != nil {
 			t.Fatalf("launch chan_finish: %v", err)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)

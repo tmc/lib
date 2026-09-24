@@ -78,7 +78,7 @@ func (p *Params) Ptrs() []unsafe.Pointer {
 // shared memory on stream.
 func LaunchCooperative(fn driver.Function, gridDim, blockDim, sharedMem uint32, stream driver.Stream, params *Params) error {
 	if err := fn.LaunchCooperativeKernel(
-		gridDim, 1, 1, blockDim, 1, 1, sharedMem, stream, params.Ptrs(),
+		driver.Dim3{X: gridDim, Y: 1, Z: 1}, driver.Dim3{X: blockDim, Y: 1, Z: 1}, sharedMem, stream, params.Ptrs(),
 	); err != nil {
 		return fmt.Errorf("moonep: cooperative launch: %w", err)
 	}
