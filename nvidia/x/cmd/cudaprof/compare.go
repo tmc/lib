@@ -450,6 +450,9 @@ type Comparison struct {
 	// the identity: how much of the movement the ops file did not name.
 	UnmatchedShare float64  `json:"unmatched_share"`
 	Notes          []string `json:"notes,omitempty"`
+
+	// Cudaprof is the build that computed the comparison.
+	Cudaprof buildStamp `json:"cudaprof"`
 }
 
 // CompareSide is one capture measured over its window.
@@ -770,7 +773,7 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 	if b.ComputeCapability != "" && t.ComputeCapability != "" && b.ComputeCapability != t.ComputeCapability {
 		return nil, fmt.Errorf("captures ran on different compute capabilities: base %s, target %s", b.ComputeCapability, t.ComputeCapability)
 	}
-	c := &Comparison{Base: b, Target: t, OpStatus: "MEASURED"}
+	c := &Comparison{Base: b, Target: t, OpStatus: "MEASURED", Cudaprof: currentBuild()}
 	c.Terms = []GapIntDelta{
 		intDelta("window", b.WindowNanos, t.WindowNanos),
 		intDelta("lead_in", b.LeadInNanos, t.LeadInNanos),

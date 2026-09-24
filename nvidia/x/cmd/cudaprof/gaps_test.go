@@ -688,6 +688,9 @@ func TestGapsCLI(t *testing.T) {
 	if len(report.Devices) != 1 || report.Devices[0].Overall.GapCount != 4 {
 		t.Errorf("json report = %+v", report.Devices)
 	}
+	if report.Cudaprof != currentBuild() {
+		t.Errorf("json report cudaprof = %+v, want %+v", report.Cudaprof, currentBuild())
+	}
 
 	help := captureStdout(t, func() error { return runGapsCommand(nil) })
 	if !strings.Contains(help, "Usage: cudaprof gaps") {

@@ -770,6 +770,9 @@ type GapReport struct {
 	// per graph node, or one envelope per replay. Empty is UNREAD: the agent
 	// predates the field or the capture carries no capability record.
 	GraphTraceMode graphTraceMode `json:"graph_trace_mode,omitempty"`
+
+	// Cudaprof is the build that computed the report.
+	Cudaprof buildStamp `json:"cudaprof"`
 }
 
 // GapDevice holds the whole-run and steady-state timelines of one device.
@@ -948,6 +951,7 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 		WarmupMS:            opts.warmupMS,
 		WarmupUntil:         opts.warmupUntil,
 		OpaqueGraphReplays:  graphsAreOpaque,
+		Cudaprof:            currentBuild(),
 		UnresolvedSyncs:     records.unresolvedSyncs,
 		UnresolvedSyncNanos: records.unresolvedNanos,
 	}

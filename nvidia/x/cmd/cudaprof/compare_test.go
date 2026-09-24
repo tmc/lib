@@ -566,6 +566,15 @@ func TestCompareJSON(t *testing.T) {
 	if ops := m["ops"].([]any); ops[0].(map[string]any)["base_exclusive_ns"] != 100.0 {
 		t.Errorf("ops = %v", ops)
 	}
+	var stamped struct {
+		Cudaprof *buildStamp `json:"cudaprof"`
+	}
+	if err := json.Unmarshal(data, &stamped); err != nil {
+		t.Fatal(err)
+	}
+	if stamped.Cudaprof == nil || *stamped.Cudaprof != currentBuild() {
+		t.Errorf("cudaprof = %+v, want %+v", stamped.Cudaprof, currentBuild())
+	}
 }
 
 // TestCompareGraphTraceMode checks that the mode comes from the capability

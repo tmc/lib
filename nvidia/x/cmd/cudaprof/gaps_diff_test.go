@@ -212,7 +212,8 @@ func TestGapsDiffJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	var round struct {
-		WarmupMS float64 `json:"warmup_ms"`
+		WarmupMS float64     `json:"warmup_ms"`
+		Cudaprof *buildStamp `json:"cudaprof"`
 		Devices  []struct {
 			Overall struct {
 				Span    GapIntDelta   `json:"span_ns"`
@@ -228,6 +229,9 @@ func TestGapsDiffJSON(t *testing.T) {
 	}
 	if round.WarmupMS != 200 || len(round.Devices) != 1 {
 		t.Fatalf("decoded = %+v", round)
+	}
+	if round.Cudaprof == nil || *round.Cudaprof != currentBuild() {
+		t.Errorf("decoded cudaprof = %+v, want %+v", round.Cudaprof, currentBuild())
 	}
 	got := round.Devices[0].Overall
 	if got.Span.Delta != -400 || got.Active.Delta != 2_000 || got.Idle.Delta != -2_400 {

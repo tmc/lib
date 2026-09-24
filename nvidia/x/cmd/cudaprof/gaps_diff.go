@@ -56,6 +56,9 @@ type GapDiff struct {
 	WarmupMS float64           `json:"warmup_ms"`
 	Devices  []GapDeviceDiff   `json:"devices"`
 	Kernels  *KernelCensusDiff `json:"kernels,omitempty"`
+
+	// Cudaprof is the build that computed the diff.
+	Cudaprof buildStamp `json:"cudaprof"`
 }
 
 // KernelDelta is one kernel's launch count, device time and place in the run,
@@ -309,7 +312,7 @@ func diffGapReports(base, target *GapReport) (*GapDiff, error) {
 	if base.WarmupMS != target.WarmupMS || base.WarmupUntil != target.WarmupUntil {
 		return nil, fmt.Errorf("warmup windows differ: base excludes the %s and target the %s, so their steady-state sections cover unlike windows", base.warmup(), target.warmup())
 	}
-	diff := &GapDiff{Base: base, Target: target, WarmupMS: base.WarmupMS}
+	diff := &GapDiff{Base: base, Target: target, WarmupMS: base.WarmupMS, Cudaprof: currentBuild()}
 	baseByDevice := indexGapDevices(base)
 	targetByDevice := indexGapDevices(target)
 	for _, id := range mergedDeviceIDs(baseByDevice, targetByDevice) {
