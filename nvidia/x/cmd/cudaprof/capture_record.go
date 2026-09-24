@@ -147,6 +147,9 @@ func projectionNotes(result captureResult) string {
 		fmt.Fprintf(&b, "  excluded %d kernel record(s) (%s) matching %s from the projection; the totals above and the attached journals still hold them, so cudaprof gaps still sees them\n",
 			result.ExcludedRecords, time.Duration(result.ExcludedNanos), strings.Join(result.ExcludedPatterns, ", "))
 	}
+	if n := uncheckedModules(result.Modules); n > 0 {
+		fmt.Fprintf(&b, "  %d module load(s) arrived after the agent's table of seen modules was full and were kept without a duplicate check, so the module census may count one image more than once\n", n)
+	}
 	if !result.ChildrenFollowed {
 		if generations, records := unfollowedChildren(result.WorkerGenerations); generations > 0 {
 			fmt.Fprintf(&b, "  %d child generation(s) holding %d activity record(s) are not in these totals (--follow-children=false); their journals are attached and their dispositions are in worker_generations\n",
@@ -154,6 +157,18 @@ func projectionNotes(result captureResult) string {
 		}
 	}
 	return b.String()
+}
+
+// uncheckedModules counts the module records the agent wrote without a
+// duplicate check.
+func uncheckedModules(modules []captureModule) int {
+	n := 0
+	for _, m := range modules {
+		if m.Unchecked {
+			n++
+		}
+	}
+	return n
 }
 
 // unfollowedChildren counts the generations left out of the totals and the

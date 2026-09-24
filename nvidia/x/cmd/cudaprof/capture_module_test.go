@@ -36,6 +36,7 @@ func TestModuleRecordsDecode(t *testing.T) {
 		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
 		{Kind: recordModule, Payload: []byte(`{"kind":"module","module_id":22,"module_size":4096,"module_file":"module-0000-id22.cubin","module_stored":true,"module_reason":""}`)},
 		{Kind: recordModule, Payload: []byte(`{"kind":"module","module_id":23,"module_size":99999999,"module_file":"","module_stored":false,"module_reason":"file_budget"}`)},
+		{Kind: recordModule, Payload: []byte(`{"kind":"module","module_id":22,"module_size":4096,"module_file":"module-0002-id22.cubin","module_stored":true,"module_reason":"","module_unchecked":true}`)},
 		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200,"module_id":22}`)},
 		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
 	})
@@ -53,8 +54,8 @@ func TestModuleRecordsDecode(t *testing.T) {
 	if activities[0].ModuleID != 22 {
 		t.Errorf("kernel activity module = %d, want 22", activities[0].ModuleID)
 	}
-	if len(metrics.modules) != 2 {
-		t.Fatalf("got %d modules, want 2", len(metrics.modules))
+	if len(metrics.modules) != 3 {
+		t.Fatalf("got %d modules, want 3", len(metrics.modules))
 	}
 	if got := metrics.modules[0]; got.ID != 22 || got.Size != 4096 || got.File != "module-0000-id22.cubin" || !got.Stored {
 		t.Errorf("stored module = %+v", got)
@@ -64,6 +65,19 @@ func TestModuleRecordsDecode(t *testing.T) {
 	// indistinguishable from one the target never loaded.
 	if got := metrics.modules[1]; got.ID != 23 || got.Stored || got.Reason != "file_budget" || got.Size != 99999999 {
 		t.Errorf("omitted module = %+v", got)
+	}
+	// A load past the agent's duplicate table may repeat an earlier image,
+	// and only the record's own flag says so.
+	if metrics.modules[0].Unchecked || metrics.modules[1].Unchecked || !metrics.modules[2].Unchecked {
+		t.Errorf("unchecked flags = %v %v %v, want false false true",
+			metrics.modules[0].Unchecked, metrics.modules[1].Unchecked, metrics.modules[2].Unchecked)
+	}
+	head := captureHeadline(captureResult{RunCompleteness: runComplete, ChildrenFollowed: true, Modules: metrics.modules})
+	if !strings.Contains(head, "1 module load(s) arrived after the agent's table of seen modules was full") {
+		t.Errorf("headline does not report the unchecked load:\n%s", head)
+	}
+	if head := captureHeadline(captureResult{RunCompleteness: runComplete, ChildrenFollowed: true, Modules: metrics.modules[:2]}); strings.Contains(head, "table of seen modules") {
+		t.Errorf("headline reports unchecked loads where there are none:\n%s", head)
 	}
 }
 

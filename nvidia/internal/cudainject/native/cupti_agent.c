@@ -714,6 +714,10 @@ static uint64_t module_file_limit = 16ull * 1024 * 1024;
 static uint64_t module_total_limit = 128ull * 1024 * 1024;
 static struct { uint32_t id; uint64_t size; } module_seen[MODULE_SEEN_MAX];
 static unsigned module_seen_count;
+/* module_unchecked counts the loads that arrived once module_seen was full.
+   Each was written without a duplicate check, so a capture past the bound
+   may hold one image several times; the count is what says so. */
+static unsigned module_unchecked;
 
 /* env_bytes reads a byte budget from the environment, keeping the default when
    the variable is absent or does not parse. A budget that silently became zero
@@ -733,14 +737,19 @@ static uint64_t env_bytes(const char *name, uint64_t fallback) {
    once per load with identical bytes, and writing every copy would multiply
    the capture by the context count for nothing. Past the table's bound every
    load counts as new: writing a duplicate costs size, where refusing a
-   distinct module would cost correctness. */
-static int module_first_load(uint32_t id, uint64_t size) {
+   distinct module would cost correctness. *unchecked is set for such a load,
+   so its record can say it may repeat an earlier one. */
+static int module_first_load(uint32_t id, uint64_t size, int *unchecked) {
+	*unchecked = 0;
 	for (unsigned i = 0; i < module_seen_count; i++)
 		if (module_seen[i].id == id && module_seen[i].size == size) return 0;
 	if (module_seen_count < MODULE_SEEN_MAX) {
 		module_seen[module_seen_count].id = id;
 		module_seen[module_seen_count].size = size;
 		module_seen_count++;
+	} else {
+		*unchecked = 1;
+		module_unchecked++;
 	}
 	return 1;
 }
@@ -752,10 +761,10 @@ static int module_first_load(uint32_t id, uint64_t size) {
 static void write_module(uint32_t module_id, const char *cubin, size_t size) {
 	if (worker_dir[0] == '\0' || journal_fd < 0 || cubin == NULL || size == 0) return;
 	const char *reason = "";
-	int omit = 0;
+	int omit = 0, unchecked;
 	unsigned seq;
 	pthread_mutex_lock(&module_mu);
-	if (!module_first_load(module_id, (uint64_t)size)) { pthread_mutex_unlock(&module_mu); return; }
+	if (!module_first_load(module_id, (uint64_t)size, &unchecked)) { pthread_mutex_unlock(&module_mu); return; }
 	if ((uint64_t)size > module_file_limit) { omit = 1; reason = "over per-module budget"; }
 	else if (module_total_bytes + (uint64_t)size > module_total_limit) { omit = 1; reason = "over total module budget"; }
 	seq = module_seq++;
@@ -799,8 +808,8 @@ static void write_module(uint32_t module_id, const char *cubin, size_t size) {
 	   disagrees fails the whole journal rather than this record. */
 	char payload[MAX_PAYLOAD];
 	int n = snprintf(payload, sizeof(payload),
-		"{\"kind\":\"module\",\"module_id\":%" PRIu32 ",\"module_size\":%zu,\"module_file\":\"%s\",\"module_stored\":%s,\"module_reason\":\"%s\"}",
-		module_id, size, omit ? "" : name, omit ? "false" : "true", reason);
+		"{\"kind\":\"module\",\"module_id\":%" PRIu32 ",\"module_size\":%zu,\"module_file\":\"%s\",\"module_stored\":%s,\"module_reason\":\"%s\",\"module_unchecked\":%s}",
+		module_id, size, omit ? "" : name, omit ? "false" : "true", reason, unchecked ? "true" : "false");
 	if (n > 0 && (size_t)n < sizeof(payload)) (void)write_record(KIND_MODULE, now_ns(), payload, (size_t)n);
 }
 
@@ -2919,7 +2928,7 @@ static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback) 
 	if (pthread_join(worker, NULL) != 0) atomic_store(&producer_failed, 1);
 	char payload[MAX_PAYLOAD];
 	const char *state = atomic_load(&producer_failed) ? "producer_failure" : (atomic_load(&activity_count) ? "collected" : "initialized_no_activity");
-	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"host\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"module\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"pcsample\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}},\"modules_written\":%u,\"modules_omitted\":%u,\"module_bytes\":%" PRIu64 ",\"host_samples\":%" PRIu64 ",\"host_sample_records\":%" PRIu64 "}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
+	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"host\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"module\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"pcsample\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}},\"modules_written\":%u,\"modules_omitted\":%u,\"module_bytes\":%" PRIu64 ",\"module_seen_max\":%u,\"modules_unchecked\":%u,\"host_samples\":%" PRIu64 ",\"host_sample_records\":%" PRIu64 "}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
 		atomic_load(&offered_by_kind[KIND_ACTIVITY]), atomic_load(&retained_by_kind[KIND_ACTIVITY]), atomic_load(&dropped_by_kind[KIND_ACTIVITY]),
 		atomic_load(&offered_by_kind[KIND_API]), atomic_load(&retained_by_kind[KIND_API]), atomic_load(&dropped_by_kind[KIND_API]),
 		atomic_load(&offered_by_kind[KIND_EXTERNAL]), atomic_load(&retained_by_kind[KIND_EXTERNAL]), atomic_load(&dropped_by_kind[KIND_EXTERNAL]),
@@ -2927,7 +2936,7 @@ static void cudaprof_cupti_finalize(const char *trigger, int in_range_callback) 
 		atomic_load(&offered_by_kind[KIND_HOST]), atomic_load(&retained_by_kind[KIND_HOST]), atomic_load(&dropped_by_kind[KIND_HOST]),
 		atomic_load(&offered_by_kind[KIND_MODULE]), atomic_load(&retained_by_kind[KIND_MODULE]), atomic_load(&dropped_by_kind[KIND_MODULE]),
 		atomic_load(&offered_by_kind[KIND_PCSAMPLE]), atomic_load(&retained_by_kind[KIND_PCSAMPLE]), atomic_load(&dropped_by_kind[KIND_PCSAMPLE]),
-		module_seq - module_omitted, module_omitted, module_total_bytes,
+		module_seq - module_omitted, module_omitted, module_total_bytes, (unsigned)MODULE_SEEN_MAX, module_unchecked,
 		atomic_load(&host_samples_taken), atomic_load(&host_sample_records));
 	if (n < 0 || (size_t)n >= sizeof(payload) || write_record(KIND_FINALIZED, now_ns(), payload, (size_t)n) != 0) atomic_store(&producer_failed, 1);
 	if (fsync(journal_fd) != 0) atomic_store(&producer_failed, 1);

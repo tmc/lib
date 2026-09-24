@@ -31,6 +31,10 @@ int cudaprof_test_subscribed(void);
 int cudaprof_test_callback_enabled(unsigned domain, unsigned cbid);
 int cudaprof_test_fire_callback(unsigned domain, unsigned cbid, unsigned site);
 
+/* Fires the module-loaded resource callback for one image, as the driver does
+   inside every module load, and reports whether it was delivered. */
+int cudaprof_test_load_module(uint32_t id, const void *cubin, size_t size);
+
 /* Reports how many activity kinds are enabled right now. Gating's whole claim
    is that this is zero before the range opens and nonzero inside it, so the
    control reads it rather than inferring it from record counts. */

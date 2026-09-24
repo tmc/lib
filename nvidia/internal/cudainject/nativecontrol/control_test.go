@@ -40,6 +40,7 @@ const (
 	kindExternal   = 6
 	kindAPI        = 7
 	kindHost       = 8
+	kindModule     = 9
 )
 
 const sessionHex = "00112233445566778899aabbccddeeff"
@@ -80,6 +81,19 @@ type finalizedRecord struct {
 	// case the batching exists for.
 	HostSamples       uint64 `json:"host_samples"`
 	HostSampleRecords uint64 `json:"host_sample_records"`
+
+	// ModuleSeenMax is the producer's duplicate-table bound, and
+	// ModulesUnchecked counts the module loads that arrived after it filled
+	// and were written without a duplicate check.
+	ModuleSeenMax    uint64 `json:"module_seen_max"`
+	ModulesUnchecked uint64 `json:"modules_unchecked"`
+}
+
+// moduleRecord is one module image record.
+type moduleRecord struct {
+	ID        uint32 `json:"module_id"`
+	Stored    bool   `json:"module_stored"`
+	Unchecked bool   `json:"module_unchecked"`
 }
 
 // kindCounts is one kind's share of the producer's accounting.
@@ -155,6 +169,7 @@ type capture struct {
 	graphNodes []graphNodeKernel
 	syncs      []syncRecord
 	hosts      []hostSampleRecord
+	modules    []moduleRecord
 	// order is every record's kind in journal order. The producer's ordering
 	// invariant -- nothing before bootstrap and capability, nothing after
 	// finalized -- is a property of the sequence, not of the counts, so it
@@ -547,6 +562,12 @@ func decode(t *testing.T, path, wantRevision string) capture {
 			c.capabilityJSON = append([]byte(nil), r.Payload...)
 		case kindFailure:
 			c.failures = append(c.failures, string(r.Payload))
+		case kindModule:
+			var m moduleRecord
+			if err := json.Unmarshal(r.Payload, &m); err != nil {
+				t.Fatalf("module payload %q: %v", r.Payload, err)
+			}
+			c.modules = append(c.modules, m)
 		case kindHost:
 			var h hostSampleRecord
 			if err := json.Unmarshal(r.Payload, &h); err != nil {
@@ -3276,5 +3297,52 @@ func TestCapabilityTruncationNamesItself(t *testing.T) {
 		if strings.Contains(f, "capability record needs") {
 			t.Errorf("shipped buffer reported truncation: %s", f)
 		}
+	}
+}
+
+// TestModuleTableOverflowIsRecorded loads more distinct modules than the
+// producer's duplicate table holds, twice each. Below the bound the repeats
+// are recognised and not written again; past it every load is written, and
+// each such record, and the finalized total, must say it went unchecked.
+func TestModuleTableOverflowIsRecorded(t *testing.T) {
+	tests := []struct {
+		name          string
+		distinct      string
+		wantRecords   int
+		wantUnchecked uint64
+	}{
+		{"under", "10", 10, 0},
+		{"at", "256", 256, 0},
+		{"over", "300", 256 + 2*44, 2 * 44},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, status, captures := runEnv(t, []string{"CUDAPROF_MODULES=1"}, "modules", tt.distinct, "2")
+			if status.ExitStatus() != 0 {
+				t.Fatalf("harness exited %v", status)
+			}
+			c := only(t, captures)
+			if c.finalized == nil {
+				t.Fatal("no finalized record")
+			}
+			if len(c.modules) != tt.wantRecords {
+				t.Errorf("module records = %d, want %d", len(c.modules), tt.wantRecords)
+			}
+			var unchecked uint64
+			for _, m := range c.modules {
+				if m.Unchecked {
+					unchecked++
+				}
+			}
+			if unchecked != tt.wantUnchecked {
+				t.Errorf("records marked unchecked = %d, want %d", unchecked, tt.wantUnchecked)
+			}
+			if c.finalized.ModulesUnchecked != tt.wantUnchecked {
+				t.Errorf("finalized modules_unchecked = %d, want %d", c.finalized.ModulesUnchecked, tt.wantUnchecked)
+			}
+			if c.finalized.ModuleSeenMax != 256 {
+				t.Errorf("finalized module_seen_max = %d, want 256", c.finalized.ModuleSeenMax)
+			}
+		})
 	}
 }

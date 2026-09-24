@@ -230,6 +230,17 @@ int cudaprof_test_fire_callback(unsigned domain, unsigned cbid, unsigned site) {
 	return 1;
 }
 
+int cudaprof_test_load_module(uint32_t id, const void *cubin, size_t size) {
+	if (!subscriber_live || subscriber_cb == NULL) return 0;
+	if (!cudaprof_test_callback_enabled(CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_MODULE_LOADED)) return 0;
+	CUpti_ModuleResourceData mod = {id, size, (const char *)cubin};
+	CUpti_ResourceData res;
+	memset(&res, 0, sizeof res);
+	res.resourceDescriptor = &mod;
+	subscriber_cb(subscriber_data, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_MODULE_LOADED, &res);
+	return 1;
+}
+
 unsigned cudaprof_test_enabled_kind_count(void) {
 	unsigned n = 0;
 	for (unsigned i = 0; i < TEST_MAX_ACTIVITY_KINDS; i++) {

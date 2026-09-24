@@ -46,6 +46,7 @@ type captureRecordPayload struct {
 	ModuleFile          string     `json:"module_file"`
 	ModuleStored        bool       `json:"module_stored"`
 	ModuleReason        string     `json:"module_reason"`
+	ModuleUnchecked     bool       `json:"module_unchecked"`
 	PCFunction          string     `json:"pc_function"`
 	PCOffset            uint64     `json:"pc_offset"`
 	PCSamples           uint64     `json:"pc_samples"`
@@ -759,12 +760,17 @@ type capturePCSampling struct {
 // state a module too large for the agent's budget is recorded in: a module the
 // capture declined to keep and a module the target never loaded are different
 // facts, and only one of them is silence.
+//
+// Unchecked marks a load the agent wrote without looking for an earlier copy,
+// because its table of seen modules was already full. Such a record may
+// repeat one that came before it.
 type captureModule struct {
-	ID     uint32 `json:"module_id"`
-	Size   uint64 `json:"size"`
-	File   string `json:"file,omitempty"`
-	Stored bool   `json:"stored"`
-	Reason string `json:"reason,omitempty"`
+	ID        uint32 `json:"module_id"`
+	Size      uint64 `json:"size"`
+	File      string `json:"file,omitempty"`
+	Stored    bool   `json:"stored"`
+	Reason    string `json:"reason,omitempty"`
+	Unchecked bool   `json:"unchecked,omitempty"`
 }
 
 // errJournalNotFinalized reports a journal that decoded completely but whose
@@ -1149,11 +1155,12 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order module record")
 			}
 			metrics.modules = append(metrics.modules, captureModule{
-				ID:     payload.ModuleID,
-				Size:   payload.ModuleSize,
-				File:   payload.ModuleFile,
-				Stored: payload.ModuleStored,
-				Reason: payload.ModuleReason,
+				ID:        payload.ModuleID,
+				Size:      payload.ModuleSize,
+				File:      payload.ModuleFile,
+				Stored:    payload.ModuleStored,
+				Reason:    payload.ModuleReason,
+				Unchecked: payload.ModuleUnchecked,
 			})
 		case recordPCSample:
 			// PC samples and the sampler's own summary, gated like module

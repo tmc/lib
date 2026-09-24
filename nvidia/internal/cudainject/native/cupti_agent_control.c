@@ -267,6 +267,23 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
+	/* modules loads <distinct> module images <repeats> times each, which is
+	   how a target that loads one module per context looks to the producer.
+	   Past the producer's duplicate table a repeat can no longer be
+	   recognised, and the journal has to say so. */
+	if (strcmp(scenario, "modules") == 0) {
+		unsigned distinct = arg_uint(argc, argv, 2, 4);
+		unsigned repeats = arg_uint(argc, argv, 3, 1);
+		static const char image[16] = "\x7f" "ELF-test-cubin";
+		int offered = 0;
+		for (unsigned r = 0; r < repeats; r++)
+			for (unsigned i = 1; i <= distinct; i++)
+				offered += cudaprof_test_load_module(i, image, sizeof image);
+		printf("{\"scenario\":\"modules\",\"offered\":%d}\n", offered);
+		fflush(stdout);
+		return 0;
+	}
+
 	/* host-sample idles while the producer's own host-state sampler runs.
 	   The sampler reads whatever CUDAPROF_HOST_SAMPLE_ROOT names, so this
 	   scenario deliberately does no CUPTI work: the thread set under test is
