@@ -228,8 +228,8 @@ func (f Function) MaxPotentialClusterSize(config *LaunchConfig) (int32, error) {
 // Deprecated: Invokes the kernel f on a 1 x 1 x 1 grid of blocks. The block contains the number of threads specified by a previous call to [Function.SetBlockShape](). The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape](), [Function.SetSharedSize](), [Function.ParamSetSize](), [Function.ParamSeti](), [Function.ParamSetf](), and [Function.ParamSetv]() prior to calling this function. Launching a function via [Function.LaunchKernel]() invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
 //
 // Wraps cuLaunch.
-func (fu Function) Launch() error {
-	return launch(fu)
+func (f Function) Launch() error {
+	return launch(f)
 }
 
 // LaunchCooperativeKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel] where thread blocks can cooperate and synchronize as they execute.
@@ -247,8 +247,8 @@ func (fu Function) Launch() error {
 //   - kernelParams: Array of pointers to kernel parameters
 //
 // Wraps cuLaunchCooperativeKernel.
-func (fu Function) LaunchCooperativeKernel(gridDimX uint32, gridDimY uint32, gridDimZ uint32, blockDimX uint32, blockDimY uint32, blockDimZ uint32, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
-	return launchCooperativeKernel(fu, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams)
+func (f Function) LaunchCooperativeKernel(gridDimX uint32, gridDimY uint32, gridDimZ uint32, blockDimX uint32, blockDimY uint32, blockDimZ uint32, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
+	return launchCooperativeKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams)
 }
 
 // LaunchGrid Launches a CUDA function
@@ -261,8 +261,8 @@ func (fu Function) LaunchCooperativeKernel(gridDimX uint32, gridDimY uint32, gri
 // Deprecated: Invokes the kernel f on a grid_width x grid_height grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape](). The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape](), [Function.SetSharedSize](), [Function.ParamSetSize](), [Function.ParamSeti](), [Function.ParamSetf](), and [Function.ParamSetv]() prior to calling this function. Launching a function via [Function.LaunchKernel]() invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
 //
 // Wraps cuLaunchGrid.
-func (fu Function) LaunchGrid(grid_width int32, grid_height int32) error {
-	return launchGrid(fu, grid_width, grid_height)
+func (f Function) LaunchGrid(grid_width int32, grid_height int32) error {
+	return launchGrid(f, grid_width, grid_height)
 }
 
 // LaunchGridAsync Launches a CUDA function
@@ -276,8 +276,8 @@ func (fu Function) LaunchGrid(grid_width int32, grid_height int32) error {
 // Deprecated: Invokes the kernel f on a grid_width x grid_height grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape](). The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape](), [Function.SetSharedSize](), [Function.ParamSetSize](), [Function.ParamSeti](), [Function.ParamSetf](), and [Function.ParamSetv]() prior to calling this function. Launching a function via [Function.LaunchKernel]() invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
 //
 // Wraps cuLaunchGridAsync.
-func (fu Function) LaunchGridAsync(grid_width int32, grid_height int32, hStream Stream) error {
-	return launchGridAsync(fu, grid_width, grid_height, hStream)
+func (f Function) LaunchGridAsync(grid_width int32, grid_height int32, hStream Stream) error {
+	return launchGridAsync(f, grid_width, grid_height, hStream)
 }
 
 // LaunchKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel].
@@ -295,8 +295,8 @@ func (fu Function) LaunchGridAsync(grid_width int32, grid_height int32, hStream 
 //   - kernelParams: Array of pointers to kernel parameters
 //
 // Wraps cuLaunchKernel.
-func (fu Function) LaunchKernel(gridDimX uint32, gridDimY uint32, gridDimZ uint32, blockDimX uint32, blockDimY uint32, blockDimZ uint32, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
-	return launchKernel(fu, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams)
+func (f Function) LaunchKernel(gridDimX uint32, gridDimY uint32, gridDimZ uint32, blockDimX uint32, blockDimY uint32, blockDimZ uint32, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
+	return launchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams)
 }
 
 // LaunchKernelEx Launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
@@ -308,8 +308,8 @@ func (fu Function) LaunchKernel(gridDimX uint32, gridDimY uint32, gridDimZ uint3
 //   - extra: Extra options
 //
 // Wraps cuLaunchKernelEx.
-func (fu Function) LaunchKernelEx(config *LaunchConfig, kernelParams []unsafe.Pointer, extra *uintptr) error {
-	return launchKernelEx(config, fu, kernelParams, extra)
+func (f Function) LaunchKernelEx(config *LaunchConfig, kernelParams []unsafe.Pointer, extra *uintptr) error {
+	return launchKernelEx(config, f, kernelParams, extra)
 }
 
 // ParamSetSize Sets the parameter size for the function
