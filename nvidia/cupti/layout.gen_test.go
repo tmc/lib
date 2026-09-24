@@ -626,14 +626,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityKernel11{}.ChannelType); got != 172 {
 		t.Errorf("offsetof(ActivityKernel11.ChannelType) = %d, want 172", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.ClusterX); got != 176 {
-		t.Errorf("offsetof(ActivityKernel11.ClusterX) = %d, want 176", got)
-	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.ClusterY); got != 180 {
-		t.Errorf("offsetof(ActivityKernel11.ClusterY) = %d, want 180", got)
-	}
-	if got := unsafe.Offsetof(ActivityKernel11{}.ClusterZ); got != 184 {
-		t.Errorf("offsetof(ActivityKernel11.ClusterZ) = %d, want 184", got)
+	if got := unsafe.Offsetof(ActivityKernel11{}.Cluster); got != 176 {
+		t.Errorf("offsetof(ActivityKernel11.Cluster) = %d, want 176", got)
 	}
 	if got := unsafe.Offsetof(ActivityKernel11{}.ClusterSchedulingPolicy); got != 188 {
 		t.Errorf("offsetof(ActivityKernel11.ClusterSchedulingPolicy) = %d, want 188", got)
@@ -740,14 +734,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityCdpKernel{}.Completed); got != 112 {
 		t.Errorf("offsetof(ActivityCdpKernel.Completed) = %d, want 112", got)
 	}
-	if got := unsafe.Offsetof(ActivityCdpKernel{}.ParentBlockX); got != 120 {
-		t.Errorf("offsetof(ActivityCdpKernel.ParentBlockX) = %d, want 120", got)
-	}
-	if got := unsafe.Offsetof(ActivityCdpKernel{}.ParentBlockY); got != 124 {
-		t.Errorf("offsetof(ActivityCdpKernel.ParentBlockY) = %d, want 124", got)
-	}
-	if got := unsafe.Offsetof(ActivityCdpKernel{}.ParentBlockZ); got != 128 {
-		t.Errorf("offsetof(ActivityCdpKernel.ParentBlockZ) = %d, want 128", got)
+	if got := unsafe.Offsetof(ActivityCdpKernel{}.ParentBlock); got != 120 {
+		t.Errorf("offsetof(ActivityCdpKernel.ParentBlock) = %d, want 120", got)
 	}
 	if got := unsafe.Offsetof(ActivityCdpKernel{}.Pad); got != 132 {
 		t.Errorf("offsetof(ActivityCdpKernel.Pad) = %d, want 132", got)
@@ -773,14 +761,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityPreemption{}.GridId); got != 16 {
 		t.Errorf("offsetof(ActivityPreemption.GridId) = %d, want 16", got)
 	}
-	if got := unsafe.Offsetof(ActivityPreemption{}.BlockX); got != 24 {
-		t.Errorf("offsetof(ActivityPreemption.BlockX) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(ActivityPreemption{}.BlockY); got != 28 {
-		t.Errorf("offsetof(ActivityPreemption.BlockY) = %d, want 28", got)
-	}
-	if got := unsafe.Offsetof(ActivityPreemption{}.BlockZ); got != 32 {
-		t.Errorf("offsetof(ActivityPreemption.BlockZ) = %d, want 32", got)
+	if got := unsafe.Offsetof(ActivityPreemption{}.Block); got != 24 {
+		t.Errorf("offsetof(ActivityPreemption.Block) = %d, want 24", got)
 	}
 	if got := unsafe.Offsetof(ActivityPreemption{}.Pad); got != 36 {
 		t.Errorf("offsetof(ActivityPreemption.Pad) = %d, want 36", got)
@@ -1064,23 +1046,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityDevice6{}.MaxThreadsPerBlock); got != 76 {
 		t.Errorf("offsetof(ActivityDevice6.MaxThreadsPerBlock) = %d, want 76", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice6{}.MaxBlockDimX); got != 80 {
-		t.Errorf("offsetof(ActivityDevice6.MaxBlockDimX) = %d, want 80", got)
+	if got := unsafe.Offsetof(ActivityDevice6{}.MaxBlockDim); got != 80 {
+		t.Errorf("offsetof(ActivityDevice6.MaxBlockDim) = %d, want 80", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice6{}.MaxBlockDimY); got != 84 {
-		t.Errorf("offsetof(ActivityDevice6.MaxBlockDimY) = %d, want 84", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice6{}.MaxBlockDimZ); got != 88 {
-		t.Errorf("offsetof(ActivityDevice6.MaxBlockDimZ) = %d, want 88", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice6{}.MaxGridDimX); got != 92 {
-		t.Errorf("offsetof(ActivityDevice6.MaxGridDimX) = %d, want 92", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice6{}.MaxGridDimY); got != 96 {
-		t.Errorf("offsetof(ActivityDevice6.MaxGridDimY) = %d, want 96", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice6{}.MaxGridDimZ); got != 100 {
-		t.Errorf("offsetof(ActivityDevice6.MaxGridDimZ) = %d, want 100", got)
+	if got := unsafe.Offsetof(ActivityDevice6{}.MaxGridDim); got != 92 {
+		t.Errorf("offsetof(ActivityDevice6.MaxGridDim) = %d, want 92", got)
 	}
 	if got := unsafe.Offsetof(ActivityDevice6{}.ComputeCapabilityMajor); got != 104 {
 		t.Errorf("offsetof(ActivityDevice6.ComputeCapabilityMajor) = %d, want 104", got)
@@ -2726,23 +2696,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityDevice{}.MaxThreadsPerBlock); got != 68 {
 		t.Errorf("offsetof(ActivityDevice.MaxThreadsPerBlock) = %d, want 68", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice{}.MaxBlockDimX); got != 72 {
-		t.Errorf("offsetof(ActivityDevice.MaxBlockDimX) = %d, want 72", got)
+	if got := unsafe.Offsetof(ActivityDevice{}.MaxBlockDim); got != 72 {
+		t.Errorf("offsetof(ActivityDevice.MaxBlockDim) = %d, want 72", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice{}.MaxBlockDimY); got != 76 {
-		t.Errorf("offsetof(ActivityDevice.MaxBlockDimY) = %d, want 76", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice{}.MaxBlockDimZ); got != 80 {
-		t.Errorf("offsetof(ActivityDevice.MaxBlockDimZ) = %d, want 80", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice{}.MaxGridDimX); got != 84 {
-		t.Errorf("offsetof(ActivityDevice.MaxGridDimX) = %d, want 84", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice{}.MaxGridDimY); got != 88 {
-		t.Errorf("offsetof(ActivityDevice.MaxGridDimY) = %d, want 88", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice{}.MaxGridDimZ); got != 92 {
-		t.Errorf("offsetof(ActivityDevice.MaxGridDimZ) = %d, want 92", got)
+	if got := unsafe.Offsetof(ActivityDevice{}.MaxGridDim); got != 84 {
+		t.Errorf("offsetof(ActivityDevice.MaxGridDim) = %d, want 84", got)
 	}
 	if got := unsafe.Offsetof(ActivityDevice{}.ComputeCapabilityMajor); got != 96 {
 		t.Errorf("offsetof(ActivityDevice.ComputeCapabilityMajor) = %d, want 96", got)
@@ -2819,23 +2777,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityDevice2{}.MaxThreadsPerBlock); got != 76 {
 		t.Errorf("offsetof(ActivityDevice2.MaxThreadsPerBlock) = %d, want 76", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice2{}.MaxBlockDimX); got != 80 {
-		t.Errorf("offsetof(ActivityDevice2.MaxBlockDimX) = %d, want 80", got)
+	if got := unsafe.Offsetof(ActivityDevice2{}.MaxBlockDim); got != 80 {
+		t.Errorf("offsetof(ActivityDevice2.MaxBlockDim) = %d, want 80", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice2{}.MaxBlockDimY); got != 84 {
-		t.Errorf("offsetof(ActivityDevice2.MaxBlockDimY) = %d, want 84", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice2{}.MaxBlockDimZ); got != 88 {
-		t.Errorf("offsetof(ActivityDevice2.MaxBlockDimZ) = %d, want 88", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice2{}.MaxGridDimX); got != 92 {
-		t.Errorf("offsetof(ActivityDevice2.MaxGridDimX) = %d, want 92", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice2{}.MaxGridDimY); got != 96 {
-		t.Errorf("offsetof(ActivityDevice2.MaxGridDimY) = %d, want 96", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice2{}.MaxGridDimZ); got != 100 {
-		t.Errorf("offsetof(ActivityDevice2.MaxGridDimZ) = %d, want 100", got)
+	if got := unsafe.Offsetof(ActivityDevice2{}.MaxGridDim); got != 92 {
+		t.Errorf("offsetof(ActivityDevice2.MaxGridDim) = %d, want 92", got)
 	}
 	if got := unsafe.Offsetof(ActivityDevice2{}.ComputeCapabilityMajor); got != 104 {
 		t.Errorf("offsetof(ActivityDevice2.ComputeCapabilityMajor) = %d, want 104", got)
@@ -2915,23 +2861,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityDevice3{}.MaxThreadsPerBlock); got != 76 {
 		t.Errorf("offsetof(ActivityDevice3.MaxThreadsPerBlock) = %d, want 76", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice3{}.MaxBlockDimX); got != 80 {
-		t.Errorf("offsetof(ActivityDevice3.MaxBlockDimX) = %d, want 80", got)
+	if got := unsafe.Offsetof(ActivityDevice3{}.MaxBlockDim); got != 80 {
+		t.Errorf("offsetof(ActivityDevice3.MaxBlockDim) = %d, want 80", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice3{}.MaxBlockDimY); got != 84 {
-		t.Errorf("offsetof(ActivityDevice3.MaxBlockDimY) = %d, want 84", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice3{}.MaxBlockDimZ); got != 88 {
-		t.Errorf("offsetof(ActivityDevice3.MaxBlockDimZ) = %d, want 88", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice3{}.MaxGridDimX); got != 92 {
-		t.Errorf("offsetof(ActivityDevice3.MaxGridDimX) = %d, want 92", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice3{}.MaxGridDimY); got != 96 {
-		t.Errorf("offsetof(ActivityDevice3.MaxGridDimY) = %d, want 96", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice3{}.MaxGridDimZ); got != 100 {
-		t.Errorf("offsetof(ActivityDevice3.MaxGridDimZ) = %d, want 100", got)
+	if got := unsafe.Offsetof(ActivityDevice3{}.MaxGridDim); got != 92 {
+		t.Errorf("offsetof(ActivityDevice3.MaxGridDim) = %d, want 92", got)
 	}
 	if got := unsafe.Offsetof(ActivityDevice3{}.ComputeCapabilityMajor); got != 104 {
 		t.Errorf("offsetof(ActivityDevice3.ComputeCapabilityMajor) = %d, want 104", got)
@@ -3017,23 +2951,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityDevice4{}.MaxThreadsPerBlock); got != 76 {
 		t.Errorf("offsetof(ActivityDevice4.MaxThreadsPerBlock) = %d, want 76", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice4{}.MaxBlockDimX); got != 80 {
-		t.Errorf("offsetof(ActivityDevice4.MaxBlockDimX) = %d, want 80", got)
+	if got := unsafe.Offsetof(ActivityDevice4{}.MaxBlockDim); got != 80 {
+		t.Errorf("offsetof(ActivityDevice4.MaxBlockDim) = %d, want 80", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice4{}.MaxBlockDimY); got != 84 {
-		t.Errorf("offsetof(ActivityDevice4.MaxBlockDimY) = %d, want 84", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice4{}.MaxBlockDimZ); got != 88 {
-		t.Errorf("offsetof(ActivityDevice4.MaxBlockDimZ) = %d, want 88", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice4{}.MaxGridDimX); got != 92 {
-		t.Errorf("offsetof(ActivityDevice4.MaxGridDimX) = %d, want 92", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice4{}.MaxGridDimY); got != 96 {
-		t.Errorf("offsetof(ActivityDevice4.MaxGridDimY) = %d, want 96", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice4{}.MaxGridDimZ); got != 100 {
-		t.Errorf("offsetof(ActivityDevice4.MaxGridDimZ) = %d, want 100", got)
+	if got := unsafe.Offsetof(ActivityDevice4{}.MaxGridDim); got != 92 {
+		t.Errorf("offsetof(ActivityDevice4.MaxGridDim) = %d, want 92", got)
 	}
 	if got := unsafe.Offsetof(ActivityDevice4{}.ComputeCapabilityMajor); got != 104 {
 		t.Errorf("offsetof(ActivityDevice4.ComputeCapabilityMajor) = %d, want 104", got)
@@ -3131,23 +3053,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityDevice5{}.MaxThreadsPerBlock); got != 76 {
 		t.Errorf("offsetof(ActivityDevice5.MaxThreadsPerBlock) = %d, want 76", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice5{}.MaxBlockDimX); got != 80 {
-		t.Errorf("offsetof(ActivityDevice5.MaxBlockDimX) = %d, want 80", got)
+	if got := unsafe.Offsetof(ActivityDevice5{}.MaxBlockDim); got != 80 {
+		t.Errorf("offsetof(ActivityDevice5.MaxBlockDim) = %d, want 80", got)
 	}
-	if got := unsafe.Offsetof(ActivityDevice5{}.MaxBlockDimY); got != 84 {
-		t.Errorf("offsetof(ActivityDevice5.MaxBlockDimY) = %d, want 84", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice5{}.MaxBlockDimZ); got != 88 {
-		t.Errorf("offsetof(ActivityDevice5.MaxBlockDimZ) = %d, want 88", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice5{}.MaxGridDimX); got != 92 {
-		t.Errorf("offsetof(ActivityDevice5.MaxGridDimX) = %d, want 92", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice5{}.MaxGridDimY); got != 96 {
-		t.Errorf("offsetof(ActivityDevice5.MaxGridDimY) = %d, want 96", got)
-	}
-	if got := unsafe.Offsetof(ActivityDevice5{}.MaxGridDimZ); got != 100 {
-		t.Errorf("offsetof(ActivityDevice5.MaxGridDimZ) = %d, want 100", got)
+	if got := unsafe.Offsetof(ActivityDevice5{}.MaxGridDim); got != 92 {
+		t.Errorf("offsetof(ActivityDevice5.MaxGridDim) = %d, want 92", got)
 	}
 	if got := unsafe.Offsetof(ActivityDevice5{}.ComputeCapabilityMajor); got != 104 {
 		t.Errorf("offsetof(ActivityDevice5.ComputeCapabilityMajor) = %d, want 104", got)
@@ -4013,14 +3923,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityKernel8{}.ChannelType); got != 172 {
 		t.Errorf("offsetof(ActivityKernel8.ChannelType) = %d, want 172", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel8{}.ClusterX); got != 176 {
-		t.Errorf("offsetof(ActivityKernel8.ClusterX) = %d, want 176", got)
-	}
-	if got := unsafe.Offsetof(ActivityKernel8{}.ClusterY); got != 180 {
-		t.Errorf("offsetof(ActivityKernel8.ClusterY) = %d, want 180", got)
-	}
-	if got := unsafe.Offsetof(ActivityKernel8{}.ClusterZ); got != 184 {
-		t.Errorf("offsetof(ActivityKernel8.ClusterZ) = %d, want 184", got)
+	if got := unsafe.Offsetof(ActivityKernel8{}.Cluster); got != 176 {
+		t.Errorf("offsetof(ActivityKernel8.Cluster) = %d, want 176", got)
 	}
 	if got := unsafe.Offsetof(ActivityKernel8{}.ClusterSchedulingPolicy); got != 188 {
 		t.Errorf("offsetof(ActivityKernel8.ClusterSchedulingPolicy) = %d, want 188", got)
@@ -4151,14 +4055,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityKernel9{}.ChannelType); got != 172 {
 		t.Errorf("offsetof(ActivityKernel9.ChannelType) = %d, want 172", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel9{}.ClusterX); got != 176 {
-		t.Errorf("offsetof(ActivityKernel9.ClusterX) = %d, want 176", got)
-	}
-	if got := unsafe.Offsetof(ActivityKernel9{}.ClusterY); got != 180 {
-		t.Errorf("offsetof(ActivityKernel9.ClusterY) = %d, want 180", got)
-	}
-	if got := unsafe.Offsetof(ActivityKernel9{}.ClusterZ); got != 184 {
-		t.Errorf("offsetof(ActivityKernel9.ClusterZ) = %d, want 184", got)
+	if got := unsafe.Offsetof(ActivityKernel9{}.Cluster); got != 176 {
+		t.Errorf("offsetof(ActivityKernel9.Cluster) = %d, want 176", got)
 	}
 	if got := unsafe.Offsetof(ActivityKernel9{}.ClusterSchedulingPolicy); got != 188 {
 		t.Errorf("offsetof(ActivityKernel9.ClusterSchedulingPolicy) = %d, want 188", got)
@@ -4295,14 +4193,8 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ActivityKernel10{}.ChannelType); got != 172 {
 		t.Errorf("offsetof(ActivityKernel10.ChannelType) = %d, want 172", got)
 	}
-	if got := unsafe.Offsetof(ActivityKernel10{}.ClusterX); got != 176 {
-		t.Errorf("offsetof(ActivityKernel10.ClusterX) = %d, want 176", got)
-	}
-	if got := unsafe.Offsetof(ActivityKernel10{}.ClusterY); got != 180 {
-		t.Errorf("offsetof(ActivityKernel10.ClusterY) = %d, want 180", got)
-	}
-	if got := unsafe.Offsetof(ActivityKernel10{}.ClusterZ); got != 184 {
-		t.Errorf("offsetof(ActivityKernel10.ClusterZ) = %d, want 184", got)
+	if got := unsafe.Offsetof(ActivityKernel10{}.Cluster); got != 176 {
+		t.Errorf("offsetof(ActivityKernel10.Cluster) = %d, want 176", got)
 	}
 	if got := unsafe.Offsetof(ActivityKernel10{}.ClusterSchedulingPolicy); got != 188 {
 		t.Errorf("offsetof(ActivityKernel10.ClusterSchedulingPolicy) = %d, want 188", got)

@@ -164,7 +164,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 	}
 	n, b := int32(elems), int32(bias)
 	params := []unsafe.Pointer{unsafe.Pointer(&out), unsafe.Pointer(&n), unsafe.Pointer(&b)}
-	if err := fn.LaunchKernel(elems/32, 1, 1, 32, 1, 1, 0, 0, params); err != nil {
+	if err := fn.LaunchKernel(driver.Dim3{X: elems / 32, Y: 1, Z: 1}, driver.Dim3{X: 32, Y: 1, Z: 1}, 0, 0, params); err != nil {
 		t.Fatalf("LaunchKernel: %v", err)
 	}
 	if err := driver.CtxSynchronize(); err != nil {

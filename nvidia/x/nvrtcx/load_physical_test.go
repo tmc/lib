@@ -58,7 +58,7 @@ func TestDriverJITDiagnostics(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if err := fn.LaunchKernel(1, 1, 1, 1, 1, 1, 0, 0, nil); err != nil {
+				if err := fn.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: 1, Y: 1, Z: 1}, 0, 0, nil); err != nil {
 					return err
 				}
 				return driver.CtxSynchronize()

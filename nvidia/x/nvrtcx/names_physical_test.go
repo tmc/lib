@@ -78,7 +78,7 @@ func TestPhysicalLoweredName(t *testing.T) {
 	p, e := driver.MemAlloc(64 * 4)
 	check(e)
 	defer func() { check(p.Free()) }()
-	check(fn.LaunchKernel(1, 1, 1, 64, 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
+	check(fn.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: 64, Y: 1, Z: 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	check(driver.CtxSynchronize())
 	var got [64]int32
 	check(p.CopyToHostPtr(unsafe.Pointer(&got[0]), 256))

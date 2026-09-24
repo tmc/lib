@@ -75,12 +75,8 @@ func (g *Graph) AddLaunch(desc cudalaunch.Description, args []any, dependencies 
 
 	node := driver.KernelNodeParams{
 		Func:           desc.Function,
-		GridDimX:       desc.Grid.X,
-		GridDimY:       desc.Grid.Y,
-		GridDimZ:       desc.Grid.Z,
-		BlockDimX:      desc.Block.X,
-		BlockDimY:      desc.Block.Y,
-		BlockDimZ:      desc.Block.Z,
+		GridDim:        driver.Dim3(desc.Grid),
+		BlockDim:       driver.Dim3(desc.Block),
 		SharedMemBytes: desc.SharedMem,
 	}
 	if len(params) > 0 {

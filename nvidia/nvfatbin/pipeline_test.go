@@ -107,7 +107,7 @@ func TestFatbinPipeline(t *testing.T) {
 	check(err)
 	defer func() { check(ptr.Free()) }()
 	check(ptr.CopyFromHostPtr(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
-	check(kernel.LaunchKernel(1, 1, 1, uint32(len(data)), 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&ptr)}))
+	check(kernel.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: uint32(len(data)), Y: 1, Z: 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&ptr)}))
 	check(driver.CtxSynchronize())
 	check(ptr.CopyToHostPtr(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
 	for i, got := range data {

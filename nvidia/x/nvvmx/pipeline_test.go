@@ -136,7 +136,7 @@ func checkSineKernel(t *testing.T, cubin []byte) {
 	check(err)
 	defer func() { check(p.Free()) }()
 	check(p.CopyFromHostPtr(unsafe.Pointer(&input[0]), bytes))
-	check(fn.LaunchKernel(1, 1, 1, uint32(len(input)), 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
+	check(fn.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: uint32(len(input)), Y: 1, Z: 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	check(driver.CtxSynchronize())
 	check(p.CopyToHostPtr(unsafe.Pointer(&got[0]), bytes))
 	for i, x := range input {

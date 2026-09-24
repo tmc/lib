@@ -248,32 +248,14 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(LaunchData{}.FunctionName); got != 40 {
 		t.Errorf("offsetof(LaunchData.FunctionName) = %d, want 40", got)
 	}
-	if got := unsafe.Offsetof(LaunchData{}.GridDimX); got != 48 {
-		t.Errorf("offsetof(LaunchData.GridDimX) = %d, want 48", got)
+	if got := unsafe.Offsetof(LaunchData{}.GridDim); got != 48 {
+		t.Errorf("offsetof(LaunchData.GridDim) = %d, want 48", got)
 	}
-	if got := unsafe.Offsetof(LaunchData{}.GridDimY); got != 52 {
-		t.Errorf("offsetof(LaunchData.GridDimY) = %d, want 52", got)
+	if got := unsafe.Offsetof(LaunchData{}.BlockDim); got != 60 {
+		t.Errorf("offsetof(LaunchData.BlockDim) = %d, want 60", got)
 	}
-	if got := unsafe.Offsetof(LaunchData{}.GridDimZ); got != 56 {
-		t.Errorf("offsetof(LaunchData.GridDimZ) = %d, want 56", got)
-	}
-	if got := unsafe.Offsetof(LaunchData{}.BlockDimX); got != 60 {
-		t.Errorf("offsetof(LaunchData.BlockDimX) = %d, want 60", got)
-	}
-	if got := unsafe.Offsetof(LaunchData{}.BlockDimY); got != 64 {
-		t.Errorf("offsetof(LaunchData.BlockDimY) = %d, want 64", got)
-	}
-	if got := unsafe.Offsetof(LaunchData{}.BlockDimZ); got != 68 {
-		t.Errorf("offsetof(LaunchData.BlockDimZ) = %d, want 68", got)
-	}
-	if got := unsafe.Offsetof(LaunchData{}.ClusterDimX); got != 72 {
-		t.Errorf("offsetof(LaunchData.ClusterDimX) = %d, want 72", got)
-	}
-	if got := unsafe.Offsetof(LaunchData{}.ClusterDimY); got != 76 {
-		t.Errorf("offsetof(LaunchData.ClusterDimY) = %d, want 76", got)
-	}
-	if got := unsafe.Offsetof(LaunchData{}.ClusterDimZ); got != 80 {
-		t.Errorf("offsetof(LaunchData.ClusterDimZ) = %d, want 80", got)
+	if got := unsafe.Offsetof(LaunchData{}.ClusterDim); got != 72 {
+		t.Errorf("offsetof(LaunchData.ClusterDim) = %d, want 72", got)
 	}
 	if got := unsafe.Offsetof(LaunchData{}.GridId); got != 88 {
 		t.Errorf("offsetof(LaunchData.GridId) = %d, want 88", got)

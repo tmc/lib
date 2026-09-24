@@ -103,15 +103,9 @@ type LaunchData struct {
 	Module       Module
 	Function     Function
 	FunctionName uintptr
-	GridDimX     uint32
-	GridDimY     uint32
-	GridDimZ     uint32
-	BlockDimX    uint32
-	BlockDimY    uint32
-	BlockDimZ    uint32
-	ClusterDimX  uint32
-	ClusterDimY  uint32
-	ClusterDimZ  uint32
+	GridDim      Dim3
+	BlockDim     Dim3
+	ClusterDim   Dim3
 	GridId       uint64
 	HLaunch      LaunchHandle
 	Device       Device
@@ -228,4 +222,11 @@ type ErrorLoggingData struct {
 	Message  uintptr
 	Tid      uint32
 	LogLevel LogLevel
+}
+
+// Dim3 is an extent along X, Y and Z, such as the size of a grid in
+// blocks or of a block in threads. It has the layout of three consecutive
+// unsigned int members.
+type Dim3 struct {
+	X, Y, Z uint32
 }

@@ -146,12 +146,8 @@ func TestNodeGraphConstruction(t *testing.T) {
 		// Add kernel nodes for programmatic dependency edge (PDL requires kernel nodes)
 		kp1 := driver.KernelNodeParams{
 			Func:         fn,
-			GridDimX:     1,
-			GridDimY:     1,
-			GridDimZ:     1,
-			BlockDimX:    128,
-			BlockDimY:    1,
-			BlockDimZ:    1,
+			GridDim:      driver.Dim3{X: 1, Y: 1, Z: 1},
+			BlockDim:     driver.Dim3{X: 128, Y: 1, Z: 1},
 			KernelParams: uintptr(unsafe.Pointer(&args[0])),
 		}
 		k1, err := g.AddKernelNode(&kp1, n3)
@@ -161,12 +157,8 @@ func TestNodeGraphConstruction(t *testing.T) {
 
 		kp2 := driver.KernelNodeParams{
 			Func:         fn,
-			GridDimX:     1,
-			GridDimY:     1,
-			GridDimZ:     1,
-			BlockDimX:    128,
-			BlockDimY:    1,
-			BlockDimZ:    1,
+			GridDim:      driver.Dim3{X: 1, Y: 1, Z: 1},
+			BlockDim:     driver.Dim3{X: 128, Y: 1, Z: 1},
 			KernelParams: uintptr(unsafe.Pointer(&args[0])),
 		}
 		k2, err := g.AddKernelNode(&kp2)

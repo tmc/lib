@@ -236,19 +236,19 @@ func (f Function) Launch() error {
 //
 // Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. The device on which this kernel is invoked must have a non-zero value for the device attribute [DevAttrCooperativeLaunch]. The total number of blocks launched cannot exceed the maximum number of blocks per multiprocessor as returned by [Function.MaxActiveBlocksPerMultiprocessor] (or [Function.MaxActiveBlocksPerMultiprocessorWithFlags]) times the number of multiprocessors as specified by the device attribute [DevAttrMultiprocessorCount]. The kernel cannot make use of CUDA dynamic parallelism. Kernel parameters must be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams [0] through kernelParams [N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel's image. Calling [Function.LaunchCooperativeKernel] sets persistent function state that is the same as function state set through [Function.LaunchKernel] API When the kernel f is launched via [Function.LaunchCooperativeKernel], the previous block shape, shared size and parameter info associated with f is overwritten. Note that to use [Function.LaunchCooperativeKernel], the kernel f must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [Function.LaunchCooperativeKernel] will return [ErrInvalidImage]. Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], [LaunchCooperativeKernelMultiDevice], cudaLaunchCooperativeKernel, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
-//   - gridDimX: Width of grid in blocks
-//   - gridDimY: Height of grid in blocks
-//   - gridDimZ: Depth of grid in blocks
-//   - blockDimX: X dimension of each thread block
-//   - blockDimY: Y dimension of each thread block
-//   - blockDimZ: Z dimension of each thread block
+//   - gridDim.X: Width of grid in blocks
+//   - gridDim.Y: Height of grid in blocks
+//   - gridDim.Z: Depth of grid in blocks
+//   - blockDim.X: X dimension of each thread block
+//   - blockDim.Y: Y dimension of each thread block
+//   - blockDim.Z: Z dimension of each thread block
 //   - sharedMemBytes: Dynamic shared-memory size per thread block in bytes
 //   - hStream: Stream identifier
 //   - kernelParams: Array of pointers to kernel parameters
 //
 // Wraps cuLaunchCooperativeKernel.
-func (f Function) LaunchCooperativeKernel(gridDimX uint32, gridDimY uint32, gridDimZ uint32, blockDimX uint32, blockDimY uint32, blockDimZ uint32, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
-	return launchCooperativeKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams)
+func (f Function) LaunchCooperativeKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
+	return launchCooperativeKernel(f, gridDim.X, gridDim.Y, gridDim.Z, blockDim.X, blockDim.Y, blockDim.Z, sharedMemBytes, hStream, kernelParams)
 }
 
 // LaunchGrid Launches a CUDA function
@@ -284,19 +284,19 @@ func (f Function) LaunchGridAsync(gridWidth int32, gridHeight int32, hStream Str
 //
 // Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. Kernel parameters to f can be specified in one of two ways: The extra parameter exists to allow [Function.LaunchKernel] to take additional less commonly used arguments. extra specifies a list of names of extra settings and their corresponding values. Each extra setting name is immediately followed by the corresponding value. The list must be terminated with either NULL or CU_LAUNCH_PARAM_END. The error [ErrInvalidValue] will be returned if kernel parameters are specified with both kernelParams and extra (i.e. both kernelParams and extra are non-NULL). Calling [Function.LaunchKernel] invalidates the persistent function state set through the following deprecated APIs: [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv]. Note that to use [Function.LaunchKernel], the kernel f must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [Function.LaunchKernel] will return [ErrInvalidImage]. Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], cudaLaunchKernel, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
-//   - gridDimX: Width of grid in blocks
-//   - gridDimY: Height of grid in blocks
-//   - gridDimZ: Depth of grid in blocks
-//   - blockDimX: X dimension of each thread block
-//   - blockDimY: Y dimension of each thread block
-//   - blockDimZ: Z dimension of each thread block
+//   - gridDim.X: Width of grid in blocks
+//   - gridDim.Y: Height of grid in blocks
+//   - gridDim.Z: Depth of grid in blocks
+//   - blockDim.X: X dimension of each thread block
+//   - blockDim.Y: Y dimension of each thread block
+//   - blockDim.Z: Z dimension of each thread block
 //   - sharedMemBytes: Dynamic shared-memory size per thread block in bytes
 //   - hStream: Stream identifier
 //   - kernelParams: Array of pointers to kernel parameters
 //
 // Wraps cuLaunchKernel.
-func (f Function) LaunchKernel(gridDimX uint32, gridDimY uint32, gridDimZ uint32, blockDimX uint32, blockDimY uint32, blockDimZ uint32, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
-	return launchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams)
+func (f Function) LaunchKernel(gridDim Dim3, blockDim Dim3, sharedMemBytes uint32, hStream Stream, kernelParams []unsafe.Pointer) error {
+	return launchKernel(f, gridDim.X, gridDim.Y, gridDim.Z, blockDim.X, blockDim.Y, blockDim.Z, sharedMemBytes, hStream, kernelParams)
 }
 
 // LaunchKernelEx Launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.

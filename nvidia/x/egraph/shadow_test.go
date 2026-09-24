@@ -851,12 +851,8 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 
 	var kp driver.KernelNodeParams
 	kp.Func = fn
-	kp.GridDimX = n / 128
-	kp.GridDimY = 1
-	kp.GridDimZ = 1
-	kp.BlockDimX = 128
-	kp.BlockDimY = 1
-	kp.BlockDimZ = 1
+	kp.GridDim = driver.Dim3{X: n / 128, Y: 1, Z: 1}
+	kp.BlockDim = driver.Dim3{X: 128, Y: 1, Z: 1}
 	if len(packed) > 0 {
 		kp.KernelParams = uintptr(unsafe.Pointer(&packed[0]))
 	}

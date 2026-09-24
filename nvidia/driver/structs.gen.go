@@ -138,18 +138,14 @@ type AccessPolicyWindow struct {
 type KernelNodeParamsV1 struct {
 	// Kernel to launch
 	Func Function
-	// Width of grid in blocks
-	GridDimX uint32
-	// Height of grid in blocks
-	GridDimY uint32
-	// Depth of grid in blocks
-	GridDimZ uint32
-	// X dimension of each thread block
-	BlockDimX uint32
-	// Y dimension of each thread block
-	BlockDimY uint32
-	// Z dimension of each thread block
-	BlockDimZ uint32
+	// X: Width of grid in blocks
+	// Y: Height of grid in blocks
+	// Z: Depth of grid in blocks
+	GridDim Dim3
+	// X: X dimension of each thread block
+	// Y: Y dimension of each thread block
+	// Z: Z dimension of each thread block
+	BlockDim Dim3
 	// Dynamic shared-memory size per thread block in bytes
 	SharedMemBytes uint32
 	// Array of pointers to kernel parameters
@@ -162,18 +158,14 @@ type KernelNodeParamsV1 struct {
 type KernelNodeParams struct {
 	// Kernel to launch
 	Func Function
-	// Width of grid in blocks
-	GridDimX uint32
-	// Height of grid in blocks
-	GridDimY uint32
-	// Depth of grid in blocks
-	GridDimZ uint32
-	// X dimension of each thread block
-	BlockDimX uint32
-	// Y dimension of each thread block
-	BlockDimY uint32
-	// Z dimension of each thread block
-	BlockDimZ uint32
+	// X: Width of grid in blocks
+	// Y: Height of grid in blocks
+	// Z: Depth of grid in blocks
+	GridDim Dim3
+	// X: X dimension of each thread block
+	// Y: Y dimension of each thread block
+	// Z: Z dimension of each thread block
+	BlockDim Dim3
 	// Dynamic shared-memory size per thread block in bytes
 	SharedMemBytes uint32
 	// Array of pointers to kernel parameters
@@ -190,18 +182,14 @@ type KernelNodeParams struct {
 type KernelNodeParamsV3 struct {
 	// Kernel to launch
 	Func Function
-	// Width of grid in blocks
-	GridDimX uint32
-	// Height of grid in blocks
-	GridDimY uint32
-	// Depth of grid in blocks
-	GridDimZ uint32
-	// X dimension of each thread block
-	BlockDimX uint32
-	// Y dimension of each thread block
-	BlockDimY uint32
-	// Z dimension of each thread block
-	BlockDimZ uint32
+	// X: Width of grid in blocks
+	// Y: Height of grid in blocks
+	// Z: Depth of grid in blocks
+	GridDim Dim3
+	// X: X dimension of each thread block
+	// Y: Y dimension of each thread block
+	// Z: Z dimension of each thread block
+	BlockDim Dim3
 	// Dynamic shared-memory size per thread block in bytes
 	SharedMemBytes uint32
 	// Array of pointers to kernel parameters
@@ -322,18 +310,14 @@ type LaunchAttribute struct {
 
 // LaunchConfig represents CUDA extensible launch configuration.
 type LaunchConfig struct {
-	// Width of grid in blocks
-	GridDimX uint32
-	// Height of grid in blocks
-	GridDimY uint32
-	// Depth of grid in blocks
-	GridDimZ uint32
-	// X dimension of each thread block
-	BlockDimX uint32
-	// Y dimension of each thread block
-	BlockDimY uint32
-	// Z dimension of each thread block
-	BlockDimZ uint32
+	// X: Width of grid in blocks
+	// Y: Height of grid in blocks
+	// Z: Depth of grid in blocks
+	GridDim Dim3
+	// X: X dimension of each thread block
+	// Y: Y dimension of each thread block
+	// Z: Z dimension of each thread block
+	BlockDim Dim3
 	// Dynamic shared-memory size per thread block in bytes
 	SharedMemBytes uint32
 	// Stream identifier
@@ -667,18 +651,14 @@ type PointerAttributeP2PTokens struct {
 type LaunchParams struct {
 	// Kernel to launch
 	Function Function
-	// Width of grid in blocks
-	GridDimX uint32
-	// Height of grid in blocks
-	GridDimY uint32
-	// Depth of grid in blocks
-	GridDimZ uint32
-	// X dimension of each thread block
-	BlockDimX uint32
-	// Y dimension of each thread block
-	BlockDimY uint32
-	// Z dimension of each thread block
-	BlockDimZ uint32
+	// X: Width of grid in blocks
+	// Y: Height of grid in blocks
+	// Z: Depth of grid in blocks
+	GridDim Dim3
+	// X: X dimension of each thread block
+	// Y: Y dimension of each thread block
+	// Z: Z dimension of each thread block
+	BlockDim Dim3
 	// Dynamic shared-memory size per thread block in bytes
 	SharedMemBytes uint32
 	// Stream identifier
@@ -1065,6 +1045,13 @@ type DevResource struct {
 	InternalPadding [92]uint8
 	AnonymousUnion  [10]uint32
 	NextResource    uintptr
+}
+
+// Dim3 is an extent along X, Y and Z, such as the size of a grid in
+// blocks or of a block in threads. It has the layout of three consecutive
+// unsigned int members.
+type Dim3 struct {
+	X, Y, Z uint32
 }
 
 // Array3dDescriptorV2 is an alias for Array3dDescriptor.

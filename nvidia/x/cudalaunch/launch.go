@@ -423,12 +423,8 @@ func (l *Launcher) Launch(args ...any) error {
 	launch := func(stream driver.Stream) error {
 		if len(l.attrs) > 0 {
 			cfg := driver.LaunchConfig{
-				GridDimX:       l.grid.X,
-				GridDimY:       l.grid.Y,
-				GridDimZ:       l.grid.Z,
-				BlockDimX:      l.block.X,
-				BlockDimY:      l.block.Y,
-				BlockDimZ:      l.block.Z,
+				GridDim:        driver.Dim3(l.grid),
+				BlockDim:       driver.Dim3(l.block),
 				SharedMemBytes: l.shmem,
 				HStream:        stream,
 				Attrs:          uintptr(unsafe.Pointer(&l.attrs[0])),
@@ -444,8 +440,8 @@ func (l *Launcher) Launch(args ...any) error {
 			return l.owned.Launch([3]uint32{l.grid.X, l.grid.Y, l.grid.Z}, [3]uint32{l.block.X, l.block.Y, l.block.Z}, l.shmem, stream, kernelParams)
 		}
 		return l.fn.LaunchKernel(
-			l.grid.X, l.grid.Y, l.grid.Z,
-			l.block.X, l.block.Y, l.block.Z,
+			driver.Dim3(l.grid),
+			driver.Dim3(l.block),
 			l.shmem,
 			stream,
 			kernelParams,

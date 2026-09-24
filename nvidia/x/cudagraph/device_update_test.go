@@ -489,12 +489,8 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 
 		kp := driver.KernelNodeParams{
 			Func:         fn,
-			GridDimX:     n / block,
-			GridDimY:     1,
-			GridDimZ:     1,
-			BlockDimX:    block,
-			BlockDimY:    1,
-			BlockDimZ:    1,
+			GridDim:      driver.Dim3{X: n / block, Y: 1, Z: 1},
+			BlockDim:     driver.Dim3{X: block, Y: 1, Z: 1},
 			KernelParams: uintptr(unsafe.Pointer(&kernelArgs[0])),
 		}
 

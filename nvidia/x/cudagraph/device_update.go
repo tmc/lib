@@ -209,9 +209,7 @@ func (n *Node) SetGrid(grid cudalaunch.Dim3) error {
 	if err != nil {
 		return err
 	}
-	params.GridDimX = grid.X
-	params.GridDimY = grid.Y
-	params.GridDimZ = grid.Z
+	params.GridDim = driver.Dim3(grid)
 	return n.SetParams(&params)
 }
 
@@ -319,9 +317,7 @@ func (e *Exec) SetKernelNodeGrid(node *Node, grid cudalaunch.Dim3) error {
 	if err != nil {
 		return err
 	}
-	params.GridDimX = grid.X
-	params.GridDimY = grid.Y
-	params.GridDimZ = grid.Z
+	params.GridDim = driver.Dim3(grid)
 	return e.SetKernelNodeParams(node, &params)
 }
 
@@ -344,9 +340,7 @@ func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) e
 		if grid.Y == 0 || grid.Z == 0 {
 			return errors.New("cudagraph: invalid zero grid dimension")
 		}
-		params.GridDimX = grid.X
-		params.GridDimY = grid.Y
-		params.GridDimZ = grid.Z
+		params.GridDim = driver.Dim3(grid)
 	}
 	if len(args) > 0 {
 		kernelParams, err := cudalaunch.PackArgs(args...)
@@ -364,8 +358,8 @@ func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) e
 			params: kernelParams,
 			desc: cudalaunch.Description{
 				Function: params.Func,
-				Grid:     cudalaunch.Dims(params.GridDimX, params.GridDimY, params.GridDimZ),
-				Block:    cudalaunch.Dims(params.BlockDimX, params.BlockDimY, params.BlockDimZ),
+				Grid:     cudalaunch.Dim3(params.GridDim),
+				Block:    cudalaunch.Dim3(params.BlockDim),
 			},
 		})
 		return nil
@@ -395,9 +389,7 @@ func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid cudalaunch.Dim3,
 		if grid.Y == 0 || grid.Z == 0 {
 			return errors.New("cudagraph: invalid zero grid dimension")
 		}
-		params.GridDimX = grid.X
-		params.GridDimY = grid.Y
-		params.GridDimZ = grid.Z
+		params.GridDim = driver.Dim3(grid)
 	}
 	if len(args) > 0 {
 		kernelParams, err := cudalaunch.PackArgs(args...)
@@ -414,8 +406,8 @@ func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid cudalaunch.Dim3,
 			params: kernelParams,
 			desc: cudalaunch.Description{
 				Function: fn,
-				Grid:     cudalaunch.Dims(params.GridDimX, params.GridDimY, params.GridDimZ),
-				Block:    cudalaunch.Dims(params.BlockDimX, params.BlockDimY, params.BlockDimZ),
+				Grid:     cudalaunch.Dim3(params.GridDim),
+				Block:    cudalaunch.Dim3(params.BlockDim),
 			},
 		})
 		return nil

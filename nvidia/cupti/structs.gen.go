@@ -241,9 +241,7 @@ type ActivityKernel11 struct {
 	PAccessPolicyWindow             uintptr
 	ChannelID                       uint32
 	ChannelType                     ChannelType
-	ClusterX                        uint32
-	ClusterY                        uint32
-	ClusterZ                        uint32
+	Cluster                         Dim3
 	ClusterSchedulingPolicy         uint32
 	LocalMemoryTotalV2              uint64
 	MaxPotentialClusterSize         uint32
@@ -281,9 +279,7 @@ type ActivityCdpKernel struct {
 	Queued               uint64
 	Submitted            uint64
 	Completed            uint64
-	ParentBlockX         uint32
-	ParentBlockY         uint32
-	ParentBlockZ         uint32
+	ParentBlock          Dim3
 	Pad                  uint32
 	Name                 uintptr
 }
@@ -294,9 +290,7 @@ type ActivityPreemption struct {
 	PreemptionKind ActivityPreemptionKind
 	Timestamp      uint64
 	GridId         int64
-	BlockX         uint32
-	BlockY         uint32
-	BlockZ         uint32
+	Block          Dim3
 	Pad            uint32
 }
 
@@ -409,12 +403,8 @@ type ActivityDevice6 struct {
 	MaxRegistersPerBlock             uint32
 	MaxSharedMemoryPerBlock          uint32
 	MaxThreadsPerBlock               uint32
-	MaxBlockDimX                     uint32
-	MaxBlockDimY                     uint32
-	MaxBlockDimZ                     uint32
-	MaxGridDimX                      uint32
-	MaxGridDimY                      uint32
-	MaxGridDimZ                      uint32
+	MaxBlockDim                      Dim3
+	MaxGridDim                       Dim3
 	ComputeCapabilityMajor           uint32
 	ComputeCapabilityMinor           uint32
 	Id                               uint32
@@ -1061,12 +1051,8 @@ type ActivityDevice struct {
 	MaxRegistersPerBlock       uint32
 	MaxSharedMemoryPerBlock    uint32
 	MaxThreadsPerBlock         uint32
-	MaxBlockDimX               uint32
-	MaxBlockDimY               uint32
-	MaxBlockDimZ               uint32
-	MaxGridDimX                uint32
-	MaxGridDimY                uint32
-	MaxGridDimZ                uint32
+	MaxBlockDim                Dim3
+	MaxGridDim                 Dim3
 	ComputeCapabilityMajor     uint32
 	ComputeCapabilityMinor     uint32
 	Id                         uint32
@@ -1094,12 +1080,8 @@ type ActivityDevice2 struct {
 	MaxRegistersPerBlock             uint32
 	MaxSharedMemoryPerBlock          uint32
 	MaxThreadsPerBlock               uint32
-	MaxBlockDimX                     uint32
-	MaxBlockDimY                     uint32
-	MaxBlockDimZ                     uint32
-	MaxGridDimX                      uint32
-	MaxGridDimY                      uint32
-	MaxGridDimZ                      uint32
+	MaxBlockDim                      Dim3
+	MaxGridDim                       Dim3
 	ComputeCapabilityMajor           uint32
 	ComputeCapabilityMinor           uint32
 	Id                               uint32
@@ -1128,12 +1110,8 @@ type ActivityDevice3 struct {
 	MaxRegistersPerBlock             uint32
 	MaxSharedMemoryPerBlock          uint32
 	MaxThreadsPerBlock               uint32
-	MaxBlockDimX                     uint32
-	MaxBlockDimY                     uint32
-	MaxBlockDimZ                     uint32
-	MaxGridDimX                      uint32
-	MaxGridDimY                      uint32
-	MaxGridDimZ                      uint32
+	MaxBlockDim                      Dim3
+	MaxGridDim                       Dim3
 	ComputeCapabilityMajor           uint32
 	ComputeCapabilityMinor           uint32
 	Id                               uint32
@@ -1164,12 +1142,8 @@ type ActivityDevice4 struct {
 	MaxRegistersPerBlock             uint32
 	MaxSharedMemoryPerBlock          uint32
 	MaxThreadsPerBlock               uint32
-	MaxBlockDimX                     uint32
-	MaxBlockDimY                     uint32
-	MaxBlockDimZ                     uint32
-	MaxGridDimX                      uint32
-	MaxGridDimY                      uint32
-	MaxGridDimZ                      uint32
+	MaxBlockDim                      Dim3
+	MaxGridDim                       Dim3
 	ComputeCapabilityMajor           uint32
 	ComputeCapabilityMinor           uint32
 	Id                               uint32
@@ -1204,12 +1178,8 @@ type ActivityDevice5 struct {
 	MaxRegistersPerBlock             uint32
 	MaxSharedMemoryPerBlock          uint32
 	MaxThreadsPerBlock               uint32
-	MaxBlockDimX                     uint32
-	MaxBlockDimY                     uint32
-	MaxBlockDimZ                     uint32
-	MaxGridDimX                      uint32
-	MaxGridDimY                      uint32
-	MaxGridDimZ                      uint32
+	MaxBlockDim                      Dim3
+	MaxGridDim                       Dim3
 	ComputeCapabilityMajor           uint32
 	ComputeCapabilityMinor           uint32
 	Id                               uint32
@@ -1514,9 +1484,7 @@ type ActivityKernel8 struct {
 	PAccessPolicyWindow             uintptr
 	ChannelID                       uint32
 	ChannelType                     ChannelType
-	ClusterX                        uint32
-	ClusterY                        uint32
-	ClusterZ                        uint32
+	Cluster                         Dim3
 	ClusterSchedulingPolicy         uint32
 	LocalMemoryTotalV2              uint64
 }
@@ -1562,9 +1530,7 @@ type ActivityKernel9 struct {
 	PAccessPolicyWindow             uintptr
 	ChannelID                       uint32
 	ChannelType                     ChannelType
-	ClusterX                        uint32
-	ClusterY                        uint32
-	ClusterZ                        uint32
+	Cluster                         Dim3
 	ClusterSchedulingPolicy         uint32
 	LocalMemoryTotalV2              uint64
 	MaxPotentialClusterSize         uint32
@@ -1612,9 +1578,7 @@ type ActivityKernel10 struct {
 	PAccessPolicyWindow             uintptr
 	ChannelID                       uint32
 	ChannelType                     ChannelType
-	ClusterX                        uint32
-	ClusterY                        uint32
-	ClusterZ                        uint32
+	Cluster                         Dim3
 	ClusterSchedulingPolicy         uint32
 	LocalMemoryTotalV2              uint64
 	MaxPotentialClusterSize         uint32
@@ -3079,6 +3043,13 @@ type DeviceGetChipNameParams struct {
 	PPriv       uintptr
 	DeviceIndex uint
 	PChipName   uintptr
+}
+
+// Dim3 is an extent along X, Y and Z, such as the size of a grid in
+// blocks or of a block in threads. It has the layout of three consecutive
+// unsigned int members.
+type Dim3 struct {
+	X, Y, Z uint32
 }
 
 // ActivityMemcpyPtoP is an alias for ActivityMemcpy2.

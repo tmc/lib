@@ -254,23 +254,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(KernelNodeParamsV1{}.Func); got != 0 {
 		t.Errorf("offsetof(KernelNodeParamsV1.Func) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(KernelNodeParamsV1{}.GridDimX); got != 8 {
-		t.Errorf("offsetof(KernelNodeParamsV1.GridDimX) = %d, want 8", got)
+	if got := unsafe.Offsetof(KernelNodeParamsV1{}.GridDim); got != 8 {
+		t.Errorf("offsetof(KernelNodeParamsV1.GridDim) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(KernelNodeParamsV1{}.GridDimY); got != 12 {
-		t.Errorf("offsetof(KernelNodeParamsV1.GridDimY) = %d, want 12", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParamsV1{}.GridDimZ); got != 16 {
-		t.Errorf("offsetof(KernelNodeParamsV1.GridDimZ) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParamsV1{}.BlockDimX); got != 20 {
-		t.Errorf("offsetof(KernelNodeParamsV1.BlockDimX) = %d, want 20", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParamsV1{}.BlockDimY); got != 24 {
-		t.Errorf("offsetof(KernelNodeParamsV1.BlockDimY) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParamsV1{}.BlockDimZ); got != 28 {
-		t.Errorf("offsetof(KernelNodeParamsV1.BlockDimZ) = %d, want 28", got)
+	if got := unsafe.Offsetof(KernelNodeParamsV1{}.BlockDim); got != 20 {
+		t.Errorf("offsetof(KernelNodeParamsV1.BlockDim) = %d, want 20", got)
 	}
 	if got := unsafe.Offsetof(KernelNodeParamsV1{}.SharedMemBytes); got != 32 {
 		t.Errorf("offsetof(KernelNodeParamsV1.SharedMemBytes) = %d, want 32", got)
@@ -290,23 +278,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(KernelNodeParams{}.Func); got != 0 {
 		t.Errorf("offsetof(KernelNodeParams.Func) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(KernelNodeParams{}.GridDimX); got != 8 {
-		t.Errorf("offsetof(KernelNodeParams.GridDimX) = %d, want 8", got)
+	if got := unsafe.Offsetof(KernelNodeParams{}.GridDim); got != 8 {
+		t.Errorf("offsetof(KernelNodeParams.GridDim) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(KernelNodeParams{}.GridDimY); got != 12 {
-		t.Errorf("offsetof(KernelNodeParams.GridDimY) = %d, want 12", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParams{}.GridDimZ); got != 16 {
-		t.Errorf("offsetof(KernelNodeParams.GridDimZ) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParams{}.BlockDimX); got != 20 {
-		t.Errorf("offsetof(KernelNodeParams.BlockDimX) = %d, want 20", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParams{}.BlockDimY); got != 24 {
-		t.Errorf("offsetof(KernelNodeParams.BlockDimY) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParams{}.BlockDimZ); got != 28 {
-		t.Errorf("offsetof(KernelNodeParams.BlockDimZ) = %d, want 28", got)
+	if got := unsafe.Offsetof(KernelNodeParams{}.BlockDim); got != 20 {
+		t.Errorf("offsetof(KernelNodeParams.BlockDim) = %d, want 20", got)
 	}
 	if got := unsafe.Offsetof(KernelNodeParams{}.SharedMemBytes); got != 32 {
 		t.Errorf("offsetof(KernelNodeParams.SharedMemBytes) = %d, want 32", got)
@@ -332,23 +308,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(KernelNodeParamsV3{}.Func); got != 0 {
 		t.Errorf("offsetof(KernelNodeParamsV3.Func) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(KernelNodeParamsV3{}.GridDimX); got != 8 {
-		t.Errorf("offsetof(KernelNodeParamsV3.GridDimX) = %d, want 8", got)
+	if got := unsafe.Offsetof(KernelNodeParamsV3{}.GridDim); got != 8 {
+		t.Errorf("offsetof(KernelNodeParamsV3.GridDim) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(KernelNodeParamsV3{}.GridDimY); got != 12 {
-		t.Errorf("offsetof(KernelNodeParamsV3.GridDimY) = %d, want 12", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParamsV3{}.GridDimZ); got != 16 {
-		t.Errorf("offsetof(KernelNodeParamsV3.GridDimZ) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParamsV3{}.BlockDimX); got != 20 {
-		t.Errorf("offsetof(KernelNodeParamsV3.BlockDimX) = %d, want 20", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParamsV3{}.BlockDimY); got != 24 {
-		t.Errorf("offsetof(KernelNodeParamsV3.BlockDimY) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(KernelNodeParamsV3{}.BlockDimZ); got != 28 {
-		t.Errorf("offsetof(KernelNodeParamsV3.BlockDimZ) = %d, want 28", got)
+	if got := unsafe.Offsetof(KernelNodeParamsV3{}.BlockDim); got != 20 {
+		t.Errorf("offsetof(KernelNodeParamsV3.BlockDim) = %d, want 20", got)
 	}
 	if got := unsafe.Offsetof(KernelNodeParamsV3{}.SharedMemBytes); got != 32 {
 		t.Errorf("offsetof(KernelNodeParamsV3.SharedMemBytes) = %d, want 32", got)
@@ -539,23 +503,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(LaunchConfig{}); got != 8 {
 		t.Errorf("alignof(LaunchConfig) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(LaunchConfig{}.GridDimX); got != 0 {
-		t.Errorf("offsetof(LaunchConfig.GridDimX) = %d, want 0", got)
+	if got := unsafe.Offsetof(LaunchConfig{}.GridDim); got != 0 {
+		t.Errorf("offsetof(LaunchConfig.GridDim) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(LaunchConfig{}.GridDimY); got != 4 {
-		t.Errorf("offsetof(LaunchConfig.GridDimY) = %d, want 4", got)
-	}
-	if got := unsafe.Offsetof(LaunchConfig{}.GridDimZ); got != 8 {
-		t.Errorf("offsetof(LaunchConfig.GridDimZ) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(LaunchConfig{}.BlockDimX); got != 12 {
-		t.Errorf("offsetof(LaunchConfig.BlockDimX) = %d, want 12", got)
-	}
-	if got := unsafe.Offsetof(LaunchConfig{}.BlockDimY); got != 16 {
-		t.Errorf("offsetof(LaunchConfig.BlockDimY) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(LaunchConfig{}.BlockDimZ); got != 20 {
-		t.Errorf("offsetof(LaunchConfig.BlockDimZ) = %d, want 20", got)
+	if got := unsafe.Offsetof(LaunchConfig{}.BlockDim); got != 12 {
+		t.Errorf("offsetof(LaunchConfig.BlockDim) = %d, want 12", got)
 	}
 	if got := unsafe.Offsetof(LaunchConfig{}.SharedMemBytes); got != 24 {
 		t.Errorf("offsetof(LaunchConfig.SharedMemBytes) = %d, want 24", got)
@@ -1080,23 +1032,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(LaunchParams{}.Function); got != 0 {
 		t.Errorf("offsetof(LaunchParams.Function) = %d, want 0", got)
 	}
-	if got := unsafe.Offsetof(LaunchParams{}.GridDimX); got != 8 {
-		t.Errorf("offsetof(LaunchParams.GridDimX) = %d, want 8", got)
+	if got := unsafe.Offsetof(LaunchParams{}.GridDim); got != 8 {
+		t.Errorf("offsetof(LaunchParams.GridDim) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(LaunchParams{}.GridDimY); got != 12 {
-		t.Errorf("offsetof(LaunchParams.GridDimY) = %d, want 12", got)
-	}
-	if got := unsafe.Offsetof(LaunchParams{}.GridDimZ); got != 16 {
-		t.Errorf("offsetof(LaunchParams.GridDimZ) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(LaunchParams{}.BlockDimX); got != 20 {
-		t.Errorf("offsetof(LaunchParams.BlockDimX) = %d, want 20", got)
-	}
-	if got := unsafe.Offsetof(LaunchParams{}.BlockDimY); got != 24 {
-		t.Errorf("offsetof(LaunchParams.BlockDimY) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(LaunchParams{}.BlockDimZ); got != 28 {
-		t.Errorf("offsetof(LaunchParams.BlockDimZ) = %d, want 28", got)
+	if got := unsafe.Offsetof(LaunchParams{}.BlockDim); got != 20 {
+		t.Errorf("offsetof(LaunchParams.BlockDim) = %d, want 20", got)
 	}
 	if got := unsafe.Offsetof(LaunchParams{}.SharedMemBytes); got != 32 {
 		t.Errorf("offsetof(LaunchParams.SharedMemBytes) = %d, want 32", got)
