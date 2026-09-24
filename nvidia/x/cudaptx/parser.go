@@ -133,7 +133,9 @@ func Parse(r io.Reader) (*Module, error) {
 		if curKernel != nil {
 			inst := parseInstructionStatement(s, line, curLoc, curInlinedAt)
 			inst.IntermediateLoc = curIntermediateLoc
-			if inst.Opcode != "" {
+			// A guard followed by a directive or a second guard, as in
+			// "@%p1 .reg .b32 %r;", is not an instruction either.
+			if inst.Opcode != "" && !strings.HasPrefix(inst.Opcode, ".") && !strings.HasPrefix(inst.Opcode, "@") {
 				// .loc_intermediate applies to the immediately following
 				// instruction and to at most one of them
 				// (docs/ptx/11-directives.md:1810,1816), so it is consumed
@@ -359,9 +361,11 @@ func (m *Module) resolveFiles() {
 
 // stripComments removes non-nested /* */ and // comments, which PTX treats as
 // whitespace (docs/ptx/04-syntax.md:28-35). It reports whether a block comment
-// is still open at end of line.
+// is still open at end of line. A comment marker inside a string literal, as
+// in .file 1 "/a//b.cu", is part of the string.
 func stripComments(line string, inBlock bool) (string, bool) {
 	var b strings.Builder
+	inString := false
 	for i := 0; i < len(line); {
 		if inBlock {
 			if j := strings.Index(line[i:], "*/"); j >= 0 {
@@ -372,6 +376,20 @@ func stripComments(line string, inBlock bool) (string, bool) {
 			}
 			return b.String(), true
 		}
+		if inString {
+			switch line[i] {
+			case '\\':
+				if i+1 < len(line) {
+					b.WriteByte(line[i])
+					i++
+				}
+			case '"':
+				inString = false
+			}
+			b.WriteByte(line[i])
+			i++
+			continue
+		}
 		if strings.HasPrefix(line[i:], "//") {
 			break
 		}
@@ -379,6 +397,9 @@ func stripComments(line string, inBlock bool) (string, bool) {
 			i += 2
 			inBlock = true
 			continue
+		}
+		if line[i] == '"' {
+			inString = true
 		}
 		b.WriteByte(line[i])
 		i++
@@ -425,14 +446,17 @@ func parseFileDirective(stmt string, m *Module) {
 	if err != nil {
 		return
 	}
-	name := strings.Join(fields[1:], " ")
+	name := strings.TrimSpace(rest[len(fields[0]):])
 	if i := strings.Index(name, `"`); i >= 0 {
+		// A name without its closing quote is not a name; recording
+		// the text after the quote would report a file that does not
+		// exist.
 		if j := strings.Index(name[i+1:], `"`); j >= 0 {
 			m.Files[idx] = name[i+1 : i+1+j]
-			return
 		}
+		return
 	}
-	m.Files[idx] = strings.TrimSuffix(name, ",")
+	m.Files[idx] = strings.TrimSuffix(strings.Join(strings.Fields(name), " "), ",")
 }
 
 // parseLocDirective parses ".loc file line column" or ".loc_intermediate file line column"
@@ -676,6 +700,10 @@ func parseParameters(list string) []Param {
 	return params
 }
 
+// space is the whitespace that separates a guard, an opcode and its operands.
+// A CRLF file leaves a carriage return inside a line, as in "ret\r;".
+const space = " \t\r\v\f"
+
 // parseInstructionStatement parses a guarded instruction statement
 // (docs/ptx/04-syntax.md:78-85).
 func parseInstructionStatement(stmt string, line int, loc Location, inlinedAt []Location) Instruction {
@@ -684,7 +712,7 @@ func parseInstructionStatement(stmt string, line int, loc Location, inlinedAt []
 
 	var pred string
 	if strings.HasPrefix(stmt, "@") {
-		if i := strings.IndexAny(stmt, " \t"); i >= 0 {
+		if i := strings.IndexAny(stmt, space); i >= 0 {
 			pred, stmt = stmt[:i], strings.TrimSpace(stmt[i:])
 		} else {
 			pred, stmt = stmt, ""
@@ -693,7 +721,7 @@ func parseInstructionStatement(stmt string, line int, loc Location, inlinedAt []
 
 	opcode := stmt
 	operands := ""
-	if i := strings.IndexAny(stmt, " \t"); i >= 0 {
+	if i := strings.IndexAny(stmt, space); i >= 0 {
 		opcode, operands = stmt[:i], strings.TrimSpace(stmt[i:])
 	}
 
