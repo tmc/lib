@@ -79,6 +79,21 @@ import (
 // N ms after the window's first. Weight loading and warmup launches then
 // drop out of every op and stage total. A window in which the warmup never
 // ends is refused, never compared whole.
+//
+// A delta says the time moved, not why. Three more sections separate
+// different work from different conditions. Each op lists the set of launch
+// configurations -- grid, block and dynamic shared memory, from the kernel
+// records -- it ran with on each side, and an op whose sets differ is
+// flagged CHANGED with both sets and their launch counts. A launch whose
+// record carries no configuration makes its op UNREAD, never SAME. Ops whose
+// launch counts differ by a ratio of 1.5 or more, or that ran on one side
+// only, are listed as launch count changes. The p10, p50 and p90 of
+// per-launch exclusive time are given for every op in JSON and for the ops
+// of largest |Δ| in text: a p50 that moved with a tight spread is a slower
+// kernel, a p90 that moved alone is a few slow launches. The header gives the
+// SM and memory clocks, temperature and power NVML reported at each side's
+// capture-range edges, or says they were not recorded; two sides at
+// different clocks differ by that ratio before any code does.
 
 const (
 	classKernel = iota
@@ -482,15 +497,186 @@ type CompareSide struct {
 	// UnusedRules are the ops rules that matched no kernel in this window.
 	UnusedRules []opRule `json:"unused_rules,omitempty"`
 
+	// UnrecordedConfigs counts the kernel launches in the window whose
+	// record carries no launch configuration.
+	UnrecordedConfigs int `json:"unrecorded_configs"`
+
+	// Clocks is the GPU state read at the window's capture-range edges.
+	Clocks *compareClocks `json:"clocks"`
+
 	ops          map[string]*opTotals
+	launches     map[string]*opLaunches
 	stages       map[string]*stageTotals
 	stageEntries []*stageTotals
+}
+
+// compareClocks is the GPU state read at a window's capture-range edges.
+// NotRecorded says why there is none; a sample's own Unavailable says why
+// that one edge has none.
+type compareClocks struct {
+	Start       *gpuEdgeSample `json:"start,omitempty"`
+	Stop        *gpuEdgeSample `json:"stop,omitempty"`
+	NotRecorded string         `json:"not_recorded,omitempty"`
+}
+
+// rangeClocks returns the readings of the edges that bound [start, stop).
+func rangeClocks(edges []capturePhaseEdge, start, stop uint64) *compareClocks {
+	c := &compareClocks{}
+	found := false
+	for _, e := range edges {
+		switch {
+		case e.Edge == "start" && e.Timestamp == start:
+			c.Start, found = e.GPU, true
+		case e.Edge == "stop" && e.Timestamp == stop:
+			c.Stop, found = e.GPU, true
+		}
+	}
+	switch {
+	case !found:
+		c.NotRecorded = "the phase receipt holds no edges for the window"
+	case c.Start == nil && c.Stop == nil:
+		c.NotRecorded = "the capture predates GPU readings at range edges"
+	}
+	return c
+}
+
+// smClock returns the SM clock of the first device that reported one.
+func (s *gpuEdgeSample) smClock() (uint32, bool) {
+	if s == nil {
+		return 0, false
+	}
+	for _, d := range s.Devices {
+		if d.SMClockMHz != nil {
+			return *d.SMClockMHz, true
+		}
+	}
+	return 0, false
 }
 
 type opTotals struct {
 	launches  int
 	exclusive int64
 	summed    int64
+}
+
+// opLaunches is what one op's launches were on one side, launch by launch.
+type opLaunches struct {
+	exclusive  []int64 // per launch
+	configs    map[LaunchConfig]int
+	unrecorded int // launches whose record carries no configuration
+}
+
+// LaunchConfig is the configuration a kernel was launched with.
+type LaunchConfig struct {
+	Grid         [3]uint32 `json:"grid"`
+	Block        [3]uint32 `json:"block"`
+	SharedMemory uint32    `json:"dynamic_shared_memory"`
+}
+
+func (c LaunchConfig) String() string {
+	return fmt.Sprintf("grid %dx%dx%d block %dx%dx%d smem %d",
+		c.Grid[0], c.Grid[1], c.Grid[2], c.Block[0], c.Block[1], c.Block[2], c.SharedMemory)
+}
+
+// launchConfigOf returns a kernel record's launch configuration, or false
+// when the record does not carry one. No launch has a zero dimension, so a
+// zero is a record without the field.
+func launchConfigOf(a gapActivity) (LaunchConfig, bool) {
+	var c LaunchConfig
+	if a.sharedMemory == nil {
+		return c, false
+	}
+	for i := range 3 {
+		if a.grid[i] <= 0 || a.block[i] <= 0 {
+			return c, false
+		}
+		c.Grid[i], c.Block[i] = uint32(a.grid[i]), uint32(a.block[i])
+	}
+	c.SharedMemory = *a.sharedMemory
+	return c, true
+}
+
+// LaunchConfigCount is one launch configuration and how often an op ran
+// with it.
+type LaunchConfigCount struct {
+	LaunchConfig
+	Launches int `json:"launches"`
+}
+
+// configCounts returns the configurations of l, most launched first.
+func (l *opLaunches) configCounts() []LaunchConfigCount {
+	out := make([]LaunchConfigCount, 0, len(l.configs))
+	for c, n := range l.configs {
+		out = append(out, LaunchConfigCount{c, n})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Launches != out[j].Launches {
+			return out[i].Launches > out[j].Launches
+		}
+		return out[i].String() < out[j].String()
+	})
+	return out
+}
+
+// Launch configuration status of an op.
+const (
+	configSame     = "SAME"      // both sides ran the same set of configurations
+	configChanged  = "CHANGED"   // the sets differ
+	configUnread   = "UNREAD"    // some launch's record carries no configuration
+	configOneSided = "ONE_SIDED" // the op ran on one side only
+)
+
+// configStatus compares the sets of configurations, not their counts: a
+// count that moved is a launch count change.
+func configStatus(b, t *opLaunches) string {
+	switch {
+	case len(b.exclusive) == 0 || len(t.exclusive) == 0:
+		return configOneSided
+	case b.unrecorded > 0 || t.unrecorded > 0:
+		return configUnread
+	case len(b.configs) != len(t.configs):
+		return configChanged
+	}
+	for c := range b.configs {
+		if _, ok := t.configs[c]; !ok {
+			return configChanged
+		}
+	}
+	return configSame
+}
+
+// Spread is the nearest-rank p10, p50 and p90 of one op's per-launch
+// exclusive time.
+type Spread struct {
+	P10 int64 `json:"p10_ns"`
+	P50 int64 `json:"p50_ns"`
+	P90 int64 `json:"p90_ns"`
+}
+
+// spreadOf returns the spread of ns, or nil when it is empty. It sorts ns.
+func spreadOf(ns []int64) *Spread {
+	if len(ns) == 0 {
+		return nil
+	}
+	slices.Sort(ns)
+	return &Spread{percentile(ns, 10), percentile(ns, 50), percentile(ns, 90)}
+}
+
+// percentile returns the nearest-rank p-th percentile of sorted, which must
+// not be empty: the value of rank ⌈p·n/100⌉, the smallest value at least p
+// percent of the values do not exceed.
+func percentile(sorted []int64, p int) int64 {
+	i := (p*len(sorted)+99)/100 - 1
+	return sorted[max(i, 0)]
+}
+
+// launchCountChanged reports whether an op's launch count moved by a ratio
+// of at least 1.5, or whether the op ran on one side only.
+func launchCountChanged(base, target int) bool {
+	if base == 0 || target == 0 {
+		return base != target
+	}
+	return 2*max(base, target) >= 3*min(base, target)
 }
 
 // CompareOp is one op in both captures.
@@ -506,6 +692,24 @@ type CompareOp struct {
 	DeltaSummedNanos     int64  `json:"delta_summed_ns"`
 	BaseMeanNanos        int64  `json:"base_mean_ns"`
 	TargetMeanNanos      int64  `json:"target_mean_ns"`
+
+	// LaunchCountChanged is set when the launch counts differ by a ratio
+	// of at least 1.5, or one of them is zero.
+	LaunchCountChanged bool `json:"launch_count_changed"`
+
+	// ConfigStatus is SAME, CHANGED, UNREAD or ONE_SIDED; see configStatus.
+	// The Unrecorded counts are launches whose record carries no
+	// configuration.
+	ConfigStatus            string              `json:"config_status,omitempty"`
+	BaseConfigs             []LaunchConfigCount `json:"base_configs,omitempty"`
+	TargetConfigs           []LaunchConfigCount `json:"target_configs,omitempty"`
+	BaseUnrecordedConfigs   int                 `json:"base_unrecorded_configs,omitempty"`
+	TargetUnrecordedConfigs int                 `json:"target_unrecorded_configs,omitempty"`
+
+	// BaseSpread and TargetSpread are the spread of per-launch exclusive
+	// time, absent on a side with no launches.
+	BaseSpread   *Spread `json:"base_exclusive_spread,omitempty"`
+	TargetSpread *Spread `json:"target_exclusive_spread,omitempty"`
 }
 
 // CompareStage is one stage in both captures. Entries counts how often the
@@ -578,7 +782,29 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 		intDelta("idle", b.IdleNanos, t.IdleNanos),
 		intDelta("unresolved", b.UnresolvedNanos, t.UnresolvedNanos),
 	}
-	c.Ops = joinOps(b.ops, t.ops)
+	c.Ops = joinOps(b.ops, t.ops, b.launches, t.launches)
+	for _, s := range []struct {
+		name string
+		side *CompareSide
+	}{{"base", b}, {"target", t}} {
+		switch n := s.side.UnrecordedConfigs; {
+		case n == 0:
+		case n == s.side.KernelCount:
+			c.Notes = append(c.Notes, fmt.Sprintf("%s: launch configuration (grid, block, dynamic shared memory) not recorded, so no op's configuration is compared", s.name))
+		default:
+			c.Notes = append(c.Notes, fmt.Sprintf("%s: launch configuration not recorded for %d of %d kernel launches; their ops are UNREAD, not SAME", s.name, n, s.side.KernelCount))
+		}
+	}
+	for _, e := range []struct {
+		name         string
+		base, target *gpuEdgeSample
+	}{{"start", b.Clocks.Start, t.Clocks.Start}, {"stop", b.Clocks.Stop, t.Clocks.Stop}} {
+		bc, bok := e.base.smClock()
+		tc, tok := e.target.smClock()
+		if bok && tok && bc != tc {
+			c.Notes = append(c.Notes, fmt.Sprintf("SM clock at the %s edge was %d MHz in base and %d MHz in target: device time differs by that ratio before any code does", e.name, bc, tc))
+		}
+	}
 	if stages != nil {
 		c.Stages = joinStages(stages.order(), b.stages, t.stages, rules != nil)
 		for _, st := range c.Stages {
@@ -763,7 +989,7 @@ func joinStageEntries(stages []CompareStage, base, target []*stageTotals, cells 
 	row := func(stage string, entry int, b, t *stageTotals) {
 		var ops []CompareOp
 		if cells {
-			ops = joinOps(b.ops, t.ops)
+			ops = joinOps(b.ops, t.ops, nil, nil)
 		}
 		rows = append(rows, CompareStageEntry{
 			Stage:                stage,
@@ -821,7 +1047,7 @@ func joinStages(order []string, base, target map[string]*stageTotals, cells bool
 		}
 		var ops []CompareOp
 		if cells {
-			ops = joinOps(b.ops, t.ops)
+			ops = joinOps(b.ops, t.ops, nil, nil)
 		}
 		rows = append(rows, CompareStage{
 			Stage:                n,
@@ -840,7 +1066,10 @@ func joinStages(order []string, base, target map[string]*stageTotals, cells bool
 	return rows
 }
 
-func joinOps(base, target map[string]*opTotals) []CompareOp {
+// joinOps pairs the op totals of two sides. With launch maps, each row also
+// carries its launch configurations and per-launch spread; stage cells pass
+// nil, since configurations are compared once per op, not per cell.
+func joinOps(base, target map[string]*opTotals, baseLaunches, targetLaunches map[string]*opLaunches) []CompareOp {
 	names := make(map[string]bool)
 	for n := range base {
 		names[n] = true
@@ -857,7 +1086,7 @@ func joinOps(base, target map[string]*opTotals) []CompareOp {
 		if t == nil {
 			t = &opTotals{}
 		}
-		rows = append(rows, CompareOp{
+		row := CompareOp{
 			Op:                   n,
 			BaseLaunches:         b.launches,
 			TargetLaunches:       t.launches,
@@ -869,7 +1098,25 @@ func joinOps(base, target map[string]*opTotals) []CompareOp {
 			DeltaSummedNanos:     t.summed - b.summed,
 			BaseMeanNanos:        b.mean(),
 			TargetMeanNanos:      t.mean(),
-		})
+			LaunchCountChanged:   launchCountChanged(b.launches, t.launches),
+		}
+		if baseLaunches != nil {
+			bl, tl := baseLaunches[n], targetLaunches[n]
+			if bl == nil {
+				bl = &opLaunches{}
+			}
+			if tl == nil {
+				tl = &opLaunches{}
+			}
+			row.ConfigStatus = configStatus(bl, tl)
+			row.BaseConfigs = bl.configCounts()
+			row.TargetConfigs = tl.configCounts()
+			row.BaseUnrecordedConfigs = bl.unrecorded
+			row.TargetUnrecordedConfigs = tl.unrecorded
+			row.BaseSpread = spreadOf(bl.exclusive)
+			row.TargetSpread = spreadOf(tl.exclusive)
+		}
+		rows = append(rows, row)
 	}
 	sort.Slice(rows, func(i, j int) bool {
 		di, dj := abs64(rows[i].DeltaExclusiveNanos), abs64(rows[j].DeltaExclusiveNanos)
@@ -951,6 +1198,7 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 // selectWindow takes the window from the phase receipt, or from the device
 // span of the whole capture when there is no qualified receipt.
 func (s *CompareSide) selectWindow(r *capturePhaseReceipt, phase int, records gapRecords) error {
+	top := r
 	switch {
 	case r != nil && len(r.Phases) > 0:
 		if phase < 0 {
@@ -970,6 +1218,7 @@ func (s *CompareSide) selectWindow(r *capturePhaseReceipt, phase int, records ga
 			return fmt.Errorf("-phase %d out of range: capture has no qualified phase (%s)", phase, r)
 		}
 		s.Window = "capture span"
+		s.Clocks = &compareClocks{NotRecorded: "the window is not a capture range"}
 		s.WindowNote = fmt.Sprintf("phase receipt %s; window is first to last device activity", r)
 		first := true
 		for _, a := range append(records.activities, records.graphs...) {
@@ -991,6 +1240,7 @@ func (s *CompareSide) selectWindow(r *capturePhaseReceipt, phase int, records ga
 	}
 	s.Window, s.PhaseIndex = "phase", phase
 	s.StartTimestamp, s.StopTimestamp = int64(r.StartTimestamp), int64(r.StopTimestamp)
+	s.Clocks = rangeClocks(top.Edges, r.StartTimestamp, r.StopTimestamp)
 	return nil
 }
 
@@ -1051,6 +1301,9 @@ type compareRecord struct {
 	class      int
 	op         string
 	key        string // the kernel's match key, which stage boundaries test
+
+	config      LaunchConfig
+	configKnown bool
 }
 
 // measure partitions the window. Device records count only when they fall
@@ -1060,6 +1313,7 @@ func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBou
 	lo, hi := s.StartTimestamp, s.StopTimestamp
 	s.WindowNanos = hi - lo
 	s.ops = make(map[string]*opTotals)
+	s.launches = make(map[string]*opLaunches)
 	used := make([]bool, len(rules))
 	var recs []compareRecord
 	for _, a := range records.activities {
@@ -1089,6 +1343,7 @@ func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBou
 			t.launches++
 			t.summed += a.end - a.start
 			r.op, r.key = op, key
+			r.config, r.configKnown = launchConfigOf(a)
 			s.KernelCount++
 		case classMemcpy:
 			s.MemcpyCount++
@@ -1130,6 +1385,18 @@ func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBou
 		case classKernel:
 			s.ops[r.op].exclusive += owned[i]
 			s.KernelNanos += owned[i]
+			l := s.launches[r.op]
+			if l == nil {
+				l = &opLaunches{configs: make(map[LaunchConfig]int)}
+				s.launches[r.op] = l
+			}
+			l.exclusive = append(l.exclusive, owned[i])
+			if r.configKnown {
+				l.configs[r.config]++
+			} else {
+				l.unrecorded++
+				s.UnrecordedConfigs++
+			}
 		case classMemcpy:
 			s.MemcpyNanos += owned[i]
 		case classMemset:
@@ -1208,6 +1475,9 @@ func (c *Comparison) write(w io.Writer) error {
 	b, t := c.Base, c.Target
 	fmt.Fprintf(w, "base    %s\n        %s\n", b.Capture, b.windowLine())
 	fmt.Fprintf(w, "target  %s\n        %s\n", t.Capture, t.windowLine())
+	if err := writeClocks(w, b.Clocks, t.Clocks); err != nil {
+		return err
+	}
 	for _, n := range c.Notes {
 		fmt.Fprintf(w, "note: %s\n", n)
 	}
@@ -1257,17 +1527,21 @@ func (c *Comparison) write(w io.Writer) error {
 
 	fmt.Fprintln(w, "per op, ns. exclusive: each busy instant charged once (kernel > memcpy > memset, then earliest start); it sums to busy.")
 	fmt.Fprintln(w, "summed: raw launch durations; overlapping launches count more than once.")
+	fmt.Fprintln(w, "config: launch configuration (grid, block, dynamic shared memory) SAME, CHANGED, UNREAD (not recorded) or ONE_SIDED.")
 	tw = tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(tw, "launches\t\texclusive\t\t\tsummed\t\t\tmean\t\t")
-	fmt.Fprintln(tw, "base\ttarget\tbase\ttarget\tdelta\tbase\ttarget\tdelta\tbase\ttarget\t  op")
+	fmt.Fprintln(tw, "launches\t\texclusive\t\t\tsummed\t\t\tmean\t\t\t")
+	fmt.Fprintln(tw, "base\ttarget\tbase\ttarget\tdelta\tbase\ttarget\tdelta\tbase\ttarget\tconfig\t  op")
 	for _, o := range c.Ops {
-		fmt.Fprintf(tw, "%d\t%d\t%d\t%d\t%+d\t%d\t%d\t%+d\t%d\t%d\t  %s\n",
+		fmt.Fprintf(tw, "%d\t%d\t%d\t%d\t%+d\t%d\t%d\t%+d\t%d\t%d\t%s\t  %s\n",
 			o.BaseLaunches, o.TargetLaunches,
 			o.BaseExclusiveNanos, o.TargetExclusiveNanos, o.DeltaExclusiveNanos,
 			o.BaseSummedNanos, o.TargetSummedNanos, o.DeltaSummedNanos,
-			o.BaseMeanNanos, o.TargetMeanNanos, o.Op)
+			o.BaseMeanNanos, o.TargetMeanNanos, o.ConfigStatus, o.Op)
 	}
 	if err := tw.Flush(); err != nil {
+		return err
+	}
+	if err := c.writeLaunches(w); err != nil {
 		return err
 	}
 	if c.Stages == nil {
@@ -1362,4 +1636,144 @@ func formatKinds(kinds map[string]int) string {
 		parts[i] = fmt.Sprintf("%s=%d", k, kinds[k])
 	}
 	return strings.Join(parts, ",")
+}
+
+// compareSpreadOps is how many ops, largest |Δ| first, the text spread table
+// lists. JSON gives the spread of every op.
+const compareSpreadOps = 10
+
+// writeLaunches writes the launch configuration summary and changes, the
+// launch count changes, and the spread of the ops of largest |Δ|.
+func (c *Comparison) writeLaunches(w io.Writer) error {
+	status := make(map[string]int)
+	for _, o := range c.Ops {
+		status[o.ConfigStatus]++
+	}
+	fmt.Fprintf(w, "\nlaunch configuration: %d ops SAME, %d CHANGED, %d UNREAD (not recorded), %d ONE_SIDED\n",
+		status[configSame], status[configChanged], status[configUnread], status[configOneSided])
+	for _, o := range c.Ops {
+		if o.ConfigStatus != configChanged {
+			continue
+		}
+		fmt.Fprintf(w, "CHANGED %s\n", o.Op)
+		for _, cc := range o.BaseConfigs {
+			fmt.Fprintf(w, "  base    %s  launches %d\n", cc.LaunchConfig, cc.Launches)
+		}
+		for _, cc := range o.TargetConfigs {
+			fmt.Fprintf(w, "  target  %s  launches %d\n", cc.LaunchConfig, cc.Launches)
+		}
+	}
+
+	var moved []CompareOp
+	for _, o := range c.Ops {
+		if o.LaunchCountChanged {
+			moved = append(moved, o)
+		}
+	}
+	if len(moved) > 0 {
+		fmt.Fprintln(w, "\nlaunch count changes (ratio >= 1.5, or ran on one side only):")
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
+		fmt.Fprintln(tw, "base\ttarget\tratio\t  op")
+		for _, o := range moved {
+			ratio := "-"
+			if o.BaseLaunches > 0 && o.TargetLaunches > 0 {
+				ratio = fmt.Sprintf("%.2fx", float64(o.TargetLaunches)/float64(o.BaseLaunches))
+			}
+			fmt.Fprintf(tw, "%d\t%d\t%s\t  %s\n", o.BaseLaunches, o.TargetLaunches, ratio, o.Op)
+		}
+		if err := tw.Flush(); err != nil {
+			return err
+		}
+	}
+
+	n := min(len(c.Ops), compareSpreadOps)
+	fmt.Fprintf(w, "\nper-launch exclusive ns, nearest rank, for the %d ops of largest |Δ exclusive|:\n", n)
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
+	fmt.Fprintln(tw, "base\t\t\ttarget\t\t\t")
+	fmt.Fprintln(tw, "p10\tp50\tp90\tp10\tp50\tp90\t  op")
+	for _, o := range c.Ops[:n] {
+		fmt.Fprintf(tw, "%s\t%s\t  %s\n", o.BaseSpread.cells(), o.TargetSpread.cells(), o.Op)
+	}
+	return tw.Flush()
+}
+
+// cells returns the spread as three tab-separated cells, "-" when absent.
+func (s *Spread) cells() string {
+	if s == nil {
+		return "-\t-\t-"
+	}
+	return fmt.Sprintf("%d\t%d\t%d", s.P10, s.P50, s.P90)
+}
+
+// writeClocks writes each side's GPU readings at its range edges side by
+// side, or why a side has none.
+func writeClocks(w io.Writer, b, t *compareClocks) error {
+	fmt.Fprintln(w, "gpu at range edges (NVML, read after each edge):")
+	for _, s := range []struct {
+		name   string
+		clocks *compareClocks
+	}{{"base", b}, {"target", t}} {
+		if s.clocks.NotRecorded != "" {
+			fmt.Fprintf(w, "        %s: not recorded: %s\n", s.name, s.clocks.NotRecorded)
+		}
+	}
+	if b.NotRecorded != "" && t.NotRecorded != "" {
+		return nil
+	}
+	samples := []*gpuEdgeSample{b.Start, b.Stop, t.Start, t.Stop}
+	names := []string{"base start", "base stop", "target start", "target stop"}
+	var devices []uint32
+	seen := make(map[uint32]bool)
+	for i, s := range samples {
+		switch {
+		case s == nil:
+			samples[i] = &gpuEdgeSample{}
+		case s.Unavailable != "":
+			fmt.Fprintf(w, "        %s: not recorded: %s\n", names[i], s.Unavailable)
+		}
+		for _, d := range samples[i].Devices {
+			if !seen[d.Index] {
+				seen[d.Index] = true
+				devices = append(devices, d.Index)
+			}
+		}
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
+	fmt.Fprintf(tw, "\t%s\t\n", strings.Join(names, "\t"))
+	fields := []struct {
+		name string
+		get  func(gpuReading) *uint32
+	}{
+		{"sm clock MHz", func(r gpuReading) *uint32 { return r.SMClockMHz }},
+		{"mem clock MHz", func(r gpuReading) *uint32 { return r.MemClockMHz }},
+		{"temperature C", func(r gpuReading) *uint32 { return r.TemperatureC }},
+		{"power mW", func(r gpuReading) *uint32 { return r.PowerMilliwatts }},
+	}
+	for _, dev := range devices {
+		for _, f := range fields {
+			label := f.name
+			if len(devices) > 1 {
+				label = fmt.Sprintf("gpu %d %s", dev, f.name)
+			}
+			cells := make([]string, len(samples))
+			for i, s := range samples {
+				cells[i] = "-"
+				for _, d := range s.Devices {
+					if v := f.get(d); d.Index == dev && v != nil {
+						cells[i] = fmt.Sprint(*v)
+					}
+				}
+			}
+			fmt.Fprintf(tw, "        %s\t%s\t\n", label, strings.Join(cells, "\t"))
+		}
+	}
+	cells := make([]string, len(samples))
+	for i, s := range samples {
+		cells[i] = "-"
+		if len(s.Devices) > 0 {
+			cells[i] = fmt.Sprint(s.LagNanos)
+		}
+	}
+	fmt.Fprintf(tw, "        read lag ns\t%s\t\n", strings.Join(cells, "\t"))
+	return tw.Flush()
 }

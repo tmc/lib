@@ -21,16 +21,23 @@ type rec struct {
 	bytes         uint64
 	copyKind      uint8
 	graphID       uint32
+	config        *LaunchConfig // nil: the record carries no configuration
 }
 
 func compareJournal(recs []rec) []byte {
 	b := newJournalBuilder()
 	for i, r := range recs {
-		b.append(recordActivity, map[string]any{
+		payload := map[string]any{
 			"kind": "activity", "subtype": r.subtype, "name": r.name, "valid": true,
 			"start": r.start, "end": r.end, "stream": r.stream, "bytes": r.bytes,
 			"copy_kind": r.copyKind, "graph_id": r.graphID, "correlation": i + 1,
-		})
+		}
+		if c := r.config; c != nil {
+			payload["grid_x"], payload["grid_y"], payload["grid_z"] = c.Grid[0], c.Grid[1], c.Grid[2]
+			payload["block_x"], payload["block_y"], payload["block_z"] = c.Block[0], c.Block[1], c.Block[2]
+			payload["dynamic_shared_memory"] = c.SharedMemory
+		}
+		b.append(recordActivity, payload)
 	}
 	return b.finalize()
 }
@@ -154,7 +161,12 @@ func TestCompareSidePartition(t *testing.T) {
 			if !maps.Equal(ops, tt.ops) {
 				t.Errorf("ops = %v, want %v", ops, tt.ops)
 			}
-			got.ops, got.WindowNote, got.StartTimestamp, got.StopTimestamp = nil, "", 0, 0
+			// The records carry no launch configuration.
+			if got.UnrecordedConfigs != got.KernelCount {
+				t.Errorf("unrecorded configs = %d, want every kernel, %d", got.UnrecordedConfigs, got.KernelCount)
+			}
+			got.ops, got.launches, got.Clocks, got.UnrecordedConfigs = nil, nil, nil, 0
+			got.WindowNote, got.StartTimestamp, got.StopTimestamp = "", 0, 0
 			if tt.want.Window == "phase" {
 				tt.want.PhaseIndex = 0
 			}
@@ -995,3 +1007,335 @@ func TestParseCompareWarmup(t *testing.T) {
 		})
 	}
 }
+
+// TestCompareLaunchConfigs checks that an op's launch configurations are
+// compared as sets, that a change is flagged with both sides' sets, and that
+// a launch whose record carries no configuration is never read as SAME.
+func TestCompareLaunchConfigs(t *testing.T) {
+	attn := &LaunchConfig{Grid: [3]uint32{512, 8, 1}, Block: [3]uint32{512, 1, 1}, SharedMemory: 88576}
+	narrow := &LaunchConfig{Grid: [3]uint32{256, 8, 1}, Block: [3]uint32{512, 1, 1}, SharedMemory: 88576}
+	launches := func(cfgs ...*LaunchConfig) []rec {
+		var recs []rec
+		for i, c := range cfgs {
+			at := uint64(1100 + 100*i)
+			recs = append(recs, rec{subtype: "kernel", name: "attn", start: at, end: at + 50, config: c})
+		}
+		return recs
+	}
+	tests := []struct {
+		name          string
+		base, target  []rec
+		status        string
+		baseConfigs   []LaunchConfigCount
+		targetConfigs []LaunchConfigCount
+		text, noText  []string
+		wantNote      string
+	}{
+		{
+			name:        "identical",
+			base:        launches(attn, attn),
+			target:      launches(attn, attn),
+			status:      configSame,
+			baseConfigs: []LaunchConfigCount{{*attn, 2}}, targetConfigs: []LaunchConfigCount{{*attn, 2}},
+			text:   []string{"1 ops SAME, 0 CHANGED"},
+			noText: []string{"CHANGED attn"},
+		},
+		{
+			// Sets, not counts: a third launch of the same shape is a
+			// launch count matter.
+			name:        "same set, other count",
+			base:        launches(attn, attn),
+			target:      launches(attn, attn, attn),
+			status:      configSame,
+			baseConfigs: []LaunchConfigCount{{*attn, 2}}, targetConfigs: []LaunchConfigCount{{*attn, 3}},
+		},
+		{
+			name:        "grid differs",
+			base:        launches(attn, attn),
+			target:      launches(narrow, attn),
+			status:      configChanged,
+			baseConfigs: []LaunchConfigCount{{*attn, 2}}, targetConfigs: []LaunchConfigCount{{*narrow, 1}, {*attn, 1}},
+			text: []string{
+				"1 CHANGED",
+				"CHANGED attn\n  base    grid 512x8x1 block 512x1x1 smem 88576  launches 2\n  target  grid 256x8x1 block 512x1x1 smem 88576  launches 1\n  target  grid 512x8x1 block 512x1x1 smem 88576  launches 1\n",
+			},
+		},
+		{
+			name:          "not recorded on one side",
+			base:          launches(nil, nil),
+			target:        launches(attn, attn),
+			status:        configUnread,
+			targetConfigs: []LaunchConfigCount{{*attn, 2}},
+			text:          []string{"0 ops SAME, 0 CHANGED, 1 UNREAD (not recorded)"},
+			noText:        []string{"1 ops SAME"},
+			wantNote:      "base: launch configuration (grid, block, dynamic shared memory) not recorded",
+		},
+		{
+			name:        "not recorded for some launches",
+			base:        launches(attn, nil),
+			target:      launches(attn, attn),
+			status:      configUnread,
+			baseConfigs: []LaunchConfigCount{{*attn, 1}}, targetConfigs: []LaunchConfigCount{{*attn, 2}},
+			wantNote: "base: launch configuration not recorded for 1 of 2 kernel launches",
+		},
+		{
+			name:        "one side",
+			base:        launches(attn),
+			target:      []rec{{subtype: "kernel", name: "other", start: 1100, end: 1150, config: attn}},
+			status:      configOneSided,
+			baseConfigs: []LaunchConfigCount{{*attn, 1}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := compareCaptures(compareCapture(tt.base, phaseStatus(1000, 2000)), compareCapture(tt.target, phaseStatus(1000, 2000)), nil, nil, compareOptions{phase: -1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var o CompareOp
+			for _, row := range c.Ops {
+				if row.Op == "attn" {
+					o = row
+				}
+			}
+			if o.ConfigStatus != tt.status {
+				t.Errorf("config status = %q, want %q", o.ConfigStatus, tt.status)
+			}
+			if !reflect.DeepEqual(o.BaseConfigs, tt.baseConfigs) && len(o.BaseConfigs)+len(tt.baseConfigs) > 0 {
+				t.Errorf("base configs = %v, want %v", o.BaseConfigs, tt.baseConfigs)
+			}
+			if !reflect.DeepEqual(o.TargetConfigs, tt.targetConfigs) && len(o.TargetConfigs)+len(tt.targetConfigs) > 0 {
+				t.Errorf("target configs = %v, want %v", o.TargetConfigs, tt.targetConfigs)
+			}
+			notes := strings.Join(c.Notes, "\n")
+			if tt.wantNote != "" && !strings.Contains(notes, tt.wantNote) {
+				t.Errorf("notes %q, want %q", notes, tt.wantNote)
+			}
+			if tt.wantNote == "" && strings.Contains(notes, "not recorded") {
+				t.Errorf("notes %q report a configuration every record carries as not recorded", notes)
+			}
+			var out bytes.Buffer
+			if err := c.write(&out); err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range tt.text {
+				if !strings.Contains(squash(out.String()), squash(want)) {
+					t.Errorf("output lacks %q:\n%s", want, out.String())
+				}
+			}
+			for _, bad := range tt.noText {
+				if strings.Contains(squash(out.String()), squash(bad)) {
+					t.Errorf("output has %q:\n%s", bad, out.String())
+				}
+			}
+		})
+	}
+}
+
+func TestPercentile(t *testing.T) {
+	tests := []struct {
+		name string
+		ns   []int64
+		want *Spread
+	}{
+		{"empty", nil, nil},
+		{"one", []int64{7}, &Spread{7, 7, 7}},
+		{"three", []int64{30, 10, 20}, &Spread{10, 20, 30}},
+		{"ten", []int64{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}, &Spread{1, 5, 9}},
+		{"eleven", []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, &Spread{2, 6, 10}},
+		{"outlier", []int64{100, 100, 100, 100, 100, 100, 100, 100, 100, 900}, &Spread{100, 100, 100}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := spreadOf(tt.ns); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("spreadOf(%v) = %+v, want %+v", tt.ns, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestCompareSpread checks the spread is of per-launch exclusive time, not
+// raw duration, and that the text lists it.
+func TestCompareSpread(t *testing.T) {
+	base := compareCapture([]rec{
+		{subtype: "kernel", name: "k", start: 1100, end: 1200},
+		{subtype: "kernel", name: "k", start: 1300, end: 1500},
+		{subtype: "kernel", name: "k", start: 1600, end: 1900},
+	}, phaseStatus(1000, 2000))
+	target := compareCapture([]rec{
+		{subtype: "kernel", name: "k", start: 1100, end: 1200},
+		{subtype: "kernel", name: "k", start: 1150, end: 1400, stream: 1}, // owns 1200-1400
+	}, phaseStatus(1000, 2000))
+	c, err := compareCaptures(base, target, nil, nil, compareOptions{phase: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := c.Ops[0]
+	if *o.BaseSpread != (Spread{100, 200, 300}) || *o.TargetSpread != (Spread{100, 100, 200}) {
+		t.Errorf("spread %+v -> %+v, want {100 200 300} -> {100 100 200}", *o.BaseSpread, *o.TargetSpread)
+	}
+	var out bytes.Buffer
+	if err := c.write(&out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "per-launch exclusive ns") || !strings.Contains(squash(out.String()), "100 200 300 100 100 200 k") {
+		t.Errorf("output lacks the spread:\n%s", out.String())
+	}
+}
+
+func TestLaunchCountChanged(t *testing.T) {
+	tests := []struct {
+		base, target int
+		want         bool
+	}{
+		{10, 10, false},
+		{100, 149, false},
+		{100, 150, true},
+		{150, 100, true},
+		{149, 100, false},
+		{2, 3, true},
+		{3, 2, true},
+		{0, 1, true},
+		{1, 0, true},
+		{0, 0, false},
+	}
+	for _, tt := range tests {
+		if got := launchCountChanged(tt.base, tt.target); got != tt.want {
+			t.Errorf("launchCountChanged(%d, %d) = %v, want %v", tt.base, tt.target, got, tt.want)
+		}
+	}
+}
+
+func TestCompareLaunchCountSection(t *testing.T) {
+	var base, target []rec
+	for i := range uint64(4) {
+		base = append(base, rec{subtype: "kernel", name: "steady", start: 1000 + 10*i, end: 1005 + 10*i})
+		target = append(target, rec{subtype: "kernel", name: "steady", start: 1000 + 10*i, end: 1005 + 10*i})
+	}
+	base = append(base, rec{subtype: "kernel", name: "split", start: 1100, end: 1110}, rec{subtype: "kernel", name: "gone", start: 1200, end: 1210})
+	for i := range uint64(3) {
+		target = append(target, rec{subtype: "kernel", name: "split", start: 1100 + 10*i, end: 1105 + 10*i})
+	}
+	c, err := compareCaptures(compareCapture(base, phaseStatus(1000, 2000)), compareCapture(target, phaseStatus(1000, 2000)), nil, nil, compareOptions{phase: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := c.write(&out); err != nil {
+		t.Fatal(err)
+	}
+	_, section, ok := strings.Cut(out.String(), "launch count changes")
+	section, _, _ = strings.Cut(section, "\n\n")
+	if !ok {
+		t.Fatalf("no launch count section:\n%s", out.String())
+	}
+	for _, want := range []string{"1 3 3.00x split", "1 0 - gone"} {
+		if !strings.Contains(squash(section), want) {
+			t.Errorf("section lacks %q:\n%s", want, section)
+		}
+	}
+	if strings.Contains(section, "steady") {
+		t.Errorf("section lists an op whose count did not move:\n%s", section)
+	}
+}
+
+// TestCompareClocks checks that each side's edge readings come from the
+// edges that bound its window, that a difference in SM clock is noted, and
+// that a capture without readings says so.
+func TestCompareClocks(t *testing.T) {
+	recs := []rec{{subtype: "kernel", name: "k", start: 1100, end: 1200}}
+	sample := func(sm, mem, temp, power uint32) map[string]any {
+		return map[string]any{"sampled_at": 1, "lag_nanos": 4000, "devices": []any{
+			map[string]any{"index": 0, "sm_clock_mhz": sm, "mem_clock_mhz": mem, "temperature_c": temp, "power_mw": power},
+		}}
+	}
+	edge := func(seq, ts int, kind string, gpu map[string]any) map[string]any {
+		e := map[string]any{"sequence": seq, "timestamp": ts, "edge": kind, "api": "cuProfilerStart"}
+		if gpu != nil {
+			e["gpu"] = gpu
+		}
+		return e
+	}
+	withEdges := func(start, stop uint64, edges ...any) map[string]any {
+		s := phaseStatus(start, stop)
+		s["phase_receipt"].(map[string]any)["edges"] = edges
+		return s
+	}
+	twoPhases := phaseStatus(0, 0)
+	twoPhases["phase_receipt"] = map[string]any{"status": "UNREAD", "reason": "multiple_phases",
+		"edges": []any{
+			edge(1, 1000, "start", sample(900, 8000, 40, 20000)),
+			edge(2, 2000, "stop", sample(900, 8000, 41, 21000)),
+			edge(3, 3000, "start", sample(2522, 8533, 55, 90000)),
+			edge(4, 4000, "stop", sample(2522, 8533, 60, 95000)),
+		},
+		"phases": []any{
+			map[string]any{"status": "MEASURED", "start_timestamp": 1000, "stop_timestamp": 2000},
+			map[string]any{"status": "MEASURED", "start_timestamp": 3000, "stop_timestamp": 4000},
+		}}
+	recorded := withEdges(1000, 2000, edge(1, 1000, "start", sample(2522, 8533, 50, 80000)), edge(2, 2000, "stop", sample(2522, 8533, 52, 85000)))
+	tests := []struct {
+		name         string
+		base, target map[string]any
+		phase        int
+		want, not    []string
+	}{
+		{
+			name: "same clocks", base: recorded, target: recorded, phase: -1,
+			want: []string{"sm clock MHz 2522 2522 2522 2522", "power mW 80000 85000 80000 85000", "read lag ns"},
+			not:  []string{"not recorded:", "SM clock at the"},
+		},
+		{
+			// Phase 0 of the target reads the edges at 1000 and 2000, not
+			// those of phase 1.
+			name: "phase edges", base: recorded, target: twoPhases, phase: 0,
+			want: []string{"sm clock MHz 2522 2522 900 900", "SM clock at the start edge was 2522 MHz in base and 900 MHz in target"},
+		},
+		{
+			name: "no edges", base: recorded, target: phaseStatus(1000, 2000), phase: -1,
+			want: []string{"target: not recorded: the phase receipt holds no edges for the window", "sm clock MHz 2522 2522 - -"},
+		},
+		{
+			name: "edges without readings", base: withEdges(1000, 2000, edge(1, 1000, "start", nil), edge(2, 2000, "stop", nil)), target: completeStatus(), phase: -1,
+			want: []string{"base: not recorded: the capture predates GPU readings", "target: not recorded: the window is not a capture range"},
+			not:  []string{"sm clock MHz"},
+		},
+		{
+			name: "unavailable", base: withEdges(1000, 2000, edge(1, 1000, "start", map[string]any{"unavailable": "nvml init: no library"}), edge(2, 2000, "stop", sample(1, 2, 3, 4))), target: recorded, phase: -1,
+			want: []string{"base start: not recorded: nvml init: no library"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := compareCaptures(compareCapture(recs, tt.base), compareCapture(recs, tt.target), nil, nil, compareOptions{phase: tt.phase})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var out bytes.Buffer
+			if err := c.write(&out); err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range tt.want {
+				if !strings.Contains(squash(out.String()), squash(want)) {
+					t.Errorf("output lacks %q:\n%s", want, out.String())
+				}
+			}
+			for _, bad := range tt.not {
+				if strings.Contains(squash(out.String()), squash(bad)) {
+					t.Errorf("output has %q:\n%s", bad, out.String())
+				}
+			}
+			data, err := json.Marshal(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(data), `"clocks":{`) {
+				t.Errorf("json has no clocks: %s", data)
+			}
+		})
+	}
+}
+
+// squash collapses runs of white space, so a check does not depend on
+// tabwriter's padding.
+func squash(s string) string { return strings.Join(strings.Fields(s), " ") }

@@ -373,6 +373,10 @@ type gapActivity struct {
 	graphID     uint32
 	grid, block [3]int
 
+	// sharedMemory is a kernel's dynamic shared memory in bytes, or nil when
+	// the record does not carry it. Read only by compare.
+	sharedMemory *uint32
+
 	// Set only for a memcpy, and read only by compare.
 	bytes    uint64
 	copyKind uint8
@@ -401,31 +405,32 @@ type gapAPI struct{ start, end int64 }
 
 // gapPayload is the subset of a typed journal payload gap analysis reads.
 type gapPayload struct {
-	Kind         string `json:"kind"`
-	Subtype      string `json:"subtype"`
-	Name         string `json:"name"`
-	Stream       uint32 `json:"stream"`
-	Bytes        uint64 `json:"bytes"`
-	CopyKind     uint8  `json:"copy_kind"`
-	GridX        uint32 `json:"grid_x"`
-	GridY        uint32 `json:"grid_y"`
-	GridZ        uint32 `json:"grid_z"`
-	BlockX       uint32 `json:"block_x"`
-	BlockY       uint32 `json:"block_y"`
-	BlockZ       uint32 `json:"block_z"`
-	State        string `json:"state"`
-	Domain       string `json:"domain"`
-	Valid        bool   `json:"valid"`
-	Start        uint64 `json:"start"`
-	End          uint64 `json:"end"`
-	Device       uint32 `json:"device"`
-	Context      uint32 `json:"context"`
-	Correlation  uint32 `json:"correlation"`
-	GraphID      uint32 `json:"graph_id"`
-	ModuleID     uint32 `json:"module_id"`
-	OverheadKind uint32 `json:"overhead_kind"`
-	SyncType     uint32 `json:"sync_type"`
-	Dropped      uint64 `json:"dropped"`
+	Kind         string  `json:"kind"`
+	Subtype      string  `json:"subtype"`
+	Name         string  `json:"name"`
+	Stream       uint32  `json:"stream"`
+	Bytes        uint64  `json:"bytes"`
+	CopyKind     uint8   `json:"copy_kind"`
+	GridX        uint32  `json:"grid_x"`
+	GridY        uint32  `json:"grid_y"`
+	GridZ        uint32  `json:"grid_z"`
+	BlockX       uint32  `json:"block_x"`
+	BlockY       uint32  `json:"block_y"`
+	BlockZ       uint32  `json:"block_z"`
+	SharedMemory *uint32 `json:"dynamic_shared_memory"`
+	State        string  `json:"state"`
+	Domain       string  `json:"domain"`
+	Valid        bool    `json:"valid"`
+	Start        uint64  `json:"start"`
+	End          uint64  `json:"end"`
+	Device       uint32  `json:"device"`
+	Context      uint32  `json:"context"`
+	Correlation  uint32  `json:"correlation"`
+	GraphID      uint32  `json:"graph_id"`
+	ModuleID     uint32  `json:"module_id"`
+	OverheadKind uint32  `json:"overhead_kind"`
+	SyncType     uint32  `json:"sync_type"`
+	Dropped      uint64  `json:"dropped"`
 }
 
 // decodeJournals decodes every journal member. A journal whose frames do not
@@ -693,19 +698,20 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 				}
 			}
 			out.activities = append(out.activities, gapActivity{
-				device:      payload.Device,
-				start:       int64(payload.Start),
-				end:         int64(payload.End),
-				correlation: payload.Correlation,
-				subtype:     payload.Subtype,
-				name:        payload.Name,
-				stream:      payload.Stream,
-				graphID:     payload.GraphID,
-				grid:        [3]int{int(payload.GridX), int(payload.GridY), int(payload.GridZ)},
-				block:       [3]int{int(payload.BlockX), int(payload.BlockY), int(payload.BlockZ)},
-				bytes:       payload.Bytes,
-				copyKind:    payload.CopyKind,
-				module:      payload.ModuleID,
+				device:       payload.Device,
+				start:        int64(payload.Start),
+				end:          int64(payload.End),
+				correlation:  payload.Correlation,
+				subtype:      payload.Subtype,
+				name:         payload.Name,
+				stream:       payload.Stream,
+				graphID:      payload.GraphID,
+				grid:         [3]int{int(payload.GridX), int(payload.GridY), int(payload.GridZ)},
+				block:        [3]int{int(payload.BlockX), int(payload.BlockY), int(payload.BlockZ)},
+				sharedMemory: payload.SharedMemory,
+				bytes:        payload.Bytes,
+				copyKind:     payload.CopyKind,
+				module:       payload.ModuleID,
 			})
 		case recordAPI:
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {
