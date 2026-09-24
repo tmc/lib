@@ -401,10 +401,14 @@ type captureResult struct {
 	Activities               []captureActivity    `json:"activities,omitempty"`
 	LaunchManifest           json.RawMessage      `json:"launch_manifest,omitempty"`
 	PhaseReceipt             *capturePhaseReceipt `json:"phase_receipt,omitempty"`
-	Capability               json.RawMessage      `json:"capability,omitempty"`
-	Target                   *targetEnvironment   `json:"target_environment,omitempty"`
-	CaptureError             string               `json:"capture_error,omitempty"`
-	ScratchDir               string               `json:"scratch_dir,omitempty"`
+	// WallClock places the capture's CLOCK_MONOTONIC timestamps, the range
+	// edges among them, in wall time. It is nil where the controller has no
+	// CLOCK_MONOTONIC.
+	WallClock    *captureWallClock  `json:"wall_clock,omitempty"`
+	Capability   json.RawMessage    `json:"capability,omitempty"`
+	Target       *targetEnvironment `json:"target_environment,omitempty"`
+	CaptureError string             `json:"capture_error,omitempty"`
+	ScratchDir   string             `json:"scratch_dir,omitempty"`
 }
 
 // captureActivity represents one observed GPU kernel execution or memory copy.
@@ -1100,6 +1104,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if lookupEnv(cmd.Env, "CUDAPROF_CAPTURE_RANGE") == captureRangeProfilerAPI {
 		clocks = openEdgeClocks(o.openGPU)
 	}
+	result.WallClock = readWallClock()
 	if err := cmd.Start(); err != nil {
 		if clocks != nil {
 			clocks.finish()
