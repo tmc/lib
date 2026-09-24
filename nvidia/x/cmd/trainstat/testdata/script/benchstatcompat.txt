@@ -1,0 +1,20 @@
+# trainstat -format benchfmt writes the summary's results, with derived
+# Best and Throughput rows and unit metadata, for benchstat to read.
+# Both tools agree on Throughput.
+
+exec trainstat -format benchfmt -skip 1 -filter .name:Throughput $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+stdout '^Unit sec/step better=lower kind=time$'
+stdout -count=10 '^BenchmarkThroughput 3 '
+cp stdout tp.txt
+
+exec benchstat -col lr-encoder -ignore seed,run,out-model-sha256 tp.txt
+stdout '^Throughput +2\.140 ± ∞ ¹ +2\.140 ± ∞ ¹ +~ \(p=0\.968 n=5\)$'
+stdout '^Throughput +1\.914k ± ∞ ¹ +1\.914k ± ∞ ¹ +~ \(p=0\.968 n=5\)$'
+
+exec trainstat -skip 1 -filter .name:Throughput $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+stdout '^Throughput +2\.140 ± ∞ +2\.140 ± ∞  ~ +p=0\.968 n=5$'
+stdout '^Throughput +1\.914k ± ∞ +1\.914k ± ∞  ~ +p=0\.968 n=5$'
+
+# benchstat reads trainstat's own files too.
+exec benchstat -col lr-encoder -ignore seed,run,out-model-sha256 -filter .name:Final $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+stdout 'Final/split=val'

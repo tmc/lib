@@ -1,0 +1,77 @@
+# A laya run: progress.jsonl with train/state.json as configuration.
+# The last evaluation step is written three times in the log, the third
+# with calibrated metrics; the duplicates merge.
+
+exec trainstat jsonl -config $TESTDATA/laya/run/train/state.json $TESTDATA/laya/run/progress.jsonl
+stdout '^mode: heads$'
+stdout '^seed: 1$'
+stdout '^data_sha256: d3b20407'
+stdout '^Unit grad-norm assume=normal$'
+stdout '^BenchmarkTrain/step=1 1 .* sec/step'
+stdout -count=32 '^BenchmarkTrain/step='
+stdout -count=12 '^BenchmarkEval/'
+stdout -count=8 '^BenchmarkFinal/'
+stdout '^BenchmarkEval/split=val/group=all/cal=temp/step=32 1 141 n '
+stdout '^BenchmarkFinal/split=val/group=all/cal=temp 1 141 n 1\.0328973446325462 loss '
+stdout '^BenchmarkRun 1 32 steps 2118 seqs 155852 tokens [0-9.]+ train-sec 1 done$'
+
+# A run directory is read the same way, and the summary derives Best and
+# Throughput from the Eval and Train results.
+exec trainstat $TESTDATA/laya/run
+stdout '^columns: \.file$'
+stdout '^runs: 1 done, 0 stopped$'
+stdout '^val-frac 0\.1: '
+stdout '^Final/split=val/group=all/cal=raw +0\.4752$'
+stdout '^Best/split=val/group=all/cal=raw +0\.4823$'
+stdout '^Throughput +221\.2m$'
+
+# Events: start lifts configuration, stop leaves done 0, and a
+# bit-identical duplicate evaluation merges.
+exec trainstat jsonl -config extra.json events.jsonl
+cmp stdout events.want
+
+# A duplicate evaluation that differs is an error.
+! exec trainstat jsonl nondet.jsonl
+stderr 'nondet.jsonl: object 2: Eval/split=val/group=all/cal=raw/step=2 differs from an earlier evaluation at the same step'
+
+# An object with no event is one evaluation: Final results and no Run.
+exec trainstat jsonl eval.json
+stdout '^BenchmarkFinal/split=test/group=all/cal=raw 1 0\.5 accuracy$'
+! stdout Run
+
+# A configuration conflict is an error.
+! exec trainstat jsonl -config conflict.json events.jsonl
+stderr 'events.jsonl: config mode=lora conflicts with mode=full from .*conflict.json'
+
+-- extra.json --
+{"data": {"data_sha256": "abc"}, "seed": 2}
+-- conflict.json --
+{"mode": "full"}
+-- events.jsonl --
+{"event":"start","mode":"lora","seed":2}
+{"event":"step","step":1,"loss":2.5,"ms":250,"seqs":8,"tokens":1024}
+{"event":"step","step":2,"loss":2.25,"grad_norm":{"head":0.5},"ms":200,"seqs":8,"tokens":1024}
+{"event":"eval","step":2,"split":"val","metrics":{"all":{"accuracy":0.5,"loss":1.5}}}
+{"event":"eval","step":2,"split":"val","metrics":{"all":{"accuracy":0.5,"loss":1.5}},"calibrated":{"all":{"accuracy":0.5,"loss":1.25}}}
+{"event":"stop","step":2}
+-- events.want --
+data_sha256: abc
+seed: 2
+mode: lora
+Unit loss better=lower assume=normal
+Unit sec/step better=lower kind=time
+BenchmarkTrain/step=1 1 2.5 loss 0.25 sec/step 8 seqs 1024 tokens
+BenchmarkTrain/step=2 1 2.25 loss 0.5 grad-norm-head 0.2 sec/step 8 seqs 1024 tokens
+Unit accuracy better=higher assume=normal delta=abs
+BenchmarkEval/split=val/group=all/cal=raw/step=2 1 0.5 accuracy 1.5 loss
+BenchmarkEval/split=val/group=all/cal=temp/step=2 1 0.5 accuracy 1.25 loss
+BenchmarkFinal/split=val/group=all/cal=raw 1 0.5 accuracy 1.5 loss
+BenchmarkFinal/split=val/group=all/cal=temp 1 0.5 accuracy 1.25 loss
+Unit train-sec better=lower kind=time
+Unit done better=higher delta=abs
+BenchmarkRun 1 2 steps 16 seqs 2048 tokens 0.45 train-sec 0 done
+-- nondet.jsonl --
+{"event":"eval","step":2,"split":"val","metrics":{"all":{"accuracy":0.5}}}
+{"event":"eval","step":2,"split":"val","metrics":{"all":{"accuracy":0.25}}}
+-- eval.json --
+{"split":"test","metrics":{"all":{"accuracy":0.5}}}

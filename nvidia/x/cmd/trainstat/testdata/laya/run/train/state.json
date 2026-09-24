@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "step": 32,
+  "epoch": 2,
+  "cursor": 0,
+  "data_sha256": "d3b20407163db25cf061b08316617d8307027d634f5a1b5e6670e9399d914c27",
+  "base_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+  "options": {
+    "mode": "heads",
+    "epochs": 2,
+    "batch-seqs": 64,
+    "max-tokens": 16384,
+    "max-seqs": 64,
+    "lr-head": 0.001,
+    "lr-min": 0.000001,
+    "warmup": 0.03,
+    "weight-decay": 0.01,
+    "clip": 1,
+    "w-rps": 1,
+    "act-weight": 1,
+    "shuffle-options": true,
+    "seed": 1,
+    "exact": false,
+    "save-dtype": "f16",
+    "checkpoint-every": 0,
+    "keep": 3,
+    "val-frac": 0.1
+  }
+}

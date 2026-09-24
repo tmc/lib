@@ -1,0 +1,70 @@
+mode: lora
+lr-encoder: 1e-3
+seed: 1
+out-model-sha256: mnew1
+run: runs/new-s1
+Unit accuracy better=higher assume=normal delta=abs
+Unit ece better=lower assume=normal delta=abs
+BenchmarkTrain/step=1 1 1.0100 loss 2.31 sec/step 4096 tokens
+BenchmarkTrain/step=2 1 0.5100 loss 2.12 sec/step 4096 tokens
+BenchmarkTrain/step=3 1 0.3433 loss 2.10 sec/step 4096 tokens
+BenchmarkTrain/step=4 1 0.2600 loss 2.14 sec/step 4096 tokens
+BenchmarkFinal/split=val 1 0.806 accuracy 0.02 ece
+BenchmarkRun 1 4 steps 1 done
+
+mode: lora
+lr-encoder: 1e-3
+seed: 2
+out-model-sha256: mnew2
+run: runs/new-s2
+Unit accuracy better=higher assume=normal delta=abs
+Unit ece better=lower assume=normal delta=abs
+BenchmarkTrain/step=1 1 1.0200 loss 2.32 sec/step 4096 tokens
+BenchmarkTrain/step=2 1 0.5200 loss 2.13 sec/step 4096 tokens
+BenchmarkTrain/step=3 1 0.3533 loss 2.11 sec/step 4096 tokens
+BenchmarkTrain/step=4 1 0.2700 loss 2.15 sec/step 4096 tokens
+BenchmarkFinal/split=val 1 0.809 accuracy 0.021 ece
+BenchmarkRun 1 4 steps 1 done
+
+mode: lora
+lr-encoder: 1e-3
+seed: 3
+out-model-sha256: mnew3
+run: runs/new-s3
+Unit accuracy better=higher assume=normal delta=abs
+Unit ece better=lower assume=normal delta=abs
+BenchmarkTrain/step=1 1 1.0300 loss 2.33 sec/step 4096 tokens
+BenchmarkTrain/step=2 1 0.5300 loss 2.14 sec/step 4096 tokens
+BenchmarkTrain/step=3 1 0.3633 loss 2.12 sec/step 4096 tokens
+BenchmarkTrain/step=4 1 0.2800 loss 2.16 sec/step 4096 tokens
+BenchmarkFinal/split=val 1 0.804 accuracy 0.019 ece
+BenchmarkRun 1 4 steps 1 done
+
+mode: lora
+lr-encoder: 1e-3
+seed: 4
+out-model-sha256: mnew4
+run: runs/new-s4
+Unit accuracy better=higher assume=normal delta=abs
+Unit ece better=lower assume=normal delta=abs
+BenchmarkTrain/step=1 1 1.0400 loss 2.34 sec/step 4096 tokens
+BenchmarkTrain/step=2 1 0.5400 loss 2.15 sec/step 4096 tokens
+BenchmarkTrain/step=3 1 0.3733 loss 2.13 sec/step 4096 tokens
+BenchmarkTrain/step=4 1 0.2900 loss 2.17 sec/step 4096 tokens
+BenchmarkFinal/split=val 1 0.812 accuracy 0.023 ece
+BenchmarkRun 1 4 steps 1 done
+
+mode: lora
+lr-encoder: 1e-3
+seed: 5
+out-model-sha256: mnew5
+run: runs/new-s5
+Unit accuracy better=higher assume=normal delta=abs
+Unit ece better=lower assume=normal delta=abs
+BenchmarkTrain/step=1 1 1.0500 loss 2.35 sec/step 4096 tokens
+BenchmarkTrain/step=2 1 0.5500 loss 2.16 sec/step 4096 tokens
+BenchmarkTrain/step=3 1 0.3833 loss 2.14 sec/step 4096 tokens
+BenchmarkTrain/step=4 1 0.3000 loss 2.18 sec/step 4096 tokens
+BenchmarkFinal/split=val 1 0.808 accuracy 0.02 ece
+BenchmarkRun 1 4 steps 1 done
+

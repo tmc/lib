@@ -1,0 +1,108 @@
+# go test output: trainstat attributes and artifacts become runs, and
+# benchmark lines are read as they are. The module uses the trainstat
+# package from this module, offline.
+
+[short] skip 'runs go test'
+env GOFLAGS=-mod=mod GOPROXY=off GOSUMDB=off
+exec go mod edit -replace github.com/tmc/lib/nvidia=$NVIDIA
+exec go mod tidy
+mkdir out
+
+env MODE=lora
+exec go test -json -count=1 -bench . -benchtime 1x -artifacts -outputdir $WORK/out .
+cp stdout lora.json
+env MODE=full
+env FAIL3=1
+! exec go test -json -count=1 -bench . -benchtime 1x -artifacts -outputdir $WORK/out .
+cp stdout full.json
+env FAIL3=
+
+# Each subtest is a run: seed is the replicate, taken from the artifact's
+# configuration and from the subtest name alike. The failed subtest is
+# stopped, and its Final result is still reported.
+exec trainstat lora.json full.json
+stdout '^columns: mode$'
+stdout '^replicates: seed \(1 2 3\)$'
+stdout '^runs: 5 done, 1 stopped$'
+stdout '^pkg: fit$'
+stdout '^test: TestFit$'
+stdout '^accuracy +│  lora +│  full +│'
+stdout '^Final/split=val +0\.820 ± 0\.025 +0\.820 ± 0\.025  ~  \[\+0\.000, \+0\.000\]  p=1\.000 n=3 paired$'
+stdout '^done +│'
+
+# Benchmark lines join the column of the tests beside them. The failed
+# run stopped before its benchmarks.
+stdout '^goarch: '
+stdout '^tokens/s +│  lora +│  full +│'
+stdout '^Update(-[0-9]+)? +1\.000k$'
+
+# The artifact's Train results feed step times; the attribute Report
+# gives Final.
+exec trainstat -format benchfmt lora.json
+stdout '^BenchmarkTrain/step=3/seed=2 1 0\.16666666666666666 loss$'
+stdout '^BenchmarkFinal/split=val/seed=1 1 0\.81 accuracy$'
+stdout '^BenchmarkUpdate(-[0-9]+)? '
+
+# go test -v text carries the same attributes.
+env MODE=lora
+exec go test -v -count=1 -run TestFit -artifacts -outputdir $WORK/out .
+cp stdout lora.txt
+exec trainstat -filter .name:Final lora.txt
+stdout '^runs: 3 done, 0 stopped$'
+stdout '^Final/split=val +0\.820 ± 0\.025$'
+
+# One result reported twice with different values is an error.
+env DUP=1
+! exec go test -json -count=1 -run TestDup .
+cp stdout dup.json
+! exec trainstat dup.json
+stderr 'dup.json: TestDup: attribute trainstat:Final:loss set to "1" and "2"'
+
+-- go.mod --
+module fit
+
+go 1.27
+
+require github.com/tmc/lib/nvidia v0.0.0
+-- fit_test.go --
+package fit
+
+import (
+	"fmt"
+	"os"
+	"testing"
+
+	"github.com/tmc/lib/nvidia/x/trainstat"
+)
+
+func TestFit(t *testing.T) {
+	for seed := 1; seed <= 3; seed++ {
+		t.Run(fmt.Sprintf("seed=%d", seed), func(t *testing.T) {
+			w := trainstat.Artifact(t)
+			w.Config("seed", fmt.Sprint(seed))
+			for step := 1; step <= 3; step++ {
+				w.Step(step, trainstat.Value{V: 1 / float64(step*seed), Unit: "loss"})
+			}
+			t.Attr("trainstat.config:mode", os.Getenv("MODE"))
+			trainstat.Report(t, "Final/split=val", trainstat.Value{V: 0.8 + float64(seed)/100, Unit: "accuracy"})
+			if seed == 3 && os.Getenv("FAIL3") != "" {
+				t.Fatal("diverged")
+			}
+		})
+	}
+}
+
+func TestDup(t *testing.T) {
+	if os.Getenv("DUP") == "" {
+		t.Skip("DUP not set")
+	}
+	trainstat.Report(t, "Final", trainstat.Value{V: 1, Unit: "loss"})
+	trainstat.Report(t, "Final", trainstat.Value{V: 2, Unit: "loss"})
+	t.Fail()
+}
+
+func BenchmarkUpdate(b *testing.B) {
+	for b.Loop() {
+	}
+	b.ReportMetric(1000, "tokens/s")
+}

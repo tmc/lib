@@ -1,0 +1,97 @@
+# Five seeds per configuration: columns come from the one key that
+# differs, seed is the replicate, and each Final row is a paired t test
+# on per-seed differences.
+
+exec trainstat -skip 1 $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+cmp stdout want
+
+# Paired: n=5 gives 4 degrees of freedom; the interval matches
+# mean(d) ± t(0.975,4)·sd(d)/√5 = 0.0056 ± 2.776·0.00114/2.236.
+stdout 'Final/split=val .* \+0\.0056  \[\+0\.0042, \+0\.0070\]  p<0\.001 n=5 paired'
+
+# CSV has the same cells without separators.
+exec trainstat -skip 1 -format csv $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+stdout '^accuracy,5e-4,1e-3,,,,$'
+stdout '^Final/split=val,0\.8022 ± 0\.0024,0\.8078 ± 0\.0038,\+0\.0056,"\[\+0\.0042, \+0\.0070\]",p<0\.001 n=5 paired,$'
+
+# Seeds whose validation sets differ are not paired: Welch, with a note.
+exec trainstat v1.txt v2.txt
+stdout '^Final +0\.510 ± 0\.025 +0\.613 ± 0\.038  \+0\.103  \[\+0\.072, \+0\.135\]  p=0\.001 n=3 welch \(unpaired: validation sets differ for replicate 2\)$'
+
+# A relative unit with several rows gets a geometric mean row, unless a
+# value is not positive.
+exec trainstat g1.txt g2.txt
+stdout '^geomean +4\.000 +2\.000 +-50\.00%$'
+stdout -count=1 geomean
+
+# An explicit column overrides the automatic choice.
+exec trainstat -skip 1 -col .file $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+stdout '^columns: \.file$'
+
+-- v1.txt --
+seed: 1
+val_sha256: a
+BenchmarkFinal 1 0.5 accuracy
+seed: 2
+val_sha256: b
+BenchmarkFinal 1 0.52 accuracy
+seed: 3
+val_sha256: c
+BenchmarkFinal 1 0.51 accuracy
+-- v2.txt --
+seed: 1
+val_sha256: a
+BenchmarkFinal 1 0.6 accuracy
+seed: 2
+val_sha256: x
+BenchmarkFinal 1 0.63 accuracy
+seed: 3
+val_sha256: c
+BenchmarkFinal 1 0.61 accuracy
+-- g1.txt --
+BenchmarkA 1 2 sec/op
+BenchmarkB 1 8 sec/op
+BenchmarkC 1 1 B/op
+BenchmarkD 1 0 B/op
+-- g2.txt --
+BenchmarkA 1 1 sec/op
+BenchmarkB 1 4 sec/op
+BenchmarkC 1 1 B/op
+BenchmarkD 1 0 B/op
+-- want --
+columns: lr-encoder
+replicates: seed (1 2 3 4 5)
+runs: 10 done, 0 stopped
+
+mode: lora
+
+accuracy         │  5e-4             │  1e-3                                                                │
+                 │  mean             │  mean             Δ        95% CI of Δ                               │
+Final/split=val     0.8022 ± 0.0024     0.8078 ± 0.0038  +0.0056  [+0.0042, +0.0070]  p<0.001 n=5 paired
+
+ece              │  5e-4             │  1e-3                                                          │
+                 │  mean             │  mean             Δ  95% CI of Δ                               │
+Final/split=val     0.0212 ± 0.0024     0.0206 ± 0.0019  ~  [-0.0046, +0.0034]  p=0.697 n=5 paired
+
+steps  │  5e-4       │  1e-3                           │
+       │  median     │  median     Δ                   │
+Run       4.000 ± ∞     4.000 ± ∞  ~    p=1.000 n=5
+
+done  │  5e-4       │  1e-3                           │
+      │  median     │  median     Δ                   │
+Run      1.000 ± ∞     1.000 ± ∞  ~    p=1.000 n=5
+
+sec/step    │  5e-4       │  1e-3                           │
+            │  median     │  median     Δ                   │
+Throughput     2.140 ± ∞     2.140 ± ∞  ~    p=0.968 n=5
+
+tokens/s    │  5e-4        │  1e-3                            │
+            │  median      │  median      Δ                   │
+Throughput     1.914k ± ∞     1.914k ± ∞  ~    p=0.968 n=5
+
+Train step times after -skip, per run; median over runs
+sec/step  runs  p50   p90   p99   max
+5e-4      5     2.14  2.15  2.15  2.15
+1e-3      5     2.14  2.16  2.16  2.16
+
+1 of 6 comparisons differ at α=0.05; ~0.3 expected by chance if nothing changed

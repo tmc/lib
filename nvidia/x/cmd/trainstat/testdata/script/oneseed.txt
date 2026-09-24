@@ -1,0 +1,25 @@
+# One seed per configuration: cells are labelled n=1, differences are
+# bare points with no interval or test, and nothing is marked significant.
+
+exec trainstat -skip 1 -filter seed:1 $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+stdout '^replicates: seed \(1\)$'
+stdout '^runs: 2 done, 0 stopped$'
+stdout '│  n=1     │  n=1     Δ'
+stdout '^Final/split=val +0\.8010 +0\.8060  \+0\.0050 +n=1$'
+stdout '^Final/split=val +0\.02100 +0\.02000  -0\.00100 +n=1$'
+! stdout 'CI of Δ'
+! stdout 'p='
+! stdout 'comparisons differ'
+
+# Without a replicate key, results with equal configuration must be
+# identical; two that differ are not reproducible.
+exec trainstat a.txt b.txt
+stdout '^replicates: none \(no seed\)'
+stdout '^Final +0\.5000 +not reproducible$'
+stdout '^note: Final loss b\.txt: results differ: 0\.5 and 0\.25$'
+
+-- a.txt --
+BenchmarkFinal 1 0.5 loss
+-- b.txt --
+BenchmarkFinal 1 0.5 loss
+BenchmarkFinal 1 0.25 loss
