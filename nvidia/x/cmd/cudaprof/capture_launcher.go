@@ -211,11 +211,12 @@ type captureOptions struct {
 	Exclude []string
 	// FollowChildren keeps the generations of processes the target spawned in
 	// this capture's totals and projection. It does not decide whether a child
-	// is instrumented: CUDA_INJECTION64_PATH and the preload are inherited
-	// across exec, so a child runs the agent and writes its own generation
-	// whatever this says. False leaves those records out of the totals and the
-	// pprof while the generations stay listed in worker_generations and their
-	// raw journals stay attached, so nothing is hidden by not following them.
+	// is instrumented: the launcher sets only LD_PRELOAD (DYLD_INSERT_LIBRARIES
+	// on darwin), which every exec'd process inherits, so a child loads the
+	// agent and writes its own generation whatever this says. False leaves
+	// those records out of the totals and the pprof while the generations stay
+	// listed in worker_generations and their raw journals stay attached, so
+	// nothing is hidden by not following them.
 	FollowChildren bool
 	// APIActivity collects runtime and driver API attribution alongside device
 	// activity. It is on by default because the agent's default is on; setting
