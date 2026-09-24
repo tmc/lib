@@ -1,0 +1,7 @@
+commit dab7d9ace3ac992b44d800774e24d029dee42861
+date 2026-09-23T12:34:43-07:00 (committed 2026-09-23T12:34:43-07:00)
+agent: Claude Code (subagent), model claude-opus-5-5[1m], tty=none, pid=72081
+ITERM_SESSION_ID=w13t0p9:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url=https://claude.ai/code/session_01EtvqCzGak7aomYVo1jAaL4
+rebuilt from debug/ds4-e8f5 476fe71f (+0fca25b3) and e815a6ce for land/ds4-residency; canonical run at tip 4115b8ed: ~/tmp/ds4-land-e8f5-work/canonical-1.stderr
