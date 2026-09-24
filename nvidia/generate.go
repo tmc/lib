@@ -5,8 +5,8 @@ package nvidia
 //
 //	go generate
 //
-// That runs nvgen once per package, each invocation reading the materialized
-// CUDA profile named by $CUDA_PROFILE and writing one directory. nvgen holds
+// That runs nvgen once per package, each invocation reading the CUDA headers
+// and writing one directory. nvgen holds
 // the recipe -- which generator runs with which arguments -- so this file
 // lists only which packages exist and which of them the CUDA profile selects.
 //
@@ -15,14 +15,14 @@ package nvidia
 //
 //	(cd ../../libgen && go install ./cmd/nvgen)
 //
-// Choosing a profile. The profile is a materialized header tree under
-// cuda-headers-profiles beside this checkout, selected by name:
+// Choosing headers. By default nvgen reads the cuda-headers checkout beside
+// this one, the tree upstream.json records. A materialized profile under
+// cuda-headers-profiles selects another tree by name:
 //
 //	CUDA_PROFILE=cuda-12.6.3 go generate
 //
-// It defaults to the latest pinned patch profile. The packages in the first
-// block below name that tree in their generator arguments, so a toolkit bump
-// moves them and only them. The second block names no profile path at all:
+// The packages in the first block below read that tree, so a toolkit bump
+// moves them and only them. The second block passes no header tree at all:
 // those inputs ship with their own NVIDIA SDK, which no CUDA version selects.
 //
 // Checking without writing. To report what a regeneration would change
@@ -49,13 +49,6 @@ package nvidia
 // When x becomes its own module it will need the workspace: the command is then
 // in another module, go.work is what lets this one reach it, and it must stay
 // that way, because a require on x would put x in every consumer's graph.
-//
-// One package is generated and recorded but has no recipe here. ncclll has 13
-// generated files and a recorded argv in upstream.json, and no go:generate
-// line: go generate does not rebuild it and nvgen -list does not name it, so a
-// clean -diff says nothing about it. The counts agree by coincidence --
-// upstream.json holds 35 packages and this file holds 35 recipes -- but the two
-// sets differ, ncclll on one side and the gated vpi recipe on the other.
 //
 // What the committed packages were generated from. The vendor archives named
 // in upstream.json are the linux-x86_64 redistributables, and their versions
@@ -120,13 +113,9 @@ package nvidia
 //go:generate nvgen dcgm
 //go:generate nvgen gdrcopy
 //go:generate nvgen ncclep
+//go:generate nvgen ncclll
 //go:generate nvgen ncclm2n
 //go:generate nvgen nvcomp
 //go:generate nvgen nvdec
 //go:generate nvgen nvenc
 //go:generate nvgen nvjpeg2k
-
-// VPI headers ship with JetPack rather than the CUDA toolkit, so this recipe
-// runs only where $VPI_INCLUDE names a materialized tree. nvgen skips it
-// otherwise; naming it explicitly reports why instead.
-//go:generate nvgen vpi
