@@ -16,13 +16,15 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
+const pressureUsage = "usage: cudaprof pressure [kernel] capture.pprof"
+
 func runPressureCommand(rawArgs []string) error {
 	args, limits, err := parseReadLimits(rawArgs)
 	if err != nil {
 		return err
 	}
 	if len(args) == 0 {
-		return errors.New("usage: cudaprof pressure [kernel] capture.pprof")
+		return errors.New(pressureUsage)
 	}
 
 	cmd := args[0]
@@ -49,7 +51,7 @@ func runPressureCommand(rawArgs []string) error {
 		kernel = args[0]
 		capturePath = args[1]
 	default:
-		return errors.New("usage: cudaprof pressure [kernel] capture.pprof")
+		return errors.New(pressureUsage)
 	}
 
 	path, err := filepath.Abs(capturePath)

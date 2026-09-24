@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -60,67 +59,12 @@ func (e *exitCodeError) Error() string { return e.Err.Error() }
 func (e *exitCodeError) Unwrap() error { return e.Err }
 
 func run() error {
-	if len(os.Args) > 1 && os.Args[1] == "capture" {
-		return runCaptureCommand(os.Args[2:])
-	}
-	if len(os.Args) > 1 && os.Args[1] == "inspect" {
-		return runInspectCommand(os.Args[2:])
-	}
-	if len(os.Args) > 1 && os.Args[1] == "export" {
-		return runExportCommand(os.Args[2:])
-	}
-	if len(os.Args) > 1 && os.Args[1] == "explain" {
-		return runExplainCommand(os.Args[2:])
-	}
-	if len(os.Args) > 1 && os.Args[1] == "diff" {
-		return runDiffCommand(os.Args[2:])
-	}
-	if len(os.Args) > 1 && (os.Args[1] == "cfg" || os.Args[1] == "-cfg" || strings.HasPrefix(os.Args[1], "-cfg=") || strings.HasPrefix(os.Args[1], "--cfg")) {
-		return runCFGCommand(os.Args[1:])
-	}
-	if len(os.Args) > 1 && (os.Args[1] == "bbcfg" || os.Args[1] == "-bbcfg" || strings.HasPrefix(os.Args[1], "-bbcfg=") || strings.HasPrefix(os.Args[1], "--bbcfg")) {
-		return runCFGCommand(os.Args[1:])
-	}
-	if len(os.Args) > 1 && (os.Args[1] == "view" || os.Args[1] == "web" || os.Args[1] == "-web" || os.Args[1] == "--web") {
-		return runViewCommand(os.Args[1:])
-	}
-	if len(os.Args) > 1 && os.Args[1] == "advise" {
-		return runAdviseCommand(os.Args[2:])
-	}
-	if len(os.Args) > 1 && os.Args[1] == "gaps" {
-		return runGapsCommand(os.Args[2:])
-	}
-	if len(os.Args) > 1 && os.Args[1] == "compare" {
-		return runCompareCommand(os.Args[2:], os.Stdout)
-	}
-	if len(os.Args) > 1 && os.Args[1] == "qualify" {
-		return runQualifyCommand(os.Args[2:], os.Stdout)
-	}
-	if len(os.Args) > 1 && os.Args[1] == "lines" {
-		return runLinesCommand(os.Args[2:])
-	}
-	if len(os.Args) > 1 && (os.Args[1] == "pressure" || os.Args[1] == "-pressure" || strings.HasPrefix(os.Args[1], "-pressure=") || strings.HasPrefix(os.Args[1], "--pressure")) {
-		return runPressureCommand(os.Args[1:])
-	}
-	if len(os.Args) > 1 && os.Args[1] == "-extract" {
-		args, limits, err := parseReadLimits(os.Args[2:])
-		if err != nil {
-			return err
-		}
-		if len(args) != 2 {
-			return fmt.Errorf("usage: cudaprof -extract [--capture-file-bytes=N] [--capture-total-bytes=N] new-directory capture.pprof")
-		}
-		return extract(args[0], args[1], limits)
-	}
-	if len(os.Args) > 1 && os.Args[1] == "-pack" {
-		if len(os.Args) != 4 {
-			return fmt.Errorf("usage: cudaprof -pack output.pprof path/to/gpu.pprof")
-		}
-		return pack(os.Args[2], os.Args[3])
-	}
-	if len(os.Args) == 1 || len(os.Args) == 2 && slices.Contains([]string{"-h", "-help", "--help"}, os.Args[1]) {
-		fmt.Println("Usage: cudaprof [pprof flags] capture.pprof\n\n  -http=127.0.0.1:8087  open interactive pprof\n  -no_browser          serve without opening a browser\n  -top                 show kernel totals\n  -allow_unknown_coverage  rank a profile that carries no device time\n  -list=compute        show annotated source\n  -disasm=compute      show PTX and SASS\n  -cfg[=kernel]        print control flow graph (DOT format)\n  -bbcfg[=kernel]      print basic block control flow graph (DOT format)\n  -pressure[=kernel]   print live register pressure and stall metrics\n\nTo capture a GPU profile from a command:\n  cudaprof capture [-o profile.pprof] [--max-records=N] -- command [args...]\n\nTo view 5-tier pipeline (Go -> CUDA C++ -> Tile IR -> PTX -> SASS):\n  cudaprof view [-http=:8088] [-html=report.html] [kernel] capture.pprof\n\nTo explain a PTX instruction, directive, register, or modifier:\n  cudaprof explain <ptx-statement-or-keyword>\n\nTo diff SASS disassembly between captures or assembly files:\n  cudaprof diff [flags] <base.pprof|base.sass> <target.pprof|target.sass>\n\nTo embed an existing capture's files:\n  cudaprof -pack output.pprof path/to/gpu.pprof\n\nTo extract source, assembly, control flow graphs, and Go trace:\n  cudaprof -extract new-directory capture.pprof\n\nTo view or render control flow graphs:\n  cudaprof cfg [kernel] capture.pprof | dot -Tsvg -o graph.svg\n  cudaprof inspect --cfg [kernel] capture.pprof\n\nTo total samples by the program line each instruction came from:\n  cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [-diff other.pprof] [kernel] capture.pprof\n\nTo view register pressure:\n  cudaprof pressure [kernel] capture.pprof\n  cudaprof inspect --pressure [kernel] capture.pprof\n\nTo view automated kernel optimization advice:\n  cudaprof advise [-e] [-limit N] capture.pprof\n  cudaprof inspect --advise capture.pprof\n\nTo analyze GPU idle gaps and duty cycle from the capture journal:\n  cudaprof gaps [--warmup-ms=N] [--json] capture.pprof\n\nTo diff the GPU idle gaps of two captures (the axis summed kernel time cannot see):\n  cudaprof gaps --diff_base=base.pprof [--json] target.pprof\n\nTo decompose why target took longer than base, per op or stage, in exact nanoseconds:\n  cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt] [-templates] [-allow-unresolved] [-json] base.pprof target.pprof\n\nTo score an ABBA timing campaign (blocks of C1,G1,G2,C2 captures) against its noise and sign gates:\n  cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-json] manifest.txt")
+	if len(os.Args) == 1 || len(os.Args) == 2 && isHelpFlag(os.Args[1]) {
+		fmt.Print(usage)
 		return nil
+	}
+	if cmd, ok := lookupCommand(os.Args[1]); ok {
+		return cmd.invoke(os.Args[1:])
 	}
 	path, err := filepath.Abs(os.Args[len(os.Args)-1])
 	if err != nil {
@@ -450,9 +394,11 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 	return p, "", nil
 }
 
+const explainUsage = "usage: cudaprof explain <ptx-instruction-or-keyword>"
+
 func runExplainCommand(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: cudaprof explain <ptx-instruction-or-keyword>")
+		return errors.New(explainUsage)
 	}
 	stmt := strings.Join(args, " ")
 	info := cudaptx.Explain(stmt)

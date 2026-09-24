@@ -115,6 +115,8 @@ type inspectProfile struct {
 	Samples int    `json:"samples"`
 }
 
+const inspectUsage = "usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] [--coverage|--profiles|--remarks|--tileir|--ptx|--cfg|--bbcfg|--pressure|--advise] [kernel] capture.pprof"
+
 func runInspectCommand(args []string) error {
 	args, limits, err := parseReadLimits(args)
 	if err != nil {
@@ -136,7 +138,7 @@ func runInspectCommand(args []string) error {
 		mode = args[0]
 		capturePath = args[1]
 	} else {
-		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] [--coverage|--profiles|--remarks|--tileir|--ptx|--cfg|--bbcfg|--pressure|--advise] [kernel] capture.pprof")
+		return errors.New(inspectUsage)
 	}
 	path, err := filepath.Abs(capturePath)
 	if err != nil {

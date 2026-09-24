@@ -16,6 +16,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
+const diffUsage = "usage: cudaprof diff [--web] [-http=addr] [--html=file] [--no-color] [--explain] [--kernel=name] <base.pprof|base.sass> <target.pprof|target.sass>"
+
 func runDiffCommand(args []string) error {
 	return runDiff(os.Stdout, args)
 }
@@ -84,7 +86,7 @@ func runDiff(w io.Writer, rawArgs []string) error {
 	}
 
 	if len(posArgs) != 2 {
-		return errors.New("usage: cudaprof diff [--web] [-http=addr] [--html=file] [--no-color] [--explain] [--kernel=name] <base.pprof|base.sass> <target.pprof|target.sass>")
+		return errors.New(diffUsage)
 	}
 
 	if web || htmlOut != "" {

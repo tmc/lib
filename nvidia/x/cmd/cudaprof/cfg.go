@@ -12,13 +12,18 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
+const (
+	cfgUsage   = "usage: cudaprof cfg [--bb] [kernel] capture.pprof"
+	bbcfgUsage = "usage: cudaprof bbcfg [kernel] capture.pprof"
+)
+
 func runCFGCommand(rawArgs []string) error {
 	args, limits, err := parseReadLimits(rawArgs)
 	if err != nil {
 		return err
 	}
 	if len(args) == 0 {
-		return errors.New("usage: cudaprof cfg [--bb] [kernel] capture.pprof")
+		return errors.New(cfgUsage)
 	}
 
 	basicBlocks := false
@@ -65,7 +70,7 @@ func runCFGCommand(rawArgs []string) error {
 		kernel = posArgs[0]
 		capturePath = posArgs[1]
 	default:
-		return errors.New("usage: cudaprof cfg [--bb] [kernel] capture.pprof")
+		return errors.New(cfgUsage)
 	}
 
 	path, err := filepath.Abs(capturePath)

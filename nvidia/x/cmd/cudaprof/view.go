@@ -55,8 +55,8 @@ func runViewCommand(rawArgs []string) error {
 	for {
 		if err := fs.Parse(args); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
-				fmt.Fprintln(os.Stderr, viewUsage)
-				fs.SetOutput(os.Stderr)
+				fmt.Println(viewUsage)
+				fs.SetOutput(os.Stdout)
 				fs.PrintDefaults()
 				return nil
 			}

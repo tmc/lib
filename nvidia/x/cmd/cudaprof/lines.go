@@ -30,6 +30,8 @@ import (
 // also what says which files the program wrote, so an instruction that came
 // from generated text is charged to elsewhere rather than counted as a
 // program line.
+const linesUsage = "usage: cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [-diff other.pprof] [kernel] capture.pprof"
+
 func runLinesCommand(rawArgs []string) error {
 	args, limits, err := parseReadLimits(rawArgs)
 	if err != nil {
@@ -41,7 +43,7 @@ func runLinesCommand(rawArgs []string) error {
 	format := fs.String("format", "profile", "report to write: profile, rollup, digraph, or dot")
 	diff := fs.String("diff", "", "compare the capture with this one, line by line")
 	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("usage: cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [-diff other.pprof] [kernel] capture.pprof: %w", err)
+		return fmt.Errorf("%s: %w", linesUsage, err)
 	}
 	switch *format {
 	case "profile", "rollup", "digraph", "dot":
@@ -55,7 +57,7 @@ func runLinesCommand(rawArgs []string) error {
 	case 2:
 		kernel, capturePath = fs.Arg(0), fs.Arg(1)
 	default:
-		return errors.New("usage: cudaprof lines [-sample type] [-format profile|rollup|digraph|dot] [-diff other.pprof] [kernel] capture.pprof")
+		return errors.New(linesUsage)
 	}
 	path, err := filepath.Abs(capturePath)
 	if err != nil {
