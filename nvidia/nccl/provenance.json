@@ -11,7 +11,7 @@
     "-header",
     "../cuda-headers/pinned/nccl/2.31.2-1/nccl.h",
     "-headers-dir",
-    "cuda-headers",
+    "../cuda-headers",
     "-output",
     "nccl",
     "-package",

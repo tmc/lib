@@ -9,7 +9,7 @@
     "-api",
     "cudnn",
     "-headers-dir",
-    "cuda-headers",
+    "../cuda-headers",
     "-output",
     "cudnn",
     "-package",

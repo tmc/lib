@@ -6,11 +6,10 @@
   "cwd": ".",
   "argv": [
     "gen-nvidia",
-    "-allow-api-removal",
     "-api",
     "cupti",
     "-headers-dir",
-    "cuda-headers",
+    "../cuda-headers",
     "-clang=false",
     "-output",
     "cupti"

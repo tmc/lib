@@ -95,10 +95,10 @@ func TestToolkitSearchHintNamesTheDirectory(t *testing.T) {
 	t.Setenv("CUDA_HOME", "/opt/cuda-test")
 	t.Setenv("CUDA_PATH", "")
 
-	hint := toolkitSearchHint()
+	msg := newLibraryError("", nil).Error()
 	for _, want := range []string{"/opt/cuda-test/extras/CUPTI/lib64", "CUPTI_LIB_PATH", "LD_LIBRARY_PATH"} {
-		if !strings.Contains(hint, want) {
-			t.Errorf("hint does not mention %q: %s", want, hint)
+		if !strings.Contains(msg, want) {
+			t.Errorf("load failure does not mention %q: %s", want, msg)
 		}
 	}
 	// The conventional root is searched even with no environment set, so the

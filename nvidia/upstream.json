@@ -690,7 +690,7 @@
           },
           {
             "path": "nvidia/cudnn/init.gen.go",
-            "sha256": "3287d9978ddfd71a6f212f5e8557e1b632b9167699e3445416f98b71b519752a"
+            "sha256": "3a98eb804eab29e3dc839acbc79c88fada37a9f98327b8d394a43c924432ef84"
           },
           {
             "path": "nvidia/cudnn/layout.gen_test.go",
@@ -865,8 +865,8 @@
       "package": "github.com/tmc/lib/nvidia/cudnn",
       "repositories": {
         "codegen": {
-          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
-          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b",
+          "commit": "81496807fb59edfc8e4064c0fd4b748c9715082c",
+          "tree": "c4cd2674fbe26e3c7dce12dc197eee583a01f0b3",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -2332,7 +2332,7 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "842638263e51f38362a6572f178539da16ffbb8d7ac0c8c1366e148fb224332a"
+            "sha256": "b9e1c5a8ff8d71eb6bf18b46610c2a8e3ab40e146351f00bf2201fd84a8dd75e"
           },
           {
             "path": "nvidia/cupti/layout.gen_test.go",
@@ -2490,8 +2490,8 @@
       "package": "github.com/tmc/lib/nvidia/cupti",
       "repositories": {
         "codegen": {
-          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
-          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94",
+          "commit": "81496807fb59edfc8e4064c0fd4b748c9715082c",
+          "tree": "c4cd2674fbe26e3c7dce12dc197eee583a01f0b3",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -5142,7 +5142,7 @@
           },
           {
             "path": "nvidia/fabricmanager/init.gen.go",
-            "sha256": "93e9f8ced41713cf28c62278c6e6572a88240602153ffb1ee22204b6affc66c5"
+            "sha256": "c29e1dbbbb50f4d5a0710a9a37b5be51fe664cc6acd5f1fb9cd3be0533513784"
           },
           {
             "path": "nvidia/fabricmanager/layout.gen_test.go",
@@ -5202,8 +5202,8 @@
       "package": "github.com/tmc/lib/nvidia/fabricmanager",
       "repositories": {
         "codegen": {
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4",
+          "commit": "81496807fb59edfc8e4064c0fd4b748c9715082c",
+          "tree": "c4cd2674fbe26e3c7dce12dc197eee583a01f0b3",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -5921,7 +5921,7 @@
           },
           {
             "path": "nvidia/nccl/init.gen.go",
-            "sha256": "38d75d01c10274e8a6390d66d21a8e8dd949c97127a797b23b862bbc599e156d"
+            "sha256": "9109f3f3bd1d4cb184628269de8b759af6b366a204d482816f7b9d4992ec4124"
           },
           {
             "path": "nvidia/nccl/layout.gen_test.go",
@@ -6365,8 +6365,8 @@
       "package": "github.com/tmc/lib/nvidia/nccl",
       "repositories": {
         "codegen": {
-          "commit": "8e770d3e586072502141c703675f77e650ee11d3",
-          "tree": "f8e587270536a2d0154b32a91cf81be903b35bc0",
+          "commit": "81496807fb59edfc8e4064c0fd4b748c9715082c",
+          "tree": "c4cd2674fbe26e3c7dce12dc197eee583a01f0b3",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -7503,7 +7503,7 @@
           },
           {
             "path": "nvidia/nvfatbin/init.gen.go",
-            "sha256": "4e5ae7c616ec2a7b4c4dfeea87852abffe4a3708105fd6906fa433392a987186"
+            "sha256": "a51416e2bbb6c9d5bb369f61ce2ac212c9502c3c91b1ca55aae9392ab302b799"
           },
           {
             "path": "nvidia/nvfatbin/loader.gen_test.go",
@@ -7551,8 +7551,8 @@
       "package": "github.com/tmc/lib/nvidia/nvfatbin",
       "repositories": {
         "codegen": {
-          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
-          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94",
+          "commit": "81496807fb59edfc8e4064c0fd4b748c9715082c",
+          "tree": "c4cd2674fbe26e3c7dce12dc197eee583a01f0b3",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -7659,7 +7659,7 @@
           },
           {
             "path": "nvidia/nvjitlink/init.gen.go",
-            "sha256": "743f9846bc7b1eef298bab309e64b613e151967fa7c382f7756ff6dbfdec31f0"
+            "sha256": "5e8c80544e2eab00d5f5ac32800726504a4b5504e36af2a075cc9e2544c58c32"
           },
           {
             "path": "nvidia/nvjitlink/loader.gen_test.go",
@@ -7741,8 +7741,8 @@
       "package": "github.com/tmc/lib/nvidia/nvjitlink",
       "repositories": {
         "codegen": {
-          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
-          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94",
+          "commit": "81496807fb59edfc8e4064c0fd4b748c9715082c",
+          "tree": "c4cd2674fbe26e3c7dce12dc197eee583a01f0b3",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -8161,7 +8161,7 @@
           },
           {
             "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "9f1db5c1aa618826d474f89e770fca7406145695c5fd93e60bb7eac0bd6bf4fb"
+            "sha256": "3bb08f97ce2b13f1fcab055fee70c7906d6403f04eead1e86d264b85be7f30fa"
           },
           {
             "path": "nvidia/nvrtc/layout.gen_test.go",
@@ -8255,9 +8255,9 @@
       "package": "github.com/tmc/lib/nvidia/nvrtc",
       "repositories": {
         "codegen": {
-          "commit": "e2506a9a3524b01a9cb32eedf69b270ad4c38601",
-          "note": "The generator changes these bytes depend on -- the ErrorLogParams customization and its errorLogDetail helper, Generator.zeroValue, the bundled-headers entries and NVRTC_INSTALL_HEADERS_* define group in contrib/cuda/nvrtc_config.go, and the \\ingroup strip in internal/cparser -- are committed here. Two untracked directories unrelated to generation, cgotest/ and cmd/fetch-ptx-isa/, were present in the checkout. The repository is github.com/tmc/libgen; earlier entries record its former github.com/tmc/codegen URL.",
-          "tree": "6e0c9dfa4292e42cec357b7476785b140b347919",
+          "commit": "81496807fb59edfc8e4064c0fd4b748c9715082c",
+          "note": "The generator changes these bytes depend on -- the ErrorLogParams customization and its errorLogDetail helper, Generator.zeroValue, the bundled-headers entries and NVRTC_INSTALL_HEADERS_* define group in contrib/cuda/nvrtc_config.go, and the \\ingroup strip in internal/cparser -- are committed here. Two untracked directories unrelated to generation, cgotest/ and cmd/fetch-ptx-isa/, were present in the checkout. The repository is github.com/tmc/libgen; earlier entries record its former github.com/tmc/codegen URL. init.gen.go was restamped at this commit for the LibraryError loader and changes nothing else.",
+          "tree": "c4cd2674fbe26e3c7dce12dc197eee583a01f0b3",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -8552,7 +8552,7 @@
           },
           {
             "path": "nvidia/nvvm/init.gen.go",
-            "sha256": "bf9009c3c07507e445b448f3aa3084eeb9ec66ce84567e2badd7a35fe9ca5dea"
+            "sha256": "7f1313aa14814004f206b37c50bec67015b87d9880971bef041104df0d1ba398"
           },
           {
             "path": "nvidia/nvvm/loader.gen_test.go",
@@ -8634,8 +8634,8 @@
       "package": "github.com/tmc/lib/nvidia/nvvm",
       "repositories": {
         "codegen": {
-          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
-          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b",
+          "commit": "81496807fb59edfc8e4064c0fd4b748c9715082c",
+          "tree": "c4cd2674fbe26e3c7dce12dc197eee583a01f0b3",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -8738,7 +8738,7 @@
           },
           {
             "path": "nvidia/sanitizer/init.gen.go",
-            "sha256": "b0590b59ecb8f499efff78505709c077ed72d356f0a1a6577765c24eb7283f37"
+            "sha256": "ffc041a40e530c28e5a8d529192740aa2c246a963f7c50c1ab8a846709ecbf5c"
           },
           {
             "path": "nvidia/sanitizer/launch_handle.gen.go",
@@ -8907,8 +8907,8 @@
       "package": "github.com/tmc/lib/nvidia/sanitizer",
       "repositories": {
         "codegen": {
-          "commit": "514164ac067ac95939e5535217f6898a88c5db50",
-          "tree": "f7df59cec8d5e3078710302d702366038ee06cfd",
+          "commit": "81496807fb59edfc8e4064c0fd4b748c9715082c",
+          "tree": "c4cd2674fbe26e3c7dce12dc197eee583a01f0b3",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {

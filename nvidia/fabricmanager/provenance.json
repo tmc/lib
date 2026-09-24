@@ -6,11 +6,10 @@
   "cwd": ".",
   "argv": [
     "gen-nvidia",
-    "-allow-api-removal",
     "-api",
     "fabricmanager",
     "-headers-dir",
-    "cuda-headers",
+    "../cuda-headers",
     "-output",
     "fabricmanager",
     "-package",
