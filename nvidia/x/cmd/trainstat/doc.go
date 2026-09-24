@@ -55,7 +55,8 @@
 // If any pinning key differs (-pin, by default commit, lib-nvidia, nvrtc,
 // cublas, driver, device, exact, tf32, mlx-c and libmlx), the runs need
 // not agree, and repro prints "refused: pinning keys differ: " naming each
-// key and its two values, and exits with status 1. If the values or out-*
+// key and its two values, and exits with status 1. A pinning key whose
+// value is "unknown" differs even from itself. If the values or out-*
 // keys differ, it prints the first difference with its distance in float32
 // ulps and the number of differing values, and exits with status 1; when
 // the whole configuration is equal apart from run and host, it first

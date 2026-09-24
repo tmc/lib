@@ -39,6 +39,12 @@ stderr 'refused: pinning keys differ'
 ! exec trainstat repro a.txt e.txt
 stdout '^refused: pinning keys differ: device \(GB10 vs H100\), exact \(true vs false\)$'
 
+# A pinning key recorded as unknown matches nothing, not even itself.
+! exec trainstat repro u.txt u.txt
+stdout '^refused: pinning keys differ: commit \(unknown vs unknown\)$'
+exec trainstat repro -pin device u.txt u.txt
+stdout '^ok: bit-identical$'
+
 # -pin replaces the list.
 exec trainstat repro -pin commit a.txt e.txt
 stdout '^config: differs: device "GB10" != "H100"; exact "true" != "false"$'
@@ -60,6 +66,21 @@ stderr 'base.txt: more than one run'
 mode: lora
 seed: 1
 commit: 3f2a9c1
+device: GB10
+exact: true
+run: runs/a
+host: dgx1
+Unit grad-norm assume=normal
+BenchmarkTrain/step=1 1 2.5 loss 0.75 grad-norm 0.31 sec/step
+BenchmarkTrain/step=2 1 2.25 loss 0.625 grad-norm 0.2 sec/step
+BenchmarkTrain/step=3 1 2.125 loss 0.5 grad-norm 0.21 sec/step
+BenchmarkFinal/split=val 1 0.5 accuracy
+out-model-sha256: 9f2c
+BenchmarkRun 1 3 steps 0.72 train-sec 1 done
+-- u.txt --
+mode: lora
+seed: 1
+commit: unknown
 device: GB10
 exact: true
 run: runs/a

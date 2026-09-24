@@ -56,13 +56,15 @@ func runRepro(args []string, stdout io.Writer) error {
 
 // pinDiffs returns each pinning key whose value differs between a and b,
 // with the two values, such as "exact (true vs false)". A key set in only
-// one run differs.
+// one run differs, as does one whose value is "unknown", which a trainer
+// records when it cannot tell, as for a binary built from a checkout that
+// has since changed.
 func pinDiffs(a, b *reproRun, pins []string) []string {
 	var differ []string
 	for _, k := range unionKeys(a, b) {
 		va, oka := a.config[k]
 		vb, okb := b.config[k]
-		if slices.Contains(pins, k) && (va != vb || oka != okb) {
+		if slices.Contains(pins, k) && (va != vb || oka != okb || va == "unknown") {
 			differ = append(differ, fmt.Sprintf("%s (%s vs %s)", k, show(va, oka), show(vb, okb)))
 		}
 	}
