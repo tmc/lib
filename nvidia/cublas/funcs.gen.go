@@ -3228,7 +3228,7 @@ func chpr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64,
 	return toError(fnchpr64(handle, uplo, n, alpha, x, incx, ap))
 }
 
-// cmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
+// cmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
 //
 // This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
 // This function is a short cut of cublasgetrfBatched() plus cublasgetriBatched(). However it doesn’t work if n is greater than 32. If not, the user has to go through cublasgetrfBatched() and cublasgetriBatched().
@@ -3239,7 +3239,7 @@ func chpr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64,
 //   - n: Number of rows and columns of A [i]
 //   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
 //   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
@@ -5673,11 +5673,11 @@ func dgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 // dgemmGroupedBatched supports the 64-bit Integer Interface.
 //
 // This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
-// where alpha_array and beta_array are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
+// where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 // Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length group_count and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transa_array [i] == CUBLAS_OP_NA [idx]Tif transa_array [i] == CUBLAS_OP_TA [idx]Hif transa_array [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 // Note
 // C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -5720,11 +5720,11 @@ func dgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 // dgemmGroupedBatched64 supports the 64-bit Integer Interface.
 //
 // This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
-// where alpha_array and beta_array are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
+// where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 // Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length group_count and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transa_array [i] == CUBLAS_OP_NA [idx]Tif transa_array [i] == CUBLAS_OP_TA [idx]Hif transa_array [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 // Note
 // C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -6394,7 +6394,7 @@ func dgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray u
 	return toError(fndgetrsBatched(handle, trans, n, nrhs, aarray, lda, devIpiv, barray, ldb, info, batchSize))
 }
 
-// dmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
+// dmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
 //
 // This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
 // This function is a short cut of cublasgetrfBatched() plus cublasgetriBatched(). However it doesn’t work if n is greater than 32. If not, the user has to go through cublasgetrfBatched() and cublasgetriBatched().
@@ -6405,7 +6405,7 @@ func dgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray u
 //   - n: Number of rows and columns of A [i]
 //   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
 //   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
@@ -8833,11 +8833,11 @@ func gemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int6
 // gemmGroupedBatchedEx supports the 64-bit Integer Interface.
 //
 // This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
-// where alpha_array and beta_array are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
+// where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 // Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length group_count and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transa_array [i] == CUBLAS_OP_NA [idx]Tif transa_array [i] == CUBLAS_OP_TA [idx]Hif transa_array [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 // Note
 // C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -8885,11 +8885,11 @@ func gemmGroupedBatchedEx(handle Handle, transaArray *Operation, transbArray *Op
 // gemmGroupedBatchedEx64 supports the 64-bit Integer Interface.
 //
 // This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
-// where alpha_array and beta_array are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
+// where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 // Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length group_count and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transa_array [i] == CUBLAS_OP_NA [idx]Tif transa_array [i] == CUBLAS_OP_TA [idx]Hif transa_array [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 // Note
 // C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -11923,11 +11923,11 @@ func sgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 // sgemmGroupedBatched supports the 64-bit Integer Interface.
 //
 // This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
-// where alpha_array and beta_array are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
+// where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 // Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length group_count and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transa_array [i] == CUBLAS_OP_NA [idx]Tif transa_array [i] == CUBLAS_OP_TA [idx]Hif transa_array [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 // Note
 // C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -11970,11 +11970,11 @@ func sgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 // sgemmGroupedBatched64 supports the 64-bit Integer Interface.
 //
 // This function performs the matrix-matrix multiplication on groups of matrices. A given group is considered to be “uniform”, i.e. all instances have the same dimensions (m, n, k), leading dimensions (lda, ldb, ldc) and transpositions (transa, transb) for their respective A, B and C matrices. However, the dimensions, leading dimensions, transpositions, and scaling factors (alpha, beta) may vary between groups. The address of the input matrices and the output matrix of each instance of the batch are read from arrays of pointers passed to the function by the caller. This is functionally equivalent to the following:
-// where alpha_array and beta_array are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
+// where alphaArray and betaArray are arrays of scaling factors, and Aarray, Barray and Carray are arrays of pointers to matrices stored in column-major format. For a given index, idx, that is part of group i, the dimensions are:
 // Note
-// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length group_count and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
+// This API takes arrays of two different lengths. The arrays of dimensions, leading dimensions, transpositions, and scaling factors are of length groupCount and the arrays of matrices are of length problem_count where problem_count=∑i=0group_count−1group_size [i]
 // For matrix A [idx] in group i
-// op(A [idx])={A [idx]if transa_array [i] == CUBLAS_OP_NA [idx]Tif transa_array [i] == CUBLAS_OP_TA [idx]Hif transa_array [i] == [OpC]
+// op(A [idx])={A [idx]if transaArray [i] == CUBLAS_OP_NA [idx]Tif transaArray [i] == CUBLAS_OP_TA [idx]Hif transaArray [i] == [OpC]
 // and op(B [idx]) is defined similarly for matrix B [idx] in group i.
 // Note
 // C [idx] matrices must not overlap, that is, the individual gemm operations must be computable independently; otherwise, undefined behavior is expected.
@@ -12644,7 +12644,7 @@ func sgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray u
 	return toError(fnsgetrsBatched(handle, trans, n, nrhs, aarray, lda, devIpiv, barray, ldb, info, batchSize))
 }
 
-// smatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
+// smatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
 //
 // This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
 // This function is a short cut of cublasgetrfBatched() plus cublasgetriBatched(). However it doesn’t work if n is greater than 32. If not, the user has to go through cublasgetrfBatched() and cublasgetriBatched().
@@ -12655,7 +12655,7 @@ func sgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray u
 //   - n: Number of rows and columns of A [i]
 //   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
 //   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
@@ -17251,7 +17251,7 @@ func zhpr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128
 	return toError(fnzhpr64(handle, uplo, n, alpha, x, incx, ap))
 }
 
-// zmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
+// zmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
 //
 // This function performs the inversion of matrices A [i] for i = 0, …, batchSize-1.
 // This function is a short cut of cublasgetrfBatched() plus cublasgetriBatched(). However it doesn’t work if n is greater than 32. If not, the user has to go through cublasgetrfBatched() and cublasgetriBatched().
@@ -17262,7 +17262,7 @@ func zhpr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128
 //   - n: Number of rows and columns of A [i]
 //   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with ldaInv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
 //   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A

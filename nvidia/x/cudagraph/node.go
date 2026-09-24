@@ -42,7 +42,7 @@ func (n *Node) Destroy() error {
 	if n.graph == nil {
 		return errors.New("cudagraph: node has no owning graph")
 	}
-	if err := n.graph.withContext(n.raw.GraphDestroyNode); err != nil {
+	if err := n.graph.withContext(n.raw.DestroyNode); err != nil {
 		return fmt.Errorf("cudagraph: destroy node: %w", err)
 	}
 	n.raw = 0

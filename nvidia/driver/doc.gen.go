@@ -29,8 +29,8 @@
 //
 // # Debugging
 //
-//   - [CoredumpCallbackHandle.CoredumpDeregisterCompleteCallback]: Deregister a previously registered coredump complete callback
-//   - [CoredumpCallbackHandle.CoredumpDeregisterStartCallback]: Deregister a previously registered coredump start callback
+//   - [CoredumpCallbackHandle.DeregisterCompleteCallback]: Deregister a previously registered coredump complete callback
+//   - [CoredumpCallbackHandle.DeregisterStartCallback]: Deregister a previously registered coredump start callback
 //   - [CoredumpGetAttribute]: Allows caller to fetch a coredump attribute value for the current context
 //   - [CoredumpGetAttributeGlobal]: Allows caller to fetch a coredump attribute value for the entire application
 //   - [CoredumpRegisterCompleteCallback]: Register a callback to be invoked when a GPU coredump completes
@@ -179,19 +179,19 @@
 //   - [Graph.AddMemcpyNode]: Creates a memcpy node and adds it to a graph.
 //   - [Graph.AddMemsetNode]: Creates a memset node and adds it to a graph.
 //   - [Graph.AddNode]: Adds a node of arbitrary type to a graph.
-//   - [GraphNode.GraphBatchMemOpNodeGetParams]: Returns a batch mem op node's parameters.
-//   - [GraphNode.GraphBatchMemOpNodeSetParams]: Sets a batch mem op node's parameters.
+//   - [GraphNode.BatchMemOpNodeGetParams]: Returns a batch mem op node's parameters.
+//   - [GraphNode.BatchMemOpNodeSetParams]: Sets a batch mem op node's parameters.
 //   - [GraphChildGraphNodeGetGraph]: Gets a handle to the embedded graph of a child graph node.
 //   - [Graph.Clone]: Clones a graph.
 //   - [Graph.ConditionalHandleCreate]: Create a conditional handle.
 //   - [NewGraph]: Creates a graph.
 //   - [Graph.DebugDotPrint]: Write a DOT file describing graph structure.
 //   - [Graph.Destroy]: Destroys a graph.
-//   - [GraphNode.GraphDestroyNode]: Remove a node from the graph.
-//   - [GraphNode.GraphEventRecordNodeGetEvent]: Returns the event associated with an event record node.
-//   - [GraphNode.GraphEventRecordNodeSetEvent]: Sets an event record node's event.
-//   - [GraphNode.GraphEventWaitNodeGetEvent]: Returns the event associated with an event wait node.
-//   - [GraphNode.GraphEventWaitNodeSetEvent]: Sets an event wait node's event.
+//   - [GraphNode.DestroyNode]: Remove a node from the graph.
+//   - [GraphNode.EventRecordNodeGetEvent]: Returns the event associated with an event record node.
+//   - [GraphNode.EventRecordNodeSetEvent]: Sets an event record node's event.
+//   - [GraphNode.EventWaitNodeGetEvent]: Returns the event associated with an event wait node.
+//   - [GraphNode.EventWaitNodeSetEvent]: Sets an event wait node's event.
 //   - [GraphExec.BatchMemOpNodeSetParams]: Sets the parameters for a batch mem op node in the given graphExec.
 //   - [GraphExec.ChildGraphNodeSetParams]: Updates node parameters in the child graph node in the given graphExec.
 //   - [GraphExec.Destroy]: Destroys an executable graph.
@@ -207,30 +207,30 @@
 //   - [GraphExec.MemsetNodeSetParams]: Sets the parameters for a memset node in the given graphExec.
 //   - [GraphExec.NodeSetParams]: Update a graph node's parameters in an instantiated graph.
 //   - [GraphExec.Update]: Check whether an executable graph can be updated with a graph and perform the update if possible.
-//   - [GraphNode.GraphExternalSemaphoresSignalNodeGetParams]: Returns an external semaphore signal node's parameters.
-//   - [GraphNode.GraphExternalSemaphoresSignalNodeSetParams]: Sets an external semaphore signal node's parameters.
-//   - [GraphNode.GraphExternalSemaphoresWaitNodeGetParams]: Returns an external semaphore wait node's parameters.
-//   - [GraphNode.GraphExternalSemaphoresWaitNodeSetParams]: Sets an external semaphore wait node's parameters.
+//   - [GraphNode.ExternalSemaphoresSignalNodeGetParams]: Returns an external semaphore signal node's parameters.
+//   - [GraphNode.ExternalSemaphoresSignalNodeSetParams]: Sets an external semaphore signal node's parameters.
+//   - [GraphNode.ExternalSemaphoresWaitNodeGetParams]: Returns an external semaphore wait node's parameters.
+//   - [GraphNode.ExternalSemaphoresWaitNodeSetParams]: Sets an external semaphore wait node's parameters.
 //   - [Graph.Edges]: Returns a graph's dependency edges.
 //   - [Graph.Id]: Returns the id of a given graph.
 //   - [Graph.GetNodes]: Returns a graph's nodes.
 //   - [Graph.RootNodes]: Returns a graph's root nodes.
-//   - [GraphNode.GraphHostNodeGetParams]: Returns a host node's parameters.
-//   - [GraphNode.GraphHostNodeSetParams]: Sets a host node's parameters.
+//   - [GraphNode.HostNodeGetParams]: Returns a host node's parameters.
+//   - [GraphNode.HostNodeSetParams]: Sets a host node's parameters.
 //   - [Graph.Instantiate]: Creates an executable graph from a graph.
 //   - [Graph.InstantiateWithParams]: Creates an executable graph from a graph.
-//   - [GraphNode.GraphKernelNodeCopyAttributes]: Copies attributes from source node to destination node.
-//   - [GraphNode.GraphKernelNodeGetAttribute]: Queries node attribute.
-//   - [GraphNode.GraphKernelNodeGetParams]: Returns a kernel node's parameters.
-//   - [GraphNode.GraphKernelNodeSetAttribute]: Sets node attribute.
-//   - [GraphNode.GraphKernelNodeSetParams]: Sets a kernel node's parameters.
-//   - [GraphExec.GraphLaunch]: Launches an executable graph in a stream.
-//   - [GraphNode.GraphMemAllocNodeGetParams]: Returns a memory alloc node's parameters.
-//   - [GraphNode.GraphMemFreeNodeGetParams]: Returns a memory free node's parameters.
-//   - [GraphNode.GraphMemcpyNodeGetParams]: Returns a memcpy node's parameters.
-//   - [GraphNode.GraphMemcpyNodeSetParams]: Sets a memcpy node's parameters.
-//   - [GraphNode.GraphMemsetNodeGetParams]: Returns a memset node's parameters.
-//   - [GraphNode.GraphMemsetNodeSetParams]: Sets a memset node's parameters.
+//   - [GraphNode.KernelNodeCopyAttributes]: Copies attributes from source node to destination node.
+//   - [GraphNode.KernelNodeGetAttribute]: Queries node attribute.
+//   - [GraphNode.KernelNodeGetParams]: Returns a kernel node's parameters.
+//   - [GraphNode.KernelNodeSetAttribute]: Sets node attribute.
+//   - [GraphNode.KernelNodeSetParams]: Sets a kernel node's parameters.
+//   - [GraphExec.Launch]: Launches an executable graph in a stream.
+//   - [GraphNode.MemAllocNodeGetParams]: Returns a memory alloc node's parameters.
+//   - [GraphNode.MemFreeNodeGetParams]: Returns a memory free node's parameters.
+//   - [GraphNode.MemcpyNodeGetParams]: Returns a memcpy node's parameters.
+//   - [GraphNode.MemcpyNodeSetParams]: Sets a memcpy node's parameters.
+//   - [GraphNode.MemsetNodeGetParams]: Returns a memset node's parameters.
+//   - [GraphNode.MemsetNodeSetParams]: Sets a memset node's parameters.
 //   - [GraphNode.FindInClone]: Finds a cloned version of a node.
 //   - [GraphNode.ContainingGraph]: Returns the graph that contains a given graph node.
 //   - [GraphNode.Dependencies]: Returns a node's dependencies.
@@ -245,14 +245,14 @@
 //   - [Graph.ReleaseUserObject]: Release a user object reference from a graph.
 //   - [Graph.RemoveDependencies]: Removes dependency edges from a graph.
 //   - [Graph.RetainUserObject]: Retain a reference to a user object from a graph.
-//   - [GraphExec.GraphUpload]: Uploads an executable graph in a stream.
+//   - [GraphExec.Upload]: Uploads an executable graph in a stream.
 //   - [Stream.GraphicsMapResources]: Map graphics resources for access by CUDA
 //   - [GraphicsResource.MappedMipmappedArray]: Get a mipmapped array through which to access a mapped graphics resource.
 //   - [GraphicsResource.MappedPointer]: Get a device pointer through which to access a mapped graphics resource.
 //   - [GraphicsResource.SetMapFlags]: Set usage flags for mapping a graphics resource
-//   - [GraphicsResource.GraphicsSubResourceGetMappedArray]: Get an array through which to access a subresource of a mapped graphics resource.
+//   - [GraphicsResource.SubResourceGetMappedArray]: Get an array through which to access a subresource of a mapped graphics resource.
 //   - [Stream.GraphicsUnmapResources]: Unmap graphics resources.
-//   - [GraphicsResource.GraphicsUnregisterResource]: Unregisters a graphics resource for access by CUDA
+//   - [GraphicsResource.UnregisterResource]: Unregisters a graphics resource for access by CUDA
 //
 // # Initialization
 //
@@ -554,7 +554,7 @@
 //   - [LogsDumpToFile]: Dump accumulated driver logs into a file
 //   - [LogsDumpToMemory]: Dump accumulated driver logs into a buffer
 //   - [LogsRegisterCallback]: Register a callback function to receive error log messages
-//   - [LogsCallbackHandle.LogsUnregisterCallback]: Unregister a log message callback
+//   - [LogsCallbackHandle.UnregisterCallback]: Unregister a log message callback
 //   - [Function.ParamSetSize]: Sets the parameter size for the function
 //   - [Function.ParamSetTexRef]: Adds a texture-reference to the function's argument list
 //   - [Function.ParamSetf]: Adds a floating-point parameter to the function's argument list

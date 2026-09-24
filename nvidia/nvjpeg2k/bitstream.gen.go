@@ -36,10 +36,10 @@ func (b Bitstream) ComponentInfo(componentId uint32) (ImageComponentInfo, error)
 // ComponentNLTInfo returns one component's nonlinear-transformation parameters.
 //
 // If the parsed bitstream contains an NLT marker that applies to
-// component_id (either Cnlt = component_id or Cnlt = 65535 for
-// "all components"), nlt_info->type reports the marker's Tnlt and
-// nlt_info->bit_depth reports BDnlt. Otherwise nlt_info->type is
-// [NltNone] and nlt_info->bit_depth falls back to the SIZ
+// componentId (either Cnlt = componentId or Cnlt = 65535 for
+// "all components"), nltInfo->type reports the marker's Tnlt and
+// nltInfo->bit_depth reports BDnlt. Otherwise nltInfo->type is
+// [NltNone] and nltInfo->bit_depth falls back to the SIZ
 // marker precision.
 //
 // Use this to choose the destination type for an NLT-type-3 stream:
@@ -76,9 +76,9 @@ func (b Bitstream) ImageInfo() (ImageInfo, error) {
 // ResolutionComponentDim returns one tile component's width and height at a resolution level.
 //
 // The resolution dimensions are computed as follows:
-// - res_scale = 1 << (num_resolutions - res_level - 1)
-// - res_width = (tile_width + res_scale - 1) >> res_scale
-// - res_height = (tile_height + res_scale - 1) >> res_scale
+// - res_scale = 1 << (num_resolutions - resLevel - 1)
+// - resWidth = (tile_width + res_scale - 1) >> res_scale
+// - resHeight = (tile_height + res_scale - 1) >> res_scale
 //
 //   - componentId: [in] Component index
 //   - tileId: [in] Raster scan based tile index
@@ -96,7 +96,7 @@ func (b Bitstream) ResolutionComponentDim(componentId uint32, tileId uint32, res
 // Tiles in JPEG2000 are indexed in raster scan order.
 // [Bitstream.ImageInfo] retrieves the number of tiles present
 // along both the x and y directions. For tile coordinates tile_x, tile_y:
-// tile_id = tile_y * num_tiles_x + tile_x.
+// tileId = tile_y * num_tiles_x + tile_x.
 //
 //   - tileId: [in] Raster scan based tile index
 //

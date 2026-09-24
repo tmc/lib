@@ -241,7 +241,7 @@ func (e *Exec) Launch(s *cuda.Stream) error {
 	if e == nil || e.raw == 0 {
 		return errors.New("cudagraph: executable graph is closed")
 	}
-	launch := func(stream driver.Stream) error { return e.raw.GraphLaunch(stream) }
+	launch := func(stream driver.Stream) error { return e.raw.Launch(stream) }
 	var err error
 	if s == nil {
 		err = e.withContext(func() error { return launch(0) })

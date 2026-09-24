@@ -24,16 +24,16 @@ var (
 //
 // Violating any of the conditions in the parameter descriptions below is undefined behavior rather than a reported error.
 //
-//   - deviceUncompressedChunkPtrs: in Array with size num_chunks of pointers to the uncompressed data chunks. Both the pointers and the uncompressed data should reside in device-accessible memory. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [CompressGetRequiredAlignments] when called with the same compress_opts
-//   - deviceUncompressedChunkBytes: in Array with size num_chunks of sizes of the uncompressed chunks in bytes. The sizes should reside in device-accessible memory. Each chunk size must be a multiple of the size of the data type specified by compress_opts.data_type. Chunk sizes must not exceed 16777216 bytes. For best performance, a chunk size of 65536 bytes is recommended
+//   - deviceUncompressedChunkPtrs: in Array with size numChunks of pointers to the uncompressed data chunks. Both the pointers and the uncompressed data should reside in device-accessible memory. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [CompressGetRequiredAlignments] when called with the same compressOpts
+//   - deviceUncompressedChunkBytes: in Array with size numChunks of sizes of the uncompressed chunks in bytes. The sizes should reside in device-accessible memory. Each chunk size must be a multiple of the size of the data type specified by compressOpts.data_type. Chunk sizes must not exceed 16777216 bytes. For best performance, a chunk size of 65536 bytes is recommended
 //   - maxUncompressedChunkBytes: in The size of the largest uncompressed chunk
 //   - numChunks: in Number of chunks of data to compress
-//   - deviceTempPtr: in The temporary GPU workspace. Must be aligned to the value in the temp member of the [AlignmentRequirements] object output by [CompressGetRequiredAlignments] when called with the same compress_opts
-//   - tempBytes: in The size of the temporary GPU memory pointed to by device_temp_ptr
-//   - deviceCompressedChunkPtrs: out Array with size num_chunks of pointers to the output compressed buffers. Both the pointers and the compressed buffers should reside in device-accessible memory. Each compressed buffer should be preallocated with the size given by [CompressGetMaxOutputChunkSize]. Each compressed buffer must be aligned to the value in the output member of the [AlignmentRequirements] object output by [CompressGetRequiredAlignments] when called with the same compress_opts
-//   - deviceCompressedChunkBytes: out Array with size num_chunks, to be filled with the compressed sizes of each chunk. The buffer should be preallocated in device-accessible memory
+//   - deviceTempPtr: in The temporary GPU workspace. Must be aligned to the value in the temp member of the [AlignmentRequirements] object output by [CompressGetRequiredAlignments] when called with the same compressOpts
+//   - tempBytes: in The size of the temporary GPU memory pointed to by deviceTempPtr
+//   - deviceCompressedChunkPtrs: out Array with size numChunks of pointers to the output compressed buffers. Both the pointers and the compressed buffers should reside in device-accessible memory. Each compressed buffer should be preallocated with the size given by [CompressGetMaxOutputChunkSize]. Each compressed buffer must be aligned to the value in the output member of the [AlignmentRequirements] object output by [CompressGetRequiredAlignments] when called with the same compressOpts
+//   - deviceCompressedChunkBytes: out Array with size numChunks, to be filled with the compressed sizes of each chunk. The buffer should be preallocated in device-accessible memory
 //   - compressOpts: in The LZ4 compression options to use
-//   - deviceStatuses: out Array with size num_chunks of statuses in device-accessible memory. This argument needs to be preallocated. For each chunk, if the compression is successful, the status will be set to [Success], and an error code otherwise. Can be NULL if desired, in which case error status is not reported
+//   - deviceStatuses: out Array with size numChunks of statuses in device-accessible memory. This argument needs to be preallocated. For each chunk, if the compression is successful, the status will be set to [Success], and an error code otherwise. Can be NULL if desired, in which case error status is not reported
 //   - stream: in The CUDA stream to operate on
 //
 // Wraps nvcompBatchedLZ4CompressAsync.
@@ -44,7 +44,7 @@ func CompressAsync(deviceUncompressedChunkPtrs DevicePointerArray, deviceUncompr
 	return toError(fnCompressAsync(deviceUncompressedChunkPtrs, deviceUncompressedChunkBytes, maxUncompressedChunkBytes, numChunks, deviceTempPtr, tempBytes, deviceCompressedChunkPtrs, deviceCompressedChunkBytes, compressOpts, deviceStatuses, stream))
 }
 
-// CompressGetMaxOutputChunkSize Get the maximum size that a chunk of size at most max_uncompressed_chunk_bytes could compress to.
+// CompressGetMaxOutputChunkSize Get the maximum size that a chunk of size at most maxUncompressedChunkBytes could compress to.
 //
 //   - maxUncompressedChunkBytes: in The maximum size of a chunk before compression
 //   - compressOpts: in The LZ4 compression options to use
@@ -108,8 +108,8 @@ func CompressGetTempSizeAsync(numChunks uint, maxUncompressedChunkBytes uint, co
 //
 // This call may enqueue work on the stream, and synchronizes the stream itself if it does, so its result is usable as soon as it returns.
 //
-//   - deviceUncompressedChunkPtrs: in Array with size num_chunks of pointers to the uncompressed data chunks. Both the pointers and the uncompressed data should reside in device-accessible memory. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [CompressGetRequiredAlignments] when called with the same compress_opts
-//   - deviceUncompressedChunkBytes: in Array with size num_chunks of sizes of the uncompressed chunks in bytes. The sizes should reside in device-accessible memory
+//   - deviceUncompressedChunkPtrs: in Array with size numChunks of pointers to the uncompressed data chunks. Both the pointers and the uncompressed data should reside in device-accessible memory. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [CompressGetRequiredAlignments] when called with the same compressOpts
+//   - deviceUncompressedChunkBytes: in Array with size numChunks of sizes of the uncompressed chunks in bytes. The sizes should reside in device-accessible memory
 //   - numChunks: in The number of chunks of memory in the batch
 //   - maxUncompressedChunkBytes: in The maximum size of a chunk in the batch
 //   - compressOpts: in Compression options
@@ -136,16 +136,16 @@ func CompressGetTempSizeSync(deviceUncompressedChunkPtrs DevicePointerArray, dev
 //
 // Violating any of the conditions in the parameter descriptions below is undefined behavior rather than a reported error. In particular, a corrupt compressed buffer decompressed on the hardware backend is undefined behavior: the statuses are set to success either way.
 //
-//   - deviceCompressedChunkPtrs: in Array with size num_chunks of pointers in device-accessible memory to device-accessible compressed buffers. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [DecompressGetRequiredAlignments]
-//   - deviceCompressedChunkBytes: in Array with size num_chunks of sizes of the compressed buffers in bytes. The sizes should reside in device-accessible memory
-//   - deviceUncompressedBufferBytes: in Array with size num_chunks of sizes, in bytes, of the output buffers to be filled with uncompressed data for each chunk. The sizes should reside in device-accessible memory. If a size is not large enough to hold all decompressed data, the decompressor will set the status in device_statuses corresponding to the overflow chunk to [ErrCannotDecompress]
-//   - deviceUncompressedChunkBytes: out Array with size num_chunks to be filled with the actual number of bytes decompressed for every chunk. This argument needs to be preallocated. When [DecompressBackendHardware] is specified in decompress_opts.backend, this parameter is required. For [DecompressBackendCuda], it is optional and may be set to NULL if reporting the actual sizes is not necessary
+//   - deviceCompressedChunkPtrs: in Array with size numChunks of pointers in device-accessible memory to device-accessible compressed buffers. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [DecompressGetRequiredAlignments]
+//   - deviceCompressedChunkBytes: in Array with size numChunks of sizes of the compressed buffers in bytes. The sizes should reside in device-accessible memory
+//   - deviceUncompressedBufferBytes: in Array with size numChunks of sizes, in bytes, of the output buffers to be filled with uncompressed data for each chunk. The sizes should reside in device-accessible memory. If a size is not large enough to hold all decompressed data, the decompressor will set the status in deviceStatuses corresponding to the overflow chunk to [ErrCannotDecompress]
+//   - deviceUncompressedChunkBytes: out Array with size numChunks to be filled with the actual number of bytes decompressed for every chunk. This argument needs to be preallocated. When [DecompressBackendHardware] is specified in decompressOpts.backend, this parameter is required. For [DecompressBackendCuda], it is optional and may be set to NULL if reporting the actual sizes is not necessary
 //   - numChunks: in Number of chunks of data to decompress
 //   - deviceTempPtr: in The temporary GPU space. Must be aligned to the value in the temp member of the [AlignmentRequirements] object output by [DecompressGetRequiredAlignments]
 //   - tempBytes: in The size of the temporary GPU space
-//   - deviceUncompressedChunkPtrs: out Array with size num_chunks of pointers in device-accessible memory to decompressed data. Each uncompressed buffer needs to be preallocated in device-accessible memory, have the size specified by the corresponding entry in device_uncompressed_buffer_bytes, and be aligned to the value in the output member of the [AlignmentRequirements] object output by [DecompressGetRequiredAlignments]
+//   - deviceUncompressedChunkPtrs: out Array with size numChunks of pointers in device-accessible memory to decompressed data. Each uncompressed buffer needs to be preallocated in device-accessible memory, have the size specified by the corresponding entry in deviceUncompressedBufferBytes, and be aligned to the value in the output member of the [AlignmentRequirements] object output by [DecompressGetRequiredAlignments]
 //   - decompressOpts: in Decompression options
-//   - deviceStatuses: out Array with size num_chunks of statuses in device-accessible memory. This argument needs to be preallocated. For each chunk, if the decompression is successful, the status will be set to [Success]. If decompression using the CUDA backend is not successful, for example due to the corrupted input or out-of-bound errors, the device_statuses will be set to [ErrCannotDecompress]. If using the hardware backend, any corrupted input leads to undefined behavior and the device_statuses are always set to [Success]. Can be NULL if desired, in which case error status is not reported
+//   - deviceStatuses: out Array with size numChunks of statuses in device-accessible memory. This argument needs to be preallocated. For each chunk, if the decompression is successful, the status will be set to [Success]. If decompression using the CUDA backend is not successful, for example due to the corrupted input or out-of-bound errors, the deviceStatuses will be set to [ErrCannotDecompress]. If using the hardware backend, any corrupted input leads to undefined behavior and the deviceStatuses are always set to [Success]. Can be NULL if desired, in which case error status is not reported
 //   - stream: in The CUDA stream to operate on
 //
 // Wraps nvcompBatchedLZ4DecompressAsync.
@@ -201,13 +201,13 @@ func DecompressGetTempSizeAsync(numChunks uint, maxUncompressedChunkBytes uint, 
 //
 // This call may enqueue work on the stream, and synchronizes the stream itself if it does, so its result is usable as soon as it returns.
 //
-//   - deviceCompressedChunkPtrs: in Array with size num_chunks of pointers in device-accessible memory to device-accessible compressed buffers. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [DecompressGetRequiredAlignments]
-//   - deviceCompressedChunkBytes: in Array with size num_chunks of sizes of the compressed buffers in bytes. The sizes should reside in device-accessible memory
+//   - deviceCompressedChunkPtrs: in Array with size numChunks of pointers in device-accessible memory to device-accessible compressed buffers. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [DecompressGetRequiredAlignments]
+//   - deviceCompressedChunkBytes: in Array with size numChunks of sizes of the compressed buffers in bytes. The sizes should reside in device-accessible memory
 //   - numChunks: in Number of chunks of data to be decompressed
 //   - maxUncompressedChunkBytes: in The size of the largest chunk in bytes when uncompressed
 //   - maxTotalUncompressedBytes: in The total decompressed size of all the chunks
 //   - decompressOpts: in Decompression options
-//   - deviceStatuses: out Array with size num_chunks of statuses in device-accessible memory. This argument needs to be preallocated. For each chunk, if the data can be parsed successfully, the status will be set to [Success], and an error code otherwise. Can be NULL if desired, in which case error status is not reported
+//   - deviceStatuses: out Array with size numChunks of statuses in device-accessible memory. This argument needs to be preallocated. For each chunk, if the data can be parsed successfully, the status will be set to [Success], and an error code otherwise. Can be NULL if desired, in which case error status is not reported
 //   - stream: in The CUDA stream to operate on
 //
 // Wraps nvcompBatchedLZ4DecompressGetTempSizeSync.
@@ -228,9 +228,9 @@ func DecompressGetTempSizeSync(deviceCompressedChunkPtrs DevicePointerArray, dev
 //
 // This call enqueues work on the stream and returns once the launch is accepted. The sizes it writes are readable only after the stream completes, and are invalid if the stream faulted.
 //
-//   - deviceCompressedChunkPtrs: in Array with size num_chunks of pointers in device-accessible memory to compressed buffers. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [DecompressGetRequiredAlignments]
-//   - deviceCompressedChunkBytes: in Array with size num_chunks of sizes of the compressed buffers in bytes. The sizes should reside in device-accessible memory
-//   - deviceUncompressedChunkBytes: out Array with size num_chunks to be filled with the sizes, in bytes, of each uncompressed data chunk. This argument needs to be preallocated in device-accessible memory
+//   - deviceCompressedChunkPtrs: in Array with size numChunks of pointers in device-accessible memory to compressed buffers. Each chunk must be aligned to the value in the input member of the [AlignmentRequirements] object output by [DecompressGetRequiredAlignments]
+//   - deviceCompressedChunkBytes: in Array with size numChunks of sizes of the compressed buffers in bytes. The sizes should reside in device-accessible memory
+//   - deviceUncompressedChunkBytes: out Array with size numChunks to be filled with the sizes, in bytes, of each uncompressed data chunk. This argument needs to be preallocated in device-accessible memory
 //   - numChunks: in Number of data chunks to compute sizes of
 //   - stream: in The CUDA stream to operate on
 //

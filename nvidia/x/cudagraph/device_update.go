@@ -171,7 +171,7 @@ func (n *Node) Params() (driver.KernelNodeParams, error) {
 	var params driver.KernelNodeParams
 	err := n.graph.withContext(func() error {
 		var err error
-		params, err = n.raw.GraphKernelNodeGetParams()
+		params, err = n.raw.KernelNodeGetParams()
 		return err
 	})
 	if err != nil {
@@ -192,7 +192,7 @@ func (n *Node) SetParams(params *driver.KernelNodeParams) error {
 		return errors.New("cudagraph: nil kernel node params")
 	}
 	err := n.graph.withContext(func() error {
-		return n.raw.GraphKernelNodeSetParams(params)
+		return n.raw.KernelNodeSetParams(params)
 	})
 	if err != nil {
 		return fmt.Errorf("cudagraph: set kernel node params: %w", err)
@@ -217,7 +217,7 @@ func (n *Node) SetGrid(grid cudalaunch.Dim3) error {
 
 // SetDeviceUpdatable marks the kernel node as device-updatable.
 // Once enabled, CUDA does not allow opting out, and device-updatable nodes
-// cannot be destroyed individually via GraphDestroyNode.
+// cannot be destroyed individually via DestroyNode.
 func (n *Node) SetDeviceUpdatable(enable bool) error {
 	if n == nil || n.raw == 0 {
 		return errors.New("cudagraph: nil or closed node")
@@ -230,7 +230,7 @@ func (n *Node) SetDeviceUpdatable(enable bool) error {
 		val[0] = 1
 	}
 	err := n.graph.withContext(func() error {
-		return n.raw.GraphKernelNodeSetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode), &val)
+		return n.raw.KernelNodeSetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode), &val)
 	})
 	if err != nil {
 		return fmt.Errorf("cudagraph: set device updatable: %w", err)
@@ -249,7 +249,7 @@ func (n *Node) IsDeviceUpdatable() (bool, error) {
 	var val [8]uint64
 	err := n.graph.withContext(func() error {
 		var err error
-		val, err = n.raw.GraphKernelNodeGetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
+		val, err = n.raw.KernelNodeGetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
 		return err
 	})
 	if err != nil {
@@ -270,7 +270,7 @@ func (n *Node) DeviceNode() (DeviceNode, error) {
 	var val [8]uint64
 	err := n.graph.withContext(func() error {
 		var err error
-		val, err = n.raw.GraphKernelNodeGetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
+		val, err = n.raw.KernelNodeGetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
 		return err
 	})
 	if err != nil {

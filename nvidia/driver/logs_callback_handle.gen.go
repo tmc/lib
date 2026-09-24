@@ -2,9 +2,9 @@
 
 package driver
 
-// LogsUnregisterCallback Unregister a log message callback
+// UnregisterCallback Unregister a log message callback
 //
 // Wraps cuLogsUnregisterCallback.
-func (l LogsCallbackHandle) LogsUnregisterCallback() error {
+func (l LogsCallbackHandle) UnregisterCallback() error {
 	return logsUnregisterCallback(l)
 }

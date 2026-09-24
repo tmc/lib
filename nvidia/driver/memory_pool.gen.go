@@ -15,13 +15,13 @@ func (m MemoryPool) Destroy() error {
 //
 // Given an IPC capable mempool, create an OS handle to share the pool with another process. A recipient process can convert the shareable handle into a mempool with [MemPoolImportFromShareableHandle]. Individual pointers can then be shared with the [DevicePtr.MemPoolExportPointer] and [MemoryPool.ImportPointer] APIs. The implementation of what the shareable handle is and how it can be transferred is defined by the requested handle type. Note: : To create an IPC capable mempool, create a mempool with a [MemAllocationHandleType] other than [MemHandleTypeNone]. See also: [MemPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer], [MemoryPool.ImportPointer], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
 //
-//   - handle_out (out): Returned OS handle pool- pool to export handleType- the type of handle to create flags- must be 0
+//   - handleOut (out): Returned OS handle pool- pool to export handleType- the type of handle to create flags- must be 0
 //   - handleType (in): the type of handle to create
 //   - flags (in): must be 0
 //
 // Wraps cuMemPoolExportToShareableHandle.
-func (m MemoryPool) ExportToShareableHandle(handle_out uintptr, handleType MemAllocationHandleType, flags uint64) error {
-	return memPoolExportToShareableHandle(handle_out, m, handleType, flags)
+func (m MemoryPool) ExportToShareableHandle(handleOut uintptr, handleType MemAllocationHandleType, flags uint64) error {
+	return memPoolExportToShareableHandle(handleOut, m, handleType, flags)
 }
 
 // Access Returns the accessibility of a pool from a device.
@@ -49,7 +49,7 @@ func (m MemoryPool) Attribute(attr MempoolAttribute, value uintptr) error {
 
 // ImportPointer Import a memory pool allocation from another process.
 //
-// Returns in ptr_out a pointer to the imported memory. The imported memory must not be accessed before the allocation operation completes in the exporting process. The imported memory must be freed from all importing processes before being freed in the exporting process. The pointer may be freed with [DevicePtr.Free] or [DevicePtr.FreeAsync]. If [DevicePtr.FreeAsync] is used, the free must be completed on the importing process before the free operation on the exporting process. Note: The [DevicePtr.FreeAsync] api may be used in the exporting process before the [DevicePtr.FreeAsync] operation completes in its stream as long as the [DevicePtr.FreeAsync] in the exporting process specifies a stream with a stream dependency on the importing process's [DevicePtr.FreeAsync]. See also: [MemoryPool.ExportToShareableHandle], [MemPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer]
+// Returns in ptrOut a pointer to the imported memory. The imported memory must not be accessed before the allocation operation completes in the exporting process. The imported memory must be freed from all importing processes before being freed in the exporting process. The pointer may be freed with [DevicePtr.Free] or [DevicePtr.FreeAsync]. If [DevicePtr.FreeAsync] is used, the free must be completed on the importing process before the free operation on the exporting process. Note: The [DevicePtr.FreeAsync] api may be used in the exporting process before the [DevicePtr.FreeAsync] operation completes in its stream as long as the [DevicePtr.FreeAsync] in the exporting process specifies a stream with a stream dependency on the importing process's [DevicePtr.FreeAsync]. See also: [MemoryPool.ExportToShareableHandle], [MemPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer]
 //
 //   - shareData (in): data specifying the memory to import
 //

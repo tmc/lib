@@ -62,11 +62,11 @@ func (g *Graph) Eligibility() (Eligibility, error) {
 			switch kind {
 			case driver.GraphNodeTypeKernel:
 				el.Kernels++
-				attr, err := node.GraphKernelNodeGetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
+				attr, err := node.KernelNodeGetAttribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
 				if err == nil && attr[0]&0xffffffff != 0 {
 					el.Updates = append(el.Updates, fmt.Sprintf("node %d: device-updatable kernel node", i))
 				}
-				params, err := node.GraphKernelNodeGetParams()
+				params, err := node.KernelNodeGetParams()
 				if err != nil {
 					el.Reasons = append(el.Reasons, fmt.Sprintf("node %d: get params: %v", i, err))
 				} else if params.Func == 0 && params.Kern == 0 {

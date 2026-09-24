@@ -70,7 +70,7 @@ func (g Group) ErrorClear() error {
 // in the group in the same order.
 // * memory allocation/re-allocation: This function may perform allocation/re-allocation
 // if the new layout/topK requires more memory than the current allocation. All ranks
-// must call this function in lockstep with the same (layout, num_topk).
+// must call this function in lockstep with the same (layout, numTopk).
 // No active communication is allowed between the ranks during this operation.
 // * CUDA graph invalidation: This function must not be included in CUDA graph captures.
 //
@@ -80,8 +80,8 @@ func (g Group) ErrorClear() error {
 // Alternatively, to avoid CUDA graph invalidation, all Handles must be created
 // before the beginning of the CUDA graph capture.
 //
-// handle_mem == NULL: NCCL EP allocates via alloc_fn; handle owns the memory.
-// handle_mem != NULL: wraps caller-owned 1D ncclUint8 tensor (>= [Group.MemSize]);
+// handleMem == NULL: NCCL EP allocates via alloc_fn; handle owns the memory.
+// handleMem != NULL: wraps caller-owned 1D ncclUint8 tensor (>= [Group.MemSize]);
 // handle owns no memory; [Handle.Destroy] frees only the struct.
 //
 //   - layout: in Receive buffer layout. Required; must not be [LayoutUnset]

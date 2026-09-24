@@ -48,7 +48,7 @@ func (g GraphNode) DependentNodes(edgeData *GraphEdgeData, numDependentNodes *ui
 
 // Enabled Query whether a node in the given graphExec is enabled.
 //
-// Sets isEnabled to 1 if hNode is enabled, or 0 if hNode is disabled. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. Note: See also: [GraphNode.SetEnabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.GraphLaunch]
+// Sets isEnabled to 1 if hNode is enabled, or 0 if hNode is disabled. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. Note: See also: [GraphNode.SetEnabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.Launch]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //
@@ -86,7 +86,7 @@ func (g GraphNode) ToolsId() (uint64, error) {
 
 // Type Returns a node's type.
 //
-// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.RootNodes], [GraphChildGraphNodeGetGraph], [GraphNode.GraphKernelNodeGetParams], [GraphNode.GraphKernelNodeSetParams], [GraphNode.GraphHostNodeGetParams], [GraphNode.GraphHostNodeSetParams], [GraphNode.GraphMemcpyNodeGetParams], [GraphNode.GraphMemcpyNodeSetParams], [GraphNode.GraphMemsetNodeGetParams], [GraphNode.GraphMemsetNodeSetParams]
+// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.RootNodes], [GraphChildGraphNodeGetGraph], [GraphNode.KernelNodeGetParams], [GraphNode.KernelNodeSetParams], [GraphNode.HostNodeGetParams], [GraphNode.HostNodeSetParams], [GraphNode.MemcpyNodeGetParams], [GraphNode.MemcpyNodeSetParams], [GraphNode.MemsetNodeGetParams], [GraphNode.MemsetNodeSetParams]
 //
 // Wraps cuGraphNodeGetType.
 func (g GraphNode) Type() (GraphNodeType, error) {
@@ -95,7 +95,7 @@ func (g GraphNode) Type() (GraphNodeType, error) {
 
 // SetEnabled Enables or disables the specified node in the given graphExec.
 //
-// Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. Note: Currently only kernel, memset and memcpy nodes are supported. See also: [GraphNode.Enabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.GraphLaunch]
+// Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. Note: Currently only kernel, memset and memcpy nodes are supported. See also: [GraphNode.Enabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.Launch]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - isEnabled: Node is enabled if != 0, otherwise the node is disabled
@@ -116,240 +116,240 @@ func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
 	return graphNodeSetParams(g, nodeParams)
 }
 
-// GraphBatchMemOpNodeGetParams Returns a batch mem op node's parameters.
+// BatchMemOpNodeGetParams Returns a batch mem op node's parameters.
 //
-// Returns the parameters of batch mem op node hNode in nodeParams_out. The paramArray returned in nodeParams_out is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphBatchMemOpNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.GraphBatchMemOpNodeSetParams]
+// Returns the parameters of batch mem op node hNode in nodeParamsOut. The paramArray returned in nodeParamsOut is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.BatchMemOpNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.BatchMemOpNodeSetParams]
 //
 // Wraps cuGraphBatchMemOpNodeGetParams.
-func (g GraphNode) GraphBatchMemOpNodeGetParams() (BatchMemOpNodeParams, error) {
+func (g GraphNode) BatchMemOpNodeGetParams() (BatchMemOpNodeParams, error) {
 	return graphBatchMemOpNodeGetParams(g)
 }
 
-// GraphBatchMemOpNodeSetParams Sets a batch mem op node's parameters.
+// BatchMemOpNodeSetParams Sets a batch mem op node's parameters.
 //
-// Sets the parameters of batch mem op node hNode to nodeParams. The paramArray inside nodeParams is copied and therefore it can be freed after the call returns. See also: [GraphNode.SetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.GraphBatchMemOpNodeGetParams]
+// Sets the parameters of batch mem op node hNode to nodeParams. The paramArray inside nodeParams is copied and therefore it can be freed after the call returns. See also: [GraphNode.SetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.BatchMemOpNodeGetParams]
 //
 //   - nodeParams: Parameters to copy
 //
 // Wraps cuGraphBatchMemOpNodeSetParams.
-func (g GraphNode) GraphBatchMemOpNodeSetParams(nodeParams *BatchMemOpNodeParams) error {
+func (g GraphNode) BatchMemOpNodeSetParams(nodeParams *BatchMemOpNodeParams) error {
 	return graphBatchMemOpNodeSetParams(g, nodeParams)
 }
 
-// GraphDestroyNode Remove a node from the graph.
+// DestroyNode Remove a node from the graph.
 //
 // Removes hNode from its graph. This operation also severs any dependencies of other nodes on hNode and vice versa. Nodes which belong to a graph which contains allocation or free nodes cannot be destroyed. Any attempt to do so will return an error. See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 // Wraps cuGraphDestroyNode.
-func (g GraphNode) GraphDestroyNode() error {
+func (g GraphNode) DestroyNode() error {
 	return graphDestroyNode(g)
 }
 
-// GraphEventRecordNodeGetEvent Returns the event associated with an event record node.
+// EventRecordNodeGetEvent Returns the event associated with an event record node.
 //
-// Returns the event of event record node hNode in event_out. See also: [Graph.AddEventRecordNode], [GraphNode.GraphEventRecordNodeSetEvent], [GraphNode.GraphEventWaitNodeGetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
+// Returns the event of event record node hNode in eventOut. See also: [Graph.AddEventRecordNode], [GraphNode.EventRecordNodeSetEvent], [GraphNode.EventWaitNodeGetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 // Wraps cuGraphEventRecordNodeGetEvent.
-func (g GraphNode) GraphEventRecordNodeGetEvent() (Event, error) {
+func (g GraphNode) EventRecordNodeGetEvent() (Event, error) {
 	return graphEventRecordNodeGetEvent(g)
 }
 
-// GraphEventRecordNodeSetEvent Sets an event record node's event.
+// EventRecordNodeSetEvent Sets an event record node's event.
 //
-// Sets the event of event record node hNode to event. See also: [GraphNode.SetParams], [Graph.AddEventRecordNode], [GraphNode.GraphEventRecordNodeGetEvent], [GraphNode.GraphEventWaitNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
+// Sets the event of event record node hNode to event. See also: [GraphNode.SetParams], [Graph.AddEventRecordNode], [GraphNode.EventRecordNodeGetEvent], [GraphNode.EventWaitNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 //   - event: Event to use
 //
 // Wraps cuGraphEventRecordNodeSetEvent.
-func (g GraphNode) GraphEventRecordNodeSetEvent(event Event) error {
+func (g GraphNode) EventRecordNodeSetEvent(event Event) error {
 	return graphEventRecordNodeSetEvent(g, event)
 }
 
-// GraphEventWaitNodeGetEvent Returns the event associated with an event wait node.
+// EventWaitNodeGetEvent Returns the event associated with an event wait node.
 //
-// Returns the event of event wait node hNode in event_out. See also: [Graph.AddEventWaitNode], [GraphNode.GraphEventWaitNodeSetEvent], [GraphNode.GraphEventRecordNodeGetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
+// Returns the event of event wait node hNode in eventOut. See also: [Graph.AddEventWaitNode], [GraphNode.EventWaitNodeSetEvent], [GraphNode.EventRecordNodeGetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 // Wraps cuGraphEventWaitNodeGetEvent.
-func (g GraphNode) GraphEventWaitNodeGetEvent() (Event, error) {
+func (g GraphNode) EventWaitNodeGetEvent() (Event, error) {
 	return graphEventWaitNodeGetEvent(g)
 }
 
-// GraphEventWaitNodeSetEvent Sets an event wait node's event.
+// EventWaitNodeSetEvent Sets an event wait node's event.
 //
-// Sets the event of event wait node hNode to event. See also: [GraphNode.SetParams], [Graph.AddEventWaitNode], [GraphNode.GraphEventWaitNodeGetEvent], [GraphNode.GraphEventRecordNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
+// Sets the event of event wait node hNode to event. See also: [GraphNode.SetParams], [Graph.AddEventWaitNode], [GraphNode.EventWaitNodeGetEvent], [GraphNode.EventRecordNodeSetEvent], [Event.RecordWithFlags], [Stream.WaitEvent]
 //
 //   - event: Event to use
 //
 // Wraps cuGraphEventWaitNodeSetEvent.
-func (g GraphNode) GraphEventWaitNodeSetEvent(event Event) error {
+func (g GraphNode) EventWaitNodeSetEvent(event Event) error {
 	return graphEventWaitNodeSetEvent(g, event)
 }
 
-// GraphExternalSemaphoresSignalNodeGetParams Returns an external semaphore signal node's parameters.
+// ExternalSemaphoresSignalNodeGetParams Returns an external semaphore signal node's parameters.
 //
-// Returns the parameters of an external semaphore signal node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.GraphExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Returns the parameters of an external semaphore signal node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.ExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 // Wraps cuGraphExternalSemaphoresSignalNodeGetParams.
-func (g GraphNode) GraphExternalSemaphoresSignalNodeGetParams() (ExtSemSignalNodeParams, error) {
+func (g GraphNode) ExternalSemaphoresSignalNodeGetParams() (ExtSemSignalNodeParams, error) {
 	return graphExternalSemaphoresSignalNodeGetParams(g)
 }
 
-// GraphExternalSemaphoresSignalNodeSetParams Sets an external semaphore signal node's parameters.
+// ExternalSemaphoresSignalNodeSetParams Sets an external semaphore signal node's parameters.
 //
-// Sets the parameters of an external semaphore signal node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.GraphExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Sets the parameters of an external semaphore signal node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.ExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - nodeParams: Parameters to copy
 //
 // Wraps cuGraphExternalSemaphoresSignalNodeSetParams.
-func (g GraphNode) GraphExternalSemaphoresSignalNodeSetParams(nodeParams *ExtSemSignalNodeParams) error {
+func (g GraphNode) ExternalSemaphoresSignalNodeSetParams(nodeParams *ExtSemSignalNodeParams) error {
 	return graphExternalSemaphoresSignalNodeSetParams(g, nodeParams)
 }
 
-// GraphExternalSemaphoresWaitNodeGetParams Returns an external semaphore wait node's parameters.
+// ExternalSemaphoresWaitNodeGetParams Returns an external semaphore wait node's parameters.
 //
-// Returns the parameters of an external semaphore wait node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.GraphExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Returns the parameters of an external semaphore wait node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.ExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 // Wraps cuGraphExternalSemaphoresWaitNodeGetParams.
-func (g GraphNode) GraphExternalSemaphoresWaitNodeGetParams() (ExtSemWaitNodeParams, error) {
+func (g GraphNode) ExternalSemaphoresWaitNodeGetParams() (ExtSemWaitNodeParams, error) {
 	return graphExternalSemaphoresWaitNodeGetParams(g)
 }
 
-// GraphExternalSemaphoresWaitNodeSetParams Sets an external semaphore wait node's parameters.
+// ExternalSemaphoresWaitNodeSetParams Sets an external semaphore wait node's parameters.
 //
-// Sets the parameters of an external semaphore wait node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.GraphExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Sets the parameters of an external semaphore wait node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.ExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - nodeParams: Parameters to copy
 //
 // Wraps cuGraphExternalSemaphoresWaitNodeSetParams.
-func (g GraphNode) GraphExternalSemaphoresWaitNodeSetParams(nodeParams *ExtSemWaitNodeParams) error {
+func (g GraphNode) ExternalSemaphoresWaitNodeSetParams(nodeParams *ExtSemWaitNodeParams) error {
 	return graphExternalSemaphoresWaitNodeSetParams(g, nodeParams)
 }
 
-// GraphHostNodeGetParams Returns a host node's parameters.
+// HostNodeGetParams Returns a host node's parameters.
 //
-// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.GraphHostNodeSetParams]
+// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.HostNodeSetParams]
 //
 // Wraps cuGraphHostNodeGetParams.
-func (g GraphNode) GraphHostNodeGetParams() (HostNodeParams, error) {
+func (g GraphNode) HostNodeGetParams() (HostNodeParams, error) {
 	return graphHostNodeGetParams(g)
 }
 
-// GraphHostNodeSetParams Sets a host node's parameters.
+// HostNodeSetParams Sets a host node's parameters.
 //
-// Sets the parameters of host node hNode to nodeParams. See also: [GraphNode.SetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.GraphHostNodeGetParams]
+// Sets the parameters of host node hNode to nodeParams. See also: [GraphNode.SetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.HostNodeGetParams]
 //
 //   - nodeParams: Parameters to copy
 //
 // Wraps cuGraphHostNodeSetParams.
-func (g GraphNode) GraphHostNodeSetParams(nodeParams *HostNodeParams) error {
+func (g GraphNode) HostNodeSetParams(nodeParams *HostNodeParams) error {
 	return graphHostNodeSetParams(g, nodeParams)
 }
 
-// GraphKernelNodeCopyAttributes Copies attributes from source node to destination node.
+// KernelNodeCopyAttributes Copies attributes from source node to destination node.
 //
 // Copies attributes from source node src to destination node dst. Both node must have the same context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [AccessPolicyWindow]
 //
 //   - src: Source node For list of attributes see CUkernelNodeAttrID
 //
 // Wraps cuGraphKernelNodeCopyAttributes.
-func (g GraphNode) GraphKernelNodeCopyAttributes(src GraphNode) error {
+func (g GraphNode) KernelNodeCopyAttributes(src GraphNode) error {
 	return graphKernelNodeCopyAttributes(g, src)
 }
 
-// GraphKernelNodeGetAttribute Queries node attribute.
+// KernelNodeGetAttribute Queries node attribute.
 //
-// Queries attribute attr from node hNode and stores it in corresponding member of value_out. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [AccessPolicyWindow]
+// Queries attribute attr from node hNode and stores it in corresponding member of valueOut. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [AccessPolicyWindow]
 //
 // Wraps cuGraphKernelNodeGetAttribute.
-func (g GraphNode) GraphKernelNodeGetAttribute(attr int32) ([8]uint64, error) {
+func (g GraphNode) KernelNodeGetAttribute(attr int32) ([8]uint64, error) {
 	return graphKernelNodeGetAttribute(g, attr)
 }
 
-// GraphKernelNodeGetParams Returns a kernel node's parameters.
+// KernelNodeGetParams Returns a kernel node's parameters.
 //
-// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphKernelNodeSetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.GraphKernelNodeSetParams]
+// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.KernelNodeSetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.KernelNodeSetParams]
 //
 // Wraps cuGraphKernelNodeGetParams, bound as cuGraphKernelNodeGetParams_v2.
-func (g GraphNode) GraphKernelNodeGetParams() (KernelNodeParams, error) {
+func (g GraphNode) KernelNodeGetParams() (KernelNodeParams, error) {
 	return graphKernelNodeGetParams(g)
 }
 
-// GraphKernelNodeSetAttribute Sets node attribute.
+// KernelNodeSetAttribute Sets node attribute.
 //
 // Sets attribute attr on node hNode from corresponding attribute of value. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [AccessPolicyWindow]
 //
 // Wraps cuGraphKernelNodeSetAttribute.
-func (g GraphNode) GraphKernelNodeSetAttribute(attr int32, value *[8]uint64) error {
+func (g GraphNode) KernelNodeSetAttribute(attr int32, value *[8]uint64) error {
 	return graphKernelNodeSetAttribute(g, attr, value)
 }
 
-// GraphKernelNodeSetParams Sets a kernel node's parameters.
+// KernelNodeSetParams Sets a kernel node's parameters.
 //
-// Sets the parameters of kernel node hNode to nodeParams. See also: [GraphNode.SetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.GraphKernelNodeGetParams]
+// Sets the parameters of kernel node hNode to nodeParams. See also: [GraphNode.SetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.KernelNodeGetParams]
 //
 //   - nodeParams: Parameters to copy
 //
 // Wraps cuGraphKernelNodeSetParams, bound as cuGraphKernelNodeSetParams_v2.
-func (g GraphNode) GraphKernelNodeSetParams(nodeParams *KernelNodeParams) error {
+func (g GraphNode) KernelNodeSetParams(nodeParams *KernelNodeParams) error {
 	return graphKernelNodeSetParams(g, nodeParams)
 }
 
-// GraphMemAllocNodeGetParams Returns a memory alloc node's parameters.
+// MemAllocNodeGetParams Returns a memory alloc node's parameters.
 //
-// Returns the parameters of a memory alloc node hNode in params_out. The poolProps and accessDescs returned in params_out, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.Params], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams]
+// Returns the parameters of a memory alloc node hNode in paramsOut. The poolProps and accessDescs returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.Params], [Graph.AddMemAllocNode], [GraphNode.MemFreeNodeGetParams]
 //
 // Wraps cuGraphMemAllocNodeGetParams.
-func (g GraphNode) GraphMemAllocNodeGetParams() (MemAllocNodeParams, error) {
+func (g GraphNode) MemAllocNodeGetParams() (MemAllocNodeParams, error) {
 	return graphMemAllocNodeGetParams(g)
 }
 
-// GraphMemFreeNodeGetParams Returns a memory free node's parameters.
+// MemFreeNodeGetParams Returns a memory free node's parameters.
 //
-// Returns the address of a memory free node hNode in dptr_out. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [GraphNode.GraphMemAllocNodeGetParams]
+// Returns the address of a memory free node hNode in dptrOut. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [GraphNode.MemAllocNodeGetParams]
 //
-//   - dptr_out: Pointer to return the device address
+//   - dptrOut: Pointer to return the device address
 //
 // Wraps cuGraphMemFreeNodeGetParams.
-func (g GraphNode) GraphMemFreeNodeGetParams(dptr_out *DevicePtr) error {
-	return graphMemFreeNodeGetParams(g, dptr_out)
+func (g GraphNode) MemFreeNodeGetParams(dptrOut *DevicePtr) error {
+	return graphMemFreeNodeGetParams(g, dptrOut)
 }
 
-// GraphMemcpyNodeGetParams Returns a memcpy node's parameters.
+// MemcpyNodeGetParams Returns a memcpy node's parameters.
 //
-// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.GraphMemcpyNodeSetParams]
+// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.MemcpyNodeSetParams]
 //
 // Wraps cuGraphMemcpyNodeGetParams.
-func (g GraphNode) GraphMemcpyNodeGetParams() (Memcpy3d, error) {
+func (g GraphNode) MemcpyNodeGetParams() (Memcpy3d, error) {
 	return graphMemcpyNodeGetParams(g)
 }
 
-// GraphMemcpyNodeSetParams Sets a memcpy node's parameters.
+// MemcpyNodeSetParams Sets a memcpy node's parameters.
 //
-// Sets the parameters of memcpy node hNode to nodeParams. See also: [GraphNode.SetParams], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.GraphMemcpyNodeGetParams]
+// Sets the parameters of memcpy node hNode to nodeParams. See also: [GraphNode.SetParams], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.MemcpyNodeGetParams]
 //
 //   - nodeParams: Parameters to copy
 //
 // Wraps cuGraphMemcpyNodeSetParams.
-func (g GraphNode) GraphMemcpyNodeSetParams(nodeParams *Memcpy3d) error {
+func (g GraphNode) MemcpyNodeSetParams(nodeParams *Memcpy3d) error {
 	return graphMemcpyNodeSetParams(g, nodeParams)
 }
 
-// GraphMemsetNodeGetParams Returns a memset node's parameters.
+// MemsetNodeGetParams Returns a memset node's parameters.
 //
-// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.GraphMemsetNodeSetParams]
+// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.MemsetNodeSetParams]
 //
 // Wraps cuGraphMemsetNodeGetParams.
-func (g GraphNode) GraphMemsetNodeGetParams() (MemsetNodeParams, error) {
+func (g GraphNode) MemsetNodeGetParams() (MemsetNodeParams, error) {
 	return graphMemsetNodeGetParams(g)
 }
 
-// GraphMemsetNodeSetParams Sets a memset node's parameters.
+// MemsetNodeSetParams Sets a memset node's parameters.
 //
-// Sets the parameters of memset node hNode to nodeParams. See also: [GraphNode.SetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.GraphMemsetNodeGetParams]
+// Sets the parameters of memset node hNode to nodeParams. See also: [GraphNode.SetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.MemsetNodeGetParams]
 //
 //   - nodeParams: Parameters to copy
 //
 // Wraps cuGraphMemsetNodeSetParams.
-func (g GraphNode) GraphMemsetNodeSetParams(nodeParams *MemsetNodeParams) error {
+func (g GraphNode) MemsetNodeSetParams(nodeParams *MemsetNodeParams) error {
 	return graphMemsetNodeSetParams(g, nodeParams)
 }

@@ -46,7 +46,7 @@ func NewHandleWithAllocatorsV2(backend Backend, devAllocator *DeviceAllocatorV2,
 // function is asynchronous with respect to the host. All GPU tasks will be
 // submitted to the provided stream. Prior to calling this function, the user
 // must parse the bitstream using nvjpeg2kStreamParse() such that the bitstream
-// information is stored in jpeg2k_stream.
+// information is stored in jpeg2kStream.
 //
 // The decode is asynchronous: it returns once the work is submitted to stream. The output struct is read on the host during the call, but the device addresses it holds must stay allocated until stream has completed. Synchronize the stream or the device before reusing the decode state for another image.
 //
@@ -66,7 +66,7 @@ func (h Handle) Decode(decodeState DecodeState, jpeg2kStream Bitstream, decodeOu
 // function is asynchronous with respect to the host. All GPU tasks will be
 // submitted to the provided stream. Prior to calling this function, the user
 // must parse the bitstream using nvjpeg2kStreamParse() such that the bitstream
-// information is stored in jpeg2k_stream. It is possible to control the
+// information is stored in jpeg2kStream. It is possible to control the
 // decode output using an instance of [DecodeParams].
 //
 // The decode is asynchronous: it returns once the work is submitted to stream. The output struct is read on the host during the call, but the device addresses it holds must stay allocated until stream has completed. Synchronize the stream or the device before reusing the decode state for another image.
@@ -88,7 +88,7 @@ func (h Handle) DecodeImage(decodeState DecodeState, jpeg2kStream Bitstream, dec
 // The function is asynchronous with respect to the host. All GPU tasks will be
 // submitted to the provided stream. Prior to calling this function, the user
 // must parse the bitstream using nvjpeg2kStreamParse() such that the bitstream
-// information is stored in jpeg2k_stream.
+// information is stored in jpeg2kStream.
 //
 // The decode is asynchronous: it returns once the work is submitted to stream. The output struct is read on the host during the call, but the device addresses it holds must stay allocated until stream has completed. Synchronize the stream or the device before reusing the decode state for another image.
 //

@@ -31,7 +31,7 @@ func (g GraphicsResource) MappedMipmappedArray() (MipmappedArray, error) {
 // If resource is not mapped then [ErrNotMapped] is returned.
 // *
 //
-// See also: [Stream.GraphicsMapResources], [GraphicsResource.GraphicsSubResourceGetMappedArray]
+// See also: [Stream.GraphicsMapResources], [GraphicsResource.SubResourceGetMappedArray]
 //
 // Wraps cuGraphicsResourceGetMappedPointer, bound as cuGraphicsResourceGetMappedPointer_v2.
 func (g GraphicsResource) MappedPointer() (pDevPtr DevicePtr, pSize uint, err error) {
@@ -68,7 +68,7 @@ func (g GraphicsResource) SetMapFlags(flags GraphicsMapResourceFlags) error {
 	return graphicsResourceSetMapFlags(g, flags)
 }
 
-// GraphicsSubResourceGetMappedArray Get an array through which to access a subresource of a mapped graphics resource.
+// SubResourceGetMappedArray Get an array through which to access a subresource of a mapped graphics resource.
 //
 // Returns in *pArray an array through which the subresource of the mapped
 // graphics resource resource which corresponds to array index arrayIndex
@@ -89,11 +89,11 @@ func (g GraphicsResource) SetMapFlags(flags GraphicsMapResourceFlags) error {
 // See also: [GraphicsResource.MappedPointer]
 //
 // Wraps cuGraphicsSubResourceGetMappedArray.
-func (g GraphicsResource) GraphicsSubResourceGetMappedArray(arrayIndex uint32, mipLevel uint32) (Array, error) {
+func (g GraphicsResource) SubResourceGetMappedArray(arrayIndex uint32, mipLevel uint32) (Array, error) {
 	return graphicsSubResourceGetMappedArray(g, arrayIndex, mipLevel)
 }
 
-// GraphicsUnregisterResource Unregisters a graphics resource for access by CUDA
+// UnregisterResource Unregisters a graphics resource for access by CUDA
 //
 // Unregisters the graphics resource resource so it is not accessible by
 // CUDA unless registered again.
@@ -104,6 +104,6 @@ func (g GraphicsResource) GraphicsSubResourceGetMappedArray(arrayIndex uint32, m
 // See also: GraphicsD3D9RegisterResource, GraphicsD3D10RegisterResource, GraphicsD3D11RegisterResource, GraphicsGLRegisterBuffer, GraphicsGLRegisterImage
 //
 // Wraps cuGraphicsUnregisterResource.
-func (g GraphicsResource) GraphicsUnregisterResource() error {
+func (g GraphicsResource) UnregisterResource() error {
 	return graphicsUnregisterResource(g)
 }

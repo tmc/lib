@@ -131,7 +131,7 @@ func (d DevicePtr) MemMap(size uint, offset uint, handle uint64, flags uint64) e
 
 // MemPoolExportPointer Export data to share a memory pool allocation between processes.
 //
-// Constructs shareData_out for sharing a specific allocation from an already shared memory pool. The recipient process can import the allocation with the [MemoryPool.ImportPointer] api. The data is not a handle and may be shared through any IPC mechanism. See also: [MemoryPool.ExportToShareableHandle], [MemPoolImportFromShareableHandle], [MemoryPool.ImportPointer]
+// Constructs shareDataOut for sharing a specific allocation from an already shared memory pool. The recipient process can import the allocation with the [MemoryPool.ImportPointer] api. The data is not a handle and may be shared through any IPC mechanism. See also: [MemoryPool.ExportToShareableHandle], [MemPoolImportFromShareableHandle], [MemoryPool.ImportPointer]
 //
 // Wraps cuMemPoolExportPointer.
 func (d DevicePtr) MemPoolExportPointer() (MemPoolPtrExportData, error) {

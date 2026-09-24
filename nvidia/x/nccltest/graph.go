@@ -73,7 +73,7 @@ func launchGraphs(states []rankState, graphs []rankGraph) error {
 		if err := states[i].context.SetCurrent(); err != nil {
 			return err
 		}
-		if err := graphs[i].executable.GraphLaunch(states[i].stream); err != nil {
+		if err := graphs[i].executable.Launch(states[i].stream); err != nil {
 			return err
 		}
 	}

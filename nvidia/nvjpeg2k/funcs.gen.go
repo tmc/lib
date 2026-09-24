@@ -108,7 +108,7 @@ func CreateV2(backend Backend, devAllocator *DeviceAllocatorV2, pinnedAllocator 
 // function is asynchronous with respect to the host. All GPU tasks will be
 // submitted to the provided stream. Prior to calling this function, the user
 // must parse the bitstream using nvjpeg2kStreamParse() such that the bitstream
-// information is stored in jpeg2k_stream.
+// information is stored in jpeg2kStream.
 //
 // The decode is asynchronous: it returns once the work is submitted to stream. The output struct is read on the host during the call, but the device addresses it holds must stay allocated until stream has completed. Synchronize the stream or the device before reusing the decode state for another image.
 //
@@ -132,7 +132,7 @@ func Decode(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, deco
 // function is asynchronous with respect to the host. All GPU tasks will be
 // submitted to the provided stream. Prior to calling this function, the user
 // must parse the bitstream using nvjpeg2kStreamParse() such that the bitstream
-// information is stored in jpeg2k_stream. It is possible to control the
+// information is stored in jpeg2kStream. It is possible to control the
 // decode output using an instance of [DecodeParams].
 //
 // The decode is asynchronous: it returns once the work is submitted to stream. The output struct is read on the host during the call, but the device addresses it holds must stay allocated until stream has completed. Synchronize the stream or the device before reusing the decode state for another image.
@@ -276,7 +276,7 @@ func DecodeStateDestroy(decodeState DecodeState) error {
 // The function is asynchronous with respect to the host. All GPU tasks will be
 // submitted to the provided stream. Prior to calling this function, the user
 // must parse the bitstream using nvjpeg2kStreamParse() such that the bitstream
-// information is stored in jpeg2k_stream.
+// information is stored in jpeg2kStream.
 //
 // The decode is asynchronous: it returns once the work is submitted to stream. The output struct is read on the host during the call, but the device addresses it holds must stay allocated until stream has completed. Synchronize the stream or the device before reusing the decode state for another image.
 //
@@ -476,10 +476,10 @@ func StreamGetColorSpace(streamHandle Bitstream) (ColorSpace, error) {
 // StreamGetComponentNLTInfo returns one component's nonlinear-transformation parameters.
 //
 // If the parsed bitstream contains an NLT marker that applies to
-// component_id (either Cnlt = component_id or Cnlt = 65535 for
-// "all components"), nlt_info->type reports the marker's Tnlt and
-// nlt_info->bit_depth reports BDnlt. Otherwise nlt_info->type is
-// [NltNone] and nlt_info->bit_depth falls back to the SIZ
+// componentId (either Cnlt = componentId or Cnlt = 65535 for
+// "all components"), nltInfo->type reports the marker's Tnlt and
+// nltInfo->bit_depth reports BDnlt. Otherwise nltInfo->type is
+// [NltNone] and nltInfo->bit_depth falls back to the SIZ
 // marker precision.
 //
 // Use this to choose the destination type for an NLT-type-3 stream:
@@ -554,9 +554,9 @@ func StreamGetImageInfo(streamHandle Bitstream) (ImageInfo, error) {
 // StreamGetResolutionComponentDim returns one tile component's width and height at a resolution level.
 //
 // The resolution dimensions are computed as follows:
-// - res_scale = 1 << (num_resolutions - res_level - 1)
-// - res_width = (tile_width + res_scale - 1) >> res_scale
-// - res_height = (tile_height + res_scale - 1) >> res_scale
+// - res_scale = 1 << (num_resolutions - resLevel - 1)
+// - resWidth = (tile_width + res_scale - 1) >> res_scale
+// - resHeight = (tile_height + res_scale - 1) >> res_scale
 //
 //   - streamHandle: [in] Bitstream handle
 //   - componentId: [in] Component index
@@ -583,7 +583,7 @@ func StreamGetResolutionComponentDim(streamHandle Bitstream, componentId uint32,
 // Tiles in JPEG2000 are indexed in raster scan order.
 // [Bitstream.ImageInfo] retrieves the number of tiles present
 // along both the x and y directions. For tile coordinates tile_x, tile_y:
-// tile_id = tile_y * num_tiles_x + tile_x.
+// tileId = tile_y * num_tiles_x + tile_x.
 //
 //   - streamHandle: [in] Bitstream handle
 //   - tileId: [in] Raster scan based tile index

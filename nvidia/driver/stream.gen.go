@@ -136,7 +136,7 @@ func (s Stream) EndCaptureToCig() error {
 
 // Attribute Queries stream attribute.
 //
-// Queries attribute attr from hStream and stores it in corresponding member of value_out. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [AccessPolicyWindow]
+// Queries attribute attr from hStream and stores it in corresponding member of valueOut. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [AccessPolicyWindow]
 //
 // Wraps cuStreamGetAttribute.
 func (s Stream) Attribute(attr int32) ([8]uint64, error) {
@@ -145,18 +145,18 @@ func (s Stream) Attribute(attr int32) ([8]uint64, error) {
 
 // CaptureInfo Query a stream's capture state.
 //
-// Query stream state related to stream capture. If called on CU_STREAM_LEGACY (the "null stream") while a stream not created with [StreamNonBlocking] is capturing, returns [ErrStreamCaptureImplicit]. Valid data (other than capture status) is returned only if both of the following are true: If edgeData_out is non-NULL then dependencies_out must be as well. If dependencies_out is non-NULL and edgeData_out is NULL, but there is non-zero edge data for one or more of the current stream dependencies, the call will return [ErrLossyQuery]. See also: [Stream.BeginCapture], [Stream.IsCapturing], [Stream.UpdateCaptureDependencies]
+// Query stream state related to stream capture. If called on CU_STREAM_LEGACY (the "null stream") while a stream not created with [StreamNonBlocking] is capturing, returns [ErrStreamCaptureImplicit]. Valid data (other than capture status) is returned only if both of the following are true: If edgeDataOut is non-NULL then dependenciesOut must be as well. If dependenciesOut is non-NULL and edgeDataOut is NULL, but there is non-zero edge data for one or more of the current stream dependencies, the call will return [ErrLossyQuery]. See also: [Stream.BeginCapture], [Stream.IsCapturing], [Stream.UpdateCaptureDependencies]
 //
-//   - captureStatus_out: Location to return the capture status of the stream; required
-//   - id_out: Optional location to return an id for the capture sequence, which is unique over the lifetime of the process
-//   - graph_out: Optional location to return the graph being captured into. All operations other than destroy and node removal are permitted on the graph while the capture sequence is in progress. This API does not transfer ownership of the graph, which is transferred or destroyed at [Stream.EndCapture]. Note that the graph handle may be invalidated before end of capture for certain errors. Nodes that are or become unreachable from the original stream at [Stream.EndCapture] due to direct actions on the graph do not trigger [ErrStreamCaptureUnjoined]
-//   - dependencies_out: Optional location to store a pointer to an array of nodes. The next node to be captured in the stream will depend on this set of nodes, absent operations such as event wait which modify this set. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated. The node handles may be copied out and are valid until they or the graph is destroyed. The driver-owned array may also be passed directly to APIs that operate on the graph (not the stream) without copying
-//   - edgeData_out: Optional location to store a pointer to an array of graph edge data. This array parallels dependencies_out; the next node to be added has an edge to dependencies_outi with annotation edgeData_outi for each i. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated
-//   - numDependencies_out: Optional location to store the size of the array returned in dependencies_out
+//   - captureStatusOut: Location to return the capture status of the stream; required
+//   - idOut: Optional location to return an id for the capture sequence, which is unique over the lifetime of the process
+//   - graphOut: Optional location to return the graph being captured into. All operations other than destroy and node removal are permitted on the graph while the capture sequence is in progress. This API does not transfer ownership of the graph, which is transferred or destroyed at [Stream.EndCapture]. Note that the graph handle may be invalidated before end of capture for certain errors. Nodes that are or become unreachable from the original stream at [Stream.EndCapture] due to direct actions on the graph do not trigger [ErrStreamCaptureUnjoined]
+//   - dependenciesOut: Optional location to store a pointer to an array of nodes. The next node to be captured in the stream will depend on this set of nodes, absent operations such as event wait which modify this set. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated. The node handles may be copied out and are valid until they or the graph is destroyed. The driver-owned array may also be passed directly to APIs that operate on the graph (not the stream) without copying
+//   - edgeDataOut: Optional location to store a pointer to an array of graph edge data. This array parallels dependenciesOut; the next node to be added has an edge to dependencies_outi with annotation edgeData_outi for each i. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated
+//   - numDependenciesOut: Optional location to store the size of the array returned in dependenciesOut
 //
 // Wraps cuStreamGetCaptureInfo, bound as cuStreamGetCaptureInfo_v3.
-func (s Stream) CaptureInfo(captureStatus_out *StreamCaptureStatus, id_out *uint64, graph_out *Graph, dependencies_out uintptr, edgeData_out uintptr, numDependencies_out *uint) error {
-	return streamGetCaptureInfo(s, captureStatus_out, id_out, graph_out, dependencies_out, edgeData_out, numDependencies_out)
+func (s Stream) CaptureInfo(captureStatusOut *StreamCaptureStatus, idOut *uint64, graphOut *Graph, dependenciesOut uintptr, edgeDataOut uintptr, numDependenciesOut *uint) error {
+	return streamGetCaptureInfo(s, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut)
 }
 
 // Ctx Query the contexts associated with a stream.
@@ -432,7 +432,7 @@ func (s Stream) WriteValue64(addr DevicePtr, value uint64, flags Streamwritevalu
 //   - count: Number of resources to map
 //   - resources: Resources to map for CUDA usage
 //
-// See also: [GraphicsResource.MappedPointer], [GraphicsResource.GraphicsSubResourceGetMappedArray], [Stream.GraphicsUnmapResources]
+// See also: [GraphicsResource.MappedPointer], [GraphicsResource.SubResourceGetMappedArray], [Stream.GraphicsUnmapResources]
 //
 // Wraps cuGraphicsMapResources.
 func (s Stream) GraphicsMapResources(count uint32, resources *GraphicsResource) error {
