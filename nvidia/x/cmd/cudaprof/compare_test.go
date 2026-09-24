@@ -503,6 +503,8 @@ func TestParseCompareArgs(t *testing.T) {
 		{"one capture", []string{"a.pprof"}, compareOptions{}, nil, "usage: cudaprof compare", false},
 		{"unknown flag", []string{"-bogus", "a", "b"}, compareOptions{}, nil, "-bogus", false},
 		{"bad phase", []string{"-phase", "x", "a", "b"}, compareOptions{}, nil, "invalid value", false},
+		{"stage entries", []string{"-stages", "s.txt", "-stage-entries", "a", "b"}, compareOptions{phase: -1, stagesPath: "s.txt", stageEntries: true}, []string{"a", "b"}, "", false},
+		{"stage entries without stages", []string{"-stage-entries", "a", "b"}, compareOptions{}, nil, "-stage-entries needs -stages", false},
 		{"help", []string{"-h"}, compareOptions{}, nil, "", true},
 	}
 	for _, tt := range tests {
@@ -678,6 +680,97 @@ func TestCompareStages(t *testing.T) {
 			}
 			if !strings.Contains(out.String(), "per stage") {
 				t.Errorf("text output has no stage table:\n%s", out.String())
+			}
+		})
+	}
+}
+
+// TestCompareStageEntries checks that -stage-entries reports each layer on
+// its own row, that a stage's entries sum to its per-stage row, and that
+// entry counts that differ are refused, not paired out of step.
+func TestCompareStageEntries(t *testing.T) {
+	const stages = "expand pre\nattn attn\nffn ffn\n"
+	base := sequence(
+		"expand", 10, "attn", 30, "ffn", 50,
+		"expand", 10, "attn", 30, "ffn", 50,
+		"expand", 10, "attn", 30, "ffn", 50,
+	)
+	// Target's attention slows with depth; its prologue is one kernel base
+	// does not run.
+	target := sequence(
+		"embed", 5,
+		"expand", 10, "attn", 35, "ffn", 50,
+		"expand", 10, "attn", 45, "ffn", 50,
+		"expand", 10, "attn", 55, "ffn", 40,
+	)
+	type row struct {
+		stage        string
+		entry        int
+		base, target int64
+	}
+	tests := []struct {
+		name    string
+		target  []rec
+		want    []row
+		wantErr string
+	}{
+		{
+			name:   "three layers",
+			target: target,
+			want: []row{
+				{stageUnstarted, 0, 0, 5},
+				{"pre", 0, 10, 10}, {"attn", 0, 30, 35}, {"ffn", 0, 50, 50},
+				{"pre", 1, 10, 10}, {"attn", 1, 30, 45}, {"ffn", 1, 50, 50},
+				{"pre", 2, 10, 10}, {"attn", 2, 30, 55}, {"ffn", 2, 50, 40},
+			},
+		},
+		{
+			name:    "a layer short",
+			target:  target[:7],
+			wantErr: "stage pre began 3 times in base and 2 in target",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := compareCapture(base, phaseStatus(1000, 1500))
+			g := compareCapture(tt.target, phaseStatus(1000, 1500))
+			c, err := compareCaptures(b, g, nil, stageBoundaries(mustRules(t, stages)), compareOptions{phase: -1, stageEntries: true})
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []row
+			sums := make(map[string][2]int64)
+			for _, e := range c.StageEntries {
+				got = append(got, row{e.Stage, e.Entry, e.BaseExclusiveNanos, e.TargetExclusiveNanos})
+				s := sums[e.Stage]
+				sums[e.Stage] = [2]int64{s[0] + e.BaseExclusiveNanos, s[1] + e.TargetExclusiveNanos}
+				if e.DeltaExclusiveNanos != e.TargetExclusiveNanos-e.BaseExclusiveNanos {
+					t.Errorf("%s %d delta %d, want %d", e.Stage, e.Entry, e.DeltaExclusiveNanos, e.TargetExclusiveNanos-e.BaseExclusiveNanos)
+				}
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("entries =\n%v\nwant\n%v", got, tt.want)
+			}
+			for _, st := range c.Stages {
+				if s := sums[st.Stage]; s != [2]int64{st.BaseExclusiveNanos, st.TargetExclusiveNanos} {
+					t.Errorf("%s entries sum to %v, per-stage row is %d, %d", st.Stage, s, st.BaseExclusiveNanos, st.TargetExclusiveNanos)
+				}
+			}
+			var out bytes.Buffer
+			if err := c.write(&out); err != nil {
+				t.Fatal(err)
+			}
+			hasRow := slices.ContainsFunc(strings.Split(out.String(), "\n"), func(line string) bool {
+				return strings.Join(strings.Fields(line), " ") == "1 1 30 55 +25 30 55 2 attn"
+			})
+			if !strings.Contains(out.String(), "per stage entry") || !hasRow {
+				t.Errorf("text output lacks the entry table:\n%s", out.String())
 			}
 		})
 	}

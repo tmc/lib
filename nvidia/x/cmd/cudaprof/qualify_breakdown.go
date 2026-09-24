@@ -54,7 +54,7 @@ func breakDownPairs(entries []qualifyEntry, rules opRules, stages stageBoundarie
 		c1, g1, g2, c2 := entries[i], entries[i+1], entries[i+2], entries[i+3]
 		for _, p := range [][2]qualifyEntry{{c1, g1}, {c2, g2}} {
 			label := fmt.Sprintf("block %s %s-%s", p[0].Block, p[1].Arm, p[0].Arm)
-			c, err := compareSides(p[0].side, p[1].side, rules, stages)
+			c, err := compareSides(p[0].side, p[1].side, rules, stages, compareOptions{})
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", label, err)
 			}

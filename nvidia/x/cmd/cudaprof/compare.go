@@ -52,6 +52,13 @@ import (
 // boundaries did not align, and its rows then hold different work. Stages
 // partition kernel exclusive time just as ops do.
 //
+// -stage-entries also reports each entry of a stage on its own row: entry 0
+// is the first time the stage began, entry 1 the second, so with one cycle
+// per layer, entry i is layer i. Kernels before the first boundary are one
+// entry. Entries join by position, so a stage that began a different number
+// of times on the two sides is refused rather than joined out of step. The
+// entries of a stage sum to its row.
+//
 // Ops join by qualified name, and template arguments are not part of it: every
 // instantiation of mul_mat_q<...> is one op, and every CUTLASS kernel is
 // cutlass::Kernel2. -templates keeps the arguments, so each instantiation is
@@ -83,6 +90,8 @@ type compareOptions struct {
 	stagesPath      string
 	json            bool
 	allowUnresolved bool
+	// stageEntries reports each entry of a stage on its own row.
+	stageEntries bool
 	// templates keeps template arguments in the name ops join by.
 	templates bool
 
@@ -131,7 +140,7 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	return c.write(stdout)
 }
 
-const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt] [-templates] [-allow-unresolved] [-json] base.pprof target.pprof"
+const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-json] base.pprof target.pprof"
 
 // parseCompareArgs returns nil paths and a nil error when help was requested
 // and printed.
@@ -142,6 +151,7 @@ func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string
 	fs.IntVar(&opts.phase, "phase", -1, "index of the capture-range phase to compare, required when a capture has several")
 	fs.StringVar(&opts.opsPath, "ops", "", "file of `regex op` lines mapping kernel names to ops")
 	fs.StringVar(&opts.stagesPath, "stages", "", "file of `regex stage` lines naming the boundaries of a repeating sequence of stages")
+	fs.BoolVar(&opts.stageEntries, "stage-entries", false, "also report each entry of each stage, in the order entered; refused when a stage's entry counts differ")
 	fs.BoolVar(&opts.json, "json", false, "write the comparison as JSON")
 	fs.BoolVar(&opts.templates, "templates", false, "keep template arguments in kernel names, so each instantiation is its own op")
 	fs.BoolVar(&opts.allowUnresolved, "allow-unresolved", false, "report window totals even when graph replay hides the per-op census")
@@ -174,6 +184,9 @@ func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string
 	}
 	if set["warmup-ms"] || set["warmup-until"] {
 		opts.warmup = &warmup
+	}
+	if opts.stageEntries && opts.stagesPath == "" {
+		return opts, nil, errors.New("compare: -stage-entries needs -stages")
 	}
 	if fs.NArg() != 2 {
 		return opts, nil, errors.New(compareUsage)
@@ -293,8 +306,10 @@ func (rules opRules) kernelOp(key string) (string, int) {
 // the order they are expected. Each rule's Op is the stage it starts.
 type stageBoundaries []opRule
 
-// stageTotals is one stage on one side.
+// stageTotals is one stage on one side: one entry of it, or the sum of
+// its entries.
 type stageTotals struct {
+	stage     string
 	entries   int
 	launches  int
 	exclusive int64
@@ -302,34 +317,45 @@ type stageTotals struct {
 }
 
 // assign charges each kernel of recs, which are sorted by start, to its stage
-// and returns the totals by stage. owned is the exclusive time of each record.
-func (b stageBoundaries) assign(recs []compareRecord, owned []int64) map[string]*stageTotals {
-	out := make(map[string]*stageTotals)
-	get := func(stage string) *stageTotals {
-		t := out[stage]
-		if t == nil {
-			t = &stageTotals{}
-			out[stage] = t
-		}
-		return t
-	}
-	stage, next := stageUnstarted, 0
+// and returns each entry of a stage in the order entered. Kernels before the
+// first boundary are one entry of stageUnstarted. owned is the exclusive time
+// of each record.
+func (b stageBoundaries) assign(recs []compareRecord, owned []int64) []*stageTotals {
+	var out []*stageTotals
+	var cur *stageTotals
+	next := 0
 	for i, r := range recs {
 		if r.class != classKernel {
 			continue
 		}
 		if b[next].re.MatchString(r.key) {
-			stage = b[next].Op
+			cur = &stageTotals{stage: b[next].Op, entries: 1}
+			out = append(out, cur)
 			next = (next + 1) % len(b)
-			get(stage).entries++
+		} else if cur == nil {
+			cur = &stageTotals{stage: stageUnstarted, entries: 1}
+			out = append(out, cur)
 		}
-		t := get(stage)
-		t.launches++
-		t.exclusive += owned[i]
-		t.summed += r.end - r.start
+		cur.launches++
+		cur.exclusive += owned[i]
+		cur.summed += r.end - r.start
 	}
-	if t := out[stageUnstarted]; t != nil {
-		t.entries = 1
+	return out
+}
+
+// byStage sums entries by stage name.
+func byStage(entries []*stageTotals) map[string]*stageTotals {
+	out := make(map[string]*stageTotals)
+	for _, e := range entries {
+		t := out[e.stage]
+		if t == nil {
+			t = &stageTotals{stage: e.stage}
+			out[e.stage] = t
+		}
+		t.entries += e.entries
+		t.launches += e.launches
+		t.exclusive += e.exclusive
+		t.summed += e.summed
 	}
 	return out
 }
@@ -363,6 +389,10 @@ type Comparison struct {
 	// Stages is the kernel exclusive time by stage when -stages was given.
 	// It is empty, like Ops, when graph replay hid device time.
 	Stages []CompareStage `json:"stages,omitempty"`
+
+	// StageEntries is each entry of each stage, in the order entered, when
+	// -stage-entries was given.
+	StageEntries []CompareStageEntry `json:"stage_entries,omitempty"`
 
 	// UnmatchedShare is |Δ(unmatched)| over the sum of |Δ| of every term of
 	// the identity: how much of the movement the ops file did not name.
@@ -415,8 +445,9 @@ type CompareSide struct {
 	// UnusedRules are the ops rules that matched no kernel in this window.
 	UnusedRules []opRule `json:"unused_rules,omitempty"`
 
-	ops    map[string]*opTotals
-	stages map[string]*stageTotals
+	ops          map[string]*opTotals
+	stages       map[string]*stageTotals
+	stageEntries []*stageTotals
 }
 
 type opTotals struct {
@@ -456,6 +487,20 @@ type CompareStage struct {
 	TargetSummedNanos    int64  `json:"target_summed_ns"`
 }
 
+// CompareStageEntry is one entry of a stage in both captures: Entry i is the
+// stage's (i+1)th beginning.
+type CompareStageEntry struct {
+	Stage                string `json:"stage"`
+	Entry                int    `json:"entry"`
+	BaseLaunches         int    `json:"base_launches"`
+	TargetLaunches       int    `json:"target_launches"`
+	BaseExclusiveNanos   int64  `json:"base_exclusive_ns"`
+	TargetExclusiveNanos int64  `json:"target_exclusive_ns"`
+	DeltaExclusiveNanos  int64  `json:"delta_exclusive_ns"`
+	BaseSummedNanos      int64  `json:"base_summed_ns"`
+	TargetSummedNanos    int64  `json:"target_summed_ns"`
+}
+
 // compareCaptures measures both captures and joins them by op.
 func compareCaptures(base, target *cudacapture.Capture, rules opRules, stages stageBoundaries, opts compareOptions) (*Comparison, error) {
 	b, err := measureCompareSide(base, rules, stages, opts)
@@ -466,11 +511,12 @@ func compareCaptures(base, target *cudacapture.Capture, rules opRules, stages st
 	if err != nil {
 		return nil, fmt.Errorf("target: %w", err)
 	}
-	return compareSides(b, t, rules, stages)
+	return compareSides(b, t, rules, stages, opts)
 }
 
-// compareSides joins two measured sides by op and by stage.
-func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries) (*Comparison, error) {
+// compareSides joins two measured sides by op and by stage. Of opts it uses
+// only stageEntries.
+func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts compareOptions) (*Comparison, error) {
 	if b.Device != "" && t.Device != "" && b.Device != t.Device {
 		return nil, fmt.Errorf("captures ran on different devices: base %q, target %q", b.Device, t.Device)
 	}
@@ -495,6 +541,13 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries) (*Co
 		for _, st := range c.Stages {
 			if st.BaseEntries != st.TargetEntries {
 				c.Notes = append(c.Notes, fmt.Sprintf("stage %s began %d times in base and %d in target: the boundaries did not align, so its rows hold different work", st.Stage, st.BaseEntries, st.TargetEntries))
+			}
+		}
+		if opts.stageEntries {
+			var err error
+			c.StageEntries, err = joinStageEntries(c.Stages, b.stageEntries, t.stageEntries)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -524,6 +577,7 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries) (*Co
 		c.OpStatus = "UNREAD"
 		c.Ops = nil
 		c.Stages = nil
+		c.StageEntries = nil
 		c.UnmatchedShare = 0
 		c.Notes = append(c.Notes, "graph replay hides device time from the census: busy and its classes cover resolved records only")
 	}
@@ -581,7 +635,67 @@ func checkIdentity(c *Comparison) error {
 	if base != c.Base.KernelNanos || target != c.Target.KernelNanos {
 		return fmt.Errorf("stages exclusive %d, %d ns != kernel exclusive %d, %d ns", base, target, c.Base.KernelNanos, c.Target.KernelNanos)
 	}
+	if c.StageEntries == nil {
+		return nil
+	}
+	base, target = 0, 0
+	for _, e := range c.StageEntries {
+		base += e.BaseExclusiveNanos
+		target += e.TargetExclusiveNanos
+	}
+	if base != c.Base.KernelNanos || target != c.Target.KernelNanos {
+		return fmt.Errorf("stage entries exclusive %d, %d ns != kernel exclusive %d, %d ns", base, target, c.Base.KernelNanos, c.Target.KernelNanos)
+	}
 	return nil
+}
+
+// joinStageEntries pairs the entries of each side by position. stages is
+// the joined per-stage rows, whose entry counts must agree on both sides,
+// except for kernels before the first boundary, which either side may lack.
+func joinStageEntries(stages []CompareStage, base, target []*stageTotals) ([]CompareStageEntry, error) {
+	for _, st := range stages {
+		if st.Stage != stageUnstarted && st.BaseEntries != st.TargetEntries {
+			return nil, fmt.Errorf("stage %s began %d times in base and %d in target: -stage-entries cannot pair its entries", st.Stage, st.BaseEntries, st.TargetEntries)
+		}
+	}
+	var rows []CompareStageEntry
+	row := func(stage string, entry int, b, t *stageTotals) {
+		rows = append(rows, CompareStageEntry{
+			Stage:                stage,
+			Entry:                entry,
+			BaseLaunches:         b.launches,
+			TargetLaunches:       t.launches,
+			BaseExclusiveNanos:   b.exclusive,
+			TargetExclusiveNanos: t.exclusive,
+			DeltaExclusiveNanos:  t.exclusive - b.exclusive,
+			BaseSummedNanos:      b.summed,
+			TargetSummedNanos:    t.summed,
+		})
+	}
+	unstarted := func(es []*stageTotals) (*stageTotals, []*stageTotals) {
+		if len(es) > 0 && es[0].stage == stageUnstarted {
+			return es[0], es[1:]
+		}
+		return &stageTotals{}, es
+	}
+	bu, base := unstarted(base)
+	tu, target := unstarted(target)
+	if bu.entries+tu.entries > 0 {
+		row(stageUnstarted, 0, bu, tu)
+	}
+	if len(base) != len(target) {
+		return nil, fmt.Errorf("base entered %d stages and target %d", len(base), len(target))
+	}
+	seen := make(map[string]int)
+	for i, b := range base {
+		t := target[i]
+		if b.stage != t.stage {
+			return nil, fmt.Errorf("stage entry %d is %s in base and %s in target", i, b.stage, t.stage)
+		}
+		row(b.stage, seen[b.stage], b, t)
+		seen[b.stage]++
+	}
+	return rows, nil
 }
 
 // joinStages lists every stage either side entered, in order.
@@ -892,7 +1006,8 @@ func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBou
 	})
 	owned := partitionBusy(recs)
 	if stages != nil {
-		s.stages = stages.assign(recs, owned)
+		s.stageEntries = stages.assign(recs, owned)
+		s.stages = byStage(s.stageEntries)
 	}
 	busy := make([]interval, len(recs))
 	first, last := recs[0].start, recs[0].end
@@ -1056,6 +1171,23 @@ func (c *Comparison) write(w io.Writer) error {
 			st.BaseEntries, st.TargetEntries, st.BaseLaunches, st.TargetLaunches,
 			st.BaseExclusiveNanos, st.TargetExclusiveNanos, st.DeltaExclusiveNanos,
 			st.BaseSummedNanos, st.TargetSummedNanos, st.Stage)
+	}
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+	if c.StageEntries == nil {
+		return nil
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "per stage entry, ns. entry i is the stage's (i+1)th beginning; a stage's entries sum to its row above.")
+	tw = tabwriter.NewWriter(w, 0, 0, 2, ' ', tabwriter.AlignRight)
+	fmt.Fprintln(tw, "launches\t\texclusive\t\t\tsummed\t\t\t")
+	fmt.Fprintln(tw, "base\ttarget\tbase\ttarget\tdelta\tbase\ttarget\tentry\t  stage")
+	for _, e := range c.StageEntries {
+		fmt.Fprintf(tw, "%d\t%d\t%d\t%d\t%+d\t%d\t%d\t%d\t  %s\n",
+			e.BaseLaunches, e.TargetLaunches,
+			e.BaseExclusiveNanos, e.TargetExclusiveNanos, e.DeltaExclusiveNanos,
+			e.BaseSummedNanos, e.TargetSummedNanos, e.Entry, e.Stage)
 	}
 	return tw.Flush()
 }
