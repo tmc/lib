@@ -34,14 +34,14 @@ func Err(r Result) error {
 
 // Decoder is an opaque CUvideodecoder handle.
 //
-// It is created by CreateDecoder and must be released with DestroyDecoder.
+// It is created by CreateDecoder and must be released with [Decoder.Destroy].
 // The zero Decoder is not usable.
 type Decoder uintptr
 
 // Parser is an opaque CUvideoparser handle, created by CreateVideoParser and
-// released with DestroyVideoParser. The zero Parser is not usable.
+// released with [Parser.Destroy]. The zero Parser is not usable.
 type Parser uintptr
 
 // Source is an opaque CUvideosource handle, created by CreateVideoSource and
-// released with DestroyVideoSource. The zero Source is not usable.
+// released with [Source.Destroy]. The zero Source is not usable.
 type Source uintptr

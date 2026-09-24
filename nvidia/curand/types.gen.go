@@ -11,5 +11,12 @@ type DirectionVectors64 [64]uint64
 // LibraryPropertyType identifies a CUDA library property.
 type LibraryPropertyType int32
 
+// LibraryPropertyType constants.
+const (
+	MajorVersion LibraryPropertyType = 0
+	MinorVersion LibraryPropertyType = 1
+	PatchLevel   LibraryPropertyType = 2
+)
+
 // Stream is an opaque CUDA stream handle.
 type Stream uintptr

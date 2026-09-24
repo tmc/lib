@@ -21,6 +21,16 @@ type DoubleReal float64
 // LibraryPropertyType identifies a library property to query.
 type LibraryPropertyType int32
 
+// LibraryPropertyType constants.
+const (
+	// The major version number.
+	MajorVersion LibraryPropertyType = 0
+	// The minor version number.
+	MinorVersion LibraryPropertyType = 1
+	// The patch level.
+	PatchLevel LibraryPropertyType = 2
+)
+
 // Real is a single-precision real value.
 type Real float32
 

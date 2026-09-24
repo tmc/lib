@@ -18,8 +18,7 @@ func Example() {
 	}
 	defer h.Destroy()
 
-	// LibraryPropertyType 0 is MAJOR_VERSION (library_types.h).
-	major, err := cudnn.GetProperty(cudnn.LibraryPropertyType(0))
+	major, err := cudnn.GetProperty(cudnn.MajorVersion)
 	if err != nil {
 		fmt.Println("property:", err)
 		return

@@ -39,6 +39,13 @@ type FillMode int32
 // LibraryPropertyType identifies a CUDA library property.
 type LibraryPropertyType int32
 
+// LibraryPropertyType constants.
+const (
+	MajorVersion LibraryPropertyType = 0
+	MinorVersion LibraryPropertyType = 1
+	PatchLevel   LibraryPropertyType = 2
+)
+
 // Operation selects a matrix operation.
 type Operation int32
 

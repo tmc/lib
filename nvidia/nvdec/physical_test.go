@@ -131,11 +131,11 @@ func testPhysicalDecode(t *testing.T, name string, codec nvdec.Codec) {
 		t.Fatal(failure)
 	}
 	defer func() {
-		if !result(nvdec.DestroyVideoParser(parser)) {
+		if !result(parser.Destroy()) {
 			t.Error(failure)
 		}
 		if decoder != 0 {
-			if !result(nvdec.DestroyDecoder(decoder)) {
+			if !result(decoder.Destroy()) {
 				t.Error(failure)
 			}
 		}

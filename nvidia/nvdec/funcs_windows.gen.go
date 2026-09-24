@@ -116,28 +116,28 @@ func DecodePictureAsync(arg0 Decoder, arg1 *PicParams, arg2 uintptr) (Result, er
 	return fnDecodePictureAsync(arg0, arg1, arg2), nil
 }
 
-// DestroyDecoder wraps cuvidDestroyDecoder.
-func DestroyDecoder(arg0 Decoder) (Result, error) {
+// Destroy wraps cuvidDestroyDecoder.
+func (d Decoder) Destroy() (Result, error) {
 	if err := checkLibSym("cuvidDestroyDecoder"); err != nil {
 		return Result(0), err
 	}
-	return fnDestroyDecoder(arg0), nil
+	return fnDestroyDecoder(d), nil
 }
 
-// DestroyVideoParser wraps cuvidDestroyVideoParser.
-func DestroyVideoParser(arg0 Parser) (Result, error) {
+// Destroy wraps cuvidDestroyVideoParser.
+func (p Parser) Destroy() (Result, error) {
 	if err := checkLibSym("cuvidDestroyVideoParser"); err != nil {
 		return Result(0), err
 	}
-	return fnDestroyVideoParser(arg0), nil
+	return fnDestroyVideoParser(p), nil
 }
 
-// DestroyVideoSource wraps cuvidDestroyVideoSource.
-func DestroyVideoSource(arg0 Source) (Result, error) {
+// Destroy wraps cuvidDestroyVideoSource.
+func (s Source) Destroy() (Result, error) {
 	if err := checkLibSym("cuvidDestroyVideoSource"); err != nil {
 		return Result(0), err
 	}
-	return fnDestroyVideoSource(arg0), nil
+	return fnDestroyVideoSource(s), nil
 }
 
 // GetDecodeStatus wraps cuvidGetDecodeStatus.

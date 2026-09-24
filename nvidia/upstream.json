@@ -770,7 +770,7 @@
           },
           {
             "path": "nvidia/cudnn/types.gen.go",
-            "sha256": "06b22c40e602d4264efa2916665c305c02ee2697f36a3d889fd96bfd862988b3"
+            "sha256": "954ffbdc6a65e45bb2468eb5dcb87f1f8019a351ff79625c443cd3d22da8aae5"
           }
         ],
         "source_state": "clean committed generator, output compared against committed lib",
@@ -869,10 +869,10 @@
       "package": "github.com/tmc/lib/nvidia/cudnn",
       "repositories": {
         "codegen": {
-          "commit": "2e7a6f0b2b4d84eb70fc4e027bb85f357b884217",
-          "tree": "5ef464b13902a90ee1a5e5dbb866c3f6e9c6dcfc",
+          "commit": "91f586b9f1e4e53d5e00f641dd7a82121a0bc4f4",
+          "tree": "fe95438d8b58b18a5fc56175afe66f445ffb5d60",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants."
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -1113,7 +1113,7 @@
           },
           {
             "path": "nvidia/cudss/types.gen.go",
-            "sha256": "6fc5170e257f31093c5953c064fec8c01d79aabf04c7b6da1c96db726ca3541a"
+            "sha256": "7591c591c1f5a7211f00c61bb67204aa5f28289ef5d7811f155e7d04ec02b854"
           }
         ],
         "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
@@ -1163,10 +1163,10 @@
       "package": "github.com/tmc/lib/nvidia/cudss",
       "repositories": {
         "codegen": {
-          "commit": "2e7a6f0b2b4d84eb70fc4e027bb85f357b884217",
-          "tree": "5ef464b13902a90ee1a5e5dbb866c3f6e9c6dcfc",
+          "commit": "91f586b9f1e4e53d5e00f641dd7a82121a0bc4f4",
+          "tree": "fe95438d8b58b18a5fc56175afe66f445ffb5d60",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants."
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -1264,7 +1264,7 @@
           },
           {
             "path": "nvidia/cufft/types.gen.go",
-            "sha256": "f9332d87fabeb5b2b5564126aed8bb5c68cb0fcdb0c2eed62fcdeaee6ae1726e"
+            "sha256": "59999e32e33bfc6454d1ac240bc3d49c02ab0905738cad2d06c983a4a4e02658"
           }
         ],
         "toolchain": {
@@ -1280,9 +1280,9 @@
       "package": "github.com/tmc/lib/nvidia/cufft",
       "repositories": {
         "codegen": {
-          "commit": "2e7a6f0b2b4d84eb70fc4e027bb85f357b884217",
-          "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters.",
-          "tree": "5ef464b13902a90ee1a5e5dbb866c3f6e9c6dcfc",
+          "commit": "91f586b9f1e4e53d5e00f641dd7a82121a0bc4f4",
+          "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants.",
+          "tree": "fe95438d8b58b18a5fc56175afe66f445ffb5d60",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -2785,7 +2785,7 @@
           },
           {
             "path": "nvidia/curand/types.gen.go",
-            "sha256": "7832bb788f58b6ae3ccb135b98f95b8e429158dc6d7e7ff712893066feabbfb9"
+            "sha256": "24241590bdbece3232fb7a25b7ef48c41ea24a85a157dd3c291431c6db2e64e0"
           }
         ],
         "toolchain": {
@@ -2796,7 +2796,7 @@
       "generator_sources": [
         {
           "path": "cmd/curand-survey/main.go",
-          "sha256": "342a4e538db55f838433bb1febdfd2f873d441099eecedaf9fbed2f11020ff45"
+          "sha256": "93b2609ede57bd109c5023b712c6ee8f361f1b507896620d3a760af0fdaa13c3"
         },
         {
           "path": "go.mod",
@@ -3303,10 +3303,10 @@
       "package": "github.com/tmc/lib/nvidia/curand",
       "repositories": {
         "codegen": {
-          "commit": "2e7a6f0b2b4d84eb70fc4e027bb85f357b884217",
-          "tree": "5ef464b13902a90ee1a5e5dbb866c3f6e9c6dcfc",
+          "commit": "91f586b9f1e4e53d5e00f641dd7a82121a0bc4f4",
+          "tree": "fe95438d8b58b18a5fc56175afe66f445ffb5d60",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants."
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -3401,7 +3401,7 @@
           },
           {
             "path": "nvidia/cusolver/types.gen.go",
-            "sha256": "d55e1c42e664c4934f83d1304b8b576eb8758fcf6474feed24804635f0dfb51b"
+            "sha256": "0107521834f1846a2e23ea7c42410c8f3bd8f35027a200cc0695527d91f022e2"
           }
         ],
         "toolchain": {
@@ -3417,9 +3417,9 @@
       "package": "github.com/tmc/lib/nvidia/cusolver",
       "repositories": {
         "codegen": {
-          "commit": "2e7a6f0b2b4d84eb70fc4e027bb85f357b884217",
-          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters.",
-          "tree": "5ef464b13902a90ee1a5e5dbb866c3f6e9c6dcfc",
+          "commit": "91f586b9f1e4e53d5e00f641dd7a82121a0bc4f4",
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants.",
+          "tree": "fe95438d8b58b18a5fc56175afe66f445ffb5d60",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -7684,11 +7684,11 @@
           },
           {
             "path": "nvidia/nvdec/funcs.gen.go",
-            "sha256": "a9e6547841c65d660a2e05b038886a5eaa8eedc1d4f658214ed15f5cd4dcf21b"
+            "sha256": "8239cacccdfd77425bfb9a1c71ad0db2efd7d44ead4cbd5170d348140948eb5f"
           },
           {
             "path": "nvidia/nvdec/funcs_windows.gen.go",
-            "sha256": "d9c65eadffb8f51063514e6a21db974ddebcd79c5f2f825c720b29241b222565"
+            "sha256": "bd50c1b9d68a422e9908c0876583caea868f431f91c13b41ba156d632f108d67"
           },
           {
             "path": "nvidia/nvdec/init.gen.go",
@@ -7728,11 +7728,11 @@
           },
           {
             "path": "nvidia/nvdec/types.gen.go",
-            "sha256": "6708802de7f6e64fdb03a27ce0c69b076c045a0fa0dd7ef4f08dcbaee58741d8"
+            "sha256": "f4368b4efe619df9d01ffc18100f325cdd9a07129428bd38b80e29b47777554d"
           },
           {
             "path": "nvidia/nvdec/types_windows.gen.go",
-            "sha256": "3de52e82ff721a1c782e304673bdb3d106e09951e39ef718a4c8333efb51b116"
+            "sha256": "cb68343607bd13313e74e82328de232cb9dd1f9166ce60df693ebc76287ab103"
           }
         ],
         "source_state": "clean codegen checkout at the recorded commit; the default pass was re-run and its ten outputs compared byte for byte with the recorded lib commit. The Windows pass was not run, so its seven outputs are recorded by hash only.",
@@ -7771,7 +7771,7 @@
               },
               {
                 "path": "nvidia/nvdec/funcs_windows.gen.go",
-                "sha256": "d9c65eadffb8f51063514e6a21db974ddebcd79c5f2f825c720b29241b222565"
+                "sha256": "bd50c1b9d68a422e9908c0876583caea868f431f91c13b41ba156d632f108d67"
               },
               {
                 "path": "nvidia/nvdec/init_windows.gen.go",
@@ -7787,7 +7787,7 @@
               },
               {
                 "path": "nvidia/nvdec/types_windows.gen.go",
-                "sha256": "3de52e82ff721a1c782e304673bdb3d106e09951e39ef718a4c8333efb51b116"
+                "sha256": "cb68343607bd13313e74e82328de232cb9dd1f9166ce60df693ebc76287ab103"
               }
             ],
             "purpose": "Generate the Windows amd64 bindings and their layout tests without regenerating the Linux ones."
@@ -7834,10 +7834,10 @@
       "package": "github.com/tmc/lib/nvidia/nvdec",
       "repositories": {
         "codegen": {
-          "commit": "2e7a6f0b2b4d84eb70fc4e027bb85f357b884217",
-          "tree": "5ef464b13902a90ee1a5e5dbb866c3f6e9c6dcfc",
+          "commit": "5b4cf24731bddc37c2146117fbfea570e6684c78",
+          "tree": "77f45eee58cbb3ed457decdfd821cc1279cb2703",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants."
         },
         "lib": {
           "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",

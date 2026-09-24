@@ -8,6 +8,16 @@ type Graph uintptr
 // LibraryPropertyType identifies a library property to query.
 type LibraryPropertyType int32
 
+// LibraryPropertyType constants.
+const (
+	// The major version number.
+	MajorVersion LibraryPropertyType = 0
+	// The minor version number.
+	MinorVersion LibraryPropertyType = 1
+	// The patch level.
+	PatchLevel LibraryPropertyType = 2
+)
+
 // RuntimeTag is an opaque runtime tag (deprecated).
 type RuntimeTag uintptr
 
