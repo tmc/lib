@@ -930,7 +930,10 @@ Options:
                                 exits through exit_group and runs neither the agent's atexit
                                 handler nor its ELF destructor, so %[6]s finalization never
                                 fires for it and a ProfilerStop before exit is what publishes
-                                the capture. Independent of --capture-range, which decides
+                                the capture. capture warns before running a Go binary
+                                without %[7]s, and fails the run with outcome
+                                go-exit-not-finalized when its journal then holds no
+                                activity. Independent of --capture-range, which decides
                                 what is collected rather than when it is published; sets
                                 CUDAPROF_FINALIZE
   --graph-trace <mode>          how CUDA graph replays are traced: %[9]s (default), one

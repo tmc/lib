@@ -390,8 +390,12 @@ func TestObserveCaptureSessionRequiresVerifiedCompletion(t *testing.T) {
 	}
 	base.TargetPID = 41
 	got = observeCaptureSession(base, dir, h.Session, observeOptions{})
-	if !got.CaptureSuccess || got.Outcome != captureOutcomeObserved || !got.TransportReady || !got.BootstrapSeen {
+	if got.Outcome != captureOutcomeObserved || !got.TransportReady || !got.BootstrapSeen {
 		t.Fatalf("verified no-cuda = %+v", got)
+	}
+	// Verified is not successful: the capture holds no records.
+	if got.CaptureSuccess || got.RunCompleteness != runEmpty || !strings.Contains(got.CaptureError, "no activity records") {
+		t.Fatalf("verified no-cuda reported success: %+v", got)
 	}
 }
 
@@ -615,7 +619,7 @@ func TestObserveCaptureSessionAcceptsIncompletePreloadGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
-	if !got.CaptureSuccess || got.Outcome != captureOutcomeObserved || len(got.WorkerGenerations) != 1 {
+	if got.CaptureSuccess || got.Outcome != captureOutcomeObserved || len(got.WorkerGenerations) != 1 {
 		t.Fatalf("preload generation = %+v", got)
 	}
 	if got.WorkerGenerations[0].Generation != 1 || got.WorkerGenerations[0].Disposition != "incomplete" {

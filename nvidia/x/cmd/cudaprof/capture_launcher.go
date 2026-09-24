@@ -279,12 +279,15 @@ type captureOptions struct {
 	Inject                string
 	// InjectMode is how the agent is loaded: injectModePreload, the
 	// default when empty, or injectModeCUDA.
-	InjectMode string
-	Dir                   string
-	Env                   []string
-	Stdin                 io.Reader
-	Stdout, Stderr        io.Writer
-	command               []string
+	InjectMode     string
+	Dir            string
+	Env            []string
+	Stdin          io.Reader
+	Stdout, Stderr io.Writer
+	// Log receives cudaprof's own warnings, which are not the target's
+	// output. Nil means os.Stderr.
+	Log     io.Writer
+	command []string
 
 	// openGPU opens the GPUs whose clocks are read at capture-range edges.
 	// Nil reads them through NVML.
@@ -1084,6 +1087,14 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if o.Inject != "" {
 		result.Target.Agent = identifyExecutable(o.Inject)
 	}
+	goExit := o.Inject != "" && goExitRisk(result.Target.Executable, lookupEnv(cmd.Env, "CUDAPROF_FINALIZE"))
+	if goExit {
+		log := o.Log
+		if log == nil {
+			log = os.Stderr
+		}
+		fmt.Fprintf(log, "cudaprof: warning: %s\n", goExitWarning(result.Target.Executable))
+	}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = o.Stdin, o.Stdout, o.Stderr
 	if cmd.Stdin == nil {
 		cmd.Stdin = os.Stdin
@@ -1145,7 +1156,11 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if clocks != nil {
 		edgeSamples = clocks.finish()
 	}
-	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", cudaInjection: o.Inject != "" && o.InjectMode == injectModeCUDA, noInject: o.NoInject, targetOnly: !o.FollowChildren, recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
+	observe := observeOptions{injectionRequested: o.Inject != "", cudaInjection: o.Inject != "" && o.InjectMode == injectModeCUDA, noInject: o.NoInject, targetOnly: !o.FollowChildren, recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords}
+	if goExit {
+		observe.goTarget = result.Target.Executable
+	}
+	result = observeCaptureSession(result, dir, session, observe)
 	if clocks != nil {
 		attachEdgeClocks(result.PhaseReceipt, edgeSamples)
 	}

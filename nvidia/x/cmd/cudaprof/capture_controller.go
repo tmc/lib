@@ -165,13 +165,19 @@ type observeOptions struct {
 	// refusing the whole capture.
 	recoverUnfinalized bool
 	maxJournalRecords  int64
+	// goTarget is the target's identity when it is a Go binary run under an
+	// agent that finalizes on exit (see goExitRisk). A target journal that
+	// then ends unfinalized with no activity record is reported as
+	// captureOutcomeGoExit, naming the flag that would have published it.
+	goTarget *executableIdentity
 }
 
 // observeCaptureSession observes one capture session and always stamps the
-// whole-run completeness of what it observed, at every terminal path.
+// whole-run completeness of what it observed, at every terminal path. A
+// session that retained no activity records is never successful.
 func observeCaptureSession(result captureResult, dir, session string, opts observeOptions) captureResult {
 	result.ChildrenFollowed = !opts.targetOnly
-	return withRunCompleteness(observeSession(result, dir, session, opts))
+	return refuseEmpty(withRunCompleteness(observeSession(result, dir, session, opts)))
 }
 
 // withRunCompleteness classifies the run from evidence the capture already
@@ -483,6 +489,9 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			diagnosis := unfinalizedTargetDiagnosis(targetJournalErr, targetObservedState, targetObservedActivity)
 			if diagnosis == targetJournalErr.Error() {
 				diagnosis += unfinalizedHint(targetJournalErr, result)
+			}
+			if opts.goTarget != nil && outcome == captureOutcomeNotFinalized && targetObservedState.bootstrap && targetObservedActivity == 0 {
+				outcome, diagnosis = captureOutcomeGoExit, goExitDiagnosis(opts.goTarget)
 			}
 			result.Outcome, result.CaptureError = outcome, diagnosis
 		} else if targetNoCUDA {
