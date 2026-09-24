@@ -23,6 +23,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudadevicetable](cudadevicetable/) | Package cudadevicetable holds GPU device facts that were read from a real device, separated from the ones that were not. |
 | [cudaflightrecorder](cudaflightrecorder/) | Package cudaflightrecorder coordinates continuous in-memory flight recording across host Go execution traces and GPU device observations. |
 | [cudafuse](cudafuse/) | Package cudafuse compiles sub-graphs of elementwise and reduction operations into single fused CUDA mega-kernels. |
+| [cudagradcheck](cudagradcheck/) | Package cudagradcheck checks gradients computed by hand-written GPU kernels against float64 host oracles. |
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
 | [cudagroup](cudagroup/) | Package cudagroup describes bounded CUDA execution-group contracts. |
 | [cudair](cudair/) | Package cudair provides a typed Intermediate Representation (IR) graph, immutable validated snapshots, and waterfall memory arena planning for GPU tensor graphs. |
