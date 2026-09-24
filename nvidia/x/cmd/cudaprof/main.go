@@ -1,5 +1,12 @@
-// Cudaprof opens a portable CUDA capture with upstream pprof and a reader for
-// the capture's PTX and NVIDIA disassembly. Viewing requires neither a GPU nor CUDA.
+// Cudaprof records a CUDA program's device timeline with CUPTI and reads the
+// resulting capture: kernel totals and source through upstream pprof, PTX and
+// NVIDIA disassembly, idle gaps, a per-op comparison of two captures, the
+// verdict of an ABBA timing campaign, and a Perfetto trace.
+//
+// Capture requires Linux and the CUPTI agent built by go generate. Every
+// other command reads a capture file and requires neither a GPU nor CUDA.
+//
+// Run "cudaprof help" for the commands, and see README.md for the workflow.
 package main
 
 import (
