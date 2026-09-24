@@ -97,7 +97,9 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, fo
 	}
 	// Each module is its own build with its own disassembly, and two can
 	// hold a kernel of the same name; only samples labelled with the
-	// module's identity are its own.
+	// module's identity are its own. A sample the producer left unlabelled
+	// is given the one module that defines its symbol, if one does.
+	inferred := inferModules(cap)
 	printed := 0
 	unlabelled := 0
 	for _, s := range cap.Profile.Sample {
@@ -133,8 +135,11 @@ func printCaptureLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, fo
 	if printed == 0 {
 		return fmt.Errorf("kernel %q not in any module's disassembly", kernel)
 	}
+	if inferred.Inferred > 0 {
+		fmt.Fprintf(w, "\nkernel work attributed by symbol: %d records the producer left without a module (labelled module_inferred=symbol)\n", inferred.Inferred)
+	}
 	if unlabelled > 0 {
-		fmt.Fprintf(w, "\nkernel work naming no module: %d records, counted in none of the tables above\n", unlabelled)
+		fmt.Fprintf(w, "\nkernel work naming no module: %d records, counted in none of the tables above (%d with a symbol in no module, %d in several)\n", unlabelled, inferred.Absent, inferred.Ambiguous)
 	}
 	return nil
 }
