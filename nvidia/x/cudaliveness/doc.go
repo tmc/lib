@@ -18,6 +18,19 @@
 // planted defect while instrumenting the wrong kernel, and can report a
 // plausible count while loading nothing.
 //
+// [Executed] is the control for a patched kernel image. It asks whether the
+// patched bytes executed, or whether the patch went into bytes the device
+// never ran, and needs three things: a prediction of the patched output with
+// its derivation, a different output from the same launch with the unpatched
+// image, and no copy of the kernel text the patch left stale. It cannot say
+// that the patch is correct, only that it executed. A patched output can
+// equal its prediction by coincidence -- the patched site may never be
+// reached, or the prediction may be the unpatched output -- which is why the
+// unpatched run is required and a matching prediction alone does not pass.
+// Executed is the one control that can fail without running: a missing
+// derivation or a stale copy is known before any launch, and no launch would
+// change the answer, so it reports that failure rather than a pending run.
+//
 // A control that did not run is not a failing control. Its Check reports an
 // error matching [cudaerrors.ErrHardwarePending], because an unrun control is
 // the absence of a measurement and must never be reported as a negative one.
