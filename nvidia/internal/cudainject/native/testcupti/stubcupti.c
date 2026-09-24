@@ -143,7 +143,7 @@ static CUpti_CallbackFunc subscriber_cb;
 static void *subscriber_data;
 static int subscriber_live;
 
-#define TEST_MAX_ENABLED_CBIDS 16
+#define TEST_MAX_ENABLED_CBIDS 64
 static struct { unsigned domain, cbid; } enabled_cbids[TEST_MAX_ENABLED_CBIDS];
 static unsigned enabled_cbid_count;
 
@@ -238,6 +238,45 @@ int cudaprof_test_load_module(uint32_t id, const void *cubin, size_t size) {
 	memset(&res, 0, sizeof res);
 	res.resourceDescriptor = &mod;
 	subscriber_cb(subscriber_data, CUPTI_CB_DOMAIN_RESOURCE, CUPTI_CBID_RESOURCE_MODULE_LOADED, &res);
+	return 1;
+}
+
+int cudaprof_test_fire_api(unsigned domain, unsigned cbid, unsigned site, const void *params, uint32_t correlation) {
+	if (!subscriber_live || subscriber_cb == NULL) return 0;
+	if (!cudaprof_test_callback_enabled(domain, cbid)) return 0;
+	CUpti_CallbackData data;
+	memset(&data, 0, sizeof data);
+	data.callbackSite = (CUpti_ApiCallbackSite)site;
+	data.functionName = "cudaprof_control_api";
+	data.functionParams = params;
+	data.correlationId = correlation;
+	subscriber_cb(subscriber_data, (CUpti_CallbackDomain)domain, (CUpti_CallbackId)cbid, &data);
+	return 1;
+}
+
+int cudaprof_test_offer_kernel(uint32_t correlation) {
+	if (request_cb == NULL || complete_cb == NULL) return -1;
+	if (!kind_enabled(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL)) return 0;
+	uint8_t *buffer = NULL;
+	size_t size = 0, max_records = 0;
+	request_cb(&buffer, &size, &max_records);
+	size_t n = record_size(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL);
+	if (buffer == NULL || size < n) return 0;
+	TEST_KERNEL_TYPE *k = (TEST_KERNEL_TYPE *)buffer;
+	memset(k, 0, n);
+	k->kind = CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL;
+	k->name = "cudaprof_module_kernel";
+	k->start = 50000 + (uint64_t)correlation * 1000;
+	k->end = k->start + 100;
+	k->queued = k->start - 10;
+	k->submitted = k->start - 5;
+	k->contextId = 1;
+	k->streamId = 7;
+	k->correlationId = correlation;
+	k->gridX = k->gridY = k->gridZ = 1;
+	k->blockX = 32;
+	k->blockY = k->blockZ = 1;
+	complete_cb(NULL, 7, buffer, size, n);
 	return 1;
 }
 

@@ -35,6 +35,13 @@ int cudaprof_test_fire_callback(unsigned domain, unsigned cbid, unsigned site);
    inside every module load, and reports whether it was delivered. */
 int cudaprof_test_load_module(uint32_t id, const void *cubin, size_t size);
 
+/* Fires one API callback with a parameter block and correlation id, as the
+   driver or runtime does around a call, and reports whether it was
+   delivered. offer_kernel then completes one kernel record with that
+   correlation id, which is what the producer joins a launch to. */
+int cudaprof_test_fire_api(unsigned domain, unsigned cbid, unsigned site, const void *params, uint32_t correlation);
+int cudaprof_test_offer_kernel(uint32_t correlation);
+
 /* Reports how many activity kinds are enabled right now. Gating's whole claim
    is that this is zero before the range opens and nonzero inside it, so the
    control reads it rather than inferring it from record counts. */

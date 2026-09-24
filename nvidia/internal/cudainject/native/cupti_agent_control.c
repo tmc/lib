@@ -284,6 +284,122 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
+	/* module-chains drives each way a launch reaches its module, with fake
+	   handles, and completes one kernel record per launch. The correlation
+	   id names the case; the Go test holds the module id each must carry:
+
+	     101  CUkernel from an eagerly loaded library, launched directly
+	     102  CUfunction from cuKernelGetFunction on that kernel
+	     103  CUfunction whose lazy library loads inside cuKernelGetFunction
+	     104  the CUkernel behind 103, launched directly
+	     105  CUkernel whose lazy library loads inside its first launch
+	     106  runtime host stub whose module loads inside its first launch
+	     107  the same stub launched again, with no load
+	     108  a runtime stub launched after a load in an untracked call
+	     109  CUfunction from cuModuleGetFunction */
+	if (strcmp(scenario, "module-chains") == 0) {
+		enum { D = CUPTI_CB_DOMAIN_DRIVER_API, R = CUPTI_CB_DOMAIN_RUNTIME_API };
+		static const char image[16] = "\x7f" "ELF-test-cubin";
+		int fired = 0;
+
+		/* An eager library: the module loads inside cuLibraryLoadData. */
+		CUlibrary lib1 = (CUlibrary)(uintptr_t)0x1000;
+		cuLibraryLoadData_params load = {0};
+		load.library = &lib1;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadData, CUPTI_API_ENTER, &load, 1);
+		fired += cudaprof_test_load_module(11, image, sizeof image);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadData, CUPTI_API_EXIT, &load, 1);
+		CUkernel kern1 = (CUkernel)(uintptr_t)0x2000;
+		cuLibraryGetKernel_params get = {&kern1, lib1, "k1"};
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryGetKernel, CUPTI_API_ENTER, &get, 2);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryGetKernel, CUPTI_API_EXIT, &get, 2);
+		cuLaunchKernel_params launch = {0};
+		launch.f = (CUfunction)kern1;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_ENTER, &launch, 101);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_EXIT, &launch, 101);
+		CUfunction fn1 = (CUfunction)(uintptr_t)0x3000;
+		cuKernelGetFunction_params kf = {&fn1, kern1};
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuKernelGetFunction, CUPTI_API_ENTER, &kf, 3);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuKernelGetFunction, CUPTI_API_EXIT, &kf, 3);
+		launch.f = fn1;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_ENTER, &launch, 102);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_EXIT, &launch, 102);
+
+		/* A lazy library: nothing loads until cuKernelGetFunction. */
+		CUlibrary lib2 = (CUlibrary)(uintptr_t)0x1100;
+		load.library = &lib2;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadFromFile, CUPTI_API_ENTER, &load, 4);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadFromFile, CUPTI_API_EXIT, &load, 4);
+		CUkernel kern2 = (CUkernel)(uintptr_t)0x2100;
+		get.pKernel = &kern2;
+		get.library = lib2;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryGetKernel, CUPTI_API_ENTER, &get, 5);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryGetKernel, CUPTI_API_EXIT, &get, 5);
+		CUfunction fn2 = (CUfunction)(uintptr_t)0x3100;
+		kf.pFunc = &fn2;
+		kf.kernel = kern2;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuKernelGetFunction, CUPTI_API_ENTER, &kf, 6);
+		fired += cudaprof_test_load_module(12, image, sizeof image);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuKernelGetFunction, CUPTI_API_EXIT, &kf, 6);
+		launch.f = fn2;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_ENTER, &launch, 103);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_EXIT, &launch, 103);
+		cuLaunchKernelEx_params ex = {0};
+		ex.f = (CUfunction)kern2;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx, CUPTI_API_ENTER, &ex, 104);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx, CUPTI_API_EXIT, &ex, 104);
+
+		/* A lazy library whose kernel is launched without a lookup. */
+		CUlibrary lib3 = (CUlibrary)(uintptr_t)0x1200;
+		load.library = &lib3;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadData, CUPTI_API_ENTER, &load, 7);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadData, CUPTI_API_EXIT, &load, 7);
+		CUkernel kern3 = (CUkernel)(uintptr_t)0x2200;
+		get.pKernel = &kern3;
+		get.library = lib3;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryGetKernel, CUPTI_API_ENTER, &get, 8);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLibraryGetKernel, CUPTI_API_EXIT, &get, 8);
+		launch.f = (CUfunction)kern3;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_ENTER, &launch, 105);
+		fired += cudaprof_test_load_module(13, image, sizeof image);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_EXIT, &launch, 105);
+
+		/* The runtime, which launches by host stub. */
+		cudaLaunchKernel_v7000_params rt = {0};
+		rt.func = (const void *)(uintptr_t)0x4000;
+		fired += cudaprof_test_fire_api(R, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000, CUPTI_API_ENTER, &rt, 106);
+		fired += cudaprof_test_load_module(14, image, sizeof image);
+		fired += cudaprof_test_fire_api(R, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000, CUPTI_API_EXIT, &rt, 106);
+		cudaLaunchKernelExC_v11060_params rtex = {0};
+		rtex.func = rt.func;
+		fired += cudaprof_test_fire_api(R, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_v11060, CUPTI_API_ENTER, &rtex, 107);
+		fired += cudaprof_test_fire_api(R, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_v11060, CUPTI_API_EXIT, &rtex, 107);
+		fired += cudaprof_test_load_module(15, image, sizeof image);
+		rt.func = (const void *)(uintptr_t)0x5000;
+		fired += cudaprof_test_fire_api(R, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000, CUPTI_API_ENTER, &rt, 108);
+		fired += cudaprof_test_fire_api(R, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000, CUPTI_API_EXIT, &rt, 108);
+
+		/* The module API, unchanged. */
+		CUmodule mod = (CUmodule)(uintptr_t)0x6000;
+		cuModuleLoad_params ml = {&mod, "m.cubin"};
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuModuleLoad, CUPTI_API_ENTER, &ml, 9);
+		fired += cudaprof_test_load_module(16, image, sizeof image);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuModuleLoad, CUPTI_API_EXIT, &ml, 9);
+		CUfunction fn4 = (CUfunction)(uintptr_t)0x3300;
+		cuModuleGetFunction_params mg = {&fn4, mod, "k4"};
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuModuleGetFunction, CUPTI_API_ENTER, &mg, 10);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuModuleGetFunction, CUPTI_API_EXIT, &mg, 10);
+		launch.f = fn4;
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_ENTER, &launch, 109);
+		fired += cudaprof_test_fire_api(D, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel, CUPTI_API_EXIT, &launch, 109);
+
+		int offered = 0;
+		for (uint32_t c = 101; c <= 109; c++) offered += cudaprof_test_offer_kernel(c);
+		printf("{\"scenario\":\"module-chains\",\"offered\":%d,\"fired\":%d}\n", offered, fired);
+		fflush(stdout);
+		return 0;
+	}
+
 	/* host-sample idles while the producer's own host-state sampler runs.
 	   The sampler reads whatever CUDAPROF_HOST_SAMPLE_ROOT names, so this
 	   scenario deliberately does no CUPTI work: the thread set under test is

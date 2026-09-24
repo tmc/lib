@@ -33,7 +33,13 @@ typedef enum {
    cuProfilerStart/Stop directly, which the runtime pair never sees. */
 typedef enum {
 	CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStart_v4000 = 171,
-	CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000 = 172
+	CUPTI_RUNTIME_TRACE_CBID_cudaProfilerStop_v4000 = 172,
+	CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000 = 211,
+	CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_ptsz_v7000 = 214,
+	CUPTI_RUNTIME_TRACE_CBID_cudaLaunchCooperativeKernel_v9000 = 269,
+	CUPTI_RUNTIME_TRACE_CBID_cudaLaunchCooperativeKernel_ptsz_v9000 = 270,
+	CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_v11060 = 430,
+	CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_ptsz_v11060 = 431
 } CUpti_runtime_api_trace_cbid_subset;
 
 typedef enum {
@@ -49,7 +55,11 @@ typedef enum {
 	CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel = 477,
 	CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz = 478,
 	CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx = 652,
-	CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz = 653
+	CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz = 653,
+	CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadData = 678,
+	CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadFromFile = 679,
+	CUPTI_DRIVER_TRACE_CBID_cuLibraryGetKernel = 681,
+	CUPTI_DRIVER_TRACE_CBID_cuKernelGetFunction = 683
 } CUpti_driver_api_trace_cbid_subset;
 
 /* The resource callback ids module attribution follows. A module is announced
@@ -65,8 +75,14 @@ typedef enum {
    compared against another handle. */
 typedef struct CUmod_st *CUmodule;
 typedef struct CUfunc_st *CUfunction;
+typedef struct CUlib_st *CUlibrary;
+typedef struct CUkern_st *CUkernel;
 typedef struct CUstream_st *CUstream;
 typedef struct CUlaunchConfig_st CUlaunchConfig;
+typedef struct cudaLaunchConfig_st cudaLaunchConfig_t;
+typedef struct { unsigned int x, y, z; } dim3;
+typedef int CUjit_option;
+typedef int CUlibraryOption;
 
 typedef uint32_t CUpti_CallbackId;
 typedef struct CUpti_Subscriber_st *CUpti_SubscriberHandle;
@@ -134,6 +150,45 @@ typedef struct {
 	void **kernelParams;
 	void **extra;
 } cuLaunchKernelEx_params;
+
+typedef struct {
+	CUlibrary *library;
+	const void *code;
+	CUjit_option *jitOptions;
+	void **jitOptionsValues;
+	unsigned int numJitOptions;
+	CUlibraryOption *libraryOptions;
+	void **libraryOptionValues;
+	unsigned int numLibraryOptions;
+} cuLibraryLoadData_params;
+
+typedef struct {
+	CUkernel *pKernel;
+	CUlibrary library;
+	const char *name;
+} cuLibraryGetKernel_params;
+
+typedef struct {
+	CUfunction *pFunc;
+	CUkernel kernel;
+} cuKernelGetFunction_params;
+
+/* The runtime parameter blocks, transcribed from CUDA 13.4
+   include/generated_cuda_runtime_api_meta.h. */
+typedef struct {
+	const void *func;
+	dim3 gridDim;
+	dim3 blockDim;
+	void **args;
+	size_t sharedMem;
+	CUstream stream;
+} cudaLaunchKernel_v7000_params;
+
+typedef struct {
+	const cudaLaunchConfig_t *config;
+	const void *func;
+	void **args;
+} cudaLaunchKernelExC_v11060_params;
 
 CUptiResult cuptiSubscribe(CUpti_SubscriberHandle *subscriber, CUpti_CallbackFunc callback, void *userdata);
 CUptiResult cuptiUnsubscribe(CUpti_SubscriberHandle subscriber);

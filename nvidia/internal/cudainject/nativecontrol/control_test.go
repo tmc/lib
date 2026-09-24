@@ -89,6 +89,13 @@ type finalizedRecord struct {
 	ModulesUnchecked uint64 `json:"modules_unchecked"`
 }
 
+// moduleKernel is a kernel record's launch correlation and the module the
+// producer joined it to.
+type moduleKernel struct {
+	Correlation uint32 `json:"correlation"`
+	ModuleID    uint32 `json:"module_id"`
+}
+
 // moduleRecord is one module image record.
 type moduleRecord struct {
 	ID        uint32 `json:"module_id"`
@@ -140,6 +147,10 @@ type harnessResult struct {
 	FinalizeRC      int `json:"finalize_rc"`
 	FinalizeRCAgain int `json:"finalize_rc_again"`
 	Flushes         int `json:"flushes"`
+
+	// module-chains only: how many API and resource callbacks the stub
+	// delivered to the producer.
+	Fired int `json:"fired"`
 }
 
 // cuptiSuccess and cuptiErrorNotSupported are the stub CUPTI's values for
@@ -170,6 +181,8 @@ type capture struct {
 	syncs      []syncRecord
 	hosts      []hostSampleRecord
 	modules    []moduleRecord
+	// moduleKernels are the module-chains scenario's kernel records.
+	moduleKernels []moduleKernel
 	// order is every record's kind in journal order. The producer's ordering
 	// invariant -- nothing before bootstrap and capability, nothing after
 	// finalized -- is a property of the sequence, not of the counts, so it
@@ -618,6 +631,13 @@ func decode(t *testing.T, path, wantRevision string) capture {
 					t.Fatalf("kernel payload %q: %v", r.Payload, err)
 				}
 				c.graphNodes = append(c.graphNodes, k)
+			}
+			if bytes.Contains(r.Payload, []byte(`"name":"cudaprof_module_kernel"`)) {
+				var k moduleKernel
+				if err := json.Unmarshal(r.Payload, &k); err != nil {
+					t.Fatalf("kernel payload %q: %v", r.Payload, err)
+				}
+				c.moduleKernels = append(c.moduleKernels, k)
 			}
 			if bytes.Contains(r.Payload, []byte(`"subtype":"graph_trace"`)) {
 				var g graphTraceRecord
@@ -3344,5 +3364,53 @@ func TestModuleTableOverflowIsRecorded(t *testing.T) {
 				t.Errorf("finalized module_seen_max = %d, want 256", c.finalized.ModuleSeenMax)
 			}
 		})
+	}
+}
+
+// TestLaunchModuleChains drives every chain from a load to a launch through
+// the stub: the module API, the library API loaded eagerly and lazily, a
+// CUkernel launched directly, and the runtime's host stubs. Each kernel
+// record must carry the module its launch came from, and a launch the
+// producer cannot place must carry none rather than a stale one.
+func TestLaunchModuleChains(t *testing.T) {
+	result, status, captures := runEnv(t, []string{"CUDAPROF_MODULES=1"}, "module-chains")
+	if status.ExitStatus() != 0 {
+		t.Fatalf("harness exited %v", status)
+	}
+	if result.Fired != 44 || result.Offered != 9 {
+		t.Fatalf("stub delivered %d callbacks and %d kernels, want 44 and 9: a callback the producer never enabled was dropped", result.Fired, result.Offered)
+	}
+	c := only(t, captures)
+	if len(c.failures) != 0 {
+		t.Errorf("producer recorded failures: %q", c.failures)
+	}
+	got := map[uint32]uint32{}
+	for _, k := range c.moduleKernels {
+		got[k.Correlation] = k.ModuleID
+	}
+	tests := []struct {
+		name        string
+		correlation uint32
+		want        uint32
+	}{
+		{"eager library kernel", 101, 11},
+		{"eager library function", 102, 11},
+		{"lazy library function", 103, 12},
+		{"lazy library kernel", 104, 12},
+		{"kernel loaded by its launch", 105, 13},
+		{"runtime stub loaded by its launch", 106, 14},
+		{"runtime stub relaunched", 107, 14},
+		{"runtime stub after an untracked load", 108, 0},
+		{"module function", 109, 16},
+	}
+	for _, tt := range tests {
+		m, ok := got[tt.correlation]
+		if !ok {
+			t.Errorf("%s: no kernel record with correlation %d", tt.name, tt.correlation)
+			continue
+		}
+		if m != tt.want {
+			t.Errorf("%s: module_id = %d, want %d", tt.name, m, tt.want)
+		}
 	}
 }

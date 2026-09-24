@@ -838,20 +838,33 @@ static void write_module(uint32_t module_id, const char *cubin, size_t size) {
 #define LAUNCH_SLOTS 8192
 
 static pthread_mutex_t handle_mu = PTHREAD_MUTEX_INITIALIZER;
-static struct { CUmodule handle; uint32_t id; } module_handles[MODULE_HANDLE_SLOTS];
+/* Images are CUmodule and CUlibrary handles; code is CUfunction and CUkernel
+   handles and the host stubs the runtime launches by. The driver accepts a
+   CUkernel wherever it takes a CUfunction, so a launch looks both up in one
+   table. Handles are opaque and only ever compared, never dereferenced. */
+static struct { const void *handle; uint32_t id; } module_handles[MODULE_HANDLE_SLOTS];
 static int module_handle_count;
-static struct { CUfunction handle; uint32_t id; } function_handles[FUNCTION_HANDLE_SLOTS];
+static struct { const void *handle; uint32_t id; } function_handles[FUNCTION_HANDLE_SLOTS];
 static int function_handle_count;
 /* Correlation ids rise monotonically, so the slot is the id itself modulo the
    table size. A launch whose slot is taken before its record is decoded is
    one the reader loses the module of, which is the same outcome as never
    having recorded it. */
 static struct { _Atomic uint32_t correlation; _Atomic uint32_t id; } launch_modules[LAUNCH_SLOTS];
-/* The module id of the load running on this thread, published by the
-   resource callback and read by the exit callback of the same call. */
+/* The module id of a load running on this thread, published by the resource
+   callback and taken by the exit callback of the call it fired inside. The
+   driver loads lazily, so that call can be a library load, a function lookup
+   or a launch; every tracked call clears it on entry, so an id published
+   inside an untracked call is never charged to a later one. */
 static _Thread_local uint32_t loading_module_id;
 
-static void bind_module_handle(CUmodule handle, uint32_t id) {
+static uint32_t take_loaded_module(void) {
+	uint32_t id = loading_module_id;
+	loading_module_id = 0;
+	return id;
+}
+
+static void bind_module_handle(const void *handle, uint32_t id) {
 	if (handle == NULL || id == 0) return;
 	pthread_mutex_lock(&handle_mu);
 	for (int i = 0; i < module_handle_count; i++) {
@@ -865,12 +878,14 @@ static void bind_module_handle(CUmodule handle, uint32_t id) {
 	pthread_mutex_unlock(&handle_mu);
 }
 
-static void bind_function_handle(CUfunction fn, CUmodule handle) {
-	if (fn == NULL || handle == NULL) return;
+/* bind_function_handle records that code came from the image with handle, or
+   from module id when the image is not known; id wins when both are given,
+   because it is what the driver just loaded for this very call. */
+static void bind_function_handle(const void *fn, const void *handle, uint32_t id) {
+	if (fn == NULL) return;
 	pthread_mutex_lock(&handle_mu);
-	uint32_t id = 0;
-	for (int i = 0; i < module_handle_count; i++) {
-		if (module_handles[i].handle == handle) { id = module_handles[i].id; break; }
+	for (int i = 0; id == 0 && handle != NULL && i < module_handle_count; i++) {
+		if (module_handles[i].handle == handle) id = module_handles[i].id;
 	}
 	if (id != 0) {
 		int found = 0;
@@ -886,14 +901,20 @@ static void bind_function_handle(CUfunction fn, CUmodule handle) {
 	pthread_mutex_unlock(&handle_mu);
 }
 
-static void note_launch_module(CUfunction fn, uint32_t correlation) {
-	if (fn == NULL || correlation == 0) return;
+/* function_module returns the module id bound to fn, or zero. */
+static uint32_t function_module(const void *fn) {
 	uint32_t id = 0;
 	pthread_mutex_lock(&handle_mu);
 	for (int i = 0; i < function_handle_count; i++) {
 		if (function_handles[i].handle == fn) { id = function_handles[i].id; break; }
 	}
 	pthread_mutex_unlock(&handle_mu);
+	return id;
+}
+
+static void note_launch_module(const void *fn, uint32_t correlation) {
+	if (fn == NULL || correlation == 0) return;
+	uint32_t id = function_module(fn);
 	if (id == 0) return;
 	size_t slot = correlation % LAUNCH_SLOTS;
 	atomic_store(&launch_modules[slot].id, id);
@@ -1800,41 +1821,126 @@ static void write_range_edge(const char *edge, const char *api, unsigned index, 
 /* track_module_callback follows the driver's own words about where a kernel
    came from and reports whether cbid was one of them. Nothing here calls into
    CUDA: every value it needs is already in the callback's parameter block, so
-   the callback stays a read of memory the driver handed over. */
-static int track_module_callback(CUpti_CallbackId cbid, const CUpti_CallbackData *data) {
+   the callback stays a read of memory the driver handed over.
+
+   Three chains reach a launch. The module API binds a CUmodule at load and a
+   CUfunction at cuModuleGetFunction. The library API binds a CUlibrary at
+   load, a CUkernel at cuLibraryGetKernel and a CUfunction at
+   cuKernelGetFunction. The runtime launches by host stub and exposes no
+   handle at all, so a stub is bound only when the module it needs is loaded
+   inside its launch -- the first launch from each lazily loaded module. A
+   module loaded eagerly, before the stub's first launch, leaves that stub's
+   kernels with no module id, which the reader then attributes by symbol. */
+static int track_module_callback(CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const CUpti_CallbackData *data) {
+	if (domain == CUPTI_CB_DOMAIN_RUNTIME_API) {
+		const void *func;
+		switch (cbid) {
+		case CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000:
+		case CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_ptsz_v7000:
+		case CUPTI_RUNTIME_TRACE_CBID_cudaLaunchCooperativeKernel_v9000:
+		case CUPTI_RUNTIME_TRACE_CBID_cudaLaunchCooperativeKernel_ptsz_v9000:
+			/* The host stub is the first parameter of all four. */
+			if (data->functionParams == NULL) return 1;
+			func = ((const cudaLaunchKernel_v7000_params *)data->functionParams)->func;
+			break;
+		case CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_v11060:
+		case CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_ptsz_v11060:
+			if (data->functionParams == NULL) return 1;
+			func = ((const cudaLaunchKernelExC_v11060_params *)data->functionParams)->func;
+			break;
+		default:
+			return 0;
+		}
+		if (data->callbackSite == CUPTI_API_ENTER) {
+			loading_module_id = 0;
+			note_launch_module(func, data->correlationId);
+			return 1;
+		}
+		uint32_t loaded = take_loaded_module();
+		if (loaded != 0 && function_module(func) == 0) {
+			bind_function_handle(func, NULL, loaded);
+			note_launch_module(func, data->correlationId);
+		}
+		return 1;
+	}
+	if (domain != CUPTI_CB_DOMAIN_DRIVER_API) return 0;
 	switch (cbid) {
 	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoad:
 	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoadData:
 	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoadDataEx:
 	case CUPTI_DRIVER_TRACE_CBID_cuModuleLoadFatBinary: {
+		if (data->callbackSite == CUPTI_API_ENTER) { loading_module_id = 0; return 1; }
+		uint32_t loaded = take_loaded_module();
+		if (data->functionParams == NULL) return 1;
 		/* Every load takes CUmodule* first, so one layout reads all four. */
-		if (data->callbackSite != CUPTI_API_EXIT || data->functionParams == NULL) return 1;
 		const cuModuleLoad_params *p = (const cuModuleLoad_params *)data->functionParams;
-		if (p->module != NULL && loading_module_id != 0) bind_module_handle(*p->module, loading_module_id);
-		loading_module_id = 0;
+		if (p->module != NULL) bind_module_handle(*p->module, loaded);
+		return 1;
+	}
+	case CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadData:
+	case CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadFromFile: {
+		/* A library loaded lazily announces no module here; its kernels
+		   are bound when a later call loads it. */
+		if (data->callbackSite == CUPTI_API_ENTER) { loading_module_id = 0; return 1; }
+		uint32_t loaded = take_loaded_module();
+		if (data->functionParams == NULL) return 1;
+		/* Both take CUlibrary* first. */
+		const cuLibraryLoadData_params *p = (const cuLibraryLoadData_params *)data->functionParams;
+		if (p->library != NULL) bind_module_handle(*p->library, loaded);
 		return 1;
 	}
 	case CUPTI_DRIVER_TRACE_CBID_cuModuleGetFunction: {
-		if (data->callbackSite != CUPTI_API_EXIT || data->functionParams == NULL) return 1;
+		if (data->callbackSite == CUPTI_API_ENTER) { loading_module_id = 0; return 1; }
+		uint32_t loaded = take_loaded_module();
+		if (data->functionParams == NULL) return 1;
 		const cuModuleGetFunction_params *p = (const cuModuleGetFunction_params *)data->functionParams;
-		if (p->hfunc != NULL) bind_function_handle(*p->hfunc, p->hmod);
+		if (p->hfunc != NULL) bind_function_handle(*p->hfunc, p->hmod, loaded);
+		return 1;
+	}
+	case CUPTI_DRIVER_TRACE_CBID_cuLibraryGetKernel: {
+		if (data->callbackSite == CUPTI_API_ENTER) { loading_module_id = 0; return 1; }
+		uint32_t loaded = take_loaded_module();
+		if (data->functionParams == NULL) return 1;
+		const cuLibraryGetKernel_params *p = (const cuLibraryGetKernel_params *)data->functionParams;
+		if (p->pKernel != NULL) bind_function_handle(*p->pKernel, p->library, loaded);
+		return 1;
+	}
+	case CUPTI_DRIVER_TRACE_CBID_cuKernelGetFunction: {
+		if (data->callbackSite == CUPTI_API_ENTER) { loading_module_id = 0; return 1; }
+		uint32_t loaded = take_loaded_module();
+		if (data->functionParams == NULL) return 1;
+		const cuKernelGetFunction_params *p = (const cuKernelGetFunction_params *)data->functionParams;
+		/* The kernel's module is known from cuLibraryGetKernel, or from
+		   the load this call just caused; either binds both handles. */
+		if (loaded == 0) loaded = function_module(p->kernel);
+		else bind_function_handle(p->kernel, NULL, loaded);
+		if (p->pFunc != NULL) bind_function_handle(*p->pFunc, NULL, loaded);
 		return 1;
 	}
 	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel:
 	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel_ptsz:
 	case CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel:
-	case CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz: {
-		/* CUfunction is the first parameter of all four. */
-		if (data->callbackSite != CUPTI_API_ENTER || data->functionParams == NULL) return 1;
-		const cuLaunchKernel_params *p = (const cuLaunchKernel_params *)data->functionParams;
-		note_launch_module(p->f, data->correlationId);
-		return 1;
-	}
+	case CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz:
 	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx:
 	case CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz: {
-		if (data->callbackSite != CUPTI_API_ENTER || data->functionParams == NULL) return 1;
-		const cuLaunchKernelEx_params *p = (const cuLaunchKernelEx_params *)data->functionParams;
-		note_launch_module(p->f, data->correlationId);
+		if (data->functionParams == NULL) return 1;
+		/* CUfunction is the first parameter of the first four and the
+		   second of the Ex pair. It may be a CUkernel. */
+		const void *f = cbid == CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx || cbid == CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz
+			? (const void *)((const cuLaunchKernelEx_params *)data->functionParams)->f
+			: (const void *)((const cuLaunchKernel_params *)data->functionParams)->f;
+		if (data->callbackSite == CUPTI_API_ENTER) {
+			loading_module_id = 0;
+			note_launch_module(f, data->correlationId);
+			return 1;
+		}
+		/* A CUkernel launched before any cuKernelGetFunction loads its
+		   module here, inside the launch. */
+		uint32_t loaded = take_loaded_module();
+		if (loaded != 0 && function_module(f) == 0) {
+			bind_function_handle(f, NULL, loaded);
+			note_launch_module(f, data->correlationId);
+		}
 		return 1;
 	}
 	default:
@@ -2257,7 +2363,7 @@ static void CUPTIAPI range_callback(void *userdata, CUpti_CallbackDomain domain,
 		return;
 	}
 	const CUpti_CallbackData *data = (const CUpti_CallbackData *)cbdata;
-	if (modules_enabled && domain == CUPTI_CB_DOMAIN_DRIVER_API && track_module_callback(cbid, data)) return;
+	if (modules_enabled && track_module_callback(domain, cbid, data)) return;
 	int start;
 	const char *api;
 	if (domain == CUPTI_CB_DOMAIN_RUNTIME_API) {
@@ -2753,21 +2859,31 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 			   continues: the consumer already says how many records named
 			   no module. */
 			if (modules_enabled) {
-				static const CUpti_CallbackId module_trace[] = {
-					CUPTI_DRIVER_TRACE_CBID_cuModuleLoad,
-					CUPTI_DRIVER_TRACE_CBID_cuModuleLoadData,
-					CUPTI_DRIVER_TRACE_CBID_cuModuleLoadDataEx,
-					CUPTI_DRIVER_TRACE_CBID_cuModuleLoadFatBinary,
-					CUPTI_DRIVER_TRACE_CBID_cuModuleGetFunction,
-					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel,
-					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel_ptsz,
-					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx,
-					CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz,
-					CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel,
-					CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz,
+				static const struct { CUpti_CallbackDomain domain; CUpti_CallbackId cbid; } module_trace[] = {
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleLoad},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleLoadData},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleLoadDataEx},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleLoadFatBinary},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuModuleGetFunction},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadData},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLibraryLoadFromFile},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLibraryGetKernel},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuKernelGetFunction},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernel_ptsz},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchKernelEx_ptsz},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel},
+					{CUPTI_CB_DOMAIN_DRIVER_API, CUPTI_DRIVER_TRACE_CBID_cuLaunchCooperativeKernel_ptsz},
+					{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_v7000},
+					{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernel_ptsz_v7000},
+					{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchCooperativeKernel_v9000},
+					{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchCooperativeKernel_ptsz_v9000},
+					{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_v11060},
+					{CUPTI_CB_DOMAIN_RUNTIME_API, CUPTI_RUNTIME_TRACE_CBID_cudaLaunchKernelExC_ptsz_v11060},
 				};
 				for (size_t i = 0; i < sizeof(module_trace) / sizeof(module_trace[0]); i++) {
-					CUptiResult r = cuptiEnableCallback(1, range_subscriber, CUPTI_CB_DOMAIN_DRIVER_API, module_trace[i]);
+					CUptiResult r = cuptiEnableCallback(1, range_subscriber, module_trace[i].domain, module_trace[i].cbid);
 					if (r != CUPTI_SUCCESS) record_cupti_failure("cuptiEnableCallback(module attribution)", r);
 				}
 			}
