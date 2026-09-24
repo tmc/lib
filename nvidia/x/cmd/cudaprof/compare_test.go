@@ -312,13 +312,67 @@ func TestKernelOpFirstMatch(t *testing.T) {
 		{"other", unmatchedOp, -1},
 	}
 	for _, tt := range tests {
-		op, rule := rules.kernelOp(tt.kernel)
+		op, rule := rules.kernelOp(opKey(tt.kernel, false))
 		if op != tt.op || rule != tt.rule {
 			t.Errorf("kernelOp(%q) = %q, %d; want %q, %d", tt.kernel, op, rule, tt.op, tt.rule)
 		}
 	}
-	if op, _ := opRules(nil).kernelOp("_Z16hc_expand_kernelPfPKfS1_S1_S1_S1_S1_jjjjjii"); op != "hc_expand_kernel" {
+	if op, _ := opRules(nil).kernelOp(opKey("_Z16hc_expand_kernelPfPKfS1_S1_S1_S1_S1_jjjjjii", false)); op != "hc_expand_kernel" {
 		t.Errorf("without rules op = %q, want the demangled name", op)
+	}
+}
+
+func TestOpKey(t *testing.T) {
+	const fixup8 = "_Z24mul_mat_q_stream_k_fixupIL9ggml_type8ELi128ELb0EEvPKiS2_PfS3_5uint3iiiS4_iS4_iS4_"
+	tests := []struct {
+		name      string
+		templates bool
+		want      string
+	}{
+		{fixup8, false, "mul_mat_q_stream_k_fixup"},
+		{fixup8, true, "mul_mat_q_stream_k_fixup<(ggml_type)8, 128, false>"},
+		{"_Z16hc_expand_kernelPfPKfS1_S1_S1_S1_S1_jjjjjii", true, "hc_expand_kernel"},
+		{"foo<int>(int*)", false, "foo"},
+		{"foo<int>(int*)", true, "foo<int>"},
+		{"go_rms", true, "go_rms"},
+	}
+	for _, tt := range tests {
+		if got := opKey(tt.name, tt.templates); got != tt.want {
+			t.Errorf("opKey(%q, %v) = %q, want %q", tt.name, tt.templates, got, tt.want)
+		}
+	}
+}
+
+// TestCompareTemplatesSplitsInstantiations checks that -templates gives each
+// instantiation of a template kernel its own op, where the default joins them.
+func TestCompareTemplatesSplitsInstantiations(t *testing.T) {
+	const (
+		q8 = "_Z24mul_mat_q_stream_k_fixupIL9ggml_type8ELi128ELb0EEvPKiS2_PfS3_5uint3iiiS4_iS4_iS4_"
+		q2 = "_Z24mul_mat_q_stream_k_fixupIL9ggml_type2ELi128ELb0EEvPKiS2_PfS3_5uint3iiiS4_iS4_iS4_"
+	)
+	recs := []rec{
+		{subtype: "kernel", name: q8, start: 1100, end: 1200},
+		{subtype: "kernel", name: q2, start: 1300, end: 1600},
+	}
+	for _, tt := range []struct {
+		templates bool
+		want      []string
+	}{
+		{false, []string{"mul_mat_q_stream_k_fixup"}},
+		{true, []string{"mul_mat_q_stream_k_fixup<(ggml_type)2, 128, false>", "mul_mat_q_stream_k_fixup<(ggml_type)8, 128, false>"}},
+	} {
+		c, err := compareCaptures(compareCapture(recs, phaseStatus(1000, 2000)), compareCapture(recs, phaseStatus(1000, 2000)), nil, nil, compareOptions{phase: -1, templates: tt.templates})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var ops []string
+		for _, o := range c.Ops {
+			ops = append(ops, o.Op)
+		}
+		slices.Sort(ops)
+		if !reflect.DeepEqual(ops, tt.want) {
+			t.Errorf("templates=%v: ops = %q, want %q", tt.templates, ops, tt.want)
+		}
 	}
 }
 

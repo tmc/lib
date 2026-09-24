@@ -14,6 +14,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/ianlancetaylor/demangle"
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalowering"
@@ -51,6 +52,13 @@ import (
 // boundaries did not align, and its rows then hold different work. Stages
 // partition kernel exclusive time just as ops do.
 //
+// Ops join by qualified name, and template arguments are not part of it: every
+// instantiation of mul_mat_q<...> is one op, and every CUTLASS kernel is
+// cutlass::Kernel2. -templates keeps the arguments, so each instantiation is
+// its own op and an -ops or -stages pattern is tested against the name with
+// its arguments, "mul_mat_q<(ggml_type)8, 128, false>". It is not the default
+// because a pattern anchored at the end of a bare name stops matching.
+//
 // -warmup-until and -warmup-ms cut a prologue off the front of each window
 // by the rule gaps uses for its steady state: the window then starts at the
 // first kernel matching the pattern, or at the first device record more than
@@ -75,6 +83,8 @@ type compareOptions struct {
 	stagesPath      string
 	json            bool
 	allowUnresolved bool
+	// templates keeps template arguments in the name ops join by.
+	templates bool
 
 	// warmup, when set, cuts the prologue off the front of each window the
 	// way gaps cuts its steady state; its maxRecords and journalBytes are
@@ -126,7 +136,7 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	return c.write(stdout)
 }
 
-const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt] [-allow-unresolved] [-json] base.pprof target.pprof"
+const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt] [-templates] [-allow-unresolved] [-json] base.pprof target.pprof"
 
 // parseCompareArgs returns nil paths and a nil error when help was requested
 // and printed.
@@ -138,6 +148,7 @@ func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string
 	fs.StringVar(&opts.opsPath, "ops", "", "file of `regex op` lines mapping kernel names to ops")
 	fs.StringVar(&opts.stagesPath, "stages", "", "file of `regex stage` lines naming the boundaries of a repeating sequence of stages")
 	fs.BoolVar(&opts.json, "json", false, "write the comparison as JSON")
+	fs.BoolVar(&opts.templates, "templates", false, "keep template arguments in kernel names, so each instantiation is its own op")
 	fs.BoolVar(&opts.allowUnresolved, "allow-unresolved", false, "report window totals even when graph replay hides the per-op census")
 	var warmup gapOptions
 	fs.Float64Var(&warmup.warmupMS, "warmup-ms", 0, "start each window `N` ms after its first device activity, as gaps does")
@@ -234,10 +245,26 @@ func parseOpRules(r io.Reader) (opRules, error) {
 	return rules, sc.Err()
 }
 
-// kernelOp returns the op of a kernel and the index of the rule that named it,
-// or -1. Without rules every kernel is its own op.
-func (rules opRules) kernelOp(name string) (string, int) {
-	key := cudalowering.MatchKey(name)
+// opKey is the name a kernel joins by: its qualified name, as
+// [cudalowering.MatchKey] gives it, or with templates the qualified name
+// with its template arguments.
+func opKey(name string, templates bool) string {
+	if !templates {
+		return cudalowering.MatchKey(name)
+	}
+	name = strings.TrimSpace(name)
+	if key, err := demangle.ToString(name, demangle.NoParams); err == nil && key != "" && key != name {
+		return key
+	}
+	if i := strings.IndexByte(name, '('); i >= 0 {
+		name = name[:i]
+	}
+	return strings.TrimSpace(name)
+}
+
+// kernelOp returns the op of a kernel, given its opKey, and the index of the
+// rule that named it, or -1. Without rules every kernel is its own op.
+func (rules opRules) kernelOp(key string) (string, int) {
 	if key == "" {
 		key = "(unnamed)"
 	}
@@ -671,7 +698,7 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 			return nil, err
 		}
 	}
-	if err := side.measure(records, rules, stages); err != nil {
+	if err := side.measure(records, rules, stages, opts.templates); err != nil {
 		return nil, err
 	}
 	if side.UnresolvedNanos > 0 && !opts.allowUnresolved {
@@ -788,7 +815,7 @@ type compareRecord struct {
 // measure partitions the window. Device records count only when they fall
 // entirely inside it and graph replay envelopes are clipped to it, the rule
 // measurePhase applies to the phase receipt.
-func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBoundaries) error {
+func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBoundaries, templates bool) error {
 	lo, hi := s.StartTimestamp, s.StopTimestamp
 	s.WindowNanos = hi - lo
 	s.ops = make(map[string]*opTotals)
@@ -808,7 +835,8 @@ func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBou
 		r := compareRecord{start: a.start, end: a.end, class: class}
 		switch class {
 		case classKernel:
-			op, rule := rules.kernelOp(a.name)
+			key := opKey(a.name, templates)
+			op, rule := rules.kernelOp(key)
 			if rule >= 0 {
 				used[rule] = true
 			}
@@ -819,7 +847,7 @@ func (s *CompareSide) measure(records gapRecords, rules opRules, stages stageBou
 			}
 			t.launches++
 			t.summed += a.end - a.start
-			r.op, r.key = op, cudalowering.MatchKey(a.name)
+			r.op, r.key = op, key
 			s.KernelCount++
 		case classMemcpy:
 			s.MemcpyCount++

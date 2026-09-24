@@ -137,7 +137,7 @@ func gapBound(item AdviceItem, c *Comparison, ops map[string]int64, rules opRule
 		// op absent from both windows has a delta of zero.
 		seen := make(map[string]bool)
 		for _, k := range strings.Split(item.Location.Kernel, " -> ") {
-			op, _ := rules.kernelOp(k)
+			op, _ := rules.kernelOp(opKey(k, false))
 			if seen[op] {
 				continue
 			}
