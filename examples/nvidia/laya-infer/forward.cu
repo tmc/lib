@@ -3,7 +3,8 @@
 // Activations are [B, T, d] row-major, padded to a common T; lens[b] gives the
 // real length of sequence b and only attention needs it. Every reduction that
 // laya.c performs in double is done in double here too, so the two agree to the
-// same ~1e-4 the C port claims against PyTorch.
+// same ~1e-4 the C port claims against PyTorch, except the LayerNorm that
+// writes a half operand.
 //
 // The half-precision pass stores the matrix-product operands as IEEE half but
 // keeps the residual stream, and every LayerNorm statistic, in float32. The
@@ -38,10 +39,16 @@ __device__ __forceinline__ float gelu_erf(float x)
     return 0.5f * x * (1.0f + erff(x * 0.70710678118654752f));
 }
 
-// Row-wise LayerNorm over [rows, d] with optional bias, matching laya.c's
-// double-precision mean/variance accumulation. The input is always the float32
-// residual; only the output, which feeds a matrix product, may be half.
-template <typename T>
+// Row-wise LayerNorm over [rows, d] with optional bias, accumulating the mean
+// and variance in A. The input is always the float32 residual; only the
+// output, which feeds a matrix product, may be half.
+//
+// LayerNorm accumulates in double, as laya.c does, which is what --exact needs
+// to match it byte for byte. LayerNormHalf, whose output is rounded to half
+// anyway, accumulates in float: this GPU runs double at a small fraction of
+// the float rate, and double statistics made the kernel three times slower
+// than the memory it moves.
+template <typename T, typename A>
 __device__ __forceinline__ void layer_norm(
     const float *__restrict__ x,
     const float *__restrict__ w,
@@ -55,37 +62,37 @@ __device__ __forceinline__ void layer_norm(
     const float *xr = x + (size_t)row * d;
     T *o = out + (size_t)row * d;
 
-    __shared__ double s_mu[32];
-    __shared__ double s_var[32];
-    __shared__ double s_mean;
+    __shared__ A s_mu[32];
+    __shared__ A s_var[32];
+    __shared__ A s_mean;
     __shared__ float s_inv;
 
     int tid = threadIdx.x, lane = tid & 31, wid = tid >> 5, nwarp = blockDim.x >> 5;
 
-    double mu = 0.0;
-    for (int i = tid; i < d; i += blockDim.x) mu += (double)xr[i];
+    A mu = 0;
+    for (int i = tid; i < d; i += blockDim.x) mu += (A)xr[i];
     for (int off = 16; off > 0; off >>= 1) mu += __shfl_down_sync(0xffffffff, mu, off);
     if (lane == 0) s_mu[wid] = mu;
     __syncthreads();
     if (tid == 0) {
-        double t = 0.0;
+        A t = 0;
         for (int i = 0; i < nwarp; i++) t += s_mu[i];
-        s_mean = t / (double)d;
+        s_mean = t / (A)d;
     }
     __syncthreads();
 
-    double mean = s_mean, var = 0.0;
+    A mean = s_mean, var = 0;
     for (int i = tid; i < d; i += blockDim.x) {
-        double c = (double)xr[i] - mean;
+        A c = (A)xr[i] - mean;
         var += c * c;
     }
     for (int off = 16; off > 0; off >>= 1) var += __shfl_down_sync(0xffffffff, var, off);
     if (lane == 0) s_var[wid] = var;
     __syncthreads();
     if (tid == 0) {
-        double t = 0.0;
+        A t = 0;
         for (int i = 0; i < nwarp; i++) t += s_var[i];
-        s_inv = (float)(1.0 / sqrt(t / (double)d + (double)eps));
+        s_inv = (float)((A)1 / sqrt(t / (A)d + (A)eps));
     }
     __syncthreads();
 
@@ -98,14 +105,14 @@ extern "C" __global__ void LayerNorm(
     const float *__restrict__ x, const float *__restrict__ w, const float *__restrict__ b,
     float *__restrict__ out, int rows, int d, float eps)
 {
-    layer_norm(x, w, b, out, rows, d, eps);
+    layer_norm<float, double>(x, w, b, out, rows, d, eps);
 }
 
 extern "C" __global__ void LayerNormHalf(
     const float *__restrict__ x, const float *__restrict__ w, const float *__restrict__ b,
     half_t *__restrict__ out, int rows, int d, float eps)
 {
-    layer_norm(x, w, b, out, rows, d, eps);
+    layer_norm<half_t, float>(x, w, b, out, rows, d, eps);
 }
 
 // Narrow float32 x to half. Layer 0 has no attn_norm, so this, not a

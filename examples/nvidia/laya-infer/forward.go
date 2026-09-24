@@ -42,10 +42,12 @@ const scoreBudget = 64 << 20
 type blasScalars struct{ scale, one, zero float32 }
 
 // precision selects how the matrix products are computed. It is the only
-// accuracy knob: the residual stream, every LayerNorm statistic and all
-// elementwise arithmetic are float32 in every mode. Every mode accumulates in
-// float32; what they trade is the mantissa the tensor cores see in the
-// operands, and for half also the width of the operands in memory.
+// accuracy knob: the residual stream and all elementwise arithmetic are
+// float32 in every mode, and the LayerNorm statistics are double as laya.c
+// has them, except float32 where half is about to round the normalized row
+// to 11 bits. Every mode accumulates its products in float32; what they
+// trade is the mantissa the tensor cores see in the operands, and for half
+// also the width of the operands in memory.
 //
 // fast is the default because the answers are the same decisions -- the
 // difference lands in the 4th decimal of a probability, well inside the
