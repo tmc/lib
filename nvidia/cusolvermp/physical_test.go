@@ -104,11 +104,11 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	if int(device) >= count {
 		t.Fatalf("this rank was assigned device %d but only %d are visible", device, count)
 	}
-	dev, err := driver.NewDeviceGet(int(device))
+	dev, err := driver.DeviceGet(int(device))
 	if err != nil {
 		t.Fatalf("device %d: %v", device, err)
 	}
-	uuid, err := dev.GetUuid()
+	uuid, err := dev.Uuid()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	// Every rank joins the same communicator. This blocks until all of them
 	// do, which is why a launcher that starts too few ranks hangs rather than
 	// failing: the launcher, not this test, has to bound that.
-	comm, err := nccl.NewCommInitRank(world, uniqueID, rank)
+	comm, err := nccl.CommInitRank(world, uniqueID, rank)
 	if err != nil {
 		t.Fatalf("nccl communicator: %v", err)
 	}
@@ -206,13 +206,13 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	// allocation has no address to hand over.
 	dA := mallocOrFail(t, uint(max64(localRowsA*localColsA, 1))*8)
 	defer func() {
-		if err := driver.DevicePtr(dA).MemFree(); err != nil {
+		if err := driver.DevicePtr(dA).Free(); err != nil {
 			t.Errorf("free device A: %v", err)
 		}
 	}()
 	dB := mallocOrFail(t, uint(max64(localRowsB*localColsB, 1))*8)
 	defer func() {
-		if err := driver.DevicePtr(dB).MemFree(); err != nil {
+		if err := driver.DevicePtr(dB).Free(); err != nil {
 			t.Errorf("free device B: %v", err)
 		}
 	}()
@@ -220,13 +220,13 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	// allocation based on local columns.
 	dIpiv := mallocOrFail(t, uint(max64(localRowsA+mb, localColsA))*8)
 	defer func() {
-		if err := driver.DevicePtr(dIpiv).MemFree(); err != nil {
+		if err := driver.DevicePtr(dIpiv).Free(); err != nil {
 			t.Errorf("free device pivots: %v", err)
 		}
 	}()
 	dInfo := mallocOrFail(t, 4)
 	defer func() {
-		if err := driver.DevicePtr(dInfo).MemFree(); err != nil {
+		if err := driver.DevicePtr(dInfo).Free(); err != nil {
 			t.Errorf("free device info: %v", err)
 		}
 	}()
@@ -288,7 +288,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	}
 	dWork := mallocOrFail(t, max(deviceBytes, 1))
 	defer func() {
-		if err := driver.DevicePtr(dWork).MemFree(); err != nil {
+		if err := driver.DevicePtr(dWork).Free(); err != nil {
 			t.Errorf("free device workspace: %v", err)
 		}
 	}()
@@ -402,7 +402,7 @@ func hostAllocOrFail(t *testing.T, size uint) unsafe.Pointer {
 func readInfo(t *testing.T, dInfo cusolvermp.DevicePtr) int32 {
 	t.Helper()
 	var info int32
-	if err := driver.DevicePtr(dInfo).MemcpyDtoH(unsafe.Pointer(&info), 4); err != nil {
+	if err := driver.DevicePtr(dInfo).CopyToHost(unsafe.Pointer(&info), 4); err != nil {
 		t.Fatalf("read info: %v", err)
 	}
 	return info

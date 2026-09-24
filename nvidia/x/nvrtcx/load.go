@@ -57,7 +57,7 @@ func (cm *CompiledModule) LoadOutputWithLog(dev *cuda.Device, kind OutputKind) (
 	}
 	err = dev.WithContext(func() error {
 		var loadErr error
-		mod, loadErr = driver.NewModuleLoadDataEx(unsafe.Pointer(&image[0]), uint32(len(options)), &options[0], &values[0])
+		mod, loadErr = driver.ModuleLoadDataEx(image, uint32(len(options)), &options[0], &values[0])
 		return loadErr
 	})
 	runtime.KeepAlive(image)

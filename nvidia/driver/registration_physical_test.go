@@ -16,15 +16,15 @@ func TestNativeLegacyCapability(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Fatal(err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	major, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMajor)
+	major, err := dev.Attribute(driver.DevAttrComputeCapabilityMajor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	minor, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMinor)
+	minor, err := dev.Attribute(driver.DevAttrComputeCapabilityMinor)
 	if err != nil {
 		t.Fatal(err)
 	}

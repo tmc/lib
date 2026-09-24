@@ -714,7 +714,7 @@ func setStream(handle Handle, streamId Stream) error {
 //
 // This function sets the workspace attached to the handle.
 // The required size of the workspace is obtained by
-// [Handle.GetDefaultWorkspaceSize].
+// [Handle.DefaultWorkspaceSize].
 //
 // By setting a larger workspace, users are able to execute functions without
 // allocating the extra workspace in some functions.

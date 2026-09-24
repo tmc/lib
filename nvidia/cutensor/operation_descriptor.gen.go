@@ -2,14 +2,14 @@
 
 package cutensor
 
+// Attribute wraps cutensorOperationDescriptorGetAttribute.
+func (o OperationDescriptor) Attribute(handle Handle, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
+	return operationDescriptorGetAttribute(handle, o, attr, buf, sizeInBytes)
+}
+
 // Destroy wraps cutensorDestroyOperationDescriptor.
 func (o OperationDescriptor) Destroy() error {
 	return destroyOperationDescriptor(o)
-}
-
-// GetAttribute wraps cutensorOperationDescriptorGetAttribute.
-func (o OperationDescriptor) GetAttribute(handle Handle, attr OperationdescriptorattributeT, buf uintptr, sizeInBytes uint) error {
-	return operationDescriptorGetAttribute(handle, o, attr, buf, sizeInBytes)
 }
 
 // SetAttribute wraps cutensorOperationDescriptorSetAttribute.

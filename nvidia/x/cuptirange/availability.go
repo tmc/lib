@@ -40,7 +40,7 @@ func CounterAvailability(dev *cuda.Device, maxBytes int) (image []byte, err erro
 		if err := cupti.ProfilerInitialize(&init); err != nil {
 			return fmt.Errorf("cuptirange: initialize profiler: %w", err)
 		}
-		ctx, err := driver.NewContextGetCurrent()
+		ctx, err := driver.CtxGetCurrent()
 		if err != nil {
 			return err
 		}

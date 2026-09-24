@@ -25,38 +25,38 @@ func NewMatrixDn(nrows int64, ncols int64, ld int64, values uintptr, valueType D
 	return MatrixCreateDn(nrows, ncols, ld, values, valueType, layout)
 }
 
+// BatchCsr wraps cudssMatrixGetBatchCsr.
+func (m Matrix) BatchCsr(batchCount *int64, nrows *uintptr, ncols *uintptr, nnz *uintptr, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
+	return MatrixGetBatchCsr(m, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)
+}
+
+// BatchDn wraps cudssMatrixGetBatchDn.
+func (m Matrix) BatchDn(batchCount *int64, nrows *uintptr, ncols *uintptr, ld *uintptr, values *uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
+	return MatrixGetBatchDn(m, batchCount, nrows, ncols, ld, values, indexType, valueType, layout)
+}
+
+// Csr wraps cudssMatrixGetCsr.
+func (m Matrix) Csr(nrows *int64, ncols *int64, nnz *int64, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
+	return MatrixGetCsr(m, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)
+}
+
 // Destroy wraps cudssMatrixDestroy.
 func (m Matrix) Destroy() error {
 	return MatrixDestroy(m)
 }
 
-// GetBatchCsr wraps cudssMatrixGetBatchCsr.
-func (m Matrix) GetBatchCsr(batchCount *int64, nrows *uintptr, ncols *uintptr, nnz *uintptr, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
-	return MatrixGetBatchCsr(m, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)
-}
-
-// GetBatchDn wraps cudssMatrixGetBatchDn.
-func (m Matrix) GetBatchDn(batchCount *int64, nrows *uintptr, ncols *uintptr, ld *uintptr, values *uintptr, indexType *DataType, valueType *DataType, layout *Layout) error {
-	return MatrixGetBatchDn(m, batchCount, nrows, ncols, ld, values, indexType, valueType, layout)
-}
-
-// GetCsr wraps cudssMatrixGetCsr.
-func (m Matrix) GetCsr(nrows *int64, ncols *int64, nnz *int64, rowStart *uintptr, rowEnd *uintptr, colIndices *uintptr, values *uintptr, offsetType *DataType, indexType *DataType, valueType *DataType, mtype *MatrixType, mview *MatrixViewType, indexBase *IndexBase) error {
-	return MatrixGetCsr(m, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)
-}
-
-// GetDistributionRow1d wraps cudssMatrixGetDistributionRow1d.
-func (m Matrix) GetDistributionRow1d(firstRow *int64, lastRow *int64) error {
+// DistributionRow1d wraps cudssMatrixGetDistributionRow1d.
+func (m Matrix) DistributionRow1d(firstRow *int64, lastRow *int64) error {
 	return MatrixGetDistributionRow1d(m, firstRow, lastRow)
 }
 
-// GetDn wraps cudssMatrixGetDn.
-func (m Matrix) GetDn(nrows *int64, ncols *int64, ld *int64, values *uintptr, type_ *DataType, layout *Layout) error {
+// Dn wraps cudssMatrixGetDn.
+func (m Matrix) Dn(nrows *int64, ncols *int64, ld *int64, values *uintptr, type_ *DataType, layout *Layout) error {
 	return MatrixGetDn(m, nrows, ncols, ld, values, type_, layout)
 }
 
-// GetFormat wraps cudssMatrixGetFormat.
-func (m Matrix) GetFormat() (int32, error) {
+// Format wraps cudssMatrixGetFormat.
+func (m Matrix) Format() (int32, error) {
 	return MatrixGetFormat(m)
 }
 

@@ -75,7 +75,7 @@ func testTeamFFI(t *testing.T, lib string) {
 		t.Fatalf("cft = %+v, %v", cft, err)
 	}
 	var offset uint
-	if id, err := Window(7).GetCftDeviceLeInfo(19, 42, team, &offset); err != nil || id != 42 || offset != 19 {
+	if id, err := Window(7).CftDeviceLeInfo(19, 42, team, &offset); err != nil || id != 42 || offset != 19 {
 		t.Fatalf("device = %d/%d, %v", id, offset, err)
 	}
 	// The 128-byte UniqueId stays on stock purego, independently of Team.
@@ -84,7 +84,7 @@ func testTeamFFI(t *testing.T, lib string) {
 	}
 	var id UniqueId
 	id.Internal[0], id.Internal[127] = 1, 2
-	if got, err := NewCommInitRank(1, id, 0); err != nil || got != Comm(9) {
+	if got, err := CommInitRank(1, id, 0); err != nil || got != Comm(9) {
 		t.Fatalf("large struct call = %v, %v", got, err)
 	}
 }

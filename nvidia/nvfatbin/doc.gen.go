@@ -15,7 +15,7 @@
 //   - [Handle.AddReloc]: [Handle.AddReloc] adds relocatable PTX entries from a host object to the fatbinary.
 //   - [Handle.AddTileIR]: [Handle.AddTileIR] adds Tile IR to the fatbinary.
 //   - [Create]: [Create] creates a new handle
-//   - [Destroy]: [Destroy] destroys the handle.
+//   - [Handle.Destroy]: [Handle.Destroy] destroys the handle.
 //   - [Handle.Get]: [Handle.Get] returns the completed fatbinary.
 //   - [Handle.Size]: [Handle.Size] returns the fatbinary's size.
 //   - [Version]: [Version] returns the current version of nvFatbin

@@ -27,7 +27,7 @@ func TestCholeskySolve(t *testing.T) {
 		}
 	}
 	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check(err)
 	ctx, err := driver.NewContext(nil, 0, dev)
 	check(err)
@@ -44,7 +44,7 @@ func TestCholeskySolve(t *testing.T) {
 		var allocations []driver.DevicePtr
 		defer func() {
 			for i := len(allocations) - 1; i >= 0; i-- {
-				check(allocations[i].MemFree())
+				check(allocations[i].Free())
 			}
 		}()
 		check := func(err error) {
@@ -63,8 +63,8 @@ func TestCholeskySolve(t *testing.T) {
 		a := []float32{4, 1, 1, 3}
 		b := []float32{6, 7}
 		da, db, di := alloc(16), alloc(8), alloc(4)
-		check(da.MemcpyHtoD(unsafe.Pointer(&a[0]), 16))
-		check(db.MemcpyHtoD(unsafe.Pointer(&b[0]), 8))
+		check(da.CopyFromHost(unsafe.Pointer(&a[0]), 16))
+		check(db.CopyFromHost(unsafe.Pointer(&b[0]), 8))
 		lower := cusolver.FillMode(cublas.FillModeLower)
 		n, err := h.SpotrfBufferSize(lower, 2, floatPtr(da), 2)
 		check(err)
@@ -75,7 +75,7 @@ func TestCholeskySolve(t *testing.T) {
 		info := func() int32 {
 			var v int32
 			check(driver.CtxSynchronize())
-			check(di.MemcpyDtoH(unsafe.Pointer(&v), 4))
+			check(di.CopyToHost(unsafe.Pointer(&v), 4))
 			return v
 		}
 		check(h.Spotrf(lower, 2, floatPtr(da), 2, floatPtr(dw), n, intPtr(di)))
@@ -86,7 +86,7 @@ func TestCholeskySolve(t *testing.T) {
 		if v := info(); v != 0 {
 			t.Fatalf("potrs info=%d", v)
 		}
-		check(db.MemcpyDtoH(unsafe.Pointer(&b[0]), 8))
+		check(db.CopyToHost(unsafe.Pointer(&b[0]), 8))
 		for i, want := range []float32{1, 2} {
 			if math.IsNaN(float64(b[i])) || math.Abs(float64(b[i]-want)) > 1e-5 {
 				t.Fatalf("x[%d]=%g want %g", i, b[i], want)
@@ -94,7 +94,7 @@ func TestCholeskySolve(t *testing.T) {
 		}
 		t.Logf("solution=%v", b)
 		a = []float32{1, 2, 2, 1}
-		check(da.MemcpyHtoD(unsafe.Pointer(&a[0]), 16))
+		check(da.CopyFromHost(unsafe.Pointer(&a[0]), 16))
 		check(h.Spotrf(lower, 2, floatPtr(da), 2, floatPtr(dw), n, intPtr(di)))
 		if v := info(); v != 2 {
 			t.Fatalf("indefinite matrix info=%d want 2", v)

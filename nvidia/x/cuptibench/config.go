@@ -192,7 +192,7 @@ func New(dev *cuda.Device, c Config) (p *Plan, err error) {
 	}
 	ctx := p.context.(*cuda.Context)
 	p.checkContext = func() error {
-		current, e := driver.NewContextGetCurrent()
+		current, e := driver.CtxGetCurrent()
 		if e != nil {
 			return e
 		}
@@ -223,7 +223,7 @@ func New(dev *cuda.Device, c Config) (p *Plan, err error) {
 			return err
 		}
 		p.metadata["chip"] = chip
-		uuid, e := dev.Raw().GetUuid()
+		uuid, e := dev.Raw().Uuid()
 		if e != nil {
 			return e
 		}

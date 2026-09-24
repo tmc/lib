@@ -17,7 +17,7 @@ func (f FusedOpsConstParamPack) Destroy() error {
 	return destroyFusedOpsConstParamPack(f)
 }
 
-// GetFusedOpsConstParamPackAttribute retrieves the values of the descriptor pointed to by the param pointer input.
+// Attribute retrieves the values of the descriptor pointed to by the param pointer input.
 //
 // The type of the descriptor is indicated by the enum value of paramLabel input.
 //
@@ -31,7 +31,7 @@ func (f FusedOpsConstParamPack) Destroy() error {
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetFusedOpsConstParamPackAttribute.
-func (f FusedOpsConstParamPack) GetFusedOpsConstParamPackAttribute(paramLabel FusedOpsConstParamLabel, param uintptr, isNULL *int32) error {
+func (f FusedOpsConstParamPack) Attribute(paramLabel FusedOpsConstParamLabel, param uintptr, isNULL *int32) error {
 	return getFusedOpsConstParamPackAttribute(f, paramLabel, param, isNULL)
 }
 

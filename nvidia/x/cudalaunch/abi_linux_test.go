@@ -7,7 +7,6 @@ import (
 	"math"
 	"sync"
 	"testing"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
@@ -68,9 +67,9 @@ func TestArgumentABIConcurrentStreams(t *testing.T) {
 	var fn driver.Function
 	if err := dev.WithContext(func() error {
 		var err error
-		mod, err = driver.NewModuleLoadData(unsafe.Pointer(&image[0]))
+		mod, err = driver.ModuleLoadData(image)
 		if err == nil {
-			fn, err = mod.GetFunction("arguments")
+			fn, err = mod.Function("arguments")
 		}
 		return err
 	}); err != nil {
@@ -82,7 +81,7 @@ func TestArgumentABIConcurrentStreams(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, streams)
 	for i := range streams {
-		stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+		stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 		if err != nil {
 			t.Fatal(err)
 		}

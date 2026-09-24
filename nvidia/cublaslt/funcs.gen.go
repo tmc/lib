@@ -55,17 +55,10 @@ var (
 
 // Create initializes the cuBLASLt library and creates a handle to an opaque structure holding the cuBLASLt library context.
 //
-// It allocates light hardware resources on the host and device, and must be called prior to making any other cuBLASLt library calls.
 // The cuBLASLt library context is tied to the current CUDA device. To use the library on multiple devices, one cuBLASLt handle must be created for each device. Furthermore, the device must be set as the current before invoking cuBLASLt functions with a handle tied to that device.
 // See also: cuBLAS Context.
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the created cuBLASLt context
-//
-// Returns:
-//   - [ErrAllocFailed]: Resource allocation failed inside the cuBLASLt library. This is usually caused by a cudaMalloc() failure. To correct: prior to the function call, deallocate the previously allocated memory as much as possible.
-//   - [ErrInvalidValue]: lighthandle is NULL
-//   - [ErrNotInitialized]: The cuBLASLt library was not initialized. This usually happens: - when [Create] is not called first - an error in the CUDA Runtime API called by the cuBLASLt routine, or - an error in the hardware setup.
-//   - [Success]: The allocation completed successfully.
 //
 // Wraps cublasLtCreate.
 func Create() (Handle, error) {
@@ -83,14 +76,7 @@ func Create() (Handle, error) {
 
 // destroy releases hardware resources used by the cuBLASLt library.
 //
-// This function is usually the last call with a particular handle to the cuBLASLt library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
-//
 //   - lightHandle: Pointer to the cuBLASLt handle to be destroyed
-//
-// Returns:
-//   - [ErrInvalidValue]: lightHandle is NULL
-//   - [ErrNotInitialized]: The cuBLASLt library was not initialized.
-//   - [Success]: The cuBLASLt context was successfully destroyed.
 //
 // Wraps cublasLtDestroy.
 func destroy(lightHandle Handle) error {
@@ -105,8 +91,8 @@ func destroy(lightHandle Handle) error {
 //   - emulationDesc: Pointer to the previously created structure holding the emulation descriptor queried by this function. See [EmulationDesc]
 //
 // Returns:
-//   - [ErrAllocFailed]: If memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtEmulationDescCreate.
 func emulationDescCreate() (EmulationDesc, error) {
@@ -127,7 +113,7 @@ func emulationDescCreate() (EmulationDesc, error) {
 //   - emulationDesc: Pointer to the previously created structure holding the emulation descriptor queried by this function. See [EmulationDesc]
 //
 // Returns:
-//   - [Success]: If the descriptor was destroyed successfully.
+//   - [Success]: if operation was successful
 //
 // Wraps cublasLtEmulationDescDestroy.
 func emulationDescDestroy(emulationDesc EmulationDesc) error {
@@ -143,11 +129,11 @@ func emulationDescDestroy(emulationDesc EmulationDesc) error {
 //   - attr: The attribute that will be retrieved by this function. See [EmulationDescAttributes]
 //   - buf: Memory address containing the attribute value retrieved by this function
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
-//   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; If sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
+//   - sizeWritten: Valid only when the return value is [Success].If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written;If sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: If sizeInBytes is zero and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - if sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtEmulationDescGetAttribute.
 func emulationDescGetAttribute(emulationDesc EmulationDesc, attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -179,8 +165,8 @@ func emulationDescInit_internal(emulationDesc EmulationDesc, size uint) error {
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
-//   - [Success]: If the attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtEmulationDescSetAttribute.
 func emulationDescSetAttribute(emulationDesc EmulationDesc, attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) error {
@@ -195,10 +181,6 @@ func emulationDescSetAttribute(emulationDesc EmulationDesc, attr EmulationDescAt
 //   - type_: Of the type libraryPropertyType, whose value is requested from the property. See libraryPropertyType_t
 //   - value: Pointer to the host memory location where the requested information should be written
 //
-// Returns:
-//   - [ErrInvalidValue]: - If invalid value of the type input argument, or - if value is NULL
-//   - [Success]: The requested libraryPropertyType information is successfully written at the provided address.
-//
 // Wraps cublasLtGetProperty.
 func GetProperty(type_ LibraryPropertyType, value *int32) error {
 	if err := checkLibSym("cublasLtGetProperty"); err != nil {
@@ -207,9 +189,7 @@ func GetProperty(type_ LibraryPropertyType, value *int32) error {
 	return toError(fnGetProperty(type_, value))
 }
 
-// GroupedMatrixLayoutCreate creates a grouped matrix layout descriptor by allocating the memory needed to hold its opaque structure.
-//
-// Experimental API.
+// GroupedMatrixLayoutCreate Experimental: This function creates a grouped matrix layout descriptor by allocating the memory needed to hold its opaque structure.
 //
 //   - matLayout: Pointer to the structure holding the matrix layout descriptor created by this function. See [MatrixLayout]
 //   - type_: Enumerant that specifies the data precision for the matrix layout descriptor this function creates. See cudaDataType_t
@@ -219,8 +199,8 @@ func GetProperty(type_ LibraryPropertyType, value *int32) error {
 //   - ldArray: Pointer to a device array of leading dimensions of the grouped matrix layout descriptor
 //
 // Returns:
-//   - [ErrAllocFailed]: If the memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtGroupedMatrixLayoutCreate.
 func GroupedMatrixLayoutCreate(type_ DataType, groupCount int32, rowsArray uintptr, colsArray uintptr, ldArray uintptr) (MatrixLayout, error) {
@@ -246,10 +226,6 @@ func groupedMatrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ D
 
 // HeuristicsCacheGetCapacity Returns the Heuristics Cache capacity.
 //
-// Returns:
-//   - [ErrInvalidValue]: The capacity was successfully set.
-//   - [Success]: The capacity was successfully written.
-//
 // Wraps cublasLtHeuristicsCacheGetCapacity.
 func HeuristicsCacheGetCapacity(capacity *uint) error {
 	if err := checkLibSym("cublasLtHeuristicsCacheGetCapacity"); err != nil {
@@ -260,11 +236,7 @@ func HeuristicsCacheGetCapacity(capacity *uint) error {
 
 // HeuristicsCacheSetCapacity Sets the Heuristics Cache capacity.
 //
-// Set the capacity to 0 to disable the heuristics cache.
 // This function takes precedence over CUBLASLT_HEURISTICS_CACHE_CAPACITY environment variable.
-//
-// Returns:
-//   - [Success]: The capacity was successfully set.
 //
 // Wraps cublasLtHeuristicsCacheSetCapacity.
 func HeuristicsCacheSetCapacity(capacity uint) error {
@@ -274,14 +246,13 @@ func HeuristicsCacheSetCapacity(capacity uint) error {
 	return toError(fnHeuristicsCacheSetCapacity(capacity))
 }
 
-// LoggerForceDisable disables logging for the entire run.
+// LoggerForceDisable Experimental: This function disables logging for the entire run.
 //
-// Experimental API.
 // Returns:
 // See [Result] for a complete list of valid return codes.
 //
 // Returns:
-//   - [Success]: If logging was successfully disabled.
+//   - [Success]: if disabled logging
 //
 // Wraps cublasLtLoggerForceDisable.
 func LoggerForceDisable() error {
@@ -291,14 +262,12 @@ func LoggerForceDisable() error {
 	return toError(fnLoggerForceDisable())
 }
 
-// LoggerOpenFile opens and sets the logging output file in the given path.
-//
-// Experimental API.
+// LoggerOpenFile Experimental: This function opens and sets the logging output file in the given path.
 //
 //   - logFile: Path of the logging output file
 //
 // Returns:
-//   - [Success]: If the logging file was successfully opened.
+//   - [Success]: if log file was created successfully
 //
 // Wraps cublasLtLoggerOpenFile.
 func LoggerOpenFile(logFile *byte) error {
@@ -308,14 +277,12 @@ func LoggerOpenFile(logFile *byte) error {
 	return toError(fnLoggerOpenFile(logFile))
 }
 
-// LoggerSetCallback sets the logging callback function.
-//
-// Experimental API.
+// LoggerSetCallback Experimental: This function sets the logging callback function.
 //
 //   - callback: Pointer to a callback function. See uintptr
 //
 // Returns:
-//   - [Success]: If the callback function was successfully set.
+//   - [Success]: if callback was set successfully
 //
 // Wraps cublasLtLoggerSetCallback.
 func LoggerSetCallback(callback uintptr) error {
@@ -325,15 +292,12 @@ func LoggerSetCallback(callback uintptr) error {
 	return toError(fnLoggerSetCallback(callback))
 }
 
-// LoggerSetFile sets the logging output file.
-//
-// Note: once registered using this function call, the provided file handle must not be closed unless the function is called again to switch to a different file handle.
-// Experimental API.
+// LoggerSetFile Experimental: This function sets the logging output file.
 //
 //   - file: Pointer to an open file. File should have write permission
 //
 // Returns:
-//   - [Success]: If logging file was successfully set.
+//   - [Success]: if log file was set successfully
 //
 // Wraps cublasLtLoggerSetFile.
 func LoggerSetFile(file uintptr) error {
@@ -343,15 +307,13 @@ func LoggerSetFile(file uintptr) error {
 	return toError(fnLoggerSetFile(file))
 }
 
-// LoggerSetLevel sets the value of the logging level.
-//
-// Experimental API.
+// LoggerSetLevel Experimental: This function sets the value of the logging level.
 //
 //   - level: Value of the logging level. See cuBLASLt Logging
 //
 // Returns:
-//   - [ErrInvalidValue]: If the value was not a valid logging level. See cuBLASLt Logging.
-//   - [Success]: If the logging level was successfully set.
+//   - [ErrInvalidValue]: if log level is not one of the above levels
+//   - [Success]: if log level was set successfully
 //
 // Wraps cublasLtLoggerSetLevel.
 func LoggerSetLevel(level int32) error {
@@ -361,14 +323,12 @@ func LoggerSetLevel(level int32) error {
 	return toError(fnLoggerSetLevel(level))
 }
 
-// LoggerSetMask sets the value of the logging mask.
-//
-// Experimental API.
+// LoggerSetMask Experimental: This function sets the value of the logging mask.
 //
 //   - mask: Value of the logging mask. See cuBLASLt Logging
 //
 // Returns:
-//   - [Success]: If the logging mask was successfully set.
+//   - [Success]: if log mask was set successfully
 //
 // Wraps cublasLtLoggerSetMask.
 func LoggerSetMask(mask int32) error {
@@ -412,39 +372,33 @@ func LoggerSetMask(mask int32) error {
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - computeDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
 //   - alpha: Pointers to the scalars used in the multiplication
-//   - A: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
-//   - Adesc: Handles to the previous created descriptors of the type [MatrixLayout]
-//   - B: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
-//   - Bdesc: Handles to the previous created descriptors of the type [MatrixLayout]
-//   - beta: Pointers to the scalars used in the multiplication
-//   - C: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
-//   - Cdesc: Handles to the previous created descriptors of the type [MatrixLayout]
-//   - D: Pointer to the GPU memory associated with the descriptor Ddesc
-//   - Ddesc: Handle to the previous created descriptor of the type [MatrixLayout]
+//   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
+//   - adesc: Handles to the previous created descriptors of the type [MatrixLayout]
+//   - d: Pointer to the GPU memory associated with the descriptor Ddesc
+//   - ddesc: Handle to the previous created descriptor of the type [MatrixLayout]
 //   - algo: Handle for matrix multiplication algorithm to be used. See [MatmulAlgo]. When NULL, an implicit heuristics query with default search preferences will be performed to determine actual algorithm to use
 //   - workspace: Pointer to the workspace buffer allocated in the GPU memory. Must be 256B aligned (i.e. lowest 8 bits of address must be 0)
 //   - workspaceSizeInBytes: Size of the workspace
 //   - stream: The CUDA stream where all the GPU work will be submitted
 //
 // Returns:
-//   - [ErrArchMismatch]: If the configured operation cannot be run using the selected device.
-//   - [ErrExecutionFailed]: If CUDA reported an execution error from the device.
-//   - [ErrInvalidValue]: If the parameters are unexpectedly NULL, in conflict or in an impossible configuration. For example, when workspaceSizeInBytes is less than workspace required by the configured algo.
-//   - [ErrNotInitialized]: If cuBLASLt handle has not been initialized.
-//   - [ErrNotSupported]: If the current implementation on the selected device doesn’t support the configured operation.
-//   - [Success]: If the operation completed successfully.
+//   - [ErrNotInitialized]: if cuBLASLt handle has not been initialized
+//   - [ErrInvalidValue]: if parameters are in conflict or in an impossible configuration; e.g. when workspaceSizeInBytes is less than workspace required by configured algo
+//   - [ErrNotSupported]: if current implementation on selected device doesn't support configured operation
+//   - [ErrArchMismatch]: if configured operation cannot be run using selected device
+//   - [ErrExecutionFailed]: if cuda reported execution error from the device
+//   - [Success]: if the operation completed successfully
 //
 // Wraps cublasLtMatmul.
-func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha uintptr, A uintptr, Adesc MatrixLayout, B uintptr, Bdesc MatrixLayout, beta uintptr, C uintptr, Cdesc MatrixLayout, D uintptr, Ddesc MatrixLayout, algo *MatmulAlgo, workspace uintptr, workspaceSizeInBytes uint, stream Stream) error {
+func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha uintptr, a uintptr, adesc MatrixLayout, b uintptr, bdesc MatrixLayout, beta uintptr, c uintptr, cdesc MatrixLayout, d uintptr, ddesc MatrixLayout, algo *MatmulAlgo, workspace uintptr, workspaceSizeInBytes uint, stream Stream) error {
 	if err := checkLibSym("cublasLtMatmul"); err != nil {
 		return err
 	}
-	return toError(fnmatmul(lightHandle, computeDesc, alpha, A, Adesc, B, Bdesc, beta, C, Cdesc, D, Ddesc, algo, workspace, workspaceSizeInBytes, stream))
+	return toError(fnmatmul(lightHandle, computeDesc, alpha, a, adesc, b, bdesc, beta, c, cdesc, d, ddesc, algo, workspace, workspaceSizeInBytes, stream))
 }
 
 // MatmulAlgoCapGetAttribute returns the value of the queried capability attribute for an initialized [MatmulAlgo] descriptor structure.
 //
-// The capability attribute value is retrieved from the enumerated type [MatmulAlgoCapAttributes].
 // For example, to get list of supported Tile IDs:
 //
 //   - algo: Pointer to the previously created opaque structure holding the matrix multiply algorithm descriptor. See [MatmulAlgo]
@@ -454,8 +408,8 @@ func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha uintptr, A uintptr
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: - If sizeInBytes is 0 and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - if sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtMatmulAlgoCapGetAttribute.
 func MatmulAlgoCapGetAttribute(algo *MatmulAlgo, attr MatmulAlgoCapAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -473,33 +427,29 @@ func MatmulAlgoCapGetAttribute(algo *MatmulAlgo, attr MatmulAlgoCapAttributes, b
 
 // matmulAlgoCheck performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
-// It checks whether the descriptor is supported on the current device, and returns the result containing the required workspace and the calculated wave count.
 // Note
 // [Success] doesn’t fully guarantee that the algo will run. The algo will fail if, for example, the buffers are not correctly aligned. However, if [Handle.MatmulAlgoCheck] fails, the algo will not run.
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
-//   - Adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
 //   - algo: Descriptor which specifies which matrix multiplication algorithm should be used. See [MatmulAlgo]. May point to result->algo
 //   - result: Pointer to the structure holding the results returned by this function. The results comprise of the required workspace and the calculated wave count. The algo field is never updated. See [MatmulHeuristicResult]
 //
 // Returns:
-//   - [ErrArchMismatch]: If the algo configuration cannot be run using the selected device.
-//   - [ErrInvalidValue]: If matrix layout descriptors or the operation descriptor do not match the algo descriptor.
-//   - [ErrNotSupported]: If the algo configuration or data type combination is not currently supported on the given device.
-//   - [Success]: If the check was successful.
+//   - [ErrInvalidValue]: if matrix layout descriptors or operation descriptor don't match algo descriptor
+//   - [ErrNotSupported]: if algo configuration or data type combination is not currently supported on given device
+//   - [ErrArchMismatch]: if algo configuration cannot be run using the selected device
+//   - [Success]: if check was successful
 //
 // Wraps cublasLtMatmulAlgoCheck.
-func matmulAlgoCheck(lightHandle Handle, operationDesc MatmulDesc, Adesc MatrixLayout, Bdesc MatrixLayout, Cdesc MatrixLayout, Ddesc MatrixLayout, algo *MatmulAlgo) (MatmulHeuristicResult, error) {
+func matmulAlgoCheck(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, algo *MatmulAlgo) (MatmulHeuristicResult, error) {
 	if err := checkLibSym("cublasLtMatmulAlgoCheck"); err != nil {
 		var zero MatmulHeuristicResult
 		return zero, err
 	}
 	var out MatmulHeuristicResult
-	if err := toError(fnmatmulAlgoCheck(lightHandle, operationDesc, Adesc, Bdesc, Cdesc, Ddesc, algo, &out)); err != nil {
+	if err := toError(fnmatmulAlgoCheck(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, algo, &out)); err != nil {
 		var zero MatmulHeuristicResult
 		return zero, err
 	}
@@ -508,8 +458,6 @@ func matmulAlgoCheck(lightHandle Handle, operationDesc MatmulDesc, Adesc MatrixL
 
 // MatmulAlgoConfigGetAttribute returns the value of the queried configuration attribute for an initialized [MatmulAlgo] descriptor.
 //
-// The configuration attribute value is retrieved from the enumerated type [MatmulAlgoConfigAttributes].
-//
 //   - algo: Pointer to the previously created opaque structure holding the matrix multiply algorithm descriptor. See [MatmulAlgo]
 //   - attr: The configuration attribute whose value will be retrieved by this function. See [MatmulAlgoConfigAttributes]
 //   - buf: The attribute value returned by this function
@@ -517,8 +465,8 @@ func matmulAlgoCheck(lightHandle Handle, operationDesc MatmulDesc, Adesc MatrixL
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: - If sizeInBytes is 0 and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - if sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtMatmulAlgoConfigGetAttribute.
 func MatmulAlgoConfigGetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -536,16 +484,14 @@ func MatmulAlgoConfigGetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 
 // MatmulAlgoConfigSetAttribute sets the value of the specified configuration attribute for an initialized [MatmulAlgo] descriptor.
 //
-// The configuration attribute is an enumerant of the type [MatmulAlgoConfigAttributes].
-//
 //   - algo: Pointer to the previously created opaque structure holding the matrix multiply algorithm descriptor. See [MatmulAlgo]
 //   - attr: The configuration attribute whose value will be set by this function. See [MatmulAlgoConfigAttributes]
 //   - buf: The value to which the configuration attribute should be set
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
-//   - [Success]: If the attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtMatmulAlgoConfigSetAttribute.
 func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttributes, buf uintptr, sizeInBytes uint) error {
@@ -557,32 +503,30 @@ func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 
 // matmulAlgoGetHeuristic retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
-// The output is placed in heuristicResultsArray[] in the order of increasing estimated compute time.
-//
-//   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
-//   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
-//   - Adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - preference: Pointer to the structure holding the heuristic search preferences descriptor. See [MatmulPreference]
-//   - requestedAlgoCount: Size of the heuristicResultsArray (in elements). This is the requested maximum number of algorithms to return
-//   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
-//   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
+//   - lightHandle: in Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
+//   - operationDesc: in Handle to the matrix multiplication descriptor
+//   - adesc: in Handle to the layout descriptors for matrix A
+//   - bdesc: in Handle to the layout descriptors for matrix B
+//   - cdesc: in Handle to the layout descriptors for matrix C
+//   - ddesc: in Handle to the layout descriptors for matrix D
+//   - preference: in Pointer to the structure holding the heuristic search preferences descriptor. See [MatrixLayout]
+//   - requestedAlgoCount: in Size of heuristicResultsArray (in elements) and requested maximum number of algorithms to return
+//   - heuristicResultsArray: in, out Output algorithms and associated runtime characteristics, ordered in increasing estimated compute time
+//   - returnAlgoCount: out The number of heuristicResultsArray elements written
 //
 // Returns:
-//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
-//   - [ErrNotSupported]: If no heuristic function available for current configuration.
-//   - [Success]: If query was successful. Inspect heuristicResultsArray [0 to (returnAlgoCount -1)].state for the status of the results.
+//   - [ErrInvalidValue]: if requestedAlgoCount is less or equal to zero
+//   - [ErrNotSupported]: if no heuristic function available for current configuration
+//   - [Success]: if query was successful, inspect heuristicResultsArray [0 to (returnAlgoCount - 1)].state for detail status of results
 //
 // Wraps cublasLtMatmulAlgoGetHeuristic.
-func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, Adesc MatrixLayout, Bdesc MatrixLayout, Cdesc MatrixLayout, Ddesc MatrixLayout, preference MatmulPreference, requestedAlgoCount int32, heuristicResultsArray *MatmulHeuristicResult) (int32, error) {
+func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, requestedAlgoCount int32, heuristicResultsArray *MatmulHeuristicResult) (int32, error) {
 	if err := checkLibSym("cublasLtMatmulAlgoGetHeuristic"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnmatmulAlgoGetHeuristic(lightHandle, operationDesc, Adesc, Bdesc, Cdesc, Ddesc, preference, requestedAlgoCount, heuristicResultsArray, &out)); err != nil {
+	if err := toError(fnmatmulAlgoGetHeuristic(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, preference, requestedAlgoCount, heuristicResultsArray, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -596,27 +540,21 @@ func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, Adesc 
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - computeType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - scaleType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - Atype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - Btype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - Ctype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - Dtype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - requestedAlgoCount: Number of algorithms requested. Must be > 0
-//   - algoIdsArray: Array containing the algorithm IDs returned by this function
 //   - returnAlgoCount: Number of algorithms actually returned by this function
 //
 // Returns:
-//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
-//   - [Success]: If query was successful. Inspect returnAlgoCount to get actual number of IDs available.
+//   - [ErrInvalidValue]: if requestedAlgoCount is less or equal to zero
+//   - [Success]: if query was successful, inspect returnAlgoCount to get actual number of IDs available
 //
 // Wraps cublasLtMatmulAlgoGetIds.
-func matmulAlgoGetIds(lightHandle Handle, computeType ComputeType, scaleType DataType, Atype DataType, Btype DataType, Ctype DataType, Dtype DataType, requestedAlgoCount int32, algoIdsArray *int32) (int32, error) {
+func matmulAlgoGetIds(lightHandle Handle, computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, requestedAlgoCount int32, algoIdsArray *int32) (int32, error) {
 	if err := checkLibSym("cublasLtMatmulAlgoGetIds"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnmatmulAlgoGetIds(lightHandle, computeType, scaleType, Atype, Btype, Ctype, Dtype, requestedAlgoCount, algoIdsArray, &out)); err != nil {
+	if err := toError(fnmatmulAlgoGetIds(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, requestedAlgoCount, algoIdsArray, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -628,24 +566,21 @@ func matmulAlgoGetIds(lightHandle Handle, computeType ComputeType, scaleType Dat
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - computeType: Compute type. See [MatmulDescComputeType] of [MatmulDescAttributes]
 //   - scaleType: Scale type. See [MatmulDescScaleType] of [MatmulDescAttributes]. Usually same as computeType
-//   - Atype: Datatype precision for the input and output matrices. See cudaDataType_t
-//   - Btype: Datatype precision for the input and output matrices. See cudaDataType_t
-//   - Ctype: Datatype precision for the input and output matrices. See cudaDataType_t
-//   - Dtype: Datatype precision for the input and output matrices. See cudaDataType_t
+//   - atype: Datatype precision for the input and output matrices. See cudaDataType_t
 //   - algoId: Specifies the algorithm being initialized. Should be a valid algoId returned by the [Handle.MatmulAlgoGetIds] function
 //   - algo: Pointer to the opaque structure to be initialized. See [MatmulAlgo]
 //
 // Returns:
-//   - [ErrInvalidValue]: If algo is NULL or algoId is outside the recognized range.
-//   - [ErrNotSupported]: If algoId is not supported for given combination of data types.
-//   - [Success]: If the structure was successfully initialized.
+//   - [ErrInvalidValue]: if algo is NULL or algoId is outside of recognized range
+//   - [ErrNotSupported]: if algoId is not supported for given combination of data types
+//   - [Success]: if the structure was successfully initialized
 //
 // Wraps cublasLtMatmulAlgoInit.
-func matmulAlgoInit(lightHandle Handle, computeType ComputeType, scaleType DataType, Atype DataType, Btype DataType, Ctype DataType, Dtype DataType, algoId int32, algo *MatmulAlgo) error {
+func matmulAlgoInit(lightHandle Handle, computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, algoId int32, algo *MatmulAlgo) error {
 	if err := checkLibSym("cublasLtMatmulAlgoInit"); err != nil {
 		return err
 	}
-	return toError(fnmatmulAlgoInit(lightHandle, computeType, scaleType, Atype, Btype, Ctype, Dtype, algoId, algo))
+	return toError(fnmatmulAlgoInit(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, algoId, algo))
 }
 
 // matmulDescCreate creates a matrix multiply descriptor by allocating the memory needed to hold its opaque structure.
@@ -655,8 +590,8 @@ func matmulAlgoInit(lightHandle Handle, computeType ComputeType, scaleType DataT
 //   - scaleType: Enumerant that specifies the data precision for the matrix transform descriptor this function creates. See cudaDataType_t
 //
 // Returns:
-//   - [ErrAllocFailed]: If memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtMatmulDescCreate.
 func matmulDescCreate(computeType ComputeType, scaleType DataType) (MatmulDesc, error) {
@@ -677,7 +612,7 @@ func matmulDescCreate(computeType ComputeType, scaleType DataType) (MatmulDesc, 
 //   - matmulDesc: Pointer to the structure holding the matrix multiply descriptor that should be destroyed by this function. See [MatmulDesc]
 //
 // Returns:
-//   - [Success]: If operation was successful.
+//   - [Success]: if operation was successful
 //
 // Wraps cublasLtMatmulDescDestroy.
 func matmulDescDestroy(matmulDesc MatmulDesc) error {
@@ -696,8 +631,8 @@ func matmulDescDestroy(matmulDesc MatmulDesc) error {
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: - If sizeInBytes is 0 and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtMatmulDescGetAttribute.
 func matmulDescGetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -729,8 +664,8 @@ func matmulDescInit_internal(matmulDesc MatmulDesc, size uint, computeType Compu
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
-//   - [Success]: If the attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtMatmulDescSetAttribute.
 func matmulDescSetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) error {
@@ -745,8 +680,8 @@ func matmulDescSetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, bu
 //   - pref: Pointer to the structure holding the matrix multiply preferences descriptor created by this function. See [MatrixLayout]
 //
 // Returns:
-//   - [ErrAllocFailed]: If memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtMatmulPreferenceCreate.
 func matmulPreferenceCreate() (MatmulPreference, error) {
@@ -767,7 +702,7 @@ func matmulPreferenceCreate() (MatmulPreference, error) {
 //   - pref: Pointer to the structure holding the matrix multiply preferences descriptor that should be destroyed by this function. See [MatmulPreference]
 //
 // Returns:
-//   - [Success]: If the operation was successful.
+//   - [Success]: if operation was successful
 //
 // Wraps cublasLtMatmulPreferenceDestroy.
 func matmulPreferenceDestroy(pref MatmulPreference) error {
@@ -786,8 +721,8 @@ func matmulPreferenceDestroy(pref MatmulPreference) error {
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: - If sizeInBytes is 0 and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtMatmulPreferenceGetAttribute.
 func matmulPreferenceGetAttribute(pref MatmulPreference, attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -819,8 +754,8 @@ func matmulPreferenceInit_internal(pref MatmulPreference, size uint) error {
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
-//   - [Success]: If the attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtMatmulPreferenceSetAttribute.
 func matmulPreferenceSetAttribute(pref MatmulPreference, attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) error {
@@ -835,12 +770,11 @@ func matmulPreferenceSetAttribute(pref MatmulPreference, attr MatmulPreferenceAt
 //   - matLayout: Pointer to the structure holding the matrix layout descriptor created by this function. See [MatrixLayout]
 //   - type_: Enumerant that specifies the data precision for the matrix layout descriptor this function creates. See cudaDataType_t
 //   - rows: Number of rows and columns of the matrix
-//   - cols: Number of rows and columns of the matrix
 //   - ld: The leading dimension of the matrix. In column major layout, this is the number of elements to jump to reach the next column. Thus ld >= m (number of rows)
 //
 // Returns:
-//   - [ErrAllocFailed]: If the memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtMatrixLayoutCreate.
 func matrixLayoutCreate(type_ DataType, rows uint64, cols uint64, ld int64) (MatrixLayout, error) {
@@ -861,7 +795,7 @@ func matrixLayoutCreate(type_ DataType, rows uint64, cols uint64, ld int64) (Mat
 //   - matLayout: Pointer to the structure holding the matrix layout descriptor that should be destroyed by this function. See [MatrixLayout]
 //
 // Returns:
-//   - [Success]: If the operation was successful.
+//   - [Success]: if operation was successful
 //
 // Wraps cublasLtMatrixLayoutDestroy.
 func matrixLayoutDestroy(matLayout MatrixLayout) error {
@@ -880,8 +814,8 @@ func matrixLayoutDestroy(matLayout MatrixLayout) error {
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: - If sizeInBytes is 0 and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtMatrixLayoutGetAttribute.
 func matrixLayoutGetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -913,8 +847,8 @@ func matrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ DataType
 //   - sizeInBytes: Size of buf, the attribute buffer
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match size of internal storage for the selected attribute.
-//   - [Success]: If attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtMatrixLayoutSetAttribute.
 func matrixLayoutSetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) error {
@@ -932,29 +866,25 @@ func matrixLayoutSetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - transformDesc: Pointer to the opaque descriptor holding the matrix transformation operation. See [MatrixTransformDesc]
 //   - alpha: Pointers to the scalars used in the multiplication
-//   - A: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
-//   - Adesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
-//   - beta: Pointers to the scalars used in the multiplication
-//   - B: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
-//   - Bdesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
-//   - C: Pointer to the GPU memory associated with the Cdesc descriptor
-//   - Cdesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
+//   - adesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - c: Pointer to the GPU memory associated with the Cdesc descriptor
 //   - stream: The CUDA stream where all the GPU work will be submitted
 //
 // Returns:
-//   - [ErrArchMismatch]: If the configured operation cannot be run using the selected device.
-//   - [ErrExecutionFailed]: If CUDA reported an execution error from the device.
-//   - [ErrInvalidValue]: If the parameters are in conflict or in an impossible configuration. For example, when A is not NULL, but Adesc is NULL.
-//   - [ErrNotInitialized]: If cuBLASLt handle has not been initialized.
-//   - [ErrNotSupported]: If the current implementation on the selected device does not support the configured operation.
-//   - [Success]: If the operation completed successfully.
+//   - [ErrNotInitialized]: if cuBLASLt handle has not been initialized
+//   - [ErrInvalidValue]: if parameters are in conflict or in an impossible configuration; e.g. when A is not NULL, but Adesc is NULL
+//   - [ErrNotSupported]: if current implementation on selected device doesn't support configured operation
+//   - [ErrArchMismatch]: if configured operation cannot be run using selected device
+//   - [ErrExecutionFailed]: if cuda reported execution error from the device
+//   - [Success]: if the operation completed successfully
 //
 // Wraps cublasLtMatrixTransform.
-func matrixTransform(lightHandle Handle, transformDesc MatrixTransformDesc, alpha uintptr, A uintptr, Adesc MatrixLayout, beta uintptr, B uintptr, Bdesc MatrixLayout, C uintptr, Cdesc MatrixLayout, stream Stream) error {
+func matrixTransform(lightHandle Handle, transformDesc MatrixTransformDesc, alpha uintptr, a uintptr, adesc MatrixLayout, beta uintptr, b uintptr, bdesc MatrixLayout, c uintptr, cdesc MatrixLayout, stream Stream) error {
 	if err := checkLibSym("cublasLtMatrixTransform"); err != nil {
 		return err
 	}
-	return toError(fnmatrixTransform(lightHandle, transformDesc, alpha, A, Adesc, beta, B, Bdesc, C, Cdesc, stream))
+	return toError(fnmatrixTransform(lightHandle, transformDesc, alpha, a, adesc, beta, b, bdesc, c, cdesc, stream))
 }
 
 // matrixTransformDescCreate creates a matrix transform descriptor by allocating the memory needed to hold its opaque structure.
@@ -963,8 +893,8 @@ func matrixTransform(lightHandle Handle, transformDesc MatrixTransformDesc, alph
 //   - scaleType: Enumerant that specifies the data precision for the matrix transform descriptor this function creates. See cudaDataType_t
 //
 // Returns:
-//   - [ErrAllocFailed]: If memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtMatrixTransformDescCreate.
 func matrixTransformDescCreate(scaleType DataType) (MatrixTransformDesc, error) {
@@ -985,7 +915,7 @@ func matrixTransformDescCreate(scaleType DataType) (MatrixTransformDesc, error) 
 //   - transformDesc: Pointer to the structure holding the matrix transform descriptor that should be destroyed by this function. See [MatrixTransformDesc]
 //
 // Returns:
-//   - [Success]: If the operation was successful.
+//   - [Success]: if operation was successful
 //
 // Wraps cublasLtMatrixTransformDescDestroy.
 func matrixTransformDescDestroy(transformDesc MatrixTransformDesc) error {
@@ -1004,8 +934,8 @@ func matrixTransformDescDestroy(transformDesc MatrixTransformDesc) error {
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: - If sizeInBytes is zero and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - if sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtMatrixTransformDescGetAttribute.
 func matrixTransformDescGetAttribute(transformDesc MatrixTransformDesc, attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -1037,8 +967,8 @@ func matrixTransformDescInit_internal(transformDesc MatrixTransformDesc, size ui
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
-//   - [Success]: If the attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtMatrixTransformDescSetAttribute.
 func matrixTransformDescSetAttribute(transformDesc MatrixTransformDesc, attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) error {

@@ -154,11 +154,11 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	if j.local >= count {
 		t.Fatalf("local rank %d has no device: this host exposes %d", j.local, count)
 	}
-	device, err := driver.NewDeviceGet(j.local)
+	device, err := driver.DeviceGet(j.local)
 	if err != nil {
-		t.Fatalf("driver.NewDeviceGet(%d): %v", j.local, err)
+		t.Fatalf("driver.DeviceGet(%d): %v", j.local, err)
 	}
-	uuid, err := device.GetUuid()
+	uuid, err := device.Uuid()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 		t.Fatalf("SetCurrent: %v", err)
 	}
 
-	comm, err := nccl.NewCommInitRank(int32(j.size), exchangeUniqueID(t, j), int32(j.rank))
+	comm, err := nccl.CommInitRank(int32(j.size), exchangeUniqueID(t, j), int32(j.rank))
 	if err != nil {
 		t.Fatalf("nccl.NewCommInitRank: %v", err)
 	}
@@ -248,8 +248,8 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 		if err != nil {
 			t.Fatalf("allocate %s: %v", name, err)
 		}
-		if err := ptr.MemcpyHtoD(unsafe.Pointer(&values[0]), bytes); err != nil {
-			if freeErr := ptr.MemFree(); freeErr != nil {
+		if err := ptr.CopyFromHost(unsafe.Pointer(&values[0]), bytes); err != nil {
+			if freeErr := ptr.Free(); freeErr != nil {
 				t.Errorf("free %s after upload failure: %v", name, freeErr)
 			}
 			t.Fatalf("upload %s: %v", name, err)
@@ -258,19 +258,19 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	}
 	deviceA := upload("A", hostA)
 	defer func() {
-		if err := deviceA.MemFree(); err != nil {
+		if err := deviceA.Free(); err != nil {
 			t.Errorf("free device A: %v", err)
 		}
 	}()
 	deviceB := upload("B", hostB)
 	defer func() {
-		if err := deviceB.MemFree(); err != nil {
+		if err := deviceB.Free(); err != nil {
 			t.Errorf("free device B: %v", err)
 		}
 	}()
 	deviceC := upload("C", hostC)
 	defer func() {
-		if err := deviceC.MemFree(); err != nil {
+		if err := deviceC.Free(); err != nil {
 			t.Errorf("free device C: %v", err)
 		}
 	}()
@@ -330,7 +330,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 			t.Fatalf("allocate device workspace: %v", err)
 		}
 		defer func() {
-			if err := driver.DevicePtr(deviceWork).MemFree(); err != nil {
+			if err := driver.DevicePtr(deviceWork).Free(); err != nil {
 				t.Errorf("free device workspace: %v", err)
 			}
 		}()
@@ -355,7 +355,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	}
 
 	got := make([]float32, len(hostC))
-	if err := deviceC.MemcpyDtoH(unsafe.Pointer(&got[0]), uint(len(got))*uint(unsafe.Sizeof(float32(0)))); err != nil {
+	if err := deviceC.CopyToHost(unsafe.Pointer(&got[0]), uint(len(got))*uint(unsafe.Sizeof(float32(0)))); err != nil {
 		t.Fatalf("download C: %v", err)
 	}
 	for c := int64(0); c < colsB; c++ {

@@ -77,7 +77,7 @@ type handle interface {
 
 type nativeHandle struct{ nvfatbin.Handle }
 
-func (h *nativeHandle) close() error { return nvfatbin.Destroy(&h.Handle) }
+func (h *nativeHandle) close() error { return h.Handle.Destroy() }
 func (h *nativeHandle) add(input Input) error {
 	p, n := unsafe.Pointer(&input.Data[0]), uint(len(input.Data))
 	switch input.Kind {

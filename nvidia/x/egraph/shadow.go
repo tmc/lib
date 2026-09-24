@@ -87,7 +87,7 @@ func (e *DeviceShadowExecutor) ExecuteShadow(ctx context.Context, s *cuda.Stream
 	}
 	defer loadedMod.Unload()
 
-	fn, err := loadedMod.GetFunction(cand.KernelName)
+	fn, err := loadedMod.Function(cand.KernelName)
 	if err != nil {
 		return 0, fmt.Errorf("egraph: get kernel function %q: %w", cand.KernelName, err)
 	}

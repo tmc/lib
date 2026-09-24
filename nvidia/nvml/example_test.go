@@ -25,18 +25,18 @@ func Example() {
 		if err != nil {
 			continue
 		}
-		name, _ := dev.GetName()
-		mem, _ := dev.GetMemoryInfo()
-		util, _ := dev.GetUtilizationRates()
+		name, _ := dev.Name()
+		mem, _ := dev.MemoryInfo()
+		util, _ := dev.UtilizationRates()
 		fmt.Printf("gpu %d: %s, %d/%d MiB used, %d%% busy\n",
 			i, name, mem.Used>>20, mem.Total>>20, util.Gpu)
 	}
 }
 
-// ExampleDevice_GetComputeRunningProcesses lists the compute processes on
+// ExampleDevice_ComputeRunningProcesses lists the compute processes on
 // a device. Passing the previous result back in reuses its backing array,
 // so a polling loop settles into zero allocations.
-func ExampleDevice_GetComputeRunningProcesses() {
+func ExampleDevice_ComputeRunningProcesses() {
 	if err := nvml.Init(); err != nil {
 		fmt.Println("NVML unavailable:", err)
 		return
@@ -50,7 +50,7 @@ func ExampleDevice_GetComputeRunningProcesses() {
 	}
 	var procs []nvml.ProcessInfo
 	for i := 0; i < 3; i++ {
-		procs, err = dev.GetComputeRunningProcesses(procs)
+		procs, err = dev.ComputeRunningProcesses(procs)
 		if err != nil {
 			return
 		}

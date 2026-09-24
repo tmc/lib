@@ -434,7 +434,7 @@ func getSize(handle Handle) (uint, error) {
 //
 //   - nx: The transform size (e.g. 256 for a 256-point FFT)
 //   - type_: The transform data type (e.g., C2C for single precision complex to complex)
-//   - batch: Number of transforms of size nx. Please consider using [Handle.GetSizeMany] for multiple transforms
+//   - batch: Number of transforms of size nx. Please consider using [Handle.SizeMany] for multiple transforms
 //
 // Returns:
 //   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.

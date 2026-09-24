@@ -30,7 +30,7 @@ func TestNativeCollectorExclusion(t *testing.T) {
 		}
 	}()
 	err = dev.WithContext(func() error {
-		ctx, err := driver.NewContextGetCurrent()
+		ctx, err := driver.CtxGetCurrent()
 		if err != nil {
 			return err
 		}

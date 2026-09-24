@@ -6,14 +6,14 @@ import (
 	"unsafe"
 )
 
+// Attribute wraps cutensornetContractionOptimizerConfigGetAttribute.
+func (c ContractionOptimizerConfig) Attribute(handle Handle, attr ContractionOptimizerConfigAttributes, buffer unsafe.Pointer, sizeInBytes uint) error {
+	return contractionOptimizerConfigGetAttribute(handle, c, attr, buffer, sizeInBytes)
+}
+
 // Destroy wraps cutensornetDestroyContractionOptimizerConfig.
 func (c ContractionOptimizerConfig) Destroy() error {
 	return destroyContractionOptimizerConfig(c)
-}
-
-// GetAttribute wraps cutensornetContractionOptimizerConfigGetAttribute.
-func (c ContractionOptimizerConfig) GetAttribute(handle Handle, attr ContractionOptimizerConfigAttributes, buffer unsafe.Pointer, sizeInBytes uint) error {
-	return contractionOptimizerConfigGetAttribute(handle, c, attr, buffer, sizeInBytes)
 }
 
 // SetAttribute wraps cutensornetContractionOptimizerConfigSetAttribute.

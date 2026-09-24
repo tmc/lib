@@ -11,11 +11,11 @@
 //   - [Program.AddModuleTo]: Add a module level NVVM IR to a program.
 //   - [Program.Compile]: Compile the NVVM program.
 //   - [CreateProgram]: Create a program, and set the value of its handle to *prog.
-//   - [DestroyProgram]: Destroy a program.
-//   - [Program.GetCompiledResult]: Get the compiled result.
-//   - [Program.GetCompiledResultSize]: Get the size of the compiled result.
-//   - [Program.GetProgramLog]: Get the Compiler/Verifier Message.
-//   - [Program.GetProgramLogSize]: Get the Size of Compiler/Verifier Message.
+//   - [Program.Destroy]: Destroy a program.
+//   - [Program.CompiledResult]: Get the compiled result.
+//   - [Program.CompiledResultSize]: Get the size of the compiled result.
+//   - [Program.Log]: Get the Compiler/Verifier Message.
+//   - [Program.LogSize]: Get the Size of Compiler/Verifier Message.
 //   - [IRVersion]: Get the NVVM IR version.
 //   - [LLVMVersion]: Get the LLVM IR version guaranteed to be supported by NVVM.
 //   - [Program.LazyAddModuleTo]: Add a module level NVVM IR to a program.

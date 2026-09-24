@@ -51,7 +51,7 @@ func TestDistributedContraction(t *testing.T) {
 	if n == 0 {
 		t.Fatal("no CUDA device present; the physical test cannot run here")
 	}
-	dev, err := driver.NewDeviceGet(mpi.Rank)
+	dev, err := driver.DeviceGet(mpi.Rank)
 	if err != nil {
 		t.Fatalf("cuDeviceGet(0): %v", err)
 	}
@@ -123,7 +123,7 @@ func TestDistributedContraction(t *testing.T) {
 	if size != 2 || int(rank) != mpi.Rank {
 		t.Fatalf("rank=%d size=%d", rank, size)
 	}
-	uuid, err := dev.GetUuid()
+	uuid, err := dev.Uuid()
 	check("UUID", err)
 	t.Logf("rank=%d device=%d uuid=%x", rank, dev, uuid)
 	ids := make([]byte, 32)
@@ -190,11 +190,11 @@ func TestDistributedContraction(t *testing.T) {
 		}
 		if err := ws.Provide(cutensornet.MemspaceDevice, cutensornet.WorkspaceScratch,
 			uintptr(dW), scratch, func() {
-				if err := dW.MemFree(); err != nil {
+				if err := dW.Free(); err != nil {
 					t.Errorf("cuMemFree(workspace): %v", err)
 				}
 			}); err != nil {
-			clean("free rejected workspace", dW.MemFree())
+			clean("free rejected workspace", dW.Free())
 			t.Fatalf("WorkspaceSetMemory: %v", err)
 		}
 	}
@@ -203,21 +203,21 @@ func TestDistributedContraction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cuMemAlloc(A): %v", err)
 	}
-	defer func() { clean("dA.MemFree()", dA.MemFree()) }()
+	defer func() { clean("dA.Free()", dA.Free()) }()
 	dB, err := driver.MemAlloc(uint(len(hostB)) * 8)
 	if err != nil {
 		t.Fatalf("cuMemAlloc(B): %v", err)
 	}
-	defer func() { clean("dB.MemFree()", dB.MemFree()) }()
+	defer func() { clean("dB.Free()", dB.Free()) }()
 	dC, err := driver.MemAlloc(uint(M*N) * 8)
 	if err != nil {
 		t.Fatalf("cuMemAlloc(C): %v", err)
 	}
-	defer func() { clean("dC.MemFree()", dC.MemFree()) }()
-	if err := dA.MemcpyHtoD(unsafe.Pointer(&hostA[0]), uint(len(hostA))*8); err != nil {
+	defer func() { clean("dC.Free()", dC.Free()) }()
+	if err := dA.CopyFromHost(unsafe.Pointer(&hostA[0]), uint(len(hostA))*8); err != nil {
 		t.Fatalf("cuMemcpyHtoD(A): %v", err)
 	}
-	if err := dB.MemcpyHtoD(unsafe.Pointer(&hostB[0]), uint(len(hostB))*8); err != nil {
+	if err := dB.CopyFromHost(unsafe.Pointer(&hostB[0]), uint(len(hostB))*8); err != nil {
 		t.Fatalf("cuMemcpyHtoD(B): %v", err)
 	}
 
@@ -256,7 +256,7 @@ func TestDistributedContraction(t *testing.T) {
 
 	check("distributed synchronize", h.DistributedSynchronize())
 	got := make([]float64, M*N)
-	if err := dC.MemcpyDtoH(unsafe.Pointer(&got[0]), uint(M*N)*8); err != nil {
+	if err := dC.CopyToHost(unsafe.Pointer(&got[0]), uint(M*N)*8); err != nil {
 		t.Fatalf("cuMemcpyDtoH(C): %v", err)
 	}
 	t.Logf("rank=%d slices=%d result=%v", mpi.Rank, slices, got)

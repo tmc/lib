@@ -171,13 +171,13 @@
 //
 // # Configuration and Diagnostics
 //
-//   - [Handle.GetDeterministicMode].
-//   - [Handle.GetEmulationSpecialValuesSupport].
-//   - [Handle.GetEmulationStrategy].
-//   - [Handle.GetFixedPointEmulationMantissaBitOffset].
-//   - [Handle.GetFixedPointEmulationMantissaControl].
-//   - [Handle.GetFixedPointEmulationMaxMantissaBitCount].
-//   - [Handle.GetMathMode].
+//   - [Handle.DeterministicMode].
+//   - [Handle.EmulationSpecialValuesSupport].
+//   - [Handle.EmulationStrategy].
+//   - [Handle.FixedPointEmulationMantissaBitOffset].
+//   - [Handle.FixedPointEmulationMantissaControl].
+//   - [Handle.FixedPointEmulationMaxMantissaBitCount].
+//   - [Handle.MathMode].
 //   - [GetProperty].
 //   - [GetVersion].
 //   - [Params.SetAdvOptions].
@@ -191,23 +191,23 @@
 //
 // # Stream and Library Queries
 //
-//   - [Handle.GetStream].
+//   - [Handle.Stream].
 //   - [Handle.SetStream].
 //
 // # Iterative Refinement
 //
 //   - [NewIRSInfos].
 //   - [IRSInfos.Destroy].
-//   - [IRSInfos.GetMaxIters].
-//   - [IRSInfos.GetNiters].
-//   - [IRSInfos.GetOuterNiters].
-//   - [IRSInfos.GetResidualHistory].
+//   - [IRSInfos.MaxIters].
+//   - [IRSInfos.Niters].
+//   - [IRSInfos.OuterNiters].
+//   - [IRSInfos.ResidualHistory].
 //   - [IRSInfos.RequestResidual].
 //   - [NewIRSParams].
 //   - [IRSParams.Destroy].
 //   - [IRSParams.DisableFallback].
 //   - [IRSParams.EnableFallback].
-//   - [IRSParams.GetMaxIters].
+//   - [IRSParams.MaxIters].
 //   - [IRSParams.SetMaxIters].
 //   - [IRSParams.SetMaxItersInner].
 //   - [IRSParams.SetRefinementSolver].

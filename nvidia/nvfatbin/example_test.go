@@ -27,7 +27,7 @@ func Example() {
 		fmt.Println("create:", err)
 		return
 	}
-	defer nvfatbin.Destroy(&h)
+	defer h.Destroy()
 
 	for _, arch := range []string{"compute_70", "compute_80"} {
 		if err := h.AddPTXString(ptx, arch, "noop.ptx", ""); err != nil {

@@ -114,18 +114,11 @@ func (h Handle) Destroy() error {
 	return Destroy(h)
 }
 
-// GetDeviceMemoryPadding returns the current device allocation padding in bytes.
+// DeviceMemoryPadding returns the current device allocation padding in bytes.
 //
 // Wraps nvjpeg2kGetDeviceMemoryPadding.
-func (h Handle) GetDeviceMemoryPadding() (uint, error) {
+func (h Handle) DeviceMemoryPadding() (uint, error) {
 	return GetDeviceMemoryPadding(h)
-}
-
-// GetPinnedMemoryPadding returns the current pinned host allocation padding in bytes.
-//
-// Wraps nvjpeg2kGetPinnedMemoryPadding.
-func (h Handle) GetPinnedMemoryPadding() (uint, error) {
-	return GetPinnedMemoryPadding(h)
 }
 
 // ParseFile parses a JPEG 2000 file from disk.
@@ -140,6 +133,13 @@ func (h Handle) GetPinnedMemoryPadding() (uint, error) {
 // Wraps nvjpeg2kStreamParseFile.
 func (h Handle) ParseFile(filename string, streamHandle Bitstream) error {
 	return StreamParseFile(h, filename, streamHandle)
+}
+
+// PinnedMemoryPadding returns the current pinned host allocation padding in bytes.
+//
+// Wraps nvjpeg2kGetPinnedMemoryPadding.
+func (h Handle) PinnedMemoryPadding() (uint, error) {
+	return GetPinnedMemoryPadding(h)
 }
 
 // SetDeviceMemoryPadding rounds later device allocations up to a multiple of padding bytes.

@@ -129,7 +129,7 @@ func Dispatch(handle Handle, inputs *DispatchInputs, outputs *DispatchOutputs, l
 
 // ErrorClear clears the group's asynchronous error flag.
 //
-// Clear the async error flag. Lightweight host-side reset — writes zero to the pinned CPU flag. Use after detecting an error (via [Group.GetAsyncError]) to re-arm the flag for detecting new failures. Should be called after [Group.MaskClean] (full recovery) or standalone when surviving ranks continue in degraded mode. Requires enable_mask=true in the group config.
+// Clear the async error flag. Lightweight host-side reset — writes zero to the pinned CPU flag. Use after detecting an error (via [Group.AsyncError]) to re-arm the flag for detecting new failures. Should be called after [Group.MaskClean] (full recovery) or standalone when surviving ranks continue in degraded mode. Requires enable_mask=true in the group config.
 //
 //   - epGroup: in EP group with masking enabled
 //

@@ -139,7 +139,7 @@ func (c ContractionOptimizerConfig) Int32(handle Handle, attr ContractionOptimiz
 		return 0, err
 	}
 	var v int32
-	if err := c.GetAttribute(handle, attr, unsafe.Pointer(&v), 4); err != nil {
+	if err := c.Attribute(handle, attr, unsafe.Pointer(&v), 4); err != nil {
 		return 0, err
 	}
 	return v, nil
@@ -152,7 +152,7 @@ func (c ContractionOptimizerInfo) Int32(handle Handle, attr ContractionOptimizer
 		return 0, err
 	}
 	var v int32
-	if err := c.GetAttribute(handle, attr, unsafe.Pointer(&v), 4); err != nil {
+	if err := c.Attribute(handle, attr, unsafe.Pointer(&v), 4); err != nil {
 		return 0, err
 	}
 	return v, nil
@@ -166,7 +166,7 @@ func (c ContractionOptimizerInfo) Int64(handle Handle, attr ContractionOptimizer
 		return 0, err
 	}
 	var v int64
-	if err := c.GetAttribute(handle, attr, unsafe.Pointer(&v), 8); err != nil {
+	if err := c.Attribute(handle, attr, unsafe.Pointer(&v), 8); err != nil {
 		return 0, err
 	}
 	return v, nil
@@ -192,7 +192,7 @@ func (c ContractionOptimizerInfo) Float64(handle Handle, attr ContractionOptimiz
 		return 0, err
 	}
 	var v float64
-	if err := c.GetAttribute(handle, attr, unsafe.Pointer(&v), 8); err != nil {
+	if err := c.Attribute(handle, attr, unsafe.Pointer(&v), 8); err != nil {
 		return 0, err
 	}
 	return v, nil
@@ -214,7 +214,7 @@ func (a ContractionAutotunePreference) Int32(handle Handle, attr ContractionAuto
 		return 0, err
 	}
 	var v int32
-	if err := a.GetAttribute(handle, attr, unsafe.Pointer(&v), 4); err != nil {
+	if err := a.Attribute(handle, attr, unsafe.Pointer(&v), 4); err != nil {
 		return 0, err
 	}
 	return v, nil
@@ -236,7 +236,7 @@ func (n NetworkAutotunePreference) Int32(handle Handle, attr NetworkAutotunePref
 		return 0, err
 	}
 	var v int32
-	if err := n.GetAttribute(handle, attr, unsafe.Pointer(&v), 4); err != nil {
+	if err := n.Attribute(handle, attr, unsafe.Pointer(&v), 4); err != nil {
 		return 0, err
 	}
 	return v, nil

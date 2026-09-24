@@ -93,39 +93,46 @@ func (p Program) Compile(options []string) error {
 	return compileProgram(p, options)
 }
 
-// GetCompiledResult Get the compiled result.
+// Destroy Destroy a program.
+//
+// Wraps nvvmDestroyProgram.
+func (p *Program) Destroy() error {
+	return destroyProgram(p)
+}
+
+// CompiledResult Get the compiled result.
 //
 // The result is stored in the memory pointed to by buffer.
 //
 // Wraps nvvmGetCompiledResult.
-func (p Program) GetCompiledResult() ([]byte, error) {
+func (p Program) CompiledResult() ([]byte, error) {
 	return getCompiledResult(p)
 }
 
-// GetCompiledResultSize Get the size of the compiled result.
+// CompiledResultSize Get the size of the compiled result.
 //
 // Wraps nvvmGetCompiledResultSize.
-func (p Program) GetCompiledResultSize() (uint, error) {
+func (p Program) CompiledResultSize() (uint, error) {
 	return getCompiledResultSize(p)
 }
 
-// GetProgramLog Get the Compiler/Verifier Message.
+// Log Get the Compiler/Verifier Message.
 //
 // The NULL terminated message string is stored in the memory pointed to by
 // buffer when the return value is [Success].
 //
 // Wraps nvvmGetProgramLog.
-func (p Program) GetProgramLog() (string, error) {
+func (p Program) Log() (string, error) {
 	return getProgramLog(p)
 }
 
-// GetProgramLogSize Get the Size of Compiler/Verifier Message.
+// LogSize Get the Size of Compiler/Verifier Message.
 //
 // The size of the message string (including the trailing NULL) is stored into
 // bufferSizeRet when the return value is [Success].
 //
 // Wraps nvvmGetProgramLogSize.
-func (p Program) GetProgramLogSize() (uint, error) {
+func (p Program) LogSize() (uint, error) {
 	return getProgramLogSize(p)
 }
 

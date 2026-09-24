@@ -33,7 +33,7 @@ func Example() {
 		fmt.Println("CUDA driver unavailable:", err)
 		return
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		fmt.Println("no CUDA device:", err)
 		return
@@ -87,7 +87,7 @@ func Example() {
 	// it for the life of the state, and frees it only after State.Destroy.
 	// The buffer's initial contents are the state's initial value.
 	var size uint
-	if err := in.GetComponentStorageSize(handle, 1, &size); err != nil {
+	if err := in.ComponentStorageSize(handle, 1, &size); err != nil {
 		fmt.Println("component storage size:", err)
 		return
 	}
@@ -96,14 +96,14 @@ func Example() {
 		fmt.Println("device alloc:", err)
 		return
 	}
-	defer inBuf.MemFree()
+	defer inBuf.Free()
 	outBuf, err := driver.MemAlloc(size)
 	if err != nil {
 		fmt.Println("device alloc:", err)
 		return
 	}
-	defer outBuf.MemFree()
-	if err := inBuf.MemcpyHtoD(unsafe.Pointer(unsafe.SliceData(rho)), size); err != nil {
+	defer outBuf.Free()
+	if err := inBuf.CopyFromHost(unsafe.Pointer(unsafe.SliceData(rho)), size); err != nil {
 		fmt.Println("copy state in:", err)
 		return
 	}
@@ -130,8 +130,8 @@ func Example() {
 		fmt.Println("device alloc:", err)
 		return
 	}
-	defer hBuf.MemFree()
-	if err := hBuf.MemcpyHtoD(unsafe.Pointer(unsafe.SliceData(sigmaY)), uint(len(sigmaY))*16); err != nil {
+	defer hBuf.Free()
+	if err := hBuf.CopyFromHost(unsafe.Pointer(unsafe.SliceData(sigmaY)), uint(len(sigmaY))*16); err != nil {
 		fmt.Println("copy operator:", err)
 		return
 	}
@@ -213,7 +213,7 @@ func Example() {
 			fmt.Println("workspace alloc:", err)
 			return
 		}
-		defer scratch.MemFree()
+		defer scratch.Free()
 		if err := handle.WorkspaceSetMemory(ws, cudensitymat.MemspaceDevice,
 			cudensitymat.WorkspaceScratch, uintptr(scratch), need); err != nil {
 			fmt.Println("workspace attach:", err)
@@ -233,7 +233,7 @@ func Example() {
 		return
 	}
 	result := make([]complex128, len(rho))
-	if err := outBuf.MemcpyDtoH(unsafe.Pointer(unsafe.SliceData(result)), size); err != nil {
+	if err := outBuf.CopyToHost(unsafe.Pointer(unsafe.SliceData(result)), size); err != nil {
 		fmt.Println("copy result:", err)
 		return
 	}

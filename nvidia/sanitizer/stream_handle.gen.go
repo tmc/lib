@@ -13,14 +13,14 @@ func (s StreamHandle) Synchronize() error {
 	return streamSynchronize(s)
 }
 
-// GetStream Retrieve a [Stream] handle from a [StreamHandle] handle.
+// Stream Retrieve a [Stream] handle from a [StreamHandle] handle.
 //
 // Returns:
 //   - [Success]: on success.
 //   - [ErrInvalidParameter]: if hStream is not a valid Sanitizer stream handle or if stream is NULL.
 //
 // Wraps sanitizerGetStream.
-func (s StreamHandle) GetStream() (Stream, error) {
+func (s StreamHandle) Stream() (Stream, error) {
 	return getStream(s)
 }
 

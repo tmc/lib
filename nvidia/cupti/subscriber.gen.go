@@ -118,7 +118,7 @@ func (s Subscriber) ActivitySetAttributeV2(attr ActivityAttribute, valueSize *ui
 
 // EnableAllDomains Enable or disable all callbacks in all domains.
 //
-// Note Thread-safety : a subscriber must serialize access to [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.GetCallbackState](sub, d, *) and [Subscriber.EnableAllDomains](sub) are called concurrently, the results are undefined.
+// Note Thread-safety : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d, *) and [Subscriber.EnableAllDomains](sub) are called concurrently, the results are undefined.
 //
 //   - enable: New enable state for all callbacks in all domain. Zero disables all callbacks, non-zero enables all callbacks
 //
@@ -134,7 +134,7 @@ func (s Subscriber) EnableAllDomains(enable uint32) error {
 
 // EnableCallback Enable or disabled callbacks for a specific domain and callback ID.
 //
-// Enable or disabled callbacks for a subscriber for a specific domain and callback ID. Note Thread-safety : a subscriber must serialize access to [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.GetCallbackState](sub, d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
+// Enable or disabled callbacks for a subscriber for a specific domain and callback ID. Note Thread-safety : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
 //
 //   - enable: New enable state for the callback. Zero disables the callback, non-zero enables the callback
 //   - domain: The domain of the callback
@@ -152,7 +152,7 @@ func (s Subscriber) EnableCallback(enable uint32, domain CallbackDomain, cbid ui
 
 // EnableDomain Enable or disabled all callbacks for a specific domain.
 //
-// Note Thread-safety : a subscriber must serialize access to [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if cuptiGetCallbackEnabled(sub, d, *) and [Subscriber.EnableDomain](sub, d) are called concurrently, the results are undefined.
+// Note Thread-safety : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if cuptiGetCallbackEnabled(sub, d, *) and [Subscriber.EnableDomain](sub, d) are called concurrently, the results are undefined.
 //
 //   - enable: New enable state for all callbacks in the domain. Zero disables all callbacks, non-zero enables all callbacks
 //   - domain: The domain of the callback
@@ -167,9 +167,9 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 	return enableDomain(enable, s, domain)
 }
 
-// GetCallbackState Get the current enabled/disabled state of a callback for a specific domain and function ID.
+// CallbackState Get the current enabled/disabled state of a callback for a specific domain and function ID.
 //
-// Returns non-zero in *enable if the callback for a domain and callback ID is enabled, and zero if not enabled. Note Thread-safety : a subscriber must serialize access to [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.GetCallbackState](sub, d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
+// Returns non-zero in *enable if the callback for a domain and callback ID is enabled, and zero if not enabled. Note Thread-safety : a subscriber must serialize access to [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d, c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the results are undefined.
 //
 //   - domain: The domain of the callback
 //   - cbid: The ID of the callback
@@ -180,11 +180,11 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 //   - [Success]: on success
 //
 // Wraps cuptiGetCallbackState.
-func (s Subscriber) GetCallbackState(domain CallbackDomain, cbid uint32) (uint32, error) {
+func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, error) {
 	return getCallbackState(s, domain, cbid)
 }
 
-// GetEnabledCallbacks Get the enabled callbacks for a subscriber.
+// EnabledCallbacks Get the enabled callbacks for a subscriber.
 //
 // Note If the provided buffer size is not sufficient to store all the enabled callbacks, we populate the buffer with as much as we can, but return the true value of the number of enabled callbacks in enabledCallbacksCount.
 //
@@ -196,7 +196,7 @@ func (s Subscriber) GetCallbackState(domain CallbackDomain, cbid uint32) (uint32
 //   - [ErrInvalidParameter]: if enabledCallbacksCount is NULL, or if subscriber or domain is invalid.
 //
 // Wraps cuptiGetEnabledCallbacks.
-func (s Subscriber) GetEnabledCallbacks(domain CallbackDomain, buffer *uint32, bufferSize *uint32) (uint32, error) {
+func (s Subscriber) EnabledCallbacks(domain CallbackDomain, buffer *uint32, bufferSize *uint32) (uint32, error) {
 	return getEnabledCallbacks(s, domain, buffer, bufferSize)
 }
 

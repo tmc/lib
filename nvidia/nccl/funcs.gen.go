@@ -223,7 +223,7 @@ func commDestroy(comm Comm) error {
 
 // commFinalize Finalize a communicator object comm.
 //
-// When the communicator is marked as nonblocking, [Comm.Finalize] is a nonblocking function. Successful return from it will set communicator state as ncclInProgress and indicates the communicator is under finalization where all uncompleted operations and the network-related resources are being flushed and freed. Once all NCCL operations are complete, the communicator will transition to the ncclSuccess state. Users can query that state with [Comm.GetAsyncError].
+// When the communicator is marked as nonblocking, [Comm.Finalize] is a nonblocking function. Successful return from it will set communicator state as ncclInProgress and indicates the communicator is under finalization where all uncompleted operations and the network-related resources are being flushed and freed. Once all NCCL operations are complete, the communicator will transition to the ncclSuccess state. Users can query that state with [Comm.AsyncError].
 //
 // Wraps ncclCommFinalize.
 func commFinalize(comm Comm) error {
@@ -235,7 +235,7 @@ func commFinalize(comm Comm) error {
 
 // commGetAsyncError Queries the progress and potential errors of asynchronous NCCL operations.
 //
-// Operations which do not require a stream argument (e.g. [Comm.Finalize]) can be considered complete as soon as the function returns ncclSuccess; operations with a stream argument (e.g. [Comm.AllReduce]) will return ncclSuccess as soon as the operation is posted on the stream but may also report errors through [Comm.GetAsyncError] until they are completed. If the return code of any NCCL function is ncclInProgress, it means the operation is in the process of being enqueued in the background, and users must query the states of the communicators until all the states become ncclSuccess before calling another NCCL function. Before the states change into ncclSuccess, users are not allowed to issue CUDA kernel to the streams being used by NCCL. If there has been an error on the communicator, user should destroy the communicator with [Comm.Abort]. If an error occurs on the communicator, nothing can be assumed about the completion or correctness of operations enqueued on that communicator.
+// Operations which do not require a stream argument (e.g. [Comm.Finalize]) can be considered complete as soon as the function returns ncclSuccess; operations with a stream argument (e.g. [Comm.AllReduce]) will return ncclSuccess as soon as the operation is posted on the stream but may also report errors through [Comm.AsyncError] until they are completed. If the return code of any NCCL function is ncclInProgress, it means the operation is in the process of being enqueued in the background, and users must query the states of the communicators until all the states become ncclSuccess before calling another NCCL function. Before the states change into ncclSuccess, users are not allowed to issue CUDA kernel to the streams being used by NCCL. If there has been an error on the communicator, user should destroy the communicator with [Comm.Abort]. If an error occurs on the communicator, nothing can be assumed about the completion or correctness of operations enqueued on that communicator.
 //
 // Wraps ncclCommGetAsyncError.
 func commGetAsyncError(comm Comm) (Result, error) {
@@ -251,7 +251,7 @@ func commGetAsyncError(comm Comm) (Result, error) {
 	return out, nil
 }
 
-// commGetUniqueId The [Comm.GetUniqueId] function generates a unique identifier for growing an existing communicator exactly once.
+// commGetUniqueId The [Comm.UniqueId] function generates a unique identifier for growing an existing communicator exactly once.
 //
 // This function must be called by only one rank (the coordinator) before each grow operation on the existing communicator. The coordinator is responsible for distributing the uniqueId to all new ranks before they join the communicator via [Comm.Grow]. This function should only be called when there are no outstanding NCCL operations on the communicator.
 //
@@ -301,7 +301,7 @@ func CommInitAll(comm *Comm, ndev int32, devlist *int32) error {
 
 // commInitRank Creates a new communicator (multi thread/process version).
 //
-// rank must be between 0 and nranks-1 and unique within a communicator clique. Each rank is associated to a CUDA device, which has to be set before calling [NewCommInitRank]. [NewCommInitRank] implicitly synchronizes with other ranks, hence it must be called by different threads/processes or used within [GroupStart]/[GroupEnd].
+// rank must be between 0 and nranks-1 and unique within a communicator clique. Each rank is associated to a CUDA device, which has to be set before calling [CommInitRank]. [CommInitRank] implicitly synchronizes with other ranks, hence it must be called by different threads/processes or used within [GroupStart]/[GroupEnd].
 //
 // Wraps ncclCommInitRank.
 func commInitRank(nranks int32, commId UniqueId, rank int32) (Comm, error) {
@@ -317,7 +317,7 @@ func commInitRank(nranks int32, commId UniqueId, rank int32) (Comm, error) {
 	return out, nil
 }
 
-// commInitRankConfig works the same way as [NewCommInitRank] but accepts a configuration argument of extra attributes for the communicator.
+// commInitRankConfig works the same way as [CommInitRank] but accepts a configuration argument of extra attributes for the communicator.
 //
 // See the Creating a communicator with options section for details on configuration options.
 //
@@ -335,7 +335,7 @@ func commInitRankConfig(nranks int32, commId UniqueId, rank int32, config *Confi
 	return out, nil
 }
 
-// commInitRankScalable works the same way as [NewCommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
+// commInitRankScalable works the same way as [CommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
 //
 // See the Creating a communicator with options section for details on how to create and distribute the list of ncclUniqueIds.
 //
@@ -527,9 +527,9 @@ func gatherConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataT
 	return toError(fngatherConfig(sendbuff, recvbuff, count, datatype, root, comm, stream, config))
 }
 
-// getLastError constchar*[Comm.GetLastError]( [Comm] comm) 
+// getLastError constchar*[Comm.LastError]( [Comm] comm) 
 //
-// Returns a human-readable string corresponding to the last error that occurred in NCCL. Note: The error is not cleared by calling this function. Please note that the string returned by [Comm.GetLastError] could be unrelated to the current call and can be a result of previously launched asynchronous operations, if any.
+// Returns a human-readable string corresponding to the last error that occurred in NCCL. Note: The error is not cleared by calling this function. Please note that the string returned by [Comm.LastError] could be unrelated to the current call and can be a result of previously launched asynchronous operations, if any.
 //
 // Wraps ncclGetLastError.
 func getLastError(comm Comm) (string, error) {
@@ -539,9 +539,9 @@ func getLastError(comm Comm) (string, error) {
 	return goString(fngetLastError(comm)), nil
 }
 
-// GetUniqueId Generates an Id to be used in [NewCommInitRank].
+// GetUniqueId Generates an Id to be used in [CommInitRank].
 //
-// [GetUniqueId] should be called once when creating a communicator and the Id should be distributed to all ranks in the communicator before calling [NewCommInitRank]. uniqueId should point to a [UniqueId] object allocated by the user.
+// [GetUniqueId] should be called once when creating a communicator and the Id should be distributed to all ranks in the communicator before calling [CommInitRank]. uniqueId should point to a [UniqueId] object allocated by the user.
 //
 // Wraps ncclGetUniqueId.
 func GetUniqueId() (UniqueId, error) {
@@ -577,7 +577,7 @@ func GetVersion() (int32, error) {
 
 // GroupEnd End a group call.
 //
-// Returns when all operations since [GroupStart] have been processed. This means the communication primitives have been enqueued to the provided streams, but are not necessarily complete. When used with the [NewCommInitRank] call, the [GroupEnd] call waits for all communicators to be initialized.
+// Returns when all operations since [GroupStart] have been processed. This means the communication primitives have been enqueued to the provided streams, but are not necessarily complete. When used with the [CommInitRank] call, the [GroupEnd] call waits for all communicators to be initialized.
 //
 // Wraps ncclGroupEnd.
 func GroupEnd() error {

@@ -26,11 +26,11 @@ func (f *fakeLink) AddData(_ nvjitlink.InputType, p unsafe.Pointer, n uint, _ st
 	f.data = unsafe.Slice((*byte)(p), int(n))
 	return f.at("add")
 }
-func (f *fakeLink) Complete() error                 { return f.at("complete") }
-func (f *fakeLink) GetLinkedCubin() ([]byte, error) { return f.image, f.at("output") }
-func (f *fakeLink) GetLinkedPtx() ([]byte, error)   { return f.image, f.at("output") }
-func (f *fakeLink) GetErrorLog() (string, error)    { return "diagnostic", f.at("log") }
-func (f *fakeLink) GetInfoLog() (string, error)     { return "info", nil }
+func (f *fakeLink) Complete() error              { return f.at("complete") }
+func (f *fakeLink) LinkedCubin() ([]byte, error) { return f.image, f.at("output") }
+func (f *fakeLink) LinkedPtx() ([]byte, error)   { return f.image, f.at("output") }
+func (f *fakeLink) ErrorLog() (string, error)    { return "diagnostic", f.at("log") }
+func (f *fakeLink) InfoLog() (string, error)     { return "info", nil }
 func (f *fakeLink) close() error {
 	f.closed++
 	if err := f.at("close"); err != nil {

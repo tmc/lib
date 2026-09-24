@@ -80,7 +80,7 @@
 //
 //   - [NewHandle]: Initializes the cuBLASMp library handle.
 //   - [Handle.Destroy]: Destroys the cuBLASMp library handle.
-//   - [Handle.GetStream]: Gets the current CUDA stream used by the cuBLASMp library.
+//   - [Handle.Stream]: Gets the current CUDA stream used by the cuBLASMp library.
 //   - [GetVersion]: Returns the version number of the cuBLASMp library.
 //   - [Handle.SetStream]: Sets the CUDA stream for cuBLASMp computations.
 //

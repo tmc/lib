@@ -778,7 +778,7 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	fn, err := mod.GetFunction("vectorAdd")
+	fn, err := mod.Function("vectorAdd")
 	if err != nil {
 		t.Fatal(err)
 	}

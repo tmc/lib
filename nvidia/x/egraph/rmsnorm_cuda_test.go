@@ -87,7 +87,7 @@ func testRMSNormGEMV(t *testing.T, threads uint32) {
 		t.Fatalf("load: %v", err)
 	}
 	defer mod.Unload()
-	fn, err := mod.GetFunction("RMSNormGEMV")
+	fn, err := mod.Function("RMSNormGEMV")
 	if err != nil {
 		t.Fatal(err)
 	}

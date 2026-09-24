@@ -238,15 +238,15 @@ func TestRealKernelPrologueTimestamps(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	pFn, err := mod.GetFunction("real_producer_ts")
+	pFn, err := mod.Function("real_producer_ts")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cEntryFn, err := mod.GetFunction("real_consumer_ts_entry_sync")
+	cEntryFn, err := mod.Function("real_consumer_ts_entry_sync")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cHoistFn, err := mod.GetFunction("real_consumer_ts_hoisted")
+	cHoistFn, err := mod.Function("real_consumer_ts_hoisted")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,15 +368,15 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	pFn, err := mod.GetFunction("real_producer_rmsnorm")
+	pFn, err := mod.Function("real_producer_rmsnorm")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cEntryFn, err := mod.GetFunction("real_consumer_gemv_entry_sync")
+	cEntryFn, err := mod.Function("real_consumer_gemv_entry_sync")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cHoistFn, err := mod.GetFunction("real_consumer_gemv_hoisted")
+	cHoistFn, err := mod.Function("real_consumer_gemv_hoisted")
 	if err != nil {
 		t.Fatal(err)
 	}

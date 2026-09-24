@@ -17,7 +17,7 @@ func withContext(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}

@@ -28,7 +28,7 @@ func Example() {
 		fmt.Println("create:", err)
 		return
 	}
-	defer nvjitlink.Destroy(&h)
+	defer h.Destroy()
 
 	code := []byte(ptx)
 	if err := h.AddData(nvjitlink.InputPtx, unsafe.Pointer(&code[0]), uint(len(code)), "noop.ptx"); err != nil {
@@ -36,11 +36,11 @@ func Example() {
 		return
 	}
 	if err := h.Complete(); err != nil {
-		log, _ := h.GetErrorLog()
+		log, _ := h.ErrorLog()
 		fmt.Printf("link: %v\n%s", err, log)
 		return
 	}
-	cubin, err := h.GetLinkedCubin()
+	cubin, err := h.LinkedCubin()
 	if err != nil {
 		fmt.Println("cubin:", err)
 		return

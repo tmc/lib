@@ -118,27 +118,27 @@ func checkSineKernel(t *testing.T, cubin []byte) {
 		}
 	}
 	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check(err)
 	ctx, err := driver.NewContext(nil, 0, dev)
 	check(err)
 	defer func() { check(ctx.Destroy()) }()
-	module, err := driver.NewModuleLoadData(unsafe.Pointer(unsafe.SliceData(cubin)))
+	module, err := driver.ModuleLoadData(cubin)
 	check(err)
 	runtime.KeepAlive(cubin)
 	defer func() { check(module.Unload()) }()
-	fn, err := module.GetFunction("sine")
+	fn, err := module.Function("sine")
 	check(err)
 	input := []float32{-3, -1, -0.25, 0, 0.25, 1, 3}
 	got := make([]float32, len(input))
 	bytes := uint(len(input) * 4)
 	p, err := driver.MemAlloc(bytes)
 	check(err)
-	defer func() { check(p.MemFree()) }()
-	check(p.MemcpyHtoD(unsafe.Pointer(&input[0]), bytes))
+	defer func() { check(p.Free()) }()
+	check(p.CopyFromHost(unsafe.Pointer(&input[0]), bytes))
 	check(fn.LaunchKernel(1, 1, 1, uint32(len(input)), 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	check(driver.CtxSynchronize())
-	check(p.MemcpyDtoH(unsafe.Pointer(&got[0]), bytes))
+	check(p.CopyToHost(unsafe.Pointer(&got[0]), bytes))
 	for i, x := range input {
 		want := math.Sin(float64(x))
 		if math.IsNaN(float64(got[i])) || math.Abs(float64(got[i])-want) > 1e-6 {

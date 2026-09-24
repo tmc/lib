@@ -27,7 +27,7 @@ func Example() {
 		fmt.Println("CUDA unavailable:", err)
 		return
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		fmt.Println("no CUDA device:", err)
 		return
@@ -57,8 +57,8 @@ func Example() {
 		if err != nil {
 			return 0, err
 		}
-		if err := d.MemcpyHtoD(p, n); err != nil {
-			d.MemFree()
+		if err := d.CopyFromHost(p, n); err != nil {
+			d.Free()
 			return 0, err
 		}
 		return d, nil
@@ -67,7 +67,7 @@ func Example() {
 	var frees []driver.DevicePtr
 	defer func() {
 		for _, d := range frees {
-			d.MemFree()
+			d.Free()
 		}
 	}()
 	alloc := func(p unsafe.Pointer, n uint) driver.DevicePtr {
@@ -149,7 +149,7 @@ func Example() {
 		fmt.Println("synchronize:", err)
 		return
 	}
-	if err := dX.MemcpyDtoH(unsafe.Pointer(&x[0]), uint(len(x))*8); err != nil {
+	if err := dX.CopyToHost(unsafe.Pointer(&x[0]), uint(len(x))*8); err != nil {
 		fmt.Println("download:", err)
 		return
 	}

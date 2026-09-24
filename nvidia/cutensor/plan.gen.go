@@ -2,12 +2,12 @@
 
 package cutensor
 
+// Attribute wraps cutensorPlanGetAttribute.
+func (p Plan) Attribute(handle Handle, attr PlanattributeT, buf uintptr, sizeInBytes uint) error {
+	return planGetAttribute(handle, p, attr, buf, sizeInBytes)
+}
+
 // Destroy wraps cutensorDestroyPlan.
 func (p Plan) Destroy() error {
 	return destroyPlan(p)
-}
-
-// GetAttribute wraps cutensorPlanGetAttribute.
-func (p Plan) GetAttribute(handle Handle, attr PlanattributeT, buf uintptr, sizeInBytes uint) error {
-	return planGetAttribute(handle, p, attr, buf, sizeInBytes)
 }

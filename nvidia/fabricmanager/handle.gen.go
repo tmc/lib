@@ -30,24 +30,24 @@ func (h Handle) Disconnect() error {
 	return disconnect(h)
 }
 
-// GetNvlinkFailedDevices wraps fmGetNvlinkFailedDevices.
+// NvlinkFailedDevices wraps fmGetNvlinkFailedDevices.
 //
 //   - pFmNvlinkFailedDevices: OUT: List of GPU or NVSwitch devices that have failed NVLinks
-func (h Handle) GetNvlinkFailedDevices(pFmNvlinkFailedDevices *NvlinkFailedDevices) error {
+func (h Handle) NvlinkFailedDevices(pFmNvlinkFailedDevices *NvlinkFailedDevices) error {
 	return getNvlinkFailedDevices(h, pFmNvlinkFailedDevices)
 }
 
-// GetSupportedFabricPartitions wraps fmGetSupportedFabricPartitions.
+// SupportedFabricPartitions wraps fmGetSupportedFabricPartitions.
 //
 //   - pFmFabricPartition: OUT: List of currently supported fabric partition information
-func (h Handle) GetSupportedFabricPartitions(pFmFabricPartition *FabricPartitionList) error {
+func (h Handle) SupportedFabricPartitions(pFmFabricPartition *FabricPartitionList) error {
 	return getSupportedFabricPartitions(h, pFmFabricPartition)
 }
 
-// GetUnsupportedFabricPartitions wraps fmGetUnsupportedFabricPartitions.
+// UnsupportedFabricPartitions wraps fmGetUnsupportedFabricPartitions.
 //
 //   - pFmUnupportedFabricPartition: OUT: List of unsupported fabric partitions on the system
-func (h Handle) GetUnsupportedFabricPartitions(pFmUnupportedFabricPartition *UnsupportedFabricPartitionList) error {
+func (h Handle) UnsupportedFabricPartitions(pFmUnupportedFabricPartition *UnsupportedFabricPartitionList) error {
 	return getUnsupportedFabricPartitions(h, pFmUnupportedFabricPartition)
 }
 

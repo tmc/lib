@@ -57,13 +57,13 @@
 //   - [Estimate2d]: During plan execution, cuFFT requires a work area for temporary storage of intermediate results.
 //   - [Estimate3d]: During plan execution, cuFFT requires a work area for temporary storage of intermediate results.
 //   - [EstimateMany]: During plan execution, cuFFT requires a work area for temporary storage of intermediate results.
-//   - [Handle.GetPlanPropertyInt64]: Retrieves the property value identified by the key property associated with the cuFFT plan plan.
-//   - [Handle.GetSize]: Once plan generation has been done, either with the original API or the extensible API, this call returns the actual size of the work area required to support the plan.
-//   - [Handle.GetSize1d]: This call gives a more accurate estimate of the work area size required for a plan than [Estimate1d], given the specified parameters, and taking into account any plan settings that may have been made.
-//   - [Handle.GetSize2d]: This call gives a more accurate estimate of the work area size required for a plan than [Estimate2d], given the specified parameters, and taking into account any plan settings that may have been made.
-//   - [Handle.GetSize3d]: This call gives a more accurate estimate of the work area size required for a plan than [Estimate3d], given the specified parameters, and taking into account any plan settings that may have been made.
-//   - [Handle.GetSizeMany]: This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
-//   - [Handle.GetSizeMany64]: This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
+//   - [Handle.PlanPropertyInt64]: Retrieves the property value identified by the key property associated with the cuFFT plan plan.
+//   - [Handle.Size]: Once plan generation has been done, either with the original API or the extensible API, this call returns the actual size of the work area required to support the plan.
+//   - [Handle.Size1d]: This call gives a more accurate estimate of the work area size required for a plan than [Estimate1d], given the specified parameters, and taking into account any plan settings that may have been made.
+//   - [Handle.Size2d]: This call gives a more accurate estimate of the work area size required for a plan than [Estimate2d], given the specified parameters, and taking into account any plan settings that may have been made.
+//   - [Handle.Size3d]: This call gives a more accurate estimate of the work area size required for a plan than [Estimate3d], given the specified parameters, and taking into account any plan settings that may have been made.
+//   - [Handle.SizeMany]: This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
+//   - [Handle.SizeMany64]: This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
 //   - [Handle.ResetPlanProperty]: Resets the value of the property identified by the key property, associated with the cuFFT plan plan, to its default value.
 //   - [Handle.SetPlanPropertyInt64]: Associates a cuFFT plan with a property identified by the key property.
 //

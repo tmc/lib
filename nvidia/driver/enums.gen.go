@@ -920,7 +920,7 @@ const (
 	DevAttrMaximumSurfacecubemapWidth         DeviceAttribute = 66 // Maximum cubemap surface width
 	DevAttrMaximumSurfacecubemapLayeredWidth  DeviceAttribute = 67 // Maximum cubemap layered surface width
 	DevAttrMaximumSurfacecubemapLayeredLayers DeviceAttribute = 68 // Maximum layers in a cubemap layered surface
-	// DevAttrMaximumTexture1dLinearWidth: Deprecated, do not use. Use cudaDeviceGetTexture1DLinearMaxWidth() or [Device.GetTexture1DLinearMaxWidth] instead.
+	// DevAttrMaximumTexture1dLinearWidth: Deprecated, do not use. Use cudaDeviceGetTexture1DLinearMaxWidth() or [Device.Texture1DLinearMaxWidth] instead.
 	DevAttrMaximumTexture1dLinearWidth      DeviceAttribute = 69
 	DevAttrMaximumTexture2dLinearWidth      DeviceAttribute = 70 // Maximum 2D linear texture width
 	DevAttrMaximumTexture2dLinearHeight     DeviceAttribute = 71 // Maximum 2D linear texture height
@@ -1771,7 +1771,7 @@ const (
 	JITReferencedVariableNames JITOption = 27
 	// JITReferencedVariableCount: \deprecated Number of entries in [JITReferencedVariableNames] array.\n Option type: unsigned int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITReferencedVariableCount JITOption = 28
-	// JITOptimizeUnusedDeviceVariables: \deprecated This option serves as a hint to enable the JIT compiler/linker to remove constant (__constant__) and device (__device__) variables unreferenced in device code (Disabled by default).\n Note that host references to constant and device variables using APIs like [Module.GetGlobal]() with this option specified may result in undefined behavior unless the variables are explicitly specified using [JITReferencedVariableNames].\n Option type: int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
+	// JITOptimizeUnusedDeviceVariables: \deprecated This option serves as a hint to enable the JIT compiler/linker to remove constant (__constant__) and device (__device__) variables unreferenced in device code (Disabled by default).\n Note that host references to constant and device variables using APIs like [Module.Global]() with this option specified may result in undefined behavior unless the variables are explicitly specified using [JITReferencedVariableNames].\n Option type: int\n Applies to: link-time optimization specified with [JITLto] Only valid with LTO-IR compiled with toolkits prior to CUDA 12.0
 	JITOptimizeUnusedDeviceVariables JITOption = 29
 	// JITPositionIndependentCode: Generate position independent code (0: false)\n Option type: int\n Applies to: compiler only
 	JITPositionIndependentCode JITOption = 30
@@ -2698,12 +2698,12 @@ func (e StreamCigDataType) String() string {
 	return fmt.Sprintf("StreamCigDataType(%d)", e)
 }
 
-// LibraryOption Library options to be specified with [NewLibraryLoadData] or [NewLibraryLoadFromFile]
+// LibraryOption Library options to be specified with [LibraryLoadData] or [LibraryLoadFromFile]
 type LibraryOption int32
 
 const (
 	LibraryOptionLibraryHostUniversalFunctionAndDataTable LibraryOption = 0
-	// LibraryBinaryIsPreserved: Specifes that the argument code passed to [NewLibraryLoadData]() will be preserved. Specifying this option will let the driver know that code can be accessed at any point until [Library.Unload](). The default behavior is for the driver to allocate and maintain its own copy of code. Note that this is only a memory usage optimization hint and the driver can choose to ignore it if required. Specifying this option with [NewLibraryLoadFromFile]() is invalid and will return [ErrInvalidValue].
+	// LibraryBinaryIsPreserved: Specifes that the argument code passed to [LibraryLoadData]() will be preserved. Specifying this option will let the driver know that code can be accessed at any point until [Library.Unload](). The default behavior is for the driver to allocate and maintain its own copy of code. Note that this is only a memory usage optimization hint and the driver can choose to ignore it if required. Specifying this option with [LibraryLoadFromFile]() is invalid and will return [ErrInvalidValue].
 	LibraryBinaryIsPreserved LibraryOption = 1
 	LibraryNumOptions        LibraryOption = 2
 )

@@ -147,24 +147,24 @@ func getArtifact(prog nvrtc.Program, kind OutputKind) (*CompiledModule, error) {
 	var err error
 	switch kind {
 	case OutputAuto, OutputPTX:
-		data, err = prog.GetPTX()
+		data, err = prog.PTX()
 		cm.ptx = ptxText(data)
 		if kind == OutputAuto && err == nil {
-			cm.cubin, _ = prog.GetCUBIN()
+			cm.cubin, _ = prog.CUBIN()
 		}
 	case OutputCUBIN:
-		data, err = prog.GetCUBIN()
+		data, err = prog.CUBIN()
 		cm.cubin = data
 		if err == nil {
-			if ptxData, ptxErr := prog.GetPTX(); ptxErr == nil {
+			if ptxData, ptxErr := prog.PTX(); ptxErr == nil {
 				cm.ptx = ptxText(ptxData)
 			}
 		}
 	case OutputLTOIR:
-		data, err = prog.GetLTOIR()
+		data, err = prog.LTOIR()
 		cm.ltoir = data
 	case OutputPTXTileIR:
-		data, err = prog.GetPTX()
+		data, err = prog.PTX()
 		if err != nil {
 			return nil, fmt.Errorf("nvrtcx: get PTX: %w", err)
 		}
@@ -174,10 +174,10 @@ func getArtifact(prog nvrtc.Program, kind OutputKind) (*CompiledModule, error) {
 		cm.ptx = ptxText(data)
 		fallthrough
 	case OutputTileIR:
-		data, err = prog.GetTileIR()
+		data, err = prog.TileIR()
 		cm.tileir = data
 	case OutputOptiXIR:
-		data, err = prog.GetOptiXIR()
+		data, err = prog.OptiXIR()
 		cm.optixir = data
 	default:
 		return nil, fmt.Errorf("nvrtcx: invalid output kind %d", kind)

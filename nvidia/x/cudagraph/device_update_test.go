@@ -449,7 +449,7 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	fn, err := mod.GetFunction("addOffset")
+	fn, err := mod.Function("addOffset")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,7 @@
 
 package driver
 
-// GetAttribute Returns information about a kernel
+// Attribute Returns information about a kernel
 //
 // Returns in *pi the integer value of the attribute attrib for the kernel
 // kernel for the requested device dev. The supported attributes are:
@@ -65,37 +65,37 @@ package driver
 //   - attrib: Attribute requested
 //   - dev: Device to query attribute of
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Kernel.SetAttribute], [Library.GetKernel], [Function.LaunchKernel], [Kernel.GetFunction], [Library.GetModule], [Module.GetFunction], [Function.GetAttribute]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.SetAttribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.Attribute]
 //
 // Wraps cuKernelGetAttribute.
-func (k Kernel) GetAttribute(attrib FunctionAttribute, dev Device) (int32, error) {
+func (k Kernel) Attribute(attrib FunctionAttribute, dev Device) (int32, error) {
 	return kernelGetAttribute(attrib, k, dev)
 }
 
-// GetFunction Returns a function handle
+// Function Returns a function handle
 //
 // Returns in pFunc the handle of the function for the requested kernel kernel and
 // the current context. If function handle is not found, the call returns [ErrNotFound].
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Library.GetKernel], [Library.GetModule], [Module.GetFunction]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Library.Module], [Module.Function]
 //
 // Wraps cuKernelGetFunction.
-func (k Kernel) GetFunction() (Function, error) {
+func (k Kernel) Function() (Function, error) {
 	return kernelGetFunction(k)
 }
 
-// GetLibrary Returns a library handle
+// Library Returns a library handle
 //
 // # Returns in pLib the handle of the library for the requested kernel kernel
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Library.GetKernel]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel]
 //
 // Wraps cuKernelGetLibrary.
-func (k Kernel) GetLibrary() (Library, error) {
+func (k Kernel) Library() (Library, error) {
 	return kernelGetLibrary(k)
 }
 
-// GetName Returns the function name for a [Kernel] handle
+// Name Returns the function name for a [Kernel] handle
 //
 // Returns in **name the function name associated with the kernel handle hfunc .
 // The function name is returned as a null-terminated string. The returned name is only
@@ -105,22 +105,22 @@ func (k Kernel) GetLibrary() (Library, error) {
 // is NULL, [ErrInvalidValue] is returned.
 //
 // Wraps cuKernelGetName.
-func (k Kernel) GetName() (string, error) {
+func (k Kernel) Name() (string, error) {
 	return kernelGetName(k)
 }
 
-// GetParamCount Returns the number of parameters used by the kernel
+// ParamCount Returns the number of parameters used by the kernel
 //
 // Queries the number of kernel parameters used by kernel and returns it in paramCount.
 //
-// See also: [Kernel.GetParamInfo]
+// See also: [Kernel.ParamInfo]
 //
 // Wraps cuKernelGetParamCount.
-func (k Kernel) GetParamCount() (uint, error) {
+func (k Kernel) ParamCount() (uint, error) {
 	return kernelGetParamCount(k)
 }
 
-// GetParamInfo Returns the offset and size of a kernel parameter in the device-side parameter layout
+// ParamInfo Returns the offset and size of a kernel parameter in the device-side parameter layout
 //
 // Queries the kernel parameter at paramIndex into kernel's list of parameters, and returns
 // in paramOffset and paramSize the offset and size, respectively, where the parameter
@@ -131,10 +131,10 @@ func (k Kernel) GetParamCount() (uint, error) {
 //
 //   - paramIndex: The parameter index to query
 //
-// See also: [Function.GetParamInfo]
+// See also: [Function.ParamInfo]
 //
 // Wraps cuKernelGetParamInfo.
-func (k Kernel) GetParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, err error) {
+func (k Kernel) ParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, err error) {
 	return kernelGetParamInfo(k, paramIndex)
 }
 
@@ -149,7 +149,7 @@ func (k Kernel) GetParamInfo(paramIndex uint) (paramOffset uint, paramSize uint,
 //
 // Note that attributes set using [Function.SetAttribute]() will override the attribute
 // set by this API irrespective of whether the call to [Function.SetAttribute]() is made
-// before or after this API call. However, [Kernel.GetAttribute]() will always
+// before or after this API call. However, [Kernel.Attribute]() will always
 // return the attribute value set by this API.
 //
 // Supported attributes are:
@@ -194,7 +194,7 @@ func (k Kernel) GetParamInfo(paramIndex uint) (paramOffset uint, paramSize uint,
 //   - val: Value to set
 //   - dev: Device to set attribute of
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Kernel.GetAttribute], [Library.GetKernel], [Function.LaunchKernel], [Kernel.GetFunction], [Library.GetModule], [Module.GetFunction], [Function.SetAttribute]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.Attribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetAttribute]
 //
 // Wraps cuKernelSetAttribute.
 func (k Kernel) SetAttribute(attrib FunctionAttribute, val int32, dev Device) error {
@@ -234,7 +234,7 @@ func (k Kernel) SetAttribute(attrib FunctionAttribute, val int32, dev Device) er
 //   - config: Requested cache configuration
 //   - dev: Device to set attribute of
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Library.GetKernel], [Kernel.GetFunction], [Library.GetModule], [Module.GetFunction], [Function.SetCacheConfig], [CtxSetCacheConfig], [Function.LaunchKernel]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetCacheConfig], [CtxSetCacheConfig], [Function.LaunchKernel]
 //
 // Wraps cuKernelSetCacheConfig.
 func (k Kernel) SetCacheConfig(config FuncCacheConfig, dev Device) error {

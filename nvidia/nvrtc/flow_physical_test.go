@@ -31,7 +31,7 @@ func TestNativeFlowCallback(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer func() {
-				if err := nvrtc.DestroyProgram(&program); err != nil {
+				if err := program.Destroy(); err != nil {
 					t.Error(err)
 				}
 			}()
@@ -57,7 +57,7 @@ func TestNativeFlowCallback(t *testing.T) {
 				t.Fatal(err)
 			}
 			err = program.Compile([]string{"--gpu-architecture=compute_80"})
-			log, logErr := program.GetProgramLog()
+			log, logErr := program.Log()
 			if logErr != nil {
 				t.Fatal(logErr)
 			}
@@ -76,7 +76,7 @@ func TestNativeFlowCallback(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				ptx, err := program.GetPTX()
+				ptx, err := program.PTX()
 				if err != nil {
 					t.Fatal(err)
 				}

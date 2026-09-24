@@ -6,14 +6,14 @@ import (
 	"unsafe"
 )
 
+// Attribute wraps cutensornetNetworkAutotunePreferenceGetAttribute.
+func (n NetworkAutotunePreference) Attribute(handle Handle, attr NetworkAutotunePreferenceAttributes, buffer unsafe.Pointer, sizeInBytes uint) error {
+	return networkAutotunePreferenceGetAttribute(handle, n, attr, buffer, sizeInBytes)
+}
+
 // Destroy wraps cutensornetDestroyNetworkAutotunePreference.
 func (n NetworkAutotunePreference) Destroy() error {
 	return destroyNetworkAutotunePreference(n)
-}
-
-// GetAttribute wraps cutensornetNetworkAutotunePreferenceGetAttribute.
-func (n NetworkAutotunePreference) GetAttribute(handle Handle, attr NetworkAutotunePreferenceAttributes, buffer unsafe.Pointer, sizeInBytes uint) error {
-	return networkAutotunePreferenceGetAttribute(handle, n, attr, buffer, sizeInBytes)
 }
 
 // SetAttribute wraps cutensornetNetworkAutotunePreferenceSetAttribute.

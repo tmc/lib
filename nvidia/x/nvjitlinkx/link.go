@@ -63,16 +63,16 @@ func (r *Result) Close() error {
 type linkHandle interface {
 	AddData(nvjitlink.InputType, unsafe.Pointer, uint, string) error
 	Complete() error
-	GetLinkedCubin() ([]byte, error)
-	GetLinkedPtx() ([]byte, error)
-	GetErrorLog() (string, error)
-	GetInfoLog() (string, error)
+	LinkedCubin() ([]byte, error)
+	LinkedPtx() ([]byte, error)
+	ErrorLog() (string, error)
+	InfoLog() (string, error)
 	close() error
 }
 
 type nativeHandle struct{ nvjitlink.Handle }
 
-func (h *nativeHandle) close() error { return nvjitlink.Destroy(&h.Handle) }
+func (h *nativeHandle) close() error { return h.Handle.Destroy() }
 
 // Link synchronously links inputs using native nvJitLink options, including a
 // required -arch= target. The -ptx option selects PTX and requires -lto; otherwise
@@ -145,8 +145,8 @@ func link(inputs []Input, options []string, create func([]string) (linkHandle, e
 	// This defer runs before the input pins are released.
 	defer func() {
 		var logErr, infoErr error
-		result.ErrorLog, logErr = h.GetErrorLog()
-		result.InfoLog, infoErr = h.GetInfoLog()
+		result.ErrorLog, logErr = h.ErrorLog()
+		result.InfoLog, infoErr = h.InfoLog()
 		err = errors.Join(err, logErr, infoErr)
 		if closeErr := result.Close(); closeErr != nil {
 			err = errors.Join(err, fmt.Errorf("nvjitlinkx: destroy: %w", closeErr))
@@ -165,9 +165,9 @@ func link(inputs []Input, options []string, create func([]string) (linkHandle, e
 	}
 	var data []byte
 	if ptx {
-		data, err = h.GetLinkedPtx()
+		data, err = h.LinkedPtx()
 	} else {
-		data, err = h.GetLinkedCubin()
+		data, err = h.LinkedCubin()
 	}
 	if err != nil {
 		return result, fmt.Errorf("output: %w", err)

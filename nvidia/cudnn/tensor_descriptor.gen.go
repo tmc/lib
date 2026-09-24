@@ -61,7 +61,7 @@ func (t TensorDescriptor) DropoutGetReserveSpaceSize() (uint, error) {
 	return dropoutGetReserveSpaceSize(t)
 }
 
-// GetTensor4dDescriptor queries the parameters of the previously initialized Tensor4d descriptor object.
+// Tensor4dDescriptor queries the parameters of the previously initialized Tensor4d descriptor object.
 //
 //   - n: Output. Number of images
 //   - c: Output. Number of feature maps per image
@@ -76,11 +76,11 @@ func (t TensorDescriptor) DropoutGetReserveSpaceSize() (uint, error) {
 //   - [Success]: The operation succeeded.
 //
 // Wraps cudnnGetTensor4dDescriptor.
-func (t TensorDescriptor) GetTensor4dDescriptor(dataType *DataType, n *int32, c *int32, h *int32, w *int32, nStride *int32, cStride *int32, hStride *int32, wStride *int32) error {
+func (t TensorDescriptor) Tensor4dDescriptor(dataType *DataType, n *int32, c *int32, h *int32, w *int32, nStride *int32, cStride *int32, hStride *int32, wStride *int32) error {
 	return getTensor4dDescriptor(t, dataType, n, c, h, w, nStride, cStride, hStride, wStride)
 }
 
-// GetTensorNdDescriptor retrieves values stored in a previously initialized TensorNd descriptor object.
+// TensorNdDescriptor retrieves values stored in a previously initialized TensorNd descriptor object.
 //
 //   - nbDimsRequested: that will be filled with the strides from the provided tensor descriptor
 //
@@ -89,11 +89,11 @@ func (t TensorDescriptor) GetTensor4dDescriptor(dataType *DataType, n *int32, c 
 //   - [Success]: The results were returned successfully.
 //
 // Wraps cudnnGetTensorNdDescriptor.
-func (t TensorDescriptor) GetTensorNdDescriptor(nbDimsRequested int32, dataType *DataType, nbDims *int32, dimA *int32, strideA *int32) error {
+func (t TensorDescriptor) TensorNdDescriptor(nbDimsRequested int32, dataType *DataType, nbDims *int32, dimA *int32, strideA *int32) error {
 	return getTensorNdDescriptor(t, nbDimsRequested, dataType, nbDims, dimA, strideA)
 }
 
-// GetTensorSizeInBytes returns the size of the tensor in memory in respect to the given descriptor.
+// TensorSizeInBytes returns the size of the tensor in memory in respect to the given descriptor.
 //
 // This function can be used to know the amount of GPU memory to be allocated to hold that tensor.
 //
@@ -101,7 +101,7 @@ func (t TensorDescriptor) GetTensorNdDescriptor(nbDimsRequested int32, dataType 
 //   - [Success]: The results were returned successfully.
 //
 // Wraps cudnnGetTensorSizeInBytes.
-func (t TensorDescriptor) GetTensorSizeInBytes() (uint, error) {
+func (t TensorDescriptor) TensorSizeInBytes() (uint, error) {
 	return getTensorSizeInBytes(t)
 }
 

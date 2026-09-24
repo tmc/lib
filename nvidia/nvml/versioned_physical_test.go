@@ -88,7 +88,7 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 	if err != nil {
 		t.Fatalf("device 0: %v", err)
 	}
-	name, err := device.GetName()
+	name, err := device.Name()
 	if err != nil {
 		t.Fatalf("device name: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 			t.Skip("library does not export nvmlDeviceGetRemappedRows_v2")
 		}
 		var corr, unc, pending, failure uint32
-		corr, err := device.GetRemappedRows(&unc, &pending, &failure)
+		corr, err := device.RemappedRows(&unc, &pending, &failure)
 		if errors.Is(err, nvml.ErrNotSupported) {
 			// Row remapping is a property of the memory, not of the library:
 			// a part without remappable rows answers ErrNotSupported, which is
@@ -143,14 +143,14 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 		if !present["nvmlDeviceGetAccountingStats_v2"] {
 			t.Skip("library does not export nvmlDeviceGetAccountingStats_v2")
 		}
-		mode, err := device.GetAccountingMode()
+		mode, err := device.AccountingMode()
 		if err != nil {
 			t.Skipf("accounting mode unavailable: %v", err)
 		}
 		if mode != nvml.FeatureEnabled {
 			t.Skipf("accounting is %v; enabling it needs root, and without it there are no pids to compare", mode)
 		}
-		pids, err := device.GetAccountingPids(make([]uint32, 256))
+		pids, err := device.AccountingPids(make([]uint32, 256))
 		if err != nil {
 			t.Skipf("accounting pids: %v", err)
 		}
@@ -162,7 +162,7 @@ func TestPhysicalVersionedSymbols(t *testing.T) {
 		compared := 0
 		for _, pid := range pids {
 			var v1 nvml.AccountingStats
-			if err := device.GetAccountingStats(pid, &v1); err != nil {
+			if err := device.AccountingStats(pid, &v1); err != nil {
 				t.Logf("pid %d: v1 unavailable (%v); skipped", pid, err)
 				continue
 			}

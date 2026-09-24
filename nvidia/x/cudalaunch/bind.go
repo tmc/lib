@@ -32,7 +32,7 @@ var functionType = reflect.TypeOf(driver.Function(0))
 // reported as an error.
 func Bind(mod driver.Module, kernels any) error {
 	return bind(kernels, functionType, func(name string) (reflect.Value, error) {
-		fn, err := mod.GetFunction(name)
+		fn, err := mod.Function(name)
 		return reflect.ValueOf(fn), err
 	})
 }

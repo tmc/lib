@@ -29,7 +29,7 @@ func Example() {
 		fmt.Println("CUDA driver unavailable:", err)
 		return
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		fmt.Println("device:", err)
 		return
@@ -52,8 +52,8 @@ func Example() {
 		fmt.Println("alloc:", err)
 		return
 	}
-	defer p.MemFree()
-	if err := p.MemcpyHtoD(unsafe.Pointer(&values[0]), size); err != nil {
+	defer p.Free()
+	if err := p.CopyFromHost(unsafe.Pointer(&values[0]), size); err != nil {
 		fmt.Println("copy in:", err)
 		return
 	}
@@ -69,7 +69,7 @@ func Example() {
 		return
 	}
 
-	if err := p.MemcpyDtoH(unsafe.Pointer(&values[0]), size); err != nil {
+	if err := p.CopyToHost(unsafe.Pointer(&values[0]), size); err != nil {
 		fmt.Println("copy out:", err)
 		return
 	}

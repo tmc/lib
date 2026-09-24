@@ -166,7 +166,7 @@ func (g *Graph) InstantiateWithOptions(options InstantiateOptions) (*Exec, error
 			return nil, fmt.Errorf("cudagraph: retain kernel order: %w", err)
 		}
 	}
-	return g.instantiate(order, g.withContext, func() (driver.GraphExec, error) { return g.raw.Instantiate(flags) })
+	return g.instantiate(order, g.withContext, func() (driver.GraphExec, error) { return g.raw.Instantiate(driver.GraphinstantiateFlags(flags)) })
 }
 
 func (g *Graph) instantiate(order []string, run func(func() error) error, create func() (driver.GraphExec, error)) (*Exec, error) {

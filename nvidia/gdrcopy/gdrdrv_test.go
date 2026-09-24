@@ -63,9 +63,9 @@ func TestPinMapCopy(t *testing.T) {
 	if count == 0 {
 		needs(t, errors.New("no devices"), "no NVIDIA GPU is visible to this process")
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	needs(t, err, "device 0 could not be opened")
-	name, err := dev.GetName()
+	name, err := dev.Name()
 	if err != nil {
 		t.Fatalf("cuDeviceGetName: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestPinMapCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cuMemAlloc: %v", err)
 	}
-	defer alloc.MemFree()
+	defer alloc.Free()
 	base := (uintptr(alloc) + gdrcopy.GPUPageSize - 1) & gdrcopy.GPUPageMask
 	data := base + dataOffset
 	if err := alloc.MemsetD8(0, uint(3*gdrcopy.GPUPageSize)); err != nil {
@@ -177,7 +177,7 @@ func TestPinMapCopy(t *testing.T) {
 		t.Fatalf("cuCtxSynchronize after CopyToMapping: %v", err)
 	}
 	fromDevice := make([]byte, len(payload))
-	if err := driver.DevicePtr(data).MemcpyDtoH(unsafe.Pointer(&fromDevice[0]), uint(len(fromDevice))); err != nil {
+	if err := driver.DevicePtr(data).CopyToHost(unsafe.Pointer(&fromDevice[0]), uint(len(fromDevice))); err != nil {
 		t.Fatalf("cuMemcpyDtoH: %v", err)
 	}
 	if !bytes.Equal(fromDevice, payload) {

@@ -16,7 +16,7 @@ func (f FilterDescriptor) Destroy() error {
 	return destroyFilterDescriptor(f)
 }
 
-// GetFilter4dDescriptor queries the parameters of the previously initialized Filter4d descriptor object.
+// Filter4dDescriptor queries the parameters of the previously initialized Filter4d descriptor object.
 //
 // This function queries the parameters of the previously initialized Filter4d descriptor object.
 //
@@ -32,11 +32,11 @@ func (f FilterDescriptor) Destroy() error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetFilter4dDescriptor.
-func (f FilterDescriptor) GetFilter4dDescriptor(dataType *DataType, format *TensorFormat, k *int32, c *int32, h *int32, w *int32) error {
+func (f FilterDescriptor) Filter4dDescriptor(dataType *DataType, format *TensorFormat, k *int32, c *int32, h *int32, w *int32) error {
 	return getFilter4dDescriptor(f, dataType, format, k, c, h, w)
 }
 
-// GetFilterNdDescriptor queries a previously initialized FilterNd descriptor object.
+// FilterNdDescriptor queries a previously initialized FilterNd descriptor object.
 //
 // This function queries a previously initialized FilterNd descriptor object.
 //
@@ -51,11 +51,11 @@ func (f FilterDescriptor) GetFilter4dDescriptor(dataType *DataType, format *Tens
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetFilterNdDescriptor.
-func (f FilterDescriptor) GetFilterNdDescriptor(nbDimsRequested int32, dataType *DataType, format *TensorFormat, nbDims *int32, filterDimA *int32) error {
+func (f FilterDescriptor) FilterNdDescriptor(nbDimsRequested int32, dataType *DataType, format *TensorFormat, nbDims *int32, filterDimA *int32) error {
 	return getFilterNdDescriptor(f, nbDimsRequested, dataType, format, nbDims, filterDimA)
 }
 
-// GetFilterSizeInBytes returns the size of the filter tensor in memory with respect to the given descriptor.
+// FilterSizeInBytes returns the size of the filter tensor in memory with respect to the given descriptor.
 //
 // This function returns the size of the filter tensor in memory with respect to the given descriptor. It can be used to know the amount of GPU memory to be allocated to hold that filter tensor.
 //
@@ -66,7 +66,7 @@ func (f FilterDescriptor) GetFilterNdDescriptor(nbDimsRequested int32, dataType 
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetFilterSizeInBytes.
-func (f FilterDescriptor) GetFilterSizeInBytes() (uint, error) {
+func (f FilterDescriptor) FilterSizeInBytes() (uint, error) {
 	return getFilterSizeInBytes(f)
 }
 

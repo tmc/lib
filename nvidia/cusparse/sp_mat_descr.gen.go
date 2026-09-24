@@ -8,8 +8,8 @@ func (s SpMatDescr) BlockedEllGet(rows *int64, cols *int64, ellBlockSize *int64,
 }
 
 // BsrSetStridedBatch wraps cusparseBsrSetStridedBatch.
-func (s SpMatDescr) BsrSetStridedBatch(batchCount int32, offsetsBatchStride int64, columnsBatchStride int64, ValuesBatchStride int64) error {
-	return bsrSetStridedBatch(s, batchCount, offsetsBatchStride, columnsBatchStride, ValuesBatchStride)
+func (s SpMatDescr) BsrSetStridedBatch(batchCount int32, offsetsBatchStride int64, columnsBatchStride int64, valuesBatchStride int64) error {
+	return bsrSetStridedBatch(s, batchCount, offsetsBatchStride, columnsBatchStride, valuesBatchStride)
 }
 
 // CooGet wraps cusparseCooGet.

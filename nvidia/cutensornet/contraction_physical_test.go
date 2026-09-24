@@ -61,7 +61,7 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 	if n == 0 {
 		t.Fatal("no CUDA device present; the physical test cannot run here")
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Fatalf("cuDeviceGet(0): %v", err)
 	}
@@ -182,11 +182,11 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 		}
 		if err := ws.Provide(cutensornet.MemspaceDevice, cutensornet.WorkspaceScratch,
 			uintptr(dW), scratch, func() {
-				if err := dW.MemFree(); err != nil {
+				if err := dW.Free(); err != nil {
 					t.Errorf("cuMemFree(workspace): %v", err)
 				}
 			}); err != nil {
-			dW.MemFree()
+			dW.Free()
 			t.Fatalf("WorkspaceSetMemory: %v", err)
 		}
 	}
@@ -195,21 +195,21 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cuMemAlloc(A): %v", err)
 	}
-	defer dA.MemFree()
+	defer dA.Free()
 	dB, err := driver.MemAlloc(uint(len(hostB)) * 8)
 	if err != nil {
 		t.Fatalf("cuMemAlloc(B): %v", err)
 	}
-	defer dB.MemFree()
+	defer dB.Free()
 	dC, err := driver.MemAlloc(uint(M*N) * 8)
 	if err != nil {
 		t.Fatalf("cuMemAlloc(C): %v", err)
 	}
-	defer dC.MemFree()
-	if err := dA.MemcpyHtoD(unsafe.Pointer(&hostA[0]), uint(len(hostA))*8); err != nil {
+	defer dC.Free()
+	if err := dA.CopyFromHost(unsafe.Pointer(&hostA[0]), uint(len(hostA))*8); err != nil {
 		t.Fatalf("cuMemcpyHtoD(A): %v", err)
 	}
-	if err := dB.MemcpyHtoD(unsafe.Pointer(&hostB[0]), uint(len(hostB))*8); err != nil {
+	if err := dB.CopyFromHost(unsafe.Pointer(&hostB[0]), uint(len(hostB))*8); err != nil {
 		t.Fatalf("cuMemcpyHtoD(B): %v", err)
 	}
 
@@ -242,7 +242,7 @@ func TestContractionMatchesIndependentResult(t *testing.T) {
 	}
 
 	got := make([]float64, M*N)
-	if err := dC.MemcpyDtoH(unsafe.Pointer(&got[0]), uint(M*N)*8); err != nil {
+	if err := dC.CopyToHost(unsafe.Pointer(&got[0]), uint(M*N)*8); err != nil {
 		t.Fatalf("cuMemcpyDtoH(C): %v", err)
 	}
 	for i := range want {

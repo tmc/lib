@@ -82,12 +82,12 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 	var mod driver.Module
 	err := dev.WithContext(func() error {
 		if len(cm.tileir) > 0 {
-			m, err := driver.NewModuleLoadData(unsafe.Pointer(&cm.tileir[0]))
+			m, err := driver.ModuleLoadData(cm.tileir)
 			mod = m
 			return err
 		}
 		if len(cm.cubin) > 0 {
-			m, err := driver.NewModuleLoadData(unsafe.Pointer(&cm.cubin[0]))
+			m, err := driver.ModuleLoadData(cm.cubin)
 			if err == nil {
 				mod = m
 				return nil
@@ -103,9 +103,9 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 			var m driver.Module
 			var err error
 			if len(jitOpts) > 0 {
-				m, err = driver.NewModuleLoadDataEx(unsafe.Pointer(&cstr[0]), uint32(len(jitOpts)), &jitOpts[0], &jitVals[0])
+				m, err = driver.ModuleLoadDataEx(cstr, uint32(len(jitOpts)), &jitOpts[0], &jitVals[0])
 			} else {
-				m, err = driver.NewModuleLoadData(unsafe.Pointer(&cstr[0]))
+				m, err = driver.ModuleLoadData(cstr)
 			}
 			if err != nil {
 				return err
@@ -689,7 +689,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 				err := prog.AddNameExpression(&name[0])
 				runtime.KeepAlive(name)
 				if err != nil {
-					_ = nvrtc.DestroyProgram(&prog)
+					_ = prog.Destroy()
 					return prog, "", nil, fmt.Errorf("nvrtcx: register %q: %w", expression, err)
 				}
 			}
@@ -697,36 +697,36 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 				token, unregister := registerFlowContext(cfg.ctx)
 				defer unregister()
 				if err := prog.SetFlowCallback(getFlowCallback(), token); err != nil {
-					_ = nvrtc.DestroyProgram(&prog)
+					_ = prog.Destroy()
 					return prog, "", nil, fmt.Errorf("nvrtcx: set flow callback: %w", err)
 				}
 			}
 			compileErr := prog.Compile(sourceFlags)
-			log, logErr := prog.GetProgramLog()
+			log, logErr := prog.Log()
 			return prog, log, compileErr, logErr
 		}
 
 		prog, log, compileErr, logErr := compileOnce()
 		if compileErr != nil && cfg.ctx != nil && cfg.ctx.Err() != nil {
-			_ = nvrtc.DestroyProgram(&prog)
+			_ = prog.Destroy()
 			return nil, fmt.Errorf("nvrtcx: compile: %w", cfg.ctx.Err())
 		}
 
 		// Handle PCH heap exhaustion retry
 		isHeapExhausted := errors.Is(compileErr, nvrtc.ErrPchCreateHeapExhausted)
 		if !isHeapExhausted && compileErr == nil && nvrtc.HasGetPCHCreateStatus() {
-			if errors.Is(prog.GetPCHCreateStatus(), nvrtc.ErrPchCreateHeapExhausted) {
+			if errors.Is(prog.PCHCreateStatus(), nvrtc.ErrPchCreateHeapExhausted) {
 				isHeapExhausted = true
 			}
 		}
 		if isHeapExhausted && nvrtc.HasGetPCHHeapSizeRequired() && nvrtc.HasSetPCHHeapSize() {
-			reqSize, reqErr := prog.GetPCHHeapSizeRequired()
+			reqSize, reqErr := prog.PCHHeapSizeRequired()
 			if reqErr == nil && reqSize > 0 {
 				if setErr := nvrtc.SetPCHHeapSize(reqSize); setErr == nil {
-					_ = nvrtc.DestroyProgram(&prog)
+					_ = prog.Destroy()
 					prog, log, compileErr, logErr = compileOnce()
 					if compileErr != nil && cfg.ctx != nil && cfg.ctx.Err() != nil {
-						_ = nvrtc.DestroyProgram(&prog)
+						_ = prog.Destroy()
 						return nil, fmt.Errorf("nvrtcx: compile: %w", cfg.ctx.Err())
 					}
 				}
@@ -734,7 +734,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		}
 
 		defer func() {
-			result, resultErr = finishProgram(result, resultErr, func() error { return nvrtc.DestroyProgram(&prog) })
+			result, resultErr = finishProgram(result, resultErr, func() error { return prog.Destroy() })
 			if resultErr == nil && cfg.useCache {
 				if err := storeCache(key, result); err != nil {
 					result, resultErr = nil, err
@@ -759,7 +759,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		for _, expression := range cfg.expressions {
 			name := append([]byte(expression), 0)
 			var ptr *byte
-			err := prog.GetLoweredName(&name[0], &ptr)
+			err := prog.LoweredName(&name[0], &ptr)
 			runtime.KeepAlive(name)
 			if err != nil {
 				return nil, fmt.Errorf("nvrtcx: lower %q: %w", expression, err)

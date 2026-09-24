@@ -272,9 +272,9 @@ func newRig(t *testing.T) *rig {
 	t.Logf("cuDensityMat version %d from %s", cudensitymat.GetVersion(), cudensitymat.Path())
 
 	r.check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	r.check(err)
-	name, err := dev.GetName()
+	name, err := dev.Name()
 	r.check(err)
 	t.Logf("device 0: %s", name)
 	ctx, err := dev.PrimaryCtxRetain()
@@ -293,9 +293,9 @@ func newRig(t *testing.T) *rig {
 
 	// Single process, single rank. If this is not what the library reports,
 	// the rest of the test is measuring something else.
-	ranks, err := r.handle.GetNumRanks()
+	ranks, err := r.handle.NumRanks()
 	r.check(err)
-	rank, err := r.handle.GetProcRank()
+	rank, err := r.handle.ProcRank()
 	r.check(err)
 	if ranks != 1 || rank != 0 {
 		t.Fatalf("library reports rank %d of %d; this test assumes a single process", rank, ranks)
@@ -320,20 +320,20 @@ func (r *rig) alloc(n int) driver.DevicePtr {
 	r.t.Helper()
 	p, err := driver.MemAlloc(uint(n) * elemSize)
 	r.check(err)
-	r.t.Cleanup(func() { r.check(p.MemFree()) })
+	r.t.Cleanup(func() { r.check(p.Free()) })
 	return p
 }
 
 func (r *rig) writePtr(p driver.DevicePtr, v []complex128) {
 	r.t.Helper()
-	r.check(p.MemcpyHtoD(unsafe.Pointer(unsafe.SliceData(v)), uint(len(v))*elemSize))
+	r.check(p.CopyFromHost(unsafe.Pointer(unsafe.SliceData(v)), uint(len(v))*elemSize))
 	runtime.KeepAlive(v)
 }
 
 func (r *rig) readPtr(p driver.DevicePtr, n int) []complex128 {
 	r.t.Helper()
 	v := make([]complex128, n)
-	r.check(p.MemcpyDtoH(unsafe.Pointer(unsafe.SliceData(v)), uint(n)*elemSize))
+	r.check(p.CopyToHost(unsafe.Pointer(unsafe.SliceData(v)), uint(n)*elemSize))
 	runtime.KeepAlive(v)
 	return v
 }
@@ -353,13 +353,13 @@ func (r *rig) newState(m mat2) state {
 	s, err := r.handle.CreateState(cudensitymat.StatePurityMixed, 1, &r.extents[0], 1, cudensitymat.C64F)
 	r.check(err)
 
-	components, err := s.GetNumComponents(r.handle)
+	components, err := s.NumComponents(r.handle)
 	r.check(err)
 	if components != 1 {
 		r.t.Fatalf("dense state reported %d components, want 1", components)
 	}
 	var size uint
-	r.check(s.GetComponentStorageSize(r.handle, 1, &size))
+	r.check(s.ComponentStorageSize(r.handle, 1, &size))
 	if size != 4*elemSize {
 		r.t.Fatalf("component storage size = %d bytes, want %d for a 2x2 complex128 density matrix", size, 4*elemSize)
 	}
@@ -495,7 +495,7 @@ func (r *rig) attachWorkspace(ws cudensitymat.WorkspaceDescriptor) {
 	}
 	buf, err := driver.MemAlloc(need)
 	r.check(err)
-	r.t.Cleanup(func() { r.check(buf.MemFree()) })
+	r.t.Cleanup(func() { r.check(buf.Free()) })
 	r.check(r.handle.WorkspaceSetMemory(ws, cudensitymat.MemspaceDevice,
 		cudensitymat.WorkspaceScratch, uintptr(buf), need))
 	// Reading it back is the only check available that SetMemory recorded

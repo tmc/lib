@@ -70,7 +70,7 @@
 //
 // # Device memory
 //
-//   - [Handle.GetDeviceMemHandler].
+//   - [Handle.DeviceMemHandler].
 //
 // # Logging
 //
@@ -87,12 +87,12 @@
 //   - [NewMatrixCsr].
 //   - [NewMatrixDn].
 //   - [Matrix.Destroy].
-//   - [Matrix.GetBatchCsr].
-//   - [Matrix.GetBatchDn].
-//   - [Matrix.GetCsr].
-//   - [Matrix.GetDistributionRow1d].
-//   - [Matrix.GetDn].
-//   - [Matrix.GetFormat].
+//   - [Matrix.BatchCsr].
+//   - [Matrix.BatchDn].
+//   - [Matrix.Csr].
+//   - [Matrix.DistributionRow1d].
+//   - [Matrix.Dn].
+//   - [Matrix.Format].
 //   - [Matrix.SetBatchCsrPointers].
 //   - [Matrix.SetBatchValues].
 //   - [Matrix.SetCsrPointers].

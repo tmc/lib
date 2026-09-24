@@ -61,7 +61,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 	}()
 	for i := range contexts {
 		dev := driver.Device(i)
-		uuid, err := dev.GetUuid()
+		uuid, err := dev.Uuid()
 		check("UUID", err)
 		uuids[i] = uuid
 		contexts[i], err = dev.PrimaryCtxRetain()
@@ -88,7 +88,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 	defer func() {
 		cleanup("restore allocation context", contexts[0].SetCurrent())
 		for _, d := range frees {
-			if err := d.MemFree(); err != nil {
+			if err := d.Free(); err != nil {
 				t.Errorf("free device memory: %v", err)
 			}
 		}
@@ -100,7 +100,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 			t.Fatalf("allocate %d bytes for %s: %v", n, name, err)
 		}
 		frees = append(frees, d)
-		if err := d.MemcpyHtoD(p, n); err != nil {
+		if err := d.CopyFromHost(p, n); err != nil {
 			t.Fatalf("upload %s: %v", name, err)
 		}
 		return d
@@ -176,7 +176,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 		}
 	}
 
-	if err := dX.MemcpyDtoH(unsafe.Pointer(&x[0]), uint(len(x))*8); err != nil {
+	if err := dX.CopyToHost(unsafe.Pointer(&x[0]), uint(len(x))*8); err != nil {
 		t.Fatalf("download solution: %v", err)
 	}
 

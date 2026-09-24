@@ -34,6 +34,6 @@ func (u UserObject) Retain(count uint32) error {
 //   - flags: Currently it is required to pass [UserObjectNoDestructorSync], which is the only defined flag. This indicates that the destroy callback cannot be waited on by any CUDA API. Users requiring synchronization of the callback should signal its completion manually
 //
 // Wraps cuUserObjectCreate.
-func NewUserObject(ptr uintptr, destroy uintptr, initialRefcount uint32, flags uint32) (UserObject, error) {
+func NewUserObject(ptr uintptr, destroy uintptr, initialRefcount uint32, flags UserobjectFlags) (UserObject, error) {
 	return userObjectCreate(ptr, destroy, initialRefcount, flags)
 }

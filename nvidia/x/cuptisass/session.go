@@ -310,7 +310,7 @@ func (s *Session) Close() error {
 func contextDevice(ctx uintptr) (device uint32, err error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	previous, err := driver.NewContextGetCurrent()
+	previous, err := driver.CtxGetCurrent()
 	if err != nil {
 		return 0, err
 	}

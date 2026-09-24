@@ -497,7 +497,7 @@ func registerFuncs() {
 	register(&fnaddModuleToProgram, "nvvmAddModuleToProgram")
 	register(&fncompileProgram, "nvvmCompileProgram")
 	register(&fnCreateProgram, "nvvmCreateProgram")
-	register(&fnDestroyProgram, "nvvmDestroyProgram")
+	register(&fndestroyProgram, "nvvmDestroyProgram")
 	register(&fngetCompiledResult, "nvvmGetCompiledResult")
 	register(&fngetCompiledResultSize, "nvvmGetCompiledResultSize")
 	register(&fngetProgramLog, "nvvmGetProgramLog")
@@ -515,7 +515,7 @@ func clearFuncs() {
 	fnaddModuleToProgram = nil
 	fncompileProgram = nil
 	fnCreateProgram = nil
-	fnDestroyProgram = nil
+	fndestroyProgram = nil
 	fngetCompiledResult = nil
 	fngetCompiledResultSize = nil
 	fngetProgramLog = nil

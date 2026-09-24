@@ -476,7 +476,7 @@ func registerFuncs() {
 	register(&fnaddNameExpression, "nvrtcAddNameExpression")
 	register(&fncompileProgram, "nvrtcCompileProgram")
 	register(&fnCreateProgram, "nvrtcCreateProgram")
-	register(&fnDestroyProgram, "nvrtcDestroyProgram")
+	register(&fndestroyProgram, "nvrtcDestroyProgram")
 	register(&fnGetBundledHeadersInfo, "nvrtcGetBundledHeadersInfo")
 	register(&fngetCUBIN, "nvrtcGetCUBIN")
 	register(&fngetCUBINSize, "nvrtcGetCUBINSize")
@@ -509,7 +509,7 @@ func clearFuncs() {
 	fnaddNameExpression = nil
 	fncompileProgram = nil
 	fnCreateProgram = nil
-	fnDestroyProgram = nil
+	fndestroyProgram = nil
 	fnGetBundledHeadersInfo = nil
 	fngetCUBIN = nil
 	fngetCUBINSize = nil

@@ -191,8 +191,8 @@ func runTileMatrix(t *testing.T, mixed bool) {
 			p, err = driver.MemAlloc(uint(len(data) * 4))
 			return err
 		}))
-		cleanup(func() error { return dev.WithContext(p.MemFree) })
-		check(dev.WithContext(func() error { return p.MemcpyHtoD(unsafe.Pointer(&data[0]), uint(len(data)*4)) }))
+		cleanup(func() error { return dev.WithContext(p.Free) })
+		check(dev.WithContext(func() error { return p.CopyFromHost(unsafe.Pointer(&data[0]), uint(len(data)*4)) }))
 		return p
 	}
 	pa, pb, pc := alloc(a[:]), alloc(b[:]), alloc(c[:])
@@ -205,7 +205,7 @@ func runTileMatrix(t *testing.T, mixed bool) {
 		check(transform.Launch([3]uint32{1, 1, 1}, [3]uint32{256, 1, 1}, 0, stream.Raw(), []unsafe.Pointer{unsafe.Pointer(&pc)}))
 	}
 	check(stream.Synchronize(context.Background()))
-	check(dev.WithContext(func() error { return pc.MemcpyDtoH(unsafe.Pointer(&c[0]), uint(len(c)*4)) }))
+	check(dev.WithContext(func() error { return pc.CopyToHost(unsafe.Pointer(&c[0]), uint(len(c)*4)) }))
 	// Inputs are exact binary fractions; use a float64 oracle and a fixed
 	// tolerance chosen before execution, with explicit nonfinite rejection.
 	const absTol, relTol = 1e-5, 1e-5

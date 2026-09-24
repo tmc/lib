@@ -61,7 +61,7 @@ func TestPhysicalVersionedDescriptors(t *testing.T) {
 	// Config. A zeroed descriptor carries magic 0 and size 0; the library is
 	// expected to refuse it rather than read the rest of the struct.
 	var zeroConfig nccl.Config
-	if comm, err := nccl.NewCommInitRankConfig(1, id, 0, &zeroConfig); err == nil {
+	if comm, err := nccl.CommInitRankConfig(1, id, 0, &zeroConfig); err == nil {
 		if comm != 0 {
 			comm.Destroy()
 		}
@@ -76,7 +76,7 @@ func TestPhysicalVersionedDescriptors(t *testing.T) {
 	id, err = nccl.GetUniqueId()
 	check("unique id for the accepted config", err)
 	config := nccl.NewConfig()
-	comm, err := nccl.NewCommInitRankConfig(1, id, 0, &config)
+	comm, err := nccl.CommInitRankConfig(1, id, 0, &config)
 	check("CommInitRankConfig with NewConfig", err)
 	if comm == 0 {
 		t.Fatal("CommInitRankConfig returned a null communicator and no error")
@@ -156,17 +156,17 @@ func TestPhysicalVersionedDescriptors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("allocate send: %v", err)
 		}
-		defer send.MemFree()
+		defer send.Free()
 		recv, err := driver.MemAlloc(count * 4)
 		if err != nil {
 			t.Fatalf("allocate receive: %v", err)
 		}
-		defer recv.MemFree()
+		defer recv.Free()
 		host := make([]int32, count)
 		for i := range host {
 			host[i] = int32(i)
 		}
-		if err := send.MemcpyHtoD(unsafe.Pointer(&host[0]), count*4); err != nil {
+		if err := send.CopyFromHost(unsafe.Pointer(&host[0]), count*4); err != nil {
 			t.Fatalf("upload: %v", err)
 		}
 		stream, err := driver.NewStream(0)

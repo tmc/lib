@@ -55,7 +55,7 @@ func TestPhysicalCUBLASHCProjection(t *testing.T) {
 	physicalCheck(t, p.dev.WithContext(func() error { var err error; handle, err = cublas.Create(); return err }))
 	physicalClose(t, func() error { return p.dev.WithContext(handle.Destroy) })
 	physicalCheck(t, p.dev.WithContext(func() error {
-		version, err := handle.GetVersion()
+		version, err := handle.Version()
 		if err != nil {
 			return err
 		}
@@ -94,7 +94,7 @@ func TestPhysicalCUBLASHCProjection(t *testing.T) {
 		nodes, err := graph.Raw().NodesBounded(65536)
 		physicalCheck(t, err)
 		for i, node := range nodes {
-			kind, err := node.GetType()
+			kind, err := node.Type()
 			physicalCheck(t, err)
 			t.Logf("CUPTIBENCH_CUBLAS_GRAPH node=%d handle=%#x kind=%s", i, uintptr(node), kind)
 		}

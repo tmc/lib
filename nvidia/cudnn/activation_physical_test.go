@@ -32,9 +32,9 @@ func TestNativeActivationForward(t *testing.T) {
 		}
 	}
 	check("CUDA init", driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check("device", err)
-	uuid, err := dev.GetUuid()
+	uuid, err := dev.Uuid()
 	check("UUID", err)
 	ctx, err := dev.PrimaryCtxRetain()
 	check("retain context", err)
@@ -60,12 +60,12 @@ func TestNativeActivationForward(t *testing.T) {
 	const bytes = uint(8 * 4)
 	x, err := driver.MemAlloc(bytes)
 	check("allocate input", err)
-	defer func() { clean("free input", x.MemFree()) }()
+	defer func() { clean("free input", x.Free()) }()
 	y, err := driver.MemAlloc(bytes)
 	check("allocate output", err)
-	defer func() { clean("free output", y.MemFree()) }()
-	check("upload input", x.MemcpyHtoD(unsafe.Pointer(&input[0]), bytes))
-	check("upload initial output", y.MemcpyHtoD(unsafe.Pointer(&initial[0]), bytes))
+	defer func() { clean("free output", y.Free()) }()
+	check("upload input", x.CopyFromHost(unsafe.Pointer(&input[0]), bytes))
+	check("upload initial output", y.CopyFromHost(unsafe.Pointer(&initial[0]), bytes))
 	alpha, beta := float32(2), float32(0.5)
 	var pins runtime.Pinner
 	pins.Pin(&alpha)
@@ -77,7 +77,7 @@ func TestNativeActivationForward(t *testing.T) {
 	check("activation forward", h.ActivationForward(activation, unsafe.Pointer(&alpha), desc, uintptr(x), unsafe.Pointer(&beta), desc, uintptr(y)))
 	check("synchronize", stream.Synchronize())
 	var got [8]float32
-	check("download", y.MemcpyDtoH(unsafe.Pointer(&got[0]), bytes))
+	check("download", y.CopyToHost(unsafe.Pointer(&got[0]), bytes))
 	var want [8]float32
 	for i, value := range input {
 		relu := value

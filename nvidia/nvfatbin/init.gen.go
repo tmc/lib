@@ -478,7 +478,7 @@ func registerFuncs() {
 	register(&fnaddReloc, "nvFatbinAddReloc")
 	register(&fnaddTileIR, "nvFatbinAddTileIR")
 	register(&fnCreate, "nvFatbinCreate")
-	register(&fnDestroy, "nvFatbinDestroy")
+	register(&fndestroy, "nvFatbinDestroy")
 	register(&fnget, "nvFatbinGet")
 	register(&fnsize, "nvFatbinSize")
 	register(&fnVersion, "nvFatbinVersion")
@@ -494,7 +494,7 @@ func clearFuncs() {
 	fnaddReloc = nil
 	fnaddTileIR = nil
 	fnCreate = nil
-	fnDestroy = nil
+	fndestroy = nil
 	fnget = nil
 	fnsize = nil
 	fnVersion = nil

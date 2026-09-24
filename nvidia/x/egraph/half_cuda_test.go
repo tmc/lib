@@ -78,7 +78,7 @@ func TestGeneratedHalfAddMatchesReference(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	defer mod.Unload()
-	fn, err := mod.GetFunction("HalfAdd")
+	fn, err := mod.Function("HalfAdd")
 	if err != nil {
 		t.Fatal(err)
 	}

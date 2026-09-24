@@ -6,7 +6,7 @@ in `internal/ffi`:
 - `Comm.TeamRankToWorld` and `Comm.TeamRankToLsa`
 - `Comm.GinBarrierCreateRequirement`
 - `LsaBarrierCreateRequirement` and `CftBarrierCreateRequirement`
-- `Window.GetCftDeviceLeInfo`
+- `Window.CftDeviceLeInfo`
 
 The rank-conversion methods return `(int32, error)`. All six report unavailable
 symbols or unsupported signatures through `SymbolError`; inspect `BindFailures`

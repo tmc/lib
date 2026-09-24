@@ -20,7 +20,7 @@ func NewUnitByIndex(index uint32) (Unit, error) {
 	return unitGetHandleByIndex(index)
 }
 
-// GetDevices Retrieves the set of GPU devices that are attached to the specified unit.
+// Devices Retrieves the set of GPU devices that are attached to the specified unit.
 //
 // For S-class products.
 // The deviceCount argument is expected to be set to the size of the input devices array.
@@ -31,7 +31,7 @@ func NewUnitByIndex(index uint32) (Unit, error) {
 // Wraps nvmlUnitGetDevices.
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
-func (u Unit) GetDevices(buf []Device) ([]Device, error) {
+func (u Unit) Devices(buf []Device) ([]Device, error) {
 	count := uint32(cap(buf))
 	buf = buf[:cap(buf)]
 	var p *Device
@@ -53,7 +53,7 @@ func (u Unit) GetDevices(buf []Device) ([]Device, error) {
 	}
 }
 
-// GetFanSpeedInfo Retrieves the fan speed readings for the unit.
+// FanSpeedInfo Retrieves the fan speed readings for the unit.
 //
 // For S-class products.
 // See [UnitFanSpeeds] for details on available fan speed info.
@@ -61,49 +61,11 @@ func (u Unit) GetDevices(buf []Device) ([]Device, error) {
 //   - fanSpeeds: Reference in which to return the fan speed information
 //
 // Wraps nvmlUnitGetFanSpeedInfo.
-func (u Unit) GetFanSpeedInfo(fanSpeeds *UnitFanSpeeds) error {
+func (u Unit) FanSpeedInfo(fanSpeeds *UnitFanSpeeds) error {
 	return unitGetFanSpeedInfo(u, fanSpeeds)
 }
 
-// GetLedState Retrieves the LED state associated with this unit.
-//
-// For S-class products.
-// See [LedState] for details on allowed states.
-// See also: [Unit.SetLedState]
-//
-//   - state: Reference in which to return the current LED state
-//
-// Wraps nvmlUnitGetLedState.
-func (u Unit) GetLedState() (LedState, error) {
-	return unitGetLedState(u)
-}
-
-// GetPsuInfo Retrieves the PSU stats for the unit.
-//
-// For S-class products.
-// See [PSUInfo] for details on available PSU info.
-//
-//   - psu: Reference in which to return the PSU information
-//
-// Wraps nvmlUnitGetPsuInfo.
-func (u Unit) GetPsuInfo(psu *PSUInfo) error {
-	return unitGetPsuInfo(u, psu)
-}
-
-// GetTemperature Retrieves the temperature readings for the unit, in degrees C.
-//
-// For S-class products.
-// Depending on the product, readings may be available for intake (type=0), exhaust (type=1) and board (type=2).
-//
-//   - type_: The type of reading to take
-//   - temp: Reference in which to return the intake temperature
-//
-// Wraps nvmlUnitGetTemperature.
-func (u Unit) GetTemperature(type_ uint32) (uint32, error) {
-	return unitGetTemperature(u, type_)
-}
-
-// GetUnitInfo Retrieves the static information associated with a unit.
+// Info Retrieves the static information associated with a unit.
 //
 // For S-class products.
 // See [UnitInfo] for details on available unit info.
@@ -112,8 +74,33 @@ func (u Unit) GetTemperature(type_ uint32) (uint32, error) {
 //   - info: Reference in which to return the unit information
 //
 // Wraps nvmlUnitGetUnitInfo.
-func (u Unit) GetUnitInfo() (UnitInfo, error) {
+func (u Unit) Info() (UnitInfo, error) {
 	return unitGetUnitInfo(u)
+}
+
+// LedState Retrieves the LED state associated with this unit.
+//
+// For S-class products.
+// See [LedState] for details on allowed states.
+// See also: [Unit.SetLedState]
+//
+//   - state: Reference in which to return the current LED state
+//
+// Wraps nvmlUnitGetLedState.
+func (u Unit) LedState() (LedState, error) {
+	return unitGetLedState(u)
+}
+
+// PsuInfo Retrieves the PSU stats for the unit.
+//
+// For S-class products.
+// See [PSUInfo] for details on available PSU info.
+//
+//   - psu: Reference in which to return the PSU information
+//
+// Wraps nvmlUnitGetPsuInfo.
+func (u Unit) PsuInfo(psu *PSUInfo) error {
+	return unitGetPsuInfo(u, psu)
 }
 
 // SetLedState Set the LED state for the unit.
@@ -122,7 +109,7 @@ func (u Unit) GetUnitInfo() (UnitInfo, error) {
 // This operation takes effect immediately.
 // Current S-Class products don't provide unique LEDs for each unit. As such, both front and back LEDs will be toggled in unison regardless of which unit is specified with this command.
 // See [LedColor] for available colors.
-// See also: [Unit.GetLedState]
+// See also: [Unit.LedState]
 // < Previous | Next >
 //
 //   - color: The target LED color
@@ -130,4 +117,17 @@ func (u Unit) GetUnitInfo() (UnitInfo, error) {
 // Wraps nvmlUnitSetLedState.
 func (u Unit) SetLedState(color LedColor) error {
 	return unitSetLedState(u, color)
+}
+
+// Temperature Retrieves the temperature readings for the unit, in degrees C.
+//
+// For S-class products.
+// Depending on the product, readings may be available for intake (type=0), exhaust (type=1) and board (type=2).
+//
+//   - type_: The type of reading to take
+//   - temp: Reference in which to return the intake temperature
+//
+// Wraps nvmlUnitGetTemperature.
+func (u Unit) Temperature(type_ uint32) (uint32, error) {
+	return unitGetTemperature(u, type_)
 }

@@ -6,7 +6,6 @@ import (
 	"os"
 	"runtime"
 	"testing"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 )
@@ -44,7 +43,7 @@ func physicalContext(t *testing.T) driver.Device {
 	if err := driver.Init(0); err != nil {
 		t.Fatal(err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,12 +157,12 @@ func TestNativeFunctionSetAttributeRejection(t *testing.T) {
 
 	fn := loadEmptyKernel(t)
 
-	optin, err := dev.GetAttribute(driver.DevAttrMaxSharedMemoryPerBlockOptin)
+	optin, err := dev.Attribute(driver.DevAttrMaxSharedMemoryPerBlockOptin)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	base, err := fn.GetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+	base, err := fn.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +175,7 @@ func TestNativeFunctionSetAttributeRejection(t *testing.T) {
 	if err := fn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, control); err != nil {
 		t.Fatalf("positive control rejected: %v", err)
 	}
-	installed, err := fn.GetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+	installed, err := fn.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +191,7 @@ func TestNativeFunctionSetAttributeRejection(t *testing.T) {
 		t.Logf("Function.SetAttribute(%d) rejected: %v", optin*4, err)
 	}
 
-	after, err := fn.GetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+	after, err := fn.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,12 +235,12 @@ func TestNativeFunctionSetCacheConfigRejection(t *testing.T) {
 func loadEmptyKernel(t *testing.T) driver.Function {
 	t.Helper()
 	src := []byte(emptyKernelPTX)
-	mod, err := driver.NewModuleLoadData(unsafe.Pointer(&src[0]))
+	mod, err := driver.ModuleLoadData(src)
 	if err != nil {
 		t.Fatalf("loading PTX: %v", err)
 	}
 	t.Cleanup(func() { mod.Unload() })
-	fn, err := mod.GetFunction("empty")
+	fn, err := mod.Function("empty")
 	if err != nil {
 		t.Fatalf("GetFunction: %v", err)
 	}

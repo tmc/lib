@@ -51,8 +51,8 @@
 //
 //   - [Comm.Count]: Returns in count the number of ranks in the NCCL communicator comm.
 //   - [Comm.CuDevice]: Returns in device the CUDA device associated with the NCCL communicator comm.
-//   - [Comm.GetAsyncError]: Queries the progress and potential errors of asynchronous NCCL operations.
-//   - [Comm.GetUniqueId]: The [Comm.GetUniqueId] function generates a unique identifier for growing an existing communicator exactly once.
+//   - [Comm.AsyncError]: Queries the progress and potential errors of asynchronous NCCL operations.
+//   - [Comm.UniqueId]: The [Comm.UniqueId] function generates a unique identifier for growing an existing communicator exactly once.
 //   - [Comm.MemStats]: Query communicator memory statistics.
 //   - [Comm.UserRank]: Returns in rank the rank of the caller in the NCCL communicator comm.
 //
@@ -70,10 +70,10 @@
 // # Communicator Setup
 //
 //   - [CommInitAll]: Creates a clique of communicators (single process version) in a blocking way.
-//   - [NewCommInitRank]: Creates a new communicator (multi thread/process version).
-//   - [NewCommInitRankConfig]: works the same way as [NewCommInitRank] but accepts a configuration argument of extra attributes for the communicator.
-//   - [NewCommInitRankScalable]: works the same way as [NewCommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
-//   - [GetUniqueId]: Generates an Id to be used in [NewCommInitRank].
+//   - [CommInitRank]: Creates a new communicator (multi thread/process version).
+//   - [CommInitRankConfig]: works the same way as [CommInitRank] but accepts a configuration argument of extra attributes for the communicator.
+//   - [CommInitRankScalable]: works the same way as [CommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
+//   - [GetUniqueId]: Generates an Id to be used in [CommInitRank].
 //
 // # Window Registration
 //
@@ -82,7 +82,7 @@
 //
 // # Error Handling
 //
-//   - [Comm.GetLastError]: constchar*[Comm.GetLastError]( [Comm] comm) 
+//   - [Comm.LastError]: constchar*[Comm.LastError]( [Comm] comm) 
 //
 // # Version
 //

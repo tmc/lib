@@ -16,7 +16,7 @@ func (f FusedOpsVariantParamPack) Destroy() error {
 	return destroyFusedOpsVariantParamPack(f)
 }
 
-// GetFusedOpsVariantParamPackAttribute retrieves the settings of the variable parameter pack descriptor.
+// Attribute retrieves the settings of the variable parameter pack descriptor.
 //
 //   - paramLabel: input selection. For more information, refer to [FusedOpsVariantParamLabel]
 //
@@ -27,7 +27,7 @@ func (f FusedOpsVariantParamPack) Destroy() error {
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetFusedOpsVariantParamPackAttribute.
-func (f FusedOpsVariantParamPack) GetFusedOpsVariantParamPackAttribute(paramLabel FusedOpsVariantParamLabel, ptr uintptr) error {
+func (f FusedOpsVariantParamPack) Attribute(paramLabel FusedOpsVariantParamLabel, ptr uintptr) error {
 	return getFusedOpsVariantParamPackAttribute(f, paramLabel, ptr)
 }
 

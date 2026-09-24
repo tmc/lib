@@ -10,10 +10,10 @@ import (
 // asyncHostPointer names the driver calls that read or write host memory
 // after they return, and which argument is the host pointer.
 var asyncHostPointer = map[string]int{
-	"MemcpyHtoDAsync": 0,
-	"MemcpyDtoHAsync": 0,
-	"MemcpyAtoHAsync": 0,
-	"MemcpyHtoAAsync": 1,
+	"CopyFromHostAsync": 0,
+	"CopyToHostAsync":   0,
+	"MemcpyAtoHAsync":   0,
+	"MemcpyHtoAAsync":   1,
 }
 
 var unpinnedAnalyzer = &analysis.Analyzer{

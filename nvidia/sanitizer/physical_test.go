@@ -49,7 +49,7 @@ func TestNativeAllocationCallback(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check(err)
 	ctx, err := driver.NewContext(nil, 0, dev)
 	check(err)
@@ -57,7 +57,7 @@ func TestNativeAllocationCallback(t *testing.T) {
 	before := bytes.Load()
 	p, err := driver.MemAlloc(4096)
 	check(err)
-	check(p.MemFree())
+	check(p.Free())
 	if events.Load() == 0 || bytes.Load()-before < 4096 || badToken.Load() != 0 {
 		t.Fatalf("events=%d bytes=%d bad tokens=%d", events.Load(), bytes.Load()-before, badToken.Load())
 	}

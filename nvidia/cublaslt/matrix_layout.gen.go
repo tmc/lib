@@ -7,29 +7,18 @@ package cublaslt
 //   - matLayout: Pointer to the structure holding the matrix layout descriptor created by this function. See [MatrixLayout]
 //   - type_: Enumerant that specifies the data precision for the matrix layout descriptor this function creates. See cudaDataType_t
 //   - rows: Number of rows and columns of the matrix
-//   - cols: Number of rows and columns of the matrix
 //   - ld: The leading dimension of the matrix. In column major layout, this is the number of elements to jump to reach the next column. Thus ld >= m (number of rows)
 //
 // Returns:
-//   - [ErrAllocFailed]: If the memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtMatrixLayoutCreate.
 func NewMatrixLayout(type_ DataType, rows uint64, cols uint64, ld int64) (MatrixLayout, error) {
 	return matrixLayoutCreate(type_, rows, cols, ld)
 }
 
-// Destroy destroys a previously created matrix layout descriptor object.
-//
-// Returns:
-//   - [Success]: If the operation was successful.
-//
-// Wraps cublasLtMatrixLayoutDestroy.
-func (m MatrixLayout) Destroy() error {
-	return matrixLayoutDestroy(m)
-}
-
-// GetAttribute returns the value of the queried attribute belonging to the specified matrix layout descriptor.
+// Attribute returns the value of the queried attribute belonging to the specified matrix layout descriptor.
 //
 //   - attr: The attribute being queried for. See [MatrixLayoutAttribute]
 //   - buf: The attribute value returned by this function
@@ -37,12 +26,22 @@ func (m MatrixLayout) Destroy() error {
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: - If sizeInBytes is 0 and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtMatrixLayoutGetAttribute.
-func (m MatrixLayout) GetAttribute(attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) (uint, error) {
+func (m MatrixLayout) Attribute(attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) (uint, error) {
 	return matrixLayoutGetAttribute(m, attr, buf, sizeInBytes)
+}
+
+// Destroy destroys a previously created matrix layout descriptor object.
+//
+// Returns:
+//   - [Success]: if operation was successful
+//
+// Wraps cublasLtMatrixLayoutDestroy.
+func (m MatrixLayout) Destroy() error {
+	return matrixLayoutDestroy(m)
 }
 
 // GroupedMatrixLayoutInit_internal wraps cublasLtGroupedMatrixLayoutInit_internal.
@@ -62,8 +61,8 @@ func (m MatrixLayout) Init_internal(size uint, type_ DataType, rows uint64, cols
 //   - sizeInBytes: Size of buf, the attribute buffer
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match size of internal storage for the selected attribute.
-//   - [Success]: If attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtMatrixLayoutSetAttribute.
 func (m MatrixLayout) SetAttribute(attr MatrixLayoutAttribute, buf uintptr, sizeInBytes uint) error {

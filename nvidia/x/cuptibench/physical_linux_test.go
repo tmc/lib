@@ -97,14 +97,14 @@ func newPhysicalPipeline(tb testing.TB, grid uint32) *physicalPipeline {
 	physicalClose(tb, dev.Close)
 	p := &physicalPipeline{dev: dev, grid: grid}
 	for i := range p.streams {
-		p.streams[i], err = dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+		p.streams[i], err = dev.NewStreamWithFlags(driver.StreamNonBlocking)
 		physicalCheck(tb, err)
 		physicalClose(tb, p.streams[i].Destroy)
 	}
-	p.projected, err = dev.NewEventWithFlags(uint32(driver.EventDisableTiming))
+	p.projected, err = dev.NewEventWithFlags(driver.EventDisableTiming)
 	physicalCheck(tb, err)
 	physicalClose(tb, p.projected.Destroy)
-	p.decoded, err = dev.NewEventWithFlags(uint32(driver.EventDisableTiming))
+	p.decoded, err = dev.NewEventWithFlags(driver.EventDisableTiming)
 	physicalCheck(tb, err)
 	physicalClose(tb, p.decoded.Destroy)
 	for _, slice := range []*cudamem.Slice[uint32]{&p.state, &p.mid, &p.out} {
@@ -119,7 +119,7 @@ func newPhysicalPipeline(tb testing.TB, grid uint32) *physicalPipeline {
 	physicalClose(tb, func() error { return dev.WithContext(module.Unload) })
 	physicalCheck(tb, dev.WithContext(func() error {
 		for name, fn := range map[string]*driver.Function{"fixture_reset": &p.reset, "fixture_project": &p.project, "fixture_decode": &p.decode, "fixture_wait": &p.wait} {
-			f, err := module.GetFunction(name)
+			f, err := module.Function(name)
 			if err != nil {
 				return err
 			}
@@ -628,7 +628,7 @@ extern "C" __global__ void traffic_read(const unsigned *data, unsigned *out, uns
 func TestPhysicalFilteredL2Traffic(t *testing.T) {
 	p := newPhysicalPipeline(t, 4)
 	var l2 int32
-	physicalCheck(t, p.dev.WithContext(func() error { var err error; l2, err = p.dev.Raw().GetAttribute(driver.DevAttrL2CacheSize); return err }))
+	physicalCheck(t, p.dev.WithContext(func() error { var err error; l2, err = p.dev.Raw().Attribute(driver.DevAttrL2CacheSize); return err }))
 	if l2 < 256<<10 {
 		t.Fatalf("unqualified L2 capacity %d: fixture requires at least 256 KiB", l2)
 	}
@@ -655,11 +655,11 @@ func TestPhysicalFilteredL2Traffic(t *testing.T) {
 	var initialize, read driver.Function
 	physicalCheck(t, p.dev.WithContext(func() error {
 		var err error
-		initialize, err = module.GetFunction("traffic_initialize")
+		initialize, err = module.Function("traffic_initialize")
 		if err != nil {
 			return err
 		}
-		read, err = module.GetFunction("traffic_read")
+		read, err = module.Function("traffic_read")
 		return err
 	}))
 	launch := func(data cudamem.Slice[uint32], words uint32) error {

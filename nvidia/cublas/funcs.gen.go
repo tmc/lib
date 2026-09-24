@@ -757,11 +757,11 @@ func ccopy64(handle Handle, n int64, x *Complex64, incx int64, y *Complex64, inc
 //   - mode: Left multiply if mode == [SideLeft] or right multiply if mode == [SideRight]
 //   - m: Number of rows of matrix A and C
 //   - n: Number of columns of matrix A and C
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m)
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - x: One-dimensional < type > array of size abs(incx) x m if mode == [SideLeft] and abs(incx) x n if mode == [SideRight]
 //   - incx: Stride of one-dimensional array x
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -771,11 +771,11 @@ func ccopy64(handle Handle, n int64, x *Complex64, incx int64, y *Complex64, inc
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCdgmm.
-func cdgmm(handle Handle, mode SideMode, m int32, n int32, A *Complex64, lda int32, x *Complex64, incx int32, C *Complex64, ldc int32) error {
+func cdgmm(handle Handle, mode SideMode, m int32, n int32, a *Complex64, lda int32, x *Complex64, incx int32, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCdgmm"); err != nil {
 		return err
 	}
-	return toError(fncdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc))
+	return toError(fncdgmm(handle, mode, m, n, a, lda, x, incx, c, ldc))
 }
 
 // cdgmm64 supports the 64-bit Integer Interface.
@@ -794,11 +794,11 @@ func cdgmm(handle Handle, mode SideMode, m int32, n int32, A *Complex64, lda int
 //   - mode: Left multiply if mode == [SideLeft] or right multiply if mode == [SideRight]
 //   - m: Number of rows of matrix A and C
 //   - n: Number of columns of matrix A and C
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m)
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - x: One-dimensional < type > array of size abs(incx) x m if mode == [SideLeft] and abs(incx) x n if mode == [SideRight]
 //   - incx: Stride of one-dimensional array x
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -808,11 +808,11 @@ func cdgmm(handle Handle, mode SideMode, m int32, n int32, A *Complex64, lda int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCdgmm_64.
-func cdgmm64(handle Handle, mode SideMode, m int64, n int64, A *Complex64, lda int64, x *Complex64, incx int64, C *Complex64, ldc int64) error {
+func cdgmm64(handle Handle, mode SideMode, m int64, n int64, a *Complex64, lda int64, x *Complex64, incx int64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCdgmm_64"); err != nil {
 		return err
 	}
-	return toError(fncdgmm64(handle, mode, m, n, A, lda, x, incx, C, ldc))
+	return toError(fncdgmm64(handle, mode, m, n, a, lda, x, incx, c, ldc))
 }
 
 // cdotc supports the 64-bit Integer Interface.
@@ -973,7 +973,7 @@ func cdotu64(handle Handle, n int64, x *Complex64, incx int64, y *Complex64, inc
 //   - kl: Number of subdiagonals of matrix A
 //   - ku: Number of superdiagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= kl + ku + 1
+//   - a: < type > array of dimension lda x n with lda >= kl + ku + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements if trans == [OpN] and m elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -988,11 +988,11 @@ func cdotu64(handle Handle, n int64, x *Complex64, incx int64, y *Complex64, inc
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgbmv_v2.
-func cgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32, alpha *Complex64, A *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
+func cgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32, alpha *Complex64, a *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
 	if err := checkLibSym("cublasCgbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fncgbmv(handle, trans, m, n, kl, ku, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fncgbmv(handle, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // cgbmv64 supports the 64-bit Integer Interface.
@@ -1013,7 +1013,7 @@ func cgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 //   - kl: Number of subdiagonals of matrix A
 //   - ku: Number of superdiagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= kl + ku + 1
+//   - a: < type > array of dimension lda x n with lda >= kl + ku + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements if trans == [OpN] and m elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -1028,11 +1028,11 @@ func cgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgbmv_v2_64.
-func cgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int64, alpha *Complex64, A *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
+func cgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int64, alpha *Complex64, a *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
 	if err := checkLibSym("cublasCgbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgbmv64(handle, trans, m, n, kl, ku, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fncgbmv64(handle, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // cgeam supports the 64-bit Integer Interface.
@@ -1058,12 +1058,12 @@ func cgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - alpha: < type > scalar used for multiplication. If *alpha == 0, A does not have to be a valid input
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - beta: < type > scalar used for multiplication. If *beta == 0, B does not have to be a valid input
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -1073,11 +1073,11 @@ func cgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeam.
-func cgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, alpha *Complex64, A *Complex64, lda int32, beta *Complex64, B *Complex64, ldb int32, C *Complex64, ldc int32) error {
+func cgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, alpha *Complex64, a *Complex64, lda int32, beta *Complex64, b *Complex64, ldb int32, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCgeam"); err != nil {
 		return err
 	}
-	return toError(fncgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc))
+	return toError(fncgeam(handle, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc))
 }
 
 // cgeam64 supports the 64-bit Integer Interface.
@@ -1103,12 +1103,12 @@ func cgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - alpha: < type > scalar used for multiplication. If *alpha == 0, A does not have to be a valid input
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - beta: < type > scalar used for multiplication. If *beta == 0, B does not have to be a valid input
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -1118,11 +1118,11 @@ func cgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeam_64.
-func cgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64, alpha *Complex64, A *Complex64, lda int64, beta *Complex64, B *Complex64, ldb int64, C *Complex64, ldc int64) error {
+func cgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64, alpha *Complex64, a *Complex64, lda int64, beta *Complex64, b *Complex64, ldb int64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCgeam_64"); err != nil {
 		return err
 	}
-	return toError(fncgeam64(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc))
+	return toError(fncgeam64(handle, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc))
 }
 
 // cgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
@@ -1141,9 +1141,9 @@ func cgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - m: Number of rows of each Aarray [i] and Carray [i] if trans == [OpN], numbers of columns of each Aarray [i] otherwise (not supported currently)
 //   - n: Number of columns of each Aarray [i] if trans == [OpN], and number of rows of each Aarray [i] and Carray [i] otherwise (not supported currently)
 //   - nrhs: Number of columns of each Carray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - Carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
+//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
 //   - info: If info == 0 the parameters passed to the function are validIf info < 0 the parameter in position -info is invalid
 //   - devInfoArray: Optional array of integers of dimension batchsize.If non-null, every element of devInfoArray [i] == V has the following meaning:V == 0 : the i-th problem was successfully solvedV > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
@@ -1157,11 +1157,11 @@ func cgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgelsBatched.
-func cgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, Aarray uintptr, lda int32, Carray uintptr, ldc int32, info *int32, devInfoArray *int32, batchSize int32) error {
+func cgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, aarray uintptr, lda int32, carray uintptr, ldc int32, info *int32, devInfoArray *int32, batchSize int32) error {
 	if err := checkLibSym("cublasCgelsBatched"); err != nil {
 		return err
 	}
-	return toError(fncgelsBatched(handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc, info, devInfoArray, batchSize))
+	return toError(fncgelsBatched(handle, trans, m, n, nrhs, aarray, lda, carray, ldc, info, devInfoArray, batchSize))
 }
 
 // cgemm3m supports the 64-bit Integer Interface.
@@ -1184,12 +1184,12 @@ func cgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -1200,43 +1200,43 @@ func cgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCgemm3m.
-func cgemm3m(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32, beta *Complex64, C *Complex64, ldc int32) error {
+func cgemm3m(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32, beta *Complex64, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCgemm3m"); err != nil {
 		return err
 	}
-	return toError(fncgemm3m(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncgemm3m(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // cgemm3mBatched wraps cublasCgemm3mBatched.
-func cgemm3mBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, Aarray uintptr, lda int32, Barray uintptr, ldb int32, beta *Complex64, Carray uintptr, ldc int32, batchCount int32) error {
+func cgemm3mBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, aarray uintptr, lda int32, barray uintptr, ldb int32, beta *Complex64, carray uintptr, ldc int32, batchCount int32) error {
 	if err := checkLibSym("cublasCgemm3mBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fncgemm3mBatched(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // cgemm3mBatched64 wraps cublasCgemm3mBatched_64.
-func cgemm3mBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, Aarray uintptr, lda int64, Barray uintptr, ldb int64, beta *Complex64, Carray uintptr, ldc int64, batchCount int64) error {
+func cgemm3mBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, aarray uintptr, lda int64, barray uintptr, ldb int64, beta *Complex64, carray uintptr, ldc int64, batchCount int64) error {
 	if err := checkLibSym("cublasCgemm3mBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mBatched64(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fncgemm3mBatched64(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // cgemm3mEx wraps cublasCgemm3mEx.
-func cgemm3mEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, A uintptr, Atype DataType, lda int32, B uintptr, Btype DataType, ldb int32, beta *Complex64, C uintptr, Ctype DataType, ldc int32) error {
+func cgemm3mEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a uintptr, atype DataType, lda int32, b uintptr, btype DataType, ldb int32, beta *Complex64, c uintptr, ctype DataType, ldc int32) error {
 	if err := checkLibSym("cublasCgemm3mEx"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mEx(handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb, beta, C, Ctype, ldc))
+	return toError(fncgemm3mEx(handle, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc))
 }
 
 // cgemm3mEx64 wraps cublasCgemm3mEx_64.
-func cgemm3mEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, A uintptr, Atype DataType, lda int64, B uintptr, Btype DataType, ldb int64, beta *Complex64, C uintptr, Ctype DataType, ldc int64) error {
+func cgemm3mEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a uintptr, atype DataType, lda int64, b uintptr, btype DataType, ldb int64, beta *Complex64, c uintptr, ctype DataType, ldc int64) error {
 	if err := checkLibSym("cublasCgemm3mEx_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mEx64(handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb, beta, C, Ctype, ldc))
+	return toError(fncgemm3mEx64(handle, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc))
 }
 
 // cgemm3mStridedBatched supports the 64-bit Integer Interface.
@@ -1260,14 +1260,14 @@ func cgemm3mEx64(handle Handle, transa Operation, transb Operation, m int64, n i
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -1280,11 +1280,11 @@ func cgemm3mEx64(handle Handle, transa Operation, transb Operation, m int64, n i
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemm3mStridedBatched.
-func cgemm3mStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, strideA int64, B *Complex64, ldb int32, strideB int64, beta *Complex64, C *Complex64, ldc int32, strideC int64, batchCount int32) error {
+func cgemm3mStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, strideA int64, b *Complex64, ldb int32, strideB int64, beta *Complex64, c *Complex64, ldc int32, strideC int64, batchCount int32) error {
 	if err := checkLibSym("cublasCgemm3mStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mStridedBatched(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fncgemm3mStridedBatched(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // cgemm3mStridedBatched64 supports the 64-bit Integer Interface.
@@ -1308,14 +1308,14 @@ func cgemm3mStridedBatched(handle Handle, transa Operation, transb Operation, m 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -1328,11 +1328,11 @@ func cgemm3mStridedBatched(handle Handle, transa Operation, transb Operation, m 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemm3mStridedBatched_64.
-func cgemm3mStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, strideA int64, B *Complex64, ldb int64, strideB int64, beta *Complex64, C *Complex64, ldc int64, strideC int64, batchCount int64) error {
+func cgemm3mStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, strideA int64, b *Complex64, ldb int64, strideB int64, beta *Complex64, c *Complex64, ldc int64, strideC int64, batchCount int64) error {
 	if err := checkLibSym("cublasCgemm3mStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mStridedBatched64(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fncgemm3mStridedBatched64(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // cgemm3m64 supports the 64-bit Integer Interface.
@@ -1355,12 +1355,12 @@ func cgemm3mStridedBatched64(handle Handle, transa Operation, transb Operation, 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -1371,11 +1371,11 @@ func cgemm3mStridedBatched64(handle Handle, transa Operation, transb Operation, 
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCgemm3m_64.
-func cgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64, beta *Complex64, C *Complex64, ldc int64) error {
+func cgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64, beta *Complex64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCgemm3m_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm3m64(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncgemm3m64(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // cgemmBatched supports the 64-bit Integer Interface.
@@ -1398,12 +1398,12 @@ func cgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -1415,11 +1415,11 @@ func cgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmBatched.
-func cgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, Aarray uintptr, lda int32, Barray uintptr, ldb int32, beta *Complex64, Carray uintptr, ldc int32, batchCount int32) error {
+func cgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, aarray uintptr, lda int32, barray uintptr, ldb int32, beta *Complex64, carray uintptr, ldc int32, batchCount int32) error {
 	if err := checkLibSym("cublasCgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fncgemmBatched(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // cgemmBatched64 supports the 64-bit Integer Interface.
@@ -1442,12 +1442,12 @@ func cgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -1459,11 +1459,11 @@ func cgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmBatched_64.
-func cgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, Aarray uintptr, lda int64, Barray uintptr, ldb int64, beta *Complex64, Carray uintptr, ldc int64, batchCount int64) error {
+func cgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, aarray uintptr, lda int64, barray uintptr, ldb int64, beta *Complex64, carray uintptr, ldc int64, batchCount int64) error {
 	if err := checkLibSym("cublasCgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemmBatched64(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fncgemmBatched64(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // cgemmEx supports the 64-bit Integer Interface.
@@ -1487,15 +1487,15 @@ func cgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - Btype: Enumerant specifying the datatype of matrix B
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - btype: Enumerant specifying the datatype of matrix B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -1507,11 +1507,11 @@ func cgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmEx.
-func cgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, A uintptr, Atype DataType, lda int32, B uintptr, Btype DataType, ldb int32, beta *Complex64, C uintptr, Ctype DataType, ldc int32) error {
+func cgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a uintptr, atype DataType, lda int32, b uintptr, btype DataType, ldb int32, beta *Complex64, c uintptr, ctype DataType, ldc int32) error {
 	if err := checkLibSym("cublasCgemmEx"); err != nil {
 		return err
 	}
-	return toError(fncgemmEx(handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb, beta, C, Ctype, ldc))
+	return toError(fncgemmEx(handle, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc))
 }
 
 // cgemmEx64 supports the 64-bit Integer Interface.
@@ -1535,15 +1535,15 @@ func cgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - Btype: Enumerant specifying the datatype of matrix B
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - btype: Enumerant specifying the datatype of matrix B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -1555,11 +1555,11 @@ func cgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmEx_64.
-func cgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, A uintptr, Atype DataType, lda int64, B uintptr, Btype DataType, ldb int64, beta *Complex64, C uintptr, Ctype DataType, ldc int64) error {
+func cgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a uintptr, atype DataType, lda int64, b uintptr, btype DataType, ldb int64, beta *Complex64, c uintptr, ctype DataType, ldc int64) error {
 	if err := checkLibSym("cublasCgemmEx_64"); err != nil {
 		return err
 	}
-	return toError(fncgemmEx64(handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb, beta, C, Ctype, ldc))
+	return toError(fncgemmEx64(handle, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc))
 }
 
 // cgemmStridedBatched supports the 64-bit Integer Interface.
@@ -1583,14 +1583,14 @@ func cgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -1603,11 +1603,11 @@ func cgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmStridedBatched.
-func cgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, strideA int64, B *Complex64, ldb int32, strideB int64, beta *Complex64, C *Complex64, ldc int32, strideC int64, batchCount int32) error {
+func cgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, strideA int64, b *Complex64, ldb int32, strideB int64, beta *Complex64, c *Complex64, ldc int32, strideC int64, batchCount int32) error {
 	if err := checkLibSym("cublasCgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemmStridedBatched(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fncgemmStridedBatched(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // cgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -1631,14 +1631,14 @@ func cgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -1651,11 +1651,11 @@ func cgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemmStridedBatched_64.
-func cgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, strideA int64, B *Complex64, ldb int64, strideB int64, beta *Complex64, C *Complex64, ldc int64, strideC int64, batchCount int64) error {
+func cgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, strideA int64, b *Complex64, ldb int64, strideB int64, beta *Complex64, c *Complex64, ldc int64, strideC int64, batchCount int64) error {
 	if err := checkLibSym("cublasCgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fncgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // cgemm supports the 64-bit Integer Interface.
@@ -1676,12 +1676,12 @@ func cgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -1692,11 +1692,11 @@ func cgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemm_v2.
-func cgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32, beta *Complex64, C *Complex64, ldc int32) error {
+func cgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32, beta *Complex64, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCgemm_v2"); err != nil {
 		return err
 	}
-	return toError(fncgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncgemm(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // cgemm64 supports the 64-bit Integer Interface.
@@ -1717,12 +1717,12 @@ func cgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -1733,11 +1733,11 @@ func cgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemm_v2_64.
-func cgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64, beta *Complex64, C *Complex64, ldc int64) error {
+func cgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64, beta *Complex64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCgemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm64(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncgemm64(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // cgemvBatched supports the 64-bit Integer Interface.
@@ -1757,7 +1757,7 @@ func cgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -1773,11 +1773,11 @@ func cgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemvBatched.
-func cgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, Aarray uintptr, lda int32, xarray uintptr, incx int32, beta *Complex64, yarray uintptr, incy int32, batchCount int32) error {
+func cgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, aarray uintptr, lda int32, xarray uintptr, incx int32, beta *Complex64, yarray uintptr, incy int32, batchCount int32) error {
 	if err := checkLibSym("cublasCgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemvBatched(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fncgemvBatched(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // cgemvBatched64 supports the 64-bit Integer Interface.
@@ -1797,7 +1797,7 @@ func cgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -1813,11 +1813,11 @@ func cgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemvBatched_64.
-func cgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64, Aarray uintptr, lda int64, xarray uintptr, incx int64, beta *Complex64, yarray uintptr, incy int64, batchCount int64) error {
+func cgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64, aarray uintptr, lda int64, xarray uintptr, incx int64, beta *Complex64, yarray uintptr, incy int64, batchCount int64) error {
 	if err := checkLibSym("cublasCgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemvBatched64(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fncgemvBatched64(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // cgemvStridedBatched supports the 64-bit Integer Interface.
@@ -1838,7 +1838,7 @@ func cgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -1857,11 +1857,11 @@ func cgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemvStridedBatched.
-func cgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, A *Complex64, lda int32, strideA int64, x *Complex64, incx int32, stridex int64, beta *Complex64, y *Complex64, incy int32, stridey int64, batchCount int32) error {
+func cgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, a *Complex64, lda int32, strideA int64, x *Complex64, incx int32, stridex int64, beta *Complex64, y *Complex64, incy int32, stridey int64, batchCount int32) error {
 	if err := checkLibSym("cublasCgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemvStridedBatched(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fncgemvStridedBatched(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // cgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -1882,7 +1882,7 @@ func cgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -1901,11 +1901,11 @@ func cgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemvStridedBatched_64.
-func cgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64, A *Complex64, lda int64, strideA int64, x *Complex64, incx int64, stridex int64, beta *Complex64, y *Complex64, incy int64, stridey int64, batchCount int64) error {
+func cgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64, a *Complex64, lda int64, strideA int64, x *Complex64, incx int64, stridex int64, beta *Complex64, y *Complex64, incy int64, stridey int64, batchCount int64) error {
 	if err := checkLibSym("cublasCgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemvStridedBatched64(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fncgemvStridedBatched64(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // cgemv supports the 64-bit Integer Interface.
@@ -1923,7 +1923,7 @@ func cgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
+//   - a: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda must be at least max(1, m)
 //   - x: < type > vector at least (1 + (n - 1) * abs(incx)) elements if trans == [OpN] and at least (1 + (m - 1) * abs(incx)) elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -1938,11 +1938,11 @@ func cgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemv_v2.
-func cgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, A *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
+func cgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, a *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
 	if err := checkLibSym("cublasCgemv_v2"); err != nil {
 		return err
 	}
-	return toError(fncgemv(handle, trans, m, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fncgemv(handle, trans, m, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // cgemv64 supports the 64-bit Integer Interface.
@@ -1960,7 +1960,7 @@ func cgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, A
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
+//   - a: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda must be at least max(1, m)
 //   - x: < type > vector at least (1 + (n - 1) * abs(incx)) elements if trans == [OpN] and at least (1 + (m - 1) * abs(incx)) elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -1975,11 +1975,11 @@ func cgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, A
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgemv_v2_64.
-func cgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64, A *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
+func cgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64, a *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
 	if err := checkLibSym("cublasCgemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgemv64(handle, trans, m, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fncgemv64(handle, trans, m, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // cgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
@@ -1997,9 +1997,9 @@ func cgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64,
 //   - handle: Handle to the cuBLAS library context
 //   - m: Number of rows Aarray [i]
 //   - n: Number of columns of Aarray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - TauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
+//   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
 //   - info: If info == 0, the parameters passed to the function are validIf info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
 //
@@ -2010,11 +2010,11 @@ func cgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64,
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeqrfBatched.
-func cgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, TauArray uintptr, info *int32, batchSize int32) error {
+func cgeqrfBatched(handle Handle, m int32, n int32, aarray uintptr, lda int32, tauArray uintptr, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasCgeqrfBatched"); err != nil {
 		return err
 	}
-	return toError(fncgeqrfBatched(handle, m, n, Aarray, lda, TauArray, info, batchSize))
+	return toError(fncgeqrfBatched(handle, m, n, aarray, lda, tauArray, info, batchSize))
 }
 
 // cgerc supports the 64-bit Integer Interface.
@@ -2034,7 +2034,7 @@ func cgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, T
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -2044,11 +2044,11 @@ func cgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, T
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgerc_v2.
-func cgerc(handle Handle, m int32, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, A *Complex64, lda int32) error {
+func cgerc(handle Handle, m int32, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, a *Complex64, lda int32) error {
 	if err := checkLibSym("cublasCgerc_v2"); err != nil {
 		return err
 	}
-	return toError(fncgerc(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fncgerc(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // cgerc64 supports the 64-bit Integer Interface.
@@ -2068,7 +2068,7 @@ func cgerc(handle Handle, m int32, n int32, alpha *Complex64, x *Complex64, incx
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -2078,11 +2078,11 @@ func cgerc(handle Handle, m int32, n int32, alpha *Complex64, x *Complex64, incx
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgerc_v2_64.
-func cgerc64(handle Handle, m int64, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, A *Complex64, lda int64) error {
+func cgerc64(handle Handle, m int64, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, a *Complex64, lda int64) error {
 	if err := checkLibSym("cublasCgerc_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgerc64(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fncgerc64(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // cgeru supports the 64-bit Integer Interface.
@@ -2102,7 +2102,7 @@ func cgerc64(handle Handle, m int64, n int64, alpha *Complex64, x *Complex64, in
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -2112,11 +2112,11 @@ func cgerc64(handle Handle, m int64, n int64, alpha *Complex64, x *Complex64, in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeru_v2.
-func cgeru(handle Handle, m int32, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, A *Complex64, lda int32) error {
+func cgeru(handle Handle, m int32, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, a *Complex64, lda int32) error {
 	if err := checkLibSym("cublasCgeru_v2"); err != nil {
 		return err
 	}
-	return toError(fncgeru(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fncgeru(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // cgeru64 supports the 64-bit Integer Interface.
@@ -2136,7 +2136,7 @@ func cgeru(handle Handle, m int32, n int32, alpha *Complex64, x *Complex64, incx
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -2146,11 +2146,11 @@ func cgeru(handle Handle, m int32, n int32, alpha *Complex64, x *Complex64, incx
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgeru_v2_64.
-func cgeru64(handle Handle, m int64, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, A *Complex64, lda int64) error {
+func cgeru64(handle Handle, m int64, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, a *Complex64, lda int64) error {
 	if err := checkLibSym("cublasCgeru_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgeru64(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fncgeru64(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // cgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
@@ -2181,11 +2181,11 @@ func cgeru64(handle Handle, m int64, n int64, alpha *Complex64, x *Complex64, in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgetrfBatched.
-func cgetrfBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, info *int32, batchSize int32) error {
+func cgetrfBatched(handle Handle, n int32, a uintptr, lda int32, p *int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasCgetrfBatched"); err != nil {
 		return err
 	}
-	return toError(fncgetrfBatched(handle, n, A, lda, P, info, batchSize))
+	return toError(fncgetrfBatched(handle, n, a, lda, p, info, batchSize))
 }
 
 // cgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
@@ -2214,11 +2214,11 @@ func cgetrfBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, info 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgetriBatched.
-func cgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uintptr, ldc int32, info *int32, batchSize int32) error {
+func cgetriBatched(handle Handle, n int32, a uintptr, lda int32, p *int32, c uintptr, ldc int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasCgetriBatched"); err != nil {
 		return err
 	}
-	return toError(fncgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize))
+	return toError(fncgetriBatched(handle, n, a, lda, p, c, ldc, info, batchSize))
 }
 
 // cgetrsBatched solves an array of systems of linear equations of the form:
@@ -2238,10 +2238,10 @@ func cgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uin
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - n: Number of rows and columns of Aarray [i]
 //   - nrhs: Number of columns of Barray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
+//   - aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
-//   - Barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
+//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
 //   - info: If info == 0, the execution is successful.If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
@@ -2253,11 +2253,11 @@ func cgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uin
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCgetrsBatched.
-func cgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray uintptr, lda int32, devIpiv *int32, Barray uintptr, ldb int32, info *int32, batchSize int32) error {
+func cgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray uintptr, lda int32, devIpiv *int32, barray uintptr, ldb int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasCgetrsBatched"); err != nil {
 		return err
 	}
-	return toError(fncgetrsBatched(handle, trans, n, nrhs, Aarray, lda, devIpiv, Barray, ldb, info, batchSize))
+	return toError(fncgetrsBatched(handle, trans, n, nrhs, aarray, lda, devIpiv, barray, ldb, info, batchSize))
 }
 
 // chbmv supports the 64-bit Integer Interface.
@@ -2276,7 +2276,7 @@ func cgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray u
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x n, with lda >= k + 1. The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimensions lda x n, with lda >= k + 1. The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -2291,11 +2291,11 @@ func cgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray u
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChbmv_v2.
-func chbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
+func chbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
 	if err := checkLibSym("cublasChbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnchbmv(handle, uplo, n, k, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnchbmv(handle, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // chbmv64 supports the 64-bit Integer Interface.
@@ -2314,7 +2314,7 @@ func chbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex64, A *
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x n, with lda >= k + 1. The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimensions lda x n, with lda >= k + 1. The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -2329,11 +2329,11 @@ func chbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex64, A *
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChbmv_v2_64.
-func chbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
+func chbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
 	if err := checkLibSym("cublasChbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchbmv64(handle, uplo, n, k, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnchbmv64(handle, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // chemm supports the 64-bit Integer Interface.
@@ -2351,12 +2351,12 @@ func chbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex64, A
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise. The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise. The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2366,11 +2366,11 @@ func chbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex64, A
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChemm_v2.
-func chemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32, beta *Complex64, C *Complex64, ldc int32) error {
+func chemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32, beta *Complex64, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasChemm_v2"); err != nil {
 		return err
 	}
-	return toError(fnchemm(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnchemm(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // chemm64 supports the 64-bit Integer Interface.
@@ -2388,12 +2388,12 @@ func chemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise. The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise. The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2403,11 +2403,11 @@ func chemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChemm_v2_64.
-func chemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64, beta *Complex64, C *Complex64, ldc int64) error {
+func chemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64, beta *Complex64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasChemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchemm64(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnchemm64(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // chemv supports the 64-bit Integer Interface.
@@ -2425,7 +2425,7 @@ func chemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other Hermitian part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -2440,11 +2440,11 @@ func chemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChemv_v2.
-func chemv(handle Handle, uplo FillMode, n int32, alpha *Complex64, A *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
+func chemv(handle Handle, uplo FillMode, n int32, alpha *Complex64, a *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
 	if err := checkLibSym("cublasChemv_v2"); err != nil {
 		return err
 	}
-	return toError(fnchemv(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnchemv(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // chemv64 supports the 64-bit Integer Interface.
@@ -2462,7 +2462,7 @@ func chemv(handle Handle, uplo FillMode, n int32, alpha *Complex64, A *Complex64
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other Hermitian part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -2477,11 +2477,11 @@ func chemv(handle Handle, uplo FillMode, n int32, alpha *Complex64, A *Complex64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChemv_v2_64.
-func chemv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, A *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
+func chemv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, a *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
 	if err := checkLibSym("cublasChemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchemv64(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnchemv64(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // cher2 supports the 64-bit Integer Interface.
@@ -2501,7 +2501,7 @@ func chemv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, A *Complex
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - a: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -2511,11 +2511,11 @@ func chemv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, A *Complex
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher2_v2.
-func cher2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, A *Complex64, lda int32) error {
+func cher2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, a *Complex64, lda int32) error {
 	if err := checkLibSym("cublasCher2_v2"); err != nil {
 		return err
 	}
-	return toError(fncher2(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fncher2(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // cher264 supports the 64-bit Integer Interface.
@@ -2535,7 +2535,7 @@ func cher2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - a: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -2545,11 +2545,11 @@ func cher2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher2_v2_64.
-func cher264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, A *Complex64, lda int64) error {
+func cher264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, a *Complex64, lda int64) error {
 	if err := checkLibSym("cublasCher2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncher264(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fncher264(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // cher2k supports the 64-bit Integer Interface.
@@ -2568,12 +2568,12 @@ func cher264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2583,11 +2583,11 @@ func cher264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher2k_v2.
-func cher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32, beta *float32, C *Complex64, ldc int32) error {
+func cher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32, beta *float32, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCher2k_v2"); err != nil {
 		return err
 	}
-	return toError(fncher2k(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncher2k(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // cher2k64 supports the 64-bit Integer Interface.
@@ -2606,12 +2606,12 @@ func cher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2621,11 +2621,11 @@ func cher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher2k_v2_64.
-func cher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64, beta *float32, C *Complex64, ldc int64) error {
+func cher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64, beta *float32, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCher2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncher2k64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncher2k64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // cher supports the 64-bit Integer Interface.
@@ -2643,7 +2643,7 @@ func cher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -2653,11 +2653,11 @@ func cher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher_v2.
-func cher(handle Handle, uplo FillMode, n int32, alpha *float32, x *Complex64, incx int32, A *Complex64, lda int32) error {
+func cher(handle Handle, uplo FillMode, n int32, alpha *float32, x *Complex64, incx int32, a *Complex64, lda int32) error {
 	if err := checkLibSym("cublasCher_v2"); err != nil {
 		return err
 	}
-	return toError(fncher(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fncher(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // cher64 supports the 64-bit Integer Interface.
@@ -2675,7 +2675,7 @@ func cher(handle Handle, uplo FillMode, n int32, alpha *float32, x *Complex64, i
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -2685,11 +2685,11 @@ func cher(handle Handle, uplo FillMode, n int32, alpha *float32, x *Complex64, i
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCher_v2_64.
-func cher64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64, incx int64, A *Complex64, lda int64) error {
+func cher64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64, incx int64, a *Complex64, lda int64) error {
 	if err := checkLibSym("cublasCher_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncher64(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fncher64(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // cherk3mEx supports the 64-bit Integer Interface.
@@ -2712,12 +2712,12 @@ func cher64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64,
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2729,11 +2729,11 @@ func cher64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64,
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCherk3mEx.
-func cherk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, A uintptr, Atype DataType, lda int32, beta *float32, C uintptr, Ctype DataType, ldc int32) error {
+func cherk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a uintptr, atype DataType, lda int32, beta *float32, c uintptr, ctype DataType, ldc int32) error {
 	if err := checkLibSym("cublasCherk3mEx"); err != nil {
 		return err
 	}
-	return toError(fncherk3mEx(handle, uplo, trans, n, k, alpha, A, Atype, lda, beta, C, Ctype, ldc))
+	return toError(fncherk3mEx(handle, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc))
 }
 
 // cherk3mEx64 supports the 64-bit Integer Interface.
@@ -2756,12 +2756,12 @@ func cherk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, 
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2773,11 +2773,11 @@ func cherk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, 
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCherk3mEx_64.
-func cherk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, A uintptr, Atype DataType, lda int64, beta *float32, C uintptr, Ctype DataType, ldc int64) error {
+func cherk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a uintptr, atype DataType, lda int64, beta *float32, c uintptr, ctype DataType, ldc int64) error {
 	if err := checkLibSym("cublasCherk3mEx_64"); err != nil {
 		return err
 	}
-	return toError(fncherk3mEx64(handle, uplo, trans, n, k, alpha, A, Atype, lda, beta, C, Ctype, ldc))
+	return toError(fncherk3mEx64(handle, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc))
 }
 
 // cherkEx supports the 64-bit Integer Interface.
@@ -2800,12 +2800,12 @@ func cherk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2817,11 +2817,11 @@ func cherk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCherkEx.
-func cherkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, A uintptr, Atype DataType, lda int32, beta *float32, C uintptr, Ctype DataType, ldc int32) error {
+func cherkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a uintptr, atype DataType, lda int32, beta *float32, c uintptr, ctype DataType, ldc int32) error {
 	if err := checkLibSym("cublasCherkEx"); err != nil {
 		return err
 	}
-	return toError(fncherkEx(handle, uplo, trans, n, k, alpha, A, Atype, lda, beta, C, Ctype, ldc))
+	return toError(fncherkEx(handle, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc))
 }
 
 // cherkEx64 supports the 64-bit Integer Interface.
@@ -2844,12 +2844,12 @@ func cherkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, al
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2861,11 +2861,11 @@ func cherkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, al
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCherkEx_64.
-func cherkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, A uintptr, Atype DataType, lda int64, beta *float32, C uintptr, Ctype DataType, ldc int64) error {
+func cherkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a uintptr, atype DataType, lda int64, beta *float32, c uintptr, ctype DataType, ldc int64) error {
 	if err := checkLibSym("cublasCherkEx_64"); err != nil {
 		return err
 	}
-	return toError(fncherkEx64(handle, uplo, trans, n, k, alpha, A, Atype, lda, beta, C, Ctype, ldc))
+	return toError(fncherkEx64(handle, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc))
 }
 
 // cherk supports the 64-bit Integer Interface.
@@ -2884,10 +2884,10 @@ func cherkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, 
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2897,11 +2897,11 @@ func cherkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCherk_v2.
-func cherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, A *Complex64, lda int32, beta *float32, C *Complex64, ldc int32) error {
+func cherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a *Complex64, lda int32, beta *float32, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCherk_v2"); err != nil {
 		return err
 	}
-	return toError(fncherk(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fncherk(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // cherk64 supports the 64-bit Integer Interface.
@@ -2920,10 +2920,10 @@ func cherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2933,11 +2933,11 @@ func cherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCherk_v2_64.
-func cherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, A *Complex64, lda int64, beta *float32, C *Complex64, ldc int64) error {
+func cherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a *Complex64, lda int64, beta *float32, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCherk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncherk64(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fncherk64(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // cherkx supports the 64-bit Integer Interface.
@@ -2958,12 +2958,12 @@ func cherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: Real scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -2973,11 +2973,11 @@ func cherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCherkx.
-func cherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32, beta *float32, C *Complex64, ldc int32) error {
+func cherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32, beta *float32, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCherkx"); err != nil {
 		return err
 	}
-	return toError(fncherkx(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncherkx(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // cherkx64 supports the 64-bit Integer Interface.
@@ -2998,12 +2998,12 @@ func cherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: Real scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -3013,11 +3013,11 @@ func cherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCherkx_64.
-func cherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64, beta *float32, C *Complex64, ldc int64) error {
+func cherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64, beta *float32, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCherkx_64"); err != nil {
 		return err
 	}
-	return toError(fncherkx64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncherkx64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // chpmv supports the 64-bit Integer Interface.
@@ -3035,7 +3035,7 @@ func cherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other Hermitian part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed to be zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed to be zero
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //   - beta: < type > scalar used for multiplication. If beta == 0 then y does not have to be a valid input
@@ -3049,11 +3049,11 @@ func cherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpmv_v2.
-func chpmv(handle Handle, uplo FillMode, n int32, alpha *Complex64, AP *Complex64, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
+func chpmv(handle Handle, uplo FillMode, n int32, alpha *Complex64, ap *Complex64, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
 	if err := checkLibSym("cublasChpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnchpmv(handle, uplo, n, alpha, AP, x, incx, beta, y, incy))
+	return toError(fnchpmv(handle, uplo, n, alpha, ap, x, incx, beta, y, incy))
 }
 
 // chpmv64 supports the 64-bit Integer Interface.
@@ -3071,7 +3071,7 @@ func chpmv(handle Handle, uplo FillMode, n int32, alpha *Complex64, AP *Complex6
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other Hermitian part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed to be zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed to be zero
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //   - beta: < type > scalar used for multiplication. If beta == 0 then y does not have to be a valid input
@@ -3085,11 +3085,11 @@ func chpmv(handle Handle, uplo FillMode, n int32, alpha *Complex64, AP *Complex6
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpmv_v2_64.
-func chpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, AP *Complex64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
+func chpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, ap *Complex64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
 	if err := checkLibSym("cublasChpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchpmv64(handle, uplo, n, alpha, AP, x, incx, beta, y, incy))
+	return toError(fnchpmv64(handle, uplo, n, alpha, ap, x, incx, beta, y, incy))
 }
 
 // chpr2 supports the 64-bit Integer Interface.
@@ -3111,7 +3111,7 @@ func chpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, AP *Comple
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -3120,11 +3120,11 @@ func chpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, AP *Comple
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpr2_v2.
-func chpr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, AP *Complex64) error {
+func chpr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, ap *Complex64) error {
 	if err := checkLibSym("cublasChpr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnchpr2(handle, uplo, n, alpha, x, incx, y, incy, AP))
+	return toError(fnchpr2(handle, uplo, n, alpha, x, incx, y, incy, ap))
 }
 
 // chpr264 supports the 64-bit Integer Interface.
@@ -3146,7 +3146,7 @@ func chpr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -3155,11 +3155,11 @@ func chpr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpr2_v2_64.
-func chpr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, AP *Complex64) error {
+func chpr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, ap *Complex64) error {
 	if err := checkLibSym("cublasChpr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchpr264(handle, uplo, n, alpha, x, incx, y, incy, AP))
+	return toError(fnchpr264(handle, uplo, n, alpha, x, incx, y, incy, ap))
 }
 
 // chpr supports the 64-bit Integer Interface.
@@ -3179,7 +3179,7 @@ func chpr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -3188,11 +3188,11 @@ func chpr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpr_v2.
-func chpr(handle Handle, uplo FillMode, n int32, alpha *float32, x *Complex64, incx int32, AP *Complex64) error {
+func chpr(handle Handle, uplo FillMode, n int32, alpha *float32, x *Complex64, incx int32, ap *Complex64) error {
 	if err := checkLibSym("cublasChpr_v2"); err != nil {
 		return err
 	}
-	return toError(fnchpr(handle, uplo, n, alpha, x, incx, AP))
+	return toError(fnchpr(handle, uplo, n, alpha, x, incx, ap))
 }
 
 // chpr64 supports the 64-bit Integer Interface.
@@ -3212,7 +3212,7 @@ func chpr(handle Handle, uplo FillMode, n int32, alpha *float32, x *Complex64, i
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -3221,11 +3221,11 @@ func chpr(handle Handle, uplo FillMode, n int32, alpha *float32, x *Complex64, i
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasChpr_v2_64.
-func chpr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64, incx int64, AP *Complex64) error {
+func chpr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64, incx int64, ap *Complex64) error {
 	if err := checkLibSym("cublasChpr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchpr64(handle, uplo, n, alpha, x, incx, AP))
+	return toError(fnchpr64(handle, uplo, n, alpha, x, incx, ap))
 }
 
 // cmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
@@ -3237,9 +3237,9 @@ func chpr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64,
 //
 //   - handle: Handle to the cuBLAS library context
 //   - n: Number of rows and columns of A [i]
-//   - A: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
+//   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
 //   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
@@ -3251,11 +3251,11 @@ func chpr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *Complex64,
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCmatinvBatched.
-func cmatinvBatched(handle Handle, n int32, A uintptr, lda int32, Ainv uintptr, ldaInv int32, info *int32, batchSize int32) error {
+func cmatinvBatched(handle Handle, n int32, a uintptr, lda int32, ainv uintptr, ldaInv int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasCmatinvBatched"); err != nil {
 		return err
 	}
-	return toError(fncmatinvBatched(handle, n, A, lda, Ainv, ldaInv, info, batchSize))
+	return toError(fncmatinvBatched(handle, n, a, lda, ainv, ldaInv, info, batchSize))
 }
 
 // copyEx wraps cublasCopyEx.
@@ -3634,12 +3634,12 @@ func cswap64(handle Handle, n int64, x *Complex64, incx int64, y *Complex64, inc
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -3649,11 +3649,11 @@ func cswap64(handle Handle, n int64, x *Complex64, incx int64, y *Complex64, inc
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsymm_v2.
-func csymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32, beta *Complex64, C *Complex64, ldc int32) error {
+func csymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32, beta *Complex64, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCsymm_v2"); err != nil {
 		return err
 	}
-	return toError(fncsymm(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncsymm(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // csymm64 supports the 64-bit Integer Interface.
@@ -3671,12 +3671,12 @@ func csymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -3686,11 +3686,11 @@ func csymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsymm_v2_64.
-func csymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64, beta *Complex64, C *Complex64, ldc int64) error {
+func csymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64, beta *Complex64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCsymm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsymm64(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncsymm64(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // csymv supports the 64-bit Integer Interface.
@@ -3707,7 +3707,7 @@ func csymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - uplo: Indicates if matrix lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -3722,11 +3722,11 @@ func csymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsymv_v2.
-func csymv(handle Handle, uplo FillMode, n int32, alpha *Complex64, A *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
+func csymv(handle Handle, uplo FillMode, n int32, alpha *Complex64, a *Complex64, lda int32, x *Complex64, incx int32, beta *Complex64, y *Complex64, incy int32) error {
 	if err := checkLibSym("cublasCsymv_v2"); err != nil {
 		return err
 	}
-	return toError(fncsymv(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fncsymv(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // csymv64 supports the 64-bit Integer Interface.
@@ -3743,7 +3743,7 @@ func csymv(handle Handle, uplo FillMode, n int32, alpha *Complex64, A *Complex64
 //   - uplo: Indicates if matrix lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -3758,11 +3758,11 @@ func csymv(handle Handle, uplo FillMode, n int32, alpha *Complex64, A *Complex64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsymv_v2_64.
-func csymv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, A *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
+func csymv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, a *Complex64, lda int64, x *Complex64, incx int64, beta *Complex64, y *Complex64, incy int64) error {
 	if err := checkLibSym("cublasCsymv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsymv64(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fncsymv64(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // csyr2 supports the 64-bit Integer Interface.
@@ -3782,7 +3782,7 @@ func csymv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, A *Complex
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimensions lda x n, with lda >= max(1,n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -3792,11 +3792,11 @@ func csymv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, A *Complex
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr2_v2.
-func csyr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, A *Complex64, lda int32) error {
+func csyr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64, incx int32, y *Complex64, incy int32, a *Complex64, lda int32) error {
 	if err := checkLibSym("cublasCsyr2_v2"); err != nil {
 		return err
 	}
-	return toError(fncsyr2(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fncsyr2(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // csyr264 supports the 64-bit Integer Interface.
@@ -3816,7 +3816,7 @@ func csyr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimensions lda x n, with lda >= max(1,n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -3826,11 +3826,11 @@ func csyr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr2_v2_64.
-func csyr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, A *Complex64, lda int64) error {
+func csyr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex64, incx int64, y *Complex64, incy int64, a *Complex64, lda int64) error {
 	if err := checkLibSym("cublasCsyr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsyr264(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fncsyr264(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // csyr2k supports the 64-bit Integer Interface.
@@ -3849,12 +3849,12 @@ func csyr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -3864,11 +3864,11 @@ func csyr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr2k_v2.
-func csyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32, beta *Complex64, C *Complex64, ldc int32) error {
+func csyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32, beta *Complex64, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCsyr2k_v2"); err != nil {
 		return err
 	}
-	return toError(fncsyr2k(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncsyr2k(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // csyr2k64 supports the 64-bit Integer Interface.
@@ -3887,12 +3887,12 @@ func csyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -3902,11 +3902,11 @@ func csyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr2k_v2_64.
-func csyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64, beta *Complex64, C *Complex64, ldc int64) error {
+func csyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64, beta *Complex64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCsyr2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsyr2k64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncsyr2k64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // csyr supports the 64-bit Integer Interface.
@@ -3924,7 +3924,7 @@ func csyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -3934,11 +3934,11 @@ func csyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr_v2.
-func csyr(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64, incx int32, A *Complex64, lda int32) error {
+func csyr(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64, incx int32, a *Complex64, lda int32) error {
 	if err := checkLibSym("cublasCsyr_v2"); err != nil {
 		return err
 	}
-	return toError(fncsyr(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fncsyr(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // csyr64 supports the 64-bit Integer Interface.
@@ -3956,7 +3956,7 @@ func csyr(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64,
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -3966,11 +3966,11 @@ func csyr(handle Handle, uplo FillMode, n int32, alpha *Complex64, x *Complex64,
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyr_v2_64.
-func csyr64(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex64, incx int64, A *Complex64, lda int64) error {
+func csyr64(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex64, incx int64, a *Complex64, lda int64) error {
 	if err := checkLibSym("cublasCsyr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsyr64(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fncsyr64(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // csyrk3mEx supports the 64-bit Integer Interface.
@@ -3993,12 +3993,12 @@ func csyr64(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex6
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4010,11 +4010,11 @@ func csyr64(handle Handle, uplo FillMode, n int64, alpha *Complex64, x *Complex6
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCsyrk3mEx.
-func csyrk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, A uintptr, Atype DataType, lda int32, beta *Complex64, C uintptr, Ctype DataType, ldc int32) error {
+func csyrk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a uintptr, atype DataType, lda int32, beta *Complex64, c uintptr, ctype DataType, ldc int32) error {
 	if err := checkLibSym("cublasCsyrk3mEx"); err != nil {
 		return err
 	}
-	return toError(fncsyrk3mEx(handle, uplo, trans, n, k, alpha, A, Atype, lda, beta, C, Ctype, ldc))
+	return toError(fncsyrk3mEx(handle, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc))
 }
 
 // csyrk3mEx64 supports the 64-bit Integer Interface.
@@ -4037,12 +4037,12 @@ func csyrk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, 
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4054,11 +4054,11 @@ func csyrk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, 
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCsyrk3mEx_64.
-func csyrk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, A uintptr, Atype DataType, lda int64, beta *Complex64, C uintptr, Ctype DataType, ldc int64) error {
+func csyrk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a uintptr, atype DataType, lda int64, beta *Complex64, c uintptr, ctype DataType, ldc int64) error {
 	if err := checkLibSym("cublasCsyrk3mEx_64"); err != nil {
 		return err
 	}
-	return toError(fncsyrk3mEx64(handle, uplo, trans, n, k, alpha, A, Atype, lda, beta, C, Ctype, ldc))
+	return toError(fncsyrk3mEx64(handle, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc))
 }
 
 // csyrkEx supports the 64-bit Integer Interface.
@@ -4081,12 +4081,12 @@ func csyrk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4098,11 +4098,11 @@ func csyrk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCsyrkEx.
-func csyrkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, A uintptr, Atype DataType, lda int32, beta *Complex64, C uintptr, Ctype DataType, ldc int32) error {
+func csyrkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a uintptr, atype DataType, lda int32, beta *Complex64, c uintptr, ctype DataType, ldc int32) error {
 	if err := checkLibSym("cublasCsyrkEx"); err != nil {
 		return err
 	}
-	return toError(fncsyrkEx(handle, uplo, trans, n, k, alpha, A, Atype, lda, beta, C, Ctype, ldc))
+	return toError(fncsyrkEx(handle, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc))
 }
 
 // csyrkEx64 supports the 64-bit Integer Interface.
@@ -4125,12 +4125,12 @@ func csyrkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, al
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4142,11 +4142,11 @@ func csyrkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, al
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasCsyrkEx_64.
-func csyrkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, A uintptr, Atype DataType, lda int64, beta *Complex64, C uintptr, Ctype DataType, ldc int64) error {
+func csyrkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a uintptr, atype DataType, lda int64, beta *Complex64, c uintptr, ctype DataType, ldc int64) error {
 	if err := checkLibSym("cublasCsyrkEx_64"); err != nil {
 		return err
 	}
-	return toError(fncsyrkEx64(handle, uplo, trans, n, k, alpha, A, Atype, lda, beta, C, Ctype, ldc))
+	return toError(fncsyrkEx64(handle, uplo, trans, n, k, alpha, a, atype, lda, beta, c, ctype, ldc))
 }
 
 // csyrk supports the 64-bit Integer Interface.
@@ -4165,10 +4165,10 @@ func csyrkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, 
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4178,11 +4178,11 @@ func csyrkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyrk_v2.
-func csyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, beta *Complex64, C *Complex64, ldc int32) error {
+func csyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, beta *Complex64, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCsyrk_v2"); err != nil {
 		return err
 	}
-	return toError(fncsyrk(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fncsyrk(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // csyrk64 supports the 64-bit Integer Interface.
@@ -4201,10 +4201,10 @@ func csyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4214,11 +4214,11 @@ func csyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyrk_v2_64.
-func csyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, beta *Complex64, C *Complex64, ldc int64) error {
+func csyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, beta *Complex64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCsyrk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsyrk64(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fncsyrk64(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // csyrkx supports the 64-bit Integer Interface.
@@ -4239,12 +4239,12 @@ func csyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4254,11 +4254,11 @@ func csyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyrkx.
-func csyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32, beta *Complex64, C *Complex64, ldc int32) error {
+func csyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32, beta *Complex64, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCsyrkx"); err != nil {
 		return err
 	}
-	return toError(fncsyrkx(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncsyrkx(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // csyrkx64 supports the 64-bit Integer Interface.
@@ -4279,12 +4279,12 @@ func csyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4294,11 +4294,11 @@ func csyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCsyrkx_64.
-func csyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64, beta *Complex64, C *Complex64, ldc int64) error {
+func csyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64, beta *Complex64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCsyrkx_64"); err != nil {
 		return err
 	}
-	return toError(fncsyrkx64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fncsyrkx64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // ctbmv supports the 64-bit Integer Interface.
@@ -4319,7 +4319,7 @@ func csyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix
-//   - A: < type > array of dimension lda x n, with lda >= k + 1
+//   - a: < type > array of dimension lda x n, with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -4332,11 +4332,11 @@ func csyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtbmv_v2.
-func ctbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, A *Complex64, lda int32, x *Complex64, incx int32) error {
+func ctbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a *Complex64, lda int32, x *Complex64, incx int32) error {
 	if err := checkLibSym("cublasCtbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctbmv(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnctbmv(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // ctbmv64 supports the 64-bit Integer Interface.
@@ -4357,7 +4357,7 @@ func ctbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix
-//   - A: < type > array of dimension lda x n, with lda >= k + 1
+//   - a: < type > array of dimension lda x n, with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -4370,11 +4370,11 @@ func ctbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtbmv_v2_64.
-func ctbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, A *Complex64, lda int64, x *Complex64, incx int64) error {
+func ctbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a *Complex64, lda int64, x *Complex64, incx int64) error {
 	if err := checkLibSym("cublasCtbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctbmv64(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnctbmv64(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // ctbsv supports the 64-bit Integer Interface.
@@ -4397,7 +4397,7 @@ func ctbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= k+1
+//   - a: < type > array of dimension lda x n, with lda >= k+1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -4409,11 +4409,11 @@ func ctbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtbsv_v2.
-func ctbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, A *Complex64, lda int32, x *Complex64, incx int32) error {
+func ctbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a *Complex64, lda int32, x *Complex64, incx int32) error {
 	if err := checkLibSym("cublasCtbsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctbsv(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnctbsv(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // ctbsv64 supports the 64-bit Integer Interface.
@@ -4436,7 +4436,7 @@ func ctbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= k+1
+//   - a: < type > array of dimension lda x n, with lda >= k+1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -4448,11 +4448,11 @@ func ctbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtbsv_v2_64.
-func ctbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, A *Complex64, lda int64, x *Complex64, incx int64) error {
+func ctbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a *Complex64, lda int64, x *Complex64, incx int64) error {
 	if err := checkLibSym("cublasCtbsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctbsv64(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnctbsv64(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // ctpmv supports the 64-bit Integer Interface.
@@ -4472,7 +4472,7 @@ func ctbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -4484,11 +4484,11 @@ func ctbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpmv_v2.
-func ctpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, AP *Complex64, x *Complex64, incx int32) error {
+func ctpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, ap *Complex64, x *Complex64, incx int32) error {
 	if err := checkLibSym("cublasCtpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctpmv(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnctpmv(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // ctpmv64 supports the 64-bit Integer Interface.
@@ -4508,7 +4508,7 @@ func ctpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -4520,11 +4520,11 @@ func ctpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpmv_v2_64.
-func ctpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, AP *Complex64, x *Complex64, incx int64) error {
+func ctpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, ap *Complex64, x *Complex64, incx int64) error {
 	if err := checkLibSym("cublasCtpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctpmv64(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnctpmv64(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // ctpsv supports the 64-bit Integer Interface.
@@ -4546,7 +4546,7 @@ func ctpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -4557,11 +4557,11 @@ func ctpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpsv_v2.
-func ctpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, AP *Complex64, x *Complex64, incx int32) error {
+func ctpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, ap *Complex64, x *Complex64, incx int32) error {
 	if err := checkLibSym("cublasCtpsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctpsv(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnctpsv(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // ctpsv64 supports the 64-bit Integer Interface.
@@ -4583,7 +4583,7 @@ func ctpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -4594,11 +4594,11 @@ func ctpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpsv_v2_64.
-func ctpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, AP *Complex64, x *Complex64, incx int64) error {
+func ctpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, ap *Complex64, x *Complex64, incx int64) error {
 	if err := checkLibSym("cublasCtpsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctpsv64(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnctpsv64(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // ctpttr performs the conversion from the triangular packed format to the triangular format
@@ -4611,8 +4611,8 @@ func ctpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - handle: Handle to the cuBLAS library context
 //   - uplo: Indicates if matrix AP contains lower or upper part of matrix A
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
+//   - ap: < type > array with A stored in packed format
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -4622,11 +4622,11 @@ func ctpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtpttr.
-func ctpttr(handle Handle, uplo FillMode, n int32, AP *Complex64, A *Complex64, lda int32) error {
+func ctpttr(handle Handle, uplo FillMode, n int32, ap *Complex64, a *Complex64, lda int32) error {
 	if err := checkLibSym("cublasCtpttr"); err != nil {
 		return err
 	}
-	return toError(fnctpttr(handle, uplo, n, AP, A, lda))
+	return toError(fnctpttr(handle, uplo, n, ap, a, lda))
 }
 
 // ctrmm supports the 64-bit Integer Interface.
@@ -4648,11 +4648,11 @@ func ctpttr(handle Handle, uplo FillMode, n int32, AP *Complex64, A *Complex64, 
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4662,11 +4662,11 @@ func ctpttr(handle Handle, uplo FillMode, n int32, AP *Complex64, A *Complex64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrmm_v2.
-func ctrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32, C *Complex64, ldc int32) error {
+func ctrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32, c *Complex64, ldc int32) error {
 	if err := checkLibSym("cublasCtrmm_v2"); err != nil {
 		return err
 	}
-	return toError(fnctrmm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, C, ldc))
+	return toError(fnctrmm(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc))
 }
 
 // ctrmm64 supports the 64-bit Integer Interface.
@@ -4688,11 +4688,11 @@ func ctrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -4702,11 +4702,11 @@ func ctrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrmm_v2_64.
-func ctrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64, C *Complex64, ldc int64) error {
+func ctrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64, c *Complex64, ldc int64) error {
 	if err := checkLibSym("cublasCtrmm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctrmm64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, C, ldc))
+	return toError(fnctrmm64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc))
 }
 
 // ctrmv supports the 64-bit Integer Interface.
@@ -4724,7 +4724,7 @@ func ctrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -4737,11 +4737,11 @@ func ctrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrmv_v2.
-func ctrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, A *Complex64, lda int32, x *Complex64, incx int32) error {
+func ctrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, a *Complex64, lda int32, x *Complex64, incx int32) error {
 	if err := checkLibSym("cublasCtrmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctrmv(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnctrmv(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // ctrmv64 supports the 64-bit Integer Interface.
@@ -4759,7 +4759,7 @@ func ctrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -4772,11 +4772,11 @@ func ctrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrmv_v2_64.
-func ctrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, A *Complex64, lda int64, x *Complex64, incx int64) error {
+func ctrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, a *Complex64, lda int64, x *Complex64, incx int64) error {
 	if err := checkLibSym("cublasCtrmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctrmv64(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnctrmv64(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // ctrsmBatched supports the 64-bit Integer Interface.
@@ -4801,9 +4801,9 @@ func ctrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
 //   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
-//   - A: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - B: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
@@ -4814,11 +4814,11 @@ func ctrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsmBatched.
-func ctrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex64, A uintptr, lda int32, B uintptr, ldb int32, batchCount int32) error {
+func ctrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex64, a uintptr, lda int32, b uintptr, ldb int32, batchCount int32) error {
 	if err := checkLibSym("cublasCtrsmBatched"); err != nil {
 		return err
 	}
-	return toError(fnctrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, batchCount))
+	return toError(fnctrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount))
 }
 
 // ctrsmBatched64 supports the 64-bit Integer Interface.
@@ -4843,9 +4843,9 @@ func ctrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 //   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
 //   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
-//   - A: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - B: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
@@ -4856,11 +4856,11 @@ func ctrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsmBatched_64.
-func ctrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex64, A uintptr, lda int64, B uintptr, ldb int64, batchCount int64) error {
+func ctrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex64, a uintptr, lda int64, b uintptr, ldb int64, batchCount int64) error {
 	if err := checkLibSym("cublasCtrsmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnctrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, batchCount))
+	return toError(fnctrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount))
 }
 
 // ctrsm supports the 64-bit Integer Interface.
@@ -4883,9 +4883,9 @@ func ctrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
+//   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
 // Returns:
@@ -4895,11 +4895,11 @@ func ctrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsm_v2.
-func ctrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex64, A *Complex64, lda int32, B *Complex64, ldb int32) error {
+func ctrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex64, a *Complex64, lda int32, b *Complex64, ldb int32) error {
 	if err := checkLibSym("cublasCtrsm_v2"); err != nil {
 		return err
 	}
-	return toError(fnctrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb))
+	return toError(fnctrsm(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb))
 }
 
 // ctrsm64 supports the 64-bit Integer Interface.
@@ -4922,9 +4922,9 @@ func ctrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
+//   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
 // Returns:
@@ -4934,11 +4934,11 @@ func ctrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsm_v2_64.
-func ctrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex64, A *Complex64, lda int64, B *Complex64, ldb int64) error {
+func ctrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex64, a *Complex64, lda int64, b *Complex64, ldb int64) error {
 	if err := checkLibSym("cublasCtrsm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctrsm64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb))
+	return toError(fnctrsm64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb))
 }
 
 // ctrsv supports the 64-bit Integer Interface.
@@ -4958,7 +4958,7 @@ func ctrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -4970,11 +4970,11 @@ func ctrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsv_v2.
-func ctrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, A *Complex64, lda int32, x *Complex64, incx int32) error {
+func ctrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, a *Complex64, lda int32, x *Complex64, incx int32) error {
 	if err := checkLibSym("cublasCtrsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctrsv(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnctrsv(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // ctrsv64 supports the 64-bit Integer Interface.
@@ -4994,7 +4994,7 @@ func ctrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -5006,11 +5006,11 @@ func ctrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrsv_v2_64.
-func ctrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, A *Complex64, lda int64, x *Complex64, incx int64) error {
+func ctrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, a *Complex64, lda int64, x *Complex64, incx int64) error {
 	if err := checkLibSym("cublasCtrsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctrsv64(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnctrsv64(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // ctrttp performs the conversion from the triangular format to the triangular packed format
@@ -5023,9 +5023,9 @@ func ctrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - handle: Handle to the cuBLAS library context
 //   - uplo: Indicates which matrix A lower or upper part is referenced
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -5034,11 +5034,11 @@ func ctrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasCtrttp.
-func ctrttp(handle Handle, uplo FillMode, n int32, A *Complex64, lda int32, AP *Complex64) error {
+func ctrttp(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, ap *Complex64) error {
 	if err := checkLibSym("cublasCtrttp"); err != nil {
 		return err
 	}
-	return toError(fnctrttp(handle, uplo, n, A, lda, AP))
+	return toError(fnctrttp(handle, uplo, n, a, lda, ap))
 }
 
 // dasum supports the 64-bit Integer Interface.
@@ -5235,11 +5235,11 @@ func dcopy64(handle Handle, n int64, x *float64, incx int64, y *float64, incy in
 //   - mode: Left multiply if mode == [SideLeft] or right multiply if mode == [SideRight]
 //   - m: Number of rows of matrix A and C
 //   - n: Number of columns of matrix A and C
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m)
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - x: One-dimensional < type > array of size abs(incx) x m if mode == [SideLeft] and abs(incx) x n if mode == [SideRight]
 //   - incx: Stride of one-dimensional array x
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -5249,11 +5249,11 @@ func dcopy64(handle Handle, n int64, x *float64, incx int64, y *float64, incy in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDdgmm.
-func ddgmm(handle Handle, mode SideMode, m int32, n int32, A *float64, lda int32, x *float64, incx int32, C *float64, ldc int32) error {
+func ddgmm(handle Handle, mode SideMode, m int32, n int32, a *float64, lda int32, x *float64, incx int32, c *float64, ldc int32) error {
 	if err := checkLibSym("cublasDdgmm"); err != nil {
 		return err
 	}
-	return toError(fnddgmm(handle, mode, m, n, A, lda, x, incx, C, ldc))
+	return toError(fnddgmm(handle, mode, m, n, a, lda, x, incx, c, ldc))
 }
 
 // ddgmm64 supports the 64-bit Integer Interface.
@@ -5272,11 +5272,11 @@ func ddgmm(handle Handle, mode SideMode, m int32, n int32, A *float64, lda int32
 //   - mode: Left multiply if mode == [SideLeft] or right multiply if mode == [SideRight]
 //   - m: Number of rows of matrix A and C
 //   - n: Number of columns of matrix A and C
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m)
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - x: One-dimensional < type > array of size abs(incx) x m if mode == [SideLeft] and abs(incx) x n if mode == [SideRight]
 //   - incx: Stride of one-dimensional array x
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -5286,11 +5286,11 @@ func ddgmm(handle Handle, mode SideMode, m int32, n int32, A *float64, lda int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDdgmm_64.
-func ddgmm64(handle Handle, mode SideMode, m int64, n int64, A *float64, lda int64, x *float64, incx int64, C *float64, ldc int64) error {
+func ddgmm64(handle Handle, mode SideMode, m int64, n int64, a *float64, lda int64, x *float64, incx int64, c *float64, ldc int64) error {
 	if err := checkLibSym("cublasDdgmm_64"); err != nil {
 		return err
 	}
-	return toError(fnddgmm64(handle, mode, m, n, A, lda, x, incx, C, ldc))
+	return toError(fnddgmm64(handle, mode, m, n, a, lda, x, incx, c, ldc))
 }
 
 // ddot supports the 64-bit Integer Interface.
@@ -5391,7 +5391,7 @@ func destroy(handle Handle) error {
 //   - kl: Number of subdiagonals of matrix A
 //   - ku: Number of superdiagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= kl + ku + 1
+//   - a: < type > array of dimension lda x n with lda >= kl + ku + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements if trans == [OpN] and m elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -5406,11 +5406,11 @@ func destroy(handle Handle) error {
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgbmv_v2.
-func dgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32, alpha *float64, A *float64, lda int32, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
+func dgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32, alpha *float64, a *float64, lda int32, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
 	if err := checkLibSym("cublasDgbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndgbmv(handle, trans, m, n, kl, ku, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fndgbmv(handle, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // dgbmv64 supports the 64-bit Integer Interface.
@@ -5431,7 +5431,7 @@ func dgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 //   - kl: Number of subdiagonals of matrix A
 //   - ku: Number of superdiagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= kl + ku + 1
+//   - a: < type > array of dimension lda x n with lda >= kl + ku + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements if trans == [OpN] and m elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -5446,11 +5446,11 @@ func dgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgbmv_v2_64.
-func dgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int64, alpha *float64, A *float64, lda int64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
+func dgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int64, alpha *float64, a *float64, lda int64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
 	if err := checkLibSym("cublasDgbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndgbmv64(handle, trans, m, n, kl, ku, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fndgbmv64(handle, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // dgeam supports the 64-bit Integer Interface.
@@ -5476,12 +5476,12 @@ func dgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - alpha: < type > scalar used for multiplication. If *alpha == 0, A does not have to be a valid input
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - beta: < type > scalar used for multiplication. If *beta == 0, B does not have to be a valid input
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -5491,11 +5491,11 @@ func dgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgeam.
-func dgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, alpha *float64, A *float64, lda int32, beta *float64, B *float64, ldb int32, C *float64, ldc int32) error {
+func dgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, alpha *float64, a *float64, lda int32, beta *float64, b *float64, ldb int32, c *float64, ldc int32) error {
 	if err := checkLibSym("cublasDgeam"); err != nil {
 		return err
 	}
-	return toError(fndgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc))
+	return toError(fndgeam(handle, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc))
 }
 
 // dgeam64 supports the 64-bit Integer Interface.
@@ -5521,12 +5521,12 @@ func dgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - alpha: < type > scalar used for multiplication. If *alpha == 0, A does not have to be a valid input
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - beta: < type > scalar used for multiplication. If *beta == 0, B does not have to be a valid input
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -5536,11 +5536,11 @@ func dgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgeam_64.
-func dgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64, alpha *float64, A *float64, lda int64, beta *float64, B *float64, ldb int64, C *float64, ldc int64) error {
+func dgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64, alpha *float64, a *float64, lda int64, beta *float64, b *float64, ldb int64, c *float64, ldc int64) error {
 	if err := checkLibSym("cublasDgeam_64"); err != nil {
 		return err
 	}
-	return toError(fndgeam64(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc))
+	return toError(fndgeam64(handle, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc))
 }
 
 // dgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
@@ -5559,9 +5559,9 @@ func dgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - m: Number of rows of each Aarray [i] and Carray [i] if trans == [OpN], numbers of columns of each Aarray [i] otherwise (not supported currently)
 //   - n: Number of columns of each Aarray [i] if trans == [OpN], and number of rows of each Aarray [i] and Carray [i] otherwise (not supported currently)
 //   - nrhs: Number of columns of each Carray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - Carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
+//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
 //   - info: If info == 0 the parameters passed to the function are validIf info < 0 the parameter in position -info is invalid
 //   - devInfoArray: Optional array of integers of dimension batchsize.If non-null, every element of devInfoArray [i] == V has the following meaning:V == 0 : the i-th problem was successfully solvedV > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
@@ -5575,11 +5575,11 @@ func dgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgelsBatched.
-func dgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, Aarray uintptr, lda int32, Carray uintptr, ldc int32, info *int32, devInfoArray *int32, batchSize int32) error {
+func dgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, aarray uintptr, lda int32, carray uintptr, ldc int32, info *int32, devInfoArray *int32, batchSize int32) error {
 	if err := checkLibSym("cublasDgelsBatched"); err != nil {
 		return err
 	}
-	return toError(fndgelsBatched(handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc, info, devInfoArray, batchSize))
+	return toError(fndgelsBatched(handle, trans, m, n, nrhs, aarray, lda, carray, ldc, info, devInfoArray, batchSize))
 }
 
 // dgemmBatched supports the 64-bit Integer Interface.
@@ -5602,12 +5602,12 @@ func dgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -5619,11 +5619,11 @@ func dgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmBatched.
-func dgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float64, Aarray uintptr, lda int32, Barray uintptr, ldb int32, beta *float64, Carray uintptr, ldc int32, batchCount int32) error {
+func dgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float64, aarray uintptr, lda int32, barray uintptr, ldb int32, beta *float64, carray uintptr, ldc int32, batchCount int32) error {
 	if err := checkLibSym("cublasDgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fndgemmBatched(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // dgemmBatched64 supports the 64-bit Integer Interface.
@@ -5646,12 +5646,12 @@ func dgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -5663,11 +5663,11 @@ func dgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmBatched_64.
-func dgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float64, Aarray uintptr, lda int64, Barray uintptr, ldb int64, beta *float64, Carray uintptr, ldc int64, batchCount int64) error {
+func dgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float64, aarray uintptr, lda int64, barray uintptr, ldb int64, beta *float64, carray uintptr, ldc int64, batchCount int64) error {
 	if err := checkLibSym("cublasDgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemmBatched64(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fndgemmBatched64(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // dgemmGroupedBatched supports the 64-bit Integer Interface.
@@ -5692,12 +5692,12 @@ func dgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
@@ -5710,11 +5710,11 @@ func dgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmGroupedBatched.
-func dgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray *float64, Aarray uintptr, ldaArray *int32, Barray uintptr, ldbArray *int32, betaArray *float64, Carray uintptr, ldcArray *int32, groupCount int32, groupSize *int32) error {
+func dgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray *float64, aarray uintptr, ldaArray *int32, barray uintptr, ldbArray *int32, betaArray *float64, carray uintptr, ldcArray *int32, groupCount int32, groupSize *int32) error {
 	if err := checkLibSym("cublasDgemmGroupedBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemmGroupedBatched(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, Aarray, ldaArray, Barray, ldbArray, betaArray, Carray, ldcArray, groupCount, groupSize))
+	return toError(fndgemmGroupedBatched(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, ldaArray, barray, ldbArray, betaArray, carray, ldcArray, groupCount, groupSize))
 }
 
 // dgemmGroupedBatched64 supports the 64-bit Integer Interface.
@@ -5739,12 +5739,12 @@ func dgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
@@ -5757,11 +5757,11 @@ func dgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmGroupedBatched_64.
-func dgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray *float64, Aarray uintptr, ldaArray *int64, Barray uintptr, ldbArray *int64, betaArray *float64, Carray uintptr, ldcArray *int64, groupCount int64, groupSize *int64) error {
+func dgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray *float64, aarray uintptr, ldaArray *int64, barray uintptr, ldbArray *int64, betaArray *float64, carray uintptr, ldcArray *int64, groupCount int64, groupSize *int64) error {
 	if err := checkLibSym("cublasDgemmGroupedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemmGroupedBatched64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, Aarray, ldaArray, Barray, ldbArray, betaArray, Carray, ldcArray, groupCount, groupSize))
+	return toError(fndgemmGroupedBatched64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, ldaArray, barray, ldbArray, betaArray, carray, ldcArray, groupCount, groupSize))
 }
 
 // dgemmStridedBatched supports the 64-bit Integer Interface.
@@ -5785,14 +5785,14 @@ func dgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -5805,11 +5805,11 @@ func dgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmStridedBatched.
-func dgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float64, A *float64, lda int32, strideA int64, B *float64, ldb int32, strideB int64, beta *float64, C *float64, ldc int32, strideC int64, batchCount int32) error {
+func dgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float64, a *float64, lda int32, strideA int64, b *float64, ldb int32, strideB int64, beta *float64, c *float64, ldc int32, strideC int64, batchCount int32) error {
 	if err := checkLibSym("cublasDgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemmStridedBatched(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fndgemmStridedBatched(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // dgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -5833,14 +5833,14 @@ func dgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -5853,11 +5853,11 @@ func dgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemmStridedBatched_64.
-func dgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float64, A *float64, lda int64, strideA int64, B *float64, ldb int64, strideB int64, beta *float64, C *float64, ldc int64, strideC int64, batchCount int64) error {
+func dgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float64, a *float64, lda int64, strideA int64, b *float64, ldb int64, strideB int64, beta *float64, c *float64, ldc int64, strideC int64, batchCount int64) error {
 	if err := checkLibSym("cublasDgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fndgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // dgemm supports the 64-bit Integer Interface.
@@ -5878,12 +5878,12 @@ func dgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -5894,11 +5894,11 @@ func dgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemm_v2.
-func dgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float64, A *float64, lda int32, B *float64, ldb int32, beta *float64, C *float64, ldc int32) error {
+func dgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float64, a *float64, lda int32, b *float64, ldb int32, beta *float64, c *float64, ldc int32) error {
 	if err := checkLibSym("cublasDgemm_v2"); err != nil {
 		return err
 	}
-	return toError(fndgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fndgemm(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // dgemm64 supports the 64-bit Integer Interface.
@@ -5919,12 +5919,12 @@ func dgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -5935,11 +5935,11 @@ func dgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemm_v2_64.
-func dgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float64, A *float64, lda int64, B *float64, ldb int64, beta *float64, C *float64, ldc int64) error {
+func dgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float64, a *float64, lda int64, b *float64, ldb int64, beta *float64, c *float64, ldc int64) error {
 	if err := checkLibSym("cublasDgemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndgemm64(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fndgemm64(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // dgemvBatched supports the 64-bit Integer Interface.
@@ -5959,7 +5959,7 @@ func dgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -5975,11 +5975,11 @@ func dgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemvBatched.
-func dgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float64, Aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float64, yarray uintptr, incy int32, batchCount int32) error {
+func dgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float64, aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float64, yarray uintptr, incy int32, batchCount int32) error {
 	if err := checkLibSym("cublasDgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemvBatched(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fndgemvBatched(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // dgemvBatched64 supports the 64-bit Integer Interface.
@@ -5999,7 +5999,7 @@ func dgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -6015,11 +6015,11 @@ func dgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemvBatched_64.
-func dgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float64, Aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float64, yarray uintptr, incy int64, batchCount int64) error {
+func dgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float64, aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float64, yarray uintptr, incy int64, batchCount int64) error {
 	if err := checkLibSym("cublasDgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemvBatched64(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fndgemvBatched64(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // dgemvStridedBatched supports the 64-bit Integer Interface.
@@ -6040,7 +6040,7 @@ func dgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -6059,11 +6059,11 @@ func dgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemvStridedBatched.
-func dgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float64, A *float64, lda int32, strideA int64, x *float64, incx int32, stridex int64, beta *float64, y *float64, incy int32, stridey int64, batchCount int32) error {
+func dgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float64, a *float64, lda int32, strideA int64, x *float64, incx int32, stridex int64, beta *float64, y *float64, incy int32, stridey int64, batchCount int32) error {
 	if err := checkLibSym("cublasDgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemvStridedBatched(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fndgemvStridedBatched(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // dgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -6084,7 +6084,7 @@ func dgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -6103,11 +6103,11 @@ func dgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemvStridedBatched_64.
-func dgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float64, A *float64, lda int64, strideA int64, x *float64, incx int64, stridex int64, beta *float64, y *float64, incy int64, stridey int64, batchCount int64) error {
+func dgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float64, a *float64, lda int64, strideA int64, x *float64, incx int64, stridex int64, beta *float64, y *float64, incy int64, stridey int64, batchCount int64) error {
 	if err := checkLibSym("cublasDgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemvStridedBatched64(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fndgemvStridedBatched64(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // dgemv supports the 64-bit Integer Interface.
@@ -6125,7 +6125,7 @@ func dgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
+//   - a: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda must be at least max(1, m)
 //   - x: < type > vector at least (1 + (n - 1) * abs(incx)) elements if trans == [OpN] and at least (1 + (m - 1) * abs(incx)) elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -6140,11 +6140,11 @@ func dgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemv_v2.
-func dgemv(handle Handle, trans Operation, m int32, n int32, alpha *float64, A *float64, lda int32, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
+func dgemv(handle Handle, trans Operation, m int32, n int32, alpha *float64, a *float64, lda int32, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
 	if err := checkLibSym("cublasDgemv_v2"); err != nil {
 		return err
 	}
-	return toError(fndgemv(handle, trans, m, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fndgemv(handle, trans, m, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // dgemv64 supports the 64-bit Integer Interface.
@@ -6162,7 +6162,7 @@ func dgemv(handle Handle, trans Operation, m int32, n int32, alpha *float64, A *
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
+//   - a: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda must be at least max(1, m)
 //   - x: < type > vector at least (1 + (n - 1) * abs(incx)) elements if trans == [OpN] and at least (1 + (m - 1) * abs(incx)) elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -6177,11 +6177,11 @@ func dgemv(handle Handle, trans Operation, m int32, n int32, alpha *float64, A *
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgemv_v2_64.
-func dgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float64, A *float64, lda int64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
+func dgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float64, a *float64, lda int64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
 	if err := checkLibSym("cublasDgemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndgemv64(handle, trans, m, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fndgemv64(handle, trans, m, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // dgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
@@ -6199,9 +6199,9 @@ func dgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float64, A
 //   - handle: Handle to the cuBLAS library context
 //   - m: Number of rows Aarray [i]
 //   - n: Number of columns of Aarray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - TauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
+//   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
 //   - info: If info == 0, the parameters passed to the function are validIf info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
 //
@@ -6212,11 +6212,11 @@ func dgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float64, A
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgeqrfBatched.
-func dgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, TauArray uintptr, info *int32, batchSize int32) error {
+func dgeqrfBatched(handle Handle, m int32, n int32, aarray uintptr, lda int32, tauArray uintptr, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasDgeqrfBatched"); err != nil {
 		return err
 	}
-	return toError(fndgeqrfBatched(handle, m, n, Aarray, lda, TauArray, info, batchSize))
+	return toError(fndgeqrfBatched(handle, m, n, aarray, lda, tauArray, info, batchSize))
 }
 
 // dger supports the 64-bit Integer Interface.
@@ -6236,7 +6236,7 @@ func dgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, T
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -6246,11 +6246,11 @@ func dgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, T
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDger_v2.
-func dger(handle Handle, m int32, n int32, alpha *float64, x *float64, incx int32, y *float64, incy int32, A *float64, lda int32) error {
+func dger(handle Handle, m int32, n int32, alpha *float64, x *float64, incx int32, y *float64, incy int32, a *float64, lda int32) error {
 	if err := checkLibSym("cublasDger_v2"); err != nil {
 		return err
 	}
-	return toError(fndger(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fndger(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // dger64 supports the 64-bit Integer Interface.
@@ -6270,7 +6270,7 @@ func dger(handle Handle, m int32, n int32, alpha *float64, x *float64, incx int3
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -6280,11 +6280,11 @@ func dger(handle Handle, m int32, n int32, alpha *float64, x *float64, incx int3
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDger_v2_64.
-func dger64(handle Handle, m int64, n int64, alpha *float64, x *float64, incx int64, y *float64, incy int64, A *float64, lda int64) error {
+func dger64(handle Handle, m int64, n int64, alpha *float64, x *float64, incx int64, y *float64, incy int64, a *float64, lda int64) error {
 	if err := checkLibSym("cublasDger_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndger64(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fndger64(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // dgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
@@ -6315,11 +6315,11 @@ func dger64(handle Handle, m int64, n int64, alpha *float64, x *float64, incx in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgetrfBatched.
-func dgetrfBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, info *int32, batchSize int32) error {
+func dgetrfBatched(handle Handle, n int32, a uintptr, lda int32, p *int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasDgetrfBatched"); err != nil {
 		return err
 	}
-	return toError(fndgetrfBatched(handle, n, A, lda, P, info, batchSize))
+	return toError(fndgetrfBatched(handle, n, a, lda, p, info, batchSize))
 }
 
 // dgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
@@ -6348,11 +6348,11 @@ func dgetrfBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, info 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgetriBatched.
-func dgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uintptr, ldc int32, info *int32, batchSize int32) error {
+func dgetriBatched(handle Handle, n int32, a uintptr, lda int32, p *int32, c uintptr, ldc int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasDgetriBatched"); err != nil {
 		return err
 	}
-	return toError(fndgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize))
+	return toError(fndgetriBatched(handle, n, a, lda, p, c, ldc, info, batchSize))
 }
 
 // dgetrsBatched solves an array of systems of linear equations of the form:
@@ -6372,10 +6372,10 @@ func dgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uin
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - n: Number of rows and columns of Aarray [i]
 //   - nrhs: Number of columns of Barray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
+//   - aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
-//   - Barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
+//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
 //   - info: If info == 0, the execution is successful.If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
@@ -6387,11 +6387,11 @@ func dgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uin
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDgetrsBatched.
-func dgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray uintptr, lda int32, devIpiv *int32, Barray uintptr, ldb int32, info *int32, batchSize int32) error {
+func dgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray uintptr, lda int32, devIpiv *int32, barray uintptr, ldb int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasDgetrsBatched"); err != nil {
 		return err
 	}
-	return toError(fndgetrsBatched(handle, trans, n, nrhs, Aarray, lda, devIpiv, Barray, ldb, info, batchSize))
+	return toError(fndgetrsBatched(handle, trans, n, nrhs, aarray, lda, devIpiv, barray, ldb, info, batchSize))
 }
 
 // dmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
@@ -6403,9 +6403,9 @@ func dgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray u
 //
 //   - handle: Handle to the cuBLAS library context
 //   - n: Number of rows and columns of A [i]
-//   - A: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
+//   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
 //   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
@@ -6417,11 +6417,11 @@ func dgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray u
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDmatinvBatched.
-func dmatinvBatched(handle Handle, n int32, A uintptr, lda int32, Ainv uintptr, ldaInv int32, info *int32, batchSize int32) error {
+func dmatinvBatched(handle Handle, n int32, a uintptr, lda int32, ainv uintptr, ldaInv int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasDmatinvBatched"); err != nil {
 		return err
 	}
-	return toError(fndmatinvBatched(handle, n, A, lda, Ainv, ldaInv, info, batchSize))
+	return toError(fndmatinvBatched(handle, n, a, lda, ainv, ldaInv, info, batchSize))
 }
 
 // dnrm2 supports the 64-bit Integer Interface.
@@ -6852,7 +6852,7 @@ func drotmg(handle Handle, d1 *float64, d2 *float64, x1 *float64, y1 *float64, p
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= k + 1
+//   - a: < type > array of dimension lda x n with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -6867,11 +6867,11 @@ func drotmg(handle Handle, d1 *float64, d2 *float64, x1 *float64, y1 *float64, p
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsbmv_v2.
-func dsbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float64, A *float64, lda int32, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
+func dsbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float64, a *float64, lda int32, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
 	if err := checkLibSym("cublasDsbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndsbmv(handle, uplo, n, k, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fndsbmv(handle, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // dsbmv64 supports the 64-bit Integer Interface.
@@ -6890,7 +6890,7 @@ func dsbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float64, A *fl
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= k + 1
+//   - a: < type > array of dimension lda x n with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -6905,11 +6905,11 @@ func dsbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float64, A *fl
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsbmv_v2_64.
-func dsbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float64, A *float64, lda int64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
+func dsbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float64, a *float64, lda int64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
 	if err := checkLibSym("cublasDsbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsbmv64(handle, uplo, n, k, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fndsbmv64(handle, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // dscal supports the 64-bit Integer Interface.
@@ -6981,7 +6981,7 @@ func dscal64(handle Handle, n int64, alpha *float64, x *float64, incx int64) err
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //   - beta: < type > scalar used for multiplication. If beta == 0 then y does not have to be a valid input
@@ -6995,11 +6995,11 @@ func dscal64(handle Handle, n int64, alpha *float64, x *float64, incx int64) err
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspmv_v2.
-func dspmv(handle Handle, uplo FillMode, n int32, alpha *float64, AP *float64, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
+func dspmv(handle Handle, uplo FillMode, n int32, alpha *float64, ap *float64, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
 	if err := checkLibSym("cublasDspmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndspmv(handle, uplo, n, alpha, AP, x, incx, beta, y, incy))
+	return toError(fndspmv(handle, uplo, n, alpha, ap, x, incx, beta, y, incy))
 }
 
 // dspmv64 supports the 64-bit Integer Interface.
@@ -7017,7 +7017,7 @@ func dspmv(handle Handle, uplo FillMode, n int32, alpha *float64, AP *float64, x
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //   - beta: < type > scalar used for multiplication. If beta == 0 then y does not have to be a valid input
@@ -7031,11 +7031,11 @@ func dspmv(handle Handle, uplo FillMode, n int32, alpha *float64, AP *float64, x
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspmv_v2_64.
-func dspmv64(handle Handle, uplo FillMode, n int64, alpha *float64, AP *float64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
+func dspmv64(handle Handle, uplo FillMode, n int64, alpha *float64, ap *float64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
 	if err := checkLibSym("cublasDspmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndspmv64(handle, uplo, n, alpha, AP, x, incx, beta, y, incy))
+	return toError(fndspmv64(handle, uplo, n, alpha, ap, x, incx, beta, y, incy))
 }
 
 // dspr2 supports the 64-bit Integer Interface.
@@ -7057,7 +7057,7 @@ func dspmv64(handle Handle, uplo FillMode, n int64, alpha *float64, AP *float64,
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -7066,11 +7066,11 @@ func dspmv64(handle Handle, uplo FillMode, n int64, alpha *float64, AP *float64,
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspr2_v2.
-func dspr2(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, incx int32, y *float64, incy int32, AP *float64) error {
+func dspr2(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, incx int32, y *float64, incy int32, ap *float64) error {
 	if err := checkLibSym("cublasDspr2_v2"); err != nil {
 		return err
 	}
-	return toError(fndspr2(handle, uplo, n, alpha, x, incx, y, incy, AP))
+	return toError(fndspr2(handle, uplo, n, alpha, x, incx, y, incy, ap))
 }
 
 // dspr264 supports the 64-bit Integer Interface.
@@ -7092,7 +7092,7 @@ func dspr2(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, in
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -7101,11 +7101,11 @@ func dspr2(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspr2_v2_64.
-func dspr264(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, incx int64, y *float64, incy int64, AP *float64) error {
+func dspr264(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, incx int64, y *float64, incy int64, ap *float64) error {
 	if err := checkLibSym("cublasDspr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndspr264(handle, uplo, n, alpha, x, incx, y, incy, AP))
+	return toError(fndspr264(handle, uplo, n, alpha, x, incx, y, incy, ap))
 }
 
 // dspr supports the 64-bit Integer Interface.
@@ -7125,7 +7125,7 @@ func dspr264(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, 
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -7134,11 +7134,11 @@ func dspr264(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspr_v2.
-func dspr(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, incx int32, AP *float64) error {
+func dspr(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, incx int32, ap *float64) error {
 	if err := checkLibSym("cublasDspr_v2"); err != nil {
 		return err
 	}
-	return toError(fndspr(handle, uplo, n, alpha, x, incx, AP))
+	return toError(fndspr(handle, uplo, n, alpha, x, incx, ap))
 }
 
 // dspr64 supports the 64-bit Integer Interface.
@@ -7158,7 +7158,7 @@ func dspr(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, inc
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -7167,11 +7167,11 @@ func dspr(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, inc
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDspr_v2_64.
-func dspr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, incx int64, AP *float64) error {
+func dspr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, incx int64, ap *float64) error {
 	if err := checkLibSym("cublasDspr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndspr64(handle, uplo, n, alpha, x, incx, AP))
+	return toError(fndspr64(handle, uplo, n, alpha, x, incx, ap))
 }
 
 // dswap supports the 64-bit Integer Interface.
@@ -7243,12 +7243,12 @@ func dswap64(handle Handle, n int64, x *float64, incx int64, y *float64, incy in
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -7258,11 +7258,11 @@ func dswap64(handle Handle, n int64, x *float64, incx int64, y *float64, incy in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsymm_v2.
-func dsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *float64, A *float64, lda int32, B *float64, ldb int32, beta *float64, C *float64, ldc int32) error {
+func dsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *float64, a *float64, lda int32, b *float64, ldb int32, beta *float64, c *float64, ldc int32) error {
 	if err := checkLibSym("cublasDsymm_v2"); err != nil {
 		return err
 	}
-	return toError(fndsymm(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fndsymm(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // dsymm64 supports the 64-bit Integer Interface.
@@ -7280,12 +7280,12 @@ func dsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -7295,11 +7295,11 @@ func dsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsymm_v2_64.
-func dsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *float64, A *float64, lda int64, B *float64, ldb int64, beta *float64, C *float64, ldc int64) error {
+func dsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *float64, a *float64, lda int64, b *float64, ldb int64, beta *float64, c *float64, ldc int64) error {
 	if err := checkLibSym("cublasDsymm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsymm64(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fndsymm64(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // dsymv supports the 64-bit Integer Interface.
@@ -7316,7 +7316,7 @@ func dsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - uplo: Indicates if matrix lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -7331,11 +7331,11 @@ func dsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsymv_v2.
-func dsymv(handle Handle, uplo FillMode, n int32, alpha *float64, A *float64, lda int32, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
+func dsymv(handle Handle, uplo FillMode, n int32, alpha *float64, a *float64, lda int32, x *float64, incx int32, beta *float64, y *float64, incy int32) error {
 	if err := checkLibSym("cublasDsymv_v2"); err != nil {
 		return err
 	}
-	return toError(fndsymv(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fndsymv(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // dsymv64 supports the 64-bit Integer Interface.
@@ -7352,7 +7352,7 @@ func dsymv(handle Handle, uplo FillMode, n int32, alpha *float64, A *float64, ld
 //   - uplo: Indicates if matrix lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -7367,11 +7367,11 @@ func dsymv(handle Handle, uplo FillMode, n int32, alpha *float64, A *float64, ld
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsymv_v2_64.
-func dsymv64(handle Handle, uplo FillMode, n int64, alpha *float64, A *float64, lda int64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
+func dsymv64(handle Handle, uplo FillMode, n int64, alpha *float64, a *float64, lda int64, x *float64, incx int64, beta *float64, y *float64, incy int64) error {
 	if err := checkLibSym("cublasDsymv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsymv64(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fndsymv64(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // dsyr2 supports the 64-bit Integer Interface.
@@ -7391,7 +7391,7 @@ func dsymv64(handle Handle, uplo FillMode, n int64, alpha *float64, A *float64, 
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimensions lda x n, with lda >= max(1,n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -7401,11 +7401,11 @@ func dsymv64(handle Handle, uplo FillMode, n int64, alpha *float64, A *float64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr2_v2.
-func dsyr2(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, incx int32, y *float64, incy int32, A *float64, lda int32) error {
+func dsyr2(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, incx int32, y *float64, incy int32, a *float64, lda int32) error {
 	if err := checkLibSym("cublasDsyr2_v2"); err != nil {
 		return err
 	}
-	return toError(fndsyr2(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fndsyr2(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // dsyr264 supports the 64-bit Integer Interface.
@@ -7425,7 +7425,7 @@ func dsyr2(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, in
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimensions lda x n, with lda >= max(1,n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -7435,11 +7435,11 @@ func dsyr2(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr2_v2_64.
-func dsyr264(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, incx int64, y *float64, incy int64, A *float64, lda int64) error {
+func dsyr264(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, incx int64, y *float64, incy int64, a *float64, lda int64) error {
 	if err := checkLibSym("cublasDsyr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsyr264(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fndsyr264(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // dsyr2k supports the 64-bit Integer Interface.
@@ -7458,12 +7458,12 @@ func dsyr264(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, 
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -7473,11 +7473,11 @@ func dsyr264(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr2k_v2.
-func dsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float64, A *float64, lda int32, B *float64, ldb int32, beta *float64, C *float64, ldc int32) error {
+func dsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float64, a *float64, lda int32, b *float64, ldb int32, beta *float64, c *float64, ldc int32) error {
 	if err := checkLibSym("cublasDsyr2k_v2"); err != nil {
 		return err
 	}
-	return toError(fndsyr2k(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fndsyr2k(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // dsyr2k64 supports the 64-bit Integer Interface.
@@ -7496,12 +7496,12 @@ func dsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -7511,11 +7511,11 @@ func dsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr2k_v2_64.
-func dsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float64, A *float64, lda int64, B *float64, ldb int64, beta *float64, C *float64, ldc int64) error {
+func dsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float64, a *float64, lda int64, b *float64, ldb int64, beta *float64, c *float64, ldc int64) error {
 	if err := checkLibSym("cublasDsyr2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsyr2k64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fndsyr2k64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // dsyr supports the 64-bit Integer Interface.
@@ -7533,7 +7533,7 @@ func dsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -7543,11 +7543,11 @@ func dsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr_v2.
-func dsyr(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, incx int32, A *float64, lda int32) error {
+func dsyr(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, incx int32, a *float64, lda int32) error {
 	if err := checkLibSym("cublasDsyr_v2"); err != nil {
 		return err
 	}
-	return toError(fndsyr(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fndsyr(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // dsyr64 supports the 64-bit Integer Interface.
@@ -7565,7 +7565,7 @@ func dsyr(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, inc
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -7575,11 +7575,11 @@ func dsyr(handle Handle, uplo FillMode, n int32, alpha *float64, x *float64, inc
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyr_v2_64.
-func dsyr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, incx int64, A *float64, lda int64) error {
+func dsyr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, incx int64, a *float64, lda int64) error {
 	if err := checkLibSym("cublasDsyr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsyr64(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fndsyr64(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // dsyrk supports the 64-bit Integer Interface.
@@ -7598,10 +7598,10 @@ func dsyr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, i
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -7611,11 +7611,11 @@ func dsyr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *float64, i
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyrk_v2.
-func dsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float64, A *float64, lda int32, beta *float64, C *float64, ldc int32) error {
+func dsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float64, a *float64, lda int32, beta *float64, c *float64, ldc int32) error {
 	if err := checkLibSym("cublasDsyrk_v2"); err != nil {
 		return err
 	}
-	return toError(fndsyrk(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fndsyrk(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // dsyrk64 supports the 64-bit Integer Interface.
@@ -7634,10 +7634,10 @@ func dsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -7647,11 +7647,11 @@ func dsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyrk_v2_64.
-func dsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float64, A *float64, lda int64, beta *float64, C *float64, ldc int64) error {
+func dsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float64, a *float64, lda int64, beta *float64, c *float64, ldc int64) error {
 	if err := checkLibSym("cublasDsyrk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsyrk64(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fndsyrk64(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // dsyrkx supports the 64-bit Integer Interface.
@@ -7672,12 +7672,12 @@ func dsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -7687,11 +7687,11 @@ func dsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyrkx.
-func dsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float64, A *float64, lda int32, B *float64, ldb int32, beta *float64, C *float64, ldc int32) error {
+func dsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float64, a *float64, lda int32, b *float64, ldb int32, beta *float64, c *float64, ldc int32) error {
 	if err := checkLibSym("cublasDsyrkx"); err != nil {
 		return err
 	}
-	return toError(fndsyrkx(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fndsyrkx(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // dsyrkx64 supports the 64-bit Integer Interface.
@@ -7712,12 +7712,12 @@ func dsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -7727,11 +7727,11 @@ func dsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDsyrkx_64.
-func dsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float64, A *float64, lda int64, B *float64, ldb int64, beta *float64, C *float64, ldc int64) error {
+func dsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float64, a *float64, lda int64, b *float64, ldb int64, beta *float64, c *float64, ldc int64) error {
 	if err := checkLibSym("cublasDsyrkx_64"); err != nil {
 		return err
 	}
-	return toError(fndsyrkx64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fndsyrkx64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // dtbmv supports the 64-bit Integer Interface.
@@ -7752,7 +7752,7 @@ func dsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix
-//   - A: < type > array of dimension lda x n, with lda >= k + 1
+//   - a: < type > array of dimension lda x n, with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -7765,11 +7765,11 @@ func dsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtbmv_v2.
-func dtbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, A *float64, lda int32, x *float64, incx int32) error {
+func dtbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a *float64, lda int32, x *float64, incx int32) error {
 	if err := checkLibSym("cublasDtbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtbmv(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fndtbmv(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // dtbmv64 supports the 64-bit Integer Interface.
@@ -7790,7 +7790,7 @@ func dtbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix
-//   - A: < type > array of dimension lda x n, with lda >= k + 1
+//   - a: < type > array of dimension lda x n, with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -7803,11 +7803,11 @@ func dtbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtbmv_v2_64.
-func dtbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, A *float64, lda int64, x *float64, incx int64) error {
+func dtbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a *float64, lda int64, x *float64, incx int64) error {
 	if err := checkLibSym("cublasDtbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtbmv64(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fndtbmv64(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // dtbsv supports the 64-bit Integer Interface.
@@ -7830,7 +7830,7 @@ func dtbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= k+1
+//   - a: < type > array of dimension lda x n, with lda >= k+1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -7842,11 +7842,11 @@ func dtbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtbsv_v2.
-func dtbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, A *float64, lda int32, x *float64, incx int32) error {
+func dtbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a *float64, lda int32, x *float64, incx int32) error {
 	if err := checkLibSym("cublasDtbsv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtbsv(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fndtbsv(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // dtbsv64 supports the 64-bit Integer Interface.
@@ -7869,7 +7869,7 @@ func dtbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= k+1
+//   - a: < type > array of dimension lda x n, with lda >= k+1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -7881,11 +7881,11 @@ func dtbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtbsv_v2_64.
-func dtbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, A *float64, lda int64, x *float64, incx int64) error {
+func dtbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a *float64, lda int64, x *float64, incx int64) error {
 	if err := checkLibSym("cublasDtbsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtbsv64(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fndtbsv64(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // dtpmv supports the 64-bit Integer Interface.
@@ -7905,7 +7905,7 @@ func dtbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -7917,11 +7917,11 @@ func dtbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpmv_v2.
-func dtpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, AP *float64, x *float64, incx int32) error {
+func dtpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, ap *float64, x *float64, incx int32) error {
 	if err := checkLibSym("cublasDtpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtpmv(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fndtpmv(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // dtpmv64 supports the 64-bit Integer Interface.
@@ -7941,7 +7941,7 @@ func dtpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -7953,11 +7953,11 @@ func dtpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpmv_v2_64.
-func dtpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, AP *float64, x *float64, incx int64) error {
+func dtpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, ap *float64, x *float64, incx int64) error {
 	if err := checkLibSym("cublasDtpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtpmv64(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fndtpmv64(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // dtpsv supports the 64-bit Integer Interface.
@@ -7979,7 +7979,7 @@ func dtpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -7990,11 +7990,11 @@ func dtpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpsv_v2.
-func dtpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, AP *float64, x *float64, incx int32) error {
+func dtpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, ap *float64, x *float64, incx int32) error {
 	if err := checkLibSym("cublasDtpsv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtpsv(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fndtpsv(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // dtpsv64 supports the 64-bit Integer Interface.
@@ -8016,7 +8016,7 @@ func dtpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -8027,11 +8027,11 @@ func dtpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpsv_v2_64.
-func dtpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, AP *float64, x *float64, incx int64) error {
+func dtpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, ap *float64, x *float64, incx int64) error {
 	if err := checkLibSym("cublasDtpsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtpsv64(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fndtpsv64(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // dtpttr performs the conversion from the triangular packed format to the triangular format
@@ -8044,8 +8044,8 @@ func dtpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - handle: Handle to the cuBLAS library context
 //   - uplo: Indicates if matrix AP contains lower or upper part of matrix A
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
+//   - ap: < type > array with A stored in packed format
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -8055,11 +8055,11 @@ func dtpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtpttr.
-func dtpttr(handle Handle, uplo FillMode, n int32, AP *float64, A *float64, lda int32) error {
+func dtpttr(handle Handle, uplo FillMode, n int32, ap *float64, a *float64, lda int32) error {
 	if err := checkLibSym("cublasDtpttr"); err != nil {
 		return err
 	}
-	return toError(fndtpttr(handle, uplo, n, AP, A, lda))
+	return toError(fndtpttr(handle, uplo, n, ap, a, lda))
 }
 
 // dtrmm supports the 64-bit Integer Interface.
@@ -8081,11 +8081,11 @@ func dtpttr(handle Handle, uplo FillMode, n int32, AP *float64, A *float64, lda 
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -8095,11 +8095,11 @@ func dtpttr(handle Handle, uplo FillMode, n int32, AP *float64, A *float64, lda 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrmm_v2.
-func dtrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float64, A *float64, lda int32, B *float64, ldb int32, C *float64, ldc int32) error {
+func dtrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float64, a *float64, lda int32, b *float64, ldb int32, c *float64, ldc int32) error {
 	if err := checkLibSym("cublasDtrmm_v2"); err != nil {
 		return err
 	}
-	return toError(fndtrmm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, C, ldc))
+	return toError(fndtrmm(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc))
 }
 
 // dtrmm64 supports the 64-bit Integer Interface.
@@ -8121,11 +8121,11 @@ func dtrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -8135,11 +8135,11 @@ func dtrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrmm_v2_64.
-func dtrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float64, A *float64, lda int64, B *float64, ldb int64, C *float64, ldc int64) error {
+func dtrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float64, a *float64, lda int64, b *float64, ldb int64, c *float64, ldc int64) error {
 	if err := checkLibSym("cublasDtrmm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtrmm64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, C, ldc))
+	return toError(fndtrmm64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc))
 }
 
 // dtrmv supports the 64-bit Integer Interface.
@@ -8157,7 +8157,7 @@ func dtrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -8170,11 +8170,11 @@ func dtrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrmv_v2.
-func dtrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, A *float64, lda int32, x *float64, incx int32) error {
+func dtrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, a *float64, lda int32, x *float64, incx int32) error {
 	if err := checkLibSym("cublasDtrmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtrmv(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fndtrmv(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // dtrmv64 supports the 64-bit Integer Interface.
@@ -8192,7 +8192,7 @@ func dtrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -8205,11 +8205,11 @@ func dtrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrmv_v2_64.
-func dtrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, A *float64, lda int64, x *float64, incx int64) error {
+func dtrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, a *float64, lda int64, x *float64, incx int64) error {
 	if err := checkLibSym("cublasDtrmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtrmv64(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fndtrmv64(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // dtrsmBatched supports the 64-bit Integer Interface.
@@ -8234,9 +8234,9 @@ func dtrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
 //   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
-//   - A: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - B: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
@@ -8247,11 +8247,11 @@ func dtrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsmBatched.
-func dtrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float64, A uintptr, lda int32, B uintptr, ldb int32, batchCount int32) error {
+func dtrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float64, a uintptr, lda int32, b uintptr, ldb int32, batchCount int32) error {
 	if err := checkLibSym("cublasDtrsmBatched"); err != nil {
 		return err
 	}
-	return toError(fndtrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, batchCount))
+	return toError(fndtrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount))
 }
 
 // dtrsmBatched64 supports the 64-bit Integer Interface.
@@ -8276,9 +8276,9 @@ func dtrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 //   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
 //   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
-//   - A: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - B: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
@@ -8289,11 +8289,11 @@ func dtrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsmBatched_64.
-func dtrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float64, A uintptr, lda int64, B uintptr, ldb int64, batchCount int64) error {
+func dtrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float64, a uintptr, lda int64, b uintptr, ldb int64, batchCount int64) error {
 	if err := checkLibSym("cublasDtrsmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndtrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, batchCount))
+	return toError(fndtrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount))
 }
 
 // dtrsm supports the 64-bit Integer Interface.
@@ -8316,9 +8316,9 @@ func dtrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
+//   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
 // Returns:
@@ -8328,11 +8328,11 @@ func dtrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsm_v2.
-func dtrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float64, A *float64, lda int32, B *float64, ldb int32) error {
+func dtrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float64, a *float64, lda int32, b *float64, ldb int32) error {
 	if err := checkLibSym("cublasDtrsm_v2"); err != nil {
 		return err
 	}
-	return toError(fndtrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb))
+	return toError(fndtrsm(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb))
 }
 
 // dtrsm64 supports the 64-bit Integer Interface.
@@ -8355,9 +8355,9 @@ func dtrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
+//   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
 // Returns:
@@ -8367,11 +8367,11 @@ func dtrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsm_v2_64.
-func dtrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float64, A *float64, lda int64, B *float64, ldb int64) error {
+func dtrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float64, a *float64, lda int64, b *float64, ldb int64) error {
 	if err := checkLibSym("cublasDtrsm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtrsm64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb))
+	return toError(fndtrsm64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb))
 }
 
 // dtrsv supports the 64-bit Integer Interface.
@@ -8391,7 +8391,7 @@ func dtrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -8403,11 +8403,11 @@ func dtrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsv_v2.
-func dtrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, A *float64, lda int32, x *float64, incx int32) error {
+func dtrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, a *float64, lda int32, x *float64, incx int32) error {
 	if err := checkLibSym("cublasDtrsv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtrsv(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fndtrsv(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // dtrsv64 supports the 64-bit Integer Interface.
@@ -8427,7 +8427,7 @@ func dtrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -8439,11 +8439,11 @@ func dtrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrsv_v2_64.
-func dtrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, A *float64, lda int64, x *float64, incx int64) error {
+func dtrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, a *float64, lda int64, x *float64, incx int64) error {
 	if err := checkLibSym("cublasDtrsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtrsv64(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fndtrsv64(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // dtrttp performs the conversion from the triangular format to the triangular packed format
@@ -8456,9 +8456,9 @@ func dtrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - handle: Handle to the cuBLAS library context
 //   - uplo: Indicates which matrix A lower or upper part is referenced
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -8467,11 +8467,11 @@ func dtrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasDtrttp.
-func dtrttp(handle Handle, uplo FillMode, n int32, A *float64, lda int32, AP *float64) error {
+func dtrttp(handle Handle, uplo FillMode, n int32, a *float64, lda int32, ap *float64) error {
 	if err := checkLibSym("cublasDtrttp"); err != nil {
 		return err
 	}
-	return toError(fndtrttp(handle, uplo, n, A, lda, AP))
+	return toError(fndtrttp(handle, uplo, n, a, lda, ap))
 }
 
 // dzasum supports the 64-bit Integer Interface.
@@ -8636,15 +8636,15 @@ func dznrm264(handle Handle, n int64, x *Complex128, incx int64) (float64, error
 //   - n: Number of columns of matrix op( Barray [i]) and Carray [i]
 //   - k: Number of columns of op( Aarray [i]) and rows of op( Barray [i])
 //   - alpha: Scaling factor for matrix products of the type that corresponds to the computeType and Ctype, see the table below for details
-//   - Aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
-//   - Atype: Enumerant specifying the datatype of Aarray
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - atype: Enumerant specifying the datatype of Aarray
 //   - lda: Leading dimension of two-dimensional array used to store the matrix Aarray [i]
-//   - Barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
-//   - Btype: Enumerant specifying the datatype of Barray
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - btype: Enumerant specifying the datatype of Barray
 //   - ldb: Leading dimension of two-dimensional array used to store matrix Barray [i]
 //   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray [i] does not have to be a valid input
-//   - Carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined.All pointers must meet certain alignment criteria. Please see below for details
-//   - Ctype: Enumerant specifying the datatype of Carray
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined.All pointers must meet certain alignment criteria. Please see below for details
+//   - ctype: Enumerant specifying the datatype of Carray
 //   - ldc: Leading dimension of a two-dimensional array used to store each matrix Carray [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //   - computeType: Enumerant specifying the computation type
@@ -8659,11 +8659,11 @@ func dznrm264(handle Handle, n int64, x *Complex128, incx int64) (float64, error
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmBatchedEx.
-func gemmBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha uintptr, Aarray uintptr, Atype DataType, lda int32, Barray uintptr, Btype DataType, ldb int32, beta uintptr, Carray uintptr, Ctype DataType, ldc int32, batchCount int32, computeType ComputeType, algo GemmAlgo) error {
+func gemmBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha uintptr, aarray uintptr, atype DataType, lda int32, barray uintptr, btype DataType, ldb int32, beta uintptr, carray uintptr, ctype DataType, ldc int32, batchCount int32, computeType ComputeType, algo GemmAlgo) error {
 	if err := checkLibSym("cublasGemmBatchedEx"); err != nil {
 		return err
 	}
-	return toError(fngemmBatchedEx(handle, transa, transb, m, n, k, alpha, Aarray, Atype, lda, Barray, Btype, ldb, beta, Carray, Ctype, ldc, batchCount, computeType, algo))
+	return toError(fngemmBatchedEx(handle, transa, transb, m, n, k, alpha, aarray, atype, lda, barray, btype, ldb, beta, carray, ctype, ldc, batchCount, computeType, algo))
 }
 
 // gemmBatchedEx64 supports the 64-bit Integer Interface.
@@ -8692,15 +8692,15 @@ func gemmBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n
 //   - n: Number of columns of matrix op( Barray [i]) and Carray [i]
 //   - k: Number of columns of op( Aarray [i]) and rows of op( Barray [i])
 //   - alpha: Scaling factor for matrix products of the type that corresponds to the computeType and Ctype, see the table below for details
-//   - Aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
-//   - Atype: Enumerant specifying the datatype of Aarray
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - atype: Enumerant specifying the datatype of Aarray
 //   - lda: Leading dimension of two-dimensional array used to store the matrix Aarray [i]
-//   - Barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
-//   - Btype: Enumerant specifying the datatype of Barray
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - btype: Enumerant specifying the datatype of Barray
 //   - ldb: Leading dimension of two-dimensional array used to store matrix Barray [i]
 //   - beta: Scaling factor for Carray of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, Carray [i] does not have to be a valid input
-//   - Carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined.All pointers must meet certain alignment criteria. Please see below for details
-//   - Ctype: Enumerant specifying the datatype of Carray
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices Carray [i] should not overlap; otherwise, the behavior is undefined.All pointers must meet certain alignment criteria. Please see below for details
+//   - ctype: Enumerant specifying the datatype of Carray
 //   - ldc: Leading dimension of a two-dimensional array used to store each matrix Carray [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //   - computeType: Enumerant specifying the computation type
@@ -8715,11 +8715,11 @@ func gemmBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmBatchedEx_64.
-func gemmBatchedEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha uintptr, Aarray uintptr, Atype DataType, lda int64, Barray uintptr, Btype DataType, ldb int64, beta uintptr, Carray uintptr, Ctype DataType, ldc int64, batchCount int64, computeType ComputeType, algo GemmAlgo) error {
+func gemmBatchedEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha uintptr, aarray uintptr, atype DataType, lda int64, barray uintptr, btype DataType, ldb int64, beta uintptr, carray uintptr, ctype DataType, ldc int64, batchCount int64, computeType ComputeType, algo GemmAlgo) error {
 	if err := checkLibSym("cublasGemmBatchedEx_64"); err != nil {
 		return err
 	}
-	return toError(fngemmBatchedEx64(handle, transa, transb, m, n, k, alpha, Aarray, Atype, lda, Barray, Btype, ldb, beta, Carray, Ctype, ldc, batchCount, computeType, algo))
+	return toError(fngemmBatchedEx64(handle, transa, transb, m, n, k, alpha, aarray, atype, lda, barray, btype, ldb, beta, carray, ctype, ldc, batchCount, computeType, algo))
 }
 
 // gemmEx supports the 64-bit Integer Interface.
@@ -8747,15 +8747,15 @@ func gemmBatchedEx64(handle Handle, transa Operation, transb Operation, m int64,
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: Scaling factor for A*B of the type that corresponds to the computeType and Ctype, see the table below for details
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - Btype: Enumerant specifying the datatype of matrix B
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - btype: Enumerant specifying the datatype of matrix B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: Scaling factor for C of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
@@ -8769,11 +8769,11 @@ func gemmBatchedEx64(handle Handle, transa Operation, transb Operation, m int64,
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmEx.
-func gemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha uintptr, A uintptr, Atype DataType, lda int32, B uintptr, Btype DataType, ldb int32, beta uintptr, C uintptr, Ctype DataType, ldc int32, computeType ComputeType, algo GemmAlgo) error {
+func gemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha uintptr, a uintptr, atype DataType, lda int32, b uintptr, btype DataType, ldb int32, beta uintptr, c uintptr, ctype DataType, ldc int32, computeType ComputeType, algo GemmAlgo) error {
 	if err := checkLibSym("cublasGemmEx"); err != nil {
 		return err
 	}
-	return toError(fngemmEx(handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb, beta, C, Ctype, ldc, computeType, algo))
+	return toError(fngemmEx(handle, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc, computeType, algo))
 }
 
 // gemmEx64 supports the 64-bit Integer Interface.
@@ -8801,15 +8801,15 @@ func gemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32,
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: Scaling factor for A*B of the type that corresponds to the computeType and Ctype, see the table below for details
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - Btype: Enumerant specifying the datatype of matrix B
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - btype: Enumerant specifying the datatype of matrix B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: Scaling factor for C of the type that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //   - computeType: Enumerant specifying the computation type
 //   - algo: Enumerant specifying the algorithm. See [GemmAlgo]
@@ -8823,11 +8823,11 @@ func gemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32,
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmEx_64.
-func gemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha uintptr, A uintptr, Atype DataType, lda int64, B uintptr, Btype DataType, ldb int64, beta uintptr, C uintptr, Ctype DataType, ldc int64, computeType ComputeType, algo GemmAlgo) error {
+func gemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha uintptr, a uintptr, atype DataType, lda int64, b uintptr, btype DataType, ldb int64, beta uintptr, c uintptr, ctype DataType, ldc int64, computeType ComputeType, algo GemmAlgo) error {
 	if err := checkLibSym("cublasGemmEx_64"); err != nil {
 		return err
 	}
-	return toError(fngemmEx64(handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb, beta, C, Ctype, ldc, computeType, algo))
+	return toError(fngemmEx64(handle, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc, computeType, algo))
 }
 
 // gemmGroupedBatchedEx supports the 64-bit Integer Interface.
@@ -8853,15 +8853,15 @@ func gemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int6
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - Aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
-//   - Atype: Enumerant specifying the datatype of A
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - atype: Enumerant specifying the datatype of A
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - Barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
-//   - Btype: Enumerant specifying the datatype of B
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - btype: Enumerant specifying the datatype of B
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - Carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
-//   - Ctype: Enumerant specifying the datatype of C
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - ctype: Enumerant specifying the datatype of C
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
@@ -8875,11 +8875,11 @@ func gemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int6
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasGemmGroupedBatchedEx.
-func gemmGroupedBatchedEx(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray uintptr, Aarray uintptr, Atype DataType, ldaArray *int32, Barray uintptr, Btype DataType, ldbArray *int32, betaArray uintptr, Carray uintptr, Ctype DataType, ldcArray *int32, groupCount int32, groupSize *int32, computeType ComputeType) error {
+func gemmGroupedBatchedEx(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray uintptr, aarray uintptr, atype DataType, ldaArray *int32, barray uintptr, btype DataType, ldbArray *int32, betaArray uintptr, carray uintptr, ctype DataType, ldcArray *int32, groupCount int32, groupSize *int32, computeType ComputeType) error {
 	if err := checkLibSym("cublasGemmGroupedBatchedEx"); err != nil {
 		return err
 	}
-	return toError(fngemmGroupedBatchedEx(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, Aarray, Atype, ldaArray, Barray, Btype, ldbArray, betaArray, Carray, Ctype, ldcArray, groupCount, groupSize, computeType))
+	return toError(fngemmGroupedBatchedEx(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, atype, ldaArray, barray, btype, ldbArray, betaArray, carray, ctype, ldcArray, groupCount, groupSize, computeType))
 }
 
 // gemmGroupedBatchedEx64 supports the 64-bit Integer Interface.
@@ -8905,15 +8905,15 @@ func gemmGroupedBatchedEx(handle Handle, transaArray *Operation, transbArray *Op
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - Aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
-//   - Atype: Enumerant specifying the datatype of A
+//   - aarray: Array of pointers to < Atype > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - atype: Enumerant specifying the datatype of A
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - Barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
-//   - Btype: Enumerant specifying the datatype of B
+//   - barray: Array of pointers to < Btype > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - btype: Enumerant specifying the datatype of B
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < Scale Type > scalar used for multiplication for each group
-//   - Carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
-//   - Ctype: Enumerant specifying the datatype of C
+//   - carray: Array of pointers to < Ctype > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - ctype: Enumerant specifying the datatype of C
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
@@ -8927,11 +8927,11 @@ func gemmGroupedBatchedEx(handle Handle, transaArray *Operation, transbArray *Op
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasGemmGroupedBatchedEx_64.
-func gemmGroupedBatchedEx64(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray uintptr, Aarray uintptr, Atype DataType, ldaArray *int64, Barray uintptr, Btype DataType, ldbArray *int64, betaArray uintptr, Carray uintptr, Ctype DataType, ldcArray *int64, groupCount int64, groupSize *int64, computeType ComputeType) error {
+func gemmGroupedBatchedEx64(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray uintptr, aarray uintptr, atype DataType, ldaArray *int64, barray uintptr, btype DataType, ldbArray *int64, betaArray uintptr, carray uintptr, ctype DataType, ldcArray *int64, groupCount int64, groupSize *int64, computeType ComputeType) error {
 	if err := checkLibSym("cublasGemmGroupedBatchedEx_64"); err != nil {
 		return err
 	}
-	return toError(fngemmGroupedBatchedEx64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, Aarray, Atype, ldaArray, Barray, Btype, ldbArray, betaArray, Carray, Ctype, ldcArray, groupCount, groupSize, computeType))
+	return toError(fngemmGroupedBatchedEx64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, atype, ldaArray, barray, btype, ldbArray, betaArray, carray, ctype, ldcArray, groupCount, groupSize, computeType))
 }
 
 // gemmStridedBatchedEx supports the 64-bit Integer Interface.
@@ -8961,17 +8961,17 @@ func gemmGroupedBatchedEx64(handle Handle, transaArray *Operation, transbArray *
 //   - n: Number of columns of matrix op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: Scaling factor for A*B of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details
-//   - A: Pointer to < Atype > matrix, A, corresponds to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of A
+//   - a: Pointer to < Atype > matrix, A, corresponds to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: Pointer to < Btype > matrix, B, corresponds to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - Btype: Enumerant specifying the datatype of B
+//   - b: Pointer to < Btype > matrix, B, corresponds to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - btype: Enumerant specifying the datatype of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C [i] does not have to be a valid input
-//   - C: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - Ctype: Enumerant specifying the datatype of C
+//   - c: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - ctype: Enumerant specifying the datatype of C
 //   - ldc: Leading dimension of a two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -8987,11 +8987,11 @@ func gemmGroupedBatchedEx64(handle Handle, transaArray *Operation, transbArray *
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmStridedBatchedEx.
-func gemmStridedBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha uintptr, A uintptr, Atype DataType, lda int32, strideA int64, B uintptr, Btype DataType, ldb int32, strideB int64, beta uintptr, C uintptr, Ctype DataType, ldc int32, strideC int64, batchCount int32, computeType ComputeType, algo GemmAlgo) error {
+func gemmStridedBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha uintptr, a uintptr, atype DataType, lda int32, strideA int64, b uintptr, btype DataType, ldb int32, strideB int64, beta uintptr, c uintptr, ctype DataType, ldc int32, strideC int64, batchCount int32, computeType ComputeType, algo GemmAlgo) error {
 	if err := checkLibSym("cublasGemmStridedBatchedEx"); err != nil {
 		return err
 	}
-	return toError(fngemmStridedBatchedEx(handle, transa, transb, m, n, k, alpha, A, Atype, lda, strideA, B, Btype, ldb, strideB, beta, C, Ctype, ldc, strideC, batchCount, computeType, algo))
+	return toError(fngemmStridedBatchedEx(handle, transa, transb, m, n, k, alpha, a, atype, lda, strideA, b, btype, ldb, strideB, beta, c, ctype, ldc, strideC, batchCount, computeType, algo))
 }
 
 // gemmStridedBatchedEx64 supports the 64-bit Integer Interface.
@@ -9021,17 +9021,17 @@ func gemmStridedBatchedEx(handle Handle, transa Operation, transb Operation, m i
 //   - n: Number of columns of matrix op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: Scaling factor for A*B of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details
-//   - A: Pointer to < Atype > matrix, A, corresponds to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of A
+//   - a: Pointer to < Atype > matrix, A, corresponds to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: Pointer to < Btype > matrix, B, corresponds to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - Btype: Enumerant specifying the datatype of B
+//   - b: Pointer to < Btype > matrix, B, corresponds to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - btype: Enumerant specifying the datatype of B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: Scaling factor for C of the < Scale Type > that corresponds to the computeType and Ctype, see the table below for details. If beta == 0, C [i] does not have to be a valid input
-//   - C: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
-//   - Ctype: Enumerant specifying the datatype of C
+//   - c: Pointer to < Ctype > matrix, C, corresponds to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - ctype: Enumerant specifying the datatype of C
 //   - ldc: Leading dimension of a two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -9047,11 +9047,11 @@ func gemmStridedBatchedEx(handle Handle, transa Operation, transb Operation, m i
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasGemmStridedBatchedEx_64.
-func gemmStridedBatchedEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha uintptr, A uintptr, Atype DataType, lda int64, strideA int64, B uintptr, Btype DataType, ldb int64, strideB int64, beta uintptr, C uintptr, Ctype DataType, ldc int64, strideC int64, batchCount int64, computeType ComputeType, algo GemmAlgo) error {
+func gemmStridedBatchedEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha uintptr, a uintptr, atype DataType, lda int64, strideA int64, b uintptr, btype DataType, ldb int64, strideB int64, beta uintptr, c uintptr, ctype DataType, ldc int64, strideC int64, batchCount int64, computeType ComputeType, algo GemmAlgo) error {
 	if err := checkLibSym("cublasGemmStridedBatchedEx_64"); err != nil {
 		return err
 	}
-	return toError(fngemmStridedBatchedEx64(handle, transa, transb, m, n, k, alpha, A, Atype, lda, strideA, B, Btype, ldb, strideB, beta, C, Ctype, ldc, strideC, batchCount, computeType, algo))
+	return toError(fngemmStridedBatchedEx64(handle, transa, transb, m, n, k, alpha, a, atype, lda, strideA, b, btype, ldb, strideB, beta, c, ctype, ldc, strideC, batchCount, computeType, algo))
 }
 
 // getAtomicsMode queries the atomic mode of a specific cuBLAS context.
@@ -9183,11 +9183,11 @@ func getMathMode(handle Handle) (Math, error) {
 // This function copies a tile of rows x cols elements from a matrix A in GPU memory space to a matrix B in host memory space. It is assumed that each element requires storage of elemSize bytes and that both matrices are stored in column-major format, with the leading dimension of the source matrix A and destination matrix B given in lda and ldb, respectively. The leading dimension indicates the number of rows of the allocated matrix, even if only a submatrix of it is being used.
 //
 // Wraps cublasGetMatrix.
-func GetMatrix(rows int32, cols int32, elemSize int32, A uintptr, lda int32, B uintptr, ldb int32) error {
+func GetMatrix(rows int32, cols int32, elemSize int32, a uintptr, lda int32, b uintptr, ldb int32) error {
 	if err := checkLibSym("cublasGetMatrix"); err != nil {
 		return err
 	}
-	return toError(fnGetMatrix(rows, cols, elemSize, A, lda, B, ldb))
+	return toError(fnGetMatrix(rows, cols, elemSize, a, lda, b, ldb))
 }
 
 // GetMatrixAsync supports the 64-bit Integer Interface.
@@ -9195,11 +9195,11 @@ func GetMatrix(rows int32, cols int32, elemSize int32, A uintptr, lda int32, B u
 // This function has the same functionality as [GetMatrix], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
 //
 // Wraps cublasGetMatrixAsync.
-func GetMatrixAsync(rows int32, cols int32, elemSize int32, A uintptr, lda int32, B uintptr, ldb int32, stream Stream) error {
+func GetMatrixAsync(rows int32, cols int32, elemSize int32, a uintptr, lda int32, b uintptr, ldb int32, stream Stream) error {
 	if err := checkLibSym("cublasGetMatrixAsync"); err != nil {
 		return err
 	}
-	return toError(fnGetMatrixAsync(rows, cols, elemSize, A, lda, B, ldb, stream))
+	return toError(fnGetMatrixAsync(rows, cols, elemSize, a, lda, b, ldb, stream))
 }
 
 // GetMatrixAsync64 supports the 64-bit Integer Interface.
@@ -9207,11 +9207,11 @@ func GetMatrixAsync(rows int32, cols int32, elemSize int32, A uintptr, lda int32
 // This function has the same functionality as [GetMatrix], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
 //
 // Wraps cublasGetMatrixAsync_64.
-func GetMatrixAsync64(rows int64, cols int64, elemSize int64, A uintptr, lda int64, B uintptr, ldb int64, stream Stream) error {
+func GetMatrixAsync64(rows int64, cols int64, elemSize int64, a uintptr, lda int64, b uintptr, ldb int64, stream Stream) error {
 	if err := checkLibSym("cublasGetMatrixAsync_64"); err != nil {
 		return err
 	}
-	return toError(fnGetMatrixAsync64(rows, cols, elemSize, A, lda, B, ldb, stream))
+	return toError(fnGetMatrixAsync64(rows, cols, elemSize, a, lda, b, ldb, stream))
 }
 
 // GetMatrix64 supports the 64-bit Integer Interface.
@@ -9219,11 +9219,11 @@ func GetMatrixAsync64(rows int64, cols int64, elemSize int64, A uintptr, lda int
 // This function copies a tile of rows x cols elements from a matrix A in GPU memory space to a matrix B in host memory space. It is assumed that each element requires storage of elemSize bytes and that both matrices are stored in column-major format, with the leading dimension of the source matrix A and destination matrix B given in lda and ldb, respectively. The leading dimension indicates the number of rows of the allocated matrix, even if only a submatrix of it is being used.
 //
 // Wraps cublasGetMatrix_64.
-func GetMatrix64(rows int64, cols int64, elemSize int64, A uintptr, lda int64, B uintptr, ldb int64) error {
+func GetMatrix64(rows int64, cols int64, elemSize int64, a uintptr, lda int64, b uintptr, ldb int64) error {
 	if err := checkLibSym("cublasGetMatrix_64"); err != nil {
 		return err
 	}
-	return toError(fnGetMatrix64(rows, cols, elemSize, A, lda, B, ldb))
+	return toError(fnGetMatrix64(rows, cols, elemSize, a, lda, b, ldb))
 }
 
 // getPointerMode obtains the pointer mode used by the cuBLAS library.
@@ -9376,7 +9376,7 @@ func getVersion(handle Handle) (int32, error) {
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -9392,11 +9392,11 @@ func getVersion(handle Handle) (int32, error) {
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSHgemvBatched.
-func hSHgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, Aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
+func hSHgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
 	if err := checkLibSym("cublasHSHgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fnhSHgemvBatched(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fnhSHgemvBatched(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // hSHgemvBatched64 supports the 64-bit Integer Interface.
@@ -9416,7 +9416,7 @@ func hSHgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -9432,11 +9432,11 @@ func hSHgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSHgemvBatched_64.
-func hSHgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, Aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
+func hSHgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
 	if err := checkLibSym("cublasHSHgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhSHgemvBatched64(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fnhSHgemvBatched64(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // hSHgemvStridedBatched supports the 64-bit Integer Interface.
@@ -9457,7 +9457,7 @@ func hSHgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -9476,11 +9476,11 @@ func hSHgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSHgemvStridedBatched.
-func hSHgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, A *Half, lda int32, strideA int64, x *Half, incx int32, stridex int64, beta *float32, y *Half, incy int32, stridey int64, batchCount int32) error {
+func hSHgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, a *Half, lda int32, strideA int64, x *Half, incx int32, stridex int64, beta *float32, y *Half, incy int32, stridey int64, batchCount int32) error {
 	if err := checkLibSym("cublasHSHgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnhSHgemvStridedBatched(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fnhSHgemvStridedBatched(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // hSHgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -9501,7 +9501,7 @@ func hSHgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -9520,11 +9520,11 @@ func hSHgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSHgemvStridedBatched_64.
-func hSHgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, A *Half, lda int64, strideA int64, x *Half, incx int64, stridex int64, beta *float32, y *Half, incy int64, stridey int64, batchCount int64) error {
+func hSHgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a *Half, lda int64, strideA int64, x *Half, incx int64, stridex int64, beta *float32, y *Half, incy int64, stridey int64, batchCount int64) error {
 	if err := checkLibSym("cublasHSHgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhSHgemvStridedBatched64(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fnhSHgemvStridedBatched64(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // hSSgemvBatched supports the 64-bit Integer Interface.
@@ -9544,7 +9544,7 @@ func hSHgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -9560,11 +9560,11 @@ func hSHgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSSgemvBatched.
-func hSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, Aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
+func hSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
 	if err := checkLibSym("cublasHSSgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fnhSSgemvBatched(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fnhSSgemvBatched(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // hSSgemvBatched64 supports the 64-bit Integer Interface.
@@ -9584,7 +9584,7 @@ func hSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -9600,11 +9600,11 @@ func hSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSSgemvBatched_64.
-func hSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, Aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
+func hSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
 	if err := checkLibSym("cublasHSSgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhSSgemvBatched64(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fnhSSgemvBatched64(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // hSSgemvStridedBatched supports the 64-bit Integer Interface.
@@ -9625,7 +9625,7 @@ func hSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -9644,11 +9644,11 @@ func hSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSSgemvStridedBatched.
-func hSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, A *Half, lda int32, strideA int64, x *Half, incx int32, stridex int64, beta *float32, y *float32, incy int32, stridey int64, batchCount int32) error {
+func hSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, a *Half, lda int32, strideA int64, x *Half, incx int32, stridex int64, beta *float32, y *float32, incy int32, stridey int64, batchCount int32) error {
 	if err := checkLibSym("cublasHSSgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnhSSgemvStridedBatched(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fnhSSgemvStridedBatched(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // hSSgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -9669,7 +9669,7 @@ func hSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -9688,11 +9688,11 @@ func hSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHSSgemvStridedBatched_64.
-func hSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, A *Half, lda int64, strideA int64, x *Half, incx int64, stridex int64, beta *float32, y *float32, incy int64, stridey int64, batchCount int64) error {
+func hSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a *Half, lda int64, strideA int64, x *Half, incx int64, stridex int64, beta *float32, y *float32, incy int64, stridey int64, batchCount int64) error {
 	if err := checkLibSym("cublasHSSgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhSSgemvStridedBatched64(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fnhSSgemvStridedBatched64(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // hgemm supports the 64-bit Integer Interface.
@@ -9713,12 +9713,12 @@ func hSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -9729,11 +9729,11 @@ func hSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemm.
-func hgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Half, A *Half, lda int32, B *Half, ldb int32, beta *Half, C *Half, ldc int32) error {
+func hgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Half, a *Half, lda int32, b *Half, ldb int32, beta *Half, c *Half, ldc int32) error {
 	if err := checkLibSym("cublasHgemm"); err != nil {
 		return err
 	}
-	return toError(fnhgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnhgemm(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // hgemmBatched supports the 64-bit Integer Interface.
@@ -9756,12 +9756,12 @@ func hgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -9773,11 +9773,11 @@ func hgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemmBatched.
-func hgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Half, Aarray uintptr, lda int32, Barray uintptr, ldb int32, beta *Half, Carray uintptr, ldc int32, batchCount int32) error {
+func hgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Half, aarray uintptr, lda int32, barray uintptr, ldb int32, beta *Half, carray uintptr, ldc int32, batchCount int32) error {
 	if err := checkLibSym("cublasHgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fnhgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fnhgemmBatched(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // hgemmBatched64 supports the 64-bit Integer Interface.
@@ -9800,12 +9800,12 @@ func hgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -9817,11 +9817,11 @@ func hgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemmBatched_64.
-func hgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Half, Aarray uintptr, lda int64, Barray uintptr, ldb int64, beta *Half, Carray uintptr, ldc int64, batchCount int64) error {
+func hgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Half, aarray uintptr, lda int64, barray uintptr, ldb int64, beta *Half, carray uintptr, ldc int64, batchCount int64) error {
 	if err := checkLibSym("cublasHgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhgemmBatched64(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fnhgemmBatched64(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // hgemmStridedBatched supports the 64-bit Integer Interface.
@@ -9845,14 +9845,14 @@ func hgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -9865,11 +9865,11 @@ func hgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemmStridedBatched.
-func hgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Half, A *Half, lda int32, strideA int64, B *Half, ldb int32, strideB int64, beta *Half, C *Half, ldc int32, strideC int64, batchCount int32) error {
+func hgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Half, a *Half, lda int32, strideA int64, b *Half, ldb int32, strideB int64, beta *Half, c *Half, ldc int32, strideC int64, batchCount int32) error {
 	if err := checkLibSym("cublasHgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnhgemmStridedBatched(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fnhgemmStridedBatched(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // hgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -9893,14 +9893,14 @@ func hgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -9913,11 +9913,11 @@ func hgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemmStridedBatched_64.
-func hgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Half, A *Half, lda int64, strideA int64, B *Half, ldb int64, strideB int64, beta *Half, C *Half, ldc int64, strideC int64, batchCount int64) error {
+func hgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Half, a *Half, lda int64, strideA int64, b *Half, ldb int64, strideB int64, beta *Half, c *Half, ldc int64, strideC int64, batchCount int64) error {
 	if err := checkLibSym("cublasHgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fnhgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // hgemm64 supports the 64-bit Integer Interface.
@@ -9938,12 +9938,12 @@ func hgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -9954,11 +9954,11 @@ func hgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasHgemm_64.
-func hgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Half, A *Half, lda int64, B *Half, ldb int64, beta *Half, C *Half, ldc int64) error {
+func hgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Half, a *Half, lda int64, b *Half, ldb int64, beta *Half, c *Half, ldc int64) error {
 	if err := checkLibSym("cublasHgemm_64"); err != nil {
 		return err
 	}
-	return toError(fnhgemm64(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnhgemm64(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // iamaxEx wraps cublasIamaxEx.
@@ -11148,11 +11148,11 @@ func scopy64(handle Handle, n int64, x *float32, incx int64, y *float32, incy in
 //   - mode: Left multiply if mode == [SideLeft] or right multiply if mode == [SideRight]
 //   - m: Number of rows of matrix A and C
 //   - n: Number of columns of matrix A and C
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m)
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - x: One-dimensional < type > array of size abs(incx) x m if mode == [SideLeft] and abs(incx) x n if mode == [SideRight]
 //   - incx: Stride of one-dimensional array x
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -11162,11 +11162,11 @@ func scopy64(handle Handle, n int64, x *float32, incx int64, y *float32, incy in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSdgmm.
-func sdgmm(handle Handle, mode SideMode, m int32, n int32, A *float32, lda int32, x *float32, incx int32, C *float32, ldc int32) error {
+func sdgmm(handle Handle, mode SideMode, m int32, n int32, a *float32, lda int32, x *float32, incx int32, c *float32, ldc int32) error {
 	if err := checkLibSym("cublasSdgmm"); err != nil {
 		return err
 	}
-	return toError(fnsdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc))
+	return toError(fnsdgmm(handle, mode, m, n, a, lda, x, incx, c, ldc))
 }
 
 // sdgmm64 supports the 64-bit Integer Interface.
@@ -11185,11 +11185,11 @@ func sdgmm(handle Handle, mode SideMode, m int32, n int32, A *float32, lda int32
 //   - mode: Left multiply if mode == [SideLeft] or right multiply if mode == [SideRight]
 //   - m: Number of rows of matrix A and C
 //   - n: Number of columns of matrix A and C
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m)
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - x: One-dimensional < type > array of size abs(incx) x m if mode == [SideLeft] and abs(incx) x n if mode == [SideRight]
 //   - incx: Stride of one-dimensional array x
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -11199,11 +11199,11 @@ func sdgmm(handle Handle, mode SideMode, m int32, n int32, A *float32, lda int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSdgmm_64.
-func sdgmm64(handle Handle, mode SideMode, m int64, n int64, A *float32, lda int64, x *float32, incx int64, C *float32, ldc int64) error {
+func sdgmm64(handle Handle, mode SideMode, m int64, n int64, a *float32, lda int64, x *float32, incx int64, c *float32, ldc int64) error {
 	if err := checkLibSym("cublasSdgmm_64"); err != nil {
 		return err
 	}
-	return toError(fnsdgmm64(handle, mode, m, n, A, lda, x, incx, C, ldc))
+	return toError(fnsdgmm64(handle, mode, m, n, a, lda, x, incx, c, ldc))
 }
 
 // sdot supports the 64-bit Integer Interface.
@@ -11381,11 +11381,11 @@ func setMathMode(handle Handle, mode Math) error {
 // This function copies a tile of rows x cols elements from a matrix A in host memory space to a matrix B in GPU memory space. It is assumed that each element requires storage of elemSize bytes and that both matrices are stored in column-major format, with the leading dimension of the source matrix A and destination matrix B given in lda and ldb, respectively. The leading dimension indicates the number of rows of the allocated matrix, even if only a submatrix of it is being used.
 //
 // Wraps cublasSetMatrix.
-func SetMatrix(rows int32, cols int32, elemSize int32, A uintptr, lda int32, B uintptr, ldb int32) error {
+func SetMatrix(rows int32, cols int32, elemSize int32, a uintptr, lda int32, b uintptr, ldb int32) error {
 	if err := checkLibSym("cublasSetMatrix"); err != nil {
 		return err
 	}
-	return toError(fnSetMatrix(rows, cols, elemSize, A, lda, B, ldb))
+	return toError(fnSetMatrix(rows, cols, elemSize, a, lda, b, ldb))
 }
 
 // SetMatrixAsync supports the 64-bit Integer Interface.
@@ -11393,11 +11393,11 @@ func SetMatrix(rows int32, cols int32, elemSize int32, A uintptr, lda int32, B u
 // This function has the same functionality as [SetMatrix], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
 //
 // Wraps cublasSetMatrixAsync.
-func SetMatrixAsync(rows int32, cols int32, elemSize int32, A uintptr, lda int32, B uintptr, ldb int32, stream Stream) error {
+func SetMatrixAsync(rows int32, cols int32, elemSize int32, a uintptr, lda int32, b uintptr, ldb int32, stream Stream) error {
 	if err := checkLibSym("cublasSetMatrixAsync"); err != nil {
 		return err
 	}
-	return toError(fnSetMatrixAsync(rows, cols, elemSize, A, lda, B, ldb, stream))
+	return toError(fnSetMatrixAsync(rows, cols, elemSize, a, lda, b, ldb, stream))
 }
 
 // SetMatrixAsync64 supports the 64-bit Integer Interface.
@@ -11405,11 +11405,11 @@ func SetMatrixAsync(rows int32, cols int32, elemSize int32, A uintptr, lda int32
 // This function has the same functionality as [SetMatrix], with the exception that the data transfer is done asynchronously (with respect to the host) using the given CUDA™ stream parameter.
 //
 // Wraps cublasSetMatrixAsync_64.
-func SetMatrixAsync64(rows int64, cols int64, elemSize int64, A uintptr, lda int64, B uintptr, ldb int64, stream Stream) error {
+func SetMatrixAsync64(rows int64, cols int64, elemSize int64, a uintptr, lda int64, b uintptr, ldb int64, stream Stream) error {
 	if err := checkLibSym("cublasSetMatrixAsync_64"); err != nil {
 		return err
 	}
-	return toError(fnSetMatrixAsync64(rows, cols, elemSize, A, lda, B, ldb, stream))
+	return toError(fnSetMatrixAsync64(rows, cols, elemSize, a, lda, b, ldb, stream))
 }
 
 // SetMatrix64 supports the 64-bit Integer Interface.
@@ -11417,11 +11417,11 @@ func SetMatrixAsync64(rows int64, cols int64, elemSize int64, A uintptr, lda int
 // This function copies a tile of rows x cols elements from a matrix A in host memory space to a matrix B in GPU memory space. It is assumed that each element requires storage of elemSize bytes and that both matrices are stored in column-major format, with the leading dimension of the source matrix A and destination matrix B given in lda and ldb, respectively. The leading dimension indicates the number of rows of the allocated matrix, even if only a submatrix of it is being used.
 //
 // Wraps cublasSetMatrix_64.
-func SetMatrix64(rows int64, cols int64, elemSize int64, A uintptr, lda int64, B uintptr, ldb int64) error {
+func SetMatrix64(rows int64, cols int64, elemSize int64, a uintptr, lda int64, b uintptr, ldb int64) error {
 	if err := checkLibSym("cublasSetMatrix_64"); err != nil {
 		return err
 	}
-	return toError(fnSetMatrix64(rows, cols, elemSize, A, lda, B, ldb))
+	return toError(fnSetMatrix64(rows, cols, elemSize, a, lda, b, ldb))
 }
 
 // setPointerMode sets the pointer mode used by the cuBLAS library.
@@ -11545,7 +11545,7 @@ func setWorkspace(handle Handle, workspace uintptr, workspaceSizeInBytes uint) e
 //   - kl: Number of subdiagonals of matrix A
 //   - ku: Number of superdiagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= kl + ku + 1
+//   - a: < type > array of dimension lda x n with lda >= kl + ku + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements if trans == [OpN] and m elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -11560,11 +11560,11 @@ func setWorkspace(handle Handle, workspace uintptr, workspaceSizeInBytes uint) e
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgbmv_v2.
-func sgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32, alpha *float32, A *float32, lda int32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
+func sgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32, alpha *float32, a *float32, lda int32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
 	if err := checkLibSym("cublasSgbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnsgbmv(handle, trans, m, n, kl, ku, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnsgbmv(handle, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // sgbmv64 supports the 64-bit Integer Interface.
@@ -11585,7 +11585,7 @@ func sgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 //   - kl: Number of subdiagonals of matrix A
 //   - ku: Number of superdiagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= kl + ku + 1
+//   - a: < type > array of dimension lda x n with lda >= kl + ku + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements if trans == [OpN] and m elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -11600,11 +11600,11 @@ func sgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgbmv_v2_64.
-func sgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int64, alpha *float32, A *float32, lda int64, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
+func sgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int64, alpha *float32, a *float32, lda int64, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
 	if err := checkLibSym("cublasSgbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsgbmv64(handle, trans, m, n, kl, ku, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnsgbmv64(handle, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // sgeam supports the 64-bit Integer Interface.
@@ -11630,12 +11630,12 @@ func sgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - alpha: < type > scalar used for multiplication. If *alpha == 0, A does not have to be a valid input
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - beta: < type > scalar used for multiplication. If *beta == 0, B does not have to be a valid input
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -11645,11 +11645,11 @@ func sgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgeam.
-func sgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, alpha *float32, A *float32, lda int32, beta *float32, B *float32, ldb int32, C *float32, ldc int32) error {
+func sgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, alpha *float32, a *float32, lda int32, beta *float32, b *float32, ldb int32, c *float32, ldc int32) error {
 	if err := checkLibSym("cublasSgeam"); err != nil {
 		return err
 	}
-	return toError(fnsgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc))
+	return toError(fnsgeam(handle, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc))
 }
 
 // sgeam64 supports the 64-bit Integer Interface.
@@ -11675,12 +11675,12 @@ func sgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - alpha: < type > scalar used for multiplication. If *alpha == 0, A does not have to be a valid input
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - beta: < type > scalar used for multiplication. If *beta == 0, B does not have to be a valid input
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -11690,11 +11690,11 @@ func sgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgeam_64.
-func sgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64, alpha *float32, A *float32, lda int64, beta *float32, B *float32, ldb int64, C *float32, ldc int64) error {
+func sgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64, alpha *float32, a *float32, lda int64, beta *float32, b *float32, ldb int64, c *float32, ldc int64) error {
 	if err := checkLibSym("cublasSgeam_64"); err != nil {
 		return err
 	}
-	return toError(fnsgeam64(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc))
+	return toError(fnsgeam64(handle, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc))
 }
 
 // sgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
@@ -11713,9 +11713,9 @@ func sgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - m: Number of rows of each Aarray [i] and Carray [i] if trans == [OpN], numbers of columns of each Aarray [i] otherwise (not supported currently)
 //   - n: Number of columns of each Aarray [i] if trans == [OpN], and number of rows of each Aarray [i] and Carray [i] otherwise (not supported currently)
 //   - nrhs: Number of columns of each Carray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - Carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
+//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
 //   - info: If info == 0 the parameters passed to the function are validIf info < 0 the parameter in position -info is invalid
 //   - devInfoArray: Optional array of integers of dimension batchsize.If non-null, every element of devInfoArray [i] == V has the following meaning:V == 0 : the i-th problem was successfully solvedV > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
@@ -11729,11 +11729,11 @@ func sgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgelsBatched.
-func sgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, Aarray uintptr, lda int32, Carray uintptr, ldc int32, info *int32, devInfoArray *int32, batchSize int32) error {
+func sgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, aarray uintptr, lda int32, carray uintptr, ldc int32, info *int32, devInfoArray *int32, batchSize int32) error {
 	if err := checkLibSym("cublasSgelsBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgelsBatched(handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc, info, devInfoArray, batchSize))
+	return toError(fnsgelsBatched(handle, trans, m, n, nrhs, aarray, lda, carray, ldc, info, devInfoArray, batchSize))
 }
 
 // sgemmBatched supports the 64-bit Integer Interface.
@@ -11756,12 +11756,12 @@ func sgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -11773,11 +11773,11 @@ func sgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmBatched.
-func sgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, Aarray uintptr, lda int32, Barray uintptr, ldb int32, beta *float32, Carray uintptr, ldc int32, batchCount int32) error {
+func sgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, aarray uintptr, lda int32, barray uintptr, ldb int32, beta *float32, carray uintptr, ldc int32, batchCount int32) error {
 	if err := checkLibSym("cublasSgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fnsgemmBatched(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // sgemmBatched64 supports the 64-bit Integer Interface.
@@ -11800,12 +11800,12 @@ func sgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -11817,11 +11817,11 @@ func sgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmBatched_64.
-func sgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, Aarray uintptr, lda int64, Barray uintptr, ldb int64, beta *float32, Carray uintptr, ldc int64, batchCount int64) error {
+func sgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, aarray uintptr, lda int64, barray uintptr, ldb int64, beta *float32, carray uintptr, ldc int64, batchCount int64) error {
 	if err := checkLibSym("cublasSgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemmBatched64(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fnsgemmBatched64(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // sgemmEx supports the 64-bit Integer Interface.
@@ -11845,15 +11845,15 @@ func sgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - Btype: Enumerant specifying the datatype of matrix B
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - btype: Enumerant specifying the datatype of matrix B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -11865,11 +11865,11 @@ func sgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmEx.
-func sgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, A uintptr, Atype DataType, lda int32, B uintptr, Btype DataType, ldb int32, beta *float32, C uintptr, Ctype DataType, ldc int32) error {
+func sgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, a uintptr, atype DataType, lda int32, b uintptr, btype DataType, ldb int32, beta *float32, c uintptr, ctype DataType, ldc int32) error {
 	if err := checkLibSym("cublasSgemmEx"); err != nil {
 		return err
 	}
-	return toError(fnsgemmEx(handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb, beta, C, Ctype, ldc))
+	return toError(fnsgemmEx(handle, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc))
 }
 
 // sgemmEx64 supports the 64-bit Integer Interface.
@@ -11893,15 +11893,15 @@ func sgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
-//   - Atype: Enumerant specifying the datatype of matrix A
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - atype: Enumerant specifying the datatype of matrix A
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
-//   - Btype: Enumerant specifying the datatype of matrix B
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - btype: Enumerant specifying the datatype of matrix B
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
-//   - Ctype: Enumerant specifying the datatype of matrix C
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - ctype: Enumerant specifying the datatype of matrix C
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -11913,11 +11913,11 @@ func sgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmEx_64.
-func sgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, A uintptr, Atype DataType, lda int64, B uintptr, Btype DataType, ldb int64, beta *float32, C uintptr, Ctype DataType, ldc int64) error {
+func sgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, a uintptr, atype DataType, lda int64, b uintptr, btype DataType, ldb int64, beta *float32, c uintptr, ctype DataType, ldc int64) error {
 	if err := checkLibSym("cublasSgemmEx_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemmEx64(handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb, beta, C, Ctype, ldc))
+	return toError(fnsgemmEx64(handle, transa, transb, m, n, k, alpha, a, atype, lda, b, btype, ldb, beta, c, ctype, ldc))
 }
 
 // sgemmGroupedBatched supports the 64-bit Integer Interface.
@@ -11942,12 +11942,12 @@ func sgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
@@ -11960,11 +11960,11 @@ func sgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmGroupedBatched.
-func sgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray *float32, Aarray uintptr, ldaArray *int32, Barray uintptr, ldbArray *int32, betaArray *float32, Carray uintptr, ldcArray *int32, groupCount int32, groupSize *int32) error {
+func sgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int32, nArray *int32, kArray *int32, alphaArray *float32, aarray uintptr, ldaArray *int32, barray uintptr, ldbArray *int32, betaArray *float32, carray uintptr, ldcArray *int32, groupCount int32, groupSize *int32) error {
 	if err := checkLibSym("cublasSgemmGroupedBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemmGroupedBatched(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, Aarray, ldaArray, Barray, ldbArray, betaArray, Carray, ldcArray, groupCount, groupSize))
+	return toError(fnsgemmGroupedBatched(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, ldaArray, barray, ldbArray, betaArray, carray, ldcArray, groupCount, groupSize))
 }
 
 // sgemmGroupedBatched64 supports the 64-bit Integer Interface.
@@ -11989,12 +11989,12 @@ func sgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 //   - nArray: Array containing the number of columns of op( B [idx]) and C [idx] for each group
 //   - kArray: Array containing the number of columns of op( A [idx]) and rows of op( B [idx]) for each group
 //   - alphaArray: Array containing the < type > scalar used for multiplication for each group
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda [i] x k [i] with lda [i] >= max(1,m [i]) if transa [i] == [OpN] and lda [i] x m [i] with lda [i] >= max(1,k [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldaArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix A [idx] for each group
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb [i] x n [i] with ldb [i] >= max(1,k [i]) if transb [i] == [OpN] and ldb [i] x k [i] with ldb [i] >= max(1,n [i]) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldbArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix B [idx] for each group
 //   - betaArray: Array containing the < type > scalar used for multiplication for each group
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc [i] x n [i] with ldc [i] >= max(1,m [i]). Matrices C [idx] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldcArray: Array containing the leading dimensions of two-dimensional arrays used to store each matrix C [idx] for each group
 //   - groupCount: Number of groups
 //   - groupSize: Array containing the number of pointers contained in Aarray, Barray and Carray for each group
@@ -12007,11 +12007,11 @@ func sgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmGroupedBatched_64.
-func sgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray *float32, Aarray uintptr, ldaArray *int64, Barray uintptr, ldbArray *int64, betaArray *float32, Carray uintptr, ldcArray *int64, groupCount int64, groupSize *int64) error {
+func sgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *Operation, mArray *int64, nArray *int64, kArray *int64, alphaArray *float32, aarray uintptr, ldaArray *int64, barray uintptr, ldbArray *int64, betaArray *float32, carray uintptr, ldcArray *int64, groupCount int64, groupSize *int64) error {
 	if err := checkLibSym("cublasSgemmGroupedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemmGroupedBatched64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, Aarray, ldaArray, Barray, ldbArray, betaArray, Carray, ldcArray, groupCount, groupSize))
+	return toError(fnsgemmGroupedBatched64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, aarray, ldaArray, barray, ldbArray, betaArray, carray, ldcArray, groupCount, groupSize))
 }
 
 // sgemmStridedBatched supports the 64-bit Integer Interface.
@@ -12035,14 +12035,14 @@ func sgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -12055,11 +12055,11 @@ func sgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmStridedBatched.
-func sgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, A *float32, lda int32, strideA int64, B *float32, ldb int32, strideB int64, beta *float32, C *float32, ldc int32, strideC int64, batchCount int32) error {
+func sgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, a *float32, lda int32, strideA int64, b *float32, ldb int32, strideB int64, beta *float32, c *float32, ldc int32, strideC int64, batchCount int32) error {
 	if err := checkLibSym("cublasSgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemmStridedBatched(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fnsgemmStridedBatched(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // sgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -12083,14 +12083,14 @@ func sgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -12103,11 +12103,11 @@ func sgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemmStridedBatched_64.
-func sgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, A *float32, lda int64, strideA int64, B *float32, ldb int64, strideB int64, beta *float32, C *float32, ldc int64, strideC int64, batchCount int64) error {
+func sgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, a *float32, lda int64, strideA int64, b *float32, ldb int64, strideB int64, beta *float32, c *float32, ldc int64, strideC int64, batchCount int64) error {
 	if err := checkLibSym("cublasSgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fnsgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // sgemm supports the 64-bit Integer Interface.
@@ -12128,12 +12128,12 @@ func sgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -12144,11 +12144,11 @@ func sgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemm_v2.
-func sgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, A *float32, lda int32, B *float32, ldb int32, beta *float32, C *float32, ldc int32) error {
+func sgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *float32, a *float32, lda int32, b *float32, ldb int32, beta *float32, c *float32, ldc int32) error {
 	if err := checkLibSym("cublasSgemm_v2"); err != nil {
 		return err
 	}
-	return toError(fnsgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnsgemm(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // sgemm64 supports the 64-bit Integer Interface.
@@ -12169,12 +12169,12 @@ func sgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -12185,11 +12185,11 @@ func sgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemm_v2_64.
-func sgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, A *float32, lda int64, B *float32, ldb int64, beta *float32, C *float32, ldc int64) error {
+func sgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *float32, a *float32, lda int64, b *float32, ldb int64, beta *float32, c *float32, ldc int64) error {
 	if err := checkLibSym("cublasSgemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemm64(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnsgemm64(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // sgemvBatched supports the 64-bit Integer Interface.
@@ -12209,7 +12209,7 @@ func sgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -12225,11 +12225,11 @@ func sgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemvBatched.
-func sgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, Aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
+func sgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
 	if err := checkLibSym("cublasSgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemvBatched(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fnsgemvBatched(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // sgemvBatched64 supports the 64-bit Integer Interface.
@@ -12249,7 +12249,7 @@ func sgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -12265,11 +12265,11 @@ func sgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemvBatched_64.
-func sgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, Aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
+func sgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
 	if err := checkLibSym("cublasSgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemvBatched64(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fnsgemvBatched64(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // sgemvStridedBatched supports the 64-bit Integer Interface.
@@ -12290,7 +12290,7 @@ func sgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -12309,11 +12309,11 @@ func sgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemvStridedBatched.
-func sgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, A *float32, lda int32, strideA int64, x *float32, incx int32, stridex int64, beta *float32, y *float32, incy int32, stridey int64, batchCount int32) error {
+func sgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, a *float32, lda int32, strideA int64, x *float32, incx int32, stridex int64, beta *float32, y *float32, incy int32, stridey int64, batchCount int32) error {
 	if err := checkLibSym("cublasSgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemvStridedBatched(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fnsgemvStridedBatched(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // sgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -12334,7 +12334,7 @@ func sgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -12353,11 +12353,11 @@ func sgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemvStridedBatched_64.
-func sgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, A *float32, lda int64, strideA int64, x *float32, incx int64, stridex int64, beta *float32, y *float32, incy int64, stridey int64, batchCount int64) error {
+func sgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a *float32, lda int64, strideA int64, x *float32, incx int64, stridex int64, beta *float32, y *float32, incy int64, stridey int64, batchCount int64) error {
 	if err := checkLibSym("cublasSgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemvStridedBatched64(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fnsgemvStridedBatched64(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // sgemv supports the 64-bit Integer Interface.
@@ -12375,7 +12375,7 @@ func sgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
+//   - a: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda must be at least max(1, m)
 //   - x: < type > vector at least (1 + (n - 1) * abs(incx)) elements if trans == [OpN] and at least (1 + (m - 1) * abs(incx)) elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -12390,11 +12390,11 @@ func sgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemv_v2.
-func sgemv(handle Handle, trans Operation, m int32, n int32, alpha *float32, A *float32, lda int32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
+func sgemv(handle Handle, trans Operation, m int32, n int32, alpha *float32, a *float32, lda int32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
 	if err := checkLibSym("cublasSgemv_v2"); err != nil {
 		return err
 	}
-	return toError(fnsgemv(handle, trans, m, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnsgemv(handle, trans, m, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // sgemv64 supports the 64-bit Integer Interface.
@@ -12412,7 +12412,7 @@ func sgemv(handle Handle, trans Operation, m int32, n int32, alpha *float32, A *
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
+//   - a: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda must be at least max(1, m)
 //   - x: < type > vector at least (1 + (n - 1) * abs(incx)) elements if trans == [OpN] and at least (1 + (m - 1) * abs(incx)) elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -12427,11 +12427,11 @@ func sgemv(handle Handle, trans Operation, m int32, n int32, alpha *float32, A *
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgemv_v2_64.
-func sgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float32, A *float32, lda int64, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
+func sgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a *float32, lda int64, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
 	if err := checkLibSym("cublasSgemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemv64(handle, trans, m, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnsgemv64(handle, trans, m, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // sgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
@@ -12449,9 +12449,9 @@ func sgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float32, A
 //   - handle: Handle to the cuBLAS library context
 //   - m: Number of rows Aarray [i]
 //   - n: Number of columns of Aarray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - TauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
+//   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
 //   - info: If info == 0, the parameters passed to the function are validIf info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
 //
@@ -12462,11 +12462,11 @@ func sgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float32, A
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgeqrfBatched.
-func sgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, TauArray uintptr, info *int32, batchSize int32) error {
+func sgeqrfBatched(handle Handle, m int32, n int32, aarray uintptr, lda int32, tauArray uintptr, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasSgeqrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgeqrfBatched(handle, m, n, Aarray, lda, TauArray, info, batchSize))
+	return toError(fnsgeqrfBatched(handle, m, n, aarray, lda, tauArray, info, batchSize))
 }
 
 // sger supports the 64-bit Integer Interface.
@@ -12486,7 +12486,7 @@ func sgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, T
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -12496,11 +12496,11 @@ func sgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, T
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSger_v2.
-func sger(handle Handle, m int32, n int32, alpha *float32, x *float32, incx int32, y *float32, incy int32, A *float32, lda int32) error {
+func sger(handle Handle, m int32, n int32, alpha *float32, x *float32, incx int32, y *float32, incy int32, a *float32, lda int32) error {
 	if err := checkLibSym("cublasSger_v2"); err != nil {
 		return err
 	}
-	return toError(fnsger(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnsger(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // sger64 supports the 64-bit Integer Interface.
@@ -12520,7 +12520,7 @@ func sger(handle Handle, m int32, n int32, alpha *float32, x *float32, incx int3
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -12530,11 +12530,11 @@ func sger(handle Handle, m int32, n int32, alpha *float32, x *float32, incx int3
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSger_v2_64.
-func sger64(handle Handle, m int64, n int64, alpha *float32, x *float32, incx int64, y *float32, incy int64, A *float32, lda int64) error {
+func sger64(handle Handle, m int64, n int64, alpha *float32, x *float32, incx int64, y *float32, incy int64, a *float32, lda int64) error {
 	if err := checkLibSym("cublasSger_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsger64(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnsger64(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // sgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
@@ -12565,11 +12565,11 @@ func sger64(handle Handle, m int64, n int64, alpha *float32, x *float32, incx in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgetrfBatched.
-func sgetrfBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, info *int32, batchSize int32) error {
+func sgetrfBatched(handle Handle, n int32, a uintptr, lda int32, p *int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasSgetrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgetrfBatched(handle, n, A, lda, P, info, batchSize))
+	return toError(fnsgetrfBatched(handle, n, a, lda, p, info, batchSize))
 }
 
 // sgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
@@ -12598,11 +12598,11 @@ func sgetrfBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, info 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgetriBatched.
-func sgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uintptr, ldc int32, info *int32, batchSize int32) error {
+func sgetriBatched(handle Handle, n int32, a uintptr, lda int32, p *int32, c uintptr, ldc int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasSgetriBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize))
+	return toError(fnsgetriBatched(handle, n, a, lda, p, c, ldc, info, batchSize))
 }
 
 // sgetrsBatched solves an array of systems of linear equations of the form:
@@ -12622,10 +12622,10 @@ func sgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uin
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - n: Number of rows and columns of Aarray [i]
 //   - nrhs: Number of columns of Barray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
+//   - aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
-//   - Barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
+//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
 //   - info: If info == 0, the execution is successful.If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
@@ -12637,11 +12637,11 @@ func sgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uin
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSgetrsBatched.
-func sgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray uintptr, lda int32, devIpiv *int32, Barray uintptr, ldb int32, info *int32, batchSize int32) error {
+func sgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray uintptr, lda int32, devIpiv *int32, barray uintptr, ldb int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasSgetrsBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgetrsBatched(handle, trans, n, nrhs, Aarray, lda, devIpiv, Barray, ldb, info, batchSize))
+	return toError(fnsgetrsBatched(handle, trans, n, nrhs, aarray, lda, devIpiv, barray, ldb, info, batchSize))
 }
 
 // smatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
@@ -12653,9 +12653,9 @@ func sgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray u
 //
 //   - handle: Handle to the cuBLAS library context
 //   - n: Number of rows and columns of A [i]
-//   - A: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
+//   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
 //   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
@@ -12667,11 +12667,11 @@ func sgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray u
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSmatinvBatched.
-func smatinvBatched(handle Handle, n int32, A uintptr, lda int32, Ainv uintptr, ldaInv int32, info *int32, batchSize int32) error {
+func smatinvBatched(handle Handle, n int32, a uintptr, lda int32, ainv uintptr, ldaInv int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasSmatinvBatched"); err != nil {
 		return err
 	}
-	return toError(fnsmatinvBatched(handle, n, A, lda, Ainv, ldaInv, info, batchSize))
+	return toError(fnsmatinvBatched(handle, n, a, lda, ainv, ldaInv, info, batchSize))
 }
 
 // snrm2 supports the 64-bit Integer Interface.
@@ -12954,7 +12954,7 @@ func srotmg(handle Handle, d1 *float32, d2 *float32, x1 *float32, y1 *float32, p
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= k + 1
+//   - a: < type > array of dimension lda x n with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -12969,11 +12969,11 @@ func srotmg(handle Handle, d1 *float32, d2 *float32, x1 *float32, y1 *float32, p
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsbmv_v2.
-func ssbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float32, A *float32, lda int32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
+func ssbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float32, a *float32, lda int32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
 	if err := checkLibSym("cublasSsbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnssbmv(handle, uplo, n, k, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnssbmv(handle, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // ssbmv64 supports the 64-bit Integer Interface.
@@ -12992,7 +12992,7 @@ func ssbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float32, A *fl
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= k + 1
+//   - a: < type > array of dimension lda x n with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -13007,11 +13007,11 @@ func ssbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float32, A *fl
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsbmv_v2_64.
-func ssbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float32, A *float32, lda int64, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
+func ssbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float32, a *float32, lda int64, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
 	if err := checkLibSym("cublasSsbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssbmv64(handle, uplo, n, k, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnssbmv64(handle, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // sscal supports the 64-bit Integer Interface.
@@ -13083,7 +13083,7 @@ func sscal64(handle Handle, n int64, alpha *float32, x *float32, incx int64) err
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //   - beta: < type > scalar used for multiplication. If beta == 0 then y does not have to be a valid input
@@ -13097,11 +13097,11 @@ func sscal64(handle Handle, n int64, alpha *float32, x *float32, incx int64) err
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspmv_v2.
-func sspmv(handle Handle, uplo FillMode, n int32, alpha *float32, AP *float32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
+func sspmv(handle Handle, uplo FillMode, n int32, alpha *float32, ap *float32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
 	if err := checkLibSym("cublasSspmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnsspmv(handle, uplo, n, alpha, AP, x, incx, beta, y, incy))
+	return toError(fnsspmv(handle, uplo, n, alpha, ap, x, incx, beta, y, incy))
 }
 
 // sspmv64 supports the 64-bit Integer Interface.
@@ -13119,7 +13119,7 @@ func sspmv(handle Handle, uplo FillMode, n int32, alpha *float32, AP *float32, x
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //   - beta: < type > scalar used for multiplication. If beta == 0 then y does not have to be a valid input
@@ -13133,11 +13133,11 @@ func sspmv(handle Handle, uplo FillMode, n int32, alpha *float32, AP *float32, x
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspmv_v2_64.
-func sspmv64(handle Handle, uplo FillMode, n int64, alpha *float32, AP *float32, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
+func sspmv64(handle Handle, uplo FillMode, n int64, alpha *float32, ap *float32, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
 	if err := checkLibSym("cublasSspmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsspmv64(handle, uplo, n, alpha, AP, x, incx, beta, y, incy))
+	return toError(fnsspmv64(handle, uplo, n, alpha, ap, x, incx, beta, y, incy))
 }
 
 // sspr2 supports the 64-bit Integer Interface.
@@ -13159,7 +13159,7 @@ func sspmv64(handle Handle, uplo FillMode, n int64, alpha *float32, AP *float32,
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -13168,11 +13168,11 @@ func sspmv64(handle Handle, uplo FillMode, n int64, alpha *float32, AP *float32,
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspr2_v2.
-func sspr2(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, incx int32, y *float32, incy int32, AP *float32) error {
+func sspr2(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, incx int32, y *float32, incy int32, ap *float32) error {
 	if err := checkLibSym("cublasSspr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnsspr2(handle, uplo, n, alpha, x, incx, y, incy, AP))
+	return toError(fnsspr2(handle, uplo, n, alpha, x, incx, y, incy, ap))
 }
 
 // sspr264 supports the 64-bit Integer Interface.
@@ -13194,7 +13194,7 @@ func sspr2(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, in
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -13203,11 +13203,11 @@ func sspr2(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspr2_v2_64.
-func sspr264(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, incx int64, y *float32, incy int64, AP *float32) error {
+func sspr264(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, incx int64, y *float32, incy int64, ap *float32) error {
 	if err := checkLibSym("cublasSspr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsspr264(handle, uplo, n, alpha, x, incx, y, incy, AP))
+	return toError(fnsspr264(handle, uplo, n, alpha, x, incx, y, incy, ap))
 }
 
 // sspr supports the 64-bit Integer Interface.
@@ -13227,7 +13227,7 @@ func sspr264(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, 
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -13236,11 +13236,11 @@ func sspr264(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspr_v2.
-func sspr(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, incx int32, AP *float32) error {
+func sspr(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, incx int32, ap *float32) error {
 	if err := checkLibSym("cublasSspr_v2"); err != nil {
 		return err
 	}
-	return toError(fnsspr(handle, uplo, n, alpha, x, incx, AP))
+	return toError(fnsspr(handle, uplo, n, alpha, x, incx, ap))
 }
 
 // sspr64 supports the 64-bit Integer Interface.
@@ -13260,7 +13260,7 @@ func sspr(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, inc
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -13269,11 +13269,11 @@ func sspr(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, inc
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSspr_v2_64.
-func sspr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, incx int64, AP *float32) error {
+func sspr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, incx int64, ap *float32) error {
 	if err := checkLibSym("cublasSspr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsspr64(handle, uplo, n, alpha, x, incx, AP))
+	return toError(fnsspr64(handle, uplo, n, alpha, x, incx, ap))
 }
 
 // sswap supports the 64-bit Integer Interface.
@@ -13345,12 +13345,12 @@ func sswap64(handle Handle, n int64, x *float32, incx int64, y *float32, incy in
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -13360,11 +13360,11 @@ func sswap64(handle Handle, n int64, x *float32, incx int64, y *float32, incy in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsymm_v2.
-func ssymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *float32, A *float32, lda int32, B *float32, ldb int32, beta *float32, C *float32, ldc int32) error {
+func ssymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *float32, a *float32, lda int32, b *float32, ldb int32, beta *float32, c *float32, ldc int32) error {
 	if err := checkLibSym("cublasSsymm_v2"); err != nil {
 		return err
 	}
-	return toError(fnssymm(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnssymm(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // ssymm64 supports the 64-bit Integer Interface.
@@ -13382,12 +13382,12 @@ func ssymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -13397,11 +13397,11 @@ func ssymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsymm_v2_64.
-func ssymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *float32, A *float32, lda int64, B *float32, ldb int64, beta *float32, C *float32, ldc int64) error {
+func ssymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *float32, a *float32, lda int64, b *float32, ldb int64, beta *float32, c *float32, ldc int64) error {
 	if err := checkLibSym("cublasSsymm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssymm64(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnssymm64(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // ssymv supports the 64-bit Integer Interface.
@@ -13418,7 +13418,7 @@ func ssymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - uplo: Indicates if matrix lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -13433,11 +13433,11 @@ func ssymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsymv_v2.
-func ssymv(handle Handle, uplo FillMode, n int32, alpha *float32, A *float32, lda int32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
+func ssymv(handle Handle, uplo FillMode, n int32, alpha *float32, a *float32, lda int32, x *float32, incx int32, beta *float32, y *float32, incy int32) error {
 	if err := checkLibSym("cublasSsymv_v2"); err != nil {
 		return err
 	}
-	return toError(fnssymv(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnssymv(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // ssymv64 supports the 64-bit Integer Interface.
@@ -13454,7 +13454,7 @@ func ssymv(handle Handle, uplo FillMode, n int32, alpha *float32, A *float32, ld
 //   - uplo: Indicates if matrix lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -13469,11 +13469,11 @@ func ssymv(handle Handle, uplo FillMode, n int32, alpha *float32, A *float32, ld
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsymv_v2_64.
-func ssymv64(handle Handle, uplo FillMode, n int64, alpha *float32, A *float32, lda int64, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
+func ssymv64(handle Handle, uplo FillMode, n int64, alpha *float32, a *float32, lda int64, x *float32, incx int64, beta *float32, y *float32, incy int64) error {
 	if err := checkLibSym("cublasSsymv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssymv64(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnssymv64(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // ssyr2 supports the 64-bit Integer Interface.
@@ -13493,7 +13493,7 @@ func ssymv64(handle Handle, uplo FillMode, n int64, alpha *float32, A *float32, 
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimensions lda x n, with lda >= max(1,n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -13503,11 +13503,11 @@ func ssymv64(handle Handle, uplo FillMode, n int64, alpha *float32, A *float32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr2_v2.
-func ssyr2(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, incx int32, y *float32, incy int32, A *float32, lda int32) error {
+func ssyr2(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, incx int32, y *float32, incy int32, a *float32, lda int32) error {
 	if err := checkLibSym("cublasSsyr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnssyr2(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnssyr2(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // ssyr264 supports the 64-bit Integer Interface.
@@ -13527,7 +13527,7 @@ func ssyr2(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, in
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimensions lda x n, with lda >= max(1,n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -13537,11 +13537,11 @@ func ssyr2(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr2_v2_64.
-func ssyr264(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, incx int64, y *float32, incy int64, A *float32, lda int64) error {
+func ssyr264(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, incx int64, y *float32, incy int64, a *float32, lda int64) error {
 	if err := checkLibSym("cublasSsyr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssyr264(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnssyr264(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // ssyr2k supports the 64-bit Integer Interface.
@@ -13560,12 +13560,12 @@ func ssyr264(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, 
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -13575,11 +13575,11 @@ func ssyr264(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr2k_v2.
-func ssyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, A *float32, lda int32, B *float32, ldb int32, beta *float32, C *float32, ldc int32) error {
+func ssyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a *float32, lda int32, b *float32, ldb int32, beta *float32, c *float32, ldc int32) error {
 	if err := checkLibSym("cublasSsyr2k_v2"); err != nil {
 		return err
 	}
-	return toError(fnssyr2k(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnssyr2k(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // ssyr2k64 supports the 64-bit Integer Interface.
@@ -13598,12 +13598,12 @@ func ssyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -13613,11 +13613,11 @@ func ssyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr2k_v2_64.
-func ssyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, A *float32, lda int64, B *float32, ldb int64, beta *float32, C *float32, ldc int64) error {
+func ssyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a *float32, lda int64, b *float32, ldb int64, beta *float32, c *float32, ldc int64) error {
 	if err := checkLibSym("cublasSsyr2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssyr2k64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnssyr2k64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // ssyr supports the 64-bit Integer Interface.
@@ -13635,7 +13635,7 @@ func ssyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -13645,11 +13645,11 @@ func ssyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr_v2.
-func ssyr(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, incx int32, A *float32, lda int32) error {
+func ssyr(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, incx int32, a *float32, lda int32) error {
 	if err := checkLibSym("cublasSsyr_v2"); err != nil {
 		return err
 	}
-	return toError(fnssyr(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fnssyr(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // ssyr64 supports the 64-bit Integer Interface.
@@ -13667,7 +13667,7 @@ func ssyr(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, inc
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -13677,11 +13677,11 @@ func ssyr(handle Handle, uplo FillMode, n int32, alpha *float32, x *float32, inc
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyr_v2_64.
-func ssyr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, incx int64, A *float32, lda int64) error {
+func ssyr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, incx int64, a *float32, lda int64) error {
 	if err := checkLibSym("cublasSsyr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssyr64(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fnssyr64(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // ssyrk supports the 64-bit Integer Interface.
@@ -13700,10 +13700,10 @@ func ssyr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, i
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -13713,11 +13713,11 @@ func ssyr64(handle Handle, uplo FillMode, n int64, alpha *float32, x *float32, i
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyrk_v2.
-func ssyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, A *float32, lda int32, beta *float32, C *float32, ldc int32) error {
+func ssyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a *float32, lda int32, beta *float32, c *float32, ldc int32) error {
 	if err := checkLibSym("cublasSsyrk_v2"); err != nil {
 		return err
 	}
-	return toError(fnssyrk(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fnssyrk(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // ssyrk64 supports the 64-bit Integer Interface.
@@ -13736,10 +13736,10 @@ func ssyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -13749,11 +13749,11 @@ func ssyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyrk_v2_64.
-func ssyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, A *float32, lda int64, beta *float32, C *float32, ldc int64) error {
+func ssyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a *float32, lda int64, beta *float32, c *float32, ldc int64) error {
 	if err := checkLibSym("cublasSsyrk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssyrk64(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fnssyrk64(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // ssyrkx supports the 64-bit Integer Interface.
@@ -13774,12 +13774,12 @@ func ssyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -13789,11 +13789,11 @@ func ssyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyrkx.
-func ssyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, A *float32, lda int32, B *float32, ldb int32, beta *float32, C *float32, ldc int32) error {
+func ssyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float32, a *float32, lda int32, b *float32, ldb int32, beta *float32, c *float32, ldc int32) error {
 	if err := checkLibSym("cublasSsyrkx"); err != nil {
 		return err
 	}
-	return toError(fnssyrkx(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnssyrkx(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // ssyrkx64 supports the 64-bit Integer Interface.
@@ -13814,12 +13814,12 @@ func ssyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -13829,11 +13829,11 @@ func ssyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasSsyrkx_64.
-func ssyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, A *float32, lda int64, B *float32, ldb int64, beta *float32, C *float32, ldc int64) error {
+func ssyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float32, a *float32, lda int64, b *float32, ldb int64, beta *float32, c *float32, ldc int64) error {
 	if err := checkLibSym("cublasSsyrkx_64"); err != nil {
 		return err
 	}
-	return toError(fnssyrkx64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnssyrkx64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // stbmv supports the 64-bit Integer Interface.
@@ -13854,7 +13854,7 @@ func ssyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix
-//   - A: < type > array of dimension lda x n, with lda >= k + 1
+//   - a: < type > array of dimension lda x n, with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -13867,11 +13867,11 @@ func ssyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStbmv_v2.
-func stbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, A *float32, lda int32, x *float32, incx int32) error {
+func stbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a *float32, lda int32, x *float32, incx int32) error {
 	if err := checkLibSym("cublasStbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstbmv(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnstbmv(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // stbmv64 supports the 64-bit Integer Interface.
@@ -13892,7 +13892,7 @@ func stbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix
-//   - A: < type > array of dimension lda x n, with lda >= k + 1
+//   - a: < type > array of dimension lda x n, with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -13905,11 +13905,11 @@ func stbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStbmv_v2_64.
-func stbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, A *float32, lda int64, x *float32, incx int64) error {
+func stbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a *float32, lda int64, x *float32, incx int64) error {
 	if err := checkLibSym("cublasStbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstbmv64(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnstbmv64(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // stbsv supports the 64-bit Integer Interface.
@@ -13932,7 +13932,7 @@ func stbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= k+1
+//   - a: < type > array of dimension lda x n, with lda >= k+1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -13944,11 +13944,11 @@ func stbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStbsv_v2.
-func stbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, A *float32, lda int32, x *float32, incx int32) error {
+func stbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a *float32, lda int32, x *float32, incx int32) error {
 	if err := checkLibSym("cublasStbsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstbsv(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnstbsv(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // stbsv64 supports the 64-bit Integer Interface.
@@ -13971,7 +13971,7 @@ func stbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= k+1
+//   - a: < type > array of dimension lda x n, with lda >= k+1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -13983,11 +13983,11 @@ func stbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStbsv_v2_64.
-func stbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, A *float32, lda int64, x *float32, incx int64) error {
+func stbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a *float32, lda int64, x *float32, incx int64) error {
 	if err := checkLibSym("cublasStbsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstbsv64(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnstbsv64(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // stpmv supports the 64-bit Integer Interface.
@@ -14007,7 +14007,7 @@ func stbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -14019,11 +14019,11 @@ func stbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpmv_v2.
-func stpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, AP *float32, x *float32, incx int32) error {
+func stpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, ap *float32, x *float32, incx int32) error {
 	if err := checkLibSym("cublasStpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstpmv(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnstpmv(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // stpmv64 supports the 64-bit Integer Interface.
@@ -14043,7 +14043,7 @@ func stpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -14055,11 +14055,11 @@ func stpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpmv_v2_64.
-func stpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, AP *float32, x *float32, incx int64) error {
+func stpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, ap *float32, x *float32, incx int64) error {
 	if err := checkLibSym("cublasStpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstpmv64(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnstpmv64(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // stpsv supports the 64-bit Integer Interface.
@@ -14081,7 +14081,7 @@ func stpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -14092,11 +14092,11 @@ func stpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpsv_v2.
-func stpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, AP *float32, x *float32, incx int32) error {
+func stpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, ap *float32, x *float32, incx int32) error {
 	if err := checkLibSym("cublasStpsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstpsv(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnstpsv(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // stpsv64 supports the 64-bit Integer Interface.
@@ -14118,7 +14118,7 @@ func stpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -14129,11 +14129,11 @@ func stpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpsv_v2_64.
-func stpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, AP *float32, x *float32, incx int64) error {
+func stpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, ap *float32, x *float32, incx int64) error {
 	if err := checkLibSym("cublasStpsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstpsv64(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnstpsv64(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // stpttr performs the conversion from the triangular packed format to the triangular format
@@ -14146,8 +14146,8 @@ func stpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - handle: Handle to the cuBLAS library context
 //   - uplo: Indicates if matrix AP contains lower or upper part of matrix A
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
+//   - ap: < type > array with A stored in packed format
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -14157,11 +14157,11 @@ func stpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStpttr.
-func stpttr(handle Handle, uplo FillMode, n int32, AP *float32, A *float32, lda int32) error {
+func stpttr(handle Handle, uplo FillMode, n int32, ap *float32, a *float32, lda int32) error {
 	if err := checkLibSym("cublasStpttr"); err != nil {
 		return err
 	}
-	return toError(fnstpttr(handle, uplo, n, AP, A, lda))
+	return toError(fnstpttr(handle, uplo, n, ap, a, lda))
 }
 
 // strmm supports the 64-bit Integer Interface.
@@ -14183,11 +14183,11 @@ func stpttr(handle Handle, uplo FillMode, n int32, AP *float32, A *float32, lda 
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -14197,11 +14197,11 @@ func stpttr(handle Handle, uplo FillMode, n int32, AP *float32, A *float32, lda 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrmm_v2.
-func strmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float32, A *float32, lda int32, B *float32, ldb int32, C *float32, ldc int32) error {
+func strmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float32, a *float32, lda int32, b *float32, ldb int32, c *float32, ldc int32) error {
 	if err := checkLibSym("cublasStrmm_v2"); err != nil {
 		return err
 	}
-	return toError(fnstrmm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, C, ldc))
+	return toError(fnstrmm(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc))
 }
 
 // strmm64 supports the 64-bit Integer Interface.
@@ -14223,11 +14223,11 @@ func strmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -14237,11 +14237,11 @@ func strmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrmm_v2_64.
-func strmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float32, A *float32, lda int64, B *float32, ldb int64, C *float32, ldc int64) error {
+func strmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float32, a *float32, lda int64, b *float32, ldb int64, c *float32, ldc int64) error {
 	if err := checkLibSym("cublasStrmm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstrmm64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, C, ldc))
+	return toError(fnstrmm64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc))
 }
 
 // strmv supports the 64-bit Integer Interface.
@@ -14259,7 +14259,7 @@ func strmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -14272,11 +14272,11 @@ func strmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrmv_v2.
-func strmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, A *float32, lda int32, x *float32, incx int32) error {
+func strmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, a *float32, lda int32, x *float32, incx int32) error {
 	if err := checkLibSym("cublasStrmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstrmv(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnstrmv(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // strmv64 supports the 64-bit Integer Interface.
@@ -14294,7 +14294,7 @@ func strmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -14307,11 +14307,11 @@ func strmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrmv_v2_64.
-func strmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, A *float32, lda int64, x *float32, incx int64) error {
+func strmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, a *float32, lda int64, x *float32, incx int64) error {
 	if err := checkLibSym("cublasStrmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstrmv64(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnstrmv64(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // strsmBatched supports the 64-bit Integer Interface.
@@ -14336,9 +14336,9 @@ func strmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
 //   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
-//   - A: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - B: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
@@ -14349,11 +14349,11 @@ func strmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsmBatched.
-func strsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float32, A uintptr, lda int32, B uintptr, ldb int32, batchCount int32) error {
+func strsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float32, a uintptr, lda int32, b uintptr, ldb int32, batchCount int32) error {
 	if err := checkLibSym("cublasStrsmBatched"); err != nil {
 		return err
 	}
-	return toError(fnstrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, batchCount))
+	return toError(fnstrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount))
 }
 
 // strsmBatched64 supports the 64-bit Integer Interface.
@@ -14378,9 +14378,9 @@ func strsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 //   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
 //   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
-//   - A: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - B: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
@@ -14391,11 +14391,11 @@ func strsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsmBatched_64.
-func strsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float32, A uintptr, lda int64, B uintptr, ldb int64, batchCount int64) error {
+func strsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float32, a uintptr, lda int64, b uintptr, ldb int64, batchCount int64) error {
 	if err := checkLibSym("cublasStrsmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnstrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, batchCount))
+	return toError(fnstrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount))
 }
 
 // strsm supports the 64-bit Integer Interface.
@@ -14418,9 +14418,9 @@ func strsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
+//   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
 // Returns:
@@ -14430,11 +14430,11 @@ func strsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsm_v2.
-func strsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float32, A *float32, lda int32, B *float32, ldb int32) error {
+func strsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *float32, a *float32, lda int32, b *float32, ldb int32) error {
 	if err := checkLibSym("cublasStrsm_v2"); err != nil {
 		return err
 	}
-	return toError(fnstrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb))
+	return toError(fnstrsm(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb))
 }
 
 // strsm64 supports the 64-bit Integer Interface.
@@ -14457,9 +14457,9 @@ func strsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
+//   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
 // Returns:
@@ -14469,11 +14469,11 @@ func strsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsm_v2_64.
-func strsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float32, A *float32, lda int64, B *float32, ldb int64) error {
+func strsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *float32, a *float32, lda int64, b *float32, ldb int64) error {
 	if err := checkLibSym("cublasStrsm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstrsm64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb))
+	return toError(fnstrsm64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb))
 }
 
 // strsv supports the 64-bit Integer Interface.
@@ -14493,7 +14493,7 @@ func strsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -14505,11 +14505,11 @@ func strsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsv_v2.
-func strsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, A *float32, lda int32, x *float32, incx int32) error {
+func strsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, a *float32, lda int32, x *float32, incx int32) error {
 	if err := checkLibSym("cublasStrsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstrsv(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnstrsv(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // strsv64 supports the 64-bit Integer Interface.
@@ -14529,7 +14529,7 @@ func strsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -14541,11 +14541,11 @@ func strsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrsv_v2_64.
-func strsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, A *float32, lda int64, x *float32, incx int64) error {
+func strsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, a *float32, lda int64, x *float32, incx int64) error {
 	if err := checkLibSym("cublasStrsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstrsv64(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnstrsv64(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // strttp performs the conversion from the triangular format to the triangular packed format
@@ -14558,9 +14558,9 @@ func strsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - handle: Handle to the cuBLAS library context
 //   - uplo: Indicates which matrix A lower or upper part is referenced
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -14569,11 +14569,11 @@ func strsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasStrttp.
-func strttp(handle Handle, uplo FillMode, n int32, A *float32, lda int32, AP *float32) error {
+func strttp(handle Handle, uplo FillMode, n int32, a *float32, lda int32, ap *float32) error {
 	if err := checkLibSym("cublasStrttp"); err != nil {
 		return err
 	}
-	return toError(fnstrttp(handle, uplo, n, A, lda, AP))
+	return toError(fnstrttp(handle, uplo, n, a, lda, ap))
 }
 
 // swapEx wraps cublasSwapEx.
@@ -14609,7 +14609,7 @@ func swapEx64(handle Handle, n int64, x uintptr, xType DataType, incx int64, y u
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -14625,11 +14625,11 @@ func swapEx64(handle Handle, n int64, x uintptr, xType DataType, incx int64, y u
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSSgemvBatched.
-func tSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, Aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
+func tSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
 	if err := checkLibSym("cublasTSSgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fntSSgemvBatched(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fntSSgemvBatched(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // tSSgemvBatched64 supports the 64-bit Integer Interface.
@@ -14649,7 +14649,7 @@ func tSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -14665,11 +14665,11 @@ func tSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSSgemvBatched_64.
-func tSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, Aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
+func tSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
 	if err := checkLibSym("cublasTSSgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fntSSgemvBatched64(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fntSSgemvBatched64(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // tSSgemvStridedBatched supports the 64-bit Integer Interface.
@@ -14690,7 +14690,7 @@ func tSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -14709,11 +14709,11 @@ func tSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSSgemvStridedBatched.
-func tSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, A *BFloat16, lda int32, strideA int64, x *BFloat16, incx int32, stridex int64, beta *float32, y *float32, incy int32, stridey int64, batchCount int32) error {
+func tSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, a *BFloat16, lda int32, strideA int64, x *BFloat16, incx int32, stridex int64, beta *float32, y *float32, incy int32, stridey int64, batchCount int32) error {
 	if err := checkLibSym("cublasTSSgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fntSSgemvStridedBatched(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fntSSgemvStridedBatched(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // tSSgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -14734,7 +14734,7 @@ func tSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -14753,11 +14753,11 @@ func tSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSSgemvStridedBatched_64.
-func tSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, A *BFloat16, lda int64, strideA int64, x *BFloat16, incx int64, stridex int64, beta *float32, y *float32, incy int64, stridey int64, batchCount int64) error {
+func tSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a *BFloat16, lda int64, strideA int64, x *BFloat16, incx int64, stridex int64, beta *float32, y *float32, incy int64, stridey int64, batchCount int64) error {
 	if err := checkLibSym("cublasTSSgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fntSSgemvStridedBatched64(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fntSSgemvStridedBatched64(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // tSTgemvBatched supports the 64-bit Integer Interface.
@@ -14777,7 +14777,7 @@ func tSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -14793,11 +14793,11 @@ func tSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSTgemvBatched.
-func tSTgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, Aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
+func tSTgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, aarray uintptr, lda int32, xarray uintptr, incx int32, beta *float32, yarray uintptr, incy int32, batchCount int32) error {
 	if err := checkLibSym("cublasTSTgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fntSTgemvBatched(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fntSTgemvBatched(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // tSTgemvBatched64 supports the 64-bit Integer Interface.
@@ -14817,7 +14817,7 @@ func tSTgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -14833,11 +14833,11 @@ func tSTgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSTgemvBatched_64.
-func tSTgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, Aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
+func tSTgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, aarray uintptr, lda int64, xarray uintptr, incx int64, beta *float32, yarray uintptr, incy int64, batchCount int64) error {
 	if err := checkLibSym("cublasTSTgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fntSTgemvBatched64(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fntSTgemvBatched64(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // tSTgemvStridedBatched supports the 64-bit Integer Interface.
@@ -14858,7 +14858,7 @@ func tSTgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -14877,11 +14877,11 @@ func tSTgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSTgemvStridedBatched.
-func tSTgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, A *BFloat16, lda int32, strideA int64, x *BFloat16, incx int32, stridex int64, beta *float32, y *BFloat16, incy int32, stridey int64, batchCount int32) error {
+func tSTgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *float32, a *BFloat16, lda int32, strideA int64, x *BFloat16, incx int32, stridex int64, beta *float32, y *BFloat16, incy int32, stridey int64, batchCount int32) error {
 	if err := checkLibSym("cublasTSTgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fntSTgemvStridedBatched(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fntSTgemvStridedBatched(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // tSTgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -14902,7 +14902,7 @@ func tSTgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -14921,19 +14921,19 @@ func tSTgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasTSTgemvStridedBatched_64.
-func tSTgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, A *BFloat16, lda int64, strideA int64, x *BFloat16, incx int64, stridex int64, beta *float32, y *BFloat16, incy int64, stridey int64, batchCount int64) error {
+func tSTgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a *BFloat16, lda int64, strideA int64, x *BFloat16, incx int64, stridex int64, beta *float32, y *BFloat16, incy int64, stridey int64, batchCount int64) error {
 	if err := checkLibSym("cublasTSTgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fntSTgemvStridedBatched64(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fntSTgemvStridedBatched64(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // uint8gemmBias wraps cublasUint8gemmBias.
-func uint8gemmBias(handle Handle, transa Operation, transb Operation, transc Operation, m int32, n int32, k int32, A *uint8, aBias int32, lda int32, B *uint8, bBias int32, ldb int32, C *uint8, cBias int32, ldc int32, cMult int32, cShift int32) error {
+func uint8gemmBias(handle Handle, transa Operation, transb Operation, transc Operation, m int32, n int32, k int32, a *uint8, aBias int32, lda int32, b *uint8, bBias int32, ldb int32, c *uint8, cBias int32, ldc int32, cMult int32, cShift int32) error {
 	if err := checkLibSym("cublasUint8gemmBias"); err != nil {
 		return err
 	}
-	return toError(fnuint8gemmBias(handle, transa, transb, transc, m, n, k, A, aBias, lda, B, bBias, ldb, C, cBias, ldc, cMult, cShift))
+	return toError(fnuint8gemmBias(handle, transa, transb, transc, m, n, k, a, aBias, lda, b, bBias, ldb, c, cBias, ldc, cMult, cShift))
 }
 
 // zaxpy supports the 64-bit Integer Interface.
@@ -15062,11 +15062,11 @@ func zcopy64(handle Handle, n int64, x *Complex128, incx int64, y *Complex128, i
 //   - mode: Left multiply if mode == [SideLeft] or right multiply if mode == [SideRight]
 //   - m: Number of rows of matrix A and C
 //   - n: Number of columns of matrix A and C
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m)
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - x: One-dimensional < type > array of size abs(incx) x m if mode == [SideLeft] and abs(incx) x n if mode == [SideRight]
 //   - incx: Stride of one-dimensional array x
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -15076,11 +15076,11 @@ func zcopy64(handle Handle, n int64, x *Complex128, incx int64, y *Complex128, i
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdgmm.
-func zdgmm(handle Handle, mode SideMode, m int32, n int32, A *Complex128, lda int32, x *Complex128, incx int32, C *Complex128, ldc int32) error {
+func zdgmm(handle Handle, mode SideMode, m int32, n int32, a *Complex128, lda int32, x *Complex128, incx int32, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZdgmm"); err != nil {
 		return err
 	}
-	return toError(fnzdgmm(handle, mode, m, n, A, lda, x, incx, C, ldc))
+	return toError(fnzdgmm(handle, mode, m, n, a, lda, x, incx, c, ldc))
 }
 
 // zdgmm64 supports the 64-bit Integer Interface.
@@ -15099,11 +15099,11 @@ func zdgmm(handle Handle, mode SideMode, m int32, n int32, A *Complex128, lda in
 //   - mode: Left multiply if mode == [SideLeft] or right multiply if mode == [SideRight]
 //   - m: Number of rows of matrix A and C
 //   - n: Number of columns of matrix A and C
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m)
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - x: One-dimensional < type > array of size abs(incx) x m if mode == [SideLeft] and abs(incx) x n if mode == [SideRight]
 //   - incx: Stride of one-dimensional array x
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -15113,11 +15113,11 @@ func zdgmm(handle Handle, mode SideMode, m int32, n int32, A *Complex128, lda in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZdgmm_64.
-func zdgmm64(handle Handle, mode SideMode, m int64, n int64, A *Complex128, lda int64, x *Complex128, incx int64, C *Complex128, ldc int64) error {
+func zdgmm64(handle Handle, mode SideMode, m int64, n int64, a *Complex128, lda int64, x *Complex128, incx int64, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZdgmm_64"); err != nil {
 		return err
 	}
-	return toError(fnzdgmm64(handle, mode, m, n, A, lda, x, incx, C, ldc))
+	return toError(fnzdgmm64(handle, mode, m, n, a, lda, x, incx, c, ldc))
 }
 
 // zdotc supports the 64-bit Integer Interface.
@@ -15396,7 +15396,7 @@ func zdscal64(handle Handle, n int64, alpha *float64, x *Complex128, incx int64)
 //   - kl: Number of subdiagonals of matrix A
 //   - ku: Number of superdiagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= kl + ku + 1
+//   - a: < type > array of dimension lda x n with lda >= kl + ku + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements if trans == [OpN] and m elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -15411,11 +15411,11 @@ func zdscal64(handle Handle, n int64, alpha *float64, x *Complex128, incx int64)
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgbmv_v2.
-func zgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32, alpha *Complex128, A *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
+func zgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32, alpha *Complex128, a *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
 	if err := checkLibSym("cublasZgbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgbmv(handle, trans, m, n, kl, ku, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzgbmv(handle, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zgbmv64 supports the 64-bit Integer Interface.
@@ -15436,7 +15436,7 @@ func zgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 //   - kl: Number of subdiagonals of matrix A
 //   - ku: Number of superdiagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= kl + ku + 1
+//   - a: < type > array of dimension lda x n with lda >= kl + ku + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements if trans == [OpN] and m elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -15451,11 +15451,11 @@ func zgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgbmv_v2_64.
-func zgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int64, alpha *Complex128, A *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
+func zgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int64, alpha *Complex128, a *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
 	if err := checkLibSym("cublasZgbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgbmv64(handle, trans, m, n, kl, ku, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzgbmv64(handle, trans, m, n, kl, ku, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zgeam supports the 64-bit Integer Interface.
@@ -15481,12 +15481,12 @@ func zgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - alpha: < type > scalar used for multiplication. If *alpha == 0, A does not have to be a valid input
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - beta: < type > scalar used for multiplication. If *beta == 0, B does not have to be a valid input
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -15496,11 +15496,11 @@ func zgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeam.
-func zgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, alpha *Complex128, A *Complex128, lda int32, beta *Complex128, B *Complex128, ldb int32, C *Complex128, ldc int32) error {
+func zgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, alpha *Complex128, a *Complex128, lda int32, beta *Complex128, b *Complex128, ldb int32, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZgeam"); err != nil {
 		return err
 	}
-	return toError(fnzgeam(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc))
+	return toError(fnzgeam(handle, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc))
 }
 
 // zgeam64 supports the 64-bit Integer Interface.
@@ -15526,12 +15526,12 @@ func zgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - m: Number of rows of matrix op( A) and C
 //   - n: Number of columns of matrix op( B) and C
 //   - alpha: < type > scalar used for multiplication. If *alpha == 0, A does not have to be a valid input
-//   - A: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
+//   - a: < type > array of dimensions lda x n with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
 //   - beta: < type > scalar used for multiplication. If *beta == 0, B does not have to be a valid input
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m) if transb == [OpN] and ldb x m with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -15541,11 +15541,11 @@ func zgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeam_64.
-func zgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64, alpha *Complex128, A *Complex128, lda int64, beta *Complex128, B *Complex128, ldb int64, C *Complex128, ldc int64) error {
+func zgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64, alpha *Complex128, a *Complex128, lda int64, beta *Complex128, b *Complex128, ldb int64, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZgeam_64"); err != nil {
 		return err
 	}
-	return toError(fnzgeam64(handle, transa, transb, m, n, alpha, A, lda, beta, B, ldb, C, ldc))
+	return toError(fnzgeam64(handle, transa, transb, m, n, alpha, a, lda, beta, b, ldb, c, ldc))
 }
 
 // zgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
@@ -15564,9 +15564,9 @@ func zgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - m: Number of rows of each Aarray [i] and Carray [i] if trans == [OpN], numbers of columns of each Aarray [i] otherwise (not supported currently)
 //   - n: Number of columns of each Aarray [i] if trans == [OpN], and number of rows of each Aarray [i] and Carray [i] otherwise (not supported currently)
 //   - nrhs: Number of columns of each Carray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m) if trans == [OpN], and n x m with lda >= max(1, n) otherwise (not supported currently). Matrices Aarray [i] should not overlap; otherwise, behavior is undefined
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - Carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
+//   - carray: Array of pointers to < type > array, with each array of dim. m x nrhs with ldc >= max(1, m) if trans == [OpN], and n x nrhs with lda >= max(1, n) otherwise (not supported currently). Matrices Carray [i] should not overlap; otherwise, behavior is undefined
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix Carray [i]
 //   - info: If info == 0 the parameters passed to the function are validIf info < 0 the parameter in position -info is invalid
 //   - devInfoArray: Optional array of integers of dimension batchsize.If non-null, every element of devInfoArray [i] == V has the following meaning:V == 0 : the i-th problem was successfully solvedV > 0 : the V-th diagonal element of the Aarray [i] is zero. Aarray [i] does not have full rank
@@ -15580,11 +15580,11 @@ func zgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgelsBatched.
-func zgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, Aarray uintptr, lda int32, Carray uintptr, ldc int32, info *int32, devInfoArray *int32, batchSize int32) error {
+func zgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, aarray uintptr, lda int32, carray uintptr, ldc int32, info *int32, devInfoArray *int32, batchSize int32) error {
 	if err := checkLibSym("cublasZgelsBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgelsBatched(handle, trans, m, n, nrhs, Aarray, lda, Carray, ldc, info, devInfoArray, batchSize))
+	return toError(fnzgelsBatched(handle, trans, m, n, nrhs, aarray, lda, carray, ldc, info, devInfoArray, batchSize))
 }
 
 // zgemm3m supports the 64-bit Integer Interface.
@@ -15607,12 +15607,12 @@ func zgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -15623,11 +15623,11 @@ func zgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasZgemm3m.
-func zgemm3m(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32, beta *Complex128, C *Complex128, ldc int32) error {
+func zgemm3m(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32, beta *Complex128, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZgemm3m"); err != nil {
 		return err
 	}
-	return toError(fnzgemm3m(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzgemm3m(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zgemm3m64 supports the 64-bit Integer Interface.
@@ -15650,12 +15650,12 @@ func zgemm3m(handle Handle, transa Operation, transb Operation, m int32, n int32
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -15666,11 +15666,11 @@ func zgemm3m(handle Handle, transa Operation, transb Operation, m int32, n int32
 //   - [Success]: The operation completed successfully.
 //
 // Wraps cublasZgemm3m_64.
-func zgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64, beta *Complex128, C *Complex128, ldc int64) error {
+func zgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64, beta *Complex128, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZgemm3m_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemm3m64(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzgemm3m64(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zgemmBatched supports the 64-bit Integer Interface.
@@ -15693,12 +15693,12 @@ func zgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -15710,11 +15710,11 @@ func zgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemmBatched.
-func zgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, Aarray uintptr, lda int32, Barray uintptr, ldb int32, beta *Complex128, Carray uintptr, ldc int32, batchCount int32) error {
+func zgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, aarray uintptr, lda int32, barray uintptr, ldb int32, beta *Complex128, carray uintptr, ldc int32, batchCount int32) error {
 	if err := checkLibSym("cublasZgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fnzgemmBatched(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // zgemmBatched64 supports the 64-bit Integer Interface.
@@ -15737,12 +15737,12 @@ func zgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
+//   - barray: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - Carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
+//   - carray: Array of pointers to < type > array. It has dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected.All pointers must meet certain alignment criteria. Please see below for details
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - batchCount: Number of pointers contained in Aarray, Barray and Carray
 //
@@ -15754,11 +15754,11 @@ func zgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemmBatched_64.
-func zgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, Aarray uintptr, lda int64, Barray uintptr, ldb int64, beta *Complex128, Carray uintptr, ldc int64, batchCount int64) error {
+func zgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, aarray uintptr, lda int64, barray uintptr, ldb int64, beta *Complex128, carray uintptr, ldc int64, batchCount int64) error {
 	if err := checkLibSym("cublasZgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemmBatched64(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount))
+	return toError(fnzgemmBatched64(handle, transa, transb, m, n, k, alpha, aarray, lda, barray, ldb, beta, carray, ldc, batchCount))
 }
 
 // zgemmStridedBatched supports the 64-bit Integer Interface.
@@ -15782,14 +15782,14 @@ func zgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -15802,11 +15802,11 @@ func zgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemmStridedBatched.
-func zgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, A *Complex128, lda int32, strideA int64, B *Complex128, ldb int32, strideB int64, beta *Complex128, C *Complex128, ldc int32, strideC int64, batchCount int32) error {
+func zgemmStridedBatched(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, a *Complex128, lda int32, strideA int64, b *Complex128, ldb int32, strideB int64, beta *Complex128, c *Complex128, ldc int32, strideC int64, batchCount int32) error {
 	if err := checkLibSym("cublasZgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgemmStridedBatched(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fnzgemmStridedBatched(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // zgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -15830,14 +15830,14 @@ func zgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - n: Number of columns of op( B [i]) and C [i]
 //   - k: Number of columns of op( A [i]) and rows of op( B [i])
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
-//   - B: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type >* pointer to the B matrix corresponding to the first instance of the batch, with dimensions ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store each matrix B [i]
 //   - strideB: Value of type long long int that gives the offset in number of elements between B [i] and B [i+1]
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
+//   - c: < type >* pointer to the C matrix corresponding to the first instance of the batch, with dimensions ldc x n with ldc >= max(1, m). Matrices C [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldc: Leading dimension of two-dimensional array used to store each matrix C [i]
 //   - strideC: Value of type long long int that gives the offset in number of elements between C [i] and C [i+1]
 //   - batchCount: Number of GEMMs to perform in the batch
@@ -15850,11 +15850,11 @@ func zgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemmStridedBatched_64.
-func zgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, A *Complex128, lda int64, strideA int64, B *Complex128, ldb int64, strideB int64, beta *Complex128, C *Complex128, ldc int64, strideC int64, batchCount int64) error {
+func zgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, a *Complex128, lda int64, strideA int64, b *Complex128, ldb int64, strideB int64, beta *Complex128, c *Complex128, ldc int64, strideC int64, batchCount int64) error {
 	if err := checkLibSym("cublasZgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount))
+	return toError(fnzgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, a, lda, strideA, b, ldb, strideB, beta, c, ldc, strideC, batchCount))
 }
 
 // zgemm supports the 64-bit Integer Interface.
@@ -15875,12 +15875,12 @@ func zgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -15891,11 +15891,11 @@ func zgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemm_v2.
-func zgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32, beta *Complex128, C *Complex128, ldc int32) error {
+func zgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, k int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32, beta *Complex128, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZgemm_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgemm(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzgemm(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zgemm64 supports the 64-bit Integer Interface.
@@ -15916,12 +15916,12 @@ func zgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - n: Number of columns of matrix op( B) and C
 //   - k: Number of columns of op( A) and rows of op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
+//   - a: < type > array of dimensions lda x k with lda >= max(1, m) if transa == [OpN] and lda x m with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store the matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, k) if transb == [OpN] and ldb x k with ldb >= max(1,n) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of a two-dimensional array used to store the matrix C
 //
 // Returns:
@@ -15932,11 +15932,11 @@ func zgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemm_v2_64.
-func zgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64, beta *Complex128, C *Complex128, ldc int64) error {
+func zgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64, k int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64, beta *Complex128, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZgemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemm64(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzgemm64(handle, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zgemvBatched supports the 64-bit Integer Interface.
@@ -15956,7 +15956,7 @@ func zgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -15972,11 +15972,11 @@ func zgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemvBatched.
-func zgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, Aarray uintptr, lda int32, xarray uintptr, incx int32, beta *Complex128, yarray uintptr, incy int32, batchCount int32) error {
+func zgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, aarray uintptr, lda int32, xarray uintptr, incx int32, beta *Complex128, yarray uintptr, incy int32, batchCount int32) error {
 	if err := checkLibSym("cublasZgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgemvBatched(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fnzgemvBatched(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // zgemvBatched64 supports the 64-bit Integer Interface.
@@ -15996,7 +15996,7 @@ func zgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - Aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
+//   - aarray: Array of pointers to < type > array, with each array of dim. lda x n with lda >= max(1, m).All pointers must meet certain alignment criteria. Please see below for details
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - xarray: Array of pointers to < type > array, with each dimension n if trans == [OpN] and m otherwise.All pointers must meet certain alignment criteria. Please see below for details
 //   - incx: Stride of each one-dimensional array x [i]
@@ -16012,11 +16012,11 @@ func zgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemvBatched_64.
-func zgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128, Aarray uintptr, lda int64, xarray uintptr, incx int64, beta *Complex128, yarray uintptr, incy int64, batchCount int64) error {
+func zgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128, aarray uintptr, lda int64, xarray uintptr, incx int64, beta *Complex128, yarray uintptr, incy int64, batchCount int64) error {
 	if err := checkLibSym("cublasZgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemvBatched64(handle, trans, m, n, alpha, Aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
+	return toError(fnzgemvBatched64(handle, trans, m, n, alpha, aarray, lda, xarray, incx, beta, yarray, incy, batchCount))
 }
 
 // zgemvStridedBatched supports the 64-bit Integer Interface.
@@ -16037,7 +16037,7 @@ func zgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -16056,11 +16056,11 @@ func zgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemvStridedBatched.
-func zgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, A *Complex128, lda int32, strideA int64, x *Complex128, incx int32, stridex int64, beta *Complex128, y *Complex128, incy int32, stridey int64, batchCount int32) error {
+func zgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, a *Complex128, lda int32, strideA int64, x *Complex128, incx int32, stridex int64, beta *Complex128, y *Complex128, incy int32, stridey int64, batchCount int32) error {
 	if err := checkLibSym("cublasZgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgemvStridedBatched(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fnzgemvStridedBatched(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // zgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -16081,7 +16081,7 @@ func zgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //   - m: Number of rows of matrix A [i]
 //   - n: Number of columns of matrix A [i]
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
+//   - a: < type >* pointer to the A matrix corresponding to the first instance of the batch, with dimensions lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
 //   - strideA: Value of type long long int that gives the offset in number of elements between A [i] and A [i+1]
 //   - x: < type >* pointer to the x vector corresponding to the first instance of the batch, with each dimension n if trans == [OpN] and m otherwise
@@ -16100,11 +16100,11 @@ func zgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemvStridedBatched_64.
-func zgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128, A *Complex128, lda int64, strideA int64, x *Complex128, incx int64, stridex int64, beta *Complex128, y *Complex128, incy int64, stridey int64, batchCount int64) error {
+func zgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128, a *Complex128, lda int64, strideA int64, x *Complex128, incx int64, stridex int64, beta *Complex128, y *Complex128, incy int64, stridey int64, batchCount int64) error {
 	if err := checkLibSym("cublasZgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemvStridedBatched64(handle, trans, m, n, alpha, A, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
+	return toError(fnzgemvStridedBatched64(handle, trans, m, n, alpha, a, lda, strideA, x, incx, stridex, beta, y, incy, stridey, batchCount))
 }
 
 // zgemv supports the 64-bit Integer Interface.
@@ -16122,7 +16122,7 @@ func zgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
+//   - a: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda must be at least max(1, m)
 //   - x: < type > vector at least (1 + (n - 1) * abs(incx)) elements if trans == [OpN] and at least (1 + (m - 1) * abs(incx)) elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -16137,11 +16137,11 @@ func zgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemv_v2.
-func zgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, A *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
+func zgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, a *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
 	if err := checkLibSym("cublasZgemv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgemv(handle, trans, m, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzgemv(handle, trans, m, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zgemv64 supports the 64-bit Integer Interface.
@@ -16159,7 +16159,7 @@ func zgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, 
 //   - m: Number of rows of matrix A
 //   - n: Number of columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
+//   - a: < type > array of dimension lda x n with lda >= max(1, m). Before entry, the leading m by n part of the array A must contain the matrix of coefficients. Unchanged on exit
 //   - lda: Leading dimension of two-dimensional array used to store matrix A. lda must be at least max(1, m)
 //   - x: < type > vector at least (1 + (n - 1) * abs(incx)) elements if trans == [OpN] and at least (1 + (m - 1) * abs(incx)) elements otherwise
 //   - incx: Stride between consecutive elements of x
@@ -16174,11 +16174,11 @@ func zgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgemv_v2_64.
-func zgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128, A *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
+func zgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128, a *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
 	if err := checkLibSym("cublasZgemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemv64(handle, trans, m, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzgemv64(handle, trans, m, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
@@ -16196,9 +16196,9 @@ func zgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128
 //   - handle: Handle to the cuBLAS library context
 //   - m: Number of rows Aarray [i]
 //   - n: Number of columns of Aarray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
+//   - aarray: Array of pointers to < type > array, with each array of dim. m x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
-//   - TauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
+//   - tauArray: Array of pointers to < type > vector, with each vector of dim. max(1 ,min(m, n))
 //   - info: If info == 0, the parameters passed to the function are validIf info < 0, the parameter in position -info is invalid
 //   - batchSize: Number of pointers contained in Aarray
 //
@@ -16209,11 +16209,11 @@ func zgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeqrfBatched.
-func zgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, TauArray uintptr, info *int32, batchSize int32) error {
+func zgeqrfBatched(handle Handle, m int32, n int32, aarray uintptr, lda int32, tauArray uintptr, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasZgeqrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgeqrfBatched(handle, m, n, Aarray, lda, TauArray, info, batchSize))
+	return toError(fnzgeqrfBatched(handle, m, n, aarray, lda, tauArray, info, batchSize))
 }
 
 // zgerc supports the 64-bit Integer Interface.
@@ -16233,7 +16233,7 @@ func zgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, T
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -16243,11 +16243,11 @@ func zgeqrfBatched(handle Handle, m int32, n int32, Aarray uintptr, lda int32, T
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgerc_v2.
-func zgerc(handle Handle, m int32, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, A *Complex128, lda int32) error {
+func zgerc(handle Handle, m int32, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, a *Complex128, lda int32) error {
 	if err := checkLibSym("cublasZgerc_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgerc(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnzgerc(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // zgerc64 supports the 64-bit Integer Interface.
@@ -16267,7 +16267,7 @@ func zgerc(handle Handle, m int32, n int32, alpha *Complex128, x *Complex128, in
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -16277,11 +16277,11 @@ func zgerc(handle Handle, m int32, n int32, alpha *Complex128, x *Complex128, in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgerc_v2_64.
-func zgerc64(handle Handle, m int64, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, A *Complex128, lda int64) error {
+func zgerc64(handle Handle, m int64, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, a *Complex128, lda int64) error {
 	if err := checkLibSym("cublasZgerc_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgerc64(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnzgerc64(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // zgeru supports the 64-bit Integer Interface.
@@ -16301,7 +16301,7 @@ func zgerc64(handle Handle, m int64, n int64, alpha *Complex128, x *Complex128, 
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -16311,11 +16311,11 @@ func zgerc64(handle Handle, m int64, n int64, alpha *Complex128, x *Complex128, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeru_v2.
-func zgeru(handle Handle, m int32, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, A *Complex128, lda int32) error {
+func zgeru(handle Handle, m int32, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, a *Complex128, lda int32) error {
 	if err := checkLibSym("cublasZgeru_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgeru(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnzgeru(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // zgeru64 supports the 64-bit Integer Interface.
@@ -16335,7 +16335,7 @@ func zgeru(handle Handle, m int32, n int32, alpha *Complex128, x *Complex128, in
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, m)
+//   - a: < type > array of dimension lda x n with lda >= max(1, m)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -16345,11 +16345,11 @@ func zgeru(handle Handle, m int32, n int32, alpha *Complex128, x *Complex128, in
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgeru_v2_64.
-func zgeru64(handle Handle, m int64, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, A *Complex128, lda int64) error {
+func zgeru64(handle Handle, m int64, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, a *Complex128, lda int64) error {
 	if err := checkLibSym("cublasZgeru_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgeru64(handle, m, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnzgeru64(handle, m, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // zgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
@@ -16380,11 +16380,11 @@ func zgeru64(handle Handle, m int64, n int64, alpha *Complex128, x *Complex128, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgetrfBatched.
-func zgetrfBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, info *int32, batchSize int32) error {
+func zgetrfBatched(handle Handle, n int32, a uintptr, lda int32, p *int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasZgetrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgetrfBatched(handle, n, A, lda, P, info, batchSize))
+	return toError(fnzgetrfBatched(handle, n, a, lda, p, info, batchSize))
 }
 
 // zgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
@@ -16413,11 +16413,11 @@ func zgetrfBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, info 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgetriBatched.
-func zgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uintptr, ldc int32, info *int32, batchSize int32) error {
+func zgetriBatched(handle Handle, n int32, a uintptr, lda int32, p *int32, c uintptr, ldc int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasZgetriBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgetriBatched(handle, n, A, lda, P, C, ldc, info, batchSize))
+	return toError(fnzgetriBatched(handle, n, a, lda, p, c, ldc, info, batchSize))
 }
 
 // zgetrsBatched solves an array of systems of linear equations of the form:
@@ -16437,10 +16437,10 @@ func zgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uin
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - n: Number of rows and columns of Aarray [i]
 //   - nrhs: Number of columns of Barray [i]
-//   - Aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
+//   - aarray: Array of pointers to < type > array, with each array of dim. n x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix Aarray [i]
 //   - devIpiv: Array of size n x batchSize that contains the pivoting sequence of each factorization of Aarray [i] stored in a linear fashion. If devIpiv is NULL, pivoting for all Aarray [i] is ignored
-//   - Barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
+//   - barray: Array of pointers to < type > array, with each array of dim. n x nrhs with ldb >= max(1, n). Matrices Barray [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store each solution matrix Barray [i]
 //   - info: If info == 0, the execution is successful.If info = -j, the j-th parameter had an illegal value
 //   - batchSize: Number of pointers contained in A
@@ -16452,11 +16452,11 @@ func zgetriBatched(handle Handle, n int32, A uintptr, lda int32, P *int32, C uin
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZgetrsBatched.
-func zgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray uintptr, lda int32, devIpiv *int32, Barray uintptr, ldb int32, info *int32, batchSize int32) error {
+func zgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray uintptr, lda int32, devIpiv *int32, barray uintptr, ldb int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasZgetrsBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgetrsBatched(handle, trans, n, nrhs, Aarray, lda, devIpiv, Barray, ldb, info, batchSize))
+	return toError(fnzgetrsBatched(handle, trans, n, nrhs, aarray, lda, devIpiv, barray, ldb, info, batchSize))
 }
 
 // zhbmv supports the 64-bit Integer Interface.
@@ -16475,7 +16475,7 @@ func zgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray u
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x n, with lda >= k + 1. The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimensions lda x n, with lda >= k + 1. The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -16490,11 +16490,11 @@ func zgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, Aarray u
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhbmv_v2.
-func zhbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex128, A *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
+func zhbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex128, a *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
 	if err := checkLibSym("cublasZhbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhbmv(handle, uplo, n, k, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzhbmv(handle, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zhbmv64 supports the 64-bit Integer Interface.
@@ -16513,7 +16513,7 @@ func zhbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex128, A 
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimensions lda x n, with lda >= k + 1. The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimensions lda x n, with lda >= k + 1. The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -16528,11 +16528,11 @@ func zhbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex128, A 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhbmv_v2_64.
-func zhbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex128, A *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
+func zhbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex128, a *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
 	if err := checkLibSym("cublasZhbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhbmv64(handle, uplo, n, k, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzhbmv64(handle, uplo, n, k, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zhemm supports the 64-bit Integer Interface.
@@ -16550,12 +16550,12 @@ func zhbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex128, 
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise. The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise. The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -16565,11 +16565,11 @@ func zhbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex128, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhemm_v2.
-func zhemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32, beta *Complex128, C *Complex128, ldc int32) error {
+func zhemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32, beta *Complex128, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZhemm_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhemm(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzhemm(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zhemm64 supports the 64-bit Integer Interface.
@@ -16587,12 +16587,12 @@ func zhemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise. The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise. The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -16602,11 +16602,11 @@ func zhemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhemm_v2_64.
-func zhemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64, beta *Complex128, C *Complex128, ldc int64) error {
+func zhemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64, beta *Complex128, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZhemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhemm64(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzhemm64(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zhemv supports the 64-bit Integer Interface.
@@ -16624,7 +16624,7 @@ func zhemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other Hermitian part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -16639,11 +16639,11 @@ func zhemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhemv_v2.
-func zhemv(handle Handle, uplo FillMode, n int32, alpha *Complex128, A *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
+func zhemv(handle Handle, uplo FillMode, n int32, alpha *Complex128, a *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
 	if err := checkLibSym("cublasZhemv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhemv(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzhemv(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zhemv64 supports the 64-bit Integer Interface.
@@ -16661,7 +16661,7 @@ func zhemv(handle Handle, uplo FillMode, n int32, alpha *Complex128, A *Complex1
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other Hermitian part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed to be zero
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed to be zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -16676,11 +16676,11 @@ func zhemv(handle Handle, uplo FillMode, n int32, alpha *Complex128, A *Complex1
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhemv_v2_64.
-func zhemv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, A *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
+func zhemv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, a *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
 	if err := checkLibSym("cublasZhemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhemv64(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzhemv64(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zher2 supports the 64-bit Integer Interface.
@@ -16700,7 +16700,7 @@ func zhemv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, A *Comple
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - a: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -16710,11 +16710,11 @@ func zhemv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, A *Comple
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher2_v2.
-func zher2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, A *Complex128, lda int32) error {
+func zher2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, a *Complex128, lda int32) error {
 	if err := checkLibSym("cublasZher2_v2"); err != nil {
 		return err
 	}
-	return toError(fnzher2(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnzher2(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // zher264 supports the 64-bit Integer Interface.
@@ -16734,7 +16734,7 @@ func zher2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex1
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - a: < type > array of dimension lda x n with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -16744,11 +16744,11 @@ func zher2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex1
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher2_v2_64.
-func zher264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, A *Complex128, lda int64) error {
+func zher264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, a *Complex128, lda int64) error {
 	if err := checkLibSym("cublasZher2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzher264(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnzher264(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // zher2k supports the 64-bit Integer Interface.
@@ -16767,12 +16767,12 @@ func zher264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Comple
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -16782,11 +16782,11 @@ func zher264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Comple
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher2k_v2.
-func zher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32, beta *float64, C *Complex128, ldc int32) error {
+func zher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32, beta *float64, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZher2k_v2"); err != nil {
 		return err
 	}
-	return toError(fnzher2k(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzher2k(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zher2k64 supports the 64-bit Integer Interface.
@@ -16805,12 +16805,12 @@ func zher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -16820,11 +16820,11 @@ func zher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher2k_v2_64.
-func zher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64, beta *float64, C *Complex128, ldc int64) error {
+func zher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64, beta *float64, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZher2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzher2k64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzher2k64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zher supports the 64-bit Integer Interface.
@@ -16842,7 +16842,7 @@ func zher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -16852,11 +16852,11 @@ func zher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher_v2.
-func zher(handle Handle, uplo FillMode, n int32, alpha *float64, x *Complex128, incx int32, A *Complex128, lda int32) error {
+func zher(handle Handle, uplo FillMode, n int32, alpha *float64, x *Complex128, incx int32, a *Complex128, lda int32) error {
 	if err := checkLibSym("cublasZher_v2"); err != nil {
 		return err
 	}
-	return toError(fnzher(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fnzher(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // zher64 supports the 64-bit Integer Interface.
@@ -16874,7 +16874,7 @@ func zher(handle Handle, uplo FillMode, n int32, alpha *float64, x *Complex128, 
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -16884,11 +16884,11 @@ func zher(handle Handle, uplo FillMode, n int32, alpha *float64, x *Complex128, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZher_v2_64.
-func zher64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128, incx int64, A *Complex128, lda int64) error {
+func zher64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128, incx int64, a *Complex128, lda int64) error {
 	if err := checkLibSym("cublasZher_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzher64(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fnzher64(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // zherk supports the 64-bit Integer Interface.
@@ -16907,10 +16907,10 @@ func zher64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -16920,11 +16920,11 @@ func zher64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZherk_v2.
-func zherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float64, A *Complex128, lda int32, beta *float64, C *Complex128, ldc int32) error {
+func zherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *float64, a *Complex128, lda int32, beta *float64, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZherk_v2"); err != nil {
 		return err
 	}
-	return toError(fnzherk(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fnzherk(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // zherk64 supports the 64-bit Integer Interface.
@@ -16943,10 +16943,10 @@ func zherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -16956,11 +16956,11 @@ func zherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZherk_v2_64.
-func zherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float64, A *Complex128, lda int64, beta *float64, C *Complex128, ldc int64) error {
+func zherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *float64, a *Complex128, lda int64, beta *float64, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZherk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzherk64(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fnzherk64(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // zherkx supports the 64-bit Integer Interface.
@@ -16981,12 +16981,12 @@ func zherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: Real scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -16996,11 +16996,11 @@ func zherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZherkx.
-func zherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32, beta *float64, C *Complex128, ldc int32) error {
+func zherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32, beta *float64, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZherkx"); err != nil {
 		return err
 	}
-	return toError(fnzherkx(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzherkx(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zherkx64 supports the 64-bit Integer Interface.
@@ -17021,12 +17021,12 @@ func zherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimension ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: Real scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n). The imaginary parts of the diagonal elements are assumed and set to zero
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -17036,11 +17036,11 @@ func zherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZherkx_64.
-func zherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64, beta *float64, C *Complex128, ldc int64) error {
+func zherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64, beta *float64, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZherkx_64"); err != nil {
 		return err
 	}
-	return toError(fnzherkx64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzherkx64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zhpmv supports the 64-bit Integer Interface.
@@ -17058,7 +17058,7 @@ func zherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other Hermitian part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed to be zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed to be zero
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //   - beta: < type > scalar used for multiplication. If beta == 0 then y does not have to be a valid input
@@ -17072,11 +17072,11 @@ func zherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpmv_v2.
-func zhpmv(handle Handle, uplo FillMode, n int32, alpha *Complex128, AP *Complex128, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
+func zhpmv(handle Handle, uplo FillMode, n int32, alpha *Complex128, ap *Complex128, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
 	if err := checkLibSym("cublasZhpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhpmv(handle, uplo, n, alpha, AP, x, incx, beta, y, incy))
+	return toError(fnzhpmv(handle, uplo, n, alpha, ap, x, incx, beta, y, incy))
 }
 
 // zhpmv64 supports the 64-bit Integer Interface.
@@ -17094,7 +17094,7 @@ func zhpmv(handle Handle, uplo FillMode, n int32, alpha *Complex128, AP *Complex
 //   - uplo: Indicates if matrix A lower or upper part is stored, the other Hermitian part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed to be zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed to be zero
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //   - beta: < type > scalar used for multiplication. If beta == 0 then y does not have to be a valid input
@@ -17108,11 +17108,11 @@ func zhpmv(handle Handle, uplo FillMode, n int32, alpha *Complex128, AP *Complex
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpmv_v2_64.
-func zhpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, AP *Complex128, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
+func zhpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, ap *Complex128, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
 	if err := checkLibSym("cublasZhpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhpmv64(handle, uplo, n, alpha, AP, x, incx, beta, y, incy))
+	return toError(fnzhpmv64(handle, uplo, n, alpha, ap, x, incx, beta, y, incy))
 }
 
 // zhpr2 supports the 64-bit Integer Interface.
@@ -17134,7 +17134,7 @@ func zhpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, AP *Compl
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -17143,11 +17143,11 @@ func zhpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, AP *Compl
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpr2_v2.
-func zhpr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, AP *Complex128) error {
+func zhpr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, ap *Complex128) error {
 	if err := checkLibSym("cublasZhpr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhpr2(handle, uplo, n, alpha, x, incx, y, incy, AP))
+	return toError(fnzhpr2(handle, uplo, n, alpha, x, incx, y, incy, ap))
 }
 
 // zhpr264 supports the 64-bit Integer Interface.
@@ -17169,7 +17169,7 @@ func zhpr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex1
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -17178,11 +17178,11 @@ func zhpr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex1
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpr2_v2_64.
-func zhpr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, AP *Complex128) error {
+func zhpr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, ap *Complex128) error {
 	if err := checkLibSym("cublasZhpr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhpr264(handle, uplo, n, alpha, x, incx, y, incy, AP))
+	return toError(fnzhpr264(handle, uplo, n, alpha, x, incx, y, incy, ap))
 }
 
 // zhpr supports the 64-bit Integer Interface.
@@ -17202,7 +17202,7 @@ func zhpr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Comple
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -17211,11 +17211,11 @@ func zhpr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Comple
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpr_v2.
-func zhpr(handle Handle, uplo FillMode, n int32, alpha *float64, x *Complex128, incx int32, AP *Complex128) error {
+func zhpr(handle Handle, uplo FillMode, n int32, alpha *float64, x *Complex128, incx int32, ap *Complex128) error {
 	if err := checkLibSym("cublasZhpr_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhpr(handle, uplo, n, alpha, x, incx, AP))
+	return toError(fnzhpr(handle, uplo, n, alpha, x, incx, ap))
 }
 
 // zhpr64 supports the 64-bit Integer Interface.
@@ -17235,7 +17235,7 @@ func zhpr(handle Handle, uplo FillMode, n int32, alpha *float64, x *Complex128, 
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - AP: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
+//   - ap: < type > array with A stored in packed format. The imaginary parts of the diagonal elements are assumed and set to zero
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -17244,11 +17244,11 @@ func zhpr(handle Handle, uplo FillMode, n int32, alpha *float64, x *Complex128, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZhpr_v2_64.
-func zhpr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128, incx int64, AP *Complex128) error {
+func zhpr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128, incx int64, ap *Complex128) error {
 	if err := checkLibSym("cublasZhpr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhpr64(handle, uplo, n, alpha, x, incx, AP))
+	return toError(fnzhpr64(handle, uplo, n, alpha, x, incx, ap))
 }
 
 // zmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and lda_inv respectively.
@@ -17260,9 +17260,9 @@ func zhpr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128
 //
 //   - handle: Handle to the cuBLAS library context
 //   - n: Number of rows and columns of A [i]
-//   - A: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
+//   - a: Array of pointers to < type > array, with each array of dimension n*n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store each matrix A [i]
-//   - Ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
+//   - ainv: Array of pointers to < type > array, with each array of dimension n*n with lda_inv >= max(1, n). Matrices Ainv [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldaInv: Leading dimension of two-dimensional array used to store each matrix Ainv [i]
 //   - info: Array of size batchSize that info [i] contains the information of inversion of A [i].If info [i] == 0, the execution is successful.If info [i] == k, then U(k, k) == 0. The U is exactly singular and the inversion failed
 //   - batchSize: Number of pointers contained in A
@@ -17274,11 +17274,11 @@ func zhpr64(handle Handle, uplo FillMode, n int64, alpha *float64, x *Complex128
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZmatinvBatched.
-func zmatinvBatched(handle Handle, n int32, A uintptr, lda int32, Ainv uintptr, ldaInv int32, info *int32, batchSize int32) error {
+func zmatinvBatched(handle Handle, n int32, a uintptr, lda int32, ainv uintptr, ldaInv int32, info *int32, batchSize int32) error {
 	if err := checkLibSym("cublasZmatinvBatched"); err != nil {
 		return err
 	}
-	return toError(fnzmatinvBatched(handle, n, A, lda, Ainv, ldaInv, info, batchSize))
+	return toError(fnzmatinvBatched(handle, n, a, lda, ainv, ldaInv, info, batchSize))
 }
 
 // zrot supports the 64-bit Integer Interface.
@@ -17503,12 +17503,12 @@ func zswap64(handle Handle, n int64, x *Complex128, incx int64, y *Complex128, i
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -17518,11 +17518,11 @@ func zswap64(handle Handle, n int64, x *Complex128, incx int64, y *Complex128, i
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsymm_v2.
-func zsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32, beta *Complex128, C *Complex128, ldc int32) error {
+func zsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32, beta *Complex128, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZsymm_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsymm(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzsymm(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zsymm64 supports the 64-bit Integer Interface.
@@ -17540,12 +17540,12 @@ func zsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - m: Number of rows of matrix C and B, with matrix A sized accordingly
 //   - n: Number of columns of matrix C and B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -17555,11 +17555,11 @@ func zsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsymm_v2_64.
-func zsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64, beta *Complex128, C *Complex128, ldc int64) error {
+func zsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64, beta *Complex128, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZsymm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsymm64(handle, side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzsymm64(handle, side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zsymv supports the 64-bit Integer Interface.
@@ -17576,7 +17576,7 @@ func zsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - uplo: Indicates if matrix lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -17591,11 +17591,11 @@ func zsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsymv_v2.
-func zsymv(handle Handle, uplo FillMode, n int32, alpha *Complex128, A *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
+func zsymv(handle Handle, uplo FillMode, n int32, alpha *Complex128, a *Complex128, lda int32, x *Complex128, incx int32, beta *Complex128, y *Complex128, incy int32) error {
 	if err := checkLibSym("cublasZsymv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsymv(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzsymv(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zsymv64 supports the 64-bit Integer Interface.
@@ -17612,7 +17612,7 @@ func zsymv(handle Handle, uplo FillMode, n int32, alpha *Complex128, A *Complex1
 //   - uplo: Indicates if matrix lower or upper part is stored, the other symmetric part is not referenced and is inferred from the stored elements
 //   - n: Number of rows and columns of matrix A
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x n with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -17627,11 +17627,11 @@ func zsymv(handle Handle, uplo FillMode, n int32, alpha *Complex128, A *Complex1
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsymv_v2_64.
-func zsymv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, A *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
+func zsymv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, a *Complex128, lda int64, x *Complex128, incx int64, beta *Complex128, y *Complex128, incy int64) error {
 	if err := checkLibSym("cublasZsymv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsymv64(handle, uplo, n, alpha, A, lda, x, incx, beta, y, incy))
+	return toError(fnzsymv64(handle, uplo, n, alpha, a, lda, x, incx, beta, y, incy))
 }
 
 // zsyr2 supports the 64-bit Integer Interface.
@@ -17651,7 +17651,7 @@ func zsymv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, A *Comple
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimensions lda x n, with lda >= max(1,n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -17661,11 +17661,11 @@ func zsymv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, A *Comple
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr2_v2.
-func zsyr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, A *Complex128, lda int32) error {
+func zsyr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex128, incx int32, y *Complex128, incy int32, a *Complex128, lda int32) error {
 	if err := checkLibSym("cublasZsyr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsyr2(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnzsyr2(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // zsyr264 supports the 64-bit Integer Interface.
@@ -17685,7 +17685,7 @@ func zsyr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex1
 //   - incx: Stride between consecutive elements of x
 //   - y: < type > vector with n elements
 //   - incy: Stride between consecutive elements of y
-//   - A: < type > array of dimensions lda x n, with lda >= max(1,n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1,n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -17695,11 +17695,11 @@ func zsyr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex1
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr2_v2_64.
-func zsyr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, A *Complex128, lda int64) error {
+func zsyr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex128, incx int64, y *Complex128, incy int64, a *Complex128, lda int64) error {
 	if err := checkLibSym("cublasZsyr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyr264(handle, uplo, n, alpha, x, incx, y, incy, A, lda))
+	return toError(fnzsyr264(handle, uplo, n, alpha, x, incx, y, incy, a, lda))
 }
 
 // zsyr2k supports the 64-bit Integer Interface.
@@ -17718,12 +17718,12 @@ func zsyr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Comple
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -17733,11 +17733,11 @@ func zsyr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Comple
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr2k_v2.
-func zsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32, beta *Complex128, C *Complex128, ldc int32) error {
+func zsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32, beta *Complex128, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZsyr2k_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsyr2k(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzsyr2k(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zsyr2k64 supports the 64-bit Integer Interface.
@@ -17756,12 +17756,12 @@ func zsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -17771,11 +17771,11 @@ func zsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr2k_v2_64.
-func zsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64, beta *Complex128, C *Complex128, ldc int64) error {
+func zsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64, beta *Complex128, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZsyr2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyr2k64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzsyr2k64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zsyr supports the 64-bit Integer Interface.
@@ -17793,7 +17793,7 @@ func zsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -17803,11 +17803,11 @@ func zsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr_v2.
-func zsyr(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex128, incx int32, A *Complex128, lda int32) error {
+func zsyr(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex128, incx int32, a *Complex128, lda int32) error {
 	if err := checkLibSym("cublasZsyr_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsyr(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fnzsyr(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // zsyr64 supports the 64-bit Integer Interface.
@@ -17825,7 +17825,7 @@ func zsyr(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex12
 //   - alpha: < type > scalar used for multiplication
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
-//   - A: < type > array of dimensions lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -17835,11 +17835,11 @@ func zsyr(handle Handle, uplo FillMode, n int32, alpha *Complex128, x *Complex12
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyr_v2_64.
-func zsyr64(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex128, incx int64, A *Complex128, lda int64) error {
+func zsyr64(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex128, incx int64, a *Complex128, lda int64) error {
 	if err := checkLibSym("cublasZsyr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyr64(handle, uplo, n, alpha, x, incx, A, lda))
+	return toError(fnzsyr64(handle, uplo, n, alpha, x, incx, a, lda))
 }
 
 // zsyrk supports the 64-bit Integer Interface.
@@ -17858,10 +17858,10 @@ func zsyr64(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -17871,11 +17871,11 @@ func zsyr64(handle Handle, uplo FillMode, n int64, alpha *Complex128, x *Complex
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyrk_v2.
-func zsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, A *Complex128, lda int32, beta *Complex128, C *Complex128, ldc int32) error {
+func zsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a *Complex128, lda int32, beta *Complex128, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZsyrk_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsyrk(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fnzsyrk(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // zsyrk64 supports the 64-bit Integer Interface.
@@ -17894,10 +17894,10 @@ func zsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - n: Number of rows of matrix op( A) and C
 //   - k: Number of columns of matrix op( A)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if trans == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - beta: < type > scalar used for multiplication. If beta == 0 then C does not have to be a valid input
-//   - C: < type > array of dimension ldc x n, with ldc >= max(1, n)
+//   - c: < type > array of dimension ldc x n, with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -17907,11 +17907,11 @@ func zsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyrk_v2_64.
-func zsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, A *Complex128, lda int64, beta *Complex128, C *Complex128, ldc int64) error {
+func zsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a *Complex128, lda int64, beta *Complex128, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZsyrk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyrk64(handle, uplo, trans, n, k, alpha, A, lda, beta, C, ldc))
+	return toError(fnzsyrk64(handle, uplo, trans, n, k, alpha, a, lda, beta, c, ldc))
 }
 
 // zsyrkx supports the 64-bit Integer Interface.
@@ -17932,12 +17932,12 @@ func zsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -17947,11 +17947,11 @@ func zsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyrkx.
-func zsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32, beta *Complex128, C *Complex128, ldc int32) error {
+func zsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32, beta *Complex128, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZsyrkx"); err != nil {
 		return err
 	}
-	return toError(fnzsyrkx(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzsyrkx(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // zsyrkx64 supports the 64-bit Integer Interface.
@@ -17972,12 +17972,12 @@ func zsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - n: Number of rows of matrix op( A), op( B) and C
 //   - k: Number of columns of matrix op( A) and op( B)
 //   - alpha: < type > scalar used for multiplication
-//   - A: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
+//   - a: < type > array of dimension lda x k with lda >= max(1, n) if transa == [OpN] and lda x n with lda >= max(1, k) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
+//   - b: < type > array of dimensions ldb x k with ldb >= max(1, n) if transb == [OpN] and ldb x n with ldb >= max(1,k) otherwise
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //   - beta: < type > scalar used for multiplication. If beta == 0, then C does not have to be a valid input
-//   - C: < type > array of dimensions ldc x n with ldc >= max(1, n)
+//   - c: < type > array of dimensions ldc x n with ldc >= max(1, n)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -17987,11 +17987,11 @@ func zsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZsyrkx_64.
-func zsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64, beta *Complex128, C *Complex128, ldc int64) error {
+func zsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64, beta *Complex128, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZsyrkx_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyrkx64(handle, uplo, trans, n, k, alpha, A, lda, B, ldb, beta, C, ldc))
+	return toError(fnzsyrkx64(handle, uplo, trans, n, k, alpha, a, lda, b, ldb, beta, c, ldc))
 }
 
 // ztbmv supports the 64-bit Integer Interface.
@@ -18012,7 +18012,7 @@ func zsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix
-//   - A: < type > array of dimension lda x n, with lda >= k + 1
+//   - a: < type > array of dimension lda x n, with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -18025,11 +18025,11 @@ func zsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtbmv_v2.
-func ztbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, A *Complex128, lda int32, x *Complex128, incx int32) error {
+func ztbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a *Complex128, lda int32, x *Complex128, incx int32) error {
 	if err := checkLibSym("cublasZtbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztbmv(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnztbmv(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // ztbmv64 supports the 64-bit Integer Interface.
@@ -18050,7 +18050,7 @@ func ztbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix
-//   - A: < type > array of dimension lda x n, with lda >= k + 1
+//   - a: < type > array of dimension lda x n, with lda >= k + 1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -18063,11 +18063,11 @@ func ztbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtbmv_v2_64.
-func ztbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, A *Complex128, lda int64, x *Complex128, incx int64) error {
+func ztbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a *Complex128, lda int64, x *Complex128, incx int64) error {
 	if err := checkLibSym("cublasZtbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztbmv64(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnztbmv64(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // ztbsv supports the 64-bit Integer Interface.
@@ -18090,7 +18090,7 @@ func ztbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= k+1
+//   - a: < type > array of dimension lda x n, with lda >= k+1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -18102,11 +18102,11 @@ func ztbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtbsv_v2.
-func ztbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, A *Complex128, lda int32, x *Complex128, incx int32) error {
+func ztbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, k int32, a *Complex128, lda int32, x *Complex128, incx int32) error {
 	if err := checkLibSym("cublasZtbsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztbsv(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnztbsv(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // ztbsv64 supports the 64-bit Integer Interface.
@@ -18129,7 +18129,7 @@ func ztbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
 //   - k: Number of sub- and super-diagonals of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= k+1
+//   - a: < type > array of dimension lda x n, with lda >= k+1
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -18141,11 +18141,11 @@ func ztbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtbsv_v2_64.
-func ztbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, A *Complex128, lda int64, x *Complex128, incx int64) error {
+func ztbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, k int64, a *Complex128, lda int64, x *Complex128, incx int64) error {
 	if err := checkLibSym("cublasZtbsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztbsv64(handle, uplo, trans, diag, n, k, A, lda, x, incx))
+	return toError(fnztbsv64(handle, uplo, trans, diag, n, k, a, lda, x, incx))
 }
 
 // ztpmv supports the 64-bit Integer Interface.
@@ -18165,7 +18165,7 @@ func ztbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -18177,11 +18177,11 @@ func ztbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpmv_v2.
-func ztpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, AP *Complex128, x *Complex128, incx int32) error {
+func ztpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, ap *Complex128, x *Complex128, incx int32) error {
 	if err := checkLibSym("cublasZtpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztpmv(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnztpmv(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // ztpmv64 supports the 64-bit Integer Interface.
@@ -18201,7 +18201,7 @@ func ztpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -18213,11 +18213,11 @@ func ztpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpmv_v2_64.
-func ztpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, AP *Complex128, x *Complex128, incx int64) error {
+func ztpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, ap *Complex128, x *Complex128, incx int64) error {
 	if err := checkLibSym("cublasZtpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztpmv64(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnztpmv64(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // ztpsv supports the 64-bit Integer Interface.
@@ -18239,7 +18239,7 @@ func ztpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -18250,11 +18250,11 @@ func ztpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpsv_v2.
-func ztpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, AP *Complex128, x *Complex128, incx int32) error {
+func ztpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, ap *Complex128, x *Complex128, incx int32) error {
 	if err := checkLibSym("cublasZtpsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztpsv(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnztpsv(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // ztpsv64 supports the 64-bit Integer Interface.
@@ -18276,7 +18276,7 @@ func ztpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
 //
@@ -18287,11 +18287,11 @@ func ztpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpsv_v2_64.
-func ztpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, AP *Complex128, x *Complex128, incx int64) error {
+func ztpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, ap *Complex128, x *Complex128, incx int64) error {
 	if err := checkLibSym("cublasZtpsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztpsv64(handle, uplo, trans, diag, n, AP, x, incx))
+	return toError(fnztpsv64(handle, uplo, trans, diag, n, ap, x, incx))
 }
 
 // ztpttr performs the conversion from the triangular packed format to the triangular format
@@ -18304,8 +18304,8 @@ func ztpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - handle: Handle to the cuBLAS library context
 //   - uplo: Indicates if matrix AP contains lower or upper part of matrix A
 //   - n: Number of rows and columns of matrix A
-//   - AP: < type > array with A stored in packed format
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
+//   - ap: < type > array with A stored in packed format
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n). The opposite side of A is left untouched
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //
 // Returns:
@@ -18315,11 +18315,11 @@ func ztpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtpttr.
-func ztpttr(handle Handle, uplo FillMode, n int32, AP *Complex128, A *Complex128, lda int32) error {
+func ztpttr(handle Handle, uplo FillMode, n int32, ap *Complex128, a *Complex128, lda int32) error {
 	if err := checkLibSym("cublasZtpttr"); err != nil {
 		return err
 	}
-	return toError(fnztpttr(handle, uplo, n, AP, A, lda))
+	return toError(fnztpttr(handle, uplo, n, ap, a, lda))
 }
 
 // ztrmm supports the 64-bit Integer Interface.
@@ -18341,11 +18341,11 @@ func ztpttr(handle Handle, uplo FillMode, n int32, AP *Complex128, A *Complex128
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -18355,11 +18355,11 @@ func ztpttr(handle Handle, uplo FillMode, n int32, AP *Complex128, A *Complex128
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrmm_v2.
-func ztrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32, C *Complex128, ldc int32) error {
+func ztrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32, c *Complex128, ldc int32) error {
 	if err := checkLibSym("cublasZtrmm_v2"); err != nil {
 		return err
 	}
-	return toError(fnztrmm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, C, ldc))
+	return toError(fnztrmm(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc))
 }
 
 // ztrmm64 supports the 64-bit Integer Interface.
@@ -18381,11 +18381,11 @@ func ztrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array of dimension ldb x n with ldb >= max(1, m)
+//   - b: < type > array of dimension ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
-//   - C: < type > array of dimension ldc x n with ldc >= max(1, m)
+//   - c: < type > array of dimension ldc x n with ldc >= max(1, m)
 //   - ldc: Leading dimension of two-dimensional array used to store matrix C
 //
 // Returns:
@@ -18395,11 +18395,11 @@ func ztrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrmm_v2_64.
-func ztrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64, C *Complex128, ldc int64) error {
+func ztrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64, c *Complex128, ldc int64) error {
 	if err := checkLibSym("cublasZtrmm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztrmm64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, C, ldc))
+	return toError(fnztrmm64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, c, ldc))
 }
 
 // ztrmv supports the 64-bit Integer Interface.
@@ -18417,7 +18417,7 @@ func ztrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -18430,11 +18430,11 @@ func ztrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrmv_v2.
-func ztrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, A *Complex128, lda int32, x *Complex128, incx int32) error {
+func ztrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, a *Complex128, lda int32, x *Complex128, incx int32) error {
 	if err := checkLibSym("cublasZtrmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztrmv(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnztrmv(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // ztrmv64 supports the 64-bit Integer Interface.
@@ -18452,7 +18452,7 @@ func ztrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -18465,11 +18465,11 @@ func ztrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrmv_v2_64.
-func ztrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, A *Complex128, lda int64, x *Complex128, incx int64) error {
+func ztrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, a *Complex128, lda int64, x *Complex128, incx int64) error {
 	if err := checkLibSym("cublasZtrmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztrmv64(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnztrmv64(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // ztrsmBatched supports the 64-bit Integer Interface.
@@ -18494,9 +18494,9 @@ func ztrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
 //   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
-//   - A: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - B: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
@@ -18507,11 +18507,11 @@ func ztrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsmBatched.
-func ztrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex128, A uintptr, lda int32, B uintptr, ldb int32, batchCount int32) error {
+func ztrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex128, a uintptr, lda int32, b uintptr, ldb int32, batchCount int32) error {
 	if err := checkLibSym("cublasZtrsmBatched"); err != nil {
 		return err
 	}
-	return toError(fnztrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, batchCount))
+	return toError(fnztrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount))
 }
 
 // ztrsmBatched64 supports the 64-bit Integer Interface.
@@ -18536,9 +18536,9 @@ func ztrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 //   - m: Number of rows of matrix B [i], with matrix A [i] sized accordingly
 //   - n: Number of columns of matrix B [i], with matrix A [i] is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A [i] is not referenced and B [i] does not have to be a valid input
-//   - A: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: Array of pointers to < type > array, with each array of dim. lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A [i]
-//   - B: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
+//   - b: Array of pointers to < type > array, with each array of dim. ldb x n with ldb >= max(1, m). Matrices B [i] should not overlap; otherwise, undefined behavior is expected
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B [i]
 //   - batchCount: Number of pointers contained in A and B
 //
@@ -18549,11 +18549,11 @@ func ztrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsmBatched_64.
-func ztrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex128, A uintptr, lda int64, B uintptr, ldb int64, batchCount int64) error {
+func ztrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex128, a uintptr, lda int64, b uintptr, ldb int64, batchCount int64) error {
 	if err := checkLibSym("cublasZtrsmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnztrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb, batchCount))
+	return toError(fnztrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb, batchCount))
 }
 
 // ztrsm supports the 64-bit Integer Interface.
@@ -18576,9 +18576,9 @@ func ztrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
+//   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
 // Returns:
@@ -18588,11 +18588,11 @@ func ztrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsm_v2.
-func ztrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex128, A *Complex128, lda int32, B *Complex128, ldb int32) error {
+func ztrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int32, n int32, alpha *Complex128, a *Complex128, lda int32, b *Complex128, ldb int32) error {
 	if err := checkLibSym("cublasZtrsm_v2"); err != nil {
 		return err
 	}
-	return toError(fnztrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb))
+	return toError(fnztrsm(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb))
 }
 
 // ztrsm64 supports the 64-bit Integer Interface.
@@ -18615,9 +18615,9 @@ func ztrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - m: Number of rows of matrix B, with matrix A sized accordingly
 //   - n: Number of columns of matrix B, with matrix A is sized accordingly
 //   - alpha: < type > scalar used for multiplication, if alpha == 0 then A is not referenced and B does not have to be a valid input
-//   - A: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
+//   - a: < type > array of dimension lda x m with lda >= max(1, m) if side == [SideLeft] and lda x n with lda >= max(1, n) otherwise
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - B: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
+//   - b: < type > array. It has dimensions ldb x n with ldb >= max(1, m)
 //   - ldb: Leading dimension of two-dimensional array used to store matrix B
 //
 // Returns:
@@ -18627,11 +18627,11 @@ func ztrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsm_v2_64.
-func ztrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex128, A *Complex128, lda int64, B *Complex128, ldb int64) error {
+func ztrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag DiagType, m int64, n int64, alpha *Complex128, a *Complex128, lda int64, b *Complex128, ldb int64) error {
 	if err := checkLibSym("cublasZtrsm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztrsm64(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb))
+	return toError(fnztrsm64(handle, side, uplo, trans, diag, m, n, alpha, a, lda, b, ldb))
 }
 
 // ztrsv supports the 64-bit Integer Interface.
@@ -18651,7 +18651,7 @@ func ztrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -18663,11 +18663,11 @@ func ztrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsv_v2.
-func ztrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, A *Complex128, lda int32, x *Complex128, incx int32) error {
+func ztrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32, a *Complex128, lda int32, x *Complex128, incx int32) error {
 	if err := checkLibSym("cublasZtrsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztrsv(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnztrsv(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // ztrsv64 supports the 64-bit Integer Interface.
@@ -18687,7 +18687,7 @@ func ztrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - trans: Operation op( A) that is non- or (conj.) transpose
 //   - diag: Indicates if the elements on the main diagonal of matrix A are unity and should not be accessed
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimension lda x n, with lda >= max(1, n)
+//   - a: < type > array of dimension lda x n, with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
 //   - x: < type > vector with n elements
 //   - incx: Stride between consecutive elements of x
@@ -18699,11 +18699,11 @@ func ztrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrsv_v2_64.
-func ztrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, A *Complex128, lda int64, x *Complex128, incx int64) error {
+func ztrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int64, a *Complex128, lda int64, x *Complex128, incx int64) error {
 	if err := checkLibSym("cublasZtrsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztrsv64(handle, uplo, trans, diag, n, A, lda, x, incx))
+	return toError(fnztrsv64(handle, uplo, trans, diag, n, a, lda, x, incx))
 }
 
 // ztrttp performs the conversion from the triangular format to the triangular packed format
@@ -18716,9 +18716,9 @@ func ztrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - handle: Handle to the cuBLAS library context
 //   - uplo: Indicates which matrix A lower or upper part is referenced
 //   - n: Number of rows and columns of matrix A
-//   - A: < type > array of dimensions lda x n , with lda >= max(1, n)
+//   - a: < type > array of dimensions lda x n , with lda >= max(1, n)
 //   - lda: Leading dimension of two-dimensional array used to store matrix A
-//   - AP: < type > array with A stored in packed format
+//   - ap: < type > array with A stored in packed format
 //
 // Returns:
 //   - [ErrExecutionFailed]: The function failed to launch on the GPU
@@ -18727,9 +18727,9 @@ func ztrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 //   - [Success]: The operation completed successfully
 //
 // Wraps cublasZtrttp.
-func ztrttp(handle Handle, uplo FillMode, n int32, A *Complex128, lda int32, AP *Complex128) error {
+func ztrttp(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, ap *Complex128) error {
 	if err := checkLibSym("cublasZtrttp"); err != nil {
 		return err
 	}
-	return toError(fnztrttp(handle, uplo, n, A, lda, AP))
+	return toError(fnztrttp(handle, uplo, n, a, lda, ap))
 }

@@ -12,27 +12,27 @@ func (i IRSInfos) Destroy() error {
 	return iRSInfosDestroy(i)
 }
 
-// GetMaxIters wraps cusolverDnIRSInfosGetMaxIters.
-func (i IRSInfos) GetMaxIters() (CusolverInt, error) {
+// MaxIters wraps cusolverDnIRSInfosGetMaxIters.
+func (i IRSInfos) MaxIters() (CusolverInt, error) {
 	return iRSInfosGetMaxIters(i)
 }
 
-// GetNiters wraps cusolverDnIRSInfosGetNiters.
-func (i IRSInfos) GetNiters() (CusolverInt, error) {
+// Niters wraps cusolverDnIRSInfosGetNiters.
+func (i IRSInfos) Niters() (CusolverInt, error) {
 	return iRSInfosGetNiters(i)
 }
 
-// GetOuterNiters wraps cusolverDnIRSInfosGetOuterNiters.
-func (i IRSInfos) GetOuterNiters() (CusolverInt, error) {
+// OuterNiters wraps cusolverDnIRSInfosGetOuterNiters.
+func (i IRSInfos) OuterNiters() (CusolverInt, error) {
 	return iRSInfosGetOuterNiters(i)
-}
-
-// GetResidualHistory wraps cusolverDnIRSInfosGetResidualHistory.
-func (i IRSInfos) GetResidualHistory(residualHistory *uintptr) error {
-	return iRSInfosGetResidualHistory(i, residualHistory)
 }
 
 // RequestResidual wraps cusolverDnIRSInfosRequestResidual.
 func (i IRSInfos) RequestResidual() error {
 	return iRSInfosRequestResidual(i)
+}
+
+// ResidualHistory wraps cusolverDnIRSInfosGetResidualHistory.
+func (i IRSInfos) ResidualHistory(residualHistory *uintptr) error {
+	return iRSInfosGetResidualHistory(i, residualHistory)
 }

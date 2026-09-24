@@ -58,31 +58,13 @@ func (h Handle) Destroy() error {
 	return Destroy(h)
 }
 
-// GetMathMode returns the arithmetic mode set by [Handle.SetMathMode]
+// MathMode returns the arithmetic mode set by [Handle.SetMathMode]
 //
 // Not exported by the library shipped with 0.9.1; see [Handle.SetMathMode].
 //
 // Wraps cusolverMpGetMathMode.
-func (h Handle) GetMathMode() (cusolver.MathMode, error) {
+func (h Handle) MathMode() (cusolver.MathMode, error) {
 	return GetMathMode(h)
-}
-
-// GetStream returns the stream operations on handle are enqueued on
-//
-// Wraps cusolverMpGetStream.
-func (h Handle) GetStream() (cusolver.Stream, error) {
-	return GetStream(h)
-}
-
-// GetVersion returns the version of the loaded library
-//
-// The value is major*10000 + minor*100 + patch, so 0.9.1 reports 901.
-// This package was generated against the 0.9.1 header; a library that
-// reports a different version may not export every symbol bound here.
-//
-// Wraps cusolverMpGetVersion.
-func (h Handle) GetVersion() (int32, error) {
-	return GetVersion(h)
 }
 
 // SetMathMode selects the arithmetic the library may use
@@ -109,4 +91,22 @@ func (h Handle) SetMathMode(mode cusolver.MathMode) error {
 // Wraps cusolverMpSetStream.
 func (h Handle) SetStream(stream cusolver.Stream) error {
 	return SetStream(h, stream)
+}
+
+// Stream returns the stream operations on handle are enqueued on
+//
+// Wraps cusolverMpGetStream.
+func (h Handle) Stream() (cusolver.Stream, error) {
+	return GetStream(h)
+}
+
+// Version returns the version of the loaded library
+//
+// The value is major*10000 + minor*100 + patch, so 0.9.1 reports 901.
+// This package was generated against the 0.9.1 header; a library that
+// reports a different version may not export every symbol bound here.
+//
+// Wraps cusolverMpGetVersion.
+func (h Handle) Version() (int32, error) {
+	return GetVersion(h)
 }

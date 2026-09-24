@@ -201,7 +201,7 @@ func TestContextRunRestoresCurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := ctx.Run(func() error {
-		current, err := driver.NewContextGetCurrent()
+		current, err := driver.CtxGetCurrent()
 		if err != nil {
 			return err
 		}
@@ -212,7 +212,7 @@ func TestContextRunRestoresCurrent(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	current, err := driver.NewContextGetCurrent()
+	current, err := driver.CtxGetCurrent()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestContextRunRestoresCurrent(t *testing.T) {
 		}()
 		_ = ctx.Run(func() error { panic("sentinel") })
 	}()
-	current, err = driver.NewContextGetCurrent()
+	current, err = driver.CtxGetCurrent()
 	if err != nil {
 		t.Fatal(err)
 	}

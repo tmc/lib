@@ -6,18 +6,18 @@ import (
 	"unsafe"
 )
 
+// Attribute wraps cutensornetContractionAutotunePreferenceGetAttribute.
+//
+// Deprecated: This function is deprecated.
+func (c ContractionAutotunePreference) Attribute(handle Handle, attr ContractionAutotunePreferenceAttributes, buffer unsafe.Pointer, sizeInBytes uint) error {
+	return contractionAutotunePreferenceGetAttribute(handle, c, attr, buffer, sizeInBytes)
+}
+
 // Destroy wraps cutensornetDestroyContractionAutotunePreference.
 //
 // Deprecated: This function is deprecated.
 func (c ContractionAutotunePreference) Destroy() error {
 	return destroyContractionAutotunePreference(c)
-}
-
-// GetAttribute wraps cutensornetContractionAutotunePreferenceGetAttribute.
-//
-// Deprecated: This function is deprecated.
-func (c ContractionAutotunePreference) GetAttribute(handle Handle, attr ContractionAutotunePreferenceAttributes, buffer unsafe.Pointer, sizeInBytes uint) error {
-	return contractionAutotunePreferenceGetAttribute(handle, c, attr, buffer, sizeInBytes)
 }
 
 // SetAttribute wraps cutensornetContractionAutotunePreferenceSetAttribute.

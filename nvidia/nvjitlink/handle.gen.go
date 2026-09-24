@@ -19,42 +19,47 @@ func (h Handle) Complete() error {
 	return complete(h)
 }
 
-// GetErrorLog wraps nvJitLinkGetErrorLog, bound as __nvJitLinkGetErrorLog_13_2.
-func (h Handle) GetErrorLog() (string, error) {
+// ErrorLog wraps nvJitLinkGetErrorLog, bound as __nvJitLinkGetErrorLog_13_2.
+func (h Handle) ErrorLog() (string, error) {
 	return getErrorLog(h)
 }
 
-// GetErrorLogSize wraps nvJitLinkGetErrorLogSize, bound as __nvJitLinkGetErrorLogSize_13_2.
-func (h Handle) GetErrorLogSize() (uint, error) {
+// ErrorLogSize wraps nvJitLinkGetErrorLogSize, bound as __nvJitLinkGetErrorLogSize_13_2.
+func (h Handle) ErrorLogSize() (uint, error) {
 	return getErrorLogSize(h)
 }
 
-// GetInfoLog wraps nvJitLinkGetInfoLog, bound as __nvJitLinkGetInfoLog_13_2.
-func (h Handle) GetInfoLog() (string, error) {
+// InfoLog wraps nvJitLinkGetInfoLog, bound as __nvJitLinkGetInfoLog_13_2.
+func (h Handle) InfoLog() (string, error) {
 	return getInfoLog(h)
 }
 
-// GetInfoLogSize wraps nvJitLinkGetInfoLogSize, bound as __nvJitLinkGetInfoLogSize_13_2.
-func (h Handle) GetInfoLogSize() (uint, error) {
+// InfoLogSize wraps nvJitLinkGetInfoLogSize, bound as __nvJitLinkGetInfoLogSize_13_2.
+func (h Handle) InfoLogSize() (uint, error) {
 	return getInfoLogSize(h)
 }
 
-// GetLinkedCubin wraps nvJitLinkGetLinkedCubin, bound as __nvJitLinkGetLinkedCubin_13_2.
-func (h Handle) GetLinkedCubin() ([]byte, error) {
+// LinkedCubin wraps nvJitLinkGetLinkedCubin, bound as __nvJitLinkGetLinkedCubin_13_2.
+func (h Handle) LinkedCubin() ([]byte, error) {
 	return getLinkedCubin(h)
 }
 
-// GetLinkedCubinSize wraps nvJitLinkGetLinkedCubinSize, bound as __nvJitLinkGetLinkedCubinSize_13_2.
-func (h Handle) GetLinkedCubinSize() (uint, error) {
+// LinkedCubinSize wraps nvJitLinkGetLinkedCubinSize, bound as __nvJitLinkGetLinkedCubinSize_13_2.
+func (h Handle) LinkedCubinSize() (uint, error) {
 	return getLinkedCubinSize(h)
 }
 
-// GetLinkedPtx wraps nvJitLinkGetLinkedPtx, bound as __nvJitLinkGetLinkedPtx_13_2.
-func (h Handle) GetLinkedPtx() ([]byte, error) {
+// LinkedPtx wraps nvJitLinkGetLinkedPtx, bound as __nvJitLinkGetLinkedPtx_13_2.
+func (h Handle) LinkedPtx() ([]byte, error) {
 	return getLinkedPtx(h)
 }
 
-// GetLinkedPtxSize wraps nvJitLinkGetLinkedPtxSize, bound as __nvJitLinkGetLinkedPtxSize_13_2.
-func (h Handle) GetLinkedPtxSize() (uint, error) {
+// LinkedPtxSize wraps nvJitLinkGetLinkedPtxSize, bound as __nvJitLinkGetLinkedPtxSize_13_2.
+func (h Handle) LinkedPtxSize() (uint, error) {
 	return getLinkedPtxSize(h)
+}
+
+// Destroy wraps nvJitLinkDestroy, bound as __nvJitLinkDestroy_13_2.
+func (h *Handle) Destroy() error {
+	return destroy(h)
 }

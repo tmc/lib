@@ -207,7 +207,7 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 	if err = driver.Init(0); err != nil {
 		return result, err
 	}
-	previous, err := driver.NewContextGetCurrent()
+	previous, err := driver.CtxGetCurrent()
 	if err != nil {
 		return result, err
 	}
@@ -251,10 +251,10 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 				err = errors.Join(err, s.end.Destroy())
 			}
 			if s.send != 0 {
-				err = errors.Join(err, s.send.MemFree())
+				err = errors.Join(err, s.send.Free())
 			}
 			if s.recv != 0 {
-				err = errors.Join(err, s.recv.MemFree())
+				err = errors.Join(err, s.recv.Free())
 			}
 			if s.stream != 0 {
 				err = errors.Join(err, s.stream.Destroy())
@@ -264,7 +264,7 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 	}()
 	for i, ordinal := range o.Devices {
 		s := &states[i]
-		s.device, err = driver.NewDeviceGet(int(ordinal))
+		s.device, err = driver.DeviceGet(int(ordinal))
 		if err != nil {
 			return result, err
 		}
@@ -345,11 +345,11 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 			if c.DataType.integer() {
 				poisonIntegers(c, l, len(states), rank, poison)
 			}
-			if err := (s.recv + driver.DevicePtr(offsetBytes)).MemcpyHtoD(unsafe.Pointer(&poison[0]), uint(len(poison))); err != nil {
+			if err := (s.recv + driver.DevicePtr(offsetBytes)).CopyFromHost(unsafe.Pointer(&poison[0]), uint(len(poison))); err != nil {
 				return err
 			}
 			inputData := inputBuffer(c, len(states), rank, l.SendCount)
-			if err := s.sendArg.MemcpyHtoD(unsafe.Pointer(&inputData[0]), uint(len(inputData))); err != nil {
+			if err := s.sendArg.CopyFromHost(unsafe.Pointer(&inputData[0]), uint(len(inputData))); err != nil {
 				return err
 			}
 		}
@@ -424,7 +424,7 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 					return result, err
 				}
 				got := make([]byte, l.RecvCount*size)
-				if err = s.recvArg.MemcpyDtoH(unsafe.Pointer(&got[0]), uint(len(got))); err != nil {
+				if err = s.recvArg.CopyToHost(unsafe.Pointer(&got[0]), uint(len(got))); err != nil {
 					return result, err
 				}
 				count, wrong, e := CheckBytes(c, len(states), rank, got)

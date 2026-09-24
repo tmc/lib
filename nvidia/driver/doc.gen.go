@@ -13,10 +13,10 @@
 //   - [Array.Get3DDescriptor]: Get a 3D CUDA array descriptor.
 //   - [NewArray]: Creates a 1D or 2D CUDA array.
 //   - [Array.Destroy]: Destroys a CUDA array.
-//   - [Array.GetDescriptor]: Get a 1D or 2D CUDA array descriptor.
-//   - [Array.GetMemoryRequirements]: Returns the memory requirements of a CUDA array.
-//   - [Array.GetPlane]: Gets a CUDA array plane from a CUDA array.
-//   - [Array.GetSparseProperties]: Returns the layout properties of a sparse CUDA array.
+//   - [Array.Descriptor]: Get a 1D or 2D CUDA array descriptor.
+//   - [Array.MemoryRequirements]: Returns the memory requirements of a CUDA array.
+//   - [Array.Plane]: Gets a CUDA array plane from a CUDA array.
+//   - [Array.SparseProperties]: Returns the layout properties of a sparse CUDA array.
 //
 // # Checkpointing
 //
@@ -40,26 +40,26 @@
 //
 // # Context Management
 //
-//   - [NewContextAttach]: Increment a context's usage-count
+//   - [CtxAttach]: Increment a context's usage-count
 //   - [NewContext]: Create a CUDA context.
 //   - [Context.Destroy]: Destroy a CUDA context.
 //   - [Context.Detach]: Decrement a context's usage-count
 //   - [Context.DisablePeerAccess]: Disables direct access to memory allocations in a peer context and unregisters any registered allocations.
 //   - [Context.EnablePeerAccess]: Enables direct access to memory allocations in a peer context.
-//   - [NewContextFromGreenCtx]: Converts a green context into the primary context
-//   - [Context.GetApiVersion]: Gets the context's API version.
+//   - [CtxFromGreenCtx]: Converts a green context into the primary context
+//   - [Context.ApiVersion]: Gets the context's API version.
 //   - [CtxGetCacheConfig]: Returns the preferred cache configuration for the current context.
-//   - [NewContextGetCurrent]: Returns the CUDA context bound to the calling CPU thread.
-//   - [Context.GetDevResource]: Get context resources
+//   - [CtxGetCurrent]: Returns the CUDA context bound to the calling CPU thread.
+//   - [Context.DevResource]: Get context resources
 //   - [CtxGetDevice]: Returns the device handle for the current context.
-//   - [Context.GetDeviceV2]: Returns the device handle for the specified context.
+//   - [Context.DeviceV2]: Returns the device handle for the specified context.
 //   - [CtxGetExecAffinity]: Returns the execution affinity setting for the current context.
 //   - [CtxGetFlags]: Returns the flags for the current context.
-//   - [Context.GetId]: Returns the unique Id associated with the context supplied.
+//   - [Context.Id]: Returns the unique Id associated with the context supplied.
 //   - [CtxGetLimit]: Returns resource limits.
 //   - [CtxGetSharedMemConfig]: Returns the current shared memory configuration for the current context.
 //   - [CtxGetStreamPriorityRange]: Returns numerical values that correspond to the least and greatest stream priorities.
-//   - [NewContextPopCurrent]: Pops the current CUDA context from the current CPU thread.
+//   - [CtxPopCurrent]: Pops the current CUDA context from the current CPU thread.
 //   - [Context.PushCurrent]: Pushes a context on the current CPU thread.
 //   - [Context.RecordEvent]: Records an event.
 //   - [CtxResetPersistingL2Cache]: Resets all persisting lines in cache to normal status.
@@ -73,8 +73,8 @@
 //   - [Context.WaitEvent]: Make a context wait on an event.
 //   - [NewGreenCtx]: Creates a green context with a specified set of resources.
 //   - [GreenCtx.Destroy]: Destroys a green context
-//   - [GreenCtx.GetDevResource]: Get green context resources
-//   - [GreenCtx.GetId]: Returns the unique Id associated with the green context supplied
+//   - [GreenCtx.DevResource]: Get green context resources
+//   - [GreenCtx.Id]: Returns the unique Id associated with the green context supplied
 //   - [GreenCtx.RecordEvent]: Records an event.
 //   - [GreenCtx.StreamCreate]: Create a stream for use in the green context
 //   - [GreenCtx.WaitEvent]: Make a green context wait on an event
@@ -83,8 +83,8 @@
 //
 //   - [ExternalMemory.Destroy]: Destroys an external memory object.
 //   - [ExternalSemaphore.Destroy]: Destroys an external semaphore.
-//   - [ExternalMemory.GetMappedBuffer]: Maps a buffer onto an imported memory object.
-//   - [ExternalMemory.GetMappedMipmappedArray]: Maps a CUDA mipmapped array onto an external memory object.
+//   - [ExternalMemory.MappedBuffer]: Maps a buffer onto an imported memory object.
+//   - [ExternalMemory.MappedMipmappedArray]: Maps a CUDA mipmapped array onto an external memory object.
 //   - [ImportExternalMemory]: Imports an external memory object.
 //   - [ImportExternalSemaphore]: Imports an external semaphore.
 //   - [Stream.SignalExternalSemaphoresAsync]: Signals a set of external semaphore objects.
@@ -97,25 +97,25 @@
 //   - [DevSmResourceSplitByCount]: Splits [DevResourceTypeSm] resources.
 //   - [Device.CanAccessPeer]: Queries if a device may directly access a peer device's memory.
 //   - [Device.ComputeCapability]: Returns the compute capability of the device
-//   - [NewDeviceGet]: Returns a handle to a compute device.
-//   - [Device.GetAttribute]: Returns information about the device.
-//   - [NewDeviceGetByPCIBusId]: Returns a handle to a compute device.
+//   - [DeviceGet]: Returns a handle to a compute device.
+//   - [Device.Attribute]: Returns information about the device.
+//   - [DeviceGetByPCIBusId]: Returns a handle to a compute device.
 //   - [DeviceGetCount]: Returns the number of compute-capable devices.
-//   - [Device.GetDefaultMemPool]: Returns the default mempool of a device.
-//   - [Device.GetDevResource]: Get device resources
-//   - [Device.GetExecAffinitySupport]: Returns information about the execution affinity support of the device.
-//   - [Device.GetGraphMemAttribute]: Query asynchronous allocation attributes related to graphs.
-//   - [Device.GetHostAtomicCapabilities]: Queries details about atomic operations supported between the device and host.
-//   - [Device.GetLuid]: Return an LUID and device node mask for the device.
-//   - [Device.GetMemPool]: Gets the current mempool for a device.
-//   - [Device.GetName]: Returns an identifier string for the device.
-//   - [Device.GetNvSciSyncAttributes]: Return NvSciSync attributes that this device can support.
-//   - [Device.GetP2PAtomicCapabilities]: Queries details about atomic operations supported between two devices.
-//   - [Device.GetP2PAttribute]: Queries attributes of the link between two devices.
-//   - [Device.GetPCIBusId]: Returns a PCI Bus Id string for the device.
-//   - [Device.GetProperties]: Returns properties for a selected device
-//   - [Device.GetTexture1DLinearMaxWidth]: Returns the maximum number of elements allocatable in a 1D linear texture for a given texture element size.
-//   - [Device.GetUuid]: Return an UUID for the device.
+//   - [Device.DefaultMemPool]: Returns the default mempool of a device.
+//   - [Device.DevResource]: Get device resources
+//   - [Device.ExecAffinitySupport]: Returns information about the execution affinity support of the device.
+//   - [Device.GraphMemAttribute]: Query asynchronous allocation attributes related to graphs.
+//   - [Device.HostAtomicCapabilities]: Queries details about atomic operations supported between the device and host.
+//   - [Device.Luid]: Return an LUID and device node mask for the device.
+//   - [Device.MemPool]: Gets the current mempool for a device.
+//   - [Device.Name]: Returns an identifier string for the device.
+//   - [Device.NvSciSyncAttributes]: Return NvSciSync attributes that this device can support.
+//   - [Device.P2PAtomicCapabilities]: Queries details about atomic operations supported between two devices.
+//   - [Device.P2PAttribute]: Queries attributes of the link between two devices.
+//   - [Device.PCIBusId]: Returns a PCI Bus Id string for the device.
+//   - [Device.Properties]: Returns properties for a selected device
+//   - [Device.Texture1DLinearMaxWidth]: Returns the maximum number of elements allocatable in a 1D linear texture for a given texture element size.
+//   - [Device.Uuid]: Return an UUID for the device.
 //   - [Device.GraphMemTrim]: Free unused memory that was cached on the specified device for use with graphs back to the OS.
 //   - [Device.PrimaryCtxGetState]: Get the state of the primary context.
 //   - [Device.PrimaryCtxRelease]: Release the primary context on the GPU.
@@ -149,11 +149,11 @@
 //
 // # Function Management
 //
-//   - [Function.GetAttribute]: Returns information about a function.
-//   - [Function.GetModule]: Returns a module handle.
-//   - [Function.GetName]: Returns the function name for a [Function] handle.
-//   - [Function.GetParamCount]: Returns the number of parameters used by the function.
-//   - [Function.GetParamInfo]: Returns the offset and size of a kernel parameter in the device-side parameter layout.
+//   - [Function.Attribute]: Returns information about a function.
+//   - [Function.Module]: Returns a module handle.
+//   - [Function.Name]: Returns the function name for a [Function] handle.
+//   - [Function.ParamCount]: Returns the number of parameters used by the function.
+//   - [Function.ParamInfo]: Returns the offset and size of a kernel parameter in the device-side parameter layout.
 //   - [Function.IsLoaded]: Returns if the function is loaded.
 //   - [Function.Load]: Loads a function.
 //   - [Function.SetAttribute]: Sets information about a function.
@@ -181,7 +181,7 @@
 //   - [Graph.AddNode]: Adds a node of arbitrary type to a graph.
 //   - [GraphNode.GraphBatchMemOpNodeGetParams]: Returns a batch mem op node's parameters.
 //   - [GraphNode.GraphBatchMemOpNodeSetParams]: Sets a batch mem op node's parameters.
-//   - [NewGraphChildGraphNodeGetGraph]: Gets a handle to the embedded graph of a child graph node.
+//   - [GraphChildGraphNodeGetGraph]: Gets a handle to the embedded graph of a child graph node.
 //   - [Graph.Clone]: Clones a graph.
 //   - [Graph.ConditionalHandleCreate]: Create a conditional handle.
 //   - [NewGraph]: Creates a graph.
@@ -199,8 +199,8 @@
 //   - [GraphExec.EventWaitNodeSetEvent]: Sets the event for an event wait node in the given graphExec.
 //   - [GraphExec.ExternalSemaphoresSignalNodeSetParams]: Sets the parameters for an external semaphore signal node in the given graphExec.
 //   - [GraphExec.ExternalSemaphoresWaitNodeSetParams]: Sets the parameters for an external semaphore wait node in the given graphExec.
-//   - [GraphExec.GetFlags]: Query the instantiation flags of an executable graph.
-//   - [GraphExec.GetId]: Returns the id of a given graph exec.
+//   - [GraphExec.Flags]: Query the instantiation flags of an executable graph.
+//   - [GraphExec.Id]: Returns the id of a given graph exec.
 //   - [GraphExec.HostNodeSetParams]: Sets the parameters for a host node in the given graphExec.
 //   - [GraphExec.KernelNodeSetParams]: Sets the parameters for a kernel node in the given graphExec.
 //   - [GraphExec.MemcpyNodeSetParams]: Sets the parameters for a memcpy node in the given graphExec.
@@ -211,10 +211,10 @@
 //   - [GraphNode.GraphExternalSemaphoresSignalNodeSetParams]: Sets an external semaphore signal node's parameters.
 //   - [GraphNode.GraphExternalSemaphoresWaitNodeGetParams]: Returns an external semaphore wait node's parameters.
 //   - [GraphNode.GraphExternalSemaphoresWaitNodeSetParams]: Sets an external semaphore wait node's parameters.
-//   - [Graph.GetEdges]: Returns a graph's dependency edges.
-//   - [Graph.GetId]: Returns the id of a given graph.
+//   - [Graph.Edges]: Returns a graph's dependency edges.
+//   - [Graph.Id]: Returns the id of a given graph.
 //   - [Graph.GetNodes]: Returns a graph's nodes.
-//   - [Graph.GetRootNodes]: Returns a graph's root nodes.
+//   - [Graph.RootNodes]: Returns a graph's root nodes.
 //   - [GraphNode.GraphHostNodeGetParams]: Returns a host node's parameters.
 //   - [GraphNode.GraphHostNodeSetParams]: Sets a host node's parameters.
 //   - [Graph.Instantiate]: Creates an executable graph from a graph.
@@ -232,14 +232,14 @@
 //   - [GraphNode.GraphMemsetNodeGetParams]: Returns a memset node's parameters.
 //   - [GraphNode.GraphMemsetNodeSetParams]: Sets a memset node's parameters.
 //   - [GraphNode.FindInClone]: Finds a cloned version of a node.
-//   - [GraphNode.GetContainingGraph]: Returns the graph that contains a given graph node.
-//   - [GraphNode.GetDependencies]: Returns a node's dependencies.
-//   - [GraphNode.GetDependentNodes]: Returns a node's dependent nodes.
-//   - [GraphNode.GetEnabled]: Query whether a node in the given graphExec is enabled.
-//   - [GraphNode.GetLocalId]: Returns the local node id of a given graph node.
-//   - [GraphNode.GetParams]: Return a graph node's parameters.
-//   - [GraphNode.GetToolsId]: Returns an id used by tools to identify a given node.
-//   - [GraphNode.GetType]: Returns a node's type.
+//   - [GraphNode.ContainingGraph]: Returns the graph that contains a given graph node.
+//   - [GraphNode.Dependencies]: Returns a node's dependencies.
+//   - [GraphNode.DependentNodes]: Returns a node's dependent nodes.
+//   - [GraphNode.Enabled]: Query whether a node in the given graphExec is enabled.
+//   - [GraphNode.LocalId]: Returns the local node id of a given graph node.
+//   - [GraphNode.Params]: Return a graph node's parameters.
+//   - [GraphNode.ToolsId]: Returns an id used by tools to identify a given node.
+//   - [GraphNode.Type]: Returns a node's type.
 //   - [GraphNode.SetEnabled]: Enables or disables the specified node in the given graphExec.
 //   - [GraphNode.SetParams]: Update a graph node's parameters.
 //   - [Graph.ReleaseUserObject]: Release a user object reference from a graph.
@@ -247,8 +247,8 @@
 //   - [Graph.RetainUserObject]: Retain a reference to a user object from a graph.
 //   - [GraphExec.GraphUpload]: Uploads an executable graph in a stream.
 //   - [Stream.GraphicsMapResources]: Map graphics resources for access by CUDA
-//   - [GraphicsResource.GetMappedMipmappedArray]: Get a mipmapped array through which to access a mapped graphics resource.
-//   - [GraphicsResource.GetMappedPointer]: Get a device pointer through which to access a mapped graphics resource.
+//   - [GraphicsResource.MappedMipmappedArray]: Get a mipmapped array through which to access a mapped graphics resource.
+//   - [GraphicsResource.MappedPointer]: Get a device pointer through which to access a mapped graphics resource.
 //   - [GraphicsResource.SetMapFlags]: Set usage flags for mapping a graphics resource
 //   - [GraphicsResource.GraphicsSubResourceGetMappedArray]: Get an array through which to access a subresource of a mapped graphics resource.
 //   - [Stream.GraphicsUnmapResources]: Unmap graphics resources.
@@ -268,12 +268,12 @@
 //
 // # Kernel Management
 //
-//   - [Kernel.GetAttribute]: Returns information about a kernel
-//   - [Kernel.GetFunction]: Returns a function handle
-//   - [Kernel.GetLibrary]: Returns a library handle
-//   - [Kernel.GetName]: Returns the function name for a [Kernel] handle
-//   - [Kernel.GetParamCount]: Returns the number of parameters used by the kernel
-//   - [Kernel.GetParamInfo]: Returns the offset and size of a kernel parameter in the device-side parameter layout
+//   - [Kernel.Attribute]: Returns information about a kernel
+//   - [Kernel.Function]: Returns a function handle
+//   - [Kernel.Library]: Returns a library handle
+//   - [Kernel.Name]: Returns the function name for a [Kernel] handle
+//   - [Kernel.ParamCount]: Returns the number of parameters used by the kernel
+//   - [Kernel.ParamInfo]: Returns the offset and size of a kernel parameter in the device-side parameter layout
 //   - [Kernel.SetAttribute]: Sets information about a kernel
 //   - [Kernel.SetCacheConfig]: Sets the preferred cache configuration for a device kernel.
 //
@@ -291,14 +291,14 @@
 // # Library Management
 //
 //   - [Library.EnumerateKernels]: Retrieve the kernel handles within a library.
-//   - [Library.GetGlobal]: Returns a global device pointer
-//   - [Library.GetKernel]: Returns a kernel handle
-//   - [Library.GetKernelCount]: Returns the number of kernels within a library
-//   - [Library.GetManaged]: Returns a pointer to managed memory
-//   - [Library.GetModule]: Returns a module handle
-//   - [Library.GetUnifiedFunction]: Returns a pointer to a unified function
-//   - [NewLibraryLoadData]: Load a library with specified code and options
-//   - [NewLibraryLoadFromFile]: Load a library with specified file and options
+//   - [Library.Global]: Returns a global device pointer
+//   - [Library.Kernel]: Returns a kernel handle
+//   - [Library.KernelCount]: Returns the number of kernels within a library
+//   - [Library.Managed]: Returns a pointer to managed memory
+//   - [Library.Module]: Returns a module handle
+//   - [Library.UnifiedFunction]: Returns a pointer to a unified function
+//   - [LibraryLoadData]: Load a library with specified code and options
+//   - [LibraryLoadFromFile]: Load a library with specified file and options
 //   - [Library.Unload]: Unloads a library
 //
 // # Linker
@@ -338,8 +338,8 @@
 //   - [Stream.MemBatchDecompressAsync]: Submit a batch of count independent decompression operations.
 //   - [Stream.MemDiscardAndPrefetchBatchAsync]: Performs a batch of memory discards and prefetches asynchronously.
 //   - [Stream.MemDiscardBatchAsync]: Performs a batch of memory discards asynchronously.
-//   - [DevicePtr.MemFree]: Frees device memory.
-//   - [DevicePtr.MemFreeAsync]: Frees memory with stream ordered semantics.
+//   - [DevicePtr.Free]: Frees device memory.
+//   - [DevicePtr.FreeAsync]: Frees memory with stream ordered semantics.
 //   - [MemFreeHost]: Frees page-locked host memory.
 //   - [DevicePtr.MemGetAddressRange]: Get information on memory allocations.
 //   - [MemGetDefaultMemPool]: Returns the default memory pool for a given location and allocation type.
@@ -375,12 +375,12 @@
 //   - [Array.MemcpyDtoA]: Copies memory from Device to Array.
 //   - [DevicePtr.MemcpyDtoD]: Copies memory from Device to Device.
 //   - [DevicePtr.MemcpyDtoDAsync]: Copies memory from Device to Device.
-//   - [DevicePtr.MemcpyDtoH]: Copies memory from Device to Host.
-//   - [DevicePtr.MemcpyDtoHAsync]: Copies memory from Device to Host.
+//   - [DevicePtr.CopyToHost]: Copies memory from Device to Host.
+//   - [DevicePtr.CopyToHostAsync]: Copies memory from Device to Host.
 //   - [Array.MemcpyHtoA]: Copies memory from Host to Array.
 //   - [Array.MemcpyHtoAAsync]: Copies memory from Host to Array.
-//   - [DevicePtr.MemcpyHtoD]: Copies memory from Host to Device.
-//   - [DevicePtr.MemcpyHtoDAsync]: Copies memory from Host to Device.
+//   - [DevicePtr.CopyFromHost]: Copies memory from Host to Device.
+//   - [DevicePtr.CopyFromHostAsync]: Copies memory from Host to Device.
 //   - [DevicePtr.MemcpyPeer]: Copies device memory between two contexts.
 //   - [DevicePtr.MemcpyPeerAsync]: Copies device memory between two contexts asynchronously.
 //   - [DevicePtr.MemcpyWithAttributesAsync]: Performs asynchronous memory copy operation with the specified attributes.
@@ -406,9 +406,9 @@
 //   - [MemoryPool.Destroy]: Destroys the specified memory pool.
 //   - [DevicePtr.MemPoolExportPointer]: Export data to share a memory pool allocation between processes.
 //   - [MemoryPool.ExportToShareableHandle]: Exports a memory pool to the requested handle type.
-//   - [MemoryPool.GetAccess]: Returns the accessibility of a pool from a device.
-//   - [MemoryPool.GetAttribute]: Gets attributes of a memory pool.
-//   - [NewMemoryPoolImportFromShareableHandle]: imports a memory pool from a shared handle.
+//   - [MemoryPool.Access]: Returns the accessibility of a pool from a device.
+//   - [MemoryPool.Attribute]: Gets attributes of a memory pool.
+//   - [MemPoolImportFromShareableHandle]: imports a memory pool from a shared handle.
 //   - [MemoryPool.ImportPointer]: Import a memory pool allocation from another process.
 //   - [MemoryPool.SetAccess]: Controls visibility of pools between devices.
 //   - [MemoryPool.SetAttribute]: Sets attributes of a memory pool.
@@ -418,9 +418,9 @@
 //
 //   - [NewMipmappedArray]: Creates a CUDA mipmapped array.
 //   - [MipmappedArray.Destroy]: Destroys a CUDA mipmapped array.
-//   - [MipmappedArray.GetLevel]: Gets a mipmap level of a CUDA mipmapped array.
-//   - [MipmappedArray.GetMemoryRequirements]: Returns the memory requirements of a CUDA mipmapped array.
-//   - [MipmappedArray.GetSparseProperties]: Returns the layout properties of a sparse CUDA mipmapped array.
+//   - [MipmappedArray.Level]: Gets a mipmap level of a CUDA mipmapped array.
+//   - [MipmappedArray.MemoryRequirements]: Returns the memory requirements of a CUDA mipmapped array.
+//   - [MipmappedArray.SparseProperties]: Returns the layout properties of a sparse CUDA mipmapped array.
 //   - [TexObjectCreate]: Creates a texture object.
 //   - [TexObjectDestroy]: Destroys a texture object.
 //   - [TexObjectGetResourceDesc]: Returns a texture object's resource descriptor.
@@ -428,18 +428,18 @@
 //   - [TexObjectGetTextureDesc]: Returns a texture object's texture descriptor.
 //   - [NewTexRef]: Creates a texture reference.
 //   - [TexRef.Destroy]: Destroys a texture reference.
-//   - [TexRef.GetAddress]: Gets the address associated with a texture reference.
-//   - [TexRef.GetAddressMode]: Gets the addressing mode used by a texture reference.
-//   - [TexRef.GetArray]: Gets the array bound to a texture reference.
-//   - [TexRef.GetBorderColor]: Gets the border color used by a texture reference.
-//   - [TexRef.GetFilterMode]: Gets the filter-mode used by a texture reference.
-//   - [TexRef.GetFlags]: Gets the flags used by a texture reference.
-//   - [TexRef.GetFormat]: Gets the format used by a texture reference.
-//   - [TexRef.GetMaxAnisotropy]: Gets the maximum anisotropy for a texture reference.
-//   - [TexRef.GetMipmapFilterMode]: Gets the mipmap filtering mode for a texture reference.
-//   - [TexRef.GetMipmapLevelBias]: Gets the mipmap level bias for a texture reference.
-//   - [TexRef.GetMipmapLevelClamp]: Gets the min/max mipmap level clamps for a texture reference.
-//   - [TexRef.GetMipmappedArray]: Gets the mipmapped array bound to a texture reference.
+//   - [TexRef.Address]: Gets the address associated with a texture reference.
+//   - [TexRef.AddressMode]: Gets the addressing mode used by a texture reference.
+//   - [TexRef.Array]: Gets the array bound to a texture reference.
+//   - [TexRef.BorderColor]: Gets the border color used by a texture reference.
+//   - [TexRef.FilterMode]: Gets the filter-mode used by a texture reference.
+//   - [TexRef.Flags]: Gets the flags used by a texture reference.
+//   - [TexRef.Format]: Gets the format used by a texture reference.
+//   - [TexRef.MaxAnisotropy]: Gets the maximum anisotropy for a texture reference.
+//   - [TexRef.MipmapFilterMode]: Gets the mipmap filtering mode for a texture reference.
+//   - [TexRef.MipmapLevelBias]: Gets the mipmap level bias for a texture reference.
+//   - [TexRef.MipmapLevelClamp]: Gets the min/max mipmap level clamps for a texture reference.
+//   - [TexRef.MipmappedArray]: Gets the mipmapped array bound to a texture reference.
 //   - [TexRef.SetAddress]: Binds an address as a texture reference.
 //   - [TexRef.SetAddress2D]: Binds an address as a 2D texture reference.
 //   - [TexRef.SetAddressMode]: Sets the addressing mode for a texture reference.
@@ -457,16 +457,16 @@
 // # Module Management
 //
 //   - [Module.EnumerateFunctions]: Returns the function handles within a module.
-//   - [Module.GetFunction]: Returns a function handle.
-//   - [Module.GetFunctionCount]: Returns the number of functions within a module.
-//   - [Module.GetGlobal]: Returns a global pointer from a module.
+//   - [Module.Function]: Returns a function handle.
+//   - [Module.FunctionCount]: Returns the number of functions within a module.
+//   - [Module.Global]: Returns a global pointer from a module.
 //   - [ModuleGetLoadingMode]: Query lazy loading mode.
-//   - [Module.GetSurfRef]: Returns a handle to a surface reference
-//   - [Module.GetTexRef]: Returns a handle to a texture reference
-//   - [NewModuleLoad]: Loads a compute module.
-//   - [NewModuleLoadData]: Load a module's data.
-//   - [NewModuleLoadDataEx]: Load a module's data with options.
-//   - [NewModuleLoadFatBinary]: Load a module's data.
+//   - [Module.SurfRef]: Returns a handle to a surface reference
+//   - [Module.TexRef]: Returns a handle to a texture reference
+//   - [ModuleLoad]: Loads a compute module.
+//   - [ModuleLoadData]: Load a module's data.
+//   - [ModuleLoadDataEx]: Load a module's data with options.
+//   - [ModuleLoadFatBinary]: Load a module's data.
 //   - [Module.Unload]: Unloads a module.
 //
 // # Multicast
@@ -499,19 +499,19 @@
 //   - [Stream.BeginCaptureToGraph]: Begins graph capture on a stream to an existing graph.
 //   - [Stream.CopyAttributes]: Copies attributes from source stream to destination stream.
 //   - [NewStream]: Create a stream.
-//   - [NewStreamCreateWithPriority]: Create a stream with the given priority.
+//   - [StreamCreateWithPriority]: Create a stream with the given priority.
 //   - [Stream.Destroy]: Destroys a stream.
 //   - [Stream.EndCapture]: Ends capture on a stream, returning the captured graph.
 //   - [Stream.EndCaptureToCig]: Ends CIG capture on a stream.
-//   - [Stream.GetAttribute]: Queries stream attribute.
-//   - [Stream.GetCaptureInfo]: Query a stream's capture state.
-//   - [Stream.GetCtx]: Query the contexts associated with a stream.
-//   - [Stream.GetDevResource]: Get stream resources
-//   - [Stream.GetDevice]: Returns the device handle of the stream.
-//   - [Stream.GetFlags]: Query the flags of a given stream.
-//   - [Stream.GetGreenCtx]: Query the green context associated with a stream
-//   - [Stream.GetId]: Returns the unique Id associated with the stream handle supplied.
-//   - [Stream.GetPriority]: Query the priority of a given stream.
+//   - [Stream.Attribute]: Queries stream attribute.
+//   - [Stream.CaptureInfo]: Query a stream's capture state.
+//   - [Stream.Ctx]: Query the contexts associated with a stream.
+//   - [Stream.DevResource]: Get stream resources
+//   - [Stream.Device]: Returns the device handle of the stream.
+//   - [Stream.Flags]: Query the flags of a given stream.
+//   - [Stream.GreenCtx]: Query the green context associated with a stream
+//   - [Stream.Id]: Returns the unique Id associated with the stream handle supplied.
+//   - [Stream.Priority]: Query the priority of a given stream.
 //   - [Stream.IsCapturing]: Returns a stream's capture status.
 //   - [Stream.Query]: Determine status of a compute stream.
 //   - [Stream.SetAttribute]: Sets stream attribute.
@@ -532,7 +532,7 @@
 //   - [SurfObjectCreate]: Creates a surface object.
 //   - [SurfObjectDestroy]: Destroys a surface object.
 //   - [SurfObjectGetResourceDesc]: Returns a surface object's resource descriptor.
-//   - [SurfRef.GetArray]: Passes back the CUDA array bound to a surface reference.
+//   - [SurfRef.Array]: Passes back the CUDA array bound to a surface reference.
 //   - [SurfRef.SetArray]: Sets the CUDA array for a surface reference.
 //
 // # Tensor Core

@@ -27,19 +27,9 @@ func (h Handle) Gather(vecY ConstDnVecDescr, vecX SpVecDescr) error {
 	return gather(h, vecY, vecX)
 }
 
-// GetPointerMode wraps cusparseGetPointerMode.
-func (h Handle) GetPointerMode() (PointerMode, error) {
+// PointerMode wraps cusparseGetPointerMode.
+func (h Handle) PointerMode() (PointerMode, error) {
 	return getPointerMode(h)
-}
-
-// GetStream wraps cusparseGetStream.
-func (h Handle) GetStream() (Stream, error) {
-	return getStream(h)
-}
-
-// GetVersion wraps cusparseGetVersion.
-func (h Handle) GetVersion() (int32, error) {
-	return getVersion(h)
 }
 
 // SDDMM wraps cusparseSDDMM.
@@ -215,4 +205,14 @@ func (h Handle) SparseToDense(matA ConstSpMatDescr, matB DnMatDescr, alg SparseT
 // SparseToDenseBufferSize wraps cusparseSparseToDenseBufferSize, bound as cusparseSparseToDense_bufferSize.
 func (h Handle) SparseToDenseBufferSize(matA ConstSpMatDescr, matB DnMatDescr, alg SparseToDenseAlg) (uint, error) {
 	return sparseToDenseBufferSize(h, matA, matB, alg)
+}
+
+// Stream wraps cusparseGetStream.
+func (h Handle) Stream() (Stream, error) {
+	return getStream(h)
+}
+
+// Version wraps cusparseGetVersion.
+func (h Handle) Version() (int32, error) {
+	return getVersion(h)
 }

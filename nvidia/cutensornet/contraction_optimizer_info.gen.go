@@ -6,24 +6,24 @@ import (
 	"unsafe"
 )
 
+// Attribute wraps cutensornetContractionOptimizerInfoGetAttribute.
+func (c ContractionOptimizerInfo) Attribute(handle Handle, attr ContractionOptimizerInfoAttributes, buffer unsafe.Pointer, sizeInBytes uint) error {
+	return contractionOptimizerInfoGetAttribute(handle, c, attr, buffer, sizeInBytes)
+}
+
 // Destroy wraps cutensornetDestroyContractionOptimizerInfo.
 func (c ContractionOptimizerInfo) Destroy() error {
 	return destroyContractionOptimizerInfo(c)
 }
 
-// GetAttribute wraps cutensornetContractionOptimizerInfoGetAttribute.
-func (c ContractionOptimizerInfo) GetAttribute(handle Handle, attr ContractionOptimizerInfoAttributes, buffer unsafe.Pointer, sizeInBytes uint) error {
-	return contractionOptimizerInfoGetAttribute(handle, c, attr, buffer, sizeInBytes)
-}
-
-// GetPackedSize wraps cutensornetContractionOptimizerInfoGetPackedSize.
-func (c ContractionOptimizerInfo) GetPackedSize(handle Handle) (uint, error) {
-	return contractionOptimizerInfoGetPackedSize(handle, c)
-}
-
 // PackData wraps cutensornetContractionOptimizerInfoPackData.
 func (c ContractionOptimizerInfo) PackData(handle Handle, buffer unsafe.Pointer, sizeInBytes uint) error {
 	return contractionOptimizerInfoPackData(handle, c, buffer, sizeInBytes)
+}
+
+// PackedSize wraps cutensornetContractionOptimizerInfoGetPackedSize.
+func (c ContractionOptimizerInfo) PackedSize(handle Handle) (uint, error) {
+	return contractionOptimizerInfoGetPackedSize(handle, c)
 }
 
 // SetAttribute wraps cutensornetContractionOptimizerInfoSetAttribute.

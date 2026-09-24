@@ -184,7 +184,7 @@ func TestDeviceSelfCopyDoesNotDeadlock(t *testing.T) {
 
 func TestAsyncAllocationAliasesReleaseOnce(t *testing.T) {
 	dev := testDevice(t)
-	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestAsyncAllocationAliasesReleaseOnce(t *testing.T) {
 
 func TestAsyncFreeAccountsAtCompletion(t *testing.T) {
 	dev := testDevice(t)
-	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +235,7 @@ func TestAsyncFreeAccountsAtCompletion(t *testing.T) {
 
 func TestAsyncCopyCallerRetainsDeviceAllocation(t *testing.T) {
 	dev := testDevice(t)
-	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func TestConcurrentStreamsAsyncCopiesAndCancellation(t *testing.T) {
 	}
 	transfers := make([]transfer, 2)
 	for i := range transfers {
-		s, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+		s, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -380,7 +380,7 @@ func TestPostSynchronizeAllocationBaseline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	if err != nil {
 		t.Fatal(err)
 	}

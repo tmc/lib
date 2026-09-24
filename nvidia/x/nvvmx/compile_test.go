@@ -39,13 +39,13 @@ func (p *fakeProgram) Compile([]string) error {
 	}
 	return nil
 }
-func (p *fakeProgram) GetCompiledResult() ([]byte, error) {
+func (p *fakeProgram) CompiledResult() ([]byte, error) {
 	if p.fail == "output" {
 		return nil, errInjected
 	}
 	return p.output, nil
 }
-func (p *fakeProgram) GetProgramLog() (string, error) {
+func (p *fakeProgram) Log() (string, error) {
 	if p.fail == "log" {
 		return "diagnostic", errInjected
 	}

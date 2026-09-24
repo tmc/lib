@@ -125,7 +125,7 @@ func TestCompileAndRun(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestCompileAndRun(t *testing.T) {
 		t.Skipf("libNVVM unavailable: %v", err)
 	}
 	defer func() {
-		if err := nvvm.DestroyProgram(&prog); err != nil {
+		if err := prog.Destroy(); err != nil {
 			t.Errorf("destroy program: %v", err)
 		}
 	}()
@@ -161,7 +161,7 @@ func TestCompileAndRun(t *testing.T) {
 		t.Fatalf("AddModuleTo: %v", err)
 	}
 	if err := prog.Verify(nil); err != nil {
-		log, _ := prog.GetProgramLog()
+		log, _ := prog.Log()
 		t.Fatalf("Verify: %v\n%s", err, log)
 	}
 	// libNVVM ships with the toolkit, so the one that loads can predate the
@@ -177,7 +177,7 @@ func TestCompileAndRun(t *testing.T) {
 			log = ""
 			break
 		}
-		log, _ = prog.GetProgramLog()
+		log, _ = prog.Log()
 		if !strings.Contains(log, "unsupported option") {
 			t.Fatalf("Compile for compute_%s: %s", try, log)
 		}
@@ -186,11 +186,11 @@ func TestCompileAndRun(t *testing.T) {
 	if log != "" {
 		t.Fatalf("libNVVM supports no architecture this device can run:\n%s", log)
 	}
-	size, err := prog.GetCompiledResultSize()
+	size, err := prog.CompiledResultSize()
 	if err != nil {
 		t.Fatalf("GetCompiledResultSize: %v", err)
 	}
-	ptx, err := prog.GetCompiledResult()
+	ptx, err := prog.CompiledResult()
 	if err != nil {
 		t.Fatalf("GetCompiledResult: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestCompileAndRun(t *testing.T) {
 	// The driver JIT-compiles the PTX, so this also confirms libNVVM produced
 	// PTX the installed driver accepts.
 	image := append(ptx, 0)
-	mod, err := driver.NewModuleLoadData(unsafe.Pointer(&image[0]))
+	mod, err := driver.ModuleLoadData(image)
 	if err != nil {
 		t.Fatalf("ModuleLoadData: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestCompileAndRun(t *testing.T) {
 			t.Errorf("unload module: %v", err)
 		}
 	}()
-	fn, err := mod.GetFunction("fill")
+	fn, err := mod.Function("fill")
 	if err != nil {
 		t.Fatalf("GetFunction: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestCompileAndRun(t *testing.T) {
 		t.Fatalf("MemAlloc: %v", err)
 	}
 	defer func() {
-		if err := out.MemFree(); err != nil {
+		if err := out.Free(); err != nil {
 			t.Errorf("free device buffer: %v", err)
 		}
 	}()
@@ -238,7 +238,7 @@ func TestCompileAndRun(t *testing.T) {
 	for i := range sentinel {
 		sentinel[i] = -1
 	}
-	if err := out.MemcpyHtoD(unsafe.Pointer(&sentinel[0]), nbytes); err != nil {
+	if err := out.CopyFromHost(unsafe.Pointer(&sentinel[0]), nbytes); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	n, b := int32(elems), int32(bias)
@@ -250,7 +250,7 @@ func TestCompileAndRun(t *testing.T) {
 		t.Fatalf("synchronize: %v", err)
 	}
 	got := make([]int32, elems)
-	if err := out.MemcpyDtoH(unsafe.Pointer(&got[0]), nbytes); err != nil {
+	if err := out.CopyToHost(unsafe.Pointer(&got[0]), nbytes); err != nil {
 		t.Fatalf("MemcpyDtoH: %v", err)
 	}
 	for i := range got {

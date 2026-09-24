@@ -43,7 +43,7 @@ func TestDistributedNorm(t *testing.T) {
 	}
 	check("CUDA init", driver.Init(0))
 	dev := driver.Device(mpi.Rank)
-	uuid, err := dev.GetUuid()
+	uuid, err := dev.Uuid()
 	check("UUID", err)
 	t.Logf("rank=%d device=%d uuid=%x", mpi.Rank, dev, uuid)
 	ids := make([]byte, 32)
@@ -68,7 +68,7 @@ func TestDistributedNorm(t *testing.T) {
 	var allocations []driver.DevicePtr
 	defer func() {
 		for _, p := range allocations {
-			clean("free device buffer", p.MemFree())
+			clean("free device buffer", p.Free())
 		}
 	}()
 	defer func() { clean("state destroy", state.Destroy()) }()
@@ -79,17 +79,17 @@ func TestDistributedNorm(t *testing.T) {
 		allocations = append(allocations, p)
 		return p
 	}
-	count, err := state.GetNumComponents(h)
+	count, err := state.NumComponents(h)
 	check("component count", err)
 	if count != 1 {
 		t.Fatalf("expected one local component, got %d", count)
 	}
 	var bytes uint
-	check("storage size", state.GetComponentStorageSize(h, 1, &bytes))
+	check("storage size", state.ComponentStorageSize(h, 1, &bytes))
 	if bytes == 0 || bytes > 4096 {
 		t.Fatalf("storage bound %d", bytes)
 	}
-	_, nmodes, batchMode, err := state.GetComponentNumModes(h, 0)
+	_, nmodes, batchMode, err := state.ComponentNumModes(h, 0)
 	check("mode count", err)
 	if nmodes < 3 || nmodes > 4 {
 		t.Fatalf("mode count %d", nmodes)
@@ -100,7 +100,7 @@ func TestDistributedNorm(t *testing.T) {
 	shape := make([]int64, nmodes)
 	offset := make([]int64, nmodes)
 	var global, actualModes int32
-	check("component info", state.GetComponentInfo(h, 0, &global, &actualModes, &shape[0], &offset[0]))
+	check("component info", state.ComponentInfo(h, 0, &global, &actualModes, &shape[0], &offset[0]))
 	if actualModes != nmodes {
 		t.Fatal("inconsistent mode count")
 	}
@@ -142,16 +142,16 @@ func TestDistributedNorm(t *testing.T) {
 		}
 	}
 	ptr := alloc(bytes)
-	check("upload slice", ptr.MemcpyHtoD(unsafe.Pointer(&host[0]), bytes))
+	check("upload slice", ptr.CopyFromHost(unsafe.Pointer(&host[0]), bytes))
 	address := uintptr(ptr)
 	check("attach", state.AttachComponentStorage(h, 1, &address, &bytes))
 	out := alloc(8)
 	sentinel := math.NaN()
-	check("norm sentinel", out.MemcpyHtoD(unsafe.Pointer(&sentinel), 8))
+	check("norm sentinel", out.CopyFromHost(unsafe.Pointer(&sentinel), 8))
 	check("global norm", state.ComputeNorm(h, uintptr(out), cudensitymat.Stream(stream)))
 	check("synchronize", stream.Synchronize())
 	var got float64
-	check("download norm", out.MemcpyDtoH(unsafe.Pointer(&got), 8))
+	check("download norm", out.CopyToHost(unsafe.Pointer(&got), 8))
 	want := float64(204)
 	if os.Getenv("CUDENSITYMAT_BAD_ORACLE") == "1" {
 		want++

@@ -2,7 +2,7 @@
 
 package driver
 
-// GetMappedMipmappedArray Get a mipmapped array through which to access a mapped graphics resource.
+// MappedMipmappedArray Get a mipmapped array through which to access a mapped graphics resource.
 //
 // Returns in *pMipmappedArray a mipmapped array through which the mapped graphics
 // resource resource. The value set in *pMipmappedArray may change every time
@@ -12,14 +12,14 @@ package driver
 // [ErrNotMappedAsArray] is returned.
 // If resource is not mapped then [ErrNotMapped] is returned.
 //
-// See also: [GraphicsResource.GetMappedPointer]
+// See also: [GraphicsResource.MappedPointer]
 //
 // Wraps cuGraphicsResourceGetMappedMipmappedArray.
-func (g GraphicsResource) GetMappedMipmappedArray() (MipmappedArray, error) {
+func (g GraphicsResource) MappedMipmappedArray() (MipmappedArray, error) {
 	return graphicsResourceGetMappedMipmappedArray(g)
 }
 
-// GetMappedPointer Get a device pointer through which to access a mapped graphics resource.
+// MappedPointer Get a device pointer through which to access a mapped graphics resource.
 //
 // Returns in *pDevPtr a pointer through which the mapped graphics resource
 // resource may be accessed.
@@ -34,7 +34,7 @@ func (g GraphicsResource) GetMappedMipmappedArray() (MipmappedArray, error) {
 // See also: [Stream.GraphicsMapResources], [GraphicsResource.GraphicsSubResourceGetMappedArray]
 //
 // Wraps cuGraphicsResourceGetMappedPointer, bound as cuGraphicsResourceGetMappedPointer_v2.
-func (g GraphicsResource) GetMappedPointer() (pDevPtr DevicePtr, pSize uint, err error) {
+func (g GraphicsResource) MappedPointer() (pDevPtr DevicePtr, pSize uint, err error) {
 	return graphicsResourceGetMappedPointer(g)
 }
 
@@ -64,7 +64,7 @@ func (g GraphicsResource) GetMappedPointer() (pDevPtr DevicePtr, pSize uint, err
 // See also: [Stream.GraphicsMapResources]
 //
 // Wraps cuGraphicsResourceSetMapFlags, bound as cuGraphicsResourceSetMapFlags_v2.
-func (g GraphicsResource) SetMapFlags(flags uint32) error {
+func (g GraphicsResource) SetMapFlags(flags GraphicsMapResourceFlags) error {
 	return graphicsResourceSetMapFlags(g, flags)
 }
 
@@ -86,7 +86,7 @@ func (g GraphicsResource) SetMapFlags(flags uint32) error {
 //   - arrayIndex: Array index for array textures or cubemap face index as defined by [ArrayCubemapFace] for cubemap textures for the subresource to access
 //   - mipLevel: Mipmap level for the subresource to access
 //
-// See also: [GraphicsResource.GetMappedPointer]
+// See also: [GraphicsResource.MappedPointer]
 //
 // Wraps cuGraphicsSubResourceGetMappedArray.
 func (g GraphicsResource) GraphicsSubResourceGetMappedArray(arrayIndex uint32, mipLevel uint32) (Array, error) {

@@ -9,25 +9,15 @@ package cublaslt
 //   - scaleType: Enumerant that specifies the data precision for the matrix transform descriptor this function creates. See cudaDataType_t
 //
 // Returns:
-//   - [ErrAllocFailed]: If memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtMatmulDescCreate.
 func NewMatmulDesc(computeType ComputeType, scaleType DataType) (MatmulDesc, error) {
 	return matmulDescCreate(computeType, scaleType)
 }
 
-// Destroy destroys a previously created matrix multiply descriptor object.
-//
-// Returns:
-//   - [Success]: If operation was successful.
-//
-// Wraps cublasLtMatmulDescDestroy.
-func (m MatmulDesc) Destroy() error {
-	return matmulDescDestroy(m)
-}
-
-// GetAttribute returns the value of the queried attribute belonging to a previously created matrix multiply descriptor.
+// Attribute returns the value of the queried attribute belonging to a previously created matrix multiply descriptor.
 //
 //   - attr: The attribute that will be retrieved by this function. See [MatmulDescAttributes]
 //   - buf: Memory address containing the attribute value retrieved by this function
@@ -35,12 +25,22 @@ func (m MatmulDesc) Destroy() error {
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: - If sizeInBytes is 0 and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtMatmulDescGetAttribute.
-func (m MatmulDesc) GetAttribute(attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func (m MatmulDesc) Attribute(attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
 	return matmulDescGetAttribute(m, attr, buf, sizeInBytes)
+}
+
+// Destroy destroys a previously created matrix multiply descriptor object.
+//
+// Returns:
+//   - [Success]: if operation was successful
+//
+// Wraps cublasLtMatmulDescDestroy.
+func (m MatmulDesc) Destroy() error {
+	return matmulDescDestroy(m)
 }
 
 // Init_internal wraps cublasLtMatmulDescInit_internal.
@@ -55,8 +55,8 @@ func (m MatmulDesc) Init_internal(size uint, computeType ComputeType, scaleType 
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
-//   - [Success]: If the attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtMatmulDescSetAttribute.
 func (m MatmulDesc) SetAttribute(attr MatmulDescAttributes, buf uintptr, sizeInBytes uint) error {

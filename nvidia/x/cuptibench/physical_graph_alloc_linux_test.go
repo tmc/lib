@@ -34,7 +34,7 @@ func TestPhysicalGraphAllocationIdentity(t *testing.T) {
 			if err == nil {
 				err = cudalaunch.Kernel(p.decode).Grid(2).Block(physicalBlock).On(p.streams[0]).Launch(p.state, mid, p.out)
 			}
-			return errors.Join(err, mid.MemFreeAsync(p.streams[0].Raw()))
+			return errors.Join(err, mid.FreeAsync(p.streams[0].Raw()))
 		})
 	})
 	physicalCheck(t, err)
@@ -49,7 +49,7 @@ func TestPhysicalGraphAllocationIdentity(t *testing.T) {
 	kinds := make(map[driver.GraphNodeType]int)
 	physicalCheck(t, p.dev.WithContext(func() error {
 		for _, node := range nodes {
-			kind, err := node.GetType()
+			kind, err := node.Type()
 			if err != nil {
 				return err
 			}

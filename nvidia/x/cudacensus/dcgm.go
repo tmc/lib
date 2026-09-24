@@ -70,7 +70,7 @@ func NewDCGMReader(h dcgm.Handle, gpuID int32, want []Counter, maxAge time.Durat
 	}
 	s.values = make([]dcgm.FieldValueV1, len(s.fields))
 	s.query = func(fields *uint16, count uint32, values *dcgm.FieldValueV1) error {
-		return h.GetLatestValuesForFields(gpuID, fields, count, values)
+		return h.LatestValuesForFields(gpuID, fields, count, values)
 	}
 	return s, nil
 }

@@ -1042,7 +1042,7 @@ func (e InforomObject) String() string {
 	return fmt.Sprintf("InforomObject(%d)", e)
 }
 
-// MemoryLocation represents See [Device.GetMemoryErrorCounter].
+// MemoryLocation represents See [Device.MemoryErrorCounter].
 type MemoryLocation int32
 
 const (

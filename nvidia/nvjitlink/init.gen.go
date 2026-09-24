@@ -485,7 +485,7 @@ func registerFuncs() {
 	register(&fnaddFile, "__nvJitLinkAddFile_13_2", "nvJitLinkAddFile")
 	register(&fncomplete, "__nvJitLinkComplete_13_2", "nvJitLinkComplete")
 	register(&fnCreate, "__nvJitLinkCreate_13_2", "nvJitLinkCreate")
-	register(&fnDestroy, "__nvJitLinkDestroy_13_2", "nvJitLinkDestroy")
+	register(&fndestroy, "__nvJitLinkDestroy_13_2", "nvJitLinkDestroy")
 	register(&fngetErrorLog, "__nvJitLinkGetErrorLog_13_2", "nvJitLinkGetErrorLog")
 	register(&fngetErrorLogSize, "__nvJitLinkGetErrorLogSize_13_2", "nvJitLinkGetErrorLogSize")
 	register(&fngetInfoLog, "__nvJitLinkGetInfoLog_13_2", "nvJitLinkGetInfoLog")
@@ -503,7 +503,7 @@ func clearFuncs() {
 	fnaddFile = nil
 	fncomplete = nil
 	fnCreate = nil
-	fnDestroy = nil
+	fndestroy = nil
 	fngetErrorLog = nil
 	fngetErrorLogSize = nil
 	fngetInfoLog = nil

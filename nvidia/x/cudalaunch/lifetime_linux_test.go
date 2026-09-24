@@ -6,7 +6,6 @@ import (
 	"context"
 	"sync"
 	"testing"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -39,11 +38,11 @@ func loadLifetimeKernel(t *testing.T, dev *cuda.Device) (driver.Module, driver.F
 	var fn driver.Function
 	if err := dev.WithContext(func() error {
 		var err error
-		mod, err = driver.NewModuleLoadData(unsafe.Pointer(&image[0]))
+		mod, err = driver.ModuleLoadData(image)
 		if err != nil {
 			return err
 		}
-		fn, err = mod.GetFunction("spin")
+		fn, err = mod.Function("spin")
 		return err
 	}); err != nil {
 		t.Fatalf("load PTX: %v", err)
@@ -60,7 +59,7 @@ func TestCounterCountsSubmissionNotCompletion(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
 	t.Cleanup(func() { _ = dev.Close() })
 	_, fn := loadLifetimeKernel(t, dev)
-	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +103,7 @@ func TestConcurrentStreamLaunchesOwnContext(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, streams)
 	for range streams {
-		stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+		stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -147,7 +146,7 @@ func TestDescribeDoesNotDetectAClosedModule(t *testing.T) {
 	var raw driver.Module
 	if err := dev.WithContext(func() error {
 		var err error
-		raw, err = driver.NewModuleLoadData(unsafe.Pointer(&image[0]))
+		raw, err = driver.ModuleLoadData(image)
 		return err
 	}); err != nil {
 		t.Fatalf("load PTX: %v", err)
@@ -235,7 +234,7 @@ func TestDynamicSharedMemOptinLifecycle(t *testing.T) {
 	var raw driver.Module
 	if err := dev.WithContext(func() error {
 		var err error
-		raw, err = driver.NewModuleLoadData(unsafe.Pointer(&image[0]))
+		raw, err = driver.ModuleLoadData(image)
 		return err
 	}); err != nil {
 		t.Fatalf("load PTX: %v", err)

@@ -161,7 +161,7 @@ func testQ2KMatvec(t *testing.T, threads uint32) {
 		t.Fatalf("load: %v", err)
 	}
 	defer mod.Unload()
-	fn, err := mod.GetFunction("Q2KMatvec")
+	fn, err := mod.Function("Q2KMatvec")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestGeneratedQ2KMatvecRaggedColsReturnsNaN(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	defer mod.Unload()
-	fn, err := mod.GetFunction("Q2KMatvec")
+	fn, err := mod.Function("Q2KMatvec")
 	if err != nil {
 		t.Fatal(err)
 	}

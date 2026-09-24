@@ -2,27 +2,27 @@
 
 package driver
 
-// GetArray Passes back the CUDA array bound to a surface reference.
+// Array Passes back the CUDA array bound to a surface reference.
 //
-// Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array. See also: [Module.GetSurfRef], [SurfRef.SetArray]
+// Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array. See also: [Module.SurfRef], [SurfRef.SetArray]
 //
 // Deprecated: Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array.
 //
 // Wraps cuSurfRefGetArray.
-func (s SurfRef) GetArray() (Array, error) {
+func (s SurfRef) Array() (Array, error) {
 	return surfRefGetArray(s)
 }
 
 // SetArray Sets the CUDA array for a surface reference.
 //
-// Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound. See also: [Module.GetSurfRef], [SurfRef.GetArray]
+// Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound. See also: [Module.SurfRef], [SurfRef.Array]
 //
 //   - hArray: CUDA array handle
-//   - Flags: set to 0
+//   - flags: set to 0
 //
 // Deprecated: Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound.
 //
 // Wraps cuSurfRefSetArray.
-func (s SurfRef) SetArray(hArray Array, Flags uint32) error {
-	return surfRefSetArray(s, hArray, Flags)
+func (s SurfRef) SetArray(hArray Array, flags uint32) error {
+	return surfRefSetArray(s, hArray, flags)
 }

@@ -2,121 +2,121 @@
 
 package nvml
 
-// GetBAR1Info wraps nvmlVgpuTypeGetBAR1Info.
+// BAR1Info wraps nvmlVgpuTypeGetBAR1Info.
 //
 //   - bar1Info: Pointer to the vGPU type BAR1 information structure [VgpuTypeBar1Info]
-func (v VgpuTypeId) GetBAR1Info(bar1Info *VgpuTypeBar1Info) error {
+func (v VgpuTypeId) BAR1Info(bar1Info *VgpuTypeBar1Info) error {
 	return vgpuTypeGetBAR1Info(v, bar1Info)
 }
 
-// GetCapabilities wraps nvmlVgpuTypeGetCapabilities.
+// Capabilities wraps nvmlVgpuTypeGetCapabilities.
 //
 //   - capability: Specifies the [VgpuCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is supported
-func (v VgpuTypeId) GetCapabilities(capability VgpuCapability) (uint32, error) {
+func (v VgpuTypeId) Capabilities(capability VgpuCapability) (uint32, error) {
 	return vgpuTypeGetCapabilities(v, capability)
 }
 
-// GetClass wraps nvmlVgpuTypeGetClass.
+// Class wraps nvmlVgpuTypeGetClass.
 //
 //   - vgpuTypeClass: Pointer to string array to return class in
 //   - size: Size of string
-func (v VgpuTypeId) GetClass(vgpuTypeClass *byte, size *uint32) error {
+func (v VgpuTypeId) Class(vgpuTypeClass *byte, size *uint32) error {
 	return vgpuTypeGetClass(v, vgpuTypeClass, size)
 }
 
-// GetDeviceID wraps nvmlVgpuTypeGetDeviceID.
+// DeviceID wraps nvmlVgpuTypeGetDeviceID.
 //
 //   - deviceID: Device ID and vendor ID of the device contained in single 32 bit value
 //   - subsystemID: Subsystem ID and subsystem vendor ID of the device contained in single 32 bit value
-func (v VgpuTypeId) GetDeviceID(deviceID *uint64, subsystemID *uint64) error {
+func (v VgpuTypeId) DeviceID(deviceID *uint64, subsystemID *uint64) error {
 	return vgpuTypeGetDeviceID(v, deviceID, subsystemID)
 }
 
-// GetFbReservation Retrieve the static framebuffer reservation of the vGPU type in bytes
+// FbReservation Retrieve the static framebuffer reservation of the vGPU type in bytes
 //
 //   - fbReservation: Reference to return the framebuffer reservation
 //
 // Wraps nvmlVgpuTypeGetFbReservation.
-func (v VgpuTypeId) GetFbReservation() (uint64, error) {
+func (v VgpuTypeId) FbReservation() (uint64, error) {
 	return vgpuTypeGetFbReservation(v)
 }
 
-// GetFrameRateLimit wraps nvmlVgpuTypeGetFrameRateLimit.
+// FrameRateLimit wraps nvmlVgpuTypeGetFrameRateLimit.
 //
 //   - frameRateLimit: Reference to return the frame rate limit value
-func (v VgpuTypeId) GetFrameRateLimit() (uint32, error) {
+func (v VgpuTypeId) FrameRateLimit() (uint32, error) {
 	return vgpuTypeGetFrameRateLimit(v)
 }
 
-// GetFramebufferSize wraps nvmlVgpuTypeGetFramebufferSize.
+// FramebufferSize wraps nvmlVgpuTypeGetFramebufferSize.
 //
 //   - fbSize: Pointer to framebuffer size in bytes
-func (v VgpuTypeId) GetFramebufferSize() (uint64, error) {
+func (v VgpuTypeId) FramebufferSize() (uint64, error) {
 	return vgpuTypeGetFramebufferSize(v)
 }
 
-// GetGpuInstanceProfileId wraps nvmlVgpuTypeGetGpuInstanceProfileId.
+// GpuInstanceProfileId wraps nvmlVgpuTypeGetGpuInstanceProfileId.
 //
 //   - gpuInstanceProfileId: GPU Instance Profile ID
-func (v VgpuTypeId) GetGpuInstanceProfileId() (uint32, error) {
+func (v VgpuTypeId) GpuInstanceProfileId() (uint32, error) {
 	return vgpuTypeGetGpuInstanceProfileId(v)
 }
 
-// GetGspHeapSize Retrieve the static GSP heap size of the vGPU type in bytes
+// GspHeapSize Retrieve the static GSP heap size of the vGPU type in bytes
 //
 // < Previous | Next >
 //
 //   - gspHeapSize: Reference to return the GSP heap size value
 //
 // Wraps nvmlVgpuTypeGetGspHeapSize.
-func (v VgpuTypeId) GetGspHeapSize() (uint64, error) {
+func (v VgpuTypeId) GspHeapSize() (uint64, error) {
 	return vgpuTypeGetGspHeapSize(v)
 }
 
-// GetLicense wraps nvmlVgpuTypeGetLicense.
+// License wraps nvmlVgpuTypeGetLicense.
 //
 //   - vgpuTypeLicenseString: Pointer to buffer to return license info
 //   - size: Size of vgpuTypeLicenseString buffer
-func (v VgpuTypeId) GetLicense() (string, error) {
+func (v VgpuTypeId) License() (string, error) {
 	return vgpuTypeGetLicense(v)
 }
 
-// GetMaxInstances wraps nvmlVgpuTypeGetMaxInstances.
+// MaxInstances wraps nvmlVgpuTypeGetMaxInstances.
 //
 //   - device: The identifier of the target device
 //   - vgpuInstanceCount: Pointer to get the max number of vGPU instances that can be created on a deicve for given vgpuTypeId
-func (v VgpuTypeId) GetMaxInstances(device Device) (uint32, error) {
+func (v VgpuTypeId) MaxInstances(device Device) (uint32, error) {
 	return vgpuTypeGetMaxInstances(device, v)
 }
 
-// GetMaxInstancesPerVm wraps nvmlVgpuTypeGetMaxInstancesPerVm.
+// MaxInstancesPerVm wraps nvmlVgpuTypeGetMaxInstancesPerVm.
 //
 //   - vgpuInstanceCountPerVm: Pointer to get the max number of vGPU instances supported per VM for given vgpuTypeId
-func (v VgpuTypeId) GetMaxInstancesPerVm() (uint32, error) {
+func (v VgpuTypeId) MaxInstancesPerVm() (uint32, error) {
 	return vgpuTypeGetMaxInstancesPerVm(v)
 }
 
-// GetName wraps nvmlVgpuTypeGetName.
+// Name wraps nvmlVgpuTypeGetName.
 //
 //   - vgpuTypeName: Pointer to buffer to return name
 //   - size: Size of buffer
-func (v VgpuTypeId) GetName(vgpuTypeName *byte, size *uint32) error {
+func (v VgpuTypeId) Name(vgpuTypeName *byte, size *uint32) error {
 	return vgpuTypeGetName(v, vgpuTypeName, size)
 }
 
-// GetNumDisplayHeads wraps nvmlVgpuTypeGetNumDisplayHeads.
+// NumDisplayHeads wraps nvmlVgpuTypeGetNumDisplayHeads.
 //
 //   - numDisplayHeads: Pointer to number of display heads
-func (v VgpuTypeId) GetNumDisplayHeads() (uint32, error) {
+func (v VgpuTypeId) NumDisplayHeads() (uint32, error) {
 	return vgpuTypeGetNumDisplayHeads(v)
 }
 
-// GetResolution wraps nvmlVgpuTypeGetResolution.
+// Resolution wraps nvmlVgpuTypeGetResolution.
 //
 //   - displayIndex: Zero-based index of display head
 //   - xdim: Pointer to maximum number of pixels in X dimension
 //   - ydim: Pointer to maximum number of pixels in Y dimension
-func (v VgpuTypeId) GetResolution(displayIndex uint32, xdim *uint32, ydim *uint32) error {
+func (v VgpuTypeId) Resolution(displayIndex uint32, xdim *uint32, ydim *uint32) error {
 	return vgpuTypeGetResolution(v, displayIndex, xdim, ydim)
 }

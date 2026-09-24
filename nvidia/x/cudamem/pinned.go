@@ -49,7 +49,7 @@ func (s Slice[T]) copyPinnedAsync(host HostAllocation[T], stream *cuda.Stream, c
 		return nil, err
 	}
 	release := func() { releaseHost(); releaseDevice() }
-	event, err := dev.NewEventWithFlags(uint32(driver.EventDisableTiming))
+	event, err := dev.NewEventWithFlags(driver.EventDisableTiming)
 	if err != nil {
 		release()
 		return nil, fmt.Errorf("cudamem: create transfer event: %w", err)
@@ -70,9 +70,9 @@ func (s Slice[T]) copyPinnedAsync(host HostAllocation[T], stream *cuda.Stream, c
 			ptr := unsafe.Pointer(&host.slice[0])
 			n := uint(uintptr(count) * s.elemSize)
 			if fromHost {
-				err = s.ptr.MemcpyHtoDAsync(ptr, n, handle)
+				err = s.ptr.CopyFromHostAsync(ptr, n, handle)
 			} else {
-				err = s.ptr.MemcpyDtoHAsync(ptr, n, handle)
+				err = s.ptr.CopyToHostAsync(ptr, n, handle)
 			}
 			if err != nil {
 				return fmt.Errorf("enqueue: %w", err)

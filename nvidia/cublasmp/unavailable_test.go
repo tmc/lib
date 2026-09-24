@@ -29,7 +29,7 @@ func TestUnavailableSurfaceIsStructured(t *testing.T) {
 		{"Create", func() error { _, err := cublasmp.NewHandle(cublas.Stream(0)); return err }},
 		{"Destroy", func() error { return cublasmp.Handle(0).Destroy() }},
 		{"SetStream", func() error { return cublasmp.Handle(0).SetStream(cublas.Stream(0)) }},
-		{"GetStream", func() error { _, err := cublasmp.Handle(0).GetStream(); return err }},
+		{"GetStream", func() error { _, err := cublasmp.Handle(0).Stream(); return err }},
 		{"GetVersion", func() error { _, err := cublasmp.GetVersion(); return err }},
 		{"GridCreate", func() error {
 			_, err := cublasmp.NewGrid(1, 1, cublasmp.ColMajor, nccl.Comm(0))

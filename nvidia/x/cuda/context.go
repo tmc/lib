@@ -45,7 +45,7 @@ func (c *Context) Run(fn func() error) (err error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	previous, err := driver.NewContextGetCurrent()
+	previous, err := driver.CtxGetCurrent()
 	if err != nil {
 		return fmt.Errorf("cuda: get current context: %w", err)
 	}

@@ -56,11 +56,11 @@ func TestUpdateDoesNotValidateKernelIdentity(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	incFn, err := mod.GetFunction("swapIncrement")
+	incFn, err := mod.Function("swapIncrement")
 	if err != nil {
 		t.Fatal(err)
 	}
-	scaleFn, err := mod.GetFunction("swapScale")
+	scaleFn, err := mod.Function("swapScale")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestUpdateErrorNamesTheNode(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dev.WithContext(mod.Unload)
-	incFn, err := mod.GetFunction("swapIncrement")
+	incFn, err := mod.Function("swapIncrement")
 	if err != nil {
 		t.Fatal(err)
 	}

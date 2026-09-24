@@ -68,7 +68,7 @@ func TestPhysicalEvictorChangesTheMeasurement(t *testing.T) {
 	var read driver.Function
 	if err := dev.WithContext(func() error {
 		var e error
-		read, e = module.GetFunction("stream_read")
+		read, e = module.Function("stream_read")
 		return e
 	}); err != nil {
 		t.Fatal(err)

@@ -22,8 +22,8 @@ func (i IRSParams) EnableFallback() error {
 	return iRSParamsEnableFallback(i)
 }
 
-// GetMaxIters wraps cusolverDnIRSParamsGetMaxIters.
-func (i IRSParams) GetMaxIters() (CusolverInt, error) {
+// MaxIters wraps cusolverDnIRSParamsGetMaxIters.
+func (i IRSParams) MaxIters() (CusolverInt, error) {
 	return iRSParamsGetMaxIters(i)
 }
 

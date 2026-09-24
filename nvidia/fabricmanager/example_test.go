@@ -36,7 +36,7 @@ func Example() {
 
 	var list fabricmanager.FabricPartitionList
 	list.Version = uint32(unsafe.Sizeof(list)) | 1<<24
-	if err := h.GetSupportedFabricPartitions(&list); err != nil {
+	if err := h.SupportedFabricPartitions(&list); err != nil {
 		fmt.Println("partitions:", err)
 		return
 	}

@@ -20,14 +20,14 @@ func (h Handle) Destroy() error {
 	return Destroy(h)
 }
 
+// DeviceMemHandler wraps cudssGetDeviceMemHandler.
+func (h Handle) DeviceMemHandler() (DeviceMemHandler, error) {
+	return GetDeviceMemHandler(h)
+}
+
 // Execute wraps cudssExecute.
 func (h Handle) Execute(phase Phase, solverConfig Config, solverData Data, inputMatrix Matrix, solution Matrix, rhs Matrix) error {
 	return Execute(h, phase, solverConfig, solverData, inputMatrix, solution, rhs)
-}
-
-// GetDeviceMemHandler wraps cudssGetDeviceMemHandler.
-func (h Handle) GetDeviceMemHandler() (DeviceMemHandler, error) {
-	return GetDeviceMemHandler(h)
 }
 
 // SetCommLayer wraps cudssSetCommLayer.

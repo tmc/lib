@@ -129,11 +129,11 @@ func TestPDLPositiveControl(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	pFn, err := mod.GetFunction("producer")
+	pFn, err := mod.Function("producer")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cFn, err := mod.GetFunction("consumer")
+	cFn, err := mod.Function("consumer")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,11 +241,11 @@ func TestPDLHardwareTimestamps(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	pFn, err := mod.GetFunction("producer_ts")
+	pFn, err := mod.Function("producer_ts")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cFn, err := mod.GetFunction("consumer_ts")
+	cFn, err := mod.Function("consumer_ts")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,11 +335,11 @@ func TestPDLAblationRun(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	pFn, err := mod.GetFunction("producer")
+	pFn, err := mod.Function("producer")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cFn, err := mod.GetFunction("consumer")
+	cFn, err := mod.Function("consumer")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -48,14 +48,14 @@ extern "C" __tile_global__ void fill(int* out) {
 	check(err)
 	var p driver.DevicePtr
 	check(dev.WithContext(func() error { var err error; p, err = driver.MemAlloc(64 * 4); return err }))
-	defer func() { check(dev.WithContext(p.MemFree)) }()
+	defer func() { check(dev.WithContext(p.Free)) }()
 	check(fn.Launch([3]uint32{64, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	var got [64]int32
 	check(dev.WithContext(func() error {
 		if err := driver.CtxSynchronize(); err != nil {
 			return err
 		}
-		return p.MemcpyDtoH(unsafe.Pointer(&got[0]), 256)
+		return p.CopyToHost(unsafe.Pointer(&got[0]), 256)
 	}))
 	for i, v := range got {
 		if v != int32(i+7) {

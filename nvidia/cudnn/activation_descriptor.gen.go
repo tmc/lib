@@ -29,7 +29,7 @@ func (a ActivationDescriptor) Get(mode *ActivationMode, reluNanOpt *NanPropagati
 	return getActivationDescriptor(a, mode, reluNanOpt, coef)
 }
 
-// GetActivationDescriptorSwishBeta queries the current beta parameter set for SWISH activation.
+// SwishBeta queries the current beta parameter set for SWISH activation.
 //
 //   - swish_beta: Output. Pointer to a double value that will receive the currently configured SWISH beta parameter
 //
@@ -40,7 +40,7 @@ func (a ActivationDescriptor) Get(mode *ActivationMode, reluNanOpt *NanPropagati
 // Deprecated: This function is deprecated.
 //
 // Wraps cudnnGetActivationDescriptorSwishBeta.
-func (a ActivationDescriptor) GetActivationDescriptorSwishBeta(swish_beta *float64) error {
+func (a ActivationDescriptor) SwishBeta(swish_beta *float64) error {
 	return getActivationDescriptorSwishBeta(a, swish_beta)
 }
 

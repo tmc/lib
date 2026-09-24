@@ -47,7 +47,7 @@ func TestDeviceUniformMatchesOracle(t *testing.T) {
 		}
 	}
 	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check(err)
 	ctx, err := driver.NewContext(nil, 0, dev)
 	check(err)
@@ -56,7 +56,7 @@ func TestDeviceUniformMatchesOracle(t *testing.T) {
 	const count = 4096
 	ptr, err := driver.MemAlloc(count * 4)
 	check(err)
-	defer func() { check(ptr.MemFree()) }()
+	defer func() { check(ptr.Free()) }()
 
 	device := func(seed uint64) []float32 {
 		t.Helper()
@@ -67,7 +67,7 @@ func TestDeviceUniformMatchesOracle(t *testing.T) {
 		check(gen.GenerateUniform((*float32)(unsafe.Pointer(uintptr(ptr))), count))
 		check(driver.CtxSynchronize())
 		out := make([]float32, count)
-		check(ptr.MemcpyDtoH(unsafe.Pointer(&out[0]), count*4))
+		check(ptr.CopyToHost(unsafe.Pointer(&out[0]), count*4))
 		return out
 	}
 	host := func(seed uint64) []float32 {

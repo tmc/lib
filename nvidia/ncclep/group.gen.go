@@ -18,6 +18,15 @@ func NewGroup(comm nccl.Comm, config *GroupConfig) (Group, error) {
 	return CreateGroup(comm, config)
 }
 
+// AsyncError reads the asynchronous error flag without synchronizing the GPU.
+//
+// Poll for asynchronous errors (e.g., rank timeout). Lightweight host-side check — reads a pinned CPU flag, no GPU sync required. The flag is set by the kernel when a timeout masks a rank; clear it explicitly via [Group.ErrorClear]. Requires enable_mask=true in the group config.
+//
+// Wraps ncclEpGetAsyncError.
+func (g Group) AsyncError() (int32, error) {
+	return GetAsyncError(g)
+}
+
 // CreateHandle creates a handle and updates its routing metadata.
 //
 // Create, initialize and bind an EP handle to a given layout and routing decisions. Must be called before the first [Handle.Dispatch]/[Handle.Combine]. Combines the functionality of [Group.InitHandle] and [Handle.Update] (see above)
@@ -44,20 +53,11 @@ func (g Group) Destroy() error {
 
 // ErrorClear clears the group's asynchronous error flag.
 //
-// Clear the async error flag. Lightweight host-side reset — writes zero to the pinned CPU flag. Use after detecting an error (via [Group.GetAsyncError]) to re-arm the flag for detecting new failures. Should be called after [Group.MaskClean] (full recovery) or standalone when surviving ranks continue in degraded mode. Requires enable_mask=true in the group config.
+// Clear the async error flag. Lightweight host-side reset — writes zero to the pinned CPU flag. Use after detecting an error (via [Group.AsyncError]) to re-arm the flag for detecting new failures. Should be called after [Group.MaskClean] (full recovery) or standalone when surviving ranks continue in degraded mode. Requires enable_mask=true in the group config.
 //
 // Wraps ncclEpErrorClear.
 func (g Group) ErrorClear() error {
 	return ErrorClear(g)
-}
-
-// GetAsyncError reads the asynchronous error flag without synchronizing the GPU.
-//
-// Poll for asynchronous errors (e.g., rank timeout). Lightweight host-side check — reads a pinned CPU flag, no GPU sync required. The flag is set by the kernel when a timeout masks a rank; clear it explicitly via [Group.ErrorClear]. Requires enable_mask=true in the group config.
-//
-// Wraps ncclEpGetAsyncError.
-func (g Group) GetAsyncError() (int32, error) {
-	return GetAsyncError(g)
 }
 
 // InitHandle initializes a handle for an explicit layout.

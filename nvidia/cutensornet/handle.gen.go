@@ -116,23 +116,6 @@ func (h Handle) DistributedSynchronize() error {
 	return distributedSynchronize(h)
 }
 
-// GetOutputTensorDescriptor wraps cutensornetGetOutputTensorDescriptor.
-func (h Handle) GetOutputTensorDescriptor(networkDesc NetworkDescriptor) (TensorDescriptor, error) {
-	return getOutputTensorDescriptor(h, networkDesc)
-}
-
-// GetOutputTensorDetails wraps cutensornetGetOutputTensorDetails.
-//
-// Deprecated: This function is deprecated.
-func (h Handle) GetOutputTensorDetails(networkDesc NetworkDescriptor, numModes *int32, dataSize *uint, modeLabels *int32, extents *int64, strides *int64) error {
-	return getOutputTensorDetails(h, networkDesc, numModes, dataSize, modeLabels, extents, strides)
-}
-
-// GetTensorDetails wraps cutensornetGetTensorDetails.
-func (h Handle) GetTensorDetails(tensorDesc TensorDescriptor, numModes *int32, dataSize *uint, modeLabels *int32, extents *int64, strides *int64) error {
-	return getTensorDetails(h, tensorDesc, numModes, dataSize, modeLabels, extents, strides)
-}
-
 // NetworkAppendTensor wraps cutensornetNetworkAppendTensor.
 func (h Handle) NetworkAppendTensor(networkDesc NetworkDescriptor, numModes int32, extents *int64, modeLabels *int32, qualifiers *TensorQualifiers, dataType DataType) (int64, error) {
 	return networkAppendTensor(h, networkDesc, numModes, extents, modeLabels, qualifiers, dataType)
@@ -181,6 +164,23 @@ func (h Handle) NetworkSetOutputTensor(networkDesc NetworkDescriptor, numModes i
 // NetworkSetOutputTensorMemory wraps cutensornetNetworkSetOutputTensorMemory.
 func (h Handle) NetworkSetOutputTensorMemory(networkDesc NetworkDescriptor, buffer uintptr, strides *int64) error {
 	return networkSetOutputTensorMemory(h, networkDesc, buffer, strides)
+}
+
+// OutputTensorDescriptor wraps cutensornetGetOutputTensorDescriptor.
+func (h Handle) OutputTensorDescriptor(networkDesc NetworkDescriptor) (TensorDescriptor, error) {
+	return getOutputTensorDescriptor(h, networkDesc)
+}
+
+// OutputTensorDetails wraps cutensornetGetOutputTensorDetails.
+//
+// Deprecated: This function is deprecated.
+func (h Handle) OutputTensorDetails(networkDesc NetworkDescriptor, numModes *int32, dataSize *uint, modeLabels *int32, extents *int64, strides *int64) error {
+	return getOutputTensorDetails(h, networkDesc, numModes, dataSize, modeLabels, extents, strides)
+}
+
+// TensorDetails wraps cutensornetGetTensorDetails.
+func (h Handle) TensorDetails(tensorDesc TensorDescriptor, numModes *int32, dataSize *uint, modeLabels *int32, extents *int64, strides *int64) error {
+	return getTensorDetails(h, tensorDesc, numModes, dataSize, modeLabels, extents, strides)
 }
 
 // UpdateContractionOptimizerInfoFromPackedData wraps cutensornetUpdateContractionOptimizerInfoFromPackedData.

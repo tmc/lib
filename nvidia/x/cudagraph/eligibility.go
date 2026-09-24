@@ -53,7 +53,7 @@ func (g *Graph) Eligibility() (Eligibility, error) {
 
 	err = g.withContext(func() error {
 		for i, node := range nodes {
-			kind, err := node.GetType()
+			kind, err := node.Type()
 			if err != nil {
 				el.Reasons = append(el.Reasons, fmt.Sprintf("node %d: get type: %v", i, err))
 				continue

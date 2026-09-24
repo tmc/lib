@@ -52,7 +52,7 @@ func MulticastGranularity(numDevices int) (uintptr, error) {
 
 // MulticastSupported reports whether dev supports NVSwitch multicast.
 func MulticastSupported(dev driver.Device) (bool, error) {
-	v, err := dev.GetAttribute(driver.DevAttrMulticastSupported)
+	v, err := dev.Attribute(driver.DevAttrMulticastSupported)
 	if err != nil {
 		return false, fmt.Errorf("cuDeviceGetAttribute(MULTICAST_SUPPORTED): %w", err)
 	}

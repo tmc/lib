@@ -101,14 +101,14 @@
 //
 // # Configuration
 //
-//   - [Handle.GetMathMode]: returns the math mode used by the library routines.
-//   - [Handle.GetPointerMode]: obtains the pointer mode used by the cuBLAS library.
+//   - [Handle.MathMode]: returns the math mode used by the library routines.
+//   - [Handle.PointerMode]: obtains the pointer mode used by the cuBLAS library.
 //   - [Handle.SetMathMode]: The [Handle.SetMathMode] function enables you to choose the compute precision modes as defined by [Math].
 //   - [Handle.SetPointerMode]: sets the pointer mode used by the cuBLAS library.
 //
 // # Stream Management
 //
-//   - [Handle.GetStream]: gets the cuBLAS library stream, which is being used to execute all calls to the cuBLAS library functions.
+//   - [Handle.Stream]: gets the cuBLAS library stream, which is being used to execute all calls to the cuBLAS library functions.
 //   - [Handle.SetStream]: sets the cuBLAS library stream, which will be used to execute all subsequent calls to the cuBLAS library functions.
 //
 // # Other
@@ -302,25 +302,25 @@
 //   - [Handle.GemmGroupedBatchedEx64]: supports the 64-bit Integer Interface.
 //   - [Handle.GemmStridedBatchedEx]: supports the 64-bit Integer Interface.
 //   - [Handle.GemmStridedBatchedEx64]: supports the 64-bit Integer Interface.
-//   - [Handle.GetAtomicsMode]: queries the atomic mode of a specific cuBLAS context.
-//   - [Handle.GetEmulationSpecialValuesSupport]: obtains the value previously programmed to the library handle.
-//   - [Handle.GetEmulationStrategy]: obtains the value previously programmed to the library handle.
-//   - [Handle.GetFixedPointEmulationMantissaBitCountPointer]: obtains the value previously programmed to the library handle.
-//   - [Handle.GetFixedPointEmulationMantissaBitOffset]: obtains the value previously programmed to the library handle.
-//   - [Handle.GetFixedPointEmulationMantissaControl]: obtains the value previously programmed to the library handle.
-//   - [Handle.GetFixedPointEmulationMaxMantissaBitCount]: obtains the value previously programmed to the library handle.
+//   - [Handle.AtomicsMode]: queries the atomic mode of a specific cuBLAS context.
+//   - [Handle.EmulationSpecialValuesSupport]: obtains the value previously programmed to the library handle.
+//   - [Handle.EmulationStrategy]: obtains the value previously programmed to the library handle.
+//   - [Handle.FixedPointEmulationMantissaBitCountPointer]: obtains the value previously programmed to the library handle.
+//   - [Handle.FixedPointEmulationMantissaBitOffset]: obtains the value previously programmed to the library handle.
+//   - [Handle.FixedPointEmulationMantissaControl]: obtains the value previously programmed to the library handle.
+//   - [Handle.FixedPointEmulationMaxMantissaBitCount]: obtains the value previously programmed to the library handle.
 //   - [GetLoggerCallback]: retrieves function pointer to previously installed custom user defined callback function via [SetLoggerCallback] or zero otherwise.
 //   - [GetMatrix]: supports the 64-bit Integer Interface.
 //   - [GetMatrixAsync]: supports the 64-bit Integer Interface.
 //   - [GetMatrixAsync64]: supports the 64-bit Integer Interface.
 //   - [GetMatrix64]: supports the 64-bit Integer Interface.
 //   - [GetProperty]: returns the value of the requested property in memory pointed to by value.
-//   - [Handle.GetSmCountTarget]: obtains the value previously programmed to the library handle.
+//   - [Handle.SmCountTarget]: obtains the value previously programmed to the library handle.
 //   - [GetVector]: supports the 64-bit Integer Interface.
 //   - [GetVectorAsync]: supports the 64-bit Integer Interface.
 //   - [GetVectorAsync64]: supports the 64-bit Integer Interface.
 //   - [GetVector64]: supports the 64-bit Integer Interface.
-//   - [Handle.GetVersion]: returns the version number of the cuBLAS library.
+//   - [Handle.Version]: returns the version number of the cuBLAS library.
 //   - [Handle.HSHgemvBatched]: supports the 64-bit Integer Interface.
 //   - [Handle.HSHgemvBatched64]: supports the 64-bit Integer Interface.
 //   - [Handle.HSHgemvStridedBatched]: supports the 64-bit Integer Interface.

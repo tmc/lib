@@ -225,7 +225,7 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 	}
 	defer loadedMod.Unload()
 
-	fn, err := loadedMod.GetFunction(cand.KernelName)
+	fn, err := loadedMod.Function(cand.KernelName)
 	if err != nil {
 		return 0, fmt.Errorf("egraph: get kernel function %q: %w", cand.KernelName, err)
 	}

@@ -17,7 +17,7 @@ func TestNativeStallReasons(t *testing.T) {
 	defer d.Close()
 
 	err := d.WithContext(func() error {
-		ctx, err := driver.NewContextGetCurrent()
+		ctx, err := driver.CtxGetCurrent()
 		if err != nil {
 			return err
 		}

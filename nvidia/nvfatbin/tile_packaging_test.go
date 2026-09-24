@@ -31,7 +31,7 @@ func TestTileIRPackaging(t *testing.T) {
 		t.Run("compress="+mode, func(t *testing.T) {
 			h, err := nvfatbin.Create([]string{"-64", "-cuda", "-compress=" + mode})
 			check(err)
-			defer func() { check(nvfatbin.Destroy(&h)) }()
+			defer func() { check(h.Destroy()) }()
 			check(h.AddTileIR(unsafe.Pointer(&ir[0]), uint(len(ir)), "tile_fill", ""))
 			runtime.KeepAlive(ir)
 			size, err := h.Size()

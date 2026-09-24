@@ -65,7 +65,7 @@ ret;
 	var raw driver.Module
 	check(dev.WithContext(func() error {
 		var err error
-		raw, err = driver.NewModuleLoadData(unsafe.Pointer(&image[0]))
+		raw, err = driver.ModuleLoadData(image)
 		return err
 	}))
 	m, err := OwnModule(dev, raw)
@@ -82,7 +82,7 @@ ret;
 	check(m.ctx.Run(func() error { var err error; p, err = driver.MemAlloc(4); return err }))
 	defer func() {
 		if p != 0 {
-			if err := m.ctx.Run(p.MemFree); err != nil {
+			if err := m.ctx.Run(p.Free); err != nil {
 				t.Error(err)
 			}
 		}
@@ -106,12 +106,12 @@ ret;
 		if err := driver.CtxSynchronize(); err != nil {
 			return err
 		}
-		return p.MemcpyDtoH(unsafe.Pointer(&got), 4)
+		return p.CopyToHost(unsafe.Pointer(&got), 4)
 	}))
 	if got != 7 {
 		t.Fatalf("got %d want 7", got)
 	}
-	check(m.ctx.Run(p.MemFree))
+	check(m.ctx.Run(p.Free))
 	p = 0
 	check(m.Close())
 	check(m.Close())

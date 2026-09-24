@@ -131,7 +131,7 @@ func TestFunctionPointerSignatures(t *testing.T) {
 	}, {
 		symbol: "nvFatbinDestroy",
 		c:      "nvFatbinResult nvFatbinDestroy(nvFatbinHandle *handle_indirect)",
-		fn:     fnDestroy,
+		fn:     fndestroy,
 		want:   "func(*nvfatbin.Handle) nvfatbin.Result",
 	}, {
 		symbol: "nvFatbinAddPTX",

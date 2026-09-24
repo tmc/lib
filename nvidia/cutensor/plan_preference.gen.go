@@ -2,14 +2,14 @@
 
 package cutensor
 
+// Attribute wraps cutensorPlanPreferenceGetAttribute.
+func (p PlanPreference) Attribute(handle Handle, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
+	return planPreferenceGetAttribute(handle, p, attr, buf, sizeInBytes)
+}
+
 // Destroy wraps cutensorDestroyPlanPreference.
 func (p PlanPreference) Destroy() error {
 	return destroyPlanPreference(p)
-}
-
-// GetAttribute wraps cutensorPlanPreferenceGetAttribute.
-func (p PlanPreference) GetAttribute(handle Handle, attr PlanpreferenceattributeT, buf uintptr, sizeInBytes uint) error {
-	return planPreferenceGetAttribute(handle, p, attr, buf, sizeInBytes)
 }
 
 // SetAttribute wraps cutensorPlanPreferenceSetAttribute.

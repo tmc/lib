@@ -17,7 +17,7 @@ func (g Graph) AddBatchMemOpNode(dependencies *GraphNode, numDependencies uint, 
 
 // AddChildGraphNode Creates a child graph node and adds it to a graph.
 //
-// Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error. The node executes an embedded child graph. The child graph is cloned in this call. See also: [Graph.AddNode], [NewGraphChildGraphNodeGetGraph], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
+// Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error. The node executes an embedded child graph. The child graph is cloned in this call. See also: [Graph.AddNode], [GraphChildGraphNodeGetGraph], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
@@ -30,7 +30,7 @@ func (g Graph) AddChildGraphNode(dependencies *GraphNode, numDependencies uint, 
 
 // AddDependencies Adds dependency edges to a graph.
 //
-// The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph. If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error. See also: [Graph.RemoveDependencies], [Graph.GetEdges], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph. If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error. See also: [Graph.RemoveDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - from: Array of nodes that provide the dependencies
 //   - to: Array of dependent nodes
@@ -134,11 +134,11 @@ func (g Graph) AddKernelNode(dependencies *GraphNode, numDependencies uint, node
 
 // AddMemAllocNode Creates an allocation node and adds it to a graph.
 //
-// Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemFreeNode], [GraphNode.GraphMemAllocNodeGetParams], [Device.GraphMemTrim], [Device.GetGraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemFreeNode], [GraphNode.GraphMemAllocNodeGetParams], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
-//   - nodeParams: Parameters for the node When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: - passing the allocation to [DevicePtr.MemFreeAsync] or [DevicePtr.MemFree]; - launching a graph with a free node for that allocation; or - specifying [GraphInstantiateFlagAutoFreeOnLaunch] during instantiation, which makes each launch behave as though it called [DevicePtr.MemFreeAsync] for every unfreed allocation. It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: - Nodes and edges of the graph cannot be deleted. - The graph can only be used in a child node if the ownership is moved to the parent. - Only one instantiation of the graph may exist at any point in time. - The graph cannot be cloned
+//   - nodeParams: Parameters for the node When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: - passing the allocation to [DevicePtr.FreeAsync] or [DevicePtr.Free]; - launching a graph with a free node for that allocation; or - specifying [GraphInstantiateFlagAutoFreeOnLaunch] during instantiation, which makes each launch behave as though it called [DevicePtr.FreeAsync] for every unfreed allocation. It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: - Nodes and edges of the graph cannot be deleted. - The graph can only be used in a child node if the ownership is moved to the parent. - Only one instantiation of the graph may exist at any point in time. - The graph cannot be cloned
 //
 // Wraps cuGraphAddMemAllocNode.
 func (g Graph) AddMemAllocNode(dependencies *GraphNode, numDependencies uint, nodeParams *MemAllocNodeParams) (GraphNode, error) {
@@ -147,7 +147,7 @@ func (g Graph) AddMemAllocNode(dependencies *GraphNode, numDependencies uint, no
 
 // AddMemFreeNode Creates a memory free node and adds it to a graph.
 //
-// Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams], [Device.GraphMemTrim], [Device.GetGraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - phGraphNode: Returns newly created node
 //   - dependencies: Dependencies of the node
@@ -231,7 +231,7 @@ func (g Graph) ConditionalHandleCreate(ctx Context, defaultLaunchValue uint32, f
 //   - flags: Flags from [GraphdebugdotFlags] for specifying which additional node information to write
 //
 // Wraps cuGraphDebugDotPrint.
-func (g Graph) DebugDotPrint(path string, flags uint32) error {
+func (g Graph) DebugDotPrint(path string, flags GraphdebugdotFlags) error {
 	return graphDebugDotPrint(g, path, flags)
 }
 
@@ -244,9 +244,9 @@ func (g Graph) Destroy() error {
 	return graphDestroy(g)
 }
 
-// GetEdges Returns a graph's dependency edges.
+// Edges Returns a graph's dependency edges.
 //
-// Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well. See also: [Graph.GetNodes], [Graph.GetRootNodes], [Graph.AddDependencies], [Graph.RemoveDependencies], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well. See also: [Graph.GetNodes], [Graph.RootNodes], [Graph.AddDependencies], [Graph.RemoveDependencies], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - from: Location to return edge endpoints
 //   - to: Location to return edge endpoints
@@ -254,22 +254,22 @@ func (g Graph) Destroy() error {
 //   - numEdges: See description
 //
 // Wraps cuGraphGetEdges, bound as cuGraphGetEdges_v2.
-func (g Graph) GetEdges(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numEdges *uint) error {
+func (g Graph) Edges(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numEdges *uint) error {
 	return graphGetEdges(g, from, to, edgeData, numEdges)
 }
 
-// GetId Returns the id of a given graph.
+// Id Returns the id of a given graph.
 //
-// Returns the id of hGraph in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint]. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetContainingGraph] [GraphNode.GetLocalId] [GraphNode.GetToolsId] [GraphExec.GetId]
+// Returns the id of hGraph in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint]. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [GraphNode.ToolsId] [GraphExec.Id]
 //
 // Wraps cuGraphGetId.
-func (g Graph) GetId() (uint32, error) {
+func (g Graph) Id() (uint32, error) {
 	return graphGetId(g)
 }
 
 // GetNodes Returns a graph's nodes.
 //
-// Returns a list of hGraph's nodes. nodes may be NULL, in which case this function will return the number of nodes in numNodes. Otherwise, numNodes entries will be filled in. If numNodes is higher than the actual number of nodes, the remaining entries in nodes will be set to NULL, and the number of nodes actually obtained will be returned in numNodes. See also: [NewGraph], [Graph.GetRootNodes], [Graph.GetEdges], [GraphNode.GetType], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// Returns a list of hGraph's nodes. nodes may be NULL, in which case this function will return the number of nodes in numNodes. Otherwise, numNodes entries will be filled in. If numNodes is higher than the actual number of nodes, the remaining entries in nodes will be set to NULL, and the number of nodes actually obtained will be returned in numNodes. See also: [NewGraph], [Graph.RootNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - numNodes: See description
 //
@@ -278,14 +278,14 @@ func (g Graph) GetNodes(numNodes *uint) (GraphNode, error) {
 	return graphGetNodes(g, numNodes)
 }
 
-// GetRootNodes Returns a graph's root nodes.
+// RootNodes Returns a graph's root nodes.
 //
-// Returns a list of hGraph's root nodes. rootNodes may be NULL, in which case this function will return the number of root nodes in numRootNodes. Otherwise, numRootNodes entries will be filled in. If numRootNodes is higher than the actual number of root nodes, the remaining entries in rootNodes will be set to NULL, and the number of nodes actually obtained will be returned in numRootNodes. See also: [NewGraph], [Graph.GetNodes], [Graph.GetEdges], [GraphNode.GetType], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// Returns a list of hGraph's root nodes. rootNodes may be NULL, in which case this function will return the number of root nodes in numRootNodes. Otherwise, numRootNodes entries will be filled in. If numRootNodes is higher than the actual number of root nodes, the remaining entries in rootNodes will be set to NULL, and the number of nodes actually obtained will be returned in numRootNodes. See also: [NewGraph], [Graph.GetNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - numRootNodes: See description
 //
 // Wraps cuGraphGetRootNodes.
-func (g Graph) GetRootNodes(numRootNodes *uint) (GraphNode, error) {
+func (g Graph) RootNodes(numRootNodes *uint) (GraphNode, error) {
 	return graphGetRootNodes(g, numRootNodes)
 }
 
@@ -296,7 +296,7 @@ func (g Graph) GetRootNodes(numRootNodes *uint) (GraphNode, error) {
 //   - flags: Flags to control instantiation. See [GraphinstantiateFlags]
 //
 // Wraps cuGraphInstantiate, bound as cuGraphInstantiateWithFlags.
-func (g Graph) Instantiate(flags uint64) (GraphExec, error) {
+func (g Graph) Instantiate(flags GraphinstantiateFlags) (GraphExec, error) {
 	return graphInstantiate(g, flags)
 }
 
@@ -325,7 +325,7 @@ func (g Graph) ReleaseUserObject(object UserObject, count uint32) error {
 
 // RemoveDependencies Removes dependency edges from a graph.
 //
-// The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph. If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge. Dependencies cannot be removed from graphs which contain allocation or free nodes. Any attempt to do so will return an error. See also: [Graph.AddDependencies], [Graph.GetEdges], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph. If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge. Dependencies cannot be removed from graphs which contain allocation or free nodes. Any attempt to do so will return an error. See also: [Graph.AddDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - from: Array of nodes that provide the dependencies
 //   - to: Array of dependent nodes
@@ -346,24 +346,24 @@ func (g Graph) RemoveDependencies(from *GraphNode, to *GraphNode, edgeData *Grap
 //   - flags: The optional flag [GraphUserObjectMove] transfers references from the calling thread, rather than create new references. Pass 0 to create new references
 //
 // Wraps cuGraphRetainUserObject.
-func (g Graph) RetainUserObject(object UserObject, count uint32, flags uint32) error {
+func (g Graph) RetainUserObject(object UserObject, count uint32, flags UserobjectretainFlags) error {
 	return graphRetainUserObject(g, object, count, flags)
 }
 
-// NewGraphChildGraphNodeGetGraph Gets a handle to the embedded graph of a child graph node.
+// GraphChildGraphNodeGetGraph Gets a handle to the embedded graph of a child graph node.
 //
 // Gets a handle to the embedded graph in a child graph node. This call does not clone the graph. Changes to the graph will be reflected in the node, and the node retains ownership of the graph. Allocation and free nodes cannot be added to the returned graph. Attempting to do so will return an error. See also: [Graph.AddChildGraphNode], [GraphNode.FindInClone]
 //
 //   - hNode: Node to get the embedded graph for
 //
 // Wraps cuGraphChildGraphNodeGetGraph.
-func NewGraphChildGraphNodeGetGraph(hNode GraphNode) (Graph, error) {
+func GraphChildGraphNodeGetGraph(hNode GraphNode) (Graph, error) {
 	return graphChildGraphNodeGetGraph(hNode)
 }
 
 // NewGraph Creates a graph.
 //
-// Creates an empty graph, which is returned via phGraph. See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Instantiate], [Graph.Destroy], [Graph.GetNodes], [Graph.GetRootNodes], [Graph.GetEdges], [Graph.Clone]
+// Creates an empty graph, which is returned via phGraph. See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Instantiate], [Graph.Destroy], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.Clone]
 //
 //   - flags: Graph creation flags, must be 0
 //

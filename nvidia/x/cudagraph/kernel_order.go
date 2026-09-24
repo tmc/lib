@@ -33,7 +33,7 @@ func snapshotKernelOrder(g driver.Graph) ([]string, error) {
 		return nil, err
 	}
 	var count uint
-	if err := g.GetEdges(nil, nil, nil, &count); err != nil {
+	if err := g.Edges(nil, nil, nil, &count); err != nil {
 		return nil, err
 	}
 	if count > limit {
@@ -47,7 +47,7 @@ func snapshotKernelOrder(g driver.Graph) ([]string, error) {
 		defer pin.Unpin()
 		// A nil edge-data output rejects nondefault dependency types with CUDA's
 		// LOSSY_QUERY error. Only full completion dependencies prove this order.
-		if err := g.GetEdges(&from[0], &to[0], nil, &count); err != nil {
+		if err := g.Edges(&from[0], &to[0], nil, &count); err != nil {
 			return nil, err
 		}
 		if count != uint(len(from)) {
@@ -56,7 +56,7 @@ func snapshotKernelOrder(g driver.Graph) ([]string, error) {
 	}
 	symbols := make(map[driver.GraphNode]string, len(nodes))
 	for _, node := range nodes {
-		kind, err := node.GetType()
+		kind, err := node.Type()
 		if err != nil {
 			return nil, err
 		}
@@ -82,9 +82,9 @@ func snapshotKernelOrder(g driver.Graph) ([]string, error) {
 			}
 			var name string
 			if params.Func != 0 {
-				name, err = params.Func.GetName()
+				name, err = params.Func.Name()
 			} else if params.Kern != 0 {
-				name, err = params.Kern.GetName()
+				name, err = params.Kern.Name()
 			} else {
 				return nil, errors.New("cudagraph: kernel node has no function")
 			}

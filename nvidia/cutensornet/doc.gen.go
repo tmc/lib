@@ -69,13 +69,13 @@
 // # Path optimization
 //
 //   - [Handle.ContractionAutotune].
-//   - [ContractionAutotunePreference.GetAttribute].
+//   - [ContractionAutotunePreference.Attribute].
 //   - [ContractionAutotunePreference.SetAttribute].
 //   - [Handle.ContractionOptimize].
-//   - [ContractionOptimizerConfig.GetAttribute].
+//   - [ContractionOptimizerConfig.Attribute].
 //   - [ContractionOptimizerConfig.SetAttribute].
-//   - [ContractionOptimizerInfo.GetAttribute].
-//   - [ContractionOptimizerInfo.GetPackedSize].
+//   - [ContractionOptimizerInfo.Attribute].
+//   - [ContractionOptimizerInfo.PackedSize].
 //   - [ContractionOptimizerInfo.PackData].
 //   - [ContractionOptimizerInfo.SetAttribute].
 //
@@ -114,7 +114,7 @@
 //   - [Handle.DistributedSynchronize].
 //   - [Handle.NetworkAppendTensor].
 //   - [Handle.NetworkAutotuneContraction].
-//   - [NetworkAutotunePreference.GetAttribute].
+//   - [NetworkAutotunePreference.Attribute].
 //   - [NetworkAutotunePreference.SetAttribute].
 //   - [Handle.NetworkContract].
 //   - [Handle.NetworkGetAttribute].
@@ -129,9 +129,9 @@
 // # Queries
 //
 //   - [GetCudartVersion].
-//   - [Handle.GetOutputTensorDescriptor].
-//   - [Handle.GetOutputTensorDetails].
-//   - [Handle.GetTensorDetails].
+//   - [Handle.OutputTensorDescriptor].
+//   - [Handle.OutputTensorDetails].
+//   - [Handle.TensorDetails].
 //   - [GetVersion].
 //
 // # Logging

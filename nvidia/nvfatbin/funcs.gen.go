@@ -16,7 +16,7 @@ var (
 	fnaddReloc  func(Handle, unsafe.Pointer, uint) Result
 	fnaddTileIR func(Handle, unsafe.Pointer, uint, *byte, *byte) Result
 	fnCreate    func(*Handle, **byte, uint) Result
-	fnDestroy   func(*Handle) Result
+	fndestroy   func(*Handle) Result
 	fnget       func(Handle, unsafe.Pointer) Result
 	fnsize      func(Handle, *uint) Result
 	fnVersion   func(*uint32, *uint32) Result
@@ -156,16 +156,16 @@ func Create(options []string) (Handle, error) {
 	return out, nil
 }
 
-// Destroy [Destroy] destroys the handle.
+// destroy [Handle.Destroy] destroys the handle.
 //
 //   - handle_indirect (in): Pointer to the handle
 //
 // Wraps nvFatbinDestroy.
-func Destroy(handle_indirect *Handle) error {
+func destroy(handle_indirect *Handle) error {
 	if err := checkLibSym("nvFatbinDestroy"); err != nil {
 		return err
 	}
-	return toError(fnDestroy(handle_indirect))
+	return toError(fndestroy(handle_indirect))
 }
 
 // get [Handle.Get] returns the completed fatbinary.

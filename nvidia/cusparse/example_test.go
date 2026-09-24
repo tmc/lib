@@ -20,7 +20,7 @@ func Example() {
 	}
 	defer h.Destroy()
 
-	version, err := h.GetVersion()
+	version, err := h.Version()
 	if err != nil {
 		fmt.Println("version:", err)
 		return

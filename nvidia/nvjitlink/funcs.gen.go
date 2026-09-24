@@ -13,7 +13,7 @@ var (
 	fnaddFile            func(Handle, InputType, *byte) Result
 	fncomplete           func(Handle) Result
 	fnCreate             func(*Handle, uint32, **byte) Result
-	fnDestroy            func(*Handle) Result
+	fndestroy            func(*Handle) Result
 	fngetErrorLog        func(Handle, *byte) Result
 	fngetErrorLogSize    func(Handle, *uint) Result
 	fngetInfoLog         func(Handle, *byte) Result
@@ -74,12 +74,12 @@ func Create(options []string) (Handle, error) {
 	return out, nil
 }
 
-// Destroy wraps nvJitLinkDestroy, bound as __nvJitLinkDestroy_13_2.
-func Destroy(handle *Handle) error {
+// destroy wraps nvJitLinkDestroy, bound as __nvJitLinkDestroy_13_2.
+func destroy(handle *Handle) error {
 	if err := checkLibSym("__nvJitLinkDestroy_13_2"); err != nil {
 		return err
 	}
-	return toError(fnDestroy(handle))
+	return toError(fndestroy(handle))
 }
 
 // getErrorLog wraps nvJitLinkGetErrorLog, bound as __nvJitLinkGetErrorLog_13_2.

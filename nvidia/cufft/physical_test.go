@@ -24,7 +24,7 @@ func TestImpulseRoundTrip(t *testing.T) {
 		}
 	}
 	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check(err)
 	ctx, err := dev.PrimaryCtxRetain()
 	check(err)
@@ -52,14 +52,14 @@ func TestImpulseRoundTrip(t *testing.T) {
 	ptr, err := driver.MemAlloc(bytes)
 	check(err)
 	defer func() {
-		if err := ptr.MemFree(); err != nil {
+		if err := ptr.Free(); err != nil {
 			t.Errorf("free device buffer: %v", err)
 		}
 	}()
-	check(ptr.MemcpyHtoD(unsafe.Pointer(&values[0]), bytes))
+	check(ptr.CopyFromHost(unsafe.Pointer(&values[0]), bytes))
 	check(plan.ExecC2C(uintptr(ptr), uintptr(ptr), cufft.Forward))
 	check(driver.CtxSynchronize())
-	check(ptr.MemcpyDtoH(unsafe.Pointer(&values[0]), bytes))
+	check(ptr.CopyToHost(unsafe.Pointer(&values[0]), bytes))
 	for i, v := range values {
 		if math.IsNaN(float64(v.X)) || math.IsNaN(float64(v.Y)) || math.Abs(float64(v.X)-1) > 1e-5 || math.Abs(float64(v.Y)) > 1e-5 {
 			t.Fatalf("forward[%d] = %v, want (1, 0)", i, v)
@@ -67,7 +67,7 @@ func TestImpulseRoundTrip(t *testing.T) {
 	}
 	check(plan.ExecC2C(uintptr(ptr), uintptr(ptr), cufft.Inverse))
 	check(driver.CtxSynchronize())
-	check(ptr.MemcpyDtoH(unsafe.Pointer(&values[0]), bytes))
+	check(ptr.CopyToHost(unsafe.Pointer(&values[0]), bytes))
 	for i, v := range values {
 		want := float64(0)
 		if i == 0 {

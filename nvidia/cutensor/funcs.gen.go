@@ -51,19 +51,19 @@ var (
 )
 
 // contract wraps cutensorContract.
-func contract(handle Handle, plan Plan, alpha unsafe.Pointer, A uintptr, B uintptr, beta unsafe.Pointer, C uintptr, D uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
+func contract(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
 	if err := checkLibSym("cutensorContract"); err != nil {
 		return err
 	}
-	return toError(fncontract(handle, plan, alpha, A, B, beta, C, D, workspace, workspaceSize, stream))
+	return toError(fncontract(handle, plan, alpha, a, b, beta, c, d, workspace, workspaceSize, stream))
 }
 
 // contractTrinary wraps cutensorContractTrinary.
-func contractTrinary(handle Handle, plan Plan, alpha unsafe.Pointer, A uintptr, B uintptr, C uintptr, beta unsafe.Pointer, D uintptr, E uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
+func contractTrinary(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, c uintptr, beta unsafe.Pointer, d uintptr, e uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
 	if err := checkLibSym("cutensorContractTrinary"); err != nil {
 		return err
 	}
-	return toError(fncontractTrinary(handle, plan, alpha, A, B, C, beta, D, E, workspace, workspaceSize, stream))
+	return toError(fncontractTrinary(handle, plan, alpha, a, b, c, beta, d, e, workspace, workspaceSize, stream))
 }
 
 // Create wraps cutensorCreate.
@@ -247,19 +247,19 @@ func destroyTensorDescriptor(desc TensorDescriptor) error {
 }
 
 // elementwiseBinaryExecute wraps cutensorElementwiseBinaryExecute.
-func elementwiseBinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, A uintptr, gamma unsafe.Pointer, C uintptr, D uintptr, stream Stream) error {
+func elementwiseBinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream Stream) error {
 	if err := checkLibSym("cutensorElementwiseBinaryExecute"); err != nil {
 		return err
 	}
-	return toError(fnelementwiseBinaryExecute(handle, plan, alpha, A, gamma, C, D, stream))
+	return toError(fnelementwiseBinaryExecute(handle, plan, alpha, a, gamma, c, d, stream))
 }
 
 // elementwiseTrinaryExecute wraps cutensorElementwiseTrinaryExecute.
-func elementwiseTrinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, A uintptr, beta unsafe.Pointer, B uintptr, gamma unsafe.Pointer, C uintptr, D uintptr, stream Stream) error {
+func elementwiseTrinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, b uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream Stream) error {
 	if err := checkLibSym("cutensorElementwiseTrinaryExecute"); err != nil {
 		return err
 	}
-	return toError(fnelementwiseTrinaryExecute(handle, plan, alpha, A, beta, B, gamma, C, D, stream))
+	return toError(fnelementwiseTrinaryExecute(handle, plan, alpha, a, beta, b, gamma, c, d, stream))
 }
 
 // estimateWorkspaceSize wraps cutensorEstimateWorkspaceSize.
@@ -391,11 +391,11 @@ func operationDescriptorSetAttribute(handle Handle, desc OperationDescriptor, at
 }
 
 // permute wraps cutensorPermute.
-func permute(handle Handle, plan Plan, alpha unsafe.Pointer, A uintptr, B uintptr, stream Stream) error {
+func permute(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, stream Stream) error {
 	if err := checkLibSym("cutensorPermute"); err != nil {
 		return err
 	}
-	return toError(fnpermute(handle, plan, alpha, A, B, stream))
+	return toError(fnpermute(handle, plan, alpha, a, b, stream))
 }
 
 // planGetAttribute wraps cutensorPlanGetAttribute.
@@ -431,11 +431,11 @@ func readKernelCacheFromFile(handle Handle, filename *byte) error {
 }
 
 // reduce wraps cutensorReduce.
-func reduce(handle Handle, plan Plan, alpha unsafe.Pointer, A uintptr, beta unsafe.Pointer, C uintptr, D uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
+func reduce(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
 	if err := checkLibSym("cutensorReduce"); err != nil {
 		return err
 	}
-	return toError(fnreduce(handle, plan, alpha, A, beta, C, D, workspace, workspaceSize, stream))
+	return toError(fnreduce(handle, plan, alpha, a, beta, c, d, workspace, workspaceSize, stream))
 }
 
 // writeKernelCacheToFile wraps cutensorWriteKernelCacheToFile.

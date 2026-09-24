@@ -149,17 +149,17 @@ func (h Handle) Destroy() error {
 	return destroy(h)
 }
 
-// GetNumRanks Returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
+// NumRanks Returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
 //
 // Wraps cudensitymatGetNumRanks.
-func (h Handle) GetNumRanks() (int32, error) {
+func (h Handle) NumRanks() (int32, error) {
 	return getNumRanks(h)
 }
 
-// GetProcRank Returns the rank of the current process in the distributed execution configuration associated with the given library context.
+// ProcRank Returns the rank of the current process in the distributed execution configuration associated with the given library context.
 //
 // Wraps cudensitymatGetProcRank.
-func (h Handle) GetProcRank() (int32, error) {
+func (h Handle) ProcRank() (int32, error) {
 	return getProcRank(h)
 }
 

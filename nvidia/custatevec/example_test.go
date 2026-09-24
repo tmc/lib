@@ -52,7 +52,7 @@ func Example_bellState() {
 	if err := driver.Init(0); err != nil {
 		panic(err)
 	}
-	device, err := driver.NewDeviceGet(0)
+	device, err := driver.DeviceGet(0)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +71,7 @@ func Example_bellState() {
 	if err != nil {
 		panic(err)
 	}
-	defer sv.MemFree()
+	defer sv.Free()
 
 	h, err := custatevec.Create()
 	if err != nil {

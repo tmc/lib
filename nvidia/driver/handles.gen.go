@@ -7,7 +7,7 @@ package driver
 type Context uintptr
 
 // Device represents a CUDA device ordinal.
-// Obtained from [NewDeviceGet] and used across the driver API.
+// Obtained from [DeviceGet] and used across the driver API.
 type Device int32
 
 // DevicePtr is a CUDA device memory pointer.
@@ -19,7 +19,7 @@ type DevicePtr uint64
 type Event uintptr
 
 // Function is an opaque handle to a CUDA kernel function within a module.
-// Obtained via [Module.GetFunction] and used with [Function.LaunchKernel].
+// Obtained via [Module.Function] and used with [Function.LaunchKernel].
 type Function uintptr
 
 // Kernel is an opaque handle to a CUDA kernel within a library.
@@ -31,7 +31,7 @@ type Kernel uintptr
 type Library uintptr
 
 // Module is an opaque handle to a loaded CUDA module.
-// Created via [NewModuleLoad] or [NewModuleLoadData] and destroyed via [Module.Unload].
+// Created via [ModuleLoad] or [ModuleLoadData] and destroyed via [Module.Unload].
 type Module uintptr
 
 // Stream is an opaque handle to a CUDA stream.

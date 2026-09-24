@@ -134,15 +134,6 @@ func (h Handle) GemmBufferSize(transA cublas.Operation, transB cublas.Operation,
 	return GemmBufferSize(h, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType)
 }
 
-// GetStream Gets the current CUDA stream used by the cuBLASMp library.
-//
-// This function returns the current CUDA stream that is being used in the computations.
-//
-// Wraps cublasMpGetStream.
-func (h Handle) GetStream() (cublas.Stream, error) {
-	return GetStream(h)
-}
-
 // SetStream Sets the CUDA stream for cuBLASMp computations.
 //
 // This function sets the CUDA stream to be used in the computations.
@@ -154,4 +145,13 @@ func (h Handle) GetStream() (cublas.Stream, error) {
 // Wraps cublasMpSetStream.
 func (h Handle) SetStream(stream cublas.Stream) error {
 	return SetStream(h, stream)
+}
+
+// Stream Gets the current CUDA stream used by the cuBLASMp library.
+//
+// This function returns the current CUDA stream that is being used in the computations.
+//
+// Wraps cublasMpGetStream.
+func (h Handle) Stream() (cublas.Stream, error) {
+	return GetStream(h)
 }

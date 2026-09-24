@@ -35,7 +35,7 @@ func TestPhysicalTransfer(t *testing.T) {
 		}
 	}
 	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check(err)
 	ctx, err := driver.NewContext(nil, 0, dev)
 	check(err)
@@ -58,18 +58,18 @@ func TestPhysicalTransfer(t *testing.T) {
 	_, err = f.Write(input)
 	check(err)
 	check(f.Sync())
-	h, err := cufile.NewHandleRegister(&cufile.Descr{Type: cufile.HandleTypeOpaqueFd, Handle: [1]uint64{uint64(f.Fd())}})
+	h, err := cufile.HandleRegister(&cufile.Descr{Type: cufile.HandleTypeOpaqueFd, Handle: [1]uint64{uint64(f.Fd())}})
 	check(err)
 	t.Cleanup(h.Deregister)
 	p, err := driver.MemAlloc(n)
 	check(err)
-	cleanup(p.MemFree)
+	cleanup(p.Free)
 	gotn := h.Read(uintptr(p), n, 0, 0)
 	if gotn != n {
 		t.Fatal(fmt.Sprintf("read=%d want=%d", gotn, n))
 	}
 	got := make([]byte, n)
-	check(p.MemcpyDtoH(unsafe.Pointer(&got[0]), n))
+	check(p.CopyToHost(unsafe.Pointer(&got[0]), n))
 	if !bytes.Equal(got, want) {
 		t.Fatal("read bytes differ")
 	}

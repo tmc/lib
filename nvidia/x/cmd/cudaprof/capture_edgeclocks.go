@@ -96,10 +96,10 @@ func openNVML() (func() []gpuReading, func(), error) {
 			continue
 		}
 		d.dev, d.ok = dev, true
-		if d.id.UUID, err = dev.GetUUID(); err != nil {
+		if d.id.UUID, err = dev.UUID(); err != nil {
 			d.id.Errors = map[string]string{"uuid": err.Error()}
 		}
-		d.id.Name, _ = dev.GetName()
+		d.id.Name, _ = dev.Name()
 		devices = append(devices, d)
 	}
 	read := func() []gpuReading {
@@ -114,10 +114,10 @@ func openNVML() (func() []gpuReading, func(), error) {
 				out = append(out, r)
 				continue
 			}
-			r.SMClockMHz = reading(&r, "sm_clock_mhz", func() (uint32, error) { return d.dev.GetClockInfo(nvml.ClockSm) })
-			r.MemClockMHz = reading(&r, "mem_clock_mhz", func() (uint32, error) { return d.dev.GetClockInfo(nvml.ClockMem) })
-			r.TemperatureC = reading(&r, "temperature_c", func() (uint32, error) { return d.dev.GetTemperature(nvml.TemperatureGpu) })
-			r.PowerMilliwatts = reading(&r, "power_mw", d.dev.GetPowerUsage)
+			r.SMClockMHz = reading(&r, "sm_clock_mhz", func() (uint32, error) { return d.dev.ClockInfo(nvml.ClockSm) })
+			r.MemClockMHz = reading(&r, "mem_clock_mhz", func() (uint32, error) { return d.dev.ClockInfo(nvml.ClockMem) })
+			r.TemperatureC = reading(&r, "temperature_c", func() (uint32, error) { return d.dev.Temperature(nvml.TemperatureGpu) })
+			r.PowerMilliwatts = reading(&r, "power_mw", d.dev.PowerUsage)
 			out = append(out, r)
 		}
 		return out

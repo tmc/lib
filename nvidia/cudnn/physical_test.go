@@ -27,7 +27,7 @@ func TestNativeTensorDescriptor(t *testing.T) {
 	}
 	var typ cudnn.DataType
 	var dims, strides [4]int32
-	err = d.GetTensor4dDescriptor(&typ, &dims[0], &dims[1], &dims[2], &dims[3], &strides[0], &strides[1], &strides[2], &strides[3])
+	err = d.Tensor4dDescriptor(&typ, &dims[0], &dims[1], &dims[2], &dims[3], &strides[0], &strides[1], &strides[2], &strides[3])
 	if err != nil {
 		t.Fatal(err)
 	}

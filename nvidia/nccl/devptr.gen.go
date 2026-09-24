@@ -111,37 +111,37 @@ func getPeerDevicePointer(window Window, offset uint, peer int32) (Buffer, error
 	return Buffer(out), nil
 }
 
-// GetCftDeviceLeInfo wraps ncclGetCftDeviceLeInfo.
-func (w Window) GetCftDeviceLeInfo(offset uint, peerCft int32, cftTeam Team, leOffset *uint) (CftLeId, error) {
+// CftDeviceLeInfo wraps ncclGetCftDeviceLeInfo.
+func (w Window) CftDeviceLeInfo(offset uint, peerCft int32, cftTeam Team, leOffset *uint) (CftLeId, error) {
 	return getCftDeviceLeInfo(w, offset, peerCft, cftTeam, leOffset)
 }
 
-// GetLsaDevicePointer wraps ncclGetLsaDevicePointer.
-func (w Window) GetLsaDevicePointer(offset uint, lsaRank int32) (Buffer, error) {
+// LsaDevicePointer wraps ncclGetLsaDevicePointer.
+func (w Window) LsaDevicePointer(offset uint, lsaRank int32) (Buffer, error) {
 	return getLsaDevicePointer(w, offset, lsaRank)
 }
 
-// GetLsaMultimemDevicePointer wraps ncclGetLsaMultimemDevicePointer.
-func (w Window) GetLsaMultimemDevicePointer(offset uint) (Buffer, error) {
+// LsaMultimemDevicePointer wraps ncclGetLsaMultimemDevicePointer.
+func (w Window) LsaMultimemDevicePointer(offset uint) (Buffer, error) {
 	return getLsaMultimemDevicePointer(w, offset)
 }
 
-// GetMultimemDeviceLeInfo wraps ncclGetMultimemDeviceLeInfo.
-func (w Window) GetMultimemDeviceLeInfo(offset uint, leOffset *uint) (CftLeId, error) {
+// MultimemDeviceLeInfo wraps ncclGetMultimemDeviceLeInfo.
+func (w Window) MultimemDeviceLeInfo(offset uint, leOffset *uint) (CftLeId, error) {
 	return getMultimemDeviceLeInfo(w, offset, leOffset)
 }
 
-// GetMultimemDevicePointer wraps ncclGetMultimemDevicePointer.
-func (w Window) GetMultimemDevicePointer(offset uint, multimem MultimemHandle) (Buffer, error) {
+// MultimemDevicePointer wraps ncclGetMultimemDevicePointer.
+func (w Window) MultimemDevicePointer(offset uint, multimem MultimemHandle) (Buffer, error) {
 	return getMultimemDevicePointer(w, offset, multimem)
 }
 
-// GetPeerDeviceLeInfo wraps ncclGetPeerDeviceLeInfo.
-func (w Window) GetPeerDeviceLeInfo(offset uint, peerWorld int32, leOffset *uint) (CftLeId, error) {
+// PeerDeviceLeInfo wraps ncclGetPeerDeviceLeInfo.
+func (w Window) PeerDeviceLeInfo(offset uint, peerWorld int32, leOffset *uint) (CftLeId, error) {
 	return getPeerDeviceLeInfo(w, offset, peerWorld, leOffset)
 }
 
-// GetPeerDevicePointer wraps ncclGetPeerDevicePointer.
-func (w Window) GetPeerDevicePointer(offset uint, peer int32) (Buffer, error) {
+// PeerDevicePointer wraps ncclGetPeerDevicePointer.
+func (w Window) PeerDevicePointer(offset uint, peer int32) (Buffer, error) {
 	return getPeerDevicePointer(w, offset, peer)
 }

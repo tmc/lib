@@ -533,15 +533,15 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	pFn, err := mod.GetFunction("memory_contended_producer")
+	pFn, err := mod.Function("memory_contended_producer")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cEntryFn, err := mod.GetFunction("memory_contended_consumer_fp16_entry_sync")
+	cEntryFn, err := mod.Function("memory_contended_consumer_fp16_entry_sync")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cHoistFn, err := mod.GetFunction("memory_contended_consumer_fp16_hoisted")
+	cHoistFn, err := mod.Function("memory_contended_consumer_fp16_hoisted")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -830,23 +830,23 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	pFn, err := mod.GetFunction("memory_contended_producer")
+	pFn, err := mod.Function("memory_contended_producer")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cFP16EntryFn, err := mod.GetFunction("memory_contended_consumer_fp16_entry_sync")
+	cFP16EntryFn, err := mod.Function("memory_contended_consumer_fp16_entry_sync")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cFP16HoistFn, err := mod.GetFunction("memory_contended_consumer_fp16_hoisted")
+	cFP16HoistFn, err := mod.Function("memory_contended_consumer_fp16_hoisted")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cINT8EntryFn, err := mod.GetFunction("memory_contended_consumer_int8_entry_sync")
+	cINT8EntryFn, err := mod.Function("memory_contended_consumer_int8_entry_sync")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cINT8HoistFn, err := mod.GetFunction("memory_contended_consumer_int8_hoisted")
+	cINT8HoistFn, err := mod.Function("memory_contended_consumer_int8_hoisted")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1108,15 +1108,15 @@ func TestPDLResidentCTAStarvationIsolation(t *testing.T) {
 	}
 	defer dev.WithContext(mod.Unload)
 
-	pFn, err := mod.GetFunction("memory_contended_producer")
+	pFn, err := mod.Function("memory_contended_producer")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cEntryFn, err := mod.GetFunction("memory_contended_consumer_fp16_entry_sync")
+	cEntryFn, err := mod.Function("memory_contended_consumer_fp16_entry_sync")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cHoistFn, err := mod.GetFunction("memory_contended_consumer_fp16_hoisted")
+	cHoistFn, err := mod.Function("memory_contended_consumer_fp16_hoisted")
 	if err != nil {
 		t.Fatal(err)
 	}

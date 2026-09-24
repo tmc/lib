@@ -148,7 +148,7 @@ func gpuChildMain() int {
 	if err != nil {
 		return fail("local chunk: %v", err)
 	}
-	if err := localPtr.MemcpyDtoH(unsafe.Pointer(&got[0]), uint(len(got))); err != nil {
+	if err := localPtr.CopyToHost(unsafe.Pointer(&got[0]), uint(len(got))); err != nil {
 		return fail("copy back: %v", err)
 	}
 	want := uint8(0xA0 + rank)
@@ -188,7 +188,7 @@ func gpuChildMain() int {
 		if err != nil {
 			return fail("multicast local chunk: %v", err)
 		}
-		if err := mcLocal.MemcpyDtoH(unsafe.Pointer(&got[0]), 4096); err != nil {
+		if err := mcLocal.CopyToHost(unsafe.Pointer(&got[0]), 4096); err != nil {
 			return fail("mc copy back: %v", err)
 		}
 		for i, v := range got {

@@ -5,8 +5,8 @@
 
 package cufile
 
-// NewHandleRegister wraps cuFileHandleRegister.
-func NewHandleRegister(descr *Descr) (Handle, error) {
+// HandleRegister wraps cuFileHandleRegister.
+func HandleRegister(descr *Descr) (Handle, error) {
 	return handleRegister(descr)
 }
 

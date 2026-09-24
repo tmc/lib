@@ -55,7 +55,7 @@ func withContext(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestCallbackSubscription(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MemAlloc: %v", err)
 	}
-	if err := ptr.MemFree(); err != nil {
+	if err := ptr.Free(); err != nil {
 		t.Fatalf("MemFree: %v", err)
 	}
 	if err := sub.EnableDomain(0, cupti.CbDomainDriverApi); err != nil {
@@ -310,11 +310,11 @@ func TestActivityMemcpyRecord(t *testing.T) {
 		t.Fatalf("MemAlloc: %v", err)
 	}
 	defer func() {
-		if err := dev.MemFree(); err != nil {
+		if err := dev.Free(); err != nil {
 			t.Errorf("free device buffer: %v", err)
 		}
 	}()
-	if err := dev.MemcpyHtoD(unsafe.Pointer(&src[0]), copyBytes); err != nil {
+	if err := dev.CopyFromHost(unsafe.Pointer(&src[0]), copyBytes); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	if err := driver.CtxSynchronize(); err != nil {

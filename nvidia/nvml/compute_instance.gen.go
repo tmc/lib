@@ -11,9 +11,9 @@ func (c ComputeInstance) Destroy() error {
 	return computeInstanceDestroy(c)
 }
 
-// GetInfo wraps nvmlComputeInstanceGetInfo, bound as nvmlComputeInstanceGetInfo_v2.
+// Info wraps nvmlComputeInstanceGetInfo, bound as nvmlComputeInstanceGetInfo_v2.
 //
 //   - info: Return compute instance information
-func (c ComputeInstance) GetInfo() (ComputeInstanceInfo, error) {
+func (c ComputeInstance) Info() (ComputeInstanceInfo, error) {
 	return computeInstanceGetInfo(c)
 }

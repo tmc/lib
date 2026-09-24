@@ -65,13 +65,13 @@ func TestPhysicalInitAll(t *testing.T) {
 				}},
 				{"receive buffer", func() error {
 					if recv[i] != 0 {
-						return recv[i].MemFree()
+						return recv[i].Free()
 					}
 					return nil
 				}},
 				{"send buffer", func() error {
 					if send[i] != 0 {
-						return send[i].MemFree()
+						return send[i].Free()
 					}
 					return nil
 				}},
@@ -97,7 +97,7 @@ func TestPhysicalInitAll(t *testing.T) {
 	}()
 	for i := range contexts {
 		dev := driver.Device(i)
-		uuid, err := dev.GetUuid()
+		uuid, err := dev.Uuid()
 		check("device UUID", err)
 		uuids[i] = uuid
 		contexts[i], err = dev.PrimaryCtxRetain()
@@ -137,7 +137,7 @@ func TestPhysicalInitAll(t *testing.T) {
 		for k := range host {
 			host[k] = int32(10000*i + k)
 		}
-		check("upload", send[i].MemcpyHtoD(unsafe.Pointer(&host[0]), count*4))
+		check("upload", send[i].CopyFromHost(unsafe.Pointer(&host[0]), count*4))
 		check("sentinel", recv[i].MemsetD32(0xdeadbeef, count))
 	}
 	check("group start", nccl.GroupStart())
@@ -159,7 +159,7 @@ func TestPhysicalInitAll(t *testing.T) {
 		check("set download context", contexts[i].SetCurrent())
 		check("synchronize stream", streams[i].Synchronize())
 		host := make([]int32, count)
-		check("download", recv[i].MemcpyDtoH(unsafe.Pointer(&host[0]), count*4))
+		check("download", recv[i].CopyToHost(unsafe.Pointer(&host[0]), count*4))
 		for k, got := range host {
 			want := int32(10000 + 2*k)
 			if os.Getenv("NCCL_INITALL_BAD_ORACLE") == "1" {

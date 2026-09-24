@@ -345,7 +345,7 @@ func requireCUDA(t *testing.T) {
 		}
 	}
 	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check(err)
 	ctx, err := dev.PrimaryCtxRetain()
 	check(err)
@@ -362,7 +362,7 @@ func cudaAlloc(t *testing.T, size int) (ptr uintptr, free func(), err error) {
 		return 0, nil, err
 	}
 	return uintptr(p), func() {
-		if err := p.MemFree(); err != nil {
+		if err := p.Free(); err != nil {
 			t.Errorf("free device memory: %v", err)
 		}
 	}, nil
@@ -373,7 +373,7 @@ func cudaCopyToHost(ptr uintptr, size int) ([]byte, error) {
 		return nil, fmt.Errorf("invalid copy size %d", size)
 	}
 	data := make([]byte, size)
-	if err := driver.DevicePtr(ptr).MemcpyDtoH(unsafe.Pointer(&data[0]), uint(size)); err != nil {
+	if err := driver.DevicePtr(ptr).CopyToHost(unsafe.Pointer(&data[0]), uint(size)); err != nil {
 		return nil, err
 	}
 	return data, nil

@@ -597,16 +597,16 @@ func resetRandomSeed(handle Handle, randomSeed int32) error {
 // storage buffers will be respected by the library,
 // thus providing a mechanism for specifying any initial value
 // of the quantum state in its chosen representation form.
-// In multi-process runs, API function `[State.GetComponentInfo]`
+// In multi-process runs, API function `[State.ComponentInfo]`
 // can be used for retrieving the information on which slice of the
 // requested component (tensor) is stored on the current process.
 //
 // Note: The sizes of the provided storage buffers must be equal or larger
-// than the required sizes retrieved via `[State.GetComponentStorageSize]`.
+// than the required sizes retrieved via `[State.ComponentStorageSize]`.
 //
 //   - handle: in Library handle
 //   - state: inout Quantum state (or a batch of quantum states)
-//   - numStateComponents: in Number of components (tensors) in the quantum state representation (on the current process). The number of components can be retrieved by calling the API function `[State.GetNumComponents]`
+//   - numStateComponents: in Number of components (tensors) in the quantum state representation (on the current process). The number of components can be retrieved by calling the API function `[State.NumComponents]`
 //   - componentBuffer: in Pointers to user-owned GPU-accessible storage buffers for all components (tensors) constituting the quantum state representation (on the current process)
 //   - componentBufferSize: in Sizes of the provided storage buffers for all components (tensors) constituting the quantum state representation (on the current process)
 //
@@ -736,8 +736,8 @@ func stateComputeTrace(handle Handle, state State, trace uintptr, stream Stream)
 //   - stateComponentLocalId: in Component local id (on the current parallel process)
 //   - stateComponentGlobalId: out Component global id (across all parallel processes)
 //   - stateComponentNumModes: out Number of modes in the queried component tensor
-//   - stateComponentModeExtents: out Component tensor mode extents (the size of the array must be sufficient, see `[State.GetComponentNumModes]`)
-//   - stateComponentModeOffsets: out Component tensor mode offsets defining the locally stored slice (the size of the array must be sufficient, see `[State.GetComponentNumModes]`)
+//   - stateComponentModeExtents: out Component tensor mode extents (the size of the array must be sufficient, see `[State.ComponentNumModes]`)
+//   - stateComponentModeOffsets: out Component tensor mode offsets defining the locally stored slice (the size of the array must be sufficient, see `[State.ComponentNumModes]`)
 //
 // Wraps cudensitymatStateGetComponentInfo.
 func stateGetComponentInfo(handle Handle, state State, stateComponentLocalId int32, stateComponentGlobalId *int32, stateComponentNumModes *int32, stateComponentModeExtents *int64, stateComponentModeOffsets *int64) error {
@@ -797,7 +797,7 @@ func stateGetComponentStorageSize(handle Handle, state State, numStateComponents
 // Note: In multi-process runs, this function returns the number
 // of locally stored components which, in general, can be smaller
 // than the total number of components stored across all parallel
-// processes. One can use API function `[State.GetComponentInfo]`
+// processes. One can use API function `[State.ComponentInfo]`
 // to obtain more information on a given local component by providing
 // its local id.
 //

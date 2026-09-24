@@ -55,7 +55,7 @@ func AllocManaged[T any](dev *cuda.Device, length int) (Slice[T], error) {
 		return Slice[T]{}, errors.New("cudamem: nil allocation device")
 	}
 	slice, err := allocateSlice[T](dev, nil, length, dev.WithContext, func(bytes uint) (driver.DevicePtr, error) {
-		return driver.MemAllocManaged(bytes, uint32(driver.MemAttachGlobal))
+		return driver.MemAllocManaged(bytes, driver.MemAttachGlobal)
 	})
 	if err != nil {
 		return slice, fmt.Errorf("cudamem: managed memory: %w", err)
@@ -172,9 +172,9 @@ func (s Slice[T]) Free() error {
 		return nil
 	}
 	if s.alloc != nil {
-		return s.alloc.free(s.alloc.device.WithContext, driver.DevicePtr.MemFree)
+		return s.alloc.free(s.alloc.device.WithContext, driver.DevicePtr.Free)
 	}
-	if err := s.ptr.MemFree(); err != nil {
+	if err := s.ptr.Free(); err != nil {
 		return fmt.Errorf("cudamem: free device memory: %w", err)
 	}
 	return nil
@@ -220,7 +220,7 @@ func (s Slice[T]) CopyFromHost(src []T) error {
 	hostPtr := unsafe.Pointer(&src[0])
 	totalBytes := uint(uintptr(len(src)) * s.elemSize)
 
-	if err := s.withPointer(func(ptr driver.DevicePtr) error { return ptr.MemcpyHtoD(hostPtr, totalBytes) }); err != nil {
+	if err := s.withPointer(func(ptr driver.DevicePtr) error { return ptr.CopyFromHost(hostPtr, totalBytes) }); err != nil {
 		return fmt.Errorf("cudamem: copy host to device: %w", err)
 	}
 	return nil
@@ -243,7 +243,7 @@ func (s Slice[T]) CopyToHost(dst []T) error {
 	hostPtr := unsafe.Pointer(&dst[0])
 	totalBytes := uint(uintptr(s.len) * s.elemSize)
 
-	if err := s.withPointer(func(ptr driver.DevicePtr) error { return ptr.MemcpyDtoH(hostPtr, totalBytes) }); err != nil {
+	if err := s.withPointer(func(ptr driver.DevicePtr) error { return ptr.CopyToHost(hostPtr, totalBytes) }); err != nil {
 		return fmt.Errorf("cudamem: copy device to host: %w", err)
 	}
 	return nil
@@ -286,7 +286,7 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 		return stream.WithHandle(func(handle driver.Stream) error {
 			return dev.WithContext(func() error {
 				attempted = true
-				return ptr.MemcpyHtoDAsync(hostPtr, totalBytes, handle)
+				return ptr.CopyFromHostAsync(hostPtr, totalBytes, handle)
 			})
 		})
 	}); err != nil {
@@ -331,7 +331,7 @@ func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 		return stream.WithHandle(func(handle driver.Stream) error {
 			return dev.WithContext(func() error {
 				attempted = true
-				return ptr.MemcpyDtoHAsync(hostPtr, totalBytes, handle)
+				return ptr.CopyToHostAsync(hostPtr, totalBytes, handle)
 			})
 		})
 	}); err != nil {

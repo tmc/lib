@@ -96,10 +96,10 @@
 //
 //   - [GetErrorName].
 //   - [GetErrorString].
-//   - [Handle.GetPointerMode].
+//   - [Handle.PointerMode].
 //   - [GetProperty].
-//   - [Handle.GetStream].
-//   - [Handle.GetVersion].
+//   - [Handle.Stream].
+//   - [Handle.Version].
 //
 // # Logging
 //

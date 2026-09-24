@@ -37,7 +37,7 @@
 // # Failure handling
 //
 //   - [Group.ErrorClear]: clears the group's asynchronous error flag.
-//   - [Group.GetAsyncError]: reads the asynchronous error flag without synchronizing the GPU.
+//   - [Group.AsyncError]: reads the asynchronous error flag without synchronizing the GPU.
 //   - [Group.MaskClean]: collectively cleans masked-rank communication state.
 //   - [Group.MaskQuery]: copies the rank mask to a device array asynchronously.
 //   - [Group.MaskUpdate]: copies a host rank mask to the device asynchronously.

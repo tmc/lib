@@ -58,7 +58,7 @@ func TestPhysicalDisableRetry(t *testing.T) {
 	dev, err := cuda.NewDevice(0)
 	check(err)
 	own(dev, dev.Close)
-	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	check(err)
 	own(stream, stream.Destroy)
 	out, err := cudamem.Alloc[uint32](dev, 32)
@@ -71,7 +71,7 @@ func TestPhysicalDisableRetry(t *testing.T) {
 	check(err)
 	own(module, func() error { return dev.WithContext(module.Unload) })
 	var fn driver.Function
-	check(dev.WithContext(func() error { var err error; fn, err = module.GetFunction("disable_control"); return err }))
+	check(dev.WithContext(func() error { var err error; fn, err = module.Function("disable_control"); return err }))
 	var syncFailure error
 	synchronize := func() error {
 		if syncFailure != nil {
@@ -115,7 +115,7 @@ func TestPhysicalDisableRetry(t *testing.T) {
 	options := CaptureOptions{Mode: Whole, ReplayMode: UserReplay, MaxDepth: 1, CachePolicy: CachePreserve}
 	version, err := cupti.GetVersion()
 	check(err)
-	uuid, err := dev.Raw().GetUuid()
+	uuid, err := dev.Raw().Uuid()
 	check(err)
 	driverVersion, err := driver.DriverGetVersion()
 	check(err)

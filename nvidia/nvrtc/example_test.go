@@ -27,14 +27,14 @@ extern "C" __global__ void saxpy(float a, float *x, float *y, int n) {
 		fmt.Println("create:", err)
 		return
 	}
-	defer nvrtc.DestroyProgram(&prog)
+	defer prog.Destroy()
 
 	if err := prog.Compile([]string{"--gpu-architecture=compute_70"}); err != nil {
-		log, _ := prog.GetProgramLog()
+		log, _ := prog.Log()
 		fmt.Printf("compile: %v\n%s", err, log)
 		return
 	}
-	ptx, err := prog.GetPTX()
+	ptx, err := prog.PTX()
 	if err != nil {
 		fmt.Println("ptx:", err)
 		return

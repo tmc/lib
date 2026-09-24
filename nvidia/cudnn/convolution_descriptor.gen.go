@@ -16,7 +16,7 @@ func (c ConvolutionDescriptor) Destroy() error {
 	return destroyConvolutionDescriptor(c)
 }
 
-// GetConvolution2dDescriptor queries a previously initialized 2D convolution descriptor object.
+// Convolution2dDescriptor queries a previously initialized 2D convolution descriptor object.
 //
 // This function queries a previously initialized 2D convolution descriptor object.
 //
@@ -36,11 +36,11 @@ func (c ConvolutionDescriptor) Destroy() error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolution2dDescriptor.
-func (c ConvolutionDescriptor) GetConvolution2dDescriptor(pad_h *int32, pad_w *int32, u *int32, v *int32, dilation_h *int32, dilation_w *int32, mode *ConvolutionMode, computeType *DataType) error {
+func (c ConvolutionDescriptor) Convolution2dDescriptor(pad_h *int32, pad_w *int32, u *int32, v *int32, dilation_h *int32, dilation_w *int32, mode *ConvolutionMode, computeType *DataType) error {
 	return getConvolution2dDescriptor(c, pad_h, pad_w, u, v, dilation_h, dilation_w, mode, computeType)
 }
 
-// GetConvolution2dForwardOutputDim returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor.
+// Convolution2dForwardOutputDim returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor.
 //
 // This function returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor. This function can help to set up the output tensor and allocate the proper amount of memory prior to launching the actual convolution. Each dimension h and w of the output images is computed as follows:
 //
@@ -58,11 +58,11 @@ func (c ConvolutionDescriptor) GetConvolution2dDescriptor(pad_h *int32, pad_w *i
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolution2dForwardOutputDim.
-func (cd ConvolutionDescriptor) GetConvolution2dForwardOutputDim(inputTensorDesc TensorDescriptor, filterDesc FilterDescriptor, n *int32, c *int32, h *int32, w *int32) error {
+func (cd ConvolutionDescriptor) Convolution2dForwardOutputDim(inputTensorDesc TensorDescriptor, filterDesc FilterDescriptor, n *int32, c *int32, h *int32, w *int32) error {
 	return getConvolution2dForwardOutputDim(cd, inputTensorDesc, filterDesc, n, c, h, w)
 }
 
-// GetConvolutionGroupCount returns the group count specified in the given convolution descriptor.
+// ConvolutionGroupCount returns the group count specified in the given convolution descriptor.
 //
 // This function returns the group count specified in the given convolution descriptor.
 //
@@ -73,11 +73,11 @@ func (cd ConvolutionDescriptor) GetConvolution2dForwardOutputDim(inputTensorDesc
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionGroupCount.
-func (c ConvolutionDescriptor) GetConvolutionGroupCount(groupCount *int32) error {
+func (c ConvolutionDescriptor) ConvolutionGroupCount(groupCount *int32) error {
 	return getConvolutionGroupCount(c, groupCount)
 }
 
-// GetConvolutionMathType returns the math type specified in a given convolution descriptor.
+// ConvolutionMathType returns the math type specified in a given convolution descriptor.
 //
 // This function returns the math type specified in a given convolution descriptor.
 //
@@ -88,11 +88,11 @@ func (c ConvolutionDescriptor) GetConvolutionGroupCount(groupCount *int32) error
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionMathType.
-func (c ConvolutionDescriptor) GetConvolutionMathType(mathType *MathType) error {
+func (c ConvolutionDescriptor) ConvolutionMathType(mathType *MathType) error {
 	return getConvolutionMathType(c, mathType)
 }
 
-// GetConvolutionNdDescriptor queries a previously initialized convolution descriptor object.
+// ConvolutionNdDescriptor queries a previously initialized convolution descriptor object.
 //
 // This function queries a previously initialized convolution descriptor object.
 //
@@ -108,11 +108,11 @@ func (c ConvolutionDescriptor) GetConvolutionMathType(mathType *MathType) error 
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionNdDescriptor.
-func (c ConvolutionDescriptor) GetConvolutionNdDescriptor(arrayLengthRequested int32, arrayLength *int32, padA *int32, strideA *int32, dilationA *int32, mode *ConvolutionMode, computeType *DataType) error {
+func (c ConvolutionDescriptor) ConvolutionNdDescriptor(arrayLengthRequested int32, arrayLength *int32, padA *int32, strideA *int32, dilationA *int32, mode *ConvolutionMode, computeType *DataType) error {
 	return getConvolutionNdDescriptor(c, arrayLengthRequested, arrayLength, padA, strideA, dilationA, mode, computeType)
 }
 
-// GetConvolutionNdForwardOutputDim returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution.
+// ConvolutionNdForwardOutputDim returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution.
 //
 // This function returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution. Each dimension of the (nbDims-2)-D images of the output tensor is computed as follows: The dimensions provided by this routine must be strictly respected when calling [Handle.ConvolutionForward] or [Handle.ConvolutionBackwardBias]. Providing a smaller or larger output tensor is not supported by the convolution routines.
 //
@@ -127,11 +127,11 @@ func (c ConvolutionDescriptor) GetConvolutionNdDescriptor(arrayLengthRequested i
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionNdForwardOutputDim.
-func (c ConvolutionDescriptor) GetConvolutionNdForwardOutputDim(inputTensorDesc TensorDescriptor, filterDesc FilterDescriptor, nbDims int32, tensorOuputDimA *int32) error {
+func (c ConvolutionDescriptor) ConvolutionNdForwardOutputDim(inputTensorDesc TensorDescriptor, filterDesc FilterDescriptor, nbDims int32, tensorOuputDimA *int32) error {
 	return getConvolutionNdForwardOutputDim(c, inputTensorDesc, filterDesc, nbDims, tensorOuputDimA)
 }
 
-// GetConvolutionReorderType retrieves the convolution reorder type from the given convolution descriptor.
+// ConvolutionReorderType retrieves the convolution reorder type from the given convolution descriptor.
 //
 // This function retrieves the convolution reorder type from the given convolution descriptor.
 //
@@ -144,7 +144,7 @@ func (c ConvolutionDescriptor) GetConvolutionNdForwardOutputDim(inputTensorDesc 
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetConvolutionReorderType.
-func (c ConvolutionDescriptor) GetConvolutionReorderType(reorderType *ReorderType) error {
+func (c ConvolutionDescriptor) ConvolutionReorderType(reorderType *ReorderType) error {
 	return getConvolutionReorderType(c, reorderType)
 }
 

@@ -55,7 +55,7 @@ func physicalEncode(t *testing.T) (err error) {
 	if err := driver.Init(0); err != nil {
 		return err
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		return err
 	}

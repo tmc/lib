@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -320,14 +319,14 @@ func (a *Artifact) Load(dev *cuda.Device) (driver.Module, error) {
 			ptxBytes := append(bytes.TrimRight(a.Raw, "\x00"), 0)
 			opts, vals := a.JITOptions.DriverOptions()
 			if len(opts) > 0 {
-				mod, loadErr = driver.NewModuleLoadDataEx(unsafe.Pointer(&ptxBytes[0]), uint32(len(opts)), &opts[0], &vals[0])
+				mod, loadErr = driver.ModuleLoadDataEx(ptxBytes, uint32(len(opts)), &opts[0], &vals[0])
 			} else {
-				mod, loadErr = driver.NewModuleLoadData(unsafe.Pointer(&ptxBytes[0]))
+				mod, loadErr = driver.ModuleLoadData(ptxBytes)
 			}
 			runtime.KeepAlive(ptxBytes)
 		case KindCUBIN, KindTileIR:
 			rawBytes := append([]byte(nil), a.Raw...)
-			mod, loadErr = driver.NewModuleLoadData(unsafe.Pointer(&rawBytes[0]))
+			mod, loadErr = driver.ModuleLoadData(rawBytes)
 			runtime.KeepAlive(rawBytes)
 		default:
 			return 0, fmt.Errorf("cudakernel: artifact kind %s cannot be loaded directly", a.Kind)

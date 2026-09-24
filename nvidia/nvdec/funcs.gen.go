@@ -221,11 +221,11 @@ func SetVideoSourceState(obj Source, state SourceState) (Result, error) {
 }
 
 // UnmapVideoFrame64 wraps cuvidUnmapVideoFrame64.
-func UnmapVideoFrame64(hDecoder Decoder, DevPtr uint64) (Result, error) {
+func UnmapVideoFrame64(hDecoder Decoder, devPtr uint64) (Result, error) {
 	if err := checkLibSym("cuvidUnmapVideoFrame64"); err != nil {
 		return Result(0), err
 	}
-	return fnUnmapVideoFrame64(hDecoder, DevPtr), nil
+	return fnUnmapVideoFrame64(hDecoder, devPtr), nil
 }
 
 var _ = unsafe.Sizeof(uintptr(0))

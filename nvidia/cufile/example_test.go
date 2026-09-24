@@ -41,7 +41,7 @@ func Example() {
 		Type:   cufile.HandleTypeOpaqueFd,
 		Handle: [1]uint64{uint64(f.Fd())},
 	}
-	h, err := cufile.NewHandleRegister(&descr)
+	h, err := cufile.HandleRegister(&descr)
 	if err != nil {
 		fmt.Println("register:", err)
 		return

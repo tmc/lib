@@ -7,13 +7,13 @@ import (
 )
 
 // Contract wraps cutensorContract.
-func (h Handle) Contract(plan Plan, alpha unsafe.Pointer, A uintptr, B uintptr, beta unsafe.Pointer, C uintptr, D uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
-	return contract(h, plan, alpha, A, B, beta, C, D, workspace, workspaceSize, stream)
+func (h Handle) Contract(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
+	return contract(h, plan, alpha, a, b, beta, c, d, workspace, workspaceSize, stream)
 }
 
 // ContractTrinary wraps cutensorContractTrinary.
-func (h Handle) ContractTrinary(plan Plan, alpha unsafe.Pointer, A uintptr, B uintptr, C uintptr, beta unsafe.Pointer, D uintptr, E uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
-	return contractTrinary(h, plan, alpha, A, B, C, beta, D, E, workspace, workspaceSize, stream)
+func (h Handle) ContractTrinary(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, c uintptr, beta unsafe.Pointer, d uintptr, e uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
+	return contractTrinary(h, plan, alpha, a, b, c, beta, d, e, workspace, workspaceSize, stream)
 }
 
 // CreateContraction wraps cutensorCreateContraction.
@@ -67,13 +67,13 @@ func (h Handle) Destroy() error {
 }
 
 // ElementwiseBinaryExecute wraps cutensorElementwiseBinaryExecute.
-func (h Handle) ElementwiseBinaryExecute(plan Plan, alpha unsafe.Pointer, A uintptr, gamma unsafe.Pointer, C uintptr, D uintptr, stream Stream) error {
-	return elementwiseBinaryExecute(h, plan, alpha, A, gamma, C, D, stream)
+func (h Handle) ElementwiseBinaryExecute(plan Plan, alpha unsafe.Pointer, a uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream Stream) error {
+	return elementwiseBinaryExecute(h, plan, alpha, a, gamma, c, d, stream)
 }
 
 // ElementwiseTrinaryExecute wraps cutensorElementwiseTrinaryExecute.
-func (h Handle) ElementwiseTrinaryExecute(plan Plan, alpha unsafe.Pointer, A uintptr, beta unsafe.Pointer, B uintptr, gamma unsafe.Pointer, C uintptr, D uintptr, stream Stream) error {
-	return elementwiseTrinaryExecute(h, plan, alpha, A, beta, B, gamma, C, D, stream)
+func (h Handle) ElementwiseTrinaryExecute(plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, b uintptr, gamma unsafe.Pointer, c uintptr, d uintptr, stream Stream) error {
+	return elementwiseTrinaryExecute(h, plan, alpha, a, beta, b, gamma, c, d, stream)
 }
 
 // EstimateWorkspaceSize wraps cutensorEstimateWorkspaceSize.
@@ -82,8 +82,8 @@ func (h Handle) EstimateWorkspaceSize(desc OperationDescriptor, planPref PlanPre
 }
 
 // Permute wraps cutensorPermute.
-func (h Handle) Permute(plan Plan, alpha unsafe.Pointer, A uintptr, B uintptr, stream Stream) error {
-	return permute(h, plan, alpha, A, B, stream)
+func (h Handle) Permute(plan Plan, alpha unsafe.Pointer, a uintptr, b uintptr, stream Stream) error {
+	return permute(h, plan, alpha, a, b, stream)
 }
 
 // ReadKernelCacheFromFile wraps cutensorReadKernelCacheFromFile.
@@ -97,8 +97,8 @@ func (h Handle) ReadPlanCacheFromFile(filename *byte) (uint32, error) {
 }
 
 // Reduce wraps cutensorReduce.
-func (h Handle) Reduce(plan Plan, alpha unsafe.Pointer, A uintptr, beta unsafe.Pointer, C uintptr, D uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
-	return reduce(h, plan, alpha, A, beta, C, D, workspace, workspaceSize, stream)
+func (h Handle) Reduce(plan Plan, alpha unsafe.Pointer, a uintptr, beta unsafe.Pointer, c uintptr, d uintptr, workspace uintptr, workspaceSize uint64, stream Stream) error {
+	return reduce(h, plan, alpha, a, beta, c, d, workspace, workspaceSize, stream)
 }
 
 // ResizePlanCache wraps cutensorHandleResizePlanCache.

@@ -240,7 +240,7 @@ func (l *Launcher) PrepareSharedMem(targetDev ...*cuda.Device) error {
 		return fmt.Errorf("cudalaunch: raw function handle requires a device or stream for shared memory preparation")
 	}
 
-	static32, err := l.fn.GetAttribute(driver.FuncAttributeSharedSizeBytes)
+	static32, err := l.fn.Attribute(driver.FuncAttributeSharedSizeBytes)
 	if err != nil {
 		return fmt.Errorf("cudalaunch: query function static shared memory: %w", err)
 	}
@@ -250,7 +250,7 @@ func (l *Launcher) PrepareSharedMem(targetDev ...*cuda.Device) error {
 		return err
 	}
 
-	current32, err := l.fn.GetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+	current32, err := l.fn.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
 	if err != nil {
 		return fmt.Errorf("cudalaunch: query function dynamic shared memory limit: %w", err)
 	}

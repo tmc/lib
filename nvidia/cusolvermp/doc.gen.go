@@ -90,8 +90,8 @@
 //   - [Handle.Destroy]: releases a handle created by [NewHandle]
 //   - [Grid.Destroy]: releases a grid created by [Handle.CreateDeviceGrid]
 //   - [MatrixDescriptor.Destroy]: releases a descriptor created by [Grid.CreateMatrixDesc]
-//   - [Handle.GetStream]: returns the stream operations on handle are enqueued on
-//   - [Handle.GetVersion]: returns the version of the loaded library
+//   - [Handle.Stream]: returns the stream operations on handle are enqueued on
+//   - [Handle.Version]: returns the version of the loaded library
 //   - [Handle.SetStream]: redirects subsequent operations on handle to stream
 //
 // # Logging
@@ -103,7 +103,7 @@
 //
 // # Other
 //
-//   - [Handle.GetMathMode]: returns the arithmetic mode set by [Handle.SetMathMode]
+//   - [Handle.MathMode]: returns the arithmetic mode set by [Handle.SetMathMode]
 //   - [Handle.SetMathMode]: selects the arithmetic the library may use
 //
 // [cuSOLVERMp documentation]: https://docs.nvidia.com/cuda/cusolvermp/

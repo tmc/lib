@@ -30,11 +30,11 @@ func TestCompilerPipeline(t *testing.T) {
 		}
 	}
 	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check(err)
-	major, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMajor)
+	major, err := dev.Attribute(driver.DevAttrComputeCapabilityMajor)
 	check(err)
-	minor, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMinor)
+	minor, err := dev.Attribute(driver.DevAttrComputeCapabilityMinor)
 	check(err)
 	arch := fmt.Sprintf("%d%d", major, minor)
 	t.Logf("target sm_%s", arch)
@@ -57,28 +57,28 @@ func TestCompilerPipeline(t *testing.T) {
 	t.Logf("ir sha256=%x libdevice sha256=%x", sha256.Sum256(ir), sha256.Sum256(libdevice))
 	program, err := nvvm.CreateProgram()
 	check(err)
-	defer func() { check(nvvm.DestroyProgram(&program)) }()
+	defer func() { check(program.Destroy()) }()
 	check(program.AddModuleTo(unsafe.Pointer(unsafe.SliceData(ir)), uint(len(ir)), "sin.ll"))
 	check(program.LazyAddModuleTo(unsafe.Pointer(unsafe.SliceData(libdevice)), uint(len(libdevice)), "libdevice.10.bc"))
 	if err := program.Compile([]string{"-arch=compute_" + arch, "-gen-lto"}); err != nil {
-		log, _ := program.GetProgramLog()
+		log, _ := program.Log()
 		t.Fatalf("compile: %v\n%s", err, log)
 	}
 	runtime.KeepAlive(libdevice)
-	lto, err := program.GetCompiledResult()
+	lto, err := program.CompiledResult()
 	check(err)
 	if len(lto) == 0 {
 		t.Fatal("empty LTOIR")
 	}
 	linker, err := nvjitlink.Create([]string{"-arch=sm_" + arch, "-lto"})
 	check(err)
-	defer func() { check(nvjitlink.Destroy(&linker)) }()
+	defer func() { check(linker.Destroy()) }()
 	check(linker.AddData(nvjitlink.InputLtoir, unsafe.Pointer(unsafe.SliceData(lto)), uint(len(lto)), "sin.ltoir"))
 	if err := linker.Complete(); err != nil {
-		log, _ := linker.GetErrorLog()
+		log, _ := linker.ErrorLog()
 		t.Fatalf("link: %v\n%s", err, log)
 	}
-	cubin, err := linker.GetLinkedCubin()
+	cubin, err := linker.LinkedCubin()
 	check(err)
 	if len(cubin) < 4 || string(cubin[:4]) != "\x7fELF" {
 		t.Fatal("output is not a cubin ELF")
@@ -89,10 +89,10 @@ func TestCompilerPipeline(t *testing.T) {
 		check(os.WriteFile(filepath.Join(dir, "sin.cubin"), cubin, 0644))
 	}
 	t.Logf("ltoir bytes=%d sha256=%x cubin bytes=%d sha256=%x", len(lto), sha256.Sum256(lto), len(cubin), sha256.Sum256(cubin))
-	mod, err := driver.NewModuleLoadData(unsafe.Pointer(unsafe.SliceData(cubin)))
+	mod, err := driver.ModuleLoadData(cubin)
 	check(err)
 	defer func() { check(mod.Unload()) }()
-	kernel, err := mod.GetFunction("sine")
+	kernel, err := mod.Function("sine")
 	check(err)
 	data := make([]float32, 128)
 	for i := range data {
@@ -100,11 +100,11 @@ func TestCompilerPipeline(t *testing.T) {
 	}
 	ptr, err := driver.MemAlloc(uint(len(data) * 4))
 	check(err)
-	defer func() { check(ptr.MemFree()) }()
-	check(ptr.MemcpyHtoD(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
+	defer func() { check(ptr.Free()) }()
+	check(ptr.CopyFromHost(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
 	check(kernel.LaunchKernel(1, 1, 1, uint32(len(data)), 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&ptr)}))
 	check(driver.CtxSynchronize())
-	check(ptr.MemcpyDtoH(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
+	check(ptr.CopyToHost(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
 	for i, got := range data {
 		want := math.Sin(float64(float32(i)/32 - 2))
 		if math.IsNaN(float64(got)) || math.Abs(float64(got)-want) > 1e-6 {
@@ -126,13 +126,13 @@ func TestCompilerPipeline(t *testing.T) {
 	t.Log("verified tensor-map encoding and address replacement")
 	invalid, err := nvvm.CreateProgram()
 	check(err)
-	defer func() { check(nvvm.DestroyProgram(&invalid)) }()
+	defer func() { check(invalid.Destroy()) }()
 	badIR := []byte("invalid NVVM IR")
 	check(invalid.AddModuleTo(unsafe.Pointer(unsafe.SliceData(badIR)), uint(len(badIR)), "invalid.ll"))
 	if err := invalid.Compile([]string{"-arch=compute_" + arch}); err == nil {
 		t.Fatal("compiler accepted invalid IR")
 	}
-	log, err := invalid.GetProgramLog()
+	log, err := invalid.Log()
 	check(err)
 	if log == "" {
 		t.Fatal("compiler omitted diagnostics for invalid IR")

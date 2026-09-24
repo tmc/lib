@@ -7,7 +7,7 @@ package driver
 // Destroys the green context, releasing the primary context of the device that this green context was created for.
 // Any resources provisioned for this green context (that were initially available via the resource descriptor)
 // are released as well.
-// The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [NewStreamCreateWithPriority].
+// The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [StreamCreateWithPriority].
 // Users are expected to destroy these streams explicitly using [Stream.Destroy] to avoid resource leaks. Once the green context is destroyed,
 // any subsequent API calls involving these streams will return [ErrStreamDetached] with the exception of the following APIs:
 // - [Stream.Destroy].
@@ -21,28 +21,28 @@ func (g GreenCtx) Destroy() error {
 	return greenCtxDestroy(g)
 }
 
-// GetDevResource Get green context resources
+// DevResource Get green context resources
 //
 // # Get the type resources available to the green context represented by hCtx
 //
 // See also: [DevResourceGenerateDesc]
 //
 // Wraps cuGreenCtxGetDevResource.
-func (g GreenCtx) GetDevResource(type_ DevResourceType) (DevResource, error) {
+func (g GreenCtx) DevResource(type_ DevResourceType) (DevResource, error) {
 	return greenCtxGetDevResource(g, type_)
 }
 
-// GetId Returns the unique Id associated with the green context supplied
+// Id Returns the unique Id associated with the green context supplied
 //
 // Returns in greenCtxId the unique Id which is associated with a given green context.
 // The Id is unique for the life of the program for this instance of CUDA.
 // If green context is supplied as NULL and the current context is set to a green context,
 // the Id of the current green context is returned.
 //
-// See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.GetId]
+// See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.Id]
 //
 // Wraps cuGreenCtxGetId.
-func (g GreenCtx) GetId() (uint64, error) {
+func (g GreenCtx) Id() (uint64, error) {
 	return greenCtxGetId(g)
 }
 
@@ -90,10 +90,10 @@ func (g GreenCtx) RecordEvent(hEvent Event) error {
 //   - flags: Flags for stream creation. [StreamNonBlocking] must be specified
 //   - priority: Stream priority. Lower numbers represent higher priorities. See [CtxGetStreamPriorityRange] for more information about meaningful stream priorities that can be passed
 //
-// See also: [Stream.Destroy], [NewGreenCtx], [NewStream], [Stream.GetPriority], [CtxGetStreamPriorityRange], [Stream.GetFlags], [Stream.GetDevice], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback]
+// See also: [Stream.Destroy], [NewGreenCtx], [NewStream], [Stream.Priority], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback]
 //
 // Wraps cuGreenCtxStreamCreate.
-func (g GreenCtx) StreamCreate(flags uint32, priority int32) (Stream, error) {
+func (g GreenCtx) StreamCreate(flags StreamFlags, priority int32) (Stream, error) {
 	return greenCtxStreamCreate(g, flags, priority)
 }
 
@@ -126,7 +126,7 @@ func (g GreenCtx) WaitEvent(hEvent Event) error {
 // deinitialization multiple times.
 //
 // The API does not set the green context current. In order to set it current, you need to explicitly set it current
-// by first converting the green context to a [Context] using [NewContextFromGreenCtx] and subsequently calling
+// by first converting the green context to a [Context] using [CtxFromGreenCtx] and subsequently calling
 // [Context.SetCurrent] / [Context.PushCurrent]. It should be noted that a green context can be current to only one
 // thread at a time. There is no internal synchronization to make API calls accessing the same green context
 // from multiple threads work.
@@ -137,9 +137,9 @@ func (g GreenCtx) WaitEvent(hEvent Event) error {
 //   - dev: Device on which to create the green context
 //   - flags: One of the supported green context creation flags. [GreenCtxDefaultStream] is required. The supported flags are: - [GreenCtxDefaultStream] : Creates a default stream to use inside the green context. Required
 //
-// See also: [GreenCtx.Destroy], [NewContextFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
+// See also: [GreenCtx.Destroy], [CtxFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
 //
 // Wraps cuGreenCtxCreate.
-func NewGreenCtx(desc DevResourceDesc, dev Device, flags uint32) (GreenCtx, error) {
+func NewGreenCtx(desc DevResourceDesc, dev Device, flags GreenctxcreateFlags) (GreenCtx, error) {
 	return greenCtxCreate(desc, dev, flags)
 }

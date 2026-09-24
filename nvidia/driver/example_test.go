@@ -20,12 +20,12 @@ func Example() {
 		fmt.Println("CUDA driver unavailable:", err)
 		return
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		fmt.Println("device:", err)
 		return
 	}
-	name, err := dev.GetName()
+	name, err := dev.Name()
 	if err != nil {
 		fmt.Println("name:", err)
 		return
@@ -44,14 +44,14 @@ func Example() {
 		fmt.Println("alloc:", err)
 		return
 	}
-	defer dptr.MemFree()
+	defer dptr.Free()
 
-	if err := dptr.MemcpyHtoD(unsafe.Pointer(&host[0]), size); err != nil {
+	if err := dptr.CopyFromHost(unsafe.Pointer(&host[0]), size); err != nil {
 		fmt.Println("copy in:", err)
 		return
 	}
 	back := make([]float32, len(host))
-	if err := dptr.MemcpyDtoH(unsafe.Pointer(&back[0]), size); err != nil {
+	if err := dptr.CopyToHost(unsafe.Pointer(&back[0]), size); err != nil {
 		fmt.Println("copy out:", err)
 		return
 	}
@@ -78,22 +78,22 @@ func ExampleDeviceGetCount() {
 		return
 	}
 	for i := range count {
-		dev, err := driver.NewDeviceGet(i)
+		dev, err := driver.DeviceGet(i)
 		if err != nil {
 			fmt.Println("device:", err)
 			return
 		}
-		name, err := dev.GetName()
+		name, err := dev.Name()
 		if err != nil {
 			fmt.Println("name:", err)
 			return
 		}
-		major, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMajor)
+		major, err := dev.Attribute(driver.DevAttrComputeCapabilityMajor)
 		if err != nil {
 			fmt.Println("attribute:", err)
 			return
 		}
-		minor, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMinor)
+		minor, err := dev.Attribute(driver.DevAttrComputeCapabilityMinor)
 		if err != nil {
 			fmt.Println("attribute:", err)
 			return

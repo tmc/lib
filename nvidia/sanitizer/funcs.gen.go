@@ -127,8 +127,8 @@ func AllocHost(ctx Context, size uint) (devPtr uintptr, err error) {
 
 // enableAllDomains Enable or disable all callbacks in all domains.
 //
-// [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
-// [Subscriber.EnableAllDomains]. For example, if [Subscriber.GetCallbackState](sub,
+// [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
+// [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
 // d, *) and [Subscriber.EnableAllDomains](sub) are called concurrently, the
 // results are undefined.
 //
@@ -153,8 +153,8 @@ func enableAllDomains(enable uint32, subscriber Subscriber) error {
 // Enable or disable callbacks for a subscriber for a specific domain and
 // callback ID.
 //
-// [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
-// [Subscriber.EnableAllDomains]. For example, if [Subscriber.GetCallbackState](sub, d,
+// [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
+// [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d,
 // c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the
 // results are undefined.
 //
@@ -178,7 +178,7 @@ func enableCallback(enable uint32, subscriber Subscriber, domain CallbackDomain,
 
 // enableDomain Enable or disable all callbacks for a specific domain.
 //
-// [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
+// [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
 // [Subscriber.EnableAllDomains]. For example, if sanitizerGetCallbackEnabled(sub,
 // d, *) and [Subscriber.EnableDomain](sub, d) are called concurrently, the
 // results are undefined.
@@ -258,8 +258,8 @@ func GetCallbackPcAndSize(ctx Context, deviceCallbackName string) (pc uint64, si
 // Returns non-zero in *enable if the callback for a domain and callback
 // ID is enabled, and zero if not enabled.
 //
-// [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
-// [Subscriber.EnableAllDomains]. For example, if [Subscriber.GetCallbackState](sub, d,
+// [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
+// [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d,
 // c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the
 // results are undefined.
 //

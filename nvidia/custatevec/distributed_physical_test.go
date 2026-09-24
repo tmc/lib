@@ -42,7 +42,7 @@ func TestDistributedSwap(t *testing.T) {
 	}
 	check("CUDA init", driver.Init(0))
 	dev := driver.Device(mpi.Rank)
-	uuid, err := dev.GetUuid()
+	uuid, err := dev.Uuid()
 	check("UUID", err)
 	t.Logf("rank=%d device=%d uuid=%x", mpi.Rank, dev, uuid)
 	ids := make([]byte, 32)
@@ -57,7 +57,7 @@ func TestDistributedSwap(t *testing.T) {
 	stream, err := driver.NewStream(0)
 	check("stream", err)
 	defer func() { clean("stream destroy", stream.Destroy()) }()
-	event, err := driver.NewEvent(uint32(driver.EventInterprocess | driver.EventDisableTiming))
+	event, err := driver.NewEvent(driver.EventInterprocess | driver.EventDisableTiming)
 	check("event", err)
 	defer func() { clean("event destroy", event.Destroy()) }()
 	h, err := custatevec.Create()
@@ -69,7 +69,7 @@ func TestDistributedSwap(t *testing.T) {
 	var allocations []driver.DevicePtr
 	defer func() {
 		for _, p := range allocations {
-			clean("device free", p.MemFree())
+			clean("device free", p.Free())
 		}
 	}()
 	alloc := func(n uint) driver.DevicePtr {
@@ -88,7 +88,7 @@ func TestDistributedSwap(t *testing.T) {
 		g := mpi.Rank*4 + i
 		host[i] = complex(float64(g+1), float64(-g))
 	}
-	check("upload state", state.MemcpyHtoD(unsafe.Pointer(&host[0]), 64))
+	check("upload state", state.CopyFromHost(unsafe.Pointer(&host[0]), 64))
 	worker, extra, minTransfer, err := custatevec.NewSVSwapWorker(h, comm, uintptr(state), int32(mpi.Rank), custatevec.Event(event), custatevec.C64F, custatevec.Stream(stream))
 	check("worker create", err)
 	defer func() { clean("worker destroy", worker.Destroy(h)) }()
@@ -120,7 +120,7 @@ func TestDistributedSwap(t *testing.T) {
 	var total custatevec.Index
 	for b := uint32(0); b < batches; b++ {
 		var p custatevec.SVSwapParameters
-		check("parameters", scheduler.GetParameters(h, int32(b), int32(mpi.Rank), &p))
+		check("parameters", scheduler.Parameters(h, int32(b), int32(mpi.Rank), &p))
 		if p.TransferSize < 0 || p.TransferSize > 4 || p.OrgSubSVIndex != int32(mpi.Rank) || p.DstSubSVIndex < 0 || p.DstSubSVIndex >= 2 {
 			t.Fatalf("invalid parameters %+v", p)
 		}
@@ -134,7 +134,7 @@ func TestDistributedSwap(t *testing.T) {
 	}
 	check("stream synchronize", stream.Synchronize())
 	check("MPI barrier", mpi.Barrier())
-	check("download state", state.MemcpyDtoH(unsafe.Pointer(&host[0]), 64))
+	check("download state", state.CopyToHost(unsafe.Pointer(&host[0]), 64))
 	all := make([]complex128, 8)
 	check("gather state", mpi.AllGather(unsafe.Slice((*byte)(unsafe.Pointer(&host[0])), 64), unsafe.Slice((*byte)(unsafe.Pointer(&all[0])), 128)))
 	for i, got := range all {

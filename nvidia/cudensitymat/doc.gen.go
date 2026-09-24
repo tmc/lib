@@ -118,8 +118,8 @@
 //   - [OperatorTerm.Destroy]: Destroys an operator term.
 //   - [State.Destroy]: Destroys the quantum state.
 //   - [WorkspaceDescriptor.Destroy]: Destroys a workspace descriptor.
-//   - [Handle.GetNumRanks]: Returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
-//   - [Handle.GetProcRank]: Returns the rank of the current process in the distributed execution configuration associated with the given library context.
+//   - [Handle.NumRanks]: Returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
+//   - [Handle.ProcRank]: Returns the rank of the current process in the distributed execution configuration associated with the given library context.
 //   - [GetVersion]: Returns the semantic version number of the cuDensityMat library.
 //   - [Handle.ResetDistributedConfiguration]: Resets the current distributed execution configuration associated with the given library context by importing a user-provided inter-process communicator (e.g., MPI_Comm).
 //   - [Handle.ResetRandomSeed]: Resets the context-level random seed used by the random number generator inside the library context.
@@ -148,10 +148,10 @@
 //   - [State.ComputeNorm]: Computes the squared Frobenius norm(s) of the quantum state(s).
 //   - [State.ComputeScaling]: Multiplies the quantum state(s) by a scalar factor(s).
 //   - [State.ComputeTrace]: Computes the trace(s) of the quantum state(s).
-//   - [State.GetComponentInfo]: Queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
-//   - [State.GetComponentNumModes]: Queries the number of modes in a local component tensor (on the current process in multi-process runs).
-//   - [State.GetComponentStorageSize]: Queries the storage size (in bytes) for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
-//   - [State.GetNumComponents]: Queries the number of components (tensors) constituting the chosen quantum state representation (on the current process in multi-process runs).
+//   - [State.ComponentInfo]: Queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
+//   - [State.ComponentNumModes]: Queries the number of modes in a local component tensor (on the current process in multi-process runs).
+//   - [State.ComponentStorageSize]: Queries the storage size (in bytes) for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
+//   - [State.NumComponents]: Queries the number of components (tensors) constituting the chosen quantum state representation (on the current process in multi-process runs).
 //   - [State.InitializeZero]: Initializes the quantum state to zero (null state).
 //
 // # Workspace

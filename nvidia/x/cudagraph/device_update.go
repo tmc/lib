@@ -99,7 +99,7 @@ func NewEnabledUpdate(node DeviceNode, enabled bool) KernelNodeUpdate {
 // NewParamUpdateForFunc queries the offset and size of the parameter at paramIndex
 // of fn using cuFuncGetParamInfo and returns a typed KernelNodeUpdate.
 func NewParamUpdateForFunc(node DeviceNode, fn driver.Function, paramIndex uint, val unsafe.Pointer) (KernelNodeUpdate, error) {
-	offset, size, err := fn.GetParamInfo(paramIndex)
+	offset, size, err := fn.ParamInfo(paramIndex)
 	if err != nil {
 		return KernelNodeUpdate{}, fmt.Errorf("cudagraph: get param info: %w", err)
 	}

@@ -186,16 +186,7 @@ func (h Handle) ComputeExpectationGetWorkspaceSize(svDataType DataType, nIndexBi
 	return computeExpectationGetWorkspaceSize(h, svDataType, nIndexBits, matrix, matrixDataType, layout, nBasisBits, computeType)
 }
 
-// Destroy releases a handle and the resources it owns.
-//
-// This function releases resources used by the cuStateVec library.
-//
-// Wraps custatevecDestroy.
-func (h Handle) Destroy() error {
-	return destroy(h)
-}
-
-// GetDefaultWorkspaceSize returns the size in bytes of the workspace the handle allocated for itself.
+// DefaultWorkspaceSize returns the size in bytes of the workspace the handle allocated for itself.
 //
 // This function returns the default workspace size defined by the cuStateVec library.
 //
@@ -204,19 +195,17 @@ func (h Handle) Destroy() error {
 //   - workspaceSizeInBytes: out default workspace size
 //
 // Wraps custatevecGetDefaultWorkspaceSize.
-func (h Handle) GetDefaultWorkspaceSize() (uint, error) {
+func (h Handle) DefaultWorkspaceSize() (uint, error) {
 	return getDefaultWorkspaceSize(h)
 }
 
-// GetStream returns the CUDA stream bound to the handle.
+// Destroy releases a handle and the resources it owns.
 //
-// This function gets the cuStateVec library stream used to execute all calls from the cuStateVec library functions.
+// This function releases resources used by the cuStateVec library.
 //
-//   - streamId: out the stream to be used by the library
-//
-// Wraps custatevecGetStream.
-func (h Handle) GetStream() (Stream, error) {
-	return getStream(h)
+// Wraps custatevecDestroy.
+func (h Handle) Destroy() error {
+	return destroy(h)
 }
 
 // InitializeStateVector fills a device state vector with a standard initial state.
@@ -280,7 +269,7 @@ func (h Handle) SetStream(streamId Stream) error {
 //
 // This function sets the workspace attached to the handle.
 // The required size of the workspace is obtained by
-// [Handle.GetDefaultWorkspaceSize].
+// [Handle.DefaultWorkspaceSize].
 //
 // By setting a larger workspace, users are able to execute functions without
 // allocating the extra workspace in some functions.
@@ -294,4 +283,15 @@ func (h Handle) SetStream(streamId Stream) error {
 // Wraps custatevecSetWorkspace.
 func (h Handle) SetWorkspace(workspace uintptr, workspaceSizeInBytes uint) error {
 	return setWorkspace(h, workspace, workspaceSizeInBytes)
+}
+
+// Stream returns the CUDA stream bound to the handle.
+//
+// This function gets the cuStateVec library stream used to execute all calls from the cuStateVec library functions.
+//
+//   - streamId: out the stream to be used by the library
+//
+// Wraps custatevecGetStream.
+func (h Handle) Stream() (Stream, error) {
+	return getStream(h)
 }

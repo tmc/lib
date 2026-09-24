@@ -92,10 +92,10 @@
 //   - [Handle.Destroy]: releases a handle and the resources it owns.
 //   - [NewDistIndexBitSwapScheduler]: [Create] distributed index bit swap scheduler.
 //   - [DistIndexBitSwapScheduler.Destroy]: releases distributed index bit swap scheduler.
-//   - [DistIndexBitSwapScheduler.GetParameters]: Get parameters to be set to the state vector swap worker
+//   - [DistIndexBitSwapScheduler.Parameters]: Get parameters to be set to the state vector swap worker
 //   - [DistIndexBitSwapScheduler.SetIndexBitSwaps]: Set index bit swaps to distributed index bit swap scheduler.
 //   - [GetProperty]: reports one component of the linked library version.
-//   - [Handle.GetStream]: returns the CUDA stream bound to the handle.
+//   - [Handle.Stream]: returns the CUDA stream bound to the handle.
 //   - [GetVersion]: returns the linked library version, which the header encodes as major*10000 + minor*100 + patch.
 //   - [NewSVSwapWorker]: [Create] state vector swap worker.
 //   - [NewSVSwapWorkerWithSemaphore]: [Create] state vector swap worker with semaphore.
@@ -110,7 +110,7 @@
 //
 // # Workspace
 //
-//   - [Handle.GetDefaultWorkspaceSize]: returns the size in bytes of the workspace the handle allocated for itself.
+//   - [Handle.DefaultWorkspaceSize]: returns the size in bytes of the workspace the handle allocated for itself.
 //   - [Handle.SetWorkspace]: attaches caller-owned device memory as the handle's workspace.
 //
 // # State vector

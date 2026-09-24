@@ -85,7 +85,7 @@ extern "C" __global__ void apply(float* out) { out[0] = twice(3); }`,
 		var raw driver.Module
 		check(dev.WithContext(func() error {
 			var err error
-			raw, err = driver.NewModuleLoadData(unsafe.Pointer(&result.CUBIN[0]))
+			raw, err = driver.ModuleLoadData(result.CUBIN)
 			return err
 		}))
 		owner, err := cuda.OwnModule(dev, raw)
@@ -103,14 +103,14 @@ extern "C" __global__ void apply(float* out) { out[0] = twice(3); }`,
 		var p driver.DevicePtr
 		check(dev.WithContext(func() error { var err error; p, err = driver.MemAlloc(4); return err }))
 		defer func() {
-			if err := dev.WithContext(p.MemFree); err != nil {
+			if err := dev.WithContext(p.Free); err != nil {
 				t.Error(err)
 			}
 		}()
 		check(kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 		check(owner.Close())
 		var got float32
-		check(dev.WithContext(func() error { return p.MemcpyDtoH(unsafe.Pointer(&got), 4) }))
+		check(dev.WithContext(func() error { return p.CopyToHost(unsafe.Pointer(&got), 4) }))
 		if got != 6 {
 			t.Fatalf("linked kernel output=%g want6", got)
 		}

@@ -24,11 +24,11 @@
 //
 // # Backend API
 //
-//   - [NewBackendDescriptorCreateDescriptor]: allocates memory in the descriptor for a given descriptor type and at the location pointed by the descriptor.
-//   - [BackendDescriptor.DestroyDescriptor]: destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptorCreateDescriptor].
+//   - [NewBackendDescriptor]: allocates memory in the descriptor for a given descriptor type and at the location pointed by the descriptor.
+//   - [BackendDescriptor.DestroyDescriptor]: destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptor].
 //   - [BackendDescriptor.Execute]: executes the given Engine Configuration Plan on the VariantPack and the finalized ExecutionPlan on the data.
 //   - [BackendDescriptor.Finalize]: finalizes the memory pointed to by the descriptor.
-//   - [BackendDescriptor.GetAttribute]: retrieves the values of an attribute of a descriptor.
+//   - [BackendDescriptor.Attribute]: retrieves the values of an attribute of a descriptor.
 //   - [BackendDescriptor.Initialize]: repurposes a pre-allocated memory pointed to by a descriptor of size sizeInByte to a backend descriptor of type descriptorType.
 //   - [BackendDescriptor.SetAttribute]: sets an attribute of a descriptor to values provided as a pointer.
 //
@@ -111,7 +111,7 @@
 //
 // # Stream Management
 //
-//   - [Handle.GetStream]: retrieves the user CUDA stream programmed in the cuDNN handle.
+//   - [Handle.Stream]: retrieves the user CUDA stream programmed in the cuDNN handle.
 //   - [Handle.SetStream]: sets the user’s CUDA stream in the cuDNN handle.
 //
 // # LRN
@@ -166,64 +166,64 @@
 //   - [Handle.FindConvolutionForwardAlgorithmEx]: attempts all algorithms available for [Handle.ConvolutionForward].
 //   - [Handle.FusedOpsExecute]: executes the sequence of cudnnFusedOps operations.
 //   - [ActivationDescriptor.Get]: queries a previously initialized generic activation descriptor object.
-//   - [ActivationDescriptor.GetActivationDescriptorSwishBeta]: queries the current beta parameter set for SWISH activation.
+//   - [ActivationDescriptor.SwishBeta]: queries the current beta parameter set for SWISH activation.
 //   - [AttnDescriptor.Get]: retrieves settings from the previously created attention descriptor.
-//   - [Handle.GetBatchNormalizationBackwardExWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.GetBatchNormalizationBackwardExWorkspaceSize] function for the specified bnOps input setting.
-//   - [Handle.GetBatchNormalizationForwardTrainingExWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.GetBatchNormalizationForwardTrainingExWorkspaceSize] function for the specified bnOps input setting.
-//   - [Handle.GetBatchNormalizationTrainingExReserveSpaceSize]: returns the amount of reserve GPU memory workspace the user should allocate for the batch normalization operation, for the specified bnOps input setting.
-//   - [CTCLossDescriptor.GetCTCLossDescriptorEx]: returns the configuration of the passed CTC loss function descriptor.
+//   - [Handle.BatchNormalizationBackwardExWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.BatchNormalizationBackwardExWorkspaceSize] function for the specified bnOps input setting.
+//   - [Handle.BatchNormalizationForwardTrainingExWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.BatchNormalizationForwardTrainingExWorkspaceSize] function for the specified bnOps input setting.
+//   - [Handle.BatchNormalizationTrainingExReserveSpaceSize]: returns the amount of reserve GPU memory workspace the user should allocate for the batch normalization operation, for the specified bnOps input setting.
+//   - [CTCLossDescriptor.Ex]: returns the configuration of the passed CTC loss function descriptor.
 //   - [CTCLossDescriptor.Get]: returns the configuration of the passed CTC loss function descriptor.
-//   - [Handle.GetCTCLossWorkspaceSize]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLoss] with the specified algorithm.
-//   - [Handle.GetCTCLossWorkspaceSizeV8]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLossV8] with the specified algorithm.
+//   - [Handle.CTCLossWorkspaceSize]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLoss] with the specified algorithm.
+//   - [Handle.CTCLossWorkspaceSizeV8]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLossV8] with the specified algorithm.
 //   - [GetCallback]: queries the internal states of cuDNN error reporting functionality.
-//   - [ConvolutionDescriptor.GetConvolution2dDescriptor]: queries a previously initialized 2D convolution descriptor object.
-//   - [ConvolutionDescriptor.GetConvolution2dForwardOutputDim]: returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor.
-//   - [Handle.GetConvolutionBackwardDataAlgorithmMaxCount]: returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardDataAlgorithm] and [Handle.GetConvolutionForwardAlgorithm].
-//   - [Handle.GetConvolutionBackwardDataAlgorithm]: serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardData] for the given layer specifications.
-//   - [Handle.GetConvolutionBackwardDataWorkspaceSize]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardData] with the specified algorithm.
-//   - [Handle.GetConvolutionBackwardFilterAlgorithmMaxCount]: returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardFilterAlgorithm] and [Handle.GetConvolutionForwardAlgorithm].
-//   - [Handle.GetConvolutionBackwardFilterAlgorithm]: serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardFilter] for the given layer specifications.
-//   - [Handle.GetConvolutionBackwardFilterWorkspaceSize]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardFilter] with the specified algorithm.
-//   - [Handle.GetConvolutionForwardAlgorithmMaxCount]: returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionForwardAlgorithm] and [Handle.GetConvolutionForwardAlgorithm].
-//   - [Handle.GetConvolutionForwardAlgorithm]: serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionForward] for the given layer specifications.
-//   - [Handle.GetConvolutionForwardWorkspaceSize]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionForward] with the specified algorithm.
-//   - [ConvolutionDescriptor.GetConvolutionGroupCount]: returns the group count specified in the given convolution descriptor.
-//   - [ConvolutionDescriptor.GetConvolutionMathType]: returns the math type specified in a given convolution descriptor.
-//   - [ConvolutionDescriptor.GetConvolutionNdDescriptor]: queries a previously initialized convolution descriptor object.
-//   - [ConvolutionDescriptor.GetConvolutionNdForwardOutputDim]: returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution.
-//   - [ConvolutionDescriptor.GetConvolutionReorderType]: retrieves the convolution reorder type from the given convolution descriptor.
+//   - [ConvolutionDescriptor.Convolution2dDescriptor]: queries a previously initialized 2D convolution descriptor object.
+//   - [ConvolutionDescriptor.Convolution2dForwardOutputDim]: returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor.
+//   - [Handle.ConvolutionBackwardDataAlgorithmMaxCount]: returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardDataAlgorithm] and [Handle.ConvolutionForwardAlgorithm].
+//   - [Handle.ConvolutionBackwardDataAlgorithm]: serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardData] for the given layer specifications.
+//   - [Handle.ConvolutionBackwardDataWorkspaceSize]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardData] with the specified algorithm.
+//   - [Handle.ConvolutionBackwardFilterAlgorithmMaxCount]: returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardFilterAlgorithm] and [Handle.ConvolutionForwardAlgorithm].
+//   - [Handle.ConvolutionBackwardFilterAlgorithm]: serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardFilter] for the given layer specifications.
+//   - [Handle.ConvolutionBackwardFilterWorkspaceSize]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardFilter] with the specified algorithm.
+//   - [Handle.ConvolutionForwardAlgorithmMaxCount]: returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionForwardAlgorithm] and [Handle.ConvolutionForwardAlgorithm].
+//   - [Handle.ConvolutionForwardAlgorithm]: serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionForward] for the given layer specifications.
+//   - [Handle.ConvolutionForwardWorkspaceSize]: returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionForward] with the specified algorithm.
+//   - [ConvolutionDescriptor.ConvolutionGroupCount]: returns the group count specified in the given convolution descriptor.
+//   - [ConvolutionDescriptor.ConvolutionMathType]: returns the math type specified in a given convolution descriptor.
+//   - [ConvolutionDescriptor.ConvolutionNdDescriptor]: queries a previously initialized convolution descriptor object.
+//   - [ConvolutionDescriptor.ConvolutionNdForwardOutputDim]: returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution.
+//   - [ConvolutionDescriptor.ConvolutionReorderType]: retrieves the convolution reorder type from the given convolution descriptor.
 //   - [DropoutDescriptor.Get]: queries the fields of a previously initialized dropout descriptor.
-//   - [FilterDescriptor.GetFilter4dDescriptor]: queries the parameters of the previously initialized Filter4d descriptor object.
-//   - [FilterDescriptor.GetFilterNdDescriptor]: queries a previously initialized FilterNd descriptor object.
-//   - [FilterDescriptor.GetFilterSizeInBytes]: returns the size of the filter tensor in memory with respect to the given descriptor.
-//   - [Handle.GetFoldedConvBackwardDataDescriptors]: calculates folding descriptors for backward data gradients.
-//   - [FusedOpsConstParamPack.GetFusedOpsConstParamPackAttribute]: retrieves the values of the descriptor pointed to by the param pointer input.
-//   - [FusedOpsVariantParamPack.GetFusedOpsVariantParamPackAttribute]: retrieves the settings of the variable parameter pack descriptor.
+//   - [FilterDescriptor.Filter4dDescriptor]: queries the parameters of the previously initialized Filter4d descriptor object.
+//   - [FilterDescriptor.FilterNdDescriptor]: queries a previously initialized FilterNd descriptor object.
+//   - [FilterDescriptor.FilterSizeInBytes]: returns the size of the filter tensor in memory with respect to the given descriptor.
+//   - [Handle.FoldedConvBackwardDataDescriptors]: calculates folding descriptors for backward data gradients.
+//   - [FusedOpsConstParamPack.Attribute]: retrieves the values of the descriptor pointed to by the param pointer input.
+//   - [FusedOpsVariantParamPack.Attribute]: retrieves the settings of the variable parameter pack descriptor.
 //   - [LRNDescriptor.Get]: retrieves values stored in the previously initialized LRN descriptor object.
 //   - [GetLastErrorString]: retrieves the last encountered cuDNN error message in the current thread to a NULL terminated (ASCIIZ) string.
-//   - [Handle.GetMultiHeadAttnBuffers]: computes weight, work, and reserve space buffer sizes used by the following functions: Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights].
-//   - [Handle.GetMultiHeadAttnWeights]: obtains the shape of the weight or bias tensor.
-//   - [Handle.GetNormalizationBackwardWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationBackward] function for the specified normOps and algo input setting.
-//   - [Handle.GetNormalizationForwardTrainingWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationForwardTraining] function for the specified normOps and algo input setting.
-//   - [Handle.GetNormalizationTrainingReserveSpaceSize]: returns the amount of reserve GPU memory workspace the user should allocate for the normalization operation, for the specified normOps input setting.
+//   - [Handle.MultiHeadAttnBuffers]: computes weight, work, and reserve space buffer sizes used by the following functions: Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights].
+//   - [Handle.MultiHeadAttnWeights]: obtains the shape of the weight or bias tensor.
+//   - [Handle.NormalizationBackwardWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationBackward] function for the specified normOps and algo input setting.
+//   - [Handle.NormalizationForwardTrainingWorkspaceSize]: returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationForwardTraining] function for the specified normOps and algo input setting.
+//   - [Handle.NormalizationTrainingReserveSpaceSize]: returns the amount of reserve GPU memory workspace the user should allocate for the normalization operation, for the specified normOps input setting.
 //   - [OpTensorDescriptor.Get]: returns the configuration of the passed tensor pointwise math descriptor.
-//   - [PoolingDescriptor.GetPooling2dDescriptor]: queries a previously created Pooling2d descriptor object.
-//   - [PoolingDescriptor.GetPooling2dForwardOutputDim]: provides the output dimensions of a tensor after Pooling2d has been applied.
-//   - [PoolingDescriptor.GetPoolingNdDescriptor]: queries a previously initialized generic PoolingNd descriptor object.
-//   - [PoolingDescriptor.GetPoolingNdForwardOutputDim]: provides the output dimensions of a tensor after PoolingNd has been applied.
+//   - [PoolingDescriptor.Pooling2dDescriptor]: queries a previously created Pooling2d descriptor object.
+//   - [PoolingDescriptor.Pooling2dForwardOutputDim]: provides the output dimensions of a tensor after Pooling2d has been applied.
+//   - [PoolingDescriptor.PoolingNdDescriptor]: queries a previously initialized generic PoolingNd descriptor object.
+//   - [PoolingDescriptor.PoolingNdForwardOutputDim]: provides the output dimensions of a tensor after PoolingNd has been applied.
 //   - [GetProperty]: writes a specific part of the cuDNN library version number into the provided host storage.
 //   - [RNNDataDescriptor.Get]: retrieves a previously created RNN data descriptor object.
 //   - [RNNDescriptor.Get]: retrieves RNN network parameters that were configured by [RNNDescriptor.Set].
-//   - [Handle.GetRNNTempSpaceSizes]: computes the work and reserve space buffer sizes based on the RNN network geometry stored in rnnDesc, designated usage (inference or training) defined by the fMode argument, and the current RNN data dimensions ( maxSeqLength, batchSize) retrieved from xDesc.
-//   - [Handle.GetRNNWeightParams]: is used to obtain the start address and shape of every RNN weight matrix and bias vector in each pseudo-layer within the recurrent neural network model.
-//   - [Handle.GetRNNWeightSpaceSize]: reports the required size of the weight space buffer in bytes.
+//   - [Handle.RNNTempSpaceSizes]: computes the work and reserve space buffer sizes based on the RNN network geometry stored in rnnDesc, designated usage (inference or training) defined by the fMode argument, and the current RNN data dimensions ( maxSeqLength, batchSize) retrieved from xDesc.
+//   - [Handle.RNNWeightParams]: is used to obtain the start address and shape of every RNN weight matrix and bias vector in each pseudo-layer within the recurrent neural network model.
+//   - [Handle.RNNWeightSpaceSize]: reports the required size of the weight space buffer in bytes.
 //   - [ReduceTensorDescriptor.Get]: queries a previously initialized reduce tensor descriptor object.
-//   - [Handle.GetReductionIndicesSize]: This is a helper function to return the minimum size of the index space to be passed to the reduction given the input and output tensors.
-//   - [Handle.GetReductionWorkspaceSize]: This is a helper function to return the minimum size of the workspace to be passed to the reduction given the input and output tensors.
+//   - [Handle.ReductionIndicesSize]: This is a helper function to return the minimum size of the index space to be passed to the reduction given the input and output tensors.
+//   - [Handle.ReductionWorkspaceSize]: This is a helper function to return the minimum size of the workspace to be passed to the reduction given the input and output tensors.
 //   - [SeqDataDescriptor.Get]: retrieves settings from a previously created sequence data descriptor.
-//   - [TensorDescriptor.GetTensor4dDescriptor]: queries the parameters of the previously initialized Tensor4d descriptor object.
-//   - [TensorDescriptor.GetTensorNdDescriptor]: retrieves values stored in a previously initialized TensorNd descriptor object.
-//   - [TensorDescriptor.GetTensorSizeInBytes]: returns the size of the tensor in memory in respect to the given descriptor.
+//   - [TensorDescriptor.Tensor4dDescriptor]: queries the parameters of the previously initialized Tensor4d descriptor object.
+//   - [TensorDescriptor.TensorNdDescriptor]: retrieves values stored in a previously initialized TensorNd descriptor object.
+//   - [TensorDescriptor.TensorSizeInBytes]: returns the size of the tensor in memory in respect to the given descriptor.
 //   - [TensorTransformDescriptor.Get]: returns the values stored in a previously initialized tensor transform descriptor.
 //   - [GraphVersionCheck]: Cross-library version checker.
 //   - [Handle.Im2Col]: constructs the A matrix necessary to perform a forward pass of GEMM convolution.

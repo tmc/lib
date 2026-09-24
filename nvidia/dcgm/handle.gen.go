@@ -2,6 +2,74 @@
 
 package dcgm
 
+// AllDevices This method is used to get identifiers corresponding to all the devices on the system.
+//
+// The GPUs returned from this function include gpuIds of GPUs that are not supported by DCGM.
+// To only get gpuIds of GPUs that are supported by DCGM, use [Handle.AllSupportedDevices].
+//
+//   - gpuIdList: OUT: Array reference to fill GPU Ids present on the system
+//   - count: OUT: Number of GPUs returned in gpuIdList
+//
+// Wraps dcgmGetAllDevices.
+func (h Handle) AllDevices(gpuIdList *uint32) (int32, error) {
+	return GetAllDevices(h, gpuIdList)
+}
+
+// AllSupportedDevices This method is used to get identifiers corresponding to all the DCGM-supported devices on the system.
+//
+// The GPUs returned from this function ONLY includes gpuIds of GPUs that are supported by DCGM.
+// To get gpuIds of all GPUs in the system, use [Handle.AllDevices].
+//
+//   - gpuIdList: OUT: Array reference to fill GPU Ids present on the system
+//   - count: OUT: Number of GPUs returned in gpuIdList
+//
+// Wraps dcgmGetAllSupportedDevices.
+func (h Handle) AllSupportedDevices(gpuIdList *uint32) (int32, error) {
+	return GetAllSupportedDevices(h, gpuIdList)
+}
+
+// CpuHierarchyV2 List supported CPUs and their cores present on the system
+//
+// This and other CPU APIs only support datacenter NVIDIA CPUs.
+//
+//   - cpuHierarchy: OUT: Structure where the CPUs and their associated cores will be enumerated
+//
+// Wraps dcgmGetCpuHierarchy_v2.
+func (h Handle) CpuHierarchyV2(cpuHierarchy *CpuHierarchy) error {
+	return GetCpuHierarchyV2(h, cpuHierarchy)
+}
+
+// DeviceAttributes Gets device attributes corresponding to the gpuId.
+//
+//   - gpuId: IN: GPU Id corresponding to which the attributes should be fetched
+//   - pDcgmAttr: IN/OUT: Device attributes corresponding to gpuId. pDcgmAttr->version should be set to dcgmDeviceAttributes_version before this call
+//
+// Wraps dcgmGetDeviceAttributes.
+func (h Handle) DeviceAttributes(gpuId uint32, pDcgmAttr *DeviceAttributes) error {
+	return GetDeviceAttributes(h, gpuId, pDcgmAttr)
+}
+
+// DeviceTopology Gets device topology corresponding to the gpuId.
+//
+//   - gpuId: IN: GPU Id corresponding to which topology information should be fetched
+//   - pDcgmDeviceTopology: IN/OUT: Topology information corresponding to gpuId. pDcgmDeviceTopology->version must be set to dcgmDeviceTopology_version or dcgmDeviceTopology_version1 before this call
+//
+// Wraps dcgmGetDeviceTopology.
+func (h Handle) DeviceTopology(gpuId uint32, pDcgmDeviceTopology *DeviceTopology) error {
+	return GetDeviceTopology(h, gpuId, pDcgmDeviceTopology)
+}
+
+// DeviceWorkloadPowerProfileInfo Gets device workload power profile information and status.
+//
+//   - gpuId: IN: GPU Id corresponding to which the information should be fetched
+//   - profilesInfo: OUT: Information about each of the supported workload power profiles available on this device
+//   - profilesStatus: OUT: Currently active, requested, and enforced workload power profiles on this device
+//
+// Wraps dcgmGetDeviceWorkloadPowerProfileInfo.
+func (h Handle) DeviceWorkloadPowerProfileInfo(gpuId uint32, profilesInfo *WorkloadPowerProfileProfilesInfo, profilesStatus *DeviceWorkloadPowerProfilesStatus) error {
+	return GetDeviceWorkloadPowerProfileInfo(h, gpuId, profilesInfo, profilesStatus)
+}
+
 // Disconnect This method is used to disconnect from a stand-alone host engine process.
 //
 // Wraps dcgmDisconnect.
@@ -37,6 +105,18 @@ func (h Handle) EntitiesGetLatestValues(entities *GroupEntityPair, entityCount u
 // Wraps dcgmEntityGetLatestValues.
 func (h Handle) EntityGetLatestValues(entityGroup FieldEntityGroup, entityId int32, fields *uint16, count uint32, values *FieldValueV1) error {
 	return EntityGetLatestValues(h, entityGroup, entityId, fields, count, values)
+}
+
+// EntityGroupEntities Gets the list of entities that exist for a given entity group.
+//
+//   - entityGroup: IN: Entity group to list entities of
+//   - entities: OUT: Array of entities for entityGroup
+//   - numEntities: IN/OUT: Upon calling, this should be the number of entities that entityList[] can hold. Upon return, this will contain the number of entities actually saved to entityList
+//   - flags: IN: Flags to modify the behavior of this request. See DCGM_GEGE_FLAG_* #defines in dcgm_structs.h
+//
+// Wraps dcgmGetEntityGroupEntities.
+func (h Handle) EntityGroupEntities(entityGroup FieldEntityGroup, entities *FieldEid, numEntities *int32, flags uint32) error {
+	return GetEntityGroupEntities(h, entityGroup, entities, numEntities, flags)
 }
 
 // FieldGroupCreate Used to create a group of fields and return the handle in dcgmFieldGroupId
@@ -78,162 +158,42 @@ func (h Handle) FieldGroupGetInfo(fieldGroupInfo *FieldGroupInfo) error {
 	return FieldGroupGetInfo(h, fieldGroupInfo)
 }
 
-// GetAllDevices This method is used to get identifiers corresponding to all the devices on the system.
-//
-// The GPUs returned from this function include gpuIds of GPUs that are not supported by DCGM.
-// To only get gpuIds of GPUs that are supported by DCGM, use [Handle.GetAllSupportedDevices].
-//
-//   - gpuIdList: OUT: Array reference to fill GPU Ids present on the system
-//   - count: OUT: Number of GPUs returned in gpuIdList
-//
-// Wraps dcgmGetAllDevices.
-func (h Handle) GetAllDevices(gpuIdList *uint32) (int32, error) {
-	return GetAllDevices(h, gpuIdList)
-}
-
-// GetAllSupportedDevices This method is used to get identifiers corresponding to all the DCGM-supported devices on the system.
-//
-// The GPUs returned from this function ONLY includes gpuIds of GPUs that are supported by DCGM.
-// To get gpuIds of all GPUs in the system, use [Handle.GetAllDevices].
-//
-//   - gpuIdList: OUT: Array reference to fill GPU Ids present on the system
-//   - count: OUT: Number of GPUs returned in gpuIdList
-//
-// Wraps dcgmGetAllSupportedDevices.
-func (h Handle) GetAllSupportedDevices(gpuIdList *uint32) (int32, error) {
-	return GetAllSupportedDevices(h, gpuIdList)
-}
-
-// GetCpuHierarchyV2 List supported CPUs and their cores present on the system
-//
-// This and other CPU APIs only support datacenter NVIDIA CPUs.
-//
-//   - cpuHierarchy: OUT: Structure where the CPUs and their associated cores will be enumerated
-//
-// Wraps dcgmGetCpuHierarchy_v2.
-func (h Handle) GetCpuHierarchyV2(cpuHierarchy *CpuHierarchy) error {
-	return GetCpuHierarchyV2(h, cpuHierarchy)
-}
-
-// GetDeviceAttributes Gets device attributes corresponding to the gpuId.
-//
-//   - gpuId: IN: GPU Id corresponding to which the attributes should be fetched
-//   - pDcgmAttr: IN/OUT: Device attributes corresponding to gpuId. pDcgmAttr->version should be set to dcgmDeviceAttributes_version before this call
-//
-// Wraps dcgmGetDeviceAttributes.
-func (h Handle) GetDeviceAttributes(gpuId uint32, pDcgmAttr *DeviceAttributes) error {
-	return GetDeviceAttributes(h, gpuId, pDcgmAttr)
-}
-
-// GetDeviceTopology Gets device topology corresponding to the gpuId.
-//
-//   - gpuId: IN: GPU Id corresponding to which topology information should be fetched
-//   - pDcgmDeviceTopology: IN/OUT: Topology information corresponding to gpuId. pDcgmDeviceTopology->version must be set to dcgmDeviceTopology_version or dcgmDeviceTopology_version1 before this call
-//
-// Wraps dcgmGetDeviceTopology.
-func (h Handle) GetDeviceTopology(gpuId uint32, pDcgmDeviceTopology *DeviceTopology) error {
-	return GetDeviceTopology(h, gpuId, pDcgmDeviceTopology)
-}
-
-// GetDeviceWorkloadPowerProfileInfo Gets device workload power profile information and status.
-//
-//   - gpuId: IN: GPU Id corresponding to which the information should be fetched
-//   - profilesInfo: OUT: Information about each of the supported workload power profiles available on this device
-//   - profilesStatus: OUT: Currently active, requested, and enforced workload power profiles on this device
-//
-// Wraps dcgmGetDeviceWorkloadPowerProfileInfo.
-func (h Handle) GetDeviceWorkloadPowerProfileInfo(gpuId uint32, profilesInfo *WorkloadPowerProfileProfilesInfo, profilesStatus *DeviceWorkloadPowerProfilesStatus) error {
-	return GetDeviceWorkloadPowerProfileInfo(h, gpuId, profilesInfo, profilesStatus)
-}
-
-// GetEntityGroupEntities Gets the list of entities that exist for a given entity group.
-//
-//   - entityGroup: IN: Entity group to list entities of
-//   - entities: OUT: Array of entities for entityGroup
-//   - numEntities: IN/OUT: Upon calling, this should be the number of entities that entityList[] can hold. Upon return, this will contain the number of entities actually saved to entityList
-//   - flags: IN: Flags to modify the behavior of this request. See DCGM_GEGE_FLAG_* #defines in dcgm_structs.h
-//
-// Wraps dcgmGetEntityGroupEntities.
-func (h Handle) GetEntityGroupEntities(entityGroup FieldEntityGroup, entities *FieldEid, numEntities *int32, flags uint32) error {
-	return GetEntityGroupEntities(h, entityGroup, entities, numEntities, flags)
-}
-
-// GetFieldSummary Get a summary of the values for a field id over a period of time.
+// FieldSummary Get a summary of the values for a field id over a period of time.
 //
 //   - request: IN/OUT: a pointer to the struct detailing the request and containing the response
 //
 // Wraps dcgmGetFieldSummary.
-func (h Handle) GetFieldSummary(request *FieldSummaryRequest) error {
+func (h Handle) FieldSummary(request *FieldSummaryRequest) error {
 	return GetFieldSummary(h, request)
 }
 
-// GetGpuChipArchitecture Gets simplified GPU chip architecture enumeration.
+// GpuChipArchitecture Gets simplified GPU chip architecture enumeration.
 //
 //   - gpuId: IN: DCGM GPU Id
 //   - chipArchitecture: OUT: GPU chip architecture enumeration value
 //
 // Wraps dcgmGetGpuChipArchitecture.
-func (h Handle) GetGpuChipArchitecture(gpuId uint32) (ChipArchitecture, error) {
+func (h Handle) GpuChipArchitecture(gpuId uint32) (ChipArchitecture, error) {
 	return GetGpuChipArchitecture(h, gpuId)
 }
 
-// GetGpuInstanceHierarchy Gets the hierarchy of GPUs, GPU Instances, and Compute Instances.
+// GpuInstanceHierarchy Gets the hierarchy of GPUs, GPU Instances, and Compute Instances.
 //
 //   - hierarchy: OUT: Hierarchy of GPUs, GPU Instances, and Compute Instances
 //
 // Wraps dcgmGetGpuInstanceHierarchy.
-func (h Handle) GetGpuInstanceHierarchy(hierarchy *MigHierarchyV2) error {
+func (h Handle) GpuInstanceHierarchy(hierarchy *MigHierarchyV2) error {
 	return GetGpuInstanceHierarchy(h, hierarchy)
 }
 
-// GetGpuStatus Get the status of a GPU
+// GpuStatus Get the status of a GPU
 //
 //   - gpuId: in GPU ID to query status for
 //   - status: out Pointer to store the GPU status
 //
 // Wraps dcgmGetGpuStatus.
-func (h Handle) GetGpuStatus(gpuId uint32) (EntityStatus, error) {
+func (h Handle) GpuStatus(gpuId uint32) (EntityStatus, error) {
 	return GetGpuStatus(h, gpuId)
-}
-
-// GetGroupTopology Gets group topology corresponding to the groupId.
-//
-//   - groupId: IN: GroupId corresponding to which topology information should be fetched
-//   - pDcgmGroupTopology: IN/OUT: Topology information corresponding to groupId. pDcgmgroupTopology->version must be set to dcgmGroupTopology_version or dcgmGroupTopology_version1
-//
-// Wraps dcgmGetGroupTopology.
-func (h Handle) GetGroupTopology(groupId GpuGrp, pDcgmGroupTopology *GroupTopology) error {
-	return GetGroupTopology(h, groupId, pDcgmGroupTopology)
-}
-
-// GetLatestValuesForFields Request latest cached field value for a GPU
-//
-//   - gpuId: IN: Gpu ID representing the GPU for which the fields are being requested
-//   - fields: IN: Field IDs to return data for. See the definitions in dcgm_fields.h that start with DCGM_FI_
-//   - count: IN: Number of field IDs in fields[] array
-//   - values: OUT: Latest field values for the fields in fields[]
-//
-// Wraps dcgmGetLatestValuesForFields.
-func (h Handle) GetLatestValuesForFields(gpuId int32, fields *uint16, count uint32, values *FieldValueV1) error {
-	return GetLatestValuesForFields(h, gpuId, fields, count, values)
-}
-
-// GetNvLinkLinkStatus Get the NvLink link status for every NvLink in this system.
-//
-//   - linkStatus: OUT: Structure in which to store NvLink link statuses. .version should be set to dcgmNvLinkStatus_version before calling this
-//
-// Wraps dcgmGetNvLinkLinkStatus.
-func (h Handle) GetNvLinkLinkStatus(linkStatus *NvLinkStatus) error {
-	return GetNvLinkLinkStatus(h, linkStatus)
-}
-
-// GetNvLinkP2PStatus Get the NvLink P2P status for every GPU NvLink in this system.
-//
-//   - linkStatus: OUT: Structure in which to store NvLink P2P statuses. .version should be set to dcgmNvLinkP2PStatus_version1 before calling this
-//
-// Wraps dcgmGetNvLinkP2PStatus.
-func (h Handle) GetNvLinkP2PStatus(linkStatus *NvLinkP2PStatus) error {
-	return GetNvLinkP2PStatus(h, linkStatus)
 }
 
 // GroupAddDevice Used to add specified GPU Id to the group represented by groupId.
@@ -324,6 +284,16 @@ func (h Handle) GroupRemoveEntity(groupId GpuGrp, entityGroupId FieldEntityGroup
 	return GroupRemoveEntity(h, groupId, entityGroupId, entityId)
 }
 
+// GroupTopology Gets group topology corresponding to the groupId.
+//
+//   - groupId: IN: GroupId corresponding to which topology information should be fetched
+//   - pDcgmGroupTopology: IN/OUT: Topology information corresponding to groupId. pDcgmgroupTopology->version must be set to dcgmGroupTopology_version or dcgmGroupTopology_version1
+//
+// Wraps dcgmGetGroupTopology.
+func (h Handle) GroupTopology(groupId GpuGrp, pDcgmGroupTopology *GroupTopology) error {
+	return GetGroupTopology(h, groupId, pDcgmGroupTopology)
+}
+
 // HealthCheck Check the configured watches for any errors/failures/warnings that have occurred since the last time this check was invoked.
 //
 //   - groupId: IN: Group ID representing a collection of one or more entities. Refer to [Handle.GroupCreate] for details on creating a group
@@ -391,6 +361,18 @@ func (h Handle) IntrospectGetHostengineMemoryUsage(memoryInfo *IntrospectMemory,
 	return IntrospectGetHostengineMemoryUsage(h, memoryInfo, waitIfNoData)
 }
 
+// LatestValuesForFields Request latest cached field value for a GPU
+//
+//   - gpuId: IN: Gpu ID representing the GPU for which the fields are being requested
+//   - fields: IN: Field IDs to return data for. See the definitions in dcgm_fields.h that start with DCGM_FI_
+//   - count: IN: Number of field IDs in fields[] array
+//   - values: OUT: Latest field values for the fields in fields[]
+//
+// Wraps dcgmGetLatestValuesForFields.
+func (h Handle) LatestValuesForFields(gpuId int32, fields *uint16, count uint32, values *FieldValueV1) error {
+	return GetLatestValuesForFields(h, gpuId, fields, count, values)
+}
+
 // ModuleGetStatuses Get the status of all of the DCGM modules.
 //
 //   - moduleStatuses: OUT: Module statuses. .version should be set to dcgmModuleStatuses_version upon calling
@@ -398,6 +380,24 @@ func (h Handle) IntrospectGetHostengineMemoryUsage(memoryInfo *IntrospectMemory,
 // Wraps dcgmModuleGetStatuses.
 func (h Handle) ModuleGetStatuses(moduleStatuses *ModuleGetStatusesStruct) error {
 	return ModuleGetStatuses(h, moduleStatuses)
+}
+
+// NvLinkLinkStatus Get the NvLink link status for every NvLink in this system.
+//
+//   - linkStatus: OUT: Structure in which to store NvLink link statuses. .version should be set to dcgmNvLinkStatus_version before calling this
+//
+// Wraps dcgmGetNvLinkLinkStatus.
+func (h Handle) NvLinkLinkStatus(linkStatus *NvLinkStatus) error {
+	return GetNvLinkLinkStatus(h, linkStatus)
+}
+
+// NvLinkP2PStatus Get the NvLink P2P status for every GPU NvLink in this system.
+//
+//   - linkStatus: OUT: Structure in which to store NvLink P2P statuses. .version should be set to dcgmNvLinkP2PStatus_version1 before calling this
+//
+// Wraps dcgmGetNvLinkP2PStatus.
+func (h Handle) NvLinkP2PStatus(linkStatus *NvLinkP2PStatus) error {
+	return GetNvLinkP2PStatus(h, linkStatus)
 }
 
 // ProfGetSupportedMetricGroups Get all of the profiling metric groups for a given GPU group.

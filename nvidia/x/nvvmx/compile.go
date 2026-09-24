@@ -62,14 +62,14 @@ type program interface {
 	AddModuleTo(unsafe.Pointer, uint, string) error
 	LazyAddModuleTo(unsafe.Pointer, uint, string) error
 	Compile([]string) error
-	GetCompiledResult() ([]byte, error)
-	GetProgramLog() (string, error)
+	CompiledResult() ([]byte, error)
+	Log() (string, error)
 	close() error
 }
 
 type nativeProgram struct{ nvvm.Program }
 
-func (p *nativeProgram) close() error { return nvvm.DestroyProgram(&p.Program) }
+func (p *nativeProgram) close() error { return p.Program.Destroy() }
 
 // Compile synchronously compiles inputs using native NVVM options. At least one
 // input must be non-lazy. The -gen-lto option selects LTOIR instead of PTX;
@@ -130,7 +130,7 @@ func compile(inputs []Input, options []string, create func() (program, error)) (
 	transferred = true
 	defer func() {
 		var logErr error
-		result.Log, logErr = h.GetProgramLog()
+		result.Log, logErr = h.Log()
 		if logErr != nil {
 			err = errors.Join(err, fmt.Errorf("nvvmx: log: %w", logErr))
 		}
@@ -151,7 +151,7 @@ func compile(inputs []Input, options []string, create func() (program, error)) (
 	if err := h.Compile(append([]string(nil), options...)); err != nil {
 		return result, fmt.Errorf("compile: %w", err)
 	}
-	data, err := h.GetCompiledResult()
+	data, err := h.CompiledResult()
 	if err != nil {
 		return result, fmt.Errorf("output: %w", err)
 	}

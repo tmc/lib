@@ -121,7 +121,7 @@ func (h Handle) ExecZ2Z(idata uintptr, odata uintptr, direction int32) error {
 	return execZ2Z(h, idata, odata, direction)
 }
 
-// GetPlanPropertyInt64 Retrieves the property value identified by the key property associated with the cuFFT plan plan.
+// PlanPropertyInt64 Retrieves the property value identified by the key property associated with the cuFFT plan plan.
 //
 // The value for the property, which is a signed long long integer, is set in the address space pointed by propertyValueInt64.
 //
@@ -134,11 +134,11 @@ func (h Handle) ExecZ2Z(idata uintptr, odata uintptr, direction int32) error {
 //   - [Success]: cuFFT successfully retrieved the property value.
 //
 // Wraps cufftGetPlanPropertyInt64.
-func (h Handle) GetPlanPropertyInt64(property Property) (int64, error) {
+func (h Handle) PlanPropertyInt64(property Property) (int64, error) {
 	return getPlanPropertyInt64(h, property)
 }
 
-// GetSize Once plan generation has been done, either with the original API or the extensible API, this call returns the actual size of the work area required to support the plan.
+// Size Once plan generation has been done, either with the original API or the extensible API, this call returns the actual size of the work area required to support the plan.
 //
 // Callers who choose to manage work area allocation within their application must use this call after plan generation, and after any cufftSet*() calls subsequent to plan generation, if those calls might alter the required work space size.
 //
@@ -148,16 +148,16 @@ func (h Handle) GetPlanPropertyInt64(property Property) (int64, error) {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSize.
-func (h Handle) GetSize() (uint, error) {
+func (h Handle) Size() (uint, error) {
 	return getSize(h)
 }
 
-// GetSize1d This call gives a more accurate estimate of the work area size required for a plan than [Estimate1d], given the specified parameters, and taking into account any plan settings that may have been made.
+// Size1d This call gives a more accurate estimate of the work area size required for a plan than [Estimate1d], given the specified parameters, and taking into account any plan settings that may have been made.
 //
 // If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 //
 //   - nx: The transform size (e.g. 256 for a 256-point FFT)
-//   - batch: Number of transforms of size nx. Please consider using [Handle.GetSizeMany] for multiple transforms
+//   - batch: Number of transforms of size nx. Please consider using [Handle.SizeMany] for multiple transforms
 //
 // Returns:
 //   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
@@ -169,11 +169,11 @@ func (h Handle) GetSize() (uint, error) {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSize1d.
-func (h Handle) GetSize1d(nx int32, type_ Type, batch int32) (uint, error) {
+func (h Handle) Size1d(nx int32, type_ Type, batch int32) (uint, error) {
 	return getSize1d(h, nx, type_, batch)
 }
 
-// GetSize2d This call gives a more accurate estimate of the work area size required for a plan than [Estimate2d], given the specified parameters, and taking into account any plan settings that may have been made.
+// Size2d This call gives a more accurate estimate of the work area size required for a plan than [Estimate2d], given the specified parameters, and taking into account any plan settings that may have been made.
 //
 // If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 //
@@ -190,11 +190,11 @@ func (h Handle) GetSize1d(nx int32, type_ Type, batch int32) (uint, error) {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSize2d.
-func (h Handle) GetSize2d(nx int32, ny int32, type_ Type) (uint, error) {
+func (h Handle) Size2d(nx int32, ny int32, type_ Type) (uint, error) {
 	return getSize2d(h, nx, ny, type_)
 }
 
-// GetSize3d This call gives a more accurate estimate of the work area size required for a plan than [Estimate3d], given the specified parameters, and taking into account any plan settings that may have been made.
+// Size3d This call gives a more accurate estimate of the work area size required for a plan than [Estimate3d], given the specified parameters, and taking into account any plan settings that may have been made.
 //
 // If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 //
@@ -212,11 +212,11 @@ func (h Handle) GetSize2d(nx int32, ny int32, type_ Type) (uint, error) {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSize3d.
-func (h Handle) GetSize3d(nx int32, ny int32, nz int32, type_ Type) (uint, error) {
+func (h Handle) Size3d(nx int32, ny int32, nz int32, type_ Type) (uint, error) {
 	return getSize3d(h, nx, ny, nz, type_)
 }
 
-// GetSizeMany This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
+// SizeMany This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
 //
 // If a work area size of 0 is returned it means no temporary storage is needed for evaluation.
 //
@@ -237,11 +237,11 @@ func (h Handle) GetSize3d(nx int32, ny int32, nz int32, type_ Type) (uint, error
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSizeMany.
-func (h Handle) GetSizeMany(rank int32, n *int32, inembed *int32, istride int32, idist int32, onembed *int32, ostride int32, odist int32, type_ Type, batch int32) (uint, error) {
+func (h Handle) SizeMany(rank int32, n *int32, inembed *int32, istride int32, idist int32, onembed *int32, ostride int32, odist int32, type_ Type, batch int32) (uint, error) {
 	return getSizeMany(h, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch)
 }
 
-// GetSizeMany64 This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
+// SizeMany64 This call gives a more accurate estimate of the work area size required for a plan than cufftEstimateSizeMany(), given the specified parameters, and taking into account any plan settings that may have been made.
 //
 // This API is identical to [Handle.MakePlanMany] except that the arguments specifying sizes and strides are 64 bit integers. This API makes very large transforms possible. cuFFT includes kernels that use 32 bit indexes, and kernels that use 64 bit indexes. cuFFT planning selects 32 bit kernels whenever possible to avoid any overhead due to 64 bit arithmetic. All sizes and types of transform are supported by this interface, with two exceptions. For transforms whose total size exceeds 4G elements, the dimensions specified in the array n must be factorable into primes that are less than or equal to 127. For real to complex and complex to real transforms whose total size exceeds 4G elements, the fastest changing dimension must be even.
 //
@@ -262,7 +262,7 @@ func (h Handle) GetSizeMany(rank int32, n *int32, inembed *int32, istride int32,
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSizeMany64.
-func (h Handle) GetSizeMany64(rank int32, n *int64, inembed *int64, istride int64, idist int64, onembed *int64, ostride int64, odist int64, type_ Type, batch int64) (uint, error) {
+func (h Handle) SizeMany64(rank int32, n *int64, inembed *int64, istride int64, idist int64, onembed *int64, ostride int64, odist int64, type_ Type, batch int64) (uint, error) {
 	return getSizeMany64(h, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch)
 }
 

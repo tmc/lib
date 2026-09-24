@@ -140,11 +140,11 @@ func blockedEllGet(spMatDescr SpMatDescr, rows *int64, cols *int64, ellBlockSize
 }
 
 // bsrSetStridedBatch wraps cusparseBsrSetStridedBatch.
-func bsrSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, offsetsBatchStride int64, columnsBatchStride int64, ValuesBatchStride int64) error {
+func bsrSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, offsetsBatchStride int64, columnsBatchStride int64, valuesBatchStride int64) error {
 	if err := checkLibSym("cusparseBsrSetStridedBatch"); err != nil {
 		return err
 	}
-	return toError(fnbsrSetStridedBatch(spMatDescr, batchCount, offsetsBatchStride, columnsBatchStride, ValuesBatchStride))
+	return toError(fnbsrSetStridedBatch(spMatDescr, batchCount, offsetsBatchStride, columnsBatchStride, valuesBatchStride))
 }
 
 // constBlockedEllGet wraps cusparseConstBlockedEllGet.

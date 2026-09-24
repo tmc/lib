@@ -52,7 +52,7 @@ func setup(t *testing.T) cublas.Handle {
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -78,7 +78,7 @@ func setup(t *testing.T) cublas.Handle {
 			t.Errorf("destroy handle: %v", err)
 		}
 	})
-	version, err := h.GetVersion()
+	version, err := h.Version()
 	if err != nil {
 		t.Fatalf("get version: %v", err)
 	}
@@ -96,11 +96,11 @@ func devSlice[T any](t *testing.T, xs []T) uintptr {
 		t.Fatalf("MemAlloc(%d): %v", n, err)
 	}
 	t.Cleanup(func() {
-		if err := ptr.MemFree(); err != nil {
+		if err := ptr.Free(); err != nil {
 			t.Errorf("free device buffer: %v", err)
 		}
 	})
-	if err := ptr.MemcpyHtoD(unsafe.Pointer(&xs[0]), n); err != nil {
+	if err := ptr.CopyFromHost(unsafe.Pointer(&xs[0]), n); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	return uintptr(ptr)
@@ -123,7 +123,7 @@ func download[T any](t *testing.T, ptr uintptr, xs []T) {
 		t.Fatalf("synchronize: %v", err)
 	}
 	n := uint(len(xs)) * uint(unsafe.Sizeof(xs[0]))
-	if err := driver.DevicePtr(ptr).MemcpyDtoH(unsafe.Pointer(&xs[0]), n); err != nil {
+	if err := driver.DevicePtr(ptr).CopyToHost(unsafe.Pointer(&xs[0]), n); err != nil {
 		t.Fatalf("MemcpyDtoH: %v", err)
 	}
 }
@@ -437,7 +437,7 @@ func TestPointerModeRoundTrip(t *testing.T) {
 		if err := h.SetPointerMode(want); err != nil {
 			t.Fatalf("SetPointerMode(%v): %v", want, err)
 		}
-		got, err := h.GetPointerMode()
+		got, err := h.PointerMode()
 		if err != nil {
 			t.Fatalf("GetPointerMode: %v", err)
 		}

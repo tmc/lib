@@ -53,12 +53,12 @@ func NewEventTimer(dev *Device, streams []*Stream) (*EventTimer, error) {
 		seen[s.Raw()] = true
 	}
 	return newEventTimer(streams, timerAPI{
-		stream: func() (*Stream, error) { return dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking)) },
+		stream: func() (*Stream, error) { return dev.NewStreamWithFlags(driver.StreamNonBlocking) },
 		event: func(timing bool) (*Event, error) {
 			if timing {
 				return dev.NewEvent()
 			}
-			return dev.NewEventWithFlags(uint32(driver.EventDisableTiming))
+			return dev.NewEventWithFlags(driver.EventDisableTiming)
 		},
 		record: (*Event).Record, wait: (*Stream).WaitEvent,
 		query:      streamQueryIfAvailable(),

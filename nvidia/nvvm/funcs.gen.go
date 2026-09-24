@@ -12,7 +12,7 @@ var (
 	fnaddModuleToProgram     func(Program, unsafe.Pointer, uint, *byte) Result
 	fncompileProgram         func(Program, int32, **byte) Result
 	fnCreateProgram          func(*Program) Result
-	fnDestroyProgram         func(*Program) Result
+	fndestroyProgram         func(*Program) Result
 	fngetCompiledResult      func(Program, *byte) Result
 	fngetCompiledResultSize  func(Program, *uint) Result
 	fngetProgramLog          func(Program, *byte) Result
@@ -150,16 +150,16 @@ func CreateProgram() (Program, error) {
 	return out, nil
 }
 
-// DestroyProgram Destroy a program.
+// destroyProgram Destroy a program.
 //
 //   - prog (in): NVVM program
 //
 // Wraps nvvmDestroyProgram.
-func DestroyProgram(prog *Program) error {
+func destroyProgram(prog *Program) error {
 	if err := checkLibSym("nvvmDestroyProgram"); err != nil {
 		return err
 	}
-	return toError(fnDestroyProgram(prog))
+	return toError(fndestroyProgram(prog))
 }
 
 // getCompiledResult Get the compiled result.

@@ -7,25 +7,15 @@ package cublaslt
 //   - pref: Pointer to the structure holding the matrix multiply preferences descriptor created by this function. See [MatrixLayout]
 //
 // Returns:
-//   - [ErrAllocFailed]: If memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtMatmulPreferenceCreate.
 func NewMatmulPreference() (MatmulPreference, error) {
 	return matmulPreferenceCreate()
 }
 
-// Destroy destroys a previously created matrix multiply preferences descriptor object.
-//
-// Returns:
-//   - [Success]: If the operation was successful.
-//
-// Wraps cublasLtMatmulPreferenceDestroy.
-func (m MatmulPreference) Destroy() error {
-	return matmulPreferenceDestroy(m)
-}
-
-// GetAttribute returns the value of the queried attribute belonging to a previously created matrix multiply heuristic search preferences descriptor.
+// Attribute returns the value of the queried attribute belonging to a previously created matrix multiply heuristic search preferences descriptor.
 //
 //   - attr: The attribute that will be queried by this function. See [MatmulPreferenceAttributes]
 //   - buf: Memory address containing the attribute value retrieved by this function
@@ -33,12 +23,22 @@ func (m MatmulPreference) Destroy() error {
 //   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: - If sizeInBytes is 0 and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtMatmulPreferenceGetAttribute.
-func (m MatmulPreference) GetAttribute(attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func (m MatmulPreference) Attribute(attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
 	return matmulPreferenceGetAttribute(m, attr, buf, sizeInBytes)
+}
+
+// Destroy destroys a previously created matrix multiply preferences descriptor object.
+//
+// Returns:
+//   - [Success]: if operation was successful
+//
+// Wraps cublasLtMatmulPreferenceDestroy.
+func (m MatmulPreference) Destroy() error {
+	return matmulPreferenceDestroy(m)
 }
 
 // Init_internal wraps cublasLtMatmulPreferenceInit_internal.
@@ -53,8 +53,8 @@ func (m MatmulPreference) Init_internal(size uint) error {
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes doesn’t match the size of the internal storage for the selected attribute.
-//   - [Success]: If the attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtMatmulPreferenceSetAttribute.
 func (m MatmulPreference) SetAttribute(attr MatmulPreferenceAttributes, buf uintptr, sizeInBytes uint) error {

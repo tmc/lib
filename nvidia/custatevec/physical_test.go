@@ -59,7 +59,7 @@ func requireDevice(t *testing.T) {
 	}
 	// Past this point the machine has everything the test needs, so every
 	// remaining failure is a real failure and is reported as one.
-	device, err := driver.NewDeviceGet(0)
+	device, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Fatalf("cuDeviceGet(0): %v", err)
 	}
@@ -123,7 +123,7 @@ func TestBellStateOnDevice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cuMemAlloc(%d): %v", nAmplitudes*uint(elemSize), err)
 	}
-	defer sv.MemFree()
+	defer sv.Free()
 
 	h, err := custatevec.Create()
 	if err != nil {
@@ -137,7 +137,7 @@ func TestBellStateOnDevice(t *testing.T) {
 
 	// The workspace query must agree with itself: attaching the size it
 	// reports is the documented way to give the handle its own workspace.
-	if _, err := h.GetDefaultWorkspaceSize(); err != nil {
+	if _, err := h.DefaultWorkspaceSize(); err != nil {
 		t.Fatalf("custatevecGetDefaultWorkspaceSize: %v", err)
 	}
 
@@ -196,7 +196,7 @@ func TestBellStateOnDevice(t *testing.T) {
 
 	// Amplitudes, read back from the device and compared elementwise.
 	got := make([]custatevec.Complex128, nAmplitudes)
-	if err := sv.MemcpyDtoH(unsafe.Pointer(&got[0]), nAmplitudes*uint(elemSize)); err != nil {
+	if err := sv.CopyToHost(unsafe.Pointer(&got[0]), nAmplitudes*uint(elemSize)); err != nil {
 		t.Fatalf("cuMemcpyDtoH: %v", err)
 	}
 	const tol = 1e-12
@@ -295,7 +295,7 @@ func TestBellStateOnDevice(t *testing.T) {
 		t.Errorf("<Z_0> after collapsing to 0 = %v, want 1", expectation.Complex())
 	}
 
-	if err := sv.MemcpyDtoH(unsafe.Pointer(&got[0]), nAmplitudes*uint(elemSize)); err != nil {
+	if err := sv.CopyToHost(unsafe.Pointer(&got[0]), nAmplitudes*uint(elemSize)); err != nil {
 		t.Fatalf("cuMemcpyDtoH after collapse: %v", err)
 	}
 	collapsed := reference{1, 0, 0, 0}

@@ -88,3 +88,10 @@ func (h Handle) Get() ([]byte, error) {
 func (h Handle) Size() (uint, error) {
 	return size(h)
 }
+
+// Destroy [Handle.Destroy] destroys the handle.
+//
+// Wraps nvFatbinDestroy.
+func (h *Handle) Destroy() error {
+	return destroy(h)
+}

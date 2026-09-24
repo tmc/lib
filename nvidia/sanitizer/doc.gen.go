@@ -228,7 +228,7 @@
 //   - [Subscriber.EnableAllDomains]: Enable or disable all callbacks in all domains.
 //   - [Subscriber.EnableCallback]: Enable or disable callbacks for a specific domain and callback ID
 //   - [Subscriber.EnableDomain]: Enable or disable all callbacks for a specific domain.
-//   - [Subscriber.GetCallbackState]: Get the current enabled/disabled state of a callback for a specific domain and function ID.
+//   - [Subscriber.CallbackState]: Get the current enabled/disabled state of a callback for a specific domain and function ID.
 //   - [IsInsideRecursiveCallback]: Check if the current thread is inside a recursive Sanitizer callback.
 //   - [Subscribe]: Initialize a callback subscriber with a callback function and user data.
 //   - [Subscriber.Unsubscribe]: Unregister a callback subscriber.
@@ -239,7 +239,7 @@
 //
 // # Stream API
 //
-//   - [StreamHandle.GetStream]: Retrieve a [Stream] handle from a [StreamHandle] handle.
+//   - [StreamHandle.Stream]: Retrieve a [Stream] handle from a [StreamHandle] handle.
 //   - [GetStreamHandle]: Retrieve a [StreamHandle] handle from a [Stream] handle
 //   - [StreamHandle.Synchronize]: Synchronize a given stream.
 //

@@ -19,7 +19,7 @@ func withContext(t *testing.T) uintptr {
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestPhysicalCallbackLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MemAlloc: %v", err)
 	}
-	if err := ptr.MemFree(); err != nil {
+	if err := ptr.Free(); err != nil {
 		t.Fatalf("MemFree: %v", err)
 	}
 

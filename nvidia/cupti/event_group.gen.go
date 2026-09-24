@@ -90,7 +90,7 @@ func (e EventGroup) Enable() error {
 	return eventGroupEnable(e)
 }
 
-// GetAttribute Read an event group attribute.
+// Attribute Read an event group attribute.
 //
 // Read an event group attribute and return it in *value.
 // must guard against simultaneous destruction or modification of eventGroup (for example, client must guard against simultaneous
@@ -113,7 +113,7 @@ func (e EventGroup) Enable() error {
 //   - [ErrParameterSizeNotSufficient]: For non-c-string attribute values, indicates that the value buffer is too small to hold the attribute value.
 //
 // Wraps cuptiEventGroupGetAttribute.
-func (e EventGroup) GetAttribute(attrib EventGroupAttribute, valueSize *uint, value unsafe.Pointer) error {
+func (e EventGroup) Attribute(attrib EventGroupAttribute, valueSize *uint, value unsafe.Pointer) error {
 	return eventGroupGetAttribute(e, attrib, valueSize, value)
 }
 

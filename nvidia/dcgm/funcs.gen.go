@@ -268,7 +268,7 @@ func FieldGroupGetInfo(dcgmHandle Handle, fieldGroupInfo *FieldGroupInfo) error 
 // GetAllDevices This method is used to get identifiers corresponding to all the devices on the system.
 //
 // The GPUs returned from this function include gpuIds of GPUs that are not supported by DCGM.
-// To only get gpuIds of GPUs that are supported by DCGM, use [Handle.GetAllSupportedDevices].
+// To only get gpuIds of GPUs that are supported by DCGM, use [Handle.AllSupportedDevices].
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - gpuIdList: OUT: Array reference to fill GPU Ids present on the system
@@ -291,7 +291,7 @@ func GetAllDevices(pDcgmHandle Handle, gpuIdList *uint32) (int32, error) {
 // GetAllSupportedDevices This method is used to get identifiers corresponding to all the DCGM-supported devices on the system.
 //
 // The GPUs returned from this function ONLY includes gpuIds of GPUs that are supported by DCGM.
-// To get gpuIds of all GPUs in the system, use [Handle.GetAllDevices].
+// To get gpuIds of all GPUs in the system, use [Handle.AllDevices].
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - gpuIdList: OUT: Array reference to fill GPU Ids present on the system
@@ -875,7 +875,7 @@ func StatusClear(statusHandle StatusHandle) error {
 // handle provides a mechanism to access error attributes for the failed operations.
 //
 // The number of errors stored behind the opaque handle can be accessed using the the API
-// [StatusHandle.GetCount]. The errors are accessed from the opaque handle statusHandle
+// [StatusHandle.Count]. The errors are accessed from the opaque handle statusHandle
 // using the API [StatusHandle.PopError]. The user can invoke [StatusHandle.PopError]
 // for the number of errors or until all the errors are fetched.
 //

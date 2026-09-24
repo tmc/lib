@@ -59,7 +59,7 @@ func TestNativeGraphReplayDiagnostic(t *testing.T) {
 	dev, err := cuda.NewDevice(0)
 	check(err)
 	cleanup(dev.Close)
-	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	check(err)
 	cleanup(stream.Destroy)
 	data, err := cudamem.Alloc[uint32](dev, 160)
@@ -74,11 +74,11 @@ extern "C" __global__ void graph_second(unsigned* out){unsigned i=blockIdx.x*blo
 	var first, second driver.Function
 	check(dev.WithContext(func() error {
 		var err error
-		first, err = module.GetFunction("graph_first")
+		first, err = module.Function("graph_first")
 		if err != nil {
 			return err
 		}
-		second, err = module.GetFunction("graph_second")
+		second, err = module.Function("graph_second")
 		return err
 	}))
 	var captured error

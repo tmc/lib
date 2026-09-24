@@ -23,7 +23,7 @@ func NewDevice(ordinal int) (*Device, error) {
 	if err := Init(); err != nil {
 		return nil, err
 	}
-	dev, err := driver.NewDeviceGet(ordinal)
+	dev, err := driver.DeviceGet(ordinal)
 	if err != nil {
 		return nil, fmt.Errorf("cuda: device %d: %w", ordinal, err)
 	}
@@ -51,7 +51,7 @@ func (d *Device) Raw() driver.Device {
 
 // Name returns the human-readable identifier of the device.
 func (d *Device) Name() (string, error) {
-	name, err := d.raw.GetName()
+	name, err := d.raw.Name()
 	if err != nil {
 		return "", fmt.Errorf("cuda: device %d get name: %w", d.ordinal, err)
 	}
@@ -69,11 +69,11 @@ func (d *Device) TotalMem() (uint64, error) {
 
 // ComputeCapability returns the major and minor compute capability revision numbers.
 func (d *Device) ComputeCapability() (major, minor int, err error) {
-	maj, err := d.raw.GetAttribute(driver.DevAttrComputeCapabilityMajor)
+	maj, err := d.raw.Attribute(driver.DevAttrComputeCapabilityMajor)
 	if err != nil {
 		return 0, 0, fmt.Errorf("cuda: device %d compute capability major: %w", d.ordinal, err)
 	}
-	min, err := d.raw.GetAttribute(driver.DevAttrComputeCapabilityMinor)
+	min, err := d.raw.Attribute(driver.DevAttrComputeCapabilityMinor)
 	if err != nil {
 		return 0, 0, fmt.Errorf("cuda: device %d compute capability minor: %w", d.ordinal, err)
 	}
@@ -82,7 +82,7 @@ func (d *Device) ComputeCapability() (major, minor int, err error) {
 
 // Attribute queries an integer hardware or driver attribute on the device.
 func (d *Device) Attribute(attrib driver.DeviceAttribute) (int, error) {
-	val, err := d.raw.GetAttribute(attrib)
+	val, err := d.raw.Attribute(attrib)
 	if err != nil {
 		return 0, fmt.Errorf("cuda: device %d get attribute %v: %w", d.ordinal, attrib, err)
 	}
@@ -156,7 +156,7 @@ func (d *Device) NewStream() (*Stream, error) {
 }
 
 // NewStreamWithFlags creates a new asynchronous stream on the device with specified flags (e.g. driver.StreamNonBlocking).
-func (d *Device) NewStreamWithFlags(flags uint32) (*Stream, error) {
+func (d *Device) NewStreamWithFlags(flags driver.StreamFlags) (*Stream, error) {
 	var s Stream
 	err := d.WithContext(func() error {
 		raw, err := driver.NewStream(flags)
@@ -181,7 +181,7 @@ func (d *Device) NewEvent() (*Event, error) {
 }
 
 // NewEventWithFlags creates a new CUDA event on the device with specified flags (e.g. driver.EventDisableTiming, driver.EventBlockingSync).
-func (d *Device) NewEventWithFlags(flags uint32) (*Event, error) {
+func (d *Device) NewEventWithFlags(flags driver.EventFlags) (*Event, error) {
 	var e Event
 	err := d.WithContext(func() error {
 		raw, err := driver.NewEvent(flags)

@@ -47,7 +47,7 @@ func TestNativeRangeCapture(t *testing.T) {
 	var fn driver.Function
 	err = dev.WithContext(func() error {
 		var err error
-		fn, err = module.GetFunction("measured")
+		fn, err = module.Function("measured")
 		return err
 	})
 	if err != nil {

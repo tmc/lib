@@ -13,89 +13,89 @@ func (g GraphNode) FindInClone(hClonedGraph Graph) (GraphNode, error) {
 	return graphNodeFindInClone(g, hClonedGraph)
 }
 
-// GetContainingGraph Returns the graph that contains a given graph node.
+// ContainingGraph Returns the graph that contains a given graph node.
 //
-// Returns the graph that contains hNode in *phGraph. If hNode is in a child graph, the child graph it is in is returned. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetLocalId] [GraphNode.GetToolsId] [Graph.GetId] [GraphExec.GetId]
+// Returns the graph that contains hNode in *phGraph. If hNode is in a child graph, the child graph it is in is returned. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.LocalId] [GraphNode.ToolsId] [Graph.Id] [GraphExec.Id]
 //
 // Wraps cuGraphNodeGetContainingGraph.
-func (g GraphNode) GetContainingGraph() (Graph, error) {
+func (g GraphNode) ContainingGraph() (Graph, error) {
 	return graphNodeGetContainingGraph(g)
 }
 
-// GetDependencies Returns a node's dependencies.
+// Dependencies Returns a node's dependencies.
 //
-// Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well. See also: [GraphNode.GetDependentNodes], [Graph.GetNodes], [Graph.GetRootNodes], [Graph.GetEdges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+// Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well. See also: [GraphNode.DependentNodes], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
 //   - edgeData: Optional array to return edge data for each dependency
 //   - numDependencies: See description
 //
 // Wraps cuGraphNodeGetDependencies, bound as cuGraphNodeGetDependencies_v2.
-func (g GraphNode) GetDependencies(edgeData *GraphEdgeData, numDependencies *uint) (GraphNode, error) {
+func (g GraphNode) Dependencies(edgeData *GraphEdgeData, numDependencies *uint) (GraphNode, error) {
 	return graphNodeGetDependencies(g, edgeData, numDependencies)
 }
 
-// GetDependentNodes Returns a node's dependent nodes.
+// DependentNodes Returns a node's dependent nodes.
 //
-// Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well. See also: [GraphNode.GetDependencies], [Graph.GetNodes], [Graph.GetRootNodes], [Graph.GetEdges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+// Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well. See also: [GraphNode.Dependencies], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
 //   - edgeData: Optional pointer to return edge data for dependent nodes
 //   - numDependentNodes: See description
 //
 // Wraps cuGraphNodeGetDependentNodes, bound as cuGraphNodeGetDependentNodes_v2.
-func (g GraphNode) GetDependentNodes(edgeData *GraphEdgeData, numDependentNodes *uint) (GraphNode, error) {
+func (g GraphNode) DependentNodes(edgeData *GraphEdgeData, numDependentNodes *uint) (GraphNode, error) {
 	return graphNodeGetDependentNodes(g, edgeData, numDependentNodes)
 }
 
-// GetEnabled Query whether a node in the given graphExec is enabled.
+// Enabled Query whether a node in the given graphExec is enabled.
 //
 // Sets isEnabled to 1 if hNode is enabled, or 0 if hNode is disabled. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. Note: See also: [GraphNode.SetEnabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.GraphLaunch]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //
 // Wraps cuGraphNodeGetEnabled.
-func (g GraphNode) GetEnabled(hGraphExec GraphExec) (uint32, error) {
+func (g GraphNode) Enabled(hGraphExec GraphExec) (uint32, error) {
 	return graphNodeGetEnabled(hGraphExec, g)
 }
 
-// GetLocalId Returns the local node id of a given graph node.
+// LocalId Returns the local node id of a given graph node.
 //
-// Returns the node id of hNode in *nodeId. The nodeId matches that referenced by [Graph.DebugDotPrint]. The local nodeId and graphId together can uniquely identify the node. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetContainingGraph] [GraphNode.GetToolsId] [Graph.GetId] [GraphExec.GetId]
+// Returns the node id of hNode in *nodeId. The nodeId matches that referenced by [Graph.DebugDotPrint]. The local nodeId and graphId together can uniquely identify the node. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.ToolsId] [Graph.Id] [GraphExec.Id]
 //
 // Wraps cuGraphNodeGetLocalId.
-func (g GraphNode) GetLocalId() (uint32, error) {
+func (g GraphNode) LocalId() (uint32, error) {
 	return graphNodeGetLocalId(g)
 }
 
-// GetParams Return a graph node's parameters.
+// Params Return a graph node's parameters.
 //
 // Returns the parameters of graph node hNode in *nodeParams. Any pointers returned in *nodeParams point to driver-owned memory associated with the node. This memory remains valid until the node is destroyed. Any memory pointed to from *nodeParams must not be modified. The returned parameters are a description of the node, but may not be identical to the struct provided at creation and may not be suitable for direct creation of identical nodes. This is because parameters may be partially unspecified and filled in by the driver at creation, may reference non-copyable handles, or may describe ownership semantics or other parameters that govern behavior of node creation but are not part of the final functional descriptor. See also: [GraphNode.SetParams], [Graph.AddNode], [GraphExec.NodeSetParams]
 //
 // Wraps cuGraphNodeGetParams.
-func (g GraphNode) GetParams() (GraphNodeParams, error) {
+func (g GraphNode) Params() (GraphNodeParams, error) {
 	return graphNodeGetParams(g)
 }
 
-// GetToolsId Returns an id used by tools to identify a given node.
+// ToolsId Returns an id used by tools to identify a given node.
 //
-// See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetContainingGraph] [GraphNode.GetLocalId] [Graph.GetId] [GraphExec.GetId]
+// See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [Graph.Id] [GraphExec.Id]
 //
 // Wraps cuGraphNodeGetToolsId.
-func (g GraphNode) GetToolsId() (uint64, error) {
+func (g GraphNode) ToolsId() (uint64, error) {
 	return graphNodeGetToolsId(g)
 }
 
-// GetType Returns a node's type.
+// Type Returns a node's type.
 //
-// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.GetRootNodes], [NewGraphChildGraphNodeGetGraph], [GraphNode.GraphKernelNodeGetParams], [GraphNode.GraphKernelNodeSetParams], [GraphNode.GraphHostNodeGetParams], [GraphNode.GraphHostNodeSetParams], [GraphNode.GraphMemcpyNodeGetParams], [GraphNode.GraphMemcpyNodeSetParams], [GraphNode.GraphMemsetNodeGetParams], [GraphNode.GraphMemsetNodeSetParams]
+// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.RootNodes], [GraphChildGraphNodeGetGraph], [GraphNode.GraphKernelNodeGetParams], [GraphNode.GraphKernelNodeSetParams], [GraphNode.GraphHostNodeGetParams], [GraphNode.GraphHostNodeSetParams], [GraphNode.GraphMemcpyNodeGetParams], [GraphNode.GraphMemcpyNodeSetParams], [GraphNode.GraphMemsetNodeGetParams], [GraphNode.GraphMemsetNodeSetParams]
 //
 // Wraps cuGraphNodeGetType.
-func (g GraphNode) GetType() (GraphNodeType, error) {
+func (g GraphNode) Type() (GraphNodeType, error) {
 	return graphNodeGetType(g)
 }
 
 // SetEnabled Enables or disables the specified node in the given graphExec.
 //
-// Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. Note: Currently only kernel, memset and memcpy nodes are supported. See also: [GraphNode.GetEnabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.GraphLaunch]
+// Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. Note: Currently only kernel, memset and memcpy nodes are supported. See also: [GraphNode.Enabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.GraphLaunch]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - isEnabled: Node is enabled if != 0, otherwise the node is disabled
@@ -107,7 +107,7 @@ func (g GraphNode) SetEnabled(hGraphExec GraphExec, isEnabled uint32) error {
 
 // SetParams Update a graph node's parameters.
 //
-// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed. Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree]. See also: [Graph.AddNode], [GraphNode.GetParams], [GraphExec.NodeSetParams]
+// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed. Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree]. See also: [Graph.AddNode], [GraphNode.Params], [GraphExec.NodeSetParams]
 //
 //   - nodeParams: Parameters to copy
 //
@@ -118,7 +118,7 @@ func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
 
 // GraphBatchMemOpNodeGetParams Returns a batch mem op node's parameters.
 //
-// Returns the parameters of batch mem op node hNode in nodeParams_out. The paramArray returned in nodeParams_out is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphBatchMemOpNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.GraphBatchMemOpNodeSetParams]
+// Returns the parameters of batch mem op node hNode in nodeParams_out. The paramArray returned in nodeParams_out is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphBatchMemOpNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.GraphBatchMemOpNodeSetParams]
 //
 // Wraps cuGraphBatchMemOpNodeGetParams.
 func (g GraphNode) GraphBatchMemOpNodeGetParams() (BatchMemOpNodeParams, error) {
@@ -187,7 +187,7 @@ func (g GraphNode) GraphEventWaitNodeSetEvent(event Event) error {
 
 // GraphExternalSemaphoresSignalNodeGetParams Returns an external semaphore signal node's parameters.
 //
-// Returns the parameters of an external semaphore signal node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.GraphExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Returns the parameters of an external semaphore signal node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.GraphExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 // Wraps cuGraphExternalSemaphoresSignalNodeGetParams.
 func (g GraphNode) GraphExternalSemaphoresSignalNodeGetParams() (ExtSemSignalNodeParams, error) {
@@ -207,7 +207,7 @@ func (g GraphNode) GraphExternalSemaphoresSignalNodeSetParams(nodeParams *ExtSem
 
 // GraphExternalSemaphoresWaitNodeGetParams Returns an external semaphore wait node's parameters.
 //
-// Returns the parameters of an external semaphore wait node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.GraphExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Returns the parameters of an external semaphore wait node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.GraphExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 // Wraps cuGraphExternalSemaphoresWaitNodeGetParams.
 func (g GraphNode) GraphExternalSemaphoresWaitNodeGetParams() (ExtSemWaitNodeParams, error) {
@@ -227,7 +227,7 @@ func (g GraphNode) GraphExternalSemaphoresWaitNodeSetParams(nodeParams *ExtSemWa
 
 // GraphHostNodeGetParams Returns a host node's parameters.
 //
-// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.GetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.GraphHostNodeSetParams]
+// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.GraphHostNodeSetParams]
 //
 // Wraps cuGraphHostNodeGetParams.
 func (g GraphNode) GraphHostNodeGetParams() (HostNodeParams, error) {
@@ -267,7 +267,7 @@ func (g GraphNode) GraphKernelNodeGetAttribute(attr int32) ([8]uint64, error) {
 
 // GraphKernelNodeGetParams Returns a kernel node's parameters.
 //
-// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphKernelNodeSetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.GraphKernelNodeSetParams]
+// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphKernelNodeSetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.GraphKernelNodeSetParams]
 //
 // Wraps cuGraphKernelNodeGetParams, bound as cuGraphKernelNodeGetParams_v2.
 func (g GraphNode) GraphKernelNodeGetParams() (KernelNodeParams, error) {
@@ -296,7 +296,7 @@ func (g GraphNode) GraphKernelNodeSetParams(nodeParams *KernelNodeParams) error 
 
 // GraphMemAllocNodeGetParams Returns a memory alloc node's parameters.
 //
-// Returns the parameters of a memory alloc node hNode in params_out. The poolProps and accessDescs returned in params_out, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.GetParams], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams]
+// Returns the parameters of a memory alloc node hNode in params_out. The poolProps and accessDescs returned in params_out, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.Params], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams]
 //
 // Wraps cuGraphMemAllocNodeGetParams.
 func (g GraphNode) GraphMemAllocNodeGetParams() (MemAllocNodeParams, error) {
@@ -305,7 +305,7 @@ func (g GraphNode) GraphMemAllocNodeGetParams() (MemAllocNodeParams, error) {
 
 // GraphMemFreeNodeGetParams Returns a memory free node's parameters.
 //
-// Returns the address of a memory free node hNode in dptr_out. See also: [GraphNode.GetParams], [Graph.AddMemFreeNode], [GraphNode.GraphMemAllocNodeGetParams]
+// Returns the address of a memory free node hNode in dptr_out. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [GraphNode.GraphMemAllocNodeGetParams]
 //
 //   - dptr_out: Pointer to return the device address
 //
@@ -316,7 +316,7 @@ func (g GraphNode) GraphMemFreeNodeGetParams(dptr_out *DevicePtr) error {
 
 // GraphMemcpyNodeGetParams Returns a memcpy node's parameters.
 //
-// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.GetParams], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.GraphMemcpyNodeSetParams]
+// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.GraphMemcpyNodeSetParams]
 //
 // Wraps cuGraphMemcpyNodeGetParams.
 func (g GraphNode) GraphMemcpyNodeGetParams() (Memcpy3d, error) {
@@ -336,7 +336,7 @@ func (g GraphNode) GraphMemcpyNodeSetParams(nodeParams *Memcpy3d) error {
 
 // GraphMemsetNodeGetParams Returns a memset node's parameters.
 //
-// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.GetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.GraphMemsetNodeSetParams]
+// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.GraphMemsetNodeSetParams]
 //
 // Wraps cuGraphMemsetNodeGetParams.
 func (g GraphNode) GraphMemsetNodeGetParams() (MemsetNodeParams, error) {

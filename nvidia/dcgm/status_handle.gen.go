@@ -8,7 +8,7 @@ package dcgm
 // handle provides a mechanism to access error attributes for the failed operations.
 //
 // The number of errors stored behind the opaque handle can be accessed using the the API
-// [StatusHandle.GetCount]. The errors are accessed from the opaque handle statusHandle
+// [StatusHandle.Count]. The errors are accessed from the opaque handle statusHandle
 // using the API [StatusHandle.PopError]. The user can invoke [StatusHandle.PopError]
 // for the number of errors or until all the errors are fetched.
 //
@@ -29,20 +29,20 @@ func (s StatusHandle) Clear() error {
 	return StatusClear(s)
 }
 
+// Count Used to get count of error entries stored inside the opaque handle statusHandle.
+//
+//   - count: OUT: Number of error entries present in the list of statuses
+//
+// Wraps dcgmStatusGetCount.
+func (s StatusHandle) Count() (uint32, error) {
+	return StatusGetCount(s)
+}
+
 // Destroy Used to destroy status handle created using [NewStatusHandle].
 //
 // Wraps dcgmStatusDestroy.
 func (s StatusHandle) Destroy() error {
 	return StatusDestroy(s)
-}
-
-// GetCount Used to get count of error entries stored inside the opaque handle statusHandle.
-//
-//   - count: OUT: Number of error entries present in the list of statuses
-//
-// Wraps dcgmStatusGetCount.
-func (s StatusHandle) GetCount() (uint32, error) {
-	return StatusGetCount(s)
 }
 
 // PopError Used to iterate through the list of errors maintained behind statusHandle.

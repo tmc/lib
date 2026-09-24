@@ -268,7 +268,7 @@ func (s *Subscription) EnableAllDomains(enable bool) error {
 func (s *Subscription) CallbackState(domain cupti.CallbackDomain, cbid uint32) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	state, err := s.sub.GetCallbackState(domain, cbid)
+	state, err := s.sub.CallbackState(domain, cbid)
 	if err != nil {
 		return false, fmt.Errorf("cupticallback: get callback state (%v, %d): %w", domain, cbid, err)
 	}
@@ -280,7 +280,7 @@ func (s *Subscription) EnabledCallbacks(domain cupti.CallbackDomain) ([]uint32, 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	c, err := s.sub.GetEnabledCallbacks(domain, nil, nil)
+	c, err := s.sub.EnabledCallbacks(domain, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cupticallback: get enabled callbacks: %w", err)
 	}
@@ -289,7 +289,7 @@ func (s *Subscription) EnabledCallbacks(domain cupti.CallbackDomain) ([]uint32, 
 	}
 	buf := make([]uint32, c)
 	size := c * 4
-	count, err := s.sub.GetEnabledCallbacks(domain, &buf[0], &size)
+	count, err := s.sub.EnabledCallbacks(domain, &buf[0], &size)
 	if err != nil {
 		return nil, fmt.Errorf("cupticallback: get enabled callbacks: %w", err)
 	}

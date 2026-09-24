@@ -72,11 +72,11 @@ func devSlice[T any](t *testing.T, xs []T) uintptr {
 		t.Fatalf("MemAlloc(%d): %v", n, err)
 	}
 	t.Cleanup(func() {
-		if err := ptr.MemFree(); err != nil {
+		if err := ptr.Free(); err != nil {
 			t.Errorf("free device buffer: %v", err)
 		}
 	})
-	if err := ptr.MemcpyHtoD(unsafe.Pointer(&xs[0]), n); err != nil {
+	if err := ptr.CopyFromHost(unsafe.Pointer(&xs[0]), n); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	return uintptr(ptr)
@@ -91,7 +91,7 @@ func TestMatmul(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestMatmul(t *testing.T) {
 				t.Fatalf("synchronize: %v", err)
 			}
 			got := make([]float32, m*n)
-			if err := driver.DevicePtr(dd).MemcpyDtoH(unsafe.Pointer(&got[0]), uint(len(got))*4); err != nil {
+			if err := driver.DevicePtr(dd).CopyToHost(unsafe.Pointer(&got[0]), uint(len(got))*4); err != nil {
 				t.Fatalf("MemcpyDtoH: %v", err)
 			}
 			for i := range want {

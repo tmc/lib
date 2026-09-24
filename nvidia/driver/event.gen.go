@@ -50,7 +50,7 @@ func (e Event) Record(hStream Stream) error {
 //   - flags: See CUevent_capture_flags
 //
 // Wraps cuEventRecordWithFlags.
-func (e Event) RecordWithFlags(hStream Stream, flags uint32) error {
+func (e Event) RecordWithFlags(hStream Stream, flags EventRecordFlags) error {
 	return eventRecordWithFlags(e, hStream, flags)
 }
 
@@ -65,7 +65,7 @@ func (e Event) Synchronize() error {
 
 // IpcGetEventHandle Gets an interprocess handle for a previously allocated event.
 //
-// Takes as input a previously allocated event. This event must have been created with the [EventInterprocess] and [EventDisableTiming] flags set. This opaque handle may be copied into other processes and opened with [IpcOpenEventHandle] to allow efficient hardware synchronization between GPU work in different processes. After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling [Device.GetAttribute] with [DevAttrIpcEventSupported] See also: [NewEvent], [Event.Destroy], [Event.Synchronize], [Event.Query], [Stream.WaitEvent], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetEventHandle
+// Takes as input a previously allocated event. This event must have been created with the [EventInterprocess] and [EventDisableTiming] flags set. This opaque handle may be copied into other processes and opened with [IpcOpenEventHandle] to allow efficient hardware synchronization between GPU work in different processes. After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling [Device.Attribute] with [DevAttrIpcEventSupported] See also: [NewEvent], [Event.Destroy], [Event.Synchronize], [Event.Query], [Stream.WaitEvent], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetEventHandle
 //
 //   - pHandle: Pointer to a user allocated [IpcEventHandle] in which to return the opaque event handle
 //
@@ -78,9 +78,9 @@ func (e Event) IpcGetEventHandle(pHandle *IpcEventHandle) error {
 //
 // Creates an event *phEvent for the current context with the flags specified via Flags. Valid flags include: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Event.Record], [Event.Query], [Event.Synchronize], [Event.Destroy], [Event.ElapsedTime], cudaEventCreate, cudaEventCreateWithFlags
 //
-//   - Flags: Event creation flags
+//   - flags: Event creation flags
 //
 // Wraps cuEventCreate.
-func NewEvent(Flags uint32) (Event, error) {
-	return eventCreate(Flags)
+func NewEvent(flags EventFlags) (Event, error) {
+	return eventCreate(flags)
 }

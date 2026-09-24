@@ -113,9 +113,9 @@ func TestIdentityAgainstSmi(t *testing.T) {
 		query string
 		get   func() (string, error)
 	}{
-		{"Name", "name", dev.GetName},
-		{"UUID", "uuid", dev.GetUUID},
-		{"Serial", "serial", dev.GetSerial},
+		{"Name", "name", dev.Name},
+		{"UUID", "uuid", dev.UUID},
+		{"Serial", "serial", dev.Serial},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := tc.get()
@@ -157,7 +157,7 @@ func TestIdentityAgainstSmi(t *testing.T) {
 // the offset and the integer widths.
 func TestPciInfoLayout(t *testing.T) {
 	dev := device0(t)
-	info, err := dev.GetPciInfo()
+	info, err := dev.PciInfo()
 	if err != nil {
 		t.Fatalf("GetPciInfo: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestPciInfoLayout(t *testing.T) {
 // so a generator that reused the v1 layout would fail the consistency check.
 func TestMemoryInfoLayout(t *testing.T) {
 	dev := device0(t)
-	mem, err := dev.GetMemoryInfo()
+	mem, err := dev.MemoryInfo()
 	if errors.Is(err, nvml.ErrNotSupported) {
 		// Devices with unified host memory, such as GB10, report no
 		// separate framebuffer; nvidia-smi prints "Not Supported" for
@@ -253,7 +253,7 @@ func TestMemoryInfoLayout(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
-	cudev, err := driver.NewDeviceGet(0)
+	cudev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device 0: %v", err)
 	}
@@ -289,11 +289,11 @@ func TestMemoryInfoLayout(t *testing.T) {
 		t.Fatalf("MemAlloc: %v", err)
 	}
 	defer func() {
-		if err := ptr.MemFree(); err != nil {
+		if err := ptr.Free(); err != nil {
 			t.Errorf("free device buffer: %v", err)
 		}
 	}()
-	after, err := dev.GetMemoryInfo()
+	after, err := dev.MemoryInfo()
 	if err != nil {
 		t.Fatalf("GetMemoryInfo after alloc: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestTelemetryAgainstSmi(t *testing.T) {
 	dev := device0(t)
 
 	t.Run("Temperature", func(t *testing.T) {
-		got, err := dev.GetTemperature(nvml.TemperatureGpu)
+		got, err := dev.Temperature(nvml.TemperatureGpu)
 		if err != nil {
 			t.Fatalf("GetTemperature: %v", err)
 		}
@@ -345,7 +345,7 @@ func TestTelemetryAgainstSmi(t *testing.T) {
 	})
 
 	t.Run("PowerUsage", func(t *testing.T) {
-		got, err := dev.GetPowerUsage()
+		got, err := dev.PowerUsage()
 		if err != nil {
 			t.Skipf("GetPowerUsage unsupported: %v", err)
 		}
@@ -362,7 +362,7 @@ func TestTelemetryAgainstSmi(t *testing.T) {
 	})
 
 	t.Run("MaxSmClock", func(t *testing.T) {
-		got, err := dev.GetMaxClockInfo(nvml.ClockSm)
+		got, err := dev.MaxClockInfo(nvml.ClockSm)
 		if err != nil {
 			t.Fatalf("GetMaxClockInfo: %v", err)
 		}
@@ -377,7 +377,7 @@ func TestTelemetryAgainstSmi(t *testing.T) {
 	})
 
 	t.Run("Utilization", func(t *testing.T) {
-		util, err := dev.GetUtilizationRates()
+		util, err := dev.UtilizationRates()
 		if err != nil {
 			t.Fatalf("GetUtilizationRates: %v", err)
 		}
@@ -397,7 +397,7 @@ func TestTelemetryAgainstSmi(t *testing.T) {
 func TestComputeCapability(t *testing.T) {
 	dev := device0(t)
 	var minor int32
-	major, err := dev.GetCudaComputeCapability(&minor)
+	major, err := dev.CudaComputeCapability(&minor)
 	if err != nil {
 		t.Fatalf("GetCudaComputeCapability: %v", err)
 	}
@@ -414,7 +414,7 @@ func TestComputeCapability(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
-	cudev, err := driver.NewDeviceGet(0)
+	cudev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device 0: %v", err)
 	}

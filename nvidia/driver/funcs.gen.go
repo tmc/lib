@@ -6,6 +6,15 @@ import (
 	"unsafe"
 )
 
+// nulTerminated returns a pointer to b's contents followed by a NUL byte,
+// copying b only when it does not already end in one.
+func nulTerminated(b []byte) *byte {
+	if len(b) == 0 || b[len(b)-1] != 0 {
+		b = append(b[:len(b):len(b)], 0)
+	}
+	return &b[0]
+}
+
 // Function pointer variables, registered by init via registerFuncs.
 var (
 	fnarray3DCreate                                      func(*Array, *Array3dDescriptor) Result
@@ -478,7 +487,7 @@ var (
 
 // array3DCreate Creates a 3D CUDA array.
 //
-// Creates a CUDA array according to the [Array3dDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [Array3dDescriptor] is defined as: where: Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity's sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_WIDTH refers to the device attribute [DevAttrMaximumTexture1dWidth]. Note that 2D CUDA arrays have different size requirements if the CUDA_ARRAY3D_TEXTURE_GATHER flag is set. Width and Height must not be greater than [DevAttrMaximumTexture2dGatherWidth] and [DevAttrMaximumTexture2dGatherHeight] respectively, in that case. Here are examples of CUDA array descriptions: Description for a CUDA array of 2048 floats: Description for a 64 x 64 CUDA array of floats: Description for a width x height x depth CUDA array of 64-bit, 4x16-bit float16's: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc3DArray
+// Creates a CUDA array according to the [Array3dDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [Array3dDescriptor] is defined as: where: Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity's sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_WIDTH refers to the device attribute [DevAttrMaximumTexture1dWidth]. Note that 2D CUDA arrays have different size requirements if the CUDA_ARRAY3D_TEXTURE_GATHER flag is set. Width and Height must not be greater than [DevAttrMaximumTexture2dGatherWidth] and [DevAttrMaximumTexture2dGatherHeight] respectively, in that case. Here are examples of CUDA array descriptions: Description for a CUDA array of 2048 floats: Description for a 64 x 64 CUDA array of floats: Description for a width x height x depth CUDA array of 64-bit, 4x16-bit float16's: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc3DArray
 //
 //   - pAllocateArray: 3D array descriptor
 //
@@ -498,7 +507,7 @@ func array3DCreate(pAllocateArray *Array3dDescriptor) (Array, error) {
 
 // array3DGetDescriptor Get a 3D CUDA array descriptor.
 //
-// Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes. This function may be called on 1D and 2D arrays, in which case the Height and/or Depth members of the descriptor struct will be set to 0. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
+// Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes. This function may be called on 1D and 2D arrays, in which case the Height and/or Depth members of the descriptor struct will be set to 0. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
 //
 //   - hArray: 3D array to get descriptor of
 //
@@ -518,7 +527,7 @@ func array3DGetDescriptor(hArray Array) (Array3dDescriptor, error) {
 
 // arrayCreate Creates a 1D or 2D CUDA array.
 //
-// Creates a CUDA array according to the [ArrayDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [ArrayDescriptor] is defined as: where: Here are examples of CUDA array descriptions: Description for a CUDA array of 2048 floats: Description for a 64 x 64 CUDA array of floats: Description for a width x height CUDA array of 64-bit, 4x16-bit float16's: Description for a width x height CUDA array of 16-bit elements, each of which is two 8-bit unsigned chars: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocArray
+// Creates a CUDA array according to the [ArrayDescriptor] structure pAllocateArray and returns a handle to the new CUDA array in *pHandle. The [ArrayDescriptor] is defined as: where: Here are examples of CUDA array descriptions: Description for a CUDA array of 2048 floats: Description for a 64 x 64 CUDA array of floats: Description for a width x height CUDA array of 64-bit, 4x16-bit float16's: Description for a width x height CUDA array of 16-bit elements, each of which is two 8-bit unsigned chars: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocArray
 //
 //   - pAllocateArray: Array descriptor
 //
@@ -538,7 +547,7 @@ func arrayCreate(pAllocateArray *ArrayDescriptor) (Array, error) {
 
 // arrayDestroy Destroys a CUDA array.
 //
-// Destroys the CUDA array hArray. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFreeArray
+// Destroys the CUDA array hArray. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFreeArray
 //
 //   - hArray: Array to destroy
 //
@@ -552,7 +561,7 @@ func arrayDestroy(hArray Array) error {
 
 // arrayGetDescriptor Get a 1D or 2D CUDA array descriptor.
 //
-// Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
+// Returns in *pArrayDescriptor a descriptor containing information on the format and dimensions of the CUDA array hArray. It is useful for subroutines that have been passed a CUDA array, but need to know the CUDA array parameters for validation or other purposes. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaArrayGetInfo
 //
 //   - hArray: Array to get descriptor of
 //
@@ -572,7 +581,7 @@ func arrayGetDescriptor(hArray Array) (ArrayDescriptor, error) {
 
 // arrayGetMemoryRequirements Returns the memory requirements of a CUDA array.
 //
-// Returns the memory requirements of a CUDA array in memoryRequirements If the CUDA array is not allocated with flag CUDA_ARRAY3D_DEFERRED_MAPPING [ErrInvalidValue] will be returned. The returned value in [ArrayMemoryRequirements].size represents the total size of the CUDA array. The returned value in [ArrayMemoryRequirements].alignment represents the alignment necessary for mapping the CUDA array. See also: [MipmappedArray.GetMemoryRequirements], [Stream.MemMapArrayAsync]
+// Returns the memory requirements of a CUDA array in memoryRequirements If the CUDA array is not allocated with flag CUDA_ARRAY3D_DEFERRED_MAPPING [ErrInvalidValue] will be returned. The returned value in [ArrayMemoryRequirements].size represents the total size of the CUDA array. The returned value in [ArrayMemoryRequirements].alignment represents the alignment necessary for mapping the CUDA array. See also: [MipmappedArray.MemoryRequirements], [Stream.MemMapArrayAsync]
 //
 //   - array (in): CUDA array to get the memory requirements of
 //   - device (in): Device to get the memory requirements for
@@ -614,7 +623,7 @@ func arrayGetPlane(hArray Array, planeIdx uint32) (Array, error) {
 
 // arrayGetSparseProperties Returns the layout properties of a sparse CUDA array.
 //
-// Returns the layout properties of a sparse CUDA array in sparseProperties If the CUDA array is not allocated with flag CUDA_ARRAY3D_SPARSE [ErrInvalidValue] will be returned. If the returned value in [ArraySparseProperties].flags contains CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL, then [ArraySparseProperties].miptailSize represents the total size of the array. Otherwise, it will be zero. Also, the returned value in [ArraySparseProperties].miptailFirstLevel is always zero. Note that the array must have been allocated using [NewArray] or [NewArray3D]. For CUDA arrays obtained using [MipmappedArray.GetLevel], [ErrInvalidValue] will be returned. Instead, [MipmappedArray.GetSparseProperties] must be used to obtain the sparse properties of the entire CUDA mipmapped array to which array belongs to. See also: [MipmappedArray.GetSparseProperties], [Stream.MemMapArrayAsync]
+// Returns the layout properties of a sparse CUDA array in sparseProperties If the CUDA array is not allocated with flag CUDA_ARRAY3D_SPARSE [ErrInvalidValue] will be returned. If the returned value in [ArraySparseProperties].flags contains CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL, then [ArraySparseProperties].miptailSize represents the total size of the array. Otherwise, it will be zero. Also, the returned value in [ArraySparseProperties].miptailFirstLevel is always zero. Note that the array must have been allocated using [NewArray] or [NewArray3D]. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. Instead, [MipmappedArray.SparseProperties] must be used to obtain the sparse properties of the entire CUDA mipmapped array to which array belongs to. See also: [MipmappedArray.SparseProperties], [Stream.MemMapArrayAsync]
 //
 //   - array (in): CUDA array to get the sparse properties of
 //
@@ -1119,9 +1128,9 @@ func CoredumpSetAttributeGlobal(attrib CoredumpSettings, value uintptr, size *ui
 //
 //   - flags: Context attach flags (must be 0)
 //
-// See also: [NewContext], [Context.Destroy], [Context.Detach], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// See also: [NewContext], [Context.Destroy], [Context.Detach], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
-// Deprecated: Note that this function is deprecated and should not be used. Increments the usage count of the context and passes back a context handle in *pctx that must be passed to [Context.Detach]() when the application is done with the context. [NewContextAttach]() fails if there is no context current to the thread. Currently, the flags parameter must be 0.
+// Deprecated: Note that this function is deprecated and should not be used. Increments the usage count of the context and passes back a context handle in *pctx that must be passed to [Context.Detach]() when the application is done with the context. [CtxAttach]() fails if there is no context current to the thread. Currently, the flags parameter must be 0.
 //
 // Wraps cuCtxAttach.
 func ctxAttach(flags uint32) (Context, error) {
@@ -1139,20 +1148,20 @@ func ctxAttach(flags uint32) (Context, error) {
 
 // ctxCreate Create a CUDA context.
 //
-// Creates a new CUDA context and associates it with the calling thread. The flags parameter is described below. The context is created with a usage count of 1 and the caller of [NewContext] must call [Context.Destroy] when done using the context. If a context is already current to the thread, it is supplanted by the newly created context and may be restored by a subsequent call to [NewContextPopCurrent]. A regular CUDA context can be created by setting ctxCreateParams to NULL. A CUDA context can be created with execution affinity. The type and the amount of execution resource the context can use is limited by paramsArray and numExecAffinityParams in execAffinity. The paramsArray is an array of [ExecAffinityParam] and the numExecAffinityParams describes the size of the paramsArray. If two [ExecAffinityParam] in the array have the same type, the latter execution affinity parameter overrides the former execution affinity parameter. The supported execution affinity types are: A CUDA context can be created in CIG(CUDA in Graphics) mode by setting cigParams. Data from graphics client is shared with CUDA via the sharedData in cigParams. Support for D3D12 graphics client can be determined using [Device.GetAttribute] with [DevAttrD3d12CigSupported]. sharedData is a ID3D12CommandQueue handle. Support for Vulkan graphics client can be determined using [Device.GetAttribute] with [DevAttrVulkanCigSupported]. sharedData is a Nvidia specific data blob populated by calling vkGetExternalComputeQueueDataNV(). execAffinityParams and cigParams are mutually exclusive and cannot both be non-NULL. Setting both to non-NULL values will result in undefined behavior. If both execAffinityParams and cigParams are NULL, the context will be created as a regular CUDA context. The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context. Deprecated: This flag was deprecated as of CUDA 4.0 and was replaced with [CtxSchedBlockingSync]. Deprecated: This flag is deprecated and the behavior enabled by this flag is now the default and cannot be disabled. Instead, the per-thread stack size can be controlled with [CtxSetLimit]. Context creation will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.GetAttribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for * devices. Documentation for nvidia-smi can be obtained by passing a -h option to it. Context creation will fail with [ErrInvalidValue] if invalid parameter was passed by client to create the CUDA context. Context creation in CIG mode will fail with [ErrNotSupported] if CIG is not supported by the device or the driver. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CoredumpSetAttributeGlobal], [CoredumpSetAttribute], [CtxSynchronize] [CtxGetExecAffinity],
+// Creates a new CUDA context and associates it with the calling thread. The flags parameter is described below. The context is created with a usage count of 1 and the caller of [NewContext] must call [Context.Destroy] when done using the context. If a context is already current to the thread, it is supplanted by the newly created context and may be restored by a subsequent call to [CtxPopCurrent]. A regular CUDA context can be created by setting ctxCreateParams to NULL. A CUDA context can be created with execution affinity. The type and the amount of execution resource the context can use is limited by paramsArray and numExecAffinityParams in execAffinity. The paramsArray is an array of [ExecAffinityParam] and the numExecAffinityParams describes the size of the paramsArray. If two [ExecAffinityParam] in the array have the same type, the latter execution affinity parameter overrides the former execution affinity parameter. The supported execution affinity types are: A CUDA context can be created in CIG(CUDA in Graphics) mode by setting cigParams. Data from graphics client is shared with CUDA via the sharedData in cigParams. Support for D3D12 graphics client can be determined using [Device.Attribute] with [DevAttrD3d12CigSupported]. sharedData is a ID3D12CommandQueue handle. Support for Vulkan graphics client can be determined using [Device.Attribute] with [DevAttrVulkanCigSupported]. sharedData is a Nvidia specific data blob populated by calling vkGetExternalComputeQueueDataNV(). execAffinityParams and cigParams are mutually exclusive and cannot both be non-NULL. Setting both to non-NULL values will result in undefined behavior. If both execAffinityParams and cigParams are NULL, the context will be created as a regular CUDA context. The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context. Deprecated: This flag was deprecated as of CUDA 4.0 and was replaced with [CtxSchedBlockingSync]. Deprecated: This flag is deprecated and the behavior enabled by this flag is now the default and cannot be disabled. Instead, the per-thread stack size can be controlled with [CtxSetLimit]. Context creation will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.Attribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for * devices. Documentation for nvidia-smi can be obtained by passing a -h option to it. Context creation will fail with [ErrInvalidValue] if invalid parameter was passed by client to create the CUDA context. Context creation in CIG mode will fail with [ErrNotSupported] if CIG is not supported by the device or the driver. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CoredumpSetAttributeGlobal], [CoredumpSetAttribute], [CtxSynchronize] [CtxGetExecAffinity],
 //
 //   - ctxCreateParams: Context creation parameters. Can be NULL to create a regular CUDA context. See [CtxCreateParams] for details
 //   - flags: Context creation flags
 //   - dev: Device to create context on
 //
 // Wraps cuCtxCreate, bound as cuCtxCreate_v4.
-func ctxCreate(ctxCreateParams *CtxCreateParams, flags uint32, dev Device) (Context, error) {
+func ctxCreate(ctxCreateParams *CtxCreateParams, flags CtxFlags, dev Device) (Context, error) {
 	if err := checkLibSym("cuCtxCreate_v4"); err != nil {
 		var zero Context
 		return zero, err
 	}
 	var out Context
-	if err := toError(fnctxCreate(&out, ctxCreateParams, flags, dev)); err != nil {
+	if err := toError(fnctxCreate(&out, ctxCreateParams, uint32(flags), dev)); err != nil {
 		var zero Context
 		return zero, err
 	}
@@ -1161,7 +1170,7 @@ func ctxCreate(ctxCreateParams *CtxCreateParams, flags uint32, dev Device) (Cont
 
 // ctxDestroy Destroy a CUDA context.
 //
-// Destroys the CUDA context specified by ctx. The context ctx will be destroyed regardless of how many threads it is current to. It is the responsibility of the calling function to ensure that no API call issues using ctx while [Context.Destroy] is executing. Destroys and cleans up all resources associated with the context. It is the caller's responsibility to ensure that the context or its resources are not accessed or passed in subsequent API calls and doing so will result in undefined behavior. These resources include CUDA types [Module], [Function], [Stream], [Event], [Array], [MipmappedArray], CUtexObject, CUsurfObject, [TexRef], [SurfRef], [GraphicsResource], [LinkState], [ExternalMemory] and [ExternalSemaphore]. These resources also include memory allocations by [MemAlloc], [MemAllocHost], [MemAllocManaged] and [MemAllocPitch]. If ctx is current to the calling thread then ctx will also be popped from the current thread's context stack (as though [NewContextPopCurrent] were called). If ctx is current to other threads, then ctx will remain current to those threads, and attempting to access ctx from those threads will result in the error [ErrContextIsDestroyed]. Note: [Context.Destroy] will not destroy memory allocations by [MemCreate], [Stream.MemAllocAsync] and [MemoryPool.MemAllocFromPoolAsync]. These memory allocations are not associated with any CUDA context and need to be destroyed explicitly. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// Destroys the CUDA context specified by ctx. The context ctx will be destroyed regardless of how many threads it is current to. It is the responsibility of the calling function to ensure that no API call issues using ctx while [Context.Destroy] is executing. Destroys and cleans up all resources associated with the context. It is the caller's responsibility to ensure that the context or its resources are not accessed or passed in subsequent API calls and doing so will result in undefined behavior. These resources include CUDA types [Module], [Function], [Stream], [Event], [Array], [MipmappedArray], CUtexObject, CUsurfObject, [TexRef], [SurfRef], [GraphicsResource], [LinkState], [ExternalMemory] and [ExternalSemaphore]. These resources also include memory allocations by [MemAlloc], [MemAllocHost], [MemAllocManaged] and [MemAllocPitch]. If ctx is current to the calling thread then ctx will also be popped from the current thread's context stack (as though [CtxPopCurrent] were called). If ctx is current to other threads, then ctx will remain current to those threads, and attempting to access ctx from those threads will result in the error [ErrContextIsDestroyed]. Note: [Context.Destroy] will not destroy memory allocations by [MemCreate], [Stream.MemAllocAsync] and [MemoryPool.MemAllocFromPoolAsync]. These memory allocations are not associated with any CUDA context and need to be destroyed explicitly. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 //   - ctx: Context to destroy
 //
@@ -1177,9 +1186,9 @@ func ctxDestroy(ctx Context) error {
 //
 //   - ctx: Context to destroy
 //
-// See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
-// Deprecated: Note that this function is deprecated and should not be used. Decrements the usage count of the context ctx, and destroys the context if the usage count goes to 0. The context must be a handle that was passed back by [NewContext]() or [NewContextAttach](), and must be current to the calling thread.
+// Deprecated: Note that this function is deprecated and should not be used. Decrements the usage count of the context ctx, and destroys the context if the usage count goes to 0. The context must be a handle that was passed back by [NewContext]() or [CtxAttach](), and must be current to the calling thread.
 //
 // Wraps cuCtxDetach.
 func ctxDetach(ctx Context) error {
@@ -1208,14 +1217,14 @@ func ctxDisablePeerAccess(peerContext Context) error {
 // If both the current context and peerContext are on devices which support unified addressing (as may be queried using [DevAttrUnifiedAddressing]) and same major compute capability, then on success all allocations from peerContext will immediately be accessible by the current context. See Unified Addressing for additional details. Note that access granted by this call is unidirectional and that in order to access memory from the current context in peerContext, a separate symmetric call to [Context.EnablePeerAccess] is required. Note that there are both device-wide and system-wide limitations per system configuration, as noted in the CUDA Programming Guide under the section "Peer-to-Peer Memory Access". Returns [ErrPeerAccessUnsupported] if [Device.CanAccessPeer] indicates that the [Device] of the current context cannot directly access memory from the [Device] of peerContext. Returns [ErrPeerAccessAlreadyEnabled] if direct access of peerContext from the current context has already been enabled. Returns [ErrTooManyPeers] if direct peer access is not possible because hardware resources required for peer access have been exhausted. Returns [ErrInvalidContext] if there is no current context, peerContext is not a valid context, or if the current context is peerContext. Returns [ErrInvalidValue] if Flags is not 0. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.CanAccessPeer], [Context.DisablePeerAccess], cudaDeviceEnablePeerAccess
 //
 //   - peerContext: Peer context to enable direct access to from the current context
-//   - Flags: Reserved for future use and must be set to 0
+//   - flags: Reserved for future use and must be set to 0
 //
 // Wraps cuCtxEnablePeerAccess.
-func ctxEnablePeerAccess(peerContext Context, Flags uint32) error {
+func ctxEnablePeerAccess(peerContext Context, flags uint32) error {
 	if err := checkLibSym("cuCtxEnablePeerAccess"); err != nil {
 		return err
 	}
-	return toError(fnctxEnablePeerAccess(peerContext, Flags))
+	return toError(fnctxEnablePeerAccess(peerContext, flags))
 }
 
 // ctxFromGreenCtx Converts a green context into the primary context
@@ -1249,7 +1258,7 @@ func ctxFromGreenCtx(hCtx GreenCtx) (Context, error) {
 
 // ctxGetApiVersion Gets the context's API version.
 //
-// Returns a version number in version corresponding to the capabilities of the context (e.g. 3010 or 3020), which library developers can use to direct callers to a specific API version. If ctx is NULL, returns the API version used to create the currently bound context. Note that new API versions are only introduced when context capabilities are changed that break binary compatibility, so the API version and driver version may be different. For example, it is valid for the API version to be 3020 while the driver version is 4020. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// Returns a version number in version corresponding to the capabilities of the context (e.g. 3010 or 3020), which library developers can use to direct callers to a specific API version. If ctx is NULL, returns the API version used to create the currently bound context. Note that new API versions are only introduced when context capabilities are changed that break binary compatibility, so the API version and driver version may be different. For example, it is valid for the API version to be 3020 while the driver version is 4020. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 //   - ctx: Context to check version- Pointer to version
 //
@@ -1269,7 +1278,7 @@ func ctxGetApiVersion(ctx Context) (uint32, error) {
 
 // CtxGetCacheConfig Returns the preferred cache configuration for the current context.
 //
-// On devices where the L1 cache and shared memory use the same hardware resources, this function returns through pconfig the preferred cache configuration for the current context. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute functions. This will return a pconfig of [FuncCachePreferNone] on devices where the size of the L1 cache and shared memory are fixed. The supported cache configurations are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], [Function.SetCacheConfig], cudaDeviceGetCacheConfig
+// On devices where the L1 cache and shared memory use the same hardware resources, this function returns through pconfig the preferred cache configuration for the current context. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute functions. This will return a pconfig of [FuncCachePreferNone] on devices where the size of the L1 cache and shared memory are fixed. The supported cache configurations are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], [Function.SetCacheConfig], cudaDeviceGetCacheConfig
 //
 // Wraps cuCtxGetCacheConfig.
 func CtxGetCacheConfig() (FuncCacheConfig, error) {
@@ -1328,7 +1337,7 @@ func ctxGetDevResource(hCtx Context, type_ DevResourceType) (DevResource, error)
 
 // CtxGetDevice Returns the device handle for the current context.
 //
-// Returns in *device the handle of the current context's device. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaGetDevice
+// Returns in *device the handle of the current context's device. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaGetDevice
 //
 // Wraps cuCtxGetDevice.
 func CtxGetDevice() (Device, error) {
@@ -1346,7 +1355,7 @@ func CtxGetDevice() (Device, error) {
 
 // ctxGetDeviceV2 Returns the device handle for the specified context.
 //
-// Returns in *device the handle of the specified context's device. If the specified context is NULL, the API will return the current context's device. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContextGetCurrent], [NewContextPopCurrent], [Context.PushCurrent]
+// Returns in *device the handle of the specified context's device. If the specified context is NULL, the API will return the current context's device. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [CtxGetCurrent], [CtxPopCurrent], [Context.PushCurrent]
 //
 //   - ctx: Context for which to obtain the device
 //
@@ -1386,7 +1395,7 @@ func CtxGetExecAffinity(type_ ExecAffinityType) (ExecAffinityParam, error) {
 
 // CtxGetFlags Returns the flags for the current context.
 //
-// Returns in *flags the flags of the current context. See [NewContext] for flag values. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.GetApiVersion], [CtxGetCacheConfig], [NewContextGetCurrent], [CtxGetDevice], [CtxGetLimit], [CtxGetSharedMemConfig], [CtxGetStreamPriorityRange], [CtxSetFlags], cudaGetDeviceFlags
+// Returns in *flags the flags of the current context. See [NewContext] for flag values. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetCurrent], [CtxGetDevice], [CtxGetLimit], [CtxGetSharedMemConfig], [CtxGetStreamPriorityRange], [CtxSetFlags], cudaGetDeviceFlags
 //
 // Wraps cuCtxGetFlags.
 func CtxGetFlags() (uint32, error) {
@@ -1404,7 +1413,7 @@ func CtxGetFlags() (uint32, error) {
 
 // ctxGetId Returns the unique Id associated with the context supplied.
 //
-// Returns in ctxId the unique Id which is associated with a given context. The Id is unique for the life of the program for this instance of CUDA. If context is supplied as NULL and there is one current, the Id of the current context is returned. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [Context.PushCurrent]
+// Returns in ctxId the unique Id which is associated with a given context. The Id is unique for the life of the program for this instance of CUDA. If context is supplied as NULL and there is one current, the Id of the current context is returned. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [Context.PushCurrent]
 //
 //   - ctx: Context for which to obtain the Id
 //
@@ -1424,7 +1433,7 @@ func ctxGetId(ctx Context) (uint64, error) {
 
 // CtxGetLimit Returns resource limits.
 //
-// Returns in *pvalue the current size of limit. The supported [Limit] values are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaDeviceGetLimit
+// Returns in *pvalue the current size of limit. The supported [Limit] values are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaDeviceGetLimit
 //
 //   - limit: Limit to query
 //
@@ -1444,7 +1453,7 @@ func CtxGetLimit(limit Limit) (uint, error) {
 
 // CtxGetSharedMemConfig Returns the current shared memory configuration for the current context.
 //
-// See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [CtxGetSharedMemConfig], [Function.SetCacheConfig]
+// See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [CtxGetSharedMemConfig], [Function.SetCacheConfig]
 //
 // Deprecated: This function will return in pConfig the current size of shared memory banks in the current context. On devices with configurable shared memory banks, [CtxSetSharedMemConfig] can be used to change this setting, so that all subsequent kernel launches will by default use the new bank size. When [CtxGetSharedMemConfig] is called on devices without configurable shared memory, it will return the fixed bank size of the hardware. The returned bank configurations can be either: - [SharedMemConfigFourByteBankSize]: shared memory bank width is four bytes. - [SharedMemConfigEightByteBankSize]: shared memory bank width will eight bytes.
 //
@@ -1464,7 +1473,7 @@ func CtxGetSharedMemConfig() (Sharedconfig, error) {
 
 // CtxGetStreamPriorityRange Returns numerical values that correspond to the least and greatest stream priorities.
 //
-// Returns in *leastPriority and *greatestPriority the numerical values that correspond to the least and greatest stream priorities respectively. Stream priorities follow a convention where lower numbers imply greater priorities. The range of meaningful stream priorities is given by [ *greatestPriority, *leastPriority]. If the user attempts to create a stream with a priority value that is outside the meaningful range as specified by this API, the priority is automatically clamped down or up to either *leastPriority or *greatestPriority respectively. See [NewStreamCreateWithPriority] for details on creating a priority stream. A NULL may be passed in for *leastPriority or *greatestPriority if the value is not desired. This function will return '0' in both *leastPriority and *greatestPriority if the current context's device does not support stream priorities (see [Device.GetAttribute]). Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewStreamCreateWithPriority], [Stream.GetPriority], [CtxGetDevice], [CtxGetFlags], [CtxSetLimit], [CtxSynchronize], cudaDeviceGetStreamPriorityRange
+// Returns in *leastPriority and *greatestPriority the numerical values that correspond to the least and greatest stream priorities respectively. Stream priorities follow a convention where lower numbers imply greater priorities. The range of meaningful stream priorities is given by [ *greatestPriority, *leastPriority]. If the user attempts to create a stream with a priority value that is outside the meaningful range as specified by this API, the priority is automatically clamped down or up to either *leastPriority or *greatestPriority respectively. See [StreamCreateWithPriority] for details on creating a priority stream. A NULL may be passed in for *leastPriority or *greatestPriority if the value is not desired. This function will return '0' in both *leastPriority and *greatestPriority if the current context's device does not support stream priorities (see [Device.Attribute]). Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [StreamCreateWithPriority], [Stream.Priority], [CtxGetDevice], [CtxGetFlags], [CtxSetLimit], [CtxSynchronize], cudaDeviceGetStreamPriorityRange
 //
 //   - leastPriority: Pointer to an int in which the numerical value for least stream priority is returned
 //   - greatestPriority: Pointer to an int in which the numerical value for greatest stream priority is returned
@@ -1479,7 +1488,7 @@ func CtxGetStreamPriorityRange(leastPriority *int32, greatestPriority *int32) er
 
 // ctxPopCurrent Pops the current CUDA context from the current CPU thread.
 //
-// Pops the current CUDA context from the CPU thread and passes back the old context handle in *pctx. That context may then be made current to a different CPU thread by calling [Context.PushCurrent]. If a context was current to the CPU thread before [NewContext] or [Context.PushCurrent] was called, this function makes that context current to the CPU thread again. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// Pops the current CUDA context from the CPU thread and passes back the old context handle in *pctx. That context may then be made current to a different CPU thread by calling [Context.PushCurrent]. If a context was current to the CPU thread before [NewContext] or [Context.PushCurrent] was called, this function makes that context current to the CPU thread again. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 // Wraps cuCtxPopCurrent, bound as cuCtxPopCurrent_v2.
 func ctxPopCurrent() (Context, error) {
@@ -1497,7 +1506,7 @@ func ctxPopCurrent() (Context, error) {
 
 // ctxPushCurrent Pushes a context on the current CPU thread.
 //
-// Pushes the given context ctx onto the CPU thread's stack of current contexts. The specified context becomes the CPU thread's current context, so all CUDA functions that operate on the current context are affected. The previous current context may be made current again by calling [Context.Destroy] or [NewContextPopCurrent]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// Pushes the given context ctx onto the CPU thread's stack of current contexts. The specified context becomes the CPU thread's current context, so all CUDA functions that operate on the current context are affected. The previous current context may be made current again by calling [Context.Destroy] or [CtxPopCurrent]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 //   - ctx: Context to push
 //
@@ -1511,7 +1520,7 @@ func ctxPushCurrent(ctx Context) error {
 
 // ctxRecordEvent Records an event.
 //
-// Captures in hEvent all the activities of the context hCtx at the time of this call. hEvent and hCtx must be from the same CUDA context, otherwise [ErrInvalidHandle] will be returned. Calls such as [Event.Query] or [Context.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hCtx after this call do not modify hEvent. If the context passed to hCtx is the primary context, hEvent will capture all the activities of the primary context and its green contexts. If the context passed to hCtx is a context converted from green context via [NewContextFromGreenCtx], hEvent will capture only the activities of the green context. Note: The API will return [ErrStreamCaptureUnsupported] if the specified context hCtx has a stream in the capture mode. In such a case, the call will invalidate all the conflicting captures. See also: [Context.WaitEvent], [GreenCtx.RecordEvent], [GreenCtx.WaitEvent], [Event.Record]
+// Captures in hEvent all the activities of the context hCtx at the time of this call. hEvent and hCtx must be from the same CUDA context, otherwise [ErrInvalidHandle] will be returned. Calls such as [Event.Query] or [Context.WaitEvent] will then examine or wait for completion of the work that was captured. Uses of hCtx after this call do not modify hEvent. If the context passed to hCtx is the primary context, hEvent will capture all the activities of the primary context and its green contexts. If the context passed to hCtx is a context converted from green context via [CtxFromGreenCtx], hEvent will capture only the activities of the green context. Note: The API will return [ErrStreamCaptureUnsupported] if the specified context hCtx has a stream in the capture mode. In such a case, the call will invalidate all the conflicting captures. See also: [Context.WaitEvent], [GreenCtx.RecordEvent], [GreenCtx.WaitEvent], [Event.Record]
 //
 //   - hCtx: Context to record event for
 //   - hEvent: Event to record
@@ -1538,7 +1547,7 @@ func CtxResetPersistingL2Cache() error {
 
 // CtxSetCacheConfig Sets the preferred cache configuration for the current context.
 //
-// On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the current context. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute the function. Any function preference set via [Function.SetCacheConfig] or [Kernel.SetCacheConfig] will be preferred over this context-wide setting. Setting the context-wide cache configuration to [FuncCachePreferNone] will cause subsequent kernel launches to prefer to not change the cache configuration unless required to launch the kernel. This setting does nothing on devices where the size of the L1 cache and shared memory are fixed. Launching a kernel with a different preference than the most recent preference setting may insert a device-side synchronization point. The supported cache configurations are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [Function.SetCacheConfig], cudaDeviceSetCacheConfig, [Kernel.SetCacheConfig]
+// On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the current context. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute the function. Any function preference set via [Function.SetCacheConfig] or [Kernel.SetCacheConfig] will be preferred over this context-wide setting. Setting the context-wide cache configuration to [FuncCachePreferNone] will cause subsequent kernel launches to prefer to not change the cache configuration unless required to launch the kernel. This setting does nothing on devices where the size of the L1 cache and shared memory are fixed. Launching a kernel with a different preference than the most recent preference setting may insert a device-side synchronization point. The supported cache configurations are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [Function.SetCacheConfig], cudaDeviceSetCacheConfig, [Kernel.SetCacheConfig]
 //
 //   - config: Requested cache configuration
 //
@@ -1552,7 +1561,7 @@ func CtxSetCacheConfig(config FuncCacheConfig) error {
 
 // ctxSetCurrent Binds the specified CUDA context to the calling CPU thread.
 //
-// If ctx is NULL then the CUDA context previously bound to the calling CPU thread is unbound and [Success] is returned. If there exists a CUDA context stack on the calling CPU thread, this will replace the top of that stack with ctx. If ctx is NULL then this will be equivalent to popping the top of the calling CPU thread's CUDA context stack (or a no-op if the calling CPU thread's CUDA context stack is empty). Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContextGetCurrent], [NewContext], [Context.Destroy], cudaSetDevice
+// If ctx is NULL then the CUDA context previously bound to the calling CPU thread is unbound and [Success] is returned. If there exists a CUDA context stack on the calling CPU thread, this will replace the top of that stack with ctx. If ctx is NULL then this will be equivalent to popping the top of the calling CPU thread's CUDA context stack (or a no-op if the calling CPU thread's CUDA context stack is empty). Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [CtxGetCurrent], [NewContext], [Context.Destroy], cudaSetDevice
 //
 //   - ctx: Context to bind to the calling CPU thread
 //
@@ -1566,7 +1575,7 @@ func ctxSetCurrent(ctx Context) error {
 
 // CtxSetFlags Sets the flags for the current context.
 //
-// Sets the flags for the current context overwriting previously set ones. See [Device.PrimaryCtxSetFlags] for flag values. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.GetApiVersion], [CtxGetCacheConfig], [NewContextGetCurrent], [CtxGetDevice], [CtxGetLimit], [CtxGetSharedMemConfig], [CtxGetStreamPriorityRange], [CtxGetFlags], cudaGetDeviceFlags, [Device.PrimaryCtxSetFlags],
+// Sets the flags for the current context overwriting previously set ones. See [Device.PrimaryCtxSetFlags] for flag values. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetCurrent], [CtxGetDevice], [CtxGetLimit], [CtxGetSharedMemConfig], [CtxGetStreamPriorityRange], [CtxGetFlags], cudaGetDeviceFlags, [Device.PrimaryCtxSetFlags],
 //
 //   - flags: Flags to set on the current context
 //
@@ -1580,7 +1589,7 @@ func CtxSetFlags(flags uint32) error {
 
 // CtxSetLimit Set resource limits.
 //
-// Setting limit to value is a request by the application to update the current limit maintained by the context. The driver is free to modify the requested value to meet h/w requirements (this could be clamping to minimum or maximum values, rounding up to nearest element size, etc). The application can use [CtxGetLimit] to find out exactly what the limit has been set to. Setting each [Limit] has its own specific restrictions, so each is discussed here. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSynchronize], cudaDeviceSetLimit
+// Setting limit to value is a request by the application to update the current limit maintained by the context. The driver is free to modify the requested value to meet h/w requirements (this could be clamping to minimum or maximum values, rounding up to nearest element size, etc). The application can use [CtxGetLimit] to find out exactly what the limit has been set to. Setting each [Limit] has its own specific restrictions, so each is discussed here. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSynchronize], cudaDeviceSetLimit
 //
 //   - limit: Limit to set value- Size of limit
 //   - value: Size of limit
@@ -1597,7 +1606,7 @@ func CtxSetLimit(limit Limit, value uint) error {
 //
 //   - config: requested shared memory configuration
 //
-// See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [CtxGetSharedMemConfig], [Function.SetCacheConfig]
+// See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [CtxGetSharedMemConfig], [Function.SetCacheConfig]
 //
 // Deprecated: On devices with configurable shared memory banks, this function will set the context's shared memory bank size which is used for subsequent kernel launches. Changed the shared memory configuration between launches may insert a device side synchronization point between those launches. Changing the shared memory bank size will not increase shared memory usage or affect occupancy of kernels, but may have major effects on performance. Larger bank sizes will allow for greater potential bandwidth to shared memory, but will change what kinds of accesses to shared memory will result in bank conflicts. This function will do nothing on devices with fixed shared memory bank size. The supported bank configurations are: - [SharedMemConfigDefaultBankSize]: set bank width to the default initial setting (currently, four bytes). - [SharedMemConfigFourByteBankSize]: set shared memory bank width to be natively four bytes. - [SharedMemConfigEightByteBankSize]: set shared memory bank width to be natively eight bytes.
 //
@@ -1611,7 +1620,7 @@ func CtxSetSharedMemConfig(config Sharedconfig) error {
 
 // CtxSynchronize Block for the current context's tasks to complete.
 //
-// Blocks until the current context has completed all preceding requested tasks. If the current context is the primary context, green contexts that have been created will also be synchronized. [CtxSynchronize] returns an error if one of the preceding tasks failed. If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the GPU context has finished its work. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], cudaDeviceSynchronize
+// Blocks until the current context has completed all preceding requested tasks. If the current context is the primary context, green contexts that have been created will also be synchronized. [CtxSynchronize] returns an error if one of the preceding tasks failed. If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the GPU context has finished its work. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], cudaDeviceSynchronize
 //
 // Wraps cuCtxSynchronize.
 func CtxSynchronize() error {
@@ -1623,7 +1632,7 @@ func CtxSynchronize() error {
 
 // ctxSynchronizeV2 Block for the specified context's tasks to complete.
 //
-// Blocks until the specified context has completed all preceding requested tasks. If the specified context is the primary context, green contexts that have been created will also be synchronized. The API returns an error if one of the preceding tasks failed. If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the GPU context has finished its work. If the specified context is NULL, the API will operate on the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContextGetCurrent], [NewContextPopCurrent], [Context.PushCurrent], [NewGreenCtx], [NewContextFromGreenCtx], cudaDeviceSynchronize
+// Blocks until the specified context has completed all preceding requested tasks. If the specified context is the primary context, green contexts that have been created will also be synchronized. The API returns an error if one of the preceding tasks failed. If the context was created with the [CtxSchedBlockingSync] flag, the CPU thread will block until the GPU context has finished its work. If the specified context is NULL, the API will operate on the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [CtxGetCurrent], [CtxPopCurrent], [Context.PushCurrent], [NewGreenCtx], [CtxFromGreenCtx], cudaDeviceSynchronize
 //
 //   - ctx: Context to synchronize
 //
@@ -1637,7 +1646,7 @@ func ctxSynchronizeV2(ctx Context) error {
 
 // ctxWaitEvent Make a context wait on an event.
 //
-// Makes all future work submitted to context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [Context.RecordEvent] for details on what is captured by an event. If the context passed to hCtx is the primary context, the primary context and its green contexts will wait for hEvent. If the context passed to hCtx is a context converted from green context via [NewContextFromGreenCtx], the green context will wait for hEvent. See also: [Context.RecordEvent], [GreenCtx.RecordEvent], [GreenCtx.WaitEvent], [Stream.WaitEvent]
+// Makes all future work submitted to context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [Context.RecordEvent] for details on what is captured by an event. If the context passed to hCtx is the primary context, the primary context and its green contexts will wait for hEvent. If the context passed to hCtx is a context converted from green context via [CtxFromGreenCtx], the green context will wait for hEvent. See also: [Context.RecordEvent], [GreenCtx.RecordEvent], [GreenCtx.WaitEvent], [Stream.WaitEvent]
 //
 //   - hCtx: Context to wait hEvent- Event to wait on
 //   - hEvent: Event to wait on
@@ -1652,7 +1661,7 @@ func ctxWaitEvent(hCtx Context, hEvent Event) error {
 
 // destroyExternalMemory Destroys an external memory object.
 //
-// Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.MemFree] and [MipmappedArray.Destroy] respectively. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalMemory], [ExternalMemory.GetMappedBuffer], [ExternalMemory.GetMappedMipmappedArray]
+// Destroys the specified external memory object. Any existing buffers and CUDA mipmapped arrays mapped onto this object must no longer be used and must be explicitly freed using [DevicePtr.Free] and [MipmappedArray.Destroy] respectively. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalMemory], [ExternalMemory.MappedBuffer], [ExternalMemory.MappedMipmappedArray]
 //
 //   - extMem: External memory object to be destroyed
 //
@@ -1771,7 +1780,7 @@ func DevResourceGenerateDesc(phDesc *DevResourceDesc, resources *DevResource, nb
 //   - flags: Flags specifying how the API should behave. The value should be 0 for now
 //   - groupParams: Description of how the SMs should be split and assigned to the corresponding result entry
 //
-// See also: [GreenCtx.GetDevResource], [Context.GetDevResource], [Device.GetDevResource]
+// See also: [GreenCtx.DevResource], [Context.DevResource], [Device.DevResource]
 //
 // Wraps cuDevSmResourceSplit.
 func DevSmResourceSplit(result *DevResource, nbGroups uint32, input *DevResource, remainder *DevResource, flags uint32, groupParams *CuDevSmResourceGroupParams) error {
@@ -1790,7 +1799,7 @@ func DevSmResourceSplit(result *DevResource, nbGroups uint32, input *DevResource
 // nbGroups can be less than the total amount if a smaller number of groups is needed.
 //
 // This API is used to spatially partition the input resource. The input resource needs to come from one of
-// [Device.GetDevResource], [Context.GetDevResource], or [GreenCtx.GetDevResource].
+// [Device.DevResource], [Context.DevResource], or [GreenCtx.DevResource].
 // A limitation of the API is that the output results cannot be split again without
 // first creating a descriptor and a green context with that descriptor.
 //
@@ -1798,7 +1807,7 @@ func DevSmResourceSplit(result *DevResource, nbGroups uint32, input *DevResource
 // input resource, and guarantee a split that will create a disjoint set of symmetrical partitions. This may lead to fewer groups created
 // than purely dividing the total SM count by the minCount due to cluster requirements or
 // alignment and granularity requirements for the minCount.
-// These requirements can be queried with [Device.GetDevResource], [Context.GetDevResource], and [GreenCtx.GetDevResource] for
+// These requirements can be queried with [Device.DevResource], [Context.DevResource], and [GreenCtx.DevResource] for
 // [DevResourceTypeSm], using the minSmPartitionSize and smCoscheduledAlignment fields to determine minimum
 // partition size and alignment granularity, respectively.
 //
@@ -1827,14 +1836,14 @@ func DevSmResourceSplit(result *DevResource, nbGroups uint32, input *DevResource
 //   - flags: Flags specifying how these partitions are used or which constraints to abide by when splitting the input. Zero is valid for default behavior
 //   - minCount: Minimum number of SMs required
 //
-// See also: [GreenCtx.GetDevResource], [Context.GetDevResource], [Device.GetDevResource]
+// See also: [GreenCtx.DevResource], [Context.DevResource], [Device.DevResource]
 //
 // Wraps cuDevSmResourceSplitByCount.
-func DevSmResourceSplitByCount(result *DevResource, nbGroups *uint32, input *DevResource, remainder *DevResource, flags uint32, minCount uint32) error {
+func DevSmResourceSplitByCount(result *DevResource, nbGroups *uint32, input *DevResource, remainder *DevResource, flags DevsmresourcesplitbycountFlags, minCount uint32) error {
 	if err := checkLibSym("cuDevSmResourceSplitByCount"); err != nil {
 		return err
 	}
-	return toError(fnDevSmResourceSplitByCount(result, nbGroups, input, remainder, flags, minCount))
+	return toError(fnDevSmResourceSplitByCount(result, nbGroups, input, remainder, uint32(flags), minCount))
 }
 
 // deviceCanAccessPeer Queries if a device may directly access a peer device's memory.
@@ -1864,9 +1873,9 @@ func deviceCanAccessPeer(dev Device, peerDev Device) (int32, error) {
 //   - minor: Minor revision number
 //   - dev: Device handle
 //
-// See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], [Device.TotalMem]
+// See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
 //
-// Deprecated: This function was deprecated as of CUDA 5.0 and its functionality superseded by [Device.GetAttribute](). Returns in *major and *minor the major and minor revision numbers that define the compute capability of the device dev.
+// Deprecated: This function was deprecated as of CUDA 5.0 and its functionality superseded by [Device.Attribute](). Returns in *major and *minor the major and minor revision numbers that define the compute capability of the device dev.
 //
 // Wraps cuDeviceComputeCapability.
 func deviceComputeCapability(major *int32, minor *int32, dev Device) error {
@@ -1878,7 +1887,7 @@ func deviceComputeCapability(major *int32, minor *int32, dev Device) error {
 
 // deviceGet Returns a handle to a compute device.
 //
-// Returns in *device a device handle given an ordinal in the range [0, [DeviceGetCount]-1]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [Device.GetLuid], [Device.TotalMem], [Device.GetExecAffinitySupport]
+// Returns in *device a device handle given an ordinal in the range [0, [DeviceGetCount]-1]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [Device.Luid], [Device.TotalMem], [Device.ExecAffinitySupport]
 //
 //   - ordinal: Device number to get handle for
 //
@@ -1896,7 +1905,7 @@ func deviceGet(ordinal int) (Device, error) {
 
 // deviceGetAttribute Returns information about the device.
 //
-// Returns in *pi the integer value of the attribute attrib on device dev. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], [Device.TotalMem], [Device.GetExecAffinitySupport], cudaDeviceGetAttribute, cudaGetDeviceProperties
+// Returns in *pi the integer value of the attribute attrib on device dev. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaDeviceGetAttribute, cudaGetDeviceProperties
 //
 //   - attrib: Device attribute to query
 //   - dev: Device handle
@@ -1917,7 +1926,7 @@ func deviceGetAttribute(attrib DeviceAttribute, dev Device) (int32, error) {
 
 // deviceGetByPCIBusId Returns a handle to a compute device.
 //
-// Returns in *device a device handle given a PCI bus ID string. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewDeviceGet], [Device.GetAttribute], [Device.GetPCIBusId], cudaDeviceGetByPCIBusId
+// Returns in *device a device handle given a PCI bus ID string. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [DeviceGet], [Device.Attribute], [Device.PCIBusId], cudaDeviceGetByPCIBusId
 //
 //   - pciBusId: String in one of the following forms: domain:bus:device.function domain:bus:device bus:device.function where domain, bus, device, and function are all hexadecimal values
 //
@@ -1936,7 +1945,7 @@ func deviceGetByPCIBusId(pciBusId string) (Device, error) {
 
 // DeviceGetCount Returns the number of compute-capable devices.
 //
-// Returns in *count the number of devices with compute capability greater than or equal to 2.0 that are available for execution. If there is no such device, [DeviceGetCount] returns 0. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [Device.GetName], [Device.GetUuid], [Device.GetLuid], [NewDeviceGet], [Device.TotalMem], [Device.GetExecAffinitySupport], cudaGetDeviceCount
+// Returns in *count the number of devices with compute capability greater than or equal to 2.0 that are available for execution. If there is no such device, [DeviceGetCount] returns 0. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.Attribute], [Device.Name], [Device.Uuid], [Device.Luid], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaGetDeviceCount
 //
 // Wraps cuDeviceGetCount.
 func DeviceGetCount() (int, error) {
@@ -1952,7 +1961,7 @@ func DeviceGetCount() (int, error) {
 
 // deviceGetDefaultMemPool Returns the default mempool of a device.
 //
-// The default mempool of a device contains device memory from that device. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.MemAllocAsync], [MemoryPool.TrimTo], [MemoryPool.GetAttribute], [MemoryPool.SetAttribute], [MemoryPool.SetAccess], [Device.GetMemPool], [NewMemoryPool]
+// The default mempool of a device contains device memory from that device. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.MemAllocAsync], [MemoryPool.TrimTo], [MemoryPool.Attribute], [MemoryPool.SetAttribute], [MemoryPool.SetAccess], [Device.MemPool], [NewMemoryPool]
 //
 // Wraps cuDeviceGetDefaultMemPool.
 func deviceGetDefaultMemPool(dev Device) (MemoryPool, error) {
@@ -1996,7 +2005,7 @@ func deviceGetDevResource(device Device, type_ DevResourceType) (DevResource, er
 
 // deviceGetExecAffinitySupport Returns information about the execution affinity support of the device.
 //
-// Returns in *pi whether execution affinity type type is supported by device dev. The supported types are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], [Device.TotalMem]
+// Returns in *pi whether execution affinity type type is supported by device dev. The supported types are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
 //
 //   - type_: Execution affinity type to query
 //   - dev: Device handle
@@ -2033,7 +2042,7 @@ func deviceGetGraphMemAttribute(device Device, attr GraphmemAttribute, value uns
 
 // deviceGetHostAtomicCapabilities Queries details about atomic operations supported between the device and host.
 //
-// Returns in *capabilities the details about requested atomic *operations over the the link between dev and the host. The allocated size of *operations and *capabilities must be count. For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively. Returns [ErrInvalidDevice] if dev is not valid. Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [Device.GetP2PAtomicCapabilities], cudaDeviceGeHostAtomicCapabilities
+// Returns in *capabilities the details about requested atomic *operations over the the link between dev and the host. The allocated size of *operations and *capabilities must be count. For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively. Returns [ErrInvalidDevice] if dev is not valid. Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.Attribute], [Device.P2PAtomicCapabilities], cudaDeviceGeHostAtomicCapabilities
 //
 //   - operations: Requested operations
 //   - count: Count of requested operations and size of capabilities
@@ -2055,7 +2064,7 @@ func deviceGetHostAtomicCapabilities(operations *AtomicOperation, count uint32, 
 
 // deviceGetLuid Return an LUID and device node mask for the device.
 //
-// Return identifying information ( luid and deviceNodeMask) to allow matching device with graphics APIs. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [NewDeviceGet], [Device.TotalMem], [Device.GetExecAffinitySupport], cudaGetDeviceProperties
+// Return identifying information ( luid and deviceNodeMask) to allow matching device with graphics APIs. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaGetDeviceProperties
 //
 //   - luid: Returned LUID deviceNodeMask- Returned device node mask dev- Device to get identifier string for
 //   - dev: Device to get identifier string for
@@ -2076,7 +2085,7 @@ func deviceGetLuid(luid *byte, dev Device) (uint32, error) {
 
 // deviceGetMemPool Gets the current mempool for a device.
 //
-// Returns the last pool provided to [Device.SetMemPool] for this device or the device's default memory pool if [Device.SetMemPool] has never been called. By default the current mempool is the default mempool for a device. Otherwise the returned pool must have been set with [Device.SetMemPool]. See also: [Device.GetDefaultMemPool], [NewMemoryPool], [Device.SetMemPool]
+// Returns the last pool provided to [Device.SetMemPool] for this device or the device's default memory pool if [Device.SetMemPool] has never been called. By default the current mempool is the default mempool for a device. Otherwise the returned pool must have been set with [Device.SetMemPool]. See also: [Device.DefaultMemPool], [NewMemoryPool], [Device.SetMemPool]
 //
 // Wraps cuDeviceGetMemPool.
 func deviceGetMemPool(dev Device) (MemoryPool, error) {
@@ -2094,7 +2103,7 @@ func deviceGetMemPool(dev Device) (MemoryPool, error) {
 
 // deviceGetName Returns an identifier string for the device.
 //
-// Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by name. len specifies the maximum length of the string that may be returned. name is shortened to the specified len, if len is less than the device name Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [Device.GetUuid], [Device.GetLuid], [DeviceGetCount], [NewDeviceGet], [Device.TotalMem], [Device.GetExecAffinitySupport], cudaGetDeviceProperties
+// Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by name. len specifies the maximum length of the string that may be returned. name is shortened to the specified len, if len is less than the device name Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.Attribute], [Device.Uuid], [Device.Luid], [DeviceGetCount], [DeviceGet], [Device.TotalMem], [Device.ExecAffinitySupport], cudaGetDeviceProperties
 //
 //   - name: Returned identifier string for the device
 //   - len_: Maximum length of string to store in name
@@ -2134,7 +2143,7 @@ func deviceGetNvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, dev Device, 
 
 // deviceGetP2PAtomicCapabilities Queries details about atomic operations supported between two devices.
 //
-// Returns in *capabilities the details about requested atomic *operations over the the link between srcDevice and dstDevice. The allocated size of *operations and *capabilities must be count. For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively. Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetP2PAttribute], cudaDeviceGetP2PAttribute, cudaDeviceGetP2PAtomicCapabilities
+// Returns in *capabilities the details about requested atomic *operations over the the link between srcDevice and dstDevice. The allocated size of *operations and *capabilities must be count. For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively. Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.P2PAttribute], cudaDeviceGetP2PAttribute, cudaDeviceGetP2PAtomicCapabilities
 //
 //   - operations: Requested operations
 //   - count: Count of requested operations and size of capabilities
@@ -2157,7 +2166,7 @@ func deviceGetP2PAtomicCapabilities(operations *AtomicOperation, count uint32, s
 
 // deviceGetP2PAttribute Queries attributes of the link between two devices.
 //
-// Returns in *value the value of the requested attribute attrib of the link between srcDevice and dstDevice. The supported attributes are: Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if attrib is not valid or if value is a null pointer. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], [Device.CanAccessPeer], [Device.GetP2PAtomicCapabilities], cudaDeviceGetP2PAttribute
+// Returns in *value the value of the requested attribute attrib of the link between srcDevice and dstDevice. The supported attributes are: Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if attrib is not valid or if value is a null pointer. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], [Device.CanAccessPeer], [Device.P2PAtomicCapabilities], cudaDeviceGetP2PAttribute
 //
 //   - attrib: The requested attribute of the link between srcDevice and dstDevice
 //   - srcDevice: The source device of the target link
@@ -2179,7 +2188,7 @@ func deviceGetP2PAttribute(attrib DeviceP2pattribute, srcDevice Device, dstDevic
 
 // deviceGetPCIBusId Returns a PCI Bus Id string for the device.
 //
-// Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by pciBusId. len specifies the maximum length of the string that may be returned. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewDeviceGet], [Device.GetAttribute], [NewDeviceGetByPCIBusId], cudaDeviceGetPCIBusId
+// Returns an ASCII string identifying the device dev in the NULL-terminated string pointed to by pciBusId. len specifies the maximum length of the string that may be returned. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [DeviceGet], [Device.Attribute], [DeviceGetByPCIBusId], cudaDeviceGetPCIBusId
 //
 //   - pciBusId: Returned identifier string for the device in the following format domain:bus:device.function where domain, bus, device, and function are all hexadecimal values. pciBusId should be large enough to store 13 characters including the NULL-terminator
 //   - len_: Maximum length of string to store in name
@@ -2205,9 +2214,9 @@ func deviceGetPCIBusId(dev Device) (string, error) {
 //
 //   - dev: Device to get properties for
 //
-// See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], [Device.TotalMem]
+// See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
 //
-// Deprecated: This function was deprecated as of CUDA 5.0 and replaced by [Device.GetAttribute](). Returns in *prop the properties of device dev. The [Devprop] structure is defined as: where: - maxThreadsPerBlock is the maximum number of threads per block; - maxThreadsDim [3] is the maximum sizes of each dimension of a block; - maxGridSize [3] is the maximum sizes of each dimension of a grid; - sharedMemPerBlock is the total amount of shared memory available per block in bytes; - totalConstantMemory is the total amount of constant memory available on the device in bytes; - SIMDWidth is the warp size; - memPitch is the maximum pitch allowed by the memory copy functions that involve memory regions allocated through [MemAllocPitch](); - regsPerBlock is the total number of registers available per block; - clockRate is the clock frequency in kilohertz; - textureAlign is the alignment requirement; texture base addresses that are aligned to textureAlign bytes do not need an offset applied to texture fetches.
+// Deprecated: This function was deprecated as of CUDA 5.0 and replaced by [Device.Attribute](). Returns in *prop the properties of device dev. The [Devprop] structure is defined as: where: - maxThreadsPerBlock is the maximum number of threads per block; - maxThreadsDim [3] is the maximum sizes of each dimension of a block; - maxGridSize [3] is the maximum sizes of each dimension of a grid; - sharedMemPerBlock is the total amount of shared memory available per block in bytes; - totalConstantMemory is the total amount of constant memory available on the device in bytes; - SIMDWidth is the warp size; - memPitch is the maximum pitch allowed by the memory copy functions that involve memory regions allocated through [MemAllocPitch](); - regsPerBlock is the total number of registers available per block; - clockRate is the clock frequency in kilohertz; - textureAlign is the alignment requirement; texture base addresses that are aligned to textureAlign bytes do not need an offset applied to texture fetches.
 //
 // Wraps cuDeviceGetProperties.
 func deviceGetProperties(dev Device) (Devprop, error) {
@@ -2225,7 +2234,7 @@ func deviceGetProperties(dev Device) (Devprop, error) {
 
 // deviceGetTexture1DLinearMaxWidth Returns the maximum number of elements allocatable in a 1D linear texture for a given texture element size.
 //
-// Returns in maxWidthInElements the maximum number of texture elements allocatable in a 1D linear texture for given format and numChannels. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], cudaMemGetInfo, [Device.TotalMem]
+// Returns in maxWidthInElements the maximum number of texture elements allocatable in a 1D linear texture for given format and numChannels. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], cudaMemGetInfo, [Device.TotalMem]
 //
 //   - format: Texture format
 //   - numChannels: Number of channels per texture element
@@ -2247,7 +2256,7 @@ func deviceGetTexture1DLinearMaxWidth(format ArrayFormat, numChannels uint32, de
 
 // deviceGetUuid Return an UUID for the device.
 //
-// Returns 16-octets identifying the device dev in the structure pointed by the uuid. If the device is in MIG mode, returns its MIG UUID which uniquely identifies the subscribed MIG compute instance. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetLuid], [NewDeviceGet], [Device.TotalMem], cudaGetDeviceProperties
+// Returns 16-octets identifying the device dev in the structure pointed by the uuid. If the device is in MIG mode, returns its MIG UUID which uniquely identifies the subscribed MIG compute instance. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Luid], [DeviceGet], [Device.TotalMem], cudaGetDeviceProperties
 //
 //   - dev: Device to get identifier string for
 //
@@ -2267,7 +2276,7 @@ func deviceGetUuid(dev Device) (Uuid, error) {
 
 // deviceGraphMemTrim Free unused memory that was cached on the specified device for use with graphs back to the OS.
 //
-// Blocks which are not in use by a graph that is either currently executing or scheduled to execute are freed back to the operating system. See also: [Graph.AddMemAllocNode], [Graph.AddMemFreeNode], [Device.SetGraphMemAttribute], [Device.GetGraphMemAttribute]
+// Blocks which are not in use by a graph that is either currently executing or scheduled to execute are freed back to the operating system. See also: [Graph.AddMemAllocNode], [Graph.AddMemFreeNode], [Device.SetGraphMemAttribute], [Device.GraphMemAttribute]
 //
 //   - device: The device for which cached memory should be freed
 //
@@ -2300,7 +2309,7 @@ func devicePrimaryCtxGetState(dev Device) (flags uint32, active int32, err error
 
 // devicePrimaryCtxRelease Release the primary context on the GPU.
 //
-// Releases the primary context interop on the device. A retained context should always be released once the user is done using it. The context is automatically reset once the last reference to it is released. This behavior is different when the primary context was retained by the CUDA runtime from CUDA 4.0 and earlier. In this case, the primary context remains always active. Releasing a primary context that has not been previously retained will fail with [ErrInvalidContext]. Please note that unlike [Context.Destroy] this method does not pop the context from stack in any circumstances. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxRetain], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// Releases the primary context interop on the device. A retained context should always be released once the user is done using it. The context is automatically reset once the last reference to it is released. This behavior is different when the primary context was retained by the CUDA runtime from CUDA 4.0 and earlier. In this case, the primary context remains always active. Releasing a primary context that has not been previously retained will fail with [ErrInvalidContext]. Please note that unlike [Context.Destroy] this method does not pop the context from stack in any circumstances. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxRetain], [Context.Destroy], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 //   - dev: Device which primary context is released
 //
@@ -2314,7 +2323,7 @@ func devicePrimaryCtxRelease(dev Device) error {
 
 // devicePrimaryCtxReset Destroy all allocations and reset all state on the primary context.
 //
-// Explicitly destroys and cleans up all resources associated with the current device in the current process. Note that it is responsibility of the calling function to ensure that no other module in the process is using the device any more. For that reason it is recommended to use [Device.PrimaryCtxRelease] in most cases. However it is safe for other modules to call [Device.PrimaryCtxRelease] even after resetting the device. Resetting the primary context does not release it, an application that has retained the primary context should explicitly release its usage. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxRelease], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaDeviceReset
+// Explicitly destroys and cleans up all resources associated with the current device in the current process. Note that it is responsibility of the calling function to ensure that no other module in the process is using the device any more. For that reason it is recommended to use [Device.PrimaryCtxRelease] in most cases. However it is safe for other modules to call [Device.PrimaryCtxRelease] even after resetting the device. Resetting the primary context does not release it, an application that has retained the primary context should explicitly release its usage. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxRelease], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaDeviceReset
 //
 //   - dev: Device for which primary context is destroyed
 //
@@ -2328,7 +2337,7 @@ func devicePrimaryCtxReset(dev Device) error {
 
 // devicePrimaryCtxRetain Retain the primary context on the GPU.
 //
-// Retains the primary context on the device. Once the user successfully retains the primary context, the primary context will be active and available to the user until the user releases it with [Device.PrimaryCtxRelease] or resets it with [Device.PrimaryCtxReset]. Unlike [NewContext] the newly retained context is not pushed onto the stack. Retaining the primary context for the first time will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.GetAttribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for devices. Documentation for nvidia-smi can be obtained by passing a -h option to it. Please note that the primary context always supports pinned allocations. Other flags can be specified by [Device.PrimaryCtxSetFlags]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxRelease], [Device.PrimaryCtxSetFlags], [NewContext], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// Retains the primary context on the device. Once the user successfully retains the primary context, the primary context will be active and available to the user until the user releases it with [Device.PrimaryCtxRelease] or resets it with [Device.PrimaryCtxReset]. Unlike [NewContext] the newly retained context is not pushed onto the stack. Retaining the primary context for the first time will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.Attribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for devices. Documentation for nvidia-smi can be obtained by passing a -h option to it. Please note that the primary context always supports pinned allocations. Other flags can be specified by [Device.PrimaryCtxSetFlags]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxRelease], [Device.PrimaryCtxSetFlags], [NewContext], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
 //   - dev: Device for which primary context is requested
 //
@@ -2354,11 +2363,11 @@ func devicePrimaryCtxRetain(dev Device) (Context, error) {
 //   - flags: New flags for the device
 //
 // Wraps cuDevicePrimaryCtxSetFlags, bound as cuDevicePrimaryCtxSetFlags_v2.
-func devicePrimaryCtxSetFlags(dev Device, flags uint32) error {
+func devicePrimaryCtxSetFlags(dev Device, flags CtxFlags) error {
 	if err := checkLibSym("cuDevicePrimaryCtxSetFlags_v2"); err != nil {
 		return err
 	}
-	return toError(fndevicePrimaryCtxSetFlags(dev, flags))
+	return toError(fndevicePrimaryCtxSetFlags(dev, uint32(flags)))
 }
 
 // deviceRegisterAsyncNotification Registers a callback function to receive async notifications.
@@ -2385,7 +2394,7 @@ func deviceRegisterAsyncNotification(device Device, callbackFunc uintptr, userDa
 
 // deviceSetGraphMemAttribute Set asynchronous allocation attributes related to graphs.
 //
-// Valid attributes are: See also: [Device.GetGraphMemAttribute], [Graph.AddMemAllocNode], [Graph.AddMemFreeNode]
+// Valid attributes are: See also: [Device.GraphMemAttribute], [Graph.AddMemAllocNode], [Graph.AddMemFreeNode]
 //
 //   - device: Specifies the scope of the query
 //   - attr: attribute to get
@@ -2401,7 +2410,7 @@ func deviceSetGraphMemAttribute(device Device, attr GraphmemAttribute, value uin
 
 // deviceSetMemPool Sets the current memory pool of a device.
 //
-// The memory pool must be local to the specified device. [Stream.MemAllocAsync] allocates from the current mempool of the provided stream's device. By default, a device's current memory pool is its default memory pool. Note: Use [MemoryPool.MemAllocFromPoolAsync] to specify asynchronous allocations from a device different than the one the stream runs on. See also: [Device.GetDefaultMemPool], [Device.GetMemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync]
+// The memory pool must be local to the specified device. [Stream.MemAllocAsync] allocates from the current mempool of the provided stream's device. By default, a device's current memory pool is its default memory pool. Note: Use [MemoryPool.MemAllocFromPoolAsync] to specify asynchronous allocations from a device different than the one the stream runs on. See also: [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync]
 //
 // Wraps cuDeviceSetMemPool.
 func deviceSetMemPool(dev Device, pool MemoryPool) error {
@@ -2413,7 +2422,7 @@ func deviceSetMemPool(dev Device, pool MemoryPool) error {
 
 // deviceTotalMem Returns the total amount of memory on the device.
 //
-// Returns in *bytes the total amount of memory available on the device dev in bytes. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], [Device.GetExecAffinitySupport], cudaMemGetInfo
+// Returns in *bytes the total amount of memory available on the device dev in bytes. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.ExecAffinitySupport], cudaMemGetInfo
 //
 //   - dev: Device handle
 //
@@ -2466,16 +2475,16 @@ func DriverGetVersion() (int, error) {
 //
 // Creates an event *phEvent for the current context with the flags specified via Flags. Valid flags include: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Event.Record], [Event.Query], [Event.Synchronize], [Event.Destroy], [Event.ElapsedTime], cudaEventCreate, cudaEventCreateWithFlags
 //
-//   - Flags: Event creation flags
+//   - flags: Event creation flags
 //
 // Wraps cuEventCreate.
-func eventCreate(Flags uint32) (Event, error) {
+func eventCreate(flags EventFlags) (Event, error) {
 	if err := checkLibSym("cuEventCreate"); err != nil {
 		var zero Event
 		return zero, err
 	}
 	var out Event
-	if err := toError(fneventCreate(&out, Flags)); err != nil {
+	if err := toError(fneventCreate(&out, uint32(flags))); err != nil {
 		var zero Event
 		return zero, err
 	}
@@ -2555,11 +2564,11 @@ func eventRecord(hEvent Event, hStream Stream) error {
 //   - flags: See CUevent_capture_flags
 //
 // Wraps cuEventRecordWithFlags.
-func eventRecordWithFlags(hEvent Event, hStream Stream, flags uint32) error {
+func eventRecordWithFlags(hEvent Event, hStream Stream, flags EventRecordFlags) error {
 	if err := checkLibSym("cuEventRecordWithFlags"); err != nil {
 		return err
 	}
-	return toError(fneventRecordWithFlags(hEvent, hStream, flags))
+	return toError(fneventRecordWithFlags(hEvent, hStream, uint32(flags)))
 }
 
 // eventSynchronize Waits for an event to complete.
@@ -2578,7 +2587,7 @@ func eventSynchronize(hEvent Event) error {
 
 // externalMemoryGetMappedBuffer Maps a buffer onto an imported memory object.
 //
-// Maps a buffer onto an imported memory object and returns a device pointer in devPtr. The properties of the buffer being mapped must be described in bufferDesc. The [ExternalMemoryBufferDesc] structure is defined as follows: where [ExternalMemoryBufferDesc].offset is the offset in the memory object where the buffer's base address is. [ExternalMemoryBufferDesc].size is the size of the buffer. [ExternalMemoryBufferDesc].flags must be zero. The offset and size have to be suitably aligned to match the requirements of the external API. Mapping two buffers whose ranges overlap may or may not result in the same virtual address being returned for the overlapped portion. In such cases, the application must ensure that all accesses to that region from the GPU are volatile. Otherwise writes made via one address are not guaranteed to be visible via the other address, even if they're issued by the same thread. It is recommended that applications map the combined range instead of mapping separate buffers and then apply the appropriate offsets to the returned pointer to derive the individual buffers. The returned pointer devPtr must be freed using [DevicePtr.MemFree]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.GetMappedMipmappedArray]
+// Maps a buffer onto an imported memory object and returns a device pointer in devPtr. The properties of the buffer being mapped must be described in bufferDesc. The [ExternalMemoryBufferDesc] structure is defined as follows: where [ExternalMemoryBufferDesc].offset is the offset in the memory object where the buffer's base address is. [ExternalMemoryBufferDesc].size is the size of the buffer. [ExternalMemoryBufferDesc].flags must be zero. The offset and size have to be suitably aligned to match the requirements of the external API. Mapping two buffers whose ranges overlap may or may not result in the same virtual address being returned for the overlapped portion. In such cases, the application must ensure that all accesses to that region from the GPU are volatile. Otherwise writes made via one address are not guaranteed to be visible via the other address, even if they're issued by the same thread. It is recommended that applications map the combined range instead of mapping separate buffers and then apply the appropriate offsets to the returned pointer to derive the individual buffers. The returned pointer devPtr must be freed using [DevicePtr.Free]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedMipmappedArray]
 //
 //   - extMem: Handle to external memory object
 //   - bufferDesc: Buffer descriptor
@@ -2599,7 +2608,7 @@ func externalMemoryGetMappedBuffer(extMem ExternalMemory, bufferDesc *ExternalMe
 
 // externalMemoryGetMappedMipmappedArray Maps a CUDA mipmapped array onto an external memory object.
 //
-// Maps a CUDA mipmapped array onto an external object and returns a handle to it in mipmap. The properties of the CUDA mipmapped array being mapped must be described in mipmapDesc. The structure [ExternalMemoryMipmappedArrayDesc] is defined as follows: where [ExternalMemoryMipmappedArrayDesc].offset is the offset in the memory object where the base level of the mipmap chain is. [ExternalMemoryMipmappedArrayDesc].arrayDesc describes the format, dimensions and type of the base level of the mipmap chain. For further details on these parameters, please refer to the documentation for [NewMipmappedArray]. Note that if the mipmapped array is bound as a color target in the graphics API, then the flag CUDA_ARRAY3D_COLOR_ATTACHMENT must be specified in [ExternalMemoryMipmappedArrayDesc].arrayDescFlags. [ExternalMemoryMipmappedArrayDesc].numLevels specifies the total number of levels in the mipmap chain. If extMem was imported from a handle of type [ExternalMemoryHandleTypeNvscibuf], then [ExternalMemoryMipmappedArrayDesc].numLevels must be equal to 1. Mapping extMem imported from a handle of type [ExternalMemoryHandleTypeDmabufFd], is not supported. The returned CUDA mipmapped array must be freed using [MipmappedArray.Destroy]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.GetMappedBuffer]
+// Maps a CUDA mipmapped array onto an external object and returns a handle to it in mipmap. The properties of the CUDA mipmapped array being mapped must be described in mipmapDesc. The structure [ExternalMemoryMipmappedArrayDesc] is defined as follows: where [ExternalMemoryMipmappedArrayDesc].offset is the offset in the memory object where the base level of the mipmap chain is. [ExternalMemoryMipmappedArrayDesc].arrayDesc describes the format, dimensions and type of the base level of the mipmap chain. For further details on these parameters, please refer to the documentation for [NewMipmappedArray]. Note that if the mipmapped array is bound as a color target in the graphics API, then the flag CUDA_ARRAY3D_COLOR_ATTACHMENT must be specified in [ExternalMemoryMipmappedArrayDesc].arrayDescFlags. [ExternalMemoryMipmappedArrayDesc].numLevels specifies the total number of levels in the mipmap chain. If extMem was imported from a handle of type [ExternalMemoryHandleTypeNvscibuf], then [ExternalMemoryMipmappedArrayDesc].numLevels must be equal to 1. Mapping extMem imported from a handle of type [ExternalMemoryHandleTypeDmabufFd], is not supported. The returned CUDA mipmapped array must be freed using [MipmappedArray.Destroy]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalMemory], [ExternalMemory.Destroy], [ExternalMemory.MappedBuffer]
 //
 //   - extMem: Handle to external memory object
 //   - mipmapDesc: CUDA array descriptor
@@ -2635,7 +2644,7 @@ func FlushGPUDirectRDMAWrites(target FlushGPUDirectRDMAWritesTarget, scope Flush
 
 // funcGetAttribute Returns information about a function.
 //
-// Returns in *pi the integer value of the attribute attrib on the kernel given by hfunc. The supported attributes are: With a few execeptions, function attributes may also be queried on unloaded function handles returned from [Module.EnumerateFunctions]. [ErrFunctionNotLoaded] is returned if the attribute requires a fully loaded function but the function is not loaded. The loading state of a function may be queried using cuFuncIsloaded. [Function.Load] may be called to explicitly load a function before querying the following attributes that require the function to be loaded: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.LaunchKernel], cudaFuncGetAttributes, cudaFuncSetAttribute, [Function.IsLoaded], [Function.Load], [Kernel.GetAttribute]
+// Returns in *pi the integer value of the attribute attrib on the kernel given by hfunc. The supported attributes are: With a few execeptions, function attributes may also be queried on unloaded function handles returned from [Module.EnumerateFunctions]. [ErrFunctionNotLoaded] is returned if the attribute requires a fully loaded function but the function is not loaded. The loading state of a function may be queried using cuFuncIsloaded. [Function.Load] may be called to explicitly load a function before querying the following attributes that require the function to be loaded: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.LaunchKernel], cudaFuncGetAttributes, cudaFuncSetAttribute, [Function.IsLoaded], [Function.Load], [Kernel.Attribute]
 //
 //   - attrib: Attribute requested
 //   - hfunc: Function to query attribute of
@@ -2696,7 +2705,7 @@ func funcGetName(hfunc Function) (string, error) {
 
 // funcGetParamCount Returns the number of parameters used by the function.
 //
-// Queries the number of kernel parameters used by func and returns it in paramCount. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Function.GetParamInfo]
+// Queries the number of kernel parameters used by func and returns it in paramCount. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Function.ParamInfo]
 //
 //   - func_: The function to query
 //
@@ -2716,7 +2725,7 @@ func funcGetParamCount(func_ Function) (uint, error) {
 
 // funcGetParamInfo Returns the offset and size of a kernel parameter in the device-side parameter layout.
 //
-// Queries the kernel parameter at paramIndex into func's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that func takes. paramSize can be set to NULL if only the parameter offset is desired. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Kernel.GetParamInfo]
+// Queries the kernel parameter at paramIndex into func's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that func takes. paramSize can be set to NULL if only the parameter offset is desired. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Kernel.ParamInfo]
 //
 //   - func_: The function to query
 //   - paramIndex: The parameter index to query
@@ -2791,7 +2800,7 @@ func funcSetAttribute(hfunc Function, attrib FunctionAttribute, value int32) err
 //   - y: Y dimension
 //   - z: Z dimension
 //
-// See also: [Function.SetSharedSize], [Function.SetCacheConfig], [Function.GetAttribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
+// See also: [Function.SetSharedSize], [Function.SetCacheConfig], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 // Deprecated: Specifies the x, y, and z dimensions of the thread blocks that are created when the kernel given by hfunc is launched.
 //
@@ -2805,7 +2814,7 @@ func funcSetBlockShape(hfunc Function, x int32, y int32, z int32) error {
 
 // funcSetCacheConfig Sets the preferred cache configuration for a device function.
 //
-// On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the device function hfunc. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute hfunc. Any context-wide preference set via [CtxSetCacheConfig] will be overridden by this per-function setting unless the per-function setting is [FuncCachePreferNone]. In that case, the current context-wide setting will be used. This setting does nothing on devices where the size of the L1 cache and shared memory are fixed. Launching a kernel with a different preference than the most recent preference setting may insert a device-side synchronization point. The supported cache configurations are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.GetAttribute], [Function.LaunchKernel], cudaFuncSetCacheConfig, [Kernel.SetCacheConfig]
+// On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the device function hfunc. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute hfunc. Any context-wide preference set via [CtxSetCacheConfig] will be overridden by this per-function setting unless the per-function setting is [FuncCachePreferNone]. In that case, the current context-wide setting will be used. This setting does nothing on devices where the size of the L1 cache and shared memory are fixed. Launching a kernel with a different preference than the most recent preference setting may insert a device-side synchronization point. The supported cache configurations are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.Attribute], [Function.LaunchKernel], cudaFuncSetCacheConfig, [Kernel.SetCacheConfig]
 //
 //   - hfunc: Kernel to configure cache for
 //   - config: Requested cache configuration
@@ -2823,7 +2832,7 @@ func funcSetCacheConfig(hfunc Function, config FuncCacheConfig) error {
 //   - hfunc: kernel to be given a shared memory config
 //   - config: requested shared memory configuration
 //
-// See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [CtxGetSharedMemConfig], [CtxSetSharedMemConfig], [Function.GetAttribute], [Function.LaunchKernel]
+// See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [CtxGetSharedMemConfig], [CtxSetSharedMemConfig], [Function.Attribute], [Function.LaunchKernel]
 //
 // Deprecated: On devices with configurable shared memory banks, this function will force all subsequent launches of the specified device function to have the given shared memory bank size configuration. On any given launch of the function, the shared memory configuration of the device will be temporarily changed if needed to suit the function's preferred configuration. Changes in shared memory configuration between subsequent launches of functions, may introduce a device side synchronization point. Any per-function setting of shared memory bank size set via [Function.SetSharedMemConfig] will override the context wide setting set with [CtxSetSharedMemConfig]. Changing the shared memory bank size will not increase shared memory usage or affect occupancy of kernels, but may have major effects on performance. Larger bank sizes will allow for greater potential bandwidth to shared memory, but will change what kinds of accesses to shared memory will result in bank conflicts. This function will do nothing on devices with fixed shared memory bank size. The supported bank configurations are: - [SharedMemConfigDefaultBankSize]: use the context's shared memory configuration when launching this function. - [SharedMemConfigFourByteBankSize]: set shared memory bank width to be natively four bytes when launching this function. - [SharedMemConfigEightByteBankSize]: set shared memory bank width to be natively eight bytes when launching this function.
 //
@@ -2840,7 +2849,7 @@ func funcSetSharedMemConfig(hfunc Function, config Sharedconfig) error {
 //   - hfunc: Kernel to specify dynamic shared-memory size for
 //   - bytes: Dynamic shared-memory size per thread in bytes
 //
-// See also: [Function.SetBlockShape], [Function.SetCacheConfig], [Function.GetAttribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
+// See also: [Function.SetBlockShape], [Function.SetCacheConfig], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 // Deprecated: Sets through bytes the amount of dynamic shared memory that will be available to each thread block when the kernel given by hfunc is launched.
 //
@@ -2869,14 +2878,14 @@ func GetExportTable(ppExportTable *uintptr, pExportTableId *Uuid) error {
 //   - flags: Flags to specify search options
 //
 // Wraps cuGetProcAddress, bound as cuGetProcAddress_v2.
-func GetProcAddress(symbol string, cudaVersion int32, flags uint64) (pfn uintptr, symbolStatus DriverProcAddressQueryResult, err error) {
+func GetProcAddress(symbol string, cudaVersion int32, flags DriverprocaddressFlags) (pfn uintptr, symbolStatus DriverProcAddressQueryResult, err error) {
 	if err := checkLibSym("cuGetProcAddress_v2"); err != nil {
 		return 0, 0, err
 	}
 	cstr_symbol := append([]byte(symbol), 0)
 	var out1 uintptr
 	var out4 DriverProcAddressQueryResult
-	if err := toError(fnGetProcAddress(&cstr_symbol[0], &out1, cudaVersion, flags, &out4)); err != nil {
+	if err := toError(fnGetProcAddress(&cstr_symbol[0], &out1, cudaVersion, uint64(flags), &out4)); err != nil {
 		return 0, 0, err
 	}
 	return out1, out4, nil
@@ -2907,7 +2916,7 @@ func graphAddBatchMemOpNode(hGraph Graph, dependencies *GraphNode, numDependenci
 
 // graphAddChildGraphNode Creates a child graph node and adds it to a graph.
 //
-// Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error. The node executes an embedded child graph. The child graph is cloned in this call. See also: [Graph.AddNode], [NewGraphChildGraphNodeGetGraph], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
+// Creates a new node which executes an embedded graph, and adds it to hGraph with numDependencies dependencies specified via dependencies. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. If childGraph contains allocation nodes, free nodes, or conditional nodes, this call will return an error. The node executes an embedded child graph. The child graph is cloned in this call. See also: [Graph.AddNode], [GraphChildGraphNodeGetGraph], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Clone]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
@@ -2930,7 +2939,7 @@ func graphAddChildGraphNode(hGraph Graph, dependencies *GraphNode, numDependenci
 
 // graphAddDependencies Adds dependency edges to a graph.
 //
-// The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph. If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error. See also: [Graph.RemoveDependencies], [Graph.GetEdges], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph. If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error. See also: [Graph.RemoveDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph to which dependencies are added
 //   - from: Array of nodes that provide the dependencies
@@ -3108,12 +3117,12 @@ func graphAddKernelNode(hGraph Graph, dependencies *GraphNode, numDependencies u
 
 // graphAddMemAllocNode Creates an allocation node and adds it to a graph.
 //
-// Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemFreeNode], [GraphNode.GraphMemAllocNodeGetParams], [Device.GraphMemTrim], [Device.GetGraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new allocation node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemFreeNode], [GraphNode.GraphMemAllocNodeGetParams], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - hGraph: Graph to which to add the node
 //   - dependencies: Dependencies of the node
 //   - numDependencies: Number of dependencies
-//   - nodeParams: Parameters for the node When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: - passing the allocation to [DevicePtr.MemFreeAsync] or [DevicePtr.MemFree]; - launching a graph with a free node for that allocation; or - specifying [GraphInstantiateFlagAutoFreeOnLaunch] during instantiation, which makes each launch behave as though it called [DevicePtr.MemFreeAsync] for every unfreed allocation. It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: - Nodes and edges of the graph cannot be deleted. - The graph can only be used in a child node if the ownership is moved to the parent. - Only one instantiation of the graph may exist at any point in time. - The graph cannot be cloned
+//   - nodeParams: Parameters for the node When [Graph.AddMemAllocNode] creates an allocation node, it returns the address of the allocation in nodeParams.dptr. The allocation's address remains fixed across instantiations and launches. If the allocation is freed in the same graph, by creating a free node using [Graph.AddMemFreeNode], the allocation can be accessed by nodes ordered after the allocation node but before the free node. These allocations cannot be freed outside the owning graph, and they can only be freed once in the owning graph. If the allocation is not freed in the same graph, then it can be accessed not only by nodes in the graph which are ordered after the allocation node, but also by stream operations ordered after the graph's execution but before the allocation is freed. Allocations which are not freed in the same graph can be freed by: - passing the allocation to [DevicePtr.FreeAsync] or [DevicePtr.Free]; - launching a graph with a free node for that allocation; or - specifying [GraphInstantiateFlagAutoFreeOnLaunch] during instantiation, which makes each launch behave as though it called [DevicePtr.FreeAsync] for every unfreed allocation. It is not possible to free an allocation in both the owning graph and another graph. If the allocation is freed in the same graph, a free node cannot be added to another graph. If the allocation is freed in another graph, a free node can no longer be added to the owning graph. The following restrictions apply to graphs which contain allocation and/or memory free nodes: - Nodes and edges of the graph cannot be deleted. - The graph can only be used in a child node if the ownership is moved to the parent. - Only one instantiation of the graph may exist at any point in time. - The graph cannot be cloned
 //
 // Wraps cuGraphAddMemAllocNode.
 func graphAddMemAllocNode(hGraph Graph, dependencies *GraphNode, numDependencies uint, nodeParams *MemAllocNodeParams) (GraphNode, error) {
@@ -3131,7 +3140,7 @@ func graphAddMemAllocNode(hGraph Graph, dependencies *GraphNode, numDependencies
 
 // graphAddMemFreeNode Creates a memory free node and adds it to a graph.
 //
-// Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams], [Device.GraphMemTrim], [Device.GetGraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Creates a new memory free node and adds it to hGraph with numDependencies dependencies specified via dependencies and arguments specified in nodeParams. It is possible for numDependencies to be 0, in which case the node will be placed at the root of the graph. dependencies may not have any duplicate entries. A handle to the new node will be returned in phGraphNode. [Graph.AddMemFreeNode] will return [ErrInvalidValue] if the user attempts to free: The following restrictions apply to graphs which contain allocation and/or memory free nodes: See also: [Graph.AddNode], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams], [Device.GraphMemTrim], [Device.GraphMemAttribute], [Device.SetGraphMemAttribute], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [NewGraph], [GraphNode.GraphDestroyNode], [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddEventRecordNode], [Graph.AddEventWaitNode], [Graph.AddExternalSemaphoresSignalNode], [Graph.AddExternalSemaphoresWaitNode], [Graph.AddKernelNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
 //
 //   - phGraphNode: Returns newly created node
 //   - hGraph: Graph to which to add the node
@@ -3221,7 +3230,7 @@ func graphAddNode(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEd
 
 // graphBatchMemOpNodeGetParams Returns a batch mem op node's parameters.
 //
-// Returns the parameters of batch mem op node hNode in nodeParams_out. The paramArray returned in nodeParams_out is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphBatchMemOpNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.GraphBatchMemOpNodeSetParams]
+// Returns the parameters of batch mem op node hNode in nodeParams_out. The paramArray returned in nodeParams_out is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphBatchMemOpNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.GraphBatchMemOpNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -3319,7 +3328,7 @@ func graphConditionalHandleCreate(hGraph Graph, ctx Context, defaultLaunchValue 
 
 // graphCreate Creates a graph.
 //
-// Creates an empty graph, which is returned via phGraph. See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Instantiate], [Graph.Destroy], [Graph.GetNodes], [Graph.GetRootNodes], [Graph.GetEdges], [Graph.Clone]
+// Creates an empty graph, which is returned via phGraph. See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Instantiate], [Graph.Destroy], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.Clone]
 //
 //   - flags: Graph creation flags, must be 0
 //
@@ -3346,12 +3355,12 @@ func graphCreate(flags uint32) (Graph, error) {
 //   - flags: Flags from [GraphdebugdotFlags] for specifying which additional node information to write
 //
 // Wraps cuGraphDebugDotPrint.
-func graphDebugDotPrint(hGraph Graph, path string, flags uint32) error {
+func graphDebugDotPrint(hGraph Graph, path string, flags GraphdebugdotFlags) error {
 	if err := checkLibSym("cuGraphDebugDotPrint"); err != nil {
 		return err
 	}
 	cstr_path := append([]byte(path), 0)
-	return toError(fngraphDebugDotPrint(hGraph, &cstr_path[0], flags))
+	return toError(fngraphDebugDotPrint(hGraph, &cstr_path[0], uint32(flags)))
 }
 
 // graphDestroy Destroys a graph.
@@ -3470,7 +3479,7 @@ func graphExecBatchMemOpNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nod
 
 // graphExecChildGraphNodeSetParams Updates node parameters in the child graph node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated. See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [NewGraphChildGraphNodeGetGraph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated. See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [GraphChildGraphNodeGetGraph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: Host node from the graph which was used to instantiate graphExec
@@ -3584,7 +3593,7 @@ func graphExecGetFlags(hGraphExec GraphExec) (uint64, error) {
 
 // graphExecGetId Returns the id of a given graph exec.
 //
-// Returns the id of hGraphExec in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint]. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetContainingGraph] [GraphNode.GetLocalId] [GraphNode.GetToolsId] [Graph.GetId]
+// Returns the id of hGraphExec in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint]. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [GraphNode.ToolsId] [Graph.Id]
 //
 //   - hGraphExec: Graph to query graphId
 //
@@ -3702,7 +3711,7 @@ func graphExecUpdate(hGraphExec GraphExec, hGraph Graph, resultInfo *GraphExecUp
 
 // graphExternalSemaphoresSignalNodeGetParams Returns an external semaphore signal node's parameters.
 //
-// Returns the parameters of an external semaphore signal node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.GraphExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Returns the parameters of an external semaphore signal node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.GraphExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -3737,7 +3746,7 @@ func graphExternalSemaphoresSignalNodeSetParams(hNode GraphNode, nodeParams *Ext
 
 // graphExternalSemaphoresWaitNodeGetParams Returns an external semaphore wait node's parameters.
 //
-// Returns the parameters of an external semaphore wait node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.GraphExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Returns the parameters of an external semaphore wait node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.GraphExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -3772,7 +3781,7 @@ func graphExternalSemaphoresWaitNodeSetParams(hNode GraphNode, nodeParams *ExtSe
 
 // graphGetEdges Returns a graph's dependency edges.
 //
-// Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well. See also: [Graph.GetNodes], [Graph.GetRootNodes], [Graph.AddDependencies], [Graph.RemoveDependencies], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well. See also: [Graph.GetNodes], [Graph.RootNodes], [Graph.AddDependencies], [Graph.RemoveDependencies], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph to get the edges from
 //   - from: Location to return edge endpoints
@@ -3790,7 +3799,7 @@ func graphGetEdges(hGraph Graph, from *GraphNode, to *GraphNode, edgeData *Graph
 
 // graphGetId Returns the id of a given graph.
 //
-// Returns the id of hGraph in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint]. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetContainingGraph] [GraphNode.GetLocalId] [GraphNode.GetToolsId] [GraphExec.GetId]
+// Returns the id of hGraph in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint]. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [GraphNode.ToolsId] [GraphExec.Id]
 //
 //   - hGraph: Graph to query graphId
 //
@@ -3810,7 +3819,7 @@ func graphGetId(hGraph Graph) (uint32, error) {
 
 // graphGetNodes Returns a graph's nodes.
 //
-// Returns a list of hGraph's nodes. nodes may be NULL, in which case this function will return the number of nodes in numNodes. Otherwise, numNodes entries will be filled in. If numNodes is higher than the actual number of nodes, the remaining entries in nodes will be set to NULL, and the number of nodes actually obtained will be returned in numNodes. See also: [NewGraph], [Graph.GetRootNodes], [Graph.GetEdges], [GraphNode.GetType], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// Returns a list of hGraph's nodes. nodes may be NULL, in which case this function will return the number of nodes in numNodes. Otherwise, numNodes entries will be filled in. If numNodes is higher than the actual number of nodes, the remaining entries in nodes will be set to NULL, and the number of nodes actually obtained will be returned in numNodes. See also: [NewGraph], [Graph.RootNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph to query nodes- Pointer to return the nodes numNodes- See description
 //   - numNodes: See description
@@ -3831,7 +3840,7 @@ func graphGetNodes(hGraph Graph, numNodes *uint) (GraphNode, error) {
 
 // graphGetRootNodes Returns a graph's root nodes.
 //
-// Returns a list of hGraph's root nodes. rootNodes may be NULL, in which case this function will return the number of root nodes in numRootNodes. Otherwise, numRootNodes entries will be filled in. If numRootNodes is higher than the actual number of root nodes, the remaining entries in rootNodes will be set to NULL, and the number of nodes actually obtained will be returned in numRootNodes. See also: [NewGraph], [Graph.GetNodes], [Graph.GetEdges], [GraphNode.GetType], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// Returns a list of hGraph's root nodes. rootNodes may be NULL, in which case this function will return the number of root nodes in numRootNodes. Otherwise, numRootNodes entries will be filled in. If numRootNodes is higher than the actual number of root nodes, the remaining entries in rootNodes will be set to NULL, and the number of nodes actually obtained will be returned in numRootNodes. See also: [NewGraph], [Graph.GetNodes], [Graph.Edges], [GraphNode.Type], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph to query rootNodes- Pointer to return the root nodes numRootNodes- See description
 //   - numRootNodes: See description
@@ -3852,7 +3861,7 @@ func graphGetRootNodes(hGraph Graph, numRootNodes *uint) (GraphNode, error) {
 
 // graphHostNodeGetParams Returns a host node's parameters.
 //
-// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.GetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.GraphHostNodeSetParams]
+// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.GraphHostNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -3893,13 +3902,13 @@ func graphHostNodeSetParams(hNode GraphNode, nodeParams *HostNodeParams) error {
 //   - flags: Flags to control instantiation. See [GraphinstantiateFlags]
 //
 // Wraps cuGraphInstantiate, bound as cuGraphInstantiateWithFlags.
-func graphInstantiate(hGraph Graph, flags uint64) (GraphExec, error) {
+func graphInstantiate(hGraph Graph, flags GraphinstantiateFlags) (GraphExec, error) {
 	if err := checkLibSym("cuGraphInstantiateWithFlags"); err != nil {
 		var zero GraphExec
 		return zero, err
 	}
 	var out GraphExec
-	if err := toError(fngraphInstantiate(&out, hGraph, flags)); err != nil {
+	if err := toError(fngraphInstantiate(&out, hGraph, uint64(flags))); err != nil {
 		var zero GraphExec
 		return zero, err
 	}
@@ -3962,7 +3971,7 @@ func graphKernelNodeGetAttribute(hNode GraphNode, attr int32) ([8]uint64, error)
 
 // graphKernelNodeGetParams Returns a kernel node's parameters.
 //
-// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphKernelNodeSetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.GraphKernelNodeSetParams]
+// Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphKernelNodeSetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.GraphKernelNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -4024,7 +4033,7 @@ func graphLaunch(hGraphExec GraphExec, hStream Stream) error {
 
 // graphMemAllocNodeGetParams Returns a memory alloc node's parameters.
 //
-// Returns the parameters of a memory alloc node hNode in params_out. The poolProps and accessDescs returned in params_out, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.GetParams], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams]
+// Returns the parameters of a memory alloc node hNode in params_out. The poolProps and accessDescs returned in params_out, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.Params], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -4044,7 +4053,7 @@ func graphMemAllocNodeGetParams(hNode GraphNode) (MemAllocNodeParams, error) {
 
 // graphMemFreeNodeGetParams Returns a memory free node's parameters.
 //
-// Returns the address of a memory free node hNode in dptr_out. See also: [GraphNode.GetParams], [Graph.AddMemFreeNode], [GraphNode.GraphMemAllocNodeGetParams]
+// Returns the address of a memory free node hNode in dptr_out. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [GraphNode.GraphMemAllocNodeGetParams]
 //
 //   - hNode: Node to get the parameters for
 //   - dptr_out: Pointer to return the device address
@@ -4059,7 +4068,7 @@ func graphMemFreeNodeGetParams(hNode GraphNode, dptr_out *DevicePtr) error {
 
 // graphMemcpyNodeGetParams Returns a memcpy node's parameters.
 //
-// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.GetParams], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.GraphMemcpyNodeSetParams]
+// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.GraphMemcpyNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -4094,7 +4103,7 @@ func graphMemcpyNodeSetParams(hNode GraphNode, nodeParams *Memcpy3d) error {
 
 // graphMemsetNodeGetParams Returns a memset node's parameters.
 //
-// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.GetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.GraphMemsetNodeSetParams]
+// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.GraphMemsetNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
 //
@@ -4150,7 +4159,7 @@ func graphNodeFindInClone(hOriginalNode GraphNode, hClonedGraph Graph) (GraphNod
 
 // graphNodeGetContainingGraph Returns the graph that contains a given graph node.
 //
-// Returns the graph that contains hNode in *phGraph. If hNode is in a child graph, the child graph it is in is returned. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetLocalId] [GraphNode.GetToolsId] [Graph.GetId] [GraphExec.GetId]
+// Returns the graph that contains hNode in *phGraph. If hNode is in a child graph, the child graph it is in is returned. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.LocalId] [GraphNode.ToolsId] [Graph.Id] [GraphExec.Id]
 //
 //   - hNode: Node to query phGraph
 //
@@ -4170,7 +4179,7 @@ func graphNodeGetContainingGraph(hNode GraphNode) (Graph, error) {
 
 // graphNodeGetDependencies Returns a node's dependencies.
 //
-// Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well. See also: [GraphNode.GetDependentNodes], [Graph.GetNodes], [Graph.GetRootNodes], [Graph.GetEdges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+// Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well. See also: [GraphNode.DependentNodes], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
 //   - hNode: Node to query dependencies- Pointer to return the dependencies edgeData- Optional array to return edge data for each dependency numDependencies- See description
 //   - edgeData: Optional array to return edge data for each dependency
@@ -4192,7 +4201,7 @@ func graphNodeGetDependencies(hNode GraphNode, edgeData *GraphEdgeData, numDepen
 
 // graphNodeGetDependentNodes Returns a node's dependent nodes.
 //
-// Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well. See also: [GraphNode.GetDependencies], [Graph.GetNodes], [Graph.GetRootNodes], [Graph.GetEdges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+// Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well. See also: [GraphNode.Dependencies], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
 //
 //   - hNode: Node to query dependentNodes- Pointer to return the dependent nodes edgeData- Optional pointer to return edge data for dependent nodes numDependentNodes- See description
 //   - edgeData: Optional pointer to return edge data for dependent nodes
@@ -4235,7 +4244,7 @@ func graphNodeGetEnabled(hGraphExec GraphExec, hNode GraphNode) (uint32, error) 
 
 // graphNodeGetLocalId Returns the local node id of a given graph node.
 //
-// Returns the node id of hNode in *nodeId. The nodeId matches that referenced by [Graph.DebugDotPrint]. The local nodeId and graphId together can uniquely identify the node. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetContainingGraph] [GraphNode.GetToolsId] [Graph.GetId] [GraphExec.GetId]
+// Returns the node id of hNode in *nodeId. The nodeId matches that referenced by [Graph.DebugDotPrint]. The local nodeId and graphId together can uniquely identify the node. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.ToolsId] [Graph.Id] [GraphExec.Id]
 //
 //   - hNode: Node to query nodeId- Pointer to return the nodeId
 //
@@ -4275,7 +4284,7 @@ func graphNodeGetParams(hNode GraphNode) (GraphNodeParams, error) {
 
 // graphNodeGetToolsId Returns an id used by tools to identify a given node.
 //
-// See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetContainingGraph] [GraphNode.GetLocalId] [Graph.GetId] [GraphExec.GetId]
+// See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [Graph.Id] [GraphExec.Id]
 //
 //   - hNode: Node to query toolsNodeId
 //
@@ -4295,7 +4304,7 @@ func graphNodeGetToolsId(hNode GraphNode) (uint64, error) {
 
 // graphNodeGetType Returns a node's type.
 //
-// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.GetRootNodes], [NewGraphChildGraphNodeGetGraph], [GraphNode.GraphKernelNodeGetParams], [GraphNode.GraphKernelNodeSetParams], [GraphNode.GraphHostNodeGetParams], [GraphNode.GraphHostNodeSetParams], [GraphNode.GraphMemcpyNodeGetParams], [GraphNode.GraphMemcpyNodeSetParams], [GraphNode.GraphMemsetNodeGetParams], [GraphNode.GraphMemsetNodeSetParams]
+// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.RootNodes], [GraphChildGraphNodeGetGraph], [GraphNode.GraphKernelNodeGetParams], [GraphNode.GraphKernelNodeSetParams], [GraphNode.GraphHostNodeGetParams], [GraphNode.GraphHostNodeSetParams], [GraphNode.GraphMemcpyNodeGetParams], [GraphNode.GraphMemcpyNodeSetParams], [GraphNode.GraphMemsetNodeGetParams], [GraphNode.GraphMemsetNodeSetParams]
 //
 //   - hNode: Node to query type- Pointer to return the node type
 //
@@ -4315,7 +4324,7 @@ func graphNodeGetType(hNode GraphNode) (GraphNodeType, error) {
 
 // graphNodeSetEnabled Enables or disables the specified node in the given graphExec.
 //
-// Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. Note: Currently only kernel, memset and memcpy nodes are supported. See also: [GraphNode.GetEnabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.GraphLaunch]
+// Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. Note: Currently only kernel, memset and memcpy nodes are supported. See also: [GraphNode.Enabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.GraphLaunch]
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - hNode: Node from the graph from which graphExec was instantiated
@@ -4331,7 +4340,7 @@ func graphNodeSetEnabled(hGraphExec GraphExec, hNode GraphNode, isEnabled uint32
 
 // graphNodeSetParams Update a graph node's parameters.
 //
-// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed. Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree]. See also: [Graph.AddNode], [GraphNode.GetParams], [GraphExec.NodeSetParams]
+// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed. Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree]. See also: [Graph.AddNode], [GraphNode.Params], [GraphExec.NodeSetParams]
 //
 //   - hNode: Node to set the parameters for
 //   - nodeParams: Parameters to copy
@@ -4362,7 +4371,7 @@ func graphReleaseUserObject(graph Graph, object UserObject, count uint32) error 
 
 // graphRemoveDependencies Removes dependency edges from a graph.
 //
-// The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph. If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge. Dependencies cannot be removed from graphs which contain allocation or free nodes. Any attempt to do so will return an error. See also: [Graph.AddDependencies], [Graph.GetEdges], [GraphNode.GetDependencies], [GraphNode.GetDependentNodes]
+// The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph. If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge. Dependencies cannot be removed from graphs which contain allocation or free nodes. Any attempt to do so will return an error. See also: [Graph.AddDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
 //
 //   - hGraph: Graph from which to remove dependencies
 //   - from: Array of nodes that provide the dependencies
@@ -4388,11 +4397,11 @@ func graphRemoveDependencies(hGraph Graph, from *GraphNode, to *GraphNode, edgeD
 //   - flags: The optional flag [GraphUserObjectMove] transfers references from the calling thread, rather than create new references. Pass 0 to create new references
 //
 // Wraps cuGraphRetainUserObject.
-func graphRetainUserObject(graph Graph, object UserObject, count uint32, flags uint32) error {
+func graphRetainUserObject(graph Graph, object UserObject, count uint32, flags UserobjectretainFlags) error {
 	if err := checkLibSym("cuGraphRetainUserObject"); err != nil {
 		return err
 	}
-	return toError(fngraphRetainUserObject(graph, object, count, flags))
+	return toError(fngraphRetainUserObject(graph, object, count, uint32(flags)))
 }
 
 // graphUpload Uploads an executable graph in a stream.
@@ -4430,7 +4439,7 @@ func graphUpload(hGraphExec GraphExec, hStream Stream) error {
 //   - resources: Resources to map for CUDA usage
 //   - hStream: Stream with which to synchronize
 //
-// See also: [GraphicsResource.GetMappedPointer], [GraphicsResource.GraphicsSubResourceGetMappedArray], [Stream.GraphicsUnmapResources]
+// See also: [GraphicsResource.MappedPointer], [GraphicsResource.GraphicsSubResourceGetMappedArray], [Stream.GraphicsUnmapResources]
 //
 // Wraps cuGraphicsMapResources.
 func graphicsMapResources(count uint32, resources *GraphicsResource, hStream Stream) error {
@@ -4452,7 +4461,7 @@ func graphicsMapResources(count uint32, resources *GraphicsResource, hStream Str
 //
 //   - resource: Mapped resource to access
 //
-// See also: [GraphicsResource.GetMappedPointer]
+// See also: [GraphicsResource.MappedPointer]
 //
 // Wraps cuGraphicsResourceGetMappedMipmappedArray.
 func graphicsResourceGetMappedMipmappedArray(resource GraphicsResource) (MipmappedArray, error) {
@@ -4524,11 +4533,11 @@ func graphicsResourceGetMappedPointer(resource GraphicsResource) (pDevPtr Device
 // See also: [Stream.GraphicsMapResources]
 //
 // Wraps cuGraphicsResourceSetMapFlags, bound as cuGraphicsResourceSetMapFlags_v2.
-func graphicsResourceSetMapFlags(resource GraphicsResource, flags uint32) error {
+func graphicsResourceSetMapFlags(resource GraphicsResource, flags GraphicsMapResourceFlags) error {
 	if err := checkLibSym("cuGraphicsResourceSetMapFlags_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphicsResourceSetMapFlags(resource, flags))
+	return toError(fngraphicsResourceSetMapFlags(resource, uint32(flags)))
 }
 
 // graphicsSubResourceGetMappedArray Get an array through which to access a subresource of a mapped graphics resource.
@@ -4550,7 +4559,7 @@ func graphicsResourceSetMapFlags(resource GraphicsResource, flags uint32) error 
 //   - arrayIndex: Array index for array textures or cubemap face index as defined by [ArrayCubemapFace] for cubemap textures for the subresource to access
 //   - mipLevel: Mipmap level for the subresource to access
 //
-// See also: [GraphicsResource.GetMappedPointer]
+// See also: [GraphicsResource.MappedPointer]
 //
 // Wraps cuGraphicsSubResourceGetMappedArray.
 func graphicsSubResourceGetMappedArray(resource GraphicsResource, arrayIndex uint32, mipLevel uint32) (Array, error) {
@@ -4623,7 +4632,7 @@ func graphicsUnregisterResource(resource GraphicsResource) error {
 // deinitialization multiple times.
 //
 // The API does not set the green context current. In order to set it current, you need to explicitly set it current
-// by first converting the green context to a [Context] using [NewContextFromGreenCtx] and subsequently calling
+// by first converting the green context to a [Context] using [CtxFromGreenCtx] and subsequently calling
 // [Context.SetCurrent] / [Context.PushCurrent]. It should be noted that a green context can be current to only one
 // thread at a time. There is no internal synchronization to make API calls accessing the same green context
 // from multiple threads work.
@@ -4634,16 +4643,16 @@ func graphicsUnregisterResource(resource GraphicsResource) error {
 //   - dev: Device on which to create the green context
 //   - flags: One of the supported green context creation flags. [GreenCtxDefaultStream] is required. The supported flags are: - [GreenCtxDefaultStream] : Creates a default stream to use inside the green context. Required
 //
-// See also: [GreenCtx.Destroy], [NewContextFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
+// See also: [GreenCtx.Destroy], [CtxFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
 //
 // Wraps cuGreenCtxCreate.
-func greenCtxCreate(desc DevResourceDesc, dev Device, flags uint32) (GreenCtx, error) {
+func greenCtxCreate(desc DevResourceDesc, dev Device, flags GreenctxcreateFlags) (GreenCtx, error) {
 	if err := checkLibSym("cuGreenCtxCreate"); err != nil {
 		var zero GreenCtx
 		return zero, err
 	}
 	var out GreenCtx
-	if err := toError(fngreenCtxCreate(&out, desc, dev, flags)); err != nil {
+	if err := toError(fngreenCtxCreate(&out, desc, dev, uint32(flags))); err != nil {
 		var zero GreenCtx
 		return zero, err
 	}
@@ -4655,7 +4664,7 @@ func greenCtxCreate(desc DevResourceDesc, dev Device, flags uint32) (GreenCtx, e
 // Destroys the green context, releasing the primary context of the device that this green context was created for.
 // Any resources provisioned for this green context (that were initially available via the resource descriptor)
 // are released as well.
-// The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [NewStreamCreateWithPriority].
+// The API does not destroy streams created via [GreenCtx.StreamCreate], [NewStream], or [StreamCreateWithPriority].
 // Users are expected to destroy these streams explicitly using [Stream.Destroy] to avoid resource leaks. Once the green context is destroyed,
 // any subsequent API calls involving these streams will return [ErrStreamDetached] with the exception of the following APIs:
 // - [Stream.Destroy].
@@ -4706,7 +4715,7 @@ func greenCtxGetDevResource(hCtx GreenCtx, type_ DevResourceType) (DevResource, 
 //
 //   - greenCtx: Green context for which to obtain the Id
 //
-// See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.GetId]
+// See also: [NewGreenCtx], [GreenCtx.Destroy], [Context.Id]
 //
 // Wraps cuGreenCtxGetId.
 func greenCtxGetId(greenCtx GreenCtx) (uint64, error) {
@@ -4771,16 +4780,16 @@ func greenCtxRecordEvent(hCtx GreenCtx, hEvent Event) error {
 //   - flags: Flags for stream creation. [StreamNonBlocking] must be specified
 //   - priority: Stream priority. Lower numbers represent higher priorities. See [CtxGetStreamPriorityRange] for more information about meaningful stream priorities that can be passed
 //
-// See also: [Stream.Destroy], [NewGreenCtx], [NewStream], [Stream.GetPriority], [CtxGetStreamPriorityRange], [Stream.GetFlags], [Stream.GetDevice], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback]
+// See also: [Stream.Destroy], [NewGreenCtx], [NewStream], [Stream.Priority], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback]
 //
 // Wraps cuGreenCtxStreamCreate.
-func greenCtxStreamCreate(greenCtx GreenCtx, flags uint32, priority int32) (Stream, error) {
+func greenCtxStreamCreate(greenCtx GreenCtx, flags StreamFlags, priority int32) (Stream, error) {
 	if err := checkLibSym("cuGreenCtxStreamCreate"); err != nil {
 		var zero Stream
 		return zero, err
 	}
 	var out Stream
-	if err := toError(fngreenCtxStreamCreate(&out, greenCtx, flags, priority)); err != nil {
+	if err := toError(fngreenCtxStreamCreate(&out, greenCtx, uint32(flags), priority)); err != nil {
 		var zero Stream
 		return zero, err
 	}
@@ -4813,7 +4822,7 @@ func greenCtxWaitEvent(hCtx GreenCtx, hEvent Event) error {
 
 // ImportExternalMemory Imports an external memory object.
 //
-// Imports an externally allocated memory object and returns a handle to that in extMem_out. The properties of the handle being imported must be described in memHandleDesc. The [ExternalMemoryHandleDesc] structure is defined as follows: where [ExternalMemoryHandleDesc].type specifies the type of handle being imported. [ExternalMemoryHandleType] is defined as: If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeOpaqueFd], then [ExternalMemoryHandleDesc].handlefd must be a valid file descriptor referencing a memory object. Ownership of the file descriptor is transferred to the CUDA driver when the handle is imported successfully. Performing any operations on the file descriptor after it is imported results in undefined behavior. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeOpaqueWin32], then exactly one of [ExternalMemoryHandleDesc].handlewin32.handle and [ExternalMemoryHandleDesc].handlewin32.name must not be NULL. If [ExternalMemoryHandleDesc].handlewin32.handle is not NULL, then it must represent a valid shared NT handle that references a memory object. Ownership of this handle is not transferred to CUDA after the import operation, so the application must release the handle using the appropriate system call. If [ExternalMemoryHandleDesc].handlewin32.name is not NULL, then it must point to a NULL-terminated array of UTF-16 characters that refers to a memory object. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeOpaqueWin32Kmt], then [ExternalMemoryHandleDesc].handlewin32.handle must be non-NULL and [ExternalMemoryHandleDesc].handlewin32.name must be NULL. The handle specified must be a globally shared KMT handle. This handle does not hold a reference to the underlying object, and thus will be invalid when all references to the memory object are destroyed. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeD3d12Heap], then exactly one of [ExternalMemoryHandleDesc].handlewin32.handle and [ExternalMemoryHandleDesc].handlewin32.name must not be NULL. If [ExternalMemoryHandleDesc].handlewin32.handle is not NULL, then it must represent a valid shared NT handle that is returned by ID3D12Device.CreateSharedHandle when referring to a ID3D12Heap object. This handle holds a reference to the underlying object. If [ExternalMemoryHandleDesc].handlewin32.name is not NULL, then it must point to a NULL-terminated array of UTF-16 characters that refers to a ID3D12Heap object. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeD3d12Resource], then exactly one of [ExternalMemoryHandleDesc].handlewin32.handle and [ExternalMemoryHandleDesc].handlewin32.name must not be NULL. If [ExternalMemoryHandleDesc].handlewin32.handle is not NULL, then it must represent a valid shared NT handle that is returned by ID3D12Device.CreateSharedHandle when referring to a ID3D12Resource object. This handle holds a reference to the underlying object. If [ExternalMemoryHandleDesc].handlewin32.name is not NULL, then it must point to a NULL-terminated array of UTF-16 characters that refers to a ID3D12Resource object. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeD3d11Resource], then [ExternalMemoryHandleDesc].handlewin32.handle must represent a valid shared NT handle that is returned by IDXGIResource1.CreateSharedHandle when referring to a ID3D11Resource object. If [ExternalMemoryHandleDesc].handlewin32.name is not NULL, then it must point to a NULL-terminated array of UTF-16 characters that refers to a ID3D11Resource object. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeD3d11ResourceKmt], then [ExternalMemoryHandleDesc].handlewin32.handle must represent a valid shared KMT handle that is returned by IDXGIResource.GetSharedHandle when referring to a ID3D11Resource object and [ExternalMemoryHandleDesc].handlewin32.name must be NULL. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeNvscibuf], then [ExternalMemoryHandleDesc].handlenvSciBufObject must be non-NULL and reference a valid NvSciBuf object. If the NvSciBuf object imported into CUDA is also mapped by other drivers, then the application must use [Stream.WaitExternalSemaphoresAsync] or [Stream.SignalExternalSemaphoresAsync] as appropriate barriers to maintain coherence between CUDA and the other drivers. See CUDA_EXTERNAL_SEMAPHORE_SIGNAL_SKIP_NVSCIBUF_MEMSYNC and CUDA_EXTERNAL_SEMAPHORE_WAIT_SKIP_NVSCIBUF_MEMSYNC for memory synchronization. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeDmabufFd], then [ExternalMemoryHandleDesc].handlefd must be a valid file descriptor referencing a dma_buf object and [ExternalMemoryHandleDesc].flags must be zero. Importing a dma_buf object is supported only on Tegra Jetson platform starting with Thor series. Mapping an imported dma_buf object as CUDA mipmapped array using [ExternalMemory.GetMappedMipmappedArray] is not supported. The size of the memory object must be specified in [ExternalMemoryHandleDesc].size. Specifying the flag CUDA_EXTERNAL_MEMORY_DEDICATED in [ExternalMemoryHandleDesc].flags indicates that the resource is a dedicated resource. The definition of what a dedicated resource is outside the scope of this extension. This flag must be set if [ExternalMemoryHandleDesc].type is one of the following: [ExternalMemoryHandleTypeD3d12Resource] [ExternalMemoryHandleTypeD3d11Resource] [ExternalMemoryHandleTypeD3d11ResourceKmt] See also: [ExternalMemory.Destroy], [ExternalMemory.GetMappedBuffer], [ExternalMemory.GetMappedMipmappedArray]
+// Imports an externally allocated memory object and returns a handle to that in extMem_out. The properties of the handle being imported must be described in memHandleDesc. The [ExternalMemoryHandleDesc] structure is defined as follows: where [ExternalMemoryHandleDesc].type specifies the type of handle being imported. [ExternalMemoryHandleType] is defined as: If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeOpaqueFd], then [ExternalMemoryHandleDesc].handlefd must be a valid file descriptor referencing a memory object. Ownership of the file descriptor is transferred to the CUDA driver when the handle is imported successfully. Performing any operations on the file descriptor after it is imported results in undefined behavior. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeOpaqueWin32], then exactly one of [ExternalMemoryHandleDesc].handlewin32.handle and [ExternalMemoryHandleDesc].handlewin32.name must not be NULL. If [ExternalMemoryHandleDesc].handlewin32.handle is not NULL, then it must represent a valid shared NT handle that references a memory object. Ownership of this handle is not transferred to CUDA after the import operation, so the application must release the handle using the appropriate system call. If [ExternalMemoryHandleDesc].handlewin32.name is not NULL, then it must point to a NULL-terminated array of UTF-16 characters that refers to a memory object. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeOpaqueWin32Kmt], then [ExternalMemoryHandleDesc].handlewin32.handle must be non-NULL and [ExternalMemoryHandleDesc].handlewin32.name must be NULL. The handle specified must be a globally shared KMT handle. This handle does not hold a reference to the underlying object, and thus will be invalid when all references to the memory object are destroyed. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeD3d12Heap], then exactly one of [ExternalMemoryHandleDesc].handlewin32.handle and [ExternalMemoryHandleDesc].handlewin32.name must not be NULL. If [ExternalMemoryHandleDesc].handlewin32.handle is not NULL, then it must represent a valid shared NT handle that is returned by ID3D12Device.CreateSharedHandle when referring to a ID3D12Heap object. This handle holds a reference to the underlying object. If [ExternalMemoryHandleDesc].handlewin32.name is not NULL, then it must point to a NULL-terminated array of UTF-16 characters that refers to a ID3D12Heap object. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeD3d12Resource], then exactly one of [ExternalMemoryHandleDesc].handlewin32.handle and [ExternalMemoryHandleDesc].handlewin32.name must not be NULL. If [ExternalMemoryHandleDesc].handlewin32.handle is not NULL, then it must represent a valid shared NT handle that is returned by ID3D12Device.CreateSharedHandle when referring to a ID3D12Resource object. This handle holds a reference to the underlying object. If [ExternalMemoryHandleDesc].handlewin32.name is not NULL, then it must point to a NULL-terminated array of UTF-16 characters that refers to a ID3D12Resource object. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeD3d11Resource], then [ExternalMemoryHandleDesc].handlewin32.handle must represent a valid shared NT handle that is returned by IDXGIResource1.CreateSharedHandle when referring to a ID3D11Resource object. If [ExternalMemoryHandleDesc].handlewin32.name is not NULL, then it must point to a NULL-terminated array of UTF-16 characters that refers to a ID3D11Resource object. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeD3d11ResourceKmt], then [ExternalMemoryHandleDesc].handlewin32.handle must represent a valid shared KMT handle that is returned by IDXGIResource.GetSharedHandle when referring to a ID3D11Resource object and [ExternalMemoryHandleDesc].handlewin32.name must be NULL. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeNvscibuf], then [ExternalMemoryHandleDesc].handlenvSciBufObject must be non-NULL and reference a valid NvSciBuf object. If the NvSciBuf object imported into CUDA is also mapped by other drivers, then the application must use [Stream.WaitExternalSemaphoresAsync] or [Stream.SignalExternalSemaphoresAsync] as appropriate barriers to maintain coherence between CUDA and the other drivers. See CUDA_EXTERNAL_SEMAPHORE_SIGNAL_SKIP_NVSCIBUF_MEMSYNC and CUDA_EXTERNAL_SEMAPHORE_WAIT_SKIP_NVSCIBUF_MEMSYNC for memory synchronization. If [ExternalMemoryHandleDesc].type is [ExternalMemoryHandleTypeDmabufFd], then [ExternalMemoryHandleDesc].handlefd must be a valid file descriptor referencing a dma_buf object and [ExternalMemoryHandleDesc].flags must be zero. Importing a dma_buf object is supported only on Tegra Jetson platform starting with Thor series. Mapping an imported dma_buf object as CUDA mipmapped array using [ExternalMemory.MappedMipmappedArray] is not supported. The size of the memory object must be specified in [ExternalMemoryHandleDesc].size. Specifying the flag CUDA_EXTERNAL_MEMORY_DEDICATED in [ExternalMemoryHandleDesc].flags indicates that the resource is a dedicated resource. The definition of what a dedicated resource is outside the scope of this extension. This flag must be set if [ExternalMemoryHandleDesc].type is one of the following: [ExternalMemoryHandleTypeD3d12Resource] [ExternalMemoryHandleTypeD3d11Resource] [ExternalMemoryHandleTypeD3d11ResourceKmt] See also: [ExternalMemory.Destroy], [ExternalMemory.MappedBuffer], [ExternalMemory.MappedMipmappedArray]
 //
 //   - memHandleDesc: Memory import handle descriptor
 //
@@ -4855,19 +4864,19 @@ func ImportExternalSemaphore(semHandleDesc *ExternalSemaphoreHandleDesc) (Extern
 //
 // Note: [Init] preloads various libraries needed for JIT compilation. To opt-out of this behavior, set the environment variable CUDA_FORCE_PRELOAD_LIBRARIES=0. CUDA will lazily load JIT libraries as needed. To disable JIT entirely, set the environment variable CUDA_DISABLE_JIT=1. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
-//   - Flags: Initialization flag for CUDA
+//   - flags: Initialization flag for CUDA
 //
 // Wraps cuInit.
-func Init(Flags uint32) error {
+func Init(flags uint32) error {
 	if err := checkLibSym("cuInit"); err != nil {
 		return err
 	}
-	return toError(fnInit(Flags))
+	return toError(fnInit(flags))
 }
 
 // ipcCloseMemHandle Attempts to close memory mapped with [IpcOpenMemHandle].
 //
-// Decrements the reference count of the memory returned by [IpcOpenMemHandle] by 1. When the reference count reaches 0, this API unmaps the memory. The original allocation in the exporting process as well as imported mappings in other processes will be unaffected. Any resources used to enable peer access will be freed if this is the last mapping using them. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling cuapiDeviceGetAttribute with [DevAttrIpcEventSupported] See also: [MemAlloc], [DevicePtr.MemFree], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], cudaIpcCloseMemHandle
+// Decrements the reference count of the memory returned by [IpcOpenMemHandle] by 1. When the reference count reaches 0, this API unmaps the memory. The original allocation in the exporting process as well as imported mappings in other processes will be unaffected. Any resources used to enable peer access will be freed if this is the last mapping using them. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling cuapiDeviceGetAttribute with [DevAttrIpcEventSupported] See also: [MemAlloc], [DevicePtr.Free], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], cudaIpcCloseMemHandle
 //
 //   - dptr: Device pointer returned by [IpcOpenMemHandle]
 //
@@ -4881,7 +4890,7 @@ func ipcCloseMemHandle(dptr DevicePtr) error {
 
 // ipcGetEventHandle Gets an interprocess handle for a previously allocated event.
 //
-// Takes as input a previously allocated event. This event must have been created with the [EventInterprocess] and [EventDisableTiming] flags set. This opaque handle may be copied into other processes and opened with [IpcOpenEventHandle] to allow efficient hardware synchronization between GPU work in different processes. After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling [Device.GetAttribute] with [DevAttrIpcEventSupported] See also: [NewEvent], [Event.Destroy], [Event.Synchronize], [Event.Query], [Stream.WaitEvent], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetEventHandle
+// Takes as input a previously allocated event. This event must have been created with the [EventInterprocess] and [EventDisableTiming] flags set. This opaque handle may be copied into other processes and opened with [IpcOpenEventHandle] to allow efficient hardware synchronization between GPU work in different processes. After the event has been opened in the importing process, [Event.Record], [Event.Synchronize], [Stream.WaitEvent] and [Event.Query] may be used in either process. Performing operations on the imported event after the exported event has been freed with [Event.Destroy] will result in undefined behavior. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling [Device.Attribute] with [DevAttrIpcEventSupported] See also: [NewEvent], [Event.Destroy], [Event.Synchronize], [Event.Query], [Stream.WaitEvent], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetEventHandle
 //
 //   - pHandle: Pointer to a user allocated [IpcEventHandle] in which to return the opaque event handle
 //   - event: Event allocated with [EventInterprocess] and [EventDisableTiming] flags
@@ -4896,7 +4905,7 @@ func ipcGetEventHandle(pHandle *IpcEventHandle, event Event) error {
 
 // ipcGetMemHandle Gets an interprocess memory handle for an existing device memory allocation.
 //
-// Takes a pointer to the base of an existing device memory allocation created with [MemAlloc] and exports it for use in another process. This is a lightweight operation and may be called multiple times on an allocation without adverse effects. If a region of memory is freed with [DevicePtr.MemFree] and a subsequent call to [MemAlloc] returns memory with the same device address, [DevicePtr.IpcGetMemHandle] will return a unique handle for the new memory. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling cuapiDeviceGetAttribute with [DevAttrIpcEventSupported] See also: [MemAlloc], [DevicePtr.MemFree], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetMemHandle
+// Takes a pointer to the base of an existing device memory allocation created with [MemAlloc] and exports it for use in another process. This is a lightweight operation and may be called multiple times on an allocation without adverse effects. If a region of memory is freed with [DevicePtr.Free] and a subsequent call to [MemAlloc] returns memory with the same device address, [DevicePtr.IpcGetMemHandle] will return a unique handle for the new memory. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling cuapiDeviceGetAttribute with [DevAttrIpcEventSupported] See also: [MemAlloc], [DevicePtr.Free], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [IpcOpenMemHandle], [DevicePtr.IpcCloseMemHandle], cudaIpcGetMemHandle
 //
 //   - pHandle: Pointer to user allocated [IpcMemHandle] to return the handle in
 //   - dptr: Base pointer to previously allocated device memory
@@ -4931,19 +4940,19 @@ func IpcOpenEventHandle(handle IpcEventHandle) (Event, error) {
 
 // IpcOpenMemHandle Opens an interprocess memory handle exported from another process and returns a device pointer usable in the local process.
 //
-// Maps memory exported from another process with [DevicePtr.IpcGetMemHandle] into the current device address space. For contexts on different devices [IpcOpenMemHandle] can attempt to enable peer access between the devices as if the user called [Context.EnablePeerAccess]. This behavior is controlled by the [IpcMemLazyEnablePeerAccess] flag. [Device.CanAccessPeer] can determine if a mapping is possible. Contexts that may open CUipcMemHandles are restricted in the following way. CUipcMemHandles from each [Device] in a given process may only be opened by one [Context] per [Device] per other process. If the memory handle has already been opened by the current context, the reference count on the handle is incremented by 1 and the existing device pointer is returned. Memory returned from [IpcOpenMemHandle] must be freed with [DevicePtr.IpcCloseMemHandle]. Calling [DevicePtr.MemFree] on an exported memory region before calling [DevicePtr.IpcCloseMemHandle] in the importing context will result in undefined behavior. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling cuapiDeviceGetAttribute with [DevAttrIpcEventSupported] Note: No guarantees are made about the address returned in *pdptr. In particular, multiple processes may not receive the same address for the same handle. See also: [MemAlloc], [DevicePtr.MemFree], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [DevicePtr.IpcCloseMemHandle], [Context.EnablePeerAccess], [Device.CanAccessPeer], cudaIpcOpenMemHandle
+// Maps memory exported from another process with [DevicePtr.IpcGetMemHandle] into the current device address space. For contexts on different devices [IpcOpenMemHandle] can attempt to enable peer access between the devices as if the user called [Context.EnablePeerAccess]. This behavior is controlled by the [IpcMemLazyEnablePeerAccess] flag. [Device.CanAccessPeer] can determine if a mapping is possible. Contexts that may open CUipcMemHandles are restricted in the following way. CUipcMemHandles from each [Device] in a given process may only be opened by one [Context] per [Device] per other process. If the memory handle has already been opened by the current context, the reference count on the handle is incremented by 1 and the existing device pointer is returned. Memory returned from [IpcOpenMemHandle] must be freed with [DevicePtr.IpcCloseMemHandle]. Calling [DevicePtr.Free] on an exported memory region before calling [DevicePtr.IpcCloseMemHandle] in the importing context will result in undefined behavior. IPC functionality is restricted to devices with support for unified addressing on Linux and Windows operating systems. IPC functionality on Windows is supported for compatibility purposes but not recommended as it comes with performance cost. Users can test their device for IPC functionality by calling cuapiDeviceGetAttribute with [DevAttrIpcEventSupported] Note: No guarantees are made about the address returned in *pdptr. In particular, multiple processes may not receive the same address for the same handle. See also: [MemAlloc], [DevicePtr.Free], [Event.IpcGetEventHandle], [IpcOpenEventHandle], [DevicePtr.IpcGetMemHandle], [DevicePtr.IpcCloseMemHandle], [Context.EnablePeerAccess], [Device.CanAccessPeer], cudaIpcOpenMemHandle
 //
 //   - handle: [IpcMemHandle] to open
-//   - Flags: Flags for this operation. Must be specified as [IpcMemLazyEnablePeerAccess]
+//   - flags: Flags for this operation. Must be specified as [IpcMemLazyEnablePeerAccess]
 //
 // Wraps cuIpcOpenMemHandle, bound as cuIpcOpenMemHandle_v2.
-func IpcOpenMemHandle(handle IpcMemHandle, Flags uint32) (DevicePtr, error) {
+func IpcOpenMemHandle(handle IpcMemHandle, flags IpcmemFlags) (DevicePtr, error) {
 	if err := checkLibSym("cuIpcOpenMemHandle_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnIpcOpenMemHandle(&out, handle, Flags)); err != nil {
+	if err := toError(fnIpcOpenMemHandle(&out, handle, uint32(flags))); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -5014,7 +5023,7 @@ func IpcOpenMemHandle(handle IpcMemHandle, Flags uint32) (DevicePtr, error) {
 //   - kernel: Kernel to query attribute of
 //   - dev: Device to query attribute of
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Kernel.SetAttribute], [Library.GetKernel], [Function.LaunchKernel], [Kernel.GetFunction], [Library.GetModule], [Module.GetFunction], [Function.GetAttribute]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.SetAttribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.Attribute]
 //
 // Wraps cuKernelGetAttribute.
 func kernelGetAttribute(attrib FunctionAttribute, kernel Kernel, dev Device) (int32, error) {
@@ -5037,7 +5046,7 @@ func kernelGetAttribute(attrib FunctionAttribute, kernel Kernel, dev Device) (in
 //
 //   - kernel: Kernel to retrieve function for the requested context
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Library.GetKernel], [Library.GetModule], [Module.GetFunction]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Library.Module], [Module.Function]
 //
 // Wraps cuKernelGetFunction.
 func kernelGetFunction(kernel Kernel) (Function, error) {
@@ -5059,7 +5068,7 @@ func kernelGetFunction(kernel Kernel) (Function, error) {
 //
 //   - kernel: Kernel to retrieve library handle
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Library.GetKernel]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel]
 //
 // Wraps cuKernelGetLibrary.
 func kernelGetLibrary(kernel Kernel) (Library, error) {
@@ -5106,7 +5115,7 @@ func kernelGetName(hfunc Kernel) (string, error) {
 //
 //   - kernel: The kernel to query
 //
-// See also: [Kernel.GetParamInfo]
+// See also: [Kernel.ParamInfo]
 //
 // Wraps cuKernelGetParamCount.
 func kernelGetParamCount(kernel Kernel) (uint, error) {
@@ -5134,7 +5143,7 @@ func kernelGetParamCount(kernel Kernel) (uint, error) {
 //   - kernel: The kernel to query
 //   - paramIndex: The parameter index to query
 //
-// See also: [Function.GetParamInfo]
+// See also: [Function.ParamInfo]
 //
 // Wraps cuKernelGetParamInfo.
 func kernelGetParamInfo(kernel Kernel, paramIndex uint) (paramOffset uint, paramSize uint, err error) {
@@ -5160,7 +5169,7 @@ func kernelGetParamInfo(kernel Kernel, paramIndex uint) (paramOffset uint, param
 //
 // Note that attributes set using [Function.SetAttribute]() will override the attribute
 // set by this API irrespective of whether the call to [Function.SetAttribute]() is made
-// before or after this API call. However, [Kernel.GetAttribute]() will always
+// before or after this API call. However, [Kernel.Attribute]() will always
 // return the attribute value set by this API.
 //
 // Supported attributes are:
@@ -5206,7 +5215,7 @@ func kernelGetParamInfo(kernel Kernel, paramIndex uint) (paramOffset uint, param
 //   - kernel: Kernel to set attribute of
 //   - dev: Device to set attribute of
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Kernel.GetAttribute], [Library.GetKernel], [Function.LaunchKernel], [Kernel.GetFunction], [Library.GetModule], [Module.GetFunction], [Function.SetAttribute]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.Attribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetAttribute]
 //
 // Wraps cuKernelSetAttribute.
 func kernelSetAttribute(attrib FunctionAttribute, val int32, kernel Kernel, dev Device) error {
@@ -5250,7 +5259,7 @@ func kernelSetAttribute(attrib FunctionAttribute, val int32, kernel Kernel, dev 
 //   - config: Requested cache configuration
 //   - dev: Device to set attribute of
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Library.GetKernel], [Kernel.GetFunction], [Library.GetModule], [Module.GetFunction], [Function.SetCacheConfig], [CtxSetCacheConfig], [Function.LaunchKernel]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetCacheConfig], [CtxSetCacheConfig], [Function.LaunchKernel]
 //
 // Wraps cuKernelSetCacheConfig.
 func kernelSetCacheConfig(kernel Kernel, config FuncCacheConfig, dev Device) error {
@@ -5264,7 +5273,7 @@ func kernelSetCacheConfig(kernel Kernel, config FuncCacheConfig, dev Device) err
 //
 //   - f: Kernel to launch
 //
-// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.GetAttribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
+// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 // Deprecated: Invokes the kernel f on a 1 x 1 x 1 grid of blocks. The block contains the number of threads specified by a previous call to [Function.SetBlockShape](). The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape](), [Function.SetSharedSize](), [Function.ParamSetSize](), [Function.ParamSeti](), [Function.ParamSetf](), and [Function.ParamSetv]() prior to calling this function. Launching a function via [Function.LaunchKernel]() invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
 //
@@ -5278,7 +5287,7 @@ func launch(f Function) error {
 
 // launchCooperativeKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel] where thread blocks can cooperate and synchronize as they execute.
 //
-// Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. The device on which this kernel is invoked must have a non-zero value for the device attribute [DevAttrCooperativeLaunch]. The total number of blocks launched cannot exceed the maximum number of blocks per multiprocessor as returned by [Function.MaxActiveBlocksPerMultiprocessor] (or [Function.MaxActiveBlocksPerMultiprocessorWithFlags]) times the number of multiprocessors as specified by the device attribute [DevAttrMultiprocessorCount]. The kernel cannot make use of CUDA dynamic parallelism. Kernel parameters must be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams [0] through kernelParams [N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel's image. Calling [Function.LaunchCooperativeKernel] sets persistent function state that is the same as function state set through [Function.LaunchKernel] API When the kernel f is launched via [Function.LaunchCooperativeKernel], the previous block shape, shared size and parameter info associated with f is overwritten. Note that to use [Function.LaunchCooperativeKernel], the kernel f must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [Function.LaunchCooperativeKernel] will return [ErrInvalidImage]. Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.GetAttribute], [LaunchCooperativeKernelMultiDevice], cudaLaunchCooperativeKernel, [Library.GetKernel], [Kernel.SetCacheConfig], [Kernel.GetAttribute], [Kernel.SetAttribute]
+// Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. The device on which this kernel is invoked must have a non-zero value for the device attribute [DevAttrCooperativeLaunch]. The total number of blocks launched cannot exceed the maximum number of blocks per multiprocessor as returned by [Function.MaxActiveBlocksPerMultiprocessor] (or [Function.MaxActiveBlocksPerMultiprocessorWithFlags]) times the number of multiprocessors as specified by the device attribute [DevAttrMultiprocessorCount]. The kernel cannot make use of CUDA dynamic parallelism. Kernel parameters must be specified via kernelParams. If f has N parameters, then kernelParams needs to be an array of N pointers. Each of kernelParams [0] through kernelParams [N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel's image. Calling [Function.LaunchCooperativeKernel] sets persistent function state that is the same as function state set through [Function.LaunchKernel] API When the kernel f is launched via [Function.LaunchCooperativeKernel], the previous block shape, shared size and parameter info associated with f is overwritten. Note that to use [Function.LaunchCooperativeKernel], the kernel f must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [Function.LaunchCooperativeKernel] will return [ErrInvalidImage]. Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], [LaunchCooperativeKernelMultiDevice], cudaLaunchCooperativeKernel, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
 //   - f: Function [Function] or Kernel [Kernel] to launch
 //   - gridDimX: Width of grid in blocks
@@ -5305,9 +5314,9 @@ func launchCooperativeKernel(f Function, gridDimX uint32, gridDimY uint32, gridD
 //   - numDevices: Size of the launchParamsList array
 //   - flags: Flags to control launch behavior
 //
-// See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.GetAttribute], [Function.LaunchCooperativeKernel]
+// See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], [Function.LaunchCooperativeKernel]
 //
-// Deprecated: This function is deprecated as of CUDA 11.3. Invokes kernels as specified in the launchParamsList array where each element of the array specifies all the parameters required to perform a single kernel launch. These kernels can cooperate and synchronize as they execute. The size of the array is specified by numDevices. No two kernels can be launched on the same device. All the devices targeted by this multi-device launch must be identical. All devices must have a non-zero value for the device attribute [DevAttrCooperativeMultiDeviceLaunch]. All kernels launched must be identical with respect to the compiled code. Note that any __device__, __constant__ or __managed__ variables present in the module that owns the kernel launched on each device, are independently instantiated on every device. It is the application's responsibility to ensure these variables are initialized and used appropriately. The size of the grids as specified in blocks, the size of the blocks themselves and the amount of shared memory used by each thread block must also match across all launched kernels. The streams used to launch these kernels must have been created via either [NewStream] or [NewStreamCreateWithPriority]. The NULL stream or CU_STREAM_LEGACY or CU_STREAM_PER_THREAD cannot be used. The total number of blocks launched per kernel cannot exceed the maximum number of blocks per multiprocessor as returned by [Function.MaxActiveBlocksPerMultiprocessor] (or [Function.MaxActiveBlocksPerMultiprocessorWithFlags]) times the number of multiprocessors as specified by the device attribute [DevAttrMultiprocessorCount]. Since the total number of blocks launched per device has to match across all devices, the maximum number of blocks that can be launched per device will be limited by the device with the least number of multiprocessors. The kernels cannot make use of CUDA dynamic parallelism. The [LaunchParams] structure is defined as: where: - ::[LaunchParams].function specifies the kernel to be launched. All functions must be identical with respect to the compiled code. Note that you can also specify context-less kernel [Kernel] by querying the handle using [Library.GetKernel]() and then casting to [Function]. In this case, the context to launch the kernel on be taken from the specified stream ::[LaunchParams].hStream. - ::[LaunchParams].gridDimX is the width of the grid in blocks. This must match across all kernels launched. - ::[LaunchParams].gridDimY is the height of the grid in blocks. This must match across all kernels launched. - ::[LaunchParams].gridDimZ is the depth of the grid in blocks. This must match across all kernels launched. - ::[LaunchParams].blockDimX is the X dimension of each thread block. This must match across all kernels launched. - ::[LaunchParams].blockDimX is the Y dimension of each thread block. This must match across all kernels launched. - ::[LaunchParams].blockDimZ is the Z dimension of each thread block. This must match across all kernels launched. - ::[LaunchParams].sharedMemBytes is the dynamic shared-memory size per thread block in bytes. This must match across all kernels launched. - ::[LaunchParams].hStream is the handle to the stream to perform the launch in. This cannot be the NULL stream or CU_STREAM_LEGACY or CU_STREAM_PER_THREAD. The CUDA context associated with this stream must match that associated with ::[LaunchParams].function. - ::[LaunchParams].kernelParams is an array of pointers to kernel parameters. If ::[LaunchParams].function has N parameters, then ::[LaunchParams].kernelParams needs to be an array of N pointers. Each of ::[LaunchParams].kernelParams [0] through ::[LaunchParams].kernelParams [N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel's image. By default, the kernel won't begin execution on any GPU until all prior work in all the specified streams has completed. This behavior can be overridden by specifying the flag CUDA_COOPERATIVE_LAUNCH_MULTI_DEVICE_NO_PRE_LAUNCH_SYNC. When this flag is specified, each kernel will only wait for prior work in the stream corresponding to that GPU to complete before it begins execution. Similarly, by default, any subsequent work pushed in any of the specified streams will not begin execution until the kernels on all GPUs have completed. This behavior can be overridden by specifying the flag CUDA_COOPERATIVE_LAUNCH_MULTI_DEVICE_NO_POST_LAUNCH_SYNC. When this flag is specified, any subsequent work pushed in any of the specified streams will only wait for the kernel launched on the GPU corresponding to that stream to complete before it begins execution. Calling [LaunchCooperativeKernelMultiDevice]() sets persistent function state that is the same as function state set through [Function.LaunchKernel] API when called individually for each element in launchParamsList. When kernels are launched via [LaunchCooperativeKernelMultiDevice](), the previous block shape, shared size and parameter info associated with each ::[LaunchParams].function in launchParamsList is overwritten. Note that to use [LaunchCooperativeKernelMultiDevice](), the kernels must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [LaunchCooperativeKernelMultiDevice]() will return [ErrInvalidImage].
+// Deprecated: This function is deprecated as of CUDA 11.3. Invokes kernels as specified in the launchParamsList array where each element of the array specifies all the parameters required to perform a single kernel launch. These kernels can cooperate and synchronize as they execute. The size of the array is specified by numDevices. No two kernels can be launched on the same device. All the devices targeted by this multi-device launch must be identical. All devices must have a non-zero value for the device attribute [DevAttrCooperativeMultiDeviceLaunch]. All kernels launched must be identical with respect to the compiled code. Note that any __device__, __constant__ or __managed__ variables present in the module that owns the kernel launched on each device, are independently instantiated on every device. It is the application's responsibility to ensure these variables are initialized and used appropriately. The size of the grids as specified in blocks, the size of the blocks themselves and the amount of shared memory used by each thread block must also match across all launched kernels. The streams used to launch these kernels must have been created via either [NewStream] or [StreamCreateWithPriority]. The NULL stream or CU_STREAM_LEGACY or CU_STREAM_PER_THREAD cannot be used. The total number of blocks launched per kernel cannot exceed the maximum number of blocks per multiprocessor as returned by [Function.MaxActiveBlocksPerMultiprocessor] (or [Function.MaxActiveBlocksPerMultiprocessorWithFlags]) times the number of multiprocessors as specified by the device attribute [DevAttrMultiprocessorCount]. Since the total number of blocks launched per device has to match across all devices, the maximum number of blocks that can be launched per device will be limited by the device with the least number of multiprocessors. The kernels cannot make use of CUDA dynamic parallelism. The [LaunchParams] structure is defined as: where: - ::[LaunchParams].function specifies the kernel to be launched. All functions must be identical with respect to the compiled code. Note that you can also specify context-less kernel [Kernel] by querying the handle using [Library.Kernel]() and then casting to [Function]. In this case, the context to launch the kernel on be taken from the specified stream ::[LaunchParams].hStream. - ::[LaunchParams].gridDimX is the width of the grid in blocks. This must match across all kernels launched. - ::[LaunchParams].gridDimY is the height of the grid in blocks. This must match across all kernels launched. - ::[LaunchParams].gridDimZ is the depth of the grid in blocks. This must match across all kernels launched. - ::[LaunchParams].blockDimX is the X dimension of each thread block. This must match across all kernels launched. - ::[LaunchParams].blockDimX is the Y dimension of each thread block. This must match across all kernels launched. - ::[LaunchParams].blockDimZ is the Z dimension of each thread block. This must match across all kernels launched. - ::[LaunchParams].sharedMemBytes is the dynamic shared-memory size per thread block in bytes. This must match across all kernels launched. - ::[LaunchParams].hStream is the handle to the stream to perform the launch in. This cannot be the NULL stream or CU_STREAM_LEGACY or CU_STREAM_PER_THREAD. The CUDA context associated with this stream must match that associated with ::[LaunchParams].function. - ::[LaunchParams].kernelParams is an array of pointers to kernel parameters. If ::[LaunchParams].function has N parameters, then ::[LaunchParams].kernelParams needs to be an array of N pointers. Each of ::[LaunchParams].kernelParams [0] through ::[LaunchParams].kernelParams [N-1] must point to a region of memory from which the actual kernel parameter will be copied. The number of kernel parameters and their offsets and sizes do not need to be specified as that information is retrieved directly from the kernel's image. By default, the kernel won't begin execution on any GPU until all prior work in all the specified streams has completed. This behavior can be overridden by specifying the flag CUDA_COOPERATIVE_LAUNCH_MULTI_DEVICE_NO_PRE_LAUNCH_SYNC. When this flag is specified, each kernel will only wait for prior work in the stream corresponding to that GPU to complete before it begins execution. Similarly, by default, any subsequent work pushed in any of the specified streams will not begin execution until the kernels on all GPUs have completed. This behavior can be overridden by specifying the flag CUDA_COOPERATIVE_LAUNCH_MULTI_DEVICE_NO_POST_LAUNCH_SYNC. When this flag is specified, any subsequent work pushed in any of the specified streams will only wait for the kernel launched on the GPU corresponding to that stream to complete before it begins execution. Calling [LaunchCooperativeKernelMultiDevice]() sets persistent function state that is the same as function state set through [Function.LaunchKernel] API when called individually for each element in launchParamsList. When kernels are launched via [LaunchCooperativeKernelMultiDevice](), the previous block shape, shared size and parameter info associated with each ::[LaunchParams].function in launchParamsList is overwritten. Note that to use [LaunchCooperativeKernelMultiDevice](), the kernels must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [LaunchCooperativeKernelMultiDevice]() will return [ErrInvalidImage].
 //
 // Wraps cuLaunchCooperativeKernelMultiDevice.
 func LaunchCooperativeKernelMultiDevice(launchParamsList *LaunchParams, numDevices uint32, flags uint32) error {
@@ -5323,7 +5332,7 @@ func LaunchCooperativeKernelMultiDevice(launchParamsList *LaunchParams, numDevic
 //   - grid_width: Width of grid in blocks
 //   - grid_height: Height of grid in blocks
 //
-// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.GetAttribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGridAsync], [Function.LaunchKernel]
+// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 // Deprecated: Invokes the kernel f on a grid_width x grid_height grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape](). The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape](), [Function.SetSharedSize](), [Function.ParamSetSize](), [Function.ParamSeti](), [Function.ParamSetf](), and [Function.ParamSetv]() prior to calling this function. Launching a function via [Function.LaunchKernel]() invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
 //
@@ -5342,7 +5351,7 @@ func launchGrid(f Function, grid_width int32, grid_height int32) error {
 //   - grid_height: Height of grid in blocks
 //   - hStream: Stream identifier
 //
-// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.GetAttribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchKernel]
+// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchKernel]
 //
 // Deprecated: Invokes the kernel f on a grid_width x grid_height grid of blocks. Each block contains the number of threads specified by a previous call to [Function.SetBlockShape](). The block shape, dynamic shared memory size, and parameter information must be set using [Function.SetBlockShape](), [Function.SetSharedSize](), [Function.ParamSetSize](), [Function.ParamSeti](), [Function.ParamSetf](), and [Function.ParamSetv]() prior to calling this function. Launching a function via [Function.LaunchKernel]() invalidates the function's block shape, dynamic shared memory size, and parameter information. After launching via [Function.LaunchKernel], this state must be re-initialized prior to calling this function. Failure to do so results in undefined behavior.
 //
@@ -5373,7 +5382,7 @@ func launchHostFunc(hStream Stream, fn uintptr, userData uintptr, syncMode uint3
 
 // launchKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel].
 //
-// Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. Kernel parameters to f can be specified in one of two ways: The extra parameter exists to allow [Function.LaunchKernel] to take additional less commonly used arguments. extra specifies a list of names of extra settings and their corresponding values. Each extra setting name is immediately followed by the corresponding value. The list must be terminated with either NULL or CU_LAUNCH_PARAM_END. The error [ErrInvalidValue] will be returned if kernel parameters are specified with both kernelParams and extra (i.e. both kernelParams and extra are non-NULL). Calling [Function.LaunchKernel] invalidates the persistent function state set through the following deprecated APIs: [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv]. Note that to use [Function.LaunchKernel], the kernel f must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [Function.LaunchKernel] will return [ErrInvalidImage]. Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.GetAttribute], cudaLaunchKernel, [Library.GetKernel], [Kernel.SetCacheConfig], [Kernel.GetAttribute], [Kernel.SetAttribute]
+// Invokes the function [Function] or the kernel [Kernel] f on a gridDimX x gridDimY x gridDimZ grid of blocks. Each block contains blockDimX x blockDimY x blockDimZ threads. sharedMemBytes sets the amount of dynamic shared memory that will be available to each thread block. Kernel parameters to f can be specified in one of two ways: The extra parameter exists to allow [Function.LaunchKernel] to take additional less commonly used arguments. extra specifies a list of names of extra settings and their corresponding values. Each extra setting name is immediately followed by the corresponding value. The list must be terminated with either NULL or CU_LAUNCH_PARAM_END. The error [ErrInvalidValue] will be returned if kernel parameters are specified with both kernelParams and extra (i.e. both kernelParams and extra are non-NULL). Calling [Function.LaunchKernel] invalidates the persistent function state set through the following deprecated APIs: [Function.SetBlockShape], [Function.SetSharedSize], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetf], [Function.ParamSetv]. Note that to use [Function.LaunchKernel], the kernel f must either have been compiled with toolchain version 3.2 or later so that it will contain kernel parameter information, or have no kernel parameters. If either of these conditions is not met, then [Function.LaunchKernel] will return [ErrInvalidImage]. Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream hStream or the current context in case of NULL stream. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], cudaLaunchKernel, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
 //   - f: Function [Function] or Kernel [Kernel] to launch
 //   - gridDimX: Width of grid in blocks
@@ -5397,7 +5406,7 @@ func launchKernel(f Function, gridDimX uint32, gridDimY uint32, gridDimZ uint32,
 
 // launchKernelEx Launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
 //
-// Invokes the function [Function] or the kernel [Kernel] f with the specified launch-time configuration config. The [LaunchConfig] structure is defined as: where: Launch-time configuration is specified by adding entries to [LaunchConfig].attrs. Each entry is an attribute ID and a corresponding attribute value. The [LaunchAttribute] structure is defined as: where: An example of using the config parameter: The [LaunchAttributeID] enum is defined as: and the corresponding CUlaunchAttributeValue union as : Setting [LaunchAttributeCooperative] to a non-zero value causes the kernel launch to be a cooperative launch, with exactly the same usage and semantics of [Function.LaunchCooperativeKernel]. Setting [LaunchAttributeProgrammaticStreamSerialization] to a non-zero values causes the kernel to use programmatic means to resolve its stream dependency -- enabling the CUDA runtime to opportunistically allow the grid's execution to overlap with the previous kernel in the stream, if that kernel requests the overlap. [LaunchAttributeProgrammaticEvent] records an event along with the kernel launch. Event recorded through this launch attribute is guaranteed to only trigger after all block in the associated kernel trigger the event. A block can trigger the event through PTX launchdep.release or CUDA builtin function cudaTriggerProgrammaticLaunchCompletion(). A trigger can also be inserted at the beginning of each block's execution if triggerAtBlockStart is set to non-0. Note that dependents (including the CPU thread calling [Event.Synchronize]) are not guaranteed to observe the release precisely when it is released. For example, [Event.Synchronize] may only observe the event trigger long after the associated kernel has completed. This recording type is primarily meant for establishing programmatic dependency between device tasks. The event supplied must not be an interprocess or interop event. The event must disable timing (i.e. created with [EventDisableTiming] flag set). [LaunchAttributeLaunchCompletionEvent] records an event along with the kernel launch. Nominally, the event is triggered once all blocks of the kernel have begun execution. Currently this is a best effort. If a kernel B has a launch completion dependency on a kernel A, B may wait until A is complete. Alternatively, blocks of B may begin before all blocks of A have begun, for example: Exercise caution if such an ordering inversion could lead to deadlock. The event supplied must not be an interprocess or interop event. The event must disable timing (i.e. must be created with the [EventDisableTiming] flag set). Setting [LaunchAttributeDeviceUpdatableKernelNode] to 1 on a captured launch causes the resulting kernel node to be device-updatable. This attribute is specific to graphs, and passing it to a launch in a non-capturing stream results in an error. Passing a value other than 0 or 1 is not allowed. On success, a handle will be returned via CUlaunchAttributeValue.deviceUpdatableKernelNodedevNode which can be passed to the various device-side update functions to update the node's kernel parameters from within another kernel. For more information on the types of device updates that can be made, as well as the relevant limitations thereof, see cudaGraphKernelNodeUpdatesApply. Kernel nodes which are device-updatable have additional restrictions compared to regular kernel nodes. Firstly, device-updatable nodes cannot be removed from their graph via [GraphNode.GraphDestroyNode]. Additionally, once opted-in to this functionality, a node cannot opt out, and any attempt to set the attribute to 0 will result in an error. Graphs containing one or more device-updatable node also do not allow multiple instantiation. [LaunchAttributePreferredClusterDimension] allows the kernel launch to specify a preferred substitute cluster dimension. Blocks may be grouped according to either the dimensions specified with this attribute (grouped into a "preferred substitute cluster"), or the one specified with [LaunchAttributeClusterDimension] attribute (grouped into a "regular cluster"). The cluster dimensions of a "preferred substitute cluster" shall be an integer multiple greater than zero of the regular cluster dimensions. The device will attempt - on a best-effort basis - to group thread blocks into preferred clusters over grouping them into regular clusters. When it deems necessary (primarily when the device temporarily runs out of physical resources to launch the larger preferred clusters), the device may switch to launch the regular clusters instead to attempt to utilize as much of the physical device resources as possible. Each type of cluster will have its enumeration / coordinate setup as if the grid consists solely of its type of cluster. For example, if the preferred substitute cluster dimensions double the regular cluster dimensions, there might be simultaneously a regular cluster indexed at (1,0,0), and a preferred cluster indexed at (1,0,0). In this example, the preferred substitute cluster (1,0,0) replaces regular clusters (2,0,0) and (3,0,0) and groups their blocks. This attribute will only take effect when a regular cluster dimension has been specified. The preferred substitute The preferred substitute cluster dimension must be an integer multiple greater than zero of the regular cluster dimension and must divide the grid. It must also be no more than `maxBlocksPerCluster`, if it is set in the kernel's `__launch_bounds__`. Otherwise it must be less than the maximum value the driver can support. Otherwise, setting this attribute to a value physically unable to fit on any particular device is permitted. The effect of other attributes is consistent with their effect when set via persistent APIs. See [Stream.SetAttribute] for See [Function.SetAttribute] for Kernel parameters to f can be specified in the same ways that they can be using [Function.LaunchKernel]. Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream [LaunchConfig].hStream or the current context in case of NULL stream. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.GetAttribute], cudaLaunchKernel, cudaLaunchKernelEx, [Library.GetKernel], [Kernel.SetCacheConfig], [Kernel.GetAttribute], [Kernel.SetAttribute]
+// Invokes the function [Function] or the kernel [Kernel] f with the specified launch-time configuration config. The [LaunchConfig] structure is defined as: where: Launch-time configuration is specified by adding entries to [LaunchConfig].attrs. Each entry is an attribute ID and a corresponding attribute value. The [LaunchAttribute] structure is defined as: where: An example of using the config parameter: The [LaunchAttributeID] enum is defined as: and the corresponding CUlaunchAttributeValue union as : Setting [LaunchAttributeCooperative] to a non-zero value causes the kernel launch to be a cooperative launch, with exactly the same usage and semantics of [Function.LaunchCooperativeKernel]. Setting [LaunchAttributeProgrammaticStreamSerialization] to a non-zero values causes the kernel to use programmatic means to resolve its stream dependency -- enabling the CUDA runtime to opportunistically allow the grid's execution to overlap with the previous kernel in the stream, if that kernel requests the overlap. [LaunchAttributeProgrammaticEvent] records an event along with the kernel launch. Event recorded through this launch attribute is guaranteed to only trigger after all block in the associated kernel trigger the event. A block can trigger the event through PTX launchdep.release or CUDA builtin function cudaTriggerProgrammaticLaunchCompletion(). A trigger can also be inserted at the beginning of each block's execution if triggerAtBlockStart is set to non-0. Note that dependents (including the CPU thread calling [Event.Synchronize]) are not guaranteed to observe the release precisely when it is released. For example, [Event.Synchronize] may only observe the event trigger long after the associated kernel has completed. This recording type is primarily meant for establishing programmatic dependency between device tasks. The event supplied must not be an interprocess or interop event. The event must disable timing (i.e. created with [EventDisableTiming] flag set). [LaunchAttributeLaunchCompletionEvent] records an event along with the kernel launch. Nominally, the event is triggered once all blocks of the kernel have begun execution. Currently this is a best effort. If a kernel B has a launch completion dependency on a kernel A, B may wait until A is complete. Alternatively, blocks of B may begin before all blocks of A have begun, for example: Exercise caution if such an ordering inversion could lead to deadlock. The event supplied must not be an interprocess or interop event. The event must disable timing (i.e. must be created with the [EventDisableTiming] flag set). Setting [LaunchAttributeDeviceUpdatableKernelNode] to 1 on a captured launch causes the resulting kernel node to be device-updatable. This attribute is specific to graphs, and passing it to a launch in a non-capturing stream results in an error. Passing a value other than 0 or 1 is not allowed. On success, a handle will be returned via CUlaunchAttributeValue.deviceUpdatableKernelNodedevNode which can be passed to the various device-side update functions to update the node's kernel parameters from within another kernel. For more information on the types of device updates that can be made, as well as the relevant limitations thereof, see cudaGraphKernelNodeUpdatesApply. Kernel nodes which are device-updatable have additional restrictions compared to regular kernel nodes. Firstly, device-updatable nodes cannot be removed from their graph via [GraphNode.GraphDestroyNode]. Additionally, once opted-in to this functionality, a node cannot opt out, and any attempt to set the attribute to 0 will result in an error. Graphs containing one or more device-updatable node also do not allow multiple instantiation. [LaunchAttributePreferredClusterDimension] allows the kernel launch to specify a preferred substitute cluster dimension. Blocks may be grouped according to either the dimensions specified with this attribute (grouped into a "preferred substitute cluster"), or the one specified with [LaunchAttributeClusterDimension] attribute (grouped into a "regular cluster"). The cluster dimensions of a "preferred substitute cluster" shall be an integer multiple greater than zero of the regular cluster dimensions. The device will attempt - on a best-effort basis - to group thread blocks into preferred clusters over grouping them into regular clusters. When it deems necessary (primarily when the device temporarily runs out of physical resources to launch the larger preferred clusters), the device may switch to launch the regular clusters instead to attempt to utilize as much of the physical device resources as possible. Each type of cluster will have its enumeration / coordinate setup as if the grid consists solely of its type of cluster. For example, if the preferred substitute cluster dimensions double the regular cluster dimensions, there might be simultaneously a regular cluster indexed at (1,0,0), and a preferred cluster indexed at (1,0,0). In this example, the preferred substitute cluster (1,0,0) replaces regular clusters (2,0,0) and (3,0,0) and groups their blocks. This attribute will only take effect when a regular cluster dimension has been specified. The preferred substitute The preferred substitute cluster dimension must be an integer multiple greater than zero of the regular cluster dimension and must divide the grid. It must also be no more than `maxBlocksPerCluster`, if it is set in the kernel's `__launch_bounds__`. Otherwise it must be less than the maximum value the driver can support. Otherwise, setting this attribute to a value physically unable to fit on any particular device is permitted. The effect of other attributes is consistent with their effect when set via persistent APIs. See [Stream.SetAttribute] for See [Function.SetAttribute] for Kernel parameters to f can be specified in the same ways that they can be using [Function.LaunchKernel]. Note that the API can also be used to launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to launch the kernel on will either be taken from the specified stream [LaunchConfig].hStream or the current context in case of NULL stream. See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.Attribute], cudaLaunchKernel, cudaLaunchKernelEx, [Library.Kernel], [Kernel.SetCacheConfig], [Kernel.Attribute], [Kernel.SetAttribute]
 //
 //   - config: Config to launch f- Function [Function] or Kernel [Kernel] to launch kernelParams- Array of pointers to kernel parameters extra- Extra options
 //   - f: Function [Function] or Kernel [Kernel] to launch
@@ -5421,7 +5430,7 @@ func launchKernelEx(config *LaunchConfig, f Function, kernelParams []unsafe.Poin
 //   - numKernels: Maximum number of kernel handles may be returned to the buffer
 //   - lib: Library to query from
 //
-// See also: [Library.GetKernelCount]
+// See also: [Library.KernelCount]
 //
 // Wraps cuLibraryEnumerateKernels.
 func libraryEnumerateKernels(kernels *Kernel, numKernels uint32, lib Library) error {
@@ -5442,7 +5451,7 @@ func libraryEnumerateKernels(kernels *Kernel, numKernels uint32, lib Library) er
 //   - library: Library to retrieve global from
 //   - name: Name of global to retrieve
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Library.GetModule], [Module.GetGlobal]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Module], [Module.Global]
 //
 // Wraps cuLibraryGetGlobal.
 func libraryGetGlobal(library Library, name string) (dptr DevicePtr, bytes uint, err error) {
@@ -5466,7 +5475,7 @@ func libraryGetGlobal(library Library, name string) (dptr DevicePtr, bytes uint,
 //   - library: Library to retrieve kernel from
 //   - name: Name of kernel to retrieve
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Kernel.GetFunction], [Library.GetModule], [Module.GetFunction]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.Function], [Library.Module], [Module.Function]
 //
 // Wraps cuLibraryGetKernel.
 func libraryGetKernel(library Library, name string) (Kernel, error) {
@@ -5513,7 +5522,7 @@ func libraryGetKernelCount(lib Library) (uint32, error) {
 //   - library: Library to retrieve managed memory from
 //   - name: Name of managed memory to retrieve
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
 //
 // Wraps cuLibraryGetManaged.
 func libraryGetManaged(library Library, name string) (dptr DevicePtr, bytes uint, err error) {
@@ -5536,7 +5545,7 @@ func libraryGetManaged(library Library, name string) (dptr DevicePtr, bytes uint
 //
 //   - library: Library to retrieve module from
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Module.GetFunction]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Module.Function]
 //
 // Wraps cuLibraryGetModule.
 func libraryGetModule(library Library) (Module, error) {
@@ -5563,7 +5572,7 @@ func libraryGetModule(library Library) (Module, error) {
 //   - library: Library to retrieve function pointer memory from
 //   - symbol: Name of function pointer to retrieve
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
 //
 // Wraps cuLibraryGetUnifiedFunction.
 func libraryGetUnifiedFunction(fptr *uintptr, library Library, symbol string) error {
@@ -5610,16 +5619,16 @@ func libraryGetUnifiedFunction(fptr *uintptr, library Library, symbol string) er
 //   - libraryOptionValues: Option values for loading
 //   - numLibraryOptions: Number of options for loading
 //
-// See also: [NewLibraryLoadFromFile], [Library.Unload], [NewModuleLoad], [NewModuleLoadData], [NewModuleLoadDataEx]
+// See also: [LibraryLoadFromFile], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
 //
 // Wraps cuLibraryLoadData.
-func libraryLoadData(code unsafe.Pointer, jitOptions *JITOption, jitOptionsValues *uintptr, numJitOptions uint32, libraryOptions *LibraryOption, libraryOptionValues *uintptr, numLibraryOptions uint32) (Library, error) {
+func libraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintptr, numJitOptions uint32, libraryOptions *LibraryOption, libraryOptionValues *uintptr, numLibraryOptions uint32) (Library, error) {
 	if err := checkLibSym("cuLibraryLoadData"); err != nil {
 		var zero Library
 		return zero, err
 	}
 	var out Library
-	if err := toError(fnlibraryLoadData(&out, code, jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions)); err != nil {
+	if err := toError(fnlibraryLoadData(&out, unsafe.Pointer(nulTerminated(code)), jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions)); err != nil {
 		var zero Library
 		return zero, err
 	}
@@ -5662,7 +5671,7 @@ func libraryLoadData(code unsafe.Pointer, jitOptions *JITOption, jitOptionsValue
 //   - libraryOptionValues: Option values for loading
 //   - numLibraryOptions: Number of options for loading
 //
-// See also: [NewLibraryLoadData], [Library.Unload], [NewModuleLoad], [NewModuleLoadData], [NewModuleLoadDataEx]
+// See also: [LibraryLoadData], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
 //
 // Wraps cuLibraryLoadFromFile.
 func libraryLoadFromFile(fileName string, jitOptions *JITOption, jitOptionsValues *uintptr, numJitOptions uint32, libraryOptions *LibraryOption, libraryOptionValues *uintptr, numLibraryOptions uint32) (Library, error) {
@@ -5683,7 +5692,7 @@ func libraryLoadFromFile(fileName string, jitOptions *JITOption, jitOptionsValue
 //
 //   - library: Library to unload
 //
-// See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Module.Unload]
+// See also: [LibraryLoadData], [LibraryLoadFromFile], [Module.Unload]
 //
 // Wraps cuLibraryUnload.
 func libraryUnload(library Library) error {
@@ -5735,7 +5744,7 @@ func linkAddFile(state LinkState, type_ JitInputType, path *byte, numOptions uin
 
 // linkComplete Complete a pending linker invocation.
 //
-// Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [NewModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Destroy]. This call does not destroy state. See also: [LinkCreate], [LinkState.AddData], [LinkState.AddFile], [LinkState.Destroy], [NewModuleLoadData]
+// Completes the pending linker action and returns the cubin image for the linked device code, which can be used with [ModuleLoadData]. The cubin is owned by state, so it should be loaded before state is destroyed via [LinkState.Destroy]. This call does not destroy state. See also: [LinkCreate], [LinkState.AddData], [LinkState.AddFile], [LinkState.Destroy], [ModuleLoadData]
 //
 //   - state: A pending linker invocation
 //   - cubinOut: On success, this will point to the output image
@@ -5949,7 +5958,7 @@ func memAdvise(devPtr DevicePtr, count uint, advice MemAdvise, location MemLocat
 
 // MemAlloc Allocates device memory.
 //
-// Allocates bytesize bytes of linear memory on the device and returns in *dptr a pointer to the allocated memory. The allocated memory is suitably aligned for any kind of variable. The memory is not cleared. If bytesize is 0, [MemAlloc] returns [ErrInvalidValue]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc
+// Allocates bytesize bytes of linear memory on the device and returns in *dptr a pointer to the allocated memory. The allocated memory is suitably aligned for any kind of variable. The memory is not cleared. If bytesize is 0, [MemAlloc] returns [ErrInvalidValue]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMalloc
 //
 //   - bytesize: Requested allocation size in bytes
 //
@@ -5969,7 +5978,7 @@ func MemAlloc(bytesize uint) (DevicePtr, error) {
 
 // memAllocAsync Allocates memory with stream ordered semantics.
 //
-// Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the memory pool current to the stream's device. See also: [MemoryPool.MemAllocFromPoolAsync], [DevicePtr.MemFreeAsync], [Device.SetMemPool], [Device.GetDefaultMemPool], [Device.GetMemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
+// Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the memory pool current to the stream's device. See also: [MemoryPool.MemAllocFromPoolAsync], [DevicePtr.FreeAsync], [Device.SetMemPool], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
 //
 //   - bytesize (in): Number of bytes to allocate
 //   - hStream (in): The stream establishing the stream ordering contract and the memory pool to allocate from
@@ -5990,7 +5999,7 @@ func memAllocAsync(bytesize uint, hStream Stream) (DevicePtr, error) {
 
 // memAllocFromPoolAsync Allocates memory from a specified pool with stream ordered semantics.
 //
-// Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the specified memory pool. See also: [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [Device.GetDefaultMemPool], [Device.GetMemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
+// Inserts an allocation operation into hStream. A pointer to the allocated memory is returned immediately in *dptr. The allocation must not be accessed until the the allocation operation completes. The allocation comes from the specified memory pool. See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
 //
 //   - bytesize (in): Number of bytes to allocate
 //   - pool (in): The pool to allocate from
@@ -6012,7 +6021,7 @@ func memAllocFromPoolAsync(bytesize uint, pool MemoryPool, hStream Stream) (Devi
 
 // MemAllocHost Allocates page-locked host memory.
 //
-// Allocates bytesize bytes of host memory that is page-locked and accessible to the device. The driver tracks the virtual memory ranges allocated with this function and automatically accelerates calls to functions such as [DevicePtr.Memcpy]. Since the memory can be accessed directly by the device, it can be read or written with much higher bandwidth than pageable memory obtained with functions such as malloc(). On systems where [DevAttrPageableMemoryAccessUsesHostPageTables] is true, [MemAllocHost] may not page-lock the allocated memory. Page-locking excessive amounts of memory with [MemAllocHost] may degrade system performance, since it reduces the amount of memory available to the system for paging. As a result, this function is best used sparingly to allocate staging areas for data exchange between host and device. Note all host memory allocated using [MemAllocHost] will automatically be immediately accessible to all contexts on all devices which support unified addressing (as may be queried using [DevAttrUnifiedAddressing]). The device pointer that may be used to access this host memory from those contexts is always equal to the returned host pointer *pp. See Unified Addressing for additional details. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocHost
+// Allocates bytesize bytes of host memory that is page-locked and accessible to the device. The driver tracks the virtual memory ranges allocated with this function and automatically accelerates calls to functions such as [DevicePtr.Memcpy]. Since the memory can be accessed directly by the device, it can be read or written with much higher bandwidth than pageable memory obtained with functions such as malloc(). On systems where [DevAttrPageableMemoryAccessUsesHostPageTables] is true, [MemAllocHost] may not page-lock the allocated memory. Page-locking excessive amounts of memory with [MemAllocHost] may degrade system performance, since it reduces the amount of memory available to the system for paging. As a result, this function is best used sparingly to allocate staging areas for data exchange between host and device. Note all host memory allocated using [MemAllocHost] will automatically be immediately accessible to all contexts on all devices which support unified addressing (as may be queried using [DevAttrUnifiedAddressing]). The device pointer that may be used to access this host memory from those contexts is always equal to the returned host pointer *pp. See Unified Addressing for additional details. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocHost
 //
 //   - pp: Returned pointer to host memory
 //   - bytesize: Requested allocation size in bytes
@@ -6027,19 +6036,19 @@ func MemAllocHost(pp *uintptr, bytesize uint) error {
 
 // MemAllocManaged Allocates memory that will be automatically managed by the Unified Memory system.
 //
-// Allocates bytesize bytes of managed memory on the device and returns in *dptr a pointer to the allocated memory. If the device doesn't support allocating managed memory, [ErrNotSupported] is returned. Support for managed memory can be queried using the device attribute [DevAttrManagedMemory]. The allocated memory is suitably aligned for any kind of variable. The memory is not cleared. If bytesize is 0, [MemAllocManaged] returns [ErrInvalidValue]. The pointer is valid on the CPU and on all GPUs in the system that support managed memory. All accesses to this pointer must obey the Unified Memory programming model. flags specifies the default stream association for this allocation. flags must be one of [MemAttachGlobal] or [MemAttachHost]. If [MemAttachGlobal] is specified, then this memory is accessible from any stream on any device. If [MemAttachHost] is specified, then the allocation should not be accessed from devices that have a zero value for the device attribute [DevAttrConcurrentManagedAccess]; an explicit call to [Stream.AttachMemAsync] will be required to enable access on such devices. If the association is later changed via [Stream.AttachMemAsync] to a single stream, the default association as specified during [MemAllocManaged] is restored when that stream is destroyed. For __managed__ variables, the default association is always [MemAttachGlobal]. Note that destroying a stream is an asynchronous operation, and as a result, the change to default association won't happen until all work in the stream has completed. Memory allocated with [MemAllocManaged] should be released with [DevicePtr.MemFree]. Device memory oversubscription is possible for GPUs that have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Managed memory on such GPUs may be evicted from device memory to host memory at any time by the Unified Memory driver in order to make room for other allocations. In a system where all GPUs have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess], managed memory may not be populated when this API returns and instead may be populated on access. In such systems, managed memory can migrate to any processor's memory at any time. The Unified Memory driver will employ heuristics to maintain data locality and prevent excessive page faults to the extent possible. The application can also guide the driver about memory usage patterns via [DevicePtr.MemAdvise]. The application can also explicitly migrate memory to a desired processor's memory via [DevicePtr.MemPrefetchAsync]. In a multi-GPU system where all of the GPUs have a zero value for the device attribute [DevAttrConcurrentManagedAccess] and all the GPUs have peer-to-peer support with each other, the physical storage for managed memory is created on the GPU which is active at the time [MemAllocManaged] is called. All other GPUs will reference the data at reduced bandwidth via peer mappings over the PCIe bus. The Unified Memory driver does not migrate memory among such GPUs. In a multi-GPU system where not all GPUs have peer-to-peer support with each other and where the value of the device attribute [DevAttrConcurrentManagedAccess] is zero for at least one of those GPUs, the location chosen for physical storage of managed memory is system-dependent. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], [Device.GetAttribute], [Stream.AttachMemAsync], cudaMallocManaged
+// Allocates bytesize bytes of managed memory on the device and returns in *dptr a pointer to the allocated memory. If the device doesn't support allocating managed memory, [ErrNotSupported] is returned. Support for managed memory can be queried using the device attribute [DevAttrManagedMemory]. The allocated memory is suitably aligned for any kind of variable. The memory is not cleared. If bytesize is 0, [MemAllocManaged] returns [ErrInvalidValue]. The pointer is valid on the CPU and on all GPUs in the system that support managed memory. All accesses to this pointer must obey the Unified Memory programming model. flags specifies the default stream association for this allocation. flags must be one of [MemAttachGlobal] or [MemAttachHost]. If [MemAttachGlobal] is specified, then this memory is accessible from any stream on any device. If [MemAttachHost] is specified, then the allocation should not be accessed from devices that have a zero value for the device attribute [DevAttrConcurrentManagedAccess]; an explicit call to [Stream.AttachMemAsync] will be required to enable access on such devices. If the association is later changed via [Stream.AttachMemAsync] to a single stream, the default association as specified during [MemAllocManaged] is restored when that stream is destroyed. For __managed__ variables, the default association is always [MemAttachGlobal]. Note that destroying a stream is an asynchronous operation, and as a result, the change to default association won't happen until all work in the stream has completed. Memory allocated with [MemAllocManaged] should be released with [DevicePtr.Free]. Device memory oversubscription is possible for GPUs that have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Managed memory on such GPUs may be evicted from device memory to host memory at any time by the Unified Memory driver in order to make room for other allocations. In a system where all GPUs have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess], managed memory may not be populated when this API returns and instead may be populated on access. In such systems, managed memory can migrate to any processor's memory at any time. The Unified Memory driver will employ heuristics to maintain data locality and prevent excessive page faults to the extent possible. The application can also guide the driver about memory usage patterns via [DevicePtr.MemAdvise]. The application can also explicitly migrate memory to a desired processor's memory via [DevicePtr.MemPrefetchAsync]. In a multi-GPU system where all of the GPUs have a zero value for the device attribute [DevAttrConcurrentManagedAccess] and all the GPUs have peer-to-peer support with each other, the physical storage for managed memory is created on the GPU which is active at the time [MemAllocManaged] is called. All other GPUs will reference the data at reduced bandwidth via peer mappings over the PCIe bus. The Unified Memory driver does not migrate memory among such GPUs. In a multi-GPU system where not all GPUs have peer-to-peer support with each other and where the value of the device attribute [DevAttrConcurrentManagedAccess] is zero for at least one of those GPUs, the location chosen for physical storage of managed memory is system-dependent. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], [Device.Attribute], [Stream.AttachMemAsync], cudaMallocManaged
 //
 //   - bytesize: Requested allocation size in bytes
 //   - flags: Must be one of [MemAttachGlobal] or [MemAttachHost]
 //
 // Wraps cuMemAllocManaged.
-func MemAllocManaged(bytesize uint, flags uint32) (DevicePtr, error) {
+func MemAllocManaged(bytesize uint, flags MemattachFlags) (DevicePtr, error) {
 	if err := checkLibSym("cuMemAllocManaged"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnMemAllocManaged(&out, bytesize, flags)); err != nil {
+	if err := toError(fnMemAllocManaged(&out, bytesize, uint32(flags))); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -6048,20 +6057,20 @@ func MemAllocManaged(bytesize uint, flags uint32) (DevicePtr, error) {
 
 // MemAllocPitch Allocates pitched device memory.
 //
-// Allocates at least WidthInBytes * Height bytes of linear memory on the device and returns in *dptr a pointer to the allocated memory. The function may pad the allocation to ensure that corresponding pointers in any given row will continue to meet the alignment requirements for coalescing as the address is updated from row to row. ElementSizeBytes specifies the size of the largest reads and writes that will be performed on the memory range. ElementSizeBytes may be 4, 8 or 16 (since coalesced memory transactions are not possible on other data sizes). If ElementSizeBytes is smaller than the actual read/write size of a kernel, the kernel will run correctly, but possibly at reduced speed. The pitch returned in *pPitch by [MemAllocPitch] is the width in bytes of the allocation. The intended usage of pitch is as a separate parameter of the allocation, used to compute addresses within the 2D array. Given the row and column of an array element of type T, the address is computed as: The pitch returned by [MemAllocPitch] is guaranteed to work with [Memcpy2D] under all circumstances. For allocations of 2D arrays, it is recommended that programmers consider performing pitch allocations using [MemAllocPitch]. Due to alignment restrictions in the hardware, this is especially true if the application will be performing 2D memory copies between different regions of device memory (whether linear memory or CUDA arrays). The byte alignment of the pitch returned by [MemAllocPitch] is guaranteed to match or exceed the alignment requirement for texture binding with [TexRef.SetAddress2D]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocPitch
+// Allocates at least WidthInBytes * Height bytes of linear memory on the device and returns in *dptr a pointer to the allocated memory. The function may pad the allocation to ensure that corresponding pointers in any given row will continue to meet the alignment requirements for coalescing as the address is updated from row to row. ElementSizeBytes specifies the size of the largest reads and writes that will be performed on the memory range. ElementSizeBytes may be 4, 8 or 16 (since coalesced memory transactions are not possible on other data sizes). If ElementSizeBytes is smaller than the actual read/write size of a kernel, the kernel will run correctly, but possibly at reduced speed. The pitch returned in *pPitch by [MemAllocPitch] is the width in bytes of the allocation. The intended usage of pitch is as a separate parameter of the allocation, used to compute addresses within the 2D array. Given the row and column of an array element of type T, the address is computed as: The pitch returned by [MemAllocPitch] is guaranteed to work with [Memcpy2D] under all circumstances. For allocations of 2D arrays, it is recommended that programmers consider performing pitch allocations using [MemAllocPitch]. Due to alignment restrictions in the hardware, this is especially true if the application will be performing 2D memory copies between different regions of device memory (whether linear memory or CUDA arrays). The byte alignment of the pitch returned by [MemAllocPitch] is guaranteed to match or exceed the alignment requirement for texture binding with [TexRef.SetAddress2D]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMallocPitch
 //
-//   - WidthInBytes: Requested allocation width in bytes
-//   - Height: Requested allocation height in rows
-//   - ElementSizeBytes: Size of largest reads/writes for range
+//   - widthInBytes: Requested allocation width in bytes
+//   - height: Requested allocation height in rows
+//   - elementSizeBytes: Size of largest reads/writes for range
 //
 // Wraps cuMemAllocPitch, bound as cuMemAllocPitch_v2.
-func MemAllocPitch(WidthInBytes uint, Height uint, ElementSizeBytes uint32) (dptr DevicePtr, pPitch uint, err error) {
+func MemAllocPitch(widthInBytes uint, height uint, elementSizeBytes uint32) (dptr DevicePtr, pPitch uint, err error) {
 	if err := checkLibSym("cuMemAllocPitch_v2"); err != nil {
 		return 0, 0, err
 	}
 	var out0 DevicePtr
 	var out1 uint
-	if err := toError(fnMemAllocPitch(&out0, &out1, WidthInBytes, Height, ElementSizeBytes)); err != nil {
+	if err := toError(fnMemAllocPitch(&out0, &out1, widthInBytes, height, elementSizeBytes)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -6170,7 +6179,7 @@ func MemExportToShareableHandle(shareableHandle uintptr, handle uint64, handleTy
 
 // memFree Frees device memory.
 //
-// Frees the memory space pointed to by dptr, which must have been returned by a previous call to one of the following memory allocation APIs - [MemAlloc], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync] Note - This API will not perform any implict synchronization when the pointer was allocated with [Stream.MemAllocAsync] or [MemoryPool.MemAllocFromPoolAsync]. Callers must ensure that all accesses to these pointer have completed before invoking [DevicePtr.MemFree]. For best performance and memory reuse, users should use [DevicePtr.MemFreeAsync] to free memory allocated via the stream ordered memory allocator. For all other pointers, this API may perform implicit synchronization. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [DevicePtr.MemFreeAsync], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFree
+// Frees the memory space pointed to by dptr, which must have been returned by a previous call to one of the following memory allocation APIs - [MemAlloc], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync] Note - This API will not perform any implict synchronization when the pointer was allocated with [Stream.MemAllocAsync] or [MemoryPool.MemAllocFromPoolAsync]. Callers must ensure that all accesses to these pointer have completed before invoking [DevicePtr.Free]. For best performance and memory reuse, users should use [DevicePtr.FreeAsync] to free memory allocated via the stream ordered memory allocator. For all other pointers, this API may perform implicit synchronization. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [MemAllocManaged], [Stream.MemAllocAsync], [MemoryPool.MemAllocFromPoolAsync], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [DevicePtr.FreeAsync], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFree
 //
 //   - dptr: Pointer to memory to free
 //
@@ -6199,7 +6208,7 @@ func memFreeAsync(dptr DevicePtr, hStream Stream) error {
 
 // MemFreeHost Frees page-locked host memory.
 //
-// Frees the memory space pointed to by p, which must have been returned by a previous call to [MemAllocHost]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFreeHost
+// Frees the memory space pointed to by p, which must have been returned by a previous call to [MemAllocHost]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaFreeHost
 //
 //   - p: Pointer to memory to free
 //
@@ -6234,7 +6243,7 @@ func memGetAccess(location *MemLocation, ptr DevicePtr) (uint64, error) {
 
 // memGetAddressRange Get information on memory allocations.
 //
-// Returns the base address in *pbase and size in *psize of the allocation that contains the input pointer dptr. Both parameters pbase and psize are optional. If one of them is NULL, it is ignored. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32]
+// Returns the base address in *pbase and size in *psize of the allocation that contains the input pointer dptr. Both parameters pbase and psize are optional. If one of them is NULL, it is ignored. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32]
 //
 //   - dptr: Device pointer to query
 //
@@ -6294,7 +6303,7 @@ func MemGetAllocationPropertiesFromHandle(handle uint64) (MemAllocationProp, err
 
 // MemGetDefaultMemPool Returns the default memory pool for a given location and allocation type.
 //
-// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost], or [MemLocationTypeHostNuma]. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.MemAllocAsync], [MemoryPool.TrimTo], [MemoryPool.GetAttribute], [MemoryPool.SetAttribute], [MemoryPool.SetAccess], [MemGetMemPool], [NewMemoryPool]
+// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost], or [MemLocationTypeHostNuma]. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.MemAllocAsync], [MemoryPool.TrimTo], [MemoryPool.Attribute], [MemoryPool.SetAttribute], [MemoryPool.SetAccess], [MemGetMemPool], [NewMemoryPool]
 //
 // Wraps cuMemGetDefaultMemPool.
 func MemGetDefaultMemPool(location *MemLocation, type_ MemAllocationType) (MemoryPool, error) {
@@ -6321,16 +6330,16 @@ func MemGetDefaultMemPool(location *MemLocation, type_ MemAllocationType) (Memor
 //   - flags (in): When requesting [MemRangeHandleType].[MemRangeHandleTypeDmaBufFd] the value could be [MemRangeFlagDmaBufMappingTypePcie], otherwise 0
 //
 // Wraps cuMemGetHandleForAddressRange.
-func memGetHandleForAddressRange(handle uintptr, dptr DevicePtr, size uint, handleType MemRangeHandleType, flags uint64) error {
+func memGetHandleForAddressRange(handle uintptr, dptr DevicePtr, size uint, handleType MemRangeHandleType, flags MemRangeFlags) error {
 	if err := checkLibSym("cuMemGetHandleForAddressRange"); err != nil {
 		return err
 	}
-	return toError(fnmemGetHandleForAddressRange(handle, dptr, size, handleType, flags))
+	return toError(fnmemGetHandleForAddressRange(handle, dptr, size, handleType, uint64(flags)))
 }
 
 // MemGetInfo Gets free and total memory.
 //
-// Returns in *total the total amount of memory available to the the current context. Returns in *free the amount of memory on the device that is free according to the OS. CUDA is not guaranteed to be able to allocate all of the memory that the OS reports as free. In a multi-tenet situation, free estimate returned is prone to race condition where a new allocation/free done by a different process or a different thread in the same process between the time when free memory was estimated and reported, will result in deviation in free value reported and actual free memory. The integrated GPU on Tegra shares memory with CPU and other component of the SoC. The free and total values returned by the API excludes the SWAP memory space maintained by the OS on some platforms. The OS may move some of the memory pages into swap area as the GPU or CPU allocate or access memory. See Tegra app note on how to calculate total and free memory on Tegra. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemGetInfo
+// Returns in *total the total amount of memory available to the the current context. Returns in *free the amount of memory on the device that is free according to the OS. CUDA is not guaranteed to be able to allocate all of the memory that the OS reports as free. In a multi-tenet situation, free estimate returned is prone to race condition where a new allocation/free done by a different process or a different thread in the same process between the time when free memory was estimated and reported, will result in deviation in free value reported and actual free memory. The integrated GPU on Tegra shares memory with CPU and other component of the SoC. The free and total values returned by the API excludes the SWAP memory space maintained by the OS on some platforms. The OS may move some of the memory pages into swap area as the GPU or CPU allocate or access memory. See Tegra app note on how to calculate total and free memory on Tegra. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemGetInfo
 //
 // Wraps cuMemGetInfo, bound as cuMemGetInfo_v2.
 func MemGetInfo() (free uint, total uint, err error) {
@@ -6347,7 +6356,7 @@ func MemGetInfo() (free uint, total uint, err error) {
 
 // MemGetMemPool Gets the current memory pool for a memory location and of a particular allocation type.
 //
-// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], or [MemLocationTypeHostNuma]. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. In all other cases, the call returns [ErrInvalidValue] Returns the last pool provided to [MemoryPool.MemSetMemPool] or [Device.SetMemPool] for this location and allocation type or the location's default memory pool if [MemoryPool.MemSetMemPool] or [Device.SetMemPool] for that allocType and location has never been called. By default the current mempool of a location is the default mempool for a device. Otherwise the returned pool must have been set with [Device.SetMemPool]. See also: [Device.GetDefaultMemPool], [NewMemoryPool], [Device.SetMemPool], [MemoryPool.MemSetMemPool]
+// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], or [MemLocationTypeHostNuma]. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. In all other cases, the call returns [ErrInvalidValue] Returns the last pool provided to [MemoryPool.MemSetMemPool] or [Device.SetMemPool] for this location and allocation type or the location's default memory pool if [MemoryPool.MemSetMemPool] or [Device.SetMemPool] for that allocType and location has never been called. By default the current mempool of a location is the default mempool for a device. Otherwise the returned pool must have been set with [Device.SetMemPool]. See also: [Device.DefaultMemPool], [NewMemoryPool], [Device.SetMemPool], [MemoryPool.MemSetMemPool]
 //
 // Wraps cuMemGetMemPool.
 func MemGetMemPool(location *MemLocation, type_ MemAllocationType) (MemoryPool, error) {
@@ -6365,35 +6374,35 @@ func MemGetMemPool(location *MemLocation, type_ MemAllocationType) (MemoryPool, 
 
 // MemHostAlloc Allocates page-locked host memory.
 //
-// Allocates bytesize bytes of host memory that is page-locked and accessible to the device. The driver tracks the virtual memory ranges allocated with this function and automatically accelerates calls to functions such as [DevicePtr.MemcpyHtoD]. Since the memory can be accessed directly by the device, it can be read or written with much higher bandwidth than pageable memory obtained with functions such as malloc(). On systems where [DevAttrPageableMemoryAccessUsesHostPageTables] is true, [MemHostAlloc] may not page-lock the allocated memory. Page-locking excessive amounts of memory may degrade system performance, since it reduces the amount of memory available to the system for paging. As a result, this function is best used sparingly to allocate staging areas for data exchange between host and device. The Flags parameter enables different options to be specified that affect the allocation, as follows. All of these flags are orthogonal to one another: a developer may allocate memory that is portable, mapped and/or write-combined with no restrictions. The CU_MEMHOSTALLOC_DEVICEMAP flag may be specified on CUDA contexts for devices that do not support mapped pinned memory. The failure is deferred to [MemHostGetDevicePointer] because the memory may be mapped into other CUDA contexts via the CU_MEMHOSTALLOC_PORTABLE flag. The memory allocated by this function must be freed with [MemFreeHost]. Note all host memory allocated using [MemHostAlloc] will automatically be immediately accessible to all contexts on all devices which support unified addressing (as may be queried using [DevAttrUnifiedAddressing]). Unless the flag CU_MEMHOSTALLOC_WRITECOMBINED is specified, the device pointer that may be used to access this host memory from those contexts is always equal to the returned host pointer *pp. If the flag CU_MEMHOSTALLOC_WRITECOMBINED is specified, then the function [MemHostGetDevicePointer] must be used to query the device pointer, even if the context supports unified addressing. See Unified Addressing for additional details. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaHostAlloc
+// Allocates bytesize bytes of host memory that is page-locked and accessible to the device. The driver tracks the virtual memory ranges allocated with this function and automatically accelerates calls to functions such as [DevicePtr.CopyFromHost]. Since the memory can be accessed directly by the device, it can be read or written with much higher bandwidth than pageable memory obtained with functions such as malloc(). On systems where [DevAttrPageableMemoryAccessUsesHostPageTables] is true, [MemHostAlloc] may not page-lock the allocated memory. Page-locking excessive amounts of memory may degrade system performance, since it reduces the amount of memory available to the system for paging. As a result, this function is best used sparingly to allocate staging areas for data exchange between host and device. The Flags parameter enables different options to be specified that affect the allocation, as follows. All of these flags are orthogonal to one another: a developer may allocate memory that is portable, mapped and/or write-combined with no restrictions. The CU_MEMHOSTALLOC_DEVICEMAP flag may be specified on CUDA contexts for devices that do not support mapped pinned memory. The failure is deferred to [MemHostGetDevicePointer] because the memory may be mapped into other CUDA contexts via the CU_MEMHOSTALLOC_PORTABLE flag. The memory allocated by this function must be freed with [MemFreeHost]. Note all host memory allocated using [MemHostAlloc] will automatically be immediately accessible to all contexts on all devices which support unified addressing (as may be queried using [DevAttrUnifiedAddressing]). Unless the flag CU_MEMHOSTALLOC_WRITECOMBINED is specified, the device pointer that may be used to access this host memory from those contexts is always equal to the returned host pointer *pp. If the flag CU_MEMHOSTALLOC_WRITECOMBINED is specified, then the function [MemHostGetDevicePointer] must be used to query the device pointer, even if the context supports unified addressing. See Unified Addressing for additional details. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaHostAlloc
 //
 //   - pp: Returned pointer to host memory
 //   - bytesize: Requested allocation size in bytes
-//   - Flags: Flags for allocation request
+//   - flags: Flags for allocation request
 //
 // Wraps cuMemHostAlloc.
-func MemHostAlloc(pp *uintptr, bytesize uint, Flags uint32) error {
+func MemHostAlloc(pp *uintptr, bytesize uint, flags uint32) error {
 	if err := checkLibSym("cuMemHostAlloc"); err != nil {
 		return err
 	}
-	return toError(fnMemHostAlloc(pp, bytesize, Flags))
+	return toError(fnMemHostAlloc(pp, bytesize, flags))
 }
 
 // MemHostGetDevicePointer Passes back device pointer of mapped pinned memory.
 //
-// Passes back the device pointer pdptr corresponding to the mapped, pinned host buffer p allocated by [MemHostAlloc]. [MemHostGetDevicePointer] will fail if the CU_MEMHOSTALLOC_DEVICEMAP flag was not specified at the time the memory was allocated, or if the function is called on a GPU that does not support mapped pinned memory. For devices that have a non-zero value for the device attribute [DevAttrCanUseHostPointerForRegisteredMem], the memory can also be accessed from the device using the host pointer p. The device pointer returned by [MemHostGetDevicePointer] may or may not match the original host pointer p and depends on the devices visible to the application. If all devices visible to the application have a non-zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will match the original pointer p. If any device visible to the application has a zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will not match the original host pointer p, but it will be suitable for use on all devices provided Unified Virtual Addressing is enabled. In such systems, it is valid to access the memory using either pointer on devices that have a non-zero value for the device attribute. Note however that such devices should access the memory using only one of the two pointers and not both. Flags provides for future releases. For now, it must be set to 0. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaHostGetDevicePointer
+// Passes back the device pointer pdptr corresponding to the mapped, pinned host buffer p allocated by [MemHostAlloc]. [MemHostGetDevicePointer] will fail if the CU_MEMHOSTALLOC_DEVICEMAP flag was not specified at the time the memory was allocated, or if the function is called on a GPU that does not support mapped pinned memory. For devices that have a non-zero value for the device attribute [DevAttrCanUseHostPointerForRegisteredMem], the memory can also be accessed from the device using the host pointer p. The device pointer returned by [MemHostGetDevicePointer] may or may not match the original host pointer p and depends on the devices visible to the application. If all devices visible to the application have a non-zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will match the original pointer p. If any device visible to the application has a zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will not match the original host pointer p, but it will be suitable for use on all devices provided Unified Virtual Addressing is enabled. In such systems, it is valid to access the memory using either pointer on devices that have a non-zero value for the device attribute. Note however that such devices should access the memory using only one of the two pointers and not both. Flags provides for future releases. For now, it must be set to 0. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaHostGetDevicePointer
 //
 //   - p: Host pointer
-//   - Flags: Options (must be 0)
+//   - flags: Options (must be 0)
 //
 // Wraps cuMemHostGetDevicePointer, bound as cuMemHostGetDevicePointer_v2.
-func MemHostGetDevicePointer(p uintptr, Flags uint32) (DevicePtr, error) {
+func MemHostGetDevicePointer(p uintptr, flags uint32) (DevicePtr, error) {
 	if err := checkLibSym("cuMemHostGetDevicePointer_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnMemHostGetDevicePointer(&out, p, Flags)); err != nil {
+	if err := toError(fnMemHostGetDevicePointer(&out, p, flags)); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -6422,18 +6431,18 @@ func MemHostGetFlags(p uintptr) (uint32, error) {
 
 // MemHostRegister Registers an existing host memory range for use by CUDA.
 //
-// Page-locks the memory range specified by p and bytesize and maps it for the device(s) as specified by Flags. This memory range also is added to the same tracking mechanism as [MemHostAlloc] to automatically accelerate calls to functions such as [DevicePtr.MemcpyHtoD]. Since the memory can be accessed directly by the device, it can be read or written with much higher bandwidth than pageable memory that has not been registered. Page-locking excessive amounts of memory may degrade system performance, since it reduces the amount of memory available to the system for paging. As a result, this function is best used sparingly to register staging areas for data exchange between host and device. On systems where [DevAttrPageableMemoryAccessUsesHostPageTables] is true, [MemHostRegister] will not page-lock the memory range specified by ptr but only populate unpopulated pages. The Flags parameter enables different options to be specified that affect the allocation, as follows. All of these flags are orthogonal to one another: a developer may page-lock memory that is portable or mapped with no restrictions. The CU_MEMHOSTREGISTER_DEVICEMAP flag may be specified on CUDA contexts for devices that do not support mapped pinned memory. The failure is deferred to [MemHostGetDevicePointer] because the memory may be mapped into other CUDA contexts via the CU_MEMHOSTREGISTER_PORTABLE flag. For devices that have a non-zero value for the device attribute [DevAttrCanUseHostPointerForRegisteredMem], the memory can also be accessed from the device using the host pointer p. The device pointer returned by [MemHostGetDevicePointer] may or may not match the original host pointer ptr and depends on the devices visible to the application. If all devices visible to the application have a non-zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will match the original pointer ptr. If any device visible to the application has a zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will not match the original host pointer ptr, but it will be suitable for use on all devices provided Unified Virtual Addressing is enabled. In such systems, it is valid to access the memory using either pointer on devices that have a non-zero value for the device attribute. Note however that such devices should access the memory using only of the two pointers and not both. The memory page-locked by this function must be unregistered with [MemHostUnregister]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [MemHostUnregister], [MemHostGetFlags], [MemHostGetDevicePointer], cudaHostRegister
+// Page-locks the memory range specified by p and bytesize and maps it for the device(s) as specified by Flags. This memory range also is added to the same tracking mechanism as [MemHostAlloc] to automatically accelerate calls to functions such as [DevicePtr.CopyFromHost]. Since the memory can be accessed directly by the device, it can be read or written with much higher bandwidth than pageable memory that has not been registered. Page-locking excessive amounts of memory may degrade system performance, since it reduces the amount of memory available to the system for paging. As a result, this function is best used sparingly to register staging areas for data exchange between host and device. On systems where [DevAttrPageableMemoryAccessUsesHostPageTables] is true, [MemHostRegister] will not page-lock the memory range specified by ptr but only populate unpopulated pages. The Flags parameter enables different options to be specified that affect the allocation, as follows. All of these flags are orthogonal to one another: a developer may page-lock memory that is portable or mapped with no restrictions. The CU_MEMHOSTREGISTER_DEVICEMAP flag may be specified on CUDA contexts for devices that do not support mapped pinned memory. The failure is deferred to [MemHostGetDevicePointer] because the memory may be mapped into other CUDA contexts via the CU_MEMHOSTREGISTER_PORTABLE flag. For devices that have a non-zero value for the device attribute [DevAttrCanUseHostPointerForRegisteredMem], the memory can also be accessed from the device using the host pointer p. The device pointer returned by [MemHostGetDevicePointer] may or may not match the original host pointer ptr and depends on the devices visible to the application. If all devices visible to the application have a non-zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will match the original pointer ptr. If any device visible to the application has a zero value for the device attribute, the device pointer returned by [MemHostGetDevicePointer] will not match the original host pointer ptr, but it will be suitable for use on all devices provided Unified Virtual Addressing is enabled. In such systems, it is valid to access the memory using either pointer on devices that have a non-zero value for the device attribute. Note however that such devices should access the memory using only of the two pointers and not both. The memory page-locked by this function must be unregistered with [MemHostUnregister]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [MemHostUnregister], [MemHostGetFlags], [MemHostGetDevicePointer], cudaHostRegister
 //
 //   - p: Host pointer to memory to page-lock
 //   - bytesize: Size in bytes of the address range to page-lock
-//   - Flags: Flags for allocation request
+//   - flags: Flags for allocation request
 //
 // Wraps cuMemHostRegister, bound as cuMemHostRegister_v2.
-func MemHostRegister(p uintptr, bytesize uint, Flags uint32) error {
+func MemHostRegister(p uintptr, bytesize uint, flags uint32) error {
 	if err := checkLibSym("cuMemHostRegister_v2"); err != nil {
 		return err
 	}
-	return toError(fnMemHostRegister(p, bytesize, Flags))
+	return toError(fnMemHostRegister(p, bytesize, flags))
 }
 
 // MemHostUnregister Unregisters a memory range that was registered with [MemHostRegister].
@@ -6491,7 +6500,7 @@ func memMap(ptr DevicePtr, size uint, offset uint, handle uint64, flags uint64) 
 
 // memMapArrayAsync Maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
 //
-// Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count. The structure [ArrayMapInfo] is defined as follow: where [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resourcearray must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.GetLevel], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resourcemipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. [ArrayMapInfo].subresourceType specifies the type of subresource within the resource. CUarraySparseSubresourceType_enum is defined as: where [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] indicates a sparse-miplevel which spans at least one tile in every dimension. The remaining miplevels which are too small to span at least one tile in any dimension constitute the mip tail region as indicated by [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] subresource type. If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] then [ArrayMapInfo].subresourcesparseLevel struct must contain valid array subregion offsets and extents. The [ArrayMapInfo].subresourcesparseLevel.offsetX, [ArrayMapInfo].subresourcesparseLevel.offsetY and [ArrayMapInfo].subresourcesparseLevel.offsetZ must specify valid X, Y and Z offsets respectively. The [ArrayMapInfo].subresourcesparseLevel.extentWidth, [ArrayMapInfo].subresourcesparseLevel.extentHeight and [ArrayMapInfo].subresourcesparseLevel.extentDepth must specify valid width, height and depth extents respectively. These offsets and extents must be aligned to the corresponding tile dimension. For CUDA mipmapped arrays [ArrayMapInfo].subresourcesparseLevel.level must specify a valid mip level index. Otherwise, must be zero. For layered CUDA arrays and layered CUDA mipmapped arrays [ArrayMapInfo].subresourcesparseLevel.layer must specify a valid layer index. Otherwise, must be zero. [ArrayMapInfo].subresourcesparseLevel.offsetZ must be zero and [ArrayMapInfo].subresourcesparseLevel.extentDepth must be set to 1 for 2D and 2D layered CUDA arrays and CUDA mipmapped arrays. Tile extents can be obtained by calling [Array.GetSparseProperties] and [MipmappedArray.GetSparseProperties] If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] then [ArrayMapInfo].subresourcemiptail struct must contain valid mip tail offset in [ArrayMapInfo].subresourcemiptail.offset and size in [ArrayMapInfo].subresourcemiptail.size. Both, mip tail offset and mip tail size must be aligned to the tile size. For layered CUDA mipmapped arrays which don't have the flag CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL set in [ArraySparseProperties].flags as returned by [MipmappedArray.GetSparseProperties], [ArrayMapInfo].subresourcemiptail.layer must specify a valid layer index. Otherwise, must be zero. If [ArrayMapInfo].resourcearray or [ArrayMapInfo].resourcemipmap was created with CUDA_ARRAY3D_DEFERRED_MAPPING flag set the [ArrayMapInfo].subresourceType and the contents of [ArrayMapInfo].subresource will be ignored. [ArrayMapInfo].memOperationType specifies the type of operation. [MemOperationType] is defined as: If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeMap] then the subresource will be mapped onto the tile pool memory specified by [ArrayMapInfo].memHandle at offset [ArrayMapInfo].offset. The tile pool allocation has to be created by specifying the CU_MEM_CREATE_USAGE_TILE_POOL flag when calling [MemCreate]. Also, [ArrayMapInfo].memHandleType must be set to [MemHandleType].[MemHandleTypeGeneric]. If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeUnmap] then an unmapping operation is performed. [ArrayMapInfo].memHandle must be NULL. [ArrayMapInfo].deviceBitMask specifies the list of devices that must map or unmap physical memory. Currently, this mask must have exactly one bit set, and the corresponding device must match the device associated with the stream. If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeMap], the device must also match the device associated with the tile pool memory allocation as specified by [ArrayMapInfo].memHandle. [ArrayMapInfo].flags and [ArrayMapInfo].reserved[] are unused and must be set to zero. See also: [NewMipmappedArray], [NewArray], [NewArray3D], [MemCreate], [Array.GetSparseProperties], [MipmappedArray.GetSparseProperties]
+// Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays. Each operation is specified by a [ArrayMapInfo] entry in the mapInfoList array of size count. The structure [ArrayMapInfo] is defined as follow: where [ArrayMapInfo].resourceType specifies the type of resource to be operated on. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeArray] then [ArrayMapInfo].resourcearray must be set to a valid sparse CUDA array handle. The CUDA array must be either a 2D, 2D layered or 3D CUDA array and must have been allocated using [NewArray] or [NewArray3D] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. For CUDA arrays obtained using [MipmappedArray.Level], [ErrInvalidValue] will be returned. If [ArrayMapInfo].resourceType is set to [Resourcetype].[ResourceTypeMipmappedArray] then [ArrayMapInfo].resourcemipmap must be set to a valid sparse CUDA mipmapped array handle. The CUDA mipmapped array must be either a 2D, 2D layered or 3D CUDA mipmapped array and must have been allocated using [NewMipmappedArray] with the flag CUDA_ARRAY3D_SPARSE or CUDA_ARRAY3D_DEFERRED_MAPPING. [ArrayMapInfo].subresourceType specifies the type of subresource within the resource. CUarraySparseSubresourceType_enum is defined as: where [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] indicates a sparse-miplevel which spans at least one tile in every dimension. The remaining miplevels which are too small to span at least one tile in any dimension constitute the mip tail region as indicated by [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] subresource type. If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeSparseLevel] then [ArrayMapInfo].subresourcesparseLevel struct must contain valid array subregion offsets and extents. The [ArrayMapInfo].subresourcesparseLevel.offsetX, [ArrayMapInfo].subresourcesparseLevel.offsetY and [ArrayMapInfo].subresourcesparseLevel.offsetZ must specify valid X, Y and Z offsets respectively. The [ArrayMapInfo].subresourcesparseLevel.extentWidth, [ArrayMapInfo].subresourcesparseLevel.extentHeight and [ArrayMapInfo].subresourcesparseLevel.extentDepth must specify valid width, height and depth extents respectively. These offsets and extents must be aligned to the corresponding tile dimension. For CUDA mipmapped arrays [ArrayMapInfo].subresourcesparseLevel.level must specify a valid mip level index. Otherwise, must be zero. For layered CUDA arrays and layered CUDA mipmapped arrays [ArrayMapInfo].subresourcesparseLevel.layer must specify a valid layer index. Otherwise, must be zero. [ArrayMapInfo].subresourcesparseLevel.offsetZ must be zero and [ArrayMapInfo].subresourcesparseLevel.extentDepth must be set to 1 for 2D and 2D layered CUDA arrays and CUDA mipmapped arrays. Tile extents can be obtained by calling [Array.SparseProperties] and [MipmappedArray.SparseProperties] If [ArrayMapInfo].subresourceType is set to [ArraySparseSubresourceType].[ArraySparseSubresourceTypeMiptail] then [ArrayMapInfo].subresourcemiptail struct must contain valid mip tail offset in [ArrayMapInfo].subresourcemiptail.offset and size in [ArrayMapInfo].subresourcemiptail.size. Both, mip tail offset and mip tail size must be aligned to the tile size. For layered CUDA mipmapped arrays which don't have the flag CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL set in [ArraySparseProperties].flags as returned by [MipmappedArray.SparseProperties], [ArrayMapInfo].subresourcemiptail.layer must specify a valid layer index. Otherwise, must be zero. If [ArrayMapInfo].resourcearray or [ArrayMapInfo].resourcemipmap was created with CUDA_ARRAY3D_DEFERRED_MAPPING flag set the [ArrayMapInfo].subresourceType and the contents of [ArrayMapInfo].subresource will be ignored. [ArrayMapInfo].memOperationType specifies the type of operation. [MemOperationType] is defined as: If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeMap] then the subresource will be mapped onto the tile pool memory specified by [ArrayMapInfo].memHandle at offset [ArrayMapInfo].offset. The tile pool allocation has to be created by specifying the CU_MEM_CREATE_USAGE_TILE_POOL flag when calling [MemCreate]. Also, [ArrayMapInfo].memHandleType must be set to [MemHandleType].[MemHandleTypeGeneric]. If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeUnmap] then an unmapping operation is performed. [ArrayMapInfo].memHandle must be NULL. [ArrayMapInfo].deviceBitMask specifies the list of devices that must map or unmap physical memory. Currently, this mask must have exactly one bit set, and the corresponding device must match the device associated with the stream. If [ArrayMapInfo].memOperationType is set to [MemOperationType].[MemOperationTypeMap], the device must also match the device associated with the tile pool memory allocation as specified by [ArrayMapInfo].memHandle. [ArrayMapInfo].flags and [ArrayMapInfo].reserved[] are unused and must be set to zero. See also: [NewMipmappedArray], [NewArray], [NewArray3D], [MemCreate], [Array.SparseProperties], [MipmappedArray.SparseProperties]
 //
 //   - mapInfoList (in): List of [ArrayMapInfo]
 //   - count (in): Count of [ArrayMapInfo] in mapInfoList
@@ -6507,7 +6516,7 @@ func memMapArrayAsync(mapInfoList *ArrayMapInfo, count uint32, hStream Stream) e
 
 // memPoolCreate Creates a memory pool.
 //
-// Creates a CUDA memory pool and returns the handle in pool. The poolProps determines the properties of the pool such as the backing device and IPC capabilities. To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHost]. [MemPoolProps].CUmemLocationid is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHostNuma] and [MemPoolProps].CUmemLocationid must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].CUmemLocationtype will result in [ErrInvalidValue]. By default, the pool's memory will be accessible from the device it is allocated on. In the case of pools created with [MemLocationTypeHostNuma] or [MemLocationTypeHost], their default accessibility will be from the host CPU. Applications can control the maximum size of the pool by specifying a non-zero value for [MemPoolProps].maxSize. If set to 0, the maximum size of the pool will default to a system dependent value. Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) `nvidia-caps-imex-channels` character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application. When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory. The IMEX channel security model works on a per user basis. Which means all processes under a user can share memory if the user has access to a valid IMEX channel. When multi-user isolation is desired, a separate IMEX channel is required for each user. These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: `mknod /dev/nvidia-caps-imex-channels/channel0 c =""> 0` To create a managed memory pool, applications must set [MemPoolProps].[MemAllocationType] to [MemAllocationTypeManaged]. [MemPoolProps].[MemAllocationHandleType] must also be set to [MemHandleTypeNone] since IPC is not supported. For managed memory pools, [MemPoolProps].[MemLocation] will be treated as the preferred location for all allocations created from the pool. An application can also set [MemLocationTypeNone] to indicate no preferred location. [MemPoolProps].maxSize must be set to zero for managed memory pools. [MemPoolProps].usage should be zero as decompress for managed memory is not supported. For managed memory pools, all devices on the system must have non-zero concurrentManagedAccess. If not, this call returns [ErrNotSupported] Note: Specifying [MemHandleTypeNone] creates a memory pool that will not support IPC. See also: [Device.SetMemPool], [Device.GetMemPool], [Device.GetDefaultMemPool], [MemoryPool.MemAllocFromPoolAsync], [MemoryPool.ExportToShareableHandle]
+// Creates a CUDA memory pool and returns the handle in pool. The poolProps determines the properties of the pool such as the backing device and IPC capabilities. To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHost]. [MemPoolProps].CUmemLocationid is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].CUmemLocationtype to [MemLocationTypeHostNuma] and [MemPoolProps].CUmemLocationid must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].CUmemLocationtype will result in [ErrInvalidValue]. By default, the pool's memory will be accessible from the device it is allocated on. In the case of pools created with [MemLocationTypeHostNuma] or [MemLocationTypeHost], their default accessibility will be from the host CPU. Applications can control the maximum size of the pool by specifying a non-zero value for [MemPoolProps].maxSize. If set to 0, the maximum size of the pool will default to a system dependent value. Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) `nvidia-caps-imex-channels` character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application. When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory. The IMEX channel security model works on a per user basis. Which means all processes under a user can share memory if the user has access to a valid IMEX channel. When multi-user isolation is desired, a separate IMEX channel is required for each user. These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: `mknod /dev/nvidia-caps-imex-channels/channel0 c =""> 0` To create a managed memory pool, applications must set [MemPoolProps].[MemAllocationType] to [MemAllocationTypeManaged]. [MemPoolProps].[MemAllocationHandleType] must also be set to [MemHandleTypeNone] since IPC is not supported. For managed memory pools, [MemPoolProps].[MemLocation] will be treated as the preferred location for all allocations created from the pool. An application can also set [MemLocationTypeNone] to indicate no preferred location. [MemPoolProps].maxSize must be set to zero for managed memory pools. [MemPoolProps].usage should be zero as decompress for managed memory is not supported. For managed memory pools, all devices on the system must have non-zero concurrentManagedAccess. If not, this call returns [ErrNotSupported] Note: Specifying [MemHandleTypeNone] creates a memory pool that will not support IPC. See also: [Device.SetMemPool], [Device.MemPool], [Device.DefaultMemPool], [MemoryPool.MemAllocFromPoolAsync], [MemoryPool.ExportToShareableHandle]
 //
 // Wraps cuMemPoolCreate.
 func memPoolCreate(poolProps *MemPoolProps) (MemoryPool, error) {
@@ -6525,7 +6534,7 @@ func memPoolCreate(poolProps *MemPoolProps) (MemoryPool, error) {
 
 // memPoolDestroy Destroys the specified memory pool.
 //
-// If any pointers obtained from this pool haven't been freed or the pool has free operations that haven't completed when [MemoryPool.Destroy] is invoked, the function will return immediately and the resources associated with the pool will be released automatically once there are no more outstanding allocations. Destroying the current mempool of a device sets the default mempool of that device as the current mempool for that device. Note: A device's default memory pool cannot be destroyed. See also: [DevicePtr.MemFreeAsync], [Device.SetMemPool], [Device.GetMemPool], [Device.GetDefaultMemPool], [NewMemoryPool]
+// If any pointers obtained from this pool haven't been freed or the pool has free operations that haven't completed when [MemoryPool.Destroy] is invoked, the function will return immediately and the resources associated with the pool will be released automatically once there are no more outstanding allocations. Destroying the current mempool of a device sets the default mempool of that device as the current mempool for that device. Note: A device's default memory pool cannot be destroyed. See also: [DevicePtr.FreeAsync], [Device.SetMemPool], [Device.MemPool], [Device.DefaultMemPool], [NewMemoryPool]
 //
 // Wraps cuMemPoolDestroy.
 func memPoolDestroy(pool MemoryPool) error {
@@ -6537,7 +6546,7 @@ func memPoolDestroy(pool MemoryPool) error {
 
 // memPoolExportPointer Export data to share a memory pool allocation between processes.
 //
-// Constructs shareData_out for sharing a specific allocation from an already shared memory pool. The recipient process can import the allocation with the [MemoryPool.ImportPointer] api. The data is not a handle and may be shared through any IPC mechanism. See also: [MemoryPool.ExportToShareableHandle], [NewMemoryPoolImportFromShareableHandle], [MemoryPool.ImportPointer]
+// Constructs shareData_out for sharing a specific allocation from an already shared memory pool. The recipient process can import the allocation with the [MemoryPool.ImportPointer] api. The data is not a handle and may be shared through any IPC mechanism. See also: [MemoryPool.ExportToShareableHandle], [MemPoolImportFromShareableHandle], [MemoryPool.ImportPointer]
 //
 //   - ptr (in): pointer to memory being exported
 //
@@ -6557,7 +6566,7 @@ func memPoolExportPointer(ptr DevicePtr) (MemPoolPtrExportData, error) {
 
 // memPoolExportToShareableHandle Exports a memory pool to the requested handle type.
 //
-// Given an IPC capable mempool, create an OS handle to share the pool with another process. A recipient process can convert the shareable handle into a mempool with [NewMemoryPoolImportFromShareableHandle]. Individual pointers can then be shared with the [DevicePtr.MemPoolExportPointer] and [MemoryPool.ImportPointer] APIs. The implementation of what the shareable handle is and how it can be transferred is defined by the requested handle type. Note: : To create an IPC capable mempool, create a mempool with a [MemAllocationHandleType] other than [MemHandleTypeNone]. See also: [NewMemoryPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer], [MemoryPool.ImportPointer], [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [Device.GetDefaultMemPool], [Device.GetMemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
+// Given an IPC capable mempool, create an OS handle to share the pool with another process. A recipient process can convert the shareable handle into a mempool with [MemPoolImportFromShareableHandle]. Individual pointers can then be shared with the [DevicePtr.MemPoolExportPointer] and [MemoryPool.ImportPointer] APIs. The implementation of what the shareable handle is and how it can be transferred is defined by the requested handle type. Note: : To create an IPC capable mempool, create a mempool with a [MemAllocationHandleType] other than [MemHandleTypeNone]. See also: [MemPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer], [MemoryPool.ImportPointer], [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool], [MemoryPool.SetAccess], [MemoryPool.SetAttribute]
 //
 //   - handle_out (out): Returned OS handle pool- pool to export handleType- the type of handle to create flags- must be 0
 //   - pool (in): pool to export
@@ -6574,7 +6583,7 @@ func memPoolExportToShareableHandle(handle_out uintptr, pool MemoryPool, handleT
 
 // memPoolGetAccess Returns the accessibility of a pool from a device.
 //
-// Returns the accessibility of the pool's memory from the specified location. See also: [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [Device.GetDefaultMemPool], [Device.GetMemPool], [NewMemoryPool]
+// Returns the accessibility of the pool's memory from the specified location. See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - memPool (in): the pool being queried
 //   - location (in): the location accessing the pool
@@ -6595,7 +6604,7 @@ func memPoolGetAccess(memPool MemoryPool, location *MemLocation) (MemaccessFlags
 
 // memPoolGetAttribute Gets attributes of a memory pool.
 //
-// Supported attributes are: The following properties can be also be queried on imported and default pools: See also: [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [Device.GetDefaultMemPool], [Device.GetMemPool], [NewMemoryPool]
+// Supported attributes are: The following properties can be also be queried on imported and default pools: See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - pool (in): The memory pool to get attributes of
 //   - attr (in): The attribute to get
@@ -6633,7 +6642,7 @@ func memPoolImportFromShareableHandle(handle uintptr, handleType MemAllocationHa
 
 // memPoolImportPointer Import a memory pool allocation from another process.
 //
-// Returns in ptr_out a pointer to the imported memory. The imported memory must not be accessed before the allocation operation completes in the exporting process. The imported memory must be freed from all importing processes before being freed in the exporting process. The pointer may be freed with [DevicePtr.MemFree] or [DevicePtr.MemFreeAsync]. If [DevicePtr.MemFreeAsync] is used, the free must be completed on the importing process before the free operation on the exporting process. Note: The [DevicePtr.MemFreeAsync] api may be used in the exporting process before the [DevicePtr.MemFreeAsync] operation completes in its stream as long as the [DevicePtr.MemFreeAsync] in the exporting process specifies a stream with a stream dependency on the importing process's [DevicePtr.MemFreeAsync]. See also: [MemoryPool.ExportToShareableHandle], [NewMemoryPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer]
+// Returns in ptr_out a pointer to the imported memory. The imported memory must not be accessed before the allocation operation completes in the exporting process. The imported memory must be freed from all importing processes before being freed in the exporting process. The pointer may be freed with [DevicePtr.Free] or [DevicePtr.FreeAsync]. If [DevicePtr.FreeAsync] is used, the free must be completed on the importing process before the free operation on the exporting process. Note: The [DevicePtr.FreeAsync] api may be used in the exporting process before the [DevicePtr.FreeAsync] operation completes in its stream as long as the [DevicePtr.FreeAsync] in the exporting process specifies a stream with a stream dependency on the importing process's [DevicePtr.FreeAsync]. See also: [MemoryPool.ExportToShareableHandle], [MemPoolImportFromShareableHandle], [DevicePtr.MemPoolExportPointer]
 //
 //   - pool (in): pool from which to import
 //   - shareData (in): data specifying the memory to import
@@ -6654,7 +6663,7 @@ func memPoolImportPointer(pool MemoryPool, shareData *MemPoolPtrExportData) (Dev
 
 // memPoolSetAccess Controls visibility of pools between devices.
 //
-// See also: [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [Device.GetDefaultMemPool], [Device.GetMemPool], [NewMemoryPool]
+// See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - pool (in): The pool being modified
 //   - map_ (in): Array of access descriptors. Each descriptor instructs the access to enable for a single gpu
@@ -6670,7 +6679,7 @@ func memPoolSetAccess(pool MemoryPool, map_ *MemAccessDesc, count uint) error {
 
 // memPoolSetAttribute Sets attributes of a memory pool.
 //
-// Supported attributes are: See also: [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [Device.GetDefaultMemPool], [Device.GetMemPool], [NewMemoryPool]
+// Supported attributes are: See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - pool (in): The memory pool to modify
 //   - attr (in): The attribute to modify
@@ -6686,7 +6695,7 @@ func memPoolSetAttribute(pool MemoryPool, attr MempoolAttribute, value uintptr) 
 
 // memPoolTrimTo Tries to release memory back to the OS.
 //
-// Releases memory back to the OS until the pool contains fewer than minBytesToKeep reserved bytes, or there is no more memory that the allocator can safely release. The allocator cannot release OS allocations that back outstanding asynchronous allocations. The OS allocations may happen at different granularity from the user allocations. See also: [Stream.MemAllocAsync], [DevicePtr.MemFreeAsync], [Device.GetDefaultMemPool], [Device.GetMemPool], [NewMemoryPool]
+// Releases memory back to the OS until the pool contains fewer than minBytesToKeep reserved bytes, or there is no more memory that the allocator can safely release. The allocator cannot release OS allocations that back outstanding asynchronous allocations. The OS allocations may happen at different granularity from the user allocations. See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
 //   - pool (in): The memory pool to trim
 //   - minBytesToKeep (in): If the pool has less than minBytesToKeep reserved, the TrimTo operation is a no-op. Otherwise the pool will be guaranteed to have at least minBytesToKeep bytes reserved after the operation
@@ -6828,7 +6837,7 @@ func memSetAccess(ptr DevicePtr, size uint, desc *MemAccessDesc, count uint) err
 
 // memSetMemPool Sets the current memory pool for a memory location and allocation type.
 //
-// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or or [MemLocationTypeHostNuma]. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. [MemAllocationTypeManaged] can not be used with CU_MEM_LOCATION_TYPE_DEVICE_MEMORY_NODE. In all other cases, the call returns [ErrInvalidValue]. When a memory pool is set as the current memory pool, the location parameter should be the same as the location of the pool. The location and allocation type specified must match those of the pool otherwise [ErrInvalidValue] is returned. By default, a memory location's current memory pool is its default memory pool that can be obtained via [MemGetDefaultMemPool]. If the location type is [MemLocationTypeDevice] and the allocation type is [MemAllocationTypePinned], then this API is the equivalent of calling [Device.SetMemPool] with the location id as the device. For further details on the implications, please refer to the documentation for [Device.SetMemPool]. Note: Use [MemoryPool.MemAllocFromPoolAsync] to specify asynchronous allocations from a device different than the one the stream runs on. See also: [Device.GetDefaultMemPool], [Device.GetMemPool], [MemGetMemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync]
+// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or or [MemLocationTypeHostNuma]. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. [MemAllocationTypeManaged] can not be used with CU_MEM_LOCATION_TYPE_DEVICE_MEMORY_NODE. In all other cases, the call returns [ErrInvalidValue]. When a memory pool is set as the current memory pool, the location parameter should be the same as the location of the pool. The location and allocation type specified must match those of the pool otherwise [ErrInvalidValue] is returned. By default, a memory location's current memory pool is its default memory pool that can be obtained via [MemGetDefaultMemPool]. If the location type is [MemLocationTypeDevice] and the allocation type is [MemAllocationTypePinned], then this API is the equivalent of calling [Device.SetMemPool] with the location id as the device. For further details on the implications, please refer to the documentation for [Device.SetMemPool]. Note: Use [MemoryPool.MemAllocFromPoolAsync] to specify asynchronous allocations from a device different than the one the stream runs on. See also: [Device.DefaultMemPool], [Device.MemPool], [MemGetMemPool], [NewMemoryPool], [MemoryPool.Destroy], [MemoryPool.MemAllocFromPoolAsync]
 //
 // Wraps cuMemSetMemPool.
 func memSetMemPool(location *MemLocation, type_ MemAllocationType, pool MemoryPool) error {
@@ -6855,23 +6864,23 @@ func memUnmap(ptr DevicePtr, size uint) error {
 
 // memcpy Copies memory.
 //
-// Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyToSymbol, cudaMemcpyFromSymbol
+// Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyToSymbol, cudaMemcpyFromSymbol
 //
 //   - dst: Destination unified virtual address space pointer
 //   - src: Source unified virtual address space pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpy.
-func memcpy(dst DevicePtr, src DevicePtr, ByteCount uint) error {
+func memcpy(dst DevicePtr, src DevicePtr, byteCount uint) error {
 	if err := checkLibSym("cuMemcpy"); err != nil {
 		return err
 	}
-	return toError(fnmemcpy(dst, src, ByteCount))
+	return toError(fnmemcpy(dst, src, byteCount))
 }
 
 // Memcpy2D Copies memory for 2D arrays.
 //
-// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as: where: If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeDevice], srcDevice and srcPitch specify the (device) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice and srcPitch are ignored. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice and dstPitch are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Memcpy2D] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Memcpy2D] may fail for pitches not computed by [MemAllocPitch]. [Memcpy2DUnaligned] does not have this restriction, but may run significantly slower in the cases where [Memcpy2D] would have returned an error code. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy2D, cudaMemcpy2DToArray, cudaMemcpy2DFromArray
+// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as: where: If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeDevice], srcDevice and srcPitch specify the (device) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice and srcPitch are ignored. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice and dstPitch are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Memcpy2D] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Memcpy2D] may fail for pitches not computed by [MemAllocPitch]. [Memcpy2DUnaligned] does not have this restriction, but may run significantly slower in the cases where [Memcpy2D] would have returned an error code. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy2D, cudaMemcpy2DToArray, cudaMemcpy2DFromArray
 //
 //   - pCopy: Parameters for the memory copy
 //
@@ -6885,7 +6894,7 @@ func Memcpy2D(pCopy *Memcpy2d) error {
 
 // memcpy2DAsync Copies memory for 2D arrays.
 //
-// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as: where: If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeDevice], srcDevice and srcPitch specify the (device) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice and srcPitch are ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice and dstPitch are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Stream.Memcpy2DAsync] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Stream.Memcpy2DAsync] may fail for pitches not computed by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpy2DAsync, cudaMemcpy2DToArrayAsync, cudaMemcpy2DFromArrayAsync
+// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as: where: If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeDevice], srcDevice and srcPitch specify the (device) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice and srcPitch are ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice and dstPitch are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Stream.Memcpy2DAsync] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Stream.Memcpy2DAsync] may fail for pitches not computed by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpy2DAsync, cudaMemcpy2DToArrayAsync, cudaMemcpy2DFromArrayAsync
 //
 //   - pCopy: Parameters for the memory copy
 //   - hStream: Stream identifier
@@ -6900,7 +6909,7 @@ func memcpy2DAsync(pCopy *Memcpy2d, hStream Stream) error {
 
 // Memcpy2DUnaligned Copies memory for 2D arrays.
 //
-// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as: where: If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeDevice], srcDevice and srcPitch specify the (device) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice and srcPitch are ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice and dstPitch are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Memcpy2D] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Memcpy2D] may fail for pitches not computed by [MemAllocPitch]. [Memcpy2DUnaligned] does not have this restriction, but may run significantly slower in the cases where [Memcpy2D] would have returned an error code. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy2D, cudaMemcpy2DToArray, cudaMemcpy2DFromArray
+// Perform a 2D memory copy according to the parameters specified in pCopy. The [Memcpy2d] structure is defined as: where: If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeHost], srcHost and srcPitch specify the (host) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeDevice], srcDevice and srcPitch specify the (device) base address of the source data and the bytes per row to apply. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice and srcPitch are ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data and the bytes per row to apply. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice and dstPitch are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Memcpy2D] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). [MemAllocPitch] passes back pitches that always work with [Memcpy2D]. On intra-device memory copies (device to device, CUDA array to device, CUDA array to CUDA array), [Memcpy2D] may fail for pitches not computed by [MemAllocPitch]. [Memcpy2DUnaligned] does not have this restriction, but may run significantly slower in the cases where [Memcpy2D] would have returned an error code. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy2D, cudaMemcpy2DToArray, cudaMemcpy2DFromArray
 //
 //   - pCopy: Parameters for the memory copy
 //
@@ -6914,7 +6923,7 @@ func Memcpy2DUnaligned(pCopy *Memcpy2d) error {
 
 // Memcpy3D Copies memory for 3D arrays.
 //
-// Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as: where: If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeHost], srcHost, srcPitch and srcHeight specify the (host) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored. If srcMemoryType is [MemoryTypeDevice], srcDevice, srcPitch and srcHeight specify the (device) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice, srcPitch and srcHeight are ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice, dstPitch and dstHeight are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Memcpy3D] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). The srcLOD and dstLOD members of the [Memcpy3d] structure must be set to 0. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy3D
+// Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as: where: If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeHost], srcHost, srcPitch and srcHeight specify the (host) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored. If srcMemoryType is [MemoryTypeDevice], srcDevice, srcPitch and srcHeight specify the (device) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice, srcPitch and srcHeight are ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice, dstPitch and dstHeight are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Memcpy3D] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). The srcLOD and dstLOD members of the [Memcpy3d] structure must be set to 0. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy3D
 //
 //   - pCopy: Parameters for the memory copy
 //
@@ -6928,7 +6937,7 @@ func Memcpy3D(pCopy *Memcpy3d) error {
 
 // memcpy3DAsync Copies memory for 3D arrays.
 //
-// Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as: where: If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeHost], srcHost, srcPitch and srcHeight specify the (host) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored. If srcMemoryType is [MemoryTypeDevice], srcDevice, srcPitch and srcHeight specify the (device) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice, srcPitch and srcHeight are ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice, dstPitch and dstHeight are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Stream.Memcpy3DAsync] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). The srcLOD and dstLOD members of the [Memcpy3d] structure must be set to 0. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpy3DAsync
+// Perform a 3D memory copy according to the parameters specified in pCopy. The [Memcpy3d] structure is defined as: where: If srcMemoryType is [MemoryTypeUnified], srcDevice and srcPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. srcArray is ignored. This value may be used only if unified addressing is supported in the calling context. If srcMemoryType is [MemoryTypeHost], srcHost, srcPitch and srcHeight specify the (host) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored. If srcMemoryType is [MemoryTypeDevice], srcDevice, srcPitch and srcHeight specify the (device) base address of the source data, the bytes per row, and the height of each 2D slice of the 3D array. srcArray is ignored. If srcMemoryType is [MemoryTypeArray], srcArray specifies the handle of the source data. srcHost, srcDevice, srcPitch and srcHeight are ignored. If dstMemoryType is [MemoryTypeUnified], dstDevice and dstPitch specify the (unified virtual address space) base address of the source data and the bytes per row to apply. dstArray is ignored. This value may be used only if unified addressing is supported in the calling context. If dstMemoryType is [MemoryTypeHost], dstHost and dstPitch specify the (host) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored. If dstMemoryType is [MemoryTypeDevice], dstDevice and dstPitch specify the (device) base address of the destination data, the bytes per row, and the height of each 2D slice of the 3D array. dstArray is ignored. If dstMemoryType is [MemoryTypeArray], dstArray specifies the handle of the destination data. dstHost, dstDevice, dstPitch and dstHeight are ignored. For host pointers, the starting address is For device pointers, the starting address is For CUDA arrays, srcXInBytes must be evenly divisible by the array element size. For host pointers, the base address is For device pointers, the starting address is For CUDA arrays, dstXInBytes must be evenly divisible by the array element size. [Stream.Memcpy3DAsync] returns an error if any pitch is greater than the maximum allowed ( [DevAttrMaxPitch]). The srcLOD and dstLOD members of the [Memcpy3d] structure must be set to 0. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpy3DAsync
 //
 //   - pCopy: Parameters for the memory copy
 //   - hStream: Stream identifier
@@ -7005,89 +7014,89 @@ func memcpy3DWithAttributesAsync(op *Memcpy3dBatchOp, flags uint64, hStream Stre
 
 // memcpyAsync Copies memory asynchronously.
 //
-// Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyAsync, cudaMemcpyToSymbolAsync, cudaMemcpyFromSymbolAsync
+// Copies data between two pointers. dst and src are base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. Note that this function infers the type of the transfer (host to host, host to device, device to device, or device to host) from the pointer values. This function is only allowed in contexts which support unified addressing. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyAsync, cudaMemcpyToSymbolAsync, cudaMemcpyFromSymbolAsync
 //
 //   - dst: Destination unified virtual address space pointer
 //   - src: Source unified virtual address space pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
 //
 // Wraps cuMemcpyAsync.
-func memcpyAsync(dst DevicePtr, src DevicePtr, ByteCount uint, hStream Stream) error {
+func memcpyAsync(dst DevicePtr, src DevicePtr, byteCount uint, hStream Stream) error {
 	if err := checkLibSym("cuMemcpyAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAsync(dst, src, ByteCount, hStream))
+	return toError(fnmemcpyAsync(dst, src, byteCount, hStream))
 }
 
 // memcpyAtoA Copies memory from Array to Array.
 //
-// Copies from one 1D CUDA array to another. dstArray and srcArray specify the handles of the destination and source CUDA arrays for the copy, respectively. dstOffset and srcOffset specify the destination and source offsets in bytes into the CUDA arrays. ByteCount is the number of bytes to be copied. The size of the elements in the CUDA arrays need not be the same format, but the elements must be the same size; and count must be evenly divisible by that size. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyArrayToArray
+// Copies from one 1D CUDA array to another. dstArray and srcArray specify the handles of the destination and source CUDA arrays for the copy, respectively. dstOffset and srcOffset specify the destination and source offsets in bytes into the CUDA arrays. ByteCount is the number of bytes to be copied. The size of the elements in the CUDA arrays need not be the same format, but the elements must be the same size; and count must be evenly divisible by that size. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyArrayToArray
 //
 //   - dstArray: Destination array dstOffset- Offset in bytes of destination array srcArray- Source array srcOffset- Offset in bytes of source array ByteCount- Size of memory copy in bytes
 //   - dstOffset: Offset in bytes of destination array
 //   - srcArray: Source array
 //   - srcOffset: Offset in bytes of source array
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyAtoA, bound as cuMemcpyAtoA_v2.
-func memcpyAtoA(dstArray Array, dstOffset uint, srcArray Array, srcOffset uint, ByteCount uint) error {
+func memcpyAtoA(dstArray Array, dstOffset uint, srcArray Array, srcOffset uint, byteCount uint) error {
 	if err := checkLibSym("cuMemcpyAtoA_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAtoA(dstArray, dstOffset, srcArray, srcOffset, ByteCount))
+	return toError(fnmemcpyAtoA(dstArray, dstOffset, srcArray, srcOffset, byteCount))
 }
 
 // memcpyAtoD Copies memory from Array to Device.
 //
-// Copies from one 1D CUDA array to device memory. dstDevice specifies the base pointer of the destination and must be naturally aligned with the CUDA array elements. srcArray and srcOffset specify the CUDA array handle and the offset in bytes into the array where the copy is to begin. ByteCount specifies the number of bytes to copy and must be evenly divisible by the array element size. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyFromArray
+// Copies from one 1D CUDA array to device memory. dstDevice specifies the base pointer of the destination and must be naturally aligned with the CUDA array elements. srcArray and srcOffset specify the CUDA array handle and the offset in bytes into the array where the copy is to begin. ByteCount specifies the number of bytes to copy and must be evenly divisible by the array element size. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyFromArray
 //
 //   - dstDevice: Destination device pointer
 //   - srcArray: Source array
 //   - srcOffset: Offset in bytes of source array
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyAtoD, bound as cuMemcpyAtoD_v2.
-func memcpyAtoD(dstDevice DevicePtr, srcArray Array, srcOffset uint, ByteCount uint) error {
+func memcpyAtoD(dstDevice DevicePtr, srcArray Array, srcOffset uint, byteCount uint) error {
 	if err := checkLibSym("cuMemcpyAtoD_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAtoD(dstDevice, srcArray, srcOffset, ByteCount))
+	return toError(fnmemcpyAtoD(dstDevice, srcArray, srcOffset, byteCount))
 }
 
 // memcpyAtoH Copies memory from Array to Host.
 //
-// Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyFromArray
+// Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyFromArray
 //
 //   - dstHost: Destination device pointer
 //   - srcArray: Source array
 //   - srcOffset: Offset in bytes of source array
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyAtoH, bound as cuMemcpyAtoH_v2.
-func memcpyAtoH(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, ByteCount uint) error {
+func memcpyAtoH(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, byteCount uint) error {
 	if err := checkLibSym("cuMemcpyAtoH_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAtoH(dstHost, srcArray, srcOffset, ByteCount))
+	return toError(fnmemcpyAtoH(dstHost, srcArray, srcOffset, byteCount))
 }
 
 // memcpyAtoHAsync Copies memory from Array to Host.
 //
-// Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyFromArrayAsync
+// Copies from one 1D CUDA array to host memory. dstHost specifies the base pointer of the destination. srcArray and srcOffset specify the CUDA array handle and starting offset in bytes of the source data. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyFromArrayAsync
 //
 //   - dstHost: Destination pointer srcArray- Source array srcOffset- Offset in bytes of source array ByteCount- Size of memory copy in bytes hStream- Stream identifier
 //   - srcArray: Source array
 //   - srcOffset: Offset in bytes of source array
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
 //
 // Wraps cuMemcpyAtoHAsync, bound as cuMemcpyAtoHAsync_v2.
-func memcpyAtoHAsync(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, ByteCount uint, hStream Stream) error {
+func memcpyAtoHAsync(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, byteCount uint, hStream Stream) error {
 	if err := checkLibSym("cuMemcpyAtoHAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAtoHAsync(dstHost, srcArray, srcOffset, ByteCount, hStream))
+	return toError(fnmemcpyAtoHAsync(dstHost, srcArray, srcOffset, byteCount, hStream))
 }
 
 // memcpyBatchAsync Performs a batch of memory copies asynchronously.
@@ -7113,153 +7122,153 @@ func memcpyBatchAsync(dsts *DevicePtr, srcs *DevicePtr, sizes *uint, count uint,
 
 // memcpyDtoA Copies memory from Device to Array.
 //
-// Copies from device memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting index of the destination data. srcDevice specifies the base pointer of the source. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyToArray
+// Copies from device memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting index of the destination data. srcDevice specifies the base pointer of the source. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyToArray
 //
 //   - dstArray: Destination array dstOffset- Offset in bytes of destination array srcDevice- Source device pointer ByteCount- Size of memory copy in bytes
 //   - dstOffset: Offset in bytes of destination array
 //   - srcDevice: Source device pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyDtoA, bound as cuMemcpyDtoA_v2.
-func memcpyDtoA(dstArray Array, dstOffset uint, srcDevice DevicePtr, ByteCount uint) error {
+func memcpyDtoA(dstArray Array, dstOffset uint, srcDevice DevicePtr, byteCount uint) error {
 	if err := checkLibSym("cuMemcpyDtoA_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoA(dstArray, dstOffset, srcDevice, ByteCount))
+	return toError(fnmemcpyDtoA(dstArray, dstOffset, srcDevice, byteCount))
 }
 
 // memcpyDtoD Copies memory from Device to Device.
 //
-// Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyToSymbol, cudaMemcpyFromSymbol
+// Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyToSymbol, cudaMemcpyFromSymbol
 //
 //   - dstDevice: Destination device pointer
 //   - srcDevice: Source device pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyDtoD, bound as cuMemcpyDtoD_v2.
-func memcpyDtoD(dstDevice DevicePtr, srcDevice DevicePtr, ByteCount uint) error {
+func memcpyDtoD(dstDevice DevicePtr, srcDevice DevicePtr, byteCount uint) error {
 	if err := checkLibSym("cuMemcpyDtoD_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoD(dstDevice, srcDevice, ByteCount))
+	return toError(fnmemcpyDtoD(dstDevice, srcDevice, byteCount))
 }
 
 // memcpyDtoDAsync Copies memory from Device to Device.
 //
-// Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyAsync, cudaMemcpyToSymbolAsync, cudaMemcpyFromSymbolAsync
+// Copies from device memory to device memory. dstDevice and srcDevice are the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyAsync, cudaMemcpyToSymbolAsync, cudaMemcpyFromSymbolAsync
 //
 //   - dstDevice: Destination device pointer
 //   - srcDevice: Source device pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
 //
 // Wraps cuMemcpyDtoDAsync, bound as cuMemcpyDtoDAsync_v2.
-func memcpyDtoDAsync(dstDevice DevicePtr, srcDevice DevicePtr, ByteCount uint, hStream Stream) error {
+func memcpyDtoDAsync(dstDevice DevicePtr, srcDevice DevicePtr, byteCount uint, hStream Stream) error {
 	if err := checkLibSym("cuMemcpyDtoDAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoDAsync(dstDevice, srcDevice, ByteCount, hStream))
+	return toError(fnmemcpyDtoDAsync(dstDevice, srcDevice, byteCount, hStream))
 }
 
 // memcpyDtoH Copies memory from Device to Host.
 //
-// Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyFromSymbol
+// Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyFromSymbol
 //
 //   - dstHost: Destination host pointer
 //   - srcDevice: Source device pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyDtoH, bound as cuMemcpyDtoH_v2.
-func memcpyDtoH(dstHost unsafe.Pointer, srcDevice DevicePtr, ByteCount uint) error {
+func memcpyDtoH(dstHost unsafe.Pointer, srcDevice DevicePtr, byteCount uint) error {
 	if err := checkLibSym("cuMemcpyDtoH_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoH(dstHost, srcDevice, ByteCount))
+	return toError(fnmemcpyDtoH(dstHost, srcDevice, byteCount))
 }
 
 // memcpyDtoHAsync Copies memory from Device to Host.
 //
-// Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyAsync, cudaMemcpyFromSymbolAsync
+// Copies from device to host memory. dstHost and srcDevice specify the base pointers of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyAsync, cudaMemcpyFromSymbolAsync
 //
 //   - dstHost: Destination host pointer
 //   - srcDevice: Source device pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
 //
 // Wraps cuMemcpyDtoHAsync, bound as cuMemcpyDtoHAsync_v2.
-func memcpyDtoHAsync(dstHost unsafe.Pointer, srcDevice DevicePtr, ByteCount uint, hStream Stream) error {
+func memcpyDtoHAsync(dstHost unsafe.Pointer, srcDevice DevicePtr, byteCount uint, hStream Stream) error {
 	if err := checkLibSym("cuMemcpyDtoHAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoHAsync(dstHost, srcDevice, ByteCount, hStream))
+	return toError(fnmemcpyDtoHAsync(dstHost, srcDevice, byteCount, hStream))
 }
 
 // memcpyHtoA Copies memory from Host to Array.
 //
-// Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. pSrc specifies the base address of the source. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyToArray
+// Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. pSrc specifies the base address of the source. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpyToArray
 //
 //   - dstArray: Destination array dstOffset- Offset in bytes of destination array srcHost- Source host pointer ByteCount- Size of memory copy in bytes
 //   - dstOffset: Offset in bytes of destination array
 //   - srcHost: Source host pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyHtoA, bound as cuMemcpyHtoA_v2.
-func memcpyHtoA(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, ByteCount uint) error {
+func memcpyHtoA(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, byteCount uint) error {
 	if err := checkLibSym("cuMemcpyHtoA_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyHtoA(dstArray, dstOffset, srcHost, ByteCount))
+	return toError(fnmemcpyHtoA(dstArray, dstOffset, srcHost, byteCount))
 }
 
 // memcpyHtoAAsync Copies memory from Host to Array.
 //
-// Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. srcHost specifies the base address of the source. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyToArrayAsync
+// Copies from host memory to a 1D CUDA array. dstArray and dstOffset specify the CUDA array handle and starting offset in bytes of the destination data. srcHost specifies the base address of the source. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyToArrayAsync
 //
 //   - dstArray: Destination array dstOffset- Offset in bytes of destination array srcHost- Source host pointer ByteCount- Size of memory copy in bytes hStream- Stream identifier
 //   - dstOffset: Offset in bytes of destination array
 //   - srcHost: Source host pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
 //
 // Wraps cuMemcpyHtoAAsync, bound as cuMemcpyHtoAAsync_v2.
-func memcpyHtoAAsync(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, ByteCount uint, hStream Stream) error {
+func memcpyHtoAAsync(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, byteCount uint, hStream Stream) error {
 	if err := checkLibSym("cuMemcpyHtoAAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyHtoAAsync(dstArray, dstOffset, srcHost, ByteCount, hStream))
+	return toError(fnmemcpyHtoAAsync(dstArray, dstOffset, srcHost, byteCount, hStream))
 }
 
 // memcpyHtoD Copies memory from Host to Device.
 //
-// Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyToSymbol
+// Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], cudaMemcpy, cudaMemcpyToSymbol
 //
 //   - dstDevice: Destination device pointer
 //   - srcHost: Source host pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyHtoD, bound as cuMemcpyHtoD_v2.
-func memcpyHtoD(dstDevice DevicePtr, srcHost unsafe.Pointer, ByteCount uint) error {
+func memcpyHtoD(dstDevice DevicePtr, srcHost unsafe.Pointer, byteCount uint) error {
 	if err := checkLibSym("cuMemcpyHtoD_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyHtoD(dstDevice, srcHost, ByteCount))
+	return toError(fnmemcpyHtoD(dstDevice, srcHost, byteCount))
 }
 
 // memcpyHtoDAsync Copies memory from Host to Device.
 //
-// Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyAsync, cudaMemcpyToSymbolAsync
+// Copies from host memory to device memory. dstDevice and srcHost are the base addresses of the destination and source, respectively. ByteCount specifies the number of bytes to copy. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemcpyAsync, cudaMemcpyToSymbolAsync
 //
 //   - dstDevice: Destination device pointer
 //   - srcHost: Source host pointer
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
 //
 // Wraps cuMemcpyHtoDAsync, bound as cuMemcpyHtoDAsync_v2.
-func memcpyHtoDAsync(dstDevice DevicePtr, srcHost unsafe.Pointer, ByteCount uint, hStream Stream) error {
+func memcpyHtoDAsync(dstDevice DevicePtr, srcHost unsafe.Pointer, byteCount uint, hStream Stream) error {
 	if err := checkLibSym("cuMemcpyHtoDAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyHtoDAsync(dstDevice, srcHost, ByteCount, hStream))
+	return toError(fnmemcpyHtoDAsync(dstDevice, srcHost, byteCount, hStream))
 }
 
 // memcpyPeer Copies device memory between two contexts.
@@ -7270,14 +7279,14 @@ func memcpyHtoDAsync(dstDevice DevicePtr, srcHost unsafe.Pointer, ByteCount uint
 //   - dstContext: Destination context
 //   - srcDevice: Source device pointer
 //   - srcContext: Source context
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //
 // Wraps cuMemcpyPeer.
-func memcpyPeer(dstDevice DevicePtr, dstContext Context, srcDevice DevicePtr, srcContext Context, ByteCount uint) error {
+func memcpyPeer(dstDevice DevicePtr, dstContext Context, srcDevice DevicePtr, srcContext Context, byteCount uint) error {
 	if err := checkLibSym("cuMemcpyPeer"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyPeer(dstDevice, dstContext, srcDevice, srcContext, ByteCount))
+	return toError(fnmemcpyPeer(dstDevice, dstContext, srcDevice, srcContext, byteCount))
 }
 
 // memcpyPeerAsync Copies device memory between two contexts asynchronously.
@@ -7288,15 +7297,15 @@ func memcpyPeer(dstDevice DevicePtr, dstContext Context, srcDevice DevicePtr, sr
 //   - dstContext: Destination context
 //   - srcDevice: Source device pointer
 //   - srcContext: Source context
-//   - ByteCount: Size of memory copy in bytes
+//   - byteCount: Size of memory copy in bytes
 //   - hStream: Stream identifier
 //
 // Wraps cuMemcpyPeerAsync.
-func memcpyPeerAsync(dstDevice DevicePtr, dstContext Context, srcDevice DevicePtr, srcContext Context, ByteCount uint, hStream Stream) error {
+func memcpyPeerAsync(dstDevice DevicePtr, dstContext Context, srcDevice DevicePtr, srcContext Context, byteCount uint, hStream Stream) error {
 	if err := checkLibSym("cuMemcpyPeerAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyPeerAsync(dstDevice, dstContext, srcDevice, srcContext, ByteCount, hStream))
+	return toError(fnmemcpyPeerAsync(dstDevice, dstContext, srcDevice, srcContext, byteCount, hStream))
 }
 
 // memcpyWithAttributesAsync Performs asynchronous memory copy operation with the specified attributes.
@@ -7319,217 +7328,217 @@ func memcpyWithAttributesAsync(dst DevicePtr, src DevicePtr, size uint, attr *Me
 
 // memsetD16 Initializes device memory.
 //
-// Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset
+// Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset
 //
 //   - dstDevice: Destination device pointer
 //   - us: Value to set
-//   - N: Number of elements
+//   - n: Number of elements
 //
 // Wraps cuMemsetD16, bound as cuMemsetD16_v2.
-func memsetD16(dstDevice DevicePtr, us uint16, N uint) error {
+func memsetD16(dstDevice DevicePtr, us uint16, n uint) error {
 	if err := checkLibSym("cuMemsetD16_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD16(dstDevice, us, N))
+	return toError(fnmemsetD16(dstDevice, us, n))
 }
 
 // memsetD16Async Sets device memory.
 //
-// Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemsetAsync
+// Sets the memory range of N 16-bit values to the specified value us. The dstDevice pointer must be two byte aligned. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemsetAsync
 //
 //   - dstDevice: Destination device pointer
 //   - us: Value to set
-//   - N: Number of elements
+//   - n: Number of elements
 //   - hStream: Stream identifier
 //
 // Wraps cuMemsetD16Async.
-func memsetD16Async(dstDevice DevicePtr, us uint16, N uint, hStream Stream) error {
+func memsetD16Async(dstDevice DevicePtr, us uint16, n uint, hStream Stream) error {
 	if err := checkLibSym("cuMemsetD16Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD16Async(dstDevice, us, N, hStream))
+	return toError(fnmemsetD16Async(dstDevice, us, n, hStream))
 }
 
 // memsetD2D16 Initializes device memory.
 //
-// Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
+// Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
 //
 //   - dstDevice: Destination device pointer
 //   - dstPitch: Pitch of destination device pointer(Unused if Height is 1)
 //   - us: Value to set
-//   - Width: Width of row
-//   - Height: Number of rows
+//   - width: Width of row
+//   - height: Number of rows
 //
 // Wraps cuMemsetD2D16, bound as cuMemsetD2D16_v2.
-func memsetD2D16(dstDevice DevicePtr, dstPitch uint, us uint16, Width uint, Height uint) error {
+func memsetD2D16(dstDevice DevicePtr, dstPitch uint, us uint16, width uint, height uint) error {
 	if err := checkLibSym("cuMemsetD2D16_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D16(dstDevice, dstPitch, us, Width, Height))
+	return toError(fnmemsetD2D16(dstDevice, dstPitch, us, width, height))
 }
 
 // memsetD2D16Async Sets device memory.
 //
-// Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2DAsync
+// Sets the 2D memory range of Width 16-bit values to the specified value us. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be two byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2DAsync
 //
 //   - dstDevice: Destination device pointer
 //   - dstPitch: Pitch of destination device pointer(Unused if Height is 1)
 //   - us: Value to set
-//   - Width: Width of row
-//   - Height: Number of rows
+//   - width: Width of row
+//   - height: Number of rows
 //   - hStream: Stream identifier
 //
 // Wraps cuMemsetD2D16Async.
-func memsetD2D16Async(dstDevice DevicePtr, dstPitch uint, us uint16, Width uint, Height uint, hStream Stream) error {
+func memsetD2D16Async(dstDevice DevicePtr, dstPitch uint, us uint16, width uint, height uint, hStream Stream) error {
 	if err := checkLibSym("cuMemsetD2D16Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D16Async(dstDevice, dstPitch, us, Width, Height, hStream))
+	return toError(fnmemsetD2D16Async(dstDevice, dstPitch, us, width, height, hStream))
 }
 
 // memsetD2D32 Initializes device memory.
 //
-// Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
+// Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
 //
 //   - dstDevice: Destination device pointer
 //   - dstPitch: Pitch of destination device pointer(Unused if Height is 1)
 //   - ui: Value to set
-//   - Width: Width of row
-//   - Height: Number of rows
+//   - width: Width of row
+//   - height: Number of rows
 //
 // Wraps cuMemsetD2D32, bound as cuMemsetD2D32_v2.
-func memsetD2D32(dstDevice DevicePtr, dstPitch uint, ui uint32, Width uint, Height uint) error {
+func memsetD2D32(dstDevice DevicePtr, dstPitch uint, ui uint32, width uint, height uint) error {
 	if err := checkLibSym("cuMemsetD2D32_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D32(dstDevice, dstPitch, ui, Width, Height))
+	return toError(fnmemsetD2D32(dstDevice, dstPitch, ui, width, height))
 }
 
 // memsetD2D32Async Sets device memory.
 //
-// Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2DAsync
+// Sets the 2D memory range of Width 32-bit values to the specified value ui. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. The dstDevice pointer and dstPitch offset must be four byte aligned. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2DAsync
 //
 //   - dstDevice: Destination device pointer
 //   - dstPitch: Pitch of destination device pointer(Unused if Height is 1)
 //   - ui: Value to set
-//   - Width: Width of row
-//   - Height: Number of rows
+//   - width: Width of row
+//   - height: Number of rows
 //   - hStream: Stream identifier
 //
 // Wraps cuMemsetD2D32Async.
-func memsetD2D32Async(dstDevice DevicePtr, dstPitch uint, ui uint32, Width uint, Height uint, hStream Stream) error {
+func memsetD2D32Async(dstDevice DevicePtr, dstPitch uint, ui uint32, width uint, height uint, hStream Stream) error {
 	if err := checkLibSym("cuMemsetD2D32Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D32Async(dstDevice, dstPitch, ui, Width, Height, hStream))
+	return toError(fnmemsetD2D32Async(dstDevice, dstPitch, ui, width, height, hStream))
 }
 
 // memsetD2D8 Initializes device memory.
 //
-// Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
+// Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2D
 //
 //   - dstDevice: Destination device pointer
 //   - dstPitch: Pitch of destination device pointer(Unused if Height is 1)
 //   - uc: Value to set
-//   - Width: Width of row
-//   - Height: Number of rows
+//   - width: Width of row
+//   - height: Number of rows
 //
 // Wraps cuMemsetD2D8, bound as cuMemsetD2D8_v2.
-func memsetD2D8(dstDevice DevicePtr, dstPitch uint, uc uint8, Width uint, Height uint) error {
+func memsetD2D8(dstDevice DevicePtr, dstPitch uint, uc uint8, width uint, height uint) error {
 	if err := checkLibSym("cuMemsetD2D8_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D8(dstDevice, dstPitch, uc, Width, Height))
+	return toError(fnmemsetD2D8(dstDevice, dstPitch, uc, width, height))
 }
 
 // memsetD2D8Async Sets device memory.
 //
-// Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2DAsync
+// Sets the 2D memory range of Width 8-bit values to the specified value uc. Height specifies the number of rows to set, and dstPitch specifies the number of bytes between each row. This function performs fastest when the pitch is one that has been passed back by [MemAllocPitch]. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset2DAsync
 //
 //   - dstDevice: Destination device pointer
 //   - dstPitch: Pitch of destination device pointer(Unused if Height is 1)
 //   - uc: Value to set
-//   - Width: Width of row
-//   - Height: Number of rows
+//   - width: Width of row
+//   - height: Number of rows
 //   - hStream: Stream identifier
 //
 // Wraps cuMemsetD2D8Async.
-func memsetD2D8Async(dstDevice DevicePtr, dstPitch uint, uc uint8, Width uint, Height uint, hStream Stream) error {
+func memsetD2D8Async(dstDevice DevicePtr, dstPitch uint, uc uint8, width uint, height uint, hStream Stream) error {
 	if err := checkLibSym("cuMemsetD2D8Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D8Async(dstDevice, dstPitch, uc, Width, Height, hStream))
+	return toError(fnmemsetD2D8Async(dstDevice, dstPitch, uc, width, height, hStream))
 }
 
 // memsetD32 Initializes device memory.
 //
-// Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32Async], cudaMemset
+// Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32Async], cudaMemset
 //
 //   - dstDevice: Destination device pointer
 //   - ui: Value to set
-//   - N: Number of elements
+//   - n: Number of elements
 //
 // Wraps cuMemsetD32, bound as cuMemsetD32_v2.
-func memsetD32(dstDevice DevicePtr, ui uint32, N uint) error {
+func memsetD32(dstDevice DevicePtr, ui uint32, n uint) error {
 	if err := checkLibSym("cuMemsetD32_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD32(dstDevice, ui, N))
+	return toError(fnmemsetD32(dstDevice, ui, n))
 }
 
 // memsetD32Async Sets device memory.
 //
-// Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], cudaMemsetAsync
+// Sets the memory range of N 32-bit values to the specified value ui. The dstDevice pointer must be four byte aligned. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], cudaMemsetAsync
 //
 //   - dstDevice: Destination device pointer
 //   - ui: Value to set
-//   - N: Number of elements
+//   - n: Number of elements
 //   - hStream: Stream identifier
 //
 // Wraps cuMemsetD32Async.
-func memsetD32Async(dstDevice DevicePtr, ui uint32, N uint, hStream Stream) error {
+func memsetD32Async(dstDevice DevicePtr, ui uint32, n uint, hStream Stream) error {
 	if err := checkLibSym("cuMemsetD32Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD32Async(dstDevice, ui, N, hStream))
+	return toError(fnmemsetD32Async(dstDevice, ui, n, hStream))
 }
 
 // memsetD8 Initializes device memory.
 //
-// Sets the memory range of N 8-bit values to the specified value uc. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset
+// Sets the memory range of N 8-bit values to the specified value uc. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8Async], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemset
 //
 //   - dstDevice: Destination device pointer
 //   - uc: Value to set
-//   - N: Number of elements
+//   - n: Number of elements
 //
 // Wraps cuMemsetD8, bound as cuMemsetD8_v2.
-func memsetD8(dstDevice DevicePtr, uc uint8, N uint) error {
+func memsetD8(dstDevice DevicePtr, uc uint8, n uint) error {
 	if err := checkLibSym("cuMemsetD8_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD8(dstDevice, uc, N))
+	return toError(fnmemsetD8(dstDevice, uc, n))
 }
 
 // memsetD8Async Sets device memory.
 //
-// Sets the memory range of N 8-bit values to the specified value uc. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemsetAsync
+// Sets the memory range of N 8-bit values to the specified value uc. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.Descriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.CopyToHost], [DevicePtr.CopyToHostAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.CopyFromHost], [DevicePtr.CopyFromHostAsync], [DevicePtr.Free], [MemFreeHost], [DevicePtr.MemGetAddressRange], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D8Async], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D16Async], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD2D32Async], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD16Async], [DevicePtr.MemsetD32], [DevicePtr.MemsetD32Async], cudaMemsetAsync
 //
 //   - dstDevice: Destination device pointer
 //   - uc: Value to set
-//   - N: Number of elements
+//   - n: Number of elements
 //   - hStream: Stream identifier
 //
 // Wraps cuMemsetD8Async.
-func memsetD8Async(dstDevice DevicePtr, uc uint8, N uint, hStream Stream) error {
+func memsetD8Async(dstDevice DevicePtr, uc uint8, n uint, hStream Stream) error {
 	if err := checkLibSym("cuMemsetD8Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD8Async(dstDevice, uc, N, hStream))
+	return toError(fnmemsetD8Async(dstDevice, uc, n, hStream))
 }
 
 // mipmappedArrayCreate Creates a CUDA mipmapped array.
 //
-// Creates a CUDA mipmapped array according to the [Array3dDescriptor] structure pMipmappedArrayDesc and returns a handle to the new CUDA mipmapped array in *pHandle. numMipmapLevels specifies the number of mipmap levels to be allocated. This value is clamped to the range [1, 1 + floor(log2(max(width, height, depth)))]. The [Array3dDescriptor] is defined as: where: Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity's sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_MIPMAPPED_WIDTH refers to the device attribute [DevAttrMaximumTexture1dMipmappedWidth]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [MipmappedArray.Destroy], [MipmappedArray.GetLevel], [NewArray], cudaMallocMipmappedArray
+// Creates a CUDA mipmapped array according to the [Array3dDescriptor] structure pMipmappedArrayDesc and returns a handle to the new CUDA mipmapped array in *pHandle. numMipmapLevels specifies the number of mipmap levels to be allocated. This value is clamped to the range [1, 1 + floor(log2(max(width, height, depth)))]. The [Array3dDescriptor] is defined as: where: Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity's sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_MIPMAPPED_WIDTH refers to the device attribute [DevAttrMaximumTexture1dMipmappedWidth]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [MipmappedArray.Destroy], [MipmappedArray.Level], [NewArray], cudaMallocMipmappedArray
 //
 //   - pMipmappedArrayDesc: mipmapped array descriptor
 //   - numMipmapLevels: Number of mipmap levels
@@ -7550,7 +7559,7 @@ func mipmappedArrayCreate(pMipmappedArrayDesc *Array3dDescriptor, numMipmapLevel
 
 // mipmappedArrayDestroy Destroys a CUDA mipmapped array.
 //
-// Destroys the CUDA mipmapped array hMipmappedArray. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewMipmappedArray], [MipmappedArray.GetLevel], [NewArray], cudaFreeMipmappedArray
+// Destroys the CUDA mipmapped array hMipmappedArray. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewMipmappedArray], [MipmappedArray.Level], [NewArray], cudaFreeMipmappedArray
 //
 //   - hMipmappedArray: Mipmapped array to destroy
 //
@@ -7585,7 +7594,7 @@ func mipmappedArrayGetLevel(hMipmappedArray MipmappedArray, level uint32) (Array
 
 // mipmappedArrayGetMemoryRequirements Returns the memory requirements of a CUDA mipmapped array.
 //
-// Returns the memory requirements of a CUDA mipmapped array in memoryRequirements If the CUDA mipmapped array is not allocated with flag CUDA_ARRAY3D_DEFERRED_MAPPING [ErrInvalidValue] will be returned. The returned value in [ArrayMemoryRequirements].size represents the total size of the CUDA mipmapped array. The returned value in [ArrayMemoryRequirements].alignment represents the alignment necessary for mapping the CUDA mipmapped array. See also: [Array.GetMemoryRequirements], [Stream.MemMapArrayAsync]
+// Returns the memory requirements of a CUDA mipmapped array in memoryRequirements If the CUDA mipmapped array is not allocated with flag CUDA_ARRAY3D_DEFERRED_MAPPING [ErrInvalidValue] will be returned. The returned value in [ArrayMemoryRequirements].size represents the total size of the CUDA mipmapped array. The returned value in [ArrayMemoryRequirements].alignment represents the alignment necessary for mapping the CUDA mipmapped array. See also: [Array.MemoryRequirements], [Stream.MemMapArrayAsync]
 //
 //   - mipmap (in): CUDA mipmapped array to get the memory requirements of
 //   - device (in): Device to get the memory requirements for
@@ -7606,7 +7615,7 @@ func mipmappedArrayGetMemoryRequirements(mipmap MipmappedArray, device Device) (
 
 // mipmappedArrayGetSparseProperties Returns the layout properties of a sparse CUDA mipmapped array.
 //
-// Returns the sparse array layout properties in sparseProperties If the CUDA mipmapped array is not allocated with flag CUDA_ARRAY3D_SPARSE [ErrInvalidValue] will be returned. For non-layered CUDA mipmapped arrays, [ArraySparseProperties].miptailSize returns the size of the mip tail region. The mip tail region includes all mip levels whose width, height or depth is less than that of the tile. For layered CUDA mipmapped arrays, if [ArraySparseProperties].flags contains CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL, then [ArraySparseProperties].miptailSize specifies the size of the mip tail of all layers combined. Otherwise, [ArraySparseProperties].miptailSize specifies mip tail size per layer. The returned value of [ArraySparseProperties].miptailFirstLevel is valid only if [ArraySparseProperties].miptailSize is non-zero. See also: [Array.GetSparseProperties], [Stream.MemMapArrayAsync]
+// Returns the sparse array layout properties in sparseProperties If the CUDA mipmapped array is not allocated with flag CUDA_ARRAY3D_SPARSE [ErrInvalidValue] will be returned. For non-layered CUDA mipmapped arrays, [ArraySparseProperties].miptailSize returns the size of the mip tail region. The mip tail region includes all mip levels whose width, height or depth is less than that of the tile. For layered CUDA mipmapped arrays, if [ArraySparseProperties].flags contains CU_ARRAY_SPARSE_PROPERTIES_SINGLE_MIPTAIL, then [ArraySparseProperties].miptailSize specifies the size of the mip tail of all layers combined. Otherwise, [ArraySparseProperties].miptailSize specifies mip tail size per layer. The returned value of [ArraySparseProperties].miptailFirstLevel is valid only if [ArraySparseProperties].miptailSize is non-zero. See also: [Array.SparseProperties], [Stream.MemMapArrayAsync]
 //
 //   - mipmap (in): CUDA mipmapped array to get the sparse properties of
 //
@@ -7626,7 +7635,7 @@ func mipmappedArrayGetSparseProperties(mipmap MipmappedArray) (ArraySparseProper
 
 // moduleEnumerateFunctions Returns the function handles within a module.
 //
-// Returns in functions a maximum number of numFunctions function handles within mod. When function loading mode is set to LAZY the function retrieved may be partially loaded. The loading state of a function can be queried using cuFunctionIsLoaded. CUDA APIs may load the function automatically when called with partially loaded function handle which may incur additional latency. Alternatively, cuFunctionLoad can be used to explicitly load a function. The returned function handles become invalid when the module is unloaded. See also: [Module.GetFunction], [Module.GetFunctionCount], [Function.IsLoaded], [Function.Load]
+// Returns in functions a maximum number of numFunctions function handles within mod. When function loading mode is set to LAZY the function retrieved may be partially loaded. The loading state of a function can be queried using cuFunctionIsLoaded. CUDA APIs may load the function automatically when called with partially loaded function handle which may incur additional latency. Alternatively, cuFunctionLoad can be used to explicitly load a function. The returned function handles become invalid when the module is unloaded. See also: [Module.Function], [Module.FunctionCount], [Function.IsLoaded], [Function.Load]
 //
 //   - functions: Buffer where the function handles are returned to
 //   - numFunctions: Maximum number of function handles may be returned to the buffer
@@ -7642,7 +7651,7 @@ func moduleEnumerateFunctions(functions *Function, numFunctions uint32, mod Modu
 
 // moduleGetFunction Returns a function handle.
 //
-// Returns in *hfunc the handle of the function of name name located in module hmod. If no function of that name exists, [Module.GetFunction] returns [ErrNotFound]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.GetGlobal], [Module.GetTexRef], [NewModuleLoad], [NewModuleLoadData], [NewModuleLoadDataEx], [NewModuleLoadFatBinary], [Module.Unload]
+// Returns in *hfunc the handle of the function of name name located in module hmod. If no function of that name exists, [Module.Function] returns [ErrNotFound]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 //   - hmod: Module to retrieve function from
 //   - name: Name of function to retrieve
@@ -7682,7 +7691,7 @@ func moduleGetFunctionCount(mod Module) (uint32, error) {
 
 // moduleGetGlobal Returns a global pointer from a module.
 //
-// Returns in *dptr and *bytes the base pointer and size of the global of name name located in module hmod. If no variable of that name exists, [Module.GetGlobal] returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.GetFunction], [Module.GetTexRef], [NewModuleLoad], [NewModuleLoadData], [NewModuleLoadDataEx], [NewModuleLoadFatBinary], [Module.Unload], cudaGetSymbolAddress, cudaGetSymbolSize
+// Returns in *dptr and *bytes the base pointer and size of the global of name name located in module hmod. If no variable of that name exists, [Module.Global] returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload], cudaGetSymbolAddress, cudaGetSymbolSize
 //
 //   - hmod: Module to retrieve global from
 //   - name: Name of global to retrieve
@@ -7703,7 +7712,7 @@ func moduleGetGlobal(hmod Module, name string) (dptr DevicePtr, bytes uint, err 
 
 // ModuleGetLoadingMode Query lazy loading mode.
 //
-// Returns lazy loading mode Module loading mode is controlled by CUDA_MODULE_LOADING env variable Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewModuleLoad],
+// Returns lazy loading mode Module loading mode is controlled by CUDA_MODULE_LOADING env variable Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ModuleLoad],
 //
 // Wraps cuModuleGetLoadingMode.
 func ModuleGetLoadingMode() (ModuleLoadingMode, error) {
@@ -7724,9 +7733,9 @@ func ModuleGetLoadingMode() (ModuleLoadingMode, error) {
 //   - hmod: Module to retrieve surface reference from
 //   - name: Name of surface reference to retrieve
 //
-// See also: [Module.GetFunction], [Module.GetGlobal], [Module.GetTexRef], [NewModuleLoad], [NewModuleLoadData], [NewModuleLoadDataEx], [NewModuleLoadFatBinary], [Module.Unload]
+// See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
-// Deprecated: Returns in *pSurfRef the handle of the surface reference of name name in the module hmod. If no surface reference of that name exists, [Module.GetSurfRef]() returns [ErrNotFound].
+// Deprecated: Returns in *pSurfRef the handle of the surface reference of name name in the module hmod. If no surface reference of that name exists, [Module.SurfRef]() returns [ErrNotFound].
 //
 // Wraps cuModuleGetSurfRef.
 func moduleGetSurfRef(hmod Module, name *byte) (SurfRef, error) {
@@ -7747,9 +7756,9 @@ func moduleGetSurfRef(hmod Module, name *byte) (SurfRef, error) {
 //   - hmod: Module to retrieve texture reference from
 //   - name: Name of texture reference to retrieve
 //
-// See also: [Module.GetFunction], [Module.GetGlobal], [Module.GetSurfRef], [NewModuleLoad], [NewModuleLoadData], [NewModuleLoadDataEx], [NewModuleLoadFatBinary], [Module.Unload]
+// See also: [Module.Function], [Module.Global], [Module.SurfRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
-// Deprecated: Returns in *pTexRef the handle of the texture reference of name name in the module hmod. If no texture reference of that name exists, [Module.GetTexRef]() returns [ErrNotFound]. This texture reference handle should not be destroyed, since it will be destroyed when the module is unloaded.
+// Deprecated: Returns in *pTexRef the handle of the texture reference of name name in the module hmod. If no texture reference of that name exists, [Module.TexRef]() returns [ErrNotFound]. This texture reference handle should not be destroyed, since it will be destroyed when the module is unloaded.
 //
 // Wraps cuModuleGetTexRef.
 func moduleGetTexRef(hmod Module, name *byte) (TexRef, error) {
@@ -7767,7 +7776,7 @@ func moduleGetTexRef(hmod Module, name *byte) (TexRef, error) {
 
 // moduleLoad Loads a compute module.
 //
-// Takes a filename fname and loads the corresponding module module into the current context. The CUDA driver API does not attempt to lazily allocate the resources needed by a module; if the memory for functions and data (constant and global) needed by the module cannot be allocated, [NewModuleLoad] fails. The file should be a cubin file as output by nvcc, or a PTX file either as output by nvcc or handwritten, or a fatbin file as output by nvcc from toolchain 4.0 or later, or a Tile IR file. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.GetFunction], [Module.GetGlobal], [Module.GetTexRef], [NewModuleLoadData], [NewModuleLoadDataEx], [NewModuleLoadFatBinary], [Module.Unload]
+// Takes a filename fname and loads the corresponding module module into the current context. The CUDA driver API does not attempt to lazily allocate the resources needed by a module; if the memory for functions and data (constant and global) needed by the module cannot be allocated, [ModuleLoad] fails. The file should be a cubin file as output by nvcc, or a PTX file either as output by nvcc or handwritten, or a fatbin file as output by nvcc from toolchain 4.0 or later, or a Tile IR file. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 //   - fname: Filename of module to load
 //
@@ -7786,18 +7795,18 @@ func moduleLoad(fname string) (Module, error) {
 
 // moduleLoadData Load a module's data.
 //
-// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.GetFunction], [Module.GetGlobal], [Module.GetTexRef], [NewModuleLoad], [NewModuleLoadDataEx], [NewModuleLoadFatBinary], [Module.Unload]
+// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 //   - image: Module data to load
 //
 // Wraps cuModuleLoadData.
-func moduleLoadData(image unsafe.Pointer) (Module, error) {
+func moduleLoadData(image []byte) (Module, error) {
 	if err := checkLibSym("cuModuleLoadData"); err != nil {
 		var zero Module
 		return zero, err
 	}
 	var out Module
-	if err := toError(fnmoduleLoadData(&out, image)); err != nil {
+	if err := toError(fnmoduleLoadData(&out, unsafe.Pointer(nulTerminated(image)))); err != nil {
 		var zero Module
 		return zero, err
 	}
@@ -7806,7 +7815,7 @@ func moduleLoadData(image unsafe.Pointer) (Module, error) {
 
 // moduleLoadDataEx Load a module's data with options.
 //
-// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.GetFunction], [Module.GetGlobal], [Module.GetTexRef], [NewModuleLoad], [NewModuleLoadData], [NewModuleLoadFatBinary], [Module.Unload]
+// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadFatBinary], [Module.Unload]
 //
 //   - image: Module data to load
 //   - numOptions: Number of options
@@ -7814,13 +7823,13 @@ func moduleLoadData(image unsafe.Pointer) (Module, error) {
 //   - optionValues: Option values for JIT
 //
 // Wraps cuModuleLoadDataEx.
-func moduleLoadDataEx(image unsafe.Pointer, numOptions uint32, options *JITOption, optionValues *uintptr) (Module, error) {
+func moduleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optionValues *uintptr) (Module, error) {
 	if err := checkLibSym("cuModuleLoadDataEx"); err != nil {
 		var zero Module
 		return zero, err
 	}
 	var out Module
-	if err := toError(fnmoduleLoadDataEx(&out, image, numOptions, options, optionValues)); err != nil {
+	if err := toError(fnmoduleLoadDataEx(&out, unsafe.Pointer(nulTerminated(image)), numOptions, options, optionValues)); err != nil {
 		var zero Module
 		return zero, err
 	}
@@ -7829,18 +7838,18 @@ func moduleLoadDataEx(image unsafe.Pointer, numOptions uint32, options *JITOptio
 
 // moduleLoadFatBinary Load a module's data.
 //
-// Takes a pointer fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures. Prior to CUDA 4.0, there was no documented API for constructing and using fat binary objects by programmers. Starting with CUDA 4.0, fat binary objects can be constructed by providing the -fatbin option to nvcc. More information can be found in the nvcc document. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.GetFunction], [Module.GetGlobal], [Module.GetTexRef], [NewModuleLoad], [NewModuleLoadData], [NewModuleLoadDataEx], [Module.Unload]
+// Takes a pointer fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures. Prior to CUDA 4.0, there was no documented API for constructing and using fat binary objects by programmers. Starting with CUDA 4.0, fat binary objects can be constructed by providing the -fatbin option to nvcc. More information can be found in the nvcc document. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [Module.Unload]
 //
 //   - fatCubin: Fat binary to load
 //
 // Wraps cuModuleLoadFatBinary.
-func moduleLoadFatBinary(fatCubin unsafe.Pointer) (Module, error) {
+func moduleLoadFatBinary(fatCubin []byte) (Module, error) {
 	if err := checkLibSym("cuModuleLoadFatBinary"); err != nil {
 		var zero Module
 		return zero, err
 	}
 	var out Module
-	if err := toError(fnmoduleLoadFatBinary(&out, fatCubin)); err != nil {
+	if err := toError(fnmoduleLoadFatBinary(&out, unsafe.Pointer(nulTerminated(fatCubin)))); err != nil {
 		var zero Module
 		return zero, err
 	}
@@ -7849,7 +7858,7 @@ func moduleLoadFatBinary(fatCubin unsafe.Pointer) (Module, error) {
 
 // moduleUnload Unloads a module.
 //
-// Unloads a module hmod from the current context. Attempting to unload a module which was obtained from the Library Management API such as [Library.GetModule] will return [ErrNotPermitted]. See also: [Module.GetFunction], [Module.GetGlobal], [Module.GetTexRef], [NewModuleLoad], [NewModuleLoadData], [NewModuleLoadDataEx], [NewModuleLoadFatBinary]
+// Unloads a module hmod from the current context. Attempting to unload a module which was obtained from the Library Management API such as [Library.Module] will return [ErrNotPermitted]. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary]
 //
 //   - hmod: Module to unload
 //
@@ -8012,7 +8021,7 @@ func multicastUnbind(mcHandle uint64, dev Device, mcOffset uint, size uint) erro
 
 // occupancyAvailableDynamicSMemPerBlock Returns dynamic shared memory available per block when launching numBlocks blocks on SM.
 //
-// Returns in *dynamicSmemSize the maximum size of dynamic shared memory to allow numBlocks blocks per SM. Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches.
+// Returns in *dynamicSmemSize the maximum size of dynamic shared memory to allow numBlocks blocks per SM. Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - func_: Kernel function for which occupancy is calculated
 //   - numBlocks: Number of blocks to fit on SM
@@ -8034,7 +8043,7 @@ func occupancyAvailableDynamicSMemPerBlock(func_ Function, numBlocks int32, bloc
 
 // occupancyMaxActiveBlocksPerMultiprocessor Returns occupancy of a function.
 //
-// Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor. Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxActiveBlocksPerMultiprocessor
+// Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor. Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxActiveBlocksPerMultiprocessor
 //
 //   - func_: Kernel for which occupancy is calculated
 //   - blockSize: Block size the kernel is intended to be launched with
@@ -8056,7 +8065,7 @@ func occupancyMaxActiveBlocksPerMultiprocessor(func_ Function, blockSize int32, 
 
 // occupancyMaxActiveBlocksPerMultiprocessorWithFlags Returns occupancy of a function.
 //
-// Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor. The Flags parameter controls how special cases are handled. The valid flags are: Note that the API can also be with launch context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags
+// Returns in *numBlocks the number of the maximum active blocks per streaming multiprocessor. The Flags parameter controls how special cases are handled. The valid flags are: Note that the API can also be with launch context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags
 //
 //   - func_: Kernel for which occupancy is calculated
 //   - blockSize: Block size the kernel is intended to be launched with
@@ -8064,13 +8073,13 @@ func occupancyMaxActiveBlocksPerMultiprocessor(func_ Function, blockSize int32, 
 //   - flags: Requested behavior for the occupancy calculator
 //
 // Wraps cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags.
-func occupancyMaxActiveBlocksPerMultiprocessorWithFlags(func_ Function, blockSize int32, dynamicSMemSize uint, flags uint32) (int32, error) {
+func occupancyMaxActiveBlocksPerMultiprocessorWithFlags(func_ Function, blockSize int32, dynamicSMemSize uint, flags OccupancyFlags) (int32, error) {
 	if err := checkLibSym("cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags(&out, func_, blockSize, dynamicSMemSize, flags)); err != nil {
+	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags(&out, func_, blockSize, dynamicSMemSize, uint32(flags))); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -8079,7 +8088,7 @@ func occupancyMaxActiveBlocksPerMultiprocessorWithFlags(func_ Function, blockSiz
 
 // occupancyMaxActiveClusters Given the kernel function ( func) and launch configuration ( config), return the maximum number of clusters that could co-exist on the target device in *numClusters.
 //
-// If the function has required cluster size already set (see cudaFuncGetAttributes / [Function.GetAttribute]), the cluster size from config must either be unspecified or match the required size. Without required sizes, the cluster size must be specified in config, else the function will return an error. Note that various attributes of the kernel function may affect occupancy calculation. Runtime environment may affect how the hardware schedules the clusters, so the calculated occupancy is not guaranteed to be achievable. Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will either be taken from the specified stream config->hStream or the current context in case of NULL stream. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaFuncGetAttributes, [Function.GetAttribute]
+// If the function has required cluster size already set (see cudaFuncGetAttributes / [Function.Attribute]), the cluster size from config must either be unspecified or match the required size. Without required sizes, the cluster size must be specified in config, else the function will return an error. Note that various attributes of the kernel function may affect occupancy calculation. Runtime environment may affect how the hardware schedules the clusters, so the calculated occupancy is not guaranteed to be achievable. Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will either be taken from the specified stream config->hStream or the current context in case of NULL stream. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaFuncGetAttributes, [Function.Attribute]
 //
 //   - func_: Kernel function for which maximum number of clusters are calculated
 //   - config: Launch configuration for the given kernel function
@@ -8100,7 +8109,7 @@ func occupancyMaxActiveClusters(func_ Function, config *LaunchConfig) (int32, er
 
 // occupancyMaxPotentialBlockSize Suggest a launch configuration with reasonable occupancy.
 //
-// Returns in *blockSize a reasonable block size that can achieve the maximum occupancy (or, the maximum number of active warps with the fewest blocks per multiprocessor), and in *minGridSize the minimum grid size to achieve the maximum occupancy. If blockSizeLimit is 0, the configurator will use the maximum block size permitted by the device / function instead. If per-block dynamic shared memory allocation is not needed, the user should leave both blockSizeToDynamicSMemSize and dynamicSMemSize as 0. If per-block dynamic shared memory allocation is needed, then if the dynamic shared memory size is constant regardless of block size, the size should be passed through dynamicSMemSize, and blockSizeToDynamicSMemSize should be NULL. Otherwise, if the per-block dynamic shared memory size varies with different block sizes, the user needs to provide a unary function through blockSizeToDynamicSMemSize that computes the dynamic shared memory needed by func for any given block size. dynamicSMemSize is ignored. An example signature is: Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxPotentialBlockSize
+// Returns in *blockSize a reasonable block size that can achieve the maximum occupancy (or, the maximum number of active warps with the fewest blocks per multiprocessor), and in *minGridSize the minimum grid size to achieve the maximum occupancy. If blockSizeLimit is 0, the configurator will use the maximum block size permitted by the device / function instead. If per-block dynamic shared memory allocation is not needed, the user should leave both blockSizeToDynamicSMemSize and dynamicSMemSize as 0. If per-block dynamic shared memory allocation is needed, then if the dynamic shared memory size is constant regardless of block size, the size should be passed through dynamicSMemSize, and blockSizeToDynamicSMemSize should be NULL. Otherwise, if the per-block dynamic shared memory size varies with different block sizes, the user needs to provide a unary function through blockSizeToDynamicSMemSize that computes the dynamic shared memory needed by func for any given block size. dynamicSMemSize is ignored. An example signature is: Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxPotentialBlockSize
 //
 //   - func_: Kernel for which launch configuration is calculated
 //   - blockSizeToDynamicSMemSize: A function that calculates how much per-block dynamic shared memory func uses based on the block size (see [OccupancyB2DSize])
@@ -8122,7 +8131,7 @@ func occupancyMaxPotentialBlockSize(func_ Function, blockSizeToDynamicSMemSize u
 
 // occupancyMaxPotentialBlockSizeWithFlags Suggest a launch configuration with reasonable occupancy.
 //
-// An extended version of [Function.MaxPotentialBlockSize]. In addition to arguments passed to [Function.MaxPotentialBlockSize], [Function.MaxPotentialBlockSizeWithFlags] also takes a Flags parameter. The Flags parameter controls how special cases are handled. The valid flags are: Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxPotentialBlockSizeWithFlags
+// An extended version of [Function.MaxPotentialBlockSize]. In addition to arguments passed to [Function.MaxPotentialBlockSize], [Function.MaxPotentialBlockSizeWithFlags] also takes a Flags parameter. The Flags parameter controls how special cases are handled. The valid flags are: Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxPotentialBlockSizeWithFlags
 //
 //   - func_: Kernel for which launch configuration is calculated
 //   - blockSizeToDynamicSMemSize: A function that calculates how much per-block dynamic shared memory func uses based on the block size (see [OccupancyB2DSize])
@@ -8131,13 +8140,13 @@ func occupancyMaxPotentialBlockSize(func_ Function, blockSizeToDynamicSMemSize u
 //   - flags: Options
 //
 // Wraps cuOccupancyMaxPotentialBlockSizeWithFlags.
-func occupancyMaxPotentialBlockSizeWithFlags(func_ Function, blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32, flags uint32) (minGridSize int32, blockSize int32, err error) {
+func occupancyMaxPotentialBlockSizeWithFlags(func_ Function, blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32, flags OccupancyFlags) (minGridSize int32, blockSize int32, err error) {
 	if err := checkLibSym("cuOccupancyMaxPotentialBlockSizeWithFlags"); err != nil {
 		return 0, 0, err
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fnoccupancyMaxPotentialBlockSizeWithFlags(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, flags)); err != nil {
+	if err := toError(fnoccupancyMaxPotentialBlockSizeWithFlags(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, uint32(flags))); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -8145,7 +8154,7 @@ func occupancyMaxPotentialBlockSizeWithFlags(func_ Function, blockSizeToDynamicS
 
 // occupancyMaxPotentialClusterSize Given the kernel function ( func) and launch configuration ( config), return the maximum cluster size in *clusterSize.
 //
-// The cluster dimensions in config are ignored. If func has a required cluster size set (see cudaFuncGetAttributes / [Function.GetAttribute]), *clusterSize will reflect the required cluster size. By default this function will always return a value that's portable on future hardware. A higher value may be returned if the kernel function allows non-portable cluster sizes. This function will respect the compile time launch bounds. Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will either be taken from the specified stream config->hStream or the current context in case of NULL stream. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaFuncGetAttributes, [Function.GetAttribute]
+// The cluster dimensions in config are ignored. If func has a required cluster size set (see cudaFuncGetAttributes / [Function.Attribute]), *clusterSize will reflect the required cluster size. By default this function will always return a value that's portable on future hardware. A higher value may be returned if the kernel function allows non-portable cluster sizes. This function will respect the compile time launch bounds. Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.Kernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will either be taken from the specified stream config->hStream or the current context in case of NULL stream. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaFuncGetAttributes, [Function.Attribute]
 //
 //   - func_: Kernel function for which maximum cluster size is calculated
 //   - config: Launch configuration for the given kernel function
@@ -8169,7 +8178,7 @@ func occupancyMaxPotentialClusterSize(func_ Function, config *LaunchConfig) (int
 //   - hfunc: Kernel to set parameter size for
 //   - numbytes: Size of parameter list in bytes
 //
-// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.GetAttribute], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
+// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetf], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 // Deprecated: Sets through numbytes the total size in bytes needed by the function parameters of the kernel corresponding to hfunc.
 //
@@ -8187,7 +8196,7 @@ func paramSetSize(hfunc Function, numbytes uint32) error {
 //   - texunit: Texture unit (must be CU_PARAM_TR_DEFAULT)
 //   - hTexRef: Texture-reference to add to argument list
 //
-// Deprecated: Makes the CUDA array or linear memory bound to the texture reference hTexRef available to a device program as a texture. In this version of CUDA, the texture-reference must be obtained via [Module.GetTexRef]() and the texunit parameter must be set to CU_PARAM_TR_DEFAULT.
+// Deprecated: Makes the CUDA array or linear memory bound to the texture reference hTexRef available to a device program as a texture. In this version of CUDA, the texture-reference must be obtained via [Module.TexRef]() and the texunit parameter must be set to CU_PARAM_TR_DEFAULT.
 //
 // Wraps cuParamSetTexRef.
 func paramSetTexRef(hfunc Function, texunit int32, hTexRef TexRef) error {
@@ -8203,7 +8212,7 @@ func paramSetTexRef(hfunc Function, texunit int32, hTexRef TexRef) error {
 //   - offset: Offset to add parameter to argument list
 //   - value: Value of parameter
 //
-// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.GetAttribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
+// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSeti], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 // Deprecated: Sets a floating-point parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
 //
@@ -8221,7 +8230,7 @@ func paramSetf(hfunc Function, offset int32, value float32) error {
 //   - offset: Offset to add parameter to argument list
 //   - value: Value of parameter
 //
-// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.GetAttribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
+// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSetv], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 // Deprecated: Sets an integer parameter that will be specified the next time the kernel corresponding to hfunc will be invoked. offset is a byte offset.
 //
@@ -8240,7 +8249,7 @@ func paramSeti(hfunc Function, offset int32, value uint32) error {
 //   - ptr: Pointer to arbitrary data
 //   - numbytes: Size of data to copy in bytes
 //
-// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.GetAttribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
+// See also: [Function.SetBlockShape], [Function.SetSharedSize], [Function.Attribute], [Function.ParamSetSize], [Function.ParamSetf], [Function.ParamSeti], [Function.Launch], [Function.LaunchGrid], [Function.LaunchGridAsync], [Function.LaunchKernel]
 //
 // Deprecated: Copies an arbitrary amount of data (specified in numbytes) from ptr into the parameter space of the kernel corresponding to hfunc. offset is a byte offset.
 //
@@ -8254,7 +8263,7 @@ func paramSetv(hfunc Function, offset int32, ptr unsafe.Pointer, numbytes uint32
 
 // pointerGetAttribute Returns information about a pointer.
 //
-// The supported attributes are: Returns in *data the [Context] in which ptr was allocated or registered. The type of data must be [Context] *. If ptr was not allocated by, mapped by, or registered with a [Context] which uses unified virtual addressing then [ErrInvalidValue] is returned. Returns in *data the physical memory type of the memory that ptr addresses as a [MemoryType] enumerated value. The type of data must be unsigned int. If ptr addresses device memory then *data is set to [MemoryTypeDevice]. The particular [Device] on which the memory resides is the [Device] of the [Context] returned by the [PointerAttributeContext] attribute of ptr. If ptr addresses host memory then *data is set to [MemoryTypeHost]. If ptr was not allocated by, mapped by, or registered with a [Context] which uses unified virtual addressing then [ErrInvalidValue] is returned. If the current [Context] does not support unified virtual addressing then [ErrInvalidContext] is returned. Returns in *data the device pointer value through which ptr may be accessed by kernels running in the current [Context]. The type of data must be [DevicePtr] *. If there exists no device pointer value through which kernels running in the current [Context] may access ptr then [ErrInvalidValue] is returned. If there is no current [Context] then [ErrInvalidContext] is returned. Except in the exceptional disjoint addressing cases discussed below, the value returned in *data will equal the input value ptr. Returns in *data the host pointer value through which ptr may be accessed by by the host program. The type of data must be void **. If there exists no host pointer value through which the host program may directly access ptr then [ErrInvalidValue] is returned. Except in the exceptional disjoint addressing cases discussed below, the value returned in *data will equal the input value ptr. Returns in *data two tokens for use with the nv-p2p.h Linux kernel interface. data must be a struct of type [PointerAttributeP2PTokens]. ptr must be a pointer to memory obtained from : [MemAlloc]. Note that p2pToken and vaSpaceToken are only valid for the lifetime of the source allocation. A subsequent allocation at the same address may return completely different tokens. Querying this attribute has a side effect of setting the attribute [PointerAttributeSyncMemops] for the region of memory that ptr points to. A boolean attribute which when set, ensures that synchronous memory operations initiated on the region of memory that ptr points to will always synchronize. See further documentation in the section titled "API synchronization behavior" to learn more about cases when synchronous memory operations can exhibit asynchronous behavior. Returns in *data a buffer ID which is guaranteed to be unique within the process. data must point to an unsigned long long. ptr must be a pointer to memory obtained from a CUDA memory allocation API. Every memory allocation from any of the CUDA memory allocation APIs will have a unique ID over a process lifetime. Subsequent allocations do not reuse IDs from previous freed allocations. IDs are only unique within a single process. Returns in *data a boolean that indicates whether the pointer points to managed memory or not. If ptr is not a valid CUDA pointer then [ErrInvalidValue] is returned. Returns in *data an integer representing a device ordinal of a device against which the memory was allocated or registered. Returns in *data a boolean that indicates if this pointer maps to an allocation that is suitable for cudaIpcGetMemHandle. Returns in *data the starting address for the allocation referenced by the device pointer ptr. Note that this is not necessarily the address of the mapped region, but the address of the mappable address range ptr references (e.g. from [DevicePtr.MemAddressReserve]). Returns in *data the size for the allocation referenced by the device pointer ptr. Note that this is not necessarily the size of the mapped region, but the size of the mappable address range ptr references (e.g. from [DevicePtr.MemAddressReserve]). To retrieve the size of the mapped region, see [DevicePtr.MemGetAddressRange] Returns in *data a boolean that indicates if this pointer is in a valid address range that is mapped to a backing allocation. Returns a bitmask of the allowed handle types for an allocation that may be passed to [MemExportToShareableHandle]. Returns in *data the handle to the mempool that the allocation was obtained from. Returns in *data a boolean that indicates whether the pointer points to memory that is capable to be used for hardware accelerated decompression. Note that for most allocations in the unified virtual address space the host and device pointer for accessing the allocation will be the same. The exceptions to this are Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [DevicePtr.PointerSetAttribute], [MemAlloc], [DevicePtr.MemFree], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister], cudaPointerGetAttributes
+// The supported attributes are: Returns in *data the [Context] in which ptr was allocated or registered. The type of data must be [Context] *. If ptr was not allocated by, mapped by, or registered with a [Context] which uses unified virtual addressing then [ErrInvalidValue] is returned. Returns in *data the physical memory type of the memory that ptr addresses as a [MemoryType] enumerated value. The type of data must be unsigned int. If ptr addresses device memory then *data is set to [MemoryTypeDevice]. The particular [Device] on which the memory resides is the [Device] of the [Context] returned by the [PointerAttributeContext] attribute of ptr. If ptr addresses host memory then *data is set to [MemoryTypeHost]. If ptr was not allocated by, mapped by, or registered with a [Context] which uses unified virtual addressing then [ErrInvalidValue] is returned. If the current [Context] does not support unified virtual addressing then [ErrInvalidContext] is returned. Returns in *data the device pointer value through which ptr may be accessed by kernels running in the current [Context]. The type of data must be [DevicePtr] *. If there exists no device pointer value through which kernels running in the current [Context] may access ptr then [ErrInvalidValue] is returned. If there is no current [Context] then [ErrInvalidContext] is returned. Except in the exceptional disjoint addressing cases discussed below, the value returned in *data will equal the input value ptr. Returns in *data the host pointer value through which ptr may be accessed by by the host program. The type of data must be void **. If there exists no host pointer value through which the host program may directly access ptr then [ErrInvalidValue] is returned. Except in the exceptional disjoint addressing cases discussed below, the value returned in *data will equal the input value ptr. Returns in *data two tokens for use with the nv-p2p.h Linux kernel interface. data must be a struct of type [PointerAttributeP2PTokens]. ptr must be a pointer to memory obtained from : [MemAlloc]. Note that p2pToken and vaSpaceToken are only valid for the lifetime of the source allocation. A subsequent allocation at the same address may return completely different tokens. Querying this attribute has a side effect of setting the attribute [PointerAttributeSyncMemops] for the region of memory that ptr points to. A boolean attribute which when set, ensures that synchronous memory operations initiated on the region of memory that ptr points to will always synchronize. See further documentation in the section titled "API synchronization behavior" to learn more about cases when synchronous memory operations can exhibit asynchronous behavior. Returns in *data a buffer ID which is guaranteed to be unique within the process. data must point to an unsigned long long. ptr must be a pointer to memory obtained from a CUDA memory allocation API. Every memory allocation from any of the CUDA memory allocation APIs will have a unique ID over a process lifetime. Subsequent allocations do not reuse IDs from previous freed allocations. IDs are only unique within a single process. Returns in *data a boolean that indicates whether the pointer points to managed memory or not. If ptr is not a valid CUDA pointer then [ErrInvalidValue] is returned. Returns in *data an integer representing a device ordinal of a device against which the memory was allocated or registered. Returns in *data a boolean that indicates if this pointer maps to an allocation that is suitable for cudaIpcGetMemHandle. Returns in *data the starting address for the allocation referenced by the device pointer ptr. Note that this is not necessarily the address of the mapped region, but the address of the mappable address range ptr references (e.g. from [DevicePtr.MemAddressReserve]). Returns in *data the size for the allocation referenced by the device pointer ptr. Note that this is not necessarily the size of the mapped region, but the size of the mappable address range ptr references (e.g. from [DevicePtr.MemAddressReserve]). To retrieve the size of the mapped region, see [DevicePtr.MemGetAddressRange] Returns in *data a boolean that indicates if this pointer is in a valid address range that is mapped to a backing allocation. Returns a bitmask of the allowed handle types for an allocation that may be passed to [MemExportToShareableHandle]. Returns in *data the handle to the mempool that the allocation was obtained from. Returns in *data a boolean that indicates whether the pointer points to memory that is capable to be used for hardware accelerated decompression. Note that for most allocations in the unified virtual address space the host and device pointer for accessing the allocation will be the same. The exceptions to this are Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [DevicePtr.PointerSetAttribute], [MemAlloc], [DevicePtr.Free], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister], cudaPointerGetAttributes
 //
 //   - data: Returned pointer attribute value
 //   - attribute: Pointer attribute to query
@@ -8287,7 +8296,7 @@ func pointerGetAttributes(numAttributes uint32, attributes *PointerAttribute, da
 
 // pointerSetAttribute Set attributes on a previously allocated memory region.
 //
-// The supported attributes are: A boolean attribute that can either be set (1) or unset (0). When set, the region of memory that ptr points to is guaranteed to always synchronize memory operations that are synchronous. If there are some previously initiated synchronous memory operations that are pending when this attribute is set, the function does not return until those memory operations are complete. See further documentation in the section titled "API synchronization behavior" to learn more about cases when synchronous memory operations can exhibit asynchronous behavior. value will be considered as a pointer to an unsigned integer to which this attribute is to be set. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [DevicePtr.PointerGetAttribute], [DevicePtr.PointerGetAttributes], [MemAlloc], [DevicePtr.MemFree], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister]
+// The supported attributes are: A boolean attribute that can either be set (1) or unset (0). When set, the region of memory that ptr points to is guaranteed to always synchronize memory operations that are synchronous. If there are some previously initiated synchronous memory operations that are pending when this attribute is set, the function does not return until those memory operations are complete. See further documentation in the section titled "API synchronization behavior" to learn more about cases when synchronous memory operations can exhibit asynchronous behavior. value will be considered as a pointer to an unsigned integer to which this attribute is to be set. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [DevicePtr.PointerGetAttribute], [DevicePtr.PointerGetAttributes], [MemAlloc], [DevicePtr.Free], [MemAllocHost], [MemFreeHost], [MemHostAlloc], [MemHostRegister], [MemHostUnregister]
 //
 //   - value: Pointer to memory containing the value to be set
 //   - attribute: Pointer attribute to set
@@ -8303,7 +8312,7 @@ func pointerSetAttribute(value uintptr, attribute PointerAttribute, ptr DevicePt
 
 // signalExternalSemaphoresAsync Signals a set of external semaphore objects.
 //
-// Enqueues a signal operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete. The exact semantics of signaling a semaphore depends on the type of the object. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeOpaqueFd], [ExternalSemaphoreHandleTypeOpaqueWin32], [ExternalSemaphoreHandleTypeOpaqueWin32Kmt] then signaling the semaphore will set it to the signaled state. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then the semaphore will be set to the value specified in [ExternalSemaphoreSignalParams].paramsfence.value. If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] this API sets [ExternalSemaphoreSignalParams].paramsnvSciSync.fence to a value that can be used by subsequent waiters of the same NvSciSync object to order operations with those currently submitted in stream. Such an update will overwrite previous contents of [ExternalSemaphoreSignalParams].paramsnvSciSync.fence. By default, signaling such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_SIGNAL_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.GetNvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_SIGNAL, this API will return [ErrNotSupported]. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be deterministic. For this the NvSciSyncAttrList used to create the semaphore object must have value of NvSciSyncAttrKey_RequireDeterministicFences key set to true. Deterministic fences allow users to enqueue a wait over the semaphore object even before corresponding signal is enqueued. For such a semaphore object, CUDA guarantees that each signal operation will increment the fence value by '1'. Users are expected to track count of signals enqueued on the semaphore object and insert waits accordingly. When such a semaphore object is signaled from multiple streams, due to concurrent stream execution, it is possible that the order in which the semaphore gets signaled is indeterministic. This could lead to waiters of the semaphore getting unblocked incorrectly. Users are expected to handle such situations, either by not using the same semaphore object with deterministic fence support enabled in different streams or by adding explicit dependency amongst such streams so that the semaphore is signaled in order. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be timestamp enabled. For this the NvSciSyncAttrList used to create the object must have the value of NvSciSyncAttrKey_WaiterRequireTimestamps key set to true. Timestamps are emitted asynchronously by the GPU and CUDA saves the GPU timestamp in the corresponding NvSciSyncFence at the time of signal on GPU. Users are expected to convert GPU clocks to CPU clocks using appropriate scaling functions. Users are expected to wait for the completion of the fence before extracting timestamp using appropriate NvSciSync APIs. Users are expected to ensure that there is only one outstanding timestamp enabled fence per Cuda-NvSciSync object at any point of time, failing which leads to undefined behavior. Extracting the timestamp before the corresponding fence is signalled could lead to undefined behaviour. Timestamp extracted via appropriate NvSciSync API would be in microseconds. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be released with the key specified in CUDA_EXTERNAL_SEMAPHORE_PARAMS.paramskeyedmutex.key. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.WaitExternalSemaphoresAsync]
+// Enqueues a signal operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete. The exact semantics of signaling a semaphore depends on the type of the object. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeOpaqueFd], [ExternalSemaphoreHandleTypeOpaqueWin32], [ExternalSemaphoreHandleTypeOpaqueWin32Kmt] then signaling the semaphore will set it to the signaled state. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then the semaphore will be set to the value specified in [ExternalSemaphoreSignalParams].paramsfence.value. If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] this API sets [ExternalSemaphoreSignalParams].paramsnvSciSync.fence to a value that can be used by subsequent waiters of the same NvSciSync object to order operations with those currently submitted in stream. Such an update will overwrite previous contents of [ExternalSemaphoreSignalParams].paramsnvSciSync.fence. By default, signaling such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_SIGNAL_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.NvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_SIGNAL, this API will return [ErrNotSupported]. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be deterministic. For this the NvSciSyncAttrList used to create the semaphore object must have value of NvSciSyncAttrKey_RequireDeterministicFences key set to true. Deterministic fences allow users to enqueue a wait over the semaphore object even before corresponding signal is enqueued. For such a semaphore object, CUDA guarantees that each signal operation will increment the fence value by '1'. Users are expected to track count of signals enqueued on the semaphore object and insert waits accordingly. When such a semaphore object is signaled from multiple streams, due to concurrent stream execution, it is possible that the order in which the semaphore gets signaled is indeterministic. This could lead to waiters of the semaphore getting unblocked incorrectly. Users are expected to handle such situations, either by not using the same semaphore object with deterministic fence support enabled in different streams or by adding explicit dependency amongst such streams so that the semaphore is signaled in order. NvSciSyncFence associated with semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync] can be timestamp enabled. For this the NvSciSyncAttrList used to create the object must have the value of NvSciSyncAttrKey_WaiterRequireTimestamps key set to true. Timestamps are emitted asynchronously by the GPU and CUDA saves the GPU timestamp in the corresponding NvSciSyncFence at the time of signal on GPU. Users are expected to convert GPU clocks to CPU clocks using appropriate scaling functions. Users are expected to wait for the completion of the fence before extracting timestamp using appropriate NvSciSync APIs. Users are expected to ensure that there is only one outstanding timestamp enabled fence per Cuda-NvSciSync object at any point of time, failing which leads to undefined behavior. Extracting the timestamp before the corresponding fence is signalled could lead to undefined behaviour. Timestamp extracted via appropriate NvSciSync API would be in microseconds. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be released with the key specified in CUDA_EXTERNAL_SEMAPHORE_PARAMS.paramskeyedmutex.key. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - extSemArray: Set of external semaphores to be signaled
 //   - paramsArray: Array of semaphore parameters
@@ -8345,11 +8354,11 @@ func streamAddCallback(hStream Stream, callback uintptr, userData uintptr, flags
 //   - flags: Must be one of [MemattachFlags]
 //
 // Wraps cuStreamAttachMemAsync.
-func streamAttachMemAsync(hStream Stream, dptr DevicePtr, length uint, flags uint32) error {
+func streamAttachMemAsync(hStream Stream, dptr DevicePtr, length uint, flags MemattachFlags) error {
 	if err := checkLibSym("cuStreamAttachMemAsync"); err != nil {
 		return err
 	}
-	return toError(fnstreamAttachMemAsync(hStream, dptr, length, flags))
+	return toError(fnstreamAttachMemAsync(hStream, dptr, length, uint32(flags)))
 }
 
 // streamBatchMemOp Batch operations to synchronize the stream via memory operations
@@ -8389,7 +8398,7 @@ func streamBatchMemOp(stream Stream, count uint32, paramArray *[6]uint64, flags 
 
 // streamBeginCapture Begins graph capture on a stream.
 //
-// Begin graph capture on hStream. When a stream is in capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graph, which will be returned via [Stream.EndCapture]. Capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in capture mode. The capture mode may be queried via [Stream.IsCapturing]. A unique id representing the capture sequence may be queried via [Stream.GetCaptureInfo]. If mode is not [StreamCaptureModeRelaxed], [Stream.EndCapture] must be called on this stream from the same thread. Note: Kernels captured using this API must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewStream], [Stream.IsCapturing], [Stream.EndCapture], [ThreadExchangeStreamCaptureMode]
+// Begin graph capture on hStream. When a stream is in capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graph, which will be returned via [Stream.EndCapture]. Capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in capture mode. The capture mode may be queried via [Stream.IsCapturing]. A unique id representing the capture sequence may be queried via [Stream.CaptureInfo]. If mode is not [StreamCaptureModeRelaxed], [Stream.EndCapture] must be called on this stream from the same thread. Note: Kernels captured using this API must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewStream], [Stream.IsCapturing], [Stream.EndCapture], [ThreadExchangeStreamCaptureMode]
 //
 //   - hStream: Stream in which to initiate capture
 //   - mode: Controls the interaction of this capture sequence with other API calls that are potentially unsafe. For more details see [ThreadExchangeStreamCaptureMode]. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects
@@ -8404,7 +8413,7 @@ func streamBeginCapture(hStream Stream, mode StreamCaptureMode) error {
 
 // streamBeginCaptureToCig Begins capture to CIG on a stream.
 //
-// Support for CIG streams with D3D12 can be determined using [Device.GetAttribute] with CU_DEVICE_ATTRIBUTE_D3D12_CIG_STREAMS_SUPPORTED. Begin CIG (CUDA in Graphics) capture on hStream for the graphics API as provided in streamCigCaptureParams. When a stream is in CIG capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graphics API command list/command buffer. All kernel launches and memory copy/memory set operations on the CIG stream will be recorded. When the command list is executed by the graphics API, all the stream's operations will execute in order along with other graphics API commands in the command list. CIG stream capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in CIG capture mode. The context must be also created in CIG mode previously, otherwise this operation will fail and [ErrInvalidContext] will be returned. Data from the graphics client can be shared with CUDA via the streamSharedData in streamCigCaptureParams. The format of streamSharedData is dependent on the type of the graphics client. For D3D12, streamSharedData is an ID3D12CommandList object pointer. The command list must be in ready state for recording commands whenever kernels are launched on the stream. The command list provided must belong to the graphics API device that the CIG context was created with, otherwise the behavior will be undefined. The stream object may not be destroyed until its associated command list has finished executing on the GPU. The command list/command buffer used for capture may not be submitted for execution before a call to [Stream.EndCaptureToCig] is made on the associated stream. Graphics resources to be accessed by work recorded on the CIG stream must use UAV barriers on the command list prior to recording work that accesses them on the stream. Resubmission of the same recorded command list is not allowed. Further more, care must be taken for the order of execution of the recorded CUDA work with regards to other CUDA work submitted under the same CIG context. Out-of-order execution can lead to device hangs or exceptions. CIG capture mode operates similarly to [Stream.BeginCapture] with the [StreamCaptureModeRelaxed] option. There are additional limitations to streams in CIG capture mode. The following functions are not allowed for CIG streams whether directly or indirectly via a recorded graph launch: [Stream.LaunchHostFunc] [Stream.AddCallback] [Stream.Synchronize] [Stream.WaitValue32] [Stream.WaitValue64] [Stream.BatchMemOp] [Stream.BeginCapture] [Stream.BeginCaptureToGraph] [Stream.MemAllocAsync] [DevicePtr.MemFreeAsync] Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.EndCaptureToCig], [Stream.BeginCapture], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback]
+// Support for CIG streams with D3D12 can be determined using [Device.Attribute] with CU_DEVICE_ATTRIBUTE_D3D12_CIG_STREAMS_SUPPORTED. Begin CIG (CUDA in Graphics) capture on hStream for the graphics API as provided in streamCigCaptureParams. When a stream is in CIG capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graphics API command list/command buffer. All kernel launches and memory copy/memory set operations on the CIG stream will be recorded. When the command list is executed by the graphics API, all the stream's operations will execute in order along with other graphics API commands in the command list. CIG stream capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in CIG capture mode. The context must be also created in CIG mode previously, otherwise this operation will fail and [ErrInvalidContext] will be returned. Data from the graphics client can be shared with CUDA via the streamSharedData in streamCigCaptureParams. The format of streamSharedData is dependent on the type of the graphics client. For D3D12, streamSharedData is an ID3D12CommandList object pointer. The command list must be in ready state for recording commands whenever kernels are launched on the stream. The command list provided must belong to the graphics API device that the CIG context was created with, otherwise the behavior will be undefined. The stream object may not be destroyed until its associated command list has finished executing on the GPU. The command list/command buffer used for capture may not be submitted for execution before a call to [Stream.EndCaptureToCig] is made on the associated stream. Graphics resources to be accessed by work recorded on the CIG stream must use UAV barriers on the command list prior to recording work that accesses them on the stream. Resubmission of the same recorded command list is not allowed. Further more, care must be taken for the order of execution of the recorded CUDA work with regards to other CUDA work submitted under the same CIG context. Out-of-order execution can lead to device hangs or exceptions. CIG capture mode operates similarly to [Stream.BeginCapture] with the [StreamCaptureModeRelaxed] option. There are additional limitations to streams in CIG capture mode. The following functions are not allowed for CIG streams whether directly or indirectly via a recorded graph launch: [Stream.LaunchHostFunc] [Stream.AddCallback] [Stream.Synchronize] [Stream.WaitValue32] [Stream.WaitValue64] [Stream.BatchMemOp] [Stream.BeginCapture] [Stream.BeginCaptureToGraph] [Stream.MemAllocAsync] [DevicePtr.FreeAsync] Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.EndCaptureToCig], [Stream.BeginCapture], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback]
 //
 //   - hStream: Stream in which to initiate capture to CIG
 //   - streamCigCaptureParams: CIG capture parameters
@@ -8419,7 +8428,7 @@ func streamBeginCaptureToCig(hStream Stream, streamCigCaptureParams *StreamCigCa
 
 // streamBeginCaptureToGraph Begins graph capture on a stream to an existing graph.
 //
-// Begin graph capture on hStream, placing new nodes into an existing graph. When a stream is in capture mode, all operations pushed into the stream will not be executed, but will instead be captured into hGraph. The graph will not be instantiable until the user calls [Stream.EndCapture]. Capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in capture mode. The capture mode may be queried via [Stream.IsCapturing]. A unique id representing the capture sequence may be queried via [Stream.GetCaptureInfo]. If mode is not [StreamCaptureModeRelaxed], [Stream.EndCapture] must be called on this stream from the same thread. Note: Kernels captured using this API must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.BeginCapture], [NewStream], [Stream.IsCapturing], [Stream.EndCapture], [ThreadExchangeStreamCaptureMode], [Graph.AddNode]
+// Begin graph capture on hStream, placing new nodes into an existing graph. When a stream is in capture mode, all operations pushed into the stream will not be executed, but will instead be captured into hGraph. The graph will not be instantiable until the user calls [Stream.EndCapture]. Capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in capture mode. The capture mode may be queried via [Stream.IsCapturing]. A unique id representing the capture sequence may be queried via [Stream.CaptureInfo]. If mode is not [StreamCaptureModeRelaxed], [Stream.EndCapture] must be called on this stream from the same thread. Note: Kernels captured using this API must not use texture and surface references. Reading or writing through any texture or surface reference is undefined behavior. This restriction does not apply to texture and surface objects. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.BeginCapture], [NewStream], [Stream.IsCapturing], [Stream.EndCapture], [ThreadExchangeStreamCaptureMode], [Graph.AddNode]
 //
 //   - hStream: Stream in which to initiate capture
 //   - hGraph: Graph to capture into
@@ -8453,18 +8462,18 @@ func streamCopyAttributes(dst Stream, src Stream) error {
 
 // streamCreate Create a stream.
 //
-// Creates a stream and returns a handle in phStream. The Flags argument determines behaviors of the stream. Valid values for Flags are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStreamCreateWithPriority], [GreenCtx.StreamCreate], [Stream.GetPriority], [Stream.GetFlags], [Stream.GetDevice] [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
+// Creates a stream and returns a handle in phStream. The Flags argument determines behaviors of the stream. Valid values for Flags are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [StreamCreateWithPriority], [GreenCtx.StreamCreate], [Stream.Priority], [Stream.Flags], [Stream.Device] [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
 //
-//   - Flags: Parameters for stream creation
+//   - flags: Parameters for stream creation
 //
 // Wraps cuStreamCreate.
-func streamCreate(Flags uint32) (Stream, error) {
+func streamCreate(flags StreamFlags) (Stream, error) {
 	if err := checkLibSym("cuStreamCreate"); err != nil {
 		var zero Stream
 		return zero, err
 	}
 	var out Stream
-	if err := toError(fnstreamCreate(&out, Flags)); err != nil {
+	if err := toError(fnstreamCreate(&out, uint32(flags))); err != nil {
 		var zero Stream
 		return zero, err
 	}
@@ -8473,7 +8482,7 @@ func streamCreate(Flags uint32) (Stream, error) {
 
 // streamCreateWithPriority Create a stream with the given priority.
 //
-// Creates a stream with the specified priority and returns a handle in phStream. This affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order. priority follows a convention where lower numbers represent higher priorities. '0' represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range. See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.GetPriority], [CtxGetStreamPriorityRange], [Stream.GetFlags], [Stream.GetDevice], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreateWithPriority
+// Creates a stream with the specified priority and returns a handle in phStream. This affects the scheduling priority of work in the stream. Priorities provide a hint to preferentially run work with higher priority when possible, but do not preempt already-running work or provide any other functional guarantee on execution order. priority follows a convention where lower numbers represent higher priorities. '0' represents default priority. The range of meaningful numerical priorities can be queried using [CtxGetStreamPriorityRange]. If the specified priority is outside the numerical range returned by [CtxGetStreamPriorityRange], it will automatically be clamped to the lowest or the highest number in the range. See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.Priority], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreateWithPriority
 //
 //   - flags: Flags for stream creation. See [NewStream] for a list of valid flags
 //   - priority: Stream priority. Lower numbers represent higher priorities. See [CtxGetStreamPriorityRange] for more information about meaningful stream priorities that can be passed
@@ -8580,7 +8589,7 @@ func streamGetCaptureInfo(hStream Stream, captureStatus_out *StreamCaptureStatus
 
 // streamGetCtx Query the contexts associated with a stream.
 //
-// Returns the contexts that the stream is associated with. If the stream is associated with a green context, the API returns the green context in pGreenCtx and the primary context of the associated device in pCtx. If the stream is associated with a regular context, the API returns the regular context in pCtx and NULL in pGreenCtx. The stream handle hStream can refer to any of the following: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream] [NewStreamCreateWithPriority], [GreenCtx.StreamCreate], [Stream.GetPriority], [Stream.GetFlags], [Stream.GetDevice], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags,
+// Returns the contexts that the stream is associated with. If the stream is associated with a green context, the API returns the green context in pGreenCtx and the primary context of the associated device in pCtx. If the stream is associated with a regular context, the API returns the regular context in pCtx and NULL in pGreenCtx. The stream handle hStream can refer to any of the following: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream] [StreamCreateWithPriority], [GreenCtx.StreamCreate], [Stream.Priority], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags,
 //
 //   - hStream: Handle to the stream to be queried
 //
@@ -8625,7 +8634,7 @@ func streamGetDevResource(hStream Stream, type_ DevResourceType) (DevResource, e
 
 // streamGetDevice Returns the device handle of the stream.
 //
-// Returns in *device the device handle of the stream Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.GetFlags]
+// Returns in *device the device handle of the stream Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.Flags]
 //
 //   - hStream: Handle to the stream to be queried
 //
@@ -8645,7 +8654,7 @@ func streamGetDevice(hStream Stream) (Device, error) {
 
 // streamGetFlags Query the flags of a given stream.
 //
-// Query the flags of a stream created using [NewStream], [NewStreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the flags in flags. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.GetPriority], cudaStreamGetFlags, [Stream.GetDevice]
+// Query the flags of a stream created using [NewStream], [StreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the flags in flags. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream], [GreenCtx.StreamCreate], [Stream.Priority], cudaStreamGetFlags, [Stream.Device]
 //
 //   - hStream: Handle to the stream to be queried
 //
@@ -8670,23 +8679,23 @@ func streamGetFlags(hStream Stream) (uint32, error) {
 //
 // The stream handle hStream can refer to any of the following:
 //
-// a stream created via any of the CUDA driver APIs such as [NewStream], [NewStreamCreateWithPriority]
+// a stream created via any of the CUDA driver APIs such as [NewStream], [StreamCreateWithPriority]
 // and [GreenCtx.StreamCreate], or their runtime API equivalents such as
 // cudaStreamCreate, cudaStreamCreateWithFlags and cudaStreamCreateWithPriority.
 // If during stream creation the context that was active in the calling thread was obtained
-// with [NewContextFromGreenCtx], that green context is returned in phCtx.
+// with [CtxFromGreenCtx], that green context is returned in phCtx.
 // Otherwise, *phCtx is set to NULL instead.
 //
 // special stream such as the NULL stream or CU_STREAM_LEGACY.
 // In that case if context that is active in the calling thread was obtained
-// with [NewContextFromGreenCtx], that green context is returned.
+// with [CtxFromGreenCtx], that green context is returned.
 // Otherwise, *phCtx is set to NULL instead.
 //
 // Passing an invalid handle will result in undefined behavior.
 //
 //   - hStream: Handle to the stream to be queried
 //
-// See also: [Stream.Destroy], [NewStream], [NewStreamCreateWithPriority], [Stream.GetCtx], [GreenCtx.StreamCreate], [Stream.GetPriority], [Stream.GetFlags], [Stream.GetDevice], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback]
+// See also: [Stream.Destroy], [NewStream], [StreamCreateWithPriority], [Stream.Ctx], [GreenCtx.StreamCreate], [Stream.Priority], [Stream.Flags], [Stream.Device], [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback]
 //
 // Wraps cuStreamGetGreenCtx.
 func streamGetGreenCtx(hStream Stream) (GreenCtx, error) {
@@ -8704,7 +8713,7 @@ func streamGetGreenCtx(hStream Stream) (GreenCtx, error) {
 
 // streamGetId Returns the unique Id associated with the stream handle supplied.
 //
-// Returns in streamId the unique Id which is associated with the given stream handle. The Id is unique for the life of the program. The stream handle hStream can refer to any of the following: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream], [Stream.GetPriority], cudaStreamGetId
+// Returns in streamId the unique Id which is associated with the given stream handle. The Id is unique for the life of the program. The stream handle hStream can refer to any of the following: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream], [Stream.Priority], cudaStreamGetId
 //
 //   - hStream: Handle to the stream to be queried
 //
@@ -8724,7 +8733,7 @@ func streamGetId(hStream Stream) (uint64, error) {
 
 // streamGetPriority Query the priority of a given stream.
 //
-// Query the priority of a stream created using [NewStream], [NewStreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the priority in priority. Note that if the stream was created with a priority outside the numerical range returned by [CtxGetStreamPriorityRange], this function returns the clamped priority. See [NewStreamCreateWithPriority] for details about priority clamping. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream], [NewStreamCreateWithPriority], [GreenCtx.StreamCreate], [CtxGetStreamPriorityRange], [Stream.GetFlags], [Stream.GetDevice], cudaStreamGetPriority
+// Query the priority of a stream created using [NewStream], [StreamCreateWithPriority] or [GreenCtx.StreamCreate] and return the priority in priority. Note that if the stream was created with a priority outside the numerical range returned by [CtxGetStreamPriorityRange], this function returns the clamped priority. See [StreamCreateWithPriority] for details about priority clamping. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Stream.Destroy], [NewStream], [StreamCreateWithPriority], [GreenCtx.StreamCreate], [CtxGetStreamPriorityRange], [Stream.Flags], [Stream.Device], cudaStreamGetPriority
 //
 //   - hStream: Handle to the stream to be queried
 //
@@ -8804,7 +8813,7 @@ func streamSynchronize(hStream Stream) error {
 
 // streamUpdateCaptureDependencies Update the set of dependencies in a capturing stream.
 //
-// Modifies the dependency set of a capturing stream. The dependency set is the set of nodes that the next captured node in the stream will depend on along with the edge data for those dependencies. Valid flags are [StreamAddCaptureDependencies] and [StreamSetCaptureDependencies]. These control whether the set passed to the API is added to the existing set or replaces it. A flags value of 0 defaults to [StreamAddCaptureDependencies]. Nodes that are removed from the dependency set via this API do not result in [ErrStreamCaptureUnjoined] if they are unreachable from the stream at [Stream.EndCapture]. Returns [ErrIllegalState] if the stream is not capturing. See also: [Stream.BeginCapture], [Stream.GetCaptureInfo]
+// Modifies the dependency set of a capturing stream. The dependency set is the set of nodes that the next captured node in the stream will depend on along with the edge data for those dependencies. Valid flags are [StreamAddCaptureDependencies] and [StreamSetCaptureDependencies]. These control whether the set passed to the API is added to the existing set or replaces it. A flags value of 0 defaults to [StreamAddCaptureDependencies]. Nodes that are removed from the dependency set via this API do not result in [ErrStreamCaptureUnjoined] if they are unreachable from the stream at [Stream.EndCapture]. Returns [ErrIllegalState] if the stream is not capturing. See also: [Stream.BeginCapture], [Stream.CaptureInfo]
 //
 //   - hStream: The stream to update
 //   - dependencies: The set of dependencies to add
@@ -8813,11 +8822,11 @@ func streamSynchronize(hStream Stream) error {
 //   - flags: See above
 //
 // Wraps cuStreamUpdateCaptureDependencies, bound as cuStreamUpdateCaptureDependencies_v2.
-func streamUpdateCaptureDependencies(hStream Stream, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, flags uint32) error {
+func streamUpdateCaptureDependencies(hStream Stream, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, flags StreamupdatecapturedependenciesFlags) error {
 	if err := checkLibSym("cuStreamUpdateCaptureDependencies_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamUpdateCaptureDependencies(hStream, dependencies, dependencyData, numDependencies, flags))
+	return toError(fnstreamUpdateCaptureDependencies(hStream, dependencies, dependencyData, numDependencies, uint32(flags)))
 }
 
 // streamWaitEvent Make a compute stream wait on an event.
@@ -8826,14 +8835,14 @@ func streamUpdateCaptureDependencies(hStream Stream, dependencies *GraphNode, de
 //
 //   - hStream: Stream to wait hEvent- Event to wait on (may not be NULL) Flags- See CUevent_capture_flags
 //   - hEvent: Event to wait on (may not be NULL)
-//   - Flags: See CUevent_capture_flags
+//   - flags: See CUevent_capture_flags
 //
 // Wraps cuStreamWaitEvent.
-func streamWaitEvent(hStream Stream, hEvent Event, Flags uint32) error {
+func streamWaitEvent(hStream Stream, hEvent Event, flags EventWaitFlags) error {
 	if err := checkLibSym("cuStreamWaitEvent"); err != nil {
 		return err
 	}
-	return toError(fnstreamWaitEvent(hStream, hEvent, Flags))
+	return toError(fnstreamWaitEvent(hStream, hEvent, uint32(flags)))
 }
 
 // streamWaitValue32 Wait on a memory location
@@ -8848,7 +8857,7 @@ func streamWaitEvent(hStream Stream, hEvent Event, Flags uint32) error {
 // should be obtained with [MemHostGetDevicePointer](). This function cannot
 // be used with managed memory ([MemAllocManaged]).
 //
-// Support for [StreamWaitValueNor] can be queried with [Device.GetAttribute]() and
+// Support for [StreamWaitValueNor] can be queried with [Device.Attribute]() and
 // CU_DEVICE_ATTRIBUTE_CAN_USE_STREAM_WAIT_VALUE_NOR_V2.
 //
 // Warning:
@@ -8866,11 +8875,11 @@ func streamWaitEvent(hStream Stream, hEvent Event, Flags uint32) error {
 // See also: [Stream.WaitValue64], [Stream.WriteValue32], [Stream.WriteValue64], [Stream.BatchMemOp], [MemHostRegister], [Stream.WaitEvent]
 //
 // Wraps cuStreamWaitValue32, bound as cuStreamWaitValue32_v2.
-func streamWaitValue32(stream Stream, addr DevicePtr, value uint32, flags uint32) error {
+func streamWaitValue32(stream Stream, addr DevicePtr, value uint32, flags StreamwaitvalueFlags) error {
 	if err := checkLibSym("cuStreamWaitValue32_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamWaitValue32(stream, addr, value, flags))
+	return toError(fnstreamWaitValue32(stream, addr, value, uint32(flags)))
 }
 
 // streamWaitValue64 Wait on a memory location
@@ -8884,7 +8893,7 @@ func streamWaitValue32(stream Stream, addr DevicePtr, value uint32, flags uint32
 // If the memory was registered via [MemHostRegister](), the device pointer
 // should be obtained with [MemHostGetDevicePointer]().
 //
-// Support for this can be queried with [Device.GetAttribute]() and
+// Support for this can be queried with [Device.Attribute]() and
 // [DevAttrCanUse64BitStreamMemOps].
 //
 // Warning:
@@ -8902,11 +8911,11 @@ func streamWaitValue32(stream Stream, addr DevicePtr, value uint32, flags uint32
 // See also: [Stream.WaitValue32], [Stream.WriteValue32], [Stream.WriteValue64], [Stream.BatchMemOp], [MemHostRegister], [Stream.WaitEvent]
 //
 // Wraps cuStreamWaitValue64, bound as cuStreamWaitValue64_v2.
-func streamWaitValue64(stream Stream, addr DevicePtr, value uint64, flags uint32) error {
+func streamWaitValue64(stream Stream, addr DevicePtr, value uint64, flags StreamwaitvalueFlags) error {
 	if err := checkLibSym("cuStreamWaitValue64_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamWaitValue64(stream, addr, value, flags))
+	return toError(fnstreamWaitValue64(stream, addr, value, uint32(flags)))
 }
 
 // streamWriteValue32 Write a value to memory
@@ -8925,11 +8934,11 @@ func streamWaitValue64(stream Stream, addr DevicePtr, value uint64, flags uint32
 // See also: [Stream.WriteValue64], [Stream.WaitValue32], [Stream.WaitValue64], [Stream.BatchMemOp], [MemHostRegister], [Event.Record]
 //
 // Wraps cuStreamWriteValue32, bound as cuStreamWriteValue32_v2.
-func streamWriteValue32(stream Stream, addr DevicePtr, value uint32, flags uint32) error {
+func streamWriteValue32(stream Stream, addr DevicePtr, value uint32, flags StreamwritevalueFlags) error {
 	if err := checkLibSym("cuStreamWriteValue32_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamWriteValue32(stream, addr, value, flags))
+	return toError(fnstreamWriteValue32(stream, addr, value, uint32(flags)))
 }
 
 // streamWriteValue64 Write a value to memory
@@ -8939,7 +8948,7 @@ func streamWriteValue32(stream Stream, addr DevicePtr, value uint32, flags uint3
 // If the memory was registered via [MemHostRegister](), the device pointer
 // should be obtained with [MemHostGetDevicePointer]().
 //
-// Support for this can be queried with [Device.GetAttribute]() and
+// Support for this can be queried with [Device.Attribute]() and
 // [DevAttrCanUse64BitStreamMemOps].
 //
 //   - stream: The stream to do the write in
@@ -8950,11 +8959,11 @@ func streamWriteValue32(stream Stream, addr DevicePtr, value uint32, flags uint3
 // See also: [Stream.WriteValue32], [Stream.WaitValue32], [Stream.WaitValue64], [Stream.BatchMemOp], [MemHostRegister], [Event.Record]
 //
 // Wraps cuStreamWriteValue64, bound as cuStreamWriteValue64_v2.
-func streamWriteValue64(stream Stream, addr DevicePtr, value uint64, flags uint32) error {
+func streamWriteValue64(stream Stream, addr DevicePtr, value uint64, flags StreamwritevalueFlags) error {
 	if err := checkLibSym("cuStreamWriteValue64_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamWriteValue64(stream, addr, value, flags))
+	return toError(fnstreamWriteValue64(stream, addr, value, uint32(flags)))
 }
 
 // SurfObjectCreate Creates a surface object.
@@ -9008,7 +9017,7 @@ func SurfObjectGetResourceDesc(pResDesc *ResourceDesc, surfObject uint64) error 
 
 // surfRefGetArray Passes back the CUDA array bound to a surface reference.
 //
-// Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array. See also: [Module.GetSurfRef], [SurfRef.SetArray]
+// Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array. See also: [Module.SurfRef], [SurfRef.SetArray]
 //
 //   - hSurfRef: Surface reference handle
 //
@@ -9030,20 +9039,20 @@ func surfRefGetArray(hSurfRef SurfRef) (Array, error) {
 
 // surfRefSetArray Sets the CUDA array for a surface reference.
 //
-// Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound. See also: [Module.GetSurfRef], [SurfRef.GetArray]
+// Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound. See also: [Module.SurfRef], [SurfRef.Array]
 //
 //   - hSurfRef: Surface reference handle
 //   - hArray: CUDA array handle
-//   - Flags: set to 0
+//   - flags: set to 0
 //
 // Deprecated: Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound.
 //
 // Wraps cuSurfRefSetArray.
-func surfRefSetArray(hSurfRef SurfRef, hArray Array, Flags uint32) error {
+func surfRefSetArray(hSurfRef SurfRef, hArray Array, flags uint32) error {
 	if err := checkLibSym("cuSurfRefSetArray"); err != nil {
 		return err
 	}
-	return toError(fnsurfRefSetArray(hSurfRef, hArray, Flags))
+	return toError(fnsurfRefSetArray(hSurfRef, hArray, flags))
 }
 
 // TensorMapEncodeIm2col Create a tensor map descriptor object representing im2col memory region
@@ -9551,7 +9560,7 @@ func texRefDestroy(hTexRef TexRef) error {
 
 // texRefGetAddress Gets the address associated with a texture reference.
 //
-// Returns in *pdptr the base address bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any device memory range. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Returns in *pdptr the base address bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any device memory range. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //
@@ -9573,7 +9582,7 @@ func texRefGetAddress(hTexRef TexRef) (DevicePtr, error) {
 
 // texRefGetAddressMode Gets the addressing mode used by a texture reference.
 //
-// Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //   - dim: Dimension
@@ -9596,7 +9605,7 @@ func texRefGetAddressMode(hTexRef TexRef, dim int32) (AddressMode, error) {
 
 // texRefGetArray Gets the array bound to a texture reference.
 //
-// Returns in *phArray the CUDA array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Returns in *phArray the CUDA array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //
@@ -9640,7 +9649,7 @@ func texRefGetBorderColor(hTexRef TexRef) (float32, error) {
 
 // texRefGetFilterMode Gets the filter-mode used by a texture reference.
 //
-// Returns in *pfm the filtering mode of the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFlags], [TexRef.GetFormat]
+// Returns in *pfm the filtering mode of the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //
@@ -9662,7 +9671,7 @@ func texRefGetFilterMode(hTexRef TexRef) (FilterMode, error) {
 
 // texRefGetFlags Gets the flags used by a texture reference.
 //
-// Returns in *pFlags the flags of the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFormat]
+// Returns in *pFlags the flags of the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //
@@ -9684,7 +9693,7 @@ func texRefGetFlags(hTexRef TexRef) (uint32, error) {
 
 // texRefGetFormat Gets the format used by a texture reference.
 //
-// Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags]
+// Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags]
 //
 //   - hTexRef: Texture reference
 //
@@ -9705,7 +9714,7 @@ func texRefGetFormat(hTexRef TexRef) (pFormat ArrayFormat, pNumChannels int32, e
 
 // texRefGetMaxAnisotropy Gets the maximum anisotropy for a texture reference.
 //
-// Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //
@@ -9727,7 +9736,7 @@ func texRefGetMaxAnisotropy(hTexRef TexRef) (int32, error) {
 
 // texRefGetMipmapFilterMode Gets the mipmap filtering mode for a texture reference.
 //
-// Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //
@@ -9749,7 +9758,7 @@ func texRefGetMipmapFilterMode(hTexRef TexRef) (FilterMode, error) {
 
 // texRefGetMipmapLevelBias Gets the mipmap level bias for a texture reference.
 //
-// Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //
@@ -9771,7 +9780,7 @@ func texRefGetMipmapLevelBias(hTexRef TexRef) (float32, error) {
 
 // texRefGetMipmapLevelClamp Gets the min/max mipmap level clamps for a texture reference.
 //
-// Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //
@@ -9792,7 +9801,7 @@ func texRefGetMipmapLevelClamp(hTexRef TexRef) (pminMipmapLevelClamp float32, pm
 
 // texRefGetMipmappedArray Gets the mipmapped array bound to a texture reference.
 //
-// Returns in *phMipmappedArray the CUDA mipmapped array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA mipmapped array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Returns in *phMipmappedArray the CUDA mipmapped array bound to the texture reference hTexRef, or returns [ErrInvalidValue] if the texture reference is not bound to any CUDA mipmapped array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference
 //
@@ -9814,7 +9823,7 @@ func texRefGetMipmappedArray(hTexRef TexRef) (MipmappedArray, error) {
 
 // texRefSetAddress Binds an address as a texture reference.
 //
-// Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress] passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc], the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as ( bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using [TexRef.SetFormat]. See also: [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress] passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc], the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as ( bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using [TexRef.SetFormat]. See also: [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference to bind
 //   - dptr: Device pointer to bind
@@ -9838,26 +9847,26 @@ func texRefSetAddress(hTexRef TexRef, dptr DevicePtr, bytes uint) (uint, error) 
 
 // texRefSetAddress2D Binds an address as a 2D texture reference.
 //
-// Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Using a tex2D() function inside a kernel requires a call to either [TexRef.SetArray] to bind the corresponding texture reference to an array, or [TexRef.SetAddress2D] to bind the texture reference to linear memory. Function calls to [TexRef.SetFormat] cannot follow calls to [TexRef.SetAddress2D] for the same texture reference. It is required that dptr be aligned to the appropriate hardware-specific texture alignment. You can query this value using the device attribute [DevAttrTextureAlignment]. If an unaligned dptr is supplied, [ErrInvalidValue] is returned. Pitch has to be aligned to the hardware-specific texture pitch alignment. This value can be queried using the device attribute [DevAttrTexturePitchAlignment]. If an unaligned Pitch is supplied, [ErrInvalidValue] is returned. Width and Height, which are specified in elements (or texels), cannot exceed [DevAttrMaximumTexture2dLinearWidth] and [DevAttrMaximumTexture2dLinearHeight] respectively. Pitch, which is specified in bytes, cannot exceed [DevAttrMaximumTexture2dLinearPitch]. See also: [TexRef.SetAddress], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Using a tex2D() function inside a kernel requires a call to either [TexRef.SetArray] to bind the corresponding texture reference to an array, or [TexRef.SetAddress2D] to bind the texture reference to linear memory. Function calls to [TexRef.SetFormat] cannot follow calls to [TexRef.SetAddress2D] for the same texture reference. It is required that dptr be aligned to the appropriate hardware-specific texture alignment. You can query this value using the device attribute [DevAttrTextureAlignment]. If an unaligned dptr is supplied, [ErrInvalidValue] is returned. Pitch has to be aligned to the hardware-specific texture pitch alignment. This value can be queried using the device attribute [DevAttrTexturePitchAlignment]. If an unaligned Pitch is supplied, [ErrInvalidValue] is returned. Width and Height, which are specified in elements (or texels), cannot exceed [DevAttrMaximumTexture2dLinearWidth] and [DevAttrMaximumTexture2dLinearHeight] respectively. Pitch, which is specified in bytes, cannot exceed [DevAttrMaximumTexture2dLinearPitch]. See also: [TexRef.SetAddress], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference to bind
 //   - desc: Descriptor of CUDA array
 //   - dptr: Device pointer to bind
-//   - Pitch: Line pitch in bytes
+//   - pitch: Line pitch in bytes
 //
 // Deprecated: Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Using a tex2D() function inside a kernel requires a call to either [TexRef.SetArray]() to bind the corresponding texture reference to an array, or [TexRef.SetAddress2D]() to bind the texture reference to linear memory. Function calls to [TexRef.SetFormat]() cannot follow calls to [TexRef.SetAddress2D]() for the same texture reference. It is required that dptr be aligned to the appropriate hardware-specific texture alignment. You can query this value using the device attribute [DevAttrTextureAlignment]. If an unaligned dptr is supplied, [ErrInvalidValue] is returned. Pitch has to be aligned to the hardware-specific texture pitch alignment. This value can be queried using the device attribute [DevAttrTexturePitchAlignment]. If an unaligned Pitch is supplied, [ErrInvalidValue] is returned. Width and Height, which are specified in elements (or texels), cannot exceed [DevAttrMaximumTexture2dLinearWidth] and [DevAttrMaximumTexture2dLinearHeight] respectively. Pitch, which is specified in bytes, cannot exceed [DevAttrMaximumTexture2dLinearPitch].
 //
 // Wraps cuTexRefSetAddress2D, bound as cuTexRefSetAddress2D_v3.
-func texRefSetAddress2D(hTexRef TexRef, desc *ArrayDescriptor, dptr DevicePtr, Pitch uint) error {
+func texRefSetAddress2D(hTexRef TexRef, desc *ArrayDescriptor, dptr DevicePtr, pitch uint) error {
 	if err := checkLibSym("cuTexRefSetAddress2D_v3"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetAddress2D(hTexRef, desc, dptr, Pitch))
+	return toError(fntexRefSetAddress2D(hTexRef, desc, dptr, pitch))
 }
 
 // texRefSetAddressMode Sets the addressing mode for a texture reference.
 //
-// Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on. [AddressMode] is defined as: Note that this call has no effect if hTexRef is bound to linear memory. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES, is not set, the only supported address mode is [TrAddressModeClamp]. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Specifies the addressing mode am for the given dimension dim of the texture reference hTexRef. If dim is zero, the addressing mode is applied to the first parameter of the functions used to fetch from the texture; if dim is 1, the second, and so on. [AddressMode] is defined as: Note that this call has no effect if hTexRef is bound to linear memory. Also, if the flag, CU_TRSF_NORMALIZED_COORDINATES, is not set, the only supported address mode is [TrAddressModeClamp]. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference dim- Dimension am- Addressing mode to set
 //   - dim: Dimension
@@ -9875,25 +9884,25 @@ func texRefSetAddressMode(hTexRef TexRef, dim int32, am AddressMode) error {
 
 // texRefSetArray Binds an array as a texture reference.
 //
-// Binds the CUDA array hArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Binds the CUDA array hArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference to bind
 //   - hArray: Array to bind
-//   - Flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
+//   - flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
 //
 // Deprecated: Binds the CUDA array hArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
 //
 // Wraps cuTexRefSetArray.
-func texRefSetArray(hTexRef TexRef, hArray Array, Flags uint32) error {
+func texRefSetArray(hTexRef TexRef, hArray Array, flags uint32) error {
 	if err := checkLibSym("cuTexRefSetArray"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetArray(hTexRef, hArray, Flags))
+	return toError(fntexRefSetArray(hTexRef, hArray, flags))
 }
 
 // texRefSetBorderColor Sets the border color for a texture reference.
 //
-// Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to "reinterpret_cast" their values to float. See also: [TexRef.SetAddressMode], [TexRef.GetAddressMode], [TexRef.GetBorderColor]
+// Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to "reinterpret_cast" their values to float. See also: [TexRef.SetAddressMode], [TexRef.AddressMode], [TexRef.BorderColor]
 //
 //   - hTexRef: Texture reference pBorderColor- RGBA color
 //
@@ -9915,7 +9924,7 @@ func texRefSetBorderColor(hTexRef TexRef) (float32, error) {
 
 // texRefSetFilterMode Sets the filtering mode for a texture reference.
 //
-// Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as: Note that this call has no effect if hTexRef is bound to linear memory. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Specifies the filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as: Note that this call has no effect if hTexRef is bound to linear memory. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference fm- Filtering mode to set
 //   - fm: Filtering mode to set
@@ -9932,42 +9941,42 @@ func texRefSetFilterMode(hTexRef TexRef, fm FilterMode) error {
 
 // texRefSetFlags Sets the flags for a texture reference.
 //
-// Specifies optional flags via Flags to specify the behavior of data returned through the texture reference hTexRef. The valid flags are: See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Specifies optional flags via Flags to specify the behavior of data returned through the texture reference hTexRef. The valid flags are: See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference Flags- Optional flags to set
-//   - Flags: Optional flags to set
+//   - flags: Optional flags to set
 //
 // Deprecated: Specifies optional flags via Flags to specify the behavior of data returned through the texture reference hTexRef. The valid flags are: - CU_TRSF_READ_AS_INTEGER, which suppresses the default behavior of having the texture promote integer data to floating point data in the range [0, 1]. Note that texture with 32-bit integer format would not be promoted, regardless of whether or not this flag is specified; - CU_TRSF_NORMALIZED_COORDINATES, which suppresses the default behavior of having the texture coordinates range from [0, Dim) where Dim is the width or height of the CUDA array. Instead, the texture coordinates [0, 1.0) reference the entire breadth of the array dimension; - CU_TRSF_DISABLE_TRILINEAR_OPTIMIZATION, which disables any trilinear filtering optimizations. Trilinear optimizations improve texture filtering performance by allowing bilinear filtering on textures in scenarios where it can closely approximate the expected results.
 //
 // Wraps cuTexRefSetFlags.
-func texRefSetFlags(hTexRef TexRef, Flags uint32) error {
+func texRefSetFlags(hTexRef TexRef, flags uint32) error {
 	if err := checkLibSym("cuTexRefSetFlags"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetFlags(hTexRef, Flags))
+	return toError(fntexRefSetFlags(hTexRef, flags))
 }
 
 // texRefSetFormat Sets the format for a texture reference.
 //
-// Specifies the format of the data to be read by the texture reference hTexRef. fmt and NumPackedComponents are exactly analogous to the Format and NumChannels members of the [ArrayDescriptor] structure: They specify the format of each component and the number of components per array element. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat], cudaCreateChannelDesc
+// Specifies the format of the data to be read by the texture reference hTexRef. fmt and NumPackedComponents are exactly analogous to the Format and NumChannels members of the [ArrayDescriptor] structure: They specify the format of each component and the number of components per array element. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format], cudaCreateChannelDesc
 //
 //   - hTexRef: Texture reference fmt- Format to set NumPackedComponents- Number of components per array element
 //   - fmt: Format to set
-//   - NumPackedComponents: Number of components per array element
+//   - numPackedComponents: Number of components per array element
 //
 // Deprecated: Specifies the format of the data to be read by the texture reference hTexRef. fmt and NumPackedComponents are exactly analogous to the Format and NumChannels members of the [ArrayDescriptor] structure: They specify the format of each component and the number of components per array element.
 //
 // Wraps cuTexRefSetFormat.
-func texRefSetFormat(hTexRef TexRef, fmt ArrayFormat, NumPackedComponents int32) error {
+func texRefSetFormat(hTexRef TexRef, fmt ArrayFormat, numPackedComponents int32) error {
 	if err := checkLibSym("cuTexRefSetFormat"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetFormat(hTexRef, fmt, NumPackedComponents))
+	return toError(fntexRefSetFormat(hTexRef, fmt, numPackedComponents))
 }
 
 // texRefSetMaxAnisotropy Sets the maximum anisotropy for a texture reference.
 //
-// Specifies the maximum anisotropy maxAniso to be used when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is bound to linear memory. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Specifies the maximum anisotropy maxAniso to be used when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is bound to linear memory. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference maxAniso- Maximum anisotropy
 //   - maxAniso: Maximum anisotropy
@@ -9984,7 +9993,7 @@ func texRefSetMaxAnisotropy(hTexRef TexRef, maxAniso uint32) error {
 
 // texRefSetMipmapFilterMode Sets the mipmap filtering mode for a texture reference.
 //
-// Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as: Note that this call has no effect if hTexRef is not bound to a mipmapped array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Specifies the mipmap filtering mode fm to be used when reading memory through the texture reference hTexRef. CUfilter_mode_enum is defined as: Note that this call has no effect if hTexRef is not bound to a mipmapped array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference fm- Filtering mode to set
 //   - fm: Filtering mode to set
@@ -10001,7 +10010,7 @@ func texRefSetMipmapFilterMode(hTexRef TexRef, fm FilterMode) error {
 
 // texRefSetMipmapLevelBias Sets the mipmap level bias for a texture reference.
 //
-// Specifies the mipmap level bias bias to be added to the specified mipmap level when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is not bound to a mipmapped array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Specifies the mipmap level bias bias to be added to the specified mipmap level when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is not bound to a mipmapped array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference bias- Mipmap level bias
 //   - bias: Mipmap level bias
@@ -10018,7 +10027,7 @@ func texRefSetMipmapLevelBias(hTexRef TexRef, bias float32) error {
 
 // texRefSetMipmapLevelClamp Sets the mipmap min/max mipmap level clamps for a texture reference.
 //
-// Specifies the min/max mipmap level clamps, minMipmapLevelClamp and maxMipmapLevelClamp respectively, to be used when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is not bound to a mipmapped array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Specifies the min/max mipmap level clamps, minMipmapLevelClamp and maxMipmapLevelClamp respectively, to be used when reading memory through the texture reference hTexRef. Note that this call has no effect if hTexRef is not bound to a mipmapped array. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference minMipmapLevelClamp- Mipmap min level clamp maxMipmapLevelClamp- Mipmap max level clamp
 //   - minMipmapLevelClamp: Mipmap min level clamp
@@ -10036,20 +10045,20 @@ func texRefSetMipmapLevelClamp(hTexRef TexRef, minMipmapLevelClamp float32, maxM
 
 // texRefSetMipmappedArray Binds a mipmapped array to a texture reference.
 //
-// Binds the CUDA mipmapped array hMipmappedArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+// Binds the CUDA mipmapped array hMipmappedArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 //   - hTexRef: Texture reference to bind
 //   - hMipmappedArray: Mipmapped array to bind
-//   - Flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
+//   - flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)
 //
 // Deprecated: Binds the CUDA mipmapped array hMipmappedArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound.
 //
 // Wraps cuTexRefSetMipmappedArray.
-func texRefSetMipmappedArray(hTexRef TexRef, hMipmappedArray MipmappedArray, Flags uint32) error {
+func texRefSetMipmappedArray(hTexRef TexRef, hMipmappedArray MipmappedArray, flags uint32) error {
 	if err := checkLibSym("cuTexRefSetMipmappedArray"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetMipmappedArray(hTexRef, hMipmappedArray, Flags))
+	return toError(fntexRefSetMipmappedArray(hTexRef, hMipmappedArray, flags))
 }
 
 // ThreadExchangeStreamCaptureMode Swaps the stream capture interaction mode for a thread.
@@ -10076,13 +10085,13 @@ func ThreadExchangeStreamCaptureMode(mode *StreamCaptureMode) error {
 //   - flags: Currently it is required to pass [UserObjectNoDestructorSync], which is the only defined flag. This indicates that the destroy callback cannot be waited on by any CUDA API. Users requiring synchronization of the callback should signal its completion manually
 //
 // Wraps cuUserObjectCreate.
-func userObjectCreate(ptr uintptr, destroy uintptr, initialRefcount uint32, flags uint32) (UserObject, error) {
+func userObjectCreate(ptr uintptr, destroy uintptr, initialRefcount uint32, flags UserobjectFlags) (UserObject, error) {
 	if err := checkLibSym("cuUserObjectCreate"); err != nil {
 		var zero UserObject
 		return zero, err
 	}
 	var out UserObject
-	if err := toError(fnuserObjectCreate(&out, ptr, destroy, initialRefcount, flags)); err != nil {
+	if err := toError(fnuserObjectCreate(&out, ptr, destroy, initialRefcount, uint32(flags))); err != nil {
 		var zero UserObject
 		return zero, err
 	}
@@ -10121,7 +10130,7 @@ func userObjectRetain(object UserObject, count uint32) error {
 
 // waitExternalSemaphoresAsync Waits on a set of external semaphore objects.
 //
-// Enqueues a wait operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete. The exact semantics of waiting on a semaphore depends on the type of the object. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeOpaqueFd], [ExternalSemaphoreHandleTypeOpaqueWin32], [ExternalSemaphoreHandleTypeOpaqueWin32Kmt] then waiting on the semaphore will wait until the semaphore reaches the signaled state. The semaphore will then be reset to the unsignaled state. Therefore for every signal operation, there can only be one wait operation. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then waiting on the semaphore will wait until the value of the semaphore is greater than or equal to [ExternalSemaphoreWaitParams].paramsfence.value. If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] then, waiting on the semaphore will wait until the [ExternalSemaphoreSignalParams].paramsnvSciSync.fence is signaled by the signaler of the NvSciSyncObj that was associated with this semaphore object. By default, waiting on such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_WAIT_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.GetNvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_WAIT, this API will return [ErrNotSupported]. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be acquired when it is released with the key specified in [ExternalSemaphoreWaitParams].paramskeyedmutex.key or until the timeout specified by [ExternalSemaphoreWaitParams].paramskeyedmutex.timeoutMs has lapsed. The timeout interval can either be a finite value specified in milliseconds or an infinite value. In case an infinite value is specified the timeout never elapses. The windows INFINITE macro must be used to specify infinite timeout. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.SignalExternalSemaphoresAsync]
+// Enqueues a wait operation on a set of externally allocated semaphore object in the specified stream. The operations will be executed when all prior operations in the stream complete. The exact semantics of waiting on a semaphore depends on the type of the object. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeOpaqueFd], [ExternalSemaphoreHandleTypeOpaqueWin32], [ExternalSemaphoreHandleTypeOpaqueWin32Kmt] then waiting on the semaphore will wait until the semaphore reaches the signaled state. The semaphore will then be reset to the unsignaled state. Therefore for every signal operation, there can only be one wait operation. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d12Fence], [ExternalSemaphoreHandleTypeD3d11Fence], [ExternalSemaphoreHandleTypeTimelineSemaphoreFd], [ExternalSemaphoreHandleTypeTimelineSemaphoreWin32] then waiting on the semaphore will wait until the value of the semaphore is greater than or equal to [ExternalSemaphoreWaitParams].paramsfence.value. If the semaphore object is of the type [ExternalSemaphoreHandleTypeNvscisync] then, waiting on the semaphore will wait until the [ExternalSemaphoreSignalParams].paramsnvSciSync.fence is signaled by the signaler of the NvSciSyncObj that was associated with this semaphore object. By default, waiting on such an external semaphore object causes appropriate memory synchronization operations to be performed over all external memory objects that are imported as [ExternalMemoryHandleTypeNvscibuf]. This ensures that any subsequent accesses made by other importers of the same set of NvSciBuf memory object(s) are coherent. These operations can be skipped by specifying the flag CUDA_EXTERNAL_SEMAPHORE_WAIT_SKIP_NVSCIBUF_MEMSYNC, which can be used as a performance optimization when data coherency is not required. But specifying this flag in scenarios where data coherency is required results in undefined behavior. Also, for semaphore object of the type [ExternalSemaphoreHandleTypeNvscisync], if the NvSciSyncAttrList used to create the NvSciSyncObj had not set the flags in [Device.NvSciSyncAttributes] to CUDA_NVSCISYNC_ATTR_WAIT, this API will return [ErrNotSupported]. If the semaphore object is any one of the following types: [ExternalSemaphoreHandleTypeD3d11KeyedMutex], [ExternalSemaphoreHandleTypeD3d11KeyedMutexKmt] then the keyed mutex will be acquired when it is released with the key specified in [ExternalSemaphoreWaitParams].paramskeyedmutex.key or until the timeout specified by [ExternalSemaphoreWaitParams].paramskeyedmutex.timeoutMs has lapsed. The timeout interval can either be a finite value specified in milliseconds or an infinite value. In case an infinite value is specified the timeout never elapses. The windows INFINITE macro must be used to specify infinite timeout. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalSemaphore], [ExternalSemaphore.Destroy], [Stream.SignalExternalSemaphoresAsync]
 //
 //   - extSemArray: External semaphores to be waited on
 //   - paramsArray: Array of semaphore parameters

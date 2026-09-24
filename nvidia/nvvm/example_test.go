@@ -33,7 +33,7 @@ define void @zero(float* %out) {
 		fmt.Println("create:", err)
 		return
 	}
-	defer nvvm.DestroyProgram(&prog)
+	defer prog.Destroy()
 
 	ir := []byte(module)
 	if err := prog.AddModuleTo(unsafe.Pointer(&ir[0]), uint(len(ir)), "zero.ll"); err != nil {
@@ -41,11 +41,11 @@ define void @zero(float* %out) {
 		return
 	}
 	if err := prog.Compile([]string{"-arch=compute_70"}); err != nil {
-		log, _ := prog.GetProgramLog()
+		log, _ := prog.Log()
 		fmt.Printf("compile: %v\n%s", err, log)
 		return
 	}
-	ptx, err := prog.GetCompiledResult()
+	ptx, err := prog.CompiledResult()
 	if err != nil {
 		fmt.Println("result:", err)
 		return

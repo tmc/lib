@@ -83,8 +83,8 @@ func (h Handle) CYgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex64,
 }
 
 // Cgebrd wraps cusolverDnCgebrd.
-func (h Handle) Cgebrd(m int32, n int32, A *Complex64, lda int32, D *float32, E *float32, TAUQ *Complex64, TAUP *Complex64, Work *Complex64, Lwork int32, devInfo *int32) error {
-	return cgebrd(h, m, n, A, lda, D, E, TAUQ, TAUP, Work, Lwork, devInfo)
+func (h Handle) Cgebrd(m int32, n int32, a *Complex64, lda int32, d *float32, e *float32, tauq *Complex64, taup *Complex64, work *Complex64, lwork int32, devInfo *int32) error {
+	return cgebrd(h, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo)
 }
 
 // CgebrdBufferSize wraps cusolverDnCgebrdBufferSize, bound as cusolverDnCgebrd_bufferSize.
@@ -93,18 +93,18 @@ func (h Handle) CgebrdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // Cgeqrf wraps cusolverDnCgeqrf.
-func (h Handle) Cgeqrf(m int32, n int32, A *Complex64, lda int32, TAU *Complex64, Workspace *Complex64, Lwork int32, devInfo *int32) error {
-	return cgeqrf(h, m, n, A, lda, TAU, Workspace, Lwork, devInfo)
+func (h Handle) Cgeqrf(m int32, n int32, a *Complex64, lda int32, tau *Complex64, workspace *Complex64, lwork int32, devInfo *int32) error {
+	return cgeqrf(h, m, n, a, lda, tau, workspace, lwork, devInfo)
 }
 
 // CgeqrfBufferSize wraps cusolverDnCgeqrfBufferSize, bound as cusolverDnCgeqrf_bufferSize.
-func (h Handle) CgeqrfBufferSize(m int32, n int32, A *Complex64, lda int32) (int32, error) {
-	return cgeqrfBufferSize(h, m, n, A, lda)
+func (h Handle) CgeqrfBufferSize(m int32, n int32, a *Complex64, lda int32) (int32, error) {
+	return cgeqrfBufferSize(h, m, n, a, lda)
 }
 
 // Cgesvd wraps cusolverDnCgesvd.
-func (h Handle) Cgesvd(jobu int8, jobvt int8, m int32, n int32, A *Complex64, lda int32, S *float32, U *Complex64, ldu int32, VT *Complex64, ldvt int32, work *Complex64, lwork int32, rwork *float32, info *int32) error {
-	return cgesvd(h, jobu, jobvt, m, n, A, lda, S, U, ldu, VT, ldvt, work, lwork, rwork, info)
+func (h Handle) Cgesvd(jobu int8, jobvt int8, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, vt *Complex64, ldvt int32, work *Complex64, lwork int32, rwork *float32, info *int32) error {
+	return cgesvd(h, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info)
 }
 
 // CgesvdBufferSize wraps cusolverDnCgesvdBufferSize, bound as cusolverDnCgesvd_bufferSize.
@@ -123,238 +123,238 @@ func (h Handle) CgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int3
 }
 
 // Cgesvdj wraps cusolverDnCgesvdj.
-func (h Handle) Cgesvdj(jobz EigMode, econ int32, m int32, n int32, A *Complex64, lda int32, S *float32, U *Complex64, ldu int32, V *Complex64, ldv int32, work *Complex64, lwork int32, info *int32, params GesvdjInfo) error {
-	return cgesvdj(h, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params)
+func (h Handle) Cgesvdj(jobz EigMode, econ int32, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, work *Complex64, lwork int32, info *int32, params GesvdjInfo) error {
+	return cgesvdj(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params)
 }
 
 // CgesvdjBatched wraps cusolverDnCgesvdjBatched.
-func (h Handle) CgesvdjBatched(jobz EigMode, m int32, n int32, A *Complex64, lda int32, S *float32, U *Complex64, ldu int32, V *Complex64, ldv int32, work *Complex64, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
-	return cgesvdjBatched(h, jobz, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params, batchSize)
+func (h Handle) CgesvdjBatched(jobz EigMode, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, work *Complex64, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+	return cgesvdjBatched(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize)
 }
 
 // CgesvdjBatchedBufferSize wraps cusolverDnCgesvdjBatchedBufferSize, bound as cusolverDnCgesvdjBatched_bufferSize.
-func (h Handle) CgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, A *Complex64, lda int32, S *float32, U *Complex64, ldu int32, V *Complex64, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
-	return cgesvdjBatchedBufferSize(h, jobz, m, n, A, lda, S, U, ldu, V, ldv, lwork, params, batchSize)
+func (h Handle) CgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+	return cgesvdjBatchedBufferSize(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize)
 }
 
 // CgesvdjBufferSize wraps cusolverDnCgesvdjBufferSize, bound as cusolverDnCgesvdj_bufferSize.
-func (h Handle) CgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, A *Complex64, lda int32, S *float32, U *Complex64, ldu int32, V *Complex64, ldv int32, lwork *int32, params GesvdjInfo) error {
-	return cgesvdjBufferSize(h, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, lwork, params)
+func (h Handle) CgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, lwork *int32, params GesvdjInfo) error {
+	return cgesvdjBufferSize(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params)
 }
 
 // Cgetrf wraps cusolverDnCgetrf.
-func (h Handle) Cgetrf(m int32, n int32, A *Complex64, lda int32, Workspace *Complex64, devIpiv *int32, devInfo *int32) error {
-	return cgetrf(h, m, n, A, lda, Workspace, devIpiv, devInfo)
+func (h Handle) Cgetrf(m int32, n int32, a *Complex64, lda int32, workspace *Complex64, devIpiv *int32, devInfo *int32) error {
+	return cgetrf(h, m, n, a, lda, workspace, devIpiv, devInfo)
 }
 
 // CgetrfBufferSize wraps cusolverDnCgetrfBufferSize, bound as cusolverDnCgetrf_bufferSize.
-func (h Handle) CgetrfBufferSize(m int32, n int32, A *Complex64, lda int32) (int32, error) {
-	return cgetrfBufferSize(h, m, n, A, lda)
+func (h Handle) CgetrfBufferSize(m int32, n int32, a *Complex64, lda int32) (int32, error) {
+	return cgetrfBufferSize(h, m, n, a, lda)
 }
 
 // Cgetrs wraps cusolverDnCgetrs.
-func (h Handle) Cgetrs(trans Operation, n int32, nrhs int32, A *Complex64, lda int32, devIpiv *int32, B *Complex64, ldb int32, devInfo *int32) error {
-	return cgetrs(h, trans, n, nrhs, A, lda, devIpiv, B, ldb, devInfo)
+func (h Handle) Cgetrs(trans Operation, n int32, nrhs int32, a *Complex64, lda int32, devIpiv *int32, b *Complex64, ldb int32, devInfo *int32) error {
+	return cgetrs(h, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo)
 }
 
 // Cheevd wraps cusolverDnCheevd.
-func (h Handle) Cheevd(jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, W *float32, work *Complex64, lwork int32, info *int32) error {
-	return cheevd(h, jobz, uplo, n, A, lda, W, work, lwork, info)
+func (h Handle) Cheevd(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+	return cheevd(h, jobz, uplo, n, a, lda, w, work, lwork, info)
 }
 
 // CheevdBufferSize wraps cusolverDnCheevdBufferSize, bound as cusolverDnCheevd_bufferSize.
-func (h Handle) CheevdBufferSize(jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, W *float32) (int32, error) {
-	return cheevdBufferSize(h, jobz, uplo, n, A, lda, W)
+func (h Handle) CheevdBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32) (int32, error) {
+	return cheevdBufferSize(h, jobz, uplo, n, a, lda, w)
 }
 
 // Cheevdx wraps cusolverDnCheevdx.
-func (h Handle) Cheevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *Complex64, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, W *float32, work *Complex64, lwork int32, info *int32) error {
-	return cheevdx(h, jobz, range_, uplo, n, A, lda, vl, vu, il, iu, meig, W, work, lwork, info)
+func (h Handle) Cheevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+	return cheevdx(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // CheevdxBufferSize wraps cusolverDnCheevdxBufferSize, bound as cusolverDnCheevdx_bufferSize.
-func (h Handle) CheevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *Complex64, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, W *float32) (int32, error) {
-	return cheevdxBufferSize(h, jobz, range_, uplo, n, A, lda, vl, vu, il, iu, meig, W)
+func (h Handle) CheevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+	return cheevdxBufferSize(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w)
 }
 
 // Cheevj wraps cusolverDnCheevj.
-func (h Handle) Cheevj(jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, W *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo) error {
-	return cheevj(h, jobz, uplo, n, A, lda, W, work, lwork, info, params)
+func (h Handle) Cheevj(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo) error {
+	return cheevj(h, jobz, uplo, n, a, lda, w, work, lwork, info, params)
 }
 
 // CheevjBatched wraps cusolverDnCheevjBatched.
-func (h Handle) CheevjBatched(jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, W *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
-	return cheevjBatched(h, jobz, uplo, n, A, lda, W, work, lwork, info, params, batchSize)
+func (h Handle) CheevjBatched(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+	return cheevjBatched(h, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize)
 }
 
 // CheevjBatchedBufferSize wraps cusolverDnCheevjBatchedBufferSize, bound as cusolverDnCheevjBatched_bufferSize.
-func (h Handle) CheevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, W *float32, lwork *int32, params SyevjInfo, batchSize int32) error {
-	return cheevjBatchedBufferSize(h, jobz, uplo, n, A, lda, W, lwork, params, batchSize)
+func (h Handle) CheevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, lwork *int32, params SyevjInfo, batchSize int32) error {
+	return cheevjBatchedBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params, batchSize)
 }
 
 // CheevjBufferSize wraps cusolverDnCheevjBufferSize, bound as cusolverDnCheevj_bufferSize.
-func (h Handle) CheevjBufferSize(jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, W *float32, lwork *int32, params SyevjInfo) error {
-	return cheevjBufferSize(h, jobz, uplo, n, A, lda, W, lwork, params)
+func (h Handle) CheevjBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, lwork *int32, params SyevjInfo) error {
+	return cheevjBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params)
 }
 
 // Chegvd wraps cusolverDnChegvd.
-func (h Handle) Chegvd(itype EigType, jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, B *Complex64, ldb int32, W *float32, work *Complex64, lwork int32, info *int32) error {
-	return chegvd(h, itype, jobz, uplo, n, A, lda, B, ldb, W, work, lwork, info)
+func (h Handle) Chegvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+	return chegvd(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info)
 }
 
 // ChegvdBufferSize wraps cusolverDnChegvdBufferSize, bound as cusolverDnChegvd_bufferSize.
-func (h Handle) ChegvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, B *Complex64, ldb int32, W *float32) (int32, error) {
-	return chegvdBufferSize(h, itype, jobz, uplo, n, A, lda, B, ldb, W)
+func (h Handle) ChegvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32) (int32, error) {
+	return chegvdBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w)
 }
 
 // Chegvdx wraps cusolverDnChegvdx.
-func (h Handle) Chegvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *Complex64, lda int32, B *Complex64, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, W *float32, work *Complex64, lwork int32, info *int32) error {
-	return chegvdx(h, itype, jobz, range_, uplo, n, A, lda, B, ldb, vl, vu, il, iu, meig, W, work, lwork, info)
+func (h Handle) Chegvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+	return chegvdx(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // ChegvdxBufferSize wraps cusolverDnChegvdxBufferSize, bound as cusolverDnChegvdx_bufferSize.
-func (h Handle) ChegvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *Complex64, lda int32, B *Complex64, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, W *float32) (int32, error) {
-	return chegvdxBufferSize(h, itype, jobz, range_, uplo, n, A, lda, B, ldb, vl, vu, il, iu, meig, W)
+func (h Handle) ChegvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+	return chegvdxBufferSize(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w)
 }
 
 // Chegvj wraps cusolverDnChegvj.
-func (h Handle) Chegvj(itype EigType, jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, B *Complex64, ldb int32, W *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo) error {
-	return chegvj(h, itype, jobz, uplo, n, A, lda, B, ldb, W, work, lwork, info, params)
+func (h Handle) Chegvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo) error {
+	return chegvj(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params)
 }
 
 // ChegvjBufferSize wraps cusolverDnChegvjBufferSize, bound as cusolverDnChegvj_bufferSize.
-func (h Handle) ChegvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, A *Complex64, lda int32, B *Complex64, ldb int32, W *float32, lwork *int32, params SyevjInfo) error {
-	return chegvjBufferSize(h, itype, jobz, uplo, n, A, lda, B, ldb, W, lwork, params)
+func (h Handle) ChegvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32, lwork *int32, params SyevjInfo) error {
+	return chegvjBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params)
 }
 
 // Chetrd wraps cusolverDnChetrd.
-func (h Handle) Chetrd(uplo FillMode, n int32, A *Complex64, lda int32, d *float32, e *float32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
-	return chetrd(h, uplo, n, A, lda, d, e, tau, work, lwork, info)
+func (h Handle) Chetrd(uplo FillMode, n int32, a *Complex64, lda int32, d *float32, e *float32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+	return chetrd(h, uplo, n, a, lda, d, e, tau, work, lwork, info)
 }
 
 // ChetrdBufferSize wraps cusolverDnChetrdBufferSize, bound as cusolverDnChetrd_bufferSize.
-func (h Handle) ChetrdBufferSize(uplo FillMode, n int32, A *Complex64, lda int32, d *float32, e *float32, tau *Complex64) (int32, error) {
-	return chetrdBufferSize(h, uplo, n, A, lda, d, e, tau)
+func (h Handle) ChetrdBufferSize(uplo FillMode, n int32, a *Complex64, lda int32, d *float32, e *float32, tau *Complex64) (int32, error) {
+	return chetrdBufferSize(h, uplo, n, a, lda, d, e, tau)
 }
 
 // Claswp wraps cusolverDnClaswp.
-func (h Handle) Claswp(n int32, A *Complex64, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
-	return claswp(h, n, A, lda, k1, k2, devIpiv, incx)
+func (h Handle) Claswp(n int32, a *Complex64, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+	return claswp(h, n, a, lda, k1, k2, devIpiv, incx)
 }
 
 // Clauum wraps cusolverDnClauum.
-func (h Handle) Clauum(uplo FillMode, n int32, A *Complex64, lda int32, work *Complex64, lwork int32, devInfo *int32) error {
-	return clauum(h, uplo, n, A, lda, work, lwork, devInfo)
+func (h Handle) Clauum(uplo FillMode, n int32, a *Complex64, lda int32, work *Complex64, lwork int32, devInfo *int32) error {
+	return clauum(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // ClauumBufferSize wraps cusolverDnClauumBufferSize, bound as cusolverDnClauum_bufferSize.
-func (h Handle) ClauumBufferSize(uplo FillMode, n int32, A *Complex64, lda int32) (int32, error) {
-	return clauumBufferSize(h, uplo, n, A, lda)
+func (h Handle) ClauumBufferSize(uplo FillMode, n int32, a *Complex64, lda int32) (int32, error) {
+	return clauumBufferSize(h, uplo, n, a, lda)
 }
 
 // Cpotrf wraps cusolverDnCpotrf.
-func (h Handle) Cpotrf(uplo FillMode, n int32, A *Complex64, lda int32, Workspace *Complex64, Lwork int32, devInfo *int32) error {
-	return cpotrf(h, uplo, n, A, lda, Workspace, Lwork, devInfo)
+func (h Handle) Cpotrf(uplo FillMode, n int32, a *Complex64, lda int32, workspace *Complex64, lwork int32, devInfo *int32) error {
+	return cpotrf(h, uplo, n, a, lda, workspace, lwork, devInfo)
 }
 
 // CpotrfBatched wraps cusolverDnCpotrfBatched.
-func (h Handle) CpotrfBatched(uplo FillMode, n int32, Aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
-	return cpotrfBatched(h, uplo, n, Aarray, lda, infoArray, batchSize)
+func (h Handle) CpotrfBatched(uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+	return cpotrfBatched(h, uplo, n, aarray, lda, infoArray, batchSize)
 }
 
 // CpotrfBufferSize wraps cusolverDnCpotrfBufferSize, bound as cusolverDnCpotrf_bufferSize.
-func (h Handle) CpotrfBufferSize(uplo FillMode, n int32, A *Complex64, lda int32) (int32, error) {
-	return cpotrfBufferSize(h, uplo, n, A, lda)
+func (h Handle) CpotrfBufferSize(uplo FillMode, n int32, a *Complex64, lda int32) (int32, error) {
+	return cpotrfBufferSize(h, uplo, n, a, lda)
 }
 
 // Cpotri wraps cusolverDnCpotri.
-func (h Handle) Cpotri(uplo FillMode, n int32, A *Complex64, lda int32, work *Complex64, lwork int32, devInfo *int32) error {
-	return cpotri(h, uplo, n, A, lda, work, lwork, devInfo)
+func (h Handle) Cpotri(uplo FillMode, n int32, a *Complex64, lda int32, work *Complex64, lwork int32, devInfo *int32) error {
+	return cpotri(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // CpotriBufferSize wraps cusolverDnCpotriBufferSize, bound as cusolverDnCpotri_bufferSize.
-func (h Handle) CpotriBufferSize(uplo FillMode, n int32, A *Complex64, lda int32) (int32, error) {
-	return cpotriBufferSize(h, uplo, n, A, lda)
+func (h Handle) CpotriBufferSize(uplo FillMode, n int32, a *Complex64, lda int32) (int32, error) {
+	return cpotriBufferSize(h, uplo, n, a, lda)
 }
 
 // Cpotrs wraps cusolverDnCpotrs.
-func (h Handle) Cpotrs(uplo FillMode, n int32, nrhs int32, A *Complex64, lda int32, B *Complex64, ldb int32, devInfo *int32) error {
-	return cpotrs(h, uplo, n, nrhs, A, lda, B, ldb, devInfo)
+func (h Handle) Cpotrs(uplo FillMode, n int32, nrhs int32, a *Complex64, lda int32, b *Complex64, ldb int32, devInfo *int32) error {
+	return cpotrs(h, uplo, n, nrhs, a, lda, b, ldb, devInfo)
 }
 
 // CpotrsBatched wraps cusolverDnCpotrsBatched.
-func (h Handle) CpotrsBatched(uplo FillMode, n int32, nrhs int32, A uintptr, lda int32, B uintptr, ldb int32, dInfo *int32, batchSize int32) error {
-	return cpotrsBatched(h, uplo, n, nrhs, A, lda, B, ldb, dInfo, batchSize)
+func (h Handle) CpotrsBatched(uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+	return cpotrsBatched(h, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize)
 }
 
 // Csytrf wraps cusolverDnCsytrf.
-func (h Handle) Csytrf(uplo FillMode, n int32, A *Complex64, lda int32, ipiv *int32, work *Complex64, lwork int32, info *int32) error {
-	return csytrf(h, uplo, n, A, lda, ipiv, work, lwork, info)
+func (h Handle) Csytrf(uplo FillMode, n int32, a *Complex64, lda int32, ipiv *int32, work *Complex64, lwork int32, info *int32) error {
+	return csytrf(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // CsytrfBufferSize wraps cusolverDnCsytrfBufferSize, bound as cusolverDnCsytrf_bufferSize.
-func (h Handle) CsytrfBufferSize(n int32, A *Complex64, lda int32) (int32, error) {
-	return csytrfBufferSize(h, n, A, lda)
+func (h Handle) CsytrfBufferSize(n int32, a *Complex64, lda int32) (int32, error) {
+	return csytrfBufferSize(h, n, a, lda)
 }
 
 // Csytri wraps cusolverDnCsytri.
-func (h Handle) Csytri(uplo FillMode, n int32, A *Complex64, lda int32, ipiv *int32, work *Complex64, lwork int32, info *int32) error {
-	return csytri(h, uplo, n, A, lda, ipiv, work, lwork, info)
+func (h Handle) Csytri(uplo FillMode, n int32, a *Complex64, lda int32, ipiv *int32, work *Complex64, lwork int32, info *int32) error {
+	return csytri(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // CsytriBufferSize wraps cusolverDnCsytriBufferSize, bound as cusolverDnCsytri_bufferSize.
-func (h Handle) CsytriBufferSize(uplo FillMode, n int32, A *Complex64, lda int32, ipiv *int32) (int32, error) {
-	return csytriBufferSize(h, uplo, n, A, lda, ipiv)
+func (h Handle) CsytriBufferSize(uplo FillMode, n int32, a *Complex64, lda int32, ipiv *int32) (int32, error) {
+	return csytriBufferSize(h, uplo, n, a, lda, ipiv)
 }
 
 // Cungbr wraps cusolverDnCungbr.
-func (h Handle) Cungbr(side SideMode, m int32, n int32, k int32, A *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
-	return cungbr(h, side, m, n, k, A, lda, tau, work, lwork, info)
+func (h Handle) Cungbr(side SideMode, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+	return cungbr(h, side, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // CungbrBufferSize wraps cusolverDnCungbrBufferSize, bound as cusolverDnCungbr_bufferSize.
-func (h Handle) CungbrBufferSize(side SideMode, m int32, n int32, k int32, A *Complex64, lda int32, tau *Complex64) (int32, error) {
-	return cungbrBufferSize(h, side, m, n, k, A, lda, tau)
+func (h Handle) CungbrBufferSize(side SideMode, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64) (int32, error) {
+	return cungbrBufferSize(h, side, m, n, k, a, lda, tau)
 }
 
 // Cungqr wraps cusolverDnCungqr.
-func (h Handle) Cungqr(m int32, n int32, k int32, A *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
-	return cungqr(h, m, n, k, A, lda, tau, work, lwork, info)
+func (h Handle) Cungqr(m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+	return cungqr(h, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // CungqrBufferSize wraps cusolverDnCungqrBufferSize, bound as cusolverDnCungqr_bufferSize.
-func (h Handle) CungqrBufferSize(m int32, n int32, k int32, A *Complex64, lda int32, tau *Complex64) (int32, error) {
-	return cungqrBufferSize(h, m, n, k, A, lda, tau)
+func (h Handle) CungqrBufferSize(m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64) (int32, error) {
+	return cungqrBufferSize(h, m, n, k, a, lda, tau)
 }
 
 // Cungtr wraps cusolverDnCungtr.
-func (h Handle) Cungtr(uplo FillMode, n int32, A *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
-	return cungtr(h, uplo, n, A, lda, tau, work, lwork, info)
+func (h Handle) Cungtr(uplo FillMode, n int32, a *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+	return cungtr(h, uplo, n, a, lda, tau, work, lwork, info)
 }
 
 // CungtrBufferSize wraps cusolverDnCungtrBufferSize, bound as cusolverDnCungtr_bufferSize.
-func (h Handle) CungtrBufferSize(uplo FillMode, n int32, A *Complex64, lda int32, tau *Complex64) (int32, error) {
-	return cungtrBufferSize(h, uplo, n, A, lda, tau)
+func (h Handle) CungtrBufferSize(uplo FillMode, n int32, a *Complex64, lda int32, tau *Complex64) (int32, error) {
+	return cungtrBufferSize(h, uplo, n, a, lda, tau)
 }
 
 // Cunmqr wraps cusolverDnCunmqr.
-func (h Handle) Cunmqr(side SideMode, trans Operation, m int32, n int32, k int32, A *Complex64, lda int32, tau *Complex64, C *Complex64, ldc int32, work *Complex64, lwork int32, devInfo *int32) error {
-	return cunmqr(h, side, trans, m, n, k, A, lda, tau, C, ldc, work, lwork, devInfo)
+func (h Handle) Cunmqr(side SideMode, trans Operation, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32, work *Complex64, lwork int32, devInfo *int32) error {
+	return cunmqr(h, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo)
 }
 
 // CunmqrBufferSize wraps cusolverDnCunmqrBufferSize, bound as cusolverDnCunmqr_bufferSize.
-func (h Handle) CunmqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, A *Complex64, lda int32, tau *Complex64, C *Complex64, ldc int32) (int32, error) {
-	return cunmqrBufferSize(h, side, trans, m, n, k, A, lda, tau, C, ldc)
+func (h Handle) CunmqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32) (int32, error) {
+	return cunmqrBufferSize(h, side, trans, m, n, k, a, lda, tau, c, ldc)
 }
 
 // Cunmtr wraps cusolverDnCunmtr.
-func (h Handle) Cunmtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, A *Complex64, lda int32, tau *Complex64, C *Complex64, ldc int32, work *Complex64, lwork int32, info *int32) error {
-	return cunmtr(h, side, uplo, trans, m, n, A, lda, tau, C, ldc, work, lwork, info)
+func (h Handle) Cunmtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32, work *Complex64, lwork int32, info *int32) error {
+	return cunmtr(h, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info)
 }
 
 // CunmtrBufferSize wraps cusolverDnCunmtrBufferSize, bound as cusolverDnCunmtr_bufferSize.
-func (h Handle) CunmtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, A *Complex64, lda int32, tau *Complex64, C *Complex64, ldc int32) (int32, error) {
-	return cunmtrBufferSize(h, side, uplo, trans, m, n, A, lda, tau, C, ldc)
+func (h Handle) CunmtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32) (int32, error) {
+	return cunmtrBufferSize(h, side, uplo, trans, m, n, a, lda, tau, c, ldc)
 }
 
 // DBgels wraps cusolverDnDBgels.
@@ -462,9 +462,14 @@ func (h Handle) Destroy() error {
 	return destroy(h)
 }
 
+// DeterministicMode wraps cusolverDnGetDeterministicMode.
+func (h Handle) DeterministicMode() (DeterministicMode, error) {
+	return getDeterministicMode(h)
+}
+
 // Dgebrd wraps cusolverDnDgebrd.
-func (h Handle) Dgebrd(m int32, n int32, A *float64, lda int32, D *float64, E *float64, TAUQ *float64, TAUP *float64, Work *float64, Lwork int32, devInfo *int32) error {
-	return dgebrd(h, m, n, A, lda, D, E, TAUQ, TAUP, Work, Lwork, devInfo)
+func (h Handle) Dgebrd(m int32, n int32, a *float64, lda int32, d *float64, e *float64, tauq *float64, taup *float64, work *float64, lwork int32, devInfo *int32) error {
+	return dgebrd(h, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo)
 }
 
 // DgebrdBufferSize wraps cusolverDnDgebrdBufferSize, bound as cusolverDnDgebrd_bufferSize.
@@ -473,18 +478,18 @@ func (h Handle) DgebrdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // Dgeqrf wraps cusolverDnDgeqrf.
-func (h Handle) Dgeqrf(m int32, n int32, A *float64, lda int32, TAU *float64, Workspace *float64, Lwork int32, devInfo *int32) error {
-	return dgeqrf(h, m, n, A, lda, TAU, Workspace, Lwork, devInfo)
+func (h Handle) Dgeqrf(m int32, n int32, a *float64, lda int32, tau *float64, workspace *float64, lwork int32, devInfo *int32) error {
+	return dgeqrf(h, m, n, a, lda, tau, workspace, lwork, devInfo)
 }
 
 // DgeqrfBufferSize wraps cusolverDnDgeqrfBufferSize, bound as cusolverDnDgeqrf_bufferSize.
-func (h Handle) DgeqrfBufferSize(m int32, n int32, A *float64, lda int32) (int32, error) {
-	return dgeqrfBufferSize(h, m, n, A, lda)
+func (h Handle) DgeqrfBufferSize(m int32, n int32, a *float64, lda int32) (int32, error) {
+	return dgeqrfBufferSize(h, m, n, a, lda)
 }
 
 // Dgesvd wraps cusolverDnDgesvd.
-func (h Handle) Dgesvd(jobu int8, jobvt int8, m int32, n int32, A *float64, lda int32, S *float64, U *float64, ldu int32, VT *float64, ldvt int32, work *float64, lwork int32, rwork *float64, info *int32) error {
-	return dgesvd(h, jobu, jobvt, m, n, A, lda, S, U, ldu, VT, ldvt, work, lwork, rwork, info)
+func (h Handle) Dgesvd(jobu int8, jobvt int8, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, vt *float64, ldvt int32, work *float64, lwork int32, rwork *float64, info *int32) error {
+	return dgesvd(h, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info)
 }
 
 // DgesvdBufferSize wraps cusolverDnDgesvdBufferSize, bound as cusolverDnDgesvd_bufferSize.
@@ -503,278 +508,263 @@ func (h Handle) DgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int3
 }
 
 // Dgesvdj wraps cusolverDnDgesvdj.
-func (h Handle) Dgesvdj(jobz EigMode, econ int32, m int32, n int32, A *float64, lda int32, S *float64, U *float64, ldu int32, V *float64, ldv int32, work *float64, lwork int32, info *int32, params GesvdjInfo) error {
-	return dgesvdj(h, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params)
+func (h Handle) Dgesvdj(jobz EigMode, econ int32, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, work *float64, lwork int32, info *int32, params GesvdjInfo) error {
+	return dgesvdj(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params)
 }
 
 // DgesvdjBatched wraps cusolverDnDgesvdjBatched.
-func (h Handle) DgesvdjBatched(jobz EigMode, m int32, n int32, A *float64, lda int32, S *float64, U *float64, ldu int32, V *float64, ldv int32, work *float64, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
-	return dgesvdjBatched(h, jobz, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params, batchSize)
+func (h Handle) DgesvdjBatched(jobz EigMode, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, work *float64, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+	return dgesvdjBatched(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize)
 }
 
 // DgesvdjBatchedBufferSize wraps cusolverDnDgesvdjBatchedBufferSize, bound as cusolverDnDgesvdjBatched_bufferSize.
-func (h Handle) DgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, A *float64, lda int32, S *float64, U *float64, ldu int32, V *float64, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
-	return dgesvdjBatchedBufferSize(h, jobz, m, n, A, lda, S, U, ldu, V, ldv, lwork, params, batchSize)
+func (h Handle) DgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+	return dgesvdjBatchedBufferSize(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize)
 }
 
 // DgesvdjBufferSize wraps cusolverDnDgesvdjBufferSize, bound as cusolverDnDgesvdj_bufferSize.
-func (h Handle) DgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, A *float64, lda int32, S *float64, U *float64, ldu int32, V *float64, ldv int32, lwork *int32, params GesvdjInfo) error {
-	return dgesvdjBufferSize(h, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, lwork, params)
+func (h Handle) DgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, lwork *int32, params GesvdjInfo) error {
+	return dgesvdjBufferSize(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params)
 }
 
 // Dgetrf wraps cusolverDnDgetrf.
-func (h Handle) Dgetrf(m int32, n int32, A *float64, lda int32, Workspace *float64, devIpiv *int32, devInfo *int32) error {
-	return dgetrf(h, m, n, A, lda, Workspace, devIpiv, devInfo)
+func (h Handle) Dgetrf(m int32, n int32, a *float64, lda int32, workspace *float64, devIpiv *int32, devInfo *int32) error {
+	return dgetrf(h, m, n, a, lda, workspace, devIpiv, devInfo)
 }
 
 // DgetrfBufferSize wraps cusolverDnDgetrfBufferSize, bound as cusolverDnDgetrf_bufferSize.
-func (h Handle) DgetrfBufferSize(m int32, n int32, A *float64, lda int32) (int32, error) {
-	return dgetrfBufferSize(h, m, n, A, lda)
+func (h Handle) DgetrfBufferSize(m int32, n int32, a *float64, lda int32) (int32, error) {
+	return dgetrfBufferSize(h, m, n, a, lda)
 }
 
 // Dgetrs wraps cusolverDnDgetrs.
-func (h Handle) Dgetrs(trans Operation, n int32, nrhs int32, A *float64, lda int32, devIpiv *int32, B *float64, ldb int32, devInfo *int32) error {
-	return dgetrs(h, trans, n, nrhs, A, lda, devIpiv, B, ldb, devInfo)
+func (h Handle) Dgetrs(trans Operation, n int32, nrhs int32, a *float64, lda int32, devIpiv *int32, b *float64, ldb int32, devInfo *int32) error {
+	return dgetrs(h, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo)
 }
 
 // Dlaswp wraps cusolverDnDlaswp.
-func (h Handle) Dlaswp(n int32, A *float64, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
-	return dlaswp(h, n, A, lda, k1, k2, devIpiv, incx)
+func (h Handle) Dlaswp(n int32, a *float64, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+	return dlaswp(h, n, a, lda, k1, k2, devIpiv, incx)
 }
 
 // Dlauum wraps cusolverDnDlauum.
-func (h Handle) Dlauum(uplo FillMode, n int32, A *float64, lda int32, work *float64, lwork int32, devInfo *int32) error {
-	return dlauum(h, uplo, n, A, lda, work, lwork, devInfo)
+func (h Handle) Dlauum(uplo FillMode, n int32, a *float64, lda int32, work *float64, lwork int32, devInfo *int32) error {
+	return dlauum(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // DlauumBufferSize wraps cusolverDnDlauumBufferSize, bound as cusolverDnDlauum_bufferSize.
-func (h Handle) DlauumBufferSize(uplo FillMode, n int32, A *float64, lda int32) (int32, error) {
-	return dlauumBufferSize(h, uplo, n, A, lda)
+func (h Handle) DlauumBufferSize(uplo FillMode, n int32, a *float64, lda int32) (int32, error) {
+	return dlauumBufferSize(h, uplo, n, a, lda)
 }
 
 // Dorgbr wraps cusolverDnDorgbr.
-func (h Handle) Dorgbr(side SideMode, m int32, n int32, k int32, A *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
-	return dorgbr(h, side, m, n, k, A, lda, tau, work, lwork, info)
+func (h Handle) Dorgbr(side SideMode, m int32, n int32, k int32, a *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
+	return dorgbr(h, side, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // DorgbrBufferSize wraps cusolverDnDorgbrBufferSize, bound as cusolverDnDorgbr_bufferSize.
-func (h Handle) DorgbrBufferSize(side SideMode, m int32, n int32, k int32, A *float64, lda int32, tau *float64) (int32, error) {
-	return dorgbrBufferSize(h, side, m, n, k, A, lda, tau)
+func (h Handle) DorgbrBufferSize(side SideMode, m int32, n int32, k int32, a *float64, lda int32, tau *float64) (int32, error) {
+	return dorgbrBufferSize(h, side, m, n, k, a, lda, tau)
 }
 
 // Dorgqr wraps cusolverDnDorgqr.
-func (h Handle) Dorgqr(m int32, n int32, k int32, A *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
-	return dorgqr(h, m, n, k, A, lda, tau, work, lwork, info)
+func (h Handle) Dorgqr(m int32, n int32, k int32, a *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
+	return dorgqr(h, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // DorgqrBufferSize wraps cusolverDnDorgqrBufferSize, bound as cusolverDnDorgqr_bufferSize.
-func (h Handle) DorgqrBufferSize(m int32, n int32, k int32, A *float64, lda int32, tau *float64) (int32, error) {
-	return dorgqrBufferSize(h, m, n, k, A, lda, tau)
+func (h Handle) DorgqrBufferSize(m int32, n int32, k int32, a *float64, lda int32, tau *float64) (int32, error) {
+	return dorgqrBufferSize(h, m, n, k, a, lda, tau)
 }
 
 // Dorgtr wraps cusolverDnDorgtr.
-func (h Handle) Dorgtr(uplo FillMode, n int32, A *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
-	return dorgtr(h, uplo, n, A, lda, tau, work, lwork, info)
+func (h Handle) Dorgtr(uplo FillMode, n int32, a *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
+	return dorgtr(h, uplo, n, a, lda, tau, work, lwork, info)
 }
 
 // DorgtrBufferSize wraps cusolverDnDorgtrBufferSize, bound as cusolverDnDorgtr_bufferSize.
-func (h Handle) DorgtrBufferSize(uplo FillMode, n int32, A *float64, lda int32, tau *float64) (int32, error) {
-	return dorgtrBufferSize(h, uplo, n, A, lda, tau)
+func (h Handle) DorgtrBufferSize(uplo FillMode, n int32, a *float64, lda int32, tau *float64) (int32, error) {
+	return dorgtrBufferSize(h, uplo, n, a, lda, tau)
 }
 
 // Dormqr wraps cusolverDnDormqr.
-func (h Handle) Dormqr(side SideMode, trans Operation, m int32, n int32, k int32, A *float64, lda int32, tau *float64, C *float64, ldc int32, work *float64, lwork int32, devInfo *int32) error {
-	return dormqr(h, side, trans, m, n, k, A, lda, tau, C, ldc, work, lwork, devInfo)
+func (h Handle) Dormqr(side SideMode, trans Operation, m int32, n int32, k int32, a *float64, lda int32, tau *float64, c *float64, ldc int32, work *float64, lwork int32, devInfo *int32) error {
+	return dormqr(h, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo)
 }
 
 // DormqrBufferSize wraps cusolverDnDormqrBufferSize, bound as cusolverDnDormqr_bufferSize.
-func (h Handle) DormqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, A *float64, lda int32, tau *float64, C *float64, ldc int32) (int32, error) {
-	return dormqrBufferSize(h, side, trans, m, n, k, A, lda, tau, C, ldc)
+func (h Handle) DormqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a *float64, lda int32, tau *float64, c *float64, ldc int32) (int32, error) {
+	return dormqrBufferSize(h, side, trans, m, n, k, a, lda, tau, c, ldc)
 }
 
 // Dormtr wraps cusolverDnDormtr.
-func (h Handle) Dormtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, A *float64, lda int32, tau *float64, C *float64, ldc int32, work *float64, lwork int32, info *int32) error {
-	return dormtr(h, side, uplo, trans, m, n, A, lda, tau, C, ldc, work, lwork, info)
+func (h Handle) Dormtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float64, lda int32, tau *float64, c *float64, ldc int32, work *float64, lwork int32, info *int32) error {
+	return dormtr(h, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info)
 }
 
 // DormtrBufferSize wraps cusolverDnDormtrBufferSize, bound as cusolverDnDormtr_bufferSize.
-func (h Handle) DormtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, A *float64, lda int32, tau *float64, C *float64, ldc int32) (int32, error) {
-	return dormtrBufferSize(h, side, uplo, trans, m, n, A, lda, tau, C, ldc)
+func (h Handle) DormtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float64, lda int32, tau *float64, c *float64, ldc int32) (int32, error) {
+	return dormtrBufferSize(h, side, uplo, trans, m, n, a, lda, tau, c, ldc)
 }
 
 // Dpotrf wraps cusolverDnDpotrf.
-func (h Handle) Dpotrf(uplo FillMode, n int32, A *float64, lda int32, Workspace *float64, Lwork int32, devInfo *int32) error {
-	return dpotrf(h, uplo, n, A, lda, Workspace, Lwork, devInfo)
+func (h Handle) Dpotrf(uplo FillMode, n int32, a *float64, lda int32, workspace *float64, lwork int32, devInfo *int32) error {
+	return dpotrf(h, uplo, n, a, lda, workspace, lwork, devInfo)
 }
 
 // DpotrfBatched wraps cusolverDnDpotrfBatched.
-func (h Handle) DpotrfBatched(uplo FillMode, n int32, Aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
-	return dpotrfBatched(h, uplo, n, Aarray, lda, infoArray, batchSize)
+func (h Handle) DpotrfBatched(uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+	return dpotrfBatched(h, uplo, n, aarray, lda, infoArray, batchSize)
 }
 
 // DpotrfBufferSize wraps cusolverDnDpotrfBufferSize, bound as cusolverDnDpotrf_bufferSize.
-func (h Handle) DpotrfBufferSize(uplo FillMode, n int32, A *float64, lda int32) (int32, error) {
-	return dpotrfBufferSize(h, uplo, n, A, lda)
+func (h Handle) DpotrfBufferSize(uplo FillMode, n int32, a *float64, lda int32) (int32, error) {
+	return dpotrfBufferSize(h, uplo, n, a, lda)
 }
 
 // Dpotri wraps cusolverDnDpotri.
-func (h Handle) Dpotri(uplo FillMode, n int32, A *float64, lda int32, work *float64, lwork int32, devInfo *int32) error {
-	return dpotri(h, uplo, n, A, lda, work, lwork, devInfo)
+func (h Handle) Dpotri(uplo FillMode, n int32, a *float64, lda int32, work *float64, lwork int32, devInfo *int32) error {
+	return dpotri(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // DpotriBufferSize wraps cusolverDnDpotriBufferSize, bound as cusolverDnDpotri_bufferSize.
-func (h Handle) DpotriBufferSize(uplo FillMode, n int32, A *float64, lda int32) (int32, error) {
-	return dpotriBufferSize(h, uplo, n, A, lda)
+func (h Handle) DpotriBufferSize(uplo FillMode, n int32, a *float64, lda int32) (int32, error) {
+	return dpotriBufferSize(h, uplo, n, a, lda)
 }
 
 // Dpotrs wraps cusolverDnDpotrs.
-func (h Handle) Dpotrs(uplo FillMode, n int32, nrhs int32, A *float64, lda int32, B *float64, ldb int32, devInfo *int32) error {
-	return dpotrs(h, uplo, n, nrhs, A, lda, B, ldb, devInfo)
+func (h Handle) Dpotrs(uplo FillMode, n int32, nrhs int32, a *float64, lda int32, b *float64, ldb int32, devInfo *int32) error {
+	return dpotrs(h, uplo, n, nrhs, a, lda, b, ldb, devInfo)
 }
 
 // DpotrsBatched wraps cusolverDnDpotrsBatched.
-func (h Handle) DpotrsBatched(uplo FillMode, n int32, nrhs int32, A uintptr, lda int32, B uintptr, ldb int32, dInfo *int32, batchSize int32) error {
-	return dpotrsBatched(h, uplo, n, nrhs, A, lda, B, ldb, dInfo, batchSize)
+func (h Handle) DpotrsBatched(uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+	return dpotrsBatched(h, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize)
 }
 
 // Dsyevd wraps cusolverDnDsyevd.
-func (h Handle) Dsyevd(jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, W *float64, work *float64, lwork int32, info *int32) error {
-	return dsyevd(h, jobz, uplo, n, A, lda, W, work, lwork, info)
+func (h Handle) Dsyevd(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, work *float64, lwork int32, info *int32) error {
+	return dsyevd(h, jobz, uplo, n, a, lda, w, work, lwork, info)
 }
 
 // DsyevdBufferSize wraps cusolverDnDsyevdBufferSize, bound as cusolverDnDsyevd_bufferSize.
-func (h Handle) DsyevdBufferSize(jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, W *float64) (int32, error) {
-	return dsyevdBufferSize(h, jobz, uplo, n, A, lda, W)
+func (h Handle) DsyevdBufferSize(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64) (int32, error) {
+	return dsyevdBufferSize(h, jobz, uplo, n, a, lda, w)
 }
 
 // Dsyevdx wraps cusolverDnDsyevdx.
-func (h Handle) Dsyevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *float64, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, W *float64, work *float64, lwork int32, info *int32) error {
-	return dsyevdx(h, jobz, range_, uplo, n, A, lda, vl, vu, il, iu, meig, W, work, lwork, info)
+func (h Handle) Dsyevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *float64, lwork int32, info *int32) error {
+	return dsyevdx(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // DsyevdxBufferSize wraps cusolverDnDsyevdxBufferSize, bound as cusolverDnDsyevdx_bufferSize.
-func (h Handle) DsyevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *float64, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, W *float64) (int32, error) {
-	return dsyevdxBufferSize(h, jobz, range_, uplo, n, A, lda, vl, vu, il, iu, meig, W)
+func (h Handle) DsyevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+	return dsyevdxBufferSize(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w)
 }
 
 // Dsyevj wraps cusolverDnDsyevj.
-func (h Handle) Dsyevj(jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, W *float64, work *float64, lwork int32, info *int32, params SyevjInfo) error {
-	return dsyevj(h, jobz, uplo, n, A, lda, W, work, lwork, info, params)
+func (h Handle) Dsyevj(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, work *float64, lwork int32, info *int32, params SyevjInfo) error {
+	return dsyevj(h, jobz, uplo, n, a, lda, w, work, lwork, info, params)
 }
 
 // DsyevjBatched wraps cusolverDnDsyevjBatched.
-func (h Handle) DsyevjBatched(jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, W *float64, work *float64, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
-	return dsyevjBatched(h, jobz, uplo, n, A, lda, W, work, lwork, info, params, batchSize)
+func (h Handle) DsyevjBatched(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, work *float64, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+	return dsyevjBatched(h, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize)
 }
 
 // DsyevjBatchedBufferSize wraps cusolverDnDsyevjBatchedBufferSize, bound as cusolverDnDsyevjBatched_bufferSize.
-func (h Handle) DsyevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, W *float64, lwork *int32, params SyevjInfo, batchSize int32) error {
-	return dsyevjBatchedBufferSize(h, jobz, uplo, n, A, lda, W, lwork, params, batchSize)
+func (h Handle) DsyevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, lwork *int32, params SyevjInfo, batchSize int32) error {
+	return dsyevjBatchedBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params, batchSize)
 }
 
 // DsyevjBufferSize wraps cusolverDnDsyevjBufferSize, bound as cusolverDnDsyevj_bufferSize.
-func (h Handle) DsyevjBufferSize(jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, W *float64, lwork *int32, params SyevjInfo) error {
-	return dsyevjBufferSize(h, jobz, uplo, n, A, lda, W, lwork, params)
+func (h Handle) DsyevjBufferSize(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, lwork *int32, params SyevjInfo) error {
+	return dsyevjBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params)
 }
 
 // Dsygvd wraps cusolverDnDsygvd.
-func (h Handle) Dsygvd(itype EigType, jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, B *float64, ldb int32, W *float64, work *float64, lwork int32, info *int32) error {
-	return dsygvd(h, itype, jobz, uplo, n, A, lda, B, ldb, W, work, lwork, info)
+func (h Handle) Dsygvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64, work *float64, lwork int32, info *int32) error {
+	return dsygvd(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info)
 }
 
 // DsygvdBufferSize wraps cusolverDnDsygvdBufferSize, bound as cusolverDnDsygvd_bufferSize.
-func (h Handle) DsygvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, B *float64, ldb int32, W *float64) (int32, error) {
-	return dsygvdBufferSize(h, itype, jobz, uplo, n, A, lda, B, ldb, W)
+func (h Handle) DsygvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64) (int32, error) {
+	return dsygvdBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w)
 }
 
 // Dsygvdx wraps cusolverDnDsygvdx.
-func (h Handle) Dsygvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *float64, lda int32, B *float64, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, W *float64, work *float64, lwork int32, info *int32) error {
-	return dsygvdx(h, itype, jobz, range_, uplo, n, A, lda, B, ldb, vl, vu, il, iu, meig, W, work, lwork, info)
+func (h Handle) Dsygvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *float64, lwork int32, info *int32) error {
+	return dsygvdx(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // DsygvdxBufferSize wraps cusolverDnDsygvdxBufferSize, bound as cusolverDnDsygvdx_bufferSize.
-func (h Handle) DsygvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *float64, lda int32, B *float64, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, W *float64) (int32, error) {
-	return dsygvdxBufferSize(h, itype, jobz, range_, uplo, n, A, lda, B, ldb, vl, vu, il, iu, meig, W)
+func (h Handle) DsygvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+	return dsygvdxBufferSize(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w)
 }
 
 // Dsygvj wraps cusolverDnDsygvj.
-func (h Handle) Dsygvj(itype EigType, jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, B *float64, ldb int32, W *float64, work *float64, lwork int32, info *int32, params SyevjInfo) error {
-	return dsygvj(h, itype, jobz, uplo, n, A, lda, B, ldb, W, work, lwork, info, params)
+func (h Handle) Dsygvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64, work *float64, lwork int32, info *int32, params SyevjInfo) error {
+	return dsygvj(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params)
 }
 
 // DsygvjBufferSize wraps cusolverDnDsygvjBufferSize, bound as cusolverDnDsygvj_bufferSize.
-func (h Handle) DsygvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, A *float64, lda int32, B *float64, ldb int32, W *float64, lwork *int32, params SyevjInfo) error {
-	return dsygvjBufferSize(h, itype, jobz, uplo, n, A, lda, B, ldb, W, lwork, params)
+func (h Handle) DsygvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64, lwork *int32, params SyevjInfo) error {
+	return dsygvjBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params)
 }
 
 // Dsytrd wraps cusolverDnDsytrd.
-func (h Handle) Dsytrd(uplo FillMode, n int32, A *float64, lda int32, d *float64, e *float64, tau *float64, work *float64, lwork int32, info *int32) error {
-	return dsytrd(h, uplo, n, A, lda, d, e, tau, work, lwork, info)
+func (h Handle) Dsytrd(uplo FillMode, n int32, a *float64, lda int32, d *float64, e *float64, tau *float64, work *float64, lwork int32, info *int32) error {
+	return dsytrd(h, uplo, n, a, lda, d, e, tau, work, lwork, info)
 }
 
 // DsytrdBufferSize wraps cusolverDnDsytrdBufferSize, bound as cusolverDnDsytrd_bufferSize.
-func (h Handle) DsytrdBufferSize(uplo FillMode, n int32, A *float64, lda int32, d *float64, e *float64, tau *float64) (int32, error) {
-	return dsytrdBufferSize(h, uplo, n, A, lda, d, e, tau)
+func (h Handle) DsytrdBufferSize(uplo FillMode, n int32, a *float64, lda int32, d *float64, e *float64, tau *float64) (int32, error) {
+	return dsytrdBufferSize(h, uplo, n, a, lda, d, e, tau)
 }
 
 // Dsytrf wraps cusolverDnDsytrf.
-func (h Handle) Dsytrf(uplo FillMode, n int32, A *float64, lda int32, ipiv *int32, work *float64, lwork int32, info *int32) error {
-	return dsytrf(h, uplo, n, A, lda, ipiv, work, lwork, info)
+func (h Handle) Dsytrf(uplo FillMode, n int32, a *float64, lda int32, ipiv *int32, work *float64, lwork int32, info *int32) error {
+	return dsytrf(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // DsytrfBufferSize wraps cusolverDnDsytrfBufferSize, bound as cusolverDnDsytrf_bufferSize.
-func (h Handle) DsytrfBufferSize(n int32, A *float64, lda int32) (int32, error) {
-	return dsytrfBufferSize(h, n, A, lda)
+func (h Handle) DsytrfBufferSize(n int32, a *float64, lda int32) (int32, error) {
+	return dsytrfBufferSize(h, n, a, lda)
 }
 
 // Dsytri wraps cusolverDnDsytri.
-func (h Handle) Dsytri(uplo FillMode, n int32, A *float64, lda int32, ipiv *int32, work *float64, lwork int32, info *int32) error {
-	return dsytri(h, uplo, n, A, lda, ipiv, work, lwork, info)
+func (h Handle) Dsytri(uplo FillMode, n int32, a *float64, lda int32, ipiv *int32, work *float64, lwork int32, info *int32) error {
+	return dsytri(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // DsytriBufferSize wraps cusolverDnDsytriBufferSize, bound as cusolverDnDsytri_bufferSize.
-func (h Handle) DsytriBufferSize(uplo FillMode, n int32, A *float64, lda int32, ipiv *int32) (int32, error) {
-	return dsytriBufferSize(h, uplo, n, A, lda, ipiv)
+func (h Handle) DsytriBufferSize(uplo FillMode, n int32, a *float64, lda int32, ipiv *int32) (int32, error) {
+	return dsytriBufferSize(h, uplo, n, a, lda, ipiv)
 }
 
-// GetDeterministicMode wraps cusolverDnGetDeterministicMode.
-func (h Handle) GetDeterministicMode() (DeterministicMode, error) {
-	return getDeterministicMode(h)
-}
-
-// GetEmulationSpecialValuesSupport wraps cusolverDnGetEmulationSpecialValuesSupport.
-func (h Handle) GetEmulationSpecialValuesSupport() (EmulationSpecialValuesSupport, error) {
+// EmulationSpecialValuesSupport wraps cusolverDnGetEmulationSpecialValuesSupport.
+func (h Handle) EmulationSpecialValuesSupport() (EmulationSpecialValuesSupport, error) {
 	return getEmulationSpecialValuesSupport(h)
 }
 
-// GetEmulationStrategy wraps cusolverDnGetEmulationStrategy.
-func (h Handle) GetEmulationStrategy() (EmulationStrategy, error) {
+// EmulationStrategy wraps cusolverDnGetEmulationStrategy.
+func (h Handle) EmulationStrategy() (EmulationStrategy, error) {
 	return getEmulationStrategy(h)
 }
 
-// GetFixedPointEmulationMantissaBitOffset wraps cusolverDnGetFixedPointEmulationMantissaBitOffset.
-func (h Handle) GetFixedPointEmulationMantissaBitOffset() (int32, error) {
+// FixedPointEmulationMantissaBitOffset wraps cusolverDnGetFixedPointEmulationMantissaBitOffset.
+func (h Handle) FixedPointEmulationMantissaBitOffset() (int32, error) {
 	return getFixedPointEmulationMantissaBitOffset(h)
 }
 
-// GetFixedPointEmulationMantissaControl wraps cusolverDnGetFixedPointEmulationMantissaControl.
-func (h Handle) GetFixedPointEmulationMantissaControl() (EmulationMantissaControl, error) {
+// FixedPointEmulationMantissaControl wraps cusolverDnGetFixedPointEmulationMantissaControl.
+func (h Handle) FixedPointEmulationMantissaControl() (EmulationMantissaControl, error) {
 	return getFixedPointEmulationMantissaControl(h)
 }
 
-// GetFixedPointEmulationMaxMantissaBitCount wraps cusolverDnGetFixedPointEmulationMaxMantissaBitCount.
-func (h Handle) GetFixedPointEmulationMaxMantissaBitCount() (int32, error) {
+// FixedPointEmulationMaxMantissaBitCount wraps cusolverDnGetFixedPointEmulationMaxMantissaBitCount.
+func (h Handle) FixedPointEmulationMaxMantissaBitCount() (int32, error) {
 	return getFixedPointEmulationMaxMantissaBitCount(h)
-}
-
-// GetMathMode wraps cusolverDnGetMathMode.
-func (h Handle) GetMathMode() (MathMode, error) {
-	return getMathMode(h)
-}
-
-// GetStream wraps cusolverDnGetStream.
-func (h Handle) GetStream() (Stream, error) {
-	return getStream(h)
 }
 
 // IRSXgels wraps cusolverDnIRSXgels.
@@ -795,6 +785,11 @@ func (h Handle) IRSXgesv(gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n Cusol
 // IRSXgesvBufferSize wraps cusolverDnIRSXgesvBufferSize, bound as cusolverDnIRSXgesv_bufferSize.
 func (h Handle) IRSXgesvBufferSize(params IRSParams, n CusolverInt, nrhs CusolverInt) (uint, error) {
 	return iRSXgesvBufferSize(h, params, n, nrhs)
+}
+
+// MathMode wraps cusolverDnGetMathMode.
+func (h Handle) MathMode() (MathMode, error) {
+	return getMathMode(h)
 }
 
 // SBgels wraps cusolverDnSBgels.
@@ -918,8 +913,8 @@ func (h Handle) SetStream(streamId Stream) error {
 }
 
 // Sgebrd wraps cusolverDnSgebrd.
-func (h Handle) Sgebrd(m int32, n int32, A *float32, lda int32, D *float32, E *float32, TAUQ *float32, TAUP *float32, Work *float32, Lwork int32, devInfo *int32) error {
-	return sgebrd(h, m, n, A, lda, D, E, TAUQ, TAUP, Work, Lwork, devInfo)
+func (h Handle) Sgebrd(m int32, n int32, a *float32, lda int32, d *float32, e *float32, tauq *float32, taup *float32, work *float32, lwork int32, devInfo *int32) error {
+	return sgebrd(h, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo)
 }
 
 // SgebrdBufferSize wraps cusolverDnSgebrdBufferSize, bound as cusolverDnSgebrd_bufferSize.
@@ -928,18 +923,18 @@ func (h Handle) SgebrdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // Sgeqrf wraps cusolverDnSgeqrf.
-func (h Handle) Sgeqrf(m int32, n int32, A *float32, lda int32, TAU *float32, Workspace *float32, Lwork int32, devInfo *int32) error {
-	return sgeqrf(h, m, n, A, lda, TAU, Workspace, Lwork, devInfo)
+func (h Handle) Sgeqrf(m int32, n int32, a *float32, lda int32, tau *float32, workspace *float32, lwork int32, devInfo *int32) error {
+	return sgeqrf(h, m, n, a, lda, tau, workspace, lwork, devInfo)
 }
 
 // SgeqrfBufferSize wraps cusolverDnSgeqrfBufferSize, bound as cusolverDnSgeqrf_bufferSize.
-func (h Handle) SgeqrfBufferSize(m int32, n int32, A *float32, lda int32) (int32, error) {
-	return sgeqrfBufferSize(h, m, n, A, lda)
+func (h Handle) SgeqrfBufferSize(m int32, n int32, a *float32, lda int32) (int32, error) {
+	return sgeqrfBufferSize(h, m, n, a, lda)
 }
 
 // Sgesvd wraps cusolverDnSgesvd.
-func (h Handle) Sgesvd(jobu int8, jobvt int8, m int32, n int32, A *float32, lda int32, S *float32, U *float32, ldu int32, VT *float32, ldvt int32, work *float32, lwork int32, rwork *float32, info *int32) error {
-	return sgesvd(h, jobu, jobvt, m, n, A, lda, S, U, ldu, VT, ldvt, work, lwork, rwork, info)
+func (h Handle) Sgesvd(jobu int8, jobvt int8, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, vt *float32, ldvt int32, work *float32, lwork int32, rwork *float32, info *int32) error {
+	return sgesvd(h, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info)
 }
 
 // SgesvdBufferSize wraps cusolverDnSgesvdBufferSize, bound as cusolverDnSgesvd_bufferSize.
@@ -958,268 +953,273 @@ func (h Handle) SgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int3
 }
 
 // Sgesvdj wraps cusolverDnSgesvdj.
-func (h Handle) Sgesvdj(jobz EigMode, econ int32, m int32, n int32, A *float32, lda int32, S *float32, U *float32, ldu int32, V *float32, ldv int32, work *float32, lwork int32, info *int32, params GesvdjInfo) error {
-	return sgesvdj(h, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params)
+func (h Handle) Sgesvdj(jobz EigMode, econ int32, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, work *float32, lwork int32, info *int32, params GesvdjInfo) error {
+	return sgesvdj(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params)
 }
 
 // SgesvdjBatched wraps cusolverDnSgesvdjBatched.
-func (h Handle) SgesvdjBatched(jobz EigMode, m int32, n int32, A *float32, lda int32, S *float32, U *float32, ldu int32, V *float32, ldv int32, work *float32, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
-	return sgesvdjBatched(h, jobz, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params, batchSize)
+func (h Handle) SgesvdjBatched(jobz EigMode, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, work *float32, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+	return sgesvdjBatched(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize)
 }
 
 // SgesvdjBatchedBufferSize wraps cusolverDnSgesvdjBatchedBufferSize, bound as cusolverDnSgesvdjBatched_bufferSize.
-func (h Handle) SgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, A *float32, lda int32, S *float32, U *float32, ldu int32, V *float32, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
-	return sgesvdjBatchedBufferSize(h, jobz, m, n, A, lda, S, U, ldu, V, ldv, lwork, params, batchSize)
+func (h Handle) SgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+	return sgesvdjBatchedBufferSize(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize)
 }
 
 // SgesvdjBufferSize wraps cusolverDnSgesvdjBufferSize, bound as cusolverDnSgesvdj_bufferSize.
-func (h Handle) SgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, A *float32, lda int32, S *float32, U *float32, ldu int32, V *float32, ldv int32, lwork *int32, params GesvdjInfo) error {
-	return sgesvdjBufferSize(h, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, lwork, params)
+func (h Handle) SgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, lwork *int32, params GesvdjInfo) error {
+	return sgesvdjBufferSize(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params)
 }
 
 // Sgetrf wraps cusolverDnSgetrf.
-func (h Handle) Sgetrf(m int32, n int32, A *float32, lda int32, Workspace *float32, devIpiv *int32, devInfo *int32) error {
-	return sgetrf(h, m, n, A, lda, Workspace, devIpiv, devInfo)
+func (h Handle) Sgetrf(m int32, n int32, a *float32, lda int32, workspace *float32, devIpiv *int32, devInfo *int32) error {
+	return sgetrf(h, m, n, a, lda, workspace, devIpiv, devInfo)
 }
 
 // SgetrfBufferSize wraps cusolverDnSgetrfBufferSize, bound as cusolverDnSgetrf_bufferSize.
-func (h Handle) SgetrfBufferSize(m int32, n int32, A *float32, lda int32) (int32, error) {
-	return sgetrfBufferSize(h, m, n, A, lda)
+func (h Handle) SgetrfBufferSize(m int32, n int32, a *float32, lda int32) (int32, error) {
+	return sgetrfBufferSize(h, m, n, a, lda)
 }
 
 // Sgetrs wraps cusolverDnSgetrs.
-func (h Handle) Sgetrs(trans Operation, n int32, nrhs int32, A *float32, lda int32, devIpiv *int32, B *float32, ldb int32, devInfo *int32) error {
-	return sgetrs(h, trans, n, nrhs, A, lda, devIpiv, B, ldb, devInfo)
+func (h Handle) Sgetrs(trans Operation, n int32, nrhs int32, a *float32, lda int32, devIpiv *int32, b *float32, ldb int32, devInfo *int32) error {
+	return sgetrs(h, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo)
 }
 
 // Slaswp wraps cusolverDnSlaswp.
-func (h Handle) Slaswp(n int32, A *float32, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
-	return slaswp(h, n, A, lda, k1, k2, devIpiv, incx)
+func (h Handle) Slaswp(n int32, a *float32, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+	return slaswp(h, n, a, lda, k1, k2, devIpiv, incx)
 }
 
 // Slauum wraps cusolverDnSlauum.
-func (h Handle) Slauum(uplo FillMode, n int32, A *float32, lda int32, work *float32, lwork int32, devInfo *int32) error {
-	return slauum(h, uplo, n, A, lda, work, lwork, devInfo)
+func (h Handle) Slauum(uplo FillMode, n int32, a *float32, lda int32, work *float32, lwork int32, devInfo *int32) error {
+	return slauum(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // SlauumBufferSize wraps cusolverDnSlauumBufferSize, bound as cusolverDnSlauum_bufferSize.
-func (h Handle) SlauumBufferSize(uplo FillMode, n int32, A *float32, lda int32) (int32, error) {
-	return slauumBufferSize(h, uplo, n, A, lda)
+func (h Handle) SlauumBufferSize(uplo FillMode, n int32, a *float32, lda int32) (int32, error) {
+	return slauumBufferSize(h, uplo, n, a, lda)
 }
 
 // Sorgbr wraps cusolverDnSorgbr.
-func (h Handle) Sorgbr(side SideMode, m int32, n int32, k int32, A *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
-	return sorgbr(h, side, m, n, k, A, lda, tau, work, lwork, info)
+func (h Handle) Sorgbr(side SideMode, m int32, n int32, k int32, a *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
+	return sorgbr(h, side, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // SorgbrBufferSize wraps cusolverDnSorgbrBufferSize, bound as cusolverDnSorgbr_bufferSize.
-func (h Handle) SorgbrBufferSize(side SideMode, m int32, n int32, k int32, A *float32, lda int32, tau *float32) (int32, error) {
-	return sorgbrBufferSize(h, side, m, n, k, A, lda, tau)
+func (h Handle) SorgbrBufferSize(side SideMode, m int32, n int32, k int32, a *float32, lda int32, tau *float32) (int32, error) {
+	return sorgbrBufferSize(h, side, m, n, k, a, lda, tau)
 }
 
 // Sorgqr wraps cusolverDnSorgqr.
-func (h Handle) Sorgqr(m int32, n int32, k int32, A *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
-	return sorgqr(h, m, n, k, A, lda, tau, work, lwork, info)
+func (h Handle) Sorgqr(m int32, n int32, k int32, a *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
+	return sorgqr(h, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // SorgqrBufferSize wraps cusolverDnSorgqrBufferSize, bound as cusolverDnSorgqr_bufferSize.
-func (h Handle) SorgqrBufferSize(m int32, n int32, k int32, A *float32, lda int32, tau *float32) (int32, error) {
-	return sorgqrBufferSize(h, m, n, k, A, lda, tau)
+func (h Handle) SorgqrBufferSize(m int32, n int32, k int32, a *float32, lda int32, tau *float32) (int32, error) {
+	return sorgqrBufferSize(h, m, n, k, a, lda, tau)
 }
 
 // Sorgtr wraps cusolverDnSorgtr.
-func (h Handle) Sorgtr(uplo FillMode, n int32, A *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
-	return sorgtr(h, uplo, n, A, lda, tau, work, lwork, info)
+func (h Handle) Sorgtr(uplo FillMode, n int32, a *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
+	return sorgtr(h, uplo, n, a, lda, tau, work, lwork, info)
 }
 
 // SorgtrBufferSize wraps cusolverDnSorgtrBufferSize, bound as cusolverDnSorgtr_bufferSize.
-func (h Handle) SorgtrBufferSize(uplo FillMode, n int32, A *float32, lda int32, tau *float32) (int32, error) {
-	return sorgtrBufferSize(h, uplo, n, A, lda, tau)
+func (h Handle) SorgtrBufferSize(uplo FillMode, n int32, a *float32, lda int32, tau *float32) (int32, error) {
+	return sorgtrBufferSize(h, uplo, n, a, lda, tau)
 }
 
 // Sormqr wraps cusolverDnSormqr.
-func (h Handle) Sormqr(side SideMode, trans Operation, m int32, n int32, k int32, A *float32, lda int32, tau *float32, C *float32, ldc int32, work *float32, lwork int32, devInfo *int32) error {
-	return sormqr(h, side, trans, m, n, k, A, lda, tau, C, ldc, work, lwork, devInfo)
+func (h Handle) Sormqr(side SideMode, trans Operation, m int32, n int32, k int32, a *float32, lda int32, tau *float32, c *float32, ldc int32, work *float32, lwork int32, devInfo *int32) error {
+	return sormqr(h, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo)
 }
 
 // SormqrBufferSize wraps cusolverDnSormqrBufferSize, bound as cusolverDnSormqr_bufferSize.
-func (h Handle) SormqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, A *float32, lda int32, tau *float32, C *float32, ldc int32) (int32, error) {
-	return sormqrBufferSize(h, side, trans, m, n, k, A, lda, tau, C, ldc)
+func (h Handle) SormqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a *float32, lda int32, tau *float32, c *float32, ldc int32) (int32, error) {
+	return sormqrBufferSize(h, side, trans, m, n, k, a, lda, tau, c, ldc)
 }
 
 // Sormtr wraps cusolverDnSormtr.
-func (h Handle) Sormtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, A *float32, lda int32, tau *float32, C *float32, ldc int32, work *float32, lwork int32, info *int32) error {
-	return sormtr(h, side, uplo, trans, m, n, A, lda, tau, C, ldc, work, lwork, info)
+func (h Handle) Sormtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float32, lda int32, tau *float32, c *float32, ldc int32, work *float32, lwork int32, info *int32) error {
+	return sormtr(h, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info)
 }
 
 // SormtrBufferSize wraps cusolverDnSormtrBufferSize, bound as cusolverDnSormtr_bufferSize.
-func (h Handle) SormtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, A *float32, lda int32, tau *float32, C *float32, ldc int32) (int32, error) {
-	return sormtrBufferSize(h, side, uplo, trans, m, n, A, lda, tau, C, ldc)
+func (h Handle) SormtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float32, lda int32, tau *float32, c *float32, ldc int32) (int32, error) {
+	return sormtrBufferSize(h, side, uplo, trans, m, n, a, lda, tau, c, ldc)
 }
 
 // Spotrf wraps cusolverDnSpotrf.
-func (h Handle) Spotrf(uplo FillMode, n int32, A *float32, lda int32, Workspace *float32, Lwork int32, devInfo *int32) error {
-	return spotrf(h, uplo, n, A, lda, Workspace, Lwork, devInfo)
+func (h Handle) Spotrf(uplo FillMode, n int32, a *float32, lda int32, workspace *float32, lwork int32, devInfo *int32) error {
+	return spotrf(h, uplo, n, a, lda, workspace, lwork, devInfo)
 }
 
 // SpotrfBatched wraps cusolverDnSpotrfBatched.
-func (h Handle) SpotrfBatched(uplo FillMode, n int32, Aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
-	return spotrfBatched(h, uplo, n, Aarray, lda, infoArray, batchSize)
+func (h Handle) SpotrfBatched(uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+	return spotrfBatched(h, uplo, n, aarray, lda, infoArray, batchSize)
 }
 
 // SpotrfBufferSize wraps cusolverDnSpotrfBufferSize, bound as cusolverDnSpotrf_bufferSize.
-func (h Handle) SpotrfBufferSize(uplo FillMode, n int32, A *float32, lda int32) (int32, error) {
-	return spotrfBufferSize(h, uplo, n, A, lda)
+func (h Handle) SpotrfBufferSize(uplo FillMode, n int32, a *float32, lda int32) (int32, error) {
+	return spotrfBufferSize(h, uplo, n, a, lda)
 }
 
 // Spotri wraps cusolverDnSpotri.
-func (h Handle) Spotri(uplo FillMode, n int32, A *float32, lda int32, work *float32, lwork int32, devInfo *int32) error {
-	return spotri(h, uplo, n, A, lda, work, lwork, devInfo)
+func (h Handle) Spotri(uplo FillMode, n int32, a *float32, lda int32, work *float32, lwork int32, devInfo *int32) error {
+	return spotri(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // SpotriBufferSize wraps cusolverDnSpotriBufferSize, bound as cusolverDnSpotri_bufferSize.
-func (h Handle) SpotriBufferSize(uplo FillMode, n int32, A *float32, lda int32) (int32, error) {
-	return spotriBufferSize(h, uplo, n, A, lda)
+func (h Handle) SpotriBufferSize(uplo FillMode, n int32, a *float32, lda int32) (int32, error) {
+	return spotriBufferSize(h, uplo, n, a, lda)
 }
 
 // Spotrs wraps cusolverDnSpotrs.
-func (h Handle) Spotrs(uplo FillMode, n int32, nrhs int32, A *float32, lda int32, B *float32, ldb int32, devInfo *int32) error {
-	return spotrs(h, uplo, n, nrhs, A, lda, B, ldb, devInfo)
+func (h Handle) Spotrs(uplo FillMode, n int32, nrhs int32, a *float32, lda int32, b *float32, ldb int32, devInfo *int32) error {
+	return spotrs(h, uplo, n, nrhs, a, lda, b, ldb, devInfo)
 }
 
 // SpotrsBatched wraps cusolverDnSpotrsBatched.
-func (h Handle) SpotrsBatched(uplo FillMode, n int32, nrhs int32, A uintptr, lda int32, B uintptr, ldb int32, dInfo *int32, batchSize int32) error {
-	return spotrsBatched(h, uplo, n, nrhs, A, lda, B, ldb, dInfo, batchSize)
+func (h Handle) SpotrsBatched(uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+	return spotrsBatched(h, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize)
 }
 
 // Ssyevd wraps cusolverDnSsyevd.
-func (h Handle) Ssyevd(jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, W *float32, work *float32, lwork int32, info *int32) error {
-	return ssyevd(h, jobz, uplo, n, A, lda, W, work, lwork, info)
+func (h Handle) Ssyevd(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, work *float32, lwork int32, info *int32) error {
+	return ssyevd(h, jobz, uplo, n, a, lda, w, work, lwork, info)
 }
 
 // SsyevdBufferSize wraps cusolverDnSsyevdBufferSize, bound as cusolverDnSsyevd_bufferSize.
-func (h Handle) SsyevdBufferSize(jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, W *float32) (int32, error) {
-	return ssyevdBufferSize(h, jobz, uplo, n, A, lda, W)
+func (h Handle) SsyevdBufferSize(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32) (int32, error) {
+	return ssyevdBufferSize(h, jobz, uplo, n, a, lda, w)
 }
 
 // Ssyevdx wraps cusolverDnSsyevdx.
-func (h Handle) Ssyevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *float32, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, W *float32, work *float32, lwork int32, info *int32) error {
-	return ssyevdx(h, jobz, range_, uplo, n, A, lda, vl, vu, il, iu, meig, W, work, lwork, info)
+func (h Handle) Ssyevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *float32, lwork int32, info *int32) error {
+	return ssyevdx(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // SsyevdxBufferSize wraps cusolverDnSsyevdxBufferSize, bound as cusolverDnSsyevdx_bufferSize.
-func (h Handle) SsyevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *float32, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, W *float32) (int32, error) {
-	return ssyevdxBufferSize(h, jobz, range_, uplo, n, A, lda, vl, vu, il, iu, meig, W)
+func (h Handle) SsyevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+	return ssyevdxBufferSize(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w)
 }
 
 // Ssyevj wraps cusolverDnSsyevj.
-func (h Handle) Ssyevj(jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, W *float32, work *float32, lwork int32, info *int32, params SyevjInfo) error {
-	return ssyevj(h, jobz, uplo, n, A, lda, W, work, lwork, info, params)
+func (h Handle) Ssyevj(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, work *float32, lwork int32, info *int32, params SyevjInfo) error {
+	return ssyevj(h, jobz, uplo, n, a, lda, w, work, lwork, info, params)
 }
 
 // SsyevjBatched wraps cusolverDnSsyevjBatched.
-func (h Handle) SsyevjBatched(jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, W *float32, work *float32, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
-	return ssyevjBatched(h, jobz, uplo, n, A, lda, W, work, lwork, info, params, batchSize)
+func (h Handle) SsyevjBatched(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, work *float32, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+	return ssyevjBatched(h, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize)
 }
 
 // SsyevjBatchedBufferSize wraps cusolverDnSsyevjBatchedBufferSize, bound as cusolverDnSsyevjBatched_bufferSize.
-func (h Handle) SsyevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, W *float32, lwork *int32, params SyevjInfo, batchSize int32) error {
-	return ssyevjBatchedBufferSize(h, jobz, uplo, n, A, lda, W, lwork, params, batchSize)
+func (h Handle) SsyevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, lwork *int32, params SyevjInfo, batchSize int32) error {
+	return ssyevjBatchedBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params, batchSize)
 }
 
 // SsyevjBufferSize wraps cusolverDnSsyevjBufferSize, bound as cusolverDnSsyevj_bufferSize.
-func (h Handle) SsyevjBufferSize(jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, W *float32, lwork *int32, params SyevjInfo) error {
-	return ssyevjBufferSize(h, jobz, uplo, n, A, lda, W, lwork, params)
+func (h Handle) SsyevjBufferSize(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, lwork *int32, params SyevjInfo) error {
+	return ssyevjBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params)
 }
 
 // Ssygvd wraps cusolverDnSsygvd.
-func (h Handle) Ssygvd(itype EigType, jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, B *float32, ldb int32, W *float32, work *float32, lwork int32, info *int32) error {
-	return ssygvd(h, itype, jobz, uplo, n, A, lda, B, ldb, W, work, lwork, info)
+func (h Handle) Ssygvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32, work *float32, lwork int32, info *int32) error {
+	return ssygvd(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info)
 }
 
 // SsygvdBufferSize wraps cusolverDnSsygvdBufferSize, bound as cusolverDnSsygvd_bufferSize.
-func (h Handle) SsygvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, B *float32, ldb int32, W *float32) (int32, error) {
-	return ssygvdBufferSize(h, itype, jobz, uplo, n, A, lda, B, ldb, W)
+func (h Handle) SsygvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32) (int32, error) {
+	return ssygvdBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w)
 }
 
 // Ssygvdx wraps cusolverDnSsygvdx.
-func (h Handle) Ssygvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *float32, lda int32, B *float32, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, W *float32, work *float32, lwork int32, info *int32) error {
-	return ssygvdx(h, itype, jobz, range_, uplo, n, A, lda, B, ldb, vl, vu, il, iu, meig, W, work, lwork, info)
+func (h Handle) Ssygvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *float32, lwork int32, info *int32) error {
+	return ssygvdx(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // SsygvdxBufferSize wraps cusolverDnSsygvdxBufferSize, bound as cusolverDnSsygvdx_bufferSize.
-func (h Handle) SsygvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *float32, lda int32, B *float32, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, W *float32) (int32, error) {
-	return ssygvdxBufferSize(h, itype, jobz, range_, uplo, n, A, lda, B, ldb, vl, vu, il, iu, meig, W)
+func (h Handle) SsygvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+	return ssygvdxBufferSize(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w)
 }
 
 // Ssygvj wraps cusolverDnSsygvj.
-func (h Handle) Ssygvj(itype EigType, jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, B *float32, ldb int32, W *float32, work *float32, lwork int32, info *int32, params SyevjInfo) error {
-	return ssygvj(h, itype, jobz, uplo, n, A, lda, B, ldb, W, work, lwork, info, params)
+func (h Handle) Ssygvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32, work *float32, lwork int32, info *int32, params SyevjInfo) error {
+	return ssygvj(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params)
 }
 
 // SsygvjBufferSize wraps cusolverDnSsygvjBufferSize, bound as cusolverDnSsygvj_bufferSize.
-func (h Handle) SsygvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, A *float32, lda int32, B *float32, ldb int32, W *float32, lwork *int32, params SyevjInfo) error {
-	return ssygvjBufferSize(h, itype, jobz, uplo, n, A, lda, B, ldb, W, lwork, params)
+func (h Handle) SsygvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32, lwork *int32, params SyevjInfo) error {
+	return ssygvjBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params)
 }
 
 // Ssytrd wraps cusolverDnSsytrd.
-func (h Handle) Ssytrd(uplo FillMode, n int32, A *float32, lda int32, d *float32, e *float32, tau *float32, work *float32, lwork int32, info *int32) error {
-	return ssytrd(h, uplo, n, A, lda, d, e, tau, work, lwork, info)
+func (h Handle) Ssytrd(uplo FillMode, n int32, a *float32, lda int32, d *float32, e *float32, tau *float32, work *float32, lwork int32, info *int32) error {
+	return ssytrd(h, uplo, n, a, lda, d, e, tau, work, lwork, info)
 }
 
 // SsytrdBufferSize wraps cusolverDnSsytrdBufferSize, bound as cusolverDnSsytrd_bufferSize.
-func (h Handle) SsytrdBufferSize(uplo FillMode, n int32, A *float32, lda int32, d *float32, e *float32, tau *float32) (int32, error) {
-	return ssytrdBufferSize(h, uplo, n, A, lda, d, e, tau)
+func (h Handle) SsytrdBufferSize(uplo FillMode, n int32, a *float32, lda int32, d *float32, e *float32, tau *float32) (int32, error) {
+	return ssytrdBufferSize(h, uplo, n, a, lda, d, e, tau)
 }
 
 // Ssytrf wraps cusolverDnSsytrf.
-func (h Handle) Ssytrf(uplo FillMode, n int32, A *float32, lda int32, ipiv *int32, work *float32, lwork int32, info *int32) error {
-	return ssytrf(h, uplo, n, A, lda, ipiv, work, lwork, info)
+func (h Handle) Ssytrf(uplo FillMode, n int32, a *float32, lda int32, ipiv *int32, work *float32, lwork int32, info *int32) error {
+	return ssytrf(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // SsytrfBufferSize wraps cusolverDnSsytrfBufferSize, bound as cusolverDnSsytrf_bufferSize.
-func (h Handle) SsytrfBufferSize(n int32, A *float32, lda int32) (int32, error) {
-	return ssytrfBufferSize(h, n, A, lda)
+func (h Handle) SsytrfBufferSize(n int32, a *float32, lda int32) (int32, error) {
+	return ssytrfBufferSize(h, n, a, lda)
 }
 
 // Ssytri wraps cusolverDnSsytri.
-func (h Handle) Ssytri(uplo FillMode, n int32, A *float32, lda int32, ipiv *int32, work *float32, lwork int32, info *int32) error {
-	return ssytri(h, uplo, n, A, lda, ipiv, work, lwork, info)
+func (h Handle) Ssytri(uplo FillMode, n int32, a *float32, lda int32, ipiv *int32, work *float32, lwork int32, info *int32) error {
+	return ssytri(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // SsytriBufferSize wraps cusolverDnSsytriBufferSize, bound as cusolverDnSsytri_bufferSize.
-func (h Handle) SsytriBufferSize(uplo FillMode, n int32, A *float32, lda int32, ipiv *int32) (int32, error) {
-	return ssytriBufferSize(h, uplo, n, A, lda, ipiv)
+func (h Handle) SsytriBufferSize(uplo FillMode, n int32, a *float32, lda int32, ipiv *int32) (int32, error) {
+	return ssytriBufferSize(h, uplo, n, a, lda, ipiv)
+}
+
+// Stream wraps cusolverDnGetStream.
+func (h Handle) Stream() (Stream, error) {
+	return getStream(h)
 }
 
 // Xgeev wraps cusolverDnXgeev.
-func (h Handle) Xgeev(params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeW DataType, W uintptr, dataTypeVL DataType, VL uintptr, ldvl int64, dataTypeVR DataType, VR uintptr, ldvr int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
-	return xgeev(h, params, jobvl, jobvr, n, dataTypeA, A, lda, dataTypeW, W, dataTypeVL, VL, ldvl, dataTypeVR, VR, ldvr, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
+func (h Handle) Xgeev(params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, dataTypeVL DataType, vl uintptr, ldvl int64, dataTypeVR DataType, vr uintptr, ldvr int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+	return xgeev(h, params, jobvl, jobvr, n, dataTypeA, a, lda, dataTypeW, w, dataTypeVL, vl, ldvl, dataTypeVR, vr, ldvr, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XgeevBufferSize wraps cusolverDnXgeevBufferSize, bound as cusolverDnXgeev_bufferSize.
-func (h Handle) XgeevBufferSize(params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeW DataType, W uintptr, dataTypeVL DataType, VL uintptr, ldvl int64, dataTypeVR DataType, VR uintptr, ldvr int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xgeevBufferSize(h, params, jobvl, jobvr, n, dataTypeA, A, lda, dataTypeW, W, dataTypeVL, VL, ldvl, dataTypeVR, VR, ldvr, computeType)
+func (h Handle) XgeevBufferSize(params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, dataTypeVL DataType, vl uintptr, ldvl int64, dataTypeVR DataType, vr uintptr, ldvr int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xgeevBufferSize(h, params, jobvl, jobvr, n, dataTypeA, a, lda, dataTypeW, w, dataTypeVL, vl, ldvl, dataTypeVR, vr, ldvr, computeType)
 }
 
 // Xgeqrf wraps cusolverDnXgeqrf.
-func (h Handle) Xgeqrf(params Params, m int64, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeTau DataType, tau uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
-	return xgeqrf(h, params, m, n, dataTypeA, A, lda, dataTypeTau, tau, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
+func (h Handle) Xgeqrf(params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeTau DataType, tau uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+	return xgeqrf(h, params, m, n, dataTypeA, a, lda, dataTypeTau, tau, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XgeqrfBufferSize wraps cusolverDnXgeqrfBufferSize, bound as cusolverDnXgeqrf_bufferSize.
-func (h Handle) XgeqrfBufferSize(params Params, m int64, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeTau DataType, tau uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xgeqrfBufferSize(h, params, m, n, dataTypeA, A, lda, dataTypeTau, tau, computeType)
+func (h Handle) XgeqrfBufferSize(params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeTau DataType, tau uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xgeqrfBufferSize(h, params, m, n, dataTypeA, a, lda, dataTypeTau, tau, computeType)
 }
 
 // Xgesvd wraps cusolverDnXgesvd.
-func (h Handle) Xgesvd(params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeS DataType, S uintptr, dataTypeU DataType, U uintptr, ldu int64, dataTypeVT DataType, VT uintptr, ldvt int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
-	return xgesvd(h, params, jobu, jobvt, m, n, dataTypeA, A, lda, dataTypeS, S, dataTypeU, U, ldu, dataTypeVT, VT, ldvt, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
+func (h Handle) Xgesvd(params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeVT DataType, vt uintptr, ldvt int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+	return xgesvd(h, params, jobu, jobvt, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeVT, vt, ldvt, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XgesvdBufferSize wraps cusolverDnXgesvdBufferSize, bound as cusolverDnXgesvd_bufferSize.
-func (h Handle) XgesvdBufferSize(params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeS DataType, S uintptr, dataTypeU DataType, U uintptr, ldu int64, dataTypeVT DataType, VT uintptr, ldvt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xgesvdBufferSize(h, params, jobu, jobvt, m, n, dataTypeA, A, lda, dataTypeS, S, dataTypeU, U, ldu, dataTypeVT, VT, ldvt, computeType)
+func (h Handle) XgesvdBufferSize(params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeVT DataType, vt uintptr, ldvt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xgesvdBufferSize(h, params, jobu, jobvt, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeVT, vt, ldvt, computeType)
 }
 
 // XgesvdjGetResidual wraps cusolverDnXgesvdjGetResidual.
@@ -1233,93 +1233,93 @@ func (h Handle) XgesvdjGetSweeps(info GesvdjInfo) (int32, error) {
 }
 
 // Xgesvdp wraps cusolverDnXgesvdp.
-func (h Handle) Xgesvdp(params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeS DataType, S uintptr, dataTypeU DataType, U uintptr, ldu int64, dataTypeV DataType, V uintptr, ldv int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32, hErrSigma *float64) error {
-	return xgesvdp(h, params, jobz, econ, m, n, dataTypeA, A, lda, dataTypeS, S, dataTypeU, U, ldu, dataTypeV, V, ldv, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo, hErrSigma)
+func (h Handle) Xgesvdp(params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeV DataType, v uintptr, ldv int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32, hErrSigma *float64) error {
+	return xgesvdp(h, params, jobz, econ, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeV, v, ldv, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo, hErrSigma)
 }
 
 // XgesvdpBufferSize wraps cusolverDnXgesvdpBufferSize, bound as cusolverDnXgesvdp_bufferSize.
-func (h Handle) XgesvdpBufferSize(params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeS DataType, S uintptr, dataTypeU DataType, U uintptr, ldu int64, dataTypeV DataType, V uintptr, ldv int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xgesvdpBufferSize(h, params, jobz, econ, m, n, dataTypeA, A, lda, dataTypeS, S, dataTypeU, U, ldu, dataTypeV, V, ldv, computeType)
+func (h Handle) XgesvdpBufferSize(params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeV DataType, v uintptr, ldv int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xgesvdpBufferSize(h, params, jobz, econ, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeV, v, ldv, computeType)
 }
 
 // Xgesvdr wraps cusolverDnXgesvdr.
-func (h Handle) Xgesvdr(params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, A uintptr, lda int64, dataTypeSrand DataType, Srand uintptr, dataTypeUrand DataType, Urand uintptr, ldUrand int64, dataTypeVrand DataType, Vrand uintptr, ldVrand int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32) error {
-	return xgesvdr(h, params, jobu, jobv, m, n, k, p, niters, dataTypeA, A, lda, dataTypeSrand, Srand, dataTypeUrand, Urand, ldUrand, dataTypeVrand, Vrand, ldVrand, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo)
+func (h Handle) Xgesvdr(params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a uintptr, lda int64, dataTypeSrand DataType, srand uintptr, dataTypeUrand DataType, urand uintptr, ldUrand int64, dataTypeVrand DataType, vrand uintptr, ldVrand int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32) error {
+	return xgesvdr(h, params, jobu, jobv, m, n, k, p, niters, dataTypeA, a, lda, dataTypeSrand, srand, dataTypeUrand, urand, ldUrand, dataTypeVrand, vrand, ldVrand, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo)
 }
 
 // XgesvdrBufferSize wraps cusolverDnXgesvdrBufferSize, bound as cusolverDnXgesvdr_bufferSize.
-func (h Handle) XgesvdrBufferSize(params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, A uintptr, lda int64, dataTypeSrand DataType, Srand uintptr, dataTypeUrand DataType, Urand uintptr, ldUrand int64, dataTypeVrand DataType, Vrand uintptr, ldVrand int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xgesvdrBufferSize(h, params, jobu, jobv, m, n, k, p, niters, dataTypeA, A, lda, dataTypeSrand, Srand, dataTypeUrand, Urand, ldUrand, dataTypeVrand, Vrand, ldVrand, computeType)
+func (h Handle) XgesvdrBufferSize(params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a uintptr, lda int64, dataTypeSrand DataType, srand uintptr, dataTypeUrand DataType, urand uintptr, ldUrand int64, dataTypeVrand DataType, vrand uintptr, ldVrand int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xgesvdrBufferSize(h, params, jobu, jobv, m, n, k, p, niters, dataTypeA, a, lda, dataTypeSrand, srand, dataTypeUrand, urand, ldUrand, dataTypeVrand, vrand, ldVrand, computeType)
 }
 
 // Xgetrf wraps cusolverDnXgetrf.
-func (h Handle) Xgetrf(params Params, m int64, n int64, dataTypeA DataType, A uintptr, lda int64, ipiv *int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
-	return xgetrf(h, params, m, n, dataTypeA, A, lda, ipiv, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
+func (h Handle) Xgetrf(params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+	return xgetrf(h, params, m, n, dataTypeA, a, lda, ipiv, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XgetrfBufferSize wraps cusolverDnXgetrfBufferSize, bound as cusolverDnXgetrf_bufferSize.
-func (h Handle) XgetrfBufferSize(params Params, m int64, n int64, dataTypeA DataType, A uintptr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xgetrfBufferSize(h, params, m, n, dataTypeA, A, lda, computeType)
+func (h Handle) XgetrfBufferSize(params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xgetrfBufferSize(h, params, m, n, dataTypeA, a, lda, computeType)
 }
 
 // Xgetrs wraps cusolverDnXgetrs.
-func (h Handle) Xgetrs(params Params, trans Operation, n int64, nrhs int64, dataTypeA DataType, A uintptr, lda int64, ipiv *int64, dataTypeB DataType, B uintptr, ldb int64, info *int32) error {
-	return xgetrs(h, params, trans, n, nrhs, dataTypeA, A, lda, ipiv, dataTypeB, B, ldb, info)
+func (h Handle) Xgetrs(params Params, trans Operation, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, dataTypeB DataType, b uintptr, ldb int64, info *int32) error {
+	return xgetrs(h, params, trans, n, nrhs, dataTypeA, a, lda, ipiv, dataTypeB, b, ldb, info)
 }
 
 // Xlarft wraps cusolverDnXlarft.
-func (h Handle) Xlarft(params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, V uintptr, ldv int64, dataTypeTau DataType, tau uintptr, dataTypeT DataType, T uintptr, ldt int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint) error {
-	return xlarft(h, params, direct, storev, n, k, dataTypeV, V, ldv, dataTypeTau, tau, dataTypeT, T, ldt, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost)
+func (h Handle) Xlarft(params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v uintptr, ldv int64, dataTypeTau DataType, tau uintptr, dataTypeT DataType, t uintptr, ldt int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint) error {
+	return xlarft(h, params, direct, storev, n, k, dataTypeV, v, ldv, dataTypeTau, tau, dataTypeT, t, ldt, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost)
 }
 
 // XlarftBufferSize wraps cusolverDnXlarftBufferSize, bound as cusolverDnXlarft_bufferSize.
-func (h Handle) XlarftBufferSize(params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, V uintptr, ldv int64, dataTypeTau DataType, tau uintptr, dataTypeT DataType, T uintptr, ldt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xlarftBufferSize(h, params, direct, storev, n, k, dataTypeV, V, ldv, dataTypeTau, tau, dataTypeT, T, ldt, computeType)
+func (h Handle) XlarftBufferSize(params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v uintptr, ldv int64, dataTypeTau DataType, tau uintptr, dataTypeT DataType, t uintptr, ldt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xlarftBufferSize(h, params, direct, storev, n, k, dataTypeV, v, ldv, dataTypeTau, tau, dataTypeT, t, ldt, computeType)
 }
 
 // Xpotrf wraps cusolverDnXpotrf.
-func (h Handle) Xpotrf(params Params, uplo FillMode, n int64, dataTypeA DataType, A uintptr, lda int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
-	return xpotrf(h, params, uplo, n, dataTypeA, A, lda, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
+func (h Handle) Xpotrf(params Params, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+	return xpotrf(h, params, uplo, n, dataTypeA, a, lda, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XpotrfBufferSize wraps cusolverDnXpotrfBufferSize, bound as cusolverDnXpotrf_bufferSize.
-func (h Handle) XpotrfBufferSize(params Params, uplo FillMode, n int64, dataTypeA DataType, A uintptr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xpotrfBufferSize(h, params, uplo, n, dataTypeA, A, lda, computeType)
+func (h Handle) XpotrfBufferSize(params Params, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xpotrfBufferSize(h, params, uplo, n, dataTypeA, a, lda, computeType)
 }
 
 // Xpotrs wraps cusolverDnXpotrs.
-func (h Handle) Xpotrs(params Params, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, A uintptr, lda int64, dataTypeB DataType, B uintptr, ldb int64, info *int32) error {
-	return xpotrs(h, params, uplo, n, nrhs, dataTypeA, A, lda, dataTypeB, B, ldb, info)
+func (h Handle) Xpotrs(params Params, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, dataTypeB DataType, b uintptr, ldb int64, info *int32) error {
+	return xpotrs(h, params, uplo, n, nrhs, dataTypeA, a, lda, dataTypeB, b, ldb, info)
 }
 
 // XsyevBatched wraps cusolverDnXsyevBatched.
-func (h Handle) XsyevBatched(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeW DataType, W uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32, batchSize int64) error {
-	return xsyevBatched(h, params, jobz, uplo, n, dataTypeA, A, lda, dataTypeW, W, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info, batchSize)
+func (h Handle) XsyevBatched(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32, batchSize int64) error {
+	return xsyevBatched(h, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info, batchSize)
 }
 
 // XsyevBatchedBufferSize wraps cusolverDnXsyevBatchedBufferSize, bound as cusolverDnXsyevBatched_bufferSize.
-func (h Handle) XsyevBatchedBufferSize(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeW DataType, W uintptr, computeType DataType, workspaceInBytesOnDevice *uint, workspaceInBytesOnHost *uint, batchSize int64) error {
-	return xsyevBatchedBufferSize(h, params, jobz, uplo, n, dataTypeA, A, lda, dataTypeW, W, computeType, workspaceInBytesOnDevice, workspaceInBytesOnHost, batchSize)
+func (h Handle) XsyevBatchedBufferSize(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType, workspaceInBytesOnDevice *uint, workspaceInBytesOnHost *uint, batchSize int64) error {
+	return xsyevBatchedBufferSize(h, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, workspaceInBytesOnDevice, workspaceInBytesOnHost, batchSize)
 }
 
 // Xsyevd wraps cusolverDnXsyevd.
-func (h Handle) Xsyevd(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeW DataType, W uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
-	return xsyevd(h, params, jobz, uplo, n, dataTypeA, A, lda, dataTypeW, W, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
+func (h Handle) Xsyevd(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+	return xsyevd(h, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XsyevdBufferSize wraps cusolverDnXsyevdBufferSize, bound as cusolverDnXsyevd_bufferSize.
-func (h Handle) XsyevdBufferSize(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, A uintptr, lda int64, dataTypeW DataType, W uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xsyevdBufferSize(h, params, jobz, uplo, n, dataTypeA, A, lda, dataTypeW, W, computeType)
+func (h Handle) XsyevdBufferSize(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xsyevdBufferSize(h, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType)
 }
 
 // Xsyevdx wraps cusolverDnXsyevdx.
-func (h Handle) Xsyevdx(params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, A uintptr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, meig64 *int64, dataTypeW DataType, W uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
-	return xsyevdx(h, params, jobz, range_, uplo, n, dataTypeA, A, lda, vl, vu, il, iu, meig64, dataTypeW, W, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
+func (h Handle) Xsyevdx(params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, meig64 *int64, dataTypeW DataType, w uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+	return xsyevdx(h, params, jobz, range_, uplo, n, dataTypeA, a, lda, vl, vu, il, iu, meig64, dataTypeW, w, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XsyevdxBufferSize wraps cusolverDnXsyevdxBufferSize, bound as cusolverDnXsyevdx_bufferSize.
-func (h Handle) XsyevdxBufferSize(params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, A uintptr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, hMeig *int64, dataTypeW DataType, W uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xsyevdxBufferSize(h, params, jobz, range_, uplo, n, dataTypeA, A, lda, vl, vu, il, iu, hMeig, dataTypeW, W, computeType)
+func (h Handle) XsyevdxBufferSize(params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, hMeig *int64, dataTypeW DataType, w uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xsyevdxBufferSize(h, params, jobz, range_, uplo, n, dataTypeA, a, lda, vl, vu, il, iu, hMeig, dataTypeW, w, computeType)
 }
 
 // XsyevjGetResidual wraps cusolverDnXsyevjGetResidual.
@@ -1353,23 +1353,23 @@ func (h Handle) XsygvdxBufferSize(params Params, itype EigType, jobz EigMode, up
 }
 
 // Xsytrs wraps cusolverDnXsytrs.
-func (h Handle) Xsytrs(uplo FillMode, n int64, nrhs int64, dataTypeA DataType, A uintptr, lda int64, ipiv *int64, dataTypeB DataType, B uintptr, ldb int64, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
-	return xsytrs(h, uplo, n, nrhs, dataTypeA, A, lda, ipiv, dataTypeB, B, ldb, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
+func (h Handle) Xsytrs(uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, dataTypeB DataType, b uintptr, ldb int64, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+	return xsytrs(h, uplo, n, nrhs, dataTypeA, a, lda, ipiv, dataTypeB, b, ldb, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XsytrsBufferSize wraps cusolverDnXsytrsBufferSize, bound as cusolverDnXsytrs_bufferSize.
-func (h Handle) XsytrsBufferSize(uplo FillMode, n int64, nrhs int64, dataTypeA DataType, A uintptr, lda int64, ipiv *int64, dataTypeB DataType, B uintptr, ldb int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xsytrsBufferSize(h, uplo, n, nrhs, dataTypeA, A, lda, ipiv, dataTypeB, B, ldb)
+func (h Handle) XsytrsBufferSize(uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, dataTypeB DataType, b uintptr, ldb int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xsytrsBufferSize(h, uplo, n, nrhs, dataTypeA, a, lda, ipiv, dataTypeB, b, ldb)
 }
 
 // Xtrtri wraps cusolverDnXtrtri.
-func (h Handle) Xtrtri(uplo FillMode, diag DiagType, n int64, dataTypeA DataType, A uintptr, lda int64, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, devInfo *int32) error {
-	return xtrtri(h, uplo, diag, n, dataTypeA, A, lda, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, devInfo)
+func (h Handle) Xtrtri(uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a uintptr, lda int64, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, devInfo *int32) error {
+	return xtrtri(h, uplo, diag, n, dataTypeA, a, lda, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, devInfo)
 }
 
 // XtrtriBufferSize wraps cusolverDnXtrtriBufferSize, bound as cusolverDnXtrtri_bufferSize.
-func (h Handle) XtrtriBufferSize(uplo FillMode, diag DiagType, n int64, dataTypeA DataType, A uintptr, lda int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
-	return xtrtriBufferSize(h, uplo, diag, n, dataTypeA, A, lda)
+func (h Handle) XtrtriBufferSize(uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a uintptr, lda int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+	return xtrtriBufferSize(h, uplo, diag, n, dataTypeA, a, lda)
 }
 
 // ZCgels wraps cusolverDnZCgels.
@@ -1473,8 +1473,8 @@ func (h Handle) ZZgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex128
 }
 
 // Zgebrd wraps cusolverDnZgebrd.
-func (h Handle) Zgebrd(m int32, n int32, A *Complex128, lda int32, D *float64, E *float64, TAUQ *Complex128, TAUP *Complex128, Work *Complex128, Lwork int32, devInfo *int32) error {
-	return zgebrd(h, m, n, A, lda, D, E, TAUQ, TAUP, Work, Lwork, devInfo)
+func (h Handle) Zgebrd(m int32, n int32, a *Complex128, lda int32, d *float64, e *float64, tauq *Complex128, taup *Complex128, work *Complex128, lwork int32, devInfo *int32) error {
+	return zgebrd(h, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo)
 }
 
 // ZgebrdBufferSize wraps cusolverDnZgebrdBufferSize, bound as cusolverDnZgebrd_bufferSize.
@@ -1483,18 +1483,18 @@ func (h Handle) ZgebrdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // Zgeqrf wraps cusolverDnZgeqrf.
-func (h Handle) Zgeqrf(m int32, n int32, A *Complex128, lda int32, TAU *Complex128, Workspace *Complex128, Lwork int32, devInfo *int32) error {
-	return zgeqrf(h, m, n, A, lda, TAU, Workspace, Lwork, devInfo)
+func (h Handle) Zgeqrf(m int32, n int32, a *Complex128, lda int32, tau *Complex128, workspace *Complex128, lwork int32, devInfo *int32) error {
+	return zgeqrf(h, m, n, a, lda, tau, workspace, lwork, devInfo)
 }
 
 // ZgeqrfBufferSize wraps cusolverDnZgeqrfBufferSize, bound as cusolverDnZgeqrf_bufferSize.
-func (h Handle) ZgeqrfBufferSize(m int32, n int32, A *Complex128, lda int32) (int32, error) {
-	return zgeqrfBufferSize(h, m, n, A, lda)
+func (h Handle) ZgeqrfBufferSize(m int32, n int32, a *Complex128, lda int32) (int32, error) {
+	return zgeqrfBufferSize(h, m, n, a, lda)
 }
 
 // Zgesvd wraps cusolverDnZgesvd.
-func (h Handle) Zgesvd(jobu int8, jobvt int8, m int32, n int32, A *Complex128, lda int32, S *float64, U *Complex128, ldu int32, VT *Complex128, ldvt int32, work *Complex128, lwork int32, rwork *float64, info *int32) error {
-	return zgesvd(h, jobu, jobvt, m, n, A, lda, S, U, ldu, VT, ldvt, work, lwork, rwork, info)
+func (h Handle) Zgesvd(jobu int8, jobvt int8, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, vt *Complex128, ldvt int32, work *Complex128, lwork int32, rwork *float64, info *int32) error {
+	return zgesvd(h, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info)
 }
 
 // ZgesvdBufferSize wraps cusolverDnZgesvdBufferSize, bound as cusolverDnZgesvd_bufferSize.
@@ -1513,236 +1513,236 @@ func (h Handle) ZgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int3
 }
 
 // Zgesvdj wraps cusolverDnZgesvdj.
-func (h Handle) Zgesvdj(jobz EigMode, econ int32, m int32, n int32, A *Complex128, lda int32, S *float64, U *Complex128, ldu int32, V *Complex128, ldv int32, work *Complex128, lwork int32, info *int32, params GesvdjInfo) error {
-	return zgesvdj(h, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params)
+func (h Handle) Zgesvdj(jobz EigMode, econ int32, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, work *Complex128, lwork int32, info *int32, params GesvdjInfo) error {
+	return zgesvdj(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params)
 }
 
 // ZgesvdjBatched wraps cusolverDnZgesvdjBatched.
-func (h Handle) ZgesvdjBatched(jobz EigMode, m int32, n int32, A *Complex128, lda int32, S *float64, U *Complex128, ldu int32, V *Complex128, ldv int32, work *Complex128, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
-	return zgesvdjBatched(h, jobz, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params, batchSize)
+func (h Handle) ZgesvdjBatched(jobz EigMode, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, work *Complex128, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+	return zgesvdjBatched(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize)
 }
 
 // ZgesvdjBatchedBufferSize wraps cusolverDnZgesvdjBatchedBufferSize, bound as cusolverDnZgesvdjBatched_bufferSize.
-func (h Handle) ZgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, A *Complex128, lda int32, S *float64, U *Complex128, ldu int32, V *Complex128, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
-	return zgesvdjBatchedBufferSize(h, jobz, m, n, A, lda, S, U, ldu, V, ldv, lwork, params, batchSize)
+func (h Handle) ZgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+	return zgesvdjBatchedBufferSize(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize)
 }
 
 // ZgesvdjBufferSize wraps cusolverDnZgesvdjBufferSize, bound as cusolverDnZgesvdj_bufferSize.
-func (h Handle) ZgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, A *Complex128, lda int32, S *float64, U *Complex128, ldu int32, V *Complex128, ldv int32, lwork *int32, params GesvdjInfo) error {
-	return zgesvdjBufferSize(h, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, lwork, params)
+func (h Handle) ZgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, lwork *int32, params GesvdjInfo) error {
+	return zgesvdjBufferSize(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params)
 }
 
 // Zgetrf wraps cusolverDnZgetrf.
-func (h Handle) Zgetrf(m int32, n int32, A *Complex128, lda int32, Workspace *Complex128, devIpiv *int32, devInfo *int32) error {
-	return zgetrf(h, m, n, A, lda, Workspace, devIpiv, devInfo)
+func (h Handle) Zgetrf(m int32, n int32, a *Complex128, lda int32, workspace *Complex128, devIpiv *int32, devInfo *int32) error {
+	return zgetrf(h, m, n, a, lda, workspace, devIpiv, devInfo)
 }
 
 // ZgetrfBufferSize wraps cusolverDnZgetrfBufferSize, bound as cusolverDnZgetrf_bufferSize.
-func (h Handle) ZgetrfBufferSize(m int32, n int32, A *Complex128, lda int32) (int32, error) {
-	return zgetrfBufferSize(h, m, n, A, lda)
+func (h Handle) ZgetrfBufferSize(m int32, n int32, a *Complex128, lda int32) (int32, error) {
+	return zgetrfBufferSize(h, m, n, a, lda)
 }
 
 // Zgetrs wraps cusolverDnZgetrs.
-func (h Handle) Zgetrs(trans Operation, n int32, nrhs int32, A *Complex128, lda int32, devIpiv *int32, B *Complex128, ldb int32, devInfo *int32) error {
-	return zgetrs(h, trans, n, nrhs, A, lda, devIpiv, B, ldb, devInfo)
+func (h Handle) Zgetrs(trans Operation, n int32, nrhs int32, a *Complex128, lda int32, devIpiv *int32, b *Complex128, ldb int32, devInfo *int32) error {
+	return zgetrs(h, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo)
 }
 
 // Zheevd wraps cusolverDnZheevd.
-func (h Handle) Zheevd(jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, W *float64, work *Complex128, lwork int32, info *int32) error {
-	return zheevd(h, jobz, uplo, n, A, lda, W, work, lwork, info)
+func (h Handle) Zheevd(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+	return zheevd(h, jobz, uplo, n, a, lda, w, work, lwork, info)
 }
 
 // ZheevdBufferSize wraps cusolverDnZheevdBufferSize, bound as cusolverDnZheevd_bufferSize.
-func (h Handle) ZheevdBufferSize(jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, W *float64) (int32, error) {
-	return zheevdBufferSize(h, jobz, uplo, n, A, lda, W)
+func (h Handle) ZheevdBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64) (int32, error) {
+	return zheevdBufferSize(h, jobz, uplo, n, a, lda, w)
 }
 
 // Zheevdx wraps cusolverDnZheevdx.
-func (h Handle) Zheevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *Complex128, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, W *float64, work *Complex128, lwork int32, info *int32) error {
-	return zheevdx(h, jobz, range_, uplo, n, A, lda, vl, vu, il, iu, meig, W, work, lwork, info)
+func (h Handle) Zheevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+	return zheevdx(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // ZheevdxBufferSize wraps cusolverDnZheevdxBufferSize, bound as cusolverDnZheevdx_bufferSize.
-func (h Handle) ZheevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *Complex128, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, W *float64) (int32, error) {
-	return zheevdxBufferSize(h, jobz, range_, uplo, n, A, lda, vl, vu, il, iu, meig, W)
+func (h Handle) ZheevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+	return zheevdxBufferSize(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w)
 }
 
 // Zheevj wraps cusolverDnZheevj.
-func (h Handle) Zheevj(jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, W *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo) error {
-	return zheevj(h, jobz, uplo, n, A, lda, W, work, lwork, info, params)
+func (h Handle) Zheevj(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo) error {
+	return zheevj(h, jobz, uplo, n, a, lda, w, work, lwork, info, params)
 }
 
 // ZheevjBatched wraps cusolverDnZheevjBatched.
-func (h Handle) ZheevjBatched(jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, W *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
-	return zheevjBatched(h, jobz, uplo, n, A, lda, W, work, lwork, info, params, batchSize)
+func (h Handle) ZheevjBatched(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+	return zheevjBatched(h, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize)
 }
 
 // ZheevjBatchedBufferSize wraps cusolverDnZheevjBatchedBufferSize, bound as cusolverDnZheevjBatched_bufferSize.
-func (h Handle) ZheevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, W *float64, lwork *int32, params SyevjInfo, batchSize int32) error {
-	return zheevjBatchedBufferSize(h, jobz, uplo, n, A, lda, W, lwork, params, batchSize)
+func (h Handle) ZheevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, lwork *int32, params SyevjInfo, batchSize int32) error {
+	return zheevjBatchedBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params, batchSize)
 }
 
 // ZheevjBufferSize wraps cusolverDnZheevjBufferSize, bound as cusolverDnZheevj_bufferSize.
-func (h Handle) ZheevjBufferSize(jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, W *float64, lwork *int32, params SyevjInfo) error {
-	return zheevjBufferSize(h, jobz, uplo, n, A, lda, W, lwork, params)
+func (h Handle) ZheevjBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, lwork *int32, params SyevjInfo) error {
+	return zheevjBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params)
 }
 
 // Zhegvd wraps cusolverDnZhegvd.
-func (h Handle) Zhegvd(itype EigType, jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, B *Complex128, ldb int32, W *float64, work *Complex128, lwork int32, info *int32) error {
-	return zhegvd(h, itype, jobz, uplo, n, A, lda, B, ldb, W, work, lwork, info)
+func (h Handle) Zhegvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+	return zhegvd(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info)
 }
 
 // ZhegvdBufferSize wraps cusolverDnZhegvdBufferSize, bound as cusolverDnZhegvd_bufferSize.
-func (h Handle) ZhegvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, B *Complex128, ldb int32, W *float64) (int32, error) {
-	return zhegvdBufferSize(h, itype, jobz, uplo, n, A, lda, B, ldb, W)
+func (h Handle) ZhegvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64) (int32, error) {
+	return zhegvdBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w)
 }
 
 // Zhegvdx wraps cusolverDnZhegvdx.
-func (h Handle) Zhegvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *Complex128, lda int32, B *Complex128, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, W *float64, work *Complex128, lwork int32, info *int32) error {
-	return zhegvdx(h, itype, jobz, range_, uplo, n, A, lda, B, ldb, vl, vu, il, iu, meig, W, work, lwork, info)
+func (h Handle) Zhegvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+	return zhegvdx(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // ZhegvdxBufferSize wraps cusolverDnZhegvdxBufferSize, bound as cusolverDnZhegvdx_bufferSize.
-func (h Handle) ZhegvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, A *Complex128, lda int32, B *Complex128, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, W *float64) (int32, error) {
-	return zhegvdxBufferSize(h, itype, jobz, range_, uplo, n, A, lda, B, ldb, vl, vu, il, iu, meig, W)
+func (h Handle) ZhegvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+	return zhegvdxBufferSize(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w)
 }
 
 // Zhegvj wraps cusolverDnZhegvj.
-func (h Handle) Zhegvj(itype EigType, jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, B *Complex128, ldb int32, W *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo) error {
-	return zhegvj(h, itype, jobz, uplo, n, A, lda, B, ldb, W, work, lwork, info, params)
+func (h Handle) Zhegvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo) error {
+	return zhegvj(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params)
 }
 
 // ZhegvjBufferSize wraps cusolverDnZhegvjBufferSize, bound as cusolverDnZhegvj_bufferSize.
-func (h Handle) ZhegvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, A *Complex128, lda int32, B *Complex128, ldb int32, W *float64, lwork *int32, params SyevjInfo) error {
-	return zhegvjBufferSize(h, itype, jobz, uplo, n, A, lda, B, ldb, W, lwork, params)
+func (h Handle) ZhegvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64, lwork *int32, params SyevjInfo) error {
+	return zhegvjBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params)
 }
 
 // Zhetrd wraps cusolverDnZhetrd.
-func (h Handle) Zhetrd(uplo FillMode, n int32, A *Complex128, lda int32, d *float64, e *float64, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
-	return zhetrd(h, uplo, n, A, lda, d, e, tau, work, lwork, info)
+func (h Handle) Zhetrd(uplo FillMode, n int32, a *Complex128, lda int32, d *float64, e *float64, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+	return zhetrd(h, uplo, n, a, lda, d, e, tau, work, lwork, info)
 }
 
 // ZhetrdBufferSize wraps cusolverDnZhetrdBufferSize, bound as cusolverDnZhetrd_bufferSize.
-func (h Handle) ZhetrdBufferSize(uplo FillMode, n int32, A *Complex128, lda int32, d *float64, e *float64, tau *Complex128) (int32, error) {
-	return zhetrdBufferSize(h, uplo, n, A, lda, d, e, tau)
+func (h Handle) ZhetrdBufferSize(uplo FillMode, n int32, a *Complex128, lda int32, d *float64, e *float64, tau *Complex128) (int32, error) {
+	return zhetrdBufferSize(h, uplo, n, a, lda, d, e, tau)
 }
 
 // Zlaswp wraps cusolverDnZlaswp.
-func (h Handle) Zlaswp(n int32, A *Complex128, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
-	return zlaswp(h, n, A, lda, k1, k2, devIpiv, incx)
+func (h Handle) Zlaswp(n int32, a *Complex128, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+	return zlaswp(h, n, a, lda, k1, k2, devIpiv, incx)
 }
 
 // Zlauum wraps cusolverDnZlauum.
-func (h Handle) Zlauum(uplo FillMode, n int32, A *Complex128, lda int32, work *Complex128, lwork int32, devInfo *int32) error {
-	return zlauum(h, uplo, n, A, lda, work, lwork, devInfo)
+func (h Handle) Zlauum(uplo FillMode, n int32, a *Complex128, lda int32, work *Complex128, lwork int32, devInfo *int32) error {
+	return zlauum(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // ZlauumBufferSize wraps cusolverDnZlauumBufferSize, bound as cusolverDnZlauum_bufferSize.
-func (h Handle) ZlauumBufferSize(uplo FillMode, n int32, A *Complex128, lda int32) (int32, error) {
-	return zlauumBufferSize(h, uplo, n, A, lda)
+func (h Handle) ZlauumBufferSize(uplo FillMode, n int32, a *Complex128, lda int32) (int32, error) {
+	return zlauumBufferSize(h, uplo, n, a, lda)
 }
 
 // Zpotrf wraps cusolverDnZpotrf.
-func (h Handle) Zpotrf(uplo FillMode, n int32, A *Complex128, lda int32, Workspace *Complex128, Lwork int32, devInfo *int32) error {
-	return zpotrf(h, uplo, n, A, lda, Workspace, Lwork, devInfo)
+func (h Handle) Zpotrf(uplo FillMode, n int32, a *Complex128, lda int32, workspace *Complex128, lwork int32, devInfo *int32) error {
+	return zpotrf(h, uplo, n, a, lda, workspace, lwork, devInfo)
 }
 
 // ZpotrfBatched wraps cusolverDnZpotrfBatched.
-func (h Handle) ZpotrfBatched(uplo FillMode, n int32, Aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
-	return zpotrfBatched(h, uplo, n, Aarray, lda, infoArray, batchSize)
+func (h Handle) ZpotrfBatched(uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+	return zpotrfBatched(h, uplo, n, aarray, lda, infoArray, batchSize)
 }
 
 // ZpotrfBufferSize wraps cusolverDnZpotrfBufferSize, bound as cusolverDnZpotrf_bufferSize.
-func (h Handle) ZpotrfBufferSize(uplo FillMode, n int32, A *Complex128, lda int32) (int32, error) {
-	return zpotrfBufferSize(h, uplo, n, A, lda)
+func (h Handle) ZpotrfBufferSize(uplo FillMode, n int32, a *Complex128, lda int32) (int32, error) {
+	return zpotrfBufferSize(h, uplo, n, a, lda)
 }
 
 // Zpotri wraps cusolverDnZpotri.
-func (h Handle) Zpotri(uplo FillMode, n int32, A *Complex128, lda int32, work *Complex128, lwork int32, devInfo *int32) error {
-	return zpotri(h, uplo, n, A, lda, work, lwork, devInfo)
+func (h Handle) Zpotri(uplo FillMode, n int32, a *Complex128, lda int32, work *Complex128, lwork int32, devInfo *int32) error {
+	return zpotri(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // ZpotriBufferSize wraps cusolverDnZpotriBufferSize, bound as cusolverDnZpotri_bufferSize.
-func (h Handle) ZpotriBufferSize(uplo FillMode, n int32, A *Complex128, lda int32) (int32, error) {
-	return zpotriBufferSize(h, uplo, n, A, lda)
+func (h Handle) ZpotriBufferSize(uplo FillMode, n int32, a *Complex128, lda int32) (int32, error) {
+	return zpotriBufferSize(h, uplo, n, a, lda)
 }
 
 // Zpotrs wraps cusolverDnZpotrs.
-func (h Handle) Zpotrs(uplo FillMode, n int32, nrhs int32, A *Complex128, lda int32, B *Complex128, ldb int32, devInfo *int32) error {
-	return zpotrs(h, uplo, n, nrhs, A, lda, B, ldb, devInfo)
+func (h Handle) Zpotrs(uplo FillMode, n int32, nrhs int32, a *Complex128, lda int32, b *Complex128, ldb int32, devInfo *int32) error {
+	return zpotrs(h, uplo, n, nrhs, a, lda, b, ldb, devInfo)
 }
 
 // ZpotrsBatched wraps cusolverDnZpotrsBatched.
-func (h Handle) ZpotrsBatched(uplo FillMode, n int32, nrhs int32, A uintptr, lda int32, B uintptr, ldb int32, dInfo *int32, batchSize int32) error {
-	return zpotrsBatched(h, uplo, n, nrhs, A, lda, B, ldb, dInfo, batchSize)
+func (h Handle) ZpotrsBatched(uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+	return zpotrsBatched(h, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize)
 }
 
 // Zsytrf wraps cusolverDnZsytrf.
-func (h Handle) Zsytrf(uplo FillMode, n int32, A *Complex128, lda int32, ipiv *int32, work *Complex128, lwork int32, info *int32) error {
-	return zsytrf(h, uplo, n, A, lda, ipiv, work, lwork, info)
+func (h Handle) Zsytrf(uplo FillMode, n int32, a *Complex128, lda int32, ipiv *int32, work *Complex128, lwork int32, info *int32) error {
+	return zsytrf(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // ZsytrfBufferSize wraps cusolverDnZsytrfBufferSize, bound as cusolverDnZsytrf_bufferSize.
-func (h Handle) ZsytrfBufferSize(n int32, A *Complex128, lda int32) (int32, error) {
-	return zsytrfBufferSize(h, n, A, lda)
+func (h Handle) ZsytrfBufferSize(n int32, a *Complex128, lda int32) (int32, error) {
+	return zsytrfBufferSize(h, n, a, lda)
 }
 
 // Zsytri wraps cusolverDnZsytri.
-func (h Handle) Zsytri(uplo FillMode, n int32, A *Complex128, lda int32, ipiv *int32, work *Complex128, lwork int32, info *int32) error {
-	return zsytri(h, uplo, n, A, lda, ipiv, work, lwork, info)
+func (h Handle) Zsytri(uplo FillMode, n int32, a *Complex128, lda int32, ipiv *int32, work *Complex128, lwork int32, info *int32) error {
+	return zsytri(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // ZsytriBufferSize wraps cusolverDnZsytriBufferSize, bound as cusolverDnZsytri_bufferSize.
-func (h Handle) ZsytriBufferSize(uplo FillMode, n int32, A *Complex128, lda int32, ipiv *int32) (int32, error) {
-	return zsytriBufferSize(h, uplo, n, A, lda, ipiv)
+func (h Handle) ZsytriBufferSize(uplo FillMode, n int32, a *Complex128, lda int32, ipiv *int32) (int32, error) {
+	return zsytriBufferSize(h, uplo, n, a, lda, ipiv)
 }
 
 // Zungbr wraps cusolverDnZungbr.
-func (h Handle) Zungbr(side SideMode, m int32, n int32, k int32, A *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
-	return zungbr(h, side, m, n, k, A, lda, tau, work, lwork, info)
+func (h Handle) Zungbr(side SideMode, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+	return zungbr(h, side, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // ZungbrBufferSize wraps cusolverDnZungbrBufferSize, bound as cusolverDnZungbr_bufferSize.
-func (h Handle) ZungbrBufferSize(side SideMode, m int32, n int32, k int32, A *Complex128, lda int32, tau *Complex128) (int32, error) {
-	return zungbrBufferSize(h, side, m, n, k, A, lda, tau)
+func (h Handle) ZungbrBufferSize(side SideMode, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128) (int32, error) {
+	return zungbrBufferSize(h, side, m, n, k, a, lda, tau)
 }
 
 // Zungqr wraps cusolverDnZungqr.
-func (h Handle) Zungqr(m int32, n int32, k int32, A *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
-	return zungqr(h, m, n, k, A, lda, tau, work, lwork, info)
+func (h Handle) Zungqr(m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+	return zungqr(h, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // ZungqrBufferSize wraps cusolverDnZungqrBufferSize, bound as cusolverDnZungqr_bufferSize.
-func (h Handle) ZungqrBufferSize(m int32, n int32, k int32, A *Complex128, lda int32, tau *Complex128) (int32, error) {
-	return zungqrBufferSize(h, m, n, k, A, lda, tau)
+func (h Handle) ZungqrBufferSize(m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128) (int32, error) {
+	return zungqrBufferSize(h, m, n, k, a, lda, tau)
 }
 
 // Zungtr wraps cusolverDnZungtr.
-func (h Handle) Zungtr(uplo FillMode, n int32, A *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
-	return zungtr(h, uplo, n, A, lda, tau, work, lwork, info)
+func (h Handle) Zungtr(uplo FillMode, n int32, a *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+	return zungtr(h, uplo, n, a, lda, tau, work, lwork, info)
 }
 
 // ZungtrBufferSize wraps cusolverDnZungtrBufferSize, bound as cusolverDnZungtr_bufferSize.
-func (h Handle) ZungtrBufferSize(uplo FillMode, n int32, A *Complex128, lda int32, tau *Complex128) (int32, error) {
-	return zungtrBufferSize(h, uplo, n, A, lda, tau)
+func (h Handle) ZungtrBufferSize(uplo FillMode, n int32, a *Complex128, lda int32, tau *Complex128) (int32, error) {
+	return zungtrBufferSize(h, uplo, n, a, lda, tau)
 }
 
 // Zunmqr wraps cusolverDnZunmqr.
-func (h Handle) Zunmqr(side SideMode, trans Operation, m int32, n int32, k int32, A *Complex128, lda int32, tau *Complex128, C *Complex128, ldc int32, work *Complex128, lwork int32, devInfo *int32) error {
-	return zunmqr(h, side, trans, m, n, k, A, lda, tau, C, ldc, work, lwork, devInfo)
+func (h Handle) Zunmqr(side SideMode, trans Operation, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32, work *Complex128, lwork int32, devInfo *int32) error {
+	return zunmqr(h, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo)
 }
 
 // ZunmqrBufferSize wraps cusolverDnZunmqrBufferSize, bound as cusolverDnZunmqr_bufferSize.
-func (h Handle) ZunmqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, A *Complex128, lda int32, tau *Complex128, C *Complex128, ldc int32) (int32, error) {
-	return zunmqrBufferSize(h, side, trans, m, n, k, A, lda, tau, C, ldc)
+func (h Handle) ZunmqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32) (int32, error) {
+	return zunmqrBufferSize(h, side, trans, m, n, k, a, lda, tau, c, ldc)
 }
 
 // Zunmtr wraps cusolverDnZunmtr.
-func (h Handle) Zunmtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, A *Complex128, lda int32, tau *Complex128, C *Complex128, ldc int32, work *Complex128, lwork int32, info *int32) error {
-	return zunmtr(h, side, uplo, trans, m, n, A, lda, tau, C, ldc, work, lwork, info)
+func (h Handle) Zunmtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32, work *Complex128, lwork int32, info *int32) error {
+	return zunmtr(h, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info)
 }
 
 // ZunmtrBufferSize wraps cusolverDnZunmtrBufferSize, bound as cusolverDnZunmtr_bufferSize.
-func (h Handle) ZunmtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, A *Complex128, lda int32, tau *Complex128, C *Complex128, ldc int32) (int32, error) {
-	return zunmtrBufferSize(h, side, uplo, trans, m, n, A, lda, tau, C, ldc)
+func (h Handle) ZunmtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32) (int32, error) {
+	return zunmtrBufferSize(h, side, uplo, trans, m, n, a, lda, tau, c, ldc)
 }

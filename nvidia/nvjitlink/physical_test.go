@@ -50,7 +50,7 @@ func want() []int32 {
 // gpuArch returns the compute capability of device 0 as a "89" style string.
 func gpuArch(t *testing.T) string {
 	t.Helper()
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -69,15 +69,15 @@ func compilePTX(t *testing.T, arch string) []byte {
 		t.Skipf("NVRTC unavailable: %v", err)
 	}
 	defer func() {
-		if err := nvrtc.DestroyProgram(&prog); err != nil {
+		if err := prog.Destroy(); err != nil {
 			t.Errorf("destroy program: %v", err)
 		}
 	}()
 	if err := prog.Compile([]string{"--gpu-architecture=compute_" + arch}); err != nil {
-		log, _ := prog.GetProgramLog()
+		log, _ := prog.Log()
 		t.Fatalf("compile: %v\n%s", err, log)
 	}
-	ptx, err := prog.GetPTX()
+	ptx, err := prog.PTX()
 	if err != nil {
 		t.Fatalf("GetPTX: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestLinkAndRun(t *testing.T) {
 	}
 	arch := gpuArch(t)
 	t.Logf("device compute capability sm_%s", arch)
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -152,23 +152,23 @@ func TestLinkAndRun(t *testing.T) {
 		t.Skipf("nvJitLink unavailable: %v", err)
 	}
 	defer func() {
-		if err := nvjitlink.Destroy(&handle); err != nil {
+		if err := handle.Destroy(); err != nil {
 			t.Errorf("destroy linker: %v", err)
 		}
 	}()
 	if err := handle.AddData(nvjitlink.InputPtx, unsafe.Pointer(&ptx[0]), uint(len(ptx)), "fill.ptx"); err != nil {
-		log, _ := handle.GetErrorLog()
+		log, _ := handle.ErrorLog()
 		t.Fatalf("AddData: %v\n%s", err, log)
 	}
 	if err := handle.Complete(); err != nil {
-		log, _ := handle.GetErrorLog()
+		log, _ := handle.ErrorLog()
 		t.Fatalf("Complete: %v\n%s", err, log)
 	}
-	size, err := handle.GetLinkedCubinSize()
+	size, err := handle.LinkedCubinSize()
 	if err != nil {
 		t.Fatalf("GetLinkedCubinSize: %v", err)
 	}
-	cubin, err := handle.GetLinkedCubin()
+	cubin, err := handle.LinkedCubin()
 	if err != nil {
 		t.Fatalf("GetLinkedCubin: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestLinkAndRun(t *testing.T) {
 	t.Logf("linked %d bytes of PTX into a %d byte ELF cubin", len(ptx), len(cubin))
 
 	// Info log is optional but should at least be readable.
-	if info, err := handle.GetInfoLog(); err == nil && info != "" {
+	if info, err := handle.InfoLog(); err == nil && info != "" {
 		t.Logf("linker info: %s", info)
 	}
 
@@ -203,7 +203,7 @@ func TestLinkAndRun(t *testing.T) {
 // runCubin loads a cubin, launches the fill kernel and returns the output.
 func runCubin(t *testing.T, cubin []byte) []int32 {
 	t.Helper()
-	mod, err := driver.NewModuleLoadData(unsafe.Pointer(&cubin[0]))
+	mod, err := driver.ModuleLoadData(cubin)
 	if err != nil {
 		t.Fatalf("ModuleLoadData: %v", err)
 	}
@@ -212,7 +212,7 @@ func runCubin(t *testing.T, cubin []byte) []int32 {
 			t.Errorf("unload module: %v", err)
 		}
 	}()
-	fn, err := mod.GetFunction("fill")
+	fn, err := mod.Function("fill")
 	if err != nil {
 		t.Fatalf("GetFunction: %v", err)
 	}
@@ -222,7 +222,7 @@ func runCubin(t *testing.T, cubin []byte) []int32 {
 		t.Fatalf("MemAlloc: %v", err)
 	}
 	defer func() {
-		if err := out.MemFree(); err != nil {
+		if err := out.Free(); err != nil {
 			t.Errorf("free device buffer: %v", err)
 		}
 	}()
@@ -231,7 +231,7 @@ func runCubin(t *testing.T, cubin []byte) []int32 {
 	for i := range sentinel {
 		sentinel[i] = -1
 	}
-	if err := out.MemcpyHtoD(unsafe.Pointer(&sentinel[0]), size); err != nil {
+	if err := out.CopyFromHost(unsafe.Pointer(&sentinel[0]), size); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	n, b := int32(elems), int32(bias)
@@ -247,7 +247,7 @@ func runCubin(t *testing.T, cubin []byte) []int32 {
 		t.Fatalf("synchronize: %v", err)
 	}
 	got := make([]int32, elems)
-	if err := out.MemcpyDtoH(unsafe.Pointer(&got[0]), size); err != nil {
+	if err := out.CopyToHost(unsafe.Pointer(&got[0]), size); err != nil {
 		t.Fatalf("MemcpyDtoH: %v", err)
 	}
 	return got

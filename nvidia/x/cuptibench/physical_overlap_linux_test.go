@@ -57,7 +57,7 @@ func TestPhysicalWholeOverlap(t *testing.T) {
 	physicalClose(tb, func() error { return p.dev.WithContext(module.Unload) })
 	owner.resources = append(owner.resources, module)
 	var kernel driver.Function
-	physicalCheck(t, p.dev.WithContext(func() error { var err error; kernel, err = module.GetFunction("overlap_work"); return err }))
+	physicalCheck(t, p.dev.WithContext(func() error { var err error; kernel, err = module.Function("overlap_work"); return err }))
 	records, err := cudamem.Alloc[uint32](p.dev, 21)
 	physicalCheck(t, err)
 	physicalClose(tb, records.Free)

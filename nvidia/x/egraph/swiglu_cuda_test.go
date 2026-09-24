@@ -60,7 +60,7 @@ func TestGeneratedSwiGLUMatchesReference(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	defer mod.Unload()
-	fn, err := mod.GetFunction("SwiGLU")
+	fn, err := mod.Function("SwiGLU")
 	if err != nil {
 		t.Fatal(err)
 	}

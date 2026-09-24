@@ -282,7 +282,7 @@ func TestNativePrefillSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	uuid, err := dev.Raw().GetUuid()
+	uuid, err := dev.Raw().Uuid()
 	if err != nil {
 		t.Fatal(err)
 	}

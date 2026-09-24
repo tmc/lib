@@ -695,7 +695,7 @@ func (e MoeGroupedMatmulMode) String() string {
 	return fmt.Sprintf("MoeGroupedMatmulMode(%d)", e)
 }
 
-// BackendAttributeName [BackendAttributeName] is an enumerated type that indicates the backend descriptor attributes that can be set or get using [BackendDescriptor.SetAttribute] and [BackendDescriptor.GetAttribute] functions. The backend descriptor to which an attribute belongs is identified by the prefix of the attribute name.
+// BackendAttributeName [BackendAttributeName] is an enumerated type that indicates the backend descriptor attributes that can be set or get using [BackendDescriptor.SetAttribute] and [BackendDescriptor.Attribute] functions. The backend descriptor to which an attribute belongs is identified by the prefix of the attribute name.
 type BackendAttributeName int32
 
 const (
@@ -2193,7 +2193,7 @@ func (e BackendHeurMode) String() string {
 	return fmt.Sprintf("BackendHeurMode(%d)", e)
 }
 
-// BackendTensorReordering [BackendTensorReordering] is an enumerated type that indicates tensor reordering as a property of the tensor descriptor. Users can get and set this property in a [BackendTensorDescriptor] using the [BackendDescriptor.SetAttribute] and [BackendDescriptor.GetAttribute] functions.
+// BackendTensorReordering [BackendTensorReordering] is an enumerated type that indicates tensor reordering as a property of the tensor descriptor. Users can get and set this property in a [BackendTensorDescriptor] using the [BackendDescriptor.SetAttribute] and [BackendDescriptor.Attribute] functions.
 type BackendTensorReordering int32
 
 const (
@@ -2990,7 +2990,7 @@ func (e SeqDataAxis) String() string {
 	return fmt.Sprintf("SeqDataAxis(%d)", e)
 }
 
-// MultiHeadAttnWeightKind [MultiHeadAttnWeightKind] is an enumerated type that specifies a group of weights or biases in the [Handle.GetMultiHeadAttnWeights] function.
+// MultiHeadAttnWeightKind [MultiHeadAttnWeightKind] is an enumerated type that specifies a group of weights or biases in the [Handle.MultiHeadAttnWeights] function.
 type MultiHeadAttnWeightKind int32
 
 const (

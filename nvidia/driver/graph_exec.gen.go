@@ -16,7 +16,7 @@ func (g GraphExec) BatchMemOpNodeSetParams(hNode GraphNode, nodeParams *BatchMem
 
 // ChildGraphNodeSetParams Updates node parameters in the child graph node in the given graphExec.
 //
-// Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated. See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [NewGraphChildGraphNodeGetGraph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
+// Updates the work represented by hNode in hGraphExec as though the nodes contained in hNode's graph had the parameters contained in childGraph's nodes at instantiation. hNode must remain in the graph which was used to instantiate hGraphExec. Changed edges to and from hNode are ignored. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. The topology of childGraph, as well as the node insertion order, must match that of the graph contained in hNode. See [GraphExec.Update] for a list of restrictions on what can be updated in an instantiated graph. The update is recursive, so child graph nodes contained within the top level child graph will also be updated. See also: [GraphExec.NodeSetParams], [Graph.AddChildGraphNode], [GraphChildGraphNodeGetGraph], [GraphExec.KernelNodeSetParams], [GraphExec.MemcpyNodeSetParams], [GraphExec.MemsetNodeSetParams], [GraphExec.HostNodeSetParams], [GraphExec.EventRecordNodeSetEvent], [GraphExec.EventWaitNodeSetEvent], [GraphExec.ExternalSemaphoresSignalNodeSetParams], [GraphExec.ExternalSemaphoresWaitNodeSetParams], [GraphExec.Update], [Graph.Instantiate]
 //
 //   - hNode: Host node from the graph which was used to instantiate graphExec
 //   - childGraph: The graph supplying the updated parameters
@@ -83,21 +83,21 @@ func (g GraphExec) ExternalSemaphoresWaitNodeSetParams(hNode GraphNode, nodePara
 	return graphExecExternalSemaphoresWaitNodeSetParams(g, hNode, nodeParams)
 }
 
-// GetFlags Query the instantiation flags of an executable graph.
+// Flags Query the instantiation flags of an executable graph.
 //
 // Returns the flags that were passed to instantiation for the given executable graph. [GraphInstantiateFlagUpload] will not be returned by this API as it does not affect the resulting executable graph. See also: [Graph.Instantiate], [Graph.InstantiateWithParams]
 //
 // Wraps cuGraphExecGetFlags.
-func (g GraphExec) GetFlags() (uint64, error) {
+func (g GraphExec) Flags() (uint64, error) {
 	return graphExecGetFlags(g)
 }
 
-// GetId Returns the id of a given graph exec.
+// Id Returns the id of a given graph exec.
 //
-// Returns the id of hGraphExec in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint]. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.GetContainingGraph] [GraphNode.GetLocalId] [GraphNode.GetToolsId] [Graph.GetId]
+// Returns the id of hGraphExec in *graphId. The value in *graphId will match that referenced by [Graph.DebugDotPrint]. See also: [Graph.GetNodes], [Graph.DebugDotPrint] [GraphNode.ContainingGraph] [GraphNode.LocalId] [GraphNode.ToolsId] [Graph.Id]
 //
 // Wraps cuGraphExecGetId.
-func (g GraphExec) GetId() (uint32, error) {
+func (g GraphExec) Id() (uint32, error) {
 	return graphExecGetId(g)
 }
 

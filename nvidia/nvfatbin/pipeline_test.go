@@ -47,11 +47,11 @@ func TestFatbinPipeline(t *testing.T) {
 	t.Logf("nvFatbin version %d.%d from %s", major, minor, nvfatbin.Path())
 
 	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	check(err)
-	ccMajor, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMajor)
+	ccMajor, err := dev.Attribute(driver.DevAttrComputeCapabilityMajor)
 	check(err)
-	ccMinor, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMinor)
+	ccMinor, err := dev.Attribute(driver.DevAttrComputeCapabilityMinor)
 	check(err)
 	arch := fmt.Sprintf("%d%d", ccMajor, ccMinor)
 	t.Logf("target sm_%s", arch)
@@ -70,7 +70,7 @@ func TestFatbinPipeline(t *testing.T) {
 
 	handle, err := nvfatbin.Create([]string{"-64", "-cuda"})
 	check(err)
-	defer func() { check(nvfatbin.Destroy(&handle)) }()
+	defer func() { check(handle.Destroy()) }()
 	check(handle.AddPTXString(ptx, arch, "addone.ptx", ""))
 
 	size, err := handle.Size()
@@ -92,11 +92,11 @@ func TestFatbinPipeline(t *testing.T) {
 	// Loading the fatbinary with the driver is what distinguishes a correct
 	// package from a nonempty one. A length assertion alone would pass on
 	// bytes the driver cannot read.
-	mod, err := driver.NewModuleLoadData(unsafe.Pointer(unsafe.SliceData(fatbin)))
+	mod, err := driver.ModuleLoadData(fatbin)
 	check(err)
 	defer func() { check(mod.Unload()) }()
 	runtime.KeepAlive(fatbin)
-	kernel, err := mod.GetFunction("addone")
+	kernel, err := mod.Function("addone")
 	check(err)
 
 	data := make([]float32, 128)
@@ -105,11 +105,11 @@ func TestFatbinPipeline(t *testing.T) {
 	}
 	ptr, err := driver.MemAlloc(uint(len(data) * 4))
 	check(err)
-	defer func() { check(ptr.MemFree()) }()
-	check(ptr.MemcpyHtoD(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
+	defer func() { check(ptr.Free()) }()
+	check(ptr.CopyFromHost(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
 	check(kernel.LaunchKernel(1, 1, 1, uint32(len(data)), 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&ptr)}))
 	check(driver.CtxSynchronize())
-	check(ptr.MemcpyDtoH(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
+	check(ptr.CopyToHost(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
 	for i, got := range data {
 		if want := float32(i) + 1; got != want {
 			t.Fatalf("result[%d]=%g, want %g", i, got, want)
@@ -121,12 +121,12 @@ func TestFatbinPipeline(t *testing.T) {
 	// driver rejects a packaged kernel with an invalid instruction.
 	bad, err := nvfatbin.Create([]string{"-64", "-cuda"})
 	check(err)
-	defer func() { check(nvfatbin.Destroy(&bad)) }()
+	defer func() { check(bad.Destroy()) }()
 	invalid := strings.Replace(ptx, "add.f32", "invalid_instruction.f32", 1)
 	check(bad.AddPTXString(invalid, arch, "invalid.ptx", ""))
 	badFatbin, err := bad.Get()
 	check(err)
-	badModule, err := driver.NewModuleLoadData(unsafe.Pointer(unsafe.SliceData(badFatbin)))
+	badModule, err := driver.ModuleLoadData(badFatbin)
 	runtime.KeepAlive(badFatbin)
 	if err == nil {
 		check(badModule.Unload())
@@ -151,7 +151,7 @@ func TestDestroyZeroesHandle(t *testing.T) {
 	if handle == 0 {
 		t.Fatal("Create returned a zero handle with no error")
 	}
-	if err := nvfatbin.Destroy(&handle); err != nil {
+	if err := handle.Destroy(); err != nil {
 		t.Fatal(err)
 	}
 	if handle != 0 {
@@ -169,7 +169,7 @@ func TestUnrecognizedOption(t *testing.T) {
 	}
 	handle, err := nvfatbin.Create([]string{"-not-an-option"})
 	if err == nil {
-		nvfatbin.Destroy(&handle)
+		handle.Destroy()
 		t.Fatal("Create accepted an unrecognized option")
 	}
 	var code nvfatbin.Result

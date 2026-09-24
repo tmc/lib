@@ -40,7 +40,7 @@ func TestDeviceMemoryCheckCUDA(t *testing.T) {
 		}); err != nil {
 			t.Fatal(err)
 		}
-		if err := dev.WithContext(ptr.MemFree); err != nil {
+		if err := dev.WithContext(ptr.Free); err != nil {
 			t.Fatal(err)
 		}
 		if err := check.Check(); err != nil {
@@ -62,7 +62,7 @@ func TestDeviceMemoryCheckCUDA(t *testing.T) {
 			t.Fatal(err)
 		}
 		err = check.Check()
-		if freeErr := dev.WithContext(ptr.MemFree); freeErr != nil {
+		if freeErr := dev.WithContext(ptr.Free); freeErr != nil {
 			t.Fatal(freeErr)
 		}
 		if err == nil || !strings.Contains(err.Error(), "retained device memory grew") {

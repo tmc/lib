@@ -112,7 +112,7 @@ extern "C" __global__ void apply(int* out) {
 	var raw driver.Module
 	err = dev.WithContext(func() error {
 		var err error
-		raw, err = driver.NewModuleLoadData(unsafe.Pointer(&result.CUBIN[0]))
+		raw, err = driver.ModuleLoadData(result.CUBIN)
 		return err
 	})
 	runtime.KeepAlive(result)
@@ -132,11 +132,11 @@ extern "C" __global__ void apply(int* out) {
 	check(err)
 	var p driver.DevicePtr
 	check(dev.WithContext(func() error { var err error; p, err = driver.MemAlloc(64 * 4); return err }))
-	defer func() { cleanup(dev.WithContext(p.MemFree)) }()
+	defer func() { cleanup(dev.WithContext(p.Free)) }()
 	check(kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{64, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	check(owner.Close()) // Completes submitted work before unloading.
 	var got [64]int32
-	check(dev.WithContext(func() error { return p.MemcpyDtoH(unsafe.Pointer(&got[0]), 64*4) }))
+	check(dev.WithContext(func() error { return p.CopyToHost(unsafe.Pointer(&got[0]), 64*4) }))
 	for i, value := range got {
 		want := int32(3*(i*i-17) - 7)
 		if value != want {

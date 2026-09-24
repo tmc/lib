@@ -7,38 +7,38 @@ package cublaslt
 //   - emulationDesc: Pointer to the previously created structure holding the emulation descriptor queried by this function. See [EmulationDesc]
 //
 // Returns:
-//   - [ErrAllocFailed]: If memory could not be allocated.
-//   - [Success]: If the descriptor was created successfully.
+//   - [ErrAllocFailed]: if memory could not be allocated
+//   - [Success]: if desciptor was created successfully
 //
 // Wraps cublasLtEmulationDescCreate.
 func NewEmulationDesc() (EmulationDesc, error) {
 	return emulationDescCreate()
 }
 
-// Destroy destroys a previously created emulation descriptor.
-//
-// Returns:
-//   - [Success]: If the descriptor was destroyed successfully.
-//
-// Wraps cublasLtEmulationDescDestroy.
-func (e EmulationDesc) Destroy() error {
-	return emulationDescDestroy(e)
-}
-
-// GetAttribute returns the value of the queried attribute belonging to a previously created emulation descriptor.
+// Attribute returns the value of the queried attribute belonging to a previously created emulation descriptor.
 //
 //   - attr: The attribute that will be retrieved by this function. See [EmulationDescAttributes]
 //   - buf: Memory address containing the attribute value retrieved by this function
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
-//   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; If sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
+//   - sizeWritten: Valid only when the return value is [Success].If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written;If sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: If sizeInBytes is zero and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - if sizeInBytes doesn’t match size of internal storage for the selected attribute
-//   - [Success]: If attribute’s value was successfully written to user memory.
+//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute's value was successfully written to user memory
 //
 // Wraps cublasLtEmulationDescGetAttribute.
-func (e EmulationDesc) GetAttribute(attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
+func (e EmulationDesc) Attribute(attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
 	return emulationDescGetAttribute(e, attr, buf, sizeInBytes)
+}
+
+// Destroy destroys a previously created emulation descriptor.
+//
+// Returns:
+//   - [Success]: if operation was successful
+//
+// Wraps cublasLtEmulationDescDestroy.
+func (e EmulationDesc) Destroy() error {
+	return emulationDescDestroy(e)
 }
 
 // Init_internal wraps cublasLtEmulationDescInit_internal.
@@ -53,8 +53,8 @@ func (e EmulationDesc) Init_internal(size uint) error {
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
 // Returns:
-//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
-//   - [Success]: If the attribute was set successfully.
+//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
+//   - [Success]: if attribute was set successfully
 //
 // Wraps cublasLtEmulationDescSetAttribute.
 func (e EmulationDesc) SetAttribute(attr EmulationDescAttributes, buf uintptr, sizeInBytes uint) error {

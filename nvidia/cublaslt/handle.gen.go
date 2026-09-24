@@ -4,13 +4,6 @@ package cublaslt
 
 // Destroy releases hardware resources used by the cuBLASLt library.
 //
-// This function is usually the last call with a particular handle to the cuBLASLt library. Because [Create] allocates some internal resources and the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize(), it is recommended to minimize the number of times these functions are called.
-//
-// Returns:
-//   - [ErrInvalidValue]: lightHandle is NULL
-//   - [ErrNotInitialized]: The cuBLASLt library was not initialized.
-//   - [Success]: The cuBLASLt context was successfully destroyed.
-//
 // Wraps cublasLtDestroy.
 func (h Handle) Destroy() error {
 	return destroy(h)
@@ -49,80 +42,69 @@ func (h Handle) Destroy() error {
 //
 //   - computeDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
 //   - alpha: Pointers to the scalars used in the multiplication
-//   - A: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
-//   - Adesc: Handles to the previous created descriptors of the type [MatrixLayout]
-//   - B: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
-//   - Bdesc: Handles to the previous created descriptors of the type [MatrixLayout]
-//   - beta: Pointers to the scalars used in the multiplication
-//   - C: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
-//   - Cdesc: Handles to the previous created descriptors of the type [MatrixLayout]
-//   - D: Pointer to the GPU memory associated with the descriptor Ddesc
-//   - Ddesc: Handle to the previous created descriptor of the type [MatrixLayout]
+//   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
+//   - adesc: Handles to the previous created descriptors of the type [MatrixLayout]
+//   - d: Pointer to the GPU memory associated with the descriptor Ddesc
+//   - ddesc: Handle to the previous created descriptor of the type [MatrixLayout]
 //   - algo: Handle for matrix multiplication algorithm to be used. See [MatmulAlgo]. When NULL, an implicit heuristics query with default search preferences will be performed to determine actual algorithm to use
 //   - workspace: Pointer to the workspace buffer allocated in the GPU memory. Must be 256B aligned (i.e. lowest 8 bits of address must be 0)
 //   - workspaceSizeInBytes: Size of the workspace
 //   - stream: The CUDA stream where all the GPU work will be submitted
 //
 // Returns:
-//   - [ErrArchMismatch]: If the configured operation cannot be run using the selected device.
-//   - [ErrExecutionFailed]: If CUDA reported an execution error from the device.
-//   - [ErrInvalidValue]: If the parameters are unexpectedly NULL, in conflict or in an impossible configuration. For example, when workspaceSizeInBytes is less than workspace required by the configured algo.
-//   - [ErrNotInitialized]: If cuBLASLt handle has not been initialized.
-//   - [ErrNotSupported]: If the current implementation on the selected device doesn’t support the configured operation.
-//   - [Success]: If the operation completed successfully.
+//   - [ErrNotInitialized]: if cuBLASLt handle has not been initialized
+//   - [ErrInvalidValue]: if parameters are in conflict or in an impossible configuration; e.g. when workspaceSizeInBytes is less than workspace required by configured algo
+//   - [ErrNotSupported]: if current implementation on selected device doesn't support configured operation
+//   - [ErrArchMismatch]: if configured operation cannot be run using selected device
+//   - [ErrExecutionFailed]: if cuda reported execution error from the device
+//   - [Success]: if the operation completed successfully
 //
 // Wraps cublasLtMatmul.
-func (h Handle) Matmul(computeDesc MatmulDesc, alpha uintptr, A uintptr, Adesc MatrixLayout, B uintptr, Bdesc MatrixLayout, beta uintptr, C uintptr, Cdesc MatrixLayout, D uintptr, Ddesc MatrixLayout, algo *MatmulAlgo, workspace uintptr, workspaceSizeInBytes uint, stream Stream) error {
-	return matmul(h, computeDesc, alpha, A, Adesc, B, Bdesc, beta, C, Cdesc, D, Ddesc, algo, workspace, workspaceSizeInBytes, stream)
+func (h Handle) Matmul(computeDesc MatmulDesc, alpha uintptr, a uintptr, adesc MatrixLayout, b uintptr, bdesc MatrixLayout, beta uintptr, c uintptr, cdesc MatrixLayout, d uintptr, ddesc MatrixLayout, algo *MatmulAlgo, workspace uintptr, workspaceSizeInBytes uint, stream Stream) error {
+	return matmul(h, computeDesc, alpha, a, adesc, b, bdesc, beta, c, cdesc, d, ddesc, algo, workspace, workspaceSizeInBytes, stream)
 }
 
 // MatmulAlgoCheck performs the correctness check on the matrix multiply algorithm descriptor for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
-// It checks whether the descriptor is supported on the current device, and returns the result containing the required workspace and the calculated wave count.
 // Note
 // [Success] doesn’t fully guarantee that the algo will run. The algo will fail if, for example, the buffers are not correctly aligned. However, if [Handle.MatmulAlgoCheck] fails, the algo will not run.
 //
 //   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
-//   - Adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
 //   - algo: Descriptor which specifies which matrix multiplication algorithm should be used. See [MatmulAlgo]. May point to result->algo
 //   - result: Pointer to the structure holding the results returned by this function. The results comprise of the required workspace and the calculated wave count. The algo field is never updated. See [MatmulHeuristicResult]
 //
 // Returns:
-//   - [ErrArchMismatch]: If the algo configuration cannot be run using the selected device.
-//   - [ErrInvalidValue]: If matrix layout descriptors or the operation descriptor do not match the algo descriptor.
-//   - [ErrNotSupported]: If the algo configuration or data type combination is not currently supported on the given device.
-//   - [Success]: If the check was successful.
+//   - [ErrInvalidValue]: if matrix layout descriptors or operation descriptor don't match algo descriptor
+//   - [ErrNotSupported]: if algo configuration or data type combination is not currently supported on given device
+//   - [ErrArchMismatch]: if algo configuration cannot be run using the selected device
+//   - [Success]: if check was successful
 //
 // Wraps cublasLtMatmulAlgoCheck.
-func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, Adesc MatrixLayout, Bdesc MatrixLayout, Cdesc MatrixLayout, Ddesc MatrixLayout, algo *MatmulAlgo) (MatmulHeuristicResult, error) {
-	return matmulAlgoCheck(h, operationDesc, Adesc, Bdesc, Cdesc, Ddesc, algo)
+func (h Handle) MatmulAlgoCheck(operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, algo *MatmulAlgo) (MatmulHeuristicResult, error) {
+	return matmulAlgoCheck(h, operationDesc, adesc, bdesc, cdesc, ddesc, algo)
 }
 
 // MatmulAlgoGetHeuristic retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
-// The output is placed in heuristicResultsArray[] in the order of increasing estimated compute time.
-//
-//   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
-//   - Adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - Ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
-//   - preference: Pointer to the structure holding the heuristic search preferences descriptor. See [MatmulPreference]
-//   - requestedAlgoCount: Size of the heuristicResultsArray (in elements). This is the requested maximum number of algorithms to return
-//   - heuristicResultsArray: Array containing the algorithm heuristics and associated runtime characteristics, returned by this function, in the order of increasing estimated compute time
-//   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
+//   - operationDesc: in Handle to the matrix multiplication descriptor
+//   - adesc: in Handle to the layout descriptors for matrix A
+//   - bdesc: in Handle to the layout descriptors for matrix B
+//   - cdesc: in Handle to the layout descriptors for matrix C
+//   - ddesc: in Handle to the layout descriptors for matrix D
+//   - preference: in Pointer to the structure holding the heuristic search preferences descriptor. See [MatrixLayout]
+//   - requestedAlgoCount: in Size of heuristicResultsArray (in elements) and requested maximum number of algorithms to return
+//   - heuristicResultsArray: in, out Output algorithms and associated runtime characteristics, ordered in increasing estimated compute time
+//   - returnAlgoCount: out The number of heuristicResultsArray elements written
 //
 // Returns:
-//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
-//   - [ErrNotSupported]: If no heuristic function available for current configuration.
-//   - [Success]: If query was successful. Inspect heuristicResultsArray [0 to (returnAlgoCount -1)].state for the status of the results.
+//   - [ErrInvalidValue]: if requestedAlgoCount is less or equal to zero
+//   - [ErrNotSupported]: if no heuristic function available for current configuration
+//   - [Success]: if query was successful, inspect heuristicResultsArray [0 to (returnAlgoCount - 1)].state for detail status of results
 //
 // Wraps cublasLtMatmulAlgoGetHeuristic.
-func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, Adesc MatrixLayout, Bdesc MatrixLayout, Cdesc MatrixLayout, Ddesc MatrixLayout, preference MatmulPreference, requestedAlgoCount int32, heuristicResultsArray *MatmulHeuristicResult) (int32, error) {
-	return matmulAlgoGetHeuristic(h, operationDesc, Adesc, Bdesc, Cdesc, Ddesc, preference, requestedAlgoCount, heuristicResultsArray)
+func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, adesc MatrixLayout, bdesc MatrixLayout, cdesc MatrixLayout, ddesc MatrixLayout, preference MatmulPreference, requestedAlgoCount int32, heuristicResultsArray *MatmulHeuristicResult) (int32, error) {
+	return matmulAlgoGetHeuristic(h, operationDesc, adesc, bdesc, cdesc, ddesc, preference, requestedAlgoCount, heuristicResultsArray)
 }
 
 // MatmulAlgoGetIds retrieves the IDs of all the matrix multiply algorithms that are valid, and can potentially be run by the [Handle.Matmul] function, for given types of the input matrices A, B and C, and of the output matrix D.
@@ -131,43 +113,34 @@ func (h Handle) MatmulAlgoGetHeuristic(operationDesc MatmulDesc, Adesc MatrixLay
 // The IDs are returned in no particular order. To make sure the best possible algo is contained in the list, make requestedAlgoCount large enough to receive the full list. The list is guaranteed to be full if returnAlgoCount < requestedAlgoCount.
 //
 //   - computeType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - scaleType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - Atype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - Btype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - Ctype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
-//   - Dtype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - requestedAlgoCount: Number of algorithms requested. Must be > 0
-//   - algoIdsArray: Array containing the algorithm IDs returned by this function
 //   - returnAlgoCount: Number of algorithms actually returned by this function
 //
 // Returns:
-//   - [ErrInvalidValue]: If requestedAlgoCount is less or equal to zero.
-//   - [Success]: If query was successful. Inspect returnAlgoCount to get actual number of IDs available.
+//   - [ErrInvalidValue]: if requestedAlgoCount is less or equal to zero
+//   - [Success]: if query was successful, inspect returnAlgoCount to get actual number of IDs available
 //
 // Wraps cublasLtMatmulAlgoGetIds.
-func (h Handle) MatmulAlgoGetIds(computeType ComputeType, scaleType DataType, Atype DataType, Btype DataType, Ctype DataType, Dtype DataType, requestedAlgoCount int32, algoIdsArray *int32) (int32, error) {
-	return matmulAlgoGetIds(h, computeType, scaleType, Atype, Btype, Ctype, Dtype, requestedAlgoCount, algoIdsArray)
+func (h Handle) MatmulAlgoGetIds(computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, requestedAlgoCount int32, algoIdsArray *int32) (int32, error) {
+	return matmulAlgoGetIds(h, computeType, scaleType, atype, btype, ctype, dtype, requestedAlgoCount, algoIdsArray)
 }
 
 // MatmulAlgoInit initializes the matrix multiply algorithm structure for the [Handle.Matmul] , for a specified matrix multiply algorithm and input matrices A, B and C, and the output matrix D.
 //
 //   - computeType: Compute type. See [MatmulDescComputeType] of [MatmulDescAttributes]
 //   - scaleType: Scale type. See [MatmulDescScaleType] of [MatmulDescAttributes]. Usually same as computeType
-//   - Atype: Datatype precision for the input and output matrices. See cudaDataType_t
-//   - Btype: Datatype precision for the input and output matrices. See cudaDataType_t
-//   - Ctype: Datatype precision for the input and output matrices. See cudaDataType_t
-//   - Dtype: Datatype precision for the input and output matrices. See cudaDataType_t
+//   - atype: Datatype precision for the input and output matrices. See cudaDataType_t
 //   - algoId: Specifies the algorithm being initialized. Should be a valid algoId returned by the [Handle.MatmulAlgoGetIds] function
 //   - algo: Pointer to the opaque structure to be initialized. See [MatmulAlgo]
 //
 // Returns:
-//   - [ErrInvalidValue]: If algo is NULL or algoId is outside the recognized range.
-//   - [ErrNotSupported]: If algoId is not supported for given combination of data types.
-//   - [Success]: If the structure was successfully initialized.
+//   - [ErrInvalidValue]: if algo is NULL or algoId is outside of recognized range
+//   - [ErrNotSupported]: if algoId is not supported for given combination of data types
+//   - [Success]: if the structure was successfully initialized
 //
 // Wraps cublasLtMatmulAlgoInit.
-func (h Handle) MatmulAlgoInit(computeType ComputeType, scaleType DataType, Atype DataType, Btype DataType, Ctype DataType, Dtype DataType, algoId int32, algo *MatmulAlgo) error {
-	return matmulAlgoInit(h, computeType, scaleType, Atype, Btype, Ctype, Dtype, algoId, algo)
+func (h Handle) MatmulAlgoInit(computeType ComputeType, scaleType DataType, atype DataType, btype DataType, ctype DataType, dtype DataType, algoId int32, algo *MatmulAlgo) error {
+	return matmulAlgoInit(h, computeType, scaleType, atype, btype, ctype, dtype, algoId, algo)
 }
 
 // MatrixTransform computes the matrix transformation operation on the input matrices A and B, to produce the output matrix C, according to the below operation:
@@ -177,24 +150,20 @@ func (h Handle) MatmulAlgoInit(computeType ComputeType, scaleType DataType, Atyp
 //
 //   - transformDesc: Pointer to the opaque descriptor holding the matrix transformation operation. See [MatrixTransformDesc]
 //   - alpha: Pointers to the scalars used in the multiplication
-//   - A: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
-//   - Adesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
-//   - beta: Pointers to the scalars used in the multiplication
-//   - B: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
-//   - Bdesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
-//   - C: Pointer to the GPU memory associated with the Cdesc descriptor
-//   - Cdesc: Handles to the previous created descriptors of the type [MatrixLayout]. Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
+//   - adesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - c: Pointer to the GPU memory associated with the Cdesc descriptor
 //   - stream: The CUDA stream where all the GPU work will be submitted
 //
 // Returns:
-//   - [ErrArchMismatch]: If the configured operation cannot be run using the selected device.
-//   - [ErrExecutionFailed]: If CUDA reported an execution error from the device.
-//   - [ErrInvalidValue]: If the parameters are in conflict or in an impossible configuration. For example, when A is not NULL, but Adesc is NULL.
-//   - [ErrNotInitialized]: If cuBLASLt handle has not been initialized.
-//   - [ErrNotSupported]: If the current implementation on the selected device does not support the configured operation.
-//   - [Success]: If the operation completed successfully.
+//   - [ErrNotInitialized]: if cuBLASLt handle has not been initialized
+//   - [ErrInvalidValue]: if parameters are in conflict or in an impossible configuration; e.g. when A is not NULL, but Adesc is NULL
+//   - [ErrNotSupported]: if current implementation on selected device doesn't support configured operation
+//   - [ErrArchMismatch]: if configured operation cannot be run using selected device
+//   - [ErrExecutionFailed]: if cuda reported execution error from the device
+//   - [Success]: if the operation completed successfully
 //
 // Wraps cublasLtMatrixTransform.
-func (h Handle) MatrixTransform(transformDesc MatrixTransformDesc, alpha uintptr, A uintptr, Adesc MatrixLayout, beta uintptr, B uintptr, Bdesc MatrixLayout, C uintptr, Cdesc MatrixLayout, stream Stream) error {
-	return matrixTransform(h, transformDesc, alpha, A, Adesc, beta, B, Bdesc, C, Cdesc, stream)
+func (h Handle) MatrixTransform(transformDesc MatrixTransformDesc, alpha uintptr, a uintptr, adesc MatrixLayout, beta uintptr, b uintptr, bdesc MatrixLayout, c uintptr, cdesc MatrixLayout, stream Stream) error {
+	return matrixTransform(h, transformDesc, alpha, a, adesc, beta, b, bdesc, c, cdesc, stream)
 }

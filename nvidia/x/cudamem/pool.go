@@ -136,7 +136,7 @@ func (s Slice[T]) FreeAsync(stream *cuda.Stream) error {
 				return fn(handle)
 			})
 		})
-	}, driver.DevicePtr.MemFreeAsync, stream.AddCleanup)
+	}, driver.DevicePtr.FreeAsync, stream.AddCleanup)
 }
 
 func (a *allocation) freeAsync(run func(func(driver.Stream) error) error, free func(driver.DevicePtr, driver.Stream) error, addCleanup func(func())) error {
@@ -177,7 +177,7 @@ func DefaultPool(dev *cuda.Device) (*Pool, error) {
 	if dev == nil {
 		return nil, errors.New("cudamem: nil device passed to DefaultPool")
 	}
-	raw, err := dev.Raw().GetDefaultMemPool()
+	raw, err := dev.Raw().DefaultMemPool()
 	if err != nil {
 		return nil, fmt.Errorf("cudamem: get default mem pool: %w", err)
 	}

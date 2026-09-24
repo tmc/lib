@@ -11,21 +11,64 @@ package cudensitymat
 // storage buffers will be respected by the library,
 // thus providing a mechanism for specifying any initial value
 // of the quantum state in its chosen representation form.
-// In multi-process runs, API function `[State.GetComponentInfo]`
+// In multi-process runs, API function `[State.ComponentInfo]`
 // can be used for retrieving the information on which slice of the
 // requested component (tensor) is stored on the current process.
 //
 // Note: The sizes of the provided storage buffers must be equal or larger
-// than the required sizes retrieved via `[State.GetComponentStorageSize]`.
+// than the required sizes retrieved via `[State.ComponentStorageSize]`.
 //
 //   - handle: in Library handle
-//   - numStateComponents: in Number of components (tensors) in the quantum state representation (on the current process). The number of components can be retrieved by calling the API function `[State.GetNumComponents]`
+//   - numStateComponents: in Number of components (tensors) in the quantum state representation (on the current process). The number of components can be retrieved by calling the API function `[State.NumComponents]`
 //   - componentBuffer: in Pointers to user-owned GPU-accessible storage buffers for all components (tensors) constituting the quantum state representation (on the current process)
 //   - componentBufferSize: in Sizes of the provided storage buffers for all components (tensors) constituting the quantum state representation (on the current process)
 //
 // Wraps cudensitymatStateAttachComponentStorage.
 func (s State) AttachComponentStorage(handle Handle, numStateComponents int32, componentBuffer *uintptr, componentBufferSize *uint) error {
 	return stateAttachComponentStorage(handle, s, numStateComponents, componentBuffer, componentBufferSize)
+}
+
+// ComponentInfo Queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
+//
+// This API function queries the global component id
+// (across all parallel processes), the number of tensor modes
+// (including the batch mode, if present), the extents of all modes,
+// and the base offsets for all modes which can be different from
+// zero if the locally stored component tensor represents a slice
+// of the full component tensor (a base offset of a sliced mode is
+// the starting index value of that mode inside the full tensor mode).
+//
+//   - handle: in Library handle
+//   - stateComponentLocalId: in Component local id (on the current parallel process)
+//   - stateComponentGlobalId: out Component global id (across all parallel processes)
+//   - stateComponentNumModes: out Number of modes in the queried component tensor
+//   - stateComponentModeExtents: out Component tensor mode extents (the size of the array must be sufficient, see `[State.ComponentNumModes]`)
+//   - stateComponentModeOffsets: out Component tensor mode offsets defining the locally stored slice (the size of the array must be sufficient, see `[State.ComponentNumModes]`)
+//
+// Wraps cudensitymatStateGetComponentInfo.
+func (s State) ComponentInfo(handle Handle, stateComponentLocalId int32, stateComponentGlobalId *int32, stateComponentNumModes *int32, stateComponentModeExtents *int64, stateComponentModeOffsets *int64) error {
+	return stateGetComponentInfo(handle, s, stateComponentLocalId, stateComponentGlobalId, stateComponentNumModes, stateComponentModeExtents, stateComponentModeOffsets)
+}
+
+// ComponentNumModes Queries the number of modes in a local component tensor (on the current process in multi-process runs).
+//
+//   - handle: in Library handle
+//   - stateComponentLocalId: in Component local id (on the current parallel process)
+//
+// Wraps cudensitymatStateGetComponentNumModes.
+func (s State) ComponentNumModes(handle Handle, stateComponentLocalId int32) (int32, int32, int32, error) {
+	return stateGetComponentNumModes(handle, s, stateComponentLocalId)
+}
+
+// ComponentStorageSize Queries the storage size (in bytes) for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
+//
+//   - handle: in Library handle
+//   - numStateComponents: in Number of components (tensors) in the quantum state representation (on the current process)
+//   - componentBufferSize: out Storage size (bytes) for each component (tensor) constituting the quantum state representation (on the current process)
+//
+// Wraps cudensitymatStateGetComponentStorageSize.
+func (s State) ComponentStorageSize(handle Handle, numStateComponents int32, componentBufferSize *uint) error {
+	return stateGetComponentStorageSize(handle, s, numStateComponents, componentBufferSize)
 }
 
 // ComputeAccumulation Computes accumulation of a quantum state(s) into another quantum state(s) of compatible shape.
@@ -118,50 +161,21 @@ func (s State) Destroy() error {
 	return destroyState(s)
 }
 
-// GetComponentInfo Queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
+// InitializeZero Initializes the quantum state to zero (null state).
 //
-// This API function queries the global component id
-// (across all parallel processes), the number of tensor modes
-// (including the batch mode, if present), the extents of all modes,
-// and the base offsets for all modes which can be different from
-// zero if the locally stored component tensor represents a slice
-// of the full component tensor (a base offset of a sliced mode is
-// the starting index value of that mode inside the full tensor mode).
+// Note: This API function is typically used for initializing
+// the output quantum state to true zero before accumulating
+// in it the action of an operator on some input quantum state.
 //
 //   - handle: in Library handle
-//   - stateComponentLocalId: in Component local id (on the current parallel process)
-//   - stateComponentGlobalId: out Component global id (across all parallel processes)
-//   - stateComponentNumModes: out Number of modes in the queried component tensor
-//   - stateComponentModeExtents: out Component tensor mode extents (the size of the array must be sufficient, see `[State.GetComponentNumModes]`)
-//   - stateComponentModeOffsets: out Component tensor mode offsets defining the locally stored slice (the size of the array must be sufficient, see `[State.GetComponentNumModes]`)
+//   - stream: in CUDA stream
 //
-// Wraps cudensitymatStateGetComponentInfo.
-func (s State) GetComponentInfo(handle Handle, stateComponentLocalId int32, stateComponentGlobalId *int32, stateComponentNumModes *int32, stateComponentModeExtents *int64, stateComponentModeOffsets *int64) error {
-	return stateGetComponentInfo(handle, s, stateComponentLocalId, stateComponentGlobalId, stateComponentNumModes, stateComponentModeExtents, stateComponentModeOffsets)
+// Wraps cudensitymatStateInitializeZero.
+func (s State) InitializeZero(handle Handle, stream Stream) error {
+	return stateInitializeZero(handle, s, stream)
 }
 
-// GetComponentNumModes Queries the number of modes in a local component tensor (on the current process in multi-process runs).
-//
-//   - handle: in Library handle
-//   - stateComponentLocalId: in Component local id (on the current parallel process)
-//
-// Wraps cudensitymatStateGetComponentNumModes.
-func (s State) GetComponentNumModes(handle Handle, stateComponentLocalId int32) (int32, int32, int32, error) {
-	return stateGetComponentNumModes(handle, s, stateComponentLocalId)
-}
-
-// GetComponentStorageSize Queries the storage size (in bytes) for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
-//
-//   - handle: in Library handle
-//   - numStateComponents: in Number of components (tensors) in the quantum state representation (on the current process)
-//   - componentBufferSize: out Storage size (bytes) for each component (tensor) constituting the quantum state representation (on the current process)
-//
-// Wraps cudensitymatStateGetComponentStorageSize.
-func (s State) GetComponentStorageSize(handle Handle, numStateComponents int32, componentBufferSize *uint) error {
-	return stateGetComponentStorageSize(handle, s, numStateComponents, componentBufferSize)
-}
-
-// GetNumComponents Queries the number of components (tensors) constituting the chosen quantum state representation (on the current process in multi-process runs).
+// NumComponents Queries the number of components (tensors) constituting the chosen quantum state representation (on the current process in multi-process runs).
 //
 // Quantum state representation may include one or more
 // components (tensors) distributed over one or more parallel
@@ -176,7 +190,7 @@ func (s State) GetComponentStorageSize(handle Handle, numStateComponents int32, 
 // Note: In multi-process runs, this function returns the number
 // of locally stored components which, in general, can be smaller
 // than the total number of components stored across all parallel
-// processes. One can use API function `[State.GetComponentInfo]`
+// processes. One can use API function `[State.ComponentInfo]`
 // to obtain more information on a given local component by providing
 // its local id.
 //
@@ -190,20 +204,6 @@ func (s State) GetComponentStorageSize(handle Handle, numStateComponents int32, 
 //   - handle: in Library handle
 //
 // Wraps cudensitymatStateGetNumComponents.
-func (s State) GetNumComponents(handle Handle) (int32, error) {
+func (s State) NumComponents(handle Handle) (int32, error) {
 	return stateGetNumComponents(handle, s)
-}
-
-// InitializeZero Initializes the quantum state to zero (null state).
-//
-// Note: This API function is typically used for initializing
-// the output quantum state to true zero before accumulating
-// in it the action of an operator on some input quantum state.
-//
-//   - handle: in Library handle
-//   - stream: in CUDA stream
-//
-// Wraps cudensitymatStateInitializeZero.
-func (s State) InitializeZero(handle Handle, stream Stream) error {
-	return stateInitializeZero(handle, s, stream)
 }

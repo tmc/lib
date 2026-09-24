@@ -12,7 +12,7 @@ func (c CTCLossDescriptor) Destroy() error {
 	return destroyCTCLossDescriptor(c)
 }
 
-// GetCTCLossDescriptorEx returns the configuration of the passed CTC loss function descriptor.
+// Ex returns the configuration of the passed CTC loss function descriptor.
 //
 // This function returns the configuration of the passed CTC loss function descriptor.
 //
@@ -27,7 +27,7 @@ func (c CTCLossDescriptor) Destroy() error {
 // Deprecated: This function has been deprecated in cuDNN 9.0; use [CTCLossDescriptor.Get] instead.
 //
 // Wraps cudnnGetCTCLossDescriptorEx.
-func (c CTCLossDescriptor) GetCTCLossDescriptorEx(compType *DataType, normMode *LossNormalizationMode, gradMode *NanPropagation) error {
+func (c CTCLossDescriptor) Ex(compType *DataType, normMode *LossNormalizationMode, gradMode *NanPropagation) error {
 	return getCTCLossDescriptorEx(c, compType, normMode, gradMode)
 }
 

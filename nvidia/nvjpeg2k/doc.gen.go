@@ -94,8 +94,8 @@
 // # Library version
 //
 //   - [GetCudartProperty]: returns one component of the CUDA Toolkit version the library was built against.
-//   - [Handle.GetDeviceMemoryPadding]: returns the current device allocation padding in bytes.
-//   - [Handle.GetPinnedMemoryPadding]: returns the current pinned host allocation padding in bytes.
+//   - [Handle.DeviceMemoryPadding]: returns the current device allocation padding in bytes.
+//   - [Handle.PinnedMemoryPadding]: returns the current pinned host allocation padding in bytes.
 //   - [GetProperty]: returns one component of the loaded library's version.
 //
 // # Bitstream parsing and metadata

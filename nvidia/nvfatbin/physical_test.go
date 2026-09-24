@@ -44,7 +44,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Skipf("CUDA driver unavailable: %v", err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -73,15 +73,15 @@ func TestBuildFatbinAndRun(t *testing.T) {
 		t.Skipf("NVRTC unavailable: %v", err)
 	}
 	defer func() {
-		if err := nvrtc.DestroyProgram(&prog); err != nil {
+		if err := prog.Destroy(); err != nil {
 			t.Errorf("destroy program: %v", err)
 		}
 	}()
 	if err := prog.Compile([]string{"--gpu-architecture=sm_" + arch}); err != nil {
-		log, _ := prog.GetProgramLog()
+		log, _ := prog.Log()
 		t.Fatalf("compile: %v\n%s", err, log)
 	}
-	cubin, err := prog.GetCUBIN()
+	cubin, err := prog.CUBIN()
 	if err != nil {
 		t.Fatalf("GetCUBIN: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 		t.Skipf("nvFatbin unavailable: %v", err)
 	}
 	defer func() {
-		if err := nvfatbin.Destroy(&h); err != nil {
+		if err := h.Destroy(); err != nil {
 			t.Errorf("destroy fatbin: %v", err)
 		}
 	}()
@@ -131,7 +131,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 	}
 	t.Logf("built a %d byte fatbin containing a %d byte cubin", len(fatbin), len(cubin))
 
-	mod, err := driver.NewModuleLoadFatBinary(unsafe.Pointer(&fatbin[0]))
+	mod, err := driver.ModuleLoadFatBinary(fatbin)
 	if err != nil {
 		t.Fatalf("ModuleLoadFatBinary: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 			t.Errorf("unload module: %v", err)
 		}
 	}()
-	fn, err := mod.GetFunction("fill")
+	fn, err := mod.Function("fill")
 	if err != nil {
 		t.Fatalf("GetFunction: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 		t.Fatalf("MemAlloc: %v", err)
 	}
 	defer func() {
-		if err := out.MemFree(); err != nil {
+		if err := out.Free(); err != nil {
 			t.Errorf("free device buffer: %v", err)
 		}
 	}()
@@ -159,7 +159,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 	for i := range sentinel {
 		sentinel[i] = -1
 	}
-	if err := out.MemcpyHtoD(unsafe.Pointer(&sentinel[0]), nbytes); err != nil {
+	if err := out.CopyFromHost(unsafe.Pointer(&sentinel[0]), nbytes); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	n, b := int32(elems), int32(bias)
@@ -171,7 +171,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 		t.Fatalf("synchronize: %v", err)
 	}
 	got := make([]int32, elems)
-	if err := out.MemcpyDtoH(unsafe.Pointer(&got[0]), nbytes); err != nil {
+	if err := out.CopyToHost(unsafe.Pointer(&got[0]), nbytes); err != nil {
 		t.Fatalf("MemcpyDtoH: %v", err)
 	}
 	for i := range got {

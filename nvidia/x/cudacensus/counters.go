@@ -509,12 +509,12 @@ func ReadIdentity(dev nvml.Device, want []Counter, vers StructVersions) (Identit
 		}
 	}
 
-	name, err := dev.GetName()
+	name, err := dev.Name()
 	record("name", err)
 	id.DeviceName = name
 
 	var minor int32
-	major, err := dev.GetCudaComputeCapability(&minor)
+	major, err := dev.CudaComputeCapability(&minor)
 	record("compute capability", err)
 	if err == nil {
 		id.ComputeMajor, id.ComputeMinor = major, minor
@@ -526,11 +526,11 @@ func ReadIdentity(dev nvml.Device, want []Counter, vers StructVersions) (Identit
 	id.NVMLVersion, err = nvml.SystemGetNVMLVersion()
 	record("NVML version", err)
 
-	id.MaxSMClockMHz, err = dev.GetMaxClockInfo(nvml.ClockSm)
+	id.MaxSMClockMHz, err = dev.MaxClockInfo(nvml.ClockSm)
 	record("max SM clock", err)
-	id.MaxMemoryClockMHz, err = dev.GetMaxClockInfo(nvml.ClockMem)
+	id.MaxMemoryClockMHz, err = dev.MaxClockInfo(nvml.ClockMem)
 	record("max memory clock", err)
-	id.PowerLimitMW, err = dev.GetPowerManagementLimit()
+	id.PowerLimitMW, err = dev.PowerManagementLimit()
 	record("power limit", err)
 
 	sup, err := DiscoverSupport(dev, want, vers)

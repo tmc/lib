@@ -88,8 +88,8 @@
 //   - [Subscriber.EnableDomain]: Enable or disabled all callbacks for a specific domain.
 //   - [EnableKernelReplayMode]: Enable kernel replay mode.
 //   - [GetCallbackName]: Get the name of a callback for a specific domain and callback ID.
-//   - [Subscriber.GetCallbackState]: Get the current enabled/disabled state of a callback for a specific domain and function ID.
-//   - [Subscriber.GetEnabledCallbacks]: Get the enabled callbacks for a subscriber.
+//   - [Subscriber.CallbackState]: Get the current enabled/disabled state of a callback for a specific domain and function ID.
+//   - [Subscriber.EnabledCallbacks]: Get the enabled callbacks for a subscriber.
 //   - [Subscribe]: Initialize a callback subscriber with a callback function and user data.
 //   - [SubscribeV2]: Initialize a callback subscriber with a callback function and user data.
 //   - [SupportedDomains]: Get the available callback domains.
@@ -107,7 +107,7 @@
 //   - [EventGroup.Destroy]: Destroy an event group.
 //   - [EventGroup.Disable]: Disable an event group.
 //   - [EventGroup.Enable]: Enable an event group.
-//   - [EventGroup.GetAttribute]: Read an event group attribute.
+//   - [EventGroup.Attribute]: Read an event group attribute.
 //   - [EventGroup.ReadAllEvents]: Read the values for all the events in an event group.
 //   - [EventGroup.ReadEvent]: Read the value for an event in an event group.
 //   - [EventGroup.RemoveAllEvents]: Remove all events from an event group.

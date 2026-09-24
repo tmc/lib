@@ -6,8 +6,8 @@ import "unsafe"
 
 type DevicePtr uintptr
 
-func (d DevicePtr) MemcpyHtoDAsync(srcHost unsafe.Pointer, n uint, s Stream) error { return nil }
-func (d DevicePtr) MemcpyDtoHAsync(dstHost unsafe.Pointer, n uint, s Stream) error { return nil }
+func (d DevicePtr) CopyFromHostAsync(srcHost unsafe.Pointer, n uint, s Stream) error { return nil }
+func (d DevicePtr) CopyToHostAsync(dstHost unsafe.Pointer, n uint, s Stream) error   { return nil }
 
 type Stream uintptr
 

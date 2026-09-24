@@ -414,7 +414,7 @@ func computeInstanceGetInfo(computeInstance ComputeInstance) (ComputeInstanceInf
 // deviceClearAccountingPids Clears accounting information about all processes that have already terminated.
 //
 // For Kepler or newer fully supported devices. Requires root/admin permissions.
-// See [Device.GetAccountingMode] See [Device.GetAccountingStats] See [Device.SetAccountingMode]
+// See [Device.AccountingMode] See [Device.AccountingStats] See [Device.SetAccountingMode]
 //
 //   - device: The identifier of the target device
 //
@@ -479,7 +479,7 @@ func deviceClearFieldValues(device Device, valuesCount int32, values *FieldValue
 // If the parent device is unbound, reset or the GPU instance is destroyed explicitly, the GPU instance handle would become invalid. The GPU instance must be recreated to acquire a valid handle.
 //
 //   - device: The identifier of the target device
-//   - profileId: The GPU instance profile ID. See [Device.GetGpuInstanceProfileInfo]
+//   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - gpuInstance: Returns the GPU instance handle
 //
 // Wraps nvmlDeviceCreateGpuInstance.
@@ -502,7 +502,7 @@ func deviceCreateGpuInstance(device Device, profileId uint32) (GpuInstance, erro
 // If the parent device is unbound, reset or the GPU instance is destroyed explicitly, the GPU instance handle would become invalid. The GPU instance must be recreated to acquire a valid handle.
 //
 //   - device: The identifier of the target device
-//   - profileId: The GPU instance profile ID. See [Device.GetGpuInstanceProfileInfo]
+//   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - placement: The requested placement. See nvmlDeviceGetGpuInstancePossiblePlacements_v2
 //   - gpuInstance: Returns the GPU instance handle
 //
@@ -570,8 +570,8 @@ func deviceGetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted 
 //
 // For Kepler or newer fully supported devices.
 // This is the maximum number of processes that accounting information will be stored for before information about oldest processes will get overwritten by information about new processes.
-// See also: [Device.GetAccountingStats]
-// [Device.GetAccountingPids]
+// See also: [Device.AccountingStats]
+// [Device.AccountingPids]
 //
 //   - device: The identifier of the target device
 //   - bufferSize: Reference in which to provide the size (in number of elements) of the circular buffer for accounting stats
@@ -587,7 +587,7 @@ func deviceGetAccountingBufferSize(device Device, bufferSize *uint32) error {
 // deviceGetAccountingMode Queries the state of per process accounting mode.
 //
 // For Kepler or newer fully supported devices.
-// See [Device.GetAccountingStats] for more details. See [Device.SetAccountingMode]
+// See [Device.AccountingStats] for more details. See [Device.SetAccountingMode]
 //
 //   - device: The identifier of the target device
 //   - mode: Reference in which to return the current accounting mode
@@ -610,10 +610,10 @@ func deviceGetAccountingMode(device Device) (EnableState, error) {
 //
 // For Kepler or newer fully supported devices.
 // To query the number of processes under Accounting Mode, call this function with *count = 0 and pids=NULL. The return code will be [ErrInsufficientSize] with an updated count value indicating the number of processes.
-// For more details see [Device.GetAccountingStats].
+// For more details see [Device.AccountingStats].
 // Note:
 // In case of PID collision some processes might not be accessible before the circular buffer is full.
-// See also: [Device.GetAccountingBufferSize]
+// See also: [Device.AccountingBufferSize]
 //
 //   - device: The identifier of the target device
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
@@ -631,8 +631,8 @@ func deviceGetAccountingPids(device Device, count *uint32, pids *uint32) error {
 //
 // For Kepler or newer fully supported devices.
 // Accounting stats capture GPU utilization and other statistics across the lifetime of a process. Accounting stats can be queried during life time of the process and after its termination. The time field in [AccountingStats] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats are kept in a circular buffer, newly created processes overwrite information about old processes.
-// See [AccountingStats] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.GetAccountingPids].
-// See also: [Device.GetAccountingBufferSize]
+// See [AccountingStats] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.AccountingPids].
+// See also: [Device.AccountingBufferSize]
 //
 //   - device: The identifier of the target device
 //   - pid: Process Id of the target process to query stats for
@@ -927,7 +927,7 @@ func deviceGetCapabilities(device Device) (DeviceCapabilities, error) {
 //
 // For Ampere or newer fully supported devices. Requires root user.
 // See [ClkMonStatus] for details on decoding the status output.
-// See also: [Device.GetClkMonStatus]
+// See also: [Device.ClkMonStatus]
 //
 //   - device: The identifier of the target device
 //   - status: Reference in which to return the clkmon fault status
@@ -989,7 +989,7 @@ func deviceGetClockInfo(device Device, type_ ClockType) (uint32, error) {
 // deviceGetClockOffsets Retrieve min, max and current clock offset of some clock domain for a given PState
 //
 // For Maxwell or newer fully supported devices.
-// Note: [Device.GetGpcClkVfOffset], [Device.GetMemClkVfOffset], [Device.GetGpcClkMinMaxVfOffset] and [Device.GetMemClkMinMaxVfOffset] will be deprecated in a future release. Use [Device.GetClockOffsets] instead.
+// Note: [Device.GpcClkVfOffset], [Device.MemClkVfOffset], [Device.GpcClkMinMaxVfOffset] and [Device.MemClkMinMaxVfOffset] will be deprecated in a future release. Use [Device.ClockOffsets] instead.
 //
 //   - device: The identifier of the target device
 //   - info: Structure specifying the clock type (input) and the pstate (input) retrieved clock offset value (output), min clock offset (output) and max clock offset (output)
@@ -1159,7 +1159,7 @@ func DeviceGetCount() (uint32, error) {
 	return out, nil
 }
 
-// deviceGetCpuAffinity Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.GetCpuAffinityWithinScope] with NVML_AFFINITY_SCOPE_NODE.
+// deviceGetCpuAffinity Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with NVML_AFFINITY_SCOPE_NODE.
 //
 // For Kepler or newer fully supported devices. Supported on Linux only.
 //
@@ -1298,7 +1298,7 @@ func deviceGetCurrentClockFreqs(device Device, currentClockFreqs *DeviceCurrentC
 // More than one bit can be enabled at the same time. Multiple reasons can be affecting clocks at once.
 // See also:
 // NvmlClocksEventReasons
-// [Device.GetSupportedClocksEventReasons]
+// [Device.SupportedClocksEventReasons]
 //
 //   - device: The identifier of the target device
 //   - clocksEventReasons: Reference in which to return bitmask of active clocks event reasons
@@ -1317,7 +1317,7 @@ func deviceGetCurrentClocksEventReasons(device Device) (uint64, error) {
 	return out, nil
 }
 
-// deviceGetCurrentClocksThrottleReasons Use [Device.GetCurrentClocksEventReasons] instead
+// deviceGetCurrentClocksThrottleReasons Use [Device.CurrentClocksEventReasons] instead
 //
 // Deprecated: This function is deprecated.
 //
@@ -1401,7 +1401,7 @@ func deviceGetDefaultEccMode(device Device, defaultMode *EnableState) error {
 //   - counterType: Flag that specifies the counter-type of the errors
 //   - eccCounts: Reference in which to return the specified ECC errors
 //
-// Deprecated: This API supports only a fixed set of ECC error locations On different GPU architectures different locations are supported See [Device.GetMemoryErrorCounter] For Fermi &tm; or newer fully supported devices. Only applicable to devices with ECC. Requires [InforomEcc] version 2.0 or higher to report aggregate location-based ECC counts. Requires [InforomEcc] version 1.0 or higher to report all other ECC counts. Requires ECC Mode to be enabled. Detailed errors provide separate ECC counts for specific parts of the memory system. Reports zero for unsupported ECC error counters when a subset of ECC error counters are supported. See [MemoryErrorType] for a description of available bit types.\n See [EccCounterType] for a description of available counter types.\n See [EccErrorCounts] for a description of provided detailed ECC counts.
+// Deprecated: This API supports only a fixed set of ECC error locations On different GPU architectures different locations are supported See [Device.MemoryErrorCounter] For Fermi &tm; or newer fully supported devices. Only applicable to devices with ECC. Requires [InforomEcc] version 2.0 or higher to report aggregate location-based ECC counts. Requires [InforomEcc] version 1.0 or higher to report all other ECC counts. Requires ECC Mode to be enabled. Detailed errors provide separate ECC counts for specific parts of the memory system. Reports zero for unsupported ECC error counters when a subset of ECC error counters are supported. See [MemoryErrorType] for a description of available bit types.\n See [EccCounterType] for a description of available counter types.\n See [EccErrorCounts] for a description of provided detailed ECC counts.
 //
 // Wraps nvmlDeviceGetDetailedEccErrors.
 func deviceGetDetailedEccErrors(device Device, errorType MemoryErrorType, counterType EccCounterType) (EccErrorCounts, error) {
@@ -1628,7 +1628,7 @@ func deviceGetEncoderUtilization(device Device, samplingPeriodUs *uint32) (uint3
 
 // deviceGetEnforcedPowerLimit Get the effective power limit that the driver enforces after taking into account all limiters
 //
-// Note: This can be different from the [Device.GetPowerManagementLimit] if other limits are set elsewhere This includes the out of band power limit interface
+// Note: This can be different from the [Device.PowerManagementLimit] if other limits are set elsewhere This includes the out of band power limit interface
 // For Kepler or newer fully supported devices.
 //
 //   - device: The device to communicate with
@@ -1809,7 +1809,7 @@ func deviceGetGpcClkVfOffset(device Device) (int32, error) {
 //   - device: The identifier of the target device
 //   - gpuFabricInfo: Information about GPU fabric state
 //
-// Deprecated: Will be deprecated in a future release. Use [Device.GetGpuFabricInfoV] instead Get fabric information associated with the device. For Hopper &tm; or newer fully supported devices. On Hopper + NVSwitch systems, GPU is registered with the NVIDIA Fabric Manager Upon successful registration, the GPU is added to the NVLink fabric to enable peer-to-peer communication. This API reports the current state of the GPU in the NVLink fabric along with other useful information.
+// Deprecated: Will be deprecated in a future release. Use [Device.GpuFabricInfoV] instead Get fabric information associated with the device. For Hopper &tm; or newer fully supported devices. On Hopper + NVSwitch systems, GPU is registered with the NVIDIA Fabric Manager Upon successful registration, the GPU is added to the NVLink fabric to enable peer-to-peer communication. This API reports the current state of the GPU in the NVLink fabric along with other useful information.
 //
 // Wraps nvmlDeviceGetGpuFabricInfo.
 func deviceGetGpuFabricInfo(device Device, gpuFabricInfo *GpuFabricInfo) error {
@@ -1883,7 +1883,7 @@ func deviceGetGpuInstanceId(device Device) (uint32, error) {
 // deviceGetGpuInstancePossiblePlacements wraps nvmlDeviceGetGpuInstancePossiblePlacements, bound as nvmlDeviceGetGpuInstancePossiblePlacements_v2.
 //
 //   - device: The identifier of the target device
-//   - profileId: The GPU instance profile ID. See [Device.GetGpuInstanceProfileInfo]
+//   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
 //   - count: Returns number of allowed placemenets for the profile
 func deviceGetGpuInstancePossiblePlacements(device Device, profileId uint32, placements *GpuInstancePlacement, count *uint32) error {
@@ -1943,7 +1943,7 @@ func deviceGetGpuInstanceProfileInfoByIdV(device Device, profileId uint32) (GpuI
 	return out, nil
 }
 
-// deviceGetGpuInstanceProfileInfoV Versioned wrapper around [Device.GetGpuInstanceProfileInfo] that accepts a versioned [GpuInstanceProfileInfoV2] or later output structure.
+// deviceGetGpuInstanceProfileInfoV Versioned wrapper around [Device.GpuInstanceProfileInfo] that accepts a versioned [GpuInstanceProfileInfoV2] or later output structure.
 //
 // Note:
 // The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
@@ -1973,7 +1973,7 @@ func deviceGetGpuInstanceProfileInfoV(device Device, profile uint32) (GpuInstanc
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
 //   - device: The identifier of the target device
-//   - profileId: The GPU instance profile ID. See [Device.GetGpuInstanceProfileInfo]
+//   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
 //   - count: Returns remaining instance count for the profile ID
 //
 // Wraps nvmlDeviceGetGpuInstanceRemainingCapacity.
@@ -1989,8 +1989,8 @@ func deviceGetGpuInstanceRemainingCapacity(device Device, profileId uint32, coun
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
 //   - device: The identifier of the target device
-//   - profileId: The GPU instance profile ID. See [Device.GetGpuInstanceProfileInfo]
-//   - gpuInstances: Returns pre-exiting GPU instances, the buffer must be large enough to accommodate the instances supported by the profile. See [Device.GetGpuInstanceProfileInfo]
+//   - profileId: The GPU instance profile ID. See [Device.GpuInstanceProfileInfo]
+//   - gpuInstances: Returns pre-exiting GPU instances, the buffer must be large enough to accommodate the instances supported by the profile. See [Device.GpuInstanceProfileInfo]
 //   - count: The count of returned GPU instances
 //
 // Wraps nvmlDeviceGetGpuInstances.
@@ -2132,9 +2132,9 @@ func deviceGetHandleByPciBusId(pciBusId string) (Device, error) {
 // deviceGetHandleBySerial Acquire the handle for a particular device, based on its board serial number.
 //
 // For Fermi or newer fully supported devices.
-// This number corresponds to the value printed directly on the board, and to the value returned by [Device.GetSerial].
+// This number corresponds to the value printed directly on the board, and to the value returned by [Device.Serial].
 // Starting from NVML 5, this API causes NVML to initialize the target GPU NVML may initialize additional GPUs as it searches for the target GPU
-// See also: [Device.GetSerial]
+// See also: [Device.Serial]
 // [NewDeviceByUUID]
 //
 //   - serial: The board serial number of the target GPU
@@ -2160,7 +2160,7 @@ func deviceGetHandleBySerial(serial *byte) (Device, error) {
 //
 // For all products.
 // Starting from NVML 5, this API causes NVML to initialize the target GPU NVML may initialize additional GPUs as it searches for the target GPU
-// See also: [Device.GetUUID]
+// See also: [Device.UUID]
 //
 //   - uuid: The UUID of the target GPU or MIG instance
 //   - device: Reference in which to return the device handle or MIG device handle
@@ -2239,7 +2239,7 @@ func deviceGetHostname(device Device, hostname *HostnameV1) error {
 // For all products.
 // Valid indices are derived from the accessibleDevices count returned by nvmlDeviceGetCount_v2(). For example, if accessibleDevices is 2 the valid indices are 0 and 1, corresponding to GPU 0 and GPU 1.
 // The order in which NVML enumerates devices has no guarantees of consistency between reboots. For that reason it is recommended that devices be looked up by their PCI ids or GPU UUID. See nvmlDeviceGetHandleByPciBusId_v2() and [NewDeviceByUUID].
-// When used with MIG device handles this API returns indices that can be passed to [Device.GetMigDeviceHandleByIndex] to retrieve an identical handle. MIG device indices are unique within a device.
+// When used with MIG device handles this API returns indices that can be passed to [Device.MigDeviceHandleByIndex] to retrieve an identical handle. MIG device indices are unique within a device.
 // Note: The NVML index may not correlate with other APIs, such as the CUDA device index.
 // See also: [NewDeviceByIndex]
 // [DeviceGetCount]
@@ -2287,7 +2287,7 @@ func deviceGetInforomConfigurationChecksum(device Device) (uint32, error) {
 //
 // For all products with an inforom.
 // Image version just like VBIOS version uniquely describes the exact version of the infoROM flashed on the board in contrast to infoROM object version which is only an indicator of supported features. Version string will not exceed 16 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE.
-// See also: [Device.GetInforomVersion]
+// See also: [Device.InforomVersion]
 //
 //   - device: The identifier of the target device
 //   - version: Reference in which to return the infoROM image version
@@ -2314,7 +2314,7 @@ func deviceGetInforomImageVersion(device Device) (string, error) {
 // For all products with an inforom.
 // Fermi and higher parts have non-volatile on-board memory for persisting device info, such as aggregate ECC counts. The version of the data structures in this memory may change from time to time. It will not exceed 16 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE.
 // See [InforomObject] for details on the available infoROM objects.
-// See also: [Device.GetInforomImageVersion]
+// See also: [Device.InforomImageVersion]
 //
 //   - device: The identifier of the target device
 //   - object: The target infoROM object
@@ -2383,7 +2383,7 @@ func deviceGetJpgUtilization(device Device, samplingPeriodUs *uint32) (uint32, e
 // deviceGetLastBBXFlushTime Retrieves the timestamp and the duration of the last flush of the BBX (blackbox) infoROM object during the current run.
 //
 // For all products with an inforom.
-// See also: [Device.GetInforomVersion]
+// See also: [Device.InforomVersion]
 //
 //   - device: The identifier of the target device
 //   - timestamp: The start timestamp of the last BBX Flush
@@ -2434,7 +2434,7 @@ func deviceGetMarginTemperature(device Device) (MarginTemperature, error) {
 // For Fermi or newer fully supported devices.
 // See [ClockType] for details on available clock information.
 // Note:
-// Current P0 clocks (reported by [Device.GetClockInfo]) can differ from max clocks by a few MHz.
+// Current P0 clocks (reported by [Device.ClockInfo]) can differ from max clocks by a few MHz.
 //
 //   - device: The identifier of the target device
 //   - type_: Identify which clock domain to query
@@ -2856,7 +2856,7 @@ func deviceGetNumFans(device Device) (uint32, error) {
 // deviceGetNumGpuCores Gets the device's core count
 //
 // Note:
-// On MIG-enabled GPUs, querying the device's core count is currently not supported using this API. Please use [Device.GetGpuInstanceProfileInfo] to fetch the MIG device's core count.
+// On MIG-enabled GPUs, querying the device's core count is currently not supported using this API. Please use [Device.GpuInstanceProfileInfo] to fetch the MIG device's core count.
 //
 //   - device: The identifier of the target device
 //   - numCores: The number of cores for the specified device
@@ -3043,7 +3043,7 @@ func deviceGetNvLinkUtilizationControl(device Device, link uint32, counter uint3
 //   - rxcounter: Receive counter return value
 //   - txcounter: Transmit counter return value
 //
-// Deprecated: Use [Device.GetFieldValues] with NVML_FI_DEV_NVLINK_THROUGHPUT_* as field values instead. Retrieve the NVLINK utilization counter based on the current control for a specified counter. In general it is good practice to use nvmlDeviceSetNvLinkUtilizationControl before reading the utilization counters as they have no default state For Pascal &tm; or newer fully supported devices.
+// Deprecated: Use [Device.FieldValues] with NVML_FI_DEV_NVLINK_THROUGHPUT_* as field values instead. Retrieve the NVLINK utilization counter based on the current control for a specified counter. In general it is good practice to use nvmlDeviceSetNvLinkUtilizationControl before reading the utilization counters as they have no default state For Pascal &tm; or newer fully supported devices.
 //
 // Wraps nvmlDeviceGetNvLinkUtilizationCounter.
 func deviceGetNvLinkUtilizationCounter(device Device, link uint32, counter uint32, rxcounter *uint64, txcounter *uint64) error {
@@ -3513,7 +3513,7 @@ func deviceGetPowerSource(device Device) (uint32, error) {
 //   - device: The identifier of the target device
 //   - pState: Reference in which to return the performance state reading
 //
-// Deprecated: Use [Device.GetPerformanceState]. This function exposes an incorrect generalization. Retrieve the current performance state for the device. For Fermi &tm; or newer fully supported devices. See [Pstates] for details on allowed performance states.
+// Deprecated: Use [Device.PerformanceState]. This function exposes an incorrect generalization. Retrieve the current performance state for the device. For Fermi &tm; or newer fully supported devices. See [Pstates] for details on allowed performance states.
 //
 // Wraps nvmlDeviceGetPowerState.
 func deviceGetPowerState(device Device) (Pstates, error) {
@@ -3664,7 +3664,7 @@ func deviceGetRetiredPagesPendingStatus(device Device, isPending *EnableState) e
 // deviceGetRetiredPages Returns the list of retired pages by source, including pages that are pending retirement The address information provided from this API is the hardware address of the page that was retired.
 //
 // Note:
-// [Device.GetRetiredPages] adds an additional timestamps parameter to return the time of each page's retirement. This is supported for Pascal and newer architecture.
+// [Device.RetiredPages] adds an additional timestamps parameter to return the time of each page's retirement. This is supported for Pascal and newer architecture.
 // For Kepler or newer fully supported devices.
 //
 //   - device: The identifier of the target device
@@ -3793,13 +3793,13 @@ func deviceGetSramUniqueUncorrectedEccErrorCounts(device Device, errorCounts *Ec
 	return toError(fndeviceGetSramUniqueUncorrectedEccErrorCounts(device, errorCounts))
 }
 
-// deviceGetSupportedClocksEventReasons Retrieves bitmask of supported clocks event reasons that can be returned by [Device.GetCurrentClocksEventReasons]
+// deviceGetSupportedClocksEventReasons Retrieves bitmask of supported clocks event reasons that can be returned by [Device.CurrentClocksEventReasons]
 //
 // For all fully supported products.
 // This method is not supported in virtual machines running virtual GPU (vGPU).
 // See also:
 // NvmlClocksEventReasons
-// [Device.GetCurrentClocksEventReasons]
+// [Device.CurrentClocksEventReasons]
 //
 //   - device: The identifier of the target device
 //   - supportedClocksEventReasons: Reference in which to return bitmask of supported clocks event reasons
@@ -3818,7 +3818,7 @@ func deviceGetSupportedClocksEventReasons(device Device) (uint64, error) {
 	return out, nil
 }
 
-// deviceGetSupportedClocksThrottleReasons Use [Device.GetSupportedClocksEventReasons] instead
+// deviceGetSupportedClocksThrottleReasons Use [Device.SupportedClocksEventReasons] instead
 //
 // Deprecated: This function is deprecated.
 //
@@ -3921,7 +3921,7 @@ func deviceGetSupportedVgpus(device Device, vgpuCount *uint32, vgpuTypeIds *Vgpu
 
 // deviceGetTargetFanSpeed Retrieves the intended target speed of the device's specified fan.
 //
-// Normally, the driver dynamically adjusts the fan based on the needs of the GPU. But when user set fan speed using [Device.SetFanSpeed], the driver will attempt to make the fan achieve the setting in [Device.SetFanSpeed]. The actual current speed of the fan is reported in [Device.GetFanSpeed].
+// Normally, the driver dynamically adjusts the fan based on the needs of the GPU. But when user set fan speed using [Device.SetFanSpeed], the driver will attempt to make the fan achieve the setting in [Device.SetFanSpeed]. The actual current speed of the fan is reported in [Device.FanSpeed].
 // For all discrete products with dedicated fans.
 // The fan speed is expressed as a percentage of the product's maximum noise tolerance fan speed. This value may exceed 100% in certain cases.
 //
@@ -3943,7 +3943,7 @@ func deviceGetTargetFanSpeed(device Device, fan uint32) (uint32, error) {
 	return out, nil
 }
 
-// deviceGetTemperature Use [Device.GetTemperatureV] instead
+// deviceGetTemperature Use [Device.TemperatureV] instead
 //
 // Deprecated: This function is deprecated.
 //
@@ -3966,7 +3966,7 @@ func deviceGetTemperature(device Device, sensorType TemperatureSensors) (uint32,
 // For Kepler or newer fully supported devices.
 // See [TemperatureThresholds] for details on available temperature thresholds.
 // Note: This API is no longer the preferred interface for retrieving the following temperature thresholds on Ada and later architectures: [TemperatureThresholdShutdown], [TemperatureThresholdSlowdown], [TemperatureThresholdMemMax] and [TemperatureThresholdGpuMax].
-// Support for reading these temperature thresholds for Ada and later architectures would be removed from this API in future releases. Please use [Device.GetFieldValues] with NVML_FI_DEV_TEMPERATURE_* fields to retrieve temperature thresholds on these architectures.
+// Support for reading these temperature thresholds for Ada and later architectures would be removed from this API in future releases. Please use [Device.FieldValues] with NVML_FI_DEV_TEMPERATURE_* fields to retrieve temperature thresholds on these architectures.
 //
 //   - device: The identifier of the target device
 //   - thresholdType: The type of threshold value queried
@@ -4302,7 +4302,7 @@ func deviceGetVgpuSchedulerState(device Device, pSchedulerStateInfo *VgpuSchedul
 
 // deviceGetVgpuTypeCreatablePlacements Query the creatable vGPU placement ID of the vGPU type.
 //
-// An array of creatable vGPU placement IDs for the vGPU type ID indicated by vgpuTypeId is returned in the caller-supplied buffer of pPlacementList->placementIds. Memory needed for the placementIds array should be allocated based on maximum instances of a vGPU type which can be queried via [VgpuTypeId.GetMaxInstances]. If the provided count by the caller is insufficient, the function will return [ErrInsufficientSize] along with the number of required entries in pPlacementList->count. The caller should then reallocate a buffer with the size of pPlacementList->count * sizeof(pPlacementList->placementIds) and invoke the function again.
+// An array of creatable vGPU placement IDs for the vGPU type ID indicated by vgpuTypeId is returned in the caller-supplied buffer of pPlacementList->placementIds. Memory needed for the placementIds array should be allocated based on maximum instances of a vGPU type which can be queried via [VgpuTypeId.MaxInstances]. If the provided count by the caller is insufficient, the function will return [ErrInsufficientSize] along with the number of required entries in pPlacementList->count. The caller should then reallocate a buffer with the size of pPlacementList->count * sizeof(pPlacementList->placementIds) and invoke the function again.
 // The creatable vGPU placement IDs may differ over time, as there may be restrictions on what type of vGPU the vGPU instance is running.
 //
 //   - device: The identifier of the target device
@@ -4319,7 +4319,7 @@ func deviceGetVgpuTypeCreatablePlacements(device Device, vgpuTypeId VgpuTypeId, 
 
 // deviceGetVgpuTypeSupportedPlacements Query the supported vGPU placement ID of the vGPU type.
 //
-// The function returns an array of supported vGPU placement IDs for the specified vGPU type ID in the buffer provided by the caller at pPlacementList->placementIds. The required memory for the placementIds array must be allocated based on the maximum number of vGPU type instances, which is retrievable through [VgpuTypeId.GetMaxInstances]. If the provided count by the caller is insufficient, the function will return [ErrInsufficientSize] along with the number of required entries in pPlacementList->count. The caller should then reallocate a buffer with the size of pPlacementList->count * sizeof(pPlacementList->placementIds) and invoke the function again.
+// The function returns an array of supported vGPU placement IDs for the specified vGPU type ID in the buffer provided by the caller at pPlacementList->placementIds. The required memory for the placementIds array must be allocated based on the maximum number of vGPU type instances, which is retrievable through [VgpuTypeId.MaxInstances]. If the provided count by the caller is insufficient, the function will return [ErrInsufficientSize] along with the number of required entries in pPlacementList->count. The caller should then reallocate a buffer with the size of pPlacementList->count * sizeof(pPlacementList->placementIds) and invoke the function again.
 // To obtain a list of homogeneous placement IDs, the caller needs to set pPlacementList->mode to NVML_VGPU_PGPU_HOMOGENEOUS_MODE. For heterogeneous placement IDs, pPlacementList->mode should be set to NVML_VGPU_PGPU_HETEROGENEOUS_MODE. By default, a list of heterogeneous placement IDs is returned.
 //
 //   - device: Identifier of the target device
@@ -4348,7 +4348,7 @@ func deviceGetVgpuUtilization(device Device, lastSeenTimeStamp uint64, sampleVal
 	return toError(fndeviceGetVgpuUtilization(device, lastSeenTimeStamp, sampleValType, vgpuInstanceSamplesCount, utilizationSamples))
 }
 
-// deviceGetViolationStatus Use [Device.GetFieldValues] to query this data.
+// deviceGetViolationStatus Use [Device.FieldValues] to query this data.
 //
 // Translations are as follows:
 // [PerfPolicyPower] -> NVML_FI_DEV_CLOCKS_EVENT_REASON_SW_POWER_CAP [PerfPolicyThermal] -> NVML_FI_DEV_CLOCKS_EVENT_REASON_SW_THERM_SLOWDOWN [PerfPolicySyncBoost] -> NVML_FI_DEV_CLOCKS_EVENT_REASON_SYNC_BOOST [PerfPolicyBoardLimit] -> NVML_FI_DEV_PERF_POLICY_BOARD_LIMIT [PerfPolicyLowUtilization] -> NVML_FI_DEV_PERF_POLICY_LOW_UTILIZATION [PerfPolicyReliability] -> NVML_FI_DEV_PERF_POLICY_RELIABILITY [PerfPolicyTotalAppClocks] -> DEPRECATED, Do not use [PerfPolicyTotalBaseClocks] -> NVML_FI_DEV_PERF_POLICY_TOTAL_BASE_CLOCKS
@@ -4516,13 +4516,13 @@ func deviceReadWritePRM(device Device, buffer *PRMTLVV1) error {
 
 // deviceRegisterEvents Starts recording of events on a specified devices and add the events to specified [EventSet]
 //
-// For Fermi or newer fully supported devices. ECC events are available only on ECC-enabled devices (see [Device.GetTotalEccErrors]) Power capping events are available only on Power Management enabled devices (see nvmlDeviceGetPowerManagementMode)
+// For Fermi or newer fully supported devices. ECC events are available only on ECC-enabled devices (see [Device.TotalEccErrors]) Power capping events are available only on Power Management enabled devices (see nvmlDeviceGetPowerManagementMode)
 // For Linux only.
 // This call starts recording of events on specific device. All events that occurred before this call are not recorded. Checking if some event occurred can be done with nvmlEventSetWait_v2
 // If function reports [ErrUnknown], event set is in undefined state and should be freed. If function reports [ErrNotSupported], event set can still be used. None of the requested eventTypes are registered in that case.
 // See also:
 // Event Types
-// [Device.GetSupportedEventTypes]
+// [Device.SupportedEventTypes]
 // [EventSet.Wait]
 // [EventSet.Free]
 //
@@ -4650,7 +4650,7 @@ func deviceSetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted 
 //
 // For Kepler or newer fully supported devices. Requires root/admin permissions.
 // Note:
-// See [Device.GetAccountingMode] See [Device.GetAccountingStats] See [Device.ClearAccountingPids]
+// See [Device.AccountingMode] See [Device.AccountingStats] See [Device.ClearAccountingPids]
 // < Previous | Next >
 //
 //   - device: The identifier of the target device
@@ -4721,7 +4721,7 @@ func deviceSetClockOffsets(device Device, info *ClockOffset) error {
 // Note:
 // If MIG is enabled on a GPU, device must be MIG device handle.
 // See [ComputeMode] for details on available compute modes.
-// See also: [Device.GetComputeMode]
+// See also: [Device.ComputeMode]
 //
 //   - device: The identifier of the target device handle or MIG device handle
 //   - mode: The target compute mode
@@ -4749,7 +4749,7 @@ func deviceSetConfComputeUnprotectedMemSize(device Device, sizeKiB uint64) error
 	return toError(fndeviceSetConfComputeUnprotectedMemSize(device, sizeKiB))
 }
 
-// deviceSetCpuAffinity Sets the ideal affinity for the calling thread and device using the guidelines given in [Device.GetCpuAffinity].
+// deviceSetCpuAffinity Sets the ideal affinity for the calling thread and device using the guidelines given in [Device.CpuAffinity].
 //
 // For Kepler or newer fully supported devices. Supported on Linux only.
 // < Previous | Next >
@@ -4803,7 +4803,7 @@ func deviceSetDefaultFanSpeed(device Device, fan uint32) error {
 // The DRAM Encryption mode determines whether the GPU enables its DRAM Encryption support.
 // This operation takes effect after the next reboot.
 // See [EnableState] for details on available modes.
-// See also: [Device.GetDramEncryptionMode]
+// See also: [Device.DramEncryptionMode]
 //
 //   - device: The identifier of the target device
 //   - dramEncryption: The target DRAM Encryption mode
@@ -4825,7 +4825,7 @@ func deviceSetDramEncryptionMode(device Device, dramEncryption *DramEncryptionIn
 // Windows driver model may only be set to WDDM when running in DEFAULT compute mode.
 // Change driver model to WDDM is not supported when GPU doesn't support graphics acceleration or will not support it after reboot. See [Device.SetGpuOperationMode].
 // See [DriverModel] for details on available driver models. See nvmlFlagDefault and nvmlFlagForce
-// See also: [Device.GetDriverModel]
+// See also: [Device.DriverModel]
 //
 //   - device: The identifier of the target device
 //   - driverModel: The target driver model
@@ -4845,7 +4845,7 @@ func deviceSetDriverModel(device Device, driverModel DriverModel, flags uint32) 
 // The ECC mode determines whether the GPU enables its ECC support.
 // This operation takes effect after the next reboot.
 // See [EnableState] for details on available modes.
-// See also: [Device.GetEccMode]
+// See also: [Device.EccMode]
 //
 //   - device: The identifier of the target device
 //   - ecc: The target ECC mode
@@ -4938,7 +4938,7 @@ func deviceSetGpuLockedClocks(device Device, minGpuClockMHz uint32, maxGpuClockM
 // Changing GOMs requires a reboot. The reboot requirement might be removed in the future.
 // Compute only GOMs don't support graphics acceleration. Under windows switching to these GOMs when pending driver model is WDDM is not supported. See [Device.SetDriverModel].
 // See also: [GpuOperationMode]
-// [Device.GetGpuOperationMode]
+// [Device.GpuOperationMode]
 //
 //   - device: The identifier of the target device
 //   - mode: Target GOM
@@ -4956,7 +4956,7 @@ func deviceSetGpuOperationMode(device Device, mode GpuOperationMode) error {
 // For Blackwell or newer fully supported devices. Requires root/admin permissions. Supported on Linux only.
 // Sets a hostname string for the GPU device. This operation takes effect immediately.
 // The hostname is not stored persistently across GPU resets or driver reloads.
-// See also: [Device.GetHostname]
+// See also: [Device.Hostname]
 //
 //   - device: The identifier of the target device
 //   - hostname: Reference to the caller-provided [HostnameV1] struct containing the hostname
@@ -5083,7 +5083,7 @@ func deviceSetNvlinkBwMode(device Device, setBwMode *NvlinkSetBwMode) error {
 // This operation takes effect immediately. It is not persistent across reboots. After each reboot the persistence mode is reset to "Disabled".
 // See [EnableState] for available modes.
 // After calling this API with mode set to [FeatureDisabled] on a device that has its own NUMA memory, the given device handle will no longer be valid, and to continue to interact with this device, a new handle should be obtained from one of the nvmlDeviceGetHandleBy*() APIs. This limitation is currently only applicable to devices that have a coherent NVLink connection to system memory.
-// See also: [Device.GetPersistenceMode]
+// See also: [Device.PersistenceMode]
 //
 //   - device: The identifier of the target device
 //   - mode: The target persistence mode
@@ -5099,7 +5099,7 @@ func deviceSetPersistenceMode(device Device, mode EnableState) error {
 // deviceSetPowerManagementLimit Set new power limit of this device.
 //
 // For Kepler or newer fully supported devices. Requires root/admin permissions.
-// See [Device.GetPowerManagementLimitConstraints] to check the allowed ranges of values.
+// See [Device.PowerManagementLimitConstraints] to check the allowed ranges of values.
 // See [PowerValueV2] for more information on the struct.
 // Note:
 // Limit is not persistent across reboots or driver unloads. Enable persistent mode to prevent driver from unloading when no application is using the device.
@@ -5591,7 +5591,7 @@ func gpmSetStreamingEnabled(device Device, state uint32) error {
 // If the parent device is unbound, reset or the parent GPU instance is destroyed or the compute instance is destroyed explicitly, the compute instance handle would become invalid. The compute instance must be recreated to acquire a valid handle.
 //
 //   - gpuInstance: The identifier of the target GPU instance
-//   - profileId: The compute instance profile ID. See [GpuInstance.GetComputeInstanceProfileInfo]
+//   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - computeInstance: Returns the compute instance handle
 //
 // Wraps nvmlGpuInstanceCreateComputeInstance.
@@ -5614,8 +5614,8 @@ func gpuInstanceCreateComputeInstance(gpuInstance GpuInstance, profileId uint32)
 // If the parent device is unbound, reset or the parent GPU instance is destroyed or the compute instance is destroyed explicitly, the compute instance handle would become invalid. The compute instance must be recreated to acquire a valid handle.
 //
 //   - gpuInstance: The identifier of the target GPU instance
-//   - profileId: The compute instance profile ID. See [GpuInstance.GetComputeInstanceProfileInfo]
-//   - placement: The requested placement. See [GpuInstance.GetComputeInstancePossiblePlacements]
+//   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
+//   - placement: The requested placement. See [GpuInstance.ComputeInstancePossiblePlacements]
 //   - computeInstance: Returns the compute instance handle
 //
 // Wraps nvmlGpuInstanceCreateComputeInstanceWithPlacement.
@@ -5685,7 +5685,7 @@ func gpuInstanceGetComputeInstanceById(gpuInstance GpuInstance, id uint32) (Comp
 // A placement represents the location of a compute instance within a GPU instance. This API only returns all the possible placements for the given profile. A created compute instance occupies compute slices described by its placement. Creation of new compute instance will fail if there is overlap with the already occupied compute slices.
 //
 //   - gpuInstance: The identifier of the target GPU instance
-//   - profileId: The compute instance profile ID. See [GpuInstance.GetComputeInstanceProfileInfo]
+//   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
 //   - count: Returns number of allowed placemenets for the profile
 //
@@ -5723,7 +5723,7 @@ func gpuInstanceGetComputeInstanceProfileInfo(gpuInstance GpuInstance, profile u
 	return out, nil
 }
 
-// gpuInstanceGetComputeInstanceProfileInfoV Versioned wrapper around [GpuInstance.GetComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
+// gpuInstanceGetComputeInstanceProfileInfoV Versioned wrapper around [GpuInstance.ComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
 //
 // Note:
 // The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
@@ -5754,7 +5754,7 @@ func gpuInstanceGetComputeInstanceProfileInfoV(gpuInstance GpuInstance, profile 
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
 //   - gpuInstance: The identifier of the target GPU instance
-//   - profileId: The compute instance profile ID. See [GpuInstance.GetComputeInstanceProfileInfo]
+//   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: Returns remaining instance count for the profile ID
 //
 // Wraps nvmlGpuInstanceGetComputeInstanceRemainingCapacity.
@@ -5770,8 +5770,8 @@ func gpuInstanceGetComputeInstanceRemainingCapacity(gpuInstance GpuInstance, pro
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
 //   - gpuInstance: The identifier of the target GPU instance
-//   - profileId: The compute instance profile ID. See [GpuInstance.GetComputeInstanceProfileInfo]
-//   - computeInstances: Returns pre-exiting compute instances, the buffer must be large enough to accommodate the instances supported by the profile. See [GpuInstance.GetComputeInstanceProfileInfo]
+//   - profileId: The compute instance profile ID. See [GpuInstance.ComputeInstanceProfileInfo]
+//   - computeInstances: Returns pre-exiting compute instances, the buffer must be large enough to accommodate the instances supported by the profile. See [GpuInstance.ComputeInstanceProfileInfo]
 //   - count: The count of returned compute instances
 //
 // Wraps nvmlGpuInstanceGetComputeInstances.
@@ -6452,7 +6452,7 @@ func unitGetUnitInfo(unit Unit) (UnitInfo, error) {
 // This operation takes effect immediately.
 // Current S-Class products don't provide unique LEDs for each unit. As such, both front and back LEDs will be toggled in unison regardless of which unit is specified with this command.
 // See [LedColor] for available colors.
-// See also: [Unit.GetLedState]
+// See also: [Unit.LedState]
 // < Previous | Next >
 //
 //   - unit: The identifier of the target unit
@@ -6672,7 +6672,7 @@ func vgpuInstanceGetLicenseInfo(vgpuInstance VgpuInstance, licenseInfo *VgpuLice
 //   - vgpuInstance: Identifier of the target vGPU instance
 //   - licensed: Reference to return the licensing status
 //
-// Deprecated: Use [VgpuInstance.GetLicenseInfo]. Retrieve the current licensing state of the vGPU instance. If the vGPU is currently licensed, licensed is set to 1, otherwise it is set to 0. For Kepler &tm; or newer fully supported devices.
+// Deprecated: Use [VgpuInstance.LicenseInfo]. Retrieve the current licensing state of the vGPU instance. If the vGPU is currently licensed, licensed is set to 1, otherwise it is set to 0. For Kepler &tm; or newer fully supported devices.
 func vgpuInstanceGetLicenseStatus(vgpuInstance VgpuInstance, licensed *uint32) error {
 	if err := checkLibSym("nvmlVgpuInstanceGetLicenseStatus"); err != nil {
 		return err

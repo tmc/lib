@@ -62,10 +62,10 @@
 //
 // # Descriptor Attributes
 //
-//   - [OperationDescriptor.GetAttribute].
+//   - [OperationDescriptor.Attribute].
 //   - [OperationDescriptor.SetAttribute].
-//   - [Plan.GetAttribute].
-//   - [PlanPreference.GetAttribute].
+//   - [Plan.Attribute].
+//   - [PlanPreference.Attribute].
 //   - [PlanPreference.SetAttribute].
 //
 // # Tensor Permutations

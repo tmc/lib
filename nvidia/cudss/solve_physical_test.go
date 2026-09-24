@@ -85,7 +85,7 @@ func TestSolveCSR(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	requirement(t, "CUDA driver (libcuda.so.1)", driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	requirement(t, "an NVIDIA GPU at device ordinal 0", err)
 	ctx, err := dev.PrimaryCtxRetain()
 	requirement(t, "a CUDA primary context on device 0", err)
@@ -103,7 +103,7 @@ func TestSolveCSR(t *testing.T) {
 	var frees []driver.DevicePtr
 	defer func() {
 		for _, d := range frees {
-			if err := d.MemFree(); err != nil {
+			if err := d.Free(); err != nil {
 				t.Errorf("free device memory: %v", err)
 			}
 		}
@@ -115,7 +115,7 @@ func TestSolveCSR(t *testing.T) {
 			t.Fatalf("allocate %d bytes for %s: %v", n, name, err)
 		}
 		frees = append(frees, d)
-		if err := d.MemcpyHtoD(p, n); err != nil {
+		if err := d.CopyFromHost(p, n); err != nil {
 			t.Fatalf("upload %s: %v", name, err)
 		}
 		return d
@@ -179,7 +179,7 @@ func TestSolveCSR(t *testing.T) {
 		}
 	}
 
-	if err := dX.MemcpyDtoH(unsafe.Pointer(&x[0]), uint(len(x))*8); err != nil {
+	if err := dX.CopyToHost(unsafe.Pointer(&x[0]), uint(len(x))*8); err != nil {
 		t.Fatalf("download solution: %v", err)
 	}
 

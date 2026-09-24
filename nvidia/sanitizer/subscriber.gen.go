@@ -4,8 +4,8 @@ package sanitizer
 
 // EnableAllDomains Enable or disable all callbacks in all domains.
 //
-// [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
-// [Subscriber.EnableAllDomains]. For example, if [Subscriber.GetCallbackState](sub,
+// [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
+// [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub,
 // d, *) and [Subscriber.EnableAllDomains](sub) are called concurrently, the
 // results are undefined.
 //
@@ -26,8 +26,8 @@ func (s Subscriber) EnableAllDomains(enable uint32) error {
 // Enable or disable callbacks for a subscriber for a specific domain and
 // callback ID.
 //
-// [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
-// [Subscriber.EnableAllDomains]. For example, if [Subscriber.GetCallbackState](sub, d,
+// [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
+// [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d,
 // c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the
 // results are undefined.
 //
@@ -47,7 +47,7 @@ func (s Subscriber) EnableCallback(enable uint32, domain CallbackDomain, cbid ui
 
 // EnableDomain Enable or disable all callbacks for a specific domain.
 //
-// [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
+// [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
 // [Subscriber.EnableAllDomains]. For example, if sanitizerGetCallbackEnabled(sub,
 // d, *) and [Subscriber.EnableDomain](sub, d) are called concurrently, the
 // results are undefined.
@@ -65,13 +65,13 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 	return enableDomain(enable, s, domain)
 }
 
-// GetCallbackState Get the current enabled/disabled state of a callback for a specific domain and function ID.
+// CallbackState Get the current enabled/disabled state of a callback for a specific domain and function ID.
 //
 // Returns non-zero in *enable if the callback for a domain and callback
 // ID is enabled, and zero if not enabled.
 //
-// [Subscriber.GetCallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
-// [Subscriber.EnableAllDomains]. For example, if [Subscriber.GetCallbackState](sub, d,
+// [Subscriber.CallbackState], [Subscriber.EnableCallback], [Subscriber.EnableDomain], and
+// [Subscriber.EnableAllDomains]. For example, if [Subscriber.CallbackState](sub, d,
 // c) and [Subscriber.EnableCallback](sub, d, c) are called concurrently, the
 // results are undefined.
 //
@@ -84,7 +84,7 @@ func (s Subscriber) EnableDomain(enable uint32, domain CallbackDomain) error {
 //   - [ErrInvalidParameter]: if enabled is NULL, or if subscriber, domain or cbid is invalid.
 //
 // Wraps sanitizerGetCallbackState.
-func (s Subscriber) GetCallbackState(domain CallbackDomain, cbid uint32) (uint32, error) {
+func (s Subscriber) CallbackState(domain CallbackDomain, cbid uint32) (uint32, error) {
 	return getCallbackState(s, domain, cbid)
 }
 

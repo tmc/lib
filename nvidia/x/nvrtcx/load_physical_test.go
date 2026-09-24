@@ -54,7 +54,7 @@ func TestDriverJITDiagnostics(t *testing.T) {
 				t.Fatal(err)
 			}
 			if err := dev.WithContext(func() error {
-				fn, err := mod.GetFunction("probe")
+				fn, err := mod.Function("probe")
 				if err != nil {
 					return err
 				}
@@ -105,7 +105,7 @@ func TestOwnedCompilerModule(t *testing.T) {
 	var p driver.DevicePtr
 	check(dev.WithContext(func() error { var err error; p, err = driver.MemAlloc(64 * 4); return err }))
 	defer func() {
-		if err := dev.WithContext(p.MemFree); err != nil {
+		if err := dev.WithContext(p.Free); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -113,7 +113,7 @@ func TestOwnedCompilerModule(t *testing.T) {
 	// Close must finish the queued kernel before unloading it.
 	check(owner.Close())
 	var got [64]int32
-	check(dev.WithContext(func() error { return p.MemcpyDtoH(unsafe.Pointer(&got[0]), 64*4) }))
+	check(dev.WithContext(func() error { return p.CopyToHost(unsafe.Pointer(&got[0]), 64*4) }))
 	for i, v := range got {
 		if v != int32(i+9) {
 			t.Fatalf("output[%d]=%d", i, v)
@@ -165,7 +165,7 @@ func TestOwnedModuleConcurrentClose(t *testing.T) {
 		return p.MemsetD32(0, 1)
 	}))
 	defer func() {
-		if err := dev.WithContext(p.MemFree); err != nil {
+		if err := dev.WithContext(p.Free); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -205,7 +205,7 @@ func TestOwnedModuleConcurrentClose(t *testing.T) {
 		t.Fatal(r.err)
 	}
 	var got int32
-	check(dev.WithContext(func() error { return p.MemcpyDtoH(unsafe.Pointer(&got), 4) }))
+	check(dev.WithContext(func() error { return p.CopyToHost(unsafe.Pointer(&got), 4) }))
 	if got != int32(r.accepted) {
 		t.Fatalf("device count=%d accepted=%d", got, r.accepted)
 	}

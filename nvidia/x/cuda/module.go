@@ -138,7 +138,7 @@ func (m *Module) Function(name string) (*Kernel, error) {
 	var fn driver.Function
 	err := m.ctx.Run(func() error {
 		var err error
-		fn, err = m.raw.GetFunction(name)
+		fn, err = m.raw.Function(name)
 		return err
 	})
 	if err != nil {
@@ -153,7 +153,7 @@ func (k *Kernel) Attribute(attrib driver.FunctionAttribute) (int, error) {
 	var val int32
 	err := k.run(func() error {
 		var err error
-		val, err = k.raw.GetAttribute(attrib)
+		val, err = k.raw.Attribute(attrib)
 		return err
 	})
 	if err != nil {

@@ -2,7 +2,7 @@
 
 package cudnn
 
-// DestroyDescriptor destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptorCreateDescriptor].
+// DestroyDescriptor destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptor].
 //
 // Returns:
 //   - [ErrAllocFailed]: The destruction of memory failed. Undefined Behavior The descriptor was altered between the Create and Destroy Descriptor. Undefined The value pointed by the descriptor will be Undefined after the memory is free and done.
@@ -30,7 +30,7 @@ func (b BackendDescriptor) Execute(handle Handle, variantPack BackendDescriptor)
 
 // Finalize finalizes the memory pointed to by the descriptor.
 //
-// [BackendDescriptor.Finalize] also checks all the attributes set between the create/initialization and finalize phase. If successful, [BackendDescriptor.Finalize] returns [Success] and the finalized state of the descriptor is set to true. In this state, setting attributes using [BackendDescriptor.SetAttribute] is not allowed. Getting attributes using [BackendDescriptor.GetAttribute] is only allowed when the finalized state of the descriptor is true.
+// [BackendDescriptor.Finalize] also checks all the attributes set between the create/initialization and finalize phase. If successful, [BackendDescriptor.Finalize] returns [Success] and the finalized state of the descriptor is set to true. In this state, setting attributes using [BackendDescriptor.SetAttribute] is not allowed. Getting attributes using [BackendDescriptor.Attribute] is only allowed when the finalized state of the descriptor is true.
 //
 // Returns:
 //   - CUDNN_STATUS_BAD_PARAMS: Invalid descriptor attribute values or combination thereof is encountered.
@@ -43,7 +43,7 @@ func (b BackendDescriptor) Finalize() error {
 	return backendFinalize(b)
 }
 
-// GetAttribute retrieves the values of an attribute of a descriptor.
+// Attribute retrieves the values of an attribute of a descriptor.
 //
 // attributeName is the name of the attribute whose value is requested. attributeType is the type of attribute. requestsedElementCount is the number of elements to be potentially retrieved. The number of elements for the requested attribute is stored in elementCount. The retrieved values are stored in arrayOfElements. When the attribute is expected to have a single value, arrayOfElements can be pointer to the output value. This function will return CUDNN_STATUS_NOT_INTIALIZED if the descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
 //
@@ -56,7 +56,7 @@ func (b BackendDescriptor) Finalize() error {
 //   - [Success]: The attributeName was given to the descriptor successfully.
 //
 // Wraps cudnnBackendGetAttribute.
-func (b BackendDescriptor) GetAttribute(attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, elementCount *int64, arrayOfElements uintptr) error {
+func (b BackendDescriptor) Attribute(attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, elementCount *int64, arrayOfElements uintptr) error {
 	return backendGetAttribute(b, attributeName, attributeType, requestedElementCount, elementCount, arrayOfElements)
 }
 
@@ -103,7 +103,7 @@ func (b BackendDescriptor) UpdateCudaGraph(handle Handle, variantPack BackendDes
 	return backendUpdateCudaGraph(handle, b, variantPack, graph)
 }
 
-// NewBackendDescriptorCreateDescriptor allocates memory in the descriptor for a given descriptor type and at the location pointed by the descriptor.
+// NewBackendDescriptor allocates memory in the descriptor for a given descriptor type and at the location pointed by the descriptor.
 //
 //   - descriptorType: Input. One among the enumerated [BackendDescriptorType]
 //   - descriptor: Input. Pointer to an instance of [BackendDescriptor] to be created
@@ -114,6 +114,6 @@ func (b BackendDescriptor) UpdateCudaGraph(handle Handle, variantPack BackendDes
 //   - [Success]: The creation was successful.
 //
 // Wraps cudnnBackendCreateDescriptor.
-func NewBackendDescriptorCreateDescriptor(descriptorType BackendDescriptorType) (BackendDescriptor, error) {
+func NewBackendDescriptor(descriptorType BackendDescriptorType) (BackendDescriptor, error) {
 	return backendCreateDescriptor(descriptorType)
 }

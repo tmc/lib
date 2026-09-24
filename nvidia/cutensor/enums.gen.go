@@ -166,7 +166,7 @@ func (e WorksizepreferenceT) String() string {
 	return fmt.Sprintf("WorksizepreferenceT(%d)", e)
 }
 
-// OperationdescriptorattributeT represents This enum lists all attributes of a [OperationDescriptor] that can be modified (see [OperationDescriptor.SetAttribute] and [OperationDescriptor.GetAttribute])..
+// OperationdescriptorattributeT represents This enum lists all attributes of a [OperationDescriptor] that can be modified (see [OperationDescriptor.SetAttribute] and [OperationDescriptor.Attribute])..
 type OperationdescriptorattributeT int32
 
 const (
@@ -294,7 +294,7 @@ func (e CachemodeT) String() string {
 	return fmt.Sprintf("CachemodeT(%d)", e)
 }
 
-// PlanattributeT represents This enum lists all attributes of a [Plan] object that can be retrieved via [Plan.GetAttribute]..
+// PlanattributeT represents This enum lists all attributes of a [Plan] object that can be retrieved via [Plan.Attribute]..
 type PlanattributeT int32
 
 const (
