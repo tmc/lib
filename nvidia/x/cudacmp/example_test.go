@@ -1,8 +1,10 @@
 package cudacmp_test
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/tmc/lib/nvidia/x/cudacmp"
 )
@@ -54,4 +56,23 @@ func ExampleRender() {
 	// Output:
 	// PHASE    FAMILY   C TIME    GO TIME   DELTA     SPEEDUP  DRIFT FLOOR  EXCEEDS DRIFT?
 	// prefill  experts  12.00 ms  10.00 ms  -2.00 ms  1.20x    50.00 µs     YES
+}
+
+func ExampleCommand() {
+	// Digest only the result line, so the throughput line, which differs
+	// from run to run, cannot make two runs of one arm disagree.
+	arm := cudacmp.Command{
+		Path:       "/bin/sh",
+		Args:       []string{"-c", `echo "result 42"; echo "tok/s $$"`},
+		NoPhaseArg: true,
+		Digest:     regexp.MustCompile(`^result `),
+	}
+	r, err := arm.Runner()(context.Background(), cudacmp.PhaseDecode)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(r.Digest[:12])
+	// Output:
+	// 258a08a02096
 }

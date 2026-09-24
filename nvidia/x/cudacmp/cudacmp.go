@@ -1,12 +1,16 @@
 package cudacmp
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"regexp"
+	"slices"
 	"text/tabwriter"
 	"time"
 
@@ -459,14 +463,50 @@ func sortDurations(d []time.Duration) {
 	}
 }
 
-// CommandArmRunner returns an ArmRunner that executes an external binary with the specified arguments.
+// CommandArmRunner returns an ArmRunner that executes an external binary with
+// the specified arguments followed by the phase. It is
+// Command{Path: binPath, Args: args}.Runner().
 func CommandArmRunner(binPath string, args ...string) ArmRunner {
+	return Command{Path: binPath, Args: args}.Runner()
+}
+
+// A Command runs one arm of a trial as an external program. The receipt's
+// timing is the program's wall-clock time and its digest is the SHA-256 of
+// the program's standard output.
+//
+// The program's environment is the caller's with CUDACMP_PHASE set to the
+// phase.
+type Command struct {
+	Path string
+	Args []string
+
+	// NoPhaseArg leaves the phase off the end of Args. A program that takes
+	// no such argument can read the phase from CUDACMP_PHASE instead.
+	NoPhaseArg bool
+
+	// Digest, if set, selects the lines of standard output that are
+	// digested: only lines it matches count, in order, so output that varies
+	// from run to run, such as a throughput line, can be left out. A run in
+	// which it matches no line is an error, since its digest would then say
+	// nothing about the output.
+	Digest *regexp.Regexp
+}
+
+// Runner returns an ArmRunner that runs c.
+func (c Command) Runner() ArmRunner {
 	return func(ctx context.Context, phase Phase) (cudatrial.Receipt, error) {
-		cmdArgs := append(args, string(phase))
-		cmd := exec.CommandContext(ctx, binPath, cmdArgs...)
+		args := slices.Clip(c.Args)
+		if !c.NoPhaseArg {
+			args = append(args, string(phase))
+		}
+		cmd := exec.CommandContext(ctx, c.Path, args...)
+		cmd.Env = append(os.Environ(), "CUDACMP_PHASE="+string(phase))
 		start := time.Now()
 		out, err := cmd.Output()
 		finish := time.Now()
+		if err == nil && c.Digest != nil {
+			out, err = selectLines(out, c.Digest)
+		}
 		if err != nil {
 			return cudatrial.Receipt{
 				Complete: false,
@@ -475,16 +515,32 @@ func CommandArmRunner(binPath string, args ...string) ArmRunner {
 				Finished: finish,
 			}, err
 		}
-		digest := fmt.Sprintf("%x", sha256.Sum256(out))
 		r := cudatrial.Receipt{
 			Complete: true,
-			Digest:   digest,
+			Digest:   fmt.Sprintf("%x", sha256.Sum256(out)),
 			Started:  start,
 			Finished: finish,
 		}
 		_ = r.RecordTiming(cudatrial.TimingWallElapsed, finish.Sub(start))
 		return r, nil
 	}
+}
+
+// selectLines returns the lines of out that re matches, each ending in a
+// newline.
+func selectLines(out []byte, re *regexp.Regexp) ([]byte, error) {
+	var sel []byte
+	for line := range bytes.Lines(out) {
+		line = bytes.TrimSuffix(line, []byte("\n"))
+		if re.Match(line) {
+			sel = append(sel, line...)
+			sel = append(sel, '\n')
+		}
+	}
+	if sel == nil {
+		return nil, fmt.Errorf("cudacmp: digest pattern %q matched no line of output", re)
+	}
+	return sel, nil
 }
 
 // Render writes a human-readable ANSI terminal summary to w.
