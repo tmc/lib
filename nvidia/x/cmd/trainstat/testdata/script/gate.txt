@@ -1,10 +1,11 @@
 # Gate judges each rule on the confidence interval of the difference
 # between two columns: PASS if the interval is inside the bound, FAIL if
-# it is outside, and INCONCLUSIVE if it straddles it. Each rule is judged
-# at -alpha on its own.
+# it is outside, INCONCLUSIVE if it straddles it, and INSUFFICIENT if
+# there are too few samples for an interval. Each rule is judged at
+# -alpha on its own.
 
 exec trainstat gate -skip 1 -rules pass.rules $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
-stdout '^3 rules, each at α=0\.05 \(95% CI\), not corrected for multiple rules$'
+stdout '^alpha 0\.05 per rule, k=3 \(95% CI each, not corrected for k\)$'
 stdout '^PASS  Final/split=val accuracy  >= 0     Δ \+0\.0056 \[\+0\.004184, \+0\.007016\]  p<0\.001 n=5 paired$'
 stdout '^PASS  Final/split=val ece       <= 0\.01  Δ -0\.0006 '
 stdout '^PASS  Run done                  == 1     1 in all 10 values$'
@@ -22,16 +23,16 @@ stdout '^INSUFFICIENT  Throughput sec/step       <= 5%     need >=6 samples, e\.
 stdout '^FAIL          Best loss                 <= 0      no data$'
 stdout '^INCONCLUSIVE  Final/split=val accuracy  ~= 0      line 6: unknown operator ~=$'
 stdout '^INCONCLUSIVE  Run done                  == 1%     line 7: == takes an absolute value$'
-stdout '^2 fail, 4 inconclusive or insufficient$'
-stderr 'gate: 2 fail, 4 inconclusive or insufficient'
+stdout '^2 fail, 3 inconclusive, 1 insufficient$'
+stderr 'gate: 2 fail, 3 inconclusive, 1 insufficient'
 
 exec trainstat gate -lenient -skip 1 -rules inconclusive.rules $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
-stdout '^0 fail, 1 inconclusive or insufficient$'
+stdout '^0 fail, 1 inconclusive, 0 insufficient$'
 ! exec trainstat gate -skip 1 -rules inconclusive.rules $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
 
 # A larger -alpha narrows the interval: the same rule passes at α=0.2.
 exec trainstat gate -alpha 0.2 -skip 1 -rules inconclusive.rules $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
-stdout '^1 rules, each at α=0\.2 \(80% CI\)'
+stdout '^alpha 0\.2 per rule, k=1 \(80% CI each'
 stdout '^PASS '
 
 # One seed per column has no interval, except for == checks.
@@ -39,9 +40,23 @@ stdout '^PASS '
 stdout '^INSUFFICIENT  Final/split=val accuracy  >= 0     need >=2 seeds per column for an interval \(n=1\+1\)$'
 stdout '^PASS          Run done                  == 1 '
 
-# -min-n fails rules on too few replicates.
+# -min-n makes rules on too few replicates insufficient.
 ! exec trainstat gate -min-n 6 -skip 1 -rules pass.rules $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
-stdout 'n=5\+5 < -min-n 6'
+stdout '^INSUFFICIENT  Final/split=val accuracy  >= 0     n=5\+5 < -min-n 6$'
+stdout '^0 fail, 0 inconclusive, 3 insufficient$'
+
+# A time rule at n=5 is insufficient: it fails, and passes with -lenient.
+! exec trainstat gate -skip 1 -rules time.rules $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+stdout '^INSUFFICIENT  Throughput sec/step  <= 5%  need >=6 samples'
+stdout '^0 fail, 0 inconclusive, 1 insufficient$'
+stderr 'gate: 0 fail, 0 inconclusive, 1 insufficient'
+exec trainstat gate -lenient -skip 1 -rules time.rules $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+stdout '^INSUFFICIENT '
+
+# So is any unit without assume=normal at n<6: its interval is
+# distribution-free.
+! exec trainstat gate -skip 1 -rules steps.rules $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
+stdout '^INSUFFICIENT  Run steps  <= 0  need >=6 samples for a distribution-free interval \(n=5\+5\)$'
 
 # JSON verdicts carry the interval.
 ! exec trainstat gate -json -skip 1 -rules mixed.rules $TESTDATA/sweep/base.txt $TESTDATA/sweep/new.txt
@@ -67,5 +82,9 @@ Throughput sec/step <= 5%
 Best loss <= 0
 Final/split=val accuracy ~= 0
 Run done == 1%
+-- steps.rules --
+Run steps <= 0
+-- time.rules --
+Throughput sec/step <= 5%
 -- inconclusive.rules --
 Final/split=val accuracy >= 0.0046

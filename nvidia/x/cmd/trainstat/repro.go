@@ -12,19 +12,19 @@ import (
 	"golang.org/x/perf/benchfmt"
 )
 
-// pinning is the default -pin list: configuration keys that must be equal
-// for two runs to be expected bit-identical. A trailing * matches a prefix.
-const pinning = "commit,device,exact,tf32,driver*,nvrtc*,cublas*,lib-*,mlx*,libmlx*"
+// pinning lists the configuration keys that must be equal for two runs to
+// be expected bit-identical: the default -pin list.
+var pinning = []string{"commit", "lib-nvidia", "nvrtc", "cublas", "driver", "device", "exact", "tf32", "mlx-c", "libmlx"}
 
 func runRepro(args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("repro", flag.ContinueOnError)
-	pin := fs.String("pin", pinning, "comma-separated pinning `keys`; key* matches a prefix")
+	pin := fs.String("pin", strings.Join(pinning, ","), "comma-separated pinning `keys`")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "usage: trainstat repro [-pin keys] a b\n")
 		fs.PrintDefaults()
 	}
-	if err := fs.Parse(args); err != nil {
-		return usageError(err)
+	if err := parseFlags(fs, args); err != nil {
+		return err
 	}
 	if fs.NArg() != 2 {
 		fs.Usage()
@@ -41,8 +41,8 @@ func runRepro(args []string, stdout io.Writer) error {
 		}
 	}
 	if differ := pinDiffs(runs[0], runs[1], strings.Split(*pin, ",")); len(differ) > 0 {
-		fmt.Fprintf(stdout, "cannot compare: %s\n", strings.Join(differ, "; "))
-		return &exitCodeError{Code: 2, Err: errors.New("pinning configuration differs")}
+		fmt.Fprintf(stdout, "refused: pinning keys differ: %s\n", strings.Join(differ, ", "))
+		return &exitCodeError{Code: 1, Err: errors.New("refused: pinning keys differ")}
 	}
 	ok, err := repro(stdout, runs[0], runs[1])
 	if err != nil {
@@ -54,24 +54,16 @@ func runRepro(args []string, stdout io.Writer) error {
 	return nil
 }
 
-// pinDiffs returns a description of each pinning key whose value differs
-// between a and b, such as "exact differs (false vs true)". A key set in
-// only one run differs.
+// pinDiffs returns each pinning key whose value differs between a and b,
+// with the two values, such as "exact (true vs false)". A key set in only
+// one run differs.
 func pinDiffs(a, b *reproRun, pins []string) []string {
-	pinned := func(k string) bool {
-		for _, p := range pins {
-			if prefix, ok := strings.CutSuffix(p, "*"); ok && strings.HasPrefix(k, prefix) || k == p {
-				return true
-			}
-		}
-		return false
-	}
 	var differ []string
 	for _, k := range unionKeys(a, b) {
 		va, oka := a.config[k]
 		vb, okb := b.config[k]
-		if pinned(k) && (va != vb || oka != okb) {
-			differ = append(differ, fmt.Sprintf("%s differs (%s vs %s)", k, show(va, oka), show(vb, okb)))
+		if slices.Contains(pins, k) && (va != vb || oka != okb) {
+			differ = append(differ, fmt.Sprintf("%s (%s vs %s)", k, show(va, oka), show(vb, okb)))
 		}
 	}
 	return differ
@@ -246,10 +238,23 @@ func repro(w io.Writer, a, b *reproRun) (bool, error) {
 	if len(skipped) > 0 {
 		fmt.Fprintf(&out, "skipped kind=time: %s\n", strings.Join(skipped, " "))
 	}
-	if first != "" {
-		if len(differ) == 0 {
-			out.WriteString("nondeterministic: same configuration, different results\n")
+	var outLines []string
+	for _, k := range outKeys {
+		va, oka := a.config[k]
+		vb, okb := b.config[k]
+		if oka && okb && va == vb {
+			outLines = append(outLines, k+": equal")
+		} else {
+			outLines = append(outLines, fmt.Sprintf("%s: differs (%s vs %s)", k, show(va, oka), show(vb, okb)))
+			identical = false
 		}
+	}
+	if !identical && len(differ) == 0 {
+		// The caller has checked the pinning keys, and the rest of the
+		// configuration is equal: the runs should have agreed.
+		out.WriteString("nondeterministic: same configuration, different results\n")
+	}
+	if first != "" {
 		fmt.Fprintf(&out, "first difference: %s\n", first)
 		parts = parts[:0]
 		for _, base := range bases {
@@ -257,17 +262,14 @@ func repro(w io.Writer, a, b *reproRun) (bool, error) {
 				parts = append(parts, fmt.Sprintf("%s %d of %d", base, c.differ, c.compared))
 			}
 		}
-		fmt.Fprintf(&out, "differing values: %d (results: %s)\n", values, strings.Join(parts, ", "))
-	}
-	for _, k := range outKeys {
-		va, oka := a.config[k]
-		vb, okb := b.config[k]
-		if oka && okb && va == vb {
-			fmt.Fprintf(&out, "%s: equal\n", k)
-		} else {
-			fmt.Fprintf(&out, "%s: differs\n", k)
-			identical = false
+		verb := "values differ"
+		if values == 1 {
+			verb = "value differs"
 		}
+		fmt.Fprintf(&out, "%d %s (results: %s)\n", values, verb, strings.Join(parts, ", "))
+	}
+	for _, line := range outLines {
+		fmt.Fprintln(&out, line)
 	}
 	if identical {
 		out.WriteString("ok: bit-identical\n")

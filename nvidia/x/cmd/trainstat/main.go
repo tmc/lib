@@ -13,7 +13,7 @@ func main() {
 	if err := run(os.Args[1:]); err != nil {
 		var exitErr *exitCodeError
 		if errors.As(err, &exitErr) {
-			if !errors.Is(exitErr.Err, flag.ErrHelp) {
+			if !exitErr.Printed {
 				log.Print(exitErr)
 			}
 			os.Exit(exitErr.Code)
@@ -23,8 +23,9 @@ func main() {
 }
 
 type exitCodeError struct {
-	Code int
-	Err  error
+	Code    int
+	Err     error
+	Printed bool // Err has already been printed
 }
 
 func (e *exitCodeError) Error() string { return e.Err.Error() }
@@ -33,6 +34,16 @@ func (e *exitCodeError) Unwrap() error { return e.Err }
 // usageError marks err as a usage error, which exits with status 2.
 func usageError(err error) error {
 	return &exitCodeError{Code: 2, Err: err}
+}
+
+// parseFlags parses args with fs, which must use flag.ContinueOnError.
+// On failure fs has printed the error and usage, so the returned usage
+// error is not printed again.
+func parseFlags(fs *flag.FlagSet, args []string) error {
+	if err := fs.Parse(args); err != nil {
+		return &exitCodeError{Code: 2, Err: err, Printed: true}
+	}
+	return nil
 }
 
 func run(args []string) error {

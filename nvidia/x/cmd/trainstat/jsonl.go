@@ -31,8 +31,8 @@ func runJSONL(args []string) error {
 		fmt.Fprintf(fs.Output(), "usage: trainstat jsonl [flags] events.jsonl\n")
 		fs.PrintDefaults()
 	}
-	if err := fs.Parse(args); err != nil {
-		return usageError(err)
+	if err := parseFlags(fs, args); err != nil {
+		return err
 	}
 	if fs.NArg() != 1 {
 		fs.Usage()

@@ -49,14 +49,18 @@
 // each -config file, become configuration.
 //
 // Repro checks that two runs are bit-identical: every value except those
-// of time units, and every out-* configuration key. It first refuses, with
-// exit status 2, runs whose pinning keys differ (-pin, by default commit,
-// device, exact, tf32 and keys beginning driver, nvrtc, cublas, lib-, mlx
-// or libmlx), because such runs need not agree. Otherwise it reports ok,
-// or "nondeterministic: same configuration, different results" with the
-// first difference, its distance in float32 ulps and the number of
-// differing values, and exits with status 1. The first difference is where
-// the runs diverge, not necessarily why.
+// of time units, and every out-* configuration key. It has three outcomes.
+// If any pinning key differs (-pin, by default commit, lib-nvidia, nvrtc,
+// cublas, driver, device, exact, tf32, mlx-c and libmlx), the runs need
+// not agree, and repro prints "refused: pinning keys differ: " naming each
+// key and its two values, and exits with status 1. If the values or out-*
+// keys differ, it prints the first difference with its distance in float32
+// ulps and the number of differing values, and exits with status 1; when
+// the whole configuration is equal apart from run and host, it first
+// prints "nondeterministic: same configuration, different results". The
+// first difference is where the runs diverge, not necessarily why.
+// Otherwise it prints "ok". Configuration differences other than pinning
+// keys are reported but do not by themselves fail.
 //
 // Gate judges rules on the difference between two columns. Each line of
 // the rules file is
@@ -67,10 +71,12 @@
 // a bound on new/base-1), or ==, requiring every value in both columns to
 // equal value exactly. A bound passes when the difference's 1-alpha
 // confidence interval lies within it, fails when the interval lies
-// outside, and is otherwise INCONCLUSIVE. Each rule is judged at -alpha
-// on its own; there is no correction for the number of rules. A bound on
-// a time unit with fewer than 6 samples in a column, or on any unit with
-// one seed in a column, is INSUFFICIENT. A line that is not a rule is
-// INCONCLUSIVE. Gate exits with status 1 if any rule fails, or is
-// INCONCLUSIVE or INSUFFICIENT without -lenient, and 2 on a usage error.
+// outside, and is otherwise INCONCLUSIVE. Each of the k rules is judged at
+// -alpha on its own; there is no correction for k. A rule is INSUFFICIENT
+// when a column has fewer samples than -min-n, or, for a bound, one seed,
+// or fewer than 6 samples of a time unit or of any unit without
+// assume=normal or assume=exact. A rule that matches no row fails, and a
+// line that is not a rule is INCONCLUSIVE. Gate exits with status 1 if
+// any rule fails, or is INCONCLUSIVE or INSUFFICIENT without -lenient,
+// and 2 on a usage error.
 package main

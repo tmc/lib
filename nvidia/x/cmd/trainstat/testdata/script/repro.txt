@@ -5,24 +5,46 @@ exec trainstat repro a.txt b.txt
 cmp stdout same.want
 
 # Planted: Train/step=2 grad-norm is one float32 ulp off, and the run
-# diverges from there. Repro names step 2, not a later one.
+# diverges from there. Same pins, different bits: nondeterministic. Repro
+# names step 2, not a later one, and counts the differing values.
 ! exec trainstat repro a.txt c.txt
 cmp stdout diff.want
 stderr 'not bit-identical'
+[exec:sh] exec sh -c 'trainstat repro a.txt c.txt >/dev/null 2>&1; echo status $?'
+[exec:sh] stdout '^status 1$'
 
-# Runs that differ in pinning keys need not agree: refused, naming each key.
-! exec trainstat repro a.txt e.txt
-stdout '^cannot compare: device differs \(GB10 vs H100\); exact differs \(true vs false\)$'
+# An out- key alone that differs is also nondeterministic.
+! exec trainstat repro a.txt g.txt
+stdout '^nondeterministic: same configuration, different results$'
+stdout '^out-model-sha256: differs \(9f2c vs 0000\)$'
+! stdout 'first difference'
+
+# Different bits under a different configuration are reported, but are
+# not called nondeterministic.
+! exec trainstat repro a.txt h.txt
+stdout '^config: differs: mode "lora" != "full"$'
+stdout '^first difference: Train/step=2 grad-norm'
+! stdout 'nondeterministic'
+stdout '^FAIL: not bit-identical$'
+
+# Runs that differ in a pinning key need not agree: refused, naming the key.
+! exec trainstat repro a.txt f.txt
+stdout '^refused: pinning keys differ: exact \(true vs false\)$'
 ! stdout 'bit-identical'
-[exec:sh] exec sh -c 'trainstat repro a.txt e.txt; echo status $?'
-[exec:sh] stdout '^status 2$'
+stderr 'refused: pinning keys differ'
+[exec:sh] exec sh -c 'trainstat repro a.txt f.txt; echo status $?'
+[exec:sh] stdout '^status 1$'
 
-# -pin replaces the list; key* matches a prefix.
-exec trainstat repro -pin commit,lib-* a.txt e.txt
+# Every differing pinning key is named.
+! exec trainstat repro a.txt e.txt
+stdout '^refused: pinning keys differ: device \(GB10 vs H100\), exact \(true vs false\)$'
+
+# -pin replaces the list.
+exec trainstat repro -pin commit a.txt e.txt
 stdout '^config: differs: device "GB10" != "H100"; exact "true" != "false"$'
 stdout '^ok: bit-identical$'
-! exec trainstat repro -pin 'dev*' a.txt e.txt
-stdout '^cannot compare: device differs'
+! exec trainstat repro -pin commit,device a.txt e.txt
+stdout '^refused: pinning keys differ: device \(GB10 vs H100\)$'
 
 # A configuration difference outside the pinning keys is reported but is
 # not a failure.
@@ -109,6 +131,51 @@ BenchmarkTrain/step=3 1 2.125 loss 0.5 grad-norm 0.21 sec/step
 BenchmarkFinal/split=val 1 0.5 accuracy
 out-model-sha256: 9f2c
 BenchmarkRun 1 3 steps 0.74 train-sec 1 done
+-- f.txt --
+mode: lora
+seed: 1
+commit: 3f2a9c1
+device: GB10
+exact: false
+run: runs/b
+host: dgx2
+Unit grad-norm assume=normal
+BenchmarkTrain/step=1 1 2.5 loss 0.75 grad-norm 0.33 sec/step
+BenchmarkTrain/step=2 1 2.25 loss 0.625 grad-norm 0.2 sec/step
+BenchmarkTrain/step=3 1 2.125 loss 0.5 grad-norm 0.21 sec/step
+BenchmarkFinal/split=val 1 0.5 accuracy
+out-model-sha256: 9f2c
+BenchmarkRun 1 3 steps 0.74 train-sec 1 done
+-- g.txt --
+mode: lora
+seed: 1
+commit: 3f2a9c1
+device: GB10
+exact: true
+run: runs/b
+host: dgx2
+Unit grad-norm assume=normal
+BenchmarkTrain/step=1 1 2.5 loss 0.75 grad-norm 0.33 sec/step
+BenchmarkTrain/step=2 1 2.25 loss 0.625 grad-norm 0.2 sec/step
+BenchmarkTrain/step=3 1 2.125 loss 0.5 grad-norm 0.21 sec/step
+BenchmarkFinal/split=val 1 0.5 accuracy
+out-model-sha256: 0000
+BenchmarkRun 1 3 steps 0.74 train-sec 1 done
+-- h.txt --
+mode: full
+seed: 1
+commit: 3f2a9c1
+device: GB10
+exact: true
+run: runs/b
+host: dgx2
+Unit grad-norm assume=normal
+BenchmarkTrain/step=1 1 2.5 loss 0.75 grad-norm 0.33 sec/step
+BenchmarkTrain/step=2 1 2.25 loss 0.62500006 grad-norm 0.2 sec/step
+BenchmarkTrain/step=3 1 2.1250002 loss 0.5 grad-norm 0.21 sec/step
+BenchmarkFinal/split=val 1 0.5 accuracy
+out-model-sha256: 77e0
+BenchmarkRun 1 3 steps 0.74 train-sec 1 done
 -- same.want --
 config: equal (ignored: run, host)
 compared bitwise: 3 Train, 1 Final, 1 Run; units loss grad-norm accuracy steps done
@@ -121,6 +188,6 @@ compared bitwise: 3 Train, 1 Final, 1 Run; units loss grad-norm accuracy steps d
 skipped kind=time: sec/step train-sec
 nondeterministic: same configuration, different results
 first difference: Train/step=2 grad-norm 0.625 != 0.62500006 (1 float32 ulp)
-differing values: 2 (results: Train 2 of 3)
-out-model-sha256: differs
+2 values differ (results: Train 2 of 3)
+out-model-sha256: differs (9f2c vs 77e0)
 FAIL: not bit-identical

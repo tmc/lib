@@ -549,8 +549,8 @@ func runSummary(args []string, stdout io.Writer) error {
 		fmt.Fprintf(fs.Output(), "usage: trainstat [flags] inputs...\n       trainstat jsonl|repro|gate ...\n")
 		fs.PrintDefaults()
 	}
-	if err := fs.Parse(args); err != nil {
-		return usageError(err)
+	if err := parseFlags(fs, args); err != nil {
+		return err
 	}
 	if fs.NArg() == 0 {
 		fs.Usage()

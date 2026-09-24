@@ -13,6 +13,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"golang.org/x/perf/benchmath"
 	"golang.org/x/perf/benchproc"
 )
 
@@ -44,15 +45,15 @@ func runGate(args []string, stdout io.Writer) error {
 	var o options
 	o.register(fs)
 	rulesFile := fs.String("rules", "", "read rules from `file`")
-	lenient := fs.Bool("lenient", false, "pass inconclusive and insufficient rules")
-	minN := fs.Int("min-n", 0, "fail rules with fewer than `n` samples per column")
+	lenient := fs.Bool("lenient", false, "pass inconclusive and insufficient rules (both fail otherwise)")
+	minN := fs.Int("min-n", 0, "judge rules with fewer than `n` samples per column insufficient")
 	jsonOut := fs.Bool("json", false, "write verdicts as JSON")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "usage: trainstat gate -rules file [flags] base new\n")
 		fs.PrintDefaults()
 	}
-	if err := fs.Parse(args); err != nil {
-		return usageError(err)
+	if err := parseFlags(fs, args); err != nil {
+		return err
 	}
 	if *rulesFile == "" || fs.NArg() == 0 {
 		fs.Usage()
@@ -81,15 +82,18 @@ func runGate(args []string, stdout io.Writer) error {
 		vs = append(vs, a.gate(r, *minN)...)
 	}
 
-	var fail, inconclusive int
+	var fail, inconclusive, insufficient int
 	for _, v := range vs {
 		switch v.Verdict {
 		case "FAIL":
 			fail++
-		case "INCONCLUSIVE", "INSUFFICIENT":
+		case "INCONCLUSIVE":
 			inconclusive++
+		case "INSUFFICIENT":
+			insufficient++
 		}
 	}
+	counts := fmt.Sprintf("%d fail, %d inconclusive, %d insufficient", fail, inconclusive, insufficient)
 	if *jsonOut {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "\t")
@@ -99,21 +103,21 @@ func runGate(args []string, stdout io.Writer) error {
 		}
 	} else {
 		tw := tabwriter.NewWriter(stdout, 0, 8, 2, ' ', 0)
-		fmt.Fprintf(tw, "%d rules, each at α=%g (%g%% CI), not corrected for multiple rules\n", len(rules), o.alpha, 100*o.confidence)
+		fmt.Fprintf(tw, "alpha %g per rule, k=%d (%g%% CI each, not corrected for k)\n", o.alpha, len(rules), 100*o.confidence)
 		for _, v := range vs {
 			fmt.Fprintf(tw, "%s\t%s %s\t%s\t%s\n", v.Verdict, v.Row, v.Unit, v.Rule, v.Detail)
 		}
-		if fail+inconclusive == 0 {
+		if fail+inconclusive+insufficient == 0 {
 			fmt.Fprintln(tw, "ok")
 		} else {
-			fmt.Fprintf(tw, "%d fail, %d inconclusive or insufficient\n", fail, inconclusive)
+			fmt.Fprintln(tw, counts)
 		}
 		if err := tw.Flush(); err != nil {
 			return err
 		}
 	}
-	if fail > 0 || inconclusive > 0 && !*lenient {
-		return &exitCodeError{Code: 1, Err: fmt.Errorf("gate: %d fail, %d inconclusive or insufficient", fail, inconclusive)}
+	if fail > 0 || inconclusive+insufficient > 0 && !*lenient {
+		return &exitCodeError{Code: 1, Err: errors.New("gate: " + counts)}
 	}
 	return nil
 }
@@ -209,19 +213,21 @@ func (a *analysis) judge(r rule, b *block, row benchproc.Key, minN int) verdict 
 		}
 		n[j] = len(cell.xs)
 	}
-	if min(n[0], n[1]) < minN {
-		return fail(fmt.Sprintf("n=%d+%d < -min-n %d", n[0], n[1], minN))
-	}
 	insufficient := func(detail string) verdict {
 		v.Verdict, v.Detail = "INSUFFICIENT", detail
 		return v
 	}
+	nmin := min(n[0], n[1])
 	switch {
+	case nmin < minN:
+		return insufficient(fmt.Sprintf("n=%d+%d < -min-n %d", n[0], n[1], minN))
 	case r.op == "==":
 		// An exact check of every value needs no distribution.
-	case a.d.isTime(r.unit) && min(n[0], n[1]) < 6:
+	case a.d.isTime(r.unit) && nmin < 6:
 		return insufficient(fmt.Sprintf("need >=6 samples, e.g. go test -bench -count 6 (n=%d+%d)", n[0], n[1]))
-	case min(n[0], n[1]) < 2:
+	case !a.normal(r.unit) && a.assumption(r.unit) != benchmath.AssumeExact && nmin < 6:
+		return insufficient(fmt.Sprintf("need >=6 samples for a distribution-free interval (n=%d+%d)", n[0], n[1]))
+	case nmin < 2:
 		return insufficient(fmt.Sprintf("need >=2 seeds per column for an interval (n=%d+%d)", n[0], n[1]))
 	}
 
