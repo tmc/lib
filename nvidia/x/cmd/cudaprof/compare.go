@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -58,6 +59,12 @@ import (
 // entry. Entries join by position, so a stage that began a different number
 // of times on the two sides is refused rather than joined out of step. The
 // entries of a stage sum to its row.
+//
+// With both -ops and -stages, the JSON output breaks each stage row, and
+// each entry row with -stage-entries, down by op, so an op can be read per
+// layer. The cells partition kernel exclusive time both ways: a row's cells
+// sum to the row, and an op's cells over the rows sum to the op's row. Both
+// sums are checked with the identity.
 //
 // Ops join by qualified name, and template arguments are not part of it: every
 // instantiation of mul_mat_q<...> is one op, and every CUTLASS kernel is
@@ -314,6 +321,25 @@ type stageTotals struct {
 	launches  int
 	exclusive int64
 	summed    int64
+	ops       map[string]*opTotals
+}
+
+// add charges a kernel of op to t.
+func (t *stageTotals) add(op string, exclusive, summed int64) {
+	t.launches++
+	t.exclusive += exclusive
+	t.summed += summed
+	if t.ops == nil {
+		t.ops = make(map[string]*opTotals)
+	}
+	o := t.ops[op]
+	if o == nil {
+		o = &opTotals{}
+		t.ops[op] = o
+	}
+	o.launches++
+	o.exclusive += exclusive
+	o.summed += summed
 }
 
 // assign charges each kernel of recs, which are sorted by start, to its stage
@@ -336,9 +362,7 @@ func (b stageBoundaries) assign(recs []compareRecord, owned []int64) []*stageTot
 			cur = &stageTotals{stage: stageUnstarted, entries: 1}
 			out = append(out, cur)
 		}
-		cur.launches++
-		cur.exclusive += owned[i]
-		cur.summed += r.end - r.start
+		cur.add(r.op, owned[i], r.end-r.start)
 	}
 	return out
 }
@@ -356,6 +380,19 @@ func byStage(entries []*stageTotals) map[string]*stageTotals {
 		t.launches += e.launches
 		t.exclusive += e.exclusive
 		t.summed += e.summed
+		for op, o := range e.ops {
+			if t.ops == nil {
+				t.ops = make(map[string]*opTotals)
+			}
+			m := t.ops[op]
+			if m == nil {
+				m = &opTotals{}
+				t.ops[op] = m
+			}
+			m.launches += o.launches
+			m.exclusive += o.exclusive
+			m.summed += o.summed
+		}
 	}
 	return out
 }
@@ -485,6 +522,9 @@ type CompareStage struct {
 	DeltaExclusiveNanos  int64  `json:"delta_exclusive_ns"`
 	BaseSummedNanos      int64  `json:"base_summed_ns"`
 	TargetSummedNanos    int64  `json:"target_summed_ns"`
+
+	// Ops is the stage's time by op, when -ops was given.
+	Ops []CompareOp `json:"ops,omitempty"`
 }
 
 // CompareStageEntry is one entry of a stage in both captures: Entry i is the
@@ -499,6 +539,9 @@ type CompareStageEntry struct {
 	DeltaExclusiveNanos  int64  `json:"delta_exclusive_ns"`
 	BaseSummedNanos      int64  `json:"base_summed_ns"`
 	TargetSummedNanos    int64  `json:"target_summed_ns"`
+
+	// Ops is the entry's time by op, when -ops was given.
+	Ops []CompareOp `json:"ops,omitempty"`
 }
 
 // compareCaptures measures both captures and joins them by op.
@@ -537,7 +580,7 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 	}
 	c.Ops = joinOps(b.ops, t.ops)
 	if stages != nil {
-		c.Stages = joinStages(stages.order(), b.stages, t.stages)
+		c.Stages = joinStages(stages.order(), b.stages, t.stages, rules != nil)
 		for _, st := range c.Stages {
 			if st.BaseEntries != st.TargetEntries {
 				c.Notes = append(c.Notes, fmt.Sprintf("stage %s began %d times in base and %d in target: the boundaries did not align, so its rows hold different work", st.Stage, st.BaseEntries, st.TargetEntries))
@@ -545,7 +588,7 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 		}
 		if opts.stageEntries {
 			var err error
-			c.StageEntries, err = joinStageEntries(c.Stages, b.stageEntries, t.stageEntries)
+			c.StageEntries, err = joinStageEntries(c.Stages, b.stageEntries, t.stageEntries, rules != nil)
 			if err != nil {
 				return nil, err
 			}
@@ -635,6 +678,9 @@ func checkIdentity(c *Comparison) error {
 	if base != c.Base.KernelNanos || target != c.Target.KernelNanos {
 		return fmt.Errorf("stages exclusive %d, %d ns != kernel exclusive %d, %d ns", base, target, c.Base.KernelNanos, c.Target.KernelNanos)
 	}
+	if err := checkCells(c); err != nil {
+		return err
+	}
 	if c.StageEntries == nil {
 		return nil
 	}
@@ -649,10 +695,65 @@ func checkIdentity(c *Comparison) error {
 	return nil
 }
 
+// checkCells reports an error unless the ops within each stage row sum to
+// the row and, over the rows, to each op's row of c.Ops. It checks the
+// per-entry rows too when there are any. Rows without ops pass only when no
+// row has them.
+func checkCells(c *Comparison) error {
+	var stages, entries []cellRow
+	for _, st := range c.Stages {
+		stages = append(stages, cellRow{st.Stage, st.BaseExclusiveNanos, st.TargetExclusiveNanos, st.Ops})
+	}
+	for _, e := range c.StageEntries {
+		entries = append(entries, cellRow{fmt.Sprintf("%s entry %d", e.Stage, e.Entry), e.BaseExclusiveNanos, e.TargetExclusiveNanos, e.Ops})
+	}
+	if err := checkCellRows(stages, c.Ops); err != nil {
+		return err
+	}
+	return checkCellRows(entries, c.Ops)
+}
+
+// cellRow is a stage row, or a stage entry row, and its ops.
+type cellRow struct {
+	name         string
+	base, target int64
+	ops          []CompareOp
+}
+
+func checkCellRows(rows []cellRow, ops []CompareOp) error {
+	if !slices.ContainsFunc(rows, func(r cellRow) bool { return r.ops != nil }) {
+		return nil
+	}
+	byOp := make(map[string][2]int64)
+	for _, r := range rows {
+		var base, target int64
+		for _, o := range r.ops {
+			base += o.BaseExclusiveNanos
+			target += o.TargetExclusiveNanos
+			s := byOp[o.Op]
+			byOp[o.Op] = [2]int64{s[0] + o.BaseExclusiveNanos, s[1] + o.TargetExclusiveNanos}
+		}
+		if base != r.base || target != r.target {
+			return fmt.Errorf("stage %s: ops exclusive %d, %d ns != its exclusive %d, %d ns", r.name, base, target, r.base, r.target)
+		}
+	}
+	for _, o := range ops {
+		if s := byOp[o.Op]; s != [2]int64{o.BaseExclusiveNanos, o.TargetExclusiveNanos} {
+			return fmt.Errorf("op %s: exclusive over stages %d, %d ns != its exclusive %d, %d ns", o.Op, s[0], s[1], o.BaseExclusiveNanos, o.TargetExclusiveNanos)
+		}
+		delete(byOp, o.Op)
+	}
+	for op := range byOp {
+		return fmt.Errorf("op %s is charged within stages but has no row", op)
+	}
+	return nil
+}
+
 // joinStageEntries pairs the entries of each side by position. stages is
 // the joined per-stage rows, whose entry counts must agree on both sides,
 // except for kernels before the first boundary, which either side may lack.
-func joinStageEntries(stages []CompareStage, base, target []*stageTotals) ([]CompareStageEntry, error) {
+// With cells, each row carries its ops.
+func joinStageEntries(stages []CompareStage, base, target []*stageTotals, cells bool) ([]CompareStageEntry, error) {
 	for _, st := range stages {
 		if st.Stage != stageUnstarted && st.BaseEntries != st.TargetEntries {
 			return nil, fmt.Errorf("stage %s began %d times in base and %d in target: -stage-entries cannot pair its entries", st.Stage, st.BaseEntries, st.TargetEntries)
@@ -660,6 +761,10 @@ func joinStageEntries(stages []CompareStage, base, target []*stageTotals) ([]Com
 	}
 	var rows []CompareStageEntry
 	row := func(stage string, entry int, b, t *stageTotals) {
+		var ops []CompareOp
+		if cells {
+			ops = joinOps(b.ops, t.ops)
+		}
 		rows = append(rows, CompareStageEntry{
 			Stage:                stage,
 			Entry:                entry,
@@ -670,6 +775,7 @@ func joinStageEntries(stages []CompareStage, base, target []*stageTotals) ([]Com
 			DeltaExclusiveNanos:  t.exclusive - b.exclusive,
 			BaseSummedNanos:      b.summed,
 			TargetSummedNanos:    t.summed,
+			Ops:                  ops,
 		})
 	}
 	unstarted := func(es []*stageTotals) (*stageTotals, []*stageTotals) {
@@ -698,8 +804,9 @@ func joinStageEntries(stages []CompareStage, base, target []*stageTotals) ([]Com
 	return rows, nil
 }
 
-// joinStages lists every stage either side entered, in order.
-func joinStages(order []string, base, target map[string]*stageTotals) []CompareStage {
+// joinStages lists every stage either side entered, in order. With cells,
+// each row carries its ops.
+func joinStages(order []string, base, target map[string]*stageTotals, cells bool) []CompareStage {
 	var rows []CompareStage
 	for _, n := range order {
 		b, t := base[n], target[n]
@@ -712,6 +819,10 @@ func joinStages(order []string, base, target map[string]*stageTotals) []CompareS
 		if t == nil {
 			t = &stageTotals{}
 		}
+		var ops []CompareOp
+		if cells {
+			ops = joinOps(b.ops, t.ops)
+		}
 		rows = append(rows, CompareStage{
 			Stage:                n,
 			BaseEntries:          b.entries,
@@ -723,6 +834,7 @@ func joinStages(order []string, base, target map[string]*stageTotals) []CompareS
 			DeltaExclusiveNanos:  t.exclusive - b.exclusive,
 			BaseSummedNanos:      b.summed,
 			TargetSummedNanos:    t.summed,
+			Ops:                  ops,
 		})
 	}
 	return rows

@@ -776,6 +776,134 @@ func TestCompareStageEntries(t *testing.T) {
 	}
 }
 
+// TestCompareOpsByStage checks that with -ops and -stages each stage row and
+// each entry row carries its ops, that the cells sum exactly to both
+// margins, and that checkIdentity catches a cell that breaks either.
+func TestCompareOpsByStage(t *testing.T) {
+	const stages = "expand pre\nattn attn\n"
+	// Stage attn holds attn and ffn; the fused kernel on the target side
+	// is an op of its own. embed is unmatched and before the first boundary.
+	base := sequence(
+		"expand", 10, "attn", 30, "ffn", 50,
+		"expand", 10, "attn", 30, "ffn", 50,
+	)
+	target := sequence(
+		"embed", 5,
+		"expand", 10, "attn", 35, "ffn", 50,
+		"expand", 10, "attn_ffn_fused", 70,
+	)
+	rules := mustRules(t, "fused fused\n^attn attn\n^ffn ffn\n^expand expand\n")
+	build := func(t *testing.T) *Comparison {
+		c, err := compareCaptures(compareCapture(base, phaseStatus(1000, 1500)), compareCapture(target, phaseStatus(1000, 1500)),
+			rules, stageBoundaries(mustRules(t, stages)), compareOptions{phase: -1, stageEntries: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c
+	}
+	c := build(t)
+
+	// cell is an op's base and target exclusive ns within a row.
+	type cell struct{ base, target int64 }
+	cells := func(ops []CompareOp) map[string]cell {
+		m := make(map[string]cell)
+		for _, o := range ops {
+			m[o.Op] = cell{o.BaseExclusiveNanos, o.TargetExclusiveNanos}
+		}
+		return m
+	}
+	stageWant := map[string]map[string]cell{
+		stageUnstarted: {unmatchedOp: {0, 5}},
+		"pre":          {"expand": {20, 20}},
+		"attn":         {"attn": {60, 35}, "ffn": {100, 50}, "fused": {0, 70}},
+	}
+	for _, st := range c.Stages {
+		if got := cells(st.Ops); !maps.Equal(got, stageWant[st.Stage]) {
+			t.Errorf("stage %s ops = %v, want %v", st.Stage, got, stageWant[st.Stage])
+		}
+	}
+	entryWant := []map[string]cell{
+		{unmatchedOp: {0, 5}},
+		{"expand": {10, 10}},
+		{"attn": {30, 35}, "ffn": {50, 50}},
+		{"expand": {10, 10}},
+		{"attn": {30, 0}, "ffn": {50, 0}, "fused": {0, 70}},
+	}
+	if len(c.StageEntries) != len(entryWant) {
+		t.Fatalf("got %d entries, want %d", len(c.StageEntries), len(entryWant))
+	}
+	for i, e := range c.StageEntries {
+		if got := cells(e.Ops); !maps.Equal(got, entryWant[i]) {
+			t.Errorf("%s entry %d ops = %v, want %v", e.Stage, e.Entry, got, entryWant[i])
+		}
+	}
+
+	// The margins, summed here independently of checkCells.
+	for _, rows := range [][]cellRow{
+		func() (rs []cellRow) {
+			for _, st := range c.Stages {
+				rs = append(rs, cellRow{st.Stage, st.BaseExclusiveNanos, st.TargetExclusiveNanos, st.Ops})
+			}
+			return rs
+		}(),
+		func() (rs []cellRow) {
+			for _, e := range c.StageEntries {
+				rs = append(rs, cellRow{e.Stage, e.BaseExclusiveNanos, e.TargetExclusiveNanos, e.Ops})
+			}
+			return rs
+		}(),
+	} {
+		byOp := make(map[string]cell)
+		for _, r := range rows {
+			var sum cell
+			for _, o := range r.ops {
+				sum.base += o.BaseExclusiveNanos
+				sum.target += o.TargetExclusiveNanos
+				s := byOp[o.Op]
+				byOp[o.Op] = cell{s.base + o.BaseExclusiveNanos, s.target + o.TargetExclusiveNanos}
+			}
+			if sum != (cell{r.base, r.target}) {
+				t.Errorf("row %s: cells sum to %v, row is %d, %d", r.name, sum, r.base, r.target)
+			}
+		}
+		if want := cells(c.Ops); !maps.Equal(byOp, want) {
+			t.Errorf("cells by op = %v, op rows %v", byOp, want)
+		}
+	}
+
+	tests := []struct {
+		name    string
+		corrupt func(*Comparison)
+	}{
+		{"stage cell", func(c *Comparison) { c.Stages[2].Ops[0].TargetExclusiveNanos++ }},
+		{"stage cell dropped", func(c *Comparison) { c.Stages[2].Ops = c.Stages[2].Ops[1:] }},
+		{"entry cell", func(c *Comparison) { c.StageEntries[4].Ops[0].BaseExclusiveNanos-- }},
+		{"moved between ops", func(c *Comparison) {
+			// The row still sums; the op margins do not.
+			ops := c.Stages[2].Ops
+			ops[0].TargetExclusiveNanos += 5
+			ops[1].TargetExclusiveNanos -= 5
+		}},
+		{"moved between entries", func(c *Comparison) {
+			// attn still sums over the entries; the rows do not.
+			attn := func(ops []CompareOp) *CompareOp {
+				return &ops[slices.IndexFunc(ops, func(o CompareOp) bool { return o.Op == "attn" })]
+			}
+			attn(c.StageEntries[2].Ops).BaseExclusiveNanos += 5
+			attn(c.StageEntries[4].Ops).BaseExclusiveNanos -= 5
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := build(t)
+			tt.corrupt(c)
+			if err := checkIdentity(c); err == nil {
+				t.Errorf("identity held after corrupting %s", tt.name)
+			}
+		})
+	}
+}
+
 func TestCompareWarmupDropsPrologue(t *testing.T) {
 	// A prologue -- two weight loads and a copy -- then the anchor kernel
 	// and the work, inside one phase [1000, 10000).
