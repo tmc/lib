@@ -12,6 +12,18 @@
 // must agree exactly, and a float path needs a tolerance this package does not
 // supply.
 //
+// [LaunchExecutor], [GraphExecutor] and [MegaExecutor] are the arms. The mega
+// arm runs each chain of admissible steps as one launch of a [cudamega]
+// persistent worker, and records [cudaplan.BackendMega] for a step only from
+// the worker's own account of the run: a zero abort word and a start-order
+// buffer showing that exactly the CTAs the program dealt the task took it.
+//
+// [Account] partitions a region's device span, from CUPTI kernel records
+// ([KernelsFromActivity]), into time when only chain kernels ran, only other
+// kernels ran, both ran, or none did. A region with no kernels has a span of
+// zero, not the time it was observed, and [SpanAccount.Fractions] refuses to
+// divide by it.
+//
 // A run needs a device, a stream, and one [Modules] to own the loaded kernel
 // modules:
 //
