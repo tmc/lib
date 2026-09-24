@@ -1,9 +1,13 @@
 package main
 
-// Option scorer and action head. Both run on the host: together they are a few
-// hundred kFLOP per question, far below the cost of moving the work to the GPU.
+// Option scorer and action head. Both run on the host: together they are
+// about ten MFLOP per question, spread across the host's cores.
 
-import "math"
+import (
+	"math"
+	"runtime"
+	"sync"
+)
 
 // score turns the gathered output rows for one question into per-option logits
 // and the action probability. rows holds the K option-marker states followed by
@@ -112,21 +116,39 @@ func layerNorm(out, x, w, b []float32, rows, d int, eps float32) {
 
 // linear computes C[M,N] = A[M,K] * W[N,K]^T + bias[N], with W in the [out, in]
 // layout safetensors stores.
+//
+// Each output is one dot product summed in a fixed order, the order laya.c
+// uses, so splitting the outputs across goroutines changes when they are
+// computed and nothing else. The scorer's d by d product is the only one
+// large enough to be worth it: at d=1024 and twenty option rows it is
+// about 10 ms on one core.
 func linear(c, a, w, bias []float32, M, K, N int) {
-	for i := range M {
-		row := a[i*K : (i+1)*K]
-		for j := range N {
-			wr := w[j*K : (j+1)*K]
-			var s float32
-			for u, v := range row {
-				s += v * wr[u]
+	dot := func(lo, hi int) {
+		for i := range M {
+			row := a[i*K : (i+1)*K]
+			for j := lo; j < hi; j++ {
+				wr := w[j*K : (j+1)*K]
+				var s float32
+				for u, v := range row {
+					s += v * wr[u]
+				}
+				if bias != nil {
+					s += bias[j]
+				}
+				c[i*N+j] = s
 			}
-			if bias != nil {
-				s += bias[j]
-			}
-			c[i*N+j] = s
 		}
 	}
+	n := min(runtime.GOMAXPROCS(0), M*N*K>>18, N)
+	if n <= 1 {
+		dot(0, N)
+		return
+	}
+	var wg sync.WaitGroup
+	for p := range n {
+		wg.Go(func() { dot(p*N/n, (p+1)*N/n) })
+	}
+	wg.Wait()
 }
 
 func gelu(x float32) float32 {
