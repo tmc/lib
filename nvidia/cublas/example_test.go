@@ -16,8 +16,7 @@ func Example() {
 	}
 	defer h.Destroy()
 
-	// LibraryPropertyType 0 is MAJOR_VERSION (library_types.h).
-	major, err := cublas.GetProperty(cublas.LibraryPropertyType(0))
+	major, err := cublas.GetProperty(cublas.MajorVersion)
 	if err != nil {
 		fmt.Println("property:", err)
 		return

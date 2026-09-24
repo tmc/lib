@@ -9,7 +9,7 @@ import (
 )
 
 // Example initializes the driver, takes a context on the first device, and
-// round-trips a slice through device memory. It returns early when no CUDA
+// round-trips a slice through device memory. It returns early when the CUDA
 // driver is unavailable. Successful execution also requires a CUDA device.
 func Example() {
 	// A CUDA context is current on an OS thread, not on a goroutine.

@@ -118,7 +118,7 @@ func TestMatmul(t *testing.T) {
 		}
 	}()
 	var major int32
-	if err := cublaslt.GetProperty(cublaslt.LibraryPropertyType(0), &major); err == nil {
+	if err := cublaslt.GetProperty(cublaslt.MajorVersion, &major); err == nil {
 		t.Logf("cuBLASLt major version %d", major)
 	}
 
