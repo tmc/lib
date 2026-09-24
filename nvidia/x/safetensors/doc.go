@@ -6,7 +6,8 @@
 // [WriteFile] produce files that safetensors.torch.load_file accepts, and
 // [Open] and [NewFile] read them back without converting or copying tensor
 // bytes, so a frozen F16 weight can be copied from one file to another
-// byte for byte.
+// byte for byte. [OpenSharded] opens a checkpoint split across several files
+// by a model.safetensors.index.json weight map.
 //
 // The package does not touch the GPU. [EncodeFloat32] and the Float16 and
 // BFloat16 conversions turn float32 host data into F16 or BF16 bytes with

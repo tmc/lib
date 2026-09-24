@@ -358,6 +358,15 @@ func (f *File) checkLayout(dataSize int64) error {
 	return nil
 }
 
+// Info describes the named tensor without reading its data.
+func (f *File) Info(name string) (TensorInfo, bool) {
+	i, ok := f.index[name]
+	if !ok {
+		return TensorInfo{}, false
+	}
+	return f.Tensors[i], true
+}
+
 // Tensor reads the named tensor. Its Data holds the file's bytes unchanged.
 func (f *File) Tensor(name string) (Tensor, error) {
 	i, ok := f.index[name]
