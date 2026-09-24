@@ -47,22 +47,7 @@ func (m *model) Predict(request []byte) ([]byte, error) {
 				r.ids[i], strings.Join(parts, " "), r.ids[i], actProb)
 		}
 
-		// Calibration: temperature per (type, option count), then softmax and
-		// an entropy-based confidence.
-		ts := max(c.tempFor(q.typ, k), 1e-3)
-		scaled := make([]float32, k)
-		for j, v := range logits {
-			scaled[j] = float32(float64(v) / ts)
-		}
-		p := softmax64(scaled)
-		conf := 1.0
-		if k >= 2 {
-			var ent float64
-			for _, v := range p {
-				ent -= v * math.Log(max(v, 1e-12))
-			}
-			conf = min(max(1.0-ent/math.Log(float64(k)), 0), 1)
-		}
+		p, conf := c.calibrate(q.typ, logits)
 
 		if i > 0 {
 			out.WriteString(", ")
@@ -91,12 +76,8 @@ func (m *model) Predict(request []byte) ([]byte, error) {
 			out.WriteString(`}, "confidence": `)
 			out.WriteString(putNum(conf))
 		case 1:
-			var es float64
-			for j, v := range p {
-				es += float64(j) * v
-			}
 			out.WriteString(`"score": `)
-			out.WriteString(putNum(es))
+			out.WriteString(putNum(expectedScore(p)))
 			out.WriteString(`, "legend": {`)
 			for j := range k {
 				if j > 0 {
@@ -119,7 +100,7 @@ func (m *model) Predict(request []byte) ([]byte, error) {
 			out.WriteString(`"noul": `)
 			out.WriteString(putNum(p[1]))
 			out.WriteString(`, "confidence": `)
-			out.WriteString(putNum(max(p[1], 1.0-p[1])))
+			out.WriteString(putNum(conf))
 		}
 		out.WriteString(`, "action": {"act_probability": `)
 		out.WriteString(putNum(float64(actProb)))
@@ -178,4 +159,39 @@ func joinInts(v []int32) string {
 		fmt.Fprintf(&b, " %d", x)
 	}
 	return b.String()
+}
+
+// calibrate turns one question's logits into the probabilities and the
+// confidence its answer reports: a temperature per (type, option count), then
+// a softmax, then one minus the normalized entropy, except that a noul
+// question's confidence is the probability of the side it comes down on.
+func (c *config) calibrate(typ int, logits []float32) (p []float64, conf float64) {
+	k := len(logits)
+	ts := max(c.tempFor(typ, k), 1e-3)
+	scaled := make([]float32, k)
+	for j, v := range logits {
+		scaled[j] = float32(float64(v) / ts)
+	}
+	p = softmax64(scaled)
+	if typ != 0 && typ != 1 {
+		return p, max(p[1], 1.0-p[1])
+	}
+	conf = 1.0
+	if k >= 2 {
+		var ent float64
+		for _, v := range p {
+			ent -= v * math.Log(max(v, 1e-12))
+		}
+		conf = min(max(1.0-ent/math.Log(float64(k)), 0), 1)
+	}
+	return p, conf
+}
+
+// expectedScore is a score question's answer: the expected option index.
+func expectedScore(p []float64) float64 {
+	var es float64
+	for j, v := range p {
+		es += float64(j) * v
+	}
+	return es
 }

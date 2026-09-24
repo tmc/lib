@@ -9,7 +9,8 @@ package main
 // choice that agrees proves nothing on its own: these questions are decided by
 // wide margins, and no rounding of a GEMM operand moves an argmax that is not
 // close. So the margin is reported alongside every verdict, and the threshold
-// is on the probabilities.
+// is on the numbers a reply reports: the calibrated probabilities, the
+// confidence and a score question's score.
 
 import (
 	"math"
@@ -18,11 +19,13 @@ import (
 )
 
 // scored is what one precision produced for one request: the rendered reply,
-// which is the decision as a caller sees it, and the per-question option
-// probabilities behind it at full width.
+// which is the decision as a caller sees it, and the numbers in it at full
+// width, per question.
 type scored struct {
 	reply string
 	probs [][]float64
+	conf  []float64
+	score []float64 // the expected index; reported only for score questions
 }
 
 // runPrecision loads the model at prec, answers testdata/bench.json, and
@@ -58,22 +61,26 @@ func runPrecision(t *testing.T, prec precision) scored {
 	if err != nil {
 		t.Fatal(err)
 	}
-	probs := make([][]float64, len(r.questions))
+	sc := scored{reply: string(reply)}
 	for i, q := range r.questions {
 		logits, _ := m.score(rows[i], len(q.opts))
-		probs[i] = softmax64(logits)
+		p, conf := m.cfg.calibrate(q.typ, logits)
+		sc.probs = append(sc.probs, p)
+		sc.conf = append(sc.conf, conf)
+		sc.score = append(sc.score, expectedScore(p))
 	}
-	return scored{reply: string(reply), probs: probs}
+	return sc
 }
 
-// compare reports how far want and got drifted apart, and fails if any option
-// probability moved by more than tol or if a choice flipped.
+// compare reports how far want and got drifted apart, and fails if any
+// probability, confidence or score moved by more than tol or if a choice
+// flipped.
 func compare(t *testing.T, name string, want, got scored, tol float64) {
 	t.Helper()
 	if len(want.probs) != len(got.probs) {
 		t.Fatalf("%s: %d questions, want %d", name, len(got.probs), len(want.probs))
 	}
-	var worst, tightest float64 = 0, 1
+	var dp, dc, ds, tightest float64 = 0, 0, 0, 1
 	for i := range want.probs {
 		w, g := want.probs[i], got.probs[i]
 		if len(w) != len(g) {
@@ -81,7 +88,7 @@ func compare(t *testing.T, name string, want, got scored, tol float64) {
 		}
 		top, second, am, gm := 0.0, 0.0, 0, 0
 		for j := range w {
-			worst = math.Max(worst, math.Abs(float64(w[j]-g[j])))
+			dp = math.Max(dp, math.Abs(w[j]-g[j]))
 			if w[j] > top {
 				top, second, am = w[j], top, j
 			} else if w[j] > second {
@@ -92,18 +99,21 @@ func compare(t *testing.T, name string, want, got scored, tol float64) {
 			}
 		}
 		tightest = math.Min(tightest, top-second)
+		dc = math.Max(dc, math.Abs(want.conf[i]-got.conf[i]))
+		ds = math.Max(ds, math.Abs(want.score[i]-got.score[i]))
 		if am != gm {
 			t.Errorf("%s: question %d chose option %d, want %d", name, i, gm, am)
 		}
 	}
-	t.Logf("%s: largest probability shift %.2e, tightest top-1 margin %.3f, reply %s",
-		name, worst, tightest, sameOrNot(want.reply == got.reply))
+	t.Logf("%s: largest shift in a probability %.2e, a confidence %.2e, a score %.2e; "+
+		"tightest top-1 margin %.3f; reply %s",
+		name, dp, dc, ds, tightest, sameOrNot(want.reply == got.reply))
 	if tightest > 0.5 {
 		t.Logf("%s: every question is decided by a margin wider than 0.5, so the "+
 			"agreeing choices above are not evidence -- the probability shift is", name)
 	}
-	if worst > tol {
-		t.Errorf("%s: largest probability shift %.2e exceeds %.2e", name, worst, tol)
+	if worst := max(dp, dc, ds); worst > tol {
+		t.Errorf("%s: largest shift %.2e exceeds %.2e", name, worst, tol)
 	}
 }
 
@@ -117,7 +127,11 @@ func sameOrNot(same bool) string {
 // TestPrecisionFastAgreesWithExact measures the drift the default path
 // carries, so that a later change to the compute type has a recorded figure to
 // be judged against rather than an absolute threshold pulled from nowhere.
+//
+// The bound is 2e-3. A probability moves by well under 1e-3; a score weights
+// the probabilities by up to k-1, and a confidence is an entropy of them, so
+// those move further.
 func TestPrecisionFastAgreesWithExact(t *testing.T) {
 	want := runPrecision(t, exact)
-	compare(t, "fast vs exact", want, runPrecision(t, fast), 1e-3)
+	compare(t, "fast vs exact", want, runPrecision(t, fast), 2e-3)
 }
