@@ -240,8 +240,8 @@ const (
 	ContractionOptimizerInfoPath                 ContractionOptimizerInfoAttributes = 0  // [ContractionPath]: Pointer to the contraction path.
 	ContractionOptimizerInfoNumSlices            ContractionOptimizerInfoAttributes = 10 // int64_t: Total number of slices.
 	ContractionOptimizerInfoNumSlicedModes       ContractionOptimizerInfoAttributes = 11 // int32_t: Total number of sliced modes. (get-only)
-	ContractionOptimizerInfoSlicedMode           ContractionOptimizerInfoAttributes = 12 // int32_t* slicedModes: slicedModes [i] with i < numSlicedModes refers to the mode label of the i-th sliced mode (see modesIn w.r.t. cutensornetCreateNetworkDescriptor()). (get-only)
-	ContractionOptimizerInfoSlicedExtent         ContractionOptimizerInfoAttributes = 13 // int64_t* slicedExtents: slicedExtents [i] with i < numSlicedModes refers to the sliced extent of the i-th sliced mode (see extentsIn w.r.t. cutensornetCreateNetworkDescriptor()). (get-only)
+	ContractionOptimizerInfoSlicedMode           ContractionOptimizerInfoAttributes = 12 // int32_t* slicedModes: slicedModes [i] with i < numSlicedModes refers to the mode label of the i-th sliced mode (see modesIn w.r.t. [Handle.CreateNetworkDescriptor]). (get-only)
+	ContractionOptimizerInfoSlicedExtent         ContractionOptimizerInfoAttributes = 13 // int64_t* slicedExtents: slicedExtents [i] with i < numSlicedModes refers to the sliced extent of the i-th sliced mode (see extentsIn w.r.t. [Handle.CreateNetworkDescriptor]). (get-only)
 	ContractionOptimizerInfoSlicingConfig        ContractionOptimizerInfoAttributes = 14 // [SlicingConfig]*: Pointer to the slice configuration settings (number of slices, sliced modes, and sliced extents) used with the given path.
 	ContractionOptimizerInfoSlicingOverhead      ContractionOptimizerInfoAttributes = 15 // double: Overhead due to slicing.
 	ContractionOptimizerInfoPhase1FlopCount      ContractionOptimizerInfoAttributes = 20 // double: FLOP count for the given network after phase 1 of pathfinding (i.e., before slicing and reconfig).
@@ -250,7 +250,7 @@ const (
 	ContractionOptimizerInfoRuntimeEst           ContractionOptimizerInfoAttributes = 23 // double: Experimental. Returns the runtime estimation in [s] based on the time cost function objective for one pass for all slices.
 	ContractionOptimizerInfoLargestTensor        ContractionOptimizerInfoAttributes = 24 // double: The number of elements in the largest intermediate tensor.
 	ContractionOptimizerInfoIntermediateModes    ContractionOptimizerInfoAttributes = 30 // int32_t* intermediateModes: The modes in \f$[\text intermediateModes [\sum_ n=0 ^ i-1 \text numIntermediateModes [n]], \text intermediateModes [\sum_ n=0 ^ i \text numIntermediateModes [n]])\f$ are the modes for the intermediate tensor i (so the total bytes to store intermediateModes is \f$\text sizeof (\text int32_t )*\left(\sum_n \text numIntermediateModes [n]\right)\f$).
-	ContractionOptimizerInfoNumIntermediateModes ContractionOptimizerInfoAttributes = 31 // int32_t* numIntermediateModes: numIntermediateModes [i] with i < numInputs - 1 is the number of modes for the intermediate tensor i (see numInputs w.r.t. cutensornetCreateNetworkDescriptor()).
+	ContractionOptimizerInfoNumIntermediateModes ContractionOptimizerInfoAttributes = 31 // int32_t* numIntermediateModes: numIntermediateModes [i] with i < numInputs - 1 is the number of modes for the intermediate tensor i (see numInputs w.r.t. [Handle.CreateNetworkDescriptor]).
 )
 
 // String returns the constant name, or a numeric representation for unknown values.

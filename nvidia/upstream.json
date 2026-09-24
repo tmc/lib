@@ -2200,7 +2200,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "ba2f967b9ea360c503c4f6b4dd91089627fa8df4d9fb4e0ec9612548d092143d"
+          "sha256": "bb719a96c6271a2a89b98810af102ffd30541abd71a10a086d3338bf35a62453"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -2260,11 +2260,11 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "e5c8467543f3090a1a6628a70cc2a770c663f1f86f3ff397825b4e891772ea2c"
+          "sha256": "ea32afa2f597db8952214221572d7d266d0b7726d0fa3dc6ad2bb814c49f841d"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "830b113eec885a800498a91fb1db014fbaf4c94c3d74c0fbabb4056466350a5d"
+          "sha256": "a3498ead26747a2578b6ee7e007d93d2e3a6712f66aecf11d7fc63cc525e4b22"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -2344,10 +2344,10 @@
       "package": "github.com/tmc/lib/nvidia/cufile",
       "repositories": {
         "codegen": {
-          "commit": "3a9825842fa30e03a5d999c5a0065aa1f4c13737",
-          "tree": "defed6d739e9e258e850e0b2b8ac7ceafdbad948",
+          "commit": "8d0f6db3ea5db0aefee23d2b214d0da7d0c02407",
+          "tree": "e67f3f61cfba77204c4718a608fe87ecee54919b",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged."
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -3084,7 +3084,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "ba2f967b9ea360c503c4f6b4dd91089627fa8df4d9fb4e0ec9612548d092143d"
+          "sha256": "bb719a96c6271a2a89b98810af102ffd30541abd71a10a086d3338bf35a62453"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -3144,11 +3144,11 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "e5c8467543f3090a1a6628a70cc2a770c663f1f86f3ff397825b4e891772ea2c"
+          "sha256": "ea32afa2f597db8952214221572d7d266d0b7726d0fa3dc6ad2bb814c49f841d"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "830b113eec885a800498a91fb1db014fbaf4c94c3d74c0fbabb4056466350a5d"
+          "sha256": "a3498ead26747a2578b6ee7e007d93d2e3a6712f66aecf11d7fc63cc525e4b22"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -3303,10 +3303,10 @@
       "package": "github.com/tmc/lib/nvidia/curand",
       "repositories": {
         "codegen": {
-          "commit": "3a9825842fa30e03a5d999c5a0065aa1f4c13737",
-          "tree": "defed6d739e9e258e850e0b2b8ac7ceafdbad948",
+          "commit": "8d0f6db3ea5db0aefee23d2b214d0da7d0c02407",
+          "tree": "e67f3f61cfba77204c4718a608fe87ecee54919b",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged."
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -4293,7 +4293,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "ba2f967b9ea360c503c4f6b4dd91089627fa8df4d9fb4e0ec9612548d092143d"
+          "sha256": "bb719a96c6271a2a89b98810af102ffd30541abd71a10a086d3338bf35a62453"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -4353,11 +4353,11 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "e5c8467543f3090a1a6628a70cc2a770c663f1f86f3ff397825b4e891772ea2c"
+          "sha256": "ea32afa2f597db8952214221572d7d266d0b7726d0fa3dc6ad2bb814c49f841d"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "830b113eec885a800498a91fb1db014fbaf4c94c3d74c0fbabb4056466350a5d"
+          "sha256": "a3498ead26747a2578b6ee7e007d93d2e3a6712f66aecf11d7fc63cc525e4b22"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -4492,10 +4492,10 @@
       "package": "github.com/tmc/lib/nvidia/cusparse",
       "repositories": {
         "codegen": {
-          "commit": "3a9825842fa30e03a5d999c5a0065aa1f4c13737",
-          "tree": "defed6d739e9e258e850e0b2b8ac7ceafdbad948",
+          "commit": "8d0f6db3ea5db0aefee23d2b214d0da7d0c02407",
+          "tree": "e67f3f61cfba77204c4718a608fe87ecee54919b",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged."
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -4809,7 +4809,7 @@
           },
           {
             "path": "nvidia/cutensornet/enums.gen.go",
-            "sha256": "3305151a5f946cc5a3bf103f47141a7e7647d386294c5e772ca34f5039d8d021"
+            "sha256": "3f818c40e6fd2975e1eacd8cb346e7c476c15774593f29e10002d80dff19a310"
           },
           {
             "path": "nvidia/cutensornet/funcs.gen.go",
@@ -4922,10 +4922,10 @@
       "package": "github.com/tmc/lib/nvidia/cutensornet",
       "repositories": {
         "codegen": {
-          "commit": "2e7a6f0b2b4d84eb70fc4e027bb85f357b884217",
-          "tree": "5ef464b13902a90ee1a5e5dbb866c3f6e9c6dcfc",
+          "commit": "8d0f6db3ea5db0aefee23d2b214d0da7d0c02407",
+          "tree": "e67f3f61cfba77204c4718a608fe87ecee54919b",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8d0f6db: doc prose naming a deprecated function now links it."
         },
         "headers": {
           "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
@@ -6800,7 +6800,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "ba2f967b9ea360c503c4f6b4dd91089627fa8df4d9fb4e0ec9612548d092143d"
+          "sha256": "bb719a96c6271a2a89b98810af102ffd30541abd71a10a086d3338bf35a62453"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -6860,11 +6860,11 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "e5c8467543f3090a1a6628a70cc2a770c663f1f86f3ff397825b4e891772ea2c"
+          "sha256": "ea32afa2f597db8952214221572d7d266d0b7726d0fa3dc6ad2bb814c49f841d"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "830b113eec885a800498a91fb1db014fbaf4c94c3d74c0fbabb4056466350a5d"
+          "sha256": "a3498ead26747a2578b6ee7e007d93d2e3a6712f66aecf11d7fc63cc525e4b22"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -6918,10 +6918,10 @@
       "package": "github.com/tmc/lib/nvidia/ncclep",
       "repositories": {
         "codegen": {
-          "commit": "3a9825842fa30e03a5d999c5a0065aa1f4c13737",
-          "tree": "defed6d739e9e258e850e0b2b8ac7ceafdbad948",
+          "commit": "8d0f6db3ea5db0aefee23d2b214d0da7d0c02407",
+          "tree": "e67f3f61cfba77204c4718a608fe87ecee54919b",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Restamped at libgen 3a98258, which changed a generator source; output unchanged."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged."
         }
       },
       "status": "generation-reproduced"
@@ -7082,7 +7082,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "ba2f967b9ea360c503c4f6b4dd91089627fa8df4d9fb4e0ec9612548d092143d"
+          "sha256": "bb719a96c6271a2a89b98810af102ffd30541abd71a10a086d3338bf35a62453"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -7142,11 +7142,11 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "e5c8467543f3090a1a6628a70cc2a770c663f1f86f3ff397825b4e891772ea2c"
+          "sha256": "ea32afa2f597db8952214221572d7d266d0b7726d0fa3dc6ad2bb814c49f841d"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "830b113eec885a800498a91fb1db014fbaf4c94c3d74c0fbabb4056466350a5d"
+          "sha256": "a3498ead26747a2578b6ee7e007d93d2e3a6712f66aecf11d7fc63cc525e4b22"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -7195,10 +7195,10 @@
       "package": "github.com/tmc/lib/nvidia/ncclll",
       "repositories": {
         "codegen": {
-          "commit": "3a9825842fa30e03a5d999c5a0065aa1f4c13737",
-          "tree": "defed6d739e9e258e850e0b2b8ac7ceafdbad948",
+          "commit": "8d0f6db3ea5db0aefee23d2b214d0da7d0c02407",
+          "tree": "e67f3f61cfba77204c4718a608fe87ecee54919b",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged."
         }
       },
       "status": "generation-reproduced"
@@ -7361,7 +7361,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "ba2f967b9ea360c503c4f6b4dd91089627fa8df4d9fb4e0ec9612548d092143d"
+          "sha256": "bb719a96c6271a2a89b98810af102ffd30541abd71a10a086d3338bf35a62453"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -7421,11 +7421,11 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "e5c8467543f3090a1a6628a70cc2a770c663f1f86f3ff397825b4e891772ea2c"
+          "sha256": "ea32afa2f597db8952214221572d7d266d0b7726d0fa3dc6ad2bb814c49f841d"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "830b113eec885a800498a91fb1db014fbaf4c94c3d74c0fbabb4056466350a5d"
+          "sha256": "a3498ead26747a2578b6ee7e007d93d2e3a6712f66aecf11d7fc63cc525e4b22"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -7474,10 +7474,10 @@
       "package": "github.com/tmc/lib/nvidia/ncclm2n",
       "repositories": {
         "codegen": {
-          "commit": "3a9825842fa30e03a5d999c5a0065aa1f4c13737",
-          "tree": "defed6d739e9e258e850e0b2b8ac7ceafdbad948",
+          "commit": "8d0f6db3ea5db0aefee23d2b214d0da7d0c02407",
+          "tree": "e67f3f61cfba77204c4718a608fe87ecee54919b",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged."
         }
       },
       "status": "generation-reproduced"
@@ -8524,16 +8524,16 @@
           },
           {
             "path": "nvidia/nvml/device.gen.go",
-            "sha256": "360d986f78837d6243dae1c76a634762ca02ff268328aaf30df03ee32f7e9a2b"
+            "sha256": "de7efc868599ab09f3eadf19508ad6eae24313da16409d3763e4d119d1fd2957"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/nvml/doc.gen.go",
-            "sha256": "c91aad1b3e6a78d4b0070c971e9cd19d6b7807e7e2623b63169adc92ead07959"
+            "sha256": "75eb235fc0ae956150c93e699f8752fd6e1a769f31b92f0d5df45a63d2f96b37"
           },
           {
             "path": "nvidia/nvml/enums.gen.go",
-            "sha256": "2b31f97f44fdb57292f5fee0d4787ed5e86e9727162ed3dc595842f0509dc76a"
+            "sha256": "b59cecf5204190b153381a7ff2f005944801d86d77c091bd97f9e03fc482f3a3"
           },
           {
             "path": "nvidia/nvml/event_set.gen.go",
@@ -8542,7 +8542,7 @@
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/nvml/funcs.gen.go",
-            "sha256": "4e4366cf8465338e03697b830f9f87447b43755b10449c32b394361a0fdc5bdf"
+            "sha256": "9afec109a33eb2aad33ac28f811552d3403e436466bcc2921baf3a34c4a62196"
           },
           {
             "path": "nvidia/nvml/gpm_sample.gen.go",
@@ -8624,10 +8624,10 @@
       "package": "github.com/tmc/lib/nvidia/nvml",
       "repositories": {
         "codegen": {
-          "commit": "2e7a6f0b2b4d84eb70fc4e027bb85f357b884217",
-          "tree": "5ef464b13902a90ee1a5e5dbb866c3f6e9c6dcfc",
+          "commit": "8d0f6db3ea5db0aefee23d2b214d0da7d0c02407",
+          "tree": "e67f3f61cfba77204c4718a608fe87ecee54919b",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters."
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8d0f6db: doc prose naming a deprecated function now links it."
         },
         "headers": {
           "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",

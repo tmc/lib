@@ -751,7 +751,7 @@ func deviceGetAttributes(device Device, attributes *DeviceAttributes) error {
 //
 // For Kepler or newer fully supported devices.
 // Auto Boosted clocks are enabled by default on some hardware, allowing the GPU to run at higher clock rates to maximize performance as thermal limits allow.
-// On Pascal and newer hardware, Auto Aoosted clocks are controlled through application clocks. Use nvmlDeviceSetApplicationsClocks and nvmlDeviceResetApplicationsClocks to control Auto Boost behavior.
+// On Pascal and newer hardware, Auto Aoosted clocks are controlled through application clocks. Use [Device.SetApplicationsClocks] and [Device.ResetApplicationsClocks] to control Auto Boost behavior.
 //
 //   - device: The identifier of the target device
 //   - isEnabled: Where to store the current state of Auto Boosted clocks of the target device
@@ -1819,7 +1819,7 @@ func deviceGetGpuFabricInfo(device Device, gpuFabricInfo *GpuFabricInfo) error {
 	return toError(fndeviceGetGpuFabricInfo(device, gpuFabricInfo))
 }
 
-// deviceGetGpuFabricInfoV Versioned wrapper around nvmlDeviceGetGpuFabricInfo that accepts a versioned [GpuFabricInfoV2] or later output structure.
+// deviceGetGpuFabricInfoV Versioned wrapper around [Device.GpuFabricInfo] that accepts a versioned [GpuFabricInfoV2] or later output structure.
 //
 // Note:
 // The caller must set the [GpuFabricInfoV].version field to the appropriate version prior to calling this function. For example:
@@ -3043,7 +3043,7 @@ func deviceGetNvLinkUtilizationControl(device Device, link uint32, counter uint3
 //   - rxcounter: Receive counter return value
 //   - txcounter: Transmit counter return value
 //
-// Deprecated: Use [Device.FieldValues] with NVML_FI_DEV_NVLINK_THROUGHPUT_* as field values instead. Retrieve the NVLINK utilization counter based on the current control for a specified counter. In general it is good practice to use nvmlDeviceSetNvLinkUtilizationControl before reading the utilization counters as they have no default state For Pascal &tm; or newer fully supported devices.
+// Deprecated: Use [Device.FieldValues] with NVML_FI_DEV_NVLINK_THROUGHPUT_* as field values instead. Retrieve the NVLINK utilization counter based on the current control for a specified counter. In general it is good practice to use [Device.SetNvLinkUtilizationControl] before reading the utilization counters as they have no default state For Pascal &tm; or newer fully supported devices.
 //
 // Wraps nvmlDeviceGetNvLinkUtilizationCounter.
 func deviceGetNvLinkUtilizationCounter(device Device, link uint32, counter uint32, rxcounter *uint64, txcounter *uint64) error {
@@ -3408,7 +3408,7 @@ func deviceGetPowerManagementDefaultLimit(device Device) (uint32, error) {
 //
 // For Fermi or newer fully supported devices.
 // The power limit defines the upper boundary for the card's power draw. If the card's total power draw reaches this limit the power management algorithm kicks in.
-// This reading is only available if power management mode is supported. See nvmlDeviceGetPowerManagementMode.
+// This reading is only available if power management mode is supported. See [Device.PowerManagementMode].
 //
 //   - device: The identifier of the target device
 //   - limit: Reference in which to return the power management limit in milliwatts
@@ -3534,7 +3534,7 @@ func deviceGetPowerState(device Device) (Pstates, error) {
 // For Fermi or newer fully supported devices.
 // On Fermi and Kepler GPUs the reading is accurate to within +/- 5% of current power draw. On Ampere (except GA100) or newer GPUs, the API returns power averaged over 1 sec interval. On GA100 and older architectures, instantaneous power is returned.
 // See NVML_FI_DEV_POWER_AVERAGE and NVML_FI_DEV_POWER_INSTANT to query specific power values.
-// It is only available if power management mode is supported. See nvmlDeviceGetPowerManagementMode.
+// It is only available if power management mode is supported. See [Device.PowerManagementMode].
 //
 //   - device: The identifier of the target device
 //   - power: Reference in which to return the power usage information
@@ -4516,7 +4516,7 @@ func deviceReadWritePRM(device Device, buffer *PRMTLVV1) error {
 
 // deviceRegisterEvents Starts recording of events on a specified devices and add the events to specified [EventSet]
 //
-// For Fermi or newer fully supported devices. ECC events are available only on ECC-enabled devices (see [Device.TotalEccErrors]) Power capping events are available only on Power Management enabled devices (see nvmlDeviceGetPowerManagementMode)
+// For Fermi or newer fully supported devices. ECC events are available only on ECC-enabled devices (see [Device.TotalEccErrors]) Power capping events are available only on Power Management enabled devices (see [Device.PowerManagementMode])
 // For Linux only.
 // This call starts recording of events on specific device. All events that occurred before this call are not recorded. Checking if some event occurred can be done with nvmlEventSetWait_v2
 // If function reports [ErrUnknown], event set is in undefined state and should be freed. If function reports [ErrNotSupported], event set can still be used. None of the requested eventTypes are registered in that case.
@@ -4683,7 +4683,7 @@ func deviceSetApplicationsClocks(device Device, memClockMHz uint32, graphicsCloc
 // For Kepler or newer fully supported devices.
 // Auto Boosted clocks are enabled by default on some hardware, allowing the GPU to run at higher clock rates to maximize performance as thermal limits allow. Auto Boosted clocks should be disabled if fixed clock rates are desired.
 // Non-root users may use this API by default but can be restricted by root from using this API by calling [Device.SetAPIRestriction] with apiType=[RestrictedApiSetAutoBoostedClocks]. Note: Persistence Mode is required to modify current Auto Boost settings, therefore, it must be enabled.
-// On Pascal and newer hardware, Auto Boosted clocks are controlled through application clocks. Use nvmlDeviceSetApplicationsClocks and nvmlDeviceResetApplicationsClocks to control Auto Boost behavior.
+// On Pascal and newer hardware, Auto Boosted clocks are controlled through application clocks. Use [Device.SetApplicationsClocks] and [Device.ResetApplicationsClocks] to control Auto Boost behavior.
 //
 //   - device: The identifier of the target device
 //   - enabled: What state to try to set Auto Boosted clocks of the target device to
@@ -4768,7 +4768,7 @@ func deviceSetCpuAffinity(device Device) error {
 //
 // For Kepler or newer non-GeForce fully supported devices and Maxwell or newer GeForce devices. Requires root/admin permissions.
 // Auto Boosted clocks are enabled by default on some hardware, allowing the GPU to run at higher clock rates to maximize performance as thermal limits allow. Auto Boosted clocks should be disabled if fixed clock rates are desired.
-// On Pascal and newer hardware, Auto Boosted clocks are controlled through application clocks. Use nvmlDeviceSetApplicationsClocks and nvmlDeviceResetApplicationsClocks to control Auto Boost behavior.
+// On Pascal and newer hardware, Auto Boosted clocks are controlled through application clocks. Use [Device.SetApplicationsClocks] and [Device.ResetApplicationsClocks] to control Auto Boost behavior.
 //
 //   - device: The identifier of the target device
 //   - enabled: What state to try to set default Auto Boosted clocks of the target device to

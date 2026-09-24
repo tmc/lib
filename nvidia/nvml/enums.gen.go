@@ -1109,7 +1109,7 @@ func (e PageRetirementCause) String() string {
 type RestrictedAPI int32
 
 const (
-	RestrictedApiSetApplicationClocks RestrictedAPI = 0 // APIs that change application clocks, see nvmlDeviceSetApplicationsClocks
+	RestrictedApiSetApplicationClocks RestrictedAPI = 0 // APIs that change application clocks, see [Device.SetApplicationsClocks]
 	RestrictedApiSetAutoBoostedClocks RestrictedAPI = 1 // APIs that enable/disable Auto Boosted clocks
 	RestrictedApiCount                RestrictedAPI = 2
 )

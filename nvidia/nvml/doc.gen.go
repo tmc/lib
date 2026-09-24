@@ -92,7 +92,7 @@
 //   - [Device.FieldValues]: Request values for a list of fields for a device.
 //   - [Device.GpcClkMinMaxVfOffset]: Retrieve the GPCCLK min max VF offset value.
 //   - [Device.GpcClkVfOffset]: Retrieve the GPCCLK VF offset value
-//   - [Device.GpuFabricInfoV]: Versioned wrapper around nvmlDeviceGetGpuFabricInfo that accepts a versioned [GpuFabricInfoV2] or later output structure.
+//   - [Device.GpuFabricInfoV]: Versioned wrapper around [Device.GpuFabricInfo] that accepts a versioned [GpuFabricInfoV2] or later output structure.
 //   - [Device.GpuInstanceById]: Get GPU instances for given instance ID.
 //   - [Device.GpuInstanceId]: Get GPU instance ID for the given MIG device handle.
 //   - [Device.GpuInstanceProfileInfo]: Get GPU instance profile information
