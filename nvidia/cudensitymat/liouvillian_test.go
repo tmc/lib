@@ -326,14 +326,14 @@ func (r *rig) alloc(n int) driver.DevicePtr {
 
 func (r *rig) writePtr(p driver.DevicePtr, v []complex128) {
 	r.t.Helper()
-	r.check(p.CopyFromHost(unsafe.Pointer(unsafe.SliceData(v)), uint(len(v))*elemSize))
+	r.check(p.CopyFromHostPtr(unsafe.Pointer(unsafe.SliceData(v)), uint(len(v))*elemSize))
 	runtime.KeepAlive(v)
 }
 
 func (r *rig) readPtr(p driver.DevicePtr, n int) []complex128 {
 	r.t.Helper()
 	v := make([]complex128, n)
-	r.check(p.CopyToHost(unsafe.Pointer(unsafe.SliceData(v)), uint(n)*elemSize))
+	r.check(p.CopyToHostPtr(unsafe.Pointer(unsafe.SliceData(v)), uint(n)*elemSize))
 	runtime.KeepAlive(v)
 	return v
 }

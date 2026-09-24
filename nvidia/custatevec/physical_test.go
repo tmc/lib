@@ -196,7 +196,7 @@ func TestBellStateOnDevice(t *testing.T) {
 
 	// Amplitudes, read back from the device and compared elementwise.
 	got := make([]custatevec.Complex128, nAmplitudes)
-	if err := sv.CopyToHost(unsafe.Pointer(&got[0]), nAmplitudes*uint(elemSize)); err != nil {
+	if err := sv.CopyToHostPtr(unsafe.Pointer(&got[0]), nAmplitudes*uint(elemSize)); err != nil {
 		t.Fatalf("cuMemcpyDtoH: %v", err)
 	}
 	const tol = 1e-12
@@ -295,7 +295,7 @@ func TestBellStateOnDevice(t *testing.T) {
 		t.Errorf("<Z_0> after collapsing to 0 = %v, want 1", expectation.Complex())
 	}
 
-	if err := sv.CopyToHost(unsafe.Pointer(&got[0]), nAmplitudes*uint(elemSize)); err != nil {
+	if err := sv.CopyToHostPtr(unsafe.Pointer(&got[0]), nAmplitudes*uint(elemSize)); err != nil {
 		t.Fatalf("cuMemcpyDtoH after collapse: %v", err)
 	}
 	collapsed := reference{1, 0, 0, 0}

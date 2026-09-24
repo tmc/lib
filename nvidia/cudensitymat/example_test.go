@@ -103,7 +103,7 @@ func Example() {
 		return
 	}
 	defer outBuf.Free()
-	if err := inBuf.CopyFromHost(unsafe.Pointer(unsafe.SliceData(rho)), size); err != nil {
+	if err := inBuf.CopyFromHostPtr(unsafe.Pointer(unsafe.SliceData(rho)), size); err != nil {
 		fmt.Println("copy state in:", err)
 		return
 	}
@@ -131,7 +131,7 @@ func Example() {
 		return
 	}
 	defer hBuf.Free()
-	if err := hBuf.CopyFromHost(unsafe.Pointer(unsafe.SliceData(sigmaY)), uint(len(sigmaY))*16); err != nil {
+	if err := hBuf.CopyFromHost(sigmaY); err != nil {
 		fmt.Println("copy operator:", err)
 		return
 	}
@@ -233,7 +233,7 @@ func Example() {
 		return
 	}
 	result := make([]complex128, len(rho))
-	if err := outBuf.CopyToHost(unsafe.Pointer(unsafe.SliceData(result)), size); err != nil {
+	if err := outBuf.CopyToHostPtr(unsafe.Pointer(unsafe.SliceData(result)), size); err != nil {
 		fmt.Println("copy result:", err)
 		return
 	}

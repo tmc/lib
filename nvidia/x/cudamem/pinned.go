@@ -70,9 +70,9 @@ func (s Slice[T]) copyPinnedAsync(host HostAllocation[T], stream *cuda.Stream, c
 			ptr := unsafe.Pointer(&host.slice[0])
 			n := uint(uintptr(count) * s.elemSize)
 			if fromHost {
-				err = s.ptr.CopyFromHostAsync(ptr, n, handle)
+				err = s.ptr.CopyFromHostAsyncPtr(ptr, n, handle)
 			} else {
-				err = s.ptr.CopyToHostAsync(ptr, n, handle)
+				err = s.ptr.CopyToHostAsyncPtr(ptr, n, handle)
 			}
 			if err != nil {
 				return fmt.Errorf("enqueue: %w", err)

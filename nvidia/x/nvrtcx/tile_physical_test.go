@@ -55,7 +55,7 @@ extern "C" __tile_global__ void fill(int* out) {
 		if err := driver.CtxSynchronize(); err != nil {
 			return err
 		}
-		return p.CopyToHost(unsafe.Pointer(&got[0]), 256)
+		return p.CopyToHostPtr(unsafe.Pointer(&got[0]), 256)
 	}))
 	for i, v := range got {
 		if v != int32(i+7) {

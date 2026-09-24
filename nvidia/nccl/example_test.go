@@ -78,7 +78,7 @@ func Example_allReduce() {
 		return
 	}
 	defer p.Free()
-	if err := p.CopyFromHost(unsafe.Pointer(&values[0]), size); err != nil {
+	if err := p.CopyFromHost(values); err != nil {
 		fmt.Println("copy in:", err)
 		return
 	}
@@ -87,7 +87,7 @@ func Example_allReduce() {
 		fmt.Println("all-reduce:", err)
 		return
 	}
-	if err := p.CopyToHost(unsafe.Pointer(&values[0]), size); err != nil {
+	if err := p.CopyToHost(values); err != nil {
 		fmt.Println("copy out:", err)
 		return
 	}

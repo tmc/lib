@@ -46,12 +46,12 @@ func Example() {
 	}
 	defer dptr.Free()
 
-	if err := dptr.CopyFromHost(unsafe.Pointer(&host[0]), size); err != nil {
+	if err := dptr.CopyFromHost(host); err != nil {
 		fmt.Println("copy in:", err)
 		return
 	}
 	back := make([]float32, len(host))
-	if err := dptr.CopyToHost(unsafe.Pointer(&back[0]), size); err != nil {
+	if err := dptr.CopyToHost(back); err != nil {
 		fmt.Println("copy out:", err)
 		return
 	}

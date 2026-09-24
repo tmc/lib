@@ -110,7 +110,7 @@ extern "C" __global__ void apply(float* out) { out[0] = twice(3); }`,
 		check(kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 		check(owner.Close())
 		var got float32
-		check(dev.WithContext(func() error { return p.CopyToHost(unsafe.Pointer(&got), 4) }))
+		check(dev.WithContext(func() error { return p.CopyToHostPtr(unsafe.Pointer(&got), 4) }))
 		if got != 6 {
 			t.Fatalf("linked kernel output=%g want6", got)
 		}

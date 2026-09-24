@@ -81,7 +81,7 @@ func TestPhysicalLoweredName(t *testing.T) {
 	check(fn.LaunchKernel(1, 1, 1, 64, 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	check(driver.CtxSynchronize())
 	var got [64]int32
-	check(p.CopyToHost(unsafe.Pointer(&got[0]), 256))
+	check(p.CopyToHostPtr(unsafe.Pointer(&got[0]), 256))
 	for i, v := range got {
 		if v != int32(i+7) {
 			t.Fatalf("output %d=%d", i, v)

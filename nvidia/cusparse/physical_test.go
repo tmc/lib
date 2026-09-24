@@ -46,7 +46,7 @@ func TestSpMVNumerical(t *testing.T) {
 		check(err)
 		allocations = append(allocations, p)
 		if src != nil {
-			check(p.CopyFromHost(src, n))
+			check(p.CopyFromHostPtr(src, n))
 		}
 		return uintptr(p)
 	}
@@ -86,7 +86,7 @@ func TestSpMVNumerical(t *testing.T) {
 	work := alloc(size, nil)
 	check(h.SpMV(cusparse.OperationNonTranspose, ap, cusparse.ConstSpMatDescr(a), cusparse.ConstDnVecDescr(vx), bp, vy, cusparse.R32F, cusparse.SpmvAlgDefault, work))
 	check(driver.CtxSynchronize())
-	check(driver.DevicePtr(dy).CopyToHost(unsafe.Pointer(&y[0]), 12))
+	check(driver.DevicePtr(dy).CopyToHostPtr(unsafe.Pointer(&y[0]), 12))
 	for i, want := range []float32{-9, 4, 29} {
 		if math.IsNaN(float64(y[i])) || math.Abs(float64(y[i]-want)) > 1e-5 {
 			t.Fatalf("y[%d]=%g want %g", i, y[i], want)

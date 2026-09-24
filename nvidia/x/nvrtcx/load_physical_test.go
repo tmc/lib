@@ -113,7 +113,7 @@ func TestOwnedCompilerModule(t *testing.T) {
 	// Close must finish the queued kernel before unloading it.
 	check(owner.Close())
 	var got [64]int32
-	check(dev.WithContext(func() error { return p.CopyToHost(unsafe.Pointer(&got[0]), 64*4) }))
+	check(dev.WithContext(func() error { return p.CopyToHostPtr(unsafe.Pointer(&got[0]), 64*4) }))
 	for i, v := range got {
 		if v != int32(i+9) {
 			t.Fatalf("output[%d]=%d", i, v)
@@ -205,7 +205,7 @@ func TestOwnedModuleConcurrentClose(t *testing.T) {
 		t.Fatal(r.err)
 	}
 	var got int32
-	check(dev.WithContext(func() error { return p.CopyToHost(unsafe.Pointer(&got), 4) }))
+	check(dev.WithContext(func() error { return p.CopyToHostPtr(unsafe.Pointer(&got), 4) }))
 	if got != int32(r.accepted) {
 		t.Fatalf("device count=%d accepted=%d", got, r.accepted)
 	}

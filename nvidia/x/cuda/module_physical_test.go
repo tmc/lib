@@ -106,7 +106,7 @@ ret;
 		if err := driver.CtxSynchronize(); err != nil {
 			return err
 		}
-		return p.CopyToHost(unsafe.Pointer(&got), 4)
+		return p.CopyToHostPtr(unsafe.Pointer(&got), 4)
 	}))
 	if got != 7 {
 		t.Fatalf("got %d want 7", got)

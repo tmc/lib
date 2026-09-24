@@ -135,10 +135,10 @@ func checkSineKernel(t *testing.T, cubin []byte) {
 	p, err := driver.MemAlloc(bytes)
 	check(err)
 	defer func() { check(p.Free()) }()
-	check(p.CopyFromHost(unsafe.Pointer(&input[0]), bytes))
+	check(p.CopyFromHostPtr(unsafe.Pointer(&input[0]), bytes))
 	check(fn.LaunchKernel(1, 1, 1, uint32(len(input)), 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	check(driver.CtxSynchronize())
-	check(p.CopyToHost(unsafe.Pointer(&got[0]), bytes))
+	check(p.CopyToHostPtr(unsafe.Pointer(&got[0]), bytes))
 	for i, x := range input {
 		want := math.Sin(float64(x))
 		if math.IsNaN(float64(got[i])) || math.Abs(float64(got[i])-want) > 1e-6 {

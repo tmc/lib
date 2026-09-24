@@ -248,7 +248,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 		if err != nil {
 			t.Fatalf("allocate %s: %v", name, err)
 		}
-		if err := ptr.CopyFromHost(unsafe.Pointer(&values[0]), bytes); err != nil {
+		if err := ptr.CopyFromHostPtr(unsafe.Pointer(&values[0]), bytes); err != nil {
 			if freeErr := ptr.Free(); freeErr != nil {
 				t.Errorf("free %s after upload failure: %v", name, freeErr)
 			}
@@ -355,7 +355,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	}
 
 	got := make([]float32, len(hostC))
-	if err := deviceC.CopyToHost(unsafe.Pointer(&got[0]), uint(len(got))*uint(unsafe.Sizeof(float32(0)))); err != nil {
+	if err := deviceC.CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))*uint(unsafe.Sizeof(float32(0)))); err != nil {
 		t.Fatalf("download C: %v", err)
 	}
 	for c := int64(0); c < colsB; c++ {

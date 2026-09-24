@@ -106,10 +106,10 @@ func TestFatbinPipeline(t *testing.T) {
 	ptr, err := driver.MemAlloc(uint(len(data) * 4))
 	check(err)
 	defer func() { check(ptr.Free()) }()
-	check(ptr.CopyFromHost(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
+	check(ptr.CopyFromHostPtr(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
 	check(kernel.LaunchKernel(1, 1, 1, uint32(len(data)), 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&ptr)}))
 	check(driver.CtxSynchronize())
-	check(ptr.CopyToHost(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
+	check(ptr.CopyToHostPtr(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
 	for i, got := range data {
 		if want := float32(i) + 1; got != want {
 			t.Fatalf("result[%d]=%g, want %g", i, got, want)

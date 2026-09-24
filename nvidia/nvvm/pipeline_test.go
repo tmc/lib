@@ -101,10 +101,10 @@ func TestCompilerPipeline(t *testing.T) {
 	ptr, err := driver.MemAlloc(uint(len(data) * 4))
 	check(err)
 	defer func() { check(ptr.Free()) }()
-	check(ptr.CopyFromHost(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
+	check(ptr.CopyFromHostPtr(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
 	check(kernel.LaunchKernel(1, 1, 1, uint32(len(data)), 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&ptr)}))
 	check(driver.CtxSynchronize())
-	check(ptr.CopyToHost(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
+	check(ptr.CopyToHostPtr(unsafe.Pointer(unsafe.SliceData(data)), uint(len(data)*4)))
 	for i, got := range data {
 		want := math.Sin(float64(float32(i)/32 - 2))
 		if math.IsNaN(float64(got)) || math.Abs(float64(got)-want) > 1e-6 {

@@ -367,22 +367,22 @@
 //   - [Stream.Memcpy3DPeerAsync]: Copies memory between contexts asynchronously.
 //   - [Stream.Memcpy3DWithAttributesAsync]: Performs 3D memory copy with attributes asynchronously Performs the copy operation specified in op.
 //   - [DevicePtr.MemcpyAsync]: Copies memory asynchronously.
-//   - [Array.MemcpyAtoA]: Copies memory from Array to Array.
-//   - [DevicePtr.MemcpyAtoD]: Copies memory from Array to Device.
-//   - [Array.MemcpyAtoH]: Copies memory from Array to Host.
-//   - [Array.MemcpyAtoHAsync]: Copies memory from Array to Host.
+//   - [Array.CopyFromArray]: Copies memory from Array to Array.
+//   - [DevicePtr.CopyFromArray]: Copies memory from Array to Device.
+//   - [Array.CopyToHost]: Copies memory from Array to Host.
+//   - [Array.CopyToHostAsync]: Copies memory from Array to Host.
 //   - [Stream.MemcpyBatchAsync]: Performs a batch of memory copies asynchronously.
-//   - [Array.MemcpyDtoA]: Copies memory from Device to Array.
-//   - [DevicePtr.MemcpyDtoD]: Copies memory from Device to Device.
-//   - [DevicePtr.MemcpyDtoDAsync]: Copies memory from Device to Device.
+//   - [Array.CopyFromDevice]: Copies memory from Device to Array.
+//   - [DevicePtr.CopyFromDevice]: Copies memory from Device to Device.
+//   - [DevicePtr.CopyFromDeviceAsync]: Copies memory from Device to Device.
 //   - [DevicePtr.CopyToHost]: Copies memory from Device to Host.
 //   - [DevicePtr.CopyToHostAsync]: Copies memory from Device to Host.
-//   - [Array.MemcpyHtoA]: Copies memory from Host to Array.
-//   - [Array.MemcpyHtoAAsync]: Copies memory from Host to Array.
+//   - [Array.CopyFromHost]: Copies memory from Host to Array.
+//   - [Array.CopyFromHostAsync]: Copies memory from Host to Array.
 //   - [DevicePtr.CopyFromHost]: Copies memory from Host to Device.
 //   - [DevicePtr.CopyFromHostAsync]: Copies memory from Host to Device.
-//   - [DevicePtr.MemcpyPeer]: Copies device memory between two contexts.
-//   - [DevicePtr.MemcpyPeerAsync]: Copies device memory between two contexts asynchronously.
+//   - [DevicePtr.CopyFromPeer]: Copies device memory between two contexts.
+//   - [DevicePtr.CopyFromPeerAsync]: Copies device memory between two contexts asynchronously.
 //   - [DevicePtr.MemcpyWithAttributesAsync]: Performs asynchronous memory copy operation with the specified attributes.
 //   - [DevicePtr.MemsetD16]: Initializes device memory.
 //   - [DevicePtr.MemsetD16Async]: Sets device memory.

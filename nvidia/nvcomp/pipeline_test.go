@@ -102,7 +102,7 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	statuses := deviceAllocT(t, numChunks*nvcomp.SizeofDeviceStatus)
 	temp := deviceAllocT(t, tempBytes)
 
-	check(inData.CopyFromHost(unsafe.Pointer(&uncompressed[0]), uint(len(uncompressed))))
+	check(inData.CopyFromHostPtr(unsafe.Pointer(&uncompressed[0]), uint(len(uncompressed))))
 	writeUintptrs(t, inPtrs, chunkAddrs(inData, numChunks, chunkBytes))
 	writeUints(t, inBytes, repeat(chunkBytes, numChunks))
 	writeUintptrs(t, outPtrs, chunkAddrs(outData, numChunks, maxOut))
@@ -179,7 +179,7 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	}
 
 	got := make([]byte, len(uncompressed))
-	check(roundTrip.CopyToHost(unsafe.Pointer(&got[0]), uint(len(got))))
+	check(roundTrip.CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))))
 	if !bytes.Equal(got, uncompressed) {
 		t.Fatal("round trip did not reproduce the input")
 	}
@@ -208,7 +208,7 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	corrupt := readStatuses(t, statuses, numChunks)
 	t.Logf("undersized output statuses: %v", corrupt)
 	actual := readUints(t, actualBytes, numChunks)
-	check(roundTrip.CopyToHost(unsafe.Pointer(&got[0]), uint(len(got))))
+	check(roundTrip.CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))))
 	changed := 0
 	for _, b := range got[1:chunkBytes] {
 		if b != 0xa5 {
@@ -321,7 +321,7 @@ func repeat(v uint, n int) []uint {
 // themselves have to be on the device, not just what they point at.
 func writeUintptrs(t *testing.T, dst driver.DevicePtr, values []uintptr) {
 	t.Helper()
-	if err := dst.CopyFromHost(unsafe.Pointer(&values[0]), uint(len(values))*nvcomp.SizeofDevicePointer); err != nil {
+	if err := dst.CopyFromHostPtr(unsafe.Pointer(&values[0]), uint(len(values))*nvcomp.SizeofDevicePointer); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -329,7 +329,7 @@ func writeUintptrs(t *testing.T, dst driver.DevicePtr, values []uintptr) {
 // writeUints copies an array of C size_t values into device memory.
 func writeUints(t *testing.T, dst driver.DevicePtr, values []uint) {
 	t.Helper()
-	if err := dst.CopyFromHost(unsafe.Pointer(&values[0]), uint(len(values))*nvcomp.SizeofDeviceSize); err != nil {
+	if err := dst.CopyFromHostPtr(unsafe.Pointer(&values[0]), uint(len(values))*nvcomp.SizeofDeviceSize); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -338,7 +338,7 @@ func writeUints(t *testing.T, dst driver.DevicePtr, values []uint) {
 func readUints(t *testing.T, src driver.DevicePtr, n int) []uint {
 	t.Helper()
 	out := make([]uint, n)
-	if err := src.CopyToHost(unsafe.Pointer(&out[0]), uint(n)*nvcomp.SizeofDeviceSize); err != nil {
+	if err := src.CopyToHostPtr(unsafe.Pointer(&out[0]), uint(n)*nvcomp.SizeofDeviceSize); err != nil {
 		t.Fatal(err)
 	}
 	return out
@@ -350,7 +350,7 @@ func readUints(t *testing.T, src driver.DevicePtr, n int) []uint {
 func readStatuses(t *testing.T, src driver.DevicePtr, n int) []nvcomp.Result {
 	t.Helper()
 	out := make([]nvcomp.Result, n)
-	if err := src.CopyToHost(unsafe.Pointer(&out[0]), uint(n)*nvcomp.SizeofDeviceStatus); err != nil {
+	if err := src.CopyToHostPtr(unsafe.Pointer(&out[0]), uint(n)*nvcomp.SizeofDeviceStatus); err != nil {
 		t.Fatal(err)
 	}
 	return out

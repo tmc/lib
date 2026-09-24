@@ -119,7 +119,7 @@ func TestNVRTCCompileTileIR(t *testing.T) {
 							return err
 						}
 						ptr = p
-						return p.CopyFromHost(unsafe.Pointer(&data[0]), uint(len(data)*4))
+						return p.CopyFromHostPtr(unsafe.Pointer(&data[0]), uint(len(data)*4))
 					})
 					return ptr, err
 				}
@@ -145,7 +145,7 @@ func TestNVRTCCompileTileIR(t *testing.T) {
 						err = fn.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, stream.Raw(), args)
 						if err == nil && stream.Synchronize(context.Background()) == nil {
 							_ = dev.WithContext(func() error {
-								return pC.CopyToHost(unsafe.Pointer(&cData[0]), uint(len(cData)*4))
+								return pC.CopyToHostPtr(unsafe.Pointer(&cData[0]), uint(len(cData)*4))
 							})
 							for i := 0; i < M; i++ {
 								for j := 0; j < N; j++ {

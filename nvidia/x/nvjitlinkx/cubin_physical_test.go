@@ -136,7 +136,7 @@ extern "C" __global__ void apply(int* out) {
 	check(kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{64, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	check(owner.Close()) // Completes submitted work before unloading.
 	var got [64]int32
-	check(dev.WithContext(func() error { return p.CopyToHost(unsafe.Pointer(&got[0]), 64*4) }))
+	check(dev.WithContext(func() error { return p.CopyToHostPtr(unsafe.Pointer(&got[0]), 64*4) }))
 	for i, value := range got {
 		want := int32(3*(i*i-17) - 7)
 		if value != want {
