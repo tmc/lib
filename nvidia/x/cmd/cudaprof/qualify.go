@@ -48,6 +48,15 @@ import (
 // refused too. Order is not compared across blocks: the clock restarts at
 // boot. A capture that predates either record leaves that check unverified,
 // and the report says so.
+//
+// -ops and -stages break the pairs down the way compare breaks down one pair:
+// each capture is measured by compare's exclusive partition over its window
+// with the same warmup cut, and each op and stage row reports, over every
+// pair the verdict scores, the median of base (C), target (G) and delta
+// (G - C) exclusive time and the range of the delta. Each median is taken
+// over its own column, so a row's delta median is not its target median
+// minus its base median, and the rows' medians do not sum to the median of
+// the total. The breakdown is description only; it is not gated.
 
 // qualifyArms is the run order within a block.
 var qualifyArms = []string{"C1", "G1", "G2", "C2"}
@@ -58,9 +67,11 @@ type qualifyOptions struct {
 	noiseMultiplier float64
 	noiseFloorMS    float64
 	json            bool
+	opsPath         string
+	stagesPath      string
 }
 
-const qualifyUsage = "usage: cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-json] manifest.txt"
+const qualifyUsage = "usage: cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-ops ops.txt] [-stages stages.txt] [-json] manifest.txt"
 
 // runQualifyCommand implements "cudaprof qualify".
 func runQualifyCommand(args []string, stdout io.Writer) error {
@@ -77,9 +88,17 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("qualify: %s: %w", opts.manifest, err)
 	}
+	rules, err := readOpRules(opts.opsPath)
+	if err != nil {
+		return fmt.Errorf("qualify: %w", err)
+	}
+	stages, err := readStageBoundaries(opts.stagesPath)
+	if err != nil {
+		return fmt.Errorf("qualify: %w", err)
+	}
 	for i := range entries {
 		e := &entries[i]
-		if err := measureQualifyEntry(e, opts.gaps); err != nil {
+		if err := measureQualifyEntry(e, opts.gaps, rules, stages); err != nil {
 			return fmt.Errorf("qualify: block %s arm %s: %w", e.Block, e.Arm, err)
 		}
 	}
@@ -90,6 +109,12 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 	q := qualify(entries, opts.noiseMultiplier, opts.noiseFloorMS)
 	q.Identity, q.Order = identity, order
 	q.Window = describeWarmup(opts.gaps) + " excluded"
+	if rules != nil || stages != nil {
+		q.Breakdown, err = breakDownPairs(entries, rules, stages)
+		if err != nil {
+			return fmt.Errorf("qualify: %w", err)
+		}
+	}
 	if opts.json {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
@@ -117,6 +142,8 @@ func parseQualifyArgs(args []string, stdout io.Writer) (qualifyOptions, error) {
 	fs.Float64Var(&opts.noiseFloorMS, "noise-floor-ms", 1, "the least noise floor, in `ms`")
 	fs.Int64Var(&opts.gaps.maxRecords, "max-records", opts.gaps.maxRecords, "maximum journal records to decode per capture")
 	fs.BoolVar(&opts.json, "json", false, "write the verdict as JSON")
+	fs.StringVar(&opts.opsPath, "ops", "", "break the pairs down by op, from a file of `regex op` lines as compare reads")
+	fs.StringVar(&opts.stagesPath, "stages", "", "break the pairs down by stage, from a file of `regex stage` boundaries as compare reads")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			printQualifyHelp(stdout, fs)
@@ -180,7 +207,16 @@ refused. Per block the pairs are G1-C1 and G2-C2, and:
   noise gate   passes when |effect| > -noise-multiplier x noise floor
   sign gate    passes when every pair has the same nonzero sign
 
-MAD is the median absolute deviation about the median. The exit status is 0
+MAD is the median absolute deviation about the median.
+
+-ops and -stages add a breakdown of the pairs by op and by stage, read as
+"cudaprof compare" reads them, with each capture measured over its window
+after the same warmup cut. For each row, over every pair the verdict scores:
+the median of C, of G and of G - C exclusive time, the least and greatest
+G - C, and the range of launch counts. Each median is of its own column, so
+the rows' medians do not sum to the total's. The breakdown is not gated.
+
+The exit status is 0
 when both gates pass, 2 when either fails, and 1 when the verdict could not be
 computed.
 
@@ -197,6 +233,10 @@ type qualifyEntry struct {
 	Path        string `json:"path"`
 	SteadyNanos int64  `json:"steady_span_ns"`
 	WholeNanos  int64  `json:"whole_span_ns"`
+
+	// side is the capture partitioned as compare partitions it, when the
+	// campaign is broken down by op or stage.
+	side *CompareSide
 
 	// Executable is the SHA-256 of the program the capture ran, and Start
 	// the agent's monotonic timestamp of the start of its measured range.
@@ -256,8 +296,10 @@ func parseQualifyManifest(r io.Reader, dir string) ([]qualifyEntry, error) {
 }
 
 // measureQualifyEntry reads the capture e names and fills in its spans, the
-// executable it ran and the start of its measured range.
-func measureQualifyEntry(e *qualifyEntry, opts gapOptions) error {
+// executable it ran and the start of its measured range. With rules or
+// stages it also partitions the capture as compare does, after the same
+// warmup cut.
+func measureQualifyEntry(e *qualifyEntry, opts gapOptions, rules opRules, stages stageBoundaries) error {
 	path, err := filepath.Abs(e.Path)
 	if err != nil {
 		return err
@@ -273,6 +315,13 @@ func measureQualifyEntry(e *qualifyEntry, opts gapOptions) error {
 	e.SteadyNanos, e.WholeNanos, err = qualifySpan(e.Path, report)
 	if err != nil {
 		return err
+	}
+	if rules != nil || stages != nil {
+		warmup := opts
+		e.side, err = measureCompareSide(cap, rules, stages, compareOptions{phase: -1, warmup: &warmup})
+		if err != nil {
+			return fmt.Errorf("partition %s: %w", e.Path, err)
+		}
 	}
 	var envelope struct {
 		Status struct {
@@ -357,6 +406,10 @@ type Qualification struct {
 	Order    string         `json:"order"`
 	Captures []qualifyEntry `json:"captures"`
 	Blocks   []qualifyBlock `json:"blocks"`
+
+	// Breakdown is the pairs by op and stage, when -ops or -stages was
+	// given. It is description only.
+	Breakdown *qualifyBreakdown `json:"breakdown,omitempty"`
 
 	// Steady is gated; Whole, over the whole device timeline of each
 	// capture, is description only.
@@ -500,4 +553,7 @@ func (q *Qualification) write(w io.Writer) {
 	fmt.Fprintf(w, "sign gate              %s: pairs %.3f .. %.3f ms\n", q.SignGate, s.PairMinMS, s.PairMaxMS)
 	fmt.Fprintf(w, "whole span (not gated) median %.3f ms, pairs %.3f .. %.3f ms\n", q.Whole.MedianMS, q.Whole.PairMinMS, q.Whole.PairMaxMS)
 	fmt.Fprintf(w, "verdict                %s\n", q.Verdict)
+	if q.Breakdown != nil {
+		q.Breakdown.write(w)
+	}
 }

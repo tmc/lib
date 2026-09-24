@@ -102,14 +102,9 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("compare: %w", err)
 	}
-	boundaries, err := readOpRules(opts.stagesPath)
+	stages, err := readStageBoundaries(opts.stagesPath)
 	if err != nil {
 		return fmt.Errorf("compare: %w", err)
-	}
-	for _, b := range boundaries {
-		if b.Op == stageUnstarted {
-			return fmt.Errorf("compare: %s: line %d: stage name %s is reserved", opts.stagesPath, b.Line, stageUnstarted)
-		}
 	}
 	var caps [2]*cudacapture.Capture
 	for i, path := range paths {
@@ -123,7 +118,7 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 		}
 		paths[i] = abs
 	}
-	c, err := compareCaptures(caps[0], caps[1], rules, stageBoundaries(boundaries), opts)
+	c, err := compareCaptures(caps[0], caps[1], rules, stages, opts)
 	if err != nil {
 		return fmt.Errorf("compare: %w", err)
 	}
@@ -204,6 +199,21 @@ func readOpRules(path string) (opRules, error) {
 		return nil, fmt.Errorf("%s: no rules", path)
 	}
 	return rules, nil
+}
+
+// readStageBoundaries reads a -stages file, or returns nil boundaries for an
+// empty path.
+func readStageBoundaries(path string) (stageBoundaries, error) {
+	rules, err := readOpRules(path)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rules {
+		if r.Op == stageUnstarted {
+			return nil, fmt.Errorf("%s: line %d: stage name %s is reserved", path, r.Line, stageUnstarted)
+		}
+	}
+	return stageBoundaries(rules), nil
 }
 
 // opRules maps kernel names to ops. The first rule whose pattern matches the
@@ -456,6 +466,11 @@ func compareCaptures(base, target *cudacapture.Capture, rules opRules, stages st
 	if err != nil {
 		return nil, fmt.Errorf("target: %w", err)
 	}
+	return compareSides(b, t, rules, stages)
+}
+
+// compareSides joins two measured sides by op and by stage.
+func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries) (*Comparison, error) {
 	if b.Device != "" && t.Device != "" && b.Device != t.Device {
 		return nil, fmt.Errorf("captures ran on different devices: base %q, target %q", b.Device, t.Device)
 	}
