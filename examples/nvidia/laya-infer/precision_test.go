@@ -50,21 +50,16 @@ func runPrecision(t *testing.T, prec precision) scored {
 		t.Fatal(err)
 	}
 
-	root, err := parseJSON(req)
+	r, err := parseRequest(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	qs := root.get("questions")
 	rows, err := m.forward(benchBatch(t, m, req))
 	if err != nil {
 		t.Fatal(err)
 	}
-	probs := make([][]float64, qs.length())
-	for i := range probs {
-		q, err := parseQuestion(qs.keys[i], qs.vals[i])
-		if err != nil {
-			t.Fatal(err)
-		}
+	probs := make([][]float64, len(r.questions))
+	for i, q := range r.questions {
 		logits, _ := m.score(rows[i], len(q.opts))
 		probs[i] = softmax64(logits)
 	}

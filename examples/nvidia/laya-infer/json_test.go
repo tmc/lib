@@ -120,10 +120,11 @@ func TestPutNum(t *testing.T) {
 // TestParseQuestion covers the option rendering of each question type.
 func TestParseQuestion(t *testing.T) {
 	tests := []struct {
-		name string
-		in   string
-		typ  int
-		opts []string
+		name   string
+		in     string
+		typ    int
+		opts   []string
+		labels []string // choice only; nil skips the check
 	}{
 		{
 			name: "choice object",
@@ -136,6 +137,13 @@ func TestParseQuestion(t *testing.T) {
 			in:   `{"type":"choice","instructions":"pick","criteria":["x","y"]}`,
 			typ:  0,
 			opts: []string{"x", "y"},
+		},
+		{
+			name:   "choice label objects",
+			in:     `{"type":"choice","instructions":"pick","criteria":[{"label":"a","description":"first"},{"label":"b"},{"label":"c","description":{"x":"é"}},{"label":"d","description":null},"e"]}`,
+			typ:    0,
+			opts:   []string{"a: first", "b", `c: {"x": "é"}`, "d", "e"},
+			labels: []string{"a", "b", "c", "d", "e"},
 		},
 		{
 			name: "score",
@@ -172,6 +180,9 @@ func TestParseQuestion(t *testing.T) {
 			if strings.Join(q.opts, "|") != strings.Join(tt.opts, "|") {
 				t.Errorf("opts = %q, want %q", q.opts, tt.opts)
 			}
+			if tt.labels != nil && strings.Join(q.labels, "|") != strings.Join(tt.labels, "|") {
+				t.Errorf("labels = %q, want %q", q.labels, tt.labels)
+			}
 		})
 	}
 }
@@ -187,6 +198,14 @@ func TestParseQuestionErrors(t *testing.T) {
 		`{"type":"choice","instructions":"x","criteria":[1,2]}`,
 		`{"type":"score","instructions":"x","criteria":{"a":1}}`,
 		`{"type":"noul","instructions":"x","criteria":["a"]}`,
+		`{"type":"choice","instructions":"x","criteria":["a","a"]}`,
+		`{"type":"choice","instructions":"x","criteria":["a",""]}`,
+		`{"type":"choice","instructions":"x","criteria":{"":"empty"}}`,
+		`{"type":"choice","instructions":"x","criteria":[{"label":"a"},{"label":"a","description":"again"}]}`,
+		`{"type":"choice","instructions":"x","criteria":[{"label":"a"},"a"]}`,
+		`{"type":"choice","instructions":"x","criteria":[{"label":""}]}`,
+		`{"type":"choice","instructions":"x","criteria":[{"description":"no label"}]}`,
+		`{"type":"choice","instructions":"x","criteria":[{"label":3}]}`,
 	} {
 		v, err := parseJSON([]byte(in))
 		if err != nil {
@@ -212,5 +231,61 @@ func TestInstructionsJSON(t *testing.T) {
 	want := `{"ask": "\u6771\u4eac?", "n": 2}`
 	if q.ins != want {
 		t.Errorf("ins = %s, want %s", q.ins, want)
+	}
+}
+
+// TestParseRequest checks both spellings of the question set, and that each
+// keeps the request's order.
+func TestParseRequest(t *testing.T) {
+	const q = `{"type":"noul","instructions":"claim"}`
+	tests := []struct {
+		name  string
+		in    string
+		state string
+		ids   []string // nil means the request must be rejected
+	}{
+		{
+			name:  "object",
+			in:    `{"state":"s","questions":{"z":` + q + `,"a":` + q + `}}`,
+			state: "s",
+			ids:   []string{"z", "a"},
+		},
+		{
+			name:  "array",
+			in:    `{"state":{"k":1},"questions":[{"id":"z","type":"noul","instructions":"claim"},{"type":"noul","id":"a","instructions":"claim"}]}`,
+			state: `{"k": 1}`,
+			ids:   []string{"z", "a"},
+		},
+		{name: "object duplicate", in: `{"state":"s","questions":{"a":` + q + `,"a":` + q + `}}`},
+		{name: "array duplicate", in: `{"state":"s","questions":[{"id":"a","type":"noul","instructions":"x"},{"id":"a","type":"noul","instructions":"y"}]}`},
+		{name: "array missing id", in: `{"state":"s","questions":[` + q + `]}`},
+		{name: "array empty id", in: `{"state":"s","questions":[{"id":"","type":"noul","instructions":"x"}]}`},
+		{name: "array numeric id", in: `{"state":"s","questions":[{"id":1,"type":"noul","instructions":"x"}]}`},
+		{name: "array of strings", in: `{"state":"s","questions":["a"]}`},
+		{name: "questions string", in: `{"state":"s","questions":"a"}`},
+		{name: "no state", in: `{"questions":{"a":` + q + `}}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := parseRequest([]byte(tt.in))
+			if tt.ids == nil {
+				if err == nil {
+					t.Fatalf("parseRequest succeeded, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseRequest: %v", err)
+			}
+			if r.state != tt.state {
+				t.Errorf("state = %s, want %s", r.state, tt.state)
+			}
+			if strings.Join(r.ids, "|") != strings.Join(tt.ids, "|") {
+				t.Errorf("ids = %q, want %q", r.ids, tt.ids)
+			}
+			if len(r.questions) != len(r.ids) {
+				t.Errorf("%d questions for %d ids", len(r.questions), len(r.ids))
+			}
+		})
 	}
 }

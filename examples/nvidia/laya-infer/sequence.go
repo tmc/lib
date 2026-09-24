@@ -76,22 +76,68 @@ func (t *tokenizer) encode(text string, limit int) ([]int32, error) {
 	return ids, nil
 }
 
-// question is one parsed request entry: the rendered instructions and the
-// option strings the scorer ranks.
+// question is one parsed request entry: the rendered instructions, the
+// option strings the scorer ranks, and the label each option is reported
+// under.
 type question struct {
-	typ  int // index into qNames
-	ins  string
-	opts []string
-	crit *jsonValue
+	typ    int // index into qNames
+	ins    string
+	opts   []string
+	labels []string // choice only
+	crit   *jsonValue
 }
 
-// label returns the name reported for option i: the criteria key for a choice
-// object, the criteria string for a choice list.
-func (q *question) label(i int) string {
-	if q.crit.kind == jObject {
-		return q.crit.keys[i]
+// A request is a parsed request body: the serialized state and the questions
+// in the order the request gave them, which is the order the reply keeps.
+type request struct {
+	state     string
+	ids       []string
+	questions []*question
+}
+
+// parseRequest parses a request body. Questions may be an object keyed by id,
+// as laya.c takes them, or an array of objects each carrying its own "id", as
+// mlx-go-sys1 also accepts; a JSON array is the only way some clients can
+// promise an order. Either way an id may appear only once, since the reply
+// is an object keyed by id and a repeat would silently shadow an answer.
+func parseRequest(data []byte) (*request, error) {
+	root, err := parseJSON(data)
+	if err != nil {
+		return nil, err
 	}
-	return q.crit.arr[i].str
+	state, qs := root.get("state"), root.get("questions")
+	if state == nil || qs == nil || (qs.kind != jObject && qs.kind != jArray) {
+		return nil, fmt.Errorf("request must be an object with 'state' and 'questions'")
+	}
+	r := &request{state: state.str}
+	if state.kind != jString {
+		r.state = state.dumpString(false) // serialize_state: json.dumps(state, ensure_ascii=False)
+	}
+	seen := make(map[string]bool)
+	for i := range qs.length() {
+		qd := qs.at(i)
+		var qid string
+		if qs.kind == jObject {
+			qid = qs.keys[i]
+		} else {
+			id := qd.get("id")
+			if id == nil || id.kind != jString || id.str == "" {
+				return nil, fmt.Errorf("question %d: missing 'id'", i)
+			}
+			qid = id.str
+		}
+		if seen[qid] {
+			return nil, fmt.Errorf("duplicate question id %q", qid)
+		}
+		seen[qid] = true
+		q, err := parseQuestion(qid, qd)
+		if err != nil {
+			return nil, err
+		}
+		r.ids = append(r.ids, qid)
+		r.questions = append(r.questions, q)
+	}
+	return r, nil
 }
 
 func parseQuestion(qid string, qd *jsonValue) (*question, error) {
@@ -128,19 +174,24 @@ func parseQuestion(qid string, qd *jsonValue) (*question, error) {
 		if crit == nil || (crit.kind != jObject && crit.kind != jArray) || crit.length() == 0 {
 			return fail("choice needs non-empty 'criteria'")
 		}
+		seen := make(map[string]bool)
 		for i := range crit.length() {
-			if crit.kind == jArray {
-				if crit.arr[i].kind != jString {
-					return fail("list criteria must be strings")
-				}
-				q.opts = append(q.opts, crit.arr[i].str)
-				continue
+			label, desc, err := choiceOption(crit, i)
+			if err != nil {
+				return fail("%v", err)
 			}
-			v := crit.vals[i]
-			if absent(v) {
-				q.opts = append(q.opts, crit.keys[i])
+			if label == "" {
+				return fail("choice label cannot be empty")
+			}
+			if seen[label] {
+				return fail("choice label %q appears twice", label)
+			}
+			seen[label] = true
+			q.labels = append(q.labels, label)
+			if absent(desc) {
+				q.opts = append(q.opts, label)
 			} else {
-				q.opts = append(q.opts, crit.keys[i]+": "+renderCriterion(v))
+				q.opts = append(q.opts, label+": "+renderCriterion(desc))
 			}
 		}
 	case 1:
@@ -165,6 +216,28 @@ func parseQuestion(qid string, qd *jsonValue) (*question, error) {
 		q.opts = []string{"false: " + fd, "true: " + td}
 	}
 	return q, nil
+}
+
+// choiceOption returns the label and description of choice option i. The
+// criteria may be an object from label to description, a list of bare
+// labels, or a list of {"label": ..., "description": ...} objects, which is
+// how mlx-go-sys1 writes a described option list; a list may mix the two.
+// A missing description is nil, which renders as the bare label.
+func choiceOption(crit *jsonValue, i int) (label string, desc *jsonValue, err error) {
+	if crit.kind == jObject {
+		return crit.keys[i], crit.vals[i], nil
+	}
+	switch v := crit.arr[i]; v.kind {
+	case jString:
+		return v.str, nil, nil
+	case jObject:
+		l := v.get("label")
+		if l == nil || l.kind != jString {
+			return "", nil, fmt.Errorf("choice option %d needs a string 'label'", i)
+		}
+		return l.str, v.get("description"), nil
+	}
+	return "", nil, fmt.Errorf("list criteria must be strings or {label, description} objects")
 }
 
 // absent reports whether a criterion is missing, null or the empty string.

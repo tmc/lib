@@ -62,31 +62,15 @@ func benchRequest(tb testing.TB) []byte {
 // on the device.
 func benchBatch(tb testing.TB, m *model, request []byte) *batch {
 	tb.Helper()
-	root, err := parseJSON(request)
+	r, err := parseRequest(request)
 	if err != nil {
 		tb.Fatal(err)
 	}
-	state, qs := root.get("state"), root.get("questions")
-	if state == nil || qs == nil || qs.kind != jObject {
-		tb.Fatal("request must be an object with 'state' and 'questions'")
+	b, _, err := m.batch(r)
+	if err != nil {
+		tb.Fatal(err)
 	}
-	st := state.str
-	if state.kind != jString {
-		st = state.dumpString(false)
-	}
-	n := qs.length()
-	seqs, markers, types := make([][]int32, n), make([][]int32, n), make([]int32, n)
-	for i := range n {
-		q, err := parseQuestion(qs.keys[i], qs.vals[i])
-		if err != nil {
-			tb.Fatal(err)
-		}
-		if seqs[i], markers[i], err = buildSequence(m.cfg, m.tok, st, q); err != nil {
-			tb.Fatal(err)
-		}
-		types[i] = int32(q.typ)
-	}
-	return newBatch(seqs, types, markers)
+	return b
 }
 
 // benchPass prepares one forward pass and reports its shape, so the numbers

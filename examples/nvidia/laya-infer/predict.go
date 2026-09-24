@@ -16,57 +16,26 @@ func (m *model) Predict(request []byte) ([]byte, error) {
 	c := m.cfg
 	debug := os.Getenv("LAYA_DEBUG") != ""
 
-	root, err := parseJSON(request)
+	r, err := parseRequest(request)
 	if err != nil {
 		return nil, err
 	}
-	state, qs := root.get("state"), root.get("questions")
-	if state == nil || qs == nil || qs.kind != jObject {
-		return nil, fmt.Errorf("request must be an object with 'state' and 'questions'")
-	}
-	st := state.str
-	if state.kind != jString {
-		st = state.dumpString(false) // serialize_state: json.dumps(state, ensure_ascii=False)
-	}
 	if debug {
-		fmt.Fprintf(os.Stderr, "[state] %s\n", st)
+		fmt.Fprintf(os.Stderr, "[state] %s\n", r.state)
 	}
 
-	n := qs.length()
-	questions := make([]*question, n)
-	seqs := make([][]int32, n)
-	markers := make([][]int32, n)
-	types := make([]int32, n)
-	ntok := 0
-	for i := range n {
-		qid := qs.keys[i]
-		q, err := parseQuestion(qid, qs.vals[i])
-		if err != nil {
-			return nil, err
-		}
-		ids, mk, err := buildSequence(c, m.tok, st, q)
-		if err != nil {
-			return nil, err
-		}
-		if len(mk) != len(q.opts) {
-			return nil, fmt.Errorf("question %q options exceed head_max_len=%d", qid, c.HeadMaxLen)
-		}
-		if debug {
-			fmt.Fprintf(os.Stderr, "[%s] T=%d markers: %s\n[%s] ids: %s\n",
-				qid, len(ids), joinInts(mk), qid, joinInts(ids))
-		}
-		questions[i], seqs[i], markers[i], types[i] = q, ids, mk, int32(q.typ)
-		ntok += len(ids)
+	b, ntok, err := m.batch(r)
+	if err != nil {
+		return nil, err
 	}
-
-	rows, err := m.forward(newBatch(seqs, types, markers))
+	rows, err := m.forward(b)
 	if err != nil {
 		return nil, err
 	}
 
 	var out strings.Builder
 	out.WriteString(`{"model": "laya-rl-agent", "answers": {`)
-	for i, q := range questions {
+	for i, q := range r.questions {
 		k := len(q.opts)
 		logits, actProb := m.score(rows[i], k)
 		if debug {
@@ -75,7 +44,7 @@ func (m *model) Predict(request []byte) ([]byte, error) {
 				parts[j] = fmt.Sprintf("%.6f", v)
 			}
 			fmt.Fprintf(os.Stderr, "[%s] logits: %s\n[%s] act_prob(raw): %.6f\n",
-				qs.keys[i], strings.Join(parts, " "), qs.keys[i], actProb)
+				r.ids[i], strings.Join(parts, " "), r.ids[i], actProb)
 		}
 
 		// Calibration: temperature per (type, option count), then softmax and
@@ -98,7 +67,7 @@ func (m *model) Predict(request []byte) ([]byte, error) {
 		if i > 0 {
 			out.WriteString(", ")
 		}
-		writeJSONString(&out, qs.keys[i], false)
+		writeJSONString(&out, r.ids[i], false)
 		fmt.Fprintf(&out, `: {"type": "%s", `, qNames[q.typ])
 		switch q.typ {
 		case 0:
@@ -109,13 +78,13 @@ func (m *model) Predict(request []byte) ([]byte, error) {
 				}
 			}
 			out.WriteString(`"choice": `)
-			writeJSONString(&out, q.label(am), false)
+			writeJSONString(&out, q.labels[am], false)
 			out.WriteString(`, "probabilities": {`)
 			for j := range k {
 				if j > 0 {
 					out.WriteString(", ")
 				}
-				writeJSONString(&out, q.label(j), false)
+				writeJSONString(&out, q.labels[j], false)
 				out.WriteString(": ")
 				out.WriteString(putNum(p[j]))
 			}
@@ -158,6 +127,36 @@ func (m *model) Predict(request []byte) ([]byte, error) {
 	}
 	fmt.Fprintf(&out, `}, "usage": {"input_tokens": %d, "output_tokens": 0}}`, ntok)
 	return []byte(out.String()), nil
+}
+
+// batch tokenizes every question in r against its state and pads them into
+// one batch. It also reports the number of real tokens, which the reply's
+// usage counts.
+func (m *model) batch(r *request) (*batch, int, error) {
+	c := m.cfg
+	debug := os.Getenv("LAYA_DEBUG") != ""
+	n := len(r.questions)
+	seqs := make([][]int32, n)
+	markers := make([][]int32, n)
+	types := make([]int32, n)
+	ntok := 0
+	for i, q := range r.questions {
+		qid := r.ids[i]
+		ids, mk, err := buildSequence(c, m.tok, r.state, q)
+		if err != nil {
+			return nil, 0, err
+		}
+		if len(mk) != len(q.opts) {
+			return nil, 0, fmt.Errorf("question %q options exceed head_max_len=%d", qid, c.HeadMaxLen)
+		}
+		if debug {
+			fmt.Fprintf(os.Stderr, "[%s] T=%d markers: %s\n[%s] ids: %s\n",
+				qid, len(ids), joinInts(mk), qid, joinInts(ids))
+		}
+		seqs[i], markers[i], types[i] = ids, mk, int32(q.typ)
+		ntok += len(ids)
+	}
+	return newBatch(seqs, types, markers), ntok, nil
 }
 
 // putNum prints round(x, 4) the way Python's repr does: at least one decimal
