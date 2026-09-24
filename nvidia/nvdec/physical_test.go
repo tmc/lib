@@ -115,7 +115,7 @@ func testPhysicalDecode(t *testing.T, name string, codec nvdec.Codec) {
 		defer func() { result(nvdec.UnmapVideoFrame64(decoder, ptr)) }()
 		for y := 0; y < 256*3/2; y++ {
 			row := make([]byte, 256)
-			if e := driver.DevicePtr(ptr+uint64(y)*uint64(pitch)).CopyToHost(unsafe.Pointer(&row[0]), 256); e != nil {
+			if e := driver.DevicePtr(ptr+uint64(y)*uint64(pitch)).CopyToHostPtr(unsafe.Pointer(&row[0]), 256); e != nil {
 				failure = e
 				return 0
 			}

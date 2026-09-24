@@ -161,7 +161,7 @@ func TestPhysicalSymmetricHeap(t *testing.T) {
 	for i := range input {
 		input[i] = byte((pe*37 + i) % 251)
 	}
-	if err := driver.DevicePtr(source).CopyFromHost(unsafe.Pointer(&input[0]), size); err != nil {
+	if err := driver.DevicePtr(source).CopyFromHostPtr(unsafe.Pointer(&input[0]), size); err != nil {
 		t.Fatal(err)
 	}
 	if err := driver.DevicePtr(buf).MemsetD8(0xee, size); err != nil {
@@ -174,7 +174,7 @@ func TestPhysicalSymmetricHeap(t *testing.T) {
 	BarrierAll()
 
 	got := make([]byte, size)
-	if err := driver.DevicePtr(buf).CopyToHost(unsafe.Pointer(&got[0]), size); err != nil {
+	if err := driver.DevicePtr(buf).CopyToHostPtr(unsafe.Pointer(&got[0]), size); err != nil {
 		t.Fatal(err)
 	}
 	for i, v := range got {

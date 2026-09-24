@@ -69,7 +69,7 @@ func TestPhysicalTransfer(t *testing.T) {
 		t.Fatal(fmt.Sprintf("read=%d want=%d", gotn, n))
 	}
 	got := make([]byte, n)
-	check(p.CopyToHost(unsafe.Pointer(&got[0]), n))
+	check(p.CopyToHostPtr(unsafe.Pointer(&got[0]), n))
 	if !bytes.Equal(got, want) {
 		t.Fatal("read bytes differ")
 	}

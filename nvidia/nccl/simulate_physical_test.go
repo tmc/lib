@@ -119,7 +119,7 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 			for k := range host {
 				host[k] = int32(10000*i + k)
 			}
-			check("upload", send[i].CopyFromHost(unsafe.Pointer(&host[0]), elems*4))
+			check("upload", send[i].CopyFromHostPtr(unsafe.Pointer(&host[0]), elems*4))
 		}
 		check("init communicators", nccl.CommInitAll(&comms[0], int32(n), &devices[0]))
 		return comms, ctxs, send, recv, streams, cleanup

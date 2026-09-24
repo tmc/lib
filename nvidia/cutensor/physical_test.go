@@ -126,7 +126,7 @@ func TestPhysicalContraction(t *testing.T) {
 		p, e := driver.MemAlloc(uint(len(v) * 4))
 		check(e)
 		cleanup(p.Free)
-		check(p.CopyFromHost(unsafe.Pointer(&v[0]), uint(len(v)*4)))
+		check(p.CopyFromHostPtr(unsafe.Pointer(&v[0]), uint(len(v)*4)))
 		return p
 	}
 	pa, pb, pc := alloc(a), alloc(b), alloc(c)
@@ -139,7 +139,7 @@ func TestPhysicalContraction(t *testing.T) {
 	alpha, beta := float32(2), float32(-1)
 	check(h.Contract(plan, unsafe.Pointer(&alpha), uintptr(pa), uintptr(pb), unsafe.Pointer(&beta), uintptr(pc), uintptr(pc), uintptr(workspace), wsSize, 0))
 	check(driver.CtxSynchronize())
-	check(pc.CopyToHost(unsafe.Pointer(&c[0]), uint(len(c)*4)))
+	check(pc.CopyToHostPtr(unsafe.Pointer(&c[0]), uint(len(c)*4)))
 	for i, v := range c {
 		if math.IsNaN(float64(v)) || math.Abs(float64(v-want[i])) > 1e-5 {
 			t.Errorf("output %d = %v, want %v", i, v, want[i])

@@ -231,7 +231,7 @@ func runCubin(t *testing.T, cubin []byte) []int32 {
 	for i := range sentinel {
 		sentinel[i] = -1
 	}
-	if err := out.CopyFromHost(unsafe.Pointer(&sentinel[0]), size); err != nil {
+	if err := out.CopyFromHostPtr(unsafe.Pointer(&sentinel[0]), size); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	n, b := int32(elems), int32(bias)
@@ -247,7 +247,7 @@ func runCubin(t *testing.T, cubin []byte) []int32 {
 		t.Fatalf("synchronize: %v", err)
 	}
 	got := make([]int32, elems)
-	if err := out.CopyToHost(unsafe.Pointer(&got[0]), size); err != nil {
+	if err := out.CopyToHostPtr(unsafe.Pointer(&got[0]), size); err != nil {
 		t.Fatalf("MemcpyDtoH: %v", err)
 	}
 	return got

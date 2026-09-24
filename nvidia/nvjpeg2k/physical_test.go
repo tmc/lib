@@ -373,7 +373,7 @@ func cudaCopyToHost(ptr uintptr, size int) ([]byte, error) {
 		return nil, fmt.Errorf("invalid copy size %d", size)
 	}
 	data := make([]byte, size)
-	if err := driver.DevicePtr(ptr).CopyToHost(unsafe.Pointer(&data[0]), uint(size)); err != nil {
+	if err := driver.DevicePtr(ptr).CopyToHostPtr(unsafe.Pointer(&data[0]), uint(size)); err != nil {
 		return nil, err
 	}
 	return data, nil

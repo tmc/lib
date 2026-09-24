@@ -88,7 +88,7 @@ func TestDistributedSwap(t *testing.T) {
 		g := mpi.Rank*4 + i
 		host[i] = complex(float64(g+1), float64(-g))
 	}
-	check("upload state", state.CopyFromHost(unsafe.Pointer(&host[0]), 64))
+	check("upload state", state.CopyFromHostPtr(unsafe.Pointer(&host[0]), 64))
 	worker, extra, minTransfer, err := custatevec.NewSVSwapWorker(h, comm, uintptr(state), int32(mpi.Rank), custatevec.Event(event), custatevec.C64F, custatevec.Stream(stream))
 	check("worker create", err)
 	defer func() { clean("worker destroy", worker.Destroy(h)) }()
@@ -134,7 +134,7 @@ func TestDistributedSwap(t *testing.T) {
 	}
 	check("stream synchronize", stream.Synchronize())
 	check("MPI barrier", mpi.Barrier())
-	check("download state", state.CopyToHost(unsafe.Pointer(&host[0]), 64))
+	check("download state", state.CopyToHostPtr(unsafe.Pointer(&host[0]), 64))
 	all := make([]complex128, 8)
 	check("gather state", mpi.AllGather(unsafe.Slice((*byte)(unsafe.Pointer(&host[0])), 64), unsafe.Slice((*byte)(unsafe.Pointer(&all[0])), 128)))
 	for i, got := range all {

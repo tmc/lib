@@ -7,13 +7,14 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// asyncHostPointer names the driver calls that read or write host memory
-// after they return, and which argument is the host pointer.
-var asyncHostPointer = map[string]int{
-	"CopyFromHostAsync": 0,
-	"CopyToHostAsync":   0,
-	"MemcpyAtoHAsync":   0,
-	"MemcpyHtoAAsync":   1,
+// asyncHostCopy names the driver calls that read or write host memory after
+// they return: the slice forms and the unsafe.Pointer forms of the
+// asynchronous copies between host and device memory or arrays.
+var asyncHostCopy = map[string]bool{
+	"CopyFromHostAsync":    true,
+	"CopyToHostAsync":      true,
+	"CopyFromHostAsyncPtr": true,
+	"CopyToHostAsyncPtr":   true,
 }
 
 var unpinnedAnalyzer = &analysis.Analyzer{
@@ -22,9 +23,11 @@ var unpinnedAnalyzer = &analysis.Analyzer{
 
 An asynchronous copy reads or writes the host buffer after the call returns,
 so the garbage collector must not move it in between. Converting the address
-of Go memory to unsafe.Pointer does not stop that: only a runtime.Pinner held
-until the stream completes does. unpinned reports such a conversion passed as
-the host pointer of an asynchronous copy from a function that pins nothing.`,
+of Go memory to unsafe.Pointer does not stop that, and neither does passing a
+slice: only a runtime.Pinner held until the stream completes does. unpinned
+reports such a conversion, or a slice, passed to an asynchronous copy from a
+function that pins nothing. A slice over host memory from the driver, made
+with unsafe.Slice, needs no pinning and is not reported when the call makes it.`,
 	Run: runUnpinned,
 }
 
@@ -54,13 +57,18 @@ func reportUnpinned(pass *analysis.Pass, body *ast.BlockStmt) {
 		if !ok {
 			return true
 		}
-		i, ok := asyncHostPointer[sel.Sel.Name]
-		if !ok || i >= len(call.Args) {
+		if !asyncHostCopy[sel.Sel.Name] {
 			return true
 		}
-		if arg := call.Args[i]; isGoAddress(pass, arg) {
-			pass.Reportf(arg.Pos(), "%s takes the address of Go memory; pin it with a runtime.Pinner held until the stream completes",
-				sel.Sel.Name)
+		for _, arg := range call.Args {
+			switch {
+			case isGoAddress(pass, arg):
+				pass.Reportf(arg.Pos(), "%s takes the address of Go memory; pin it with a runtime.Pinner held until the stream completes",
+					sel.Sel.Name)
+			case isGoSlice(pass, arg):
+				pass.Reportf(arg.Pos(), "%s takes a Go slice; pin its first element with a runtime.Pinner held until the stream completes",
+					sel.Sel.Name)
+			}
 		}
 		return true
 	})
@@ -83,6 +91,22 @@ func isGoAddress(pass *analysis.Pass, e ast.Expr) bool {
 	}
 	unary, ok := call.Args[0].(*ast.UnaryExpr)
 	return ok && unary.Op.String() == "&"
+}
+
+// isGoSlice reports whether e is a slice other than one made by unsafe.Slice,
+// the way host memory the driver allocated is viewed as a slice.
+func isGoSlice(pass *analysis.Pass, e ast.Expr) bool {
+	if _, ok := pass.TypesInfo.TypeOf(e).Underlying().(*types.Slice); !ok {
+		return false
+	}
+	if call, ok := e.(*ast.CallExpr); ok {
+		if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "Slice" {
+			if pkg, ok := sel.X.(*ast.Ident); ok && pkg.Name == "unsafe" {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // pins reports whether the function pins anything at all. The check is

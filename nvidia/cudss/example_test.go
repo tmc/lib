@@ -57,7 +57,7 @@ func Example() {
 		if err != nil {
 			return 0, err
 		}
-		if err := d.CopyFromHost(p, n); err != nil {
+		if err := d.CopyFromHostPtr(p, n); err != nil {
 			d.Free()
 			return 0, err
 		}
@@ -149,7 +149,7 @@ func Example() {
 		fmt.Println("synchronize:", err)
 		return
 	}
-	if err := dX.CopyToHost(unsafe.Pointer(&x[0]), uint(len(x))*8); err != nil {
+	if err := dX.CopyToHost(x); err != nil {
 		fmt.Println("download:", err)
 		return
 	}

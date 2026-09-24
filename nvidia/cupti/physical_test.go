@@ -314,7 +314,7 @@ func TestActivityMemcpyRecord(t *testing.T) {
 			t.Errorf("free device buffer: %v", err)
 		}
 	}()
-	if err := dev.CopyFromHost(unsafe.Pointer(&src[0]), copyBytes); err != nil {
+	if err := dev.CopyFromHostPtr(unsafe.Pointer(&src[0]), copyBytes); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	if err := driver.CtxSynchronize(); err != nil {

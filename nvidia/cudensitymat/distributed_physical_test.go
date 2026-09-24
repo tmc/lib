@@ -142,16 +142,16 @@ func TestDistributedNorm(t *testing.T) {
 		}
 	}
 	ptr := alloc(bytes)
-	check("upload slice", ptr.CopyFromHost(unsafe.Pointer(&host[0]), bytes))
+	check("upload slice", ptr.CopyFromHostPtr(unsafe.Pointer(&host[0]), bytes))
 	address := uintptr(ptr)
 	check("attach", state.AttachComponentStorage(h, 1, &address, &bytes))
 	out := alloc(8)
 	sentinel := math.NaN()
-	check("norm sentinel", out.CopyFromHost(unsafe.Pointer(&sentinel), 8))
+	check("norm sentinel", out.CopyFromHostPtr(unsafe.Pointer(&sentinel), 8))
 	check("global norm", state.ComputeNorm(h, uintptr(out), cudensitymat.Stream(stream)))
 	check("synchronize", stream.Synchronize())
 	var got float64
-	check("download norm", out.CopyToHost(unsafe.Pointer(&got), 8))
+	check("download norm", out.CopyToHostPtr(unsafe.Pointer(&got), 8))
 	want := float64(204)
 	if os.Getenv("CUDENSITYMAT_BAD_ORACLE") == "1" {
 		want++

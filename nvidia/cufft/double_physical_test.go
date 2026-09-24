@@ -57,11 +57,11 @@ func TestDoubleRoundTrip(t *testing.T) {
 	if uintptr(ptr)%16 != 0 {
 		t.Fatalf("device address %#x is not 16-byte aligned", ptr)
 	}
-	check("upload", ptr.CopyFromHost(unsafe.Pointer(&values[0]), bytes))
+	check("upload", ptr.CopyFromHostPtr(unsafe.Pointer(&values[0]), bytes))
 	defer func() { clean("synchronize before release", driver.CtxSynchronize()) }()
 	check("forward", plan.ExecZ2Z(uintptr(ptr), uintptr(ptr), cufft.Forward))
 	check("synchronize forward", driver.CtxSynchronize())
-	check("download forward", ptr.CopyToHost(unsafe.Pointer(&values[0]), bytes))
+	check("download forward", ptr.CopyToHostPtr(unsafe.Pointer(&values[0]), bytes))
 	const tolerance = 1e-10
 	for k, v := range values {
 		var want complex128
@@ -76,7 +76,7 @@ func TestDoubleRoundTrip(t *testing.T) {
 	}
 	check("inverse", plan.ExecZ2Z(uintptr(ptr), uintptr(ptr), cufft.Inverse))
 	check("synchronize inverse", driver.CtxSynchronize())
-	check("download inverse", ptr.CopyToHost(unsafe.Pointer(&values[0]), bytes))
+	check("download inverse", ptr.CopyToHostPtr(unsafe.Pointer(&values[0]), bytes))
 	for i, v := range values {
 		got := complex(v.X, v.Y) / n
 		if cmplx.IsNaN(got) || cmplx.IsInf(got) || cmplx.Abs(got-input[i]) > tolerance {

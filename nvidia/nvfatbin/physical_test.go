@@ -159,7 +159,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 	for i := range sentinel {
 		sentinel[i] = -1
 	}
-	if err := out.CopyFromHost(unsafe.Pointer(&sentinel[0]), nbytes); err != nil {
+	if err := out.CopyFromHostPtr(unsafe.Pointer(&sentinel[0]), nbytes); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	n, b := int32(elems), int32(bias)
@@ -171,7 +171,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 		t.Fatalf("synchronize: %v", err)
 	}
 	got := make([]int32, elems)
-	if err := out.CopyToHost(unsafe.Pointer(&got[0]), nbytes); err != nil {
+	if err := out.CopyToHostPtr(unsafe.Pointer(&got[0]), nbytes); err != nil {
 		t.Fatalf("MemcpyDtoH: %v", err)
 	}
 	for i := range got {

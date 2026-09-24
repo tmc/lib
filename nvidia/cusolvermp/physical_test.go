@@ -402,7 +402,7 @@ func hostAllocOrFail(t *testing.T, size uint) unsafe.Pointer {
 func readInfo(t *testing.T, dInfo cusolvermp.DevicePtr) int32 {
 	t.Helper()
 	var info int32
-	if err := driver.DevicePtr(dInfo).CopyToHost(unsafe.Pointer(&info), 4); err != nil {
+	if err := driver.DevicePtr(dInfo).CopyToHostPtr(unsafe.Pointer(&info), 4); err != nil {
 		t.Fatalf("read info: %v", err)
 	}
 	return info

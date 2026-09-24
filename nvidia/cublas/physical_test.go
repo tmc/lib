@@ -100,7 +100,7 @@ func devSlice[T any](t *testing.T, xs []T) uintptr {
 			t.Errorf("free device buffer: %v", err)
 		}
 	})
-	if err := ptr.CopyFromHost(unsafe.Pointer(&xs[0]), n); err != nil {
+	if err := ptr.CopyFromHostPtr(unsafe.Pointer(&xs[0]), n); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
 	return uintptr(ptr)
@@ -123,7 +123,7 @@ func download[T any](t *testing.T, ptr uintptr, xs []T) {
 		t.Fatalf("synchronize: %v", err)
 	}
 	n := uint(len(xs)) * uint(unsafe.Sizeof(xs[0]))
-	if err := driver.DevicePtr(ptr).CopyToHost(unsafe.Pointer(&xs[0]), n); err != nil {
+	if err := driver.DevicePtr(ptr).CopyToHostPtr(unsafe.Pointer(&xs[0]), n); err != nil {
 		t.Fatalf("MemcpyDtoH: %v", err)
 	}
 }

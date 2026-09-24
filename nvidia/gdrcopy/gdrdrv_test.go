@@ -177,7 +177,7 @@ func TestPinMapCopy(t *testing.T) {
 		t.Fatalf("cuCtxSynchronize after CopyToMapping: %v", err)
 	}
 	fromDevice := make([]byte, len(payload))
-	if err := driver.DevicePtr(data).CopyToHost(unsafe.Pointer(&fromDevice[0]), uint(len(fromDevice))); err != nil {
+	if err := driver.DevicePtr(data).CopyToHostPtr(unsafe.Pointer(&fromDevice[0]), uint(len(fromDevice))); err != nil {
 		t.Fatalf("cuMemcpyDtoH: %v", err)
 	}
 	if !bytes.Equal(fromDevice, payload) {

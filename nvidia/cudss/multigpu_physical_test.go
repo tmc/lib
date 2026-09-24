@@ -100,7 +100,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 			t.Fatalf("allocate %d bytes for %s: %v", n, name, err)
 		}
 		frees = append(frees, d)
-		if err := d.CopyFromHost(p, n); err != nil {
+		if err := d.CopyFromHostPtr(p, n); err != nil {
 			t.Fatalf("upload %s: %v", name, err)
 		}
 		return d
@@ -176,7 +176,7 @@ func TestPhysicalMultiGPU(t *testing.T) {
 		}
 	}
 
-	if err := dX.CopyToHost(unsafe.Pointer(&x[0]), uint(len(x))*8); err != nil {
+	if err := dX.CopyToHostPtr(unsafe.Pointer(&x[0]), uint(len(x))*8); err != nil {
 		t.Fatalf("download solution: %v", err)
 	}
 

@@ -166,7 +166,7 @@ func TestPhysicalVersionedDescriptors(t *testing.T) {
 		for i := range host {
 			host[i] = int32(i)
 		}
-		if err := send.CopyFromHost(unsafe.Pointer(&host[0]), count*4); err != nil {
+		if err := send.CopyFromHostPtr(unsafe.Pointer(&host[0]), count*4); err != nil {
 			t.Fatalf("upload: %v", err)
 		}
 		stream, err := driver.NewStream(0)
