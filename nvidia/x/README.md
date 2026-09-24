@@ -78,6 +78,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [nvtx](nvtx/) | Package nvtx provides a pure-Go, zero-cgo implementation of NVIDIA Tools Extension (NVTX v3). |
 | [nvvmx](nvvmx/) | Package nvvmx compiles NVVM IR with owned inputs and copied output. |
 | [perfetto](perfetto/) | Package perfetto implements a streaming wire-format encoder for Perfetto trace files (.pftrace) compatible with the Chrome / Perfetto UI trace viewer. |
+| [safetensors](safetensors/) | Package safetensors reads and writes the Hugging Face safetensors format. |
 | [tileir](tileir/) | Package tileir provides abstract syntax tree (AST) representations, type models, textual MLIR parsing, and binary bytecode decoding for CUDA Tile IR (.tilebc / .tileirbc). |
 | [tileiras](tileiras/) | Package tileiras provides programmatic invocation and diagnostics parsing for NVIDIA's tileiras optimizing Tile IR assembler. |
 | [tileirdisasm](tileirdisasm/) | Package tileirdisasm disassembles binary CUDA Tile IR bytecode (.tilebc) and parses textual Tile IR into an SSA abstract syntax tree (AST). |
