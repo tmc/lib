@@ -50,15 +50,15 @@ func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
 		return nil, fmt.Errorf("load module: %w", err)
 	}
 
-	embedFn, _ := loaded.GetFunction("EmbeddingLookup")
-	normFn, _ := loaded.GetFunction("RMSNorm")
-	gemvFn, _ := loaded.GetFunction("LinearGEMV")
-	ropeFn, _ := loaded.GetFunction("ApplyRoPE")
-	storeKVFn, _ := loaded.GetFunction("StoreKVCache")
-	swigluFn, _ := loaded.GetFunction("SwiGLU")
-	addResFn, _ := loaded.GetFunction("AddResidual")
-	fusedQKVFn, _ := loaded.GetFunction("FusedRMSNormQKV")
-	fusedSwiGLUFn, _ := loaded.GetFunction("FusedSwiGLUDown")
+	embedFn, _ := loaded.Function("EmbeddingLookup")
+	normFn, _ := loaded.Function("RMSNorm")
+	gemvFn, _ := loaded.Function("LinearGEMV")
+	ropeFn, _ := loaded.Function("ApplyRoPE")
+	storeKVFn, _ := loaded.Function("StoreKVCache")
+	swigluFn, _ := loaded.Function("SwiGLU")
+	addResFn, _ := loaded.Function("AddResidual")
+	fusedQKVFn, _ := loaded.Function("FusedRMSNormQKV")
+	fusedSwiGLUFn, _ := loaded.Function("FusedSwiGLUDown")
 
 	return &GPUModules{
 		mod:           loaded,

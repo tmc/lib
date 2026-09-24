@@ -51,7 +51,7 @@ func run() error {
 			return err
 		}
 		defer mod.Unload()
-		fn, err := mod.GetFunction("add")
+		fn, err := mod.Function("add")
 		if err != nil {
 			return err
 		}

@@ -6,26 +6,27 @@ import (
 	"math"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 // stubSource serves fixed tensors, so the retention tests do not need a
 // checkpoint on disk.
 type stubSource struct {
 	raw  map[string][]byte
-	info map[string]cudasafetensors.TensorInfo
+	info map[string]safetensors.TensorInfo
 	err  error
 }
 
-func (s stubSource) TensorBytes(name string) ([]byte, cudasafetensors.TensorInfo, error) {
+func (s stubSource) Tensor(name string) (safetensors.Tensor, error) {
 	if s.err != nil {
-		return nil, cudasafetensors.TensorInfo{}, s.err
+		return safetensors.Tensor{}, s.err
 	}
 	raw, ok := s.raw[name]
 	if !ok {
-		return nil, cudasafetensors.TensorInfo{}, errors.New("not found")
+		return safetensors.Tensor{}, errors.New("not found")
 	}
-	return raw, s.info[name], nil
+	info := s.info[name]
+	return safetensors.Tensor{Name: name, Dtype: info.Dtype, Shape: info.Shape, Data: raw}, nil
 }
 
 // TestRetainedTensorPreservesSourceBytes checks byte preservation directly.
@@ -175,10 +176,10 @@ func TestLoadRetainedTensorsMixedDTypes(t *testing.T) {
 			"b.f16":  make([]byte, 2*8),
 			"c.bf16": make([]byte, 2*8),
 		},
-		info: map[string]cudasafetensors.TensorInfo{
-			"a.f32":  {DType: "F32", Shape: []int{8}},
-			"b.f16":  {DType: "F16", Shape: []int{8}},
-			"c.bf16": {DType: "BF16", Shape: []int{8}},
+		info: map[string]safetensors.TensorInfo{
+			"a.f32":  {Dtype: "F32", Shape: []int{8}},
+			"b.f16":  {Dtype: "F16", Shape: []int{8}},
+			"c.bf16": {Dtype: "BF16", Shape: []int{8}},
 		},
 	}
 	c, err := loadRetainedTensors(src, []string{"a.f32", "b.f16", "c.bf16"})
@@ -221,9 +222,9 @@ func TestLoadRetainedTensorsPreservesBytesEndToEnd(t *testing.T) {
 			"half":  append([]byte(nil), want["half"]...),
 			"brain": append([]byte(nil), want["brain"]...),
 		},
-		info: map[string]cudasafetensors.TensorInfo{
-			"half":  {DType: "F16", Shape: []int{3}},
-			"brain": {DType: "BF16", Shape: []int{3}},
+		info: map[string]safetensors.TensorInfo{
+			"half":  {Dtype: "F16", Shape: []int{3}},
+			"brain": {Dtype: "BF16", Shape: []int{3}},
 		},
 	}
 	c, err := loadRetainedTensors(src, []string{"half", "brain"})
@@ -245,7 +246,7 @@ func TestLoadRetainedTensorsPreservesBytesEndToEnd(t *testing.T) {
 func TestLoadRetainedTensorsRejectsBadTensor(t *testing.T) {
 	src := stubSource{
 		raw:  map[string][]byte{"bad": make([]byte, 7)},
-		info: map[string]cudasafetensors.TensorInfo{"bad": {DType: "F16", Shape: []int{4}}},
+		info: map[string]safetensors.TensorInfo{"bad": {Dtype: "F16", Shape: []int{4}}},
 	}
 	if _, err := loadRetainedTensors(src, []string{"bad"}); err == nil {
 		t.Fatal("accepted a tensor whose payload does not match its metadata")

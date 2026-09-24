@@ -51,7 +51,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		name, err := dev.GetName()
+		name, err := dev.Name()
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func cudaDevice() (driver.Device, error) {
 	if err := driver.Init(0); err != nil {
 		return 0, fmt.Errorf("cuInit: %w", err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		return 0, fmt.Errorf("cuDeviceGet: %w", err)
 	}
@@ -111,11 +111,11 @@ func nvrtcFeature() error {
 	if err != nil {
 		return err
 	}
-	defer nvrtc.DestroyProgram(&p)
+	defer p.Destroy()
 	if err := p.Compile(nil); err != nil {
 		return err
 	}
-	ptx, err := p.GetPTX()
+	ptx, err := p.PTX()
 	if err != nil {
 		return err
 	}
@@ -136,12 +136,12 @@ func nvmlFeature() error {
 	if err != nil {
 		return err
 	}
-	name, err := dev.GetName()
+	name, err := dev.Name()
 	if err != nil {
 		return err
 	}
 	fmt.Printf("%d device(s); %s\n", count, name)
-	memory, err := dev.GetMemoryInfo()
+	memory, err := dev.MemoryInfo()
 	if err != nil {
 		fmt.Printf("NVML memory query: UNAVAILABLE: %v\n", err)
 		return nil
@@ -156,7 +156,7 @@ func cublasFeature() error {
 		return err
 	}
 	defer h.Destroy()
-	version, err := h.GetVersion()
+	version, err := h.Version()
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func cublasFeature() error {
 		return err
 	}
 	runtime.KeepAlive(ptrs)
-	if err := ptrs[2].MemcpyDtoH(unsafe.Pointer(&c[0]), uint(len(c))*4); err != nil {
+	if err := ptrs[2].CopyToHostPtr(unsafe.Pointer(&c[0]), uint(len(c))*4); err != nil {
 		return err
 	}
 	want := []float32{19, 43, 22, 50}
@@ -282,7 +282,7 @@ func cusparseFeature() error {
 		return err
 	}
 	defer h.Destroy()
-	version, err := h.GetVersion()
+	version, err := h.Version()
 	if err != nil {
 		return err
 	}
@@ -317,14 +317,14 @@ func ncclFeature() error {
 	if err != nil {
 		return err
 	}
-	defer p.MemFree()
-	if err := p.MemcpyHtoD(unsafe.Pointer(&values[0]), uint(len(values))*4); err != nil {
+	defer p.Free()
+	if err := p.CopyFromHostPtr(unsafe.Pointer(&values[0]), uint(len(values))*4); err != nil {
 		return err
 	}
 	if err := comm.AllReduce(nccl.Buffer(p), nccl.Buffer(p), uint(len(values)), nccl.Float32, nccl.Sum, 0); err != nil {
 		return err
 	}
-	if err := p.MemcpyDtoH(unsafe.Pointer(&values[0]), uint(len(values))*4); err != nil {
+	if err := p.CopyToHostPtr(unsafe.Pointer(&values[0]), uint(len(values))*4); err != nil {
 		return err
 	}
 	fmt.Printf("NCCL %d one-rank all-reduce = %v\n", version, values)
@@ -339,8 +339,8 @@ func deviceFloat32s(values ...[]float32) ([]driver.DevicePtr, error) {
 			freeDevicePtrs(ptrs[:i])
 			return nil, err
 		}
-		if err := p.MemcpyHtoD(unsafe.Pointer(&value[0]), uint(len(value))*4); err != nil {
-			p.MemFree()
+		if err := p.CopyFromHostPtr(unsafe.Pointer(&value[0]), uint(len(value))*4); err != nil {
+			p.Free()
 			freeDevicePtrs(ptrs[:i])
 			return nil, err
 		}
@@ -352,7 +352,7 @@ func deviceFloat32s(values ...[]float32) ([]driver.DevicePtr, error) {
 func freeDevicePtrs(ptrs []driver.DevicePtr) {
 	for _, p := range ptrs {
 		if p != 0 {
-			p.MemFree()
+			p.Free()
 		}
 	}
 }

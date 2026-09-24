@@ -100,14 +100,14 @@ func RunBenchmarkComparison(batchSize, steps int, budget egraph.AutotuneBudget) 
 		return nil, fmt.Errorf("load module: %w", err)
 	}
 
-	kRMSNorm, _ := loaded.GetFunction("kernel_rmsnorm")
-	kGEMV, _ := loaded.GetFunction("kernel_gemv")
-	kSiLU, _ := loaded.GetFunction("kernel_silu")
-	kMul, _ := loaded.GetFunction("kernel_mul")
-	kAdd, _ := loaded.GetFunction("kernel_add")
+	kRMSNorm, _ := loaded.Function("kernel_rmsnorm")
+	kGEMV, _ := loaded.Function("kernel_gemv")
+	kSiLU, _ := loaded.Function("kernel_silu")
+	kMul, _ := loaded.Function("kernel_mul")
+	kAdd, _ := loaded.Function("kernel_add")
 
-	kFusedRMSNormGEMV, _ := loaded.GetFunction("kernel_fused_rmsnorm_gemv")
-	kFusedSwiGLU, _ := loaded.GetFunction("kernel_fused_swiglu_gemv")
+	kFusedRMSNormGEMV, _ := loaded.Function("kernel_fused_rmsnorm_gemv")
+	kFusedSwiGLU, _ := loaded.Function("kernel_fused_swiglu_gemv")
 
 	// Warmup
 	_ = stream.Synchronize(ctx)

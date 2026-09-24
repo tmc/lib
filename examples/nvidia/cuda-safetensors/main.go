@@ -11,6 +11,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 func main() {
@@ -30,7 +31,7 @@ func run() error {
 	if err := writeWeights(path, []float32{1, 2, 3, 4}); err != nil {
 		return err
 	}
-	weights, err := cudasafetensors.Open(path)
+	weights, err := safetensors.Open(path)
 	if err != nil {
 		return err
 	}

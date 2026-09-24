@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 // ModelConfig holds the architecture parameters for a LLaMA or Qwen model.
@@ -128,18 +128,18 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		cfg.MaxSeqLen = 2048
 	}
 
-	sw, err := cudasafetensors.OpenSharded(dir)
+	sw, err := safetensors.OpenSharded(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open safetensors: %w", err)
 	}
 	defer sw.Close()
 
 	getTensor := func(name string) ([]float32, error) {
-		raw, info, err := sw.TensorBytes(name)
+		t, err := sw.Tensor(name)
 		if err != nil {
 			return nil, err
 		}
-		return decodeTensorToFloat32(raw, info.DType), nil
+		return decodeTensorToFloat32(t.Data, string(t.Dtype)), nil
 	}
 
 	embed, err := getTensor("model.embed_tokens.weight")

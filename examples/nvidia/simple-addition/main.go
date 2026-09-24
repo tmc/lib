@@ -42,7 +42,7 @@ func run() error {
 	if err := driver.Init(0); err != nil {
 		return fmt.Errorf("cuInit: %w", err)
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		return fmt.Errorf("cuDeviceGet: %w", err)
 	}
@@ -59,12 +59,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	mod, err := driver.NewModuleLoadData(unsafe.Pointer(&ptx[0]))
+	mod, err := driver.ModuleLoadData(ptx)
 	if err != nil {
 		return fmt.Errorf("cuModuleLoadData: %w", err)
 	}
 	defer mod.Unload()
-	fn, err := mod.GetFunction("VectorAdd")
+	fn, err := mod.Function("VectorAdd")
 	if err != nil {
 		return fmt.Errorf("cuModuleGetFunction: %w", err)
 	}
@@ -85,15 +85,15 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("cuMemAlloc: %w", err)
 		}
-		defer p.MemFree()
+		defer p.Free()
 		ptrs[i] = p
 	}
 	dA, dB, dC := ptrs[0], ptrs[1], ptrs[2]
 
-	if err := dA.MemcpyHtoD(unsafe.Pointer(&a[0]), size); err != nil {
+	if err := dA.CopyFromHostPtr(unsafe.Pointer(&a[0]), size); err != nil {
 		return fmt.Errorf("cuMemcpyHtoD A: %w", err)
 	}
-	if err := dB.MemcpyHtoD(unsafe.Pointer(&b[0]), size); err != nil {
+	if err := dB.CopyFromHostPtr(unsafe.Pointer(&b[0]), size); err != nil {
 		return fmt.Errorf("cuMemcpyHtoD B: %w", err)
 	}
 
@@ -104,10 +104,10 @@ func run() error {
 		unsafe.Pointer(&dA), unsafe.Pointer(&dB), unsafe.Pointer(&dC), unsafe.Pointer(&n),
 	}
 	blocksPerGrid := uint32((vectorLen + threadsPerBlock - 1) / threadsPerBlock)
-	if err := fn.LaunchKernel(blocksPerGrid, 1, 1, threadsPerBlock, 1, 1, 0, 0, args); err != nil {
+	if err := fn.LaunchKernel(driver.Dim3{X: blocksPerGrid, Y: 1, Z: 1}, driver.Dim3{X: threadsPerBlock, Y: 1, Z: 1}, 0, 0, args); err != nil {
 		return fmt.Errorf("cuLaunchKernel: %w", err)
 	}
-	if err := dC.MemcpyDtoH(unsafe.Pointer(&c[0]), size); err != nil {
+	if err := dC.CopyToHostPtr(unsafe.Pointer(&c[0]), size); err != nil {
 		return fmt.Errorf("cuMemcpyDtoH C: %w", err)
 	}
 	if err := driver.CtxSynchronize(); err != nil {
@@ -119,7 +119,7 @@ func run() error {
 			return fmt.Errorf("C[%d] = %v, want %v", i, c[i], want)
 		}
 	}
-	name, err := dev.GetName()
+	name, err := dev.Name()
 	if err != nil {
 		return fmt.Errorf("cuDeviceGetName: %w", err)
 	}
@@ -130,11 +130,11 @@ func run() error {
 // compile compiles kernelSource to PTX for dev's compute capability. The
 // returned PTX is NUL-terminated, as cuModuleLoadData requires.
 func compile(dev driver.Device) ([]byte, error) {
-	major, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMajor)
+	major, err := dev.Attribute(driver.DevAttrComputeCapabilityMajor)
 	if err != nil {
 		return nil, fmt.Errorf("cuDeviceGetAttribute major: %w", err)
 	}
-	minor, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMinor)
+	minor, err := dev.Attribute(driver.DevAttrComputeCapabilityMinor)
 	if err != nil {
 		return nil, fmt.Errorf("cuDeviceGetAttribute minor: %w", err)
 	}
@@ -142,16 +142,16 @@ func compile(dev driver.Device) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("nvrtcCreateProgram: %w", err)
 	}
-	defer nvrtc.DestroyProgram(&prog)
+	defer prog.Destroy()
 
 	arch := fmt.Sprintf("--gpu-architecture=compute_%d%d", major, minor)
 	if err := prog.Compile([]string{arch}); err != nil {
-		if logText, logErr := prog.GetProgramLog(); logErr == nil && logText != "" {
+		if logText, logErr := prog.Log(); logErr == nil && logText != "" {
 			return nil, fmt.Errorf("nvrtcCompileProgram: %w\n%s", err, logText)
 		}
 		return nil, fmt.Errorf("nvrtcCompileProgram: %w", err)
 	}
-	ptx, err := prog.GetPTX()
+	ptx, err := prog.PTX()
 	if err != nil {
 		return nil, fmt.Errorf("nvrtcGetPTX: %w", err)
 	}

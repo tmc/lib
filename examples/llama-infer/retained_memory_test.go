@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 // The retention memory measurement needs a real checkpoint, so it is opt-in.
@@ -38,14 +38,14 @@ func TestRetainedCheckpointHostMemory(t *testing.T) {
 		t.Fatalf("set %s to \"retained\" or \"float32\", got %q", modeEnv, mode)
 	}
 
-	sw, err := cudasafetensors.OpenSharded(dir)
+	sw, err := safetensors.OpenSharded(dir)
 	if err != nil {
 		t.Fatalf("open checkpoint: %v", err)
 	}
 	defer sw.Close()
 
-	names := make([]string, 0, len(sw.Tensors))
-	for name := range sw.Tensors {
+	names := make([]string, 0, len(sw.Shard))
+	for name := range sw.Shard {
 		names = append(names, name)
 	}
 
@@ -76,15 +76,15 @@ func TestRetainedCheckpointHostMemory(t *testing.T) {
 	case "float32":
 		widened = make(map[string][]float32, len(names))
 		for _, name := range names {
-			raw, info, err := sw.TensorBytes(name)
+			tensor, err := sw.Tensor(name)
 			if err != nil {
 				t.Fatalf("read %s: %v", name, err)
 			}
-			vals := decodeTensorToFloat32(raw, info.DType)
+			vals := decodeTensorToFloat32(tensor.Data, string(tensor.Dtype))
 			widened[name] = vals
 			elems += len(vals)
 			payload += len(vals) * 4
-			dtypeSeen[info.DType]++
+			dtypeSeen[string(tensor.Dtype)]++
 		}
 	}
 

@@ -6,7 +6,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
-	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 // GPULayerWeights holds GPU-allocated parameter buffers for one transformer layer.
@@ -56,7 +56,7 @@ func (mw *GPUModelWeights) Free() {
 
 // LoadGPUModel loads safetensors files from modelDir and transfers tensors to dev.
 func LoadGPUModel(dev *cuda.Device, modelDir string, cfg *QwenConfig) (*GPUModelWeights, error) {
-	sw, err := cudasafetensors.OpenSharded(modelDir)
+	sw, err := safetensors.OpenSharded(modelDir)
 	if err != nil {
 		return nil, fmt.Errorf("open safetensors: %w", err)
 	}
@@ -64,9 +64,9 @@ func LoadGPUModel(dev *cuda.Device, modelDir string, cfg *QwenConfig) (*GPUModel
 
 	getTensor := func(name string, defaultSize int) cudamem.Slice[float32] {
 		var data []float32
-		raw, info, err := sw.TensorBytes(name)
-		if err == nil && len(raw) > 0 {
-			data = decodeTensorToFloat32(raw, info.DType)
+		t, err := sw.Tensor(name)
+		if err == nil && len(t.Data) > 0 {
+			data = decodeTensorToFloat32(t.Data, string(t.Dtype))
 		} else {
 			data = make([]float32, defaultSize)
 			for i := range data {

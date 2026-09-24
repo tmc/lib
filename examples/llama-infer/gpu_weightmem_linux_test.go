@@ -130,7 +130,8 @@ func driverAllocationBytes(t *testing.T, dev *cuda.Device, p driver.DevicePtr) u
 	t.Helper()
 	var size uint
 	err := dev.WithContext(func() error {
-		_, err := p.MemGetAddressRange(&size)
+		var err error
+		_, size, err = p.MemGetAddressRange()
 		return err
 	})
 	if err != nil {

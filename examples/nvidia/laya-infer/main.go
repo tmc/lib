@@ -29,7 +29,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"net/http"
 	"os"
@@ -40,7 +39,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 // defaultPort is below the Linux ephemeral range and unassigned by IANA.
@@ -231,18 +230,19 @@ func tokenize(dir, text string) error {
 }
 
 func listTensors(dir string) error {
-	st, err := cudasafetensors.Open(filepath.Join(dir, "model.safetensors"))
+	st, err := safetensors.Open(filepath.Join(dir, "model.safetensors"))
 	if err != nil {
 		return err
 	}
-	names := slices.Sorted(maps.Keys(st.Tensors))
-	for _, name := range names {
-		info := st.Tensors[name]
+	infos := slices.SortedFunc(slices.Values(st.Tensors), func(a, b safetensors.TensorInfo) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	for _, info := range infos {
 		dims := make([]string, len(info.Shape))
 		for i, n := range info.Shape {
 			dims[i] = strconv.Itoa(n)
 		}
-		fmt.Printf("%s  %s [%s]\n", name, info.DType, strings.Join(dims, ","))
+		fmt.Printf("%s  %s [%s]\n", info.Name, info.Dtype, strings.Join(dims, ","))
 	}
 	return nil
 }

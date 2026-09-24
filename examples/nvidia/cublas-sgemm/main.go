@@ -23,7 +23,7 @@ func run() error {
 	if err := driver.Init(0); err != nil {
 		return err
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		return err
 	}
@@ -45,8 +45,8 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		defer p.MemFree()
-		if err := p.MemcpyHtoD(unsafe.Pointer(&values[0]), uint(len(values))*4); err != nil {
+		defer p.Free()
+		if err := p.CopyFromHostPtr(unsafe.Pointer(&values[0]), uint(len(values))*4); err != nil {
 			return err
 		}
 		ptrs[i] = p
@@ -65,7 +65,7 @@ func run() error {
 		return err
 	}
 	runtime.KeepAlive(ptrs)
-	if err := ptrs[2].MemcpyDtoH(unsafe.Pointer(&c[0]), uint(len(c))*4); err != nil {
+	if err := ptrs[2].CopyToHostPtr(unsafe.Pointer(&c[0]), uint(len(c))*4); err != nil {
 		return err
 	}
 	want := []float32{19, 43, 22, 50}

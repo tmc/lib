@@ -107,7 +107,7 @@ func loadKernels(mod *nvrtcx.CompiledModule, dev *cuda.Device) (*kernels, error)
 
 	k := &kernels{mod: loaded}
 	for _, e := range k.entries() {
-		fn, err := loaded.GetFunction(e.name)
+		fn, err := loaded.Function(e.name)
 		if err != nil {
 			return nil, fmt.Errorf("resolve kernel %s: %w", e.name, err)
 		}

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 // ModelConfig holds the architecture parameters for a LLaMA or Qwen model.
@@ -177,14 +177,15 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		return nil, nil, err
 	}
 
-	sw, err := cudasafetensors.OpenSharded(dir)
+	sw, err := safetensors.OpenSharded(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open safetensors: %w", err)
 	}
 	defer sw.Close()
-	metadata := make(map[string]checkpointTensor, len(sw.Tensors))
-	for name, info := range sw.Tensors {
-		metadata[name] = checkpointTensor{DType: info.DType, Shape: info.Shape, Shard: info.ShardFile}
+	metadata := make(map[string]checkpointTensor, len(sw.Shard))
+	for name, shard := range sw.Shard {
+		info, _ := sw.Info(name)
+		metadata[name] = checkpointTensor{DType: string(info.Dtype), Shape: info.Shape, Shard: shard}
 	}
 	consumption, err := auditCheckpoint(cfg, metadata, "F32")
 	if err != nil {
@@ -192,11 +193,11 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 	}
 
 	getTensor := func(name string) ([]float32, error) {
-		raw, info, err := sw.TensorBytes(name)
+		t, err := sw.Tensor(name)
 		if err != nil {
 			return nil, err
 		}
-		return decodeTensorToFloat32(raw, info.DType), nil
+		return decodeTensorToFloat32(t.Data, string(t.Dtype)), nil
 	}
 
 	embed, err := getTensor("model.embed_tokens.weight")

@@ -25,7 +25,7 @@ func run() error {
 	if err := driver.Init(0); err != nil {
 		return err
 	}
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func run() error {
 	if err := comm.AllReduce(nccl.Buffer(ptrs[2]), nccl.Buffer(ptrs[2]), uint(len(c)), nccl.Float32, nccl.Sum, 0); err != nil {
 		return err
 	}
-	if err := ptrs[2].MemcpyDtoH(unsafe.Pointer(&c[0]), uint(len(c))*4); err != nil {
+	if err := ptrs[2].CopyToHostPtr(unsafe.Pointer(&c[0]), uint(len(c))*4); err != nil {
 		return err
 	}
 	want := []float32{19, 43, 22, 50}
@@ -92,8 +92,8 @@ func copyToDevice(values ...[]float32) ([]driver.DevicePtr, error) {
 			free(ptrs[:i])
 			return nil, err
 		}
-		if err := p.MemcpyHtoD(unsafe.Pointer(&value[0]), uint(len(value))*4); err != nil {
-			p.MemFree()
+		if err := p.CopyFromHostPtr(unsafe.Pointer(&value[0]), uint(len(value))*4); err != nil {
+			p.Free()
 			free(ptrs[:i])
 			return nil, err
 		}
@@ -105,7 +105,7 @@ func copyToDevice(values ...[]float32) ([]driver.DevicePtr, error) {
 func free(ptrs []driver.DevicePtr) {
 	for _, p := range ptrs {
 		if p != 0 {
-			p.MemFree()
+			p.Free()
 		}
 	}
 }

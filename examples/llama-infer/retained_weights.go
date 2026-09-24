@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 // A RetainedTensor holds a checkpoint tensor in the dtype the checkpoint
@@ -138,22 +138,22 @@ func (c *RetainedCheckpoint) PayloadBytesAsFloat32() int {
 
 // tensorSource is the part of the safetensors reader this loader needs.
 type tensorSource interface {
-	TensorBytes(name string) ([]byte, cudasafetensors.TensorInfo, error)
+	Tensor(name string) (safetensors.Tensor, error)
 }
 
 // loadRetainedTensors reads every named tensor from src without widening it.
 func loadRetainedTensors(src tensorSource, names []string) (*RetainedCheckpoint, error) {
 	c := &RetainedCheckpoint{Tensors: make(map[string]*RetainedTensor, len(names))}
 	for _, name := range names {
-		raw, info, err := src.TensorBytes(name)
+		t, err := src.Tensor(name)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", name, err)
 		}
-		t, err := NewRetainedTensor(raw, info.DType, info.Shape)
+		rt, err := NewRetainedTensor(t.Data, string(t.Dtype), t.Shape)
 		if err != nil {
 			return nil, fmt.Errorf("retain %s: %w", name, err)
 		}
-		c.Tensors[name] = t
+		c.Tensors[name] = rt
 	}
 	return c, nil
 }
@@ -166,14 +166,14 @@ func loadRetainedTensors(src tensorSource, names []string) (*RetainedCheckpoint,
 // consume in its source precision, and that [RetainedTensor.DecodeFloat32]
 // can widen where a float32 consumer needs it.
 func LoadRetainedCheckpoint(dir string) (*RetainedCheckpoint, error) {
-	sw, err := cudasafetensors.OpenSharded(dir)
+	sw, err := safetensors.OpenSharded(dir)
 	if err != nil {
 		return nil, fmt.Errorf("open safetensors: %w", err)
 	}
 	defer sw.Close()
 
-	names := make([]string, 0, len(sw.Tensors))
-	for name := range sw.Tensors {
+	names := make([]string, 0, len(sw.Shard))
+	for name := range sw.Shard {
 		names = append(names, name)
 	}
 	return loadRetainedTensors(sw, names)

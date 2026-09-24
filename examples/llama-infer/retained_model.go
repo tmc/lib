@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 // A RetainedModel is the model's weights in the dtypes the checkpoint
@@ -220,15 +220,16 @@ func LoadRetainedModel(dir string) (*RetainedModel, *ModelConfig, error) {
 }
 
 func loadRetainedModel(dir string, cfg *ModelConfig) (_ *RetainedModel, _ *ModelConfig, err error) {
-	sw, err := cudasafetensors.OpenSharded(dir)
+	sw, err := safetensors.OpenSharded(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open safetensors: %w", err)
 	}
 	defer func() { err = errors.Join(err, sw.Close()) }()
 
-	metadata := make(map[string]checkpointTensor, len(sw.Tensors))
-	for name, info := range sw.Tensors {
-		metadata[name] = checkpointTensor{DType: info.DType, Shape: info.Shape, Shard: info.ShardFile}
+	metadata := make(map[string]checkpointTensor, len(sw.Shard))
+	for name, shard := range sw.Shard {
+		info, _ := sw.Info(name)
+		metadata[name] = checkpointTensor{DType: string(info.Dtype), Shape: info.Shape, Shard: shard}
 	}
 	receipt, err := auditCheckpoint(cfg, metadata, "F32")
 	if err != nil {
@@ -240,7 +241,7 @@ func loadRetainedModel(dir string, cfg *ModelConfig) (_ *RetainedModel, _ *Model
 	// retained memory accounting measure the checkpoint rather than the model.
 	var names []string
 	for _, want := range expectedCheckpointTensors(cfg) {
-		if _, ok := sw.Tensors[want.name]; ok {
+		if _, ok := sw.Shard[want.name]; ok {
 			names = append(names, want.name)
 		} else if want.required {
 			return nil, nil, fmt.Errorf("checkpoint has no tensor %q", want.name)

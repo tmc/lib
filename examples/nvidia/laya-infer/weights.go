@@ -8,7 +8,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
-	"github.com/tmc/lib/nvidia/x/cudasafetensors"
+	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
 // encLayer holds one ModernBERT encoder layer on the device. Weights keep the
@@ -53,18 +53,18 @@ type weights struct {
 // loadWeights reads model.safetensors from dir, converts every tensor to
 // float32, and uploads the encoder and head parameters to dev.
 func loadWeights(dir string, dev *cuda.Device, c *config) (*weights, error) {
-	st, err := cudasafetensors.Open(filepath.Join(dir, "model.safetensors"))
+	st, err := safetensors.Open(filepath.Join(dir, "model.safetensors"))
 	if err != nil {
 		return nil, fmt.Errorf("open weights: %w", err)
 	}
 
 	// host reads a tensor as float32 and checks its element count.
 	host := func(name string, want int) ([]float32, error) {
-		raw, info, err := st.TensorBytes(name)
+		t, err := st.Tensor(name)
 		if err != nil {
 			return nil, fmt.Errorf("tensor %s: %w", name, err)
 		}
-		v, err := toFloat32(raw, info.DType)
+		v, err := toFloat32(t.Data, string(t.Dtype))
 		if err != nil {
 			return nil, fmt.Errorf("tensor %s: %w", name, err)
 		}
@@ -86,7 +86,7 @@ func loadWeights(dir string, dev *cuda.Device, c *config) (*weights, error) {
 	// checkpoint was exported.
 	enc := ""
 	for _, p := range []string{"encoder.", "model.", ""} {
-		if _, ok := st.Tensors[p+"embeddings.tok_embeddings.weight"]; ok {
+		if _, ok := st.Info(p + "embeddings.tok_embeddings.weight"); ok {
 			enc = p
 			break
 		}
@@ -133,7 +133,7 @@ func loadWeights(dir string, dev *cuda.Device, c *config) (*weights, error) {
 
 	// The head feed-forward width comes from the checkpoint, not the config.
 	if c.HeadLayers > 0 {
-		info, ok := st.Tensors["head.layers.0.linear1.weight"]
+		info, ok := st.Info("head.layers.0.linear1.weight")
 		if !ok {
 			return nil, fmt.Errorf("head.layers.0.linear1.weight not found (head_layers=%d)", c.HeadLayers)
 		}
@@ -169,11 +169,11 @@ func loadWeights(dir string, dev *cuda.Device, c *config) (*weights, error) {
 		return nil, err
 	}
 
-	a0, ok := st.Tensors["act_head.0.weight"]
+	a0, ok := st.Info("act_head.0.weight")
 	if !ok {
 		return nil, fmt.Errorf("act_head.0.weight not found")
 	}
-	a2, ok := st.Tensors["act_head.2.weight"]
+	a2, ok := st.Info("act_head.2.weight")
 	if !ok {
 		return nil, fmt.Errorf("act_head.2.weight not found")
 	}

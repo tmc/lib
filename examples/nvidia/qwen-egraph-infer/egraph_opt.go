@@ -440,13 +440,13 @@ func OptimizeAndCompileQwen(dev *cuda.Device, cfg *QwenConfig) (*FusedQwenEngine
 		return nil, fmt.Errorf("load module: %w", err)
 	}
 
-	kEmbed, _ := loaded.GetFunction("QwenEmbeddingLookup")
-	kNorm, _ := loaded.GetFunction("QwenRMSNorm")
-	kQKV, _ := loaded.GetFunction("QwenFusedQKVGEMV")
-	kRoPEKV, _ := loaded.GetFunction("QwenFusedRoPEStoreKV")
-	kGateUp, _ := loaded.GetFunction("QwenFusedGateUpSilu")
-	kDownAdd, _ := loaded.GetFunction("QwenFusedDownAdd")
-	kArgmax, _ := loaded.GetFunction("QwenArgmaxSampling")
+	kEmbed, _ := loaded.Function("QwenEmbeddingLookup")
+	kNorm, _ := loaded.Function("QwenRMSNorm")
+	kQKV, _ := loaded.Function("QwenFusedQKVGEMV")
+	kRoPEKV, _ := loaded.Function("QwenFusedRoPEStoreKV")
+	kGateUp, _ := loaded.Function("QwenFusedGateUpSilu")
+	kDownAdd, _ := loaded.Function("QwenFusedDownAdd")
+	kArgmax, _ := loaded.Function("QwenArgmaxSampling")
 
 	return &FusedQwenEngine{
 		embedFn:      kEmbed,
