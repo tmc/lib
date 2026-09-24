@@ -86,11 +86,6 @@ func benchPass(tb testing.TB, m *model) *pass {
 	}); err != nil {
 		tb.Fatal(err)
 	}
-	tb.Cleanup(func() {
-		if err := m.dev.WithContext(p.Free); err != nil {
-			tb.Error(err)
-		}
-	})
 	real := 0
 	for _, n := range b.lens {
 		real += int(n)

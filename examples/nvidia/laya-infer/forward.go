@@ -63,7 +63,8 @@ const (
 	half                   // half operands, f16 tensor cores and fused attention
 )
 
-// model is a loaded Laya model ready to answer questions.
+// model is a loaded Laya model ready to answer questions. It is not safe
+// for concurrent use.
 type model struct {
 	cfg    *config
 	tok    *tokenizer
@@ -75,6 +76,11 @@ type model struct {
 	scalar *blasScalars
 	prec   precision
 	fused  bool // run attention as one fused kernel instead of QK/softmax/PV
+
+	// scratch is the device memory every pass carves its working set out
+	// of. It grows to the largest batch seen and is kept, so a pass costs
+	// no allocation once one as large has run.
+	scratch cudamem.Slice[byte]
 }
 
 func newModel(dir string, prec precision) (*model, error) {
@@ -144,6 +150,9 @@ func (m *model) Close() error {
 			return err
 		}
 		m.blas.Destroy()
+		if err := m.scratch.Free(); err != nil {
+			return err
+		}
 		if err := m.stream.Destroy(); err != nil {
 			return err
 		}
@@ -216,9 +225,10 @@ func (t tensor) dtype() cublas.DataType {
 // f32 wraps a float32 slice as a tensor.
 func f32(s cudamem.Slice[float32]) tensor { return tensor{f32: s} }
 
-// scratch is the device working set for one batch. The residual h, the
-// products added into it and the gathered rows are float32 in every
-// precision; the tensors are the operands of a matrix product or attention.
+// scratch is the device working set for one batch, as views of
+// model.scratch. The residual h, the products added into it and the gathered
+// rows are float32 in every precision; the tensors are the operands of a
+// matrix product or attention.
 type scratch struct {
 	ids, lens, types cudamem.Slice[int32]
 	h, tmp           cudamem.Slice[float32] // [B*T, d]
@@ -233,90 +243,91 @@ type scratch struct {
 	rows             cudamem.Slice[float32] // gathered output rows
 	rowIdx           cudamem.Slice[int32]
 	cg, sg, cl, sl   cudamem.Slice[float32] // RoPE tables, global then local
-	free             []func() error
 }
 
-func (s *scratch) Free() error {
-	var err error
-	for i := len(s.free) - 1; i >= 0; i-- {
-		if e := s.free[i](); e != nil && err == nil {
-			err = e
-		}
+// A carver hands out consecutive views of buf, each aligned to 256 bytes as a
+// driver allocation would be. With a zero buf it hands out nothing and only
+// counts the bytes it would need.
+type carver struct {
+	buf cudamem.Slice[byte]
+	off int
+	err error
+}
+
+func carve[T any](c *carver, n int) cudamem.Slice[T] {
+	size := n * int(unsafe.Sizeof(*new(T)))
+	off := c.off
+	c.off += (size + 255) &^ 255
+	if c.buf.Len() == 0 || c.err != nil {
+		return cudamem.Slice[T]{}
 	}
-	return err
+	v, err := cudamem.Reinterpret[T](c.buf.Slice(off, off+size))
+	if err != nil {
+		c.err = err
+	}
+	return v
 }
 
+// alloc returns the working set for b, growing m.scratch first if b needs
+// more than it holds. The views stay valid until the next alloc.
 func (m *model) alloc(b *batch, nRows int) (*scratch, error) {
-	c := m.cfg
-	B, T, d := len(b.lens), b.T, c.D
-	rows, hd := B*T, c.HeadDim()
-	s := &scratch{}
-	fail := false
-	dst32 := func(dst *cudamem.Slice[float32], n int) {
-		if fail {
-			return
+	var c carver
+	m.carveScratch(&c, b, nRows)
+	if c.off > m.scratch.Len() {
+		if err := m.scratch.Free(); err != nil {
+			return nil, err
 		}
-		v, err := cudamem.Alloc[float32](m.dev, n)
+		m.scratch = cudamem.Slice[byte]{}
+		buf, err := cudamem.Alloc[byte](m.dev, c.off)
 		if err != nil {
-			fail = true
-			return
+			return nil, fmt.Errorf("allocate %d bytes of device scratch: %w", c.off, err)
 		}
-		*dst, s.free = v, append(s.free, v.Free)
+		m.scratch = buf
 	}
-	dstT := func(dst *tensor, n int) {
-		if m.prec != half {
-			dst32(&dst.f32, n)
-			return
-		}
-		if fail {
-			return
-		}
-		v, err := cudamem.Alloc[uint16](m.dev, n)
-		if err != nil {
-			fail = true
-			return
-		}
-		dst.f16, s.free = v, append(s.free, v.Free)
-	}
-	dstI := func(dst *cudamem.Slice[int32], n int) {
-		if fail {
-			return
-		}
-		v, err := cudamem.Alloc[int32](m.dev, n)
-		if err != nil {
-			fail = true
-			return
-		}
-		*dst, s.free = v, append(s.free, v.Free)
-	}
+	c = carver{buf: m.scratch}
+	s := m.carveScratch(&c, b, nRows)
+	return s, c.err
+}
 
-	dstI(&s.ids, rows)
-	dstI(&s.lens, B)
-	dstI(&s.types, B)
-	dstI(&s.rowIdx, nRows)
-	dst32(&s.h, rows*d)
-	dst32(&s.tmp, rows*d)
-	dstT(&s.xn, rows*d)
-	dstT(&s.ao, rows*d)
-	dstT(&s.qkv, rows*3*d)
-	dstT(&s.q, rows*d)
-	dstT(&s.k, rows*d)
-	dstT(&s.v, rows*d)
-	dstT(&s.wi, rows*2*c.DFF)
-	dstT(&s.g, rows*c.DFF)
-	dstT(&s.hf, rows*c.HeadFF)
-	dst32(&s.rows, nRows*d)
-	perSeq := max(c.NumHeads, c.HeadHeads) * T * T
-	s.scChunk = min(max(scoreBudget/perSeq, 1), B)
-	dst32(&s.sc, s.scChunk*perSeq)
-	for _, t := range []*cudamem.Slice[float32]{&s.cg, &s.sg, &s.cl, &s.sl} {
-		dst32(t, T*hd/2)
+// carveScratch lays b's working set out in c.
+func (m *model) carveScratch(c *carver, b *batch, nRows int) *scratch {
+	cfg := m.cfg
+	B, T, d := len(b.lens), b.T, cfg.D
+	rows, hd := B*T, cfg.HeadDim()
+	s := &scratch{}
+	t := func(n int) tensor {
+		if m.prec == half {
+			return tensor{f16: carve[uint16](c, n)}
+		}
+		return tensor{f32: carve[float32](c, n)}
 	}
-	if fail {
-		s.Free()
-		return nil, fmt.Errorf("allocate device scratch for %d tokens", rows)
+	s.ids = carve[int32](c, rows)
+	s.lens = carve[int32](c, B)
+	s.types = carve[int32](c, B)
+	s.rowIdx = carve[int32](c, nRows)
+	s.h = carve[float32](c, rows*d)
+	s.tmp = carve[float32](c, rows*d)
+	s.xn = t(rows * d)
+	s.ao = t(rows * d)
+	s.qkv = t(rows * 3 * d)
+	s.q = t(rows * d)
+	s.k = t(rows * d)
+	s.v = t(rows * d)
+	s.wi = t(rows * 2 * cfg.DFF)
+	s.g = t(rows * cfg.DFF)
+	s.hf = t(rows * cfg.HeadFF)
+	s.rows = carve[float32](c, nRows*d)
+	// The scores are the one O(T^2) buffer, and only the unfused attention
+	// path reads them.
+	if !m.fused || hd != flashHeadDim || d/cfg.HeadHeads != flashHeadDim {
+		perSeq := max(cfg.NumHeads, cfg.HeadHeads) * T * T
+		s.scChunk = min(max(scoreBudget/perSeq, 1), B)
+		s.sc = carve[float32](c, s.scChunk*perSeq)
 	}
-	return s, nil
+	for _, r := range []*cudamem.Slice[float32]{&s.cg, &s.sg, &s.cl, &s.sl} {
+		*r = carve[float32](c, T*hd/2)
+	}
+	return s
 }
 
 // ropeTables fills cos/sin tables for positions 0..T-1, computed in float64 and
@@ -427,17 +438,16 @@ func nullPtr(s cudamem.Slice[float32]) driver.DevicePtr {
 
 // pass is one prepared forward pass: a padded batch, its device scratch and the
 // rows to read back. Launching the same pass twice recomputes the same answer,
-// which is what a profiler's replay needs.
+// which is what a profiler's replay needs. A pass is valid until the next
+// prepare, which reuses its scratch.
 type pass struct {
 	b      *batch
 	s      *scratch
 	rowIdx []int32
 }
 
-func (p *pass) Free() error { return p.s.Free() }
-
-// prepare allocates device scratch for b and uploads the inputs that do not
-// change between launches. The caller must Free the result.
+// prepare lays out device scratch for b and uploads the inputs that do not
+// change between launches.
 func (m *model) prepare(b *batch) (*pass, error) {
 	c := m.cfg
 	T, hd := b.T, c.HeadDim()
@@ -467,7 +477,6 @@ func (m *model) prepare(b *batch) (*pass, error) {
 		src []float32
 	}{{s.cg, cg}, {s.sg, sg}, {s.cl, cl}, {s.sl, sl}} {
 		if err := e.dst.CopyFromHost(e.src); err != nil {
-			s.Free()
 			return nil, err
 		}
 	}
@@ -476,7 +485,6 @@ func (m *model) prepare(b *batch) (*pass, error) {
 		src []int32
 	}{{s.ids, b.ids}, {s.lens, b.lens}, {s.types, b.types}, {s.rowIdx, rowIdx}} {
 		if err := e.dst.CopyFromHost(e.src); err != nil {
-			s.Free()
 			return nil, err
 		}
 	}
@@ -736,7 +744,6 @@ func (m *model) forward(b *batch) ([][]float32, error) {
 		if err != nil {
 			return err
 		}
-		defer p.Free()
 		if err := m.launch(p, nil); err != nil {
 			return err
 		}
