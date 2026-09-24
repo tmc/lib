@@ -316,6 +316,11 @@ func TestQualifyCLI(t *testing.T) {
 		t.Errorf("median %.3f ms verdict %s, want 0.500 PASS", q.Steady.MedianMS, q.Verdict)
 	}
 
+	// These captures predate the identity and range records.
+	if q.Identity == "verified" || q.Order == "verified" {
+		t.Errorf("identity %q order %q, want both unverified", q.Identity, q.Order)
+	}
+
 	// The default 1 ms floor sets a 3 ms threshold that 0.5 ms cannot
 	// clear: the verdict fails, and the exit status says so.
 	out.Reset()
@@ -337,5 +342,64 @@ func TestQualifyCLI(t *testing.T) {
 	}
 	if errors.As(err, &exit) {
 		t.Errorf("refusal exits %d, the status of a failed verdict", exit.Code)
+	}
+
+	// A G capture that ran another executable is refused before scoring.
+	status := completeStatus()
+	status["target_environment"] = map[string]any{"executable": map[string]any{"path": "/bin/other", "sha256": "bb"}}
+	writeTestCaptureFile(t, filepath.Join(dir, "B2-G2.pprof"), testCapture(map[string][]byte{"capture.journal": qualifyJournal(spans["G2"])}, status))
+	status = completeStatus()
+	status["target_environment"] = map[string]any{"executable": map[string]any{"path": "/bin/g", "sha256": "aa"}}
+	writeTestCaptureFile(t, filepath.Join(dir, "B1-G1.pprof"), testCapture(map[string][]byte{"capture.journal": qualifyJournal(spans["G1"])}, status))
+	out.Reset()
+	err = runQualifyCommand([]string{"-warmup-until=hc_expand", mpath}, &out)
+	if err == nil || !strings.Contains(err.Error(), "arm G ran two executables") {
+		t.Fatalf("err = %v, want a refusal naming arm G", err)
+	}
+}
+
+func TestCheckQualifyRuns(t *testing.T) {
+	// entries builds one block per element of exe and start, in run order.
+	entries := func(exe [][4]string, start [][4]uint64) []qualifyEntry {
+		var out []qualifyEntry
+		for i := range exe {
+			for j, arm := range qualifyArms {
+				out = append(out, qualifyEntry{Block: fmt.Sprintf("B%d", i+1), Arm: arm, Executable: exe[i][j], Start: start[i][j]})
+			}
+		}
+		return out
+	}
+	cg := [4]string{"c", "g", "g", "c"}
+	inOrder := [4]uint64{10, 20, 30, 40}
+	tests := []struct {
+		name            string
+		entries         []qualifyEntry
+		identity, order string
+		err             string
+	}{
+		{"verified", entries([][4]string{cg, cg}, [][4]uint64{inOrder, {1, 2, 3, 4}}), "verified", "verified", ""},
+		{"one binary for both arms", entries([][4]string{{"x", "x", "x", "x"}}, [][4]uint64{inOrder}), "verified", "verified", ""},
+		{"no records", entries([][4]string{{}}, [][4]uint64{{}}), "unverified", "unverified", ""},
+		{"arm C changed", entries([][4]string{cg, {"c2", "g", "g", "c"}}, [][4]uint64{inOrder, inOrder}), "", "", "arm C ran two executables"},
+		{"arm G changed within a block", entries([][4]string{{"c", "g", "g2", "c"}}, [][4]uint64{inOrder}), "", "", "arm G ran two executables"},
+		{"G2 ran before G1", entries([][4]string{cg}, [][4]uint64{{10, 30, 20, 40}}), "", "", "block B1 ran out of manifest order: G2"},
+		{"partial start records", entries([][4]string{cg}, [][4]uint64{{10, 0, 30, 40}}), "verified", "unverified", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			identity, order, err := checkQualifyRuns(tt.entries)
+			if tt.err != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.err) {
+					t.Fatalf("err = %v, want %q", err, tt.err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(identity, tt.identity) || !strings.HasPrefix(order, tt.order) {
+				t.Errorf("identity %q order %q, want %s and %s", identity, order, tt.identity, tt.order)
+			}
+		})
 	}
 }

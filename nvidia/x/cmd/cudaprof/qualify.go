@@ -38,6 +38,16 @@ import (
 // twice in one block, so their spread is the run-to-run noise the effect has
 // to clear. The floor keeps a campaign whose arms happened to repeat exactly
 // from passing on an effect of nanoseconds.
+//
+// The ABBA arithmetic is only as good as the manifest's claims about each
+// capture, so two are checked against the captures before anything is
+// scored. Every capture of one arm must have run the same executable, by the
+// SHA-256 the launcher recorded; a campaign in which they differ is refused.
+// Within a block, the captures' measured ranges must have started in the
+// order C1, G1, G2, C2 on the agent's monotonic clock; one that did not is
+// refused too. Order is not compared across blocks: the clock restarts at
+// boot. A capture that predates either record leaves that check unverified,
+// and the report says so.
 
 // qualifyArms is the run order within a block.
 var qualifyArms = []string{"C1", "G1", "G2", "C2"}
@@ -69,12 +79,16 @@ func runQualifyCommand(args []string, stdout io.Writer) error {
 	}
 	for i := range entries {
 		e := &entries[i]
-		e.SteadyNanos, e.WholeNanos, err = qualifySpan(e.Path, opts.gaps)
-		if err != nil {
+		if err := measureQualifyEntry(e, opts.gaps); err != nil {
 			return fmt.Errorf("qualify: block %s arm %s: %w", e.Block, e.Arm, err)
 		}
 	}
+	identity, order, err := checkQualifyRuns(entries)
+	if err != nil {
+		return fmt.Errorf("qualify: %s: %w", opts.manifest, err)
+	}
 	q := qualify(entries, opts.noiseMultiplier, opts.noiseFloorMS)
+	q.Identity, q.Order = identity, order
 	q.Window = describeWarmup(opts.gaps) + " excluded"
 	if opts.json {
 		enc := json.NewEncoder(stdout)
@@ -149,6 +163,12 @@ G1, G2, C2, run in that order, C the reference arm and G the arm under test.
 Every block names all four arms once. Relative paths are resolved against the
 manifest's directory; blank lines and lines starting with # are ignored.
 
+Before scoring, every capture of an arm must record the same executable
+SHA-256, and within each block the measured ranges must have started in
+C1, G1, G2, C2 order; a campaign that contradicts its manifest is refused.
+A capture that records neither leaves the check unverified, as the report
+says.
+
 Each capture is measured by its steady-state device timeline span, the window
 "cudaprof gaps" reports for the same -warmup option; the whole span is
 reported beside it as description only. A capture whose warmup never ends --
@@ -177,6 +197,12 @@ type qualifyEntry struct {
 	Path        string `json:"path"`
 	SteadyNanos int64  `json:"steady_span_ns"`
 	WholeNanos  int64  `json:"whole_span_ns"`
+
+	// Executable is the SHA-256 of the program the capture ran, and Start
+	// the agent's monotonic timestamp of the start of its measured range.
+	// Each is empty or zero when the capture does not record it.
+	Executable string `json:"executable_sha256,omitempty"`
+	Start      uint64 `json:"range_start_timestamp,omitempty"`
 }
 
 // parseQualifyManifest reads "block arm path" lines. The result is in
@@ -229,13 +255,83 @@ func parseQualifyManifest(r io.Reader, dir string) ([]qualifyEntry, error) {
 	return entries, nil
 }
 
-// qualifySpan returns the steady-state and whole device timeline spans of
-// the capture at path, measured as gaps measures them.
-func qualifySpan(path string, opts gapOptions) (steady, whole int64, err error) {
-	report, err := gapReportForPath(path, opts)
+// measureQualifyEntry reads the capture e names and fills in its spans, the
+// executable it ran and the start of its measured range.
+func measureQualifyEntry(e *qualifyEntry, opts gapOptions) error {
+	path, err := filepath.Abs(e.Path)
 	if err != nil {
-		return 0, 0, err
+		return err
 	}
+	cap, err := readCapturePathLimits(path, opts.limits)
+	if err != nil {
+		return fmt.Errorf("read capture %s: %w", e.Path, err)
+	}
+	report, err := analyzeGaps(cap, opts)
+	if err != nil {
+		return fmt.Errorf("analyze %s: %w", e.Path, err)
+	}
+	e.SteadyNanos, e.WholeNanos, err = qualifySpan(e.Path, report)
+	if err != nil {
+		return err
+	}
+	var envelope struct {
+		Status struct {
+			PhaseReceipt *capturePhaseReceipt `json:"phase_receipt"`
+			Target       *targetEnvironment   `json:"target_environment"`
+		} `json:"status"`
+	}
+	if data, ok := cap.Files["capture-status.json"]; ok && json.Unmarshal(data, &envelope) == nil {
+		st := envelope.Status
+		if st.Target != nil && st.Target.Executable != nil {
+			e.Executable = st.Target.Executable.SHA256
+		}
+		if st.PhaseReceipt != nil {
+			e.Start = st.PhaseReceipt.StartTimestamp
+		}
+	}
+	return nil
+}
+
+// checkQualifyRuns checks that each arm ran one executable and that each
+// block ran in manifest order, and describes what it could verify. An error
+// is a campaign that contradicts its manifest.
+func checkQualifyRuns(entries []qualifyEntry) (identity, order string, err error) {
+	identity, order = "verified", "verified"
+	arms := map[string]string{} // arm letter to the first executable seen
+	first := map[string]qualifyEntry{}
+	for _, e := range entries {
+		if e.Executable == "" {
+			identity = "unverified: a capture records no executable identity"
+			continue
+		}
+		letter := e.Arm[:1]
+		if prev, ok := arms[letter]; ok && prev != e.Executable {
+			f := first[letter]
+			return "", "", fmt.Errorf("arm %s ran two executables: block %s %s ran %.12s, block %s %s ran %.12s", letter, f.Block, f.Arm, prev, e.Block, e.Arm, e.Executable)
+		}
+		if _, ok := arms[letter]; !ok {
+			arms[letter], first[letter] = e.Executable, e
+		}
+	}
+	for i := 0; i+len(qualifyArms) <= len(entries); i += len(qualifyArms) {
+		block := entries[i : i+len(qualifyArms)]
+		for j := 1; j < len(block); j++ {
+			prev, e := block[j-1], block[j]
+			if prev.Start == 0 || e.Start == 0 {
+				order = "unverified: a capture records no measured-range start"
+				continue
+			}
+			if e.Start <= prev.Start {
+				return "", "", fmt.Errorf("block %s ran out of manifest order: %s started at %d, before %s at %d (a reboot within a block also reads this way)", e.Block, e.Arm, e.Start, prev.Arm, prev.Start)
+			}
+		}
+	}
+	return identity, order, nil
+}
+
+// qualifySpan returns the steady-state and whole device timeline spans in
+// report, the gap report of the capture at path.
+func qualifySpan(path string, report *GapReport) (steady, whole int64, err error) {
 	if len(report.Devices) != 1 {
 		return 0, 0, fmt.Errorf("%s: capture ran on %d devices, want 1", path, len(report.Devices))
 	}
@@ -253,7 +349,12 @@ func qualifySpan(path string, opts gapOptions) (steady, whole int64, err error) 
 // Qualification is the verdict of one campaign. Every duration is in
 // milliseconds; a pair is G minus C, so a positive effect means G is slower.
 type Qualification struct {
-	Window   string         `json:"window"`
+	Window string `json:"window"`
+	// Identity and Order say whether each arm was seen to run one executable
+	// and each block to run in manifest order: "verified", or "unverified"
+	// and why. A campaign that contradicts either is refused, not scored.
+	Identity string         `json:"identity"`
+	Order    string         `json:"order"`
 	Captures []qualifyEntry `json:"captures"`
 	Blocks   []qualifyBlock `json:"blocks"`
 
@@ -378,7 +479,8 @@ func mad(xs []float64) float64 {
 }
 
 func (q *Qualification) write(w io.Writer) {
-	fmt.Fprintf(w, "cudaprof qualify: %d blocks, window: %s\n\n", len(q.Blocks), q.Window)
+	fmt.Fprintf(w, "cudaprof qualify: %d blocks, window: %s\n", len(q.Blocks), q.Window)
+	fmt.Fprintf(w, "executable per arm: %s; run order within blocks: %s\n\n", q.Identity, q.Order)
 	fmt.Fprintf(w, "%-6s %-4s %12s %12s  %s\n", "block", "arm", "steady ms", "whole ms", "capture")
 	for _, e := range q.Captures {
 		fmt.Fprintf(w, "%-6s %-4s %12.3f %12.3f  %s\n", e.Block, e.Arm, float64(e.SteadyNanos)/1e6, float64(e.WholeNanos)/1e6, e.Path)
