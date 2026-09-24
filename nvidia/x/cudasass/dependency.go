@@ -293,11 +293,13 @@ type OpcodeClass struct {
 	Stores     bool // writes memory
 	Fence      bool // orders memory operations around it
 	Branch     bool // transfers control
+	Indirect   bool // branch target comes from a register; see [CFG.IsDegenerate]
 	FloatAccum bool // accumulates in floating point; see [Legality]
 }
 
 // opcodeClasses covers the instruction subset observed in the sm_121a
-// fixtures. The base mnemonic is the part before the first dot.
+// fixtures, and the branches a control flow graph must recognize wherever they
+// appear. The base mnemonic is the part before the first dot.
 var opcodeClasses = map[string]OpcodeClass{
 	"MOV":    {Defs: 1},
 	"S2R":    {Defs: 1},
@@ -329,7 +331,12 @@ var opcodeClasses = map[string]OpcodeClass{
 	"BSSY":   {Branch: true},
 	"BSYNC":  {Branch: true},
 	"BRA":    {Branch: true},
-	"BRX":    {Branch: true},
+	"BRX":    {Branch: true, Indirect: true},
+	"BRXU":   {Branch: true, Indirect: true},
+	"JMP":    {Branch: true},
+	"JMX":    {Branch: true, Indirect: true},
+	"JMXU":   {Branch: true, Indirect: true},
+	"KILL":   {Branch: true},
 	"CALL":   {Branch: true},
 	"RET":    {Branch: true},
 	"EXIT":   {Branch: true},
@@ -434,11 +441,12 @@ type BasicBlock struct {
 //
 // A block ends after any branch, and begins at any address named as a branch
 // target. Targets are taken from the operand text nvdisasm prints, which in an
-// ELF section is a label reference such as `(.L_x_0) and in a raw binary is a
-// bare address; only the latter is resolvable here, so a disassembly of a
-// section yields blocks split on branches but not on unresolved labels.
-// [Disassembler.ControlFlowGraph] is nvdisasm's own answer and is what
-// TestBasicBlockReconstructionAgainstNvdisasm compares against.
+// ELF section is a label reference such as `(.L_x_0), resolved through
+// [Function.Labels], and in a raw binary is a 0x-prefixed address. An operand
+// that is neither, such as the barrier register B0 of a BSSY or the register
+// of an indirect branch, names no target. [Disassembler.ControlFlowGraph] is
+// nvdisasm's own answer and is what TestBasicBlockReconstructionAgainstNvdisasm
+// compares against.
 func BasicBlocks(fn *Function) []BasicBlock {
 	if fn == nil || len(fn.Instructions) == 0 {
 		return nil
@@ -453,7 +461,7 @@ func BasicBlocks(fn *Function) []BasicBlock {
 			leaders[fn.Instructions[n+1].Address] = true
 		}
 		for _, tok := range splitOperands(inst.Operands) {
-			if a, err := strconv.ParseUint(strings.TrimPrefix(strings.TrimSpace(tok), "0x"), 16, 64); err == nil {
+			if a, ok := fn.target(tok); ok {
 				leaders[a] = true
 			}
 		}
@@ -472,6 +480,19 @@ func BasicBlocks(fn *Function) []BasicBlock {
 	cur.End = last.Address + 16
 	blocks = append(blocks, cur)
 	return blocks
+}
+
+// target returns the address a branch operand names: a 0x-prefixed address,
+// bare or quoted as nvdisasm prints it (0x180, `0x180`, `(0x180)), or a label
+// in fn.Labels (`(.L_x_0)).
+func (fn *Function) target(tok string) (uint64, bool) {
+	tok = strings.Trim(strings.TrimSpace(tok), "`()")
+	if hex, ok := strings.CutPrefix(tok, "0x"); ok {
+		a, err := strconv.ParseUint(hex, 16, 64)
+		return a, err == nil
+	}
+	a, ok := fn.Labels[tok]
+	return a, ok
 }
 
 // A DepKind names the reason one instruction must precede another.

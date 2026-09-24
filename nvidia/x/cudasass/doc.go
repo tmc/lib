@@ -7,6 +7,19 @@
 // kernel versions, aligning instructions across loop unrolls and memory offset drift,
 // and computing architectural summaries including register spills and opcode substitutions.
 //
+// # Control flow
+//
+// [BasicBlocks] partitions a function at branches and branch targets, and
+// [NewCFG] adds the edges between the blocks, as NVBit's CFG_t does. A
+// function containing an indirect branch (BRX, JMX) is [CFG.IsDegenerate]: the
+// targets are in a register at run time and the graph lacks their edges.
+// [CFG.DOT] renders the graph with instruction offsets; [DisassembleCFG] is
+// nvdisasm's rendering of the same function, and the independent check.
+//
+// [EdgeIndex] and [EdgeCoverage] are the AFL edge hash over block IDs as
+// cuFuzz computes it on the device, for reading or reproducing its coverage
+// maps on the host.
+//
 // # Toolkit versions
 //
 // [Disassembler] runs nvdisasm, whose options differ between toolkits. Of the

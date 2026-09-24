@@ -33,3 +33,9 @@ cuobjdump example. The test compares metadata and complete function records,
 including instruction operands, padding and control-flow attributes. Host
 negative controls alter valid JSON and require these changes to be detected.
 Neither test executes the kernel.
+
+`TestSASS_DOTExport_GraphvizStructure` compares `(*CFG).DOT` with the
+committed nvdisasm basic-block graph in `testdata/roundtrip`, and, when
+`nvdisasm` is in `PATH`, with the output of `DisassembleCFG` for the same
+cubin. Without the tool the second comparison skips; that is a skip, not a
+pass.

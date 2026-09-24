@@ -30,6 +30,12 @@ type Function struct {
 	// division slowpath, after the kernel's own code in the same section,
 	// and their instructions are in Instructions like any other.
 	Symbols []Symbol
+
+	// Labels maps each code label in the function, such as ".L_x_0", to the
+	// address of the instruction that follows it. A label with no instruction
+	// after it in the function, such as the one nvdisasm uses to size it, is
+	// omitted.
+	Labels map[string]uint64
 }
 
 // A Symbol is a function symbol declared inside another function's section,
@@ -151,6 +157,9 @@ func Parse(r io.Reader) (*Disassembly, error) {
 	// pendingSymbol is a function symbol declared by a .type directive whose
 	// address is that of the next instruction parsed.
 	pendingSymbol := ""
+	// pendingLabels are code labels whose address is that of the next
+	// instruction parsed.
+	var pendingLabels []string
 
 	// curSection indexes d.sections, or is -1 between kernels. An index rather
 	// than a pointer: appending to d.sections moves the backing array, and a
@@ -234,6 +243,7 @@ func Parse(r io.Reader) (*Disassembly, error) {
 		// spellings and which tools emit them.
 		if fnName := extractFunctionName(trimmed); fnName != "" {
 			pendingSymbol = ""
+			pendingLabels = nil
 			curSourceFile = ""
 			curSourceLine = 0
 			curInlinedFile = ""
@@ -247,6 +257,11 @@ func Parse(r io.Reader) (*Disassembly, error) {
 				d.Functions = append(d.Functions, curFn)
 				d.funcMap[fnName] = curFn
 			}
+			continue
+		}
+
+		if name, ok := codeLabel(trimmed); ok {
+			pendingLabels = append(pendingLabels, name)
 			continue
 		}
 
@@ -272,6 +287,13 @@ func Parse(r io.Reader) (*Disassembly, error) {
 				curFn.Symbols = append(curFn.Symbols, Symbol{Name: pendingSymbol, Address: inst.Address})
 				pendingSymbol = ""
 			}
+			for _, name := range pendingLabels {
+				if curFn.Labels == nil {
+					curFn.Labels = make(map[string]uint64)
+				}
+				curFn.Labels[name] = inst.Address
+			}
+			pendingLabels = nil
 			curFn.Instructions = append(curFn.Instructions, inst)
 			if sawEncoding {
 				pendingFn, pendingIdx = curFn, len(curFn.Instructions)-1
@@ -330,6 +352,16 @@ func extractFunctionName(line string) string {
 		return strings.TrimSpace(name)
 	}
 	return ""
+}
+
+// codeLabel parses a label line such as ".L_x_0:". Function headers are
+// recognized before this is consulted.
+func codeLabel(line string) (string, bool) {
+	name, ok := strings.CutSuffix(line, ":")
+	if !ok || name == "" || strings.ContainsAny(name, " \t:,/") {
+		return "", false
+	}
+	return name, true
 }
 
 // functionSymbol parses a ".type NAME,@function" directive.
