@@ -20,7 +20,10 @@
 // Matrix products run on the tensor cores in tf32 by default. --exact runs
 // them in float32 instead, which reproduces laya.c byte for byte but is
 // slower: full float32 GEMMs forgo the tf32 tensor-core path and the fused
-// attention kernel.
+// attention kernel. --half stores the weight matrices and the activations
+// that feed a product as IEEE half and runs the products on the f16 tensor
+// cores, accumulating in float32; the residual stream and the LayerNorm
+// statistics stay float32.
 //
 // --serve answers POST /predict over HTTP. With --api-key, or LAYA_API_KEY
 // in the environment, each POST must send "Authorization: Bearer KEY".
@@ -71,6 +74,8 @@ func usage() error {
        --exact   compute the matrix products in float32 rather than tf32,
                  reproducing laya.c byte for byte; slower, since float32
                  GEMMs do not use the tf32 tensor-core path
+       --half    store the matrix operands as half and compute the products
+                 on the f16 tensor cores, accumulating in float32
        --lines[=N]
                  answer the request under CUPTI PC sampling and report the
                  device time by line of forward.cu, sampling every 2^N
@@ -83,26 +88,33 @@ func usage() error {
 	return nil
 }
 
-// parseExact removes --exact from args wherever it appears and reports which
-// precision is left. Everything else on this command line is positional, so a
-// flag package would have to see the option before the model directory, and a
-// caller adding it to a command line that already works puts it at the end as
-// often as not.
-func parseExact(args []string) ([]string, precision) {
+// parsePrecision removes --exact and --half from args wherever they appear
+// and reports which precision they select. Everything else on this command
+// line is positional, so a flag package would have to see the option before
+// the model directory, and a caller adding it to a command line that already
+// works puts it at the end as often as not.
+func parsePrecision(args []string) ([]string, precision, error) {
 	prec := fast
+	var sawExact, sawHalf bool
 	rest := make([]string, 0, len(args))
 	for _, arg := range args {
-		if arg == "--exact" || arg == "-exact" {
-			prec = exact
-			continue
+		switch arg {
+		case "--exact", "-exact":
+			prec, sawExact = exact, true
+		case "--half", "-half":
+			prec, sawHalf = half, true
+		default:
+			rest = append(rest, arg)
 		}
-		rest = append(rest, arg)
 	}
-	return rest, prec
+	if sawExact && sawHalf {
+		return nil, 0, errors.New("--exact and --half are mutually exclusive")
+	}
+	return rest, prec, nil
 }
 
 // parseLines removes --lines from args wherever it appears, following
-// parseExact's convention, and reports the sampling period it asks for.
+// parsePrecision's convention, and reports the sampling period it asks for.
 // --lines=N overrides the default period; zero means the flag was absent.
 func parseLines(args []string) ([]string, uint32, error) {
 	var period uint32
@@ -155,7 +167,10 @@ func parsePprof(args []string) ([]string, string, error) {
 }
 
 func run(args []string) error {
-	args, prec := parseExact(args)
+	args, prec, err := parsePrecision(args)
+	if err != nil {
+		return err
+	}
 	args, period, err := parseLines(args)
 	if err != nil {
 		return err

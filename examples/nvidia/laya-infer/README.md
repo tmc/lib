@@ -10,6 +10,7 @@ Build it from the `examples` module directory with
 
     laya-infer MODEL_DIR request.json
     laya-infer MODEL_DIR request.json --exact
+    laya-infer MODEL_DIR request.json --half
     laya-infer MODEL_DIR request.json --lines
     laya-infer MODEL_DIR request.json --pprof FILE
     laya-infer MODEL_DIR --tokenize TEXT
@@ -57,7 +58,15 @@ residual with beta=1, so no separate add kernel follows them. Attention is
 and shared memory and the softmax online, with both products on the tensor
 cores as `mma.sync` tf32. `--exact` splits it back into `GemmStridedBatchedEx`
 for QK^T and for PV with `AttnSoftmax` in between, and drops the products to
-float32. Unlike the reference, every question in a request is padded into one
+float32.
+
+`--half` stores the weight matrices, and every activation that feeds a
+product, as IEEE half: the checkpoint is half already, so the weights load
+unchanged and are the only copy on the device. The products run on the f16
+tensor cores with float32 accumulation, and attention is `FlashAttentionHalf`,
+the same kernel on `mma.sync` m16n8k16, which keeps the probabilities in
+registers between its two products. The residual stream, the LayerNorm
+statistics and the softmax stay float32. Unlike the reference, every question in a request is padded into one
 batch and evaluated together.
 
 ## Performance
@@ -67,15 +76,17 @@ phase so the region table says where the time goes. From this directory:
 
 	LAYA_MODEL=$HOME/laya go test -run '^$' -bench ForwardRegions -benchtime 20x
 
-`BenchmarkForwardWhole` and `BenchmarkForwardWholeExact` time the same pass in
-each precision, and `BenchmarkPredict` and `BenchmarkPredictExact` a whole
-request. The benchmarks skip unless `LAYA_MODEL` names a model directory.
+`BenchmarkForwardWhole`, `BenchmarkForwardWholeExact` and
+`BenchmarkForwardWholeHalf` time the same pass in each precision, and
+`BenchmarkPredict` and `BenchmarkPredictExact` a whole request. The benchmarks
+skip unless `LAYA_MODEL` names a model directory.
 
 The default is faster than `--exact` in the matrix products: the tf32
 tensor-core kernels replace the float32 GEMMs, and the fused attention never
-writes the score matrix to DRAM. The elementwise kernels are the same either
-way. Wall clock moves far less than GPU time, because loading the weights
-costs the same whichever way the pass runs.
+writes the score matrix to DRAM. `--half` is faster again: the products read
+half the bytes and run at twice the tf32 tensor-core rate, and the elementwise
+kernels around them move half the bytes too. Wall clock moves far less than GPU
+time, because loading the weights costs the same whichever way the pass runs.
 
 ### Against the C reference
 
@@ -156,9 +167,10 @@ with SASS offsets in place of source lines, which is where the samples
 Token ids, marker positions and the serialized state match `laya.c` exactly.
 With `--exact`, logits differ only by float32 rounding — a tiled CPU GEMM
 against cuBLAS — and replies are byte-identical except where a probability
-lands on a 4th-decimal rounding boundary. The default's tf32 operands move the
-reported probabilities in the 4th decimal and leave the choices themselves
-unchanged; `TestPrecisionFastAgreesWithExact` holds the drift to 1e-3.
+lands on a 4th-decimal rounding boundary. The default's tf32 operands and
+`--half`'s half operands move the reported numbers in the 4th decimal and leave
+the choices themselves unchanged; `TestPrecisionFastAgreesWithExact` holds the
+drift of each to 2e-3.
 
 `LAYA_DEBUG=1` makes both implementations dump the state, token ids, markers and
 raw logits, which is how a comparison with laya.cpp is made.

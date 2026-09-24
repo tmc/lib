@@ -153,26 +153,19 @@ func benchPlan(tb testing.TB, dev *cuda.Device, mode cuptibench.Mode, selectors 
 	return plan
 }
 
-func BenchmarkPredict(b *testing.B) {
-	m := benchModel(b, fast)
-	req := benchRequest(b)
-	if _, err := m.Predict(req); err != nil { // warm up: JIT, cuBLAS handles, first-touch
-		b.Fatal(err)
-	}
-	b.ResetTimer()
-	for b.Loop() {
-		if _, err := m.Predict(req); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
+func BenchmarkPredict(b *testing.B) { benchPredict(b, fast) }
 
 // BenchmarkPredictExact is the same request in float32. It is the whole-request
 // counterpart to BenchmarkForwardWholeExact, and exists so that a comparison
 // against another implementation has a matched-precision pair to use rather
 // than only the device-time one.
-func BenchmarkPredictExact(b *testing.B) {
-	m := benchModel(b, exact)
+func BenchmarkPredictExact(b *testing.B) { benchPredict(b, exact) }
+
+// BenchmarkPredictHalf is the same request with half operands.
+func BenchmarkPredictHalf(b *testing.B) { benchPredict(b, half) }
+
+func benchPredict(b *testing.B, prec precision) {
+	m := benchModel(b, prec)
 	req := benchRequest(b)
 	if _, err := m.Predict(req); err != nil { // warm up: JIT, cuBLAS handles, first-touch
 		b.Fatal(err)
@@ -185,23 +178,29 @@ func BenchmarkPredictExact(b *testing.B) {
 	}
 }
 
-func BenchmarkForwardWhole(b *testing.B) {
-	m := benchModel(b, fast)
-	p := benchPass(b, m)
-	cuptibench.Benchmark(b, benchPlan(b, m.dev, cuptibench.Whole, "time"), m.workload(p))
-}
+func BenchmarkForwardWhole(b *testing.B) { benchWhole(b, fast) }
 
 // BenchmarkForwardWholeExact is the same pass in float32, which is what the
 // tf32 and fused-attention numbers are a speedup over. Without it the default
 // path has no control and the comparison cannot be reproduced from the tree.
-func BenchmarkForwardWholeExact(b *testing.B) {
-	m := benchModel(b, exact)
+func BenchmarkForwardWholeExact(b *testing.B) { benchWhole(b, exact) }
+
+// BenchmarkForwardWholeHalf is the same pass with half operands.
+func BenchmarkForwardWholeHalf(b *testing.B) { benchWhole(b, half) }
+
+func benchWhole(b *testing.B, prec precision) {
+	m := benchModel(b, prec)
 	p := benchPass(b, m)
 	cuptibench.Benchmark(b, benchPlan(b, m.dev, cuptibench.Whole, "time"), m.workload(p))
 }
 
-func BenchmarkForwardRegions(b *testing.B) {
-	m := benchModel(b, fast)
+func BenchmarkForwardRegions(b *testing.B) { benchRegions(b, fast) }
+
+// BenchmarkForwardRegionsHalf is BenchmarkForwardRegions with half operands.
+func BenchmarkForwardRegionsHalf(b *testing.B) { benchRegions(b, half) }
+
+func benchRegions(b *testing.B, prec precision) {
+	m := benchModel(b, prec)
 	p := benchPass(b, m)
 	r := cuptibench.Benchmark(b, benchPlan(b, m.dev, cuptibench.Regions, "time"), m.workload(p))
 	reportRegions(b, r, "gpu__time_duration.sum")

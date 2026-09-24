@@ -42,20 +42,25 @@ const scoreBudget = 64 << 20
 type blasScalars struct{ scale, one, zero float32 }
 
 // precision selects how the matrix products are computed. It is the only
-// accuracy knob: everything else in the pass is elementwise and runs in
-// float32 either way. Both modes accumulate in float32; what they trade is
-// the mantissa the tensor cores see in the operands.
+// accuracy knob: the residual stream, every LayerNorm statistic and all
+// elementwise arithmetic are float32 in every mode. Every mode accumulates in
+// float32; what they trade is the mantissa the tensor cores see in the
+// operands, and for half also the width of the operands in memory.
 //
 // fast is the default because the answers are the same decisions -- the
 // difference lands in the 4th decimal of a probability, well inside the
 // spread between a tiled CPU GEMM and cuBLAS that the port already has. exact
 // is what reproduces laya.c byte for byte, at the cost of running without
-// tf32 tensor cores or the fused attention kernel.
+// tf32 tensor cores or the fused attention kernel. half stores the weight
+// matrices and the activations that feed a product as IEEE half. The
+// checkpoint is already half, so its weights lose nothing; the activations
+// lose three bits of mantissa against tf32.
 type precision int
 
 const (
 	fast  precision = iota // tf32 tensor cores, and the fused attention kernel
 	exact                  // float32 throughout, byte-identical to laya.c
+	half                   // half operands, f16 tensor cores and fused attention
 )
 
 // model is a loaded Laya model ready to answer questions.
@@ -94,12 +99,19 @@ func openModel(dir string, prec precision, compile func(*cuda.Device) (*kernels,
 		return nil, fmt.Errorf("open CUDA device: %w", err)
 	}
 	m := &model{cfg: cfg, tok: tok, dev: dev, scalar: &blasScalars{one: 1},
-		prec: prec, fused: prec == fast}
+		prec: prec, fused: prec != exact}
+	// half has only the fused attention kernel, so every attention in the
+	// pass must be one it is specialized for.
+	if prec == half && (cfg.HeadDim() != flashHeadDim || cfg.D/cfg.HeadHeads != flashHeadDim) {
+		dev.Close()
+		return nil, fmt.Errorf("half precision needs %d-wide attention heads, have %d and %d",
+			flashHeadDim, cfg.HeadDim(), cfg.D/cfg.HeadHeads)
+	}
 	err = dev.WithContext(func() error {
 		if m.k, err = compile(dev); err != nil {
 			return err
 		}
-		if m.w, err = loadWeights(dir, dev, cfg); err != nil {
+		if m.w, err = loadWeights(dir, dev, cfg, prec == half); err != nil {
 			return err
 		}
 		if m.stream, err = dev.NewStream(); err != nil {
@@ -162,17 +174,62 @@ func newBatch(seqs [][]int32, types []int32, markers [][]int32) *batch {
 	return b
 }
 
-// scratch is the device working set for one batch.
+// A tensor is device memory holding float32 or half values, whichever the
+// precision stores it as. At most one of f32 and f16 is set.
+type tensor struct {
+	f32 cudamem.Slice[float32]
+	f16 cudamem.Slice[uint16] // IEEE binary16 bit patterns
+}
+
+func (t tensor) half() bool { return t.f16.Len() > 0 }
+
+func (t tensor) Len() int {
+	if t.half() {
+		return t.f16.Len()
+	}
+	return t.f32.Len()
+}
+
+// Ptr returns the device address, which is what a kernel launch passes.
+func (t tensor) Ptr() driver.DevicePtr {
+	if t.half() {
+		return t.f16.Ptr()
+	}
+	return t.f32.Ptr()
+}
+
+func (t tensor) Free() error {
+	if t.half() {
+		return t.f16.Free()
+	}
+	return t.f32.Free()
+}
+
+// dtype is the tensor's element type as cuBLAS names it.
+func (t tensor) dtype() cublas.DataType {
+	if t.half() {
+		return cublas.R16F
+	}
+	return cublas.R32F
+}
+
+// f32 wraps a float32 slice as a tensor.
+func f32(s cudamem.Slice[float32]) tensor { return tensor{f32: s} }
+
+// scratch is the device working set for one batch. The residual h, the
+// products added into it and the gathered rows are float32 in every
+// precision; the tensors are the operands of a matrix product or attention.
 type scratch struct {
 	ids, lens, types cudamem.Slice[int32]
-	h, xn, ao, tmp   cudamem.Slice[float32] // [B*T, d]
-	qkv              cudamem.Slice[float32] // [B*T, 3d]
-	q, k, v          cudamem.Slice[float32] // [B, nh, T, hd]
+	h, tmp           cudamem.Slice[float32] // [B*T, d]
+	xn, ao           tensor                 // [B*T, d]
+	qkv              tensor                 // [B*T, 3d]
+	q, k, v          tensor                 // [B, nh, T, hd]
 	sc               cudamem.Slice[float32] // [scChunk, nh, T, T] attention scores
 	scChunk          int                    // sequences per attention chunk
-	wi               cudamem.Slice[float32] // [B*T, 2*dff]
-	g                cudamem.Slice[float32] // [B*T, dff]
-	hf               cudamem.Slice[float32] // [B*T, head_ff]
+	wi               tensor                 // [B*T, 2*dff]
+	g                tensor                 // [B*T, dff]
+	hf               tensor                 // [B*T, head_ff]
 	rows             cudamem.Slice[float32] // gathered output rows
 	rowIdx           cudamem.Slice[int32]
 	cg, sg, cl, sl   cudamem.Slice[float32] // RoPE tables, global then local
@@ -206,6 +263,21 @@ func (m *model) alloc(b *batch, nRows int) (*scratch, error) {
 		}
 		*dst, s.free = v, append(s.free, v.Free)
 	}
+	dstT := func(dst *tensor, n int) {
+		if m.prec != half {
+			dst32(&dst.f32, n)
+			return
+		}
+		if fail {
+			return
+		}
+		v, err := cudamem.Alloc[uint16](m.dev, n)
+		if err != nil {
+			fail = true
+			return
+		}
+		dst.f16, s.free = v, append(s.free, v.Free)
+	}
 	dstI := func(dst *cudamem.Slice[int32], n int) {
 		if fail {
 			return
@@ -223,16 +295,16 @@ func (m *model) alloc(b *batch, nRows int) (*scratch, error) {
 	dstI(&s.types, B)
 	dstI(&s.rowIdx, nRows)
 	dst32(&s.h, rows*d)
-	dst32(&s.xn, rows*d)
-	dst32(&s.ao, rows*d)
 	dst32(&s.tmp, rows*d)
-	dst32(&s.qkv, rows*3*d)
-	dst32(&s.q, rows*d)
-	dst32(&s.k, rows*d)
-	dst32(&s.v, rows*d)
-	dst32(&s.wi, rows*2*c.DFF)
-	dst32(&s.g, rows*c.DFF)
-	dst32(&s.hf, rows*c.HeadFF)
+	dstT(&s.xn, rows*d)
+	dstT(&s.ao, rows*d)
+	dstT(&s.qkv, rows*3*d)
+	dstT(&s.q, rows*d)
+	dstT(&s.k, rows*d)
+	dstT(&s.v, rows*d)
+	dstT(&s.wi, rows*2*c.DFF)
+	dstT(&s.g, rows*c.DFF)
+	dstT(&s.hf, rows*c.HeadFF)
 	dst32(&s.rows, nRows*d)
 	perSeq := max(c.NumHeads, c.HeadHeads) * T * T
 	s.scChunk = min(max(scoreBudget/perSeq, 1), B)
@@ -264,14 +336,15 @@ func ropeTables(T, hd int, theta float64) (cs, sn []float32) {
 
 // gemm computes C[M,N] = A[M,K] * W[N,K]^T for row-major operands. cuBLAS is
 // column-major, so the row-major product is expressed as its transpose:
-// C^T[N,M] = W[N,K] * A^T[K,M], which needs no data movement.
-func (m *model) gemm(c, a, w cudamem.Slice[float32], M, N, K int) error {
+// C^T[N,M] = W[N,K] * A^T[K,M], which needs no data movement. A and W have
+// one element type; C may be float32 when they are half.
+func (m *model) gemm(c, a, w tensor, M, N, K int) error {
 	return m.gemmBeta(c, a, w, M, N, K, &m.scalar.zero)
 }
 
 // gemmAcc adds A[M,K] * W[N,K]^T into C[M,N] instead of overwriting it, so a
 // residual add rides along in the GEMM's epilogue. C must not alias A or W.
-func (m *model) gemmAcc(c, a, w cudamem.Slice[float32], M, N, K int) error {
+func (m *model) gemmAcc(c, a, w tensor, M, N, K int) error {
 	return m.gemmBeta(c, a, w, M, N, K, &m.scalar.one)
 }
 
@@ -281,13 +354,13 @@ func (m *model) gemmAcc(c, a, w cudamem.Slice[float32], M, N, K int) error {
 // This is GemmEx rather than SgemmEx so that the operand precision arrives the
 // same way it does for the batched attention products, as the compute type in
 // computeType, rather than as a math mode set once on the handle.
-func (m *model) gemmBeta(c, a, w cudamem.Slice[float32], M, N, K int, beta *float32) error {
+func (m *model) gemmBeta(c, a, w tensor, M, N, K int, beta *float32) error {
 	return m.blas.GemmEx(cublas.OpT, cublas.OpN, int32(N), int32(M), int32(K),
 		uintptr(unsafe.Pointer(&m.scalar.one)),
-		uintptr(w.Ptr()), cublas.R32F, int32(K),
-		uintptr(a.Ptr()), cublas.R32F, int32(K),
+		uintptr(w.Ptr()), w.dtype(), int32(K),
+		uintptr(a.Ptr()), a.dtype(), int32(K),
 		uintptr(unsafe.Pointer(beta)),
-		uintptr(c.Ptr()), cublas.R32F, int32(N),
+		uintptr(c.Ptr()), c.dtype(), int32(N),
 		m.computeType(), cublas.GemmDefault)
 }
 
@@ -323,8 +396,9 @@ func (m *model) attnContext(out, v, sc cudamem.Slice[float32], heads, T, hd, d i
 }
 
 // computeType is the accumulation mode for every matrix product in the pass.
-// The accumulator is float32 in both: what fast gives up is the operands,
-// which the tensor cores round to tf32.
+// The accumulator is float32 in all three: what fast gives up is the
+// operands, which the tensor cores round to tf32, and what half gives up is
+// already gone by the time the operands are in memory.
 //
 // There is no bfloat16 mode here because asking for one changes nothing.
 // Compute32FFast16BF permits cuBLAS to narrow the operands to bfloat16 or to
@@ -426,15 +500,23 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 	run := func(fn driver.Function, gx, gy, gz, bx uint32, args ...any) error {
 		return cudalaunch.Kernel(fn).Grid(gx, gy, gz).Block(bx).On(m.stream).Launch(args...)
 	}
-	norm := func(dst, src, w, bias cudamem.Slice[float32], n int, eps float32) error {
-		return run(m.k.layerNorm, uint32(n), 1, 1, 256,
+	norm := func(dst tensor, src, w, bias cudamem.Slice[float32], n int, eps float32) error {
+		fn := m.k.layerNorm
+		if dst.half() {
+			fn = m.k.layerNormHalf
+		}
+		return run(fn, uint32(n), 1, 1, 256,
 			src, w, nullPtr(bias), dst, int32(n), int32(d), eps)
 	}
 	add := func(x, y cudamem.Slice[float32], n int) error {
 		return run(m.k.addResid, grid(n, 256), 1, 1, 256, x, y, int32(n))
 	}
-	bias := func(x, bs cudamem.Slice[float32], n, w int) error {
-		return run(m.k.addBias, grid(n*w, 256), 1, 1, 256, x, bs, int32(n), int32(w))
+	bias := func(x tensor, bs cudamem.Slice[float32], n, w int) error {
+		fn := m.k.addBias
+		if x.half() {
+			fn = m.k.addBiasHalf
+		}
+		return run(fn, grid(n*w, 256), 1, 1, 256, x, bs, int32(n), int32(w))
 	}
 	attend := func(useRope bool, heads, win int, cs, sn cudamem.Slice[float32]) error {
 		rope := int32(0)
@@ -442,8 +524,12 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 			rope = 1
 		}
 		whd := d / heads
+		split, flash := m.k.splitQKV, m.k.flashAttn
+		if s.qkv.half() {
+			split, flash = m.k.splitQKVHalf, m.k.flashAttnHalf
+		}
 		if err := in("split", func() error {
-			return run(m.k.splitQKV, uint32(T), uint32(heads), uint32(B), 64,
+			return run(split, uint32(T), uint32(heads), uint32(B), 64,
 				s.qkv, nullPtr(cs), nullPtr(sn), s.q, s.k, s.v,
 				int32(B), int32(T), int32(d), int32(heads), int32(whd), rope)
 		}); err != nil {
@@ -451,7 +537,7 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 		}
 		if m.fused && whd == flashHeadDim {
 			return in("sdpa", func() error {
-				return run(m.k.flashAttn, uint32((T+flashTile-1)/flashTile), uint32(heads), uint32(B), 128,
+				return run(flash, uint32((T+flashTile-1)/flashTile), uint32(heads), uint32(B), 128,
 					s.q, s.k, s.v, s.lens, s.ao,
 					int32(B), int32(T), int32(heads), int32(win),
 					float32(1/math.Sqrt(float64(whd))))
@@ -462,7 +548,7 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 			for b0 := 0; b0 < B; b0 += s.scChunk {
 				n := min(s.scChunk, B-b0)
 				if err := m.attnScores(s.sc,
-					s.q.Slice(b0*seq, s.q.Len()), s.k.Slice(b0*seq, s.k.Len()),
+					s.q.f32.Slice(b0*seq, s.q.Len()), s.k.f32.Slice(b0*seq, s.k.Len()),
 					n*heads, T, whd); err != nil {
 					return err
 				}
@@ -473,8 +559,8 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 				// PV batches over heads, so each sequence needs its own call.
 				for b := range n {
 					if err := m.attnContext(
-						s.ao.Slice((b0+b)*T*d, s.ao.Len()),
-						s.v.Slice((b0+b)*seq, s.v.Len()),
+						s.ao.f32.Slice((b0+b)*T*d, s.ao.Len()),
+						s.v.f32.Slice((b0+b)*seq, s.v.Len()),
 						s.sc.Slice(b*heads*T*T, s.sc.Len()),
 						heads, T, whd, d); err != nil {
 						return err
@@ -486,19 +572,29 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 	}
 
 	if err := in("embed", func() error {
-		if err := run(m.k.embed, uint32(rows), 1, 1, 256, m.w.Emb, s.ids, s.h, int32(rows), int32(d)); err != nil {
+		embed := m.k.embed
+		if m.w.Emb.half() {
+			embed = m.k.embedHalf
+		}
+		if err := run(embed, uint32(rows), 1, 1, 256, m.w.Emb, s.ids, s.h, int32(rows), int32(d)); err != nil {
 			return err
 		}
-		return norm(s.h, s.h, m.w.EmbNorm, cudamem.Slice[float32]{}, rows, c.Eps)
+		return norm(f32(s.h), s.h, m.w.EmbNorm, cudamem.Slice[float32]{}, rows, c.Eps)
 	}); err != nil {
 		return err
 	}
 
 	for i := range m.w.Layers {
 		L := &m.w.Layers[i]
-		x := s.h
-		if L.AttnNorm.Len() > 0 { // layer 0 has no attn_norm
+		x := f32(s.h)
+		switch {
+		case L.AttnNorm.Len() > 0: // layer 0 has no attn_norm
 			if err := norm(s.xn, s.h, L.AttnNorm, cudamem.Slice[float32]{}, rows, c.Eps); err != nil {
+				return err
+			}
+			x = s.xn
+		case s.xn.half():
+			if err := run(m.k.toHalf, grid(rows*d, 256), 1, 1, 256, s.h, s.xn, int32(rows*d)); err != nil {
 				return err
 			}
 			x = s.xn
@@ -518,7 +614,7 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 			return err
 		}
 		if err := in("enc_proj", func() error {
-			if err := m.gemmAcc(s.h, s.ao, L.Wo, rows, d, d); err != nil {
+			if err := m.gemmAcc(f32(s.h), s.ao, L.Wo, rows, d, d); err != nil {
 				return err
 			}
 			return norm(s.xn, s.h, L.MLPNorm, cudamem.Slice[float32]{}, rows, c.Eps)
@@ -529,10 +625,14 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 			if err := m.gemm(s.wi, s.xn, L.Wi, rows, 2*dff, d); err != nil {
 				return err
 			}
-			if err := run(m.k.geglu, grid(rows*dff, 256), 1, 1, 256, s.wi, s.g, int32(rows), int32(dff)); err != nil {
+			geglu := m.k.geglu
+			if s.g.half() {
+				geglu = m.k.gegluHalf
+			}
+			if err := run(geglu, grid(rows*dff, 256), 1, 1, 256, s.wi, s.g, int32(rows), int32(dff)); err != nil {
 				return err
 			}
-			return m.gemmAcc(s.h, s.g, L.Wo2, rows, d, dff)
+			return m.gemmAcc(f32(s.h), s.g, L.Wo2, rows, d, dff)
 		}); err != nil {
 			return err
 		}
@@ -540,7 +640,7 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 
 	hff := c.HeadFF
 	if err := in("head", func() error {
-		if err := norm(s.h, s.h, m.w.FinalNorm, cudamem.Slice[float32]{}, rows, c.Eps); err != nil {
+		if err := norm(f32(s.h), s.h, m.w.FinalNorm, cudamem.Slice[float32]{}, rows, c.Eps); err != nil {
 			return err
 		}
 		if err := run(m.k.addTypeEmb, grid(rows*d, 256), 1, 1, 256,
@@ -561,10 +661,10 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 			if err := attend(false, c.HeadHeads, -1, cudamem.Slice[float32]{}, cudamem.Slice[float32]{}); err != nil {
 				return err
 			}
-			if err := m.gemm(s.tmp, s.ao, H.OutW, rows, d, d); err != nil {
+			if err := m.gemm(f32(s.tmp), s.ao, H.OutW, rows, d, d); err != nil {
 				return err
 			}
-			if err := bias(s.tmp, H.OutB, rows, d); err != nil {
+			if err := bias(f32(s.tmp), H.OutB, rows, d); err != nil {
 				return err
 			}
 			if err := add(s.h, s.tmp, rows*d); err != nil {
@@ -579,13 +679,17 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 			if err := bias(s.hf, H.L1B, rows, hff); err != nil {
 				return err
 			}
-			if err := run(m.k.relu, grid(rows*hff, 256), 1, 1, 256, s.hf, int32(rows*hff)); err != nil {
+			relu := m.k.relu
+			if s.hf.half() {
+				relu = m.k.reluHalf
+			}
+			if err := run(relu, grid(rows*hff, 256), 1, 1, 256, s.hf, int32(rows*hff)); err != nil {
 				return err
 			}
-			if err := m.gemm(s.tmp, s.hf, H.L2W, rows, d, hff); err != nil {
+			if err := m.gemm(f32(s.tmp), s.hf, H.L2W, rows, d, hff); err != nil {
 				return err
 			}
-			if err := bias(s.tmp, H.L2B, rows, d); err != nil {
+			if err := bias(f32(s.tmp), H.L2B, rows, d); err != nil {
 				return err
 			}
 			if err := add(s.h, s.tmp, rows*d); err != nil {

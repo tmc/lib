@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"testing"
 )
@@ -71,6 +72,39 @@ func TestRequireKey(t *testing.T) {
 			requireKey(tt.key, ok)(w, r)
 			if w.Code != tt.want {
 				t.Errorf("status = %d, want %d", w.Code, tt.want)
+			}
+		})
+	}
+}
+
+func TestParsePrecision(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		rest    []string
+		prec    precision
+		wantErr bool
+	}{
+		{name: "default", args: []string{"dir", "req.json"}, rest: []string{"dir", "req.json"}, prec: fast},
+		{name: "exact", args: []string{"dir", "req.json", "--exact"}, rest: []string{"dir", "req.json"}, prec: exact},
+		{name: "half first", args: []string{"-half", "dir", "req.json"}, rest: []string{"dir", "req.json"}, prec: half},
+		{name: "half twice", args: []string{"--half", "dir", "--half"}, rest: []string{"dir"}, prec: half},
+		{name: "both", args: []string{"dir", "--exact", "--half"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rest, prec, err := parsePrecision(tt.args)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("parsePrecision(%q) = %q, %v, want error", tt.args, rest, prec)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parsePrecision(%q): %v", tt.args, err)
+			}
+			if !slices.Equal(rest, tt.rest) || prec != tt.prec {
+				t.Errorf("parsePrecision(%q) = %q, %v, want %q, %v", tt.args, rest, prec, tt.rest, tt.prec)
 			}
 		})
 	}

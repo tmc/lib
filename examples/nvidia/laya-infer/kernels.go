@@ -30,6 +30,16 @@ type kernels struct {
 	relu        driver.Function
 	gelu        driver.Function
 	gatherRows  driver.Function
+
+	// The half-precision variants, which read or write half operands.
+	layerNormHalf driver.Function
+	toHalf        driver.Function
+	embedHalf     driver.Function
+	splitQKVHalf  driver.Function
+	flashAttnHalf driver.Function
+	addBiasHalf   driver.Function
+	gegluHalf     driver.Function
+	reluHalf      driver.Function
 }
 
 // forwardUnit is the name of the translation unit forward.cu compiles as,
@@ -67,12 +77,20 @@ func (k *kernels) entries() []entry {
 		{"ReLU", &k.relu},
 		{"GELU", &k.gelu},
 		{"GatherRows", &k.gatherRows},
+		{"LayerNormHalf", &k.layerNormHalf},
+		{"ToHalf", &k.toHalf},
+		{"EmbedHalf", &k.embedHalf},
+		{"SplitQKVRopeHalf", &k.splitQKVHalf},
+		{"FlashAttentionHalf", &k.flashAttnHalf},
+		{"AddBiasHalf", &k.addBiasHalf},
+		{"GeGLUHalf", &k.gegluHalf},
+		{"ReLUHalf", &k.reluHalf},
 	}
 }
 
 // forwardKernels names every entry point in forward.cu. A unit that declares
 // them attributes the whole module; a unit naming one kernel would file the
-// other eleven under the remainder as subroutines.
+// others under the remainder as subroutines.
 func forwardKernels() []string {
 	var k kernels
 	es := k.entries()

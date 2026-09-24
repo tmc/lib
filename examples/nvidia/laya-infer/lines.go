@@ -43,10 +43,10 @@ func predictLines(dir, input string, prec precision, period uint32, pprof string
 		return err
 	}
 
-	// forward.cu is hand-written and holds twelve kernels, which is neither
+	// forward.cu is hand-written and holds many kernels, which is neither
 	// of the things a unit was once assumed to be. Kernels names them all,
-	// so every function in the module is attributed rather than eleven of
-	// them filed as subroutines; carrying Source with no line map is what
+	// so every function in the module is attributed rather than all but one
+	// of them filed as subroutines; carrying Source with no line map is what
 	// tells cudalineinfo there is no generated tier below this file, so its
 	// own lines are the program's.
 	unit := cudalineinfo.Unit{

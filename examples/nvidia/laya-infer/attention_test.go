@@ -86,11 +86,17 @@ func attnRef(t *testing.T, c attnCase, q, k, v []float32,
 	return out
 }
 
-// attnRun launches FlashAttention over one case and returns its output.
-func attnRun(t *testing.T, dev *cuda.Device, k *kernels, c attnCase, q, kk, v []float32) []float32 {
+// attnRun launches FlashAttention, or with half FlashAttentionHalf, over one
+// case and returns its output. The half kernel's operands are q, kk and v
+// narrowed to half; attnInputs(c, true) makes that exact.
+func attnRun(t *testing.T, dev *cuda.Device, k *kernels, c attnCase, q, kk, v []float32, half bool) []float32 {
 	t.Helper()
 	hd := flashHeadDim
 	got := make([]float32, c.B*c.T*c.nh*hd)
+	fn := k.flashAttn
+	if half {
+		fn = k.flashAttnHalf
+	}
 	if err := dev.WithContext(func() error {
 		stream, err := dev.NewStream()
 		if err != nil {
@@ -104,13 +110,22 @@ func attnRun(t *testing.T, dev *cuda.Device, k *kernels, c attnCase, q, kk, v []
 				f()
 			}
 		}()
-		up := func(src []float32) (cudamem.Slice[float32], error) {
-			s, err := cudamem.Alloc[float32](dev, len(src))
-			if err != nil {
-				return s, err
+		up := func(src []float32) (tensor, error) {
+			var s tensor
+			var err error
+			if half {
+				s.f16, err = cudamem.Alloc[uint16](dev, len(src))
+				if err == nil {
+					err = s.f16.CopyFromHost(toHalf(src))
+				}
+			} else {
+				s.f32, err = cudamem.Alloc[float32](dev, len(src))
+				if err == nil {
+					err = s.f32.CopyFromHost(src)
+				}
 			}
 			free = append(free, s.Free)
-			return s, s.CopyFromHost(src)
+			return s, err
 		}
 		dq, err := up(q)
 		if err != nil {
@@ -136,7 +151,7 @@ func attnRun(t *testing.T, dev *cuda.Device, k *kernels, c attnCase, q, kk, v []
 		if err := dl.CopyFromHost(c.lens); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(k.flashAttn).
+		if err := cudalaunch.Kernel(fn).
 			Grid(uint32((c.T+flashTile-1)/flashTile), uint32(c.nh), uint32(c.B)).
 			Block(128).On(stream).
 			Launch(dq, dk, dv, dl, do,
@@ -147,7 +162,17 @@ func attnRun(t *testing.T, dev *cuda.Device, k *kernels, c attnCase, q, kk, v []
 		if err := stream.Synchronize(nil); err != nil {
 			return err
 		}
-		return do.CopyToHost(got)
+		if !half {
+			return do.f32.CopyToHost(got)
+		}
+		h := make([]uint16, len(got))
+		if err := do.f16.CopyToHost(h); err != nil {
+			return err
+		}
+		for i, x := range h {
+			got[i] = float16to32(x)
+		}
+		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -165,16 +190,42 @@ func maxDelta(a, b []float32) float64 {
 	return mx
 }
 
-func attnInputs(c attnCase) (q, k, v []float32) {
+// attnInputs returns random operands for c. With half they are exactly
+// representable as halves, so the half kernel and the oracle see the same
+// values; tf32 rounding in the oracle is then the identity.
+func attnInputs(c attnCase, half bool) (q, k, v []float32) {
 	r := rand.New(rand.NewPCG(1, 2))
 	n := c.B * c.nh * c.T * flashHeadDim
 	q, k, v = make([]float32, n), make([]float32, n), make([]float32, n)
+	x := func() float32 {
+		f := float32(r.NormFloat64())
+		if half {
+			f = float16to32(float32to16(f))
+		}
+		return f
+	}
 	for i := range n {
-		q[i] = float32(r.NormFloat64())
-		k[i] = float32(r.NormFloat64())
-		v[i] = float32(r.NormFloat64())
+		q[i], k[i], v[i] = x(), x(), x()
 	}
 	return q, k, v
+}
+
+// toHalf narrows xs to halves.
+func toHalf(xs []float32) []uint16 {
+	h := make([]uint16, len(xs))
+	for i, x := range xs {
+		h[i] = float32to16(x)
+	}
+	return h
+}
+
+// attnKernels are the two fused attention kernels under test.
+var attnKernels = []struct {
+	name string
+	half bool
+}{
+	{"tf32", false},
+	{"f16", true},
 }
 
 var attnCases = []attnCase{
@@ -202,26 +253,30 @@ func TestFlashAttention(t *testing.T) {
 	})
 
 	// tol covers tf32 rounding of the probabilities and of V, which the oracle
-	// keeps in float64; it is far below the spread the mutants produce.
+	// keeps in float64, or for the half kernel the half rounding of the
+	// probabilities and of the output; it is far below the spread the mutants
+	// produce.
 	const tol = 5e-3
-	for _, c := range attnCases {
-		t.Run(c.name, func(t *testing.T) {
-			q, kk, v := attnInputs(c)
-			got := attnRun(t, dev, k, c, q, kk, v)
-			want := attnRef(t, c, q, kk, v, cudaref.OnlineAttentionRow)
-			if d := maxDelta(got, want); d > tol {
-				t.Fatalf("max |delta| = %g, want <= %g", d, tol)
-			} else {
-				t.Logf("max |delta| = %g", d)
-			}
-			if c.allMasked {
-				for i, x := range got {
-					if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) {
-						t.Fatalf("out[%d] = %g, want finite", i, x)
+	for _, kc := range attnKernels {
+		for _, c := range attnCases {
+			t.Run(kc.name+"/"+c.name, func(t *testing.T) {
+				q, kk, v := attnInputs(c, kc.half)
+				got := attnRun(t, dev, k, c, q, kk, v, kc.half)
+				want := attnRef(t, c, q, kk, v, cudaref.OnlineAttentionRow)
+				if d := maxDelta(got, want); d > tol {
+					t.Fatalf("max |delta| = %g, want <= %g", d, tol)
+				} else {
+					t.Logf("max |delta| = %g", d)
+				}
+				if c.allMasked {
+					for i, x := range got {
+						if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) {
+							t.Fatalf("out[%d] = %g, want finite", i, x)
+						}
 					}
 				}
-			}
-		})
+			})
+		}
 	}
 }
 
@@ -252,18 +307,20 @@ func TestFlashAttentionMutants(t *testing.T) {
 		{"rescale", cudaref.OnlineAttentionRowMutantRescale},
 		{"no_normalizer", cudaref.OnlineAttentionRowMutantNoNormalizer},
 	} {
-		t.Run(mut.name, func(t *testing.T) {
-			for _, c := range attnCases {
-				if c.T <= flashTile {
-					continue // a single tile leaves the mutants nothing to corrupt
+		for _, kc := range attnKernels {
+			t.Run(kc.name+"/"+mut.name, func(t *testing.T) {
+				for _, c := range attnCases {
+					if c.T <= flashTile {
+						continue // a single tile leaves the mutants nothing to corrupt
+					}
+					q, kk, v := attnInputs(c, kc.half)
+					got := attnRun(t, dev, k, c, q, kk, v, kc.half)
+					bad := attnRef(t, c, q, kk, v, mut.fn)
+					if d := maxDelta(got, bad); d <= tol {
+						t.Fatalf("%s: max |delta| to the mutant = %g, want > %g", c.name, d, tol)
+					}
 				}
-				q, kk, v := attnInputs(c)
-				got := attnRun(t, dev, k, c, q, kk, v)
-				bad := attnRef(t, c, q, kk, v, mut.fn)
-				if d := maxDelta(got, bad); d <= tol {
-					t.Fatalf("%s: max |delta| to the mutant = %g, want > %g", c.name, d, tol)
-				}
-			}
-		})
+			})
+		}
 	}
 }

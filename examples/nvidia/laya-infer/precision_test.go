@@ -124,14 +124,16 @@ func sameOrNot(same bool) string {
 	return "differs"
 }
 
-// TestPrecisionFastAgreesWithExact measures the drift the default path
-// carries, so that a later change to the compute type has a recorded figure to
-// be judged against rather than an absolute threshold pulled from nowhere.
+// TestPrecisionFastAgreesWithExact measures the drift the default and half
+// paths carry, so that a later change to the compute type has a recorded
+// figure to be judged against rather than an absolute threshold pulled from
+// nowhere.
 //
-// The bound is 2e-3. A probability moves by well under 1e-3; a score weights
-// the probabilities by up to k-1, and a confidence is an entropy of them, so
-// those move further.
+// The bound is 2e-3 for both. A probability moves by well under 1e-3 in
+// either; a score weights the probabilities by up to k-1, and a confidence is
+// an entropy of them, so those move further.
 func TestPrecisionFastAgreesWithExact(t *testing.T) {
 	want := runPrecision(t, exact)
 	compare(t, "fast vs exact", want, runPrecision(t, fast), 2e-3)
+	compare(t, "half vs exact", want, runPrecision(t, half), 2e-3)
 }
