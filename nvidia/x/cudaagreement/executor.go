@@ -22,6 +22,9 @@ type Executor interface {
 	// Execute submits plan's steps on stream against the named buffers. The
 	// returned record covers every step. Execute does not synchronize: the
 	// caller must drain the stream before reading any output buffer.
+	// ([MegaExecutor] also synchronizes after each persistent launch,
+	// because its record is read back from the device; the caller must
+	// still drain the stream.)
 	Execute(stream *cuda.Stream, plan *Plan, bufs map[string]Buffer) (*Record, error)
 }
 

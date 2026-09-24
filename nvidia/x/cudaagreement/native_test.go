@@ -13,6 +13,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaagreement"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
@@ -37,11 +38,13 @@ type harness struct {
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	if os.Getenv("CUDAAGREEMENT_NATIVE") != "1" {
-		t.Skip("native agreement run requires CUDAAGREEMENT_NATIVE=1")
+		t.Skip("native qualification pending: set CUDAAGREEMENT_NATIVE=1 under gpu-lock")
 	}
-	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Fatal("native agreement run requires a held GPU lock")
+	owner, err := cudalock.Inherited(os.Getenv)
+	if err != nil {
+		t.Fatalf("native agreement run requires an inherited GPU lock: %v", err)
 	}
+	t.Logf("gpu lock: pid=%d host=%s label=%q", owner.PID, owner.Host, owner.Label)
 	target := os.Getenv("CUDAAGREEMENT_NATIVE_TARGET")
 	if target != "sm_100a" && target != "sm_121a" {
 		t.Fatal("set CUDAAGREEMENT_NATIVE_TARGET to sm_100a or sm_121a")

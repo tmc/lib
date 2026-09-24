@@ -69,7 +69,8 @@ func Verify(arms []Arm) error {
 }
 
 // sameWork checks that the arms ran the same plan: the same step names in the
-// same order over the same artifact digests. Two arms that agree on the output
+// same order over the same artifact digests, at the same geometry wherever
+// both arms launched the step's artifact. Two arms that agree on the output
 // of different work have not agreed on anything.
 func sameWork(arms []Arm) error {
 	first := arms[0].Record
@@ -86,7 +87,10 @@ func sameWork(arms []Arm) error {
 			if a.Digest != b.Digest {
 				return fmt.Errorf("cudaagreement: step %s used artifact %s in arm %s and %s in arm %s", a.Step, a.Digest, first.Arm, b.Digest, r.Arm)
 			}
-			if a.Grid != b.Grid || a.Block != b.Block {
+			// Geometry identifies a launch of the step's own artifact. A
+			// step run inside another program has that program's geometry,
+			// so geometry is compared only where both arms ran the artifact.
+			if a.Program == "" && b.Program == "" && (a.Grid != b.Grid || a.Block != b.Block) {
 				return fmt.Errorf("cudaagreement: step %s ran %dx%d in arm %s and %dx%d in arm %s", a.Step, a.Grid, a.Block, first.Arm, b.Grid, b.Block, r.Arm)
 			}
 		}

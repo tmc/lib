@@ -79,11 +79,21 @@ type StepRecord struct {
 	Grid       uint32
 	Block      uint32
 	Output     Buffer
+
+	// Program is the digest of the code that ran the step when that code is
+	// not the step's own artifact. A persistent worker runs every step of
+	// its run from one program, so a Mega step records that program here,
+	// with the worker's entry point and geometry, and keeps the step's
+	// artifact in Digest. Program is empty when the step's artifact ran.
+	Program string
 }
 
 func (s StepRecord) String() string {
 	line := fmt.Sprintf("step=%s requested=%s executed=%s grid=%d block=%d digest=%s entry=%s out=%s",
 		s.Step, s.Requested, s.Executed, s.Grid, s.Block, s.Digest, s.EntryPoint, s.Output)
+	if s.Program != "" {
+		line += " program=" + s.Program
+	}
 	if s.Declined != "" {
 		line += " declined=" + s.Declined
 	}
