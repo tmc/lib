@@ -486,9 +486,7 @@ func TestSpanFractionsNative(t *testing.T) {
 				t.Logf("rep %d: fractions launches chain=%.4f other=%.4f sum=%.4f (of %d kernel records); span chain=%.4f other=%.4f overlap=%.4f idle=%.4f sum=%.4f (of %d ns)",
 					rep, f.ChainLaunches, f.OtherLaunches, f.ChainLaunches+f.OtherLaunches, a.Launches,
 					f.ChainSpan, f.OtherSpan, f.OverlapSpan, f.IdleSpan, f.ChainSpan+f.OtherSpan+f.OverlapSpan+f.IdleSpan, a.SpanNs)
-				if rep == 0 {
-					t.Logf("rep 0 kernels:\n%s", kernelTable(ks))
-				}
+				t.Logf("rep %d kernels:\n%s", rep, kernelTable(ks))
 				accounts = append(accounts, a)
 			}
 			logMedians(t, accounts)
