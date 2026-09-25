@@ -4,7 +4,7 @@ package driver
 
 // Destroy Destroys an external semaphore.
 //
-// Destroys an external semaphore object and releases any references to the underlying resource. Any outstanding signals or waits must have completed before the semaphore is destroyed. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Destroys an external semaphore object and releases any references to the underlying resource. Any outstanding signals or waits must have completed before the semaphore is destroyed. See also: [ImportExternalSemaphore], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuDestroyExternalSemaphore.
 func (e ExternalSemaphore) Destroy() error {

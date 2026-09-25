@@ -50,7 +50,7 @@ func (t TexRef) Array() (Array, error) {
 
 // BorderColor Gets the border color used by a texture reference.
 //
-// Returns in pBorderColor, values of the RGBA color used by the texture reference hTexRef. The color value is of type float and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component See also: [TexRef.SetAddressMode], [TexRef.SetAddressMode], [TexRef.SetBorderColor]
+// Returns in pBorderColor, values of the RGBA color used by the texture reference hTexRef. The color value is of type float and holds color components in the following sequence: pBorderColor [0] holds ‘R’ component pBorderColor [1] holds ‘G’ component pBorderColor [2] holds ‘B’ component pBorderColor [3] holds ‘A’ component See also: [TexRef.SetAddressMode], [TexRef.SetAddressMode], [TexRef.SetBorderColor]
 //
 // Deprecated: Returns in pBorderColor, values of the RGBA color used by the texture reference hTexRef. The color value is of type float and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component
 //
@@ -94,7 +94,7 @@ func (t TexRef) Format() (pFormat ArrayFormat, pNumChannels int32, err error) {
 
 // MaxAnisotropy Gets the maximum anisotropy for a texture reference.
 //
-// Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
+// Returns the maximum anisotropy in pmaxAniso that’s used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 // Deprecated: Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef.
 //
@@ -105,7 +105,7 @@ func (t TexRef) MaxAnisotropy() (int32, error) {
 
 // MipmapFilterMode Gets the mipmap filtering mode for a texture reference.
 //
-// Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
+// Returns the mipmap filtering mode in pfm that’s used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 // Deprecated: Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef.
 //
@@ -116,7 +116,7 @@ func (t TexRef) MipmapFilterMode() (FilterMode, error) {
 
 // MipmapLevelBias Gets the mipmap level bias for a texture reference.
 //
-// Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
+// Returns the mipmap level bias in pBias that’s added to the specified mipmap level when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 // Deprecated: Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef.
 //
@@ -127,7 +127,7 @@ func (t TexRef) MipmapLevelBias() (float32, error) {
 
 // MipmapLevelClamp Gets the min/max mipmap level clamps for a texture reference.
 //
-// Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
+// Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that’s used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
 //
 // Deprecated: Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef.
 //
@@ -206,7 +206,7 @@ func (t TexRef) SetArray(hArray Array, flags uint32) error {
 
 // SetBorderColor Sets the border color for a texture reference.
 //
-// Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to "reinterpret_cast" their values to float. See also: [TexRef.SetAddressMode], [TexRef.AddressMode], [TexRef.BorderColor]
+// Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds ‘R’ component pBorderColor [1] holds ‘G’ component pBorderColor [2] holds ‘B’ component pBorderColor [3] holds ‘A’ component Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to “reinterpret_cast” their values to float. See also: [TexRef.SetAddressMode], [TexRef.AddressMode], [TexRef.BorderColor]
 //
 // Deprecated: Specifies the value of the RGBA color via the pBorderColor to the texture reference hTexRef. The color value supports only float type and holds color components in the following sequence: pBorderColor [0] holds 'R' component pBorderColor [1] holds 'G' component pBorderColor [2] holds 'B' component pBorderColor [3] holds 'A' component Note that the color values can be set only when the Address mode is set to [TrAddressModeBorder] using [TexRef.SetAddressMode]. Applications using integer border color values have to "reinterpret_cast" their values to float.
 //

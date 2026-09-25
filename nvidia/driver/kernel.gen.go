@@ -2,199 +2,72 @@
 
 package driver
 
-// Attribute Returns information about a kernel
+// Attribute Returns information about a kernel.
 //
-// Returns in *pi the integer value of the attribute attrib for the kernel
-// kernel for the requested device dev. The supported attributes are:
-// - [FuncAttributeMaxThreadsPerBlock]: The maximum number of threads
-// per block, beyond which a launch of the kernel would fail. This number
-// depends on both the kernel and the requested device.
-// - [FuncAttributeSharedSizeBytes]: The size in bytes of
-// statically-allocated shared memory per block required by this kernel.
-// This does not include dynamically-allocated shared memory requested by
-// the user at runtime.
-// - [FuncAttributeConstSizeBytes]: The size in bytes of user-allocated
-// constant memory required by this kernel.
-// - [FuncAttributeLocalSizeBytes]: The size in bytes of local memory
-// used by each thread of this kernel.
-// - [FuncAttributeNumRegs]: The number of registers used by each thread
-// of this kernel.
-// - [FuncAttributePtxVersion]: The PTX virtual architecture version for
-// which the kernel was compiled. This value is the major PTX version * 10
-// + the minor PTX version, so a PTX version 1.3 function would return the
-// value 13. Note that this may return the undefined value of 0 for cubins
-// compiled prior to CUDA 3.0.
-// - [FuncAttributeBinaryVersion]: The binary architecture version for
-// which the kernel was compiled. This value is the major binary
-// version * 10 + the minor binary version, so a binary version 1.3 function
-// would return the value 13. Note that this will return a value of 10 for
-// legacy cubins that do not have a properly-encoded binary architecture
-// version.
-// - CU_FUNC_CACHE_MODE_CA: The attribute to indicate whether the kernel has
-// been compiled with user specified option "-Xptxas --dlcm=ca" set.
-// - [FuncAttributeMaxDynamicSharedSizeBytes]: The maximum size in bytes of
-// dynamically-allocated shared memory.
-// - [FuncAttributePreferredSharedMemoryCarveout]: Preferred shared memory-L1
-// cache split ratio in percent of total shared memory.
-// - [FuncAttributeClusterSizeMustBeSet]: If this attribute is set, the
-// kernel must launch with a valid cluster size specified.
-// - [FuncAttributeRequiredClusterWidth]: The required cluster width in
-// blocks.
-// - [FuncAttributeRequiredClusterHeight]: The required cluster height in
-// blocks.
-// - [FuncAttributeRequiredClusterDepth]: The required cluster depth in
-// blocks.
-// - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether
-// the function can be launched with non-portable cluster size. 1 is allowed,
-// 0 is disallowed. A non-portable cluster size may only function on the
-// specific SKUs the program is tested on. The launch might fail if the
-// program is run on a different hardware platform. CUDA API provides
-// cudaOccupancyMaxActiveClusters to assist with checking whether the desired
-// size can be launched on the current device. A portable cluster size is
-// guaranteed to be functional on all compute capabilities higher than the
-// target compute capability. The portable cluster size for sm_90 is 8 blocks
-// per cluster. This value may increase for future compute capabilities. The
-// specific hardware unit may support higher cluster sizes that’s not
-// guaranteed to be portable.
-// - [FuncAttributeClusterSchedulingPolicyPreference]: The block
-// scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
-//
-// [Kernel.SetAttribute]() simultaneously, the attribute query will give the old or new
-// value depending on the interleavings chosen by the OS scheduler and memory consistency.
+// Returns in *pi the integer value of the attribute attrib for the kernel kernel for the requested device dev. The supported attributes are: See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.SetAttribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.Attribute] Note: If another thread is trying to set the same attribute on the same device using [Kernel.SetAttribute] simultaneously, the attribute query will give the old or new value depending on the interleavings chosen by the OS scheduler and memory consistency.
 //
 //   - attrib: Attribute requested
 //   - dev: Device to query attribute of
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.SetAttribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.Attribute]
 //
 // Wraps cuKernelGetAttribute.
 func (k Kernel) Attribute(attrib FunctionAttribute, dev Device) (int32, error) {
 	return kernelGetAttribute(attrib, k, dev)
 }
 
-// Function Returns a function handle
+// Function Returns a function handle.
 //
-// Returns in pFunc the handle of the function for the requested kernel kernel and
-// the current context. If function handle is not found, the call returns [ErrNotFound].
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Library.Module], [Module.Function]
+// Returns in pFunc the handle of the function for the requested kernel kernel and the current context. If function handle is not found, the call returns [ErrNotFound]. See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Library.Module], [Module.Function]
 //
 // Wraps cuKernelGetFunction.
 func (k Kernel) Function() (Function, error) {
 	return kernelGetFunction(k)
 }
 
-// Library Returns a library handle
+// Library Returns a library handle.
 //
-// # Returns in pLib the handle of the library for the requested kernel kernel
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel]
+// Returns in pLib the handle of the library for the requested kernel kernel See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel]
 //
 // Wraps cuKernelGetLibrary.
 func (k Kernel) Library() (Library, error) {
 	return kernelGetLibrary(k)
 }
 
-// Name Returns the function name for a [Kernel] handle
+// Name Returns the function name for a [Kernel] handle.
 //
-// Returns in **name the function name associated with the kernel handle hfunc .
-// The function name is returned as a null-terminated string. The returned name is only
-// valid when the kernel handle is valid. If the library is unloaded or reloaded, one
-// must call the API again to get the updated name. This API may return a mangled name if
-// the function is not declared as having C linkage. If either **name or hfunc
-// is NULL, [ErrInvalidValue] is returned.
+// Returns in **name the function name associated with the kernel handle hfunc . The function name is returned as a null-terminated string. The returned name is only valid when the kernel handle is valid. If the library is unloaded or reloaded, one must call the API again to get the updated name. This API may return a mangled name if the function is not declared as having C linkage. If either **name or hfunc is NULL, [ErrInvalidValue] is returned. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuKernelGetName.
 func (k Kernel) Name() (string, error) {
 	return kernelGetName(k)
 }
 
-// ParamCount Returns the number of parameters used by the kernel
+// ParamCount Returns the number of parameters used by the kernel.
 //
-// Queries the number of kernel parameters used by kernel and returns it in paramCount.
-//
-// See also: [Kernel.ParamInfo]
+// Queries the number of kernel parameters used by kernel and returns it in paramCount. See also: [Kernel.ParamInfo] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuKernelGetParamCount.
 func (k Kernel) ParamCount() (uint, error) {
 	return kernelGetParamCount(k)
 }
 
-// ParamInfo Returns the offset and size of a kernel parameter in the device-side parameter layout
+// ParamInfo Returns the offset and size of a kernel parameter in the device-side parameter layout.
 //
-// Queries the kernel parameter at paramIndex into kernel's list of parameters, and returns
-// in paramOffset and paramSize the offset and size, respectively, where the parameter
-// will reside in the device-side parameter layout. This information can be used to update kernel
-// node parameters from the device via cudaGraphKernelNodeSetParam() and
-// cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters
-// that kernel takes. paramSize can be set to NULL if only the parameter offset is desired.
+// Queries the kernel parameter at paramIndex into kernel's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that kernel takes. paramSize can be set to NULL if only the parameter offset is desired. See also: [Function.ParamInfo] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - paramIndex: The parameter index to query
-//
-// See also: [Function.ParamInfo]
 //
 // Wraps cuKernelGetParamInfo.
 func (k Kernel) ParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, err error) {
 	return kernelGetParamInfo(k, paramIndex)
 }
 
-// SetAttribute Sets information about a kernel
+// SetAttribute Sets information about a kernel.
 //
-// This call sets the value of a specified attribute attrib on the kernel kernel
-// for the requested device dev to an integer value specified by val.
-// This function returns [Success] if the new value of the attribute could be
-// successfully set. If the set fails, this call will return an error.
-// Not all attributes can have values set. Attempting to set a value on a read-only
-// attribute will result in an error ([ErrInvalidValue])
-//
-// Note that attributes set using [Function.SetAttribute]() will override the attribute
-// set by this API irrespective of whether the call to [Function.SetAttribute]() is made
-// before or after this API call. However, [Kernel.Attribute]() will always
-// return the attribute value set by this API.
-//
-// Supported attributes are:
-// - [FuncAttributeMaxDynamicSharedSizeBytes]: This is the maximum size in bytes of
-// dynamically-allocated shared memory. The value should contain the requested
-// maximum size of dynamically-allocated shared memory. The sum of this value and
-// the function attribute [FuncAttributeSharedSizeBytes] cannot exceed the
-// device attribute [DevAttrMaxSharedMemoryPerBlockOptin].
-// The maximal size of requestable dynamic shared memory may differ by GPU
-// architecture.
-// - [FuncAttributePreferredSharedMemoryCarveout]: On devices where the L1
-// cache and shared memory use the same hardware resources, this sets the shared memory
-// carveout preference, in percent of the total shared memory.
-// See [DevAttrMaxSharedMemoryPerMultiprocessor]
-// This is only a hint, and the driver can choose a different ratio if required to execute the function.
-// - [FuncAttributeRequiredClusterWidth]: The required cluster width in
-// blocks. The width, height, and depth values must either all be 0 or all be
-// positive. The validity of the cluster dimensions is checked at launch time.
-// If the value is set during compile time, it cannot be set at runtime.
-// Setting it at runtime will return [ErrNotPermitted].
-// - [FuncAttributeRequiredClusterHeight]: The required cluster height in
-// blocks. The width, height, and depth values must either all be 0 or all be
-// positive. The validity of the cluster dimensions is checked at launch time.
-// If the value is set during compile time, it cannot be set at runtime.
-// Setting it at runtime will return [ErrNotPermitted].
-// - [FuncAttributeRequiredClusterDepth]: The required cluster depth in
-// blocks. The width, height, and depth values must either all be 0 or all be
-// positive. The validity of the cluster dimensions is checked at launch time.
-// If the value is set during compile time, it cannot be set at runtime.
-// Setting it at runtime will return [ErrNotPermitted].
-// - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether
-// the function can be launched with non-portable cluster size. 1 is allowed,
-// 0 is disallowed.
-// - [FuncAttributeClusterSchedulingPolicyPreference]: The block
-// scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
-//
-// [Function.SetAttribute]() due to device-wide semantics. If multiple threads are trying to
-// set the same attribute on the same device simultaneously, the attribute setting will depend
-// on the interleavings chosen by the OS scheduler and memory consistency.
+// This call sets the value of a specified attribute attrib on the kernel kernel for the requested device dev to an integer value specified by val. This function returns [Success] if the new value of the attribute could be successfully set. If the set fails, this call will return an error. Not all attributes can have values set. Attempting to set a value on a read-only attribute will result in an error ([ErrInvalidValue]) Note that attributes set using [Function.SetAttribute] will override the attribute set by this API irrespective of whether the call to [Function.SetAttribute] is made before or after this API call. However, [Kernel.Attribute] will always return the attribute value set by this API. Supported attributes are: See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.Attribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetAttribute] Note: The API has stricter locking requirements in comparison to its legacy counterpart [Function.SetAttribute] due to device-wide semantics. If multiple threads are trying to set the same attribute on the same device simultaneously, the attribute setting will depend on the interleavings chosen by the OS scheduler and memory consistency.
 //
 //   - attrib: Attribute requested
 //   - val: Value to set
 //   - dev: Device to set attribute of
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.Attribute], [Library.Kernel], [Function.LaunchKernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetAttribute]
 //
 // Wraps cuKernelSetAttribute.
 func (k Kernel) SetAttribute(attrib FunctionAttribute, val int32, dev Device) error {
@@ -203,38 +76,10 @@ func (k Kernel) SetAttribute(attrib FunctionAttribute, val int32, dev Device) er
 
 // SetCacheConfig Sets the preferred cache configuration for a device kernel.
 //
-// On devices where the L1 cache and shared memory use the same hardware
-// resources, this sets through config the preferred cache configuration for
-// the device kernel kernel on the requested device dev. This is only a preference.
-// The driver will use the requested configuration if possible, but it is free to choose a different
-// configuration if required to execute kernel. Any context-wide preference
-// set via [CtxSetCacheConfig]() will be overridden by this per-kernel
-// setting.
-//
-// Note that attributes set using [Function.SetCacheConfig]() will override the attribute
-// set by this API irrespective of whether the call to [Function.SetCacheConfig]() is made
-// before or after this API call.
-//
-// This setting does nothing on devices where the size of the L1 cache and
-// shared memory are fixed.
-//
-// Launching a kernel with a different preference than the most recent
-// preference setting may insert a device-side synchronization point.
-//
-// The supported cache configurations are:
-// - [FuncCachePreferNone]: no preference for shared memory or L1 (default)
-// - [FuncCachePreferShared]: prefer larger shared memory and smaller L1 cache
-// - [FuncCachePreferL1]: prefer larger L1 cache and smaller shared memory
-// - [FuncCachePreferEqual]: prefer equal sized L1 cache and shared memory
-//
-// [Function.SetCacheConfig]() due to device-wide semantics. If multiple threads are trying to
-// set a config on the same device simultaneously, the cache config setting will depend
-// on the interleavings chosen by the OS scheduler and memory consistency.
+// On devices where the L1 cache and shared memory use the same hardware resources, this sets through config the preferred cache configuration for the device kernel kernel on the requested device dev. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute kernel. Any context-wide preference set via [CtxSetCacheConfig] will be overridden by this per-kernel setting. Note that attributes set using [Function.SetCacheConfig] will override the attribute set by this API irrespective of whether the call to [Function.SetCacheConfig] is made before or after this API call. This setting does nothing on devices where the size of the L1 cache and shared memory are fixed. Launching a kernel with a different preference than the most recent preference setting may insert a device-side synchronization point. The supported cache configurations are: See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetCacheConfig], [CtxSetCacheConfig], [Function.LaunchKernel] Note: The API has stricter locking requirements in comparison to its legacy counterpart [Function.SetCacheConfig] due to device-wide semantics. If multiple threads are trying to set a config on the same device simultaneously, the cache config setting will depend on the interleavings chosen by the OS scheduler and memory consistency.
 //
 //   - config: Requested cache configuration
 //   - dev: Device to set attribute of
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Kernel], [Kernel.Function], [Library.Module], [Module.Function], [Function.SetCacheConfig], [CtxSetCacheConfig], [Function.LaunchKernel]
 //
 // Wraps cuKernelSetCacheConfig.
 func (k Kernel) SetCacheConfig(config FuncCacheConfig, dev Device) error {

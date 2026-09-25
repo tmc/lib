@@ -6,19 +6,33 @@ import (
 	"errors"
 )
 
-// AccountingMode wraps [nvmlVgpuInstanceGetAccountingMode].
+// AccountingMode Queries the state of per process accounting mode on vGPU.
+//
+// For Maxwell or newer fully supported devices.
 //
 //   - mode: Reference in which to return the current accounting mode
+//
+// Wraps [nvmlVgpuInstanceGetAccountingMode].
 //
 // [nvmlVgpuInstanceGetAccountingMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv433nvmlVgpuInstanceGetAccountingMode18nvmlVgpuInstance_tP17nvmlEnableState_t
 func (v VgpuInstance) AccountingMode() (EnableState, error) {
 	return vgpuInstanceGetAccountingMode(v)
 }
 
-// AccountingPids wraps [nvmlVgpuInstanceGetAccountingPids].
+// AccountingPids Queries list of processes running on vGPU that can be queried for accounting stats.
+//
+// The list of processes returned can be in running or terminated state.
+// For Maxwell or newer fully supported devices.
+// To just query the maximum number of processes that can be queried, call this function with *count = 0 and pids=NULL. The return code will be [ErrInsufficientSize], or [Success] if list is empty.
+// For more details see [VgpuInstance.AccountingStats].
+// See also: [VgpuInstance.AccountingPids]
+// Note:
+// In case of PID collision some processes might not be accessible before the circular buffer is full.
 //
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
 //   - pids: Reference in which to return list of process ids
+//
+// Wraps [nvmlVgpuInstanceGetAccountingPids].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
 //
@@ -45,45 +59,77 @@ func (v VgpuInstance) AccountingPids(buf []uint32) ([]uint32, error) {
 	}
 }
 
-// AccountingStats wraps [nvmlVgpuInstanceGetAccountingStats].
+// AccountingStats Queries process’s accounting stats.
+//
+// For Maxwell or newer fully supported devices.
+// Accounting stats capture GPU utilization and other statistics across the lifetime of a process, and can be queried during life time of the process or after its termination. The time field in [AccountingStats] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats are kept in a circular buffer, newly created processes overwrite information about old processes.
+// See [AccountingStats] for description of each returned metric. List of processes that can be queried can be retrieved from [VgpuInstance.AccountingPids].
+// Note:
+// Accounting Mode needs to be on. See [VgpuInstance.AccountingMode].
+// Note:
+// Only compute and graphics applications stats can be queried. Monitoring applications stats can’t be queried since they don’t contribute to GPU utilization.
+// Note:
+// In case of pid collision stats of only the latest process (that terminated last) will be reported
 //
 //   - pid: Process Id of the target process to query stats for
-//   - stats: Reference in which to return the process's accounting stats
+//   - stats: Reference in which to return the process’s accounting stats
+//
+// Wraps [nvmlVgpuInstanceGetAccountingStats].
 //
 // [nvmlVgpuInstanceGetAccountingStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv434nvmlVgpuInstanceGetAccountingStats18nvmlVgpuInstance_tjP21nvmlAccountingStats_t
 func (v VgpuInstance) AccountingStats(pid uint32, stats *AccountingStats) error {
 	return vgpuInstanceGetAccountingStats(v, pid, stats)
 }
 
-// ClearAccountingPids wraps [nvmlVgpuInstanceClearAccountingPids].
+// ClearAccountingPids Clears accounting information of the vGPU instance that have already terminated.
+//
+// For Maxwell or newer fully supported devices. Requires root/admin permissions.
+// Note:
+// Accounting Mode needs to be on. See [VgpuInstance.AccountingMode].
+// Note:
+// Only compute and graphics applications stats are reported and can be cleared since monitoring applications stats don’t contribute to GPU utilization.
+//
+// Wraps [nvmlVgpuInstanceClearAccountingPids].
 //
 // [nvmlVgpuInstanceClearAccountingPids]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv435nvmlVgpuInstanceClearAccountingPids18nvmlVgpuInstance_t
 func (v VgpuInstance) ClearAccountingPids() error {
 	return vgpuInstanceClearAccountingPids(v)
 }
 
-// EccMode wraps [nvmlVgpuInstanceGetEccMode].
+// EccMode Retrieve the current ECC mode of vGPU instance.
 //
 //   - eccMode: Reference in which to return the current ECC mode
+//
+// Wraps [nvmlVgpuInstanceGetEccMode].
 //
 // [nvmlVgpuInstanceGetEccMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv426nvmlVgpuInstanceGetEccMode18nvmlVgpuInstance_tP17nvmlEnableState_t
 func (v VgpuInstance) EccMode(eccMode *EnableState) error {
 	return vgpuInstanceGetEccMode(v, eccMode)
 }
 
-// EncoderCapacity wraps [nvmlVgpuInstanceGetEncoderCapacity].
+// EncoderCapacity Retrieve the encoder capacity of a vGPU instance, as a percentage of maximum encoder capacity with valid values in the range 0-100.
+//
+// For Maxwell or newer fully supported devices.
 //
 //   - encoderCapacity: Reference to an unsigned int for the encoder capacity
+//
+// Wraps [nvmlVgpuInstanceGetEncoderCapacity].
 //
 // [nvmlVgpuInstanceGetEncoderCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlVgpuInstanceGetEncoderCapacity18nvmlVgpuInstance_tPj
 func (v VgpuInstance) EncoderCapacity() (uint32, error) {
 	return vgpuInstanceGetEncoderCapacity(v)
 }
 
-// EncoderSessions wraps [nvmlVgpuInstanceGetEncoderSessions].
+// EncoderSessions Retrieves information about all active encoder sessions on a vGPU Instance.
+//
+// An array of active encoder sessions is returned in the caller-supplied buffer pointed at by sessionInfo. The array element count is passed in sessionCount, and sessionCount is used to return the number of sessions written to the buffer.
+// If the supplied buffer is not large enough to accommodate the active session array, the function returns [ErrInsufficientSize], with the element count of [EncoderSessionInfo] array required in sessionCount. To query the number of active encoder sessions, call this function with *sessionCount = 0. The code will return [Success] with number of active encoder sessions updated in *sessionCount.
+// For Maxwell or newer fully supported devices.
 //
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference to caller supplied array in which the list of session information us returned
+//
+// Wraps [nvmlVgpuInstanceGetEncoderSessions].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
 //
@@ -110,21 +156,33 @@ func (v VgpuInstance) EncoderSessions(buf []EncoderSessionInfo) ([]EncoderSessio
 	}
 }
 
-// EncoderStats wraps [nvmlVgpuInstanceGetEncoderStats].
+// EncoderStats Retrieves the current encoder statistics of a vGPU Instance.
+//
+// For Maxwell or newer fully supported devices.
 //
 //   - sessionCount: Reference to an unsigned int for count of active encoder sessions
 //   - averageFps: Reference to an unsigned int for trailing average FPS of all active sessions
 //   - averageLatency: Reference to an unsigned int for encode latency in microseconds
+//
+// Wraps [nvmlVgpuInstanceGetEncoderStats].
 //
 // [nvmlVgpuInstanceGetEncoderStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv431nvmlVgpuInstanceGetEncoderStats18nvmlVgpuInstance_tPjPjPj
 func (v VgpuInstance) EncoderStats(sessionCount *uint32, averageFps *uint32, averageLatency *uint32) error {
 	return vgpuInstanceGetEncoderStats(v, sessionCount, averageFps, averageLatency)
 }
 
-// FBCSessions wraps [nvmlVgpuInstanceGetFBCSessions].
+// FBCSessions Retrieves information about active frame buffer capture sessions on a vGPU Instance.
+//
+// An array of active FBC sessions is returned in the caller-supplied buffer pointed at by sessionInfo. The array element count is passed in sessionCount, and sessionCount is used to return the number of sessions written to the buffer.
+// If the supplied buffer is not large enough to accommodate the active session array, the function returns [ErrInsufficientSize], with the element count of [FBCSessionInfo] array required in sessionCount. To query the number of active FBC sessions, call this function with *sessionCount = 0. The code will return [Success] with number of active FBC sessions updated in *sessionCount.
+// For Maxwell or newer fully supported devices.
+// Note:
+// hResolution, vResolution, averageFPS and averageLatency data for a FBC session returned in sessionInfo may be zero if there are no new frames captured since the session started.
 //
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference in which to return the session information
+//
+// Wraps [nvmlVgpuInstanceGetFBCSessions].
 //
 // The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
 //
@@ -151,86 +209,133 @@ func (v VgpuInstance) FBCSessions(buf []FBCSessionInfo) ([]FBCSessionInfo, error
 	}
 }
 
-// FBCStats wraps [nvmlVgpuInstanceGetFBCStats].
+// FBCStats Retrieves the active frame buffer capture sessions statistics of a vGPU Instance.
+//
+// For Maxwell or newer fully supported devices.
 //
 //   - fbcStats: Reference to [FBCStats] structure containing NvFBC stats
+//
+// Wraps [nvmlVgpuInstanceGetFBCStats].
 //
 // [nvmlVgpuInstanceGetFBCStats]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuInstanceGetFBCStats18nvmlVgpuInstance_tP14nvmlFBCStats_t
 func (v VgpuInstance) FBCStats(fbcStats *FBCStats) error {
 	return vgpuInstanceGetFBCStats(v, fbcStats)
 }
 
-// FbUsage wraps [nvmlVgpuInstanceGetFbUsage].
+// FbUsage Retrieve the framebuffer usage in bytes.
+//
+// Framebuffer usage is the amont of vGPU framebuffer memory that is currently in use by the VM.
+// For Kepler or newer fully supported devices.
 //
 //   - fbUsage: Pointer to framebuffer usage in bytes
+//
+// Wraps [nvmlVgpuInstanceGetFbUsage].
 //
 // [nvmlVgpuInstanceGetFbUsage]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv426nvmlVgpuInstanceGetFbUsage18nvmlVgpuInstance_tPy
 func (v VgpuInstance) FbUsage() (uint64, error) {
 	return vgpuInstanceGetFbUsage(v)
 }
 
-// FrameRateLimit wraps [nvmlVgpuInstanceGetFrameRateLimit].
+// FrameRateLimit Retrieve the frame rate limit set for the vGPU instance.
+//
+// Returns the value of the frame rate limit set for the vGPU instance
+// For Kepler or newer fully supported devices.
 //
 //   - frameRateLimit: Reference to return the frame rate limit
+//
+// Wraps [nvmlVgpuInstanceGetFrameRateLimit].
 //
 // [nvmlVgpuInstanceGetFrameRateLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv433nvmlVgpuInstanceGetFrameRateLimit18nvmlVgpuInstance_tPj
 func (v VgpuInstance) FrameRateLimit() (uint32, error) {
 	return vgpuInstanceGetFrameRateLimit(v)
 }
 
-// GpuInstanceId wraps [nvmlVgpuInstanceGetGpuInstanceId].
+// GpuInstanceId Retrieve the GPU Instance ID for the given vGPU Instance.
+//
+// The API will return a valid GPU Instance ID for MIG backed vGPU Instance, else [INVALID_GPU_INSTANCE_ID] is returned.
+// For Kepler or newer fully supported devices.
 //
 //   - gpuInstanceId: GPU Instance ID
 //
+// Wraps [nvmlVgpuInstanceGetGpuInstanceId].
+//
+// [INVALID_GPU_INSTANCE_ID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuConstants.html#c.INVALID_GPU_INSTANCE_ID
 // [nvmlVgpuInstanceGetGpuInstanceId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlVgpuInstanceGetGpuInstanceId18nvmlVgpuInstance_tPj
 func (v VgpuInstance) GpuInstanceId() (uint32, error) {
 	return vgpuInstanceGetGpuInstanceId(v)
 }
 
-// GpuPciId wraps [nvmlVgpuInstanceGetGpuPciId].
+// GpuPciId Retrieves the PCI Id of the given vGPU Instance i.e.
+//
+// the PCI Id of the GPU as seen inside the VM.
+// The vGPU PCI id is returned as “00000000:00:00.0” if NVIDIA driver is not installed on the vGPU instance.
 //
 //   - vgpuPciId: Caller-supplied buffer to return vGPU PCI Id string
 //   - length: Size of the vgpuPciId buffer
+//
+// Wraps [nvmlVgpuInstanceGetGpuPciId].
 //
 // [nvmlVgpuInstanceGetGpuPciId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuInstanceGetGpuPciId18nvmlVgpuInstance_tPcPj
 func (v VgpuInstance) GpuPciId(vgpuPciId *byte, length *uint32) error {
 	return vgpuInstanceGetGpuPciId(v, vgpuPciId, length)
 }
 
-// LicenseInfo wraps [nvmlVgpuInstanceGetLicenseInfo], bound as nvmlVgpuInstanceGetLicenseInfo_v2.
+// LicenseInfo Query the license information of the vGPU instance.
+//
+// For Maxwell or newer fully supported devices.
 //
 //   - licenseInfo: Pointer to vGPU license information structure
+//
+// Wraps [nvmlVgpuInstanceGetLicenseInfo], bound as nvmlVgpuInstanceGetLicenseInfo_v2.
 //
 // [nvmlVgpuInstanceGetLicenseInfo]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlUtil.html#_CPPv433nvmlVgpuInstanceGetLicenseInfo_v218nvmlVgpuInstance_tP21nvmlVgpuLicenseInfo_t
 func (v VgpuInstance) LicenseInfo(licenseInfo *VgpuLicenseInfo) error {
 	return vgpuInstanceGetLicenseInfo(v, licenseInfo)
 }
 
-// LicenseStatus wraps [nvmlVgpuInstanceGetLicenseStatus].
+// LicenseStatus Use [VgpuInstance.LicenseInfo].
+//
+// Retrieve the current licensing state of the vGPU instance.
+// If the vGPU is currently licensed, licensed is set to 1, otherwise it is set to 0.
+// For Kepler or newer fully supported devices.
 //
 //   - licensed: Reference to return the licensing status
 //
 // Deprecated: Use [VgpuInstance.LicenseInfo]. Retrieve the current licensing state of the vGPU instance. If the vGPU is currently licensed, licensed is set to 1, otherwise it is set to 0. For Kepler &tm; or newer fully supported devices.
+//
+// Wraps [nvmlVgpuInstanceGetLicenseStatus].
 //
 // [nvmlVgpuInstanceGetLicenseStatus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlVgpuInstanceGetLicenseStatus18nvmlVgpuInstance_tPj
 func (v VgpuInstance) LicenseStatus(licensed *uint32) error {
 	return vgpuInstanceGetLicenseStatus(v, licensed)
 }
 
-// MdevUUID wraps [nvmlVgpuInstanceGetMdevUUID].
+// MdevUUID Retrieve the MDEV UUID of a vGPU instance.
+//
+// The MDEV UUID is a globally unique identifier of the mdev device assigned to the VM, and is returned as a 5-part hexadecimal string, not exceeding 80 characters in length (including the NULL terminator). MDEV UUID is displayed only on KVM platform. See [DeviceUuidBufferSize].
+// For Maxwell or newer fully supported devices.
 //
 //   - mdevUuid: Pointer to caller-supplied buffer to hold MDEV UUID
 //   - size: Size of buffer in bytes
+//
+// Wraps [nvmlVgpuInstanceGetMdevUUID].
 //
 // [nvmlVgpuInstanceGetMdevUUID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuInstanceGetMdevUUID18nvmlVgpuInstance_tPcj
 func (v VgpuInstance) MdevUUID() (string, error) {
 	return vgpuInstanceGetMdevUUID(v)
 }
 
-// Metadata wraps [nvmlVgpuInstanceGetMetadata].
+// Metadata Returns vGPU metadata structure for a running vGPU.
+//
+// The structure contains information about the vGPU and its associated VM such as the currently installed NVIDIA guest driver version, together with host driver version and an opaque data section containing internal state.
+// [VgpuInstance.Metadata] may be called at any time for a vGPU instance. Some fields in the returned structure are dependent on information obtained from the guest VM, which may not yet have reached a state where that information is available. The current state of these dependent fields is reflected in the info structure’s [VgpuGuestInfoState] field.
+// The VMM may choose to read and save the vGPU’s VM info as persistent metadata associated with the VM, and provide it to Virtual GPU Manager when creating a vGPU for subsequent instances of the VM.
+// The caller passes in a buffer via vgpuMetadata, with the size of the buffer in bufferSize. If the vGPU Metadata structure is too large to fit in the supplied buffer, the function returns [ErrInsufficientSize] with the size needed in bufferSize.
 //
 //   - vgpuMetadata: Pointer to caller-supplied buffer into which vGPU metadata is written
 //   - bufferSize: Size of vgpuMetadata buffer
+//
+// Wraps [nvmlVgpuInstanceGetMetadata].
 //
 // [nvmlVgpuInstanceGetMetadata]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuMigration.html#_CPPv427nvmlVgpuInstanceGetMetadata18nvmlVgpuInstance_tP18nvmlVgpuMetadata_tPj
 func (v VgpuInstance) Metadata(vgpuMetadata *VgpuMetadata, bufferSize *uint32) error {
@@ -250,12 +355,12 @@ func (v VgpuInstance) PlacementId(pPlacement *VgpuPlacementId) error {
 	return vgpuInstanceGetPlacementId(v, pPlacement)
 }
 
-// RuntimeStateSize Retrieve the currently used runtime state size of the vGPU instance
+// RuntimeStateSize Retrieve the currently used runtime state size of the vGPU instance.
 //
 // This size represents the maximum in-memory data size utilized by a vGPU instance during standard operation. This measurement is exclusive of frame buffer (FB) data size assigned to the vGPU instance.
 // For Maxwell or newer fully supported devices.
 //
-//   - pState: Pointer to the vGPU runtime state's structure [VgpuRuntimeState]
+//   - pState: Pointer to the vGPU runtime state’s structure [VgpuRuntimeState]
 //
 // Wraps [nvmlVgpuInstanceGetRuntimeStateSize].
 //
@@ -264,49 +369,75 @@ func (v VgpuInstance) RuntimeStateSize() (VgpuRuntimeState, error) {
 	return vgpuInstanceGetRuntimeStateSize(v)
 }
 
-// SetEncoderCapacity wraps [nvmlVgpuInstanceSetEncoderCapacity].
+// SetEncoderCapacity Set the encoder capacity of a vGPU instance, as a percentage of maximum encoder capacity with valid values in the range 0-100.
+//
+// For Maxwell or newer fully supported devices.
 //
 //   - encoderCapacity: Unsigned int for the encoder capacity value
+//
+// Wraps [nvmlVgpuInstanceSetEncoderCapacity].
 //
 // [nvmlVgpuInstanceSetEncoderCapacity]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlVgpuInstanceSetEncoderCapacity18nvmlVgpuInstance_tj
 func (v VgpuInstance) SetEncoderCapacity(encoderCapacity uint32) error {
 	return vgpuInstanceSetEncoderCapacity(v, encoderCapacity)
 }
 
-// Type wraps [nvmlVgpuInstanceGetType].
+// Type Retrieve the vGPU type of a vGPU instance.
+//
+// Returns the vGPU type ID of vgpu assigned to the vGPU instance.
+// For Kepler or newer fully supported devices.
 //
 //   - vgpuTypeId: Reference to return the vgpuTypeId
+//
+// Wraps [nvmlVgpuInstanceGetType].
 //
 // [nvmlVgpuInstanceGetType]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuInstanceGetType18nvmlVgpuInstance_tP16nvmlVgpuTypeId_t
 func (v VgpuInstance) Type() (VgpuTypeId, error) {
 	return vgpuInstanceGetType(v)
 }
 
-// UUID wraps [nvmlVgpuInstanceGetUUID].
+// UUID Retrieve the UUID of a vGPU instance.
+//
+// The UUID is a globally unique identifier associated with the vGPU, and is returned as a 5-part hexadecimal string, not exceeding 80 characters in length (including the NULL terminator). See [DeviceUuidBufferSize].
+// For Kepler or newer fully supported devices.
 //
 //   - uuid: Pointer to caller-supplied buffer to hold vGPU UUID
 //   - size: Size of buffer in bytes
+//
+// Wraps [nvmlVgpuInstanceGetUUID].
 //
 // [nvmlVgpuInstanceGetUUID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuInstanceGetUUID18nvmlVgpuInstance_tPcj
 func (v VgpuInstance) UUID() (string, error) {
 	return vgpuInstanceGetUUID(v)
 }
 
-// VmDriverVersion wraps [nvmlVgpuInstanceGetVmDriverVersion].
+// VmDriverVersion Retrieve the NVIDIA driver version installed in the VM associated with a vGPU.
+//
+// The version is returned as an alphanumeric string in the caller-supplied buffer version. The length of the version string will not exceed 80 characters in length (including the NUL terminator). See [SystemDriverVersionBufferSize].
+// [VgpuInstance.VmDriverVersion] may be called at any time for a vGPU instance. The guest VM driver version is returned as “Not Available” if no NVIDIA driver is installed in the VM, or the VM has not yet booted to the point where the NVIDIA driver is loaded and initialized.
+// For Kepler or newer fully supported devices.
 //
 //   - version: Caller-supplied buffer to return driver version string
 //   - length: Size of version buffer
+//
+// Wraps [nvmlVgpuInstanceGetVmDriverVersion].
 //
 // [nvmlVgpuInstanceGetVmDriverVersion]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv434nvmlVgpuInstanceGetVmDriverVersion18nvmlVgpuInstance_tPcj
 func (v VgpuInstance) VmDriverVersion() (string, error) {
 	return vgpuInstanceGetVmDriverVersion(v)
 }
 
-// VmID wraps [nvmlVgpuInstanceGetVmID].
+// VmID Retrieve the VM ID associated with a vGPU instance.
+//
+// The VM ID is returned as a string, not exceeding 80 characters in length (including the NUL terminator). See [DeviceUuidBufferSize].
+// The format of the VM ID varies by platform, and is indicated by the type identifier returned in vmIdType.
+// For Kepler or newer fully supported devices.
 //
 //   - vmId: Pointer to caller-supplied buffer to hold VM ID
 //   - size: Size of buffer in bytes
 //   - vmIdType: Pointer to hold VM ID type
+//
+// Wraps [nvmlVgpuInstanceGetVmID].
 //
 // [nvmlVgpuInstanceGetVmID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuInstanceGetVmID18nvmlVgpuInstance_tPcjP18nvmlVgpuVmIdType_t
 func (v VgpuInstance) VmID(vmId *byte, size uint32, vmIdType *VgpuVmIdType) error {

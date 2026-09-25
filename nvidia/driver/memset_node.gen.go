@@ -10,18 +10,18 @@ type MemsetNode struct {
 	GraphNode
 }
 
-// Params Returns a memset node's parameters.
+// Params Returns a memset node’s parameters.
 //
-// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.SetParams]
+// Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.Params], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.SetParams] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphMemsetNodeGetParams.
 func (m MemsetNode) Params() (MemsetNodeParams, error) {
 	return graphMemsetNodeGetParams(m.GraphNode)
 }
 
-// SetParams Sets a memset node's parameters.
+// SetParams Sets a memset node’s parameters.
 //
-// Sets the parameters of memset node hNode to nodeParams. See also: [GraphNode.SetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.Params]
+// Sets the parameters of memset node hNode to nodeParams. See also: [GraphNode.SetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [MemsetNode.Params] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - nodeParams: Parameters to copy
 //

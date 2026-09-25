@@ -4,7 +4,7 @@ package driver
 
 // Destroy Destroys a CUDA mipmapped array.
 //
-// Destroys the CUDA mipmapped array hMipmappedArray. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewMipmappedArray], [MipmappedArray.Level], [NewArray], cudaFreeMipmappedArray
+// Destroys the CUDA mipmapped array hMipmappedArray. See also: [NewMipmappedArray], [MipmappedArray.Level], [NewArray], cudaFreeMipmappedArray Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuMipmappedArrayDestroy.
 func (m MipmappedArray) Destroy() error {
@@ -13,7 +13,7 @@ func (m MipmappedArray) Destroy() error {
 
 // Level Gets a mipmap level of a CUDA mipmapped array.
 //
-// Returns in *pLevelArray a CUDA array that represents a single mipmap level of the CUDA mipmapped array hMipmappedArray. If level is greater than the maximum number of levels in this mipmapped array, [ErrInvalidValue] is returned. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewMipmappedArray], [MipmappedArray.Destroy], [NewArray], cudaGetMipmappedArrayLevel
+// Returns in *pLevelArray a CUDA array that represents a single mipmap level of the CUDA mipmapped array hMipmappedArray. If level is greater than the maximum number of levels in this mipmapped array, [ErrInvalidValue] is returned. See also: [NewMipmappedArray], [MipmappedArray.Destroy], [NewArray], cudaGetMipmappedArrayLevel Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - level: Mipmap level
 //
@@ -26,7 +26,7 @@ func (m MipmappedArray) Level(level uint32) (Array, error) {
 //
 // Returns the memory requirements of a CUDA mipmapped array in memoryRequirements If the CUDA mipmapped array is not allocated with flag CUDA_ARRAY3D_DEFERRED_MAPPING [ErrInvalidValue] will be returned. The returned value in [ArrayMemoryRequirements].size represents the total size of the CUDA mipmapped array. The returned value in [ArrayMemoryRequirements].alignment represents the alignment necessary for mapping the CUDA mipmapped array. See also: [Array.MemoryRequirements], [Stream.MemMapArrayAsync]
 //
-//   - device (in): Device to get the memory requirements for
+//   - device: Device to get the memory requirements for
 //
 // Wraps cuMipmappedArrayGetMemoryRequirements.
 func (m MipmappedArray) MemoryRequirements(device Device) (ArrayMemoryRequirements, error) {
@@ -44,7 +44,7 @@ func (m MipmappedArray) SparseProperties() (ArraySparseProperties, error) {
 
 // NewMipmappedArray Creates a CUDA mipmapped array.
 //
-// Creates a CUDA mipmapped array according to the [Array3dDescriptor] structure pMipmappedArrayDesc and returns a handle to the new CUDA mipmapped array in *pHandle. numMipmapLevels specifies the number of mipmap levels to be allocated. This value is clamped to the range [1, 1 + floor(log2(max(width, height, depth)))]. The [Array3dDescriptor] is defined as: where: Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity's sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_MIPMAPPED_WIDTH refers to the device attribute [DevAttrMaximumTexture1dMipmappedWidth]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [MipmappedArray.Destroy], [MipmappedArray.Level], [NewArray], cudaMallocMipmappedArray
+// Creates a CUDA mipmapped array according to the [Array3dDescriptor] structure pMipmappedArrayDesc and returns a handle to the new CUDA mipmapped array in *pHandle. numMipmapLevels specifies the number of mipmap levels to be allocated. This value is clamped to the range [1, 1 + floor(log2(max(width, height, depth)))]. The [Array3dDescriptor] is defined as: where: Width, Height and Depth must meet certain size requirements as listed in the following table. All values are specified in elements. Note that for brevity’s sake, the full name of the device attribute is not specified. For ex., TEXTURE1D_MIPMAPPED_WIDTH refers to the device attribute [DevAttrMaximumTexture1dMipmappedWidth]. See also: [MipmappedArray.Destroy], [MipmappedArray.Level], [NewArray], cudaMallocMipmappedArray Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - pMipmappedArrayDesc: mipmapped array descriptor
 //   - numMipmapLevels: Number of mipmap levels

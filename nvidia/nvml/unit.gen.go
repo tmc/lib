@@ -116,9 +116,10 @@ func (u Unit) PsuInfo(psu *PSUInfo) error {
 
 // SetLedState Set the LED state for the unit.
 //
+// The LED can be either green (0) or amber (1).
 // For S-class products. Requires root/admin permissions.
 // This operation takes effect immediately.
-// Current S-Class products don't provide unique LEDs for each unit. As such, both front and back LEDs will be toggled in unison regardless of which unit is specified with this command.
+// Current S-Class products don’t provide unique LEDs for each unit. As such, both front and back LEDs will be toggled in unison regardless of which unit is specified with this command.
 // See [LedColor] for available colors.
 // See also: [Unit.LedState]
 //

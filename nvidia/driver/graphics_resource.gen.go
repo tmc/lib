@@ -4,15 +4,7 @@ package driver
 
 // MappedMipmappedArray Get a mipmapped array through which to access a mapped graphics resource.
 //
-// Returns in *pMipmappedArray a mipmapped array through which the mapped graphics
-// resource resource. The value set in *pMipmappedArray may change every time
-// that resource is mapped.
-//
-// If resource is not a texture then it cannot be accessed via a mipmapped array and
-// [ErrNotMappedAsArray] is returned.
-// If resource is not mapped then [ErrNotMapped] is returned.
-//
-// See also: [GraphicsResource.MappedPointer]
+// Returns in *pMipmappedArray a mipmapped array through which the mapped graphics resource resource. The value set in *pMipmappedArray may change every time that resource is mapped. If resource is not a texture then it cannot be accessed via a mipmapped array and [ErrNotMappedAsArray] is returned. If resource is not mapped then [ErrNotMapped] is returned. See also: [GraphicsResource.MappedPointer], cudaGraphicsResourceGetMappedMipmappedArray Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphicsResourceGetMappedMipmappedArray.
 func (g GraphicsResource) MappedMipmappedArray() (MipmappedArray, error) {
@@ -21,15 +13,7 @@ func (g GraphicsResource) MappedMipmappedArray() (MipmappedArray, error) {
 
 // MappedPointer Get a device pointer through which to access a mapped graphics resource.
 //
-// Returns in *pDevPtr a pointer through which the mapped graphics resource
-// resource may be accessed.
-// Returns in pSize the size of the memory in bytes which may be accessed from that pointer.
-// The value set in pPointer may change every time that resource is mapped.
-//
-// If resource is not a buffer then it cannot be accessed via a pointer and
-// [ErrNotMappedAsPointer] is returned.
-// If resource is not mapped then [ErrNotMapped] is returned.
-// *
+// Returns in *pDevPtr a pointer through which the mapped graphics resource resource may be accessed. Returns in pSize the size of the memory in bytes which may be accessed from that pointer. The value set in pPointer may change every time that resource is mapped. If resource is not a buffer then it cannot be accessed via a pointer and [ErrNotMappedAsPointer] is returned. If resource is not mapped then [ErrNotMapped] is returned. [Stream.GraphicsMapResources], [GraphicsResource.SubResourceGetMappedArray], cudaGraphicsResourceGetMappedPointer Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // See also: [Stream.GraphicsMapResources], [GraphicsResource.SubResourceGetMappedArray]
 //
@@ -38,30 +22,11 @@ func (g GraphicsResource) MappedPointer() (pDevPtr DevicePtr, pSize uint, err er
 	return graphicsResourceGetMappedPointer(g)
 }
 
-// SetMapFlags Set usage flags for mapping a graphics resource
+// SetMapFlags Set usage flags for mapping a graphics resource.
 //
-// Set flags for mapping the graphics resource resource.
-//
-// Changes to flags will take effect the next time resource is mapped.
-// The flags argument may be any of the following:
-//
-// - [GraphicsMapResourceFlagsNone]: Specifies no hints about how this
-// resource will be used. It is therefore assumed that this resource will be
-// read from and written to by CUDA kernels. This is the default value.
-// - CU_GRAPHICS_MAP_RESOURCE_FLAGS_READONLY: Specifies that CUDA kernels which
-// access this resource will not write to this resource.
-// - CU_GRAPHICS_MAP_RESOURCE_FLAGS_WRITEDISCARD: Specifies that CUDA kernels
-// which access this resource will not read from this resource and will
-// write over the entire contents of the resource, so none of the data
-// previously stored in the resource will be preserved.
-//
-// If resource is presently mapped for access by CUDA then
-// [ErrAlreadyMapped] is returned.
-// If flags is not one of the above values then [ErrInvalidValue] is returned.
+// Set flags for mapping the graphics resource resource. Changes to flags will take effect the next time resource is mapped. The flags argument may be any of the following: If resource is presently mapped for access by CUDA then [ErrAlreadyMapped] is returned. If flags is not one of the above values then [ErrInvalidValue] is returned. See also: [Stream.GraphicsMapResources], cudaGraphicsResourceSetMapFlags Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - flags: Parameters for resource mapping
-//
-// See also: [Stream.GraphicsMapResources]
 //
 // Wraps cuGraphicsResourceSetMapFlags, bound as cuGraphicsResourceSetMapFlags_v2.
 func (g GraphicsResource) SetMapFlags(flags GraphicsMapResourceFlags) error {
@@ -70,38 +35,19 @@ func (g GraphicsResource) SetMapFlags(flags GraphicsMapResourceFlags) error {
 
 // SubResourceGetMappedArray Get an array through which to access a subresource of a mapped graphics resource.
 //
-// Returns in *pArray an array through which the subresource of the mapped
-// graphics resource resource which corresponds to array index arrayIndex
-// and mipmap level mipLevel may be accessed. The value set in *pArray may
-// change every time that resource is mapped.
-//
-// If resource is not a texture then it cannot be accessed via an array and
-// [ErrNotMappedAsArray] is returned.
-// If arrayIndex is not a valid array index for resource then
-// [ErrInvalidValue] is returned.
-// If mipLevel is not a valid mipmap level for resource then
-// [ErrInvalidValue] is returned.
-// If resource is not mapped then [ErrNotMapped] is returned.
+// Returns in *pArray an array through which the subresource of the mapped graphics resource resource which corresponds to array index arrayIndex and mipmap level mipLevel may be accessed. The value set in *pArray may change every time that resource is mapped. If resource is not a texture then it cannot be accessed via an array and [ErrNotMappedAsArray] is returned. If arrayIndex is not a valid array index for resource then [ErrInvalidValue] is returned. If mipLevel is not a valid mipmap level for resource then [ErrInvalidValue] is returned. If resource is not mapped then [ErrNotMapped] is returned. See also: [GraphicsResource.MappedPointer], cudaGraphicsSubResourceGetMappedArray Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - arrayIndex: Array index for array textures or cubemap face index as defined by [ArrayCubemapFace] for cubemap textures for the subresource to access
 //   - mipLevel: Mipmap level for the subresource to access
-//
-// See also: [GraphicsResource.MappedPointer]
 //
 // Wraps cuGraphicsSubResourceGetMappedArray.
 func (g GraphicsResource) SubResourceGetMappedArray(arrayIndex uint32, mipLevel uint32) (Array, error) {
 	return graphicsSubResourceGetMappedArray(g, arrayIndex, mipLevel)
 }
 
-// UnregisterResource Unregisters a graphics resource for access by CUDA
+// UnregisterResource Unregisters a graphics resource for access by CUDA.
 //
-// Unregisters the graphics resource resource so it is not accessible by
-// CUDA unless registered again.
-//
-// If resource is invalid then [ErrInvalidHandle] is
-// returned.
-//
-// See also: GraphicsD3D9RegisterResource, GraphicsD3D10RegisterResource, GraphicsD3D11RegisterResource, GraphicsGLRegisterBuffer, GraphicsGLRegisterImage
+// Unregisters the graphics resource resource so it is not accessible by CUDA unless registered again. If resource is invalid then [ErrInvalidHandle] is returned. See also: cuGraphicsD3D9RegisterResource, cuGraphicsD3D10RegisterResource, cuGraphicsD3D11RegisterResource, cuGraphicsGLRegisterBuffer, cuGraphicsGLRegisterImage, cudaGraphicsUnregisterResource Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphicsUnregisterResource.
 func (g GraphicsResource) UnregisterResource() error {

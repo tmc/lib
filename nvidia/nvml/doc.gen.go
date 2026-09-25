@@ -14,13 +14,21 @@
 //   - [GpuInstance.CreateComputeInstance]: Create compute instance.
 //   - [GpuInstance.CreateComputeInstanceWithPlacement]: Create compute instance with the specified placement.
 //   - [GpuInstance.Destroy]: Destroy GPU instance.
+//   - [GpuInstance.ActiveVgpus]: Retrieve the active vGPU instances within a GPU instance.
 //   - [GpuInstance.ComputeInstanceById]: Get compute instance for given instance ID.
 //   - [GpuInstance.ComputeInstancePossiblePlacements]: Get compute instance placements.
 //   - [GpuInstance.ComputeInstanceProfileInfo]: Get compute instance profile information.
 //   - [GpuInstance.ComputeInstanceProfileInfoV]: Versioned wrapper around [GpuInstance.ComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
 //   - [GpuInstance.ComputeInstanceRemainingCapacity]: Get compute instance profile capacity.
 //   - [GpuInstance.ComputeInstances]: Get compute instances for given profile ID.
+//   - [GpuInstance.CreatableVgpus]: Query the currently creatable vGPU types on a specific GPU Instance.
 //   - [GpuInstance.Info]: Get GPU instance information.
+//   - [GpuInstance.VgpuHeterogeneousMode]: Get the vGPU heterogeneous mode for the GPU instance.
+//   - [GpuInstance.VgpuSchedulerLog]: Returns the vGPU scheduler logs for the given GPU instance.
+//   - [GpuInstance.VgpuSchedulerState]: Returns the vGPU scheduler state for the given GPU instance.
+//   - [GpuInstance.VgpuTypeCreatablePlacements]: Query the creatable vGPU placement ID of the vGPU type within a GPU instance.
+//   - [GpuInstance.SetVgpuHeterogeneousMode]: Enable or disable vGPU heterogeneous mode for the GPU instance.
+//   - [GpuInstance.SetVgpuSchedulerState]: Set vGPU scheduler state for the given GPU instance.
 //
 // # Device Management
 //
@@ -30,11 +38,17 @@
 //   - [Device.ClearFieldValues]: Clear values for a list of fields for a device.
 //   - [Device.CreateGpuInstance]: Create GPU instance.
 //   - [Device.CreateGpuInstanceWithPlacement]: Create GPU instance with the specified placement.
+//   - [DeviceModifyDrainState]: Modify the drain state of a GPU.
 //   - [Device.OnSameBoard]: Check if the GPU devices are on the same physical board.
-//   - [Device.RegisterEvents]: Starts recording of events on a specified devices and add the events to specified [EventSet]
-//   - [Device.ResetGpuLockedClocks]: Resets the gpu clock to the default value
-//   - [Device.ResetMemoryLockedClocks]: Resets the memory clock to the default value
-//   - [Device.ResetNvLinkErrorCounters]: Resets all error counters to zero Please refer to [NvLinkErrorCounter] for the list of error counters that are reset
+//   - [Device.RegisterEvents]: Starts recording of events on a specified devices and add the events to specified [EventSet].
+//   - [DeviceRemoveGpu]: This method will remove the specified GPU from the view of both NVML and the NVIDIA kernel driver as long as no other processes are attached.
+//   - [Device.ResetGpuLockedClocks]: Resets the gpu clock to the default value.
+//   - [Device.ResetMemoryLockedClocks]: Resets the memory clock to the default value.
+//   - [Device.ResetNvLinkErrorCounters]: Resets all error counters to zero Please refer to [NvLinkErrorCounter] for the list of error counters that are reset.
+//
+// # Drain states
+//
+//   - [DeviceDiscoverGpus]: Request the OS and the NVIDIA kernel driver to rediscover a portion of the PCI subsystem looking for GPUs that were previously removed.
 //
 // # Device Queries
 //
@@ -42,40 +56,42 @@
 //   - [Device.AccountingBufferSize]: Returns the number of processes that the circular buffer with accounting pids can hold.
 //   - [Device.AccountingMode]: Queries the state of per process accounting mode.
 //   - [Device.AccountingPids]: Queries list of processes that can be queried for accounting stats.
-//   - [Device.AccountingStats]: Queries process's accounting stats.
-//   - [Device.AdaptiveClockInfoStatus]: Gets the device's Adaptive Clock status
+//   - [Device.AccountingStats]: Queries process’s accounting stats.
+//   - [Device.ActiveVgpus]: Retrieve the active vGPU instances on a device.
+//   - [Device.AdaptiveClockInfoStatus]: Gets the device’s Adaptive Clock status.
 //   - [Device.AddressingMode]: Get the addressing mode for a given GPU.
-//   - [Device.Architecture]: Get architecture for device
+//   - [Device.Architecture]: Get architecture for device.
 //   - [Device.Attributes]: Get attributes (engine counts etc.) for the given NVML device handle.
-//   - [Device.AutoBoostedClocksEnabled]: Retrieve the current state of Auto Boosted clocks on a device and store it in isEnabled
+//   - [Device.AutoBoostedClocksEnabled]: Retrieve the current state of Auto Boosted clocks on a device and store it in isEnabled.
 //   - [Device.BAR1MemoryInfo]: Gets Total, Available and Used size of BAR1 memory.
 //   - [Device.BoardId]: Retrieves the device boardId from 0-N.
-//   - [Device.BoardPartNumber]: Retrieves the the device board part number which is programmed into the board's InfoROM
+//   - [Device.BoardPartNumber]: Retrieves the the device board part number which is programmed into the board’s InfoROM.
 //   - [Device.Brand]: Retrieves the brand of this device.
 //   - [Device.BridgeChipInfo]: Get Bridge Chip Information for all the bridge chips on the board.
-//   - [Device.BusType]: Get the type of the GPU Bus (PCIe, PCI, ...)
-//   - [Device.C2cModeInfoV]: Retrieves the Device's C2C Mode information
+//   - [Device.BusType]: Get the type of the GPU Bus (PCIe, PCI, …)
+//   - [Device.C2cModeInfoV]: Retrieves the Device’s C2C Mode information.
 //   - [Device.ClkMonStatus]: Retrieves the frequency monitor fault status for the device.
 //   - [Device.Clock]: Retrieves the clock speed for the clock specified by the clock type and clock ID.
 //   - [Device.ClockInfo]: Retrieves the current clock speeds for the device.
-//   - [Device.ClockOffsets]: Retrieve min, max and current clock offset of some clock domain for a given PState
+//   - [Device.ClockOffsets]: Retrieve min, max and current clock offset of some clock domain for a given PState.
 //   - [Device.ComputeInstanceId]: Get compute instance ID for the given MIG device handle.
 //   - [Device.ComputeMode]: Retrieves the current compute mode for the device or MIG device.
-//   - [Device.ComputeRunningProcesses]: Get information about processes with a compute context on a device
+//   - [Device.ComputeRunningProcesses]: Get information about processes with a compute context on a device.
 //   - [Device.ConfComputeGpuAttestationReport]: Get Conf Computing GPU attestation report.
 //   - [Device.ConfComputeGpuCertificate]: Get Conf Computing GPU certificate details.
 //   - [Device.ConfComputeMemSizeInfo]: Get Conf Computing Protected and Unprotected Memory Sizes.
 //   - [Device.ConfComputeProtectedMemoryUsage]: Get Conf Computing protected memory usage.
-//   - [Device.CoolerInfo]: Retrieves the cooler's information.
+//   - [Device.CoolerInfo]: Retrieves the cooler’s information.
 //   - [DeviceGetCount]: Retrieves the number of compute devices in the system.
 //   - [Device.CpuAffinity]: Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with [AffinityScopeNode].
 //   - [Device.CpuAffinityWithinScope]: Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity within node or socket for the device.
+//   - [Device.CreatableVgpus]: Retrieve the currently creatable vGPU types on a physical GPU (device).
 //   - [Device.CudaComputeCapability]: Retrieves the CUDA compute capability of the device.
-//   - [Device.CurrPcieLinkGeneration]: Retrieves the current PCIe link generation
-//   - [Device.CurrPcieLinkWidth]: Retrieves the current PCIe link width
+//   - [Device.CurrPcieLinkGeneration]: Retrieves the current PCIe link generation.
+//   - [Device.CurrPcieLinkWidth]: Retrieves the current PCIe link width.
 //   - [Device.CurrentClockFreqs]: Retrieves a string with the associated current GPU Clock and Memory Clock values.
 //   - [Device.CurrentClocksEventReasons]: Retrieves current clocks event reasons.
-//   - [Device.DecoderUtilization]: Retrieves the current utilization and sampling size in microseconds for the Decoder
+//   - [Device.DecoderUtilization]: Retrieves the current utilization and sampling size in microseconds for the Decoder.
 //   - [Device.DefaultEccMode]: Retrieves the default ECC modes for the device.
 //   - [Device.HandleFromMigDeviceHandle]: Get parent device handle from a MIG device handle.
 //   - [Device.DisplayActive]: Retrieves the display active state for the device.
@@ -84,31 +100,31 @@
 //   - [Device.DriverModel]: Retrieves the current and pending driver model for the device.
 //   - [Device.DynamicPstatesInfo]: Retrieve performance monitor samples from the associated subdevice.
 //   - [Device.EccMode]: Retrieves the current and pending ECC modes for the device.
-//   - [Device.EncoderCapacity]: Retrieves the current capacity of the device's encoder, as a percentage of maximum encoder capacity with valid values in the range 0-100.
+//   - [Device.EncoderCapacity]: Retrieves the current capacity of the device’s encoder, as a percentage of maximum encoder capacity with valid values in the range 0-100.
 //   - [Device.EncoderSessions]: Retrieves information about active encoder sessions on a target device.
 //   - [Device.EncoderStats]: Retrieves the current encoder statistics for a given device.
-//   - [Device.EncoderUtilization]: Retrieves the current utilization and sampling size in microseconds for the Encoder
-//   - [Device.EnforcedPowerLimit]: Get the effective power limit that the driver enforces after taking into account all limiters
+//   - [Device.EncoderUtilization]: Retrieves the current utilization and sampling size in microseconds for the Encoder.
+//   - [Device.EnforcedPowerLimit]: Get the effective power limit that the driver enforces after taking into account all limiters.
 //   - [Device.FBCSessions]: Retrieves information about active frame buffer capture sessions on a target device.
 //   - [Device.FBCStats]: Retrieves the active frame buffer capture sessions statistics for a given device.
 //   - [Device.FanControlPolicy]: Gets current fan control policy.
-//   - [Device.FanSpeedRPM]: Retrieves the intended operating speed in rotations per minute (RPM) of the device's specified fan.
-//   - [Device.FanSpeed]: Retrieves the intended operating speed of the device's specified fan.
+//   - [Device.FanSpeedRPM]: Retrieves the intended operating speed in rotations per minute (RPM) of the device’s specified fan.
+//   - [Device.FanSpeed]: Retrieves the intended operating speed of the device’s specified fan.
 //   - [Device.FieldValues]: Request values for a list of fields for a device.
 //   - [Device.GpcClkMinMaxVfOffset]: Retrieve the GPCCLK min max VF offset value.
-//   - [Device.GpcClkVfOffset]: Retrieve the GPCCLK VF offset value
+//   - [Device.GpcClkVfOffset]: Retrieve the GPCCLK VF offset value.
 //   - [Device.GpuFabricInfoV]: Versioned wrapper around [Device.GpuFabricInfo] that accepts a versioned [GpuFabricInfoV2] or later output structure.
 //   - [Device.GpuInstanceById]: Get GPU instances for given instance ID.
 //   - [Device.GpuInstanceId]: Get GPU instance ID for the given MIG device handle.
 //   - [Device.GpuInstancePossiblePlacements]: Get GPU instance placements.
-//   - [Device.GpuInstanceProfileInfo]: Get GPU instance profile information
+//   - [Device.GpuInstanceProfileInfo]: Get GPU instance profile information.
 //   - [Device.GpuInstanceProfileInfoByIdV]: GPU instance profile query function that accepts profile ID, instead of profile name.
 //   - [Device.GpuInstanceProfileInfoV]: Versioned wrapper around [Device.GpuInstanceProfileInfo] that accepts a versioned [GpuInstanceProfileInfoV2] or later output structure.
 //   - [Device.GpuInstanceRemainingCapacity]: Get GPU instance profile capacity.
 //   - [Device.GpuInstances]: Get GPU instances for given profile ID.
-//   - [Device.GpuMaxPcieLinkGeneration]: Retrieves the maximum PCIe link generation supported by this device
+//   - [Device.GpuMaxPcieLinkGeneration]: Retrieves the maximum PCIe link generation supported by this device.
 //   - [Device.GpuOperationMode]: Retrieves the current GOM and pending GOM (the one that GPU will switch to after reboot).
-//   - [Device.GraphicsRunningProcesses]: Get information about processes with a graphics context on a device
+//   - [Device.GraphicsRunningProcesses]: Get information about processes with a graphics context on a device.
 //   - [Device.GridLicensableFeatures]: Retrieve the vGPU Software licensable features.
 //   - [Device.GspFirmwareMode]: Retrieve GSP firmware mode.
 //   - [Device.GspFirmwareVersion]: Retrieve GSP firmware version.
@@ -119,96 +135,109 @@
 //   - [Device.HostVgpuMode]: Queries if SR-IOV host operation is supported on a vGPU supported device.
 //   - [Device.Hostname]: Get the hostname for the device.
 //   - [Device.Index]: Retrieves the NVML index of this device.
-//   - [Device.InforomConfigurationChecksum]: Retrieves the checksum of the configuration stored in the device's infoROM.
-//   - [Device.InforomImageVersion]: Retrieves the global infoROM image version
-//   - [Device.InforomVersion]: Retrieves the version information for the device's infoROM object.
-//   - [Device.IrqNum]: Gets the device's interrupt number
-//   - [Device.JpgUtilization]: Retrieves the current utilization and sampling size in microseconds for the JPG
+//   - [Device.InforomConfigurationChecksum]: Retrieves the checksum of the configuration stored in the device’s infoROM.
+//   - [Device.InforomImageVersion]: Retrieves the global infoROM image version.
+//   - [Device.InforomVersion]: Retrieves the version information for the device’s infoROM object.
+//   - [Device.IrqNum]: Gets the device’s interrupt number.
+//   - [Device.JpgUtilization]: Retrieves the current utilization and sampling size in microseconds for the JPG.
 //   - [Device.LastBBXFlushTime]: Retrieves the timestamp and the duration of the last flush of the BBX (blackbox) infoROM object during the current run.
-//   - [Device.MPSComputeRunningProcesses]: Get information about processes with a Multi-Process Service (MPS) compute context on a device
+//   - [Device.MPSComputeRunningProcesses]: Get information about processes with a Multi-Process Service (MPS) compute context on a device.
 //   - [Device.MarginTemperature]: Retrieves the thermal margin temperature (distance to nearest slowdown threshold).
 //   - [Device.MaxClockInfo]: Retrieves the maximum clock speeds for the device.
 //   - [Device.MaxCustomerBoostClock]: Retrieves the customer defined maximum boost clock speed specified by the given clock type.
 //   - [Device.MaxMigDeviceCount]: Get the maximum number of MIG devices that can exist under a given parent NVML device.
-//   - [Device.MaxPcieLinkGeneration]: Retrieves the maximum PCIe link generation possible with this device and system
-//   - [Device.MaxPcieLinkWidth]: Retrieves the maximum PCIe link width possible with this device and system
+//   - [Device.MaxPcieLinkGeneration]: Retrieves the maximum PCIe link generation possible with this device and system.
+//   - [Device.MaxPcieLinkWidth]: Retrieves the maximum PCIe link width possible with this device and system.
 //   - [Device.MemClkMinMaxVfOffset]: Retrieve the MemClk (Memory Clock) min max VF offset value.
 //   - [Device.MemClkVfOffset]: Retrieve the MemClk (Memory Clock) VF offset value.
 //   - [Device.MemoryAffinity]: Retrieves an array of unsigned ints (sized to nodeSetSize) of bitmasks with the ideal memory affinity within node or socket for the device.
-//   - [Device.MemoryBusWidth]: Gets the device's memory bus width
+//   - [Device.MemoryBusWidth]: Gets the device’s memory bus width.
 //   - [Device.MemoryErrorCounter]: Retrieves the requested memory error counter for the device.
 //   - [Device.MemoryInfo]: Retrieves the amount of used, free, reserved and total memory available on the device, in bytes.
 //   - [Device.MigDeviceHandleByIndex]: Get MIG device handle for the given index under its parent NVML device.
 //   - [Device.MigMode]: Get MIG mode for the device.
-//   - [Device.MinMaxClockOfPState]: Retrieve min and max clocks of some clock domain for a given PState
+//   - [Device.MinMaxClockOfPState]: Retrieve min and max clocks of some clock domain for a given PState.
 //   - [Device.MinMaxFanSpeed]: Retrieves the min and max fan speed that user can set for the GPU fan.
 //   - [Device.MinorNumber]: Retrieves minor number for the device.
-//   - [Device.ModuleId]: Get a unique identifier for the device module on the baseboard
+//   - [Device.ModuleId]: Get a unique identifier for the device module on the baseboard.
 //   - [Device.MultiGpuBoard]: Retrieves whether the device is on a Multi-GPU Board Devices that are on multi-GPU boards will set multiGpuBool to a non-zero value.
 //   - [Device.Name]: Retrieves the name of this device.
 //   - [Device.NumFans]: Retrieves the number of fans on the device.
-//   - [Device.NumGpuCores]: Gets the device's core count
+//   - [Device.NumGpuCores]: Gets the device’s core count.
 //   - [Device.NumaNodeId]: Get the NUMA node of the given GPU device.
-//   - [Device.NvLinkCapability]: Retrieves the requested capability from the device's NvLink for the link specified Please refer to the [NvLinkCapability] structure for the specific caps that can be queried The return value should be treated as a boolean.
-//   - [Device.NvLinkErrorCounter]: Retrieves the specified error counter value Please refer to [NvLinkErrorCounter] for error counters that are available
+//   - [Device.NvLinkCapability]: Retrieves the requested capability from the device’s NvLink for the link specified Please refer to the [NvLinkCapability] structure for the specific caps that can be queried The return value should be treated as a boolean.
+//   - [Device.NvLinkErrorCounter]: Retrieves the specified error counter value Please refer to [NvLinkErrorCounter] for error counters that are available.
 //   - [Device.NvLinkInfo]: Query NVLINK information associated with this device.
 //   - [Device.NvLinkRemoteDeviceType]: Get the NVLink device type of the remote device connected over the given link.
-//   - [Device.NvLinkRemotePciInfo]: Retrieves the PCI information for the remote node on a NvLink link Note: pciSubSystemId is not filled in this function and is indeterminate
-//   - [Device.NvLinkState]: Retrieves the state of the device's NvLink for the link specified
-//   - [Device.NvLinkVersion]: Retrieves the version of the device's NvLink for the link specified
-//   - [Device.NvlinkBwMode]: Get the NvLink Reduced Bandwidth Mode for the device
-//   - [Device.NvlinkSupportedBwModes]: Get the supported NvLink Reduced Bandwidth Modes of the device
+//   - [Device.NvLinkRemotePciInfo]: Retrieves the PCI information for the remote node on a NvLink link Note: pciSubSystemId is not filled in this function and is indeterminate.
+//   - [Device.NvLinkState]: Retrieves the state of the device’s NvLink for the link specified.
+//   - [Device.NvLinkVersion]: Retrieves the version of the device’s NvLink for the link specified.
+//   - [Device.NvlinkBwMode]: Get the NvLink Reduced Bandwidth Mode for the device.
+//   - [Device.NvlinkSupportedBwModes]: Get the supported NvLink Reduced Bandwidth Modes of the device.
 //   - [Device.OfaUtilization]: Retrieves the current utilization and sampling size in microseconds for the OFA (Optical Flow Accelerator)
-//   - [Device.P2PStatus]: Retrieve the status for a given p2p capability index between a given pair of GPU
+//   - [Device.P2PStatus]: Retrieve the status for a given p2p capability index between a given pair of GPU.
 //   - [Device.PciInfo]: Retrieves the PCI attributes of this device.
 //   - [Device.PciInfoExt]: Retrieves PCI attributes of this device.
-//   - [Device.PcieLinkMaxSpeed]: Gets the device's PCIE Max Link speed in MBPS
+//   - [Device.PcieLinkMaxSpeed]: Gets the device’s PCIE Max Link speed in MBPS.
 //   - [Device.PcieReplayCounter]: Retrieve the PCIe replay counter.
-//   - [Device.PcieSpeed]: Gets the device's PCIe Link speed in Mbps
+//   - [Device.PcieSpeed]: Gets the device’s PCIe Link speed in Mbps.
 //   - [Device.PcieThroughput]: Retrieve PCIe utilization information.
 //   - [Device.Pdi]: Retrieves the Per Device Identifier (PDI) associated with this device.
 //   - [Device.PerformanceModes]: Retrieves a performance mode string with all the performance modes defined for this device along with their associated GPU Clock and Memory Clock values.
 //   - [Device.PerformanceState]: Retrieves the current performance state for the device.
 //   - [Device.PersistenceMode]: Retrieves the persistence mode associated with this device.
+//   - [Device.PgpuMetadataString]: Returns the properties of the physical GPU indicated by the device in an ascii-encoded string format.
 //   - [Device.PlatformInfo]: Get platform information of this device.
 //   - [Device.PowerManagementDefaultLimit]: Retrieves default power management limit on this device, in milliwatts.
 //   - [Device.PowerManagementLimit]: Retrieves the power management limit associated with this device.
 //   - [Device.PowerManagementLimitConstraints]: Retrieves information about possible values of power management limits on this device.
 //   - [Device.PowerMizerMode]: Retrieves current power mizer mode on this device.
-//   - [Device.PowerSource]: Gets the devices power source
+//   - [Device.PowerSource]: Gets the devices power source.
 //   - [Device.PowerUsage]: Retrieves power usage for this GPU in milliwatts and its associated circuitry (e.g.
-//   - [Device.ProcessUtilization]: Retrieves the current utilization and process ID
-//   - [Device.ProcessesUtilizationInfo]: Retrieves the recent utilization and process ID for all running processes
+//   - [Device.ProcessUtilization]: Retrieves the current utilization and process ID.
+//   - [Device.ProcessesUtilizationInfo]: Retrieves the recent utilization and process ID for all running processes.
 //   - [Device.RemappedRows]: Get number of remapped rows.
-//   - [Device.RepairStatus]: Get the repair status for TPC/Channel repair
+//   - [Device.RepairStatus]: Get the repair status for TPC/Channel repair.
 //   - [Device.RetiredPagesPendingStatus]: Check if any pages are pending retirement and need a reboot to fully retire.
 //   - [Device.RetiredPages]: Returns the list of retired pages by source, including pages that are pending retirement The address information provided from this API is the hardware address of the page that was retired.
 //   - [Device.RowRemapperHistogram]: Get the row remapper histogram.
-//   - [Device.RunningProcessDetailList]: Get information about running processes on a device for input context
+//   - [Device.RunningProcessDetailList]: Get information about running processes on a device for input context.
 //   - [Device.Samples]: Gets recent samples for the GPU.
-//   - [Device.Serial]: Retrieves the globally unique board serial number associated with this device's board.
+//   - [Device.Serial]: Retrieves the globally unique board serial number associated with this device’s board.
 //   - [Device.SramEccErrorStatus]: Get SRAM ECC error status of this device.
-//   - [Device.SupportedClocksEventReasons]: Retrieves bitmask of supported clocks event reasons that can be returned by [Device.CurrentClocksEventReasons]
-//   - [Device.SupportedEventTypes]: Returns information about events supported on device
+//   - [Device.SramUniqueUncorrectedEccErrorCounts]: Retrieves the counts of SRAM unique uncorrected ECC errors.
+//   - [Device.SupportedClocksEventReasons]: Retrieves bitmask of supported clocks event reasons that can be returned by [Device.CurrentClocksEventReasons].
+//   - [Device.SupportedEventTypes]: Returns information about events supported on device.
 //   - [Device.SupportedGraphicsClocks]: Retrieves the list of possible graphics clocks that can be used as an argument for [Device.SetGpuLockedClocks].
 //   - [Device.SupportedMemoryClocks]: Retrieves the list of possible memory clocks that can be used as an argument for [Device.SetMemoryLockedClocks].
 //   - [Device.SupportedPerformanceStates]: Get all supported Performance States (P-States) for the device.
-//   - [Device.TargetFanSpeed]: Retrieves the intended target speed of the device's specified fan.
+//   - [Device.SupportedVgpus]: Retrieve the supported vGPU types on a physical GPU (device).
+//   - [Device.TargetFanSpeed]: Retrieves the intended target speed of the device’s specified fan.
 //   - [Device.TemperatureThreshold]: Retrieves the temperature threshold for the GPU with the specified threshold type in degrees C.
 //   - [Device.TemperatureV]: Retrieves the current temperature readings (in degrees C) for the given device.
 //   - [Device.ThermalSettings]: Used to execute a list of thermal system instructions.
 //   - [Device.TopologyCommonAncestor]: Retrieve the common ancestor for two devices For all products.
 //   - [Device.TopologyNearestGpus]: Retrieve the set of GPUs that are nearest to a given device at a specific interconnectivity level For all products.
 //   - [Device.TotalEccErrors]: Retrieves the total ECC error counts for the device.
-//   - [Device.TotalEnergyConsumption]: Retrieves total energy consumption for this GPU in millijoules (mJ) since the driver was last reloaded
+//   - [Device.TotalEnergyConsumption]: Retrieves total energy consumption for this GPU in millijoules (mJ) since the driver was last reloaded.
 //   - [Device.UUID]: Retrieves the globally unique immutable UUID associated with this device, as a 5 part hexadecimal string, that augments the immutable, board serial identifier.
-//   - [Device.UnrepairableMemoryFlag]: Get the unrepairable memory flag for a given GPU
-//   - [Device.UtilizationRates]: Retrieves the current utilization rates for the device's major subsystems.
+//   - [Device.UnrepairableMemoryFlag]: Get the unrepairable memory flag for a given GPU.
+//   - [Device.UtilizationRates]: Retrieves the current utilization rates for the device’s major subsystems.
 //   - [Device.VbiosVersion]: Get VBIOS version of the device.
+//   - [Device.VgpuCapabilities]: Retrieve the requested vGPU capability for GPU.
 //   - [Device.VgpuHeterogeneousMode]: Get the vGPU heterogeneous mode for the device.
+//   - [Device.VgpuInstancesUtilizationInfo]: Retrieves recent utilization for vGPU instances running on a physical GPU (device).
+//   - [Device.VgpuMetadata]: Returns a vGPU metadata structure for the physical GPU indicated by device.
+//   - [Device.VgpuProcessUtilization]: Retrieves current utilization for processes running on vGPUs on a physical GPU (device).
+//   - [Device.VgpuProcessesUtilizationInfo]: Retrieves recent utilization for processes running on vGPU instances on a physical GPU (device).
+//   - [Device.VgpuSchedulerCapabilities]: Returns the vGPU scheduler capabilities.
+//   - [Device.VgpuSchedulerLog]: Returns the vGPU Software scheduler logs for the device.
+//   - [Device.VgpuSchedulerState]: Returns the vGPU scheduler state.
 //   - [Device.VgpuTypeCreatablePlacements]: Query the creatable vGPU placement ID of the vGPU type.
 //   - [Device.VgpuTypeSupportedPlacements]: Query the supported vGPU placement ID of the vGPU type.
+//   - [Device.VgpuUtilization]: Retrieves current utilization for vGPUs on a physical GPU (device).
 //   - [Device.VirtualizationMode]: This method is used to get the virtualization mode corresponding to the GPU.
+//   - [DeviceQueryDrainState]: Query the drain state of a GPU.
 //
 // # Multi Instance GPU Management
 //
@@ -220,12 +249,17 @@
 //   - [Device.PowerSmoothingSetState]: Enable or disable the Power Smoothing Feature.
 //   - [Device.PowerSmoothingUpdatePresetProfileParam]: Update the value of a specific profile parameter contained within [PowerSmoothingProfile].
 //
+// # PRM Access
+//
+//   - [Device.ReadPRMCounters]: Read a list of GPU PRM Counters.
+//   - [Device.ReadWritePRM]: Read or write a GPU PRM register.
+//
 // # Device Configuration
 //
 //   - [Device.SetAPIRestriction]: Changes the root/admin restructions on certain APIs.
 //   - [Device.SetAccountingMode]: Enables or disables per process accounting.
 //   - [Device.SetAutoBoostedClocksEnabled]: Try to set the current state of Auto Boosted clocks on a device.
-//   - [Device.SetClockOffsets]: Control current clock offset of some clock domain for a given PState
+//   - [Device.SetClockOffsets]: Control current clock offset of some clock domain for a given PState.
 //   - [Device.SetComputeMode]: Set the compute mode for the device or MIG device.
 //   - [Device.SetConfComputeUnprotectedMemSize]: Set Conf Computing Unprotected Memory Size.
 //   - [Device.SetCpuAffinity]: Sets the ideal affinity for the calling thread and device using the guidelines given in [Device.CpuAffinity].
@@ -242,13 +276,15 @@
 //   - [Device.SetMemoryLockedClocks]: Set memory clocks that device will lock to.
 //   - [Device.SetMigMode]: Set MIG mode for the device.
 //   - [Device.SetNvLinkDeviceLowPowerThreshold]: Set NvLink Low Power Threshold for device.
-//   - [Device.SetNvlinkBwMode]: Set the NvLink Reduced Bandwidth Mode for the device
+//   - [Device.SetNvlinkBwMode]: Set the NvLink Reduced Bandwidth Mode for the device.
 //   - [Device.SetPersistenceMode]: Set the persistence mode for the device.
 //   - [Device.SetPowerManagementLimit]: Set new power limit of this device.
 //   - [Device.SetPowerMizerMode]: Sets the new power mizer mode.
+//   - [Device.SetRusdSettings]: Set Read-only user shared data (RUSD) settings for GPU.
 //   - [Device.SetTemperatureThreshold]: Sets the temperature threshold for the GPU with the specified threshold type in degrees C.
-//   - [Device.SetVgpuCapabilities]: Set the desirable vGPU capability of a device
+//   - [Device.SetVgpuCapabilities]: Set the desirable vGPU capability of a device.
 //   - [Device.SetVgpuHeterogeneousMode]: Enable or disable vGPU heterogeneous mode for the device.
+//   - [Device.SetVgpuSchedulerState]: Sets the vGPU scheduler state.
 //   - [Device.SetVirtualizationMode]: This method is used to set the virtualization mode corresponding to the GPU.
 //
 // # CPU and Memory Affinity
@@ -259,24 +295,80 @@
 //
 // # vGPU APIs
 //
-//   - [Device.VgpuForceGspUnload]: Executes a forced GSP unload operation on a device
+//   - [Device.VgpuForceGspUnload]: Executes a forced GSP unload operation on a device.
+//
+// # Power Profile Information
+//
+//   - [Device.WorkloadPowerProfileGetCurrentProfiles]: Get Current Performance Profiles.
+//   - [Device.WorkloadPowerProfileGetProfilesInfo]: Get Performance Profiles Information.
+//   - [Device.WorkloadPowerProfileUpdateProfiles]: Update Requested Performance Profiles.
 //
 // # Event Management
 //
 //   - [NewEventSet]: Create an empty set of events.
-//   - [EventSet.Free]: Releases events in the set
-//   - [EventSet.Wait]: Waits on events and delivers events
+//   - [EventSet.Free]: Releases events in the set.
+//   - [EventSet.Wait]: Waits on events and delivers events.
 //
 // # Excluded GPU Queries
 //
 //   - [GetExcludedDeviceCount]: Retrieves the number of excluded GPU devices in the system.
 //   - [GetExcludedDeviceInfoByIndex]: Acquire the device information for an excluded GPU device, based on its index.
 //
+// # vGPU Migration
+//
+//   - [GetVgpuCompatibility]: Takes a vGPU instance metadata structure read from [VgpuInstance.Metadata], and a vGPU metadata structure for a physical GPU read from [Device.VgpuMetadata], and returns compatibility information of the vGPU instance and the physical GPU.
+//   - [GetVgpuVersion]: Query the ranges of supported vGPU versions.
+//   - [SetVgpuVersion]: Override the preset range of vGPU versions supported by the NVIDIA vGPU Manager with a range set by an administrator.
+//
+// # vGPU Management
+//
+//   - [GetVgpuDriverCapabilities]: Retrieve the requested vGPU driver capability.
+//   - [VgpuInstance.ClearAccountingPids]: Clears accounting information of the vGPU instance that have already terminated.
+//   - [VgpuInstance.AccountingMode]: Queries the state of per process accounting mode on vGPU.
+//   - [VgpuInstance.AccountingPids]: Queries list of processes running on vGPU that can be queried for accounting stats.
+//   - [VgpuInstance.AccountingStats]: Queries process’s accounting stats.
+//   - [VgpuInstance.EccMode]: Retrieve the current ECC mode of vGPU instance.
+//   - [VgpuInstance.EncoderCapacity]: Retrieve the encoder capacity of a vGPU instance, as a percentage of maximum encoder capacity with valid values in the range 0-100.
+//   - [VgpuInstance.EncoderSessions]: Retrieves information about all active encoder sessions on a vGPU Instance.
+//   - [VgpuInstance.EncoderStats]: Retrieves the current encoder statistics of a vGPU Instance.
+//   - [VgpuInstance.FBCSessions]: Retrieves information about active frame buffer capture sessions on a vGPU Instance.
+//   - [VgpuInstance.FBCStats]: Retrieves the active frame buffer capture sessions statistics of a vGPU Instance.
+//   - [VgpuInstance.FbUsage]: Retrieve the framebuffer usage in bytes.
+//   - [VgpuInstance.FrameRateLimit]: Retrieve the frame rate limit set for the vGPU instance.
+//   - [VgpuInstance.GpuInstanceId]: Retrieve the GPU Instance ID for the given vGPU Instance.
+//   - [VgpuInstance.GpuPciId]: Retrieves the PCI Id of the given vGPU Instance i.e.
+//   - [VgpuInstance.LicenseInfo]: Query the license information of the vGPU instance.
+//   - [VgpuInstance.MdevUUID]: Retrieve the MDEV UUID of a vGPU instance.
+//   - [VgpuInstance.Metadata]: Returns vGPU metadata structure for a running vGPU.
+//   - [VgpuInstance.PlacementId]: Query the placement ID of active vGPU instance.
+//   - [VgpuInstance.RuntimeStateSize]: Retrieve the currently used runtime state size of the vGPU instance.
+//   - [VgpuInstance.Type]: Retrieve the vGPU type of a vGPU instance.
+//   - [VgpuInstance.UUID]: Retrieve the UUID of a vGPU instance.
+//   - [VgpuInstance.VmDriverVersion]: Retrieve the NVIDIA driver version installed in the VM associated with a vGPU.
+//   - [VgpuInstance.VmID]: Retrieve the VM ID associated with a vGPU instance.
+//   - [VgpuInstance.SetEncoderCapacity]: Set the encoder capacity of a vGPU instance, as a percentage of maximum encoder capacity with valid values in the range 0-100.
+//   - [VgpuTypeId.BAR1Info]: Retrieve the BAR1 info for given vGPU type.
+//   - [VgpuTypeId.Capabilities]: Retrieve the requested capability for a given vGPU type.
+//   - [VgpuTypeId.Class]: Retrieve the class of a vGPU type.
+//   - [VgpuTypeId.DeviceID]: Retrieve the device ID of a vGPU type.
+//   - [VgpuTypeId.FbReservation]: Retrieve the static framebuffer reservation of the vGPU type in bytes.
+//   - [VgpuTypeId.FrameRateLimit]: Retrieve the static frame rate limit value of the vGPU type.
+//   - [VgpuTypeId.FramebufferSize]: Retrieve the vGPU framebuffer size in bytes.
+//   - [VgpuTypeId.GpuInstanceProfileId]: Retrieve the GPU Instance Profile ID for the given vGPU type ID.
+//   - [VgpuTypeId.GspHeapSize]: Retrieve the static GSP heap size of the vGPU type in bytes.
+//   - [VgpuTypeId.License]: Retrieve license requirements for a vGPU type.
+//   - [VgpuTypeId.MaxInstances]: Retrieve the maximum number of vGPU instances creatable on a device for given vGPU type.
+//   - [VgpuTypeGetMaxInstancesPerGpuInstance]: Retrieve the maximum number of vGPU instances per GPU instance for given vGPU type.
+//   - [VgpuTypeId.MaxInstancesPerVm]: Retrieve the maximum number of vGPU instances supported per VM for given vGPU type.
+//   - [VgpuTypeId.Name]: Retrieve the vGPU type name.
+//   - [VgpuTypeId.NumDisplayHeads]: Retrieve count of vGPU’s supported display heads.
+//   - [VgpuTypeId.Resolution]: Retrieve vGPU display head’s maximum supported resolution.
+//
 // # GPM Management
 //
 //   - [GpmMetricsGet]: Calculate GPM metrics from two samples.
 //   - [Device.GpmMigSampleGet]: Read a sample of GPM metrics into the provided gpmSample buffer for a MIG GPU Instance.
-//   - [Device.GpmQueryDeviceSupport]: Indicate whether the supplied device supports GPM
+//   - [Device.GpmQueryDeviceSupport]: Indicate whether the supplied device supports GPM.
 //   - [Device.GpmQueryIfStreamingEnabled]: Get GPM stream state.
 //   - [NewGpmSample]: Allocate a sample buffer to be used with NVML GPM .
 //   - [GpmSample.Free]: Free an allocated sample buffer that was allocated with [NewGpmSample]
@@ -285,16 +377,16 @@
 //
 // # Initialization
 //
-//   - [Init]: Initialize NVML, but don't initialize any GPUs yet.
-//   - [InitWithFlags]: [InitWithFlags] is a variant of [Init], that allows passing a set of boolean values modifying the behaviour of [Init].
-//   - [Shutdown]: Shut down NVML by releasing all GPU resources previously allocated with [Init].
+//   - [Init]: Initialize the NVML Library lazily, without allocating any device state.
+//   - [InitWithFlags]: Initialize the NVML Library lazily, without allocating any device state, with additional init flags.
+//   - [Shutdown]: Shut down and cleanup NVML Library state.
 //
 // # Event Handling Methods
 //
 //   - [SystemEventSetCreate]: Create an empty set of system events.
-//   - [SystemEventSetFree]: Releases system event set
-//   - [SystemEventSetWait]: Waits on system events and delivers events
-//   - [SystemRegisterEvents]: Starts recording of events on system and add the events to specified [SystemEventSet]
+//   - [SystemEventSetFree]: Releases system event set.
+//   - [SystemEventSetWait]: Waits on system events and delivers events.
+//   - [SystemRegisterEvents]: Starts recording of events on system and add the events to specified [SystemEventSet].
 //
 // # System Queries
 //
@@ -305,16 +397,16 @@
 //   - [SystemGetConfComputeState]: Get Conf Computing System State.
 //   - [SystemGetCudaDriverVersion]: Retrieves the version of the CUDA driver from the shared library.
 //   - [SystemGetDriverBranch]: Retrieves the driver branch of the NVIDIA driver installed on the system.
-//   - [SystemGetDriverVersion]: Retrieves the version of the system's graphics driver.
+//   - [SystemGetDriverVersion]: Retrieves the version of the system’s graphics driver.
 //   - [SystemGetHicVersion]: Retrieves the IDs and firmware versions for any Host Interface Cards (HICs) in the system.
 //   - [SystemGetNVMLVersion]: Retrieves the version of the NVML library.
-//   - [SystemGetNvlinkBwMode]: Get the global nvlink bandwith mode
-//   - [SystemGetProcessName]: Gets name of the process with provided process id
+//   - [SystemGetNvlinkBwMode]: Get the global nvlink bandwith mode.
+//   - [SystemGetProcessName]: Gets name of the process with provided process id.
 //   - [SystemGetTopologyGpuSet]: Retrieve the set of GPUs that have a CPU affinity with the given CPU number For all products.
 //
 // # NvLink Methods
 //
-//   - [SystemSetNvlinkBwMode]: Set the global nvlink bandwith mode
+//   - [SystemSetNvlinkBwMode]: Set the global nvlink bandwith mode.
 //
 // # Unit Management
 //
@@ -327,13 +419,6 @@
 //   - [Unit.Temperature]: Retrieves the temperature readings for the unit, in degrees C.
 //   - [Unit.Info]: Retrieves the static information associated with a unit.
 //   - [Unit.SetLedState]: Set the LED state for the unit.
-//
-// # vGPU Management
-//
-//   - [VgpuInstance.PlacementId]: Query the placement ID of active vGPU instance.
-//   - [VgpuInstance.RuntimeStateSize]: Retrieve the currently used runtime state size of the vGPU instance
-//   - [VgpuTypeId.FbReservation]: Retrieve the static framebuffer reservation of the vGPU type in bytes
-//   - [VgpuTypeId.GspHeapSize]: Retrieve the static GSP heap size of the vGPU type in bytes
 //
 // [NVML API Reference]: https://docs.nvidia.com/deploy/nvml-api/
 package nvml

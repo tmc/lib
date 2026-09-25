@@ -10,18 +10,18 @@ type MemcpyNode struct {
 	GraphNode
 }
 
-// Params Returns a memcpy node's parameters.
+// Params Returns a memcpy node’s parameters.
 //
-// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.SetParams]
+// Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.Params], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.SetParams] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphMemcpyNodeGetParams.
 func (m MemcpyNode) Params() (Memcpy3d, error) {
 	return graphMemcpyNodeGetParams(m.GraphNode)
 }
 
-// SetParams Sets a memcpy node's parameters.
+// SetParams Sets a memcpy node’s parameters.
 //
-// Sets the parameters of memcpy node hNode to nodeParams. See also: [GraphNode.SetParams], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.Params]
+// Sets the parameters of memcpy node hNode to nodeParams. See also: [GraphNode.SetParams], [Memcpy3D], [Graph.AddMemcpyNode], [MemcpyNode.Params] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - nodeParams: Parameters to copy
 //

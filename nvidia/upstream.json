@@ -5367,11 +5367,11 @@
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/array.gen.go",
-            "sha256": "3ae05cfe37ccb014fed4b71582720e93c1d0031dff49296b091c52678ec6328d"
+            "sha256": "37a70f3a267d6346b2cbfe0be1ef467a061909c27c02cf4d13292cdb1b0d0f2a"
           },
           {
             "path": "nvidia/driver/batch_mem_op_node.gen.go",
-            "sha256": "0daacde4c9ccea3c00638d4ee6c68d4b812ecf778493fc65dbe5238dc0bc1194"
+            "sha256": "0d0475d8f9f84d8ca019a2ba5a7c00a72266c08c2ef08cda95a2e0a47eb26807"
           },
           {
             "path": "nvidia/driver/callbacks.gen.go",
@@ -5379,7 +5379,7 @@
           },
           {
             "path": "nvidia/driver/child_graph_node.gen.go",
-            "sha256": "71ed56b685b83f5d2a25146d2269e5828ce2bbbb58554ea61b317ffee99488a1"
+            "sha256": "32cea027ba9a25a5f9e9c3145fc27a0a9dea97635ca15032c594a387427f4a1e"
           },
           {
             "path": "nvidia/driver/constants.gen.go",
@@ -5388,93 +5388,93 @@
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/context.gen.go",
-            "sha256": "45fe39bf7ddef65419a0a628d0ec19fec1183894f7b0e2dcb8373f6ee28e9fd7"
+            "sha256": "01be4690b21ce2fd5e72e7dfced2f76c355d71e9ca57a60e582e0209bdca3f44"
           },
           {
             "path": "nvidia/driver/coredump_callback_handle.gen.go",
-            "sha256": "0b1192f588b768d4f7bd97e3d8360ca7bed08b4bb8ccc74adfd64e9f1916e251"
+            "sha256": "59c7552d45d7e875320ba99c0f3648fa653de20722bdee6cd0723c78745c671d"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/device.gen.go",
-            "sha256": "277a6c344d1a1245c0c4cef80000d830c9ad9472cbd8daeffa478f322e66704d"
+            "sha256": "adf22cc8797d6d9c20b6238bff78d15f7b2c9a44999e4aaf17737a92cdef9ee4"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/device_ptr.gen.go",
-            "sha256": "a51b89ab0a8aa8992c95b125454cf77d712b39cb4e71c6804632b8619d80662d"
+            "sha256": "3c62416427958c111477bfbc612b2b48b83258ec93e04a579443e8e166c0cfbe"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/doc.gen.go",
-            "sha256": "a480c0bce5e8a35d91e52b1316bfacb9b5a292ae5d5daaf76cefd6e4265a2306"
+            "sha256": "9f61f4ab95fe3f1f1e9fd17e0bf0b637b34a5e51be5c22e2b76c2960d658e894"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/enums.gen.go",
-            "sha256": "382ad19b6b05f76465a957000baa20bd0191a39fa352b511ea21498a5d508876"
+            "sha256": "d488a15846021d2324d90abfd804c28304fc64f06f4cd86a0856e7119602f45a"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/event.gen.go",
-            "sha256": "c531433030369baf869682fec092aa3f3ebbafeef231e484d87a20497c68411a"
+            "sha256": "e8b55b90181df353a7409c095202a6b13df7795a9a419a437b1e9747eeed55ec"
           },
           {
             "path": "nvidia/driver/event_record_node.gen.go",
-            "sha256": "e9645ac502e65448f5543d528b19839fb90e9e1e00b7baefc7926b5320aacc70"
+            "sha256": "a95e6bde0e8e074bb8d8e42f58ccc8ce7990dee2944f9b0a0e356df13a6b3b37"
           },
           {
             "path": "nvidia/driver/event_wait_node.gen.go",
-            "sha256": "58afd081da5bbfb4834d172d8a5b5a991233823142d8e99f7a56f4b75ccb45ee"
+            "sha256": "52ff2243390eb864e9e15f11c3061c9e6b5dc0fa46209e2d3203be661b969521"
           },
           {
             "path": "nvidia/driver/external_memory.gen.go",
-            "sha256": "8de2860890f611f686b4d649b7a08c0b288ecfcd4c42aa6ae625604132796840"
+            "sha256": "2c38ea45cc13edad18bbc6bbde353b6e1a402ec0a1d860633e7e8a5aed321744"
           },
           {
             "path": "nvidia/driver/external_semaphore.gen.go",
-            "sha256": "ad4d273c7ebc8c2b5e2b1bfb6cadbdf47dd539965993c21dea6380e9d2041c91"
+            "sha256": "2285f5d004ab79d5de93be541b9068fb34f5e1db0edd9e09e157abab7d9e4377"
           },
           {
             "path": "nvidia/driver/external_semaphores_signal_node.gen.go",
-            "sha256": "6d1e6ec96be3fcfbdf4270448008f4f65e853bc723b685a3df74daec5939650c"
+            "sha256": "4f2572de194855ad7c89ba8007bb0c05eff5f7139111ba6c4c6fae70b4d6d077"
           },
           {
             "path": "nvidia/driver/external_semaphores_wait_node.gen.go",
-            "sha256": "d33b2f3a71d4c5f4fc79edc5a2eefd0dea0dd618ec4bf7bc4f6f56fa84bdfaaf"
+            "sha256": "c3f65aafadf86c9c224bedff187e56fb253f16dc535b652ca25cacff3307cf08"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/funcs.gen.go",
-            "sha256": "8eeb1dd665ca782efeed4727d227d930d42054ba4b133282fdb3289dee65a16b"
+            "sha256": "8fa949b90c8efe0fc2c0b6a0022d0e38293abec4b919d5cefb7d139249ac9322"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/function.gen.go",
-            "sha256": "8fa0f896d8f49d2f8e478a8175b912c54c34274e862db370dd46669dee3ca506"
+            "sha256": "0d72076539ac188ed9f4b9b7eb2d9b69785da49e10404f001227e8283e080264"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/graph.gen.go",
-            "sha256": "97c2627d79c920df53dcc04e1ac4be2c5564ecc49c380998b63d7fbeef367de2"
+            "sha256": "a262e44549fb4b999b9148cfeb3a7b7d3c84aadea8705392d381e4045de28442"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/graph_exec.gen.go",
-            "sha256": "7de87f24dbae19e6a6e71a2fe758e9092ba0ea18daaef3e77a51b3dd32ac74ab"
+            "sha256": "258cbbe50e9d61c7cc600675b750b451af0ff6250eba2871aeed221aeeed5d58"
           },
           {
             "path": "nvidia/driver/graph_node.gen.go",
-            "sha256": "d3ad78c43d247bf4729f5ddf90c7ee7bf6e5b7f9e37a36eb65e11dad3caebdb2"
+            "sha256": "87a5329c5613dd165a7a260a847875b6b1498466796a99522a7151aadfcb56c8"
           },
           {
             "path": "nvidia/driver/graphics_resource.gen.go",
-            "sha256": "0b613830cf60b6a28d264cc5b0b50c5df8b214c4556609c98290ba17a424894d"
+            "sha256": "a7e51d80ef7e6eb21ce9f8fd420a0f24d73a99e67b2b48f3dab4374ea0901fb6"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/green_ctx.gen.go",
-            "sha256": "4bae9b49804829ee520f88a6bad49964fb29e182e69b6a749ebc6c410b7a7b5d"
+            "sha256": "b5710cc23d34437bd12453f1b63794a03176524637b3a55810868f4aa129cb26"
           },
           {
             "path": "nvidia/driver/handles.gen.go",
@@ -5482,7 +5482,7 @@
           },
           {
             "path": "nvidia/driver/host_node.gen.go",
-            "sha256": "bafe8d699f50b8e8c91cdbee644b023ff7128c7265d67b11861f0e1e143b7f1b"
+            "sha256": "b8ccd82f8e39f46a381fcff5ad0955dc783269c5b9ee1b645c0bd8a40c291eea"
           },
           {
             "documentation_refresh": "documentation-generation.json",
@@ -5491,11 +5491,11 @@
           },
           {
             "path": "nvidia/driver/kernel.gen.go",
-            "sha256": "dd4d19fb075646988093c4ceb12c47fbc40ffdc08a25c378197e47c9b10e8605"
+            "sha256": "cd08ac015a515d421b3f0f54c336f92ff0048d764650bf4ee148c5d324340731"
           },
           {
             "path": "nvidia/driver/kernel_node.gen.go",
-            "sha256": "fbc3edd39c040c0d24f31b5c14779bf3da0e6e9ea42ce9930175ac535900b9c1"
+            "sha256": "fc6860fbff67fa1111cb8e3a1afd9688c7ea5f00ee8d76b520145442400196d5"
           },
           {
             "path": "nvidia/driver/layout.gen_test.go",
@@ -5504,11 +5504,11 @@
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/library.gen.go",
-            "sha256": "9e77cbdaef5cd5544f53703adfd83a1587b35aa41339b34a3cd2fbca90dc8dd8"
+            "sha256": "7582c13d0d6aa218796e8b334cc3d8e02d94547afb2b244b86980da7c9fe5c44"
           },
           {
             "path": "nvidia/driver/link_state.gen.go",
-            "sha256": "f7d15fb7807d30f723604d4af05a0eb16ed2d53043a78f17f500decc8ea091f4"
+            "sha256": "3b31b1776d0d15dfd57bcfe37bcbaaa32a8a245b4a6e08195662f7645096094d"
           },
           {
             "path": "nvidia/driver/loader.gen_test.go",
@@ -5524,38 +5524,38 @@
           },
           {
             "path": "nvidia/driver/logs_callback_handle.gen.go",
-            "sha256": "540fa71fa6fa8c0182f93e0205e35b91f3bdb99959ea256f25491170eb8d63b7"
+            "sha256": "a1a39f0fae771bb36364152fd688adf02c7d91520a25da56e9d367d3efedac32"
           },
           {
             "path": "nvidia/driver/mem_alloc_node.gen.go",
-            "sha256": "e028786c1b050af1752185193baef2094aafc1657a6d0812936a31b66a246b3a"
+            "sha256": "2ec06bf72649a2caff779297429a7eea38f4cbcbff8ef751a1ac9830d7d200a8"
           },
           {
             "path": "nvidia/driver/mem_free_node.gen.go",
-            "sha256": "877c1d2e6deeced55539703f606f364ca8a906b883f0e344e682ff540c37a054"
+            "sha256": "db24237fe1d7037167725c2d0691186b98fdf4a9b8ba381f71c6f7fc5d29ad2a"
           },
           {
             "path": "nvidia/driver/memcpy_node.gen.go",
-            "sha256": "5fe2dfa6ca0003f2296d42e381aa08adb10b480855b323a5709bed63a92f2090"
+            "sha256": "00b293a7b2df849e5f749950430b9b0a4ddd8714a3520f352a2d54dd0406ca88"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/memory_pool.gen.go",
-            "sha256": "dc70260d16446457d1f78dd365d60d49c551780b6b2c9cd7951d554c865b79cc"
+            "sha256": "228faafcc91cf0302da6c5839cc5c0cc2fe666255826b3be074cce9bf7168034"
           },
           {
             "path": "nvidia/driver/memset_node.gen.go",
-            "sha256": "434b34e7bc346fa97f3d13100a350cab07fd13607ac40f1dbc6acf6c416af42c"
+            "sha256": "a72618d79aad41a9058d957c07b88e598b522d9fff815a06b740f3cda45bb424"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/mipmapped_array.gen.go",
-            "sha256": "13bfac6e3bc5294aec1d277543b286997b7ac7bd1e3afcf4f67228dbc2188b0e"
+            "sha256": "b6424395068175b1b85c6663c1d7015e6e0d8b765c959546e49f53629f627d8f"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/module.gen.go",
-            "sha256": "7b5d24445710db4a1a7664eaaad921dd9a547b66b99f55f0284c8fec92b35c53"
+            "sha256": "95ba637de5e3631dd63a49128e2de254b1d0941b880b33342e6eaffaf31ee6a5"
           },
           {
             "documentation_refresh": "documentation-generation.json",
@@ -5565,7 +5565,7 @@
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/stream.gen.go",
-            "sha256": "6da44802d5717f0c8a2e5f2c1ad39240e9ebe619df8998d7133b6fd27bc8b6e3"
+            "sha256": "4b6e9bfdd0bf1c7553ca080dd244a868944dbddaacacb8627d79f4bb99cec980"
           },
           {
             "documentation_refresh": "documentation-generation.json",
@@ -5580,12 +5580,12 @@
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/tex_ref.gen.go",
-            "sha256": "276d4b81d0d5ec647082b3ee563320f4f1997bcf417f0c088313acec25355738"
+            "sha256": "77e449db8f7e4dabf3af5fe62d9a23e420a094add4a42825e9eff4f011da9f51"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/driver/user_object.gen.go",
-            "sha256": "2ea0acb46a7e90f47da00d8a3a80d18e5d7e5dcab6de335d23a3467cfcc44ca5"
+            "sha256": "d948eba043f29df8abb148ca9ef260ce29ac1cf9d3b2d21b3ef15658940e52cc"
           }
         ],
         "toolchain": {
@@ -5601,10 +5601,10 @@
       "package": "github.com/tmc/lib/nvidia/driver",
       "repositories": {
         "codegen": {
-          "commit": "a705fdc0f39f14ce7a989071de391e17047bba3a",
-          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 72ec663: Function methods use receiver f. Regenerated at libgen 8da282f: methods drop the receiver words they repeat (GraphExec.Launch, GraphNode.KernelNodeGetParams) and parameters and their doc mentions are camel case. Regenerated at libgen 3a98258: copy methods are named by direction, and host copies take a []T with the pointer form renamed Ptr. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen de368ea: graph node kinds have their own types. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated driver to link the TensorMap note. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6",
+          "commit": "a4722701f0204283861b4d33f664deb016bd6877",
+          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 72ec663: Function methods use receiver f. Regenerated at libgen 8da282f: methods drop the receiver words they repeat (GraphExec.Launch, GraphNode.KernelNodeGetParams) and parameters and their doc mentions are camel case. Regenerated at libgen 3a98258: copy methods are named by direction, and host copies take a []T with the pointer form renamed Ptr. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen de368ea: graph node kinds have their own types. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated driver to link the TensorMap note. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 9c31466 (docs refetch d0f7ef1)",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "8b82103801caef92dbea6eabf9cfa6add4035b82"
+          "tree": "a39c61c43a5f9ef6539fadd4e5d18a55f3a207b6"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -8888,12 +8888,12 @@
           },
           {
             "path": "nvidia/nvml/device.gen.go",
-            "sha256": "b8c6a1a3a391c82f447e149ffa6995fa03e4f524971a78400338bfe39bd65b68"
+            "sha256": "454af74c771b26d52c3b402537b40b89a3ab84e3a93a6b16ac0444326ccba77d"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/nvml/doc.gen.go",
-            "sha256": "99797f7f8a925cf4abe92fb46288f04736b581eb5ccca77bb3a76668a10b69db"
+            "sha256": "34d00b4293cd04f5a3f6f4746fe6130f9d7b642f05613ed889f225c99a1e26c4"
           },
           {
             "path": "nvidia/nvml/enums.gen.go",
@@ -8901,20 +8901,20 @@
           },
           {
             "path": "nvidia/nvml/event_set.gen.go",
-            "sha256": "98e8c51715ed60c175396c47fc9677788fef438022128687c16f9a84a5218783"
+            "sha256": "0e844fbbd2ecbc8c6850e28e310a26c9550b37c42d8d9dd52b50509375614a29"
           },
           {
             "documentation_refresh": "documentation-generation.json",
             "path": "nvidia/nvml/funcs.gen.go",
-            "sha256": "5ee7bf1e7974009df3efdc4ed3f819d577faf90598edb56d50d3cd4f675b4da2"
+            "sha256": "8fb6c535dcdc3c3cf68ce9d7237e8f527152605794bbb18071130ec408be3fd7"
           },
           {
             "path": "nvidia/nvml/gpm_sample.gen.go",
-            "sha256": "c2a925300fd75d0394f4044be3a6be7611892a268754b80ddae2ee2fc5aaec9b"
+            "sha256": "17bef58a490b537e014a4ad219262c0de5acc1b3af0605babc8d318c3c55362c"
           },
           {
             "path": "nvidia/nvml/gpu_instance.gen.go",
-            "sha256": "a1f56b984961a763de930cdd483e6c17fb514da47e8d4d5b273a7029ca919316"
+            "sha256": "1882f1897e035f99432032285ac4ab97a2c520831f0cdf4d97548c51448ba7c1"
           },
           {
             "path": "nvidia/nvml/handles.gen.go",
@@ -8955,7 +8955,7 @@
           },
           {
             "path": "nvidia/nvml/unit.gen.go",
-            "sha256": "f522c0f5da74a6d7ee2aadf72ea4586f8f7e1cc43fb5abdbcf612d84d2764003"
+            "sha256": "f7d244fea5baddf67e796750ebc3c46bcefdc31de3642dfa1fabeaf44fc78274"
           },
           {
             "path": "nvidia/nvml/versions.gen.go",
@@ -8963,11 +8963,11 @@
           },
           {
             "path": "nvidia/nvml/vgpu_instance.gen.go",
-            "sha256": "06420b19d5f11326839d076c6f866b98870401064cb718678184d8a877a947e5"
+            "sha256": "75171bdfbe1670da473ff068b14bd33016531fc1ba85acd3e57b56e18b137dee"
           },
           {
             "path": "nvidia/nvml/vgpu_type_id.gen.go",
-            "sha256": "c8a2277abf84834e9b3d2c2f661514a5aca3d9cb8362ef4b2a85ef0a586e1def"
+            "sha256": "dbceea77ae0c88224379d7958665fa1110e89024f49160177e82034f47e476c0"
           }
         ],
         "toolchain": {
@@ -8988,10 +8988,10 @@
       "package": "github.com/tmc/lib/nvidia/nvml",
       "repositories": {
         "codegen": {
-          "commit": "b64b6851fb607016ee6f91f5c79a2711a7b37719",
-          "tree": "b18d484e7d777121f37b79f36b1140976f2f856d",
+          "commit": "a4722701f0204283861b4d33f664deb016bd6877",
+          "tree": "a39c61c43a5f9ef6539fadd4e5d18a55f3a207b6",
           "url": "https://github.com/tmc/libgen.git",
-          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8d0f6db: doc prose naming a deprecated function now links it. Regenerated at libgen 8cdab9e: the seven enumerations nvml.h spells as macros above a scalar typedef (DeviceArchitecture, BusType, FanControlPolicy, PowerSource, PowerScopeType, GpuFabricState, AffinityScope) are now Go types with typed constants and String methods, used by the functions and struct fields that take them; the untyped DeviceArch* constants moved into DeviceArchitecture. Regenerated at libgen d99589a: every numeric NVML constant macro is bound, aliases name their Go constants, and doc references to the macros are links. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685"
+          "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8d0f6db: doc prose naming a deprecated function now links it. Regenerated at libgen 8cdab9e: the seven enumerations nvml.h spells as macros above a scalar typedef (DeviceArchitecture, BusType, FanControlPolicy, PowerSource, PowerScopeType, GpuFabricState, AffinityScope) are now Go types with typed constants and String methods, used by the functions and struct fields that take them; the untyped DeviceArch* constants moved into DeviceArchitecture. Regenerated at libgen d99589a: every numeric NVML constant macro is bound, aliases name their Go constants, and doc references to the macros are links. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 9c31466 (docs refetch d0f7ef1)"
         },
         "headers": {
           "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",

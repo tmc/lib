@@ -3051,7 +3051,7 @@ func (e TensorMapIm2ColWideMode) String() string {
 	return fmt.Sprintf("TensorMapIm2ColWideMode(%d)", e)
 }
 
-// PointerAttributeAccessFlags represents access flags that specify the level of access the current context's device has on the memory referenced.
+// PointerAttributeAccessFlags represents access flags that specify the level of access the current context’s device has on the memory referenced.
 type PointerAttributeAccessFlags int32
 
 const (
@@ -4021,7 +4021,7 @@ func (e CoredumpGenerationFlags) String() string {
 	return fmt.Sprintf("CoredumpGenerationFlags(%d)", e)
 }
 
-// GreenctxcreateFlags specifies the greenctxcreate flags (CUgreenCtxCreate_flags).
+// GreenctxcreateFlags represents flags for green context creation.
 type GreenctxcreateFlags int32
 
 const (
@@ -4038,7 +4038,7 @@ func (e GreenctxcreateFlags) String() string {
 	return fmt.Sprintf("GreenctxcreateFlags(%d)", e)
 }
 
-// DevsmresourcegroupFlags specifies the devsmresourcegroup flags (CUdevSmResourceGroup_flags).
+// DevsmresourcegroupFlags represents flags for a [DevSmResource] group.
 type DevsmresourcegroupFlags int32
 
 const (
@@ -4076,7 +4076,7 @@ func (e DevsmresourcesplitbycountFlags) String() string {
 	return fmt.Sprintf("DevsmresourcesplitbycountFlags(%d)", e)
 }
 
-// DevResourceType specifies the dev resource type (CUdevResourceType).
+// DevResourceType is a type of resource.
 type DevResourceType int32
 
 const (
@@ -4101,7 +4101,7 @@ func (e DevResourceType) String() string {
 	return fmt.Sprintf("DevResourceType(%d)", e)
 }
 
-// DevWorkqueueConfigScope specifies the dev workqueue config scope (CUdevWorkqueueConfigScope).
+// DevWorkqueueConfigScope represents sharing scope for workqueues.
 type DevWorkqueueConfigScope int32
 
 const (

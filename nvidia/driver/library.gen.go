@@ -4,51 +4,39 @@ package driver
 
 // EnumerateKernels Retrieve the kernel handles within a library.
 //
-// Returns in kernels a maximum number of numKernels kernel handles within lib.
-// The returned kernel handle becomes invalid when the library is unloaded.
+// Returns in kernels a maximum number of numKernels kernel handles within lib. The returned kernel handle becomes invalid when the library is unloaded. See also: [Library.KernelCount]
 //
 //   - kernels: Buffer where the kernel handles are returned to
 //   - numKernels: Maximum number of kernel handles may be returned to the buffer
-//
-// See also: [Library.KernelCount]
 //
 // Wraps cuLibraryEnumerateKernels.
 func (l Library) EnumerateKernels(kernels *Kernel, numKernels uint32) error {
 	return libraryEnumerateKernels(kernels, numKernels, l)
 }
 
-// Global Returns a global device pointer
+// Global Returns a global device pointer.
 //
-// Returns in *dptr and *bytes the base pointer and size of the global with
-// name name for the requested library library and the current context.
-// If no global for the requested name name exists, the call returns [ErrNotFound].
-// One of the parameters dptr or bytes (not both) can be NULL in which
-// case it is ignored.
+// Returns in *dptr and *bytes the base pointer and size of the global with name name for the requested library library and the current context. If no global for the requested name name exists, the call returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored. See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Module], [Module.Global]
 //
 //   - name: Name of global to retrieve
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Library.Module], [Module.Global]
 //
 // Wraps cuLibraryGetGlobal.
 func (l Library) Global(name string) (dptr DevicePtr, bytes uint, err error) {
 	return libraryGetGlobal(l, name)
 }
 
-// Kernel Returns a kernel handle
+// Kernel Returns a kernel handle.
 //
-// Returns in pKernel the handle of the kernel with name name located in library library.
-// If kernel handle is not found, the call returns [ErrNotFound].
+// Returns in pKernel the handle of the kernel with name name located in library library. If kernel handle is not found, the call returns [ErrNotFound]. See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.Function], [Library.Module], [Module.Function]
 //
 //   - name: Name of kernel to retrieve
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Kernel.Function], [Library.Module], [Module.Function]
 //
 // Wraps cuLibraryGetKernel.
 func (l Library) Kernel(name string) (Kernel, error) {
 	return libraryGetKernel(l, name)
 }
 
-// KernelCount Returns the number of kernels within a library
+// KernelCount Returns the number of kernels within a library.
 //
 // Returns in count the number of kernels in lib.
 //
@@ -57,90 +45,49 @@ func (l Library) KernelCount() (uint32, error) {
 	return libraryGetKernelCount(l)
 }
 
-// Managed Returns a pointer to managed memory
+// Managed Returns a pointer to managed memory.
 //
-// Returns in *dptr and *bytes the base pointer and size of the managed memory with
-// name name for the requested library library. If no managed memory with the
-// requested name name exists, the call returns [ErrNotFound]. One of the parameters
-// dptr or bytes (not both) can be NULL in which case it is ignored.
-// Note that managed memory for library library is shared across devices and is registered
-// when the library is loaded into atleast one context.
+// Returns in *dptr and *bytes the base pointer and size of the managed memory with name name for the requested library library. If no managed memory with the requested name name exists, the call returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored. Note that managed memory for library library is shared across devices and is registered when the library is loaded into atleast one context. See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
 //
 //   - name: Name of managed memory to retrieve
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
 //
 // Wraps cuLibraryGetManaged.
 func (l Library) Managed(name string) (dptr DevicePtr, bytes uint, err error) {
 	return libraryGetManaged(l, name)
 }
 
-// Module Returns a module handle
+// Module Returns a module handle.
 //
-// Returns in pMod the module handle associated with the current context located in
-// library library. If module handle is not found, the call returns [ErrNotFound].
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Module.Function]
+// Returns in pMod the module handle associated with the current context located in library library. If module handle is not found, the call returns [ErrNotFound]. See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload], [Module.Function]
 //
 // Wraps cuLibraryGetModule.
 func (l Library) Module() (Module, error) {
 	return libraryGetModule(l)
 }
 
-// UnifiedFunction Returns a pointer to a unified function
+// UnifiedFunction Returns a pointer to a unified function.
 //
-// Returns in *fptr the function pointer to a unified function denoted by symbol.
-// If no unified function with name symbol exists, the call returns [ErrNotFound].
-// If there is no device with attribute [DevAttrUnifiedFunctionPointers] present in the system,
-// the call may return [ErrNotFound].
+// Returns in *fptr the function pointer to a unified function denoted by symbol. If no unified function with name symbol exists, the call returns [ErrNotFound]. If there is no device with attribute [DevAttrUnifiedFunctionPointers] present in the system, the call may return [ErrNotFound]. See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
 //
 //   - symbol: Name of function pointer to retrieve
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Library.Unload]
 //
 // Wraps cuLibraryGetUnifiedFunction.
 func (l Library) UnifiedFunction(symbol string) (uintptr, error) {
 	return libraryGetUnifiedFunction(l, symbol)
 }
 
-// Unload Unloads a library
+// Unload Unloads a library.
 //
-// # Unloads the library specified with library
-//
-// See also: [LibraryLoadData], [LibraryLoadFromFile], [Module.Unload]
+// Unloads the library specified with library See also: [LibraryLoadData], [LibraryLoadFromFile], [Module.Unload]
 //
 // Wraps cuLibraryUnload.
 func (l Library) Unload() error {
 	return libraryUnload(l)
 }
 
-// LibraryLoadData Load a library with specified code and options
+// LibraryLoadData Load a library with specified code and options.
 //
-// Takes a pointer code and loads the corresponding library library based on
-// the application defined library loading mode:
-// - If module loading is set to EAGER, via the environment variables described in "Module loading",
-// library is loaded eagerly into all contexts at the time of the call and future contexts
-// at the time of creation until the library is unloaded with [Library.Unload]().
-// - If the environment variables are set to LAZY, library
-// is not immediately loaded onto all existent contexts and will only be
-// loaded when a function is needed for that context, such as a kernel launch.
-//
-// These environment variables are described in the CUDA programming guide under the
-// "CUDA environment variables" section.
-//
-// The code may be a cubin or fatbin as output by \b nvcc,
-// or a NULL-terminated PTX, either as output by \b nvcc
-// or hand-written, or Tile IR data.
-// A fatbin should also contain relocatable code when doing separate compilation.
-//
-// Options are passed as an array via jitOptions and any corresponding parameters are passed in
-// jitOptionsValues. The number of total JIT options is supplied via numJitOptions.
-// Any outputs will be returned via jitOptionsValues.
-//
-// Library load options are passed as an array via libraryOptions and any corresponding parameters are passed in
-// libraryOptionValues. The number of total library load options is supplied via numLibraryOptions.
-//
-// supports managed variables this call is expected to return [ErrNotSupported]
+// Takes a pointer code and loads the corresponding library library based on the application defined library loading mode: These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section. The code may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. A fatbin should also contain relocatable code when doing separate compilation. Options are passed as an array via jitOptions and any corresponding parameters are passed in jitOptionsValues. The number of total JIT options is supplied via numJitOptions. Any outputs will be returned via jitOptionsValues. Library load options are passed as an array via libraryOptions and any corresponding parameters are passed in libraryOptionValues. The number of total library load options is supplied via numLibraryOptions. See also: [LibraryLoadFromFile], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx] Note: If the library contains managed variables and no device in the system supports managed variables this call is expected to return [ErrNotSupported]
 //
 //   - code: Code to load
 //   - jitOptions: Options for JIT
@@ -150,8 +97,6 @@ func (l Library) Unload() error {
 //   - libraryOptionValues: Option values for loading
 //   - numLibraryOptions: Number of options for loading
 //
-// See also: [LibraryLoadFromFile], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
-//
 // If code does not end in a NUL byte, the wrapper copies it once to append
 // the terminator PTX text needs; otherwise code is passed without copying.
 //
@@ -160,33 +105,9 @@ func LibraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintp
 	return libraryLoadData(code, jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions)
 }
 
-// LibraryLoadFromFile Load a library with specified file and options
+// LibraryLoadFromFile Load a library with specified file and options.
 //
-// Takes a pointer code and loads the corresponding library library based on
-// the application defined library loading mode:
-// - If module loading is set to EAGER, via the environment variables described in "Module loading",
-// library is loaded eagerly into all contexts at the time of the call and future contexts
-// at the time of creation until the library is unloaded with [Library.Unload]().
-// - If the environment variables are set to LAZY, library
-// is not immediately loaded onto all existent contexts and will only be
-// loaded when a function is needed for that context, such as a kernel launch.
-//
-// These environment variables are described in the CUDA programming guide under the
-// "CUDA environment variables" section.
-//
-// The file should be a cubin file as output by \b nvcc, or a PTX file either
-// as output by \b nvcc or handwritten, or a fatbin file as output by \b nvcc
-// or hand-written, or Tile IR file.
-// A fatbin should also contain relocatable code when doing separate compilation.
-//
-// Options are passed as an array via jitOptions and any corresponding parameters are
-// passed in jitOptionsValues. The number of total options is supplied via numJitOptions.
-// Any outputs will be returned via jitOptionsValues.
-//
-// Library load options are passed as an array via libraryOptions and any corresponding parameters are passed in
-// libraryOptionValues. The number of total library load options is supplied via numLibraryOptions.
-//
-// supports managed variables this call is expected to return [ErrNotSupported]
+// Takes a pointer code and loads the corresponding library library based on the application defined library loading mode: These environment variables are described in the CUDA programming guide under the “CUDA environment variables” section. The file should be a cubin file as output by nvcc, or a PTX file either as output by nvcc or handwritten, or a fatbin file as output by nvcc or hand-written, or Tile IR file. A fatbin should also contain relocatable code when doing separate compilation. Options are passed as an array via jitOptions and any corresponding parameters are passed in jitOptionsValues. The number of total options is supplied via numJitOptions. Any outputs will be returned via jitOptionsValues. Library load options are passed as an array via libraryOptions and any corresponding parameters are passed in libraryOptionValues. The number of total library load options is supplied via numLibraryOptions. See also: [LibraryLoadData], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx] Note: If the library contains managed variables and no device in the system supports managed variables this call is expected to return [ErrNotSupported]
 //
 //   - fileName: File to load from
 //   - jitOptions: Options for JIT
@@ -195,8 +116,6 @@ func LibraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintp
 //   - libraryOptions: Options for loading
 //   - libraryOptionValues: Option values for loading
 //   - numLibraryOptions: Number of options for loading
-//
-// See also: [LibraryLoadData], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
 //
 // Wraps cuLibraryLoadFromFile.
 func LibraryLoadFromFile(fileName string, jitOptions *JITOption, jitOptionsValues *uintptr, numJitOptions uint32, libraryOptions *LibraryOption, libraryOptionValues *uintptr, numLibraryOptions uint32) (Library, error) {

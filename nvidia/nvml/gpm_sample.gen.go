@@ -4,6 +4,7 @@ package nvml
 
 // NewGpmSample Allocate a sample buffer to be used with NVML GPM .
 //
+// You will need to allocate at least two of these buffers to use with the NVML GPM feature
 // For Hopper or newer fully supported devices.
 //
 //   - gpmSample: Where the allocated sample will be stored
@@ -28,8 +29,12 @@ func (g GpmSample) Free() error {
 
 // Get Read a sample of GPM metrics into the provided gpmSample buffer.
 //
+// After two samples are gathered, you can call nvmlGpmMetricGet on those samples to retrive metrics
 // For Hopper or newer fully supported devices.
 // Note:
+// The interval between two [GpmSample.Get] calls should be greater than 100ms due to the internal sample refresh rate.
+// Note:
+// This API supports the device handle and MIG device handle.
 //
 //   - device: The device handle or MIG device handle to get samples for
 //

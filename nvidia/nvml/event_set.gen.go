@@ -4,6 +4,7 @@ package nvml
 
 // NewEventSet Create an empty set of events.
 //
+// Event set should be freed by [EventSet.Free]
 // For Fermi or newer fully supported devices.
 // See also: [EventSet.Free]
 //
@@ -16,7 +17,7 @@ func NewEventSet() (EventSet, error) {
 	return eventSetCreate()
 }
 
-// Free Releases events in the set
+// Free Releases events in the set.
 //
 // For Fermi or newer fully supported devices.
 // See also: [Device.RegisterEvents]
@@ -28,7 +29,7 @@ func (e EventSet) Free() error {
 	return eventSetFree(e)
 }
 
-// Wait Waits on events and delivers events
+// Wait Waits on events and delivers events.
 //
 // For Fermi or newer fully supported devices.
 // If some events are ready to be delivered at the time of the call, function returns immediately. If there are no events ready to be delivered, function sleeps till event arrives but not longer than specified timeout. This function in certain conditions can return before specified timeout passes (e.g. when interrupt arrives)
@@ -38,7 +39,7 @@ func (e EventSet) Free() error {
 // This API does not currently support per-instance event reporting using MIG device handles.
 // See also:
 // Event Types
-// [Device.RegisterEvents]
+// See also: [Device.RegisterEvents]
 //
 //   - data: Reference in which to return event data
 //   - timeoutms: Maximum amount of wait time in milliseconds for registered event

@@ -16,7 +16,7 @@ func (m Module) EnumerateFunctions(functions *Function, numFunctions uint32) err
 
 // Function Returns a function handle.
 //
-// Returns in *hfunc the handle of the function of name name located in module hmod. If no function of that name exists, [Module.Function] returns [ErrNotFound]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
+// Returns in *hfunc the handle of the function of name name located in module hmod. If no function of that name exists, [Module.Function] returns [ErrNotFound]. See also: [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - name: Name of function to retrieve
 //
@@ -36,7 +36,7 @@ func (m Module) FunctionCount() (uint32, error) {
 
 // Global Returns a global pointer from a module.
 //
-// Returns in *dptr and *bytes the base pointer and size of the global of name name located in module hmod. If no variable of that name exists, [Module.Global] returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload], cudaGetSymbolAddress, cudaGetSymbolSize
+// Returns in *dptr and *bytes the base pointer and size of the global of name name located in module hmod. If no variable of that name exists, [Module.Global] returns [ErrNotFound]. One of the parameters dptr or bytes (not both) can be NULL in which case it is ignored. See also: [Module.Function], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload], cudaGetSymbolAddress, cudaGetSymbolSize Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - name: Name of global to retrieve
 //
@@ -45,11 +45,11 @@ func (m Module) Global(name string) (dptr DevicePtr, bytes uint, err error) {
 	return moduleGetGlobal(m, name)
 }
 
-// SurfRef Returns a handle to a surface reference
+// SurfRef Returns a handle to a surface reference.
+//
+// Returns in *pSurfRef the handle of the surface reference of name name in the module hmod. If no surface reference of that name exists, [Module.SurfRef] returns [ErrNotFound]. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - name: Name of surface reference to retrieve
-//
-// See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 // Deprecated: Returns in *pSurfRef the handle of the surface reference of name name in the module hmod. If no surface reference of that name exists, [Module.SurfRef]() returns [ErrNotFound].
 //
@@ -58,11 +58,11 @@ func (m Module) SurfRef(name *byte) (SurfRef, error) {
 	return moduleGetSurfRef(m, name)
 }
 
-// TexRef Returns a handle to a texture reference
+// TexRef Returns a handle to a texture reference.
+//
+// Returns in *pTexRef the handle of the texture reference of name name in the module hmod. If no texture reference of that name exists, [Module.TexRef] returns [ErrNotFound]. This texture reference handle should not be destroyed, since it will be destroyed when the module is unloaded. See also: [Module.Function], [Module.Global], [Module.SurfRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - name: Name of texture reference to retrieve
-//
-// See also: [Module.Function], [Module.Global], [Module.SurfRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
 //
 // Deprecated: Returns in *pTexRef the handle of the texture reference of name name in the module hmod. If no texture reference of that name exists, [Module.TexRef]() returns [ErrNotFound]. This texture reference handle should not be destroyed, since it will be destroyed when the module is unloaded.
 //
@@ -73,7 +73,7 @@ func (m Module) TexRef(name *byte) (TexRef, error) {
 
 // Unload Unloads a module.
 //
-// Unloads a module hmod from the current context. Attempting to unload a module which was obtained from the Library Management API such as [Library.Module] will return [ErrNotPermitted]. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary]
+// Unloads a module hmod from the current context. Attempting to unload a module which was obtained from the Library Management API such as [Library.Module] will return [ErrNotPermitted]. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary] Note: Note that this function may also return error codes from previous, asynchronous launches. Note: Use of the handle after this call is undefined behavior.
 //
 // Wraps cuModuleUnload.
 func (m Module) Unload() error {
@@ -82,7 +82,7 @@ func (m Module) Unload() error {
 
 // ModuleLoad Loads a compute module.
 //
-// Takes a filename fname and loads the corresponding module module into the current context. The CUDA driver API does not attempt to lazily allocate the resources needed by a module; if the memory for functions and data (constant and global) needed by the module cannot be allocated, [ModuleLoad] fails. The file should be a cubin file as output by nvcc, or a PTX file either as output by nvcc or handwritten, or a fatbin file as output by nvcc from toolchain 4.0 or later, or a Tile IR file. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
+// Takes a filename fname and loads the corresponding module module into the current context. The CUDA driver API does not attempt to lazily allocate the resources needed by a module; if the memory for functions and data (constant and global) needed by the module cannot be allocated, [ModuleLoad] fails. The file should be a cubin file as output by nvcc, or a PTX file either as output by nvcc or handwritten, or a fatbin file as output by nvcc from toolchain 4.0 or later, or a Tile IR file. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoadData], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - fname: Filename of module to load
 //
@@ -91,9 +91,9 @@ func ModuleLoad(fname string) (Module, error) {
 	return moduleLoad(fname)
 }
 
-// ModuleLoadData Load a module's data.
+// ModuleLoadData Load a module’s data.
 //
-// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload]
+// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadDataEx], [ModuleLoadFatBinary], [Module.Unload] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - image: Module data to load
 //
@@ -105,9 +105,9 @@ func ModuleLoadData(image []byte) (Module, error) {
 	return moduleLoadData(image)
 }
 
-// ModuleLoadDataEx Load a module's data with options.
+// ModuleLoadDataEx Load a module’s data with options.
 //
-// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadFatBinary], [Module.Unload]
+// Takes a pointer image and loads the corresponding module module into the current context. The image may be a cubin or fatbin as output by nvcc, or a NULL-terminated PTX, either as output by nvcc or hand-written, or Tile IR data. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadFatBinary], [Module.Unload] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - image: Module data to load
 //   - numOptions: Number of options
@@ -122,9 +122,9 @@ func ModuleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optio
 	return moduleLoadDataEx(image, numOptions, options, optionValues)
 }
 
-// ModuleLoadFatBinary Load a module's data.
+// ModuleLoadFatBinary Load a module’s data.
 //
-// Takes a pointer fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures. Prior to CUDA 4.0, there was no documented API for constructing and using fat binary objects by programmers. Starting with CUDA 4.0, fat binary objects can be constructed by providing the -fatbin option to nvcc. More information can be found in the nvcc document. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [Module.Unload]
+// Takes a pointer fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures. Prior to CUDA 4.0, there was no documented API for constructing and using fat binary objects by programmers. Starting with CUDA 4.0, fat binary objects can be constructed by providing the -fatbin option to nvcc. More information can be found in the nvcc document. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [Module.Unload] Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - fatCubin: Fat binary to load
 //

@@ -2,46 +2,64 @@
 
 package nvml
 
-// BAR1Info wraps [nvmlVgpuTypeGetBAR1Info].
+// BAR1Info Retrieve the BAR1 info for given vGPU type.
+//
+// For Maxwell or newer fully supported devices.
 //
 //   - bar1Info: Pointer to the vGPU type BAR1 information structure [VgpuTypeBar1Info]
+//
+// Wraps [nvmlVgpuTypeGetBAR1Info].
 //
 // [nvmlVgpuTypeGetBAR1Info]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuTypeGetBAR1Info16nvmlVgpuTypeId_tP22nvmlVgpuTypeBar1Info_t
 func (v VgpuTypeId) BAR1Info(bar1Info *VgpuTypeBar1Info) error {
 	return vgpuTypeGetBAR1Info(v, bar1Info)
 }
 
-// Capabilities wraps [nvmlVgpuTypeGetCapabilities].
+// Capabilities Retrieve the requested capability for a given vGPU type.
+//
+// Refer to the [VgpuCapability] structure for the specific capabilities that can be queried. The return value in capResult should be treated as a boolean, with a non-zero value indicating that the capability is supported.
+// For Maxwell or newer fully supported devices.
 //
 //   - capability: Specifies the [VgpuCapability] to be queried
 //   - capResult: A boolean for the queried capability indicating that feature is supported
+//
+// Wraps [nvmlVgpuTypeGetCapabilities].
 //
 // [nvmlVgpuTypeGetCapabilities]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuTypeGetCapabilities16nvmlVgpuTypeId_t20nvmlVgpuCapability_tPj
 func (v VgpuTypeId) Capabilities(capability VgpuCapability) (uint32, error) {
 	return vgpuTypeGetCapabilities(v, capability)
 }
 
-// Class wraps [nvmlVgpuTypeGetClass].
+// Class Retrieve the class of a vGPU type.
+//
+// It will not exceed 64 characters in length (including the NUL terminator). See [DeviceNameBufferSize].
+// For Kepler or newer fully supported devices.
 //
 //   - vgpuTypeClass: Pointer to string array to return class in
 //   - size: Size of string
+//
+// Wraps [nvmlVgpuTypeGetClass].
 //
 // [nvmlVgpuTypeGetClass]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv420nvmlVgpuTypeGetClass16nvmlVgpuTypeId_tPcPj
 func (v VgpuTypeId) Class(vgpuTypeClass *byte, size *uint32) error {
 	return vgpuTypeGetClass(v, vgpuTypeClass, size)
 }
 
-// DeviceID wraps [nvmlVgpuTypeGetDeviceID].
+// DeviceID Retrieve the device ID of a vGPU type.
+//
+// For Kepler or newer fully supported devices.
 //
 //   - deviceID: Device ID and vendor ID of the device contained in single 32 bit value
 //   - subsystemID: Subsystem ID and subsystem vendor ID of the device contained in single 32 bit value
+//
+// Wraps [nvmlVgpuTypeGetDeviceID].
 //
 // [nvmlVgpuTypeGetDeviceID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv423nvmlVgpuTypeGetDeviceID16nvmlVgpuTypeId_tPyPy
 func (v VgpuTypeId) DeviceID(deviceID *uint64, subsystemID *uint64) error {
 	return vgpuTypeGetDeviceID(v, deviceID, subsystemID)
 }
 
-// FbReservation Retrieve the static framebuffer reservation of the vGPU type in bytes
+// FbReservation Retrieve the static framebuffer reservation of the vGPU type in bytes.
 //
 //   - fbReservation: Reference to return the framebuffer reservation
 //
@@ -52,34 +70,48 @@ func (v VgpuTypeId) FbReservation() (uint64, error) {
 	return vgpuTypeGetFbReservation(v)
 }
 
-// FrameRateLimit wraps [nvmlVgpuTypeGetFrameRateLimit].
+// FrameRateLimit Retrieve the static frame rate limit value of the vGPU type.
+//
+// For Kepler or newer fully supported devices.
 //
 //   - frameRateLimit: Reference to return the frame rate limit value
+//
+// Wraps [nvmlVgpuTypeGetFrameRateLimit].
 //
 // [nvmlVgpuTypeGetFrameRateLimit]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv429nvmlVgpuTypeGetFrameRateLimit16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) FrameRateLimit() (uint32, error) {
 	return vgpuTypeGetFrameRateLimit(v)
 }
 
-// FramebufferSize wraps [nvmlVgpuTypeGetFramebufferSize].
+// FramebufferSize Retrieve the vGPU framebuffer size in bytes.
+//
+// For Kepler or newer fully supported devices.
 //
 //   - fbSize: Pointer to framebuffer size in bytes
+//
+// Wraps [nvmlVgpuTypeGetFramebufferSize].
 //
 // [nvmlVgpuTypeGetFramebufferSize]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv430nvmlVgpuTypeGetFramebufferSize16nvmlVgpuTypeId_tPy
 func (v VgpuTypeId) FramebufferSize() (uint64, error) {
 	return vgpuTypeGetFramebufferSize(v)
 }
 
-// GpuInstanceProfileId wraps [nvmlVgpuTypeGetGpuInstanceProfileId].
+// GpuInstanceProfileId Retrieve the GPU Instance Profile ID for the given vGPU type ID.
+//
+// The API will return a valid GPU Instance Profile ID for the MIG capable vGPU types, else [INVALID_GPU_INSTANCE_PROFILE_ID] is returned.
+// For Kepler or newer fully supported devices.
 //
 //   - gpuInstanceProfileId: GPU Instance Profile ID
 //
+// Wraps [nvmlVgpuTypeGetGpuInstanceProfileId].
+//
+// [INVALID_GPU_INSTANCE_PROFILE_ID]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpuConstants.html#c.INVALID_GPU_INSTANCE_PROFILE_ID
 // [nvmlVgpuTypeGetGpuInstanceProfileId]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv435nvmlVgpuTypeGetGpuInstanceProfileId16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) GpuInstanceProfileId() (uint32, error) {
 	return vgpuTypeGetGpuInstanceProfileId(v)
 }
 
-// GspHeapSize Retrieve the static GSP heap size of the vGPU type in bytes
+// GspHeapSize Retrieve the static GSP heap size of the vGPU type in bytes.
 //
 //   - gspHeapSize: Reference to return the GSP heap size value
 //
@@ -90,59 +122,86 @@ func (v VgpuTypeId) GspHeapSize() (uint64, error) {
 	return vgpuTypeGetGspHeapSize(v)
 }
 
-// License wraps [nvmlVgpuTypeGetLicense].
+// License Retrieve license requirements for a vGPU type.
+//
+// The license type and version required to run the specified vGPU type is returned as an alphanumeric string, in the form “,”, for example “GRID-Virtual-PC,2.0”. If a vGPU is runnable with* more than one type of license, the licenses are delimited by a semicolon, for example “GRID-Virtual-PC,2.0;GRID-Virtual-WS,2.0;GRID-Virtual-WS-Ext,2.0”.
+// The total length of the returned string will not exceed 128 characters, including the NUL terminator. See [GridLicenseBufferSize].
+// For Kepler or newer fully supported devices.
 //
 //   - vgpuTypeLicenseString: Pointer to buffer to return license info
 //   - size: Size of vgpuTypeLicenseString buffer
+//
+// Wraps [nvmlVgpuTypeGetLicense].
 //
 // [nvmlVgpuTypeGetLicense]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv422nvmlVgpuTypeGetLicense16nvmlVgpuTypeId_tPcj
 func (v VgpuTypeId) License() (string, error) {
 	return vgpuTypeGetLicense(v)
 }
 
-// MaxInstances wraps [nvmlVgpuTypeGetMaxInstances].
+// MaxInstances Retrieve the maximum number of vGPU instances creatable on a device for given vGPU type.
+//
+// For Kepler or newer fully supported devices.
 //
 //   - device: The identifier of the target device
 //   - vgpuInstanceCount: Pointer to get the max number of vGPU instances that can be created on a deicve for given vgpuTypeId
+//
+// Wraps [nvmlVgpuTypeGetMaxInstances].
 //
 // [nvmlVgpuTypeGetMaxInstances]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv427nvmlVgpuTypeGetMaxInstances12nvmlDevice_t16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) MaxInstances(device Device) (uint32, error) {
 	return vgpuTypeGetMaxInstances(device, v)
 }
 
-// MaxInstancesPerVm wraps [nvmlVgpuTypeGetMaxInstancesPerVm].
+// MaxInstancesPerVm Retrieve the maximum number of vGPU instances supported per VM for given vGPU type.
+//
+// For Kepler or newer fully supported devices.
 //
 //   - vgpuInstanceCountPerVm: Pointer to get the max number of vGPU instances supported per VM for given vgpuTypeId
+//
+// Wraps [nvmlVgpuTypeGetMaxInstancesPerVm].
 //
 // [nvmlVgpuTypeGetMaxInstancesPerVm]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlVgpuTypeGetMaxInstancesPerVm16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) MaxInstancesPerVm() (uint32, error) {
 	return vgpuTypeGetMaxInstancesPerVm(v)
 }
 
-// Name wraps [nvmlVgpuTypeGetName].
+// Name Retrieve the vGPU type name.
+//
+// The name is an alphanumeric string that denotes a particular vGPU, e.g. GRID M60-2Q. It will not exceed 64 characters in length (including the NUL terminator). See [DeviceNameBufferSize].
+// For Kepler or newer fully supported devices.
 //
 //   - vgpuTypeName: Pointer to buffer to return name
 //   - size: Size of buffer
+//
+// Wraps [nvmlVgpuTypeGetName].
 //
 // [nvmlVgpuTypeGetName]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv419nvmlVgpuTypeGetName16nvmlVgpuTypeId_tPcPj
 func (v VgpuTypeId) Name(vgpuTypeName *byte, size *uint32) error {
 	return vgpuTypeGetName(v, vgpuTypeName, size)
 }
 
-// NumDisplayHeads wraps [nvmlVgpuTypeGetNumDisplayHeads].
+// NumDisplayHeads Retrieve count of vGPU’s supported display heads.
+//
+// For Kepler or newer fully supported devices.
 //
 //   - numDisplayHeads: Pointer to number of display heads
+//
+// Wraps [nvmlVgpuTypeGetNumDisplayHeads].
 //
 // [nvmlVgpuTypeGetNumDisplayHeads]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv430nvmlVgpuTypeGetNumDisplayHeads16nvmlVgpuTypeId_tPj
 func (v VgpuTypeId) NumDisplayHeads() (uint32, error) {
 	return vgpuTypeGetNumDisplayHeads(v)
 }
 
-// Resolution wraps [nvmlVgpuTypeGetResolution].
+// Resolution Retrieve vGPU display head’s maximum supported resolution.
+//
+// For Kepler or newer fully supported devices.
 //
 //   - displayIndex: Zero-based index of display head
 //   - xdim: Pointer to maximum number of pixels in X dimension
 //   - ydim: Pointer to maximum number of pixels in Y dimension
+//
+// Wraps [nvmlVgpuTypeGetResolution].
 //
 // [nvmlVgpuTypeGetResolution]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv425nvmlVgpuTypeGetResolution16nvmlVgpuTypeId_tjPjPj
 func (v VgpuTypeId) Resolution(displayIndex uint32, xdim *uint32, ydim *uint32) error {

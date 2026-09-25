@@ -4,7 +4,7 @@ package driver
 
 // FindInClone Finds a cloned version of a node.
 //
-// This function returns the node in hClonedGraph corresponding to hOriginalNode in the original graph. hClonedGraph must have been cloned from hOriginalGraph via [Graph.Clone]. hOriginalNode must have been in hOriginalGraph at the time of the call to [Graph.Clone], and the corresponding cloned node in hClonedGraph must not have been removed. The cloned node is then returned via phClonedNode. See also: [Graph.Clone]
+// This function returns the node in hClonedGraph corresponding to hOriginalNode in the original graph. hClonedGraph must have been cloned from hOriginalGraph via [Graph.Clone]. hOriginalNode must have been in hOriginalGraph at the time of the call to [Graph.Clone], and the corresponding cloned node in hClonedGraph must not have been removed. The cloned node is then returned via phClonedNode. See also: [Graph.Clone] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - hClonedGraph: Cloned graph to query
 //
@@ -22,9 +22,9 @@ func (g GraphNode) ContainingGraph() (Graph, error) {
 	return graphNodeGetContainingGraph(g)
 }
 
-// Dependencies Returns a node's dependencies.
+// Dependencies Returns a node’s dependencies.
 //
-// Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well. See also: [GraphNode.DependentNodes], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+// Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well. See also: [GraphNode.DependentNodes], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - edgeData: Optional array to return edge data for each dependency
 //   - numDependencies: See description
@@ -34,9 +34,9 @@ func (g GraphNode) Dependencies(edgeData *GraphEdgeData, numDependencies *uint) 
 	return graphNodeGetDependencies(g, edgeData, numDependencies)
 }
 
-// DependentNodes Returns a node's dependent nodes.
+// DependentNodes Returns a node’s dependent nodes.
 //
-// Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well. See also: [GraphNode.Dependencies], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+// Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes. Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well. See also: [GraphNode.Dependencies], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - edgeData: Optional pointer to return edge data for dependent nodes
 //   - numDependentNodes: See description
@@ -48,7 +48,7 @@ func (g GraphNode) DependentNodes(edgeData *GraphEdgeData, numDependentNodes *ui
 
 // Enabled Query whether a node in the given graphExec is enabled.
 //
-// Sets isEnabled to 1 if hNode is enabled, or 0 if hNode is disabled. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. Note: See also: [GraphNode.SetEnabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.Launch]
+// Sets isEnabled to 1 if hNode is enabled, or 0 if hNode is disabled. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. See also: [GraphNode.SetEnabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.Launch] Note: Currently only kernel, memset and memcpy nodes are supported. Note: This function will not reflect device-side updates for device-updatable kernel nodes. Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //
@@ -66,9 +66,9 @@ func (g GraphNode) LocalId() (uint32, error) {
 	return graphNodeGetLocalId(g)
 }
 
-// Params Return a graph node's parameters.
+// Params Return a graph node’s parameters.
 //
-// Returns the parameters of graph node hNode in *nodeParams. Any pointers returned in *nodeParams point to driver-owned memory associated with the node. This memory remains valid until the node is destroyed. Any memory pointed to from *nodeParams must not be modified. The returned parameters are a description of the node, but may not be identical to the struct provided at creation and may not be suitable for direct creation of identical nodes. This is because parameters may be partially unspecified and filled in by the driver at creation, may reference non-copyable handles, or may describe ownership semantics or other parameters that govern behavior of node creation but are not part of the final functional descriptor. See also: [GraphNode.SetParams], [Graph.AddNode], [GraphExec.NodeSetParams]
+// Returns the parameters of graph node hNode in *nodeParams. Any pointers returned in *nodeParams point to driver-owned memory associated with the node. This memory remains valid until the node is destroyed. Any memory pointed to from *nodeParams must not be modified. The returned parameters are a description of the node, but may not be identical to the struct provided at creation and may not be suitable for direct creation of identical nodes. This is because parameters may be partially unspecified and filled in by the driver at creation, may reference non-copyable handles, or may describe ownership semantics or other parameters that govern behavior of node creation but are not part of the final functional descriptor. See also: [GraphNode.SetParams], [Graph.AddNode], [GraphExec.NodeSetParams] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphNodeGetParams.
 func (g GraphNode) Params() (GraphNodeParams, error) {
@@ -84,9 +84,9 @@ func (g GraphNode) ToolsId() (uint64, error) {
 	return graphNodeGetToolsId(g)
 }
 
-// Type Returns a node's type.
+// Type Returns a node’s type.
 //
-// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.RootNodes], [ChildGraphNode.Graph], [KernelNode.Params], [KernelNode.SetParams], [HostNode.Params], [HostNode.SetParams], [MemcpyNode.Params], [MemcpyNode.SetParams], [MemsetNode.Params], [MemsetNode.SetParams]
+// Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.RootNodes], [ChildGraphNode.Graph], [KernelNode.Params], [KernelNode.SetParams], [HostNode.Params], [HostNode.SetParams], [MemcpyNode.Params], [MemcpyNode.SetParams], [MemsetNode.Params], [MemsetNode.SetParams] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphNodeGetType.
 func (g GraphNode) Type() (GraphNodeType, error) {
@@ -95,7 +95,7 @@ func (g GraphNode) Type() (GraphNodeType, error) {
 
 // SetEnabled Enables or disables the specified node in the given graphExec.
 //
-// Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. Note: Currently only kernel, memset and memcpy nodes are supported. See also: [GraphNode.Enabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.Launch]
+// Sets hNode to be either enabled or disabled. Disabled nodes are functionally equivalent to empty nodes until they are reenabled. Existing node parameters are not affected by disabling/enabling the node. The node is identified by the corresponding node hNode in the non-executable graph, from which the executable graph was instantiated. hNode must not have been removed from the original graph. The modifications only affect future launches of hGraphExec. Already enqueued or running launches of hGraphExec are not affected by this call. hNode is also not modified by this call. If hNode is a device-updatable kernel node, the next upload/launch of hGraphExec will overwrite any previous device-side updates. Additionally, applying host updates to a device-updatable kernel node while it is being updated from the device will result in undefined behavior. See also: [GraphNode.Enabled], [GraphExec.Update], [Graph.Instantiate] [GraphExec.Launch] Note: Currently only kernel, memset and memcpy nodes are supported. Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - hGraphExec: The executable graph in which to set the specified node
 //   - isEnabled: Node is enabled if != 0, otherwise the node is disabled
@@ -105,9 +105,9 @@ func (g GraphNode) SetEnabled(hGraphExec GraphExec, isEnabled uint32) error {
 	return graphNodeSetEnabled(hGraphExec, g, isEnabled)
 }
 
-// SetParams Update a graph node's parameters.
+// SetParams Update a graph node’s parameters.
 //
-// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed. Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree]. See also: [Graph.AddNode], [GraphNode.Params], [GraphExec.NodeSetParams]
+// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed. Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree]. See also: [Graph.AddNode], [GraphNode.Params], [GraphExec.NodeSetParams] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - nodeParams: Parameters to copy
 //
@@ -118,7 +118,7 @@ func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
 
 // DestroyNode Remove a node from the graph.
 //
-// Removes hNode from its graph. This operation also severs any dependencies of other nodes on hNode and vice versa. Nodes which belong to a graph which contains allocation or free nodes cannot be destroyed. Any attempt to do so will return an error. See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode]
+// Removes hNode from its graph. This operation also severs any dependencies of other nodes on hNode and vice versa. Nodes which belong to a graph which contains allocation or free nodes cannot be destroyed. Any attempt to do so will return an error. See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphDestroyNode.
 func (g GraphNode) DestroyNode() error {

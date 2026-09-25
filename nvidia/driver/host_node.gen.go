@@ -10,18 +10,18 @@ type HostNode struct {
 	GraphNode
 }
 
-// Params Returns a host node's parameters.
+// Params Returns a host node’s parameters.
 //
-// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.SetParams]
+// Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.Params], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.SetParams] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphHostNodeGetParams.
 func (h HostNode) Params() (HostNodeParams, error) {
 	return graphHostNodeGetParams(h.GraphNode)
 }
 
-// SetParams Sets a host node's parameters.
+// SetParams Sets a host node’s parameters.
 //
-// Sets the parameters of host node hNode to nodeParams. See also: [GraphNode.SetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.Params]
+// Sets the parameters of host node hNode to nodeParams. See also: [GraphNode.SetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [HostNode.Params] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - nodeParams: Parameters to copy
 //

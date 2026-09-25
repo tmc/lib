@@ -11,18 +11,18 @@ type ExternalSemaphoresWaitNode struct {
 	GraphNode
 }
 
-// Params Returns an external semaphore wait node's parameters.
+// Params Returns an external semaphore wait node’s parameters.
 //
-// Returns the parameters of an external semaphore wait node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Returns the parameters of an external semaphore wait node hNode in paramsOut. The extSemArray and paramsArray returned in paramsOut, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [ExternalSemaphoresSignalNode.SetParams] to update the parameters of this node. See also: [GraphNode.Params], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphExternalSemaphoresWaitNodeGetParams.
 func (e ExternalSemaphoresWaitNode) Params() (ExtSemWaitNodeParams, error) {
 	return graphExternalSemaphoresWaitNodeGetParams(e.GraphNode)
 }
 
-// SetParams Sets an external semaphore wait node's parameters.
+// SetParams Sets an external semaphore wait node’s parameters.
 //
-// Sets the parameters of an external semaphore wait node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
+// Sets the parameters of an external semaphore wait node hNode to nodeParams. See also: [GraphNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [ExternalSemaphoresWaitNode.SetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 //   - nodeParams: Parameters to copy
 //

@@ -2,9 +2,14 @@
 
 package nvml
 
-// ActiveVgpus wraps [nvmlGpuInstanceGetActiveVgpus].
+// ActiveVgpus Retrieve the active vGPU instances within a GPU instance.
+//
+// An array of active vGPU instances is returned in the caller-supplied buffer pointed at by pVgpuInstanceInfo->vgpuInstances. The array element count is passed in pVgpuInstanceInfo->vgpuCount, and pVgpuInstanceInfo->vgpuCount is used to return the number of vGPU instances written to the buffer.
+// If the supplied buffer is not large enough to accommodate the vGPU instance array, the function returns [ErrInsufficientSize], with the element count of [VgpuInstance] array required in pVgpuInstanceInfo->vgpuCount. To query the number of active vGPU instances, call this function with pVgpuInstanceInfo->vgpuCount = 0 and pVgpuInstanceInfo->vgpuTypeIds = NULL. The code will return [ErrInsufficientSize], or [Success] if no vGPU Types are active.
 //
 //   - pVgpuInstanceInfo: Pointer to the vGPU instance information structure [ActiveVgpuInstanceInfo]
+//
+// Wraps [nvmlGpuInstanceGetActiveVgpus].
 //
 // [nvmlGpuInstanceGetActiveVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv429nvmlGpuInstanceGetActiveVgpus17nvmlGpuInstance_tP28nvmlActiveVgpuInstanceInfo_t
 func (g GpuInstance) ActiveVgpus(pVgpuInstanceInfo *ActiveVgpuInstanceInfo) error {
@@ -44,9 +49,9 @@ func (g GpuInstance) ComputeInstancePossiblePlacements(profileId uint32, placeme
 // ComputeInstanceProfileInfo Get compute instance profile information.
 //
 // Information provided by this API is immutable throughout the lifetime of a MIG mode.
+// For Ampere or newer fully supported devices. Supported on Linux only.
 // Note:
 // This API can be used to enumerate all MIG profiles supported by NVML in a forward compatible way by invoking it on profile values starting from 0, until the API returns [ErrInvalidArgument].
-// For Ampere or newer fully supported devices. Supported on Linux only.
 //
 //   - profile: One of the NVML_COMPUTE_INSTANCE_PROFILE_*
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
@@ -61,9 +66,9 @@ func (g GpuInstance) ComputeInstanceProfileInfo(profile uint32, engProfile uint3
 
 // ComputeInstanceProfileInfoV Versioned wrapper around [GpuInstance.ComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
 //
+// For Ampere or newer fully supported devices. Supported on Linux only.
 // Note:
 // The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
-// For Ampere or newer fully supported devices. Supported on Linux only.
 //
 //   - profile: One of the NVML_COMPUTE_INSTANCE_PROFILE_*
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
@@ -105,9 +110,15 @@ func (g GpuInstance) ComputeInstances(profileId uint32, computeInstances *Comput
 	return gpuInstanceGetComputeInstances(g, profileId, computeInstances, count)
 }
 
-// CreatableVgpus wraps [nvmlGpuInstanceGetCreatableVgpus].
+// CreatableVgpus Query the currently creatable vGPU types on a specific GPU Instance.
+//
+// The function returns an array of vGPU types that can be created for a specified GPU instance. This array is stored in a caller-supplied buffer, with the buffer’s element count passed through pVgpus->vgpuCount. The number of vGPU types written to the buffer is indicated by pVgpus->vgpuCount. If the buffer is too small to hold the vGPU type array, the function returns [ErrInsufficientSize] and updates pVgpus->vgpuCount with the required element count.
+// To determine the creatable vGPUs for a GPU Instance, invoke this function with pVgpus->vgpuCount set to 0 and pVgpus->vgpuTypeIds as NULL. This will result in [ErrInsufficientSize] being returned, along with the count value in pVgpus->vgpuCount.
+// The creatable vGPU types may differ over time, as there may be restrictions on what type of vGPUs can concurrently run on the device.
 //
 //   - pVgpus: Pointer to the caller-provided structure of [VgpuTypeIdInfo]
+//
+// Wraps [nvmlGpuInstanceGetCreatableVgpus].
 //
 // [nvmlGpuInstanceGetCreatableVgpus]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv432nvmlGpuInstanceGetCreatableVgpus17nvmlGpuInstance_tP20nvmlVgpuTypeIdInfo_t
 func (g GpuInstance) CreatableVgpus(pVgpus *VgpuTypeIdInfo) error {
@@ -169,54 +180,87 @@ func (g GpuInstance) Info() (GpuInstanceInfo, error) {
 	return gpuInstanceGetInfo(g)
 }
 
-// SetVgpuHeterogeneousMode wraps [nvmlGpuInstanceSetVgpuHeterogeneousMode].
+// SetVgpuHeterogeneousMode Enable or disable vGPU heterogeneous mode for the GPU instance.
+//
+// When in heterogeneous mode, a vGPU can concurrently host timesliced vGPUs with differing framebuffer sizes.
+// API would return an appropriate error code upon unsuccessful activation. For example, the heterogeneous mode set will fail with error [ErrInUse] if any vGPU instance is active within the GPU instance. The caller of this API is expected to shutdown the vGPU VMs and retry setting the mode. On successful return, the function updates the vGPU heterogeneous mode with the user provided pHeterogeneousMode->mode. pHeterogeneousMode->version is the version number of the structure [VgpuHeterogeneousMode], the caller should set the correct version number to set the vGPU heterogeneous mode.
 //
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
+//
+// Wraps [nvmlGpuInstanceSetVgpuHeterogeneousMode].
 //
 // [nvmlGpuInstanceSetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceSetVgpuHeterogeneousMode17nvmlGpuInstance_tPK27nvmlVgpuHeterogeneousMode_t
 func (g GpuInstance) SetVgpuHeterogeneousMode(pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	return gpuInstanceSetVgpuHeterogeneousMode(g, pHeterogeneousMode)
 }
 
-// SetVgpuSchedulerState wraps [nvmlGpuInstanceSetVgpuSchedulerState_v2].
+// SetVgpuSchedulerState Set vGPU scheduler state for the given GPU instance.
+//
+// For Blackwell &tm GB20x; or newer fully supported devices.
+// Scheduler state and params will be allowed to set only when no VM is running within the GPU instance.
+// The scheduler state change won’t persist across module load/unload and GPU Instance creation/deletion.
 //
 //   - pSchedulerState: Pointer to the caller-provided structure of [VgpuSchedulerStateV2]
+//
+// Wraps [nvmlGpuInstanceSetVgpuSchedulerState_v2].
 //
 // [nvmlGpuInstanceSetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceSetVgpuSchedulerState_v217nvmlGpuInstance_tP27nvmlVgpuSchedulerState_v2_t
 func (g GpuInstance) SetVgpuSchedulerState(pSchedulerState *VgpuSchedulerStateV2) error {
 	return gpuInstanceSetVgpuSchedulerState(g, pSchedulerState)
 }
 
-// VgpuHeterogeneousMode wraps [nvmlGpuInstanceGetVgpuHeterogeneousMode].
+// VgpuHeterogeneousMode Get the vGPU heterogeneous mode for the GPU instance.
+//
+// When in heterogeneous mode, a vGPU can concurrently host timesliced vGPUs with differing framebuffer sizes.
+// On successful return, the function returns pHeterogeneousMode->mode with the current vGPU heterogeneous mode. pHeterogeneousMode->version is the version number of the structure [VgpuHeterogeneousMode], the caller should set the correct version number to retrieve the vGPU heterogeneous mode. pHeterogeneousMode->mode can either be [FeatureEnabled] or [FeatureDisabled].
+// For Blackwell &tm GB20x; or newer fully supported devices.
 //
 //   - pHeterogeneousMode: Pointer to the caller-provided structure of [VgpuHeterogeneousMode]
+//
+// Wraps [nvmlGpuInstanceGetVgpuHeterogeneousMode].
 //
 // [nvmlGpuInstanceGetVgpuHeterogeneousMode]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceGetVgpuHeterogeneousMode17nvmlGpuInstance_tP27nvmlVgpuHeterogeneousMode_t
 func (g GpuInstance) VgpuHeterogeneousMode(pHeterogeneousMode *VgpuHeterogeneousMode) error {
 	return gpuInstanceGetVgpuHeterogeneousMode(g, pHeterogeneousMode)
 }
 
-// VgpuSchedulerLog wraps [nvmlGpuInstanceGetVgpuSchedulerLog_v2].
+// VgpuSchedulerLog Returns the vGPU scheduler logs for the given GPU instance.
+//
+// pSchedulerLogInfo points to a caller-allocated structure to contain the logs. The number of elements returned will never exceed [SchedulerSwMaxLogEntries].
+// To get the entire logs, call the function atleast 5 times a second.
+// For Blackwell &tm GB20x; or newer fully supported devices.
 //
 //   - pSchedulerLogInfo: Reference in which pSchedulerLogInfo is written
+//
+// Wraps [nvmlGpuInstanceGetVgpuSchedulerLog_v2].
 //
 // [nvmlGpuInstanceGetVgpuSchedulerLog_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv437nvmlGpuInstanceGetVgpuSchedulerLog_v217nvmlGpuInstance_tP29nvmlVgpuSchedulerLogInfo_v2_t
 func (g GpuInstance) VgpuSchedulerLog(pSchedulerLogInfo *VgpuSchedulerLogInfoV2) error {
 	return gpuInstanceGetVgpuSchedulerLog(g, pSchedulerLogInfo)
 }
 
-// VgpuSchedulerState wraps [nvmlGpuInstanceGetVgpuSchedulerState_v2].
+// VgpuSchedulerState Returns the vGPU scheduler state for the given GPU instance.
+//
+// The information returned in [VgpuSchedulerStateInfoV2] is not relevant if the BEST EFFORT policy is set.
+// For Blackwell &tm GB20x; or newer fully supported devices.
 //
 //   - pSchedulerStateInfo: Reference in which pSchedulerStateInfo is returned
+//
+// Wraps [nvmlGpuInstanceGetVgpuSchedulerState_v2].
 //
 // [nvmlGpuInstanceGetVgpuSchedulerState_v2]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv439nvmlGpuInstanceGetVgpuSchedulerState_v217nvmlGpuInstance_tP31nvmlVgpuSchedulerStateInfo_v2_t
 func (g GpuInstance) VgpuSchedulerState(pSchedulerStateInfo *VgpuSchedulerStateInfoV2) error {
 	return gpuInstanceGetVgpuSchedulerState(g, pSchedulerStateInfo)
 }
 
-// VgpuTypeCreatablePlacements wraps [nvmlGpuInstanceGetVgpuTypeCreatablePlacements].
+// VgpuTypeCreatablePlacements Query the creatable vGPU placement ID of the vGPU type within a GPU instance.
+//
+// For Blackwell &tm GB20x; or newer fully supported devices.
+// An array of creatable vGPU placement IDs for the vGPU type ID indicated by pCreatablePlacementInfo->vgpuTypeId is returned in the caller-supplied buffer of pCreatablePlacementInfo->placementIds. Memory needed for the placementIds array should be allocated based on maximum instances of a vGPU type per GPU instance which can be queried via [VgpuTypeGetMaxInstancesPerGpuInstance]. If the provided count by the caller is insufficient, the function will return [ErrInsufficientSize] along with the number of required entries in pCreatablePlacementInfo->count. The caller should then reallocate a buffer with the size of pCreatablePlacementInfo->count * sizeof(pCreatablePlacementInfo->placementIds) and invoke the function again. The creatable vGPU placement IDs may differ over time, as there may be restrictions on what type of vGPU the vGPU instance is running.
 //
 //   - pCreatablePlacementInfo: Pointer to the list of vGPU creatable placement structure [VgpuCreatablePlacementInfo]
+//
+// Wraps [nvmlGpuInstanceGetVgpuTypeCreatablePlacements].
 //
 // [nvmlGpuInstanceGetVgpuTypeCreatablePlacements]: https://docs.nvidia.com/deploy/nvml-api/latest/api/group__nvmlVgpu.html#_CPPv445nvmlGpuInstanceGetVgpuTypeCreatablePlacements17nvmlGpuInstance_tP32nvmlVgpuCreatablePlacementInfo_t
 func (g GpuInstance) VgpuTypeCreatablePlacements(pCreatablePlacementInfo *VgpuCreatablePlacementInfo) error {

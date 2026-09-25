@@ -10,9 +10,9 @@ type MemFreeNode struct {
 	GraphNode
 }
 
-// Params Returns a memory free node's parameters.
+// Params Returns a memory free node’s parameters.
 //
-// Returns the address of a memory free node hNode in dptrOut. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [MemAllocNode.Params]
+// Returns the address of a memory free node hNode in dptrOut. See also: [GraphNode.Params], [Graph.AddMemFreeNode], [MemAllocNode.Params] Note: Graph objects are not threadsafe. More here. Note: Note that this function may also return error codes from previous, asynchronous launches.
 //
 // Wraps cuGraphMemFreeNodeGetParams.
 func (m MemFreeNode) Params() (DevicePtr, error) {

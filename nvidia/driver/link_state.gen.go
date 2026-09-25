@@ -4,12 +4,12 @@ package driver
 
 // AddData Add an input to a pending linker invocation.
 //
-// Ownership of data is retained by the caller. No reference is retained to any inputs after this call returns. This method accepts only compiler options, which are used if the data must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget]. Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted See also: [LinkCreate], [LinkState.AddFile], [LinkState.Complete], [LinkState.Destroy]
+// Ownership of data is retained by the caller. No reference is retained to any inputs after this call returns. This method accepts only compiler options, which are used if the data must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget]. See also: [LinkCreate], [LinkState.AddFile], [LinkState.Complete], [LinkState.Destroy] Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted
 //
 //   - data: The input data. PTX must be NULL-terminated
 //   - name: An optional name for this input in log messages
 //   - numOptions: Size of options
-//   - options: Options to be applied only for this input (overrides options from [LinkCreate] )
+//   - options: Options to be applied only for this input (overrides options from [LinkCreate])
 //   - optionValues: Array of option values, each cast to void *
 //
 // If data does not end in a NUL byte, the wrapper copies it once to append
@@ -22,11 +22,11 @@ func (l LinkState) AddData(type_ JitInputType, data []byte, name *byte, numOptio
 
 // AddFile Add a file input to a pending linker invocation.
 //
-// No reference is retained to any inputs after this call returns. This method accepts only compiler options, which are used if the input must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget]. This method is equivalent to invoking [LinkState.AddData] on the contents of the file. Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted See also: [LinkCreate], [LinkState.AddData], [LinkState.Complete], [LinkState.Destroy]
+// No reference is retained to any inputs after this call returns. This method accepts only compiler options, which are used if the input must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget]. This method is equivalent to invoking [LinkState.AddData] on the contents of the file. See also: [LinkCreate], [LinkState.AddData], [LinkState.Complete], [LinkState.Destroy] Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted
 //
 //   - path: Path to the input file
 //   - numOptions: Size of options
-//   - options: Options to be applied only for this input (overrides options from [LinkCreate] )
+//   - options: Options to be applied only for this input (overrides options from [LinkCreate])
 //   - optionValues: Array of option values, each cast to void *
 //
 // Wraps cuLinkAddFile, bound as cuLinkAddFile_v2.
