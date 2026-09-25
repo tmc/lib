@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -10,10 +9,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
-	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 const pressureUsage = "usage: cudaprof pressure [kernel] capture.pprof"
@@ -98,7 +96,7 @@ func printCapturePressure(w io.Writer, cap *cudacapture.Capture, kernel string) 
 	// leaves the kernel offsets this table is built from intact, so the table is
 	// still correct, but it is the same capture whose source and PTX views are
 	// empty and a reader moving between them needs to know why.
-	code, fusion, loadErr := loadCodeTiered(cap)
+	code, fusion, loadErr := capturefiles.LoadCode(cap)
 	if fusion != nil {
 		fmt.Fprintf(w, "note: %s\n\n", sourceFusionCaveat(fusion))
 	} else if loadErr != nil {
@@ -128,7 +126,7 @@ func printCapturePressure(w io.Writer, cap *cudacapture.Capture, kernel string) 
 		}
 
 		for _, inst := range fn.Instructions {
-			instText := formatInstruction(inst)
+			instText := capturefiles.Instruction(inst)
 			if stalls.hasStalls {
 				var instStall int64
 				if pcMap, ok := stalls.byPC[fn.Name]; ok {
@@ -164,7 +162,7 @@ func loadDisassemblyWithPressure(cap *cudacapture.Capture) (*cudasass.Disassembl
 	}
 
 	// 1. Try reading pre-joined pressure from capture files if present.
-	if disasm, err := extractPreJoinedPressure(cap); err == nil && disasm != nil {
+	if disasm, err := capturefiles.Pressure(cap); err == nil && disasm != nil {
 		return disasm, nil
 	}
 
@@ -181,55 +179,6 @@ func loadDisassemblyWithPressure(cap *cudacapture.Capture) (*cudasass.Disassembl
 	return nil, errors.New("capture contains neither CUBIN nor SASS disassembly with register pressure")
 }
 
-func extractPreJoinedPressure(cap *cudacapture.Capture) (*cudasass.Disassembly, error) {
-	sassData, ok := findSASS(cap)
-	if !ok || len(sassData) == 0 {
-		return nil, errors.New("no SASS file found")
-	}
-
-	// Look for a separate life-range count file in cap.Files.
-	var lrmData []byte
-	candidates := []string{"kernels.lrm", "kernels.pressure", "life_ranges.txt", "life_ranges.count"}
-	for _, name := range candidates {
-		if d, ok := cap.Files[name]; ok && len(d) > 0 {
-			lrmData = d
-			break
-		}
-	}
-	if len(lrmData) == 0 {
-		for name, d := range cap.Files {
-			if (strings.HasSuffix(name, ".lrm") || strings.HasSuffix(name, ".pressure") || strings.HasSuffix(name, ".count")) && len(d) > 0 {
-				lrmData = d
-				break
-			}
-		}
-	}
-
-	var pMap map[string]map[uint64]cudasass.RegisterPressure
-	var err error
-	if len(lrmData) > 0 {
-		pMap, err = cudasass.ParseLifeRangeCount(bytes.NewReader(lrmData))
-	}
-	if len(pMap) == 0 {
-		// Try parsing life ranges from the SASS file itself (if disassembled with --life-range-mode count).
-		pMap, err = cudasass.ParseLifeRangeCount(bytes.NewReader(sassData))
-	}
-	if err != nil || len(pMap) == 0 {
-		return nil, errors.New("no register life ranges found in capture files")
-	}
-
-	disasm, err := cudasass.Parse(bytes.NewReader(sassData))
-	if err != nil {
-		return nil, fmt.Errorf("parse SASS: %w", err)
-	}
-
-	if err := cudasass.JoinPressure(disasm, pMap); err != nil {
-		return nil, fmt.Errorf("join pressure: %w", err)
-	}
-
-	return disasm, nil
-}
-
 func findCUBIN(cap *cudacapture.Capture) ([]byte, bool) {
 	if cap.Code.CUBIN != "" {
 		if data, ok := cap.Files[cap.Code.CUBIN]; ok && len(data) > 0 {
@@ -241,23 +190,6 @@ func findCUBIN(cap *cudacapture.Capture) ([]byte, bool) {
 	}
 	for name, data := range cap.Files {
 		if strings.HasSuffix(name, ".cubin") && len(data) > 0 {
-			return data, true
-		}
-	}
-	return nil, false
-}
-
-func findSASS(cap *cudacapture.Capture) ([]byte, bool) {
-	if cap.Code.SASS != "" {
-		if data, ok := cap.Files[cap.Code.SASS]; ok && len(data) > 0 {
-			return data, true
-		}
-	}
-	if data, ok := cap.Files["kernels.sass"]; ok && len(data) > 0 {
-		return data, true
-	}
-	for name, data := range cap.Files {
-		if strings.HasSuffix(name, ".sass") && len(data) > 0 {
 			return data, true
 		}
 	}
@@ -299,7 +231,7 @@ func extractStallMetrics(cap *cudacapture.Capture, code *cudacapture.Code, disas
 			continue
 		}
 		loc := s.Location[0]
-		kName, pc := resolveLocationPC(loc, s, code, disasm)
+		kName, pc := capturefiles.LocationPC(loc, s, code, disasm)
 		if kName == "" {
 			continue
 		}
@@ -312,87 +244,4 @@ func extractStallMetrics(cap *cudacapture.Capture, code *cudacapture.Code, disas
 	}
 
 	return res
-}
-
-func resolveLocationPC(loc *profile.Location, s *profile.Sample, code *cudacapture.Code, disasm *cudasass.Disassembly) (string, uint64) {
-	var kName string
-	for _, line := range loc.Line {
-		if line.Function != nil && line.Function.Name != "" {
-			name := line.Function.Name
-			name = strings.TrimSuffix(name, ".SASS")
-			name = strings.TrimSuffix(name, ".PTX")
-			name = strings.TrimSuffix(name, ".TILEIR")
-			kName = name
-			break
-		}
-	}
-	if kName == "" && s.Label != nil && len(s.Label["kernel"]) > 0 {
-		kName = s.Label["kernel"][0]
-	}
-	if kName == "" && disasm != nil && len(disasm.Functions) == 1 {
-		kName = disasm.Functions[0].Name
-	}
-
-	base := cudaprof.DefaultMappingStart
-	if loc.Mapping != nil && loc.Mapping.Start > 0 {
-		base = loc.Mapping.Start
-	}
-
-	if code != nil {
-		if k := code.Kernel(kName); k != nil {
-			if loc.Address >= base+k.Offset && (k.Size == 0 || loc.Address < base+k.Offset+k.Size) {
-				return kName, loc.Address - (base + k.Offset)
-			}
-			if loc.Address >= k.Offset && (k.Size == 0 || loc.Address < k.Offset+k.Size) {
-				return kName, loc.Address - k.Offset
-			}
-			if loc.Address < k.Size {
-				return kName, loc.Address
-			}
-		}
-	}
-
-	if disasm != nil {
-		fn := disasm.Function(kName)
-		if fn == nil && len(disasm.Functions) == 1 {
-			fn = disasm.Functions[0]
-		}
-		if fn != nil {
-			if loc.Address >= base {
-				addr := loc.Address - base
-				if fn.BaseAddress > 0 && addr >= fn.BaseAddress {
-					return kName, addr - fn.BaseAddress
-				}
-				return kName, addr
-			}
-			if fn.BaseAddress > 0 && loc.Address >= fn.BaseAddress {
-				return kName, loc.Address - fn.BaseAddress
-			}
-			return kName, loc.Address
-		}
-	}
-
-	if loc.Address >= base {
-		return kName, loc.Address - base
-	}
-
-	return kName, loc.Address
-}
-
-func formatInstruction(inst cudasass.Instruction) string {
-	if inst.Opcode == "" {
-		return strings.TrimSpace(inst.Raw)
-	}
-	var sb strings.Builder
-	if inst.Predicate != "" {
-		sb.WriteString(inst.Predicate)
-		sb.WriteString(" ")
-	}
-	sb.WriteString(inst.Opcode)
-	if inst.Operands != "" {
-		sb.WriteString(" ")
-		sb.WriteString(strings.TrimSuffix(inst.Operands, ";"))
-	}
-	sb.WriteString(";")
-	return sb.String()
 }

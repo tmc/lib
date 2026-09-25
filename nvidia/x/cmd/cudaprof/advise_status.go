@@ -1,56 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
-
-// captureStatusFields returns the capture-status.json object carried by an
-// artifact, unwrapping the optional "status" nesting.
-func captureStatusFields(cap *cudacapture.Capture) map[string]any {
-	if cap == nil {
-		return nil
-	}
-	statusData, ok := cap.Files["capture-status.json"]
-	if !ok {
-		return nil
-	}
-	var raw map[string]any
-	if err := json.Unmarshal(statusData, &raw); err != nil {
-		return nil
-	}
-	if nested, ok := raw["status"].(map[string]any); ok {
-		return nested
-	}
-	return raw
-}
-
-// captureFailure reports whether an artifact records a capture that did not
-// succeed, and describes it in terms a reader can act on: the outcome names
-// which transport gave up, and capture_error names the stage it gave up at.
-// "transport-failed" alone is a token, not a diagnosis.
-func captureFailure(cap *cudacapture.Capture) (string, bool) {
-	status := captureStatusFields(cap)
-	if status == nil {
-		return "", false
-	}
-	success, ok := status["capture_success"].(bool)
-	if !ok || success {
-		return "", false
-	}
-	reason := "capture marked as failed"
-	if failure, ok := status["failure"].(string); ok && failure != "" {
-		reason = failure
-	} else if captureErr, ok := status["capture_error"].(string); ok && captureErr != "" {
-		reason = captureErr
-	}
-	if outcome, ok := status["outcome"].(string); ok && outcome != "" {
-		reason = fmt.Sprintf("%s (outcome %s)", reason, outcome)
-	}
-	return reason, true
-}
 
 // preflightCapture refuses an artifact that records its own failure. A failed
 // capture still writes a well-formed pprof -- a couple of kilobytes with zero
@@ -60,7 +15,7 @@ func captureFailure(cap *cudacapture.Capture) (string, bool) {
 // the status is still reachable through advise, which reports the failure as a
 // finding rather than pretending to measure.
 func preflightCapture(cap *cudacapture.Capture) error {
-	reason, failed := captureFailure(cap)
+	reason, failed := capturefiles.Failure(cap)
 	if !failed {
 		return nil
 	}
@@ -73,11 +28,11 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 	if cap == nil {
 		return
 	}
-	status := captureStatusFields(cap)
+	status := capturefiles.Status(cap)
 	if status == nil {
 		return
 	}
-	if errMsg, failed := captureFailure(cap); failed {
+	if errMsg, failed := capturefiles.Failure(cap); failed {
 		report.Items = append(report.Items, AdviceItem{
 			Severity:                 SeverityCritical,
 			Category:                 CategoryArchitecture,

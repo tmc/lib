@@ -16,6 +16,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalineinfo"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 // runLinesCommand totals a capture's samples by the program line each
@@ -189,7 +190,7 @@ func printModuleLines(w io.Writer, cap *cudacapture.Capture, kernel, sample, for
 		}
 		kernel = fn.Name
 	}
-	ptx, _, _ := findPTX(cap)
+	ptx, _, _ := capturefiles.PTX(cap)
 	a := cudalineinfo.Attribute(captureUnit(cap, kernel), string(ptx), dis)
 	switch format {
 	case "rollup":
@@ -261,7 +262,7 @@ func findKernel(dis *cudasass.Disassembly, kernel string) *cudasass.Function {
 // CUBINs, disassembles each of them with nvdisasm, whose line comments
 // carry the same file and line the SASS would.
 func captureDisassembly(cap *cudacapture.Capture) (*cudasass.Disassembly, error) {
-	if sass, ok := findSASS(cap); ok {
+	if sass, ok := capturefiles.SASS(cap); ok {
 		dis, err := cudasass.ParseString(string(sass))
 		if err != nil {
 			return nil, fmt.Errorf("parse SASS: %w", err)

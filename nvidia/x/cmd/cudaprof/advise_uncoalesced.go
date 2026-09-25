@@ -9,6 +9,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 var sassRegisterRE = regexp.MustCompile(`\bR[0-9]+\b`)
@@ -22,7 +23,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 	// SourceLine, which are exactly the fields the findings below cite. Left
 	// undeclared, each finding reads as a location the analysis could not
 	// determine rather than one the capture refused to bind.
-	code, fusion, _ := loadCodeTiered(cap)
+	code, fusion, _ := capturefiles.LoadCode(cap)
 	if fusion != nil {
 		report.SourceFusion = fusion.Error()
 	}
@@ -132,7 +133,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 			var file string
 			var line int
 			if len(s.Location) > 0 {
-				kName, pc = resolveLocationPC(s.Location[0], s, code, disasm)
+				kName, pc = capturefiles.LocationPC(s.Location[0], s, code, disasm)
 				if len(s.Location[0].Line) > 0 && s.Location[0].Line[0].Function != nil {
 					file = s.Location[0].Line[0].Function.Filename
 					line = int(s.Location[0].Line[0].Line)
@@ -487,7 +488,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport, disa
 	}
 
 	// 2. Address arithmetic exhibiting non-contiguous strides
-	remarks, _, _ := findRemarks(cap)
+	remarks, _, _ := capturefiles.Remarks(cap)
 	for _, rmk := range remarks {
 		rLower := strings.ToLower(rmk.Reason)
 		remLower := strings.ToLower(rmk.Remark)

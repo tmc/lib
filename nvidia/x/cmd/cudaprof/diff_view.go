@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tmc/lib/nvidia/internal/cudaview"
 	"io"
 	"math"
 	"net"
@@ -16,9 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tmc/lib/nvidia/internal/cudaview"
+
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 // DiffWebOptions configures the differential web viewer server or HTML exporter.
@@ -112,7 +114,7 @@ func buildDiffViewData(baseFile, targetFile, kernelFilter string, limits cudacap
 
 	var baseDisasm *cudasass.Disassembly
 	if baseCap != nil {
-		baseDisasm, _ = extractPreJoinedPressure(baseCap)
+		baseDisasm, _ = capturefiles.Pressure(baseCap)
 	}
 	if baseDisasm == nil {
 		baseDisasm, err = loadRetainedDisassembly(baseCap, baseAbs, limits)
@@ -123,7 +125,7 @@ func buildDiffViewData(baseFile, targetFile, kernelFilter string, limits cudacap
 
 	var targetDisasm *cudasass.Disassembly
 	if targetCap != nil {
-		targetDisasm, _ = extractPreJoinedPressure(targetCap)
+		targetDisasm, _ = capturefiles.Pressure(targetCap)
 	}
 	if targetDisasm == nil {
 		targetDisasm, err = loadRetainedDisassembly(targetCap, targetAbs, limits)

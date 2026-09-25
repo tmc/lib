@@ -10,6 +10,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 // kernelImage is one CUBIN advise reads kernel resources and SASS from.
@@ -153,7 +154,7 @@ func kernelModules(cap *cudacapture.Capture) map[string]map[uint32]bool {
 // adviseDisassembly returns the SASS advise reads, holding for each kernel
 // the code of the image that answers for it.
 func adviseDisassembly(cap *cudacapture.Capture, images []kernelImage) *cudasass.Disassembly {
-	if d, err := extractPreJoinedPressure(cap); err == nil && d != nil {
+	if d, err := capturefiles.Pressure(cap); err == nil && d != nil {
 		return d
 	}
 	var fns []*cudasass.Function
@@ -171,7 +172,7 @@ func adviseDisassembly(cap *cudacapture.Capture, images []kernelImage) *cudasass
 	if len(fns) > 0 {
 		return &cudasass.Disassembly{Functions: fns}
 	}
-	if data, ok := findSASS(cap); ok && len(data) > 0 {
+	if data, ok := capturefiles.SASS(cap); ok && len(data) > 0 {
 		if d, err := cudasass.Parse(bytes.NewReader(data)); err == nil {
 			return d
 		}

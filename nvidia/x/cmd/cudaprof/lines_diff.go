@@ -7,6 +7,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalineinfo"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 // diffCaptures writes what changed between two captures of the same program,
@@ -54,7 +55,7 @@ func captureSide(cap *cudacapture.Capture, kernel, sample, label string) (cudali
 		}
 		kernel = fn.Name
 	}
-	ptx, _, _ := findPTX(local)
+	ptx, _, _ := capturefiles.PTX(local)
 	a := cudalineinfo.Attribute(captureUnit(local, kernel), string(ptx), dis)
 	p, err := lineProfile(local.Profile, a, kernel, sample)
 	if err != nil {

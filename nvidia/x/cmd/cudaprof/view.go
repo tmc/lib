@@ -24,6 +24,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 	"github.com/tmc/lib/nvidia/x/tileir"
 	"github.com/tmc/lib/nvidia/x/tileiras"
 )
@@ -288,7 +289,7 @@ func buildSinglePipelineViewData(cap *cudacapture.Capture, capName, activeKernel
 
 	// 5. Extract live register pressure if available
 	var pressureMap map[string]map[uint64]cudasass.RegisterPressure
-	if disasmWithPressure, err := extractPreJoinedPressure(cap); err == nil && disasmWithPressure != nil {
+	if disasmWithPressure, err := capturefiles.Pressure(cap); err == nil && disasmWithPressure != nil {
 		pressureMap = extractPressureMap(disasmWithPressure)
 	}
 
@@ -368,7 +369,7 @@ func extractSASSStallMap(cap *cudacapture.Capture, knownKernels []string) (*sass
 	// Loaded before the early returns below, so a capture with no samples still
 	// reports the failure: an empty stall map is not a reason to stop saying
 	// that the source binding was refused.
-	code, fusion, _ := loadCodeTiered(cap)
+	code, fusion, _ := capturefiles.LoadCode(cap)
 	prof := cap.Profile
 	if prof == nil && cap.Files != nil && len(cap.Files["gpu.pprof"]) > 0 {
 		if p, err := profile.ParseData(cap.Files["gpu.pprof"]); err == nil {
@@ -403,7 +404,7 @@ func extractSASSStallMap(cap *cudacapture.Capture, knownKernels []string) (*sass
 			continue
 		}
 		loc := s.Location[0]
-		kName, pc := resolveLocationPC(loc, s, code, disasm)
+		kName, pc := capturefiles.LocationPC(loc, s, code, disasm)
 		if kName == "" {
 			if disasm != nil && len(disasm.Functions) == 1 {
 				kName = disasm.Functions[0].Name

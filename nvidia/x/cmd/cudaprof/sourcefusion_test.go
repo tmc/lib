@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 // fusionFixture returns the committed kernels.* capture fixture. When shift is
@@ -93,10 +94,10 @@ func shiftLocLines(t *testing.T, ptx []byte, shift int) []byte {
 // Without this, a caveat that never appears and a caveat that always appears
 // are indistinguishable from correct behaviour.
 func TestFusionFixtureDiscriminates(t *testing.T) {
-	if _, fusion, err := loadCodeTiered(fusionFixture(t, 0)); err != nil || fusion != nil {
+	if _, fusion, err := capturefiles.LoadCode(fusionFixture(t, 0)); err != nil || fusion != nil {
 		t.Fatalf("clean fixture: fusion=%v err=%v", fusion, err)
 	}
-	code, fusion, err := loadCodeTiered(fusionFixture(t, 2))
+	code, fusion, err := capturefiles.LoadCode(fusionFixture(t, 2))
 	if err != nil {
 		t.Fatalf("shifted fixture: %v", err)
 	}
@@ -104,7 +105,7 @@ func TestFusionFixtureDiscriminates(t *testing.T) {
 		t.Fatal("shifted fixture reported no source-fusion failure")
 	}
 	if code == nil {
-		t.Fatal("loadCodeTiered withheld the kernel tier on a source-fusion failure")
+		t.Fatal("LoadCode withheld the kernel tier on a source-fusion failure")
 	}
 }
 

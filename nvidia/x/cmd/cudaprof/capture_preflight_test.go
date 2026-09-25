@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 // failedCaptureArtifact writes the artifact a failed capture leaves behind:
@@ -36,9 +37,9 @@ func TestCaptureFailureIsDetectable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read capture: %v", err)
 	}
-	reason, failed := captureFailure(cap)
+	reason, failed := capturefiles.Failure(cap)
 	if !failed {
-		t.Fatal("captureFailure did not detect capture_success:false")
+		t.Fatal("Failure did not detect capture_success:false")
 	}
 	if !strings.Contains(reason, captureOutcomeTransport) {
 		t.Errorf("reason does not name the transport outcome: %q", reason)
@@ -68,7 +69,7 @@ func TestSucceededCaptureIsNotRefused(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read capture: %v", err)
 	}
-	if reason, failed := captureFailure(cap); failed {
+	if reason, failed := capturefiles.Failure(cap); failed {
 		t.Errorf("a successful capture was reported as failed: %q", reason)
 	}
 }

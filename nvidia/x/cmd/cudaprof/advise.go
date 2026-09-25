@@ -11,6 +11,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 const defaultAdviceLimit = 10
@@ -27,7 +28,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	}
 
 	// 1. Compiler Remarks (via x/tileiras)
-	remarks, _, _ := findRemarks(cap)
+	remarks, _, _ := capturefiles.Remarks(cap)
 	for _, rmk := range remarks {
 		if rmk.IsTMAFailure() {
 			finding := "TMA instruction selection failed"
@@ -193,7 +194,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 						File:   first.SourceFile,
 						Line:   first.SourceLine,
 					},
-					Finding:                  fmt.Sprintf("Register spill point detected in kernel %q: %d local-memory instructions, first %s, at %s", fn.Name, len(spills), formatInstruction(first), formatPCs(spills)),
+					Finding:                  fmt.Sprintf("Register spill point detected in kernel %q: %d local-memory instructions, first %s, at %s", fn.Name, len(spills), capturefiles.Instruction(first), formatPCs(spills)),
 					ActionableRecommendation: "Reduce register lifetimes or apply __launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor) to eliminate spills to slow local memory.",
 					NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
 				})
@@ -275,7 +276,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	}
 
 	// 3. PTX Architecture Audits (via x/cudaptx)
-	ptxData, ptxFile, _ := findPTX(cap)
+	ptxData, ptxFile, _ := capturefiles.PTX(cap)
 	if len(ptxData) > 0 {
 		mod, err := cudaptx.ParseBytes(ptxData)
 		if err == nil && mod != nil {

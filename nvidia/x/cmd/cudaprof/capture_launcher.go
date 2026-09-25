@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
 const (
@@ -1283,7 +1284,7 @@ func outputHoldsWork(path string) (string, bool) {
 	if err != nil || cap == nil {
 		return "a capture cudaprof cannot read, so its record count is unknown", true
 	}
-	status := captureStatusFields(cap)
+	status := capturefiles.Status(cap)
 	if status == nil {
 		return "no capture status, so its record count is unknown", true
 	}

@@ -12,27 +12,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
-
-func findPTX(cap *cudacapture.Capture) ([]byte, string, error) {
-	if cap == nil || len(cap.Files) == 0 {
-		return nil, "", nil
-	}
-	if cap.Code.PTX != "" {
-		if data, ok := cap.Files[cap.Code.PTX]; ok && len(data) > 0 {
-			return data, cap.Code.PTX, nil
-		}
-	}
-	if data, ok := cap.Files["kernels.ptx"]; ok && len(data) > 0 {
-		return data, "kernels.ptx", nil
-	}
-	for name, data := range cap.Files {
-		if strings.HasSuffix(name, ".ptx") && len(data) > 0 {
-			return data, name, nil
-		}
-	}
-	return nil, "", nil
-}
 
 func architectureCompatible(target, req string) bool {
 	target = strings.ToLower(strings.TrimSpace(target))
@@ -253,7 +234,7 @@ func parseArchFromCapture(cap *cudacapture.Capture) string {
 	if cap == nil {
 		return ""
 	}
-	if ptxData, _, _ := findPTX(cap); len(ptxData) > 0 {
+	if ptxData, _, _ := capturefiles.PTX(cap); len(ptxData) > 0 {
 		if mod, err := cudaptx.ParseBytes(ptxData); err == nil && mod != nil && mod.Target != "" {
 			return mod.Target
 		}
@@ -276,7 +257,7 @@ func parseArchFromCapture(cap *cudacapture.Capture) string {
 			}
 		}
 	}
-	if sassData, ok := findSASS(cap); ok && len(sassData) > 0 {
+	if sassData, ok := capturefiles.SASS(cap); ok && len(sassData) > 0 {
 		lines := strings.SplitN(string(sassData), "\n", 30)
 		for _, line := range lines {
 			lineLower := strings.ToLower(line)
@@ -429,7 +410,7 @@ func extractLaunches(cap *cudacapture.Capture) []launchRecord {
 	}
 
 	// 3. From PTX
-	if ptxData, ptxFile, _ := findPTX(cap); len(ptxData) > 0 {
+	if ptxData, ptxFile, _ := capturefiles.PTX(cap); len(ptxData) > 0 {
 		if mod, err := cudaptx.ParseBytes(ptxData); err == nil && mod != nil {
 			for _, k := range mod.Kernels {
 				threads := 0

@@ -13,6 +13,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 	"github.com/tmc/lib/nvidia/x/tileir"
 	"github.com/tmc/lib/nvidia/x/tileiras"
 )
@@ -379,7 +380,7 @@ func inspectTileIR(cap *cudacapture.Capture) *inspectTileIRSummary {
 }
 
 func inspectRemarks(cap *cudacapture.Capture) *inspectRemarksSummary {
-	rems, name, _ := findRemarks(cap)
+	rems, name, _ := capturefiles.Remarks(cap)
 	if len(rems) == 0 {
 		return nil
 	}
@@ -400,32 +401,6 @@ func inspectRemarks(cap *cudacapture.Capture) *inspectRemarksSummary {
 		}
 	}
 	return summary
-}
-
-func findRemarks(cap *cudacapture.Capture) ([]tileiras.Remark, string, error) {
-	if cap == nil || len(cap.Files) == 0 {
-		return nil, "", nil
-	}
-	candidateNames := []string{"tileiras-remarks.yaml", "remarks.yaml", "remarks.yml"}
-	for _, name := range candidateNames {
-		if d, ok := cap.Files[name]; ok {
-			rems, err := tileiras.ParseRemarksYAML(d)
-			if err == nil && len(rems) > 0 {
-				return rems, name, nil
-			}
-		}
-	}
-	for name, d := range cap.Files {
-		if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
-			if strings.Contains(string(d), "--- !") || strings.Contains(string(d), "Remark") {
-				rems, err := tileiras.ParseRemarksYAML(d)
-				if err == nil && len(rems) > 0 {
-					return rems, name, nil
-				}
-			}
-		}
-	}
-	return nil, "", nil
 }
 
 func inspectPTX(cap *cudacapture.Capture) *inspectPTXSummary {

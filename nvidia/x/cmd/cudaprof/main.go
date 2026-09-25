@@ -24,6 +24,7 @@ import (
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
+	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 	"github.com/tmc/lib/nvidia/x/tileir"
 )
 
@@ -351,7 +352,7 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 		}
 	}
 
-	if remarks, rName, _ := findRemarks(f.cap); len(remarks) > 0 {
+	if remarks, rName, _ := capturefiles.Remarks(f.cap); len(remarks) > 0 {
 		var tmaFails, tcMMAs, tcFails int
 		for _, r := range remarks {
 			if r.IsTMAFailure() {
