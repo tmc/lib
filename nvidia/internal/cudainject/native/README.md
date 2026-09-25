@@ -139,6 +139,11 @@ driver API attribution, which dominates journal volume on serving workloads.
 The capability record states which attribution was enabled, so an activity-only
 run is a recorded configuration rather than a silent degradation.
 
+`CUDAPROF_MEMSETS=0` leaves memset activity off. With it on, CUDA 13
+`cuGraphLaunch` has faulted inside libcuda, called from CUPTI, for an MLX
+workload that relaunches cached graph execs updated with captured memset
+nodes. The capability record's `memsets_requested` says which was asked for.
+
 `CUDAPROF_CAPTURE_RANGE=cudaProfilerApi` collects only between the target's
 profiler-API start and stop, and `CUDAPROF_FINALIZE=profiler-stop` ends the
 capture at a stop. Each is answered on its own: one subscription serves both,

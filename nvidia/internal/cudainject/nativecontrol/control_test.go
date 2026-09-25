@@ -288,34 +288,35 @@ const (
 
 // capabilityRecord is what the producer reports it enabled.
 type capabilityRecord struct {
-	Activity        bool   `json:"activity"`
-	APIRecords      bool   `json:"api_records"`
-	LayoutCheck     string `json:"layout_check"`
-	AgentRevision   string `json:"agent_revision"`
-	DriverAPI       bool   `json:"driver_api"`
-	RuntimeAPI      bool   `json:"runtime_api"`
-	SigtermFinalize bool   `json:"sigterm_finalize"`
-	AtforkGuard     bool   `json:"atfork_guard"`
-	NVTXMarkers     bool   `json:"nvtx_markers"`
-	Memsets         bool   `json:"memsets"`
-	Overheads       bool   `json:"overheads"`
-	GraphTraces     bool   `json:"graph_traces"`
-	GraphTraceMode  string `json:"graph_trace_mode"`
-	Synchronization bool   `json:"synchronization"`
-	ClocksUnified   bool   `json:"clocks_unified"`
-	CUPTIClock      string `json:"cupti_clock"`
-	HostSample      string `json:"host_sample"`
-	HostSampleHz    int    `json:"host_sample_hz"`
-	HostSampleRoot  string `json:"host_sample_root"`
-	RootOverride    bool   `json:"host_sample_root_override"`
-	ClockTicks      int64  `json:"clock_ticks_per_second"`
-	CaptureRange    string `json:"capture_range"`
-	Finalize        string `json:"finalize"`
-	FlushIntervalMS int    `json:"flush_interval_ms"`
-	DrainBatch      int    `json:"drain_batch"`
-	QueueCapacity   int    `json:"queue_capacity"`
-	AdmitWaitNanos  int64  `json:"admit_wait_nanos"`
-	KernelLayout    string `json:"kernel_layout"`
+	Activity         bool   `json:"activity"`
+	APIRecords       bool   `json:"api_records"`
+	LayoutCheck      string `json:"layout_check"`
+	AgentRevision    string `json:"agent_revision"`
+	DriverAPI        bool   `json:"driver_api"`
+	RuntimeAPI       bool   `json:"runtime_api"`
+	SigtermFinalize  bool   `json:"sigterm_finalize"`
+	AtforkGuard      bool   `json:"atfork_guard"`
+	NVTXMarkers      bool   `json:"nvtx_markers"`
+	Memsets          bool   `json:"memsets"`
+	MemsetsRequested bool   `json:"memsets_requested"`
+	Overheads        bool   `json:"overheads"`
+	GraphTraces      bool   `json:"graph_traces"`
+	GraphTraceMode   string `json:"graph_trace_mode"`
+	Synchronization  bool   `json:"synchronization"`
+	ClocksUnified    bool   `json:"clocks_unified"`
+	CUPTIClock       string `json:"cupti_clock"`
+	HostSample       string `json:"host_sample"`
+	HostSampleHz     int    `json:"host_sample_hz"`
+	HostSampleRoot   string `json:"host_sample_root"`
+	RootOverride     bool   `json:"host_sample_root_override"`
+	ClockTicks       int64  `json:"clock_ticks_per_second"`
+	CaptureRange     string `json:"capture_range"`
+	Finalize         string `json:"finalize"`
+	FlushIntervalMS  int    `json:"flush_interval_ms"`
+	DrainBatch       int    `json:"drain_batch"`
+	QueueCapacity    int    `json:"queue_capacity"`
+	AdmitWaitNanos   int64  `json:"admit_wait_nanos"`
+	KernelLayout     string `json:"kernel_layout"`
 }
 
 var (
@@ -2392,6 +2393,35 @@ func TestMemsetsReachTheJournal(t *testing.T) {
 	}
 	if !status.Exited() || status.ExitStatus() != 0 {
 		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestMemsetsOff covers CUDAPROF_MEMSETS=0: the kind is never enabled, the
+// capability record says it was declined rather than unavailable, and the
+// other kinds are collected as before.
+func TestMemsetsOff(t *testing.T) {
+	_, status, captures := runEnv(t, []string{"CUDAPROF_MEMSETS=0"}, "sustained", "1", "1", "8", "0", "0", "0", "6")
+	c := only(t, captures)
+	if c.capability.Memsets || c.capability.MemsetsRequested {
+		t.Errorf("capability memsets=%v memsets_requested=%v, want false/false", c.capability.Memsets, c.capability.MemsetsRequested)
+	}
+	if len(c.memsets) != 0 {
+		t.Errorf("got %d memset records, want 0", len(c.memsets))
+	}
+	if c.counts[kindActivity] == 0 {
+		t.Error("run with memsets off retained no activity")
+	}
+	if len(c.failures) != 0 {
+		t.Errorf("producer reported failures: %q", c.failures)
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+
+	_, _, captures = run(t, "sustained", "1", "1", "8", "0", "0", "0", "6")
+	c = only(t, captures)
+	if !c.capability.Memsets || !c.capability.MemsetsRequested || len(c.memsets) != 6 {
+		t.Errorf("default run: memsets=%v memsets_requested=%v records=%d, want true/true/6", c.capability.Memsets, c.capability.MemsetsRequested, len(c.memsets))
 	}
 }
 
