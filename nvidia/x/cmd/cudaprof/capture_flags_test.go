@@ -18,6 +18,7 @@ func TestNoDocumentedFlagIsAcceptedThenRefused(t *testing.T) {
 	for _, args := range [][]string{
 		{"--api-activity=false"},
 		{"--api-activity"},
+		{"--memsets=false"},
 		{"--follow-children"},
 		{"--follow-children=false"},
 		{"--exclude", "sgemm"},

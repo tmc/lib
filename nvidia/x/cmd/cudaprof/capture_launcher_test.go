@@ -422,6 +422,32 @@ func TestCaptureEnvironmentExportsAPIActivity(t *testing.T) {
 	}
 }
 
+func TestCaptureEnvironmentExportsMemsets(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		env  []string
+		want string
+	}{
+		{"unset", nil, nil, ""},
+		{"off", []string{"--memsets=false"}, nil, "0"},
+		{"on", []string{"--memsets"}, nil, "1"},
+		{"inherits", nil, []string{"CUDAPROF_MEMSETS=0"}, "0"},
+		{"overrides", []string{"-memsets=true"}, []string{"CUDAPROF_MEMSETS=0"}, "1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o, err := parseCaptureArgs(append(append([]string(nil), tc.args...), "--", "true"))
+			if err != nil {
+				t.Fatalf("parseCaptureArgs(%q): %v", tc.args, err)
+			}
+			o.Env = append([]string{}, tc.env...)
+			if got := lookupEnv(captureEnvironment(o, "session", "dir"), "CUDAPROF_MEMSETS"); got != tc.want {
+				t.Errorf("CUDAPROF_MEMSETS = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseCaptureArgsInjectMode(t *testing.T) {
 	for _, tc := range []struct {
 		args []string

@@ -962,6 +962,12 @@ Options:
                                 lever that cuts journal volume by an order of magnitude. It
                                 changes what is collected, not what is reported: sets
                                 CUDAPROF_API_ACTIVITY in the target
+  --memsets[=false]             collect memset activity (default true). With it on,
+                                cuGraphLaunch has faulted inside libcuda for a CUDA-graph
+                                MLX workload on GB10; --memsets=false captures such a
+                                target, and its memsets are then counted as idle. The
+                                capture states the choice as the agent capability's
+                                memsets_requested; sets CUDAPROF_MEMSETS in the target
   --pcsampling                  sample program counters inside the target, so the capture
                                 carries per-line device work and not only per-kernel time
                                 (sets CUDAPROF_PCSAMPLING). Off by default: measured on GB10
