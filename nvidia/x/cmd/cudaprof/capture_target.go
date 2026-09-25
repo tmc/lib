@@ -30,6 +30,16 @@ func markTargetFailed(result captureResult) captureResult {
 	return result
 }
 
+// memsetsWarning is printed before a --memsets capture starts, because the
+// fault it describes kills the target. The target's use of CUDA graphs is not
+// known until it runs.
+//
+// On GB10 (driver 580.173.02, CUPTI 13.0 through 13.4) an MLX workload faulted
+// inside libcuda whenever memset activity was on at the relaunch of a cached
+// graph exec after cuGraphExecUpdate, and never with the kind off.
+const memsetsWarning = "--memsets: memset collection has crashed CUDA-graph workloads inside libcuda " +
+	"(GB10, driver 580, CUPTI 13.0-13.4); if the target launches CUDA graphs, capture without --memsets"
+
 // targetFailureMessage says how the target ended. When the agent collected
 // memsets, which it does only for --memsets, it adds the one lever known to
 // matter: with memset activity on, cuGraphLaunch has faulted inside libcuda

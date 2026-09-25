@@ -188,3 +188,49 @@ func TestRunCaptureWarnsGoTarget(t *testing.T) {
 		})
 	}
 }
+
+// TestRunCaptureWarnsMemsets checks that --memsets is warned about before the
+// target runs, and only when an agent is loaded to collect memsets.
+func TestRunCaptureWarnsMemsets(t *testing.T) {
+	_, cExe := testExecutables(t)
+	agent := filepath.Join(t.TempDir(), "agent.so")
+	if err := os.WriteFile(agent, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		memsets  bool
+		noInject bool
+		warn     bool
+	}{
+		{"memsets", true, false, true},
+		{"no memsets", false, false, false},
+		{"memsets uninstrumented", true, true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var log, out bytes.Buffer
+			o := captureOptions{
+				command:      []string{cExe, "-c", "true"},
+				Env:          []string{"PATH=" + os.Getenv("PATH")},
+				Memsets:      tt.memsets,
+				Stdout:       &out,
+				Stderr:       &out,
+				Log:          &log,
+				DrainTimeout: time.Second,
+			}
+			if tt.noInject {
+				o.NoInject = true
+			} else {
+				o.Inject, o.InjectMode = agent, injectModeCUDA
+			}
+			if _, err := runCapture(context.Background(), o); err != nil {
+				t.Fatal(err)
+			}
+			warned := strings.Contains(log.String(), memsetsWarning)
+			if warned != tt.warn {
+				t.Errorf("warned = %v, want %v; log %q", warned, tt.warn, log.String())
+			}
+		})
+	}
+}

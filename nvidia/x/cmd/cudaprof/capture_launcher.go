@@ -1110,13 +1110,16 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if o.Inject != "" {
 		result.Target.Agent = identifyExecutable(o.Inject)
 	}
+	log := o.Log
+	if log == nil {
+		log = os.Stderr
+	}
 	goExit := o.Inject != "" && goExitRisk(result.Target.Executable, lookupEnv(cmd.Env, "CUDAPROF_FINALIZE"))
 	if goExit {
-		log := o.Log
-		if log == nil {
-			log = os.Stderr
-		}
 		fmt.Fprintf(log, "cudaprof: warning: %s\n", goExitWarning(result.Target.Executable))
+	}
+	if o.Inject != "" && o.Memsets {
+		fmt.Fprintf(log, "cudaprof: warning: %s\n", memsetsWarning)
 	}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = o.Stdin, o.Stdout, o.Stderr
 	if cmd.Stdin == nil {
