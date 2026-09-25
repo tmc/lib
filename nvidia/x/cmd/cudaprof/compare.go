@@ -17,6 +17,7 @@ import (
 
 	"github.com/ianlancetaylor/demangle"
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudaprof/gaps"
@@ -118,6 +119,9 @@ type compareOptions struct {
 	stageEntries bool
 	// templates keeps template arguments in the name ops join by.
 	templates bool
+	// maxRecords bounds the records decoded from each capture's journals;
+	// zero means controllerMaxJournalRecords.
+	maxRecords int64
 
 	// warmup, when set, cuts the prologue off the front of each window the
 	// way gaps cuts its steady state; its maxRecords and journalBytes are
@@ -164,7 +168,7 @@ func runCompareCommand(args []string, stdout io.Writer) error {
 	return c.write(stdout)
 }
 
-const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-json] base.pprof target.pprof"
+const compareUsage = "usage: cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-max-records=N] [-json] base.pprof target.pprof"
 
 // parseCompareArgs returns nil paths and a nil error when help was requested
 // and printed.
@@ -179,6 +183,7 @@ func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string
 	fs.BoolVar(&opts.json, "json", false, "write the comparison as JSON")
 	fs.BoolVar(&opts.templates, "templates", false, "keep template arguments in kernel names, so each instantiation is its own op")
 	fs.BoolVar(&opts.allowUnresolved, "allow-unresolved", false, "report window totals even when graph replay hides the per-op census")
+	fs.Int64Var(&opts.maxRecords, "max-records", controllerMaxJournalRecords, "maximum journal records to decode per capture, as capture --max-records allowed it to write")
 	var warmup gapOptions
 	fs.Float64Var(&warmup.warmupMS, "warmup-ms", 0, "start each window `N` ms after its first device activity, as gaps does")
 	fs.StringVar(&warmup.warmupUntil, "warmup-until", "", "start each window at its first kernel matching `RE`, as gaps does")
@@ -208,6 +213,9 @@ func parseCompareArgs(args []string, stdout io.Writer) (compareOptions, []string
 	}
 	if set["warmup-ms"] || set["warmup-until"] {
 		opts.warmup = &warmup
+	}
+	if opts.maxRecords <= 0 {
+		return opts, nil, fmt.Errorf("compare: invalid -max-records %d", opts.maxRecords)
 	}
 	if opts.stageEntries && opts.stagesPath == "" {
 		return opts, nil, errors.New("compare: -stage-entries needs -stages")
@@ -1180,7 +1188,14 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 	if err != nil {
 		return nil, err
 	}
-	records, err := timeline.Decode(journals, controllerMaxJournalRecords, cudacapture.MaxCaptureInputBytes)
+	limit := opts.maxRecords
+	if limit == 0 {
+		limit = controllerMaxJournalRecords
+	}
+	records, err := timeline.Decode(journals, limit, cudacapture.MaxCaptureInputBytes)
+	if errors.Is(err, wire.ErrRecordLimit) {
+		return nil, fmt.Errorf("%w: raise -max-records past %d", err, limit)
+	}
 	if err != nil {
 		return nil, err
 	}

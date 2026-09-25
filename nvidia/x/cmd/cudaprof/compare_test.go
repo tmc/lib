@@ -254,6 +254,27 @@ func TestComparePhaseSelectsWindow(t *testing.T) {
 	}
 }
 
+// TestCompareMaxRecords checks that -max-records bounds the journal decode:
+// a capture written with a larger capture --max-records is refused under a
+// smaller limit and read under its own.
+func TestCompareMaxRecords(t *testing.T) {
+	cap := compareCapture([]rec{
+		{subtype: "kernel", name: "a", start: 1100, end: 1200},
+		{subtype: "kernel", name: "b", start: 1300, end: 1400},
+		{subtype: "kernel", name: "c", start: 1500, end: 1600},
+	}, phaseStatus(1000, 2000))
+	if _, err := measureCompareSide(cap, nil, nil, compareOptions{phase: -1, maxRecords: 1}); err == nil || !strings.Contains(err.Error(), "raise -max-records past 1") {
+		t.Errorf("maxRecords 1: err = %v, want a limit error", err)
+	}
+	side, err := measureCompareSide(cap, nil, nil, compareOptions{phase: -1, maxRecords: 1 << 23})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if side.BusyNanos != 300 {
+		t.Errorf("maxRecords 1<<23: busy %d, want 300", side.BusyNanos)
+	}
+}
+
 func TestCompareAllowUnresolved(t *testing.T) {
 	base := compareCapture([]rec{{subtype: "kernel", name: "k", start: 1100, end: 1200}}, phaseStatus(1000, 2000))
 	target := compareCapture([]rec{
@@ -514,13 +535,15 @@ func TestParseCompareArgs(t *testing.T) {
 		wantErr  string
 		wantHelp bool
 	}{
-		{"defaults", []string{"a.pprof", "b.pprof"}, compareOptions{phase: -1}, []string{"a.pprof", "b.pprof"}, "", false},
+		{"defaults", []string{"a.pprof", "b.pprof"}, compareOptions{phase: -1, maxRecords: controllerMaxJournalRecords}, []string{"a.pprof", "b.pprof"}, "", false},
 		{"all flags", []string{"-phase", "2", "-ops", "c-go.ops", "-json", "-allow-unresolved", "a", "b"},
-			compareOptions{phase: 2, opsPath: "c-go.ops", json: true, allowUnresolved: true}, []string{"a", "b"}, "", false},
+			compareOptions{phase: 2, opsPath: "c-go.ops", json: true, allowUnresolved: true, maxRecords: controllerMaxJournalRecords}, []string{"a", "b"}, "", false},
 		{"one capture", []string{"a.pprof"}, compareOptions{}, nil, "usage: cudaprof compare", false},
 		{"unknown flag", []string{"-bogus", "a", "b"}, compareOptions{}, nil, "-bogus", false},
 		{"bad phase", []string{"-phase", "x", "a", "b"}, compareOptions{}, nil, "invalid value", false},
-		{"stage entries", []string{"-stages", "s.txt", "-stage-entries", "a", "b"}, compareOptions{phase: -1, stagesPath: "s.txt", stageEntries: true}, []string{"a", "b"}, "", false},
+		{"stage entries", []string{"-stages", "s.txt", "-stage-entries", "a", "b"}, compareOptions{phase: -1, stagesPath: "s.txt", stageEntries: true, maxRecords: controllerMaxJournalRecords}, []string{"a", "b"}, "", false},
+		{"max records", []string{"-max-records", "4194304", "a", "b"}, compareOptions{phase: -1, maxRecords: 4194304}, []string{"a", "b"}, "", false},
+		{"zero max records", []string{"-max-records", "0", "a", "b"}, compareOptions{}, nil, "invalid -max-records 0", false},
 		{"stage entries without stages", []string{"-stage-entries", "a", "b"}, compareOptions{}, nil, "-stage-entries needs -stages", false},
 		{"help", []string{"-h"}, compareOptions{}, nil, "", true},
 	}

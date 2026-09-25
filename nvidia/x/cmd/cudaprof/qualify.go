@@ -413,7 +413,7 @@ func measureQualifyEntry(e *qualifyEntry, opts gapOptions, rules opRules, stages
 	}
 	if rules != nil || stages != nil {
 		warmup := opts
-		e.side, err = measureCompareSide(cap, rules, stages, compareOptions{phase: -1, warmup: &warmup})
+		e.side, err = measureCompareSide(cap, rules, stages, compareOptions{phase: -1, warmup: &warmup, maxRecords: opts.maxRecords})
 		if err != nil {
 			return fmt.Errorf("partition %s: %w", e.Path, err)
 		}

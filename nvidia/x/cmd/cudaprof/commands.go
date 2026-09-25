@@ -64,7 +64,7 @@ To write the device timeline as a Perfetto trace:
   cudaprof export [-o out.pftrace] capture.pprof
 
 To decompose why target took longer than base, per op or stage, in exact nanoseconds:
-  cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-json] base.pprof target.pprof
+  cudaprof compare [-phase i] [-warmup-until=RE | -warmup-ms=N] [-ops ops.txt] [-stages stages.txt [-stage-entries]] [-templates] [-allow-unresolved] [-max-records=N] [-json] base.pprof target.pprof
 
 To score an ABBA timing campaign (blocks of C1,G1,G2,C2 captures) against its noise and sign gates:
   cudaprof qualify (-warmup-until=RE | -warmup-ms=N) [-noise-multiplier=3] [-noise-floor-ms=1] [-violations=FILE [-violation-margin=2s] [-min-blocks=N]] [-ops ops.txt] [-stages stages.txt] [-max-records=N] [-json] manifest.txt
