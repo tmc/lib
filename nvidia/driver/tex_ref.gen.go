@@ -310,7 +310,7 @@ func (t TexRef) SetMipmapLevelClamp(minMipmapLevelClamp float32, maxMipmapLevelC
 
 // SetMipmappedArray Binds a mipmapped array to a texture reference.
 //
-// Binds the CUDA mipmapped array hMipmappedArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format]
+// Binds the CUDA mipmapped array hMipmappedArray to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Flags must be set to CU_TRSA_OVERRIDE_FORMAT. Any CUDA array previously bound to hTexRef is unbound. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.Address], [TexRef.AddressMode], [TexRef.Array], [TexRef.FilterMode], [TexRef.Flags], [TexRef.Format] Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
 //
 //   - hMipmappedArray: Mipmapped array to bind
 //   - flags: Options (must be CU_TRSA_OVERRIDE_FORMAT)

@@ -10,6 +10,7 @@
 // # MIG Management
 //
 //   - [ComputeInstance.Destroy]: Destroy compute instance.
+//   - [ComputeInstance.Info]: Get compute instance information.
 //   - [GpuInstance.CreateComputeInstance]: Create compute instance.
 //   - [GpuInstance.CreateComputeInstanceWithPlacement]: Create compute instance with the specified placement.
 //   - [GpuInstance.Destroy]: Destroy GPU instance.
@@ -45,6 +46,7 @@
 //   - [Device.AdaptiveClockInfoStatus]: Gets the device's Adaptive Clock status
 //   - [Device.AddressingMode]: Get the addressing mode for a given GPU.
 //   - [Device.Architecture]: Get architecture for device
+//   - [Device.Attributes]: Get attributes (engine counts etc.) for the given NVML device handle.
 //   - [Device.AutoBoostedClocksEnabled]: Retrieve the current state of Auto Boosted clocks on a device and store it in isEnabled
 //   - [Device.BAR1MemoryInfo]: Gets Total, Available and Used size of BAR1 memory.
 //   - [Device.BoardId]: Retrieves the device boardId from 0-N.
@@ -59,11 +61,13 @@
 //   - [Device.ClockOffsets]: Retrieve min, max and current clock offset of some clock domain for a given PState
 //   - [Device.ComputeInstanceId]: Get compute instance ID for the given MIG device handle.
 //   - [Device.ComputeMode]: Retrieves the current compute mode for the device or MIG device.
+//   - [Device.ComputeRunningProcesses]: Get information about processes with a compute context on a device
 //   - [Device.ConfComputeGpuAttestationReport]: Get Conf Computing GPU attestation report.
 //   - [Device.ConfComputeGpuCertificate]: Get Conf Computing GPU certificate details.
 //   - [Device.ConfComputeMemSizeInfo]: Get Conf Computing Protected and Unprotected Memory Sizes.
 //   - [Device.ConfComputeProtectedMemoryUsage]: Get Conf Computing protected memory usage.
 //   - [Device.CoolerInfo]: Retrieves the cooler's information.
+//   - [DeviceGetCount]: Retrieves the number of compute devices in the system.
 //   - [Device.CpuAffinity]: Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.CpuAffinityWithinScope] with [AffinityScopeNode].
 //   - [Device.CpuAffinityWithinScope]: Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity within node or socket for the device.
 //   - [Device.CudaComputeCapability]: Retrieves the CUDA compute capability of the device.
@@ -77,6 +81,7 @@
 //   - [Device.DisplayActive]: Retrieves the display active state for the device.
 //   - [Device.DisplayMode]: Retrieves the display mode for the device.
 //   - [Device.DramEncryptionMode]: Retrieves the current and pending DRAM Encryption modes for the device.
+//   - [Device.DriverModel]: Retrieves the current and pending driver model for the device.
 //   - [Device.DynamicPstatesInfo]: Retrieve performance monitor samples from the associated subdevice.
 //   - [Device.EccMode]: Retrieves the current and pending ECC modes for the device.
 //   - [Device.EncoderCapacity]: Retrieves the current capacity of the device's encoder, as a percentage of maximum encoder capacity with valid values in the range 0-100.
@@ -95,6 +100,7 @@
 //   - [Device.GpuFabricInfoV]: Versioned wrapper around [Device.GpuFabricInfo] that accepts a versioned [GpuFabricInfoV2] or later output structure.
 //   - [Device.GpuInstanceById]: Get GPU instances for given instance ID.
 //   - [Device.GpuInstanceId]: Get GPU instance ID for the given MIG device handle.
+//   - [Device.GpuInstancePossiblePlacements]: Get GPU instance placements.
 //   - [Device.GpuInstanceProfileInfo]: Get GPU instance profile information
 //   - [Device.GpuInstanceProfileInfoByIdV]: GPU instance profile query function that accepts profile ID, instead of profile name.
 //   - [Device.GpuInstanceProfileInfoV]: Versioned wrapper around [Device.GpuInstanceProfileInfo] that accepts a versioned [GpuInstanceProfileInfoV2] or later output structure.
@@ -102,8 +108,12 @@
 //   - [Device.GpuInstances]: Get GPU instances for given profile ID.
 //   - [Device.GpuMaxPcieLinkGeneration]: Retrieves the maximum PCIe link generation supported by this device
 //   - [Device.GpuOperationMode]: Retrieves the current GOM and pending GOM (the one that GPU will switch to after reboot).
+//   - [Device.GraphicsRunningProcesses]: Get information about processes with a graphics context on a device
+//   - [Device.GridLicensableFeatures]: Retrieve the vGPU Software licensable features.
 //   - [Device.GspFirmwareMode]: Retrieve GSP firmware mode.
 //   - [Device.GspFirmwareVersion]: Retrieve GSP firmware version.
+//   - [NewDeviceByIndex]: Acquire the handle for a particular device, based on its index.
+//   - [NewDeviceByPciBusId]: Acquire the handle for a particular device, based on its PCI bus id.
 //   - [NewDeviceByUUID]: Acquire the handle for a particular device, based on its globally unique immutable UUID (in ASCII format) associated with each device.
 //   - [NewDeviceByUUIDV]: Acquire the handle for a particular device, based on its globally unique immutable UUID (in either ASCII or binary format) associated with each device.
 //   - [Device.HostVgpuMode]: Queries if SR-IOV host operation is supported on a vGPU supported device.
@@ -115,6 +125,7 @@
 //   - [Device.IrqNum]: Gets the device's interrupt number
 //   - [Device.JpgUtilization]: Retrieves the current utilization and sampling size in microseconds for the JPG
 //   - [Device.LastBBXFlushTime]: Retrieves the timestamp and the duration of the last flush of the BBX (blackbox) infoROM object during the current run.
+//   - [Device.MPSComputeRunningProcesses]: Get information about processes with a Multi-Process Service (MPS) compute context on a device
 //   - [Device.MarginTemperature]: Retrieves the thermal margin temperature (distance to nearest slowdown threshold).
 //   - [Device.MaxClockInfo]: Retrieves the maximum clock speeds for the device.
 //   - [Device.MaxCustomerBoostClock]: Retrieves the customer defined maximum boost clock speed specified by the given clock type.
@@ -142,12 +153,14 @@
 //   - [Device.NvLinkErrorCounter]: Retrieves the specified error counter value Please refer to [NvLinkErrorCounter] for error counters that are available
 //   - [Device.NvLinkInfo]: Query NVLINK information associated with this device.
 //   - [Device.NvLinkRemoteDeviceType]: Get the NVLink device type of the remote device connected over the given link.
+//   - [Device.NvLinkRemotePciInfo]: Retrieves the PCI information for the remote node on a NvLink link Note: pciSubSystemId is not filled in this function and is indeterminate
 //   - [Device.NvLinkState]: Retrieves the state of the device's NvLink for the link specified
 //   - [Device.NvLinkVersion]: Retrieves the version of the device's NvLink for the link specified
 //   - [Device.NvlinkBwMode]: Get the NvLink Reduced Bandwidth Mode for the device
 //   - [Device.NvlinkSupportedBwModes]: Get the supported NvLink Reduced Bandwidth Modes of the device
 //   - [Device.OfaUtilization]: Retrieves the current utilization and sampling size in microseconds for the OFA (Optical Flow Accelerator)
 //   - [Device.P2PStatus]: Retrieve the status for a given p2p capability index between a given pair of GPU
+//   - [Device.PciInfo]: Retrieves the PCI attributes of this device.
 //   - [Device.PciInfoExt]: Retrieves PCI attributes of this device.
 //   - [Device.PcieLinkMaxSpeed]: Gets the device's PCIE Max Link speed in MBPS
 //   - [Device.PcieReplayCounter]: Retrieve the PCIe replay counter.
@@ -252,6 +265,7 @@
 //
 //   - [NewEventSet]: Create an empty set of events.
 //   - [EventSet.Free]: Releases events in the set
+//   - [EventSet.Wait]: Waits on events and delivers events
 //
 // # Excluded GPU Queries
 //
@@ -271,8 +285,9 @@
 //
 // # Initialization
 //
+//   - [Init]: Initialize NVML, but don't initialize any GPUs yet.
 //   - [InitWithFlags]: [InitWithFlags] is a variant of [Init], that allows passing a set of boolean values modifying the behaviour of [Init].
-//   - [Shutdown]: Shut down NVML by releasing all GPU resources previously allocated with nvmlInit_v2().
+//   - [Shutdown]: Shut down NVML by releasing all GPU resources previously allocated with [Init].
 //
 // # Event Handling Methods
 //

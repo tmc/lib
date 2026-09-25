@@ -24,10 +24,22 @@ func (e EventSet) Free() error {
 	return eventSetFree(e)
 }
 
-// Wait wraps nvmlEventSetWait, bound as nvmlEventSetWait_v2.
+// Wait Waits on events and delivers events
+//
+// For Fermi or newer fully supported devices.
+// If some events are ready to be delivered at the time of the call, function returns immediately. If there are no events ready to be delivered, function sleeps till event arrives but not longer than specified timeout. This function in certain conditions can return before specified timeout passes (e.g. when interrupt arrives)
+// On Windows, in case of Xid error, the function returns the most recent Xid error type seen by the system. If there are multiple Xid errors generated before [EventSet.Wait] is invoked then the last seen Xid error type is returned for all Xid error events.
+// On Linux, every Xid error event would return the associated event data and other information if applicable.
+// In MIG mode, if device handle is provided, the API reports all the events for the available instances, only if the caller has appropriate privileges. In absence of required privileges, only the events which affect all the instances (i.e. whole device) are reported.
+// This API does not currently support per-instance event reporting using MIG device handles.
+// See also:
+// Event Types
+// [Device.RegisterEvents]
 //
 //   - data: Reference in which to return event data
 //   - timeoutms: Maximum amount of wait time in milliseconds for registered event
+//
+// Wraps nvmlEventSetWait, bound as nvmlEventSetWait_v2.
 func (e EventSet) Wait(data *EventData, timeoutms uint32) error {
 	return eventSetWait(e, data, timeoutms)
 }

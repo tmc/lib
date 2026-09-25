@@ -1007,7 +1007,9 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Sizeof(TensorMap{}); got != 128 {
 		t.Errorf("sizeof(TensorMap) = %d, want 128", got)
 	}
-	t.Log("alignof(TensorMap) = 128 in C and cannot be represented by a Go type")
+	if p := uintptr(unsafe.Pointer(NewTensorMap())); p%128 != 0 {
+		t.Errorf("NewTensorMap() = %#x, want a multiple of 128", p)
+	}
 	if got := unsafe.Offsetof(TensorMap{}.Opaque); got != 0 {
 		t.Errorf("offsetof(TensorMap.Opaque) = %d, want 0", got)
 	}

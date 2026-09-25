@@ -69,7 +69,6 @@ func (u Unit) FanSpeedInfo(fanSpeeds *UnitFanSpeeds) error {
 //
 // For S-class products.
 // See [UnitInfo] for details on available unit info.
-// < Previous | Next >
 //
 //   - info: Reference in which to return the unit information
 //
@@ -110,7 +109,6 @@ func (u Unit) PsuInfo(psu *PSUInfo) error {
 // Current S-Class products don't provide unique LEDs for each unit. As such, both front and back LEDs will be toggled in unison regardless of which unit is specified with this command.
 // See [LedColor] for available colors.
 // See also: [Unit.LedState]
-// < Previous | Next >
 //
 //   - color: The target LED color
 //

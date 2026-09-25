@@ -137,7 +137,6 @@ func (g GpuInstance) Destroy() error {
 // Info Get GPU instance information.
 //
 // For Ampere or newer fully supported devices. Supported on Linux only.
-// < Previous | Next >
 //
 //   - info: Return GPU instance information
 //

@@ -65,8 +65,6 @@ func (v VgpuTypeId) GpuInstanceProfileId() (uint32, error) {
 
 // GspHeapSize Retrieve the static GSP heap size of the vGPU type in bytes
 //
-// < Previous | Next >
-//
 //   - gspHeapSize: Reference to return the GSP heap size value
 //
 // Wraps nvmlVgpuTypeGetGspHeapSize.

@@ -2,6 +2,8 @@
 
 package driver
 
+import "unsafe"
+
 // Uuid represents CUuuid.
 type Uuid struct {
 	Bytes [16]byte
@@ -637,6 +639,16 @@ type ResourceViewDesc struct {
 }
 
 // TensorMap represents Tensor map descriptor.
+//
+// C declares CUtensorMap with 128-byte alignment, which a Go type cannot
+// express: a TensorMap declared as a variable or allocated with new is at
+// most 8-byte aligned. NewTensorMap returns a zero TensorMap at a
+// 128-byte-aligned address, for when its address is handed to something that
+// relies on the C alignment. The driver does not require this alignment of a
+// host address: cuTensorMapEncodeTiled and cuTensorMapReplaceAddress accept
+// a TensorMap at any offset. It matters once the map is in memory a kernel
+// reads, such as a __grid_constant__ parameter or a copy in global or
+// constant memory.
 type TensorMap struct {
 	Opaque [16]uint64
 }
@@ -1197,3 +1209,12 @@ type Offset3DV1 = Offset3D
 
 // StreamBatchMemOpParamsV1 is an alias for StreamBatchMemOpParams.
 type StreamBatchMemOpParamsV1 = StreamBatchMemOpParams
+
+// NewTensorMap returns a pointer to a zero TensorMap aligned to 128 bytes,
+// as C aligns CUtensorMap. The alignment belongs to the storage: a copy of
+// the value is aligned only as Go aligns a TensorMap.
+func NewTensorMap() *TensorMap {
+	b := make([]byte, unsafe.Sizeof(TensorMap{})+127)
+	p := unsafe.Pointer(unsafe.SliceData(b))
+	return (*TensorMap)(unsafe.Add(p, -uintptr(p)&127))
+}

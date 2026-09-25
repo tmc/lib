@@ -11,9 +11,13 @@ func (c ComputeInstance) Destroy() error {
 	return computeInstanceDestroy(c)
 }
 
-// Info wraps nvmlComputeInstanceGetInfo, bound as nvmlComputeInstanceGetInfo_v2.
+// Info Get compute instance information.
+//
+// For Ampere or newer fully supported devices. Supported on Linux only.
 //
 //   - info: Return compute instance information
+//
+// Wraps nvmlComputeInstanceGetInfo, bound as nvmlComputeInstanceGetInfo_v2.
 func (c ComputeInstance) Info() (ComputeInstanceInfo, error) {
 	return computeInstanceGetInfo(c)
 }
