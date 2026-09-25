@@ -2,8 +2,12 @@
 
 package cusparse
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // DenseToSparseAnalysis wraps cusparseDenseToSparseAnalysis, bound as cusparseDenseToSparse_analysis.
-func (h Handle) DenseToSparseAnalysis(matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer uintptr) error {
+func (h Handle) DenseToSparseAnalysis(matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer driver.DevicePtr) error {
 	return denseToSparseAnalysis(h, matA, matB, alg, externalBuffer)
 }
 
@@ -13,7 +17,7 @@ func (h Handle) DenseToSparseBufferSize(matA ConstDnMatDescr, matB SpMatDescr, a
 }
 
 // DenseToSparseConvert wraps cusparseDenseToSparseConvert, bound as cusparseDenseToSparse_convert.
-func (h Handle) DenseToSparseConvert(matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer uintptr) error {
+func (h Handle) DenseToSparseConvert(matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer driver.DevicePtr) error {
 	return denseToSparseConvert(h, matA, matB, alg, externalBuffer)
 }
 
@@ -33,7 +37,7 @@ func (h Handle) PointerMode() (PointerMode, error) {
 }
 
 // SDDMM wraps cusparseSDDMM.
-func (h Handle) SDDMM(opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer uintptr) error {
+func (h Handle) SDDMM(opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
 	return sDDMM(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer)
 }
 
@@ -43,7 +47,7 @@ func (h Handle) SDDMMBufferSize(opA Operation, opB Operation, alpha uintptr, mat
 }
 
 // SDDMMPreprocess wraps cusparseSDDMMPreprocess, bound as cusparseSDDMM_preprocess.
-func (h Handle) SDDMMPreprocess(opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer uintptr) error {
+func (h Handle) SDDMMPreprocess(opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
 	return sDDMMPreprocess(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer)
 }
 
@@ -58,12 +62,12 @@ func (h Handle) SetPointerMode(mode PointerMode) error {
 }
 
 // SetStream wraps cusparseSetStream.
-func (h Handle) SetStream(streamId Stream) error {
+func (h Handle) SetStream(streamId driver.Stream) error {
 	return setStream(h, streamId)
 }
 
 // SpGEMMCompute wraps cusparseSpGEMMCompute, bound as cusparseSpGEMM_compute.
-func (h Handle) SpGEMMCompute(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 uintptr) error {
+func (h Handle) SpGEMMCompute(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 driver.DevicePtr) error {
 	return spGEMMCompute(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize2, externalBuffer2)
 }
 
@@ -73,12 +77,12 @@ func (h Handle) SpGEMMCopy(opA Operation, opB Operation, alpha uintptr, matA Con
 }
 
 // SpGEMMEstimateMemory wraps cusparseSpGEMMEstimateMemory, bound as cusparseSpGEMM_estimateMemory.
-func (h Handle) SpGEMMEstimateMemory(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, chunkFraction float32, bufferSize3 *uint, externalBuffer3 uintptr, bufferSize2 *uint) error {
+func (h Handle) SpGEMMEstimateMemory(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, chunkFraction float32, bufferSize3 *uint, externalBuffer3 driver.DevicePtr, bufferSize2 *uint) error {
 	return spGEMMEstimateMemory(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, chunkFraction, bufferSize3, externalBuffer3, bufferSize2)
 }
 
 // SpGEMMWorkEstimation wraps cusparseSpGEMMWorkEstimation, bound as cusparseSpGEMM_workEstimation.
-func (h Handle) SpGEMMWorkEstimation(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 uintptr) error {
+func (h Handle) SpGEMMWorkEstimation(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 driver.DevicePtr) error {
 	return spGEMMWorkEstimation(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize1, externalBuffer1)
 }
 
@@ -88,22 +92,22 @@ func (h Handle) SpGEMMreuseCompute(opA Operation, opB Operation, alpha uintptr, 
 }
 
 // SpGEMMreuseCopy wraps cusparseSpGEMMreuseCopy, bound as cusparseSpGEMMreuse_copy.
-func (h Handle) SpGEMMreuseCopy(opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize5 *uint, externalBuffer5 uintptr) error {
+func (h Handle) SpGEMMreuseCopy(opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize5 *uint, externalBuffer5 driver.DevicePtr) error {
 	return spGEMMreuseCopy(h, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize5, externalBuffer5)
 }
 
 // SpGEMMreuseNnz wraps cusparseSpGEMMreuseNnz, bound as cusparseSpGEMMreuse_nnz.
-func (h Handle) SpGEMMreuseNnz(opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 uintptr, bufferSize3 *uint, externalBuffer3 uintptr, bufferSize4 *uint, externalBuffer4 uintptr) error {
+func (h Handle) SpGEMMreuseNnz(opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 driver.DevicePtr, bufferSize3 *uint, externalBuffer3 driver.DevicePtr, bufferSize4 *uint, externalBuffer4 driver.DevicePtr) error {
 	return spGEMMreuseNnz(h, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize2, externalBuffer2, bufferSize3, externalBuffer3, bufferSize4, externalBuffer4)
 }
 
 // SpGEMMreuseWorkEstimation wraps cusparseSpGEMMreuseWorkEstimation, bound as cusparseSpGEMMreuse_workEstimation.
-func (h Handle) SpGEMMreuseWorkEstimation(opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 uintptr) error {
+func (h Handle) SpGEMMreuseWorkEstimation(opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 driver.DevicePtr) error {
 	return spGEMMreuseWorkEstimation(h, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize1, externalBuffer1)
 }
 
 // SpMM wraps cusparseSpMM.
-func (h Handle) SpMM(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer uintptr) error {
+func (h Handle) SpMM(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
 	return spMM(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer)
 }
 
@@ -113,12 +117,12 @@ func (h Handle) SpMMBufferSize(opA Operation, opB Operation, alpha uintptr, matA
 }
 
 // SpMMPreprocess wraps cusparseSpMMPreprocess, bound as cusparseSpMM_preprocess.
-func (h Handle) SpMMPreprocess(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer uintptr) error {
+func (h Handle) SpMMPreprocess(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
 	return spMMPreprocess(h, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer)
 }
 
 // SpMV wraps cusparseSpMV.
-func (h Handle) SpMV(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer uintptr) error {
+func (h Handle) SpMV(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
 	return spMV(h, opA, alpha, matA, vecX, beta, vecY, computeType, alg, externalBuffer)
 }
 
@@ -138,7 +142,7 @@ func (h Handle) SpMVOpBufferSize(opA Operation, matA ConstSpMatDescr, vecX Const
 }
 
 // SpMVOpCreateDescr wraps cusparseSpMVOpCreateDescr, bound as cusparseSpMVOp_createDescr.
-func (h Handle) SpMVOpCreateDescr(opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType, buffer uintptr) (SpMVOpDescr, error) {
+func (h Handle) SpMVOpCreateDescr(opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType, buffer driver.DevicePtr) (SpMVOpDescr, error) {
 	return spMVOpCreateDescr(h, opA, matA, vecX, vecY, vecZ, computeType, buffer)
 }
 
@@ -153,12 +157,12 @@ func (h Handle) SpMVOpSetGlobalUserData(plan SpMVOpPlan, globalDataName *byte, i
 }
 
 // SpMVPreprocess wraps cusparseSpMVPreprocess, bound as cusparseSpMV_preprocess.
-func (h Handle) SpMVPreprocess(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer uintptr) error {
+func (h Handle) SpMVPreprocess(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
 	return spMVPreprocess(h, opA, alpha, matA, vecX, beta, vecY, computeType, alg, externalBuffer)
 }
 
 // SpSMAnalysis wraps cusparseSpSMAnalysis, bound as cusparseSpSM_analysis.
-func (h Handle) SpSMAnalysis(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr, externalBuffer uintptr) error {
+func (h Handle) SpSMAnalysis(opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr, externalBuffer driver.DevicePtr) error {
 	return spSMAnalysis(h, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, externalBuffer)
 }
 
@@ -173,12 +177,12 @@ func (h Handle) SpSMSolve(opA Operation, opB Operation, alpha uintptr, matA Cons
 }
 
 // SpSMUpdateMatrix wraps cusparseSpSMUpdateMatrix, bound as cusparseSpSM_updateMatrix.
-func (h Handle) SpSMUpdateMatrix(spsmDescr SpSMDescr, newValues uintptr, updatePart SpSMUpdate) error {
+func (h Handle) SpSMUpdateMatrix(spsmDescr SpSMDescr, newValues driver.DevicePtr, updatePart SpSMUpdate) error {
 	return spSMUpdateMatrix(h, spsmDescr, newValues, updatePart)
 }
 
 // SpSVAnalysis wraps cusparseSpSVAnalysis, bound as cusparseSpSV_analysis.
-func (h Handle) SpSVAnalysis(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr, externalBuffer uintptr) error {
+func (h Handle) SpSVAnalysis(opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr, externalBuffer driver.DevicePtr) error {
 	return spSVAnalysis(h, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, externalBuffer)
 }
 
@@ -193,12 +197,12 @@ func (h Handle) SpSVSolve(opA Operation, alpha uintptr, matA ConstSpMatDescr, ve
 }
 
 // SpSVUpdateMatrix wraps cusparseSpSVUpdateMatrix, bound as cusparseSpSV_updateMatrix.
-func (h Handle) SpSVUpdateMatrix(spsvDescr SpSVDescr, newValues uintptr, updatePart SpSVUpdate) error {
+func (h Handle) SpSVUpdateMatrix(spsvDescr SpSVDescr, newValues driver.DevicePtr, updatePart SpSVUpdate) error {
 	return spSVUpdateMatrix(h, spsvDescr, newValues, updatePart)
 }
 
 // SparseToDense wraps cusparseSparseToDense.
-func (h Handle) SparseToDense(matA ConstSpMatDescr, matB DnMatDescr, alg SparseToDenseAlg, externalBuffer uintptr) error {
+func (h Handle) SparseToDense(matA ConstSpMatDescr, matB DnMatDescr, alg SparseToDenseAlg, externalBuffer driver.DevicePtr) error {
 	return sparseToDense(h, matA, matB, alg, externalBuffer)
 }
 
@@ -208,7 +212,7 @@ func (h Handle) SparseToDenseBufferSize(matA ConstSpMatDescr, matB DnMatDescr, a
 }
 
 // Stream wraps cusparseGetStream.
-func (h Handle) Stream() (Stream, error) {
+func (h Handle) Stream() (driver.Stream, error) {
 	return getStream(h)
 }
 

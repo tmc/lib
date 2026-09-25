@@ -2,6 +2,10 @@
 
 package cusparse
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // Generated function pointer variables.
 var (
 	fnblockedEllGet             func(SpMatDescr, *int64, *int64, *int64, *int64, *uintptr, *uintptr, *IndexType, *IndexBase, *DataType) Result
@@ -65,7 +69,7 @@ var (
 	fnGetErrorString            func(Result) *byte
 	fngetPointerMode            func(Handle, *PointerMode) Result
 	fnGetProperty               func(LibraryPropertyType, *int32) Result
-	fngetStream                 func(Handle, *Stream) Result
+	fngetStream                 func(Handle, *driver.Stream) Result
 	fngetVersion                func(Handle, *int32) Result
 	fnLoggerForceDisable        func() Result
 	fnLoggerOpenFile            func(*byte) Result
@@ -78,7 +82,7 @@ var (
 	fnsDDMMPreprocess           func(Handle, Operation, Operation, uintptr, ConstDnMatDescr, ConstDnMatDescr, uintptr, SpMatDescr, DataType, SDDMMAlg, uintptr) Result
 	fnscatter                   func(Handle, ConstSpVecDescr, DnVecDescr) Result
 	fnsetPointerMode            func(Handle, PointerMode) Result
-	fnsetStream                 func(Handle, Stream) Result
+	fnsetStream                 func(Handle, driver.Stream) Result
 	fnspGEMMCompute             func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstSpMatDescr, uintptr, SpMatDescr, DataType, SpGEMMAlg, SpGEMMDescr, *uint, uintptr) Result
 	fnspGEMMCopy                func(Handle, Operation, Operation, uintptr, ConstSpMatDescr, ConstSpMatDescr, uintptr, SpMatDescr, DataType, SpGEMMAlg, SpGEMMDescr) Result
 	fnSpGEMMCreateDescr         func(*SpGEMMDescr) Result
@@ -244,11 +248,11 @@ func cooGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, cooRowI
 }
 
 // cooSetPointers wraps cusparseCooSetPointers.
-func cooSetPointers(spMatDescr SpMatDescr, cooRows uintptr, cooColumns uintptr, cooValues uintptr) error {
+func cooSetPointers(spMatDescr SpMatDescr, cooRows driver.DevicePtr, cooColumns driver.DevicePtr, cooValues driver.DevicePtr) error {
 	if err := checkLibSym("cusparseCooSetPointers"); err != nil {
 		return err
 	}
-	return toError(fncooSetPointers(spMatDescr, cooRows, cooColumns, cooValues))
+	return toError(fncooSetPointers(spMatDescr, uintptr(cooRows), uintptr(cooColumns), uintptr(cooValues)))
 }
 
 // cooSetStridedBatch wraps cusparseCooSetStridedBatch.
@@ -274,13 +278,13 @@ func Create() (Handle, error) {
 }
 
 // CreateBlockedEll wraps cusparseCreateBlockedEll.
-func CreateBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols int64, ellColInd uintptr, ellValue uintptr, ellIdxType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
+func CreateBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols int64, ellColInd driver.DevicePtr, ellValue driver.DevicePtr, ellIdxType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateBlockedEll"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateBlockedEll(&out, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateBlockedEll(&out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType)); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -288,13 +292,13 @@ func CreateBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols int64,
 }
 
 // CreateBsr wraps cusparseCreateBsr.
-func CreateBsr(brows int64, bcols int64, bnnz int64, rowBlockSize int64, colBlockSize int64, bsrRowOffsets uintptr, bsrColInd uintptr, bsrValues uintptr, bsrRowOffsetsType IndexType, bsrColIndType IndexType, idxBase IndexBase, valueType DataType, order Order) (SpMatDescr, error) {
+func CreateBsr(brows int64, bcols int64, bnnz int64, rowBlockSize int64, colBlockSize int64, bsrRowOffsets driver.DevicePtr, bsrColInd driver.DevicePtr, bsrValues driver.DevicePtr, bsrRowOffsetsType IndexType, bsrColIndType IndexType, idxBase IndexBase, valueType DataType, order Order) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateBsr"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateBsr(&out, brows, bcols, bnnz, rowBlockSize, colBlockSize, bsrRowOffsets, bsrColInd, bsrValues, bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order)); err != nil {
+	if err := toError(fnCreateBsr(&out, brows, bcols, bnnz, rowBlockSize, colBlockSize, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order)); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -302,13 +306,13 @@ func CreateBsr(brows int64, bcols int64, bnnz int64, rowBlockSize int64, colBloc
 }
 
 // CreateConstBlockedEll wraps cusparseCreateConstBlockedEll.
-func CreateConstBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols int64, ellColInd uintptr, ellValue uintptr, ellIdxType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
+func CreateConstBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols int64, ellColInd driver.DevicePtr, ellValue driver.DevicePtr, ellIdxType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstBlockedEll"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstBlockedEll(&out, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstBlockedEll(&out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType)); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -316,13 +320,13 @@ func CreateConstBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols i
 }
 
 // CreateConstBsr wraps cusparseCreateConstBsr.
-func CreateConstBsr(brows int64, bcols int64, bnnz int64, rowBlockDim int64, colBlockDim int64, bsrRowOffsets uintptr, bsrColInd uintptr, bsrValues uintptr, bsrRowOffsetsType IndexType, bsrColIndType IndexType, idxBase IndexBase, valueType DataType, order Order) (ConstSpMatDescr, error) {
+func CreateConstBsr(brows int64, bcols int64, bnnz int64, rowBlockDim int64, colBlockDim int64, bsrRowOffsets driver.DevicePtr, bsrColInd driver.DevicePtr, bsrValues driver.DevicePtr, bsrRowOffsetsType IndexType, bsrColIndType IndexType, idxBase IndexBase, valueType DataType, order Order) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstBsr"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstBsr(&out, brows, bcols, bnnz, rowBlockDim, colBlockDim, bsrRowOffsets, bsrColInd, bsrValues, bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order)); err != nil {
+	if err := toError(fnCreateConstBsr(&out, brows, bcols, bnnz, rowBlockDim, colBlockDim, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order)); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -330,13 +334,13 @@ func CreateConstBsr(brows int64, bcols int64, bnnz int64, rowBlockDim int64, col
 }
 
 // CreateConstCoo wraps cusparseCreateConstCoo.
-func CreateConstCoo(rows int64, cols int64, nnz int64, cooRowInd uintptr, cooColInd uintptr, cooValues uintptr, cooIdxType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
+func CreateConstCoo(rows int64, cols int64, nnz int64, cooRowInd driver.DevicePtr, cooColInd driver.DevicePtr, cooValues driver.DevicePtr, cooIdxType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstCoo"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstCoo(&out, rows, cols, nnz, cooRowInd, cooColInd, cooValues, cooIdxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstCoo(&out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType)); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -344,13 +348,13 @@ func CreateConstCoo(rows int64, cols int64, nnz int64, cooRowInd uintptr, cooCol
 }
 
 // CreateConstCsc wraps cusparseCreateConstCsc.
-func CreateConstCsc(rows int64, cols int64, nnz int64, cscColOffsets uintptr, cscRowInd uintptr, cscValues uintptr, cscColOffsetsType IndexType, cscRowIndType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
+func CreateConstCsc(rows int64, cols int64, nnz int64, cscColOffsets driver.DevicePtr, cscRowInd driver.DevicePtr, cscValues driver.DevicePtr, cscColOffsetsType IndexType, cscRowIndType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstCsc"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstCsc(&out, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstCsc(&out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType)); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -358,13 +362,13 @@ func CreateConstCsc(rows int64, cols int64, nnz int64, cscColOffsets uintptr, cs
 }
 
 // CreateConstCsr wraps cusparseCreateConstCsr.
-func CreateConstCsr(rows int64, cols int64, nnz int64, csrRowOffsets uintptr, csrColInd uintptr, csrValues uintptr, csrRowOffsetsType IndexType, csrColIndType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
+func CreateConstCsr(rows int64, cols int64, nnz int64, csrRowOffsets driver.DevicePtr, csrColInd driver.DevicePtr, csrValues driver.DevicePtr, csrRowOffsetsType IndexType, csrColIndType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstCsr"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstCsr(&out, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstCsr(&out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType)); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -372,13 +376,13 @@ func CreateConstCsr(rows int64, cols int64, nnz int64, csrRowOffsets uintptr, cs
 }
 
 // CreateConstDnMat wraps cusparseCreateConstDnMat.
-func CreateConstDnMat(rows int64, cols int64, ld int64, values uintptr, valueType DataType, order Order) (ConstDnMatDescr, error) {
+func CreateConstDnMat(rows int64, cols int64, ld int64, values driver.DevicePtr, valueType DataType, order Order) (ConstDnMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstDnMat"); err != nil {
 		var zero ConstDnMatDescr
 		return zero, err
 	}
 	var out ConstDnMatDescr
-	if err := toError(fnCreateConstDnMat(&out, rows, cols, ld, values, valueType, order)); err != nil {
+	if err := toError(fnCreateConstDnMat(&out, rows, cols, ld, uintptr(values), valueType, order)); err != nil {
 		var zero ConstDnMatDescr
 		return zero, err
 	}
@@ -386,13 +390,13 @@ func CreateConstDnMat(rows int64, cols int64, ld int64, values uintptr, valueTyp
 }
 
 // CreateConstDnVec wraps cusparseCreateConstDnVec.
-func CreateConstDnVec(size int64, values uintptr, valueType DataType) (ConstDnVecDescr, error) {
+func CreateConstDnVec(size int64, values driver.DevicePtr, valueType DataType) (ConstDnVecDescr, error) {
 	if err := checkLibSym("cusparseCreateConstDnVec"); err != nil {
 		var zero ConstDnVecDescr
 		return zero, err
 	}
 	var out ConstDnVecDescr
-	if err := toError(fnCreateConstDnVec(&out, size, values, valueType)); err != nil {
+	if err := toError(fnCreateConstDnVec(&out, size, uintptr(values), valueType)); err != nil {
 		var zero ConstDnVecDescr
 		return zero, err
 	}
@@ -400,13 +404,13 @@ func CreateConstDnVec(size int64, values uintptr, valueType DataType) (ConstDnVe
 }
 
 // CreateConstSlicedEll wraps cusparseCreateConstSlicedEll.
-func CreateConstSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int64, sliceSize int64, sellSliceOffsets uintptr, sellColInd uintptr, sellValues uintptr, sellSliceOffsetsType IndexType, sellColIndType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
+func CreateConstSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int64, sliceSize int64, sellSliceOffsets driver.DevicePtr, sellColInd driver.DevicePtr, sellValues driver.DevicePtr, sellSliceOffsetsType IndexType, sellColIndType IndexType, idxBase IndexBase, valueType DataType) (ConstSpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateConstSlicedEll"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, sellSliceOffsets, sellColInd, sellValues, sellSliceOffsetsType, sellColIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType)); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -414,13 +418,13 @@ func CreateConstSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int6
 }
 
 // CreateConstSpVec wraps cusparseCreateConstSpVec.
-func CreateConstSpVec(size int64, nnz int64, indices uintptr, values uintptr, idxType IndexType, idxBase IndexBase, valueType DataType) (ConstSpVecDescr, error) {
+func CreateConstSpVec(size int64, nnz int64, indices driver.DevicePtr, values driver.DevicePtr, idxType IndexType, idxBase IndexBase, valueType DataType) (ConstSpVecDescr, error) {
 	if err := checkLibSym("cusparseCreateConstSpVec"); err != nil {
 		var zero ConstSpVecDescr
 		return zero, err
 	}
 	var out ConstSpVecDescr
-	if err := toError(fnCreateConstSpVec(&out, size, nnz, indices, values, idxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstSpVec(&out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType)); err != nil {
 		var zero ConstSpVecDescr
 		return zero, err
 	}
@@ -428,13 +432,13 @@ func CreateConstSpVec(size int64, nnz int64, indices uintptr, values uintptr, id
 }
 
 // CreateCoo wraps cusparseCreateCoo.
-func CreateCoo(rows int64, cols int64, nnz int64, cooRowInd uintptr, cooColInd uintptr, cooValues uintptr, cooIdxType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
+func CreateCoo(rows int64, cols int64, nnz int64, cooRowInd driver.DevicePtr, cooColInd driver.DevicePtr, cooValues driver.DevicePtr, cooIdxType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateCoo"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateCoo(&out, rows, cols, nnz, cooRowInd, cooColInd, cooValues, cooIdxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateCoo(&out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType)); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -442,13 +446,13 @@ func CreateCoo(rows int64, cols int64, nnz int64, cooRowInd uintptr, cooColInd u
 }
 
 // CreateCsc wraps cusparseCreateCsc.
-func CreateCsc(rows int64, cols int64, nnz int64, cscColOffsets uintptr, cscRowInd uintptr, cscValues uintptr, cscColOffsetsType IndexType, cscRowIndType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
+func CreateCsc(rows int64, cols int64, nnz int64, cscColOffsets driver.DevicePtr, cscRowInd driver.DevicePtr, cscValues driver.DevicePtr, cscColOffsetsType IndexType, cscRowIndType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateCsc"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateCsc(&out, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateCsc(&out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType)); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -456,13 +460,13 @@ func CreateCsc(rows int64, cols int64, nnz int64, cscColOffsets uintptr, cscRowI
 }
 
 // CreateCsr wraps cusparseCreateCsr.
-func CreateCsr(rows int64, cols int64, nnz int64, csrRowOffsets uintptr, csrColInd uintptr, csrValues uintptr, csrRowOffsetsType IndexType, csrColIndType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
+func CreateCsr(rows int64, cols int64, nnz int64, csrRowOffsets driver.DevicePtr, csrColInd driver.DevicePtr, csrValues driver.DevicePtr, csrRowOffsetsType IndexType, csrColIndType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateCsr"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateCsr(&out, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateCsr(&out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType)); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -470,13 +474,13 @@ func CreateCsr(rows int64, cols int64, nnz int64, csrRowOffsets uintptr, csrColI
 }
 
 // CreateDnMat wraps cusparseCreateDnMat.
-func CreateDnMat(rows int64, cols int64, ld int64, values uintptr, valueType DataType, order Order) (DnMatDescr, error) {
+func CreateDnMat(rows int64, cols int64, ld int64, values driver.DevicePtr, valueType DataType, order Order) (DnMatDescr, error) {
 	if err := checkLibSym("cusparseCreateDnMat"); err != nil {
 		var zero DnMatDescr
 		return zero, err
 	}
 	var out DnMatDescr
-	if err := toError(fnCreateDnMat(&out, rows, cols, ld, values, valueType, order)); err != nil {
+	if err := toError(fnCreateDnMat(&out, rows, cols, ld, uintptr(values), valueType, order)); err != nil {
 		var zero DnMatDescr
 		return zero, err
 	}
@@ -484,13 +488,13 @@ func CreateDnMat(rows int64, cols int64, ld int64, values uintptr, valueType Dat
 }
 
 // CreateDnVec wraps cusparseCreateDnVec.
-func CreateDnVec(size int64, values uintptr, valueType DataType) (DnVecDescr, error) {
+func CreateDnVec(size int64, values driver.DevicePtr, valueType DataType) (DnVecDescr, error) {
 	if err := checkLibSym("cusparseCreateDnVec"); err != nil {
 		var zero DnVecDescr
 		return zero, err
 	}
 	var out DnVecDescr
-	if err := toError(fnCreateDnVec(&out, size, values, valueType)); err != nil {
+	if err := toError(fnCreateDnVec(&out, size, uintptr(values), valueType)); err != nil {
 		var zero DnVecDescr
 		return zero, err
 	}
@@ -498,13 +502,13 @@ func CreateDnVec(size int64, values uintptr, valueType DataType) (DnVecDescr, er
 }
 
 // CreateSlicedEll wraps cusparseCreateSlicedEll.
-func CreateSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int64, sliceSize int64, sellSliceOffsets uintptr, sellColInd uintptr, sellValues uintptr, sellSliceOffsetsType IndexType, sellColIndType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
+func CreateSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int64, sliceSize int64, sellSliceOffsets driver.DevicePtr, sellColInd driver.DevicePtr, sellValues driver.DevicePtr, sellSliceOffsetsType IndexType, sellColIndType IndexType, idxBase IndexBase, valueType DataType) (SpMatDescr, error) {
 	if err := checkLibSym("cusparseCreateSlicedEll"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, sellSliceOffsets, sellColInd, sellValues, sellSliceOffsetsType, sellColIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType)); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -512,13 +516,13 @@ func CreateSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int64, sl
 }
 
 // CreateSpVec wraps cusparseCreateSpVec.
-func CreateSpVec(size int64, nnz int64, indices uintptr, values uintptr, idxType IndexType, idxBase IndexBase, valueType DataType) (SpVecDescr, error) {
+func CreateSpVec(size int64, nnz int64, indices driver.DevicePtr, values driver.DevicePtr, idxType IndexType, idxBase IndexBase, valueType DataType) (SpVecDescr, error) {
 	if err := checkLibSym("cusparseCreateSpVec"); err != nil {
 		var zero SpVecDescr
 		return zero, err
 	}
 	var out SpVecDescr
-	if err := toError(fnCreateSpVec(&out, size, nnz, indices, values, idxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateSpVec(&out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType)); err != nil {
 		var zero SpVecDescr
 		return zero, err
 	}
@@ -534,11 +538,11 @@ func cscGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, cscColO
 }
 
 // cscSetPointers wraps cusparseCscSetPointers.
-func cscSetPointers(spMatDescr SpMatDescr, cscColOffsets uintptr, cscRowInd uintptr, cscValues uintptr) error {
+func cscSetPointers(spMatDescr SpMatDescr, cscColOffsets driver.DevicePtr, cscRowInd driver.DevicePtr, cscValues driver.DevicePtr) error {
 	if err := checkLibSym("cusparseCscSetPointers"); err != nil {
 		return err
 	}
-	return toError(fncscSetPointers(spMatDescr, cscColOffsets, cscRowInd, cscValues))
+	return toError(fncscSetPointers(spMatDescr, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues)))
 }
 
 // csrGet wraps cusparseCsrGet.
@@ -550,11 +554,11 @@ func csrGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, csrRowO
 }
 
 // csrSetPointers wraps cusparseCsrSetPointers.
-func csrSetPointers(spMatDescr SpMatDescr, csrRowOffsets uintptr, csrColInd uintptr, csrValues uintptr) error {
+func csrSetPointers(spMatDescr SpMatDescr, csrRowOffsets driver.DevicePtr, csrColInd driver.DevicePtr, csrValues driver.DevicePtr) error {
 	if err := checkLibSym("cusparseCsrSetPointers"); err != nil {
 		return err
 	}
-	return toError(fncsrSetPointers(spMatDescr, csrRowOffsets, csrColInd, csrValues))
+	return toError(fncsrSetPointers(spMatDescr, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues)))
 }
 
 // csrSetStridedBatch wraps cusparseCsrSetStridedBatch.
@@ -566,11 +570,11 @@ func csrSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, offsetsBatchStr
 }
 
 // denseToSparseAnalysis wraps cusparseDenseToSparseAnalysis, bound as cusparseDenseToSparse_analysis.
-func denseToSparseAnalysis(handle Handle, matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer uintptr) error {
+func denseToSparseAnalysis(handle Handle, matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDenseToSparse_analysis"); err != nil {
 		return err
 	}
-	return toError(fndenseToSparseAnalysis(handle, matA, matB, alg, externalBuffer))
+	return toError(fndenseToSparseAnalysis(handle, matA, matB, alg, uintptr(externalBuffer)))
 }
 
 // denseToSparseBufferSize wraps cusparseDenseToSparseBufferSize, bound as cusparseDenseToSparse_bufferSize.
@@ -588,11 +592,11 @@ func denseToSparseBufferSize(handle Handle, matA ConstDnMatDescr, matB SpMatDesc
 }
 
 // denseToSparseConvert wraps cusparseDenseToSparseConvert, bound as cusparseDenseToSparse_convert.
-func denseToSparseConvert(handle Handle, matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer uintptr) error {
+func denseToSparseConvert(handle Handle, matA ConstDnMatDescr, matB SpMatDescr, alg DenseToSparseAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDenseToSparse_convert"); err != nil {
 		return err
 	}
-	return toError(fndenseToSparseConvert(handle, matA, matB, alg, externalBuffer))
+	return toError(fndenseToSparseConvert(handle, matA, matB, alg, uintptr(externalBuffer)))
 }
 
 // destroy wraps cusparseDestroy.
@@ -673,11 +677,11 @@ func dnMatSetStridedBatch(dnMatDescr DnMatDescr, batchCount int32, batchStride i
 }
 
 // dnMatSetValues wraps cusparseDnMatSetValues.
-func dnMatSetValues(dnMatDescr DnMatDescr, values uintptr) error {
+func dnMatSetValues(dnMatDescr DnMatDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDnMatSetValues"); err != nil {
 		return err
 	}
-	return toError(fndnMatSetValues(dnMatDescr, values))
+	return toError(fndnMatSetValues(dnMatDescr, uintptr(values)))
 }
 
 // dnVecGet wraps cusparseDnVecGet.
@@ -697,11 +701,11 @@ func dnVecGetValues(dnVecDescr DnVecDescr, values *uintptr) error {
 }
 
 // dnVecSetValues wraps cusparseDnVecSetValues.
-func dnVecSetValues(dnVecDescr DnVecDescr, values uintptr) error {
+func dnVecSetValues(dnVecDescr DnVecDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDnVecSetValues"); err != nil {
 		return err
 	}
-	return toError(fndnVecSetValues(dnVecDescr, values))
+	return toError(fndnVecSetValues(dnVecDescr, uintptr(values)))
 }
 
 // gather wraps cusparseGather.
@@ -757,14 +761,14 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 }
 
 // getStream wraps cusparseGetStream.
-func getStream(handle Handle) (Stream, error) {
+func getStream(handle Handle) (driver.Stream, error) {
 	if err := checkLibSym("cusparseGetStream"); err != nil {
-		var zero Stream
+		var zero driver.Stream
 		return zero, err
 	}
-	var out Stream
+	var out driver.Stream
 	if err := toError(fngetStream(handle, &out)); err != nil {
-		var zero Stream
+		var zero driver.Stream
 		return zero, err
 	}
 	return out, nil
@@ -833,11 +837,11 @@ func LoggerSetMask(mask int32) error {
 }
 
 // sDDMM wraps cusparseSDDMM.
-func sDDMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer uintptr) error {
+func sDDMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSDDMM"); err != nil {
 		return err
 	}
-	return toError(fnsDDMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer))
+	return toError(fnsDDMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)))
 }
 
 // sDDMMBufferSize wraps cusparseSDDMMBufferSize, bound as cusparseSDDMM_bufferSize.
@@ -855,11 +859,11 @@ func sDDMMBufferSize(handle Handle, opA Operation, opB Operation, alpha uintptr,
 }
 
 // sDDMMPreprocess wraps cusparseSDDMMPreprocess, bound as cusparseSDDMM_preprocess.
-func sDDMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer uintptr) error {
+func sDDMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstDnMatDescr, matB ConstDnMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SDDMMAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSDDMM_preprocess"); err != nil {
 		return err
 	}
-	return toError(fnsDDMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer))
+	return toError(fnsDDMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)))
 }
 
 // scatter wraps cusparseScatter.
@@ -879,7 +883,7 @@ func setPointerMode(handle Handle, mode PointerMode) error {
 }
 
 // setStream wraps cusparseSetStream.
-func setStream(handle Handle, streamId Stream) error {
+func setStream(handle Handle, streamId driver.Stream) error {
 	if err := checkLibSym("cusparseSetStream"); err != nil {
 		return err
 	}
@@ -887,11 +891,11 @@ func setStream(handle Handle, streamId Stream) error {
 }
 
 // spGEMMCompute wraps cusparseSpGEMMCompute, bound as cusparseSpGEMM_compute.
-func spGEMMCompute(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 uintptr) error {
+func spGEMMCompute(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMM_compute"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMCompute(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize2, externalBuffer2))
+	return toError(fnspGEMMCompute(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize2, uintptr(externalBuffer2)))
 }
 
 // spGEMMCopy wraps cusparseSpGEMMCopy, bound as cusparseSpGEMM_copy.
@@ -925,11 +929,11 @@ func spGEMMDestroyDescr(descr SpGEMMDescr) error {
 }
 
 // spGEMMEstimateMemory wraps cusparseSpGEMMEstimateMemory, bound as cusparseSpGEMM_estimateMemory.
-func spGEMMEstimateMemory(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, chunkFraction float32, bufferSize3 *uint, externalBuffer3 uintptr, bufferSize2 *uint) error {
+func spGEMMEstimateMemory(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, chunkFraction float32, bufferSize3 *uint, externalBuffer3 driver.DevicePtr, bufferSize2 *uint) error {
 	if err := checkLibSym("cusparseSpGEMM_estimateMemory"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMEstimateMemory(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, chunkFraction, bufferSize3, externalBuffer3, bufferSize2))
+	return toError(fnspGEMMEstimateMemory(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, chunkFraction, bufferSize3, uintptr(externalBuffer3), bufferSize2))
 }
 
 // spGEMMGetNumProducts wraps cusparseSpGEMMGetNumProducts, bound as cusparseSpGEMM_getNumProducts.
@@ -941,11 +945,11 @@ func spGEMMGetNumProducts(spgemmDescr SpGEMMDescr, numProds *int64) error {
 }
 
 // spGEMMWorkEstimation wraps cusparseSpGEMMWorkEstimation, bound as cusparseSpGEMM_workEstimation.
-func spGEMMWorkEstimation(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 uintptr) error {
+func spGEMMWorkEstimation(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstSpMatDescr, beta uintptr, matC SpMatDescr, computeType DataType, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMM_workEstimation"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMWorkEstimation(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize1, externalBuffer1))
+	return toError(fnspGEMMWorkEstimation(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize1, uintptr(externalBuffer1)))
 }
 
 // spGEMMreuseCompute wraps cusparseSpGEMMreuseCompute, bound as cusparseSpGEMMreuse_compute.
@@ -957,35 +961,35 @@ func spGEMMreuseCompute(handle Handle, opA Operation, opB Operation, alpha uintp
 }
 
 // spGEMMreuseCopy wraps cusparseSpGEMMreuseCopy, bound as cusparseSpGEMMreuse_copy.
-func spGEMMreuseCopy(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize5 *uint, externalBuffer5 uintptr) error {
+func spGEMMreuseCopy(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize5 *uint, externalBuffer5 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMMreuse_copy"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMreuseCopy(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize5, externalBuffer5))
+	return toError(fnspGEMMreuseCopy(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize5, uintptr(externalBuffer5)))
 }
 
 // spGEMMreuseNnz wraps cusparseSpGEMMreuseNnz, bound as cusparseSpGEMMreuse_nnz.
-func spGEMMreuseNnz(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 uintptr, bufferSize3 *uint, externalBuffer3 uintptr, bufferSize4 *uint, externalBuffer4 uintptr) error {
+func spGEMMreuseNnz(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize2 *uint, externalBuffer2 driver.DevicePtr, bufferSize3 *uint, externalBuffer3 driver.DevicePtr, bufferSize4 *uint, externalBuffer4 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMMreuse_nnz"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMreuseNnz(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize2, externalBuffer2, bufferSize3, externalBuffer3, bufferSize4, externalBuffer4))
+	return toError(fnspGEMMreuseNnz(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize2, uintptr(externalBuffer2), bufferSize3, uintptr(externalBuffer3), bufferSize4, uintptr(externalBuffer4)))
 }
 
 // spGEMMreuseWorkEstimation wraps cusparseSpGEMMreuseWorkEstimation, bound as cusparseSpGEMMreuse_workEstimation.
-func spGEMMreuseWorkEstimation(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 uintptr) error {
+func spGEMMreuseWorkEstimation(handle Handle, opA Operation, opB Operation, matA ConstSpMatDescr, matB ConstSpMatDescr, matC SpMatDescr, alg SpGEMMAlg, spgemmDescr SpGEMMDescr, bufferSize1 *uint, externalBuffer1 driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpGEMMreuse_workEstimation"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMreuseWorkEstimation(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize1, externalBuffer1))
+	return toError(fnspGEMMreuseWorkEstimation(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize1, uintptr(externalBuffer1)))
 }
 
 // spMM wraps cusparseSpMM.
-func spMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer uintptr) error {
+func spMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMM"); err != nil {
 		return err
 	}
-	return toError(fnspMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer))
+	return toError(fnspMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)))
 }
 
 // spMMBufferSize wraps cusparseSpMMBufferSize, bound as cusparseSpMM_bufferSize.
@@ -1003,19 +1007,19 @@ func spMMBufferSize(handle Handle, opA Operation, opB Operation, alpha uintptr, 
 }
 
 // spMMPreprocess wraps cusparseSpMMPreprocess, bound as cusparseSpMM_preprocess.
-func spMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer uintptr) error {
+func spMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, beta uintptr, matC DnMatDescr, computeType DataType, alg SpMMAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMM_preprocess"); err != nil {
 		return err
 	}
-	return toError(fnspMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, externalBuffer))
+	return toError(fnspMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)))
 }
 
 // spMV wraps cusparseSpMV.
-func spMV(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer uintptr) error {
+func spMV(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMV"); err != nil {
 		return err
 	}
-	return toError(fnspMV(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, externalBuffer))
+	return toError(fnspMV(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, uintptr(externalBuffer)))
 }
 
 // spMVBufferSize wraps cusparseSpMVBufferSize, bound as cusparseSpMV_bufferSize.
@@ -1055,13 +1059,13 @@ func spMVOpBufferSize(handle Handle, opA Operation, matA ConstSpMatDescr, vecX C
 }
 
 // spMVOpCreateDescr wraps cusparseSpMVOpCreateDescr, bound as cusparseSpMVOp_createDescr.
-func spMVOpCreateDescr(handle Handle, opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType, buffer uintptr) (SpMVOpDescr, error) {
+func spMVOpCreateDescr(handle Handle, opA Operation, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, vecZ DnVecDescr, computeType DataType, buffer driver.DevicePtr) (SpMVOpDescr, error) {
 	if err := checkLibSym("cusparseSpMVOp_createDescr"); err != nil {
 		var zero SpMVOpDescr
 		return zero, err
 	}
 	var out SpMVOpDescr
-	if err := toError(fnspMVOpCreateDescr(handle, &out, opA, matA, vecX, vecY, vecZ, computeType, buffer)); err != nil {
+	if err := toError(fnspMVOpCreateDescr(handle, &out, opA, matA, vecX, vecY, vecZ, computeType, uintptr(buffer))); err != nil {
 		var zero SpMVOpDescr
 		return zero, err
 	}
@@ -1107,11 +1111,11 @@ func spMVOpSetGlobalUserData(handle Handle, plan SpMVOpPlan, globalDataName *byt
 }
 
 // spMVPreprocess wraps cusparseSpMVPreprocess, bound as cusparseSpMV_preprocess.
-func spMVPreprocess(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer uintptr) error {
+func spMVPreprocess(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, beta uintptr, vecY DnVecDescr, computeType DataType, alg SpMVAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMV_preprocess"); err != nil {
 		return err
 	}
-	return toError(fnspMVPreprocess(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, externalBuffer))
+	return toError(fnspMVPreprocess(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, uintptr(externalBuffer)))
 }
 
 // spMatGetAttribute wraps cusparseSpMatGetAttribute.
@@ -1195,19 +1199,19 @@ func spMatSetAttribute(spMatDescr SpMatDescr, attribute SpMatAttribute, data uin
 }
 
 // spMatSetValues wraps cusparseSpMatSetValues.
-func spMatSetValues(spMatDescr SpMatDescr, values uintptr) error {
+func spMatSetValues(spMatDescr SpMatDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMatSetValues"); err != nil {
 		return err
 	}
-	return toError(fnspMatSetValues(spMatDescr, values))
+	return toError(fnspMatSetValues(spMatDescr, uintptr(values)))
 }
 
 // spSMAnalysis wraps cusparseSpSMAnalysis, bound as cusparseSpSM_analysis.
-func spSMAnalysis(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr, externalBuffer uintptr) error {
+func spSMAnalysis(handle Handle, opA Operation, opB Operation, alpha uintptr, matA ConstSpMatDescr, matB ConstDnMatDescr, matC DnMatDescr, computeType DataType, alg SpSMAlg, spsmDescr SpSMDescr, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpSM_analysis"); err != nil {
 		return err
 	}
-	return toError(fnspSMAnalysis(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, externalBuffer))
+	return toError(fnspSMAnalysis(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, uintptr(externalBuffer)))
 }
 
 // spSMBufferSize wraps cusparseSpSMBufferSize, bound as cusparseSpSM_bufferSize.
@@ -1255,19 +1259,19 @@ func spSMSolve(handle Handle, opA Operation, opB Operation, alpha uintptr, matA 
 }
 
 // spSMUpdateMatrix wraps cusparseSpSMUpdateMatrix, bound as cusparseSpSM_updateMatrix.
-func spSMUpdateMatrix(handle Handle, spsmDescr SpSMDescr, newValues uintptr, updatePart SpSMUpdate) error {
+func spSMUpdateMatrix(handle Handle, spsmDescr SpSMDescr, newValues driver.DevicePtr, updatePart SpSMUpdate) error {
 	if err := checkLibSym("cusparseSpSM_updateMatrix"); err != nil {
 		return err
 	}
-	return toError(fnspSMUpdateMatrix(handle, spsmDescr, newValues, updatePart))
+	return toError(fnspSMUpdateMatrix(handle, spsmDescr, uintptr(newValues), updatePart))
 }
 
 // spSVAnalysis wraps cusparseSpSVAnalysis, bound as cusparseSpSV_analysis.
-func spSVAnalysis(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr, externalBuffer uintptr) error {
+func spSVAnalysis(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vecX ConstDnVecDescr, vecY DnVecDescr, computeType DataType, alg SpSVAlg, spsvDescr SpSVDescr, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpSV_analysis"); err != nil {
 		return err
 	}
-	return toError(fnspSVAnalysis(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, externalBuffer))
+	return toError(fnspSVAnalysis(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, uintptr(externalBuffer)))
 }
 
 // spSVBufferSize wraps cusparseSpSVBufferSize, bound as cusparseSpSV_bufferSize.
@@ -1315,11 +1319,11 @@ func spSVSolve(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr
 }
 
 // spSVUpdateMatrix wraps cusparseSpSVUpdateMatrix, bound as cusparseSpSV_updateMatrix.
-func spSVUpdateMatrix(handle Handle, spsvDescr SpSVDescr, newValues uintptr, updatePart SpSVUpdate) error {
+func spSVUpdateMatrix(handle Handle, spsvDescr SpSVDescr, newValues driver.DevicePtr, updatePart SpSVUpdate) error {
 	if err := checkLibSym("cusparseSpSV_updateMatrix"); err != nil {
 		return err
 	}
-	return toError(fnspSVUpdateMatrix(handle, spsvDescr, newValues, updatePart))
+	return toError(fnspSVUpdateMatrix(handle, spsvDescr, uintptr(newValues), updatePart))
 }
 
 // spVecGet wraps cusparseSpVecGet.
@@ -1353,19 +1357,19 @@ func spVecGetValues(spVecDescr SpVecDescr, values *uintptr) error {
 }
 
 // spVecSetValues wraps cusparseSpVecSetValues.
-func spVecSetValues(spVecDescr SpVecDescr, values uintptr) error {
+func spVecSetValues(spVecDescr SpVecDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpVecSetValues"); err != nil {
 		return err
 	}
-	return toError(fnspVecSetValues(spVecDescr, values))
+	return toError(fnspVecSetValues(spVecDescr, uintptr(values)))
 }
 
 // sparseToDense wraps cusparseSparseToDense.
-func sparseToDense(handle Handle, matA ConstSpMatDescr, matB DnMatDescr, alg SparseToDenseAlg, externalBuffer uintptr) error {
+func sparseToDense(handle Handle, matA ConstSpMatDescr, matB DnMatDescr, alg SparseToDenseAlg, externalBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSparseToDense"); err != nil {
 		return err
 	}
-	return toError(fnsparseToDense(handle, matA, matB, alg, externalBuffer))
+	return toError(fnsparseToDense(handle, matA, matB, alg, uintptr(externalBuffer)))
 }
 
 // sparseToDenseBufferSize wraps cusparseSparseToDenseBufferSize, bound as cusparseSparseToDense_bufferSize.

@@ -3,6 +3,7 @@
 package ncclep
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -38,7 +39,7 @@ func (g Group) AsyncError() (int32, error) {
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpCreateHandle.
-func (g Group) CreateHandle(layout Layout, topkIdx *Tensor, layoutInfo *LayoutInfo, config *HandleConfig, stream nccl.Stream) (Handle, error) {
+func (g Group) CreateHandle(layout Layout, topkIdx *Tensor, layoutInfo *LayoutInfo, config *HandleConfig, stream driver.Stream) (Handle, error) {
 	return CreateHandle(g, layout, topkIdx, layoutInfo, config, stream)
 }
 
@@ -101,7 +102,7 @@ func (g Group) InitHandle(layout Layout, config *HandleConfig, numTopk int32, ha
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpMaskClean.
-func (g Group) MaskClean(stream nccl.Stream) error {
+func (g Group) MaskClean(stream driver.Stream) error {
 	return MaskClean(g, stream)
 }
 
@@ -113,7 +114,7 @@ func (g Group) MaskClean(stream nccl.Stream) error {
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpMaskQuery.
-func (g Group) MaskQuery(maskStatus nccl.Buffer, stream nccl.Stream) error {
+func (g Group) MaskQuery(maskStatus nccl.Buffer, stream driver.Stream) error {
 	return MaskQuery(g, maskStatus, stream)
 }
 
@@ -125,7 +126,7 @@ func (g Group) MaskQuery(maskStatus nccl.Buffer, stream nccl.Stream) error {
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpMaskUpdate.
-func (g Group) MaskUpdate(mask *int32, stream nccl.Stream) error {
+func (g Group) MaskUpdate(mask *int32, stream driver.Stream) error {
 	return MaskUpdate(g, mask, stream)
 }
 

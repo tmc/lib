@@ -2,6 +2,10 @@
 
 package cusparse
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // BlockedEllGet wraps cusparseBlockedEllGet.
 func (s SpMatDescr) BlockedEllGet(rows *int64, cols *int64, ellBlockSize *int64, ellCols *int64, ellColInd *uintptr, ellValue *uintptr, ellIdxType *IndexType, idxBase *IndexBase, valueType *DataType) error {
 	return blockedEllGet(s, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType)
@@ -18,7 +22,7 @@ func (s SpMatDescr) CooGet(rows *int64, cols *int64, nnz *int64, cooRowInd *uint
 }
 
 // CooSetPointers wraps cusparseCooSetPointers.
-func (s SpMatDescr) CooSetPointers(cooRows uintptr, cooColumns uintptr, cooValues uintptr) error {
+func (s SpMatDescr) CooSetPointers(cooRows driver.DevicePtr, cooColumns driver.DevicePtr, cooValues driver.DevicePtr) error {
 	return cooSetPointers(s, cooRows, cooColumns, cooValues)
 }
 
@@ -33,7 +37,7 @@ func (s SpMatDescr) CscGet(rows *int64, cols *int64, nnz *int64, cscColOffsets *
 }
 
 // CscSetPointers wraps cusparseCscSetPointers.
-func (s SpMatDescr) CscSetPointers(cscColOffsets uintptr, cscRowInd uintptr, cscValues uintptr) error {
+func (s SpMatDescr) CscSetPointers(cscColOffsets driver.DevicePtr, cscRowInd driver.DevicePtr, cscValues driver.DevicePtr) error {
 	return cscSetPointers(s, cscColOffsets, cscRowInd, cscValues)
 }
 
@@ -43,7 +47,7 @@ func (s SpMatDescr) CsrGet(rows *int64, cols *int64, nnz *int64, csrRowOffsets *
 }
 
 // CsrSetPointers wraps cusparseCsrSetPointers.
-func (s SpMatDescr) CsrSetPointers(csrRowOffsets uintptr, csrColInd uintptr, csrValues uintptr) error {
+func (s SpMatDescr) CsrSetPointers(csrRowOffsets driver.DevicePtr, csrColInd driver.DevicePtr, csrValues driver.DevicePtr) error {
 	return csrSetPointers(s, csrRowOffsets, csrColInd, csrValues)
 }
 
@@ -63,6 +67,6 @@ func (s SpMatDescr) MatSetAttribute(attribute SpMatAttribute, data uintptr, data
 }
 
 // MatSetValues wraps cusparseSpMatSetValues.
-func (s SpMatDescr) MatSetValues(values uintptr) error {
+func (s SpMatDescr) MatSetValues(values driver.DevicePtr) error {
 	return spMatSetValues(s, values)
 }

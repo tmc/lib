@@ -29,9 +29,6 @@ type GinWindow uintptr
 // Registration identifies a buffer registered with a communicator.
 type Registration uintptr
 
-// Stream is a CUDA stream handle.
-type Stream uintptr
-
 // UniqueId is the fixed-size identifier used to initialize NCCL communicators.
 type UniqueId struct{ Internal [128]byte }
 

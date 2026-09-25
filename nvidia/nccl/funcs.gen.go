@@ -2,16 +2,18 @@
 
 package nccl
 
+import "github.com/tmc/lib/nvidia/driver"
+
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnallGather                func(uintptr, uintptr, uint, DataType, Comm, uintptr) Result
-	fnallGatherConfig          func(uintptr, uintptr, uint, DataType, Comm, uintptr, *CollConfig) Result
-	fnallReduce                func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr) Result
-	fnallReduceConfig          func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr, *CollConfig) Result
-	fnalltoAll                 func(uintptr, uintptr, uint, DataType, Comm, uintptr) Result
-	fnalltoAllConfig           func(uintptr, uintptr, uint, DataType, Comm, uintptr, *CollConfig) Result
-	fnbroadcast                func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr) Result
-	fnbroadcastConfig          func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr, *CollConfig) Result
+	fnallGather                func(uintptr, uintptr, uint, DataType, Comm, driver.Stream) Result
+	fnallGatherConfig          func(uintptr, uintptr, uint, DataType, Comm, driver.Stream, *CollConfig) Result
+	fnallReduce                func(uintptr, uintptr, uint, DataType, RedOp, Comm, driver.Stream) Result
+	fnallReduceConfig          func(uintptr, uintptr, uint, DataType, RedOp, Comm, driver.Stream, *CollConfig) Result
+	fnalltoAll                 func(uintptr, uintptr, uint, DataType, Comm, driver.Stream) Result
+	fnalltoAllConfig           func(uintptr, uintptr, uint, DataType, Comm, driver.Stream, *CollConfig) Result
+	fnbroadcast                func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream) Result
+	fnbroadcastConfig          func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream, *CollConfig) Result
 	fncommAbort                func(Comm) Result
 	fncommCount                func(Comm, *int32) Result
 	fncommCuDevice             func(Comm, *int32) Result
@@ -35,8 +37,8 @@ var (
 	fncommUserRank             func(Comm, *int32) Result
 	fncommWindowDeregister     func(Comm, Window) Result
 	fncommWindowRegister       func(Comm, uintptr, uint, *Window, int32) Result
-	fngather                   func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr) Result
-	fngatherConfig             func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr, *CollConfig) Result
+	fngather                   func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream) Result
+	fngatherConfig             func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream, *CollConfig) Result
 	fngetLastError             func(Comm) *byte
 	fnGetUniqueId              func(*UniqueId) Result
 	fnGetVersion               func(*int32) Result
@@ -59,19 +61,19 @@ var (
 	fnparamGetU32              func(ParamHandle, *uint32) Result
 	fnparamGetU64              func(ParamHandle, *uint64) Result
 	fnparamGetU8               func(ParamHandle, *uint8) Result
-	fnputSignal                func(uintptr, uint, DataType, int32, Window, uint, int32, int32, uint32, Comm, uintptr) Result
-	fnrecv                     func(uintptr, uint, DataType, int32, Comm, uintptr) Result
+	fnputSignal                func(uintptr, uint, DataType, int32, Window, uint, int32, int32, uint32, Comm, driver.Stream) Result
+	fnrecv                     func(uintptr, uint, DataType, int32, Comm, driver.Stream) Result
 	fnredOpCreatePreMulSum     func(*RedOp, uintptr, DataType, ScalarResidence, Comm) Result
 	fnredOpDestroy             func(RedOp, Comm) Result
-	fnreduce                   func(uintptr, uintptr, uint, DataType, RedOp, int32, Comm, uintptr) Result
-	fnreduceConfig             func(uintptr, uintptr, uint, DataType, RedOp, int32, Comm, uintptr, *CollConfig) Result
-	fnreduceScatter            func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr) Result
-	fnreduceScatterConfig      func(uintptr, uintptr, uint, DataType, RedOp, Comm, uintptr, *CollConfig) Result
-	fnscatter                  func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr) Result
-	fnscatterConfig            func(uintptr, uintptr, uint, DataType, int32, Comm, uintptr, *CollConfig) Result
-	fnsend                     func(uintptr, uint, DataType, int32, Comm, uintptr) Result
-	fnsignal                   func(int32, int32, int32, uint32, Comm, uintptr) Result
-	fnwaitSignal               func(int32, *WaitSignalDesc, Comm, uintptr) Result
+	fnreduce                   func(uintptr, uintptr, uint, DataType, RedOp, int32, Comm, driver.Stream) Result
+	fnreduceConfig             func(uintptr, uintptr, uint, DataType, RedOp, int32, Comm, driver.Stream, *CollConfig) Result
+	fnreduceScatter            func(uintptr, uintptr, uint, DataType, RedOp, Comm, driver.Stream) Result
+	fnreduceScatterConfig      func(uintptr, uintptr, uint, DataType, RedOp, Comm, driver.Stream, *CollConfig) Result
+	fnscatter                  func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream) Result
+	fnscatterConfig            func(uintptr, uintptr, uint, DataType, int32, Comm, driver.Stream, *CollConfig) Result
+	fnsend                     func(uintptr, uint, DataType, int32, Comm, driver.Stream) Result
+	fnsignal                   func(int32, int32, int32, uint32, Comm, driver.Stream) Result
+	fnwaitSignal               func(int32, *WaitSignalDesc, Comm, driver.Stream) Result
 	fnwinGetUserPtr            func(Comm, Window, *uintptr) Result
 )
 
@@ -80,19 +82,19 @@ var (
 // Note: This assumes the receive count is equal to nranks*sendcount, which means that recvbuff should have a size of at least nranks*sendcount elements. In-place operation will happen if sendbuff == recvbuff + rank * sendcount.
 //
 // Wraps ncclAllGather.
-func allGather(sendbuff Buffer, recvbuff Buffer, sendcount uint, datatype DataType, comm Comm, stream Stream) error {
+func allGather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, sendcount uint, datatype DataType, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclAllGather"); err != nil {
 		return err
 	}
-	return toError(fnallGather(uintptr(sendbuff), uintptr(recvbuff), sendcount, datatype, comm, uintptr(stream)))
+	return toError(fnallGather(uintptr(sendbuff), uintptr(recvbuff), sendcount, datatype, comm, stream))
 }
 
 // allGatherConfig wraps ncclAllGatherConfig.
-func allGatherConfig(sendbuff uintptr, recvbuff uintptr, sendcount uint, datatype DataType, comm Comm, stream uintptr, config *CollConfig) error {
+func allGatherConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, sendcount uint, datatype DataType, comm Comm, stream driver.Stream, config *CollConfig) error {
 	if err := checkLibSym("ncclAllGatherConfig"); err != nil {
 		return err
 	}
-	return toError(fnallGatherConfig(sendbuff, recvbuff, sendcount, datatype, comm, stream, config))
+	return toError(fnallGatherConfig(uintptr(sendbuff), uintptr(recvbuff), sendcount, datatype, comm, stream, config))
 }
 
 // allReduce Reduces data arrays of length count in sendbuff using the op operation and leaves identical copies of the result in each recvbuff.
@@ -100,19 +102,19 @@ func allGatherConfig(sendbuff uintptr, recvbuff uintptr, sendcount uint, datatyp
 // In-place operation will happen if sendbuff == recvbuff.
 //
 // Wraps ncclAllReduce.
-func allReduce(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, op RedOp, comm Comm, stream Stream) error {
+func allReduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclAllReduce"); err != nil {
 		return err
 	}
-	return toError(fnallReduce(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, comm, uintptr(stream)))
+	return toError(fnallReduce(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, comm, stream))
 }
 
 // allReduceConfig wraps ncclAllReduceConfig.
-func allReduceConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, op RedOp, comm Comm, stream uintptr, config *CollConfig) error {
+func allReduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, comm Comm, stream driver.Stream, config *CollConfig) error {
 	if err := checkLibSym("ncclAllReduceConfig"); err != nil {
 		return err
 	}
-	return toError(fnallReduceConfig(sendbuff, recvbuff, count, datatype, op, comm, stream, config))
+	return toError(fnallReduceConfig(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, comm, stream, config))
 }
 
 // alltoAll Each rank sends count values to all other ranks and receives count values from all other ranks.
@@ -120,19 +122,19 @@ func allReduceConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype Da
 // Note: This assumes both the total send and receive count is equal to nranks*count, which means that sendbuff and recvbuff should have a size of at least nranks*count elements. In-place operation is currently not supported.
 //
 // Wraps ncclAlltoAll.
-func alltoAll(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, comm Comm, stream Stream) error {
+func alltoAll(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclAlltoAll"); err != nil {
 		return err
 	}
-	return toError(fnalltoAll(uintptr(sendbuff), uintptr(recvbuff), count, datatype, comm, uintptr(stream)))
+	return toError(fnalltoAll(uintptr(sendbuff), uintptr(recvbuff), count, datatype, comm, stream))
 }
 
 // alltoAllConfig wraps ncclAlltoAllConfig.
-func alltoAllConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, comm Comm, stream uintptr, config *CollConfig) error {
+func alltoAllConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, comm Comm, stream driver.Stream, config *CollConfig) error {
 	if err := checkLibSym("ncclAlltoAllConfig"); err != nil {
 		return err
 	}
-	return toError(fnalltoAllConfig(sendbuff, recvbuff, count, datatype, comm, stream, config))
+	return toError(fnalltoAllConfig(uintptr(sendbuff), uintptr(recvbuff), count, datatype, comm, stream, config))
 }
 
 // broadcast Copies count elements from sendbuff on the root rank to all ranks’ recvbuff.
@@ -140,19 +142,19 @@ func alltoAllConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype Dat
 // In-place operation will happen if sendbuff == recvbuff.
 //
 // Wraps ncclBroadcast.
-func broadcast(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, root int32, comm Comm, stream Stream) error {
+func broadcast(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclBroadcast"); err != nil {
 		return err
 	}
-	return toError(fnbroadcast(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, uintptr(stream)))
+	return toError(fnbroadcast(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, stream))
 }
 
 // broadcastConfig wraps ncclBroadcastConfig.
-func broadcastConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, root int32, comm Comm, stream uintptr, config *CollConfig) error {
+func broadcastConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream, config *CollConfig) error {
 	if err := checkLibSym("ncclBroadcastConfig"); err != nil {
 		return err
 	}
-	return toError(fnbroadcastConfig(sendbuff, recvbuff, count, datatype, root, comm, stream, config))
+	return toError(fnbroadcastConfig(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, stream, config))
 }
 
 // commAbort [Comm.Abort] frees resources that are allocated to a communicator object comm and aborts any uncompleted operations before destroying the communicator.
@@ -376,7 +378,7 @@ func commMemStats(comm Comm, stat CommMemStat) (uint64, error) {
 // See buff and size requirements and more instructions in User Buffer Registration.
 //
 // Wraps ncclCommRegister.
-func commRegister(comm Comm, buff Buffer, size uint) (Registration, error) {
+func commRegister(comm Comm, buff driver.DevicePtr, size uint) (Registration, error) {
 	if err := checkLibSym("ncclCommRegister"); err != nil {
 		var zero Registration
 		return zero, err
@@ -494,7 +496,7 @@ func commWindowDeregister(comm Comm, win Window) error {
 // Since this is a collective call, every rank in the communicator needs to participate in the registration. Size may differ across ranks; callers are responsible for ensuring later operations only access ranges that are valid for the ranks participating in that operation. win is returned for future deregistration (if called within a group, the value may not be filled in until [GroupEnd] has completed). See buff requirement and more instructions in User Buffer Registration. User can also pass different win flags to control the registration behavior. For more win flags information, please refer to Window Registration Flags. Host APIs do not accept buffers that are symmetrically registered more than once. Passing such buffers to host APIs results in undefined behavior.
 //
 // Wraps ncclCommWindowRegister.
-func commWindowRegister(comm Comm, buff Buffer, size uint, winFlags int32) (Window, error) {
+func commWindowRegister(comm Comm, buff driver.DevicePtr, size uint, winFlags int32) (Window, error) {
 	if err := checkLibSym("ncclCommWindowRegister"); err != nil {
 		var zero Window
 		return zero, err
@@ -512,19 +514,19 @@ func commWindowRegister(comm Comm, buff Buffer, size uint, winFlags int32) (Wind
 // Note: This assumes the receive count is equal to nranks*count, which means that recvbuff should have a size of at least nranks*count elements. In-place operation will happen if sendbuff == recvbuff + root * count.
 //
 // Wraps ncclGather.
-func gather(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, root int32, comm Comm, stream Stream) error {
+func gather(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclGather"); err != nil {
 		return err
 	}
-	return toError(fngather(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, uintptr(stream)))
+	return toError(fngather(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, stream))
 }
 
 // gatherConfig wraps ncclGatherConfig.
-func gatherConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, root int32, comm Comm, stream uintptr, config *CollConfig) error {
+func gatherConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream, config *CollConfig) error {
 	if err := checkLibSym("ncclGatherConfig"); err != nil {
 		return err
 	}
-	return toError(fngatherConfig(sendbuff, recvbuff, count, datatype, root, comm, stream, config))
+	return toError(fngatherConfig(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, stream, config))
 }
 
 // getLastError constchar*[Comm.LastError]( [Comm] comm) 
@@ -614,23 +616,23 @@ func GroupStart() error {
 // Allocated buffer head address will be returned by ptr, and the actual allocated size can be larger than requested because of the buffer granularity requirements from all types of NCCL optimizations.
 //
 // Wraps ncclMemAlloc.
-func MemAlloc(size uint) (Buffer, error) {
+func MemAlloc(size uint) (driver.DevicePtr, error) {
 	if err := checkLibSym("ncclMemAlloc"); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
 	var out uintptr
 	if err := toError(fnMemAlloc(&out, size)); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
-	return Buffer(out), nil
+	return driver.DevicePtr(out), nil
 }
 
 // MemFree Free memory allocated by [MemAlloc].
 //
 // Wraps ncclMemFree.
-func MemFree(ptr Buffer) error {
+func MemFree(ptr driver.DevicePtr) error {
 	if err := checkLibSym("ncclMemFree"); err != nil {
 		return err
 	}
@@ -775,11 +777,11 @@ func paramGetU8(h ParamHandle, out *uint8) error {
 // The target memory window peerWin must be registered using [Comm.WindowRegister]. The sigIdx is the signal index identifier for the operation. It must be set to 0 for now. The ctx is the context identifier for the operation. It must be set to 0 for now. The flags parameter is reserved for future use. It must be set to 0 for now. The return of [Window.PutSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Window.PutSignal] on the CUDA stream, the localbuff is safe to reuse or modify. When a signal is updated on the remote peer, it guarantees that the data from the corresponding [Window.PutSignal] operation has been delivered to the remote memory. All prior [Window.PutSignal] and [Comm.Signal] operations to the same peer and context have also completed their signal updates.
 //
 // Wraps ncclPutSignal.
-func putSignal(localbuff Buffer, count uint, datatype DataType, peer int32, peerWin Window, peerWinOffset uint, sigIdx int32, ctx int32, flags uint32, comm Comm, stream Stream) error {
+func putSignal(localbuff driver.DevicePtr, count uint, datatype DataType, peer int32, peerWin Window, peerWinOffset uint, sigIdx int32, ctx int32, flags uint32, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclPutSignal"); err != nil {
 		return err
 	}
-	return toError(fnputSignal(uintptr(localbuff), count, datatype, peer, peerWin, peerWinOffset, sigIdx, ctx, flags, comm, uintptr(stream)))
+	return toError(fnputSignal(uintptr(localbuff), count, datatype, peer, peerWin, peerWinOffset, sigIdx, ctx, flags, comm, stream))
 }
 
 // recv Receive data from rank peer into recvbuff.
@@ -787,11 +789,11 @@ func putSignal(localbuff Buffer, count uint, datatype DataType, peer int32, peer
 // Rank peer needs to call [Comm.Send] with the same datatype and the same count as this rank. This operation is blocking for the GPU. If multiple [Comm.Send] and [Comm.Recv] operations need to progress concurrently to complete, they must be fused within a [GroupStart]/ [GroupEnd] section. One-sided Remote Memory Access (RMA) operations enable ranks to directly access remote memory without explicit participation from the target process. These operations require the target memory to be pre-registered within a symmetric memory window using [Comm.WindowRegister].
 //
 // Wraps ncclRecv.
-func recv(recvbuff Buffer, count uint, datatype DataType, peer int32, comm Comm, stream Stream) error {
+func recv(recvbuff driver.DevicePtr, count uint, datatype DataType, peer int32, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclRecv"); err != nil {
 		return err
 	}
-	return toError(fnrecv(uintptr(recvbuff), count, datatype, peer, comm, uintptr(stream)))
+	return toError(fnrecv(uintptr(recvbuff), count, datatype, peer, comm, stream))
 }
 
 // redOpCreatePreMulSum Creates a new reduction operator which pre-multiplies input values by a given scalar locally before reducing them with peer values via summation.
@@ -829,19 +831,19 @@ func redOpDestroy(op RedOp, comm Comm) error {
 // In-place operation will happen if sendbuff == recvbuff.
 //
 // Wraps ncclReduce.
-func reduce(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, op RedOp, root int32, comm Comm, stream Stream) error {
+func reduce(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, root int32, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclReduce"); err != nil {
 		return err
 	}
-	return toError(fnreduce(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, root, comm, uintptr(stream)))
+	return toError(fnreduce(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, root, comm, stream))
 }
 
 // reduceConfig wraps ncclReduceConfig.
-func reduceConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, op RedOp, root int32, comm Comm, stream uintptr, config *CollConfig) error {
+func reduceConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, op RedOp, root int32, comm Comm, stream driver.Stream, config *CollConfig) error {
 	if err := checkLibSym("ncclReduceConfig"); err != nil {
 		return err
 	}
-	return toError(fnreduceConfig(sendbuff, recvbuff, count, datatype, op, root, comm, stream, config))
+	return toError(fnreduceConfig(uintptr(sendbuff), uintptr(recvbuff), count, datatype, op, root, comm, stream, config))
 }
 
 // reduceScatter Reduce data in sendbuff from all GPUs using the op operation and leave the reduced result scattered over the devices so that the recvbuff on rank i will contain the i-th block of the result.
@@ -849,19 +851,19 @@ func reduceConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataT
 // Note: This assumes the send count is equal to nranks*recvcount, which means that sendbuff should have a size of at least nranks*recvcount elements. In-place operation will happen if recvbuff == sendbuff + rank * recvcount.
 //
 // Wraps ncclReduceScatter.
-func reduceScatter(sendbuff Buffer, recvbuff Buffer, recvcount uint, datatype DataType, op RedOp, comm Comm, stream Stream) error {
+func reduceScatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, recvcount uint, datatype DataType, op RedOp, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclReduceScatter"); err != nil {
 		return err
 	}
-	return toError(fnreduceScatter(uintptr(sendbuff), uintptr(recvbuff), recvcount, datatype, op, comm, uintptr(stream)))
+	return toError(fnreduceScatter(uintptr(sendbuff), uintptr(recvbuff), recvcount, datatype, op, comm, stream))
 }
 
 // reduceScatterConfig wraps ncclReduceScatterConfig.
-func reduceScatterConfig(sendbuff uintptr, recvbuff uintptr, recvcount uint, datatype DataType, op RedOp, comm Comm, stream uintptr, config *CollConfig) error {
+func reduceScatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, recvcount uint, datatype DataType, op RedOp, comm Comm, stream driver.Stream, config *CollConfig) error {
 	if err := checkLibSym("ncclReduceScatterConfig"); err != nil {
 		return err
 	}
-	return toError(fnreduceScatterConfig(sendbuff, recvbuff, recvcount, datatype, op, comm, stream, config))
+	return toError(fnreduceScatterConfig(uintptr(sendbuff), uintptr(recvbuff), recvcount, datatype, op, comm, stream, config))
 }
 
 // scatter Each rank receives count elements from the root rank.
@@ -869,19 +871,19 @@ func reduceScatterConfig(sendbuff uintptr, recvbuff uintptr, recvcount uint, dat
 // Note: This assumes the send count is equal to nranks*count, which means that sendbuff should have a size of at least nranks*count elements. In-place operation will happen if recvbuff == sendbuff + root * count.
 //
 // Wraps ncclScatter.
-func scatter(sendbuff Buffer, recvbuff Buffer, count uint, datatype DataType, root int32, comm Comm, stream Stream) error {
+func scatter(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclScatter"); err != nil {
 		return err
 	}
-	return toError(fnscatter(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, uintptr(stream)))
+	return toError(fnscatter(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, stream))
 }
 
 // scatterConfig wraps ncclScatterConfig.
-func scatterConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype DataType, root int32, comm Comm, stream uintptr, config *CollConfig) error {
+func scatterConfig(sendbuff driver.DevicePtr, recvbuff driver.DevicePtr, count uint, datatype DataType, root int32, comm Comm, stream driver.Stream, config *CollConfig) error {
 	if err := checkLibSym("ncclScatterConfig"); err != nil {
 		return err
 	}
-	return toError(fnscatterConfig(sendbuff, recvbuff, count, datatype, root, comm, stream, config))
+	return toError(fnscatterConfig(uintptr(sendbuff), uintptr(recvbuff), count, datatype, root, comm, stream, config))
 }
 
 // send Send data from sendbuff to rank peer.
@@ -889,11 +891,11 @@ func scatterConfig(sendbuff uintptr, recvbuff uintptr, count uint, datatype Data
 // Rank peer needs to call [Comm.Recv] with the same datatype and the same count as this rank. This operation is blocking for the GPU. If multiple [Comm.Send] and [Comm.Recv] operations need to progress concurrently to complete, they must be fused within a [GroupStart]/ [GroupEnd] section.
 //
 // Wraps ncclSend.
-func send(sendbuff Buffer, count uint, datatype DataType, peer int32, comm Comm, stream Stream) error {
+func send(sendbuff driver.DevicePtr, count uint, datatype DataType, peer int32, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclSend"); err != nil {
 		return err
 	}
-	return toError(fnsend(uintptr(sendbuff), count, datatype, peer, comm, uintptr(stream)))
+	return toError(fnsend(uintptr(sendbuff), count, datatype, peer, comm, stream))
 }
 
 // signal Send a signal to rank peer without transferring data.
@@ -901,11 +903,11 @@ func send(sendbuff Buffer, count uint, datatype DataType, peer int32, comm Comm,
 // Descriptor that specifies how many signal operations to wait for from a particular rank on a given signal index and context. intopCnt  Number of signal operations to wait for. intpeer  Target peer to wait for signals from. intsigIdx  Signal index identifier. Must be set to 0 for now. intctx  Context identifier. Must be set to 0 for now.
 //
 // Wraps ncclSignal.
-func signal(peer int32, sigIdx int32, ctx int32, flags uint32, comm Comm, stream Stream) error {
+func signal(peer int32, sigIdx int32, ctx int32, flags uint32, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclSignal"); err != nil {
 		return err
 	}
-	return toError(fnsignal(peer, sigIdx, ctx, flags, comm, uintptr(stream)))
+	return toError(fnsignal(peer, sigIdx, ctx, flags, comm, stream))
 }
 
 // waitSignal Wait for signals as described in the signal descriptor array.
@@ -913,23 +915,23 @@ func signal(peer int32, sigIdx int32, ctx int32, flags uint32, comm Comm, stream
 // The nDesc parameter specifies the number of signal descriptors in the signalDescs array. Each descriptor indicates how many signals ( opCnt) to expect from a specific peer on a particular signal index ( sigIdx) and context ( ctx). The return of [Comm.WaitSignal] to the CPU thread indicates that the operation has been successfully enqueued to the CUDA stream. At the completion of [Comm.WaitSignal] on the CUDA stream, all specified signal operations have been received and the corresponding data is visible in local memory.
 //
 // Wraps ncclWaitSignal.
-func waitSignal(nDesc int32, signalDescs *WaitSignalDesc, comm Comm, stream Stream) error {
+func waitSignal(nDesc int32, signalDescs *WaitSignalDesc, comm Comm, stream driver.Stream) error {
 	if err := checkLibSym("ncclWaitSignal"); err != nil {
 		return err
 	}
-	return toError(fnwaitSignal(nDesc, signalDescs, comm, uintptr(stream)))
+	return toError(fnwaitSignal(nDesc, signalDescs, comm, stream))
 }
 
 // winGetUserPtr wraps ncclWinGetUserPtr.
-func winGetUserPtr(comm Comm, win Window) (Buffer, error) {
+func winGetUserPtr(comm Comm, win Window) (driver.DevicePtr, error) {
 	if err := checkLibSym("ncclWinGetUserPtr"); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
 	var out uintptr
 	if err := toError(fnwinGetUserPtr(comm, win, &out)); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
-	return Buffer(out), nil
+	return driver.DevicePtr(out), nil
 }

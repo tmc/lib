@@ -52,7 +52,7 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 				nccl.GroupEnd()
 				return info, err
 			}
-			if err := comm.AllReduce(nccl.Buffer(send[i]), nccl.Buffer(recv[i]), n, nccl.Int32, nccl.Sum, nccl.Stream(streams[i])); err != nil {
+			if err := comm.AllReduce(send[i], recv[i], n, nccl.Int32, nccl.Sum, streams[i]); err != nil {
 				nccl.GroupEnd()
 				return info, err
 			}

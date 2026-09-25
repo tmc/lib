@@ -35,10 +35,6 @@ func TestCholeskySolve(t *testing.T) {
 	h, err := cusolver.Create()
 	check(err)
 	defer func() { check(h.Destroy()) }()
-	// Device addresses are opaque to Go. The generated API uses typed pointers;
-	// reinterpret the address bits without dereferencing device memory on host.
-	floatPtr := func(p driver.DevicePtr) *float32 { return *(**float32)(unsafe.Pointer(&p)) }
-	intPtr := func(p driver.DevicePtr) *int32 { return *(**int32)(unsafe.Pointer(&p)) }
 	// Cleanup allocations before destroying the context.
 	func() {
 		var allocations []driver.DevicePtr
@@ -66,7 +62,7 @@ func TestCholeskySolve(t *testing.T) {
 		check(da.CopyFromHostPtr(unsafe.Pointer(&a[0]), 16))
 		check(db.CopyFromHostPtr(unsafe.Pointer(&b[0]), 8))
 		lower := cusolver.FillMode(cublas.FillModeLower)
-		n, err := h.SpotrfBufferSize(lower, 2, floatPtr(da), 2)
+		n, err := h.SpotrfBufferSize(lower, 2, da, 2)
 		check(err)
 		if n <= 0 || n > 1<<26 {
 			t.Fatalf("invalid workspace size %d", n)
@@ -78,11 +74,11 @@ func TestCholeskySolve(t *testing.T) {
 			check(di.CopyToHostPtr(unsafe.Pointer(&v), 4))
 			return v
 		}
-		check(h.Spotrf(lower, 2, floatPtr(da), 2, floatPtr(dw), n, intPtr(di)))
+		check(h.Spotrf(lower, 2, da, 2, dw, n, di))
 		if v := info(); v != 0 {
 			t.Fatalf("potrf info=%d", v)
 		}
-		check(h.Spotrs(lower, 2, 1, floatPtr(da), 2, floatPtr(db), 2, intPtr(di)))
+		check(h.Spotrs(lower, 2, 1, da, 2, db, 2, di))
 		if v := info(); v != 0 {
 			t.Fatalf("potrs info=%d", v)
 		}
@@ -95,7 +91,7 @@ func TestCholeskySolve(t *testing.T) {
 		t.Logf("solution=%v", b)
 		a = []float32{1, 2, 2, 1}
 		check(da.CopyFromHostPtr(unsafe.Pointer(&a[0]), 16))
-		check(h.Spotrf(lower, 2, floatPtr(da), 2, floatPtr(dw), n, intPtr(di)))
+		check(h.Spotrf(lower, 2, da, 2, dw, n, di))
 		if v := info(); v != 2 {
 			t.Fatalf("indefinite matrix info=%d want 2", v)
 		}

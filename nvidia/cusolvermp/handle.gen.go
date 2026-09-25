@@ -4,6 +4,7 @@ package cusolvermp
 
 import (
 	"github.com/tmc/lib/nvidia/cusolver"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -21,7 +22,7 @@ import (
 //   - stream: stream every subsequent operation on this handle is enqueued on; caller-owned
 //
 // Wraps cusolverMpCreate.
-func NewHandle(deviceId int32, stream cusolver.Stream) (Handle, error) {
+func NewHandle(deviceId int32, stream driver.Stream) (Handle, error) {
 	return Create(deviceId, stream)
 }
 
@@ -89,14 +90,14 @@ func (h Handle) SetMathMode(mode cusolver.MathMode) error {
 //   - stream: caller-owned stream, which must outlive the handle's use of it
 //
 // Wraps cusolverMpSetStream.
-func (h Handle) SetStream(stream cusolver.Stream) error {
+func (h Handle) SetStream(stream driver.Stream) error {
 	return SetStream(h, stream)
 }
 
 // Stream returns the stream operations on handle are enqueued on
 //
 // Wraps cusolverMpGetStream.
-func (h Handle) Stream() (cusolver.Stream, error) {
+func (h Handle) Stream() (driver.Stream, error) {
 	return GetStream(h)
 }
 

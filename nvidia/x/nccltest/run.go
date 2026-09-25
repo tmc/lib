@@ -325,11 +325,11 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 				return result, err
 			}
 			bytes := uint(allocationBytes)
-			s.sendRegistration, err = s.comm.Register(nccl.Buffer(s.send), bytes)
+			s.sendRegistration, err = s.comm.Register(s.send, bytes)
 			if err != nil {
 				return result, fmt.Errorf("nccltest: register send rank %d: %w", i, err)
 			}
-			s.recvRegistration, err = s.comm.Register(nccl.Buffer(s.recv), bytes)
+			s.recvRegistration, err = s.comm.Register(s.recv, bytes)
 			if err != nil {
 				return result, fmt.Errorf("nccltest: register receive rank %d: %w", i, err)
 			}
@@ -547,8 +547,8 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 func execute(c Case, l Layout, rank int, states []rankState, nativeCollectives bool) (err error) {
 	s := &states[rank]
 	size, datatype := c.DataType.Size(), c.DataType.native()
-	send, recv := nccl.Buffer(s.sendArg), nccl.Buffer(s.recvArg)
-	stream := nccl.Stream(s.stream)
+	send, recv := s.sendArg, s.recvArg
+	stream := s.stream
 	count := uint(l.ParamCount)
 	n := len(states)
 	op := nccl.Sum
@@ -586,7 +586,7 @@ func execute(c Case, l Layout, rank int, states []rankState, nativeCollectives b
 			return s.comm.AlltoAll(send, recv, count, datatype, stream)
 		}
 		for peer := 0; peer < n; peer++ {
-			offset := nccl.Buffer(peer * l.ParamCount * size)
+			offset := driver.DevicePtr(peer * l.ParamCount * size)
 			if err := s.comm.Send(send+offset, count, datatype, int32(peer), stream); err != nil {
 				return err
 			}
@@ -599,12 +599,12 @@ func execute(c Case, l Layout, rank int, states []rankState, nativeCollectives b
 		for peer := 0; peer < n; peer++ {
 			ns, nr := c.peerElements(l.ParamCount, n, rank, peer, size), c.peerElements(l.ParamCount, n, peer, rank, size)
 			if ns > 0 {
-				if err := s.comm.Send(send+nccl.Buffer(sendOffset*size), uint(ns), datatype, int32(peer), stream); err != nil {
+				if err := s.comm.Send(send+driver.DevicePtr(sendOffset*size), uint(ns), datatype, int32(peer), stream); err != nil {
 					return err
 				}
 			}
 			if nr > 0 {
-				if err := s.comm.Recv(recv+nccl.Buffer(recvOffset*size), uint(nr), datatype, int32(peer), stream); err != nil {
+				if err := s.comm.Recv(recv+driver.DevicePtr(recvOffset*size), uint(nr), datatype, int32(peer), stream); err != nil {
 					return err
 				}
 			}
@@ -625,7 +625,7 @@ func execute(c Case, l Layout, rank int, states []rankState, nativeCollectives b
 		}
 		if rank == c.Root {
 			for peer := 0; peer < n; peer++ {
-				if err := s.comm.Recv(recv+nccl.Buffer(peer*l.ParamCount*size), count, datatype, int32(peer), stream); err != nil {
+				if err := s.comm.Recv(recv+driver.DevicePtr(peer*l.ParamCount*size), count, datatype, int32(peer), stream); err != nil {
 					return err
 				}
 			}
@@ -636,7 +636,7 @@ func execute(c Case, l Layout, rank int, states []rankState, nativeCollectives b
 		}
 		if rank == c.Root {
 			for peer := 0; peer < n; peer++ {
-				if err := s.comm.Send(send+nccl.Buffer(peer*l.ParamCount*size), count, datatype, int32(peer), stream); err != nil {
+				if err := s.comm.Send(send+driver.DevicePtr(peer*l.ParamCount*size), count, datatype, int32(peer), stream); err != nil {
 					return err
 				}
 			}
@@ -677,8 +677,8 @@ func hypercube(d DataType, l Layout, states []rankState) error {
 			}
 			sendRank := rank &^ (mask - 1)
 			recvRank := sendRank ^ mask
-			callErr = errors.Join(callErr, s.comm.Send(nccl.Buffer(s.recvArg)+nccl.Buffer(sendRank*l.ParamCount*size), uint(l.ParamCount*mask), datatype, int32(rank^mask), nccl.Stream(s.stream)))
-			callErr = errors.Join(callErr, s.comm.Recv(nccl.Buffer(s.recvArg)+nccl.Buffer(recvRank*l.ParamCount*size), uint(l.ParamCount*mask), datatype, int32(rank^mask), nccl.Stream(s.stream)))
+			callErr = errors.Join(callErr, s.comm.Send(s.recvArg+driver.DevicePtr(sendRank*l.ParamCount*size), uint(l.ParamCount*mask), datatype, int32(rank^mask), s.stream))
+			callErr = errors.Join(callErr, s.comm.Recv(s.recvArg+driver.DevicePtr(recvRank*l.ParamCount*size), uint(l.ParamCount*mask), datatype, int32(rank^mask), s.stream))
 		}
 		if err := errors.Join(callErr, nccl.GroupEnd()); err != nil {
 			return err

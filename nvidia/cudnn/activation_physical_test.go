@@ -46,7 +46,7 @@ func TestNativeActivationForward(t *testing.T) {
 	h, err := cudnn.Create()
 	check("handle", err)
 	defer func() { clean("destroy handle", h.Destroy()) }()
-	check("set stream", h.SetStream(cudnn.Stream(stream)))
+	check("set stream", h.SetStream(stream))
 	desc, err := cudnn.CreateTensorDescriptor()
 	check("tensor descriptor", err)
 	defer func() { clean("destroy tensor descriptor", desc.Destroy()) }()
@@ -74,7 +74,7 @@ func TestNativeActivationForward(t *testing.T) {
 	// Attempt synchronization before releasing buffers, scalars and descriptors,
 	// including when the launch reports an error; report any synchronization failure.
 	defer func() { clean("synchronize before release", stream.Synchronize()) }()
-	check("activation forward", h.ActivationForward(activation, unsafe.Pointer(&alpha), desc, uintptr(x), unsafe.Pointer(&beta), desc, uintptr(y)))
+	check("activation forward", h.ActivationForward(activation, unsafe.Pointer(&alpha), desc, x, unsafe.Pointer(&beta), desc, y))
 	check("synchronize", stream.Synchronize())
 	var got [8]float32
 	check("download", y.CopyToHostPtr(unsafe.Pointer(&got[0]), bytes))

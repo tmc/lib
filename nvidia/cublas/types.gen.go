@@ -116,6 +116,3 @@ const (
 
 // LogCallback is a function pointer for cuBLAS logging.
 type LogCallback uintptr
-
-// Stream is an opaque handle to a CUDA stream.
-type Stream uintptr

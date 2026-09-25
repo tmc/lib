@@ -3,16 +3,17 @@
 package ncclep
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
 // Generated function pointer variables.
 var (
-	fnCombine       func(Handle, *CombineInputs, *CombineOutputs, *CombineConfig, nccl.Stream) nccl.Result
-	fnComplete      func(Handle, *CompleteConfig, nccl.Stream) nccl.Result
+	fnCombine       func(Handle, *CombineInputs, *CombineOutputs, *CombineConfig, driver.Stream) nccl.Result
+	fnComplete      func(Handle, *CompleteConfig, driver.Stream) nccl.Result
 	fnCreateGroup   func(*Group, nccl.Comm, *GroupConfig) nccl.Result
-	fnCreateHandle  func(*Handle, Group, Layout, *Tensor, *LayoutInfo, *HandleConfig, nccl.Stream) nccl.Result
-	fnDispatch      func(Handle, *DispatchInputs, *DispatchOutputs, *LayoutInfo, *DispatchConfig, nccl.Stream) nccl.Result
+	fnCreateHandle  func(*Handle, Group, Layout, *Tensor, *LayoutInfo, *HandleConfig, driver.Stream) nccl.Result
+	fnDispatch      func(Handle, *DispatchInputs, *DispatchOutputs, *LayoutInfo, *DispatchConfig, driver.Stream) nccl.Result
 	fnErrorClear    func(Group) nccl.Result
 	fnGetAsyncError func(Group, *int32) nccl.Result
 	fnGetVersion    func(*int32) nccl.Result
@@ -20,12 +21,12 @@ var (
 	fnHandleDestroy func(Handle) nccl.Result
 	fnHandleMemSize func(Group, Layout, *HandleConfig, *uint, int32) nccl.Result
 	fnInitHandle    func(*Handle, Group, Layout, *HandleConfig, int32, *Tensor) nccl.Result
-	fnMaskClean     func(Group, nccl.Stream) nccl.Result
-	fnMaskQuery     func(Group, nccl.Buffer, nccl.Stream) nccl.Result
-	fnMaskUpdate    func(Group, *int32, nccl.Stream) nccl.Result
+	fnMaskClean     func(Group, driver.Stream) nccl.Result
+	fnMaskQuery     func(Group, nccl.Buffer, driver.Stream) nccl.Result
+	fnMaskUpdate    func(Group, *int32, driver.Stream) nccl.Result
 	fnTensorAlloc   func(**Tensor, uint32, nccl.DataType, *uint, *TensorAllocConfig) nccl.Result
 	fnTensorDestroy func(*Tensor) nccl.Result
-	fnUpdateHandle  func(Handle, *Tensor, *LayoutInfo, nccl.Stream) nccl.Result
+	fnUpdateHandle  func(Handle, *Tensor, *LayoutInfo, driver.Stream) nccl.Result
 )
 
 // Combine combines expert outputs in the original token order.
@@ -39,7 +40,7 @@ var (
 //   - stream: in CUDA stream. If `[Handle.Combine]` is called on a different stream than the stream used in `[Group.CreateHandle]`, it is the responsibility of the user to synchronize between streams to ensure correctness
 //
 // Wraps ncclEpCombine.
-func Combine(handle Handle, inputs *CombineInputs, outputs *CombineOutputs, config *CombineConfig, stream nccl.Stream) error {
+func Combine(handle Handle, inputs *CombineInputs, outputs *CombineOutputs, config *CombineConfig, stream driver.Stream) error {
 	if err := checkLibSym("ncclEpCombine"); err != nil {
 		return err
 	}
@@ -55,7 +56,7 @@ func Combine(handle Handle, inputs *CombineInputs, outputs *CombineOutputs, conf
 //   - stream: in CUDA stream Notes: - If `[Handle.Complete]` is called on a different stream than the operation initiation call (i.e., `[Handle.Dispatch]` or `[Handle.Combine]`), it is the responsibility of the user to synchronize between streams to ensure correctness. - Only LL mode is supported
 //
 // Wraps ncclEpComplete.
-func Complete(handle Handle, config *CompleteConfig, stream nccl.Stream) error {
+func Complete(handle Handle, config *CompleteConfig, stream driver.Stream) error {
 	if err := checkLibSym("ncclEpComplete"); err != nil {
 		return err
 	}
@@ -95,7 +96,7 @@ func CreateGroup(comm nccl.Comm, config *GroupConfig) (Group, error) {
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpCreateHandle.
-func CreateHandle(epGroup Group, layout Layout, topkIdx *Tensor, layoutInfo *LayoutInfo, config *HandleConfig, stream nccl.Stream) (Handle, error) {
+func CreateHandle(epGroup Group, layout Layout, topkIdx *Tensor, layoutInfo *LayoutInfo, config *HandleConfig, stream driver.Stream) (Handle, error) {
 	if err := checkLibSym("ncclEpCreateHandle"); err != nil {
 		var zero Handle
 		return zero, err
@@ -120,7 +121,7 @@ func CreateHandle(epGroup Group, layout Layout, topkIdx *Tensor, layoutInfo *Lay
 //   - stream: in CUDA stream. If `[Handle.Dispatch]` is called on a different stream than the stream used in `[Group.CreateHandle]`, it is the responsibility of the user to synchronize between streams to ensure correctness
 //
 // Wraps ncclEpDispatch.
-func Dispatch(handle Handle, inputs *DispatchInputs, outputs *DispatchOutputs, layoutInfo *LayoutInfo, config *DispatchConfig, stream nccl.Stream) error {
+func Dispatch(handle Handle, inputs *DispatchInputs, outputs *DispatchOutputs, layoutInfo *LayoutInfo, config *DispatchConfig, stream driver.Stream) error {
 	if err := checkLibSym("ncclEpDispatch"); err != nil {
 		return err
 	}
@@ -282,7 +283,7 @@ func InitHandle(epGroup Group, layout Layout, config *HandleConfig, numTopk int3
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpMaskClean.
-func MaskClean(epGroup Group, stream nccl.Stream) error {
+func MaskClean(epGroup Group, stream driver.Stream) error {
 	if err := checkLibSym("ncclEpMaskClean"); err != nil {
 		return err
 	}
@@ -298,7 +299,7 @@ func MaskClean(epGroup Group, stream nccl.Stream) error {
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpMaskQuery.
-func MaskQuery(epGroup Group, maskStatus nccl.Buffer, stream nccl.Stream) error {
+func MaskQuery(epGroup Group, maskStatus nccl.Buffer, stream driver.Stream) error {
 	if err := checkLibSym("ncclEpMaskQuery"); err != nil {
 		return err
 	}
@@ -314,7 +315,7 @@ func MaskQuery(epGroup Group, maskStatus nccl.Buffer, stream nccl.Stream) error 
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpMaskUpdate.
-func MaskUpdate(epGroup Group, mask *int32, stream nccl.Stream) error {
+func MaskUpdate(epGroup Group, mask *int32, stream driver.Stream) error {
 	if err := checkLibSym("ncclEpMaskUpdate"); err != nil {
 		return err
 	}
@@ -368,7 +369,7 @@ func TensorDestroy(tensor *Tensor) error {
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpUpdateHandle.
-func UpdateHandle(handle Handle, topkIdx *Tensor, layoutInfo *LayoutInfo, stream nccl.Stream) error {
+func UpdateHandle(handle Handle, topkIdx *Tensor, layoutInfo *LayoutInfo, stream driver.Stream) error {
 	if err := checkLibSym("ncclEpUpdateHandle"); err != nil {
 		return err
 	}

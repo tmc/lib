@@ -4,6 +4,7 @@ package cudnn
 
 import (
 	"fmt"
+	"github.com/tmc/lib/nvidia/driver"
 	"unsafe"
 )
 
@@ -148,7 +149,7 @@ var (
 	fngetReductionIndicesSize                             func(Handle, ReduceTensorDescriptor, TensorDescriptor, TensorDescriptor, *uint) Result
 	fngetReductionWorkspaceSize                           func(Handle, ReduceTensorDescriptor, TensorDescriptor, TensorDescriptor, *uint) Result
 	fngetSeqDataDescriptor                                func(SeqDataDescriptor, *DataType, *int32, int32, *int32, *SeqDataAxis, *uint, uint, *int32, uintptr) Result
-	fngetStream                                           func(Handle, *Stream) Result
+	fngetStream                                           func(Handle, *driver.Stream) Result
 	fngetTensor4dDescriptor                               func(TensorDescriptor, *DataType, *int32, *int32, *int32, *int32, *int32, *int32, *int32, *int32) Result
 	fngetTensorNdDescriptor                               func(TensorDescriptor, int32, *DataType, *int32, *int32, *int32) Result
 	fngetTensorSizeInBytes                                func(TensorDescriptor, *uint) Result
@@ -160,9 +161,9 @@ var (
 	fnlRNCrossChannelBackward                             func(Handle, LRNDescriptor, LRNMode, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
 	fnlRNCrossChannelForward                              func(Handle, LRNDescriptor, LRNMode, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
 	fnmakeFusedOpsPlan                                    func(Handle, FusedOpsPlan, FusedOpsConstParamPack, *uint) Result
-	fnmultiHeadAttnBackwardData                           func(Handle, AttnDescriptor, *int32, *int32, *int32, *int32, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, uintptr, SeqDataDescriptor, uintptr, uintptr, SeqDataDescriptor, uintptr, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
+	fnmultiHeadAttnBackwardData                           func(Handle, AttnDescriptor, *int32, *int32, uintptr, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, uintptr, SeqDataDescriptor, uintptr, uintptr, SeqDataDescriptor, uintptr, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
 	fnmultiHeadAttnBackwardWeights                        func(Handle, AttnDescriptor, WgradMode, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, uint, uintptr, uintptr, uint, uintptr, uint, uintptr) Result
-	fnmultiHeadAttnForward                                func(Handle, AttnDescriptor, int32, *int32, *int32, *int32, *int32, SeqDataDescriptor, uintptr, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
+	fnmultiHeadAttnForward                                func(Handle, AttnDescriptor, int32, *int32, *int32, uintptr, uintptr, SeqDataDescriptor, uintptr, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, SeqDataDescriptor, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
 	fnnormalizationBackward                               func(Handle, NormMode, NormOps, NormAlgo, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, uintptr, float64, TensorDescriptor, uintptr, uintptr, ActivationDescriptor, uintptr, uint, uintptr, uint, int32) Result
 	fnnormalizationForwardInference                       func(Handle, NormMode, NormOps, NormAlgo, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, TensorDescriptor, uintptr, uintptr, TensorDescriptor, uintptr, ActivationDescriptor, TensorDescriptor, uintptr, float64, int32) Result
 	fnnormalizationForwardTraining                        func(Handle, NormMode, NormOps, NormAlgo, unsafe.Pointer, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, float64, TensorDescriptor, uintptr, uintptr, float64, uintptr, uintptr, ActivationDescriptor, TensorDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uint, uintptr, uint, int32) Result
@@ -171,9 +172,9 @@ var (
 	fnpoolingBackward                                     func(Handle, PoolingDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
 	fnpoolingForward                                      func(Handle, PoolingDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
 	fnqueryRuntimeError                                   func(Handle, *Result, ErrQueryMode, *RuntimeTag) Result
-	fnrNNBackwardData                                     func(Handle, RNNDescriptor, *int32, RNNDataDescriptor, uintptr, uintptr, RNNDataDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
-	fnrNNBackwardWeights                                  func(Handle, RNNDescriptor, WgradMode, *int32, RNNDataDescriptor, uintptr, TensorDescriptor, uintptr, RNNDataDescriptor, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
-	fnrNNForward                                          func(Handle, RNNDescriptor, ForwardMode, *int32, RNNDataDescriptor, uintptr, RNNDataDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, TensorDescriptor, uintptr, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
+	fnrNNBackwardData                                     func(Handle, RNNDescriptor, uintptr, RNNDataDescriptor, uintptr, uintptr, RNNDataDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, TensorDescriptor, uintptr, uintptr, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
+	fnrNNBackwardWeights                                  func(Handle, RNNDescriptor, WgradMode, uintptr, RNNDataDescriptor, uintptr, TensorDescriptor, uintptr, RNNDataDescriptor, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
+	fnrNNForward                                          func(Handle, RNNDescriptor, ForwardMode, uintptr, RNNDataDescriptor, uintptr, RNNDataDescriptor, uintptr, TensorDescriptor, uintptr, uintptr, TensorDescriptor, uintptr, uintptr, uint, uintptr, uint, uintptr, uint, uintptr) Result
 	fnrNNGetClip                                          func(RNNDescriptor, *RNNClipMode, *float64, *float64) Result
 	fnrNNSetClip                                          func(RNNDescriptor, RNNClipMode, float64, float64) Result
 	fnreduceTensor                                        func(Handle, ReduceTensorDescriptor, uintptr, uint, uintptr, uint, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
@@ -204,7 +205,7 @@ var (
 	fnsetReduceTensorDescriptor                           func(ReduceTensorDescriptor, ReduceTensorOp, DataType, NanPropagation, ReduceTensorIndices, IndicesType) Result
 	fnsetSeqDataDescriptor                                func(SeqDataDescriptor, DataType, int32, *int32, *SeqDataAxis, uint, *int32, uintptr) Result
 	fnsetSpatialTransformerNdDescriptor                   func(SpatialTransformerDescriptor, SamplerType, DataType, int32, *int32) Result
-	fnsetStream                                           func(Handle, Stream) Result
+	fnsetStream                                           func(Handle, driver.Stream) Result
 	fnsetTensor                                           func(Handle, TensorDescriptor, uintptr, uintptr) Result
 	fnsetTensor4dDescriptor                               func(TensorDescriptor, TensorFormat, DataType, int32, int32, int32, int32) Result
 	fnsetTensor4dDescriptorEx                             func(TensorDescriptor, DataType, int32, int32, int32, int32, int32, int32, int32, int32) Result
@@ -239,11 +240,11 @@ var (
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnActivationBackward.
-func activationBackward(handle Handle, activationDesc ActivationDescriptor, alpha unsafe.Pointer, yDesc TensorDescriptor, y uintptr, dyDesc TensorDescriptor, dy uintptr, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr) error {
+func activationBackward(handle Handle, activationDesc ActivationDescriptor, alpha unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr, dyDesc TensorDescriptor, dy driver.DevicePtr, xDesc TensorDescriptor, x driver.DevicePtr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx driver.DevicePtr) error {
 	if err := checkLibSym("cudnnActivationBackward"); err != nil {
 		return err
 	}
-	return toError(fnactivationBackward(handle, activationDesc, alpha, yDesc, y, dyDesc, dy, xDesc, x, beta, dxDesc, dx))
+	return toError(fnactivationBackward(handle, activationDesc, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)))
 }
 
 // activationForward This routine applies a specified neuron activation function element-wise over each input value.
@@ -263,11 +264,11 @@ func activationBackward(handle Handle, activationDesc ActivationDescriptor, alph
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnActivationForward.
-func activationForward(handle Handle, activationDesc ActivationDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
+func activationForward(handle Handle, activationDesc ActivationDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, beta unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr) error {
 	if err := checkLibSym("cudnnActivationForward"); err != nil {
 		return err
 	}
-	return toError(fnactivationForward(handle, activationDesc, alpha, xDesc, x, beta, yDesc, y))
+	return toError(fnactivationForward(handle, activationDesc, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
 }
 
 // addTensor adds the scaled values of a bias tensor to another tensor.
@@ -288,11 +289,11 @@ func activationForward(handle Handle, activationDesc ActivationDescriptor, alpha
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnAddTensor.
-func addTensor(handle Handle, alpha unsafe.Pointer, aDesc TensorDescriptor, a uintptr, beta unsafe.Pointer, cDesc TensorDescriptor, c uintptr) error {
+func addTensor(handle Handle, alpha unsafe.Pointer, aDesc TensorDescriptor, a driver.DevicePtr, beta unsafe.Pointer, cDesc TensorDescriptor, c driver.DevicePtr) error {
 	if err := checkLibSym("cudnnAddTensor"); err != nil {
 		return err
 	}
-	return toError(fnaddTensor(handle, alpha, aDesc, a, beta, cDesc, c))
+	return toError(fnaddTensor(handle, alpha, aDesc, uintptr(a), beta, cDesc, uintptr(c)))
 }
 
 // AdvVersionCheck Cross-library version checker.
@@ -491,11 +492,11 @@ func backendUpdateCudaGraph(handle Handle, executionPlan BackendDescriptor, vari
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnBatchNormalizationBackward.
-func batchNormalizationBackward(handle Handle, mode BatchNormMode, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, x uintptr, dyDesc TensorDescriptor, dy uintptr, dxDesc TensorDescriptor, dx uintptr, dBnScaleBiasDesc TensorDescriptor, bnScale uintptr, dBnScaleResult uintptr, dBnBiasResult uintptr, epsilon float64, savedMean uintptr, savedInvVariance uintptr) error {
+func batchNormalizationBackward(handle Handle, mode BatchNormMode, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, dyDesc TensorDescriptor, dy driver.DevicePtr, dxDesc TensorDescriptor, dx driver.DevicePtr, dBnScaleBiasDesc TensorDescriptor, bnScale driver.DevicePtr, dBnScaleResult driver.DevicePtr, dBnBiasResult driver.DevicePtr, epsilon float64, savedMean driver.DevicePtr, savedInvVariance driver.DevicePtr) error {
 	if err := checkLibSym("cudnnBatchNormalizationBackward"); err != nil {
 		return err
 	}
-	return toError(fnbatchNormalizationBackward(handle, mode, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, x, dyDesc, dy, dxDesc, dx, dBnScaleBiasDesc, bnScale, dBnScaleResult, dBnBiasResult, epsilon, savedMean, savedInvVariance))
+	return toError(fnbatchNormalizationBackward(handle, mode, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, uintptr(x), dyDesc, uintptr(dy), dxDesc, uintptr(dx), dBnScaleBiasDesc, uintptr(bnScale), uintptr(dBnScaleResult), uintptr(dBnBiasResult), epsilon, uintptr(savedMean), uintptr(savedInvVariance)))
 }
 
 // batchNormalizationBackwardEx is an extension of the [Handle.BatchNormalizationBackward] for performing the backward batch normalization layer computation with a fast NHWC semi-persistent kernel.
@@ -520,11 +521,11 @@ func batchNormalizationBackward(handle Handle, mode BatchNormMode, alphaDataDiff
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnBatchNormalizationBackwardEx.
-func batchNormalizationBackwardEx(handle Handle, mode BatchNormMode, bnOps BatchNormOps, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, yDesc TensorDescriptor, yData uintptr, dyDesc TensorDescriptor, dyData uintptr, dzDesc TensorDescriptor, dzData uintptr, dxDesc TensorDescriptor, dxData uintptr, dBnScaleBiasDesc TensorDescriptor, bnScaleData uintptr, bnBiasData uintptr, dBnScaleData uintptr, dBnBiasData uintptr, epsilon float64, savedMean uintptr, savedInvVariance uintptr, activationDesc ActivationDescriptor, workSpace uintptr, workSpaceSizeInBytes int, reserveSpace uintptr, reserveSpaceSizeInBytes int) error {
+func batchNormalizationBackwardEx(handle Handle, mode BatchNormMode, bnOps BatchNormOps, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, xData driver.DevicePtr, yDesc TensorDescriptor, yData driver.DevicePtr, dyDesc TensorDescriptor, dyData driver.DevicePtr, dzDesc TensorDescriptor, dzData driver.DevicePtr, dxDesc TensorDescriptor, dxData driver.DevicePtr, dBnScaleBiasDesc TensorDescriptor, bnScaleData driver.DevicePtr, bnBiasData driver.DevicePtr, dBnScaleData driver.DevicePtr, dBnBiasData driver.DevicePtr, epsilon float64, savedMean driver.DevicePtr, savedInvVariance driver.DevicePtr, activationDesc ActivationDescriptor, workSpace driver.DevicePtr, workSpaceSizeInBytes int, reserveSpace driver.DevicePtr, reserveSpaceSizeInBytes int) error {
 	if err := checkLibSym("cudnnBatchNormalizationBackwardEx"); err != nil {
 		return err
 	}
-	if err := toError(fnbatchNormalizationBackwardEx(handle, mode, bnOps, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, xData, yDesc, yData, dyDesc, dyData, dzDesc, dzData, dxDesc, dxData, dBnScaleBiasDesc, bnScaleData, bnBiasData, dBnScaleData, dBnBiasData, epsilon, savedMean, savedInvVariance, activationDesc, workSpace, uint(workSpaceSizeInBytes), reserveSpace, uint(reserveSpaceSizeInBytes))); err != nil {
+	if err := toError(fnbatchNormalizationBackwardEx(handle, mode, bnOps, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, uintptr(xData), yDesc, uintptr(yData), dyDesc, uintptr(dyData), dzDesc, uintptr(dzData), dxDesc, uintptr(dxData), dBnScaleBiasDesc, uintptr(bnScaleData), uintptr(bnBiasData), uintptr(dBnScaleData), uintptr(dBnBiasData), epsilon, uintptr(savedMean), uintptr(savedInvVariance), activationDesc, uintptr(workSpace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes))); err != nil {
 		return err
 	}
 	return nil
@@ -551,11 +552,11 @@ func batchNormalizationBackwardEx(handle Handle, mode BatchNormMode, bnOps Batch
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnBatchNormalizationForwardInference.
-func batchNormalizationForwardInference(handle Handle, mode BatchNormMode, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, x uintptr, yDesc TensorDescriptor, y uintptr, bnScaleBiasMeanVarDesc TensorDescriptor, bnScale uintptr, bnBias uintptr, estimatedMean uintptr, estimatedVariance uintptr, epsilon float64) error {
+func batchNormalizationForwardInference(handle Handle, mode BatchNormMode, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, yDesc TensorDescriptor, y driver.DevicePtr, bnScaleBiasMeanVarDesc TensorDescriptor, bnScale driver.DevicePtr, bnBias driver.DevicePtr, estimatedMean driver.DevicePtr, estimatedVariance driver.DevicePtr, epsilon float64) error {
 	if err := checkLibSym("cudnnBatchNormalizationForwardInference"); err != nil {
 		return err
 	}
-	return toError(fnbatchNormalizationForwardInference(handle, mode, alpha, beta, xDesc, x, yDesc, y, bnScaleBiasMeanVarDesc, bnScale, bnBias, estimatedMean, estimatedVariance, epsilon))
+	return toError(fnbatchNormalizationForwardInference(handle, mode, alpha, beta, xDesc, uintptr(x), yDesc, uintptr(y), bnScaleBiasMeanVarDesc, uintptr(bnScale), uintptr(bnBias), uintptr(estimatedMean), uintptr(estimatedVariance), epsilon))
 }
 
 // batchNormalizationForwardTraining performs the forward batch normalization layer computation for the training phase.
@@ -583,11 +584,11 @@ func batchNormalizationForwardInference(handle Handle, mode BatchNormMode, alpha
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnBatchNormalizationForwardTraining.
-func batchNormalizationForwardTraining(handle Handle, mode BatchNormMode, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, x uintptr, yDesc TensorDescriptor, y uintptr, bnScaleBiasMeanVarDesc TensorDescriptor, bnScale uintptr, bnBias uintptr, exponentialAverageFactor float64, resultRunningMean uintptr, resultRunningVariance uintptr, epsilon float64, resultSaveMean uintptr, resultSaveInvVariance uintptr) error {
+func batchNormalizationForwardTraining(handle Handle, mode BatchNormMode, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, yDesc TensorDescriptor, y driver.DevicePtr, bnScaleBiasMeanVarDesc TensorDescriptor, bnScale driver.DevicePtr, bnBias driver.DevicePtr, exponentialAverageFactor float64, resultRunningMean driver.DevicePtr, resultRunningVariance driver.DevicePtr, epsilon float64, resultSaveMean driver.DevicePtr, resultSaveInvVariance driver.DevicePtr) error {
 	if err := checkLibSym("cudnnBatchNormalizationForwardTraining"); err != nil {
 		return err
 	}
-	return toError(fnbatchNormalizationForwardTraining(handle, mode, alpha, beta, xDesc, x, yDesc, y, bnScaleBiasMeanVarDesc, bnScale, bnBias, exponentialAverageFactor, resultRunningMean, resultRunningVariance, epsilon, resultSaveMean, resultSaveInvVariance))
+	return toError(fnbatchNormalizationForwardTraining(handle, mode, alpha, beta, xDesc, uintptr(x), yDesc, uintptr(y), bnScaleBiasMeanVarDesc, uintptr(bnScale), uintptr(bnBias), exponentialAverageFactor, uintptr(resultRunningMean), uintptr(resultRunningVariance), epsilon, uintptr(resultSaveMean), uintptr(resultSaveInvVariance)))
 }
 
 // batchNormalizationForwardTrainingEx is an extension of the [Handle.BatchNormalizationForwardTraining] for performing the forward batch normalization layer computation.
@@ -609,11 +610,11 @@ func batchNormalizationForwardTraining(handle Handle, mode BatchNormMode, alpha 
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnBatchNormalizationForwardTrainingEx.
-func batchNormalizationForwardTrainingEx(handle Handle, mode BatchNormMode, bnOps BatchNormOps, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, zDesc TensorDescriptor, zData uintptr, yDesc TensorDescriptor, yData uintptr, bnScaleBiasMeanVarDesc TensorDescriptor, bnScale uintptr, bnBias uintptr, exponentialAverageFactor float64, resultRunningMean uintptr, resultRunningVariance uintptr, epsilon float64, resultSaveMean uintptr, resultSaveInvVariance uintptr, activationDesc ActivationDescriptor, workspace uintptr, workSpaceSizeInBytes int, reserveSpace uintptr, reserveSpaceSizeInBytes int) error {
+func batchNormalizationForwardTrainingEx(handle Handle, mode BatchNormMode, bnOps BatchNormOps, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, xData driver.DevicePtr, zDesc TensorDescriptor, zData driver.DevicePtr, yDesc TensorDescriptor, yData driver.DevicePtr, bnScaleBiasMeanVarDesc TensorDescriptor, bnScale driver.DevicePtr, bnBias driver.DevicePtr, exponentialAverageFactor float64, resultRunningMean driver.DevicePtr, resultRunningVariance driver.DevicePtr, epsilon float64, resultSaveMean driver.DevicePtr, resultSaveInvVariance driver.DevicePtr, activationDesc ActivationDescriptor, workspace driver.DevicePtr, workSpaceSizeInBytes int, reserveSpace driver.DevicePtr, reserveSpaceSizeInBytes int) error {
 	if err := checkLibSym("cudnnBatchNormalizationForwardTrainingEx"); err != nil {
 		return err
 	}
-	if err := toError(fnbatchNormalizationForwardTrainingEx(handle, mode, bnOps, alpha, beta, xDesc, xData, zDesc, zData, yDesc, yData, bnScaleBiasMeanVarDesc, bnScale, bnBias, exponentialAverageFactor, resultRunningMean, resultRunningVariance, epsilon, resultSaveMean, resultSaveInvVariance, activationDesc, workspace, uint(workSpaceSizeInBytes), reserveSpace, uint(reserveSpaceSizeInBytes))); err != nil {
+	if err := toError(fnbatchNormalizationForwardTrainingEx(handle, mode, bnOps, alpha, beta, xDesc, uintptr(xData), zDesc, uintptr(zData), yDesc, uintptr(yData), bnScaleBiasMeanVarDesc, uintptr(bnScale), uintptr(bnBias), exponentialAverageFactor, uintptr(resultRunningMean), uintptr(resultRunningVariance), epsilon, uintptr(resultSaveMean), uintptr(resultSaveInvVariance), activationDesc, uintptr(workspace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes))); err != nil {
 		return err
 	}
 	return nil
@@ -665,11 +666,11 @@ func buildRNNDynamic(handle Handle, rnnDesc RNNDescriptor, miniBatch int32) erro
 //   - [Success]: The query was successful.
 //
 // Wraps cudnnCTCLoss.
-func cTCLoss(handle Handle, probsDesc TensorDescriptor, probs uintptr, hostLabels *int32, hostLabelLengths *int32, hostInputLengths *int32, costs uintptr, gradientsDesc TensorDescriptor, gradients uintptr, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, workspace uintptr, workSpaceSizeInBytes int) error {
+func cTCLoss(handle Handle, probsDesc TensorDescriptor, probs driver.DevicePtr, hostLabels *int32, hostLabelLengths *int32, hostInputLengths *int32, costs driver.DevicePtr, gradientsDesc TensorDescriptor, gradients driver.DevicePtr, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, workspace driver.DevicePtr, workSpaceSizeInBytes int) error {
 	if err := checkLibSym("cudnnCTCLoss"); err != nil {
 		return err
 	}
-	if err := toError(fncTCLoss(handle, probsDesc, probs, hostLabels, hostLabelLengths, hostInputLengths, costs, gradientsDesc, gradients, algo, ctcLossDesc, workspace, uint(workSpaceSizeInBytes))); err != nil {
+	if err := toError(fncTCLoss(handle, probsDesc, uintptr(probs), hostLabels, hostLabelLengths, hostInputLengths, uintptr(costs), gradientsDesc, uintptr(gradients), algo, ctcLossDesc, uintptr(workspace), uint(workSpaceSizeInBytes))); err != nil {
 		return err
 	}
 	return nil
@@ -699,11 +700,11 @@ func cTCLoss(handle Handle, probsDesc TensorDescriptor, probs uintptr, hostLabel
 //   - [Success]: The query was successful.
 //
 // Wraps cudnnCTCLoss_v8.
-func cTCLossV8(handle Handle, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probsDesc TensorDescriptor, probs uintptr, labels *int32, labelLengths *int32, inputLengths *int32, costs uintptr, gradientsDesc TensorDescriptor, gradients uintptr, workSpaceSizeInBytes int, workspace uintptr) error {
+func cTCLossV8(handle Handle, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probsDesc TensorDescriptor, probs driver.DevicePtr, labels *int32, labelLengths *int32, inputLengths *int32, costs driver.DevicePtr, gradientsDesc TensorDescriptor, gradients driver.DevicePtr, workSpaceSizeInBytes int, workspace driver.DevicePtr) error {
 	if err := checkLibSym("cudnnCTCLoss_v8"); err != nil {
 		return err
 	}
-	if err := toError(fncTCLossV8(handle, algo, ctcLossDesc, probsDesc, probs, labels, labelLengths, inputLengths, costs, gradientsDesc, gradients, uint(workSpaceSizeInBytes), workspace)); err != nil {
+	if err := toError(fncTCLossV8(handle, algo, ctcLossDesc, probsDesc, uintptr(probs), labels, labelLengths, inputLengths, uintptr(costs), gradientsDesc, uintptr(gradients), uint(workSpaceSizeInBytes), uintptr(workspace))); err != nil {
 		return err
 	}
 	return nil
@@ -740,11 +741,11 @@ func CnnVersionCheck() error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnConvolutionBackwardBias.
-func convolutionBackwardBias(handle Handle, alpha unsafe.Pointer, dyDesc TensorDescriptor, dy uintptr, beta unsafe.Pointer, dbDesc TensorDescriptor, db uintptr) error {
+func convolutionBackwardBias(handle Handle, alpha unsafe.Pointer, dyDesc TensorDescriptor, dy driver.DevicePtr, beta unsafe.Pointer, dbDesc TensorDescriptor, db driver.DevicePtr) error {
 	if err := checkLibSym("cudnnConvolutionBackwardBias"); err != nil {
 		return err
 	}
-	return toError(fnconvolutionBackwardBias(handle, alpha, dyDesc, dy, beta, dbDesc, db))
+	return toError(fnconvolutionBackwardBias(handle, alpha, dyDesc, uintptr(dy), beta, dbDesc, uintptr(db)))
 }
 
 // convolutionBackwardData computes the convolution data gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward].
@@ -765,11 +766,11 @@ func convolutionBackwardBias(handle Handle, alpha unsafe.Pointer, dyDesc TensorD
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnConvolutionBackwardData.
-func convolutionBackwardData(handle Handle, alpha unsafe.Pointer, wDesc FilterDescriptor, w uintptr, dyDesc TensorDescriptor, dy uintptr, convDesc ConvolutionDescriptor, algo ConvolutionBwdDataAlgo, workSpace uintptr, workSpaceSizeInBytes int, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr) error {
+func convolutionBackwardData(handle Handle, alpha unsafe.Pointer, wDesc FilterDescriptor, w driver.DevicePtr, dyDesc TensorDescriptor, dy driver.DevicePtr, convDesc ConvolutionDescriptor, algo ConvolutionBwdDataAlgo, workSpace driver.DevicePtr, workSpaceSizeInBytes int, beta unsafe.Pointer, dxDesc TensorDescriptor, dx driver.DevicePtr) error {
 	if err := checkLibSym("cudnnConvolutionBackwardData"); err != nil {
 		return err
 	}
-	if err := toError(fnconvolutionBackwardData(handle, alpha, wDesc, w, dyDesc, dy, convDesc, algo, workSpace, uint(workSpaceSizeInBytes), beta, dxDesc, dx)); err != nil {
+	if err := toError(fnconvolutionBackwardData(handle, alpha, wDesc, uintptr(w), dyDesc, uintptr(dy), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), beta, dxDesc, uintptr(dx))); err != nil {
 		return err
 	}
 	return nil
@@ -793,11 +794,11 @@ func convolutionBackwardData(handle Handle, alpha unsafe.Pointer, wDesc FilterDe
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnConvolutionBackwardFilter.
-func convolutionBackwardFilter(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, dyDesc TensorDescriptor, dy uintptr, convDesc ConvolutionDescriptor, algo ConvolutionBwdFilterAlgo, workSpace uintptr, workSpaceSizeInBytes int, beta unsafe.Pointer, dwDesc FilterDescriptor, dw uintptr) error {
+func convolutionBackwardFilter(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, dyDesc TensorDescriptor, dy driver.DevicePtr, convDesc ConvolutionDescriptor, algo ConvolutionBwdFilterAlgo, workSpace driver.DevicePtr, workSpaceSizeInBytes int, beta unsafe.Pointer, dwDesc FilterDescriptor, dw driver.DevicePtr) error {
 	if err := checkLibSym("cudnnConvolutionBackwardFilter"); err != nil {
 		return err
 	}
-	if err := toError(fnconvolutionBackwardFilter(handle, alpha, xDesc, x, dyDesc, dy, convDesc, algo, workSpace, uint(workSpaceSizeInBytes), beta, dwDesc, dw)); err != nil {
+	if err := toError(fnconvolutionBackwardFilter(handle, alpha, xDesc, uintptr(x), dyDesc, uintptr(dy), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), beta, dwDesc, uintptr(dw))); err != nil {
 		return err
 	}
 	return nil
@@ -822,11 +823,11 @@ func convolutionBackwardFilter(handle Handle, alpha unsafe.Pointer, xDesc Tensor
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnConvolutionBiasActivationForward.
-func convolutionBiasActivationForward(handle Handle, alpha1 unsafe.Pointer, xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, w uintptr, convDesc ConvolutionDescriptor, algo ConvolutionFwdAlgo, workSpace uintptr, workSpaceSizeInBytes int, alpha2 unsafe.Pointer, zDesc TensorDescriptor, z uintptr, biasDesc TensorDescriptor, bias uintptr, activationDesc ActivationDescriptor, yDesc TensorDescriptor, y uintptr) error {
+func convolutionBiasActivationForward(handle Handle, alpha1 unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, wDesc FilterDescriptor, w driver.DevicePtr, convDesc ConvolutionDescriptor, algo ConvolutionFwdAlgo, workSpace driver.DevicePtr, workSpaceSizeInBytes int, alpha2 unsafe.Pointer, zDesc TensorDescriptor, z driver.DevicePtr, biasDesc TensorDescriptor, bias driver.DevicePtr, activationDesc ActivationDescriptor, yDesc TensorDescriptor, y driver.DevicePtr) error {
 	if err := checkLibSym("cudnnConvolutionBiasActivationForward"); err != nil {
 		return err
 	}
-	if err := toError(fnconvolutionBiasActivationForward(handle, alpha1, xDesc, x, wDesc, w, convDesc, algo, workSpace, uint(workSpaceSizeInBytes), alpha2, zDesc, z, biasDesc, bias, activationDesc, yDesc, y)); err != nil {
+	if err := toError(fnconvolutionBiasActivationForward(handle, alpha1, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), alpha2, zDesc, uintptr(z), biasDesc, uintptr(bias), activationDesc, yDesc, uintptr(y))); err != nil {
 		return err
 	}
 	return nil
@@ -850,11 +851,11 @@ func convolutionBiasActivationForward(handle Handle, alpha1 unsafe.Pointer, xDes
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnConvolutionForward.
-func convolutionForward(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, w uintptr, convDesc ConvolutionDescriptor, algo ConvolutionFwdAlgo, workSpace uintptr, workSpaceSizeInBytes int, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
+func convolutionForward(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, wDesc FilterDescriptor, w driver.DevicePtr, convDesc ConvolutionDescriptor, algo ConvolutionFwdAlgo, workSpace driver.DevicePtr, workSpaceSizeInBytes int, beta unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr) error {
 	if err := checkLibSym("cudnnConvolutionForward"); err != nil {
 		return err
 	}
-	if err := toError(fnconvolutionForward(handle, alpha, xDesc, x, wDesc, w, convDesc, algo, workSpace, uint(workSpaceSizeInBytes), beta, yDesc, y)); err != nil {
+	if err := toError(fnconvolutionForward(handle, alpha, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), beta, yDesc, uintptr(y))); err != nil {
 		return err
 	}
 	return nil
@@ -1723,11 +1724,11 @@ func destroyTensorTransformDescriptor(transformDesc TensorTransformDescriptor) e
 //   - CUDNN_STATUS_UNSUPPORTED: The function does not support the provided configuration, for example, any of the input and output tensor strides mismatch (for the same dimension) is a non-supported configuration.
 //
 // Wraps cudnnDivisiveNormalizationBackward.
-func divisiveNormalizationBackward(handle Handle, normDesc LRNDescriptor, mode DivNormMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, means uintptr, dy uintptr, temp uintptr, temp2 uintptr, beta unsafe.Pointer, dXdMeansDesc TensorDescriptor, dx uintptr, dMeans uintptr) error {
+func divisiveNormalizationBackward(handle Handle, normDesc LRNDescriptor, mode DivNormMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, means driver.DevicePtr, dy driver.DevicePtr, temp driver.DevicePtr, temp2 driver.DevicePtr, beta unsafe.Pointer, dXdMeansDesc TensorDescriptor, dx driver.DevicePtr, dMeans driver.DevicePtr) error {
 	if err := checkLibSym("cudnnDivisiveNormalizationBackward"); err != nil {
 		return err
 	}
-	return toError(fndivisiveNormalizationBackward(handle, normDesc, mode, alpha, xDesc, x, means, dy, temp, temp2, beta, dXdMeansDesc, dx, dMeans))
+	return toError(fndivisiveNormalizationBackward(handle, normDesc, mode, alpha, xDesc, uintptr(x), uintptr(means), uintptr(dy), uintptr(temp), uintptr(temp2), beta, dXdMeansDesc, uintptr(dx), uintptr(dMeans)))
 }
 
 // divisiveNormalizationForward performs the forward spatial DivisiveNormalization layer computation.
@@ -1746,11 +1747,11 @@ func divisiveNormalizationBackward(handle Handle, normDesc LRNDescriptor, mode D
 //   - CUDNN_STATUS_UNSUPPORTED: The function does not support the provided configuration, for example, any of the input and output tensor strides mismatch (for the same dimension) is a non-supported configuration.
 //
 // Wraps cudnnDivisiveNormalizationForward.
-func divisiveNormalizationForward(handle Handle, normDesc LRNDescriptor, mode DivNormMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, means uintptr, temp uintptr, temp2 uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
+func divisiveNormalizationForward(handle Handle, normDesc LRNDescriptor, mode DivNormMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, means driver.DevicePtr, temp driver.DevicePtr, temp2 driver.DevicePtr, beta unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr) error {
 	if err := checkLibSym("cudnnDivisiveNormalizationForward"); err != nil {
 		return err
 	}
-	return toError(fndivisiveNormalizationForward(handle, normDesc, mode, alpha, xDesc, x, means, temp, temp2, beta, yDesc, y))
+	return toError(fndivisiveNormalizationForward(handle, normDesc, mode, alpha, xDesc, uintptr(x), uintptr(means), uintptr(temp), uintptr(temp2), beta, yDesc, uintptr(y)))
 }
 
 // dropoutBackward performs backward dropout operation over dy returning results in dx.
@@ -1769,11 +1770,11 @@ func divisiveNormalizationForward(handle Handle, normDesc LRNDescriptor, mode Di
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnDropoutBackward.
-func dropoutBackward(handle Handle, dropoutDesc DropoutDescriptor, dydesc TensorDescriptor, dy uintptr, dxdesc TensorDescriptor, dx uintptr, reserveSpace uintptr, reserveSpaceSizeInBytes int) error {
+func dropoutBackward(handle Handle, dropoutDesc DropoutDescriptor, dydesc TensorDescriptor, dy driver.DevicePtr, dxdesc TensorDescriptor, dx driver.DevicePtr, reserveSpace driver.DevicePtr, reserveSpaceSizeInBytes int) error {
 	if err := checkLibSym("cudnnDropoutBackward"); err != nil {
 		return err
 	}
-	if err := toError(fndropoutBackward(handle, dropoutDesc, dydesc, dy, dxdesc, dx, reserveSpace, uint(reserveSpaceSizeInBytes))); err != nil {
+	if err := toError(fndropoutBackward(handle, dropoutDesc, dydesc, uintptr(dy), dxdesc, uintptr(dx), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes))); err != nil {
 		return err
 	}
 	return nil
@@ -1795,11 +1796,11 @@ func dropoutBackward(handle Handle, dropoutDesc DropoutDescriptor, dydesc Tensor
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnDropoutForward.
-func dropoutForward(handle Handle, dropoutDesc DropoutDescriptor, xdesc TensorDescriptor, x uintptr, ydesc TensorDescriptor, y uintptr, reserveSpace uintptr, reserveSpaceSizeInBytes int) error {
+func dropoutForward(handle Handle, dropoutDesc DropoutDescriptor, xdesc TensorDescriptor, x driver.DevicePtr, ydesc TensorDescriptor, y driver.DevicePtr, reserveSpace driver.DevicePtr, reserveSpaceSizeInBytes int) error {
 	if err := checkLibSym("cudnnDropoutForward"); err != nil {
 		return err
 	}
-	if err := toError(fndropoutForward(handle, dropoutDesc, xdesc, x, ydesc, y, reserveSpace, uint(reserveSpaceSizeInBytes))); err != nil {
+	if err := toError(fndropoutForward(handle, dropoutDesc, xdesc, uintptr(x), ydesc, uintptr(y), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes))); err != nil {
 		return err
 	}
 	return nil
@@ -1890,13 +1891,13 @@ func findConvolutionBackwardDataAlgorithm(handle Handle, wDesc FilterDescriptor,
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnFindConvolutionBackwardDataAlgorithmEx.
-func findConvolutionBackwardDataAlgorithmEx(handle Handle, wDesc FilterDescriptor, w uintptr, dyDesc TensorDescriptor, dy uintptr, convDesc ConvolutionDescriptor, dxDesc TensorDescriptor, dx uintptr, requestedAlgoCount int, workSpace uintptr, workSpaceSizeInBytes int) (perfResults []ConvolutionBwdDataAlgoPerf, err error) {
+func findConvolutionBackwardDataAlgorithmEx(handle Handle, wDesc FilterDescriptor, w driver.DevicePtr, dyDesc TensorDescriptor, dy driver.DevicePtr, convDesc ConvolutionDescriptor, dxDesc TensorDescriptor, dx driver.DevicePtr, requestedAlgoCount int, workSpace driver.DevicePtr, workSpaceSizeInBytes int) (perfResults []ConvolutionBwdDataAlgoPerf, err error) {
 	if err := checkLibSym("cudnnFindConvolutionBackwardDataAlgorithmEx"); err != nil {
 		return nil, err
 	}
 	out10 := make([]ConvolutionBwdDataAlgoPerf, requestedAlgoCount)
 	var out9 int32
-	if err := toError(fnfindConvolutionBackwardDataAlgorithmEx(handle, wDesc, w, dyDesc, dy, convDesc, dxDesc, dx, int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), workSpace, uint(workSpaceSizeInBytes))); err != nil {
+	if err := toError(fnfindConvolutionBackwardDataAlgorithmEx(handle, wDesc, uintptr(w), dyDesc, uintptr(dy), convDesc, dxDesc, uintptr(dx), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes))); err != nil {
 		return nil, err
 	}
 	return out10[:min(int(out9), len(out10))], nil
@@ -1947,13 +1948,13 @@ func findConvolutionBackwardFilterAlgorithm(handle Handle, xDesc TensorDescripto
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnFindConvolutionBackwardFilterAlgorithmEx.
-func findConvolutionBackwardFilterAlgorithmEx(handle Handle, xDesc TensorDescriptor, x uintptr, dyDesc TensorDescriptor, y uintptr, convDesc ConvolutionDescriptor, dwDesc FilterDescriptor, dw uintptr, requestedAlgoCount int, workSpace uintptr, workSpaceSizeInBytes int) (perfResults []ConvolutionBwdFilterAlgoPerf, err error) {
+func findConvolutionBackwardFilterAlgorithmEx(handle Handle, xDesc TensorDescriptor, x driver.DevicePtr, dyDesc TensorDescriptor, y driver.DevicePtr, convDesc ConvolutionDescriptor, dwDesc FilterDescriptor, dw driver.DevicePtr, requestedAlgoCount int, workSpace driver.DevicePtr, workSpaceSizeInBytes int) (perfResults []ConvolutionBwdFilterAlgoPerf, err error) {
 	if err := checkLibSym("cudnnFindConvolutionBackwardFilterAlgorithmEx"); err != nil {
 		return nil, err
 	}
 	out10 := make([]ConvolutionBwdFilterAlgoPerf, requestedAlgoCount)
 	var out9 int32
-	if err := toError(fnfindConvolutionBackwardFilterAlgorithmEx(handle, xDesc, x, dyDesc, y, convDesc, dwDesc, dw, int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), workSpace, uint(workSpaceSizeInBytes))); err != nil {
+	if err := toError(fnfindConvolutionBackwardFilterAlgorithmEx(handle, xDesc, uintptr(x), dyDesc, uintptr(y), convDesc, dwDesc, uintptr(dw), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes))); err != nil {
 		return nil, err
 	}
 	return out10[:min(int(out9), len(out10))], nil
@@ -2004,13 +2005,13 @@ func findConvolutionForwardAlgorithm(handle Handle, xDesc TensorDescriptor, wDes
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnFindConvolutionForwardAlgorithmEx.
-func findConvolutionForwardAlgorithmEx(handle Handle, xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, w uintptr, convDesc ConvolutionDescriptor, yDesc TensorDescriptor, y uintptr, requestedAlgoCount int, workSpace uintptr, workSpaceSizeInBytes int) (perfResults []ConvolutionFwdAlgoPerf, err error) {
+func findConvolutionForwardAlgorithmEx(handle Handle, xDesc TensorDescriptor, x driver.DevicePtr, wDesc FilterDescriptor, w driver.DevicePtr, convDesc ConvolutionDescriptor, yDesc TensorDescriptor, y driver.DevicePtr, requestedAlgoCount int, workSpace driver.DevicePtr, workSpaceSizeInBytes int) (perfResults []ConvolutionFwdAlgoPerf, err error) {
 	if err := checkLibSym("cudnnFindConvolutionForwardAlgorithmEx"); err != nil {
 		return nil, err
 	}
 	out10 := make([]ConvolutionFwdAlgoPerf, requestedAlgoCount)
 	var out9 int32
-	if err := toError(fnfindConvolutionForwardAlgorithmEx(handle, xDesc, x, wDesc, w, convDesc, yDesc, y, int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), workSpace, uint(workSpaceSizeInBytes))); err != nil {
+	if err := toError(fnfindConvolutionForwardAlgorithmEx(handle, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, yDesc, uintptr(y), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes))); err != nil {
 		return nil, err
 	}
 	return out10[:min(int(out9), len(out10))], nil
@@ -3150,12 +3151,12 @@ func getMultiHeadAttnBuffers(handle Handle, attnDesc AttnDescriptor) (weightSize
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnGetMultiHeadAttnWeights.
-func getMultiHeadAttnWeights(handle Handle, attnDesc AttnDescriptor, wKind MultiHeadAttnWeightKind, weightSizeInBytes int, weights uintptr, wDesc TensorDescriptor) (wAddr uintptr, err error) {
+func getMultiHeadAttnWeights(handle Handle, attnDesc AttnDescriptor, wKind MultiHeadAttnWeightKind, weightSizeInBytes int, weights driver.DevicePtr, wDesc TensorDescriptor) (wAddr uintptr, err error) {
 	if err := checkLibSym("cudnnGetMultiHeadAttnWeights"); err != nil {
 		return 0, err
 	}
 	var out6 uintptr
-	if err := toError(fngetMultiHeadAttnWeights(handle, attnDesc, wKind, uint(weightSizeInBytes), weights, wDesc, &out6)); err != nil {
+	if err := toError(fngetMultiHeadAttnWeights(handle, attnDesc, wKind, uint(weightSizeInBytes), uintptr(weights), wDesc, &out6)); err != nil {
 		return 0, err
 	}
 	return out6, nil
@@ -3615,13 +3616,13 @@ func getRNNTempSpaceSizes(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardM
 //   - [Success]: The query was completed successfully.
 //
 // Wraps cudnnGetRNNWeightParams.
-func getRNNWeightParams(handle Handle, rnnDesc RNNDescriptor, pseudoLayer int32, weightSpaceSize int, weightSpace uintptr, linLayerID int32, mDesc TensorDescriptor, bDesc TensorDescriptor) (mAddr uintptr, bAddr uintptr, err error) {
+func getRNNWeightParams(handle Handle, rnnDesc RNNDescriptor, pseudoLayer int32, weightSpaceSize int, weightSpace driver.DevicePtr, linLayerID int32, mDesc TensorDescriptor, bDesc TensorDescriptor) (mAddr uintptr, bAddr uintptr, err error) {
 	if err := checkLibSym("cudnnGetRNNWeightParams"); err != nil {
 		return 0, 0, err
 	}
 	var out7 uintptr
 	var out9 uintptr
-	if err := toError(fngetRNNWeightParams(handle, rnnDesc, pseudoLayer, uint(weightSpaceSize), weightSpace, linLayerID, mDesc, &out7, bDesc, &out9)); err != nil {
+	if err := toError(fngetRNNWeightParams(handle, rnnDesc, pseudoLayer, uint(weightSpaceSize), uintptr(weightSpace), linLayerID, mDesc, &out7, bDesc, &out9)); err != nil {
 		return 0, 0, err
 	}
 	return out7, out9, nil
@@ -3784,14 +3785,14 @@ func getSeqDataDescriptor(seqDataDesc SeqDataDescriptor, nbDimsRequested int, se
 //   - [Success]: The stream identifier was retrieved successfully.
 //
 // Wraps cudnnGetStream.
-func getStream(handle Handle) (Stream, error) {
+func getStream(handle Handle) (driver.Stream, error) {
 	if err := checkLibSym("cudnnGetStream"); err != nil {
-		var zero Stream
+		var zero driver.Stream
 		return zero, err
 	}
-	var out Stream
+	var out driver.Stream
 	if err := toError(fngetStream(handle, &out)); err != nil {
-		var zero Stream
+		var zero driver.Stream
 		return zero, err
 	}
 	return out, nil
@@ -3991,11 +3992,11 @@ func GraphVersionCheck() error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnIm2Col.
-func im2Col(handle Handle, xDesc TensorDescriptor, x uintptr, wDesc FilterDescriptor, convDesc ConvolutionDescriptor, colBuffer uintptr) error {
+func im2Col(handle Handle, xDesc TensorDescriptor, x driver.DevicePtr, wDesc FilterDescriptor, convDesc ConvolutionDescriptor, colBuffer driver.DevicePtr) error {
 	if err := checkLibSym("cudnnIm2Col"); err != nil {
 		return err
 	}
-	return toError(fnim2Col(handle, xDesc, x, wDesc, convDesc, colBuffer))
+	return toError(fnim2Col(handle, xDesc, uintptr(x), wDesc, convDesc, uintptr(colBuffer)))
 }
 
 // initTransformDest initializes and returns a destination tensor descriptor destDesc for tensor transform operations.
@@ -4044,11 +4045,11 @@ func initTransformDest(transformDesc TensorTransformDescriptor, srcDesc TensorDe
 //   - [Success]: The computation was performed successfully.
 //
 // Wraps cudnnLRNCrossChannelBackward.
-func lRNCrossChannelBackward(handle Handle, normDesc LRNDescriptor, lrnMode LRNMode, alpha unsafe.Pointer, yDesc TensorDescriptor, y uintptr, dyDesc TensorDescriptor, dy uintptr, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr) error {
+func lRNCrossChannelBackward(handle Handle, normDesc LRNDescriptor, lrnMode LRNMode, alpha unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr, dyDesc TensorDescriptor, dy driver.DevicePtr, xDesc TensorDescriptor, x driver.DevicePtr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx driver.DevicePtr) error {
 	if err := checkLibSym("cudnnLRNCrossChannelBackward"); err != nil {
 		return err
 	}
-	return toError(fnlRNCrossChannelBackward(handle, normDesc, lrnMode, alpha, yDesc, y, dyDesc, dy, xDesc, x, beta, dxDesc, dx))
+	return toError(fnlRNCrossChannelBackward(handle, normDesc, lrnMode, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)))
 }
 
 // lRNCrossChannelForward performs the forward LRN layer computation.
@@ -4068,11 +4069,11 @@ func lRNCrossChannelBackward(handle Handle, normDesc LRNDescriptor, lrnMode LRNM
 //   - [Success]: The computation was performed successfully.
 //
 // Wraps cudnnLRNCrossChannelForward.
-func lRNCrossChannelForward(handle Handle, normDesc LRNDescriptor, lrnMode LRNMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
+func lRNCrossChannelForward(handle Handle, normDesc LRNDescriptor, lrnMode LRNMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, beta unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr) error {
 	if err := checkLibSym("cudnnLRNCrossChannelForward"); err != nil {
 		return err
 	}
-	return toError(fnlRNCrossChannelForward(handle, normDesc, lrnMode, alpha, xDesc, x, beta, yDesc, y))
+	return toError(fnlRNCrossChannelForward(handle, normDesc, lrnMode, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
 }
 
 // makeFusedOpsPlan determines the optimum kernel to execute, and the workspace size the user should allocate, prior to the actual execution of the fused operations by [Handle.FusedOpsExecute].
@@ -4128,11 +4129,11 @@ func makeFusedOpsPlan(handle Handle, plan FusedOpsPlan, constPack FusedOpsConstP
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnMultiHeadAttnBackwardData.
-func multiHeadAttnBackwardData(handle Handle, attnDesc AttnDescriptor, loWinIdx *int32, hiWinIdx *int32, devSeqLengthsDQDO *int32, devSeqLengthsDKDV *int32, doDesc SeqDataDescriptor, dout uintptr, dqDesc SeqDataDescriptor, dqueries uintptr, queries uintptr, dkDesc SeqDataDescriptor, dkeys uintptr, keys uintptr, dvDesc SeqDataDescriptor, dvalues uintptr, values uintptr, weightSizeInBytes int, weights uintptr, workSpaceSizeInBytes int, workSpace uintptr, reserveSpaceSizeInBytes int, reserveSpace uintptr) error {
+func multiHeadAttnBackwardData(handle Handle, attnDesc AttnDescriptor, loWinIdx *int32, hiWinIdx *int32, devSeqLengthsDQDO driver.DevicePtr, devSeqLengthsDKDV driver.DevicePtr, doDesc SeqDataDescriptor, dout driver.DevicePtr, dqDesc SeqDataDescriptor, dqueries driver.DevicePtr, queries driver.DevicePtr, dkDesc SeqDataDescriptor, dkeys driver.DevicePtr, keys driver.DevicePtr, dvDesc SeqDataDescriptor, dvalues driver.DevicePtr, values driver.DevicePtr, weightSizeInBytes int, weights driver.DevicePtr, workSpaceSizeInBytes int, workSpace driver.DevicePtr, reserveSpaceSizeInBytes int, reserveSpace driver.DevicePtr) error {
 	if err := checkLibSym("cudnnMultiHeadAttnBackwardData"); err != nil {
 		return err
 	}
-	if err := toError(fnmultiHeadAttnBackwardData(handle, attnDesc, loWinIdx, hiWinIdx, devSeqLengthsDQDO, devSeqLengthsDKDV, doDesc, dout, dqDesc, dqueries, queries, dkDesc, dkeys, keys, dvDesc, dvalues, values, uint(weightSizeInBytes), weights, uint(workSpaceSizeInBytes), workSpace, uint(reserveSpaceSizeInBytes), reserveSpace)); err != nil {
+	if err := toError(fnmultiHeadAttnBackwardData(handle, attnDesc, loWinIdx, hiWinIdx, uintptr(devSeqLengthsDQDO), uintptr(devSeqLengthsDKDV), doDesc, uintptr(dout), dqDesc, uintptr(dqueries), uintptr(queries), dkDesc, uintptr(dkeys), uintptr(keys), dvDesc, uintptr(dvalues), uintptr(values), uint(weightSizeInBytes), uintptr(weights), uint(workSpaceSizeInBytes), uintptr(workSpace), uint(reserveSpaceSizeInBytes), uintptr(reserveSpace))); err != nil {
 		return err
 	}
 	return nil
@@ -4167,11 +4168,11 @@ func multiHeadAttnBackwardData(handle Handle, attnDesc AttnDescriptor, loWinIdx 
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnMultiHeadAttnBackwardWeights.
-func multiHeadAttnBackwardWeights(handle Handle, attnDesc AttnDescriptor, addGrad WgradMode, qDesc SeqDataDescriptor, queries uintptr, kDesc SeqDataDescriptor, keys uintptr, vDesc SeqDataDescriptor, values uintptr, doDesc SeqDataDescriptor, dout uintptr, weightSizeInBytes int, weights uintptr, dweights uintptr, workSpaceSizeInBytes int, workSpace uintptr, reserveSpaceSizeInBytes int, reserveSpace uintptr) error {
+func multiHeadAttnBackwardWeights(handle Handle, attnDesc AttnDescriptor, addGrad WgradMode, qDesc SeqDataDescriptor, queries driver.DevicePtr, kDesc SeqDataDescriptor, keys driver.DevicePtr, vDesc SeqDataDescriptor, values driver.DevicePtr, doDesc SeqDataDescriptor, dout driver.DevicePtr, weightSizeInBytes int, weights driver.DevicePtr, dweights driver.DevicePtr, workSpaceSizeInBytes int, workSpace driver.DevicePtr, reserveSpaceSizeInBytes int, reserveSpace driver.DevicePtr) error {
 	if err := checkLibSym("cudnnMultiHeadAttnBackwardWeights"); err != nil {
 		return err
 	}
-	if err := toError(fnmultiHeadAttnBackwardWeights(handle, attnDesc, addGrad, qDesc, queries, kDesc, keys, vDesc, values, doDesc, dout, uint(weightSizeInBytes), weights, dweights, uint(workSpaceSizeInBytes), workSpace, uint(reserveSpaceSizeInBytes), reserveSpace)); err != nil {
+	if err := toError(fnmultiHeadAttnBackwardWeights(handle, attnDesc, addGrad, qDesc, uintptr(queries), kDesc, uintptr(keys), vDesc, uintptr(values), doDesc, uintptr(dout), uint(weightSizeInBytes), uintptr(weights), uintptr(dweights), uint(workSpaceSizeInBytes), uintptr(workSpace), uint(reserveSpaceSizeInBytes), uintptr(reserveSpace))); err != nil {
 		return err
 	}
 	return nil
@@ -4206,11 +4207,11 @@ func multiHeadAttnBackwardWeights(handle Handle, attnDesc AttnDescriptor, addGra
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnMultiHeadAttnForward.
-func multiHeadAttnForward(handle Handle, attnDesc AttnDescriptor, currIdx int32, loWinIdx *int32, hiWinIdx *int32, devSeqLengthsQO *int32, devSeqLengthsKV *int32, qDesc SeqDataDescriptor, queries uintptr, residuals uintptr, kDesc SeqDataDescriptor, keys uintptr, vDesc SeqDataDescriptor, values uintptr, oDesc SeqDataDescriptor, out uintptr, weightSizeInBytes int, weights uintptr, workSpaceSizeInBytes int, workSpace uintptr, reserveSpaceSizeInBytes int, reserveSpace uintptr) error {
+func multiHeadAttnForward(handle Handle, attnDesc AttnDescriptor, currIdx int32, loWinIdx *int32, hiWinIdx *int32, devSeqLengthsQO driver.DevicePtr, devSeqLengthsKV driver.DevicePtr, qDesc SeqDataDescriptor, queries driver.DevicePtr, residuals driver.DevicePtr, kDesc SeqDataDescriptor, keys driver.DevicePtr, vDesc SeqDataDescriptor, values driver.DevicePtr, oDesc SeqDataDescriptor, out driver.DevicePtr, weightSizeInBytes int, weights driver.DevicePtr, workSpaceSizeInBytes int, workSpace driver.DevicePtr, reserveSpaceSizeInBytes int, reserveSpace driver.DevicePtr) error {
 	if err := checkLibSym("cudnnMultiHeadAttnForward"); err != nil {
 		return err
 	}
-	if err := toError(fnmultiHeadAttnForward(handle, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, queries, residuals, kDesc, keys, vDesc, values, oDesc, out, uint(weightSizeInBytes), weights, uint(workSpaceSizeInBytes), workSpace, uint(reserveSpaceSizeInBytes), reserveSpace)); err != nil {
+	if err := toError(fnmultiHeadAttnForward(handle, attnDesc, currIdx, loWinIdx, hiWinIdx, uintptr(devSeqLengthsQO), uintptr(devSeqLengthsKV), qDesc, uintptr(queries), uintptr(residuals), kDesc, uintptr(keys), vDesc, uintptr(values), oDesc, uintptr(out), uint(weightSizeInBytes), uintptr(weights), uint(workSpaceSizeInBytes), uintptr(workSpace), uint(reserveSpaceSizeInBytes), uintptr(reserveSpace))); err != nil {
 		return err
 	}
 	return nil
@@ -4241,11 +4242,11 @@ func multiHeadAttnForward(handle Handle, attnDesc AttnDescriptor, currIdx int32,
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnNormalizationBackward.
-func normalizationBackward(handle Handle, mode NormMode, normOps NormOps, algo NormAlgo, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, yDesc TensorDescriptor, yData uintptr, dyDesc TensorDescriptor, dyData uintptr, dzDesc TensorDescriptor, dzData uintptr, dxDesc TensorDescriptor, dxData uintptr, dNormScaleBiasDesc TensorDescriptor, normScaleData uintptr, normBiasData uintptr, dNormScaleData uintptr, dNormBiasData uintptr, epsilon float64, normMeanVarDesc TensorDescriptor, savedMean uintptr, savedInvVariance uintptr, activationDesc ActivationDescriptor, workSpace uintptr, workSpaceSizeInBytes int, reserveSpace uintptr, reserveSpaceSizeInBytes int, groupCnt int32) error {
+func normalizationBackward(handle Handle, mode NormMode, normOps NormOps, algo NormAlgo, alphaDataDiff unsafe.Pointer, betaDataDiff unsafe.Pointer, alphaParamDiff unsafe.Pointer, betaParamDiff unsafe.Pointer, xDesc TensorDescriptor, xData driver.DevicePtr, yDesc TensorDescriptor, yData driver.DevicePtr, dyDesc TensorDescriptor, dyData driver.DevicePtr, dzDesc TensorDescriptor, dzData driver.DevicePtr, dxDesc TensorDescriptor, dxData driver.DevicePtr, dNormScaleBiasDesc TensorDescriptor, normScaleData driver.DevicePtr, normBiasData driver.DevicePtr, dNormScaleData driver.DevicePtr, dNormBiasData driver.DevicePtr, epsilon float64, normMeanVarDesc TensorDescriptor, savedMean driver.DevicePtr, savedInvVariance driver.DevicePtr, activationDesc ActivationDescriptor, workSpace driver.DevicePtr, workSpaceSizeInBytes int, reserveSpace driver.DevicePtr, reserveSpaceSizeInBytes int, groupCnt int32) error {
 	if err := checkLibSym("cudnnNormalizationBackward"); err != nil {
 		return err
 	}
-	if err := toError(fnnormalizationBackward(handle, mode, normOps, algo, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, xData, yDesc, yData, dyDesc, dyData, dzDesc, dzData, dxDesc, dxData, dNormScaleBiasDesc, normScaleData, normBiasData, dNormScaleData, dNormBiasData, epsilon, normMeanVarDesc, savedMean, savedInvVariance, activationDesc, workSpace, uint(workSpaceSizeInBytes), reserveSpace, uint(reserveSpaceSizeInBytes), groupCnt)); err != nil {
+	if err := toError(fnnormalizationBackward(handle, mode, normOps, algo, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, uintptr(xData), yDesc, uintptr(yData), dyDesc, uintptr(dyData), dzDesc, uintptr(dzData), dxDesc, uintptr(dxData), dNormScaleBiasDesc, uintptr(normScaleData), uintptr(normBiasData), uintptr(dNormScaleData), uintptr(dNormBiasData), epsilon, normMeanVarDesc, uintptr(savedMean), uintptr(savedInvVariance), activationDesc, uintptr(workSpace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes), groupCnt)); err != nil {
 		return err
 	}
 	return nil
@@ -4276,11 +4277,11 @@ func normalizationBackward(handle Handle, mode NormMode, normOps NormOps, algo N
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnNormalizationForwardInference.
-func normalizationForwardInference(handle Handle, mode NormMode, normOps NormOps, algo NormAlgo, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, x uintptr, normScaleBiasDesc TensorDescriptor, normScale uintptr, normBias uintptr, normMeanVarDesc TensorDescriptor, estimatedMean uintptr, estimatedVariance uintptr, zDesc TensorDescriptor, z uintptr, activationDesc ActivationDescriptor, yDesc TensorDescriptor, y uintptr, epsilon float64, groupCnt int32) error {
+func normalizationForwardInference(handle Handle, mode NormMode, normOps NormOps, algo NormAlgo, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, normScaleBiasDesc TensorDescriptor, normScale driver.DevicePtr, normBias driver.DevicePtr, normMeanVarDesc TensorDescriptor, estimatedMean driver.DevicePtr, estimatedVariance driver.DevicePtr, zDesc TensorDescriptor, z driver.DevicePtr, activationDesc ActivationDescriptor, yDesc TensorDescriptor, y driver.DevicePtr, epsilon float64, groupCnt int32) error {
 	if err := checkLibSym("cudnnNormalizationForwardInference"); err != nil {
 		return err
 	}
-	return toError(fnnormalizationForwardInference(handle, mode, normOps, algo, alpha, beta, xDesc, x, normScaleBiasDesc, normScale, normBias, normMeanVarDesc, estimatedMean, estimatedVariance, zDesc, z, activationDesc, yDesc, y, epsilon, groupCnt))
+	return toError(fnnormalizationForwardInference(handle, mode, normOps, algo, alpha, beta, xDesc, uintptr(x), normScaleBiasDesc, uintptr(normScale), uintptr(normBias), normMeanVarDesc, uintptr(estimatedMean), uintptr(estimatedVariance), zDesc, uintptr(z), activationDesc, yDesc, uintptr(y), epsilon, groupCnt))
 }
 
 // normalizationForwardTraining performs the forward normalization layer computation for the training phase.
@@ -4310,11 +4311,11 @@ func normalizationForwardInference(handle Handle, mode NormMode, normOps NormOps
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnNormalizationForwardTraining.
-func normalizationForwardTraining(handle Handle, mode NormMode, normOps NormOps, algo NormAlgo, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, xData uintptr, normScaleBiasDesc TensorDescriptor, normScale uintptr, normBias uintptr, exponentialAverageFactor float64, normMeanVarDesc TensorDescriptor, resultRunningMean uintptr, resultRunningVariance uintptr, epsilon float64, resultSaveMean uintptr, resultSaveInvVariance uintptr, activationDesc ActivationDescriptor, zDesc TensorDescriptor, zData uintptr, yDesc TensorDescriptor, yData uintptr, workspace uintptr, workSpaceSizeInBytes int, reserveSpace uintptr, reserveSpaceSizeInBytes int, groupCnt int32) error {
+func normalizationForwardTraining(handle Handle, mode NormMode, normOps NormOps, algo NormAlgo, alpha unsafe.Pointer, beta unsafe.Pointer, xDesc TensorDescriptor, xData driver.DevicePtr, normScaleBiasDesc TensorDescriptor, normScale driver.DevicePtr, normBias driver.DevicePtr, exponentialAverageFactor float64, normMeanVarDesc TensorDescriptor, resultRunningMean driver.DevicePtr, resultRunningVariance driver.DevicePtr, epsilon float64, resultSaveMean driver.DevicePtr, resultSaveInvVariance driver.DevicePtr, activationDesc ActivationDescriptor, zDesc TensorDescriptor, zData driver.DevicePtr, yDesc TensorDescriptor, yData driver.DevicePtr, workspace driver.DevicePtr, workSpaceSizeInBytes int, reserveSpace driver.DevicePtr, reserveSpaceSizeInBytes int, groupCnt int32) error {
 	if err := checkLibSym("cudnnNormalizationForwardTraining"); err != nil {
 		return err
 	}
-	if err := toError(fnnormalizationForwardTraining(handle, mode, normOps, algo, alpha, beta, xDesc, xData, normScaleBiasDesc, normScale, normBias, exponentialAverageFactor, normMeanVarDesc, resultRunningMean, resultRunningVariance, epsilon, resultSaveMean, resultSaveInvVariance, activationDesc, zDesc, zData, yDesc, yData, workspace, uint(workSpaceSizeInBytes), reserveSpace, uint(reserveSpaceSizeInBytes), groupCnt)); err != nil {
+	if err := toError(fnnormalizationForwardTraining(handle, mode, normOps, algo, alpha, beta, xDesc, uintptr(xData), normScaleBiasDesc, uintptr(normScale), uintptr(normBias), exponentialAverageFactor, normMeanVarDesc, uintptr(resultRunningMean), uintptr(resultRunningVariance), epsilon, uintptr(resultSaveMean), uintptr(resultSaveInvVariance), activationDesc, zDesc, uintptr(zData), yDesc, uintptr(yData), uintptr(workspace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes), groupCnt)); err != nil {
 		return err
 	}
 	return nil
@@ -4339,11 +4340,11 @@ func normalizationForwardTraining(handle Handle, mode NormMode, normOps NormOps,
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnOpTensor.
-func opTensor(handle Handle, opTensorDesc OpTensorDescriptor, alpha1 unsafe.Pointer, aDesc TensorDescriptor, a uintptr, alpha2 unsafe.Pointer, bDesc TensorDescriptor, b uintptr, beta unsafe.Pointer, cDesc TensorDescriptor, c uintptr) error {
+func opTensor(handle Handle, opTensorDesc OpTensorDescriptor, alpha1 unsafe.Pointer, aDesc TensorDescriptor, a driver.DevicePtr, alpha2 unsafe.Pointer, bDesc TensorDescriptor, b driver.DevicePtr, beta unsafe.Pointer, cDesc TensorDescriptor, c driver.DevicePtr) error {
 	if err := checkLibSym("cudnnOpTensor"); err != nil {
 		return err
 	}
-	return toError(fnopTensor(handle, opTensorDesc, alpha1, aDesc, a, alpha2, bDesc, b, beta, cDesc, c))
+	return toError(fnopTensor(handle, opTensorDesc, alpha1, aDesc, uintptr(a), alpha2, bDesc, uintptr(b), beta, cDesc, uintptr(c)))
 }
 
 // OpsVersionCheck Cross-library version checker.
@@ -4381,11 +4382,11 @@ func OpsVersionCheck() error {
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnPoolingBackward.
-func poolingBackward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.Pointer, yDesc TensorDescriptor, y uintptr, dyDesc TensorDescriptor, dy uintptr, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr) error {
+func poolingBackward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr, dyDesc TensorDescriptor, dy driver.DevicePtr, xDesc TensorDescriptor, x driver.DevicePtr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx driver.DevicePtr) error {
 	if err := checkLibSym("cudnnPoolingBackward"); err != nil {
 		return err
 	}
-	return toError(fnpoolingBackward(handle, poolingDesc, alpha, yDesc, y, dyDesc, dy, xDesc, x, beta, dxDesc, dx))
+	return toError(fnpoolingBackward(handle, poolingDesc, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)))
 }
 
 // poolingForward computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width.
@@ -4405,11 +4406,11 @@ func poolingBackward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnPoolingForward.
-func poolingForward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
+func poolingForward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, beta unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr) error {
 	if err := checkLibSym("cudnnPoolingForward"); err != nil {
 		return err
 	}
-	return toError(fnpoolingForward(handle, poolingDesc, alpha, xDesc, x, beta, yDesc, y))
+	return toError(fnpoolingForward(handle, poolingDesc, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
 }
 
 // queryRuntimeError cuDNN library functions perform extensive input argument checking before launching GPU kernels.
@@ -4473,11 +4474,11 @@ func queryRuntimeError(handle Handle, mode ErrQueryMode, tag *RuntimeTag) (rstat
 //   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNBackwardData_v8.
-func rNNBackwardData(handle Handle, rnnDesc RNNDescriptor, devSeqLengths *int32, yDesc RNNDataDescriptor, y uintptr, dy uintptr, xDesc RNNDataDescriptor, dx uintptr, hDesc TensorDescriptor, hx uintptr, dhy uintptr, dhx uintptr, cDesc TensorDescriptor, cx uintptr, dcy uintptr, dcx uintptr, weightSpaceSize int, weightSpace uintptr, workSpaceSize int, workSpace uintptr, reserveSpaceSize int, reserveSpace uintptr) error {
+func rNNBackwardData(handle Handle, rnnDesc RNNDescriptor, devSeqLengths driver.DevicePtr, yDesc RNNDataDescriptor, y driver.DevicePtr, dy driver.DevicePtr, xDesc RNNDataDescriptor, dx driver.DevicePtr, hDesc TensorDescriptor, hx driver.DevicePtr, dhy driver.DevicePtr, dhx driver.DevicePtr, cDesc TensorDescriptor, cx driver.DevicePtr, dcy driver.DevicePtr, dcx driver.DevicePtr, weightSpaceSize int, weightSpace driver.DevicePtr, workSpaceSize int, workSpace driver.DevicePtr, reserveSpaceSize int, reserveSpace driver.DevicePtr) error {
 	if err := checkLibSym("cudnnRNNBackwardData_v8"); err != nil {
 		return err
 	}
-	if err := toError(fnrNNBackwardData(handle, rnnDesc, devSeqLengths, yDesc, y, dy, xDesc, dx, hDesc, hx, dhy, dhx, cDesc, cx, dcy, dcx, uint(weightSpaceSize), weightSpace, uint(workSpaceSize), workSpace, uint(reserveSpaceSize), reserveSpace)); err != nil {
+	if err := toError(fnrNNBackwardData(handle, rnnDesc, uintptr(devSeqLengths), yDesc, uintptr(y), uintptr(dy), xDesc, uintptr(dx), hDesc, uintptr(hx), uintptr(dhy), uintptr(dhx), cDesc, uintptr(cx), uintptr(dcy), uintptr(dcx), uint(weightSpaceSize), uintptr(weightSpace), uint(workSpaceSize), uintptr(workSpace), uint(reserveSpaceSize), uintptr(reserveSpace))); err != nil {
 		return err
 	}
 	return nil
@@ -4511,11 +4512,11 @@ func rNNBackwardData(handle Handle, rnnDesc RNNDescriptor, devSeqLengths *int32,
 //   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNBackwardWeights_v8.
-func rNNBackwardWeights(handle Handle, rnnDesc RNNDescriptor, addGrad WgradMode, devSeqLengths *int32, xDesc RNNDataDescriptor, x uintptr, hDesc TensorDescriptor, hx uintptr, yDesc RNNDataDescriptor, y uintptr, weightSpaceSize int, dweightSpace uintptr, workSpaceSize int, workSpace uintptr, reserveSpaceSize int, reserveSpace uintptr) error {
+func rNNBackwardWeights(handle Handle, rnnDesc RNNDescriptor, addGrad WgradMode, devSeqLengths driver.DevicePtr, xDesc RNNDataDescriptor, x driver.DevicePtr, hDesc TensorDescriptor, hx driver.DevicePtr, yDesc RNNDataDescriptor, y driver.DevicePtr, weightSpaceSize int, dweightSpace driver.DevicePtr, workSpaceSize int, workSpace driver.DevicePtr, reserveSpaceSize int, reserveSpace driver.DevicePtr) error {
 	if err := checkLibSym("cudnnRNNBackwardWeights_v8"); err != nil {
 		return err
 	}
-	if err := toError(fnrNNBackwardWeights(handle, rnnDesc, addGrad, devSeqLengths, xDesc, x, hDesc, hx, yDesc, y, uint(weightSpaceSize), dweightSpace, uint(workSpaceSize), workSpace, uint(reserveSpaceSize), reserveSpace)); err != nil {
+	if err := toError(fnrNNBackwardWeights(handle, rnnDesc, addGrad, uintptr(devSeqLengths), xDesc, uintptr(x), hDesc, uintptr(hx), yDesc, uintptr(y), uint(weightSpaceSize), uintptr(dweightSpace), uint(workSpaceSize), uintptr(workSpace), uint(reserveSpaceSize), uintptr(reserveSpace))); err != nil {
 		return err
 	}
 	return nil
@@ -4547,11 +4548,11 @@ func rNNBackwardWeights(handle Handle, rnnDesc RNNDescriptor, addGrad WgradMode,
 //   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNForward.
-func rNNForward(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardMode, devSeqLengths *int32, xDesc RNNDataDescriptor, x uintptr, yDesc RNNDataDescriptor, y uintptr, hDesc TensorDescriptor, hx uintptr, hy uintptr, cDesc TensorDescriptor, cx uintptr, cy uintptr, weightSpaceSize int, weightSpace uintptr, workSpaceSize int, workSpace uintptr, reserveSpaceSize int, reserveSpace uintptr) error {
+func rNNForward(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardMode, devSeqLengths driver.DevicePtr, xDesc RNNDataDescriptor, x driver.DevicePtr, yDesc RNNDataDescriptor, y driver.DevicePtr, hDesc TensorDescriptor, hx driver.DevicePtr, hy driver.DevicePtr, cDesc TensorDescriptor, cx driver.DevicePtr, cy driver.DevicePtr, weightSpaceSize int, weightSpace driver.DevicePtr, workSpaceSize int, workSpace driver.DevicePtr, reserveSpaceSize int, reserveSpace driver.DevicePtr) error {
 	if err := checkLibSym("cudnnRNNForward"); err != nil {
 		return err
 	}
-	if err := toError(fnrNNForward(handle, rnnDesc, fwdMode, devSeqLengths, xDesc, x, yDesc, y, hDesc, hx, hy, cDesc, cx, cy, uint(weightSpaceSize), weightSpace, uint(workSpaceSize), workSpace, uint(reserveSpaceSize), reserveSpace)); err != nil {
+	if err := toError(fnrNNForward(handle, rnnDesc, fwdMode, uintptr(devSeqLengths), xDesc, uintptr(x), yDesc, uintptr(y), hDesc, uintptr(hx), uintptr(hy), cDesc, uintptr(cx), uintptr(cy), uint(weightSpaceSize), uintptr(weightSpace), uint(workSpaceSize), uintptr(workSpace), uint(reserveSpaceSize), uintptr(reserveSpace))); err != nil {
 		return err
 	}
 	return nil
@@ -4624,11 +4625,11 @@ func rNNSetClip(rnnDesc RNNDescriptor, clipMode RNNClipMode, lclip float64, rcli
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnReduceTensor.
-func reduceTensor(handle Handle, reduceTensorDesc ReduceTensorDescriptor, indices uintptr, indicesSizeInBytes int, workspace uintptr, workspaceSizeInBytes int, alpha unsafe.Pointer, aDesc TensorDescriptor, a uintptr, beta unsafe.Pointer, cDesc TensorDescriptor, c uintptr) error {
+func reduceTensor(handle Handle, reduceTensorDesc ReduceTensorDescriptor, indices driver.DevicePtr, indicesSizeInBytes int, workspace driver.DevicePtr, workspaceSizeInBytes int, alpha unsafe.Pointer, aDesc TensorDescriptor, a driver.DevicePtr, beta unsafe.Pointer, cDesc TensorDescriptor, c driver.DevicePtr) error {
 	if err := checkLibSym("cudnnReduceTensor"); err != nil {
 		return err
 	}
-	if err := toError(fnreduceTensor(handle, reduceTensorDesc, indices, uint(indicesSizeInBytes), workspace, uint(workspaceSizeInBytes), alpha, aDesc, a, beta, cDesc, c)); err != nil {
+	if err := toError(fnreduceTensor(handle, reduceTensorDesc, uintptr(indices), uint(indicesSizeInBytes), uintptr(workspace), uint(workspaceSizeInBytes), alpha, aDesc, uintptr(a), beta, cDesc, uintptr(c))); err != nil {
 		return err
 	}
 	return nil
@@ -4651,11 +4652,11 @@ func reduceTensor(handle Handle, reduceTensorDesc ReduceTensorDescriptor, indice
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnReorderFilterAndBias.
-func reorderFilterAndBias(handle Handle, filterDesc FilterDescriptor, reorderType ReorderType, filterData uintptr, reorderedFilterData uintptr, reorderBias int32, biasData uintptr, reorderedBiasData uintptr) error {
+func reorderFilterAndBias(handle Handle, filterDesc FilterDescriptor, reorderType ReorderType, filterData driver.DevicePtr, reorderedFilterData driver.DevicePtr, reorderBias int32, biasData driver.DevicePtr, reorderedBiasData driver.DevicePtr) error {
 	if err := checkLibSym("cudnnReorderFilterAndBias"); err != nil {
 		return err
 	}
-	return toError(fnreorderFilterAndBias(handle, filterDesc, reorderType, filterData, reorderedFilterData, reorderBias, biasData, reorderedBiasData))
+	return toError(fnreorderFilterAndBias(handle, filterDesc, reorderType, uintptr(filterData), uintptr(reorderedFilterData), reorderBias, uintptr(biasData), uintptr(reorderedBiasData)))
 }
 
 // restoreDropoutDescriptor restores a dropout descriptor to a previously saved-off state.
@@ -4670,11 +4671,11 @@ func reorderFilterAndBias(handle Handle, filterDesc FilterDescriptor, reorderTyp
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnRestoreDropoutDescriptor.
-func restoreDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout float32, states uintptr, stateSizeInBytes int, seed uint64) error {
+func restoreDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout float32, states driver.DevicePtr, stateSizeInBytes int, seed uint64) error {
 	if err := checkLibSym("cudnnRestoreDropoutDescriptor"); err != nil {
 		return err
 	}
-	if err := toError(fnrestoreDropoutDescriptor(dropoutDesc, handle, dropout, states, uint(stateSizeInBytes), seed)); err != nil {
+	if err := toError(fnrestoreDropoutDescriptor(dropoutDesc, handle, dropout, uintptr(states), uint(stateSizeInBytes), seed)); err != nil {
 		return err
 	}
 	return nil
@@ -4697,11 +4698,11 @@ func restoreDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, drop
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnScaleTensor.
-func scaleTensor(handle Handle, yDesc TensorDescriptor, y uintptr, alpha unsafe.Pointer) error {
+func scaleTensor(handle Handle, yDesc TensorDescriptor, y driver.DevicePtr, alpha unsafe.Pointer) error {
 	if err := checkLibSym("cudnnScaleTensor"); err != nil {
 		return err
 	}
-	return toError(fnscaleTensor(handle, yDesc, y, alpha))
+	return toError(fnscaleTensor(handle, yDesc, uintptr(y), alpha))
 }
 
 // setActivationDescriptor initializes a previously created generic activation descriptor object.
@@ -4943,11 +4944,11 @@ func setConvolutionReorderType(convDesc ConvolutionDescriptor, reorderType Reord
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSetDropoutDescriptor.
-func setDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout float32, states uintptr, stateSizeInBytes int, seed uint64) error {
+func setDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout float32, states driver.DevicePtr, stateSizeInBytes int, seed uint64) error {
 	if err := checkLibSym("cudnnSetDropoutDescriptor"); err != nil {
 		return err
 	}
-	if err := toError(fnsetDropoutDescriptor(dropoutDesc, handle, dropout, states, uint(stateSizeInBytes), seed)); err != nil {
+	if err := toError(fnsetDropoutDescriptor(dropoutDesc, handle, dropout, uintptr(states), uint(stateSizeInBytes), seed)); err != nil {
 		return err
 	}
 	return nil
@@ -5277,7 +5278,7 @@ func setSpatialTransformerNdDescriptor(stDesc SpatialTransformerDescriptor, samp
 //   - [Success]: The new stream was set successfully.
 //
 // Wraps cudnnSetStream.
-func setStream(handle Handle, streamId Stream) error {
+func setStream(handle Handle, streamId driver.Stream) error {
 	if err := checkLibSym("cudnnSetStream"); err != nil {
 		return err
 	}
@@ -5296,11 +5297,11 @@ func setStream(handle Handle, streamId Stream) error {
 //   - [Success]: The function launched successfully.
 //
 // Wraps cudnnSetTensor.
-func setTensor(handle Handle, yDesc TensorDescriptor, y uintptr, valuePtr uintptr) error {
+func setTensor(handle Handle, yDesc TensorDescriptor, y driver.DevicePtr, valuePtr uintptr) error {
 	if err := checkLibSym("cudnnSetTensor"); err != nil {
 		return err
 	}
-	return toError(fnsetTensor(handle, yDesc, y, valuePtr))
+	return toError(fnsetTensor(handle, yDesc, uintptr(y), valuePtr))
 }
 
 // setTensor4dDescriptor initializes a previously created generic tensor descriptor object into a 4D tensor.
@@ -5442,11 +5443,11 @@ func setTensorTransformDescriptor(transformDesc TensorTransformDescriptor, nbDim
 //   - [Success]: The function launched successfully.
 //
 // Wraps cudnnSoftmaxBackward.
-func softmaxBackward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alpha unsafe.Pointer, yDesc TensorDescriptor, y uintptr, dyDesc TensorDescriptor, dy uintptr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr) error {
+func softmaxBackward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alpha unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr, dyDesc TensorDescriptor, dy driver.DevicePtr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx driver.DevicePtr) error {
 	if err := checkLibSym("cudnnSoftmaxBackward"); err != nil {
 		return err
 	}
-	return toError(fnsoftmaxBackward(handle, algo, mode, alpha, yDesc, y, dyDesc, dy, beta, dxDesc, dx))
+	return toError(fnsoftmaxBackward(handle, algo, mode, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), beta, dxDesc, uintptr(dx)))
 }
 
 // softmaxForward This routine computes the softmax function.
@@ -5463,11 +5464,11 @@ func softmaxBackward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alp
 //   - [Success]: The function launched successfully.
 //
 // Wraps cudnnSoftmaxForward.
-func softmaxForward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
+func softmaxForward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, beta unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr) error {
 	if err := checkLibSym("cudnnSoftmaxForward"); err != nil {
 		return err
 	}
-	return toError(fnsoftmaxForward(handle, algo, mode, alpha, xDesc, x, beta, yDesc, y))
+	return toError(fnsoftmaxForward(handle, algo, mode, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
 }
 
 // spatialTfGridGeneratorBackward computes the gradient of a grid generation operation.
@@ -5486,11 +5487,11 @@ func softmaxForward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alph
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfGridGeneratorBackward.
-func spatialTfGridGeneratorBackward(handle Handle, stDesc SpatialTransformerDescriptor, dgrid uintptr, dtheta uintptr) error {
+func spatialTfGridGeneratorBackward(handle Handle, stDesc SpatialTransformerDescriptor, dgrid driver.DevicePtr, dtheta driver.DevicePtr) error {
 	if err := checkLibSym("cudnnSpatialTfGridGeneratorBackward"); err != nil {
 		return err
 	}
-	return toError(fnspatialTfGridGeneratorBackward(handle, stDesc, dgrid, dtheta))
+	return toError(fnspatialTfGridGeneratorBackward(handle, stDesc, uintptr(dgrid), uintptr(dtheta)))
 }
 
 // spatialTfGridGeneratorForward generates a grid of coordinates in the input tensor corresponding to each pixel from the output tensor.
@@ -5507,11 +5508,11 @@ func spatialTfGridGeneratorBackward(handle Handle, stDesc SpatialTransformerDesc
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfGridGeneratorForward.
-func spatialTfGridGeneratorForward(handle Handle, stDesc SpatialTransformerDescriptor, theta uintptr, grid uintptr) error {
+func spatialTfGridGeneratorForward(handle Handle, stDesc SpatialTransformerDescriptor, theta driver.DevicePtr, grid driver.DevicePtr) error {
 	if err := checkLibSym("cudnnSpatialTfGridGeneratorForward"); err != nil {
 		return err
 	}
-	return toError(fnspatialTfGridGeneratorForward(handle, stDesc, theta, grid))
+	return toError(fnspatialTfGridGeneratorForward(handle, stDesc, uintptr(theta), uintptr(grid)))
 }
 
 // spatialTfSamplerBackward computes the gradient of a sampling operation.
@@ -5532,11 +5533,11 @@ func spatialTfGridGeneratorForward(handle Handle, stDesc SpatialTransformerDescr
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfSamplerBackward.
-func spatialTfSamplerBackward(handle Handle, stDesc SpatialTransformerDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr, alphaDgrid unsafe.Pointer, dyDesc TensorDescriptor, dy uintptr, grid uintptr, betaDgrid unsafe.Pointer, dgrid uintptr) error {
+func spatialTfSamplerBackward(handle Handle, stDesc SpatialTransformerDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx driver.DevicePtr, alphaDgrid unsafe.Pointer, dyDesc TensorDescriptor, dy driver.DevicePtr, grid driver.DevicePtr, betaDgrid unsafe.Pointer, dgrid driver.DevicePtr) error {
 	if err := checkLibSym("cudnnSpatialTfSamplerBackward"); err != nil {
 		return err
 	}
-	return toError(fnspatialTfSamplerBackward(handle, stDesc, alpha, xDesc, x, beta, dxDesc, dx, alphaDgrid, dyDesc, dy, grid, betaDgrid, dgrid))
+	return toError(fnspatialTfSamplerBackward(handle, stDesc, alpha, xDesc, uintptr(x), beta, dxDesc, uintptr(dx), alphaDgrid, dyDesc, uintptr(dy), uintptr(grid), betaDgrid, uintptr(dgrid)))
 }
 
 // spatialTfSamplerForward performs a sampler operation and generates the output tensor using the grid given by the grid generator.
@@ -5555,11 +5556,11 @@ func spatialTfSamplerBackward(handle Handle, stDesc SpatialTransformerDescriptor
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfSamplerForward.
-func spatialTfSamplerForward(handle Handle, stDesc SpatialTransformerDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, grid uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
+func spatialTfSamplerForward(handle Handle, stDesc SpatialTransformerDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, grid driver.DevicePtr, beta unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr) error {
 	if err := checkLibSym("cudnnSpatialTfSamplerForward"); err != nil {
 		return err
 	}
-	return toError(fnspatialTfSamplerForward(handle, stDesc, alpha, xDesc, x, grid, beta, yDesc, y))
+	return toError(fnspatialTfSamplerForward(handle, stDesc, alpha, xDesc, uintptr(x), uintptr(grid), beta, yDesc, uintptr(y)))
 }
 
 // transformFilter converts the filter between different formats, data types, or dimensions based on the described transformation.
@@ -5580,11 +5581,11 @@ func spatialTfSamplerForward(handle Handle, stDesc SpatialTransformerDescriptor,
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnTransformFilter.
-func transformFilter(handle Handle, transDesc TensorTransformDescriptor, alpha unsafe.Pointer, srcDesc FilterDescriptor, srcData uintptr, beta unsafe.Pointer, destDesc FilterDescriptor, destData uintptr) error {
+func transformFilter(handle Handle, transDesc TensorTransformDescriptor, alpha unsafe.Pointer, srcDesc FilterDescriptor, srcData driver.DevicePtr, beta unsafe.Pointer, destDesc FilterDescriptor, destData driver.DevicePtr) error {
 	if err := checkLibSym("cudnnTransformFilter"); err != nil {
 		return err
 	}
-	return toError(fntransformFilter(handle, transDesc, alpha, srcDesc, srcData, beta, destDesc, destData))
+	return toError(fntransformFilter(handle, transDesc, alpha, srcDesc, uintptr(srcData), beta, destDesc, uintptr(destData)))
 }
 
 // transformTensor copies the scaled data from one tensor to another tensor with a different layout.
@@ -5605,11 +5606,11 @@ func transformFilter(handle Handle, transDesc TensorTransformDescriptor, alpha u
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnTransformTensor.
-func transformTensor(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
+func transformTensor(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor, x driver.DevicePtr, beta unsafe.Pointer, yDesc TensorDescriptor, y driver.DevicePtr) error {
 	if err := checkLibSym("cudnnTransformTensor"); err != nil {
 		return err
 	}
-	return toError(fntransformTensor(handle, alpha, xDesc, x, beta, yDesc, y))
+	return toError(fntransformTensor(handle, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
 }
 
 // transformTensorEx converts the tensor layouts between different formats.
@@ -5630,9 +5631,9 @@ func transformTensor(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
 // Wraps cudnnTransformTensorEx.
-func transformTensorEx(handle Handle, transDesc TensorTransformDescriptor, alpha unsafe.Pointer, srcDesc TensorDescriptor, srcData uintptr, beta unsafe.Pointer, destDesc TensorDescriptor, destData uintptr) error {
+func transformTensorEx(handle Handle, transDesc TensorTransformDescriptor, alpha unsafe.Pointer, srcDesc TensorDescriptor, srcData driver.DevicePtr, beta unsafe.Pointer, destDesc TensorDescriptor, destData driver.DevicePtr) error {
 	if err := checkLibSym("cudnnTransformTensorEx"); err != nil {
 		return err
 	}
-	return toError(fntransformTensorEx(handle, transDesc, alpha, srcDesc, srcData, beta, destDesc, destData))
+	return toError(fntransformTensorEx(handle, transDesc, alpha, srcDesc, uintptr(srcData), beta, destDesc, uintptr(destData)))
 }

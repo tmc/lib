@@ -33,6 +33,3 @@ const (
 
 // Real is a single-precision real value.
 type Real float32
-
-// Stream is an opaque handle to a CUDA stream.
-type Stream uintptr

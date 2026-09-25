@@ -57,7 +57,7 @@ func TestImpulseRoundTrip(t *testing.T) {
 		}
 	}()
 	check(ptr.CopyFromHostPtr(unsafe.Pointer(&values[0]), bytes))
-	check(plan.ExecC2C(uintptr(ptr), uintptr(ptr), cufft.Forward))
+	check(plan.ExecC2C(ptr, ptr, cufft.Forward))
 	check(driver.CtxSynchronize())
 	check(ptr.CopyToHostPtr(unsafe.Pointer(&values[0]), bytes))
 	for i, v := range values {
@@ -65,7 +65,7 @@ func TestImpulseRoundTrip(t *testing.T) {
 			t.Fatalf("forward[%d] = %v, want (1, 0)", i, v)
 		}
 	}
-	check(plan.ExecC2C(uintptr(ptr), uintptr(ptr), cufft.Inverse))
+	check(plan.ExecC2C(ptr, ptr, cufft.Inverse))
 	check(driver.CtxSynchronize())
 	check(ptr.CopyToHostPtr(unsafe.Pointer(&values[0]), bytes))
 	for i, v := range values {

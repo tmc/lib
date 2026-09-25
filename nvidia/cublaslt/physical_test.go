@@ -64,7 +64,7 @@ func refGemm(transa bool, m, n, k int, alpha float64, a []float64, lda int, b []
 }
 
 // devSlice uploads xs and returns its device address.
-func devSlice[T any](t *testing.T, xs []T) uintptr {
+func devSlice[T any](t *testing.T, xs []T) driver.DevicePtr {
 	t.Helper()
 	n := uint(len(xs)) * uint(unsafe.Sizeof(xs[0]))
 	ptr, err := driver.MemAllocBytes(n)
@@ -79,7 +79,7 @@ func devSlice[T any](t *testing.T, xs []T) uintptr {
 	if err := ptr.CopyFromHostPtr(unsafe.Pointer(&xs[0]), n); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
-	return uintptr(ptr)
+	return ptr
 }
 
 // TestMatmul runs D = alpha*op(A)*B + beta*C with a separate C and D, which
@@ -213,7 +213,7 @@ func TestMatmul(t *testing.T) {
 				t.Fatalf("synchronize: %v", err)
 			}
 			got := make([]float32, m*n)
-			if err := driver.DevicePtr(dd).CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))*4); err != nil {
+			if err := dd.CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))*4); err != nil {
 				t.Fatalf("MemcpyDtoH: %v", err)
 			}
 			for i := range want {

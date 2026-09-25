@@ -206,7 +206,7 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 		}
 	}()
 
-	handle, err := cublasmp.NewHandle(cublas.Stream(0))
+	handle, err := cublasmp.NewHandle(0)
 	if err != nil {
 		t.Fatalf("NewHandle: %v", err)
 	}

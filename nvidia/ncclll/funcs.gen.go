@@ -3,6 +3,7 @@
 package ncclll
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -11,7 +12,7 @@ var (
 	fnCalcMinReductionBufferSize func(LLSyncMode, int32, int32, int32, int32, int32) uint
 	fnLLGetPoisonValue           func(nccl.DataType) uint32
 	fnLLPoisonBuffer             func(uintptr, uint, nccl.DataType) nccl.Result
-	fnLLPoisonBufferAsync        func(uintptr, uint, nccl.DataType, nccl.Stream) nccl.Result
+	fnLLPoisonBufferAsync        func(uintptr, uint, nccl.DataType, driver.Stream) nccl.Result
 )
 
 // CalcMinReductionBufferSize wraps ncclCalcMinReductionBufferSize.
@@ -41,7 +42,7 @@ func LLPoisonBuffer(buffer uintptr, sizeBytes uint, dtype nccl.DataType) error {
 }
 
 // LLPoisonBufferAsync wraps ncclLLPoisonBufferAsync.
-func LLPoisonBufferAsync(buffer uintptr, sizeBytes uint, dtype nccl.DataType, stream nccl.Stream) error {
+func LLPoisonBufferAsync(buffer uintptr, sizeBytes uint, dtype nccl.DataType, stream driver.Stream) error {
 	if err := checkLibSym("ncclLLPoisonBufferAsync"); err != nil {
 		return err
 	}

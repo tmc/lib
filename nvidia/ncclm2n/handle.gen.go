@@ -3,6 +3,7 @@
 package ncclm2n
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -68,7 +69,7 @@ func (h Handle) Finalize() error {
 //   - stream: in CUDA stream (explicit or default)
 //
 // Wraps ncclReshard.
-func (h Handle) Reshard(comm nccl.Comm, src *DistTensor, dst *DistTensor, stream nccl.Stream) error {
+func (h Handle) Reshard(comm nccl.Comm, src *DistTensor, dst *DistTensor, stream driver.Stream) error {
 	return Reshard(h, comm, src, dst, stream)
 }
 
@@ -93,6 +94,6 @@ func (h Handle) Reshard(comm nccl.Comm, src *DistTensor, dst *DistTensor, stream
 //   - stream: in Explicit CUDA stream, or the default stream (NULL / `cudaStreamLegacy` / `cudaStreamPerThread`). Default- stream callers run on a library-owned non-blocking stream from a per-(comm, device) pool. Readiness and completion events preserve the caller stream's ordering before and after the reshard operation
 //
 // Wraps ncclReshardWithWindow.
-func (h Handle) ReshardWithWindow(comm nccl.Comm, window nccl.Window, src *DistTensor, dst *DistTensor, stream nccl.Stream) error {
+func (h Handle) ReshardWithWindow(comm nccl.Comm, window nccl.Window, src *DistTensor, dst *DistTensor, stream driver.Stream) error {
 	return ReshardWithWindow(h, comm, window, src, dst, stream)
 }

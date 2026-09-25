@@ -2,6 +2,8 @@
 
 package cufft
 
+import "github.com/tmc/lib/nvidia/driver"
+
 // Destroy Frees all GPU resources associated with a cuFFT plan and destroys the internal plan data structure.
 //
 // This function should be called once a plan is no longer needed, to avoid wasting GPU memory. In the case of multi-GPU plans, the plan created first should be destroyed last.
@@ -30,7 +32,7 @@ func (h Handle) Destroy() error {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecC2C.
-func (h Handle) ExecC2C(idata uintptr, odata uintptr, direction int32) error {
+func (h Handle) ExecC2C(idata driver.DevicePtr, odata driver.DevicePtr, direction int32) error {
 	return execC2C(h, idata, odata, direction)
 }
 
@@ -47,7 +49,7 @@ func (h Handle) ExecC2C(idata uintptr, odata uintptr, direction int32) error {
 //   - [Success]: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecC2R.
-func (h Handle) ExecC2R(idata uintptr, odata uintptr) error {
+func (h Handle) ExecC2R(idata driver.DevicePtr, odata driver.DevicePtr) error {
 	return execC2R(h, idata, odata)
 }
 
@@ -64,7 +66,7 @@ func (h Handle) ExecC2R(idata uintptr, odata uintptr) error {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecD2Z.
-func (h Handle) ExecD2Z(idata uintptr, odata uintptr) error {
+func (h Handle) ExecD2Z(idata driver.DevicePtr, odata driver.DevicePtr) error {
 	return execD2Z(h, idata, odata)
 }
 
@@ -81,7 +83,7 @@ func (h Handle) ExecD2Z(idata uintptr, odata uintptr) error {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecR2C.
-func (h Handle) ExecR2C(idata uintptr, odata uintptr) error {
+func (h Handle) ExecR2C(idata driver.DevicePtr, odata driver.DevicePtr) error {
 	return execR2C(h, idata, odata)
 }
 
@@ -98,7 +100,7 @@ func (h Handle) ExecR2C(idata uintptr, odata uintptr) error {
 //   - [Success]: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecZ2D.
-func (h Handle) ExecZ2D(idata uintptr, odata uintptr) error {
+func (h Handle) ExecZ2D(idata driver.DevicePtr, odata driver.DevicePtr) error {
 	return execZ2D(h, idata, odata)
 }
 
@@ -117,7 +119,7 @@ func (h Handle) ExecZ2D(idata uintptr, odata uintptr) error {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecZ2Z.
-func (h Handle) ExecZ2Z(idata uintptr, odata uintptr, direction int32) error {
+func (h Handle) ExecZ2Z(idata driver.DevicePtr, odata driver.DevicePtr, direction int32) error {
 	return execZ2Z(h, idata, odata, direction)
 }
 
@@ -464,7 +466,7 @@ func (h Handle) SetPlanPropertyInt64(property Property, inputValueInt int64) err
 //   - [Success]: The stream was associated with the plan.
 //
 // Wraps cufftSetStream.
-func (h Handle) SetStream(stream Stream) error {
+func (h Handle) SetStream(stream driver.Stream) error {
 	return setStream(h, stream)
 }
 
@@ -479,6 +481,6 @@ func (h Handle) SetStream(stream Stream) error {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftSetWorkArea.
-func (h Handle) SetWorkArea(workArea uintptr) error {
+func (h Handle) SetWorkArea(workArea driver.DevicePtr) error {
 	return setWorkArea(h, workArea)
 }

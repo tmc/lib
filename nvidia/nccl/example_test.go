@@ -82,7 +82,7 @@ func Example_allReduce() {
 		fmt.Println("copy in:", err)
 		return
 	}
-	err = comms[0].AllReduce(nccl.Buffer(p), nccl.Buffer(p), uint(len(values)), nccl.Float32, nccl.Sum, 0)
+	err = comms[0].AllReduce(p, p, uint(len(values)), nccl.Float32, nccl.Sum, 0)
 	if err != nil {
 		fmt.Println("all-reduce:", err)
 		return

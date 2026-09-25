@@ -2,88 +2,92 @@
 
 package cusolver
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // CCgels wraps cusolverDnCCgels.
-func (h Handle) CCgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) CCgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return cCgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // CCgelsBufferSize wraps cusolverDnCCgelsBufferSize, bound as cusolverDnCCgels_bufferSize.
-func (h Handle) CCgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) CCgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return cCgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // CCgesv wraps cusolverDnCCgesv.
-func (h Handle) CCgesv(n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) CCgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return cCgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // CCgesvBufferSize wraps cusolverDnCCgesvBufferSize, bound as cusolverDnCCgesv_bufferSize.
-func (h Handle) CCgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) CCgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return cCgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // CEgels wraps cusolverDnCEgels.
-func (h Handle) CEgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) CEgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return cEgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // CEgelsBufferSize wraps cusolverDnCEgelsBufferSize, bound as cusolverDnCEgels_bufferSize.
-func (h Handle) CEgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) CEgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return cEgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // CEgesv wraps cusolverDnCEgesv.
-func (h Handle) CEgesv(n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) CEgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return cEgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // CEgesvBufferSize wraps cusolverDnCEgesvBufferSize, bound as cusolverDnCEgesv_bufferSize.
-func (h Handle) CEgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) CEgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return cEgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // CKgels wraps cusolverDnCKgels.
-func (h Handle) CKgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) CKgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return cKgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // CKgelsBufferSize wraps cusolverDnCKgelsBufferSize, bound as cusolverDnCKgels_bufferSize.
-func (h Handle) CKgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) CKgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return cKgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // CKgesv wraps cusolverDnCKgesv.
-func (h Handle) CKgesv(n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) CKgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return cKgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // CKgesvBufferSize wraps cusolverDnCKgesvBufferSize, bound as cusolverDnCKgesv_bufferSize.
-func (h Handle) CKgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) CKgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return cKgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // CYgels wraps cusolverDnCYgels.
-func (h Handle) CYgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) CYgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return cYgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // CYgelsBufferSize wraps cusolverDnCYgelsBufferSize, bound as cusolverDnCYgels_bufferSize.
-func (h Handle) CYgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) CYgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return cYgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // CYgesv wraps cusolverDnCYgesv.
-func (h Handle) CYgesv(n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) CYgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return cYgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // CYgesvBufferSize wraps cusolverDnCYgesvBufferSize, bound as cusolverDnCYgesv_bufferSize.
-func (h Handle) CYgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) CYgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return cYgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // Cgebrd wraps cusolverDnCgebrd.
-func (h Handle) Cgebrd(m int32, n int32, a *Complex64, lda int32, d *float32, e *float32, tauq *Complex64, taup *Complex64, work *Complex64, lwork int32, devInfo *int32) error {
+func (h Handle) Cgebrd(m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return cgebrd(h, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo)
 }
 
@@ -93,17 +97,17 @@ func (h Handle) CgebrdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // Cgeqrf wraps cusolverDnCgeqrf.
-func (h Handle) Cgeqrf(m int32, n int32, a *Complex64, lda int32, tau *Complex64, workspace *Complex64, lwork int32, devInfo *int32) error {
+func (h Handle) Cgeqrf(m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return cgeqrf(h, m, n, a, lda, tau, workspace, lwork, devInfo)
 }
 
 // CgeqrfBufferSize wraps cusolverDnCgeqrfBufferSize, bound as cusolverDnCgeqrf_bufferSize.
-func (h Handle) CgeqrfBufferSize(m int32, n int32, a *Complex64, lda int32) (int32, error) {
+func (h Handle) CgeqrfBufferSize(m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return cgeqrfBufferSize(h, m, n, a, lda)
 }
 
 // Cgesvd wraps cusolverDnCgesvd.
-func (h Handle) Cgesvd(jobu int8, jobvt int8, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, vt *Complex64, ldvt int32, work *Complex64, lwork int32, rwork *float32, info *int32) error {
+func (h Handle) Cgesvd(jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
 	return cgesvd(h, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info)
 }
 
@@ -113,347 +117,347 @@ func (h Handle) CgesvdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // CgesvdaStridedBatched wraps cusolverDnCgesvdaStridedBatched.
-func (h Handle) CgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32, dA *Complex64, lda int32, strideA int64, dS *float32, strideS int64, dU *Complex64, ldu int32, strideU int64, dV *Complex64, ldv int32, strideV int64, dWork *Complex64, lwork int32, dInfo *int32, hRNrmF *float64, batchSize int32) error {
+func (h Handle) CgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
 	return cgesvdaStridedBatched(h, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, dWork, lwork, dInfo, hRNrmF, batchSize)
 }
 
 // CgesvdaStridedBatchedBufferSize wraps cusolverDnCgesvdaStridedBatchedBufferSize, bound as cusolverDnCgesvdaStridedBatched_bufferSize.
-func (h Handle) CgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int32, n int32, dA *Complex64, lda int32, strideA int64, dS *float32, strideS int64, dU *Complex64, ldu int32, strideU int64, dV *Complex64, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
+func (h Handle) CgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
 	return cgesvdaStridedBatchedBufferSize(h, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, lwork, batchSize)
 }
 
 // Cgesvdj wraps cusolverDnCgesvdj.
-func (h Handle) Cgesvdj(jobz EigMode, econ int32, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, work *Complex64, lwork int32, info *int32, params GesvdjInfo) error {
+func (h Handle) Cgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
 	return cgesvdj(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params)
 }
 
 // CgesvdjBatched wraps cusolverDnCgesvdjBatched.
-func (h Handle) CgesvdjBatched(jobz EigMode, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, work *Complex64, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+func (h Handle) CgesvdjBatched(jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
 	return cgesvdjBatched(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize)
 }
 
 // CgesvdjBatchedBufferSize wraps cusolverDnCgesvdjBatchedBufferSize, bound as cusolverDnCgesvdjBatched_bufferSize.
-func (h Handle) CgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+func (h Handle) CgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
 	return cgesvdjBatchedBufferSize(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize)
 }
 
 // CgesvdjBufferSize wraps cusolverDnCgesvdjBufferSize, bound as cusolverDnCgesvdj_bufferSize.
-func (h Handle) CgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, lwork *int32, params GesvdjInfo) error {
+func (h Handle) CgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
 	return cgesvdjBufferSize(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params)
 }
 
 // Cgetrf wraps cusolverDnCgetrf.
-func (h Handle) Cgetrf(m int32, n int32, a *Complex64, lda int32, workspace *Complex64, devIpiv *int32, devInfo *int32) error {
+func (h Handle) Cgetrf(m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
 	return cgetrf(h, m, n, a, lda, workspace, devIpiv, devInfo)
 }
 
 // CgetrfBufferSize wraps cusolverDnCgetrfBufferSize, bound as cusolverDnCgetrf_bufferSize.
-func (h Handle) CgetrfBufferSize(m int32, n int32, a *Complex64, lda int32) (int32, error) {
+func (h Handle) CgetrfBufferSize(m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return cgetrfBufferSize(h, m, n, a, lda)
 }
 
 // Cgetrs wraps cusolverDnCgetrs.
-func (h Handle) Cgetrs(trans Operation, n int32, nrhs int32, a *Complex64, lda int32, devIpiv *int32, b *Complex64, ldb int32, devInfo *int32) error {
+func (h Handle) Cgetrs(trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	return cgetrs(h, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo)
 }
 
 // Cheevd wraps cusolverDnCheevd.
-func (h Handle) Cheevd(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Cheevd(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return cheevd(h, jobz, uplo, n, a, lda, w, work, lwork, info)
 }
 
 // CheevdBufferSize wraps cusolverDnCheevdBufferSize, bound as cusolverDnCheevd_bufferSize.
-func (h Handle) CheevdBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32) (int32, error) {
+func (h Handle) CheevdBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
 	return cheevdBufferSize(h, jobz, uplo, n, a, lda, w)
 }
 
 // Cheevdx wraps cusolverDnCheevdx.
-func (h Handle) Cheevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Cheevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return cheevdx(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // CheevdxBufferSize wraps cusolverDnCheevdxBufferSize, bound as cusolverDnCheevdx_bufferSize.
-func (h Handle) CheevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+func (h Handle) CheevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	return cheevdxBufferSize(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w)
 }
 
 // Cheevj wraps cusolverDnCheevj.
-func (h Handle) Cheevj(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo) error {
+func (h Handle) Cheevj(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	return cheevj(h, jobz, uplo, n, a, lda, w, work, lwork, info, params)
 }
 
 // CheevjBatched wraps cusolverDnCheevjBatched.
-func (h Handle) CheevjBatched(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+func (h Handle) CheevjBatched(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
 	return cheevjBatched(h, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize)
 }
 
 // CheevjBatchedBufferSize wraps cusolverDnCheevjBatchedBufferSize, bound as cusolverDnCheevjBatched_bufferSize.
-func (h Handle) CheevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, lwork *int32, params SyevjInfo, batchSize int32) error {
+func (h Handle) CheevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
 	return cheevjBatchedBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params, batchSize)
 }
 
 // CheevjBufferSize wraps cusolverDnCheevjBufferSize, bound as cusolverDnCheevj_bufferSize.
-func (h Handle) CheevjBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, lwork *int32, params SyevjInfo) error {
+func (h Handle) CheevjBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	return cheevjBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params)
 }
 
 // Chegvd wraps cusolverDnChegvd.
-func (h Handle) Chegvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Chegvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return chegvd(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info)
 }
 
 // ChegvdBufferSize wraps cusolverDnChegvdBufferSize, bound as cusolverDnChegvd_bufferSize.
-func (h Handle) ChegvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32) (int32, error) {
+func (h Handle) ChegvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
 	return chegvdBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w)
 }
 
 // Chegvdx wraps cusolverDnChegvdx.
-func (h Handle) Chegvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Chegvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return chegvdx(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // ChegvdxBufferSize wraps cusolverDnChegvdxBufferSize, bound as cusolverDnChegvdx_bufferSize.
-func (h Handle) ChegvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+func (h Handle) ChegvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	return chegvdxBufferSize(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w)
 }
 
 // Chegvj wraps cusolverDnChegvj.
-func (h Handle) Chegvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo) error {
+func (h Handle) Chegvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	return chegvj(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params)
 }
 
 // ChegvjBufferSize wraps cusolverDnChegvjBufferSize, bound as cusolverDnChegvj_bufferSize.
-func (h Handle) ChegvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32, lwork *int32, params SyevjInfo) error {
+func (h Handle) ChegvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	return chegvjBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params)
 }
 
 // Chetrd wraps cusolverDnChetrd.
-func (h Handle) Chetrd(uplo FillMode, n int32, a *Complex64, lda int32, d *float32, e *float32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Chetrd(uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return chetrd(h, uplo, n, a, lda, d, e, tau, work, lwork, info)
 }
 
 // ChetrdBufferSize wraps cusolverDnChetrdBufferSize, bound as cusolverDnChetrd_bufferSize.
-func (h Handle) ChetrdBufferSize(uplo FillMode, n int32, a *Complex64, lda int32, d *float32, e *float32, tau *Complex64) (int32, error) {
+func (h Handle) ChetrdBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
 	return chetrdBufferSize(h, uplo, n, a, lda, d, e, tau)
 }
 
 // Claswp wraps cusolverDnClaswp.
-func (h Handle) Claswp(n int32, a *Complex64, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+func (h Handle) Claswp(n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
 	return claswp(h, n, a, lda, k1, k2, devIpiv, incx)
 }
 
 // Clauum wraps cusolverDnClauum.
-func (h Handle) Clauum(uplo FillMode, n int32, a *Complex64, lda int32, work *Complex64, lwork int32, devInfo *int32) error {
+func (h Handle) Clauum(uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return clauum(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // ClauumBufferSize wraps cusolverDnClauumBufferSize, bound as cusolverDnClauum_bufferSize.
-func (h Handle) ClauumBufferSize(uplo FillMode, n int32, a *Complex64, lda int32) (int32, error) {
+func (h Handle) ClauumBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return clauumBufferSize(h, uplo, n, a, lda)
 }
 
 // Cpotrf wraps cusolverDnCpotrf.
-func (h Handle) Cpotrf(uplo FillMode, n int32, a *Complex64, lda int32, workspace *Complex64, lwork int32, devInfo *int32) error {
+func (h Handle) Cpotrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return cpotrf(h, uplo, n, a, lda, workspace, lwork, devInfo)
 }
 
 // CpotrfBatched wraps cusolverDnCpotrfBatched.
-func (h Handle) CpotrfBatched(uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+func (h Handle) CpotrfBatched(uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
 	return cpotrfBatched(h, uplo, n, aarray, lda, infoArray, batchSize)
 }
 
 // CpotrfBufferSize wraps cusolverDnCpotrfBufferSize, bound as cusolverDnCpotrf_bufferSize.
-func (h Handle) CpotrfBufferSize(uplo FillMode, n int32, a *Complex64, lda int32) (int32, error) {
+func (h Handle) CpotrfBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return cpotrfBufferSize(h, uplo, n, a, lda)
 }
 
 // Cpotri wraps cusolverDnCpotri.
-func (h Handle) Cpotri(uplo FillMode, n int32, a *Complex64, lda int32, work *Complex64, lwork int32, devInfo *int32) error {
+func (h Handle) Cpotri(uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return cpotri(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // CpotriBufferSize wraps cusolverDnCpotriBufferSize, bound as cusolverDnCpotri_bufferSize.
-func (h Handle) CpotriBufferSize(uplo FillMode, n int32, a *Complex64, lda int32) (int32, error) {
+func (h Handle) CpotriBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return cpotriBufferSize(h, uplo, n, a, lda)
 }
 
 // Cpotrs wraps cusolverDnCpotrs.
-func (h Handle) Cpotrs(uplo FillMode, n int32, nrhs int32, a *Complex64, lda int32, b *Complex64, ldb int32, devInfo *int32) error {
+func (h Handle) Cpotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	return cpotrs(h, uplo, n, nrhs, a, lda, b, ldb, devInfo)
 }
 
 // CpotrsBatched wraps cusolverDnCpotrsBatched.
-func (h Handle) CpotrsBatched(uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+func (h Handle) CpotrsBatched(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
 	return cpotrsBatched(h, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize)
 }
 
 // Csytrf wraps cusolverDnCsytrf.
-func (h Handle) Csytrf(uplo FillMode, n int32, a *Complex64, lda int32, ipiv *int32, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Csytrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return csytrf(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // CsytrfBufferSize wraps cusolverDnCsytrfBufferSize, bound as cusolverDnCsytrf_bufferSize.
-func (h Handle) CsytrfBufferSize(n int32, a *Complex64, lda int32) (int32, error) {
+func (h Handle) CsytrfBufferSize(n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return csytrfBufferSize(h, n, a, lda)
 }
 
 // Csytri wraps cusolverDnCsytri.
-func (h Handle) Csytri(uplo FillMode, n int32, a *Complex64, lda int32, ipiv *int32, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Csytri(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return csytri(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // CsytriBufferSize wraps cusolverDnCsytriBufferSize, bound as cusolverDnCsytri_bufferSize.
-func (h Handle) CsytriBufferSize(uplo FillMode, n int32, a *Complex64, lda int32, ipiv *int32) (int32, error) {
+func (h Handle) CsytriBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr) (int32, error) {
 	return csytriBufferSize(h, uplo, n, a, lda, ipiv)
 }
 
 // Cungbr wraps cusolverDnCungbr.
-func (h Handle) Cungbr(side SideMode, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Cungbr(side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return cungbr(h, side, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // CungbrBufferSize wraps cusolverDnCungbrBufferSize, bound as cusolverDnCungbr_bufferSize.
-func (h Handle) CungbrBufferSize(side SideMode, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64) (int32, error) {
+func (h Handle) CungbrBufferSize(side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return cungbrBufferSize(h, side, m, n, k, a, lda, tau)
 }
 
 // Cungqr wraps cusolverDnCungqr.
-func (h Handle) Cungqr(m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Cungqr(m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return cungqr(h, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // CungqrBufferSize wraps cusolverDnCungqrBufferSize, bound as cusolverDnCungqr_bufferSize.
-func (h Handle) CungqrBufferSize(m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64) (int32, error) {
+func (h Handle) CungqrBufferSize(m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return cungqrBufferSize(h, m, n, k, a, lda, tau)
 }
 
 // Cungtr wraps cusolverDnCungtr.
-func (h Handle) Cungtr(uplo FillMode, n int32, a *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Cungtr(uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return cungtr(h, uplo, n, a, lda, tau, work, lwork, info)
 }
 
 // CungtrBufferSize wraps cusolverDnCungtrBufferSize, bound as cusolverDnCungtr_bufferSize.
-func (h Handle) CungtrBufferSize(uplo FillMode, n int32, a *Complex64, lda int32, tau *Complex64) (int32, error) {
+func (h Handle) CungtrBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return cungtrBufferSize(h, uplo, n, a, lda, tau)
 }
 
 // Cunmqr wraps cusolverDnCunmqr.
-func (h Handle) Cunmqr(side SideMode, trans Operation, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32, work *Complex64, lwork int32, devInfo *int32) error {
+func (h Handle) Cunmqr(side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return cunmqr(h, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo)
 }
 
 // CunmqrBufferSize wraps cusolverDnCunmqrBufferSize, bound as cusolverDnCunmqr_bufferSize.
-func (h Handle) CunmqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32) (int32, error) {
+func (h Handle) CunmqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	return cunmqrBufferSize(h, side, trans, m, n, k, a, lda, tau, c, ldc)
 }
 
 // Cunmtr wraps cusolverDnCunmtr.
-func (h Handle) Cunmtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32, work *Complex64, lwork int32, info *int32) error {
+func (h Handle) Cunmtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return cunmtr(h, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info)
 }
 
 // CunmtrBufferSize wraps cusolverDnCunmtrBufferSize, bound as cusolverDnCunmtr_bufferSize.
-func (h Handle) CunmtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32) (int32, error) {
+func (h Handle) CunmtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	return cunmtrBufferSize(h, side, uplo, trans, m, n, a, lda, tau, c, ldc)
 }
 
 // DBgels wraps cusolverDnDBgels.
-func (h Handle) DBgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DBgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dBgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DBgelsBufferSize wraps cusolverDnDBgelsBufferSize, bound as cusolverDnDBgels_bufferSize.
-func (h Handle) DBgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DBgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dBgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // DBgesv wraps cusolverDnDBgesv.
-func (h Handle) DBgesv(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DBgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dBgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DBgesvBufferSize wraps cusolverDnDBgesvBufferSize, bound as cusolverDnDBgesv_bufferSize.
-func (h Handle) DBgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DBgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dBgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // DDgels wraps cusolverDnDDgels.
-func (h Handle) DDgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DDgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dDgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DDgelsBufferSize wraps cusolverDnDDgelsBufferSize, bound as cusolverDnDDgels_bufferSize.
-func (h Handle) DDgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DDgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dDgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // DDgesv wraps cusolverDnDDgesv.
-func (h Handle) DDgesv(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DDgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dDgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DDgesvBufferSize wraps cusolverDnDDgesvBufferSize, bound as cusolverDnDDgesv_bufferSize.
-func (h Handle) DDgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DDgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dDgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // DHgels wraps cusolverDnDHgels.
-func (h Handle) DHgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DHgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dHgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DHgelsBufferSize wraps cusolverDnDHgelsBufferSize, bound as cusolverDnDHgels_bufferSize.
-func (h Handle) DHgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DHgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dHgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // DHgesv wraps cusolverDnDHgesv.
-func (h Handle) DHgesv(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DHgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dHgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DHgesvBufferSize wraps cusolverDnDHgesvBufferSize, bound as cusolverDnDHgesv_bufferSize.
-func (h Handle) DHgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DHgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dHgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // DSgels wraps cusolverDnDSgels.
-func (h Handle) DSgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DSgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dSgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DSgelsBufferSize wraps cusolverDnDSgelsBufferSize, bound as cusolverDnDSgels_bufferSize.
-func (h Handle) DSgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DSgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dSgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // DSgesv wraps cusolverDnDSgesv.
-func (h Handle) DSgesv(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DSgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dSgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DSgesvBufferSize wraps cusolverDnDSgesvBufferSize, bound as cusolverDnDSgesv_bufferSize.
-func (h Handle) DSgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DSgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dSgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // DXgels wraps cusolverDnDXgels.
-func (h Handle) DXgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DXgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dXgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DXgelsBufferSize wraps cusolverDnDXgelsBufferSize, bound as cusolverDnDXgels_bufferSize.
-func (h Handle) DXgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DXgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dXgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // DXgesv wraps cusolverDnDXgesv.
-func (h Handle) DXgesv(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) DXgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return dXgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // DXgesvBufferSize wraps cusolverDnDXgesvBufferSize, bound as cusolverDnDXgesv_bufferSize.
-func (h Handle) DXgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) DXgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return dXgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
@@ -468,7 +472,7 @@ func (h Handle) DeterministicMode() (DeterministicMode, error) {
 }
 
 // Dgebrd wraps cusolverDnDgebrd.
-func (h Handle) Dgebrd(m int32, n int32, a *float64, lda int32, d *float64, e *float64, tauq *float64, taup *float64, work *float64, lwork int32, devInfo *int32) error {
+func (h Handle) Dgebrd(m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return dgebrd(h, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo)
 }
 
@@ -478,17 +482,17 @@ func (h Handle) DgebrdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // Dgeqrf wraps cusolverDnDgeqrf.
-func (h Handle) Dgeqrf(m int32, n int32, a *float64, lda int32, tau *float64, workspace *float64, lwork int32, devInfo *int32) error {
+func (h Handle) Dgeqrf(m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return dgeqrf(h, m, n, a, lda, tau, workspace, lwork, devInfo)
 }
 
 // DgeqrfBufferSize wraps cusolverDnDgeqrfBufferSize, bound as cusolverDnDgeqrf_bufferSize.
-func (h Handle) DgeqrfBufferSize(m int32, n int32, a *float64, lda int32) (int32, error) {
+func (h Handle) DgeqrfBufferSize(m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return dgeqrfBufferSize(h, m, n, a, lda)
 }
 
 // Dgesvd wraps cusolverDnDgesvd.
-func (h Handle) Dgesvd(jobu int8, jobvt int8, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, vt *float64, ldvt int32, work *float64, lwork int32, rwork *float64, info *int32) error {
+func (h Handle) Dgesvd(jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
 	return dgesvd(h, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info)
 }
 
@@ -498,247 +502,247 @@ func (h Handle) DgesvdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // DgesvdaStridedBatched wraps cusolverDnDgesvdaStridedBatched.
-func (h Handle) DgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32, dA *float64, lda int32, strideA int64, dS *float64, strideS int64, dU *float64, ldu int32, strideU int64, dV *float64, ldv int32, strideV int64, dWork *float64, lwork int32, dInfo *int32, hRNrmF *float64, batchSize int32) error {
+func (h Handle) DgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
 	return dgesvdaStridedBatched(h, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, dWork, lwork, dInfo, hRNrmF, batchSize)
 }
 
 // DgesvdaStridedBatchedBufferSize wraps cusolverDnDgesvdaStridedBatchedBufferSize, bound as cusolverDnDgesvdaStridedBatched_bufferSize.
-func (h Handle) DgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int32, n int32, dA *float64, lda int32, strideA int64, dS *float64, strideS int64, dU *float64, ldu int32, strideU int64, dV *float64, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
+func (h Handle) DgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
 	return dgesvdaStridedBatchedBufferSize(h, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, lwork, batchSize)
 }
 
 // Dgesvdj wraps cusolverDnDgesvdj.
-func (h Handle) Dgesvdj(jobz EigMode, econ int32, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, work *float64, lwork int32, info *int32, params GesvdjInfo) error {
+func (h Handle) Dgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
 	return dgesvdj(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params)
 }
 
 // DgesvdjBatched wraps cusolverDnDgesvdjBatched.
-func (h Handle) DgesvdjBatched(jobz EigMode, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, work *float64, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+func (h Handle) DgesvdjBatched(jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
 	return dgesvdjBatched(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize)
 }
 
 // DgesvdjBatchedBufferSize wraps cusolverDnDgesvdjBatchedBufferSize, bound as cusolverDnDgesvdjBatched_bufferSize.
-func (h Handle) DgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+func (h Handle) DgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
 	return dgesvdjBatchedBufferSize(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize)
 }
 
 // DgesvdjBufferSize wraps cusolverDnDgesvdjBufferSize, bound as cusolverDnDgesvdj_bufferSize.
-func (h Handle) DgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, lwork *int32, params GesvdjInfo) error {
+func (h Handle) DgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
 	return dgesvdjBufferSize(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params)
 }
 
 // Dgetrf wraps cusolverDnDgetrf.
-func (h Handle) Dgetrf(m int32, n int32, a *float64, lda int32, workspace *float64, devIpiv *int32, devInfo *int32) error {
+func (h Handle) Dgetrf(m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
 	return dgetrf(h, m, n, a, lda, workspace, devIpiv, devInfo)
 }
 
 // DgetrfBufferSize wraps cusolverDnDgetrfBufferSize, bound as cusolverDnDgetrf_bufferSize.
-func (h Handle) DgetrfBufferSize(m int32, n int32, a *float64, lda int32) (int32, error) {
+func (h Handle) DgetrfBufferSize(m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return dgetrfBufferSize(h, m, n, a, lda)
 }
 
 // Dgetrs wraps cusolverDnDgetrs.
-func (h Handle) Dgetrs(trans Operation, n int32, nrhs int32, a *float64, lda int32, devIpiv *int32, b *float64, ldb int32, devInfo *int32) error {
+func (h Handle) Dgetrs(trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	return dgetrs(h, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo)
 }
 
 // Dlaswp wraps cusolverDnDlaswp.
-func (h Handle) Dlaswp(n int32, a *float64, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+func (h Handle) Dlaswp(n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
 	return dlaswp(h, n, a, lda, k1, k2, devIpiv, incx)
 }
 
 // Dlauum wraps cusolverDnDlauum.
-func (h Handle) Dlauum(uplo FillMode, n int32, a *float64, lda int32, work *float64, lwork int32, devInfo *int32) error {
+func (h Handle) Dlauum(uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return dlauum(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // DlauumBufferSize wraps cusolverDnDlauumBufferSize, bound as cusolverDnDlauum_bufferSize.
-func (h Handle) DlauumBufferSize(uplo FillMode, n int32, a *float64, lda int32) (int32, error) {
+func (h Handle) DlauumBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return dlauumBufferSize(h, uplo, n, a, lda)
 }
 
 // Dorgbr wraps cusolverDnDorgbr.
-func (h Handle) Dorgbr(side SideMode, m int32, n int32, k int32, a *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dorgbr(side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dorgbr(h, side, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // DorgbrBufferSize wraps cusolverDnDorgbrBufferSize, bound as cusolverDnDorgbr_bufferSize.
-func (h Handle) DorgbrBufferSize(side SideMode, m int32, n int32, k int32, a *float64, lda int32, tau *float64) (int32, error) {
+func (h Handle) DorgbrBufferSize(side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return dorgbrBufferSize(h, side, m, n, k, a, lda, tau)
 }
 
 // Dorgqr wraps cusolverDnDorgqr.
-func (h Handle) Dorgqr(m int32, n int32, k int32, a *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dorgqr(m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dorgqr(h, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // DorgqrBufferSize wraps cusolverDnDorgqrBufferSize, bound as cusolverDnDorgqr_bufferSize.
-func (h Handle) DorgqrBufferSize(m int32, n int32, k int32, a *float64, lda int32, tau *float64) (int32, error) {
+func (h Handle) DorgqrBufferSize(m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return dorgqrBufferSize(h, m, n, k, a, lda, tau)
 }
 
 // Dorgtr wraps cusolverDnDorgtr.
-func (h Handle) Dorgtr(uplo FillMode, n int32, a *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dorgtr(uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dorgtr(h, uplo, n, a, lda, tau, work, lwork, info)
 }
 
 // DorgtrBufferSize wraps cusolverDnDorgtrBufferSize, bound as cusolverDnDorgtr_bufferSize.
-func (h Handle) DorgtrBufferSize(uplo FillMode, n int32, a *float64, lda int32, tau *float64) (int32, error) {
+func (h Handle) DorgtrBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return dorgtrBufferSize(h, uplo, n, a, lda, tau)
 }
 
 // Dormqr wraps cusolverDnDormqr.
-func (h Handle) Dormqr(side SideMode, trans Operation, m int32, n int32, k int32, a *float64, lda int32, tau *float64, c *float64, ldc int32, work *float64, lwork int32, devInfo *int32) error {
+func (h Handle) Dormqr(side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return dormqr(h, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo)
 }
 
 // DormqrBufferSize wraps cusolverDnDormqrBufferSize, bound as cusolverDnDormqr_bufferSize.
-func (h Handle) DormqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a *float64, lda int32, tau *float64, c *float64, ldc int32) (int32, error) {
+func (h Handle) DormqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	return dormqrBufferSize(h, side, trans, m, n, k, a, lda, tau, c, ldc)
 }
 
 // Dormtr wraps cusolverDnDormtr.
-func (h Handle) Dormtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float64, lda int32, tau *float64, c *float64, ldc int32, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dormtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dormtr(h, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info)
 }
 
 // DormtrBufferSize wraps cusolverDnDormtrBufferSize, bound as cusolverDnDormtr_bufferSize.
-func (h Handle) DormtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float64, lda int32, tau *float64, c *float64, ldc int32) (int32, error) {
+func (h Handle) DormtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	return dormtrBufferSize(h, side, uplo, trans, m, n, a, lda, tau, c, ldc)
 }
 
 // Dpotrf wraps cusolverDnDpotrf.
-func (h Handle) Dpotrf(uplo FillMode, n int32, a *float64, lda int32, workspace *float64, lwork int32, devInfo *int32) error {
+func (h Handle) Dpotrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return dpotrf(h, uplo, n, a, lda, workspace, lwork, devInfo)
 }
 
 // DpotrfBatched wraps cusolverDnDpotrfBatched.
-func (h Handle) DpotrfBatched(uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+func (h Handle) DpotrfBatched(uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
 	return dpotrfBatched(h, uplo, n, aarray, lda, infoArray, batchSize)
 }
 
 // DpotrfBufferSize wraps cusolverDnDpotrfBufferSize, bound as cusolverDnDpotrf_bufferSize.
-func (h Handle) DpotrfBufferSize(uplo FillMode, n int32, a *float64, lda int32) (int32, error) {
+func (h Handle) DpotrfBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return dpotrfBufferSize(h, uplo, n, a, lda)
 }
 
 // Dpotri wraps cusolverDnDpotri.
-func (h Handle) Dpotri(uplo FillMode, n int32, a *float64, lda int32, work *float64, lwork int32, devInfo *int32) error {
+func (h Handle) Dpotri(uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return dpotri(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // DpotriBufferSize wraps cusolverDnDpotriBufferSize, bound as cusolverDnDpotri_bufferSize.
-func (h Handle) DpotriBufferSize(uplo FillMode, n int32, a *float64, lda int32) (int32, error) {
+func (h Handle) DpotriBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return dpotriBufferSize(h, uplo, n, a, lda)
 }
 
 // Dpotrs wraps cusolverDnDpotrs.
-func (h Handle) Dpotrs(uplo FillMode, n int32, nrhs int32, a *float64, lda int32, b *float64, ldb int32, devInfo *int32) error {
+func (h Handle) Dpotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	return dpotrs(h, uplo, n, nrhs, a, lda, b, ldb, devInfo)
 }
 
 // DpotrsBatched wraps cusolverDnDpotrsBatched.
-func (h Handle) DpotrsBatched(uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+func (h Handle) DpotrsBatched(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
 	return dpotrsBatched(h, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize)
 }
 
 // Dsyevd wraps cusolverDnDsyevd.
-func (h Handle) Dsyevd(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dsyevd(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dsyevd(h, jobz, uplo, n, a, lda, w, work, lwork, info)
 }
 
 // DsyevdBufferSize wraps cusolverDnDsyevdBufferSize, bound as cusolverDnDsyevd_bufferSize.
-func (h Handle) DsyevdBufferSize(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64) (int32, error) {
+func (h Handle) DsyevdBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
 	return dsyevdBufferSize(h, jobz, uplo, n, a, lda, w)
 }
 
 // Dsyevdx wraps cusolverDnDsyevdx.
-func (h Handle) Dsyevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dsyevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dsyevdx(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // DsyevdxBufferSize wraps cusolverDnDsyevdxBufferSize, bound as cusolverDnDsyevdx_bufferSize.
-func (h Handle) DsyevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+func (h Handle) DsyevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	return dsyevdxBufferSize(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w)
 }
 
 // Dsyevj wraps cusolverDnDsyevj.
-func (h Handle) Dsyevj(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, work *float64, lwork int32, info *int32, params SyevjInfo) error {
+func (h Handle) Dsyevj(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	return dsyevj(h, jobz, uplo, n, a, lda, w, work, lwork, info, params)
 }
 
 // DsyevjBatched wraps cusolverDnDsyevjBatched.
-func (h Handle) DsyevjBatched(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, work *float64, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+func (h Handle) DsyevjBatched(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
 	return dsyevjBatched(h, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize)
 }
 
 // DsyevjBatchedBufferSize wraps cusolverDnDsyevjBatchedBufferSize, bound as cusolverDnDsyevjBatched_bufferSize.
-func (h Handle) DsyevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, lwork *int32, params SyevjInfo, batchSize int32) error {
+func (h Handle) DsyevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
 	return dsyevjBatchedBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params, batchSize)
 }
 
 // DsyevjBufferSize wraps cusolverDnDsyevjBufferSize, bound as cusolverDnDsyevj_bufferSize.
-func (h Handle) DsyevjBufferSize(jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, lwork *int32, params SyevjInfo) error {
+func (h Handle) DsyevjBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	return dsyevjBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params)
 }
 
 // Dsygvd wraps cusolverDnDsygvd.
-func (h Handle) Dsygvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dsygvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dsygvd(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info)
 }
 
 // DsygvdBufferSize wraps cusolverDnDsygvdBufferSize, bound as cusolverDnDsygvd_bufferSize.
-func (h Handle) DsygvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64) (int32, error) {
+func (h Handle) DsygvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
 	return dsygvdBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w)
 }
 
 // Dsygvdx wraps cusolverDnDsygvdx.
-func (h Handle) Dsygvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dsygvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dsygvdx(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // DsygvdxBufferSize wraps cusolverDnDsygvdxBufferSize, bound as cusolverDnDsygvdx_bufferSize.
-func (h Handle) DsygvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+func (h Handle) DsygvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	return dsygvdxBufferSize(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w)
 }
 
 // Dsygvj wraps cusolverDnDsygvj.
-func (h Handle) Dsygvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64, work *float64, lwork int32, info *int32, params SyevjInfo) error {
+func (h Handle) Dsygvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	return dsygvj(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params)
 }
 
 // DsygvjBufferSize wraps cusolverDnDsygvjBufferSize, bound as cusolverDnDsygvj_bufferSize.
-func (h Handle) DsygvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64, lwork *int32, params SyevjInfo) error {
+func (h Handle) DsygvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	return dsygvjBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params)
 }
 
 // Dsytrd wraps cusolverDnDsytrd.
-func (h Handle) Dsytrd(uplo FillMode, n int32, a *float64, lda int32, d *float64, e *float64, tau *float64, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dsytrd(uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dsytrd(h, uplo, n, a, lda, d, e, tau, work, lwork, info)
 }
 
 // DsytrdBufferSize wraps cusolverDnDsytrdBufferSize, bound as cusolverDnDsytrd_bufferSize.
-func (h Handle) DsytrdBufferSize(uplo FillMode, n int32, a *float64, lda int32, d *float64, e *float64, tau *float64) (int32, error) {
+func (h Handle) DsytrdBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
 	return dsytrdBufferSize(h, uplo, n, a, lda, d, e, tau)
 }
 
 // Dsytrf wraps cusolverDnDsytrf.
-func (h Handle) Dsytrf(uplo FillMode, n int32, a *float64, lda int32, ipiv *int32, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dsytrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dsytrf(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // DsytrfBufferSize wraps cusolverDnDsytrfBufferSize, bound as cusolverDnDsytrf_bufferSize.
-func (h Handle) DsytrfBufferSize(n int32, a *float64, lda int32) (int32, error) {
+func (h Handle) DsytrfBufferSize(n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return dsytrfBufferSize(h, n, a, lda)
 }
 
 // Dsytri wraps cusolverDnDsytri.
-func (h Handle) Dsytri(uplo FillMode, n int32, a *float64, lda int32, ipiv *int32, work *float64, lwork int32, info *int32) error {
+func (h Handle) Dsytri(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return dsytri(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // DsytriBufferSize wraps cusolverDnDsytriBufferSize, bound as cusolverDnDsytri_bufferSize.
-func (h Handle) DsytriBufferSize(uplo FillMode, n int32, a *float64, lda int32, ipiv *int32) (int32, error) {
+func (h Handle) DsytriBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr) (int32, error) {
 	return dsytriBufferSize(h, uplo, n, a, lda, ipiv)
 }
 
@@ -768,7 +772,7 @@ func (h Handle) FixedPointEmulationMaxMantissaBitCount() (int32, error) {
 }
 
 // IRSXgels wraps cusolverDnIRSXgels.
-func (h Handle) IRSXgels(gelsIrsParams IRSParams, gelsIrsInfos IRSInfos, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA uintptr, ldda CusolverInt, dB uintptr, lddb CusolverInt, dX uintptr, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, niters *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) IRSXgels(gelsIrsParams IRSParams, gelsIrsInfos IRSInfos, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, niters *CusolverInt, dInfo driver.DevicePtr) error {
 	return iRSXgels(h, gelsIrsParams, gelsIrsInfos, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, niters, dInfo)
 }
 
@@ -778,7 +782,7 @@ func (h Handle) IRSXgelsBufferSize(params IRSParams, m CusolverInt, n CusolverIn
 }
 
 // IRSXgesv wraps cusolverDnIRSXgesv.
-func (h Handle) IRSXgesv(gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n CusolverInt, nrhs CusolverInt, dA uintptr, ldda CusolverInt, dB uintptr, lddb CusolverInt, dX uintptr, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, niters *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) IRSXgesv(gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, niters *CusolverInt, dInfo driver.DevicePtr) error {
 	return iRSXgesv(h, gesvIrsParams, gesvIrsInfos, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, niters, dInfo)
 }
 
@@ -793,82 +797,82 @@ func (h Handle) MathMode() (MathMode, error) {
 }
 
 // SBgels wraps cusolverDnSBgels.
-func (h Handle) SBgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) SBgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return sBgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // SBgelsBufferSize wraps cusolverDnSBgelsBufferSize, bound as cusolverDnSBgels_bufferSize.
-func (h Handle) SBgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) SBgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return sBgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // SBgesv wraps cusolverDnSBgesv.
-func (h Handle) SBgesv(n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) SBgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return sBgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // SBgesvBufferSize wraps cusolverDnSBgesvBufferSize, bound as cusolverDnSBgesv_bufferSize.
-func (h Handle) SBgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) SBgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return sBgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // SHgels wraps cusolverDnSHgels.
-func (h Handle) SHgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) SHgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return sHgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // SHgelsBufferSize wraps cusolverDnSHgelsBufferSize, bound as cusolverDnSHgels_bufferSize.
-func (h Handle) SHgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) SHgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return sHgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // SHgesv wraps cusolverDnSHgesv.
-func (h Handle) SHgesv(n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) SHgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return sHgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // SHgesvBufferSize wraps cusolverDnSHgesvBufferSize, bound as cusolverDnSHgesv_bufferSize.
-func (h Handle) SHgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) SHgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return sHgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // SSgels wraps cusolverDnSSgels.
-func (h Handle) SSgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) SSgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return sSgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // SSgelsBufferSize wraps cusolverDnSSgelsBufferSize, bound as cusolverDnSSgels_bufferSize.
-func (h Handle) SSgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) SSgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return sSgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // SSgesv wraps cusolverDnSSgesv.
-func (h Handle) SSgesv(n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) SSgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return sSgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // SSgesvBufferSize wraps cusolverDnSSgesvBufferSize, bound as cusolverDnSSgesv_bufferSize.
-func (h Handle) SSgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) SSgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return sSgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // SXgels wraps cusolverDnSXgels.
-func (h Handle) SXgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) SXgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return sXgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // SXgelsBufferSize wraps cusolverDnSXgelsBufferSize, bound as cusolverDnSXgels_bufferSize.
-func (h Handle) SXgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) SXgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return sXgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // SXgesv wraps cusolverDnSXgesv.
-func (h Handle) SXgesv(n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) SXgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return sXgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // SXgesvBufferSize wraps cusolverDnSXgesvBufferSize, bound as cusolverDnSXgesv_bufferSize.
-func (h Handle) SXgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) SXgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return sXgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
@@ -908,12 +912,12 @@ func (h Handle) SetMathMode(mode MathMode) error {
 }
 
 // SetStream wraps cusolverDnSetStream.
-func (h Handle) SetStream(streamId Stream) error {
+func (h Handle) SetStream(streamId driver.Stream) error {
 	return setStream(h, streamId)
 }
 
 // Sgebrd wraps cusolverDnSgebrd.
-func (h Handle) Sgebrd(m int32, n int32, a *float32, lda int32, d *float32, e *float32, tauq *float32, taup *float32, work *float32, lwork int32, devInfo *int32) error {
+func (h Handle) Sgebrd(m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return sgebrd(h, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo)
 }
 
@@ -923,17 +927,17 @@ func (h Handle) SgebrdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // Sgeqrf wraps cusolverDnSgeqrf.
-func (h Handle) Sgeqrf(m int32, n int32, a *float32, lda int32, tau *float32, workspace *float32, lwork int32, devInfo *int32) error {
+func (h Handle) Sgeqrf(m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return sgeqrf(h, m, n, a, lda, tau, workspace, lwork, devInfo)
 }
 
 // SgeqrfBufferSize wraps cusolverDnSgeqrfBufferSize, bound as cusolverDnSgeqrf_bufferSize.
-func (h Handle) SgeqrfBufferSize(m int32, n int32, a *float32, lda int32) (int32, error) {
+func (h Handle) SgeqrfBufferSize(m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return sgeqrfBufferSize(h, m, n, a, lda)
 }
 
 // Sgesvd wraps cusolverDnSgesvd.
-func (h Handle) Sgesvd(jobu int8, jobvt int8, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, vt *float32, ldvt int32, work *float32, lwork int32, rwork *float32, info *int32) error {
+func (h Handle) Sgesvd(jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
 	return sgesvd(h, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info)
 }
 
@@ -943,282 +947,282 @@ func (h Handle) SgesvdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // SgesvdaStridedBatched wraps cusolverDnSgesvdaStridedBatched.
-func (h Handle) SgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32, dA *float32, lda int32, strideA int64, dS *float32, strideS int64, dU *float32, ldu int32, strideU int64, dV *float32, ldv int32, strideV int64, dWork *float32, lwork int32, dInfo *int32, hRNrmF *float64, batchSize int32) error {
+func (h Handle) SgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
 	return sgesvdaStridedBatched(h, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, dWork, lwork, dInfo, hRNrmF, batchSize)
 }
 
 // SgesvdaStridedBatchedBufferSize wraps cusolverDnSgesvdaStridedBatchedBufferSize, bound as cusolverDnSgesvdaStridedBatched_bufferSize.
-func (h Handle) SgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int32, n int32, dA *float32, lda int32, strideA int64, dS *float32, strideS int64, dU *float32, ldu int32, strideU int64, dV *float32, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
+func (h Handle) SgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
 	return sgesvdaStridedBatchedBufferSize(h, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, lwork, batchSize)
 }
 
 // Sgesvdj wraps cusolverDnSgesvdj.
-func (h Handle) Sgesvdj(jobz EigMode, econ int32, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, work *float32, lwork int32, info *int32, params GesvdjInfo) error {
+func (h Handle) Sgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
 	return sgesvdj(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params)
 }
 
 // SgesvdjBatched wraps cusolverDnSgesvdjBatched.
-func (h Handle) SgesvdjBatched(jobz EigMode, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, work *float32, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+func (h Handle) SgesvdjBatched(jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
 	return sgesvdjBatched(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize)
 }
 
 // SgesvdjBatchedBufferSize wraps cusolverDnSgesvdjBatchedBufferSize, bound as cusolverDnSgesvdjBatched_bufferSize.
-func (h Handle) SgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+func (h Handle) SgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
 	return sgesvdjBatchedBufferSize(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize)
 }
 
 // SgesvdjBufferSize wraps cusolverDnSgesvdjBufferSize, bound as cusolverDnSgesvdj_bufferSize.
-func (h Handle) SgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, lwork *int32, params GesvdjInfo) error {
+func (h Handle) SgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
 	return sgesvdjBufferSize(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params)
 }
 
 // Sgetrf wraps cusolverDnSgetrf.
-func (h Handle) Sgetrf(m int32, n int32, a *float32, lda int32, workspace *float32, devIpiv *int32, devInfo *int32) error {
+func (h Handle) Sgetrf(m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
 	return sgetrf(h, m, n, a, lda, workspace, devIpiv, devInfo)
 }
 
 // SgetrfBufferSize wraps cusolverDnSgetrfBufferSize, bound as cusolverDnSgetrf_bufferSize.
-func (h Handle) SgetrfBufferSize(m int32, n int32, a *float32, lda int32) (int32, error) {
+func (h Handle) SgetrfBufferSize(m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return sgetrfBufferSize(h, m, n, a, lda)
 }
 
 // Sgetrs wraps cusolverDnSgetrs.
-func (h Handle) Sgetrs(trans Operation, n int32, nrhs int32, a *float32, lda int32, devIpiv *int32, b *float32, ldb int32, devInfo *int32) error {
+func (h Handle) Sgetrs(trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	return sgetrs(h, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo)
 }
 
 // Slaswp wraps cusolverDnSlaswp.
-func (h Handle) Slaswp(n int32, a *float32, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+func (h Handle) Slaswp(n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
 	return slaswp(h, n, a, lda, k1, k2, devIpiv, incx)
 }
 
 // Slauum wraps cusolverDnSlauum.
-func (h Handle) Slauum(uplo FillMode, n int32, a *float32, lda int32, work *float32, lwork int32, devInfo *int32) error {
+func (h Handle) Slauum(uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return slauum(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // SlauumBufferSize wraps cusolverDnSlauumBufferSize, bound as cusolverDnSlauum_bufferSize.
-func (h Handle) SlauumBufferSize(uplo FillMode, n int32, a *float32, lda int32) (int32, error) {
+func (h Handle) SlauumBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return slauumBufferSize(h, uplo, n, a, lda)
 }
 
 // Sorgbr wraps cusolverDnSorgbr.
-func (h Handle) Sorgbr(side SideMode, m int32, n int32, k int32, a *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Sorgbr(side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return sorgbr(h, side, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // SorgbrBufferSize wraps cusolverDnSorgbrBufferSize, bound as cusolverDnSorgbr_bufferSize.
-func (h Handle) SorgbrBufferSize(side SideMode, m int32, n int32, k int32, a *float32, lda int32, tau *float32) (int32, error) {
+func (h Handle) SorgbrBufferSize(side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return sorgbrBufferSize(h, side, m, n, k, a, lda, tau)
 }
 
 // Sorgqr wraps cusolverDnSorgqr.
-func (h Handle) Sorgqr(m int32, n int32, k int32, a *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Sorgqr(m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return sorgqr(h, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // SorgqrBufferSize wraps cusolverDnSorgqrBufferSize, bound as cusolverDnSorgqr_bufferSize.
-func (h Handle) SorgqrBufferSize(m int32, n int32, k int32, a *float32, lda int32, tau *float32) (int32, error) {
+func (h Handle) SorgqrBufferSize(m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return sorgqrBufferSize(h, m, n, k, a, lda, tau)
 }
 
 // Sorgtr wraps cusolverDnSorgtr.
-func (h Handle) Sorgtr(uplo FillMode, n int32, a *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Sorgtr(uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return sorgtr(h, uplo, n, a, lda, tau, work, lwork, info)
 }
 
 // SorgtrBufferSize wraps cusolverDnSorgtrBufferSize, bound as cusolverDnSorgtr_bufferSize.
-func (h Handle) SorgtrBufferSize(uplo FillMode, n int32, a *float32, lda int32, tau *float32) (int32, error) {
+func (h Handle) SorgtrBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return sorgtrBufferSize(h, uplo, n, a, lda, tau)
 }
 
 // Sormqr wraps cusolverDnSormqr.
-func (h Handle) Sormqr(side SideMode, trans Operation, m int32, n int32, k int32, a *float32, lda int32, tau *float32, c *float32, ldc int32, work *float32, lwork int32, devInfo *int32) error {
+func (h Handle) Sormqr(side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return sormqr(h, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo)
 }
 
 // SormqrBufferSize wraps cusolverDnSormqrBufferSize, bound as cusolverDnSormqr_bufferSize.
-func (h Handle) SormqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a *float32, lda int32, tau *float32, c *float32, ldc int32) (int32, error) {
+func (h Handle) SormqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	return sormqrBufferSize(h, side, trans, m, n, k, a, lda, tau, c, ldc)
 }
 
 // Sormtr wraps cusolverDnSormtr.
-func (h Handle) Sormtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float32, lda int32, tau *float32, c *float32, ldc int32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Sormtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return sormtr(h, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info)
 }
 
 // SormtrBufferSize wraps cusolverDnSormtrBufferSize, bound as cusolverDnSormtr_bufferSize.
-func (h Handle) SormtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float32, lda int32, tau *float32, c *float32, ldc int32) (int32, error) {
+func (h Handle) SormtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	return sormtrBufferSize(h, side, uplo, trans, m, n, a, lda, tau, c, ldc)
 }
 
 // Spotrf wraps cusolverDnSpotrf.
-func (h Handle) Spotrf(uplo FillMode, n int32, a *float32, lda int32, workspace *float32, lwork int32, devInfo *int32) error {
+func (h Handle) Spotrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return spotrf(h, uplo, n, a, lda, workspace, lwork, devInfo)
 }
 
 // SpotrfBatched wraps cusolverDnSpotrfBatched.
-func (h Handle) SpotrfBatched(uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+func (h Handle) SpotrfBatched(uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
 	return spotrfBatched(h, uplo, n, aarray, lda, infoArray, batchSize)
 }
 
 // SpotrfBufferSize wraps cusolverDnSpotrfBufferSize, bound as cusolverDnSpotrf_bufferSize.
-func (h Handle) SpotrfBufferSize(uplo FillMode, n int32, a *float32, lda int32) (int32, error) {
+func (h Handle) SpotrfBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return spotrfBufferSize(h, uplo, n, a, lda)
 }
 
 // Spotri wraps cusolverDnSpotri.
-func (h Handle) Spotri(uplo FillMode, n int32, a *float32, lda int32, work *float32, lwork int32, devInfo *int32) error {
+func (h Handle) Spotri(uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return spotri(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // SpotriBufferSize wraps cusolverDnSpotriBufferSize, bound as cusolverDnSpotri_bufferSize.
-func (h Handle) SpotriBufferSize(uplo FillMode, n int32, a *float32, lda int32) (int32, error) {
+func (h Handle) SpotriBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return spotriBufferSize(h, uplo, n, a, lda)
 }
 
 // Spotrs wraps cusolverDnSpotrs.
-func (h Handle) Spotrs(uplo FillMode, n int32, nrhs int32, a *float32, lda int32, b *float32, ldb int32, devInfo *int32) error {
+func (h Handle) Spotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	return spotrs(h, uplo, n, nrhs, a, lda, b, ldb, devInfo)
 }
 
 // SpotrsBatched wraps cusolverDnSpotrsBatched.
-func (h Handle) SpotrsBatched(uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+func (h Handle) SpotrsBatched(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
 	return spotrsBatched(h, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize)
 }
 
 // Ssyevd wraps cusolverDnSsyevd.
-func (h Handle) Ssyevd(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Ssyevd(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return ssyevd(h, jobz, uplo, n, a, lda, w, work, lwork, info)
 }
 
 // SsyevdBufferSize wraps cusolverDnSsyevdBufferSize, bound as cusolverDnSsyevd_bufferSize.
-func (h Handle) SsyevdBufferSize(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32) (int32, error) {
+func (h Handle) SsyevdBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
 	return ssyevdBufferSize(h, jobz, uplo, n, a, lda, w)
 }
 
 // Ssyevdx wraps cusolverDnSsyevdx.
-func (h Handle) Ssyevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Ssyevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return ssyevdx(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // SsyevdxBufferSize wraps cusolverDnSsyevdxBufferSize, bound as cusolverDnSsyevdx_bufferSize.
-func (h Handle) SsyevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+func (h Handle) SsyevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	return ssyevdxBufferSize(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w)
 }
 
 // Ssyevj wraps cusolverDnSsyevj.
-func (h Handle) Ssyevj(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, work *float32, lwork int32, info *int32, params SyevjInfo) error {
+func (h Handle) Ssyevj(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	return ssyevj(h, jobz, uplo, n, a, lda, w, work, lwork, info, params)
 }
 
 // SsyevjBatched wraps cusolverDnSsyevjBatched.
-func (h Handle) SsyevjBatched(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, work *float32, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+func (h Handle) SsyevjBatched(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
 	return ssyevjBatched(h, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize)
 }
 
 // SsyevjBatchedBufferSize wraps cusolverDnSsyevjBatchedBufferSize, bound as cusolverDnSsyevjBatched_bufferSize.
-func (h Handle) SsyevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, lwork *int32, params SyevjInfo, batchSize int32) error {
+func (h Handle) SsyevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
 	return ssyevjBatchedBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params, batchSize)
 }
 
 // SsyevjBufferSize wraps cusolverDnSsyevjBufferSize, bound as cusolverDnSsyevj_bufferSize.
-func (h Handle) SsyevjBufferSize(jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, lwork *int32, params SyevjInfo) error {
+func (h Handle) SsyevjBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	return ssyevjBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params)
 }
 
 // Ssygvd wraps cusolverDnSsygvd.
-func (h Handle) Ssygvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Ssygvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return ssygvd(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info)
 }
 
 // SsygvdBufferSize wraps cusolverDnSsygvdBufferSize, bound as cusolverDnSsygvd_bufferSize.
-func (h Handle) SsygvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32) (int32, error) {
+func (h Handle) SsygvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
 	return ssygvdBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w)
 }
 
 // Ssygvdx wraps cusolverDnSsygvdx.
-func (h Handle) Ssygvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Ssygvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return ssygvdx(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // SsygvdxBufferSize wraps cusolverDnSsygvdxBufferSize, bound as cusolverDnSsygvdx_bufferSize.
-func (h Handle) SsygvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+func (h Handle) SsygvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	return ssygvdxBufferSize(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w)
 }
 
 // Ssygvj wraps cusolverDnSsygvj.
-func (h Handle) Ssygvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32, work *float32, lwork int32, info *int32, params SyevjInfo) error {
+func (h Handle) Ssygvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	return ssygvj(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params)
 }
 
 // SsygvjBufferSize wraps cusolverDnSsygvjBufferSize, bound as cusolverDnSsygvj_bufferSize.
-func (h Handle) SsygvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32, lwork *int32, params SyevjInfo) error {
+func (h Handle) SsygvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	return ssygvjBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params)
 }
 
 // Ssytrd wraps cusolverDnSsytrd.
-func (h Handle) Ssytrd(uplo FillMode, n int32, a *float32, lda int32, d *float32, e *float32, tau *float32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Ssytrd(uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return ssytrd(h, uplo, n, a, lda, d, e, tau, work, lwork, info)
 }
 
 // SsytrdBufferSize wraps cusolverDnSsytrdBufferSize, bound as cusolverDnSsytrd_bufferSize.
-func (h Handle) SsytrdBufferSize(uplo FillMode, n int32, a *float32, lda int32, d *float32, e *float32, tau *float32) (int32, error) {
+func (h Handle) SsytrdBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
 	return ssytrdBufferSize(h, uplo, n, a, lda, d, e, tau)
 }
 
 // Ssytrf wraps cusolverDnSsytrf.
-func (h Handle) Ssytrf(uplo FillMode, n int32, a *float32, lda int32, ipiv *int32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Ssytrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return ssytrf(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // SsytrfBufferSize wraps cusolverDnSsytrfBufferSize, bound as cusolverDnSsytrf_bufferSize.
-func (h Handle) SsytrfBufferSize(n int32, a *float32, lda int32) (int32, error) {
+func (h Handle) SsytrfBufferSize(n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return ssytrfBufferSize(h, n, a, lda)
 }
 
 // Ssytri wraps cusolverDnSsytri.
-func (h Handle) Ssytri(uplo FillMode, n int32, a *float32, lda int32, ipiv *int32, work *float32, lwork int32, info *int32) error {
+func (h Handle) Ssytri(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return ssytri(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // SsytriBufferSize wraps cusolverDnSsytriBufferSize, bound as cusolverDnSsytri_bufferSize.
-func (h Handle) SsytriBufferSize(uplo FillMode, n int32, a *float32, lda int32, ipiv *int32) (int32, error) {
+func (h Handle) SsytriBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr) (int32, error) {
 	return ssytriBufferSize(h, uplo, n, a, lda, ipiv)
 }
 
 // Stream wraps cusolverDnGetStream.
-func (h Handle) Stream() (Stream, error) {
+func (h Handle) Stream() (driver.Stream, error) {
 	return getStream(h)
 }
 
 // Xgeev wraps cusolverDnXgeev.
-func (h Handle) Xgeev(params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, dataTypeVL DataType, vl uintptr, ldvl int64, dataTypeVR DataType, vr uintptr, ldvr int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func (h Handle) Xgeev(params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, dataTypeVL DataType, vl driver.DevicePtr, ldvl int64, dataTypeVR DataType, vr driver.DevicePtr, ldvr int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	return xgeev(h, params, jobvl, jobvr, n, dataTypeA, a, lda, dataTypeW, w, dataTypeVL, vl, ldvl, dataTypeVR, vr, ldvr, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XgeevBufferSize wraps cusolverDnXgeevBufferSize, bound as cusolverDnXgeev_bufferSize.
-func (h Handle) XgeevBufferSize(params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, dataTypeVL DataType, vl uintptr, ldvl int64, dataTypeVR DataType, vr uintptr, ldvr int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XgeevBufferSize(params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, dataTypeVL DataType, vl driver.DevicePtr, ldvl int64, dataTypeVR DataType, vr driver.DevicePtr, ldvr int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xgeevBufferSize(h, params, jobvl, jobvr, n, dataTypeA, a, lda, dataTypeW, w, dataTypeVL, vl, ldvl, dataTypeVR, vr, ldvr, computeType)
 }
 
 // Xgeqrf wraps cusolverDnXgeqrf.
-func (h Handle) Xgeqrf(params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeTau DataType, tau uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func (h Handle) Xgeqrf(params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeTau DataType, tau driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	return xgeqrf(h, params, m, n, dataTypeA, a, lda, dataTypeTau, tau, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XgeqrfBufferSize wraps cusolverDnXgeqrfBufferSize, bound as cusolverDnXgeqrf_bufferSize.
-func (h Handle) XgeqrfBufferSize(params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeTau DataType, tau uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XgeqrfBufferSize(params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeTau DataType, tau driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xgeqrfBufferSize(h, params, m, n, dataTypeA, a, lda, dataTypeTau, tau, computeType)
 }
 
 // Xgesvd wraps cusolverDnXgesvd.
-func (h Handle) Xgesvd(params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeVT DataType, vt uintptr, ldvt int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func (h Handle) Xgesvd(params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeVT DataType, vt driver.DevicePtr, ldvt int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	return xgesvd(h, params, jobu, jobvt, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeVT, vt, ldvt, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XgesvdBufferSize wraps cusolverDnXgesvdBufferSize, bound as cusolverDnXgesvd_bufferSize.
-func (h Handle) XgesvdBufferSize(params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeVT DataType, vt uintptr, ldvt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XgesvdBufferSize(params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeVT DataType, vt driver.DevicePtr, ldvt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xgesvdBufferSize(h, params, jobu, jobvt, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeVT, vt, ldvt, computeType)
 }
 
@@ -1233,92 +1237,92 @@ func (h Handle) XgesvdjGetSweeps(info GesvdjInfo) (int32, error) {
 }
 
 // Xgesvdp wraps cusolverDnXgesvdp.
-func (h Handle) Xgesvdp(params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeV DataType, v uintptr, ldv int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32, hErrSigma *float64) error {
+func (h Handle) Xgesvdp(params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr, hErrSigma *float64) error {
 	return xgesvdp(h, params, jobz, econ, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeV, v, ldv, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo, hErrSigma)
 }
 
 // XgesvdpBufferSize wraps cusolverDnXgesvdpBufferSize, bound as cusolverDnXgesvdp_bufferSize.
-func (h Handle) XgesvdpBufferSize(params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeV DataType, v uintptr, ldv int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XgesvdpBufferSize(params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xgesvdpBufferSize(h, params, jobz, econ, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeV, v, ldv, computeType)
 }
 
 // Xgesvdr wraps cusolverDnXgesvdr.
-func (h Handle) Xgesvdr(params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a uintptr, lda int64, dataTypeSrand DataType, srand uintptr, dataTypeUrand DataType, urand uintptr, ldUrand int64, dataTypeVrand DataType, vrand uintptr, ldVrand int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32) error {
+func (h Handle) Xgesvdr(params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeSrand DataType, srand driver.DevicePtr, dataTypeUrand DataType, urand driver.DevicePtr, ldUrand int64, dataTypeVrand DataType, vrand driver.DevicePtr, ldVrand int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
 	return xgesvdr(h, params, jobu, jobv, m, n, k, p, niters, dataTypeA, a, lda, dataTypeSrand, srand, dataTypeUrand, urand, ldUrand, dataTypeVrand, vrand, ldVrand, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo)
 }
 
 // XgesvdrBufferSize wraps cusolverDnXgesvdrBufferSize, bound as cusolverDnXgesvdr_bufferSize.
-func (h Handle) XgesvdrBufferSize(params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a uintptr, lda int64, dataTypeSrand DataType, srand uintptr, dataTypeUrand DataType, urand uintptr, ldUrand int64, dataTypeVrand DataType, vrand uintptr, ldVrand int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XgesvdrBufferSize(params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeSrand DataType, srand driver.DevicePtr, dataTypeUrand DataType, urand driver.DevicePtr, ldUrand int64, dataTypeVrand DataType, vrand driver.DevicePtr, ldVrand int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xgesvdrBufferSize(h, params, jobu, jobv, m, n, k, p, niters, dataTypeA, a, lda, dataTypeSrand, srand, dataTypeUrand, urand, ldUrand, dataTypeVrand, vrand, ldVrand, computeType)
 }
 
 // Xgetrf wraps cusolverDnXgetrf.
-func (h Handle) Xgetrf(params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func (h Handle) Xgetrf(params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	return xgetrf(h, params, m, n, dataTypeA, a, lda, ipiv, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XgetrfBufferSize wraps cusolverDnXgetrfBufferSize, bound as cusolverDnXgetrf_bufferSize.
-func (h Handle) XgetrfBufferSize(params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XgetrfBufferSize(params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xgetrfBufferSize(h, params, m, n, dataTypeA, a, lda, computeType)
 }
 
 // Xgetrs wraps cusolverDnXgetrs.
-func (h Handle) Xgetrs(params Params, trans Operation, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, dataTypeB DataType, b uintptr, ldb int64, info *int32) error {
+func (h Handle) Xgetrs(params Params, trans Operation, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, dataTypeB DataType, b driver.DevicePtr, ldb int64, info driver.DevicePtr) error {
 	return xgetrs(h, params, trans, n, nrhs, dataTypeA, a, lda, ipiv, dataTypeB, b, ldb, info)
 }
 
 // Xlarft wraps cusolverDnXlarft.
-func (h Handle) Xlarft(params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v uintptr, ldv int64, dataTypeTau DataType, tau uintptr, dataTypeT DataType, t uintptr, ldt int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint) error {
+func (h Handle) Xlarft(params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, dataTypeTau DataType, tau driver.DevicePtr, dataTypeT DataType, t driver.DevicePtr, ldt int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint) error {
 	return xlarft(h, params, direct, storev, n, k, dataTypeV, v, ldv, dataTypeTau, tau, dataTypeT, t, ldt, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost)
 }
 
 // XlarftBufferSize wraps cusolverDnXlarftBufferSize, bound as cusolverDnXlarft_bufferSize.
-func (h Handle) XlarftBufferSize(params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v uintptr, ldv int64, dataTypeTau DataType, tau uintptr, dataTypeT DataType, t uintptr, ldt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XlarftBufferSize(params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, dataTypeTau DataType, tau driver.DevicePtr, dataTypeT DataType, t driver.DevicePtr, ldt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xlarftBufferSize(h, params, direct, storev, n, k, dataTypeV, v, ldv, dataTypeTau, tau, dataTypeT, t, ldt, computeType)
 }
 
 // Xpotrf wraps cusolverDnXpotrf.
-func (h Handle) Xpotrf(params Params, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func (h Handle) Xpotrf(params Params, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	return xpotrf(h, params, uplo, n, dataTypeA, a, lda, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XpotrfBufferSize wraps cusolverDnXpotrfBufferSize, bound as cusolverDnXpotrf_bufferSize.
-func (h Handle) XpotrfBufferSize(params Params, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XpotrfBufferSize(params Params, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xpotrfBufferSize(h, params, uplo, n, dataTypeA, a, lda, computeType)
 }
 
 // Xpotrs wraps cusolverDnXpotrs.
-func (h Handle) Xpotrs(params Params, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, dataTypeB DataType, b uintptr, ldb int64, info *int32) error {
+func (h Handle) Xpotrs(params Params, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeB DataType, b driver.DevicePtr, ldb int64, info driver.DevicePtr) error {
 	return xpotrs(h, params, uplo, n, nrhs, dataTypeA, a, lda, dataTypeB, b, ldb, info)
 }
 
 // XsyevBatched wraps cusolverDnXsyevBatched.
-func (h Handle) XsyevBatched(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32, batchSize int64) error {
+func (h Handle) XsyevBatched(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr, batchSize int64) error {
 	return xsyevBatched(h, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info, batchSize)
 }
 
 // XsyevBatchedBufferSize wraps cusolverDnXsyevBatchedBufferSize, bound as cusolverDnXsyevBatched_bufferSize.
-func (h Handle) XsyevBatchedBufferSize(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType, workspaceInBytesOnDevice *uint, workspaceInBytesOnHost *uint, batchSize int64) error {
+func (h Handle) XsyevBatchedBufferSize(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, workspaceInBytesOnDevice *uint, workspaceInBytesOnHost *uint, batchSize int64) error {
 	return xsyevBatchedBufferSize(h, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, workspaceInBytesOnDevice, workspaceInBytesOnHost, batchSize)
 }
 
 // Xsyevd wraps cusolverDnXsyevd.
-func (h Handle) Xsyevd(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func (h Handle) Xsyevd(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	return xsyevd(h, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XsyevdBufferSize wraps cusolverDnXsyevdBufferSize, bound as cusolverDnXsyevd_bufferSize.
-func (h Handle) XsyevdBufferSize(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XsyevdBufferSize(params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xsyevdBufferSize(h, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType)
 }
 
 // Xsyevdx wraps cusolverDnXsyevdx.
-func (h Handle) Xsyevdx(params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, meig64 *int64, dataTypeW DataType, w uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func (h Handle) Xsyevdx(params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, meig64 *int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	return xsyevdx(h, params, jobz, range_, uplo, n, dataTypeA, a, lda, vl, vu, il, iu, meig64, dataTypeW, w, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XsyevdxBufferSize wraps cusolverDnXsyevdxBufferSize, bound as cusolverDnXsyevdx_bufferSize.
-func (h Handle) XsyevdxBufferSize(params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, hMeig *int64, dataTypeW DataType, w uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XsyevdxBufferSize(params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, hMeig *int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xsyevdxBufferSize(h, params, jobz, range_, uplo, n, dataTypeA, a, lda, vl, vu, il, iu, hMeig, dataTypeW, w, computeType)
 }
 
@@ -1333,147 +1337,147 @@ func (h Handle) XsyevjGetSweeps(info SyevjInfo) (int32, error) {
 }
 
 // Xsygvd wraps cusolverDnXsygvd.
-func (h Handle) Xsygvd(params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA uintptr, lda int64, dataTypeB DataType, dB uintptr, ldb int64, dataTypeW DataType, dW uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32) error {
+func (h Handle) Xsygvd(params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
 	return xsygvd(h, params, itype, jobz, uplo, n, dataTypeA, dA, lda, dataTypeB, dB, ldb, dataTypeW, dW, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo)
 }
 
 // XsygvdBufferSize wraps cusolverDnXsygvdBufferSize, bound as cusolverDnXsygvd_bufferSize.
-func (h Handle) XsygvdBufferSize(params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA uintptr, lda int64, dataTypeB DataType, dB uintptr, ldb int64, dataTypeW DataType, dW uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XsygvdBufferSize(params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xsygvdBufferSize(h, params, itype, jobz, uplo, n, dataTypeA, dA, lda, dataTypeB, dB, ldb, dataTypeW, dW, computeType)
 }
 
 // Xsygvdx wraps cusolverDnXsygvdx.
-func (h Handle) Xsygvdx(params Params, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, dA uintptr, lda int64, dataTypeB DataType, dB uintptr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32) error {
+func (h Handle) Xsygvdx(params Params, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
 	return xsygvdx(h, params, itype, jobz, range_, uplo, n, dataTypeA, dA, lda, dataTypeB, dB, ldb, vl, vu, il, iu, meig, dataTypeW, dW, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo)
 }
 
 // XsygvdxBufferSize wraps cusolverDnXsygvdxBufferSize, bound as cusolverDnXsygvdx_bufferSize.
-func (h Handle) XsygvdxBufferSize(params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA uintptr, lda int64, dataTypeB DataType, dB uintptr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XsygvdxBufferSize(params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xsygvdxBufferSize(h, params, itype, jobz, uplo, n, dataTypeA, dA, lda, dataTypeB, dB, ldb, vl, vu, il, iu, meig, dataTypeW, dW, computeType)
 }
 
 // Xsytrs wraps cusolverDnXsytrs.
-func (h Handle) Xsytrs(uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, dataTypeB DataType, b uintptr, ldb int64, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func (h Handle) Xsytrs(uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, dataTypeB DataType, b driver.DevicePtr, ldb int64, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	return xsytrs(h, uplo, n, nrhs, dataTypeA, a, lda, ipiv, dataTypeB, b, ldb, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info)
 }
 
 // XsytrsBufferSize wraps cusolverDnXsytrsBufferSize, bound as cusolverDnXsytrs_bufferSize.
-func (h Handle) XsytrsBufferSize(uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, dataTypeB DataType, b uintptr, ldb int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XsytrsBufferSize(uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, dataTypeB DataType, b driver.DevicePtr, ldb int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xsytrsBufferSize(h, uplo, n, nrhs, dataTypeA, a, lda, ipiv, dataTypeB, b, ldb)
 }
 
 // Xtrtri wraps cusolverDnXtrtri.
-func (h Handle) Xtrtri(uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a uintptr, lda int64, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, devInfo *int32) error {
+func (h Handle) Xtrtri(uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, devInfo driver.DevicePtr) error {
 	return xtrtri(h, uplo, diag, n, dataTypeA, a, lda, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, devInfo)
 }
 
 // XtrtriBufferSize wraps cusolverDnXtrtriBufferSize, bound as cusolverDnXtrtri_bufferSize.
-func (h Handle) XtrtriBufferSize(uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a uintptr, lda int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func (h Handle) XtrtriBufferSize(uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	return xtrtriBufferSize(h, uplo, diag, n, dataTypeA, a, lda)
 }
 
 // ZCgels wraps cusolverDnZCgels.
-func (h Handle) ZCgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZCgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zCgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZCgelsBufferSize wraps cusolverDnZCgelsBufferSize, bound as cusolverDnZCgels_bufferSize.
-func (h Handle) ZCgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZCgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zCgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // ZCgesv wraps cusolverDnZCgesv.
-func (h Handle) ZCgesv(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZCgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zCgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZCgesvBufferSize wraps cusolverDnZCgesvBufferSize, bound as cusolverDnZCgesv_bufferSize.
-func (h Handle) ZCgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZCgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zCgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // ZEgels wraps cusolverDnZEgels.
-func (h Handle) ZEgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZEgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zEgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZEgelsBufferSize wraps cusolverDnZEgelsBufferSize, bound as cusolverDnZEgels_bufferSize.
-func (h Handle) ZEgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZEgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zEgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // ZEgesv wraps cusolverDnZEgesv.
-func (h Handle) ZEgesv(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZEgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zEgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZEgesvBufferSize wraps cusolverDnZEgesvBufferSize, bound as cusolverDnZEgesv_bufferSize.
-func (h Handle) ZEgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZEgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zEgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // ZKgels wraps cusolverDnZKgels.
-func (h Handle) ZKgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZKgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zKgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZKgelsBufferSize wraps cusolverDnZKgelsBufferSize, bound as cusolverDnZKgels_bufferSize.
-func (h Handle) ZKgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZKgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zKgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // ZKgesv wraps cusolverDnZKgesv.
-func (h Handle) ZKgesv(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZKgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zKgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZKgesvBufferSize wraps cusolverDnZKgesvBufferSize, bound as cusolverDnZKgesv_bufferSize.
-func (h Handle) ZKgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZKgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zKgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // ZYgels wraps cusolverDnZYgels.
-func (h Handle) ZYgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZYgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zYgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZYgelsBufferSize wraps cusolverDnZYgelsBufferSize, bound as cusolverDnZYgels_bufferSize.
-func (h Handle) ZYgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZYgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zYgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // ZYgesv wraps cusolverDnZYgesv.
-func (h Handle) ZYgesv(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZYgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zYgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZYgesvBufferSize wraps cusolverDnZYgesvBufferSize, bound as cusolverDnZYgesv_bufferSize.
-func (h Handle) ZYgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZYgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zYgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // ZZgels wraps cusolverDnZZgels.
-func (h Handle) ZZgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZZgels(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zZgels(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZZgelsBufferSize wraps cusolverDnZZgelsBufferSize, bound as cusolverDnZZgels_bufferSize.
-func (h Handle) ZZgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZZgelsBufferSize(m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zZgelsBufferSize(h, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // ZZgesv wraps cusolverDnZZgesv.
-func (h Handle) ZZgesv(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func (h Handle) ZZgesv(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	return zZgesv(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo)
 }
 
 // ZZgesvBufferSize wraps cusolverDnZZgesvBufferSize, bound as cusolverDnZZgesv_bufferSize.
-func (h Handle) ZZgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func (h Handle) ZZgesvBufferSize(n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	return zZgesvBufferSize(h, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace)
 }
 
 // Zgebrd wraps cusolverDnZgebrd.
-func (h Handle) Zgebrd(m int32, n int32, a *Complex128, lda int32, d *float64, e *float64, tauq *Complex128, taup *Complex128, work *Complex128, lwork int32, devInfo *int32) error {
+func (h Handle) Zgebrd(m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return zgebrd(h, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo)
 }
 
@@ -1483,17 +1487,17 @@ func (h Handle) ZgebrdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // Zgeqrf wraps cusolverDnZgeqrf.
-func (h Handle) Zgeqrf(m int32, n int32, a *Complex128, lda int32, tau *Complex128, workspace *Complex128, lwork int32, devInfo *int32) error {
+func (h Handle) Zgeqrf(m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return zgeqrf(h, m, n, a, lda, tau, workspace, lwork, devInfo)
 }
 
 // ZgeqrfBufferSize wraps cusolverDnZgeqrfBufferSize, bound as cusolverDnZgeqrf_bufferSize.
-func (h Handle) ZgeqrfBufferSize(m int32, n int32, a *Complex128, lda int32) (int32, error) {
+func (h Handle) ZgeqrfBufferSize(m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return zgeqrfBufferSize(h, m, n, a, lda)
 }
 
 // Zgesvd wraps cusolverDnZgesvd.
-func (h Handle) Zgesvd(jobu int8, jobvt int8, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, vt *Complex128, ldvt int32, work *Complex128, lwork int32, rwork *float64, info *int32) error {
+func (h Handle) Zgesvd(jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
 	return zgesvd(h, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info)
 }
 
@@ -1503,246 +1507,246 @@ func (h Handle) ZgesvdBufferSize(m int32, n int32) (int32, error) {
 }
 
 // ZgesvdaStridedBatched wraps cusolverDnZgesvdaStridedBatched.
-func (h Handle) ZgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32, dA *Complex128, lda int32, strideA int64, dS *float64, strideS int64, dU *Complex128, ldu int32, strideU int64, dV *Complex128, ldv int32, strideV int64, dWork *Complex128, lwork int32, dInfo *int32, hRNrmF *float64, batchSize int32) error {
+func (h Handle) ZgesvdaStridedBatched(jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
 	return zgesvdaStridedBatched(h, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, dWork, lwork, dInfo, hRNrmF, batchSize)
 }
 
 // ZgesvdaStridedBatchedBufferSize wraps cusolverDnZgesvdaStridedBatchedBufferSize, bound as cusolverDnZgesvdaStridedBatched_bufferSize.
-func (h Handle) ZgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int32, n int32, dA *Complex128, lda int32, strideA int64, dS *float64, strideS int64, dU *Complex128, ldu int32, strideU int64, dV *Complex128, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
+func (h Handle) ZgesvdaStridedBatchedBufferSize(jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
 	return zgesvdaStridedBatchedBufferSize(h, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, lwork, batchSize)
 }
 
 // Zgesvdj wraps cusolverDnZgesvdj.
-func (h Handle) Zgesvdj(jobz EigMode, econ int32, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, work *Complex128, lwork int32, info *int32, params GesvdjInfo) error {
+func (h Handle) Zgesvdj(jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
 	return zgesvdj(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params)
 }
 
 // ZgesvdjBatched wraps cusolverDnZgesvdjBatched.
-func (h Handle) ZgesvdjBatched(jobz EigMode, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, work *Complex128, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+func (h Handle) ZgesvdjBatched(jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
 	return zgesvdjBatched(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize)
 }
 
 // ZgesvdjBatchedBufferSize wraps cusolverDnZgesvdjBatchedBufferSize, bound as cusolverDnZgesvdjBatched_bufferSize.
-func (h Handle) ZgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+func (h Handle) ZgesvdjBatchedBufferSize(jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
 	return zgesvdjBatchedBufferSize(h, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize)
 }
 
 // ZgesvdjBufferSize wraps cusolverDnZgesvdjBufferSize, bound as cusolverDnZgesvdj_bufferSize.
-func (h Handle) ZgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, lwork *int32, params GesvdjInfo) error {
+func (h Handle) ZgesvdjBufferSize(jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
 	return zgesvdjBufferSize(h, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params)
 }
 
 // Zgetrf wraps cusolverDnZgetrf.
-func (h Handle) Zgetrf(m int32, n int32, a *Complex128, lda int32, workspace *Complex128, devIpiv *int32, devInfo *int32) error {
+func (h Handle) Zgetrf(m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
 	return zgetrf(h, m, n, a, lda, workspace, devIpiv, devInfo)
 }
 
 // ZgetrfBufferSize wraps cusolverDnZgetrfBufferSize, bound as cusolverDnZgetrf_bufferSize.
-func (h Handle) ZgetrfBufferSize(m int32, n int32, a *Complex128, lda int32) (int32, error) {
+func (h Handle) ZgetrfBufferSize(m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return zgetrfBufferSize(h, m, n, a, lda)
 }
 
 // Zgetrs wraps cusolverDnZgetrs.
-func (h Handle) Zgetrs(trans Operation, n int32, nrhs int32, a *Complex128, lda int32, devIpiv *int32, b *Complex128, ldb int32, devInfo *int32) error {
+func (h Handle) Zgetrs(trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	return zgetrs(h, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo)
 }
 
 // Zheevd wraps cusolverDnZheevd.
-func (h Handle) Zheevd(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zheevd(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zheevd(h, jobz, uplo, n, a, lda, w, work, lwork, info)
 }
 
 // ZheevdBufferSize wraps cusolverDnZheevdBufferSize, bound as cusolverDnZheevd_bufferSize.
-func (h Handle) ZheevdBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64) (int32, error) {
+func (h Handle) ZheevdBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
 	return zheevdBufferSize(h, jobz, uplo, n, a, lda, w)
 }
 
 // Zheevdx wraps cusolverDnZheevdx.
-func (h Handle) Zheevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zheevdx(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zheevdx(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // ZheevdxBufferSize wraps cusolverDnZheevdxBufferSize, bound as cusolverDnZheevdx_bufferSize.
-func (h Handle) ZheevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+func (h Handle) ZheevdxBufferSize(jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	return zheevdxBufferSize(h, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w)
 }
 
 // Zheevj wraps cusolverDnZheevj.
-func (h Handle) Zheevj(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo) error {
+func (h Handle) Zheevj(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	return zheevj(h, jobz, uplo, n, a, lda, w, work, lwork, info, params)
 }
 
 // ZheevjBatched wraps cusolverDnZheevjBatched.
-func (h Handle) ZheevjBatched(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+func (h Handle) ZheevjBatched(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
 	return zheevjBatched(h, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize)
 }
 
 // ZheevjBatchedBufferSize wraps cusolverDnZheevjBatchedBufferSize, bound as cusolverDnZheevjBatched_bufferSize.
-func (h Handle) ZheevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, lwork *int32, params SyevjInfo, batchSize int32) error {
+func (h Handle) ZheevjBatchedBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
 	return zheevjBatchedBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params, batchSize)
 }
 
 // ZheevjBufferSize wraps cusolverDnZheevjBufferSize, bound as cusolverDnZheevj_bufferSize.
-func (h Handle) ZheevjBufferSize(jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, lwork *int32, params SyevjInfo) error {
+func (h Handle) ZheevjBufferSize(jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	return zheevjBufferSize(h, jobz, uplo, n, a, lda, w, lwork, params)
 }
 
 // Zhegvd wraps cusolverDnZhegvd.
-func (h Handle) Zhegvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zhegvd(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zhegvd(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info)
 }
 
 // ZhegvdBufferSize wraps cusolverDnZhegvdBufferSize, bound as cusolverDnZhegvd_bufferSize.
-func (h Handle) ZhegvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64) (int32, error) {
+func (h Handle) ZhegvdBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
 	return zhegvdBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w)
 }
 
 // Zhegvdx wraps cusolverDnZhegvdx.
-func (h Handle) Zhegvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zhegvdx(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zhegvdx(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info)
 }
 
 // ZhegvdxBufferSize wraps cusolverDnZhegvdxBufferSize, bound as cusolverDnZhegvdx_bufferSize.
-func (h Handle) ZhegvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+func (h Handle) ZhegvdxBufferSize(itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	return zhegvdxBufferSize(h, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w)
 }
 
 // Zhegvj wraps cusolverDnZhegvj.
-func (h Handle) Zhegvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo) error {
+func (h Handle) Zhegvj(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	return zhegvj(h, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params)
 }
 
 // ZhegvjBufferSize wraps cusolverDnZhegvjBufferSize, bound as cusolverDnZhegvj_bufferSize.
-func (h Handle) ZhegvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64, lwork *int32, params SyevjInfo) error {
+func (h Handle) ZhegvjBufferSize(itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	return zhegvjBufferSize(h, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params)
 }
 
 // Zhetrd wraps cusolverDnZhetrd.
-func (h Handle) Zhetrd(uplo FillMode, n int32, a *Complex128, lda int32, d *float64, e *float64, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zhetrd(uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zhetrd(h, uplo, n, a, lda, d, e, tau, work, lwork, info)
 }
 
 // ZhetrdBufferSize wraps cusolverDnZhetrdBufferSize, bound as cusolverDnZhetrd_bufferSize.
-func (h Handle) ZhetrdBufferSize(uplo FillMode, n int32, a *Complex128, lda int32, d *float64, e *float64, tau *Complex128) (int32, error) {
+func (h Handle) ZhetrdBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
 	return zhetrdBufferSize(h, uplo, n, a, lda, d, e, tau)
 }
 
 // Zlaswp wraps cusolverDnZlaswp.
-func (h Handle) Zlaswp(n int32, a *Complex128, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+func (h Handle) Zlaswp(n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
 	return zlaswp(h, n, a, lda, k1, k2, devIpiv, incx)
 }
 
 // Zlauum wraps cusolverDnZlauum.
-func (h Handle) Zlauum(uplo FillMode, n int32, a *Complex128, lda int32, work *Complex128, lwork int32, devInfo *int32) error {
+func (h Handle) Zlauum(uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return zlauum(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // ZlauumBufferSize wraps cusolverDnZlauumBufferSize, bound as cusolverDnZlauum_bufferSize.
-func (h Handle) ZlauumBufferSize(uplo FillMode, n int32, a *Complex128, lda int32) (int32, error) {
+func (h Handle) ZlauumBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return zlauumBufferSize(h, uplo, n, a, lda)
 }
 
 // Zpotrf wraps cusolverDnZpotrf.
-func (h Handle) Zpotrf(uplo FillMode, n int32, a *Complex128, lda int32, workspace *Complex128, lwork int32, devInfo *int32) error {
+func (h Handle) Zpotrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return zpotrf(h, uplo, n, a, lda, workspace, lwork, devInfo)
 }
 
 // ZpotrfBatched wraps cusolverDnZpotrfBatched.
-func (h Handle) ZpotrfBatched(uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+func (h Handle) ZpotrfBatched(uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
 	return zpotrfBatched(h, uplo, n, aarray, lda, infoArray, batchSize)
 }
 
 // ZpotrfBufferSize wraps cusolverDnZpotrfBufferSize, bound as cusolverDnZpotrf_bufferSize.
-func (h Handle) ZpotrfBufferSize(uplo FillMode, n int32, a *Complex128, lda int32) (int32, error) {
+func (h Handle) ZpotrfBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return zpotrfBufferSize(h, uplo, n, a, lda)
 }
 
 // Zpotri wraps cusolverDnZpotri.
-func (h Handle) Zpotri(uplo FillMode, n int32, a *Complex128, lda int32, work *Complex128, lwork int32, devInfo *int32) error {
+func (h Handle) Zpotri(uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return zpotri(h, uplo, n, a, lda, work, lwork, devInfo)
 }
 
 // ZpotriBufferSize wraps cusolverDnZpotriBufferSize, bound as cusolverDnZpotri_bufferSize.
-func (h Handle) ZpotriBufferSize(uplo FillMode, n int32, a *Complex128, lda int32) (int32, error) {
+func (h Handle) ZpotriBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return zpotriBufferSize(h, uplo, n, a, lda)
 }
 
 // Zpotrs wraps cusolverDnZpotrs.
-func (h Handle) Zpotrs(uplo FillMode, n int32, nrhs int32, a *Complex128, lda int32, b *Complex128, ldb int32, devInfo *int32) error {
+func (h Handle) Zpotrs(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	return zpotrs(h, uplo, n, nrhs, a, lda, b, ldb, devInfo)
 }
 
 // ZpotrsBatched wraps cusolverDnZpotrsBatched.
-func (h Handle) ZpotrsBatched(uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+func (h Handle) ZpotrsBatched(uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
 	return zpotrsBatched(h, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize)
 }
 
 // Zsytrf wraps cusolverDnZsytrf.
-func (h Handle) Zsytrf(uplo FillMode, n int32, a *Complex128, lda int32, ipiv *int32, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zsytrf(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zsytrf(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // ZsytrfBufferSize wraps cusolverDnZsytrfBufferSize, bound as cusolverDnZsytrf_bufferSize.
-func (h Handle) ZsytrfBufferSize(n int32, a *Complex128, lda int32) (int32, error) {
+func (h Handle) ZsytrfBufferSize(n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	return zsytrfBufferSize(h, n, a, lda)
 }
 
 // Zsytri wraps cusolverDnZsytri.
-func (h Handle) Zsytri(uplo FillMode, n int32, a *Complex128, lda int32, ipiv *int32, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zsytri(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zsytri(h, uplo, n, a, lda, ipiv, work, lwork, info)
 }
 
 // ZsytriBufferSize wraps cusolverDnZsytriBufferSize, bound as cusolverDnZsytri_bufferSize.
-func (h Handle) ZsytriBufferSize(uplo FillMode, n int32, a *Complex128, lda int32, ipiv *int32) (int32, error) {
+func (h Handle) ZsytriBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr) (int32, error) {
 	return zsytriBufferSize(h, uplo, n, a, lda, ipiv)
 }
 
 // Zungbr wraps cusolverDnZungbr.
-func (h Handle) Zungbr(side SideMode, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zungbr(side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zungbr(h, side, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // ZungbrBufferSize wraps cusolverDnZungbrBufferSize, bound as cusolverDnZungbr_bufferSize.
-func (h Handle) ZungbrBufferSize(side SideMode, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128) (int32, error) {
+func (h Handle) ZungbrBufferSize(side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return zungbrBufferSize(h, side, m, n, k, a, lda, tau)
 }
 
 // Zungqr wraps cusolverDnZungqr.
-func (h Handle) Zungqr(m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zungqr(m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zungqr(h, m, n, k, a, lda, tau, work, lwork, info)
 }
 
 // ZungqrBufferSize wraps cusolverDnZungqrBufferSize, bound as cusolverDnZungqr_bufferSize.
-func (h Handle) ZungqrBufferSize(m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128) (int32, error) {
+func (h Handle) ZungqrBufferSize(m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return zungqrBufferSize(h, m, n, k, a, lda, tau)
 }
 
 // Zungtr wraps cusolverDnZungtr.
-func (h Handle) Zungtr(uplo FillMode, n int32, a *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zungtr(uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zungtr(h, uplo, n, a, lda, tau, work, lwork, info)
 }
 
 // ZungtrBufferSize wraps cusolverDnZungtrBufferSize, bound as cusolverDnZungtr_bufferSize.
-func (h Handle) ZungtrBufferSize(uplo FillMode, n int32, a *Complex128, lda int32, tau *Complex128) (int32, error) {
+func (h Handle) ZungtrBufferSize(uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	return zungtrBufferSize(h, uplo, n, a, lda, tau)
 }
 
 // Zunmqr wraps cusolverDnZunmqr.
-func (h Handle) Zunmqr(side SideMode, trans Operation, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32, work *Complex128, lwork int32, devInfo *int32) error {
+func (h Handle) Zunmqr(side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	return zunmqr(h, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo)
 }
 
 // ZunmqrBufferSize wraps cusolverDnZunmqrBufferSize, bound as cusolverDnZunmqr_bufferSize.
-func (h Handle) ZunmqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32) (int32, error) {
+func (h Handle) ZunmqrBufferSize(side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	return zunmqrBufferSize(h, side, trans, m, n, k, a, lda, tau, c, ldc)
 }
 
 // Zunmtr wraps cusolverDnZunmtr.
-func (h Handle) Zunmtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32, work *Complex128, lwork int32, info *int32) error {
+func (h Handle) Zunmtr(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	return zunmtr(h, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info)
 }
 
 // ZunmtrBufferSize wraps cusolverDnZunmtrBufferSize, bound as cusolverDnZunmtr_bufferSize.
-func (h Handle) ZunmtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32) (int32, error) {
+func (h Handle) ZunmtrBufferSize(side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	return zunmtrBufferSize(h, side, uplo, trans, m, n, a, lda, tau, c, ldc)
 }

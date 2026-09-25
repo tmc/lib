@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/cusparse"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // Example creates a cuSPARSE handle and a CSR matrix descriptor for the
@@ -27,7 +28,7 @@ func Example() {
 	}
 	fmt.Println("cuSPARSE version:", version)
 
-	var dRowOffsets, dColInd, dValues uintptr // device allocations
+	var dRowOffsets, dColInd, dValues driver.DevicePtr // device allocations
 	mat, err := cusparse.CreateCsr(4, 4, 9, dRowOffsets, dColInd, dValues,
 		cusparse.Index32I, cusparse.Index32I,
 		cusparse.IndexBaseZero, cusparse.R32F)

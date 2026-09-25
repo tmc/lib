@@ -2,6 +2,8 @@
 
 package cudnn
 
+import "github.com/tmc/lib/nvidia/driver"
+
 // Destroy destroys a previously created dropout descriptor object.
 //
 // Returns:
@@ -36,7 +38,7 @@ func (d DropoutDescriptor) Get(handle Handle) (dropout float32, states uintptr, 
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnRestoreDropoutDescriptor.
-func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states uintptr, stateSizeInBytes int, seed uint64) error {
+func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states driver.DevicePtr, stateSizeInBytes int, seed uint64) error {
 	return restoreDropoutDescriptor(d, handle, dropout, states, stateSizeInBytes, seed)
 }
 
@@ -58,6 +60,6 @@ func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states uintpt
 //   - [Success]: The call was successful.
 //
 // Wraps cudnnSetDropoutDescriptor.
-func (d DropoutDescriptor) Set(handle Handle, dropout float32, states uintptr, stateSizeInBytes int, seed uint64) error {
+func (d DropoutDescriptor) Set(handle Handle, dropout float32, states driver.DevicePtr, stateSizeInBytes int, seed uint64) error {
 	return setDropoutDescriptor(d, handle, dropout, states, stateSizeInBytes, seed)
 }

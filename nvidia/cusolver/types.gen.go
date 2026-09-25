@@ -52,9 +52,6 @@ type Operation int32
 // SideMode selects the side of a matrix operation.
 type SideMode int32
 
-// Stream is an opaque CUDA stream handle.
-type Stream uintptr
-
 // CusolverInt represents cusolver_int_t.
 type CusolverInt int32
 

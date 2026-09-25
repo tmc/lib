@@ -179,8 +179,8 @@ func TestPhysicalVersionedDescriptors(t *testing.T) {
 			if err := nccl.GroupStart(); err != nil {
 				return err
 			}
-			if err := comm.AllReduce(nccl.Buffer(send), nccl.Buffer(recv), count,
-				nccl.Int32, nccl.Sum, nccl.Stream(stream)); err != nil {
+			if err := comm.AllReduce(send, recv, count,
+				nccl.Int32, nccl.Sum, stream); err != nil {
 				nccl.GroupEnd()
 				return err
 			}

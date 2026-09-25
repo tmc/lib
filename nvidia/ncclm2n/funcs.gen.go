@@ -3,6 +3,7 @@
 package ncclm2n
 
 import (
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -14,8 +15,8 @@ var (
 	fnGroupEnd          func() nccl.Result
 	fnGroupStart        func() nccl.Result
 	fnInit              func(*Handle, *Config) nccl.Result
-	fnReshard           func(Handle, nccl.Comm, *DistTensor, *DistTensor, nccl.Stream) nccl.Result
-	fnReshardWithWindow func(Handle, nccl.Comm, nccl.Window, *DistTensor, *DistTensor, nccl.Stream) nccl.Result
+	fnReshard           func(Handle, nccl.Comm, *DistTensor, *DistTensor, driver.Stream) nccl.Result
+	fnReshardWithWindow func(Handle, nccl.Comm, nccl.Window, *DistTensor, *DistTensor, driver.Stream) nccl.Result
 )
 
 // Finalize finalizes a handle after its submitted work has completed.
@@ -202,7 +203,7 @@ func Init(config *Config) (Handle, error) {
 //   - stream: in CUDA stream (explicit or default)
 //
 // Wraps ncclReshard.
-func Reshard(handle Handle, comm nccl.Comm, src *DistTensor, dst *DistTensor, stream nccl.Stream) error {
+func Reshard(handle Handle, comm nccl.Comm, src *DistTensor, dst *DistTensor, stream driver.Stream) error {
 	if err := checkLibSym("ncclReshard"); err != nil {
 		return err
 	}
@@ -231,7 +232,7 @@ func Reshard(handle Handle, comm nccl.Comm, src *DistTensor, dst *DistTensor, st
 //   - stream: in Explicit CUDA stream, or the default stream (NULL / `cudaStreamLegacy` / `cudaStreamPerThread`). Default- stream callers run on a library-owned non-blocking stream from a per-(comm, device) pool. Readiness and completion events preserve the caller stream's ordering before and after the reshard operation
 //
 // Wraps ncclReshardWithWindow.
-func ReshardWithWindow(handle Handle, comm nccl.Comm, window nccl.Window, src *DistTensor, dst *DistTensor, stream nccl.Stream) error {
+func ReshardWithWindow(handle Handle, comm nccl.Comm, window nccl.Window, src *DistTensor, dst *DistTensor, stream driver.Stream) error {
 	if err := checkLibSym("ncclReshardWithWindow"); err != nil {
 		return err
 	}

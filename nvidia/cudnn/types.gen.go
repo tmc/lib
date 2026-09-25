@@ -20,6 +20,3 @@ const (
 
 // RuntimeTag is an opaque runtime tag (deprecated).
 type RuntimeTag uintptr
-
-// Stream is an opaque handle to a CUDA stream.
-type Stream uintptr

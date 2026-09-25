@@ -6,6 +6,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/cublas"
 	"github.com/tmc/lib/nvidia/cublasmp"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -52,7 +53,7 @@ func ExampleHandle_Gemm() {
 
 	// The stream is bound at handle creation; every call on this handle is
 	// ordered on it, and the caller synchronizes it before reading C.
-	h, err := cublasmp.NewHandle(cublas.Stream(0))
+	h, err := cublasmp.NewHandle(driver.Stream(0))
 	if err != nil {
 		fmt.Println("handle:", err)
 		return

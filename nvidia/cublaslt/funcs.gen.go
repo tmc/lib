@@ -2,6 +2,10 @@
 
 package cublaslt
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // Generated function pointer variables.
 var (
 	fnCreate                           func(*Handle) Result
@@ -22,7 +26,7 @@ var (
 	fnLoggerSetFile                    func(uintptr) Result
 	fnLoggerSetLevel                   func(int32) Result
 	fnLoggerSetMask                    func(int32) Result
-	fnmatmul                           func(Handle, MatmulDesc, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, *MatmulAlgo, uintptr, uint, Stream) Result
+	fnmatmul                           func(Handle, MatmulDesc, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, *MatmulAlgo, uintptr, uint, driver.Stream) Result
 	fnMatmulAlgoCapGetAttribute        func(*MatmulAlgo, MatmulAlgoCapAttributes, uintptr, uint, *uint) Result
 	fnmatmulAlgoCheck                  func(Handle, MatmulDesc, MatrixLayout, MatrixLayout, MatrixLayout, MatrixLayout, *MatmulAlgo, *MatmulHeuristicResult) Result
 	fnMatmulAlgoConfigGetAttribute     func(*MatmulAlgo, MatmulAlgoConfigAttributes, uintptr, uint, *uint) Result
@@ -45,7 +49,7 @@ var (
 	fnmatrixLayoutGetAttribute         func(MatrixLayout, MatrixLayoutAttribute, uintptr, uint, *uint) Result
 	fnmatrixLayoutInit_internal        func(MatrixLayout, uint, DataType, uint64, uint64, int64) Result
 	fnmatrixLayoutSetAttribute         func(MatrixLayout, MatrixLayoutAttribute, uintptr, uint) Result
-	fnmatrixTransform                  func(Handle, MatrixTransformDesc, uintptr, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, Stream) Result
+	fnmatrixTransform                  func(Handle, MatrixTransformDesc, uintptr, uintptr, MatrixLayout, uintptr, uintptr, MatrixLayout, uintptr, MatrixLayout, driver.Stream) Result
 	fnmatrixTransformDescCreate        func(*MatrixTransformDesc, DataType) Result
 	fnmatrixTransformDescDestroy       func(MatrixTransformDesc) Result
 	fnmatrixTransformDescGetAttribute  func(MatrixTransformDesc, MatrixTransformDescAttributes, uintptr, uint, *uint) Result
@@ -390,11 +394,11 @@ func LoggerSetMask(mask int32) error {
 //   - [Success]: if the operation completed successfully
 //
 // Wraps cublasLtMatmul.
-func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha uintptr, a uintptr, adesc MatrixLayout, b uintptr, bdesc MatrixLayout, beta uintptr, c uintptr, cdesc MatrixLayout, d uintptr, ddesc MatrixLayout, algo *MatmulAlgo, workspace uintptr, workspaceSizeInBytes uint, stream Stream) error {
+func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha uintptr, a driver.DevicePtr, adesc MatrixLayout, b driver.DevicePtr, bdesc MatrixLayout, beta uintptr, c driver.DevicePtr, cdesc MatrixLayout, d driver.DevicePtr, ddesc MatrixLayout, algo *MatmulAlgo, workspace driver.DevicePtr, workspaceSizeInBytes uint, stream driver.Stream) error {
 	if err := checkLibSym("cublasLtMatmul"); err != nil {
 		return err
 	}
-	return toError(fnmatmul(lightHandle, computeDesc, alpha, a, adesc, b, bdesc, beta, c, cdesc, d, ddesc, algo, workspace, workspaceSizeInBytes, stream))
+	return toError(fnmatmul(lightHandle, computeDesc, alpha, uintptr(a), adesc, uintptr(b), bdesc, beta, uintptr(c), cdesc, uintptr(d), ddesc, algo, uintptr(workspace), workspaceSizeInBytes, stream))
 }
 
 // MatmulAlgoCapGetAttribute returns the value of the queried capability attribute for an initialized [MatmulAlgo] descriptor structure.
@@ -880,11 +884,11 @@ func matrixLayoutSetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute
 //   - [Success]: if the operation completed successfully
 //
 // Wraps cublasLtMatrixTransform.
-func matrixTransform(lightHandle Handle, transformDesc MatrixTransformDesc, alpha uintptr, a uintptr, adesc MatrixLayout, beta uintptr, b uintptr, bdesc MatrixLayout, c uintptr, cdesc MatrixLayout, stream Stream) error {
+func matrixTransform(lightHandle Handle, transformDesc MatrixTransformDesc, alpha uintptr, a driver.DevicePtr, adesc MatrixLayout, beta uintptr, b driver.DevicePtr, bdesc MatrixLayout, c driver.DevicePtr, cdesc MatrixLayout, stream driver.Stream) error {
 	if err := checkLibSym("cublasLtMatrixTransform"); err != nil {
 		return err
 	}
-	return toError(fnmatrixTransform(lightHandle, transformDesc, alpha, a, adesc, beta, b, bdesc, c, cdesc, stream))
+	return toError(fnmatrixTransform(lightHandle, transformDesc, alpha, uintptr(a), adesc, beta, uintptr(b), bdesc, uintptr(c), cdesc, stream))
 }
 
 // matrixTransformDescCreate creates a matrix transform descriptor by allocating the memory needed to hold its opaque structure.

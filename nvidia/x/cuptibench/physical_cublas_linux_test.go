@@ -63,7 +63,7 @@ func TestPhysicalCUBLASHCProjection(t *testing.T) {
 		if err := handle.SetMathMode(cublas.TF32TensorOpMath); err != nil {
 			return err
 		}
-		return handle.SetStream(cublas.Stream(p.streams[0].Raw()))
+		return handle.SetStream(p.streams[0].Raw())
 	}))
 	gemm := func() error {
 		return p.dev.WithContext(func() error {
@@ -73,9 +73,9 @@ func TestPhysicalCUBLASHCProjection(t *testing.T) {
 			pin.Pin(&beta)
 			defer pin.Unpin()
 			err := handle.GemmEx(cublas.OpT, cublas.OpN, rows, 1, k,
-				uintptr(unsafe.Pointer(&alpha)), uintptr(weights.Ptr()), cublas.R16F, k,
-				uintptr(input.Ptr()), cublas.R16F, k, uintptr(unsafe.Pointer(&beta)),
-				uintptr(output.Ptr()), cublas.R32F, rows, cublas.Compute32F, cublas.GemmDefault)
+				uintptr(unsafe.Pointer(&alpha)), weights.Ptr(), cublas.R16F, k,
+				input.Ptr(), cublas.R16F, k, uintptr(unsafe.Pointer(&beta)),
+				output.Ptr(), cublas.R32F, rows, cublas.Compute32F, cublas.GemmDefault)
 			runtime.KeepAlive(alpha)
 			runtime.KeepAlive(beta)
 			return err

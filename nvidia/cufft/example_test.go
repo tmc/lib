@@ -64,7 +64,7 @@ func Example() {
 		return
 	}
 	defer plan.Destroy()
-	if err := plan.ExecC2C(uintptr(p), uintptr(p), cufft.Forward); err != nil {
+	if err := plan.ExecC2C(p, p, cufft.Forward); err != nil {
 		fmt.Println("exec:", err)
 		return
 	}

@@ -2,162 +2,166 @@
 
 package cusolver
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // Generated function pointer variables.
 var (
-	fncCgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fncCgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, *uint) Result
-	fncCgesv                                    func(Handle, CusolverInt, CusolverInt, *Complex64, CusolverInt, *CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fncCgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *Complex64, CusolverInt, *CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, *uint) Result
-	fncEgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fncEgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, *uint) Result
-	fncEgesv                                    func(Handle, CusolverInt, CusolverInt, *Complex64, CusolverInt, *CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fncEgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *Complex64, CusolverInt, *CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, *uint) Result
-	fncKgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fncKgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, *uint) Result
-	fncKgesv                                    func(Handle, CusolverInt, CusolverInt, *Complex64, CusolverInt, *CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fncKgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *Complex64, CusolverInt, *CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, *uint) Result
-	fncYgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fncYgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, *uint) Result
-	fncYgesv                                    func(Handle, CusolverInt, CusolverInt, *Complex64, CusolverInt, *CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fncYgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *Complex64, CusolverInt, *CusolverInt, *Complex64, CusolverInt, *Complex64, CusolverInt, uintptr, *uint) Result
-	fncgebrd                                    func(Handle, int32, int32, *Complex64, int32, *float32, *float32, *Complex64, *Complex64, *Complex64, int32, *int32) Result
+	fncCgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fncCgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fncCgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fncCgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fncEgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fncEgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fncEgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fncEgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fncKgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fncKgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fncKgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fncKgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fncYgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fncYgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fncYgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fncYgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fncgebrd                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
 	fncgebrdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fncgeqrf                                    func(Handle, int32, int32, *Complex64, int32, *Complex64, *Complex64, int32, *int32) Result
-	fncgeqrfBufferSize                          func(Handle, int32, int32, *Complex64, int32, *int32) Result
-	fncgesvd                                    func(Handle, int8, int8, int32, int32, *Complex64, int32, *float32, *Complex64, int32, *Complex64, int32, *Complex64, int32, *float32, *int32) Result
+	fncgeqrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fncgeqrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
+	fncgesvd                                    func(Handle, int8, int8, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, uintptr) Result
 	fncgesvdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fncgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, *Complex64, int32, int64, *float32, int64, *Complex64, int32, int64, *Complex64, int32, int64, *Complex64, int32, *int32, *float64, int32) Result
-	fncgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, *Complex64, int32, int64, *float32, int64, *Complex64, int32, int64, *Complex64, int32, int64, *int32, int32) Result
-	fncgesvdj                                   func(Handle, EigMode, int32, int32, int32, *Complex64, int32, *float32, *Complex64, int32, *Complex64, int32, *Complex64, int32, *int32, GesvdjInfo) Result
-	fncgesvdjBatched                            func(Handle, EigMode, int32, int32, *Complex64, int32, *float32, *Complex64, int32, *Complex64, int32, *Complex64, int32, *int32, GesvdjInfo, int32) Result
-	fncgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, *Complex64, int32, *float32, *Complex64, int32, *Complex64, int32, *int32, GesvdjInfo, int32) Result
-	fncgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, *Complex64, int32, *float32, *Complex64, int32, *Complex64, int32, *int32, GesvdjInfo) Result
-	fncgetrf                                    func(Handle, int32, int32, *Complex64, int32, *Complex64, *int32, *int32) Result
-	fncgetrfBufferSize                          func(Handle, int32, int32, *Complex64, int32, *int32) Result
-	fncgetrs                                    func(Handle, Operation, int32, int32, *Complex64, int32, *int32, *Complex64, int32, *int32) Result
-	fncheevd                                    func(Handle, EigMode, FillMode, int32, *Complex64, int32, *float32, *Complex64, int32, *int32) Result
-	fncheevdBufferSize                          func(Handle, EigMode, FillMode, int32, *Complex64, int32, *float32, *int32) Result
-	fncheevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, *Complex64, int32, float32, float32, int32, int32, *int32, *float32, *Complex64, int32, *int32) Result
-	fncheevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, *Complex64, int32, float32, float32, int32, int32, *int32, *float32, *int32) Result
-	fncheevj                                    func(Handle, EigMode, FillMode, int32, *Complex64, int32, *float32, *Complex64, int32, *int32, SyevjInfo) Result
-	fncheevjBatched                             func(Handle, EigMode, FillMode, int32, *Complex64, int32, *float32, *Complex64, int32, *int32, SyevjInfo, int32) Result
-	fncheevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, *Complex64, int32, *float32, *int32, SyevjInfo, int32) Result
-	fncheevjBufferSize                          func(Handle, EigMode, FillMode, int32, *Complex64, int32, *float32, *int32, SyevjInfo) Result
-	fnchegvd                                    func(Handle, EigType, EigMode, FillMode, int32, *Complex64, int32, *Complex64, int32, *float32, *Complex64, int32, *int32) Result
-	fnchegvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, *Complex64, int32, *Complex64, int32, *float32, *int32) Result
-	fnchegvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, *Complex64, int32, *Complex64, int32, float32, float32, int32, int32, *int32, *float32, *Complex64, int32, *int32) Result
-	fnchegvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, *Complex64, int32, *Complex64, int32, float32, float32, int32, int32, *int32, *float32, *int32) Result
-	fnchegvj                                    func(Handle, EigType, EigMode, FillMode, int32, *Complex64, int32, *Complex64, int32, *float32, *Complex64, int32, *int32, SyevjInfo) Result
-	fnchegvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, *Complex64, int32, *Complex64, int32, *float32, *int32, SyevjInfo) Result
-	fnchetrd                                    func(Handle, FillMode, int32, *Complex64, int32, *float32, *float32, *Complex64, *Complex64, int32, *int32) Result
-	fnchetrdBufferSize                          func(Handle, FillMode, int32, *Complex64, int32, *float32, *float32, *Complex64, *int32) Result
-	fnclaswp                                    func(Handle, int32, *Complex64, int32, int32, int32, *int32, int32) Result
-	fnclauum                                    func(Handle, FillMode, int32, *Complex64, int32, *Complex64, int32, *int32) Result
-	fnclauumBufferSize                          func(Handle, FillMode, int32, *Complex64, int32, *int32) Result
-	fncpotrf                                    func(Handle, FillMode, int32, *Complex64, int32, *Complex64, int32, *int32) Result
-	fncpotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, *int32, int32) Result
-	fncpotrfBufferSize                          func(Handle, FillMode, int32, *Complex64, int32, *int32) Result
-	fncpotri                                    func(Handle, FillMode, int32, *Complex64, int32, *Complex64, int32, *int32) Result
-	fncpotriBufferSize                          func(Handle, FillMode, int32, *Complex64, int32, *int32) Result
-	fncpotrs                                    func(Handle, FillMode, int32, int32, *Complex64, int32, *Complex64, int32, *int32) Result
-	fncpotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, *int32, int32) Result
+	fncgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, uintptr, int32, uintptr, *float64, int32) Result
+	fncgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, *int32, int32) Result
+	fncgesvdj                                   func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo) Result
+	fncgesvdjBatched                            func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo, int32) Result
+	fncgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo, int32) Result
+	fncgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo) Result
+	fncgetrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr) Result
+	fncgetrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
+	fncgetrs                                    func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fncheevd                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fncheevdBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fncheevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
+	fncheevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, *int32) Result
+	fncheevj                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
+	fncheevjBatched                             func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo, int32) Result
+	fncheevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo, int32) Result
+	fncheevjBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
+	fnchegvd                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnchegvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32) Result
+	fnchegvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
+	fnchegvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, *int32) Result
+	fnchegvj                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
+	fnchegvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
+	fnchetrd                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
+	fnchetrdBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, *int32) Result
+	fnclaswp                                    func(Handle, int32, uintptr, int32, int32, int32, uintptr, int32) Result
+	fnclauum                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fnclauumBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fncpotrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fncpotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, uintptr, int32) Result
+	fncpotrfBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fncpotri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fncpotriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fncpotrs                                    func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fncpotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
 	fnCreate                                    func(*Handle) Result
 	fnCreateGesvdjInfo                          func(*GesvdjInfo) Result
 	fnCreateParams                              func(*Params) Result
 	fnCreateSyevjInfo                           func(*SyevjInfo) Result
-	fncsytrf                                    func(Handle, FillMode, int32, *Complex64, int32, *int32, *Complex64, int32, *int32) Result
-	fncsytrfBufferSize                          func(Handle, int32, *Complex64, int32, *int32) Result
-	fncsytri                                    func(Handle, FillMode, int32, *Complex64, int32, *int32, *Complex64, int32, *int32) Result
-	fncsytriBufferSize                          func(Handle, FillMode, int32, *Complex64, int32, *int32, *int32) Result
-	fncungbr                                    func(Handle, SideMode, int32, int32, int32, *Complex64, int32, *Complex64, *Complex64, int32, *int32) Result
-	fncungbrBufferSize                          func(Handle, SideMode, int32, int32, int32, *Complex64, int32, *Complex64, *int32) Result
-	fncungqr                                    func(Handle, int32, int32, int32, *Complex64, int32, *Complex64, *Complex64, int32, *int32) Result
-	fncungqrBufferSize                          func(Handle, int32, int32, int32, *Complex64, int32, *Complex64, *int32) Result
-	fncungtr                                    func(Handle, FillMode, int32, *Complex64, int32, *Complex64, *Complex64, int32, *int32) Result
-	fncungtrBufferSize                          func(Handle, FillMode, int32, *Complex64, int32, *Complex64, *int32) Result
-	fncunmqr                                    func(Handle, SideMode, Operation, int32, int32, int32, *Complex64, int32, *Complex64, *Complex64, int32, *Complex64, int32, *int32) Result
-	fncunmqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, *Complex64, int32, *Complex64, *Complex64, int32, *int32) Result
-	fncunmtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, *Complex64, int32, *Complex64, *Complex64, int32, *Complex64, int32, *int32) Result
-	fncunmtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, *Complex64, int32, *Complex64, *Complex64, int32, *int32) Result
-	fndBgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndBgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
-	fndBgesv                                    func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndBgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
-	fndDgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndDgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
-	fndDgesv                                    func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndDgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
-	fndHgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndHgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
-	fndHgesv                                    func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndHgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
-	fndSgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndSgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
-	fndSgesv                                    func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndSgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
-	fndXgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndXgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
-	fndXgesv                                    func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fndXgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *float64, CusolverInt, *CusolverInt, *float64, CusolverInt, *float64, CusolverInt, uintptr, *uint) Result
+	fncsytrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fncsytrfBufferSize                          func(Handle, int32, uintptr, int32, *int32) Result
+	fncsytri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fncsytriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fncungbr                                    func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fncungbrBufferSize                          func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
+	fncungqr                                    func(Handle, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fncungqrBufferSize                          func(Handle, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
+	fncungtr                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fncungtrBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fncunmqr                                    func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
+	fncunmqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
+	fncunmtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
+	fncunmtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
+	fndBgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndBgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fndBgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndBgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fndDgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndDgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fndDgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndDgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fndHgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndHgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fndHgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndHgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fndSgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndSgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fndSgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndSgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fndXgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndXgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fndXgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fndXgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
 	fndestroy                                   func(Handle) Result
 	fndestroyGesvdjInfo                         func(GesvdjInfo) Result
 	fndestroyParams                             func(Params) Result
 	fndestroySyevjInfo                          func(SyevjInfo) Result
-	fndgebrd                                    func(Handle, int32, int32, *float64, int32, *float64, *float64, *float64, *float64, *float64, int32, *int32) Result
+	fndgebrd                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
 	fndgebrdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fndgeqrf                                    func(Handle, int32, int32, *float64, int32, *float64, *float64, int32, *int32) Result
-	fndgeqrfBufferSize                          func(Handle, int32, int32, *float64, int32, *int32) Result
-	fndgesvd                                    func(Handle, int8, int8, int32, int32, *float64, int32, *float64, *float64, int32, *float64, int32, *float64, int32, *float64, *int32) Result
+	fndgeqrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fndgeqrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
+	fndgesvd                                    func(Handle, int8, int8, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, uintptr) Result
 	fndgesvdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fndgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, *float64, int32, int64, *float64, int64, *float64, int32, int64, *float64, int32, int64, *float64, int32, *int32, *float64, int32) Result
-	fndgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, *float64, int32, int64, *float64, int64, *float64, int32, int64, *float64, int32, int64, *int32, int32) Result
-	fndgesvdj                                   func(Handle, EigMode, int32, int32, int32, *float64, int32, *float64, *float64, int32, *float64, int32, *float64, int32, *int32, GesvdjInfo) Result
-	fndgesvdjBatched                            func(Handle, EigMode, int32, int32, *float64, int32, *float64, *float64, int32, *float64, int32, *float64, int32, *int32, GesvdjInfo, int32) Result
-	fndgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, *float64, int32, *float64, *float64, int32, *float64, int32, *int32, GesvdjInfo, int32) Result
-	fndgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, *float64, int32, *float64, *float64, int32, *float64, int32, *int32, GesvdjInfo) Result
-	fndgetrf                                    func(Handle, int32, int32, *float64, int32, *float64, *int32, *int32) Result
-	fndgetrfBufferSize                          func(Handle, int32, int32, *float64, int32, *int32) Result
-	fndgetrs                                    func(Handle, Operation, int32, int32, *float64, int32, *int32, *float64, int32, *int32) Result
-	fndlaswp                                    func(Handle, int32, *float64, int32, int32, int32, *int32, int32) Result
-	fndlauum                                    func(Handle, FillMode, int32, *float64, int32, *float64, int32, *int32) Result
-	fndlauumBufferSize                          func(Handle, FillMode, int32, *float64, int32, *int32) Result
-	fndorgbr                                    func(Handle, SideMode, int32, int32, int32, *float64, int32, *float64, *float64, int32, *int32) Result
-	fndorgbrBufferSize                          func(Handle, SideMode, int32, int32, int32, *float64, int32, *float64, *int32) Result
-	fndorgqr                                    func(Handle, int32, int32, int32, *float64, int32, *float64, *float64, int32, *int32) Result
-	fndorgqrBufferSize                          func(Handle, int32, int32, int32, *float64, int32, *float64, *int32) Result
-	fndorgtr                                    func(Handle, FillMode, int32, *float64, int32, *float64, *float64, int32, *int32) Result
-	fndorgtrBufferSize                          func(Handle, FillMode, int32, *float64, int32, *float64, *int32) Result
-	fndormqr                                    func(Handle, SideMode, Operation, int32, int32, int32, *float64, int32, *float64, *float64, int32, *float64, int32, *int32) Result
-	fndormqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, *float64, int32, *float64, *float64, int32, *int32) Result
-	fndormtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, *float64, int32, *float64, *float64, int32, *float64, int32, *int32) Result
-	fndormtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, *float64, int32, *float64, *float64, int32, *int32) Result
-	fndpotrf                                    func(Handle, FillMode, int32, *float64, int32, *float64, int32, *int32) Result
-	fndpotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, *int32, int32) Result
-	fndpotrfBufferSize                          func(Handle, FillMode, int32, *float64, int32, *int32) Result
-	fndpotri                                    func(Handle, FillMode, int32, *float64, int32, *float64, int32, *int32) Result
-	fndpotriBufferSize                          func(Handle, FillMode, int32, *float64, int32, *int32) Result
-	fndpotrs                                    func(Handle, FillMode, int32, int32, *float64, int32, *float64, int32, *int32) Result
-	fndpotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, *int32, int32) Result
-	fndsyevd                                    func(Handle, EigMode, FillMode, int32, *float64, int32, *float64, *float64, int32, *int32) Result
-	fndsyevdBufferSize                          func(Handle, EigMode, FillMode, int32, *float64, int32, *float64, *int32) Result
-	fndsyevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, *float64, int32, float64, float64, int32, int32, *int32, *float64, *float64, int32, *int32) Result
-	fndsyevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, *float64, int32, float64, float64, int32, int32, *int32, *float64, *int32) Result
-	fndsyevj                                    func(Handle, EigMode, FillMode, int32, *float64, int32, *float64, *float64, int32, *int32, SyevjInfo) Result
-	fndsyevjBatched                             func(Handle, EigMode, FillMode, int32, *float64, int32, *float64, *float64, int32, *int32, SyevjInfo, int32) Result
-	fndsyevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, *float64, int32, *float64, *int32, SyevjInfo, int32) Result
-	fndsyevjBufferSize                          func(Handle, EigMode, FillMode, int32, *float64, int32, *float64, *int32, SyevjInfo) Result
-	fndsygvd                                    func(Handle, EigType, EigMode, FillMode, int32, *float64, int32, *float64, int32, *float64, *float64, int32, *int32) Result
-	fndsygvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, *float64, int32, *float64, int32, *float64, *int32) Result
-	fndsygvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, *float64, int32, *float64, int32, float64, float64, int32, int32, *int32, *float64, *float64, int32, *int32) Result
-	fndsygvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, *float64, int32, *float64, int32, float64, float64, int32, int32, *int32, *float64, *int32) Result
-	fndsygvj                                    func(Handle, EigType, EigMode, FillMode, int32, *float64, int32, *float64, int32, *float64, *float64, int32, *int32, SyevjInfo) Result
-	fndsygvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, *float64, int32, *float64, int32, *float64, *int32, SyevjInfo) Result
-	fndsytrd                                    func(Handle, FillMode, int32, *float64, int32, *float64, *float64, *float64, *float64, int32, *int32) Result
-	fndsytrdBufferSize                          func(Handle, FillMode, int32, *float64, int32, *float64, *float64, *float64, *int32) Result
-	fndsytrf                                    func(Handle, FillMode, int32, *float64, int32, *int32, *float64, int32, *int32) Result
-	fndsytrfBufferSize                          func(Handle, int32, *float64, int32, *int32) Result
-	fndsytri                                    func(Handle, FillMode, int32, *float64, int32, *int32, *float64, int32, *int32) Result
-	fndsytriBufferSize                          func(Handle, FillMode, int32, *float64, int32, *int32, *int32) Result
+	fndgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, uintptr, int32, uintptr, *float64, int32) Result
+	fndgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, *int32, int32) Result
+	fndgesvdj                                   func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo) Result
+	fndgesvdjBatched                            func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo, int32) Result
+	fndgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo, int32) Result
+	fndgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo) Result
+	fndgetrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr) Result
+	fndgetrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
+	fndgetrs                                    func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fndlaswp                                    func(Handle, int32, uintptr, int32, int32, int32, uintptr, int32) Result
+	fndlauum                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fndlauumBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fndorgbr                                    func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fndorgbrBufferSize                          func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
+	fndorgqr                                    func(Handle, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fndorgqrBufferSize                          func(Handle, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
+	fndorgtr                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fndorgtrBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fndormqr                                    func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
+	fndormqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
+	fndormtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
+	fndormtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
+	fndpotrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fndpotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, uintptr, int32) Result
+	fndpotrfBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fndpotri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fndpotriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fndpotrs                                    func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fndpotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
+	fndsyevd                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fndsyevdBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fndsyevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
+	fndsyevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, *int32) Result
+	fndsyevj                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
+	fndsyevjBatched                             func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo, int32) Result
+	fndsyevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo, int32) Result
+	fndsyevjBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
+	fndsygvd                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fndsygvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32) Result
+	fndsygvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
+	fndsygvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, *int32) Result
+	fndsygvj                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
+	fndsygvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
+	fndsytrd                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
+	fndsytrdBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, *int32) Result
+	fndsytrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fndsytrfBufferSize                          func(Handle, int32, uintptr, int32, *int32) Result
+	fndsytri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fndsytriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
 	fngetDeterministicMode                      func(Handle, *DeterministicMode) Result
 	fngetEmulationSpecialValuesSupport          func(Handle, *EmulationSpecialValuesSupport) Result
 	fngetEmulationStrategy                      func(Handle, *EmulationStrategy) Result
@@ -166,7 +170,7 @@ var (
 	fngetFixedPointEmulationMaxMantissaBitCount func(Handle, *int32) Result
 	fngetMathMode                               func(Handle, *MathMode) Result
 	fnGetProperty                               func(LibraryPropertyType, *int32) Result
-	fngetStream                                 func(Handle, *Stream) Result
+	fngetStream                                 func(Handle, *driver.Stream) Result
 	fnGetVersion                                func(*int32) Result
 	fniRSInfosCreate                            func(*IRSInfos) Result
 	fniRSInfosDestroy                           func(IRSInfos) Result
@@ -188,9 +192,9 @@ var (
 	fniRSParamsSetSolverPrecisions              func(IRSParams, PrecType, PrecType) Result
 	fniRSParamsSetTol                           func(IRSParams, float64) Result
 	fniRSParamsSetTolInner                      func(IRSParams, float64) Result
-	fniRSXgels                                  func(Handle, IRSParams, IRSInfos, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
+	fniRSXgels                                  func(Handle, IRSParams, IRSInfos, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
 	fniRSXgelsBufferSize                        func(Handle, IRSParams, CusolverInt, CusolverInt, CusolverInt, *uint) Result
-	fniRSXgesv                                  func(Handle, IRSParams, IRSInfos, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
+	fniRSXgesv                                  func(Handle, IRSParams, IRSInfos, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
 	fniRSXgesvBufferSize                        func(Handle, IRSParams, CusolverInt, CusolverInt, *uint) Result
 	fnLoggerForceDisable                        func() Result
 	fnLoggerOpenFile                            func(*byte) Result
@@ -198,22 +202,22 @@ var (
 	fnLoggerSetFile                             func(*FILE) Result
 	fnLoggerSetLevel                            func(int32) Result
 	fnLoggerSetMask                             func(int32) Result
-	fnsBgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnsBgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, *uint) Result
-	fnsBgesv                                    func(Handle, CusolverInt, CusolverInt, *float32, CusolverInt, *CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnsBgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *float32, CusolverInt, *CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, *uint) Result
-	fnsHgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnsHgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, *uint) Result
-	fnsHgesv                                    func(Handle, CusolverInt, CusolverInt, *float32, CusolverInt, *CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnsHgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *float32, CusolverInt, *CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, *uint) Result
-	fnsSgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnsSgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, *uint) Result
-	fnsSgesv                                    func(Handle, CusolverInt, CusolverInt, *float32, CusolverInt, *CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnsSgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *float32, CusolverInt, *CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, *uint) Result
-	fnsXgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnsXgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, *uint) Result
-	fnsXgesv                                    func(Handle, CusolverInt, CusolverInt, *float32, CusolverInt, *CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnsXgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *float32, CusolverInt, *CusolverInt, *float32, CusolverInt, *float32, CusolverInt, uintptr, *uint) Result
+	fnsBgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnsBgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnsBgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnsBgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnsHgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnsHgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnsHgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnsHgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnsSgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnsSgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnsSgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnsSgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnsXgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnsXgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnsXgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnsXgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
 	fnsetAdvOptions                             func(Params, Function, AlgMode) Result
 	fnsetDeterministicMode                      func(Handle, DeterministicMode) Result
 	fnsetEmulationSpecialValuesSupport          func(Handle, EmulationSpecialValuesSupport) Result
@@ -222,197 +226,197 @@ var (
 	fnsetFixedPointEmulationMantissaControl     func(Handle, EmulationMantissaControl) Result
 	fnsetFixedPointEmulationMaxMantissaBitCount func(Handle, int32) Result
 	fnsetMathMode                               func(Handle, MathMode) Result
-	fnsetStream                                 func(Handle, Stream) Result
-	fnsgebrd                                    func(Handle, int32, int32, *float32, int32, *float32, *float32, *float32, *float32, *float32, int32, *int32) Result
+	fnsetStream                                 func(Handle, driver.Stream) Result
+	fnsgebrd                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
 	fnsgebrdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fnsgeqrf                                    func(Handle, int32, int32, *float32, int32, *float32, *float32, int32, *int32) Result
-	fnsgeqrfBufferSize                          func(Handle, int32, int32, *float32, int32, *int32) Result
-	fnsgesvd                                    func(Handle, int8, int8, int32, int32, *float32, int32, *float32, *float32, int32, *float32, int32, *float32, int32, *float32, *int32) Result
+	fnsgeqrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnsgeqrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
+	fnsgesvd                                    func(Handle, int8, int8, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, uintptr) Result
 	fnsgesvdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fnsgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, *float32, int32, int64, *float32, int64, *float32, int32, int64, *float32, int32, int64, *float32, int32, *int32, *float64, int32) Result
-	fnsgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, *float32, int32, int64, *float32, int64, *float32, int32, int64, *float32, int32, int64, *int32, int32) Result
-	fnsgesvdj                                   func(Handle, EigMode, int32, int32, int32, *float32, int32, *float32, *float32, int32, *float32, int32, *float32, int32, *int32, GesvdjInfo) Result
-	fnsgesvdjBatched                            func(Handle, EigMode, int32, int32, *float32, int32, *float32, *float32, int32, *float32, int32, *float32, int32, *int32, GesvdjInfo, int32) Result
-	fnsgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, *float32, int32, *float32, *float32, int32, *float32, int32, *int32, GesvdjInfo, int32) Result
-	fnsgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, *float32, int32, *float32, *float32, int32, *float32, int32, *int32, GesvdjInfo) Result
-	fnsgetrf                                    func(Handle, int32, int32, *float32, int32, *float32, *int32, *int32) Result
-	fnsgetrfBufferSize                          func(Handle, int32, int32, *float32, int32, *int32) Result
-	fnsgetrs                                    func(Handle, Operation, int32, int32, *float32, int32, *int32, *float32, int32, *int32) Result
-	fnslaswp                                    func(Handle, int32, *float32, int32, int32, int32, *int32, int32) Result
-	fnslauum                                    func(Handle, FillMode, int32, *float32, int32, *float32, int32, *int32) Result
-	fnslauumBufferSize                          func(Handle, FillMode, int32, *float32, int32, *int32) Result
-	fnsorgbr                                    func(Handle, SideMode, int32, int32, int32, *float32, int32, *float32, *float32, int32, *int32) Result
-	fnsorgbrBufferSize                          func(Handle, SideMode, int32, int32, int32, *float32, int32, *float32, *int32) Result
-	fnsorgqr                                    func(Handle, int32, int32, int32, *float32, int32, *float32, *float32, int32, *int32) Result
-	fnsorgqrBufferSize                          func(Handle, int32, int32, int32, *float32, int32, *float32, *int32) Result
-	fnsorgtr                                    func(Handle, FillMode, int32, *float32, int32, *float32, *float32, int32, *int32) Result
-	fnsorgtrBufferSize                          func(Handle, FillMode, int32, *float32, int32, *float32, *int32) Result
-	fnsormqr                                    func(Handle, SideMode, Operation, int32, int32, int32, *float32, int32, *float32, *float32, int32, *float32, int32, *int32) Result
-	fnsormqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, *float32, int32, *float32, *float32, int32, *int32) Result
-	fnsormtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, *float32, int32, *float32, *float32, int32, *float32, int32, *int32) Result
-	fnsormtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, *float32, int32, *float32, *float32, int32, *int32) Result
-	fnspotrf                                    func(Handle, FillMode, int32, *float32, int32, *float32, int32, *int32) Result
-	fnspotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, *int32, int32) Result
-	fnspotrfBufferSize                          func(Handle, FillMode, int32, *float32, int32, *int32) Result
-	fnspotri                                    func(Handle, FillMode, int32, *float32, int32, *float32, int32, *int32) Result
-	fnspotriBufferSize                          func(Handle, FillMode, int32, *float32, int32, *int32) Result
-	fnspotrs                                    func(Handle, FillMode, int32, int32, *float32, int32, *float32, int32, *int32) Result
-	fnspotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, *int32, int32) Result
-	fnssyevd                                    func(Handle, EigMode, FillMode, int32, *float32, int32, *float32, *float32, int32, *int32) Result
-	fnssyevdBufferSize                          func(Handle, EigMode, FillMode, int32, *float32, int32, *float32, *int32) Result
-	fnssyevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, *float32, int32, float32, float32, int32, int32, *int32, *float32, *float32, int32, *int32) Result
-	fnssyevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, *float32, int32, float32, float32, int32, int32, *int32, *float32, *int32) Result
-	fnssyevj                                    func(Handle, EigMode, FillMode, int32, *float32, int32, *float32, *float32, int32, *int32, SyevjInfo) Result
-	fnssyevjBatched                             func(Handle, EigMode, FillMode, int32, *float32, int32, *float32, *float32, int32, *int32, SyevjInfo, int32) Result
-	fnssyevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, *float32, int32, *float32, *int32, SyevjInfo, int32) Result
-	fnssyevjBufferSize                          func(Handle, EigMode, FillMode, int32, *float32, int32, *float32, *int32, SyevjInfo) Result
-	fnssygvd                                    func(Handle, EigType, EigMode, FillMode, int32, *float32, int32, *float32, int32, *float32, *float32, int32, *int32) Result
-	fnssygvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, *float32, int32, *float32, int32, *float32, *int32) Result
-	fnssygvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, *float32, int32, *float32, int32, float32, float32, int32, int32, *int32, *float32, *float32, int32, *int32) Result
-	fnssygvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, *float32, int32, *float32, int32, float32, float32, int32, int32, *int32, *float32, *int32) Result
-	fnssygvj                                    func(Handle, EigType, EigMode, FillMode, int32, *float32, int32, *float32, int32, *float32, *float32, int32, *int32, SyevjInfo) Result
-	fnssygvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, *float32, int32, *float32, int32, *float32, *int32, SyevjInfo) Result
-	fnssytrd                                    func(Handle, FillMode, int32, *float32, int32, *float32, *float32, *float32, *float32, int32, *int32) Result
-	fnssytrdBufferSize                          func(Handle, FillMode, int32, *float32, int32, *float32, *float32, *float32, *int32) Result
-	fnssytrf                                    func(Handle, FillMode, int32, *float32, int32, *int32, *float32, int32, *int32) Result
-	fnssytrfBufferSize                          func(Handle, int32, *float32, int32, *int32) Result
-	fnssytri                                    func(Handle, FillMode, int32, *float32, int32, *int32, *float32, int32, *int32) Result
-	fnssytriBufferSize                          func(Handle, FillMode, int32, *float32, int32, *int32, *int32) Result
-	fnxgeev                                     func(Handle, Params, EigMode, EigMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnsgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, uintptr, int32, uintptr, *float64, int32) Result
+	fnsgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, *int32, int32) Result
+	fnsgesvdj                                   func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo) Result
+	fnsgesvdjBatched                            func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo, int32) Result
+	fnsgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo, int32) Result
+	fnsgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo) Result
+	fnsgetrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr) Result
+	fnsgetrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
+	fnsgetrs                                    func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnslaswp                                    func(Handle, int32, uintptr, int32, int32, int32, uintptr, int32) Result
+	fnslauum                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fnslauumBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fnsorgbr                                    func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnsorgbrBufferSize                          func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
+	fnsorgqr                                    func(Handle, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnsorgqrBufferSize                          func(Handle, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
+	fnsorgtr                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnsorgtrBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fnsormqr                                    func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
+	fnsormqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
+	fnsormtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
+	fnsormtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
+	fnspotrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fnspotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, uintptr, int32) Result
+	fnspotrfBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fnspotri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fnspotriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fnspotrs                                    func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fnspotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
+	fnssyevd                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnssyevdBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fnssyevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
+	fnssyevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, *int32) Result
+	fnssyevj                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
+	fnssyevjBatched                             func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo, int32) Result
+	fnssyevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo, int32) Result
+	fnssyevjBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
+	fnssygvd                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnssygvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32) Result
+	fnssygvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
+	fnssygvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float32, float32, int32, int32, *int32, uintptr, *int32) Result
+	fnssygvj                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
+	fnssygvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
+	fnssytrd                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
+	fnssytrdBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, *int32) Result
+	fnssytrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnssytrfBufferSize                          func(Handle, int32, uintptr, int32, *int32) Result
+	fnssytri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnssytriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fnxgeev                                     func(Handle, Params, EigMode, EigMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxgeevBufferSize                           func(Handle, Params, EigMode, EigMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxgeqrf                                    func(Handle, Params, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnxgeqrf                                    func(Handle, Params, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxgeqrfBufferSize                          func(Handle, Params, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, *uint, *uint) Result
-	fnxgesvd                                    func(Handle, Params, int8, int8, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnxgesvd                                    func(Handle, Params, int8, int8, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxgesvdBufferSize                          func(Handle, Params, int8, int8, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
 	fnxgesvdjGetResidual                        func(Handle, GesvdjInfo, *float64) Result
 	fnxgesvdjGetSweeps                          func(Handle, GesvdjInfo, *int32) Result
 	fnxgesvdjSetMaxSweeps                       func(GesvdjInfo, int32) Result
 	fnxgesvdjSetSortEig                         func(GesvdjInfo, int32) Result
 	fnxgesvdjSetTolerance                       func(GesvdjInfo, float64) Result
-	fnxgesvdp                                   func(Handle, Params, EigMode, int32, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, *int32, *float64) Result
+	fnxgesvdp                                   func(Handle, Params, EigMode, int32, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr, *float64) Result
 	fnxgesvdpBufferSize                         func(Handle, Params, EigMode, int32, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxgesvdr                                   func(Handle, Params, int8, int8, int64, int64, int64, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnxgesvdr                                   func(Handle, Params, int8, int8, int64, int64, int64, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxgesvdrBufferSize                         func(Handle, Params, int8, int8, int64, int64, int64, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxgetrf                                    func(Handle, Params, int64, int64, DataType, uintptr, int64, *int64, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnxgetrf                                    func(Handle, Params, int64, int64, DataType, uintptr, int64, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxgetrfBufferSize                          func(Handle, Params, int64, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxgetrs                                    func(Handle, Params, Operation, int64, int64, DataType, uintptr, int64, *int64, DataType, uintptr, int64, *int32) Result
+	fnxgetrs                                    func(Handle, Params, Operation, int64, int64, DataType, uintptr, int64, uintptr, DataType, uintptr, int64, uintptr) Result
 	fnxlarft                                    func(Handle, Params, DirectMode, StorevMode, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint) Result
 	fnxlarftBufferSize                          func(Handle, Params, DirectMode, StorevMode, int64, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxpotrf                                    func(Handle, Params, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnxpotrf                                    func(Handle, Params, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxpotrfBufferSize                          func(Handle, Params, FillMode, int64, DataType, uintptr, int64, DataType, *uint, *uint) Result
-	fnxpotrs                                    func(Handle, Params, FillMode, int64, int64, DataType, uintptr, int64, DataType, uintptr, int64, *int32) Result
-	fnxsyevBatched                              func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, *int32, int64) Result
+	fnxpotrs                                    func(Handle, Params, FillMode, int64, int64, DataType, uintptr, int64, DataType, uintptr, int64, uintptr) Result
+	fnxsyevBatched                              func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr, int64) Result
 	fnxsyevBatchedBufferSize                    func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, *uint, *uint, int64) Result
-	fnxsyevd                                    func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnxsyevd                                    func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxsyevdBufferSize                          func(Handle, Params, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, DataType, *uint, *uint) Result
-	fnxsyevdx                                   func(Handle, Params, EigMode, EigRange, FillMode, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnxsyevdx                                   func(Handle, Params, EigMode, EigRange, FillMode, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxsyevdxBufferSize                         func(Handle, Params, EigMode, EigRange, FillMode, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, *uint, *uint) Result
 	fnxsyevjGetResidual                         func(Handle, SyevjInfo, *float64) Result
 	fnxsyevjGetSweeps                           func(Handle, SyevjInfo, *int32) Result
 	fnxsyevjSetMaxSweeps                        func(SyevjInfo, int32) Result
 	fnxsyevjSetSortEig                          func(SyevjInfo, int32) Result
 	fnxsyevjSetTolerance                        func(SyevjInfo, float64) Result
-	fnxsygvd                                    func(Handle, Params, EigType, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnxsygvd                                    func(Handle, Params, EigType, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxsygvdBufferSize                          func(Handle, Params, EigType, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, DataType, uintptr, DataType, *uint, *uint) Result
-	fnxsygvdx                                   func(Handle, Params, EigType, EigMode, EigRange, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, *int32) Result
+	fnxsygvdx                                   func(Handle, Params, EigType, EigMode, EigRange, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxsygvdxBufferSize                         func(Handle, Params, EigType, EigMode, FillMode, int64, DataType, uintptr, int64, DataType, uintptr, int64, uintptr, uintptr, int64, int64, *int64, DataType, uintptr, DataType, *uint, *uint) Result
-	fnxsytrs                                    func(Handle, FillMode, int64, int64, DataType, uintptr, int64, *int64, DataType, uintptr, int64, uintptr, uint, uintptr, uint, *int32) Result
-	fnxsytrsBufferSize                          func(Handle, FillMode, int64, int64, DataType, uintptr, int64, *int64, DataType, uintptr, int64, *uint, *uint) Result
-	fnxtrtri                                    func(Handle, FillMode, DiagType, int64, DataType, uintptr, int64, uintptr, uint, uintptr, uint, *int32) Result
+	fnxsytrs                                    func(Handle, FillMode, int64, int64, DataType, uintptr, int64, uintptr, DataType, uintptr, int64, uintptr, uint, uintptr, uint, uintptr) Result
+	fnxsytrsBufferSize                          func(Handle, FillMode, int64, int64, DataType, uintptr, int64, uintptr, DataType, uintptr, int64, *uint, *uint) Result
+	fnxtrtri                                    func(Handle, FillMode, DiagType, int64, DataType, uintptr, int64, uintptr, uint, uintptr, uint, uintptr) Result
 	fnxtrtriBufferSize                          func(Handle, FillMode, DiagType, int64, DataType, uintptr, int64, *uint, *uint) Result
-	fnzCgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzCgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzCgesv                                    func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzCgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzEgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzEgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzEgesv                                    func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzEgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzKgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzKgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzKgesv                                    func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzKgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzYgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzYgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzYgesv                                    func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzYgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzZgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzZgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzZgesv                                    func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, uint, *CusolverInt, *CusolverInt) Result
-	fnzZgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, *Complex128, CusolverInt, *CusolverInt, *Complex128, CusolverInt, *Complex128, CusolverInt, uintptr, *uint) Result
-	fnzgebrd                                    func(Handle, int32, int32, *Complex128, int32, *float64, *float64, *Complex128, *Complex128, *Complex128, int32, *int32) Result
+	fnzCgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzCgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzCgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzCgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzEgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzEgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzEgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzEgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzKgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzKgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzKgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzKgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzYgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzYgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzYgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzYgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzZgels                                    func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzZgelsBufferSize                          func(Handle, CusolverInt, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzZgesv                                    func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, uint, *CusolverInt, uintptr) Result
+	fnzZgesvBufferSize                          func(Handle, CusolverInt, CusolverInt, uintptr, CusolverInt, uintptr, uintptr, CusolverInt, uintptr, CusolverInt, uintptr, *uint) Result
+	fnzgebrd                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
 	fnzgebrdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fnzgeqrf                                    func(Handle, int32, int32, *Complex128, int32, *Complex128, *Complex128, int32, *int32) Result
-	fnzgeqrfBufferSize                          func(Handle, int32, int32, *Complex128, int32, *int32) Result
-	fnzgesvd                                    func(Handle, int8, int8, int32, int32, *Complex128, int32, *float64, *Complex128, int32, *Complex128, int32, *Complex128, int32, *float64, *int32) Result
+	fnzgeqrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnzgeqrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
+	fnzgesvd                                    func(Handle, int8, int8, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, uintptr) Result
 	fnzgesvdBufferSize                          func(Handle, int32, int32, *int32) Result
-	fnzgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, *Complex128, int32, int64, *float64, int64, *Complex128, int32, int64, *Complex128, int32, int64, *Complex128, int32, *int32, *float64, int32) Result
-	fnzgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, *Complex128, int32, int64, *float64, int64, *Complex128, int32, int64, *Complex128, int32, int64, *int32, int32) Result
-	fnzgesvdj                                   func(Handle, EigMode, int32, int32, int32, *Complex128, int32, *float64, *Complex128, int32, *Complex128, int32, *Complex128, int32, *int32, GesvdjInfo) Result
-	fnzgesvdjBatched                            func(Handle, EigMode, int32, int32, *Complex128, int32, *float64, *Complex128, int32, *Complex128, int32, *Complex128, int32, *int32, GesvdjInfo, int32) Result
-	fnzgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, *Complex128, int32, *float64, *Complex128, int32, *Complex128, int32, *int32, GesvdjInfo, int32) Result
-	fnzgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, *Complex128, int32, *float64, *Complex128, int32, *Complex128, int32, *int32, GesvdjInfo) Result
-	fnzgetrf                                    func(Handle, int32, int32, *Complex128, int32, *Complex128, *int32, *int32) Result
-	fnzgetrfBufferSize                          func(Handle, int32, int32, *Complex128, int32, *int32) Result
-	fnzgetrs                                    func(Handle, Operation, int32, int32, *Complex128, int32, *int32, *Complex128, int32, *int32) Result
-	fnzheevd                                    func(Handle, EigMode, FillMode, int32, *Complex128, int32, *float64, *Complex128, int32, *int32) Result
-	fnzheevdBufferSize                          func(Handle, EigMode, FillMode, int32, *Complex128, int32, *float64, *int32) Result
-	fnzheevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, *Complex128, int32, float64, float64, int32, int32, *int32, *float64, *Complex128, int32, *int32) Result
-	fnzheevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, *Complex128, int32, float64, float64, int32, int32, *int32, *float64, *int32) Result
-	fnzheevj                                    func(Handle, EigMode, FillMode, int32, *Complex128, int32, *float64, *Complex128, int32, *int32, SyevjInfo) Result
-	fnzheevjBatched                             func(Handle, EigMode, FillMode, int32, *Complex128, int32, *float64, *Complex128, int32, *int32, SyevjInfo, int32) Result
-	fnzheevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, *Complex128, int32, *float64, *int32, SyevjInfo, int32) Result
-	fnzheevjBufferSize                          func(Handle, EigMode, FillMode, int32, *Complex128, int32, *float64, *int32, SyevjInfo) Result
-	fnzhegvd                                    func(Handle, EigType, EigMode, FillMode, int32, *Complex128, int32, *Complex128, int32, *float64, *Complex128, int32, *int32) Result
-	fnzhegvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, *Complex128, int32, *Complex128, int32, *float64, *int32) Result
-	fnzhegvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, *Complex128, int32, *Complex128, int32, float64, float64, int32, int32, *int32, *float64, *Complex128, int32, *int32) Result
-	fnzhegvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, *Complex128, int32, *Complex128, int32, float64, float64, int32, int32, *int32, *float64, *int32) Result
-	fnzhegvj                                    func(Handle, EigType, EigMode, FillMode, int32, *Complex128, int32, *Complex128, int32, *float64, *Complex128, int32, *int32, SyevjInfo) Result
-	fnzhegvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, *Complex128, int32, *Complex128, int32, *float64, *int32, SyevjInfo) Result
-	fnzhetrd                                    func(Handle, FillMode, int32, *Complex128, int32, *float64, *float64, *Complex128, *Complex128, int32, *int32) Result
-	fnzhetrdBufferSize                          func(Handle, FillMode, int32, *Complex128, int32, *float64, *float64, *Complex128, *int32) Result
-	fnzlaswp                                    func(Handle, int32, *Complex128, int32, int32, int32, *int32, int32) Result
-	fnzlauum                                    func(Handle, FillMode, int32, *Complex128, int32, *Complex128, int32, *int32) Result
-	fnzlauumBufferSize                          func(Handle, FillMode, int32, *Complex128, int32, *int32) Result
-	fnzpotrf                                    func(Handle, FillMode, int32, *Complex128, int32, *Complex128, int32, *int32) Result
-	fnzpotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, *int32, int32) Result
-	fnzpotrfBufferSize                          func(Handle, FillMode, int32, *Complex128, int32, *int32) Result
-	fnzpotri                                    func(Handle, FillMode, int32, *Complex128, int32, *Complex128, int32, *int32) Result
-	fnzpotriBufferSize                          func(Handle, FillMode, int32, *Complex128, int32, *int32) Result
-	fnzpotrs                                    func(Handle, FillMode, int32, int32, *Complex128, int32, *Complex128, int32, *int32) Result
-	fnzpotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, *int32, int32) Result
-	fnzsytrf                                    func(Handle, FillMode, int32, *Complex128, int32, *int32, *Complex128, int32, *int32) Result
-	fnzsytrfBufferSize                          func(Handle, int32, *Complex128, int32, *int32) Result
-	fnzsytri                                    func(Handle, FillMode, int32, *Complex128, int32, *int32, *Complex128, int32, *int32) Result
-	fnzsytriBufferSize                          func(Handle, FillMode, int32, *Complex128, int32, *int32, *int32) Result
-	fnzungbr                                    func(Handle, SideMode, int32, int32, int32, *Complex128, int32, *Complex128, *Complex128, int32, *int32) Result
-	fnzungbrBufferSize                          func(Handle, SideMode, int32, int32, int32, *Complex128, int32, *Complex128, *int32) Result
-	fnzungqr                                    func(Handle, int32, int32, int32, *Complex128, int32, *Complex128, *Complex128, int32, *int32) Result
-	fnzungqrBufferSize                          func(Handle, int32, int32, int32, *Complex128, int32, *Complex128, *int32) Result
-	fnzungtr                                    func(Handle, FillMode, int32, *Complex128, int32, *Complex128, *Complex128, int32, *int32) Result
-	fnzungtrBufferSize                          func(Handle, FillMode, int32, *Complex128, int32, *Complex128, *int32) Result
-	fnzunmqr                                    func(Handle, SideMode, Operation, int32, int32, int32, *Complex128, int32, *Complex128, *Complex128, int32, *Complex128, int32, *int32) Result
-	fnzunmqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, *Complex128, int32, *Complex128, *Complex128, int32, *int32) Result
-	fnzunmtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, *Complex128, int32, *Complex128, *Complex128, int32, *Complex128, int32, *int32) Result
-	fnzunmtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, *Complex128, int32, *Complex128, *Complex128, int32, *int32) Result
+	fnzgesvdaStridedBatched                     func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, uintptr, int32, uintptr, *float64, int32) Result
+	fnzgesvdaStridedBatchedBufferSize           func(Handle, EigMode, int32, int32, int32, uintptr, int32, int64, uintptr, int64, uintptr, int32, int64, uintptr, int32, int64, *int32, int32) Result
+	fnzgesvdj                                   func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo) Result
+	fnzgesvdjBatched                            func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr, int32, uintptr, GesvdjInfo, int32) Result
+	fnzgesvdjBatchedBufferSize                  func(Handle, EigMode, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo, int32) Result
+	fnzgesvdjBufferSize                         func(Handle, EigMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, *int32, GesvdjInfo) Result
+	fnzgetrf                                    func(Handle, int32, int32, uintptr, int32, uintptr, uintptr, uintptr) Result
+	fnzgetrfBufferSize                          func(Handle, int32, int32, uintptr, int32, *int32) Result
+	fnzgetrs                                    func(Handle, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnzheevd                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnzheevdBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fnzheevdx                                   func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
+	fnzheevdxBufferSize                         func(Handle, EigMode, EigRange, FillMode, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, *int32) Result
+	fnzheevj                                    func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
+	fnzheevjBatched                             func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo, int32) Result
+	fnzheevjBatchedBufferSize                   func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo, int32) Result
+	fnzheevjBufferSize                          func(Handle, EigMode, FillMode, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
+	fnzhegvd                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnzhegvdBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32) Result
+	fnzhegvdx                                   func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, uintptr, int32, uintptr) Result
+	fnzhegvdxBufferSize                         func(Handle, EigType, EigMode, EigRange, FillMode, int32, uintptr, int32, uintptr, int32, float64, float64, int32, int32, *int32, uintptr, *int32) Result
+	fnzhegvj                                    func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, SyevjInfo) Result
+	fnzhegvjBufferSize                          func(Handle, EigType, EigMode, FillMode, int32, uintptr, int32, uintptr, int32, uintptr, *int32, SyevjInfo) Result
+	fnzhetrd                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, uintptr, int32, uintptr) Result
+	fnzhetrdBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, uintptr, *int32) Result
+	fnzlaswp                                    func(Handle, int32, uintptr, int32, int32, int32, uintptr, int32) Result
+	fnzlauum                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fnzlauumBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fnzpotrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fnzpotrfBatched                             func(Handle, FillMode, int32, uintptr, int32, uintptr, int32) Result
+	fnzpotrfBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fnzpotri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fnzpotriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, *int32) Result
+	fnzpotrs                                    func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr) Result
+	fnzpotrsBatched                             func(Handle, FillMode, int32, int32, uintptr, int32, uintptr, int32, uintptr, int32) Result
+	fnzsytrf                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnzsytrfBufferSize                          func(Handle, int32, uintptr, int32, *int32) Result
+	fnzsytri                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnzsytriBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fnzungbr                                    func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnzungbrBufferSize                          func(Handle, SideMode, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
+	fnzungqr                                    func(Handle, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnzungqrBufferSize                          func(Handle, int32, int32, int32, uintptr, int32, uintptr, *int32) Result
+	fnzungtr                                    func(Handle, FillMode, int32, uintptr, int32, uintptr, uintptr, int32, uintptr) Result
+	fnzungtrBufferSize                          func(Handle, FillMode, int32, uintptr, int32, uintptr, *int32) Result
+	fnzunmqr                                    func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
+	fnzunmqrBufferSize                          func(Handle, SideMode, Operation, int32, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
+	fnzunmtr                                    func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, uintptr, int32, uintptr) Result
+	fnzunmtrBufferSize                          func(Handle, SideMode, FillMode, Operation, int32, int32, uintptr, int32, uintptr, uintptr, int32, *int32) Result
 )
 
 // cCgels wraps cusolverDnCCgels.
-func cCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func cCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCCgels"); err != nil {
 		return err
 	}
-	return toError(fncCgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fncCgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // cCgelsBufferSize wraps cusolverDnCCgelsBufferSize, bound as cusolverDnCCgels_bufferSize.
-func cCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func cCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnCCgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncCgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fncCgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -420,21 +424,21 @@ func cCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // cCgesv wraps cusolverDnCCgesv.
-func cCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func cCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCCgesv"); err != nil {
 		return err
 	}
-	return toError(fncCgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fncCgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // cCgesvBufferSize wraps cusolverDnCCgesvBufferSize, bound as cusolverDnCCgesv_bufferSize.
-func cCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func cCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnCCgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncCgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fncCgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -442,21 +446,21 @@ func cCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Comple
 }
 
 // cEgels wraps cusolverDnCEgels.
-func cEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func cEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCEgels"); err != nil {
 		return err
 	}
-	return toError(fncEgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fncEgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // cEgelsBufferSize wraps cusolverDnCEgelsBufferSize, bound as cusolverDnCEgels_bufferSize.
-func cEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func cEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnCEgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncEgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fncEgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -464,21 +468,21 @@ func cEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // cEgesv wraps cusolverDnCEgesv.
-func cEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func cEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCEgesv"); err != nil {
 		return err
 	}
-	return toError(fncEgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fncEgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // cEgesvBufferSize wraps cusolverDnCEgesvBufferSize, bound as cusolverDnCEgesv_bufferSize.
-func cEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func cEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnCEgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncEgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fncEgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -486,21 +490,21 @@ func cEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Comple
 }
 
 // cKgels wraps cusolverDnCKgels.
-func cKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func cKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCKgels"); err != nil {
 		return err
 	}
-	return toError(fncKgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fncKgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // cKgelsBufferSize wraps cusolverDnCKgelsBufferSize, bound as cusolverDnCKgels_bufferSize.
-func cKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func cKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnCKgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncKgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fncKgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -508,21 +512,21 @@ func cKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // cKgesv wraps cusolverDnCKgesv.
-func cKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func cKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCKgesv"); err != nil {
 		return err
 	}
-	return toError(fncKgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fncKgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // cKgesvBufferSize wraps cusolverDnCKgesvBufferSize, bound as cusolverDnCKgesv_bufferSize.
-func cKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func cKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnCKgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncKgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fncKgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -530,21 +534,21 @@ func cKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Comple
 }
 
 // cYgels wraps cusolverDnCYgels.
-func cYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func cYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCYgels"); err != nil {
 		return err
 	}
-	return toError(fncYgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fncYgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // cYgelsBufferSize wraps cusolverDnCYgelsBufferSize, bound as cusolverDnCYgels_bufferSize.
-func cYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func cYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnCYgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncYgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fncYgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -552,21 +556,21 @@ func cYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // cYgesv wraps cusolverDnCYgesv.
-func cYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func cYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCYgesv"); err != nil {
 		return err
 	}
-	return toError(fncYgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fncYgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // cYgesvBufferSize wraps cusolverDnCYgesvBufferSize, bound as cusolverDnCYgesv_bufferSize.
-func cYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex64, ldda CusolverInt, dipiv *CusolverInt, dB *Complex64, lddb CusolverInt, dX *Complex64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func cYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnCYgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncYgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fncYgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -574,11 +578,11 @@ func cYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Comple
 }
 
 // cgebrd wraps cusolverDnCgebrd.
-func cgebrd(handle Handle, m int32, n int32, a *Complex64, lda int32, d *float32, e *float32, tauq *Complex64, taup *Complex64, work *Complex64, lwork int32, devInfo *int32) error {
+func cgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCgebrd"); err != nil {
 		return err
 	}
-	return toError(fncgebrd(handle, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo))
+	return toError(fncgebrd(handle, m, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tauq), uintptr(taup), uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // cgebrdBufferSize wraps cusolverDnCgebrdBufferSize, bound as cusolverDnCgebrd_bufferSize.
@@ -596,21 +600,21 @@ func cgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 }
 
 // cgeqrf wraps cusolverDnCgeqrf.
-func cgeqrf(handle Handle, m int32, n int32, a *Complex64, lda int32, tau *Complex64, workspace *Complex64, lwork int32, devInfo *int32) error {
+func cgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCgeqrf"); err != nil {
 		return err
 	}
-	return toError(fncgeqrf(handle, m, n, a, lda, tau, workspace, lwork, devInfo))
+	return toError(fncgeqrf(handle, m, n, uintptr(a), lda, uintptr(tau), uintptr(workspace), lwork, uintptr(devInfo)))
 }
 
 // cgeqrfBufferSize wraps cusolverDnCgeqrfBufferSize, bound as cusolverDnCgeqrf_bufferSize.
-func cgeqrfBufferSize(handle Handle, m int32, n int32, a *Complex64, lda int32) (int32, error) {
+func cgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnCgeqrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncgeqrfBufferSize(handle, m, n, a, lda, &out)); err != nil {
+	if err := toError(fncgeqrfBufferSize(handle, m, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -618,11 +622,11 @@ func cgeqrfBufferSize(handle Handle, m int32, n int32, a *Complex64, lda int32) 
 }
 
 // cgesvd wraps cusolverDnCgesvd.
-func cgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, vt *Complex64, ldvt int32, work *Complex64, lwork int32, rwork *float32, info *int32) error {
+func cgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCgesvd"); err != nil {
 		return err
 	}
-	return toError(fncgesvd(handle, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info))
+	return toError(fncgesvd(handle, jobu, jobvt, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(vt), ldvt, uintptr(work), lwork, uintptr(rwork), uintptr(info)))
 }
 
 // cgesvdBufferSize wraps cusolverDnCgesvdBufferSize, bound as cusolverDnCgesvd_bufferSize.
@@ -640,69 +644,69 @@ func cgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 }
 
 // cgesvdaStridedBatched wraps cusolverDnCgesvdaStridedBatched.
-func cgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA *Complex64, lda int32, strideA int64, dS *float32, strideS int64, dU *Complex64, ldu int32, strideU int64, dV *Complex64, ldv int32, strideV int64, dWork *Complex64, lwork int32, dInfo *int32, hRNrmF *float64, batchSize int32) error {
+func cgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
 	if err := checkLibSym("cusolverDnCgesvdaStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fncgesvdaStridedBatched(handle, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, dWork, lwork, dInfo, hRNrmF, batchSize))
+	return toError(fncgesvdaStridedBatched(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, uintptr(dWork), lwork, uintptr(dInfo), hRNrmF, batchSize))
 }
 
 // cgesvdaStridedBatchedBufferSize wraps cusolverDnCgesvdaStridedBatchedBufferSize, bound as cusolverDnCgesvdaStridedBatched_bufferSize.
-func cgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA *Complex64, lda int32, strideA int64, dS *float32, strideS int64, dU *Complex64, ldu int32, strideU int64, dV *Complex64, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
+func cgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
 	if err := checkLibSym("cusolverDnCgesvdaStridedBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fncgesvdaStridedBatchedBufferSize(handle, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, lwork, batchSize))
+	return toError(fncgesvdaStridedBatchedBufferSize(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, lwork, batchSize))
 }
 
 // cgesvdj wraps cusolverDnCgesvdj.
-func cgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, work *Complex64, lwork int32, info *int32, params GesvdjInfo) error {
+func cgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
 	if err := checkLibSym("cusolverDnCgesvdj"); err != nil {
 		return err
 	}
-	return toError(fncgesvdj(handle, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params))
+	return toError(fncgesvdj(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params))
 }
 
 // cgesvdjBatched wraps cusolverDnCgesvdjBatched.
-func cgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, work *Complex64, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+func cgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnCgesvdjBatched"); err != nil {
 		return err
 	}
-	return toError(fncgesvdjBatched(handle, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize))
+	return toError(fncgesvdjBatched(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params, batchSize))
 }
 
 // cgesvdjBatchedBufferSize wraps cusolverDnCgesvdjBatchedBufferSize, bound as cusolverDnCgesvdjBatched_bufferSize.
-func cgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+func cgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnCgesvdjBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fncgesvdjBatchedBufferSize(handle, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize))
+	return toError(fncgesvdjBatchedBufferSize(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params, batchSize))
 }
 
 // cgesvdjBufferSize wraps cusolverDnCgesvdjBufferSize, bound as cusolverDnCgesvdj_bufferSize.
-func cgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a *Complex64, lda int32, s *float32, u *Complex64, ldu int32, v *Complex64, ldv int32, lwork *int32, params GesvdjInfo) error {
+func cgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
 	if err := checkLibSym("cusolverDnCgesvdj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fncgesvdjBufferSize(handle, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params))
+	return toError(fncgesvdjBufferSize(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params))
 }
 
 // cgetrf wraps cusolverDnCgetrf.
-func cgetrf(handle Handle, m int32, n int32, a *Complex64, lda int32, workspace *Complex64, devIpiv *int32, devInfo *int32) error {
+func cgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCgetrf"); err != nil {
 		return err
 	}
-	return toError(fncgetrf(handle, m, n, a, lda, workspace, devIpiv, devInfo))
+	return toError(fncgetrf(handle, m, n, uintptr(a), lda, uintptr(workspace), uintptr(devIpiv), uintptr(devInfo)))
 }
 
 // cgetrfBufferSize wraps cusolverDnCgetrfBufferSize, bound as cusolverDnCgetrf_bufferSize.
-func cgetrfBufferSize(handle Handle, m int32, n int32, a *Complex64, lda int32) (int32, error) {
+func cgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnCgetrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncgetrfBufferSize(handle, m, n, a, lda, &out)); err != nil {
+	if err := toError(fncgetrfBufferSize(handle, m, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -710,29 +714,29 @@ func cgetrfBufferSize(handle Handle, m int32, n int32, a *Complex64, lda int32) 
 }
 
 // cgetrs wraps cusolverDnCgetrs.
-func cgetrs(handle Handle, trans Operation, n int32, nrhs int32, a *Complex64, lda int32, devIpiv *int32, b *Complex64, ldb int32, devInfo *int32) error {
+func cgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCgetrs"); err != nil {
 		return err
 	}
-	return toError(fncgetrs(handle, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo))
+	return toError(fncgetrs(handle, trans, n, nrhs, uintptr(a), lda, uintptr(devIpiv), uintptr(b), ldb, uintptr(devInfo)))
 }
 
 // cheevd wraps cusolverDnCheevd.
-func cheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+func cheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCheevd"); err != nil {
 		return err
 	}
-	return toError(fncheevd(handle, jobz, uplo, n, a, lda, w, work, lwork, info))
+	return toError(fncheevd(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // cheevdBufferSize wraps cusolverDnCheevdBufferSize, bound as cusolverDnCheevd_bufferSize.
-func cheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32) (int32, error) {
+func cheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnCheevd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncheevdBufferSize(handle, jobz, uplo, n, a, lda, w, &out)); err != nil {
+	if err := toError(fncheevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -740,21 +744,21 @@ func cheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Co
 }
 
 // cheevdx wraps cusolverDnCheevdx.
-func cheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+func cheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCheevdx"); err != nil {
 		return err
 	}
-	return toError(fncheevdx(handle, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info))
+	return toError(fncheevdx(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // cheevdxBufferSize wraps cusolverDnCheevdxBufferSize, bound as cusolverDnCheevdx_bufferSize.
-func cheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+func cheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnCheevdx_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncheevdxBufferSize(handle, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, &out)); err != nil {
+	if err := toError(fncheevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -762,53 +766,53 @@ func cheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMo
 }
 
 // cheevj wraps cusolverDnCheevj.
-func cheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo) error {
+func cheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnCheevj"); err != nil {
 		return err
 	}
-	return toError(fncheevj(handle, jobz, uplo, n, a, lda, w, work, lwork, info, params))
+	return toError(fncheevj(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params))
 }
 
 // cheevjBatched wraps cusolverDnCheevjBatched.
-func cheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+func cheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnCheevjBatched"); err != nil {
 		return err
 	}
-	return toError(fncheevjBatched(handle, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize))
+	return toError(fncheevjBatched(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params, batchSize))
 }
 
 // cheevjBatchedBufferSize wraps cusolverDnCheevjBatchedBufferSize, bound as cusolverDnCheevjBatched_bufferSize.
-func cheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, lwork *int32, params SyevjInfo, batchSize int32) error {
+func cheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnCheevjBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fncheevjBatchedBufferSize(handle, jobz, uplo, n, a, lda, w, lwork, params, batchSize))
+	return toError(fncheevjBatchedBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params, batchSize))
 }
 
 // cheevjBufferSize wraps cusolverDnCheevjBufferSize, bound as cusolverDnCheevj_bufferSize.
-func cheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, w *float32, lwork *int32, params SyevjInfo) error {
+func cheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnCheevj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fncheevjBufferSize(handle, jobz, uplo, n, a, lda, w, lwork, params))
+	return toError(fncheevjBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params))
 }
 
 // chegvd wraps cusolverDnChegvd.
-func chegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+func chegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnChegvd"); err != nil {
 		return err
 	}
-	return toError(fnchegvd(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info))
+	return toError(fnchegvd(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // chegvdBufferSize wraps cusolverDnChegvdBufferSize, bound as cusolverDnChegvd_bufferSize.
-func chegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32) (int32, error) {
+func chegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnChegvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnchegvdBufferSize(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, &out)); err != nil {
+	if err := toError(fnchegvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -816,21 +820,21 @@ func chegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 }
 
 // chegvdx wraps cusolverDnChegvdx.
-func chegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *Complex64, lwork int32, info *int32) error {
+func chegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnChegvdx"); err != nil {
 		return err
 	}
-	return toError(fnchegvdx(handle, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info))
+	return toError(fnchegvdx(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // chegvdxBufferSize wraps cusolverDnChegvdxBufferSize, bound as cusolverDnChegvdx_bufferSize.
-func chegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+func chegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnChegvdx_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnchegvdxBufferSize(handle, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, &out)); err != nil {
+	if err := toError(fnchegvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -838,37 +842,37 @@ func chegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRan
 }
 
 // chegvj wraps cusolverDnChegvj.
-func chegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32, work *Complex64, lwork int32, info *int32, params SyevjInfo) error {
+func chegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnChegvj"); err != nil {
 		return err
 	}
-	return toError(fnchegvj(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params))
+	return toError(fnchegvj(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info), params))
 }
 
 // chegvjBufferSize wraps cusolverDnChegvjBufferSize, bound as cusolverDnChegvj_bufferSize.
-func chegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex64, lda int32, b *Complex64, ldb int32, w *float32, lwork *int32, params SyevjInfo) error {
+func chegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnChegvj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnchegvjBufferSize(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params))
+	return toError(fnchegvjBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), lwork, params))
 }
 
 // chetrd wraps cusolverDnChetrd.
-func chetrd(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, d *float32, e *float32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+func chetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnChetrd"); err != nil {
 		return err
 	}
-	return toError(fnchetrd(handle, uplo, n, a, lda, d, e, tau, work, lwork, info))
+	return toError(fnchetrd(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // chetrdBufferSize wraps cusolverDnChetrdBufferSize, bound as cusolverDnChetrd_bufferSize.
-func chetrdBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, d *float32, e *float32, tau *Complex64) (int32, error) {
+func chetrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnChetrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnchetrdBufferSize(handle, uplo, n, a, lda, d, e, tau, &out)); err != nil {
+	if err := toError(fnchetrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -876,29 +880,29 @@ func chetrdBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda i
 }
 
 // claswp wraps cusolverDnClaswp.
-func claswp(handle Handle, n int32, a *Complex64, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+func claswp(handle Handle, n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
 	if err := checkLibSym("cusolverDnClaswp"); err != nil {
 		return err
 	}
-	return toError(fnclaswp(handle, n, a, lda, k1, k2, devIpiv, incx))
+	return toError(fnclaswp(handle, n, uintptr(a), lda, k1, k2, uintptr(devIpiv), incx))
 }
 
 // clauum wraps cusolverDnClauum.
-func clauum(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, work *Complex64, lwork int32, devInfo *int32) error {
+func clauum(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnClauum"); err != nil {
 		return err
 	}
-	return toError(fnclauum(handle, uplo, n, a, lda, work, lwork, devInfo))
+	return toError(fnclauum(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // clauumBufferSize wraps cusolverDnClauumBufferSize, bound as cusolverDnClauum_bufferSize.
-func clauumBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32) (int32, error) {
+func clauumBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnClauum_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnclauumBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fnclauumBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -906,29 +910,29 @@ func clauumBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda i
 }
 
 // cpotrf wraps cusolverDnCpotrf.
-func cpotrf(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, workspace *Complex64, lwork int32, devInfo *int32) error {
+func cpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCpotrf"); err != nil {
 		return err
 	}
-	return toError(fncpotrf(handle, uplo, n, a, lda, workspace, lwork, devInfo))
+	return toError(fncpotrf(handle, uplo, n, uintptr(a), lda, uintptr(workspace), lwork, uintptr(devInfo)))
 }
 
 // cpotrfBatched wraps cusolverDnCpotrfBatched.
-func cpotrfBatched(handle Handle, uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+func cpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
 	if err := checkLibSym("cusolverDnCpotrfBatched"); err != nil {
 		return err
 	}
-	return toError(fncpotrfBatched(handle, uplo, n, aarray, lda, infoArray, batchSize))
+	return toError(fncpotrfBatched(handle, uplo, n, uintptr(aarray), lda, uintptr(infoArray), batchSize))
 }
 
 // cpotrfBufferSize wraps cusolverDnCpotrfBufferSize, bound as cusolverDnCpotrf_bufferSize.
-func cpotrfBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32) (int32, error) {
+func cpotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnCpotrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncpotrfBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fncpotrfBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -936,21 +940,21 @@ func cpotrfBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda i
 }
 
 // cpotri wraps cusolverDnCpotri.
-func cpotri(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, work *Complex64, lwork int32, devInfo *int32) error {
+func cpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCpotri"); err != nil {
 		return err
 	}
-	return toError(fncpotri(handle, uplo, n, a, lda, work, lwork, devInfo))
+	return toError(fncpotri(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // cpotriBufferSize wraps cusolverDnCpotriBufferSize, bound as cusolverDnCpotri_bufferSize.
-func cpotriBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32) (int32, error) {
+func cpotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnCpotri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncpotriBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fncpotriBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -958,19 +962,19 @@ func cpotriBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda i
 }
 
 // cpotrs wraps cusolverDnCpotrs.
-func cpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a *Complex64, lda int32, b *Complex64, ldb int32, devInfo *int32) error {
+func cpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCpotrs"); err != nil {
 		return err
 	}
-	return toError(fncpotrs(handle, uplo, n, nrhs, a, lda, b, ldb, devInfo))
+	return toError(fncpotrs(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(devInfo)))
 }
 
 // cpotrsBatched wraps cusolverDnCpotrsBatched.
-func cpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+func cpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
 	if err := checkLibSym("cusolverDnCpotrsBatched"); err != nil {
 		return err
 	}
-	return toError(fncpotrsBatched(handle, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize))
+	return toError(fncpotrsBatched(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(dInfo), batchSize))
 }
 
 // Create wraps cusolverDnCreate.
@@ -1030,21 +1034,21 @@ func CreateSyevjInfo() (SyevjInfo, error) {
 }
 
 // csytrf wraps cusolverDnCsytrf.
-func csytrf(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, ipiv *int32, work *Complex64, lwork int32, info *int32) error {
+func csytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCsytrf"); err != nil {
 		return err
 	}
-	return toError(fncsytrf(handle, uplo, n, a, lda, ipiv, work, lwork, info))
+	return toError(fncsytrf(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)))
 }
 
 // csytrfBufferSize wraps cusolverDnCsytrfBufferSize, bound as cusolverDnCsytrf_bufferSize.
-func csytrfBufferSize(handle Handle, n int32, a *Complex64, lda int32) (int32, error) {
+func csytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnCsytrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncsytrfBufferSize(handle, n, a, lda, &out)); err != nil {
+	if err := toError(fncsytrfBufferSize(handle, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1052,21 +1056,21 @@ func csytrfBufferSize(handle Handle, n int32, a *Complex64, lda int32) (int32, e
 }
 
 // csytri wraps cusolverDnCsytri.
-func csytri(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, ipiv *int32, work *Complex64, lwork int32, info *int32) error {
+func csytri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCsytri"); err != nil {
 		return err
 	}
-	return toError(fncsytri(handle, uplo, n, a, lda, ipiv, work, lwork, info))
+	return toError(fncsytri(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)))
 }
 
 // csytriBufferSize wraps cusolverDnCsytriBufferSize, bound as cusolverDnCsytri_bufferSize.
-func csytriBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, ipiv *int32) (int32, error) {
+func csytriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnCsytri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncsytriBufferSize(handle, uplo, n, a, lda, ipiv, &out)); err != nil {
+	if err := toError(fncsytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1074,21 +1078,21 @@ func csytriBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda i
 }
 
 // cungbr wraps cusolverDnCungbr.
-func cungbr(handle Handle, side SideMode, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+func cungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCungbr"); err != nil {
 		return err
 	}
-	return toError(fncungbr(handle, side, m, n, k, a, lda, tau, work, lwork, info))
+	return toError(fncungbr(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // cungbrBufferSize wraps cusolverDnCungbrBufferSize, bound as cusolverDnCungbr_bufferSize.
-func cungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64) (int32, error) {
+func cungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnCungbr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncungbrBufferSize(handle, side, m, n, k, a, lda, tau, &out)); err != nil {
+	if err := toError(fncungbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1096,21 +1100,21 @@ func cungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a
 }
 
 // cungqr wraps cusolverDnCungqr.
-func cungqr(handle Handle, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+func cungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCungqr"); err != nil {
 		return err
 	}
-	return toError(fncungqr(handle, m, n, k, a, lda, tau, work, lwork, info))
+	return toError(fncungqr(handle, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // cungqrBufferSize wraps cusolverDnCungqrBufferSize, bound as cusolverDnCungqr_bufferSize.
-func cungqrBufferSize(handle Handle, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64) (int32, error) {
+func cungqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnCungqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncungqrBufferSize(handle, m, n, k, a, lda, tau, &out)); err != nil {
+	if err := toError(fncungqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1118,21 +1122,21 @@ func cungqrBufferSize(handle Handle, m int32, n int32, k int32, a *Complex64, ld
 }
 
 // cungtr wraps cusolverDnCungtr.
-func cungtr(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, tau *Complex64, work *Complex64, lwork int32, info *int32) error {
+func cungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCungtr"); err != nil {
 		return err
 	}
-	return toError(fncungtr(handle, uplo, n, a, lda, tau, work, lwork, info))
+	return toError(fncungtr(handle, uplo, n, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // cungtrBufferSize wraps cusolverDnCungtrBufferSize, bound as cusolverDnCungtr_bufferSize.
-func cungtrBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda int32, tau *Complex64) (int32, error) {
+func cungtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnCungtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncungtrBufferSize(handle, uplo, n, a, lda, tau, &out)); err != nil {
+	if err := toError(fncungtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1140,21 +1144,21 @@ func cungtrBufferSize(handle Handle, uplo FillMode, n int32, a *Complex64, lda i
 }
 
 // cunmqr wraps cusolverDnCunmqr.
-func cunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32, work *Complex64, lwork int32, devInfo *int32) error {
+func cunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCunmqr"); err != nil {
 		return err
 	}
-	return toError(fncunmqr(handle, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo))
+	return toError(fncunmqr(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // cunmqrBufferSize wraps cusolverDnCunmqrBufferSize, bound as cusolverDnCunmqr_bufferSize.
-func cunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32) (int32, error) {
+func cunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	if err := checkLibSym("cusolverDnCunmqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncunmqrBufferSize(handle, side, trans, m, n, k, a, lda, tau, c, ldc, &out)); err != nil {
+	if err := toError(fncunmqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1162,21 +1166,21 @@ func cunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 }
 
 // cunmtr wraps cusolverDnCunmtr.
-func cunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32, work *Complex64, lwork int32, info *int32) error {
+func cunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnCunmtr"); err != nil {
 		return err
 	}
-	return toError(fncunmtr(handle, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info))
+	return toError(fncunmtr(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(info)))
 }
 
 // cunmtrBufferSize wraps cusolverDnCunmtrBufferSize, bound as cusolverDnCunmtr_bufferSize.
-func cunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex64, lda int32, tau *Complex64, c *Complex64, ldc int32) (int32, error) {
+func cunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	if err := checkLibSym("cusolverDnCunmtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fncunmtrBufferSize(handle, side, uplo, trans, m, n, a, lda, tau, c, ldc, &out)); err != nil {
+	if err := toError(fncunmtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1184,21 +1188,21 @@ func cunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operati
 }
 
 // dBgels wraps cusolverDnDBgels.
-func dBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDBgels"); err != nil {
 		return err
 	}
-	return toError(fndBgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndBgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dBgelsBufferSize wraps cusolverDnDBgelsBufferSize, bound as cusolverDnDBgels_bufferSize.
-func dBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDBgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndBgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndBgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1206,21 +1210,21 @@ func dBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // dBgesv wraps cusolverDnDBgesv.
-func dBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDBgesv"); err != nil {
 		return err
 	}
-	return toError(fndBgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndBgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dBgesvBufferSize wraps cusolverDnDBgesvBufferSize, bound as cusolverDnDBgesv_bufferSize.
-func dBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDBgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndBgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndBgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1228,21 +1232,21 @@ func dBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float6
 }
 
 // dDgels wraps cusolverDnDDgels.
-func dDgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dDgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDDgels"); err != nil {
 		return err
 	}
-	return toError(fndDgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndDgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dDgelsBufferSize wraps cusolverDnDDgelsBufferSize, bound as cusolverDnDDgels_bufferSize.
-func dDgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dDgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDDgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndDgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndDgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1250,21 +1254,21 @@ func dDgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // dDgesv wraps cusolverDnDDgesv.
-func dDgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dDgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDDgesv"); err != nil {
 		return err
 	}
-	return toError(fndDgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndDgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dDgesvBufferSize wraps cusolverDnDDgesvBufferSize, bound as cusolverDnDDgesv_bufferSize.
-func dDgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dDgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDDgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndDgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndDgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1272,21 +1276,21 @@ func dDgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float6
 }
 
 // dHgels wraps cusolverDnDHgels.
-func dHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDHgels"); err != nil {
 		return err
 	}
-	return toError(fndHgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndHgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dHgelsBufferSize wraps cusolverDnDHgelsBufferSize, bound as cusolverDnDHgels_bufferSize.
-func dHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDHgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndHgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndHgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1294,21 +1298,21 @@ func dHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // dHgesv wraps cusolverDnDHgesv.
-func dHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDHgesv"); err != nil {
 		return err
 	}
-	return toError(fndHgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndHgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dHgesvBufferSize wraps cusolverDnDHgesvBufferSize, bound as cusolverDnDHgesv_bufferSize.
-func dHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDHgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndHgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndHgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1316,21 +1320,21 @@ func dHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float6
 }
 
 // dSgels wraps cusolverDnDSgels.
-func dSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDSgels"); err != nil {
 		return err
 	}
-	return toError(fndSgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndSgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dSgelsBufferSize wraps cusolverDnDSgelsBufferSize, bound as cusolverDnDSgels_bufferSize.
-func dSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDSgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndSgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndSgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1338,21 +1342,21 @@ func dSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // dSgesv wraps cusolverDnDSgesv.
-func dSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDSgesv"); err != nil {
 		return err
 	}
-	return toError(fndSgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndSgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dSgesvBufferSize wraps cusolverDnDSgesvBufferSize, bound as cusolverDnDSgesv_bufferSize.
-func dSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDSgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndSgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndSgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1360,21 +1364,21 @@ func dSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float6
 }
 
 // dXgels wraps cusolverDnDXgels.
-func dXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDXgels"); err != nil {
 		return err
 	}
-	return toError(fndXgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndXgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dXgelsBufferSize wraps cusolverDnDXgelsBufferSize, bound as cusolverDnDXgels_bufferSize.
-func dXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDXgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndXgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndXgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1382,21 +1386,21 @@ func dXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // dXgesv wraps cusolverDnDXgesv.
-func dXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func dXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDXgesv"); err != nil {
 		return err
 	}
-	return toError(fndXgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fndXgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // dXgesvBufferSize wraps cusolverDnDXgesvBufferSize, bound as cusolverDnDXgesv_bufferSize.
-func dXgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float64, ldda CusolverInt, dipiv *CusolverInt, dB *float64, lddb CusolverInt, dX *float64, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func dXgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnDXgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndXgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fndXgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1436,11 +1440,11 @@ func destroySyevjInfo(info SyevjInfo) error {
 }
 
 // dgebrd wraps cusolverDnDgebrd.
-func dgebrd(handle Handle, m int32, n int32, a *float64, lda int32, d *float64, e *float64, tauq *float64, taup *float64, work *float64, lwork int32, devInfo *int32) error {
+func dgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDgebrd"); err != nil {
 		return err
 	}
-	return toError(fndgebrd(handle, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo))
+	return toError(fndgebrd(handle, m, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tauq), uintptr(taup), uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // dgebrdBufferSize wraps cusolverDnDgebrdBufferSize, bound as cusolverDnDgebrd_bufferSize.
@@ -1458,21 +1462,21 @@ func dgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 }
 
 // dgeqrf wraps cusolverDnDgeqrf.
-func dgeqrf(handle Handle, m int32, n int32, a *float64, lda int32, tau *float64, workspace *float64, lwork int32, devInfo *int32) error {
+func dgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDgeqrf"); err != nil {
 		return err
 	}
-	return toError(fndgeqrf(handle, m, n, a, lda, tau, workspace, lwork, devInfo))
+	return toError(fndgeqrf(handle, m, n, uintptr(a), lda, uintptr(tau), uintptr(workspace), lwork, uintptr(devInfo)))
 }
 
 // dgeqrfBufferSize wraps cusolverDnDgeqrfBufferSize, bound as cusolverDnDgeqrf_bufferSize.
-func dgeqrfBufferSize(handle Handle, m int32, n int32, a *float64, lda int32) (int32, error) {
+func dgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnDgeqrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndgeqrfBufferSize(handle, m, n, a, lda, &out)); err != nil {
+	if err := toError(fndgeqrfBufferSize(handle, m, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1480,11 +1484,11 @@ func dgeqrfBufferSize(handle Handle, m int32, n int32, a *float64, lda int32) (i
 }
 
 // dgesvd wraps cusolverDnDgesvd.
-func dgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, vt *float64, ldvt int32, work *float64, lwork int32, rwork *float64, info *int32) error {
+func dgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDgesvd"); err != nil {
 		return err
 	}
-	return toError(fndgesvd(handle, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info))
+	return toError(fndgesvd(handle, jobu, jobvt, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(vt), ldvt, uintptr(work), lwork, uintptr(rwork), uintptr(info)))
 }
 
 // dgesvdBufferSize wraps cusolverDnDgesvdBufferSize, bound as cusolverDnDgesvd_bufferSize.
@@ -1502,69 +1506,69 @@ func dgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 }
 
 // dgesvdaStridedBatched wraps cusolverDnDgesvdaStridedBatched.
-func dgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA *float64, lda int32, strideA int64, dS *float64, strideS int64, dU *float64, ldu int32, strideU int64, dV *float64, ldv int32, strideV int64, dWork *float64, lwork int32, dInfo *int32, hRNrmF *float64, batchSize int32) error {
+func dgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
 	if err := checkLibSym("cusolverDnDgesvdaStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fndgesvdaStridedBatched(handle, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, dWork, lwork, dInfo, hRNrmF, batchSize))
+	return toError(fndgesvdaStridedBatched(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, uintptr(dWork), lwork, uintptr(dInfo), hRNrmF, batchSize))
 }
 
 // dgesvdaStridedBatchedBufferSize wraps cusolverDnDgesvdaStridedBatchedBufferSize, bound as cusolverDnDgesvdaStridedBatched_bufferSize.
-func dgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA *float64, lda int32, strideA int64, dS *float64, strideS int64, dU *float64, ldu int32, strideU int64, dV *float64, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
+func dgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
 	if err := checkLibSym("cusolverDnDgesvdaStridedBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fndgesvdaStridedBatchedBufferSize(handle, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, lwork, batchSize))
+	return toError(fndgesvdaStridedBatchedBufferSize(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, lwork, batchSize))
 }
 
 // dgesvdj wraps cusolverDnDgesvdj.
-func dgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, work *float64, lwork int32, info *int32, params GesvdjInfo) error {
+func dgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
 	if err := checkLibSym("cusolverDnDgesvdj"); err != nil {
 		return err
 	}
-	return toError(fndgesvdj(handle, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params))
+	return toError(fndgesvdj(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params))
 }
 
 // dgesvdjBatched wraps cusolverDnDgesvdjBatched.
-func dgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, work *float64, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+func dgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnDgesvdjBatched"); err != nil {
 		return err
 	}
-	return toError(fndgesvdjBatched(handle, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize))
+	return toError(fndgesvdjBatched(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params, batchSize))
 }
 
 // dgesvdjBatchedBufferSize wraps cusolverDnDgesvdjBatchedBufferSize, bound as cusolverDnDgesvdjBatched_bufferSize.
-func dgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+func dgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnDgesvdjBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fndgesvdjBatchedBufferSize(handle, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize))
+	return toError(fndgesvdjBatchedBufferSize(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params, batchSize))
 }
 
 // dgesvdjBufferSize wraps cusolverDnDgesvdjBufferSize, bound as cusolverDnDgesvdj_bufferSize.
-func dgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a *float64, lda int32, s *float64, u *float64, ldu int32, v *float64, ldv int32, lwork *int32, params GesvdjInfo) error {
+func dgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
 	if err := checkLibSym("cusolverDnDgesvdj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fndgesvdjBufferSize(handle, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params))
+	return toError(fndgesvdjBufferSize(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params))
 }
 
 // dgetrf wraps cusolverDnDgetrf.
-func dgetrf(handle Handle, m int32, n int32, a *float64, lda int32, workspace *float64, devIpiv *int32, devInfo *int32) error {
+func dgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDgetrf"); err != nil {
 		return err
 	}
-	return toError(fndgetrf(handle, m, n, a, lda, workspace, devIpiv, devInfo))
+	return toError(fndgetrf(handle, m, n, uintptr(a), lda, uintptr(workspace), uintptr(devIpiv), uintptr(devInfo)))
 }
 
 // dgetrfBufferSize wraps cusolverDnDgetrfBufferSize, bound as cusolverDnDgetrf_bufferSize.
-func dgetrfBufferSize(handle Handle, m int32, n int32, a *float64, lda int32) (int32, error) {
+func dgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnDgetrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndgetrfBufferSize(handle, m, n, a, lda, &out)); err != nil {
+	if err := toError(fndgetrfBufferSize(handle, m, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1572,37 +1576,37 @@ func dgetrfBufferSize(handle Handle, m int32, n int32, a *float64, lda int32) (i
 }
 
 // dgetrs wraps cusolverDnDgetrs.
-func dgetrs(handle Handle, trans Operation, n int32, nrhs int32, a *float64, lda int32, devIpiv *int32, b *float64, ldb int32, devInfo *int32) error {
+func dgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDgetrs"); err != nil {
 		return err
 	}
-	return toError(fndgetrs(handle, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo))
+	return toError(fndgetrs(handle, trans, n, nrhs, uintptr(a), lda, uintptr(devIpiv), uintptr(b), ldb, uintptr(devInfo)))
 }
 
 // dlaswp wraps cusolverDnDlaswp.
-func dlaswp(handle Handle, n int32, a *float64, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+func dlaswp(handle Handle, n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
 	if err := checkLibSym("cusolverDnDlaswp"); err != nil {
 		return err
 	}
-	return toError(fndlaswp(handle, n, a, lda, k1, k2, devIpiv, incx))
+	return toError(fndlaswp(handle, n, uintptr(a), lda, k1, k2, uintptr(devIpiv), incx))
 }
 
 // dlauum wraps cusolverDnDlauum.
-func dlauum(handle Handle, uplo FillMode, n int32, a *float64, lda int32, work *float64, lwork int32, devInfo *int32) error {
+func dlauum(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDlauum"); err != nil {
 		return err
 	}
-	return toError(fndlauum(handle, uplo, n, a, lda, work, lwork, devInfo))
+	return toError(fndlauum(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // dlauumBufferSize wraps cusolverDnDlauumBufferSize, bound as cusolverDnDlauum_bufferSize.
-func dlauumBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int32) (int32, error) {
+func dlauumBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnDlauum_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndlauumBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fndlauumBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1610,21 +1614,21 @@ func dlauumBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int
 }
 
 // dorgbr wraps cusolverDnDorgbr.
-func dorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
+func dorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDorgbr"); err != nil {
 		return err
 	}
-	return toError(fndorgbr(handle, side, m, n, k, a, lda, tau, work, lwork, info))
+	return toError(fndorgbr(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // dorgbrBufferSize wraps cusolverDnDorgbrBufferSize, bound as cusolverDnDorgbr_bufferSize.
-func dorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a *float64, lda int32, tau *float64) (int32, error) {
+func dorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnDorgbr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndorgbrBufferSize(handle, side, m, n, k, a, lda, tau, &out)); err != nil {
+	if err := toError(fndorgbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1632,21 +1636,21 @@ func dorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a
 }
 
 // dorgqr wraps cusolverDnDorgqr.
-func dorgqr(handle Handle, m int32, n int32, k int32, a *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
+func dorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDorgqr"); err != nil {
 		return err
 	}
-	return toError(fndorgqr(handle, m, n, k, a, lda, tau, work, lwork, info))
+	return toError(fndorgqr(handle, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // dorgqrBufferSize wraps cusolverDnDorgqrBufferSize, bound as cusolverDnDorgqr_bufferSize.
-func dorgqrBufferSize(handle Handle, m int32, n int32, k int32, a *float64, lda int32, tau *float64) (int32, error) {
+func dorgqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnDorgqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndorgqrBufferSize(handle, m, n, k, a, lda, tau, &out)); err != nil {
+	if err := toError(fndorgqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1654,21 +1658,21 @@ func dorgqrBufferSize(handle Handle, m int32, n int32, k int32, a *float64, lda 
 }
 
 // dorgtr wraps cusolverDnDorgtr.
-func dorgtr(handle Handle, uplo FillMode, n int32, a *float64, lda int32, tau *float64, work *float64, lwork int32, info *int32) error {
+func dorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDorgtr"); err != nil {
 		return err
 	}
-	return toError(fndorgtr(handle, uplo, n, a, lda, tau, work, lwork, info))
+	return toError(fndorgtr(handle, uplo, n, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // dorgtrBufferSize wraps cusolverDnDorgtrBufferSize, bound as cusolverDnDorgtr_bufferSize.
-func dorgtrBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int32, tau *float64) (int32, error) {
+func dorgtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnDorgtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndorgtrBufferSize(handle, uplo, n, a, lda, tau, &out)); err != nil {
+	if err := toError(fndorgtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1676,21 +1680,21 @@ func dorgtrBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int
 }
 
 // dormqr wraps cusolverDnDormqr.
-func dormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a *float64, lda int32, tau *float64, c *float64, ldc int32, work *float64, lwork int32, devInfo *int32) error {
+func dormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDormqr"); err != nil {
 		return err
 	}
-	return toError(fndormqr(handle, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo))
+	return toError(fndormqr(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // dormqrBufferSize wraps cusolverDnDormqrBufferSize, bound as cusolverDnDormqr_bufferSize.
-func dormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a *float64, lda int32, tau *float64, c *float64, ldc int32) (int32, error) {
+func dormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	if err := checkLibSym("cusolverDnDormqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndormqrBufferSize(handle, side, trans, m, n, k, a, lda, tau, c, ldc, &out)); err != nil {
+	if err := toError(fndormqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1698,21 +1702,21 @@ func dormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 }
 
 // dormtr wraps cusolverDnDormtr.
-func dormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float64, lda int32, tau *float64, c *float64, ldc int32, work *float64, lwork int32, info *int32) error {
+func dormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDormtr"); err != nil {
 		return err
 	}
-	return toError(fndormtr(handle, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info))
+	return toError(fndormtr(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(info)))
 }
 
 // dormtrBufferSize wraps cusolverDnDormtrBufferSize, bound as cusolverDnDormtr_bufferSize.
-func dormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float64, lda int32, tau *float64, c *float64, ldc int32) (int32, error) {
+func dormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	if err := checkLibSym("cusolverDnDormtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndormtrBufferSize(handle, side, uplo, trans, m, n, a, lda, tau, c, ldc, &out)); err != nil {
+	if err := toError(fndormtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1720,29 +1724,29 @@ func dormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operati
 }
 
 // dpotrf wraps cusolverDnDpotrf.
-func dpotrf(handle Handle, uplo FillMode, n int32, a *float64, lda int32, workspace *float64, lwork int32, devInfo *int32) error {
+func dpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDpotrf"); err != nil {
 		return err
 	}
-	return toError(fndpotrf(handle, uplo, n, a, lda, workspace, lwork, devInfo))
+	return toError(fndpotrf(handle, uplo, n, uintptr(a), lda, uintptr(workspace), lwork, uintptr(devInfo)))
 }
 
 // dpotrfBatched wraps cusolverDnDpotrfBatched.
-func dpotrfBatched(handle Handle, uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+func dpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
 	if err := checkLibSym("cusolverDnDpotrfBatched"); err != nil {
 		return err
 	}
-	return toError(fndpotrfBatched(handle, uplo, n, aarray, lda, infoArray, batchSize))
+	return toError(fndpotrfBatched(handle, uplo, n, uintptr(aarray), lda, uintptr(infoArray), batchSize))
 }
 
 // dpotrfBufferSize wraps cusolverDnDpotrfBufferSize, bound as cusolverDnDpotrf_bufferSize.
-func dpotrfBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int32) (int32, error) {
+func dpotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnDpotrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndpotrfBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fndpotrfBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1750,21 +1754,21 @@ func dpotrfBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int
 }
 
 // dpotri wraps cusolverDnDpotri.
-func dpotri(handle Handle, uplo FillMode, n int32, a *float64, lda int32, work *float64, lwork int32, devInfo *int32) error {
+func dpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDpotri"); err != nil {
 		return err
 	}
-	return toError(fndpotri(handle, uplo, n, a, lda, work, lwork, devInfo))
+	return toError(fndpotri(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // dpotriBufferSize wraps cusolverDnDpotriBufferSize, bound as cusolverDnDpotri_bufferSize.
-func dpotriBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int32) (int32, error) {
+func dpotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnDpotri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndpotriBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fndpotriBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1772,37 +1776,37 @@ func dpotriBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int
 }
 
 // dpotrs wraps cusolverDnDpotrs.
-func dpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a *float64, lda int32, b *float64, ldb int32, devInfo *int32) error {
+func dpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDpotrs"); err != nil {
 		return err
 	}
-	return toError(fndpotrs(handle, uplo, n, nrhs, a, lda, b, ldb, devInfo))
+	return toError(fndpotrs(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(devInfo)))
 }
 
 // dpotrsBatched wraps cusolverDnDpotrsBatched.
-func dpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+func dpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
 	if err := checkLibSym("cusolverDnDpotrsBatched"); err != nil {
 		return err
 	}
-	return toError(fndpotrsBatched(handle, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize))
+	return toError(fndpotrsBatched(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(dInfo), batchSize))
 }
 
 // dsyevd wraps cusolverDnDsyevd.
-func dsyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, work *float64, lwork int32, info *int32) error {
+func dsyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDsyevd"); err != nil {
 		return err
 	}
-	return toError(fndsyevd(handle, jobz, uplo, n, a, lda, w, work, lwork, info))
+	return toError(fndsyevd(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // dsyevdBufferSize wraps cusolverDnDsyevdBufferSize, bound as cusolverDnDsyevd_bufferSize.
-func dsyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64) (int32, error) {
+func dsyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnDsyevd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndsyevdBufferSize(handle, jobz, uplo, n, a, lda, w, &out)); err != nil {
+	if err := toError(fndsyevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1810,21 +1814,21 @@ func dsyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *fl
 }
 
 // dsyevdx wraps cusolverDnDsyevdx.
-func dsyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *float64, lwork int32, info *int32) error {
+func dsyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDsyevdx"); err != nil {
 		return err
 	}
-	return toError(fndsyevdx(handle, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info))
+	return toError(fndsyevdx(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // dsyevdxBufferSize wraps cusolverDnDsyevdxBufferSize, bound as cusolverDnDsyevdx_bufferSize.
-func dsyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+func dsyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnDsyevdx_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndsyevdxBufferSize(handle, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, &out)); err != nil {
+	if err := toError(fndsyevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1832,53 +1836,53 @@ func dsyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMo
 }
 
 // dsyevj wraps cusolverDnDsyevj.
-func dsyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, work *float64, lwork int32, info *int32, params SyevjInfo) error {
+func dsyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnDsyevj"); err != nil {
 		return err
 	}
-	return toError(fndsyevj(handle, jobz, uplo, n, a, lda, w, work, lwork, info, params))
+	return toError(fndsyevj(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params))
 }
 
 // dsyevjBatched wraps cusolverDnDsyevjBatched.
-func dsyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, work *float64, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+func dsyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnDsyevjBatched"); err != nil {
 		return err
 	}
-	return toError(fndsyevjBatched(handle, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize))
+	return toError(fndsyevjBatched(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params, batchSize))
 }
 
 // dsyevjBatchedBufferSize wraps cusolverDnDsyevjBatchedBufferSize, bound as cusolverDnDsyevjBatched_bufferSize.
-func dsyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, lwork *int32, params SyevjInfo, batchSize int32) error {
+func dsyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnDsyevjBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fndsyevjBatchedBufferSize(handle, jobz, uplo, n, a, lda, w, lwork, params, batchSize))
+	return toError(fndsyevjBatchedBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params, batchSize))
 }
 
 // dsyevjBufferSize wraps cusolverDnDsyevjBufferSize, bound as cusolverDnDsyevj_bufferSize.
-func dsyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, w *float64, lwork *int32, params SyevjInfo) error {
+func dsyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnDsyevj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fndsyevjBufferSize(handle, jobz, uplo, n, a, lda, w, lwork, params))
+	return toError(fndsyevjBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params))
 }
 
 // dsygvd wraps cusolverDnDsygvd.
-func dsygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64, work *float64, lwork int32, info *int32) error {
+func dsygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDsygvd"); err != nil {
 		return err
 	}
-	return toError(fndsygvd(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info))
+	return toError(fndsygvd(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // dsygvdBufferSize wraps cusolverDnDsygvdBufferSize, bound as cusolverDnDsygvd_bufferSize.
-func dsygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64) (int32, error) {
+func dsygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnDsygvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndsygvdBufferSize(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, &out)); err != nil {
+	if err := toError(fndsygvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1886,21 +1890,21 @@ func dsygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 }
 
 // dsygvdx wraps cusolverDnDsygvdx.
-func dsygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *float64, lwork int32, info *int32) error {
+func dsygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDsygvdx"); err != nil {
 		return err
 	}
-	return toError(fndsygvdx(handle, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info))
+	return toError(fndsygvdx(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // dsygvdxBufferSize wraps cusolverDnDsygvdxBufferSize, bound as cusolverDnDsygvdx_bufferSize.
-func dsygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+func dsygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnDsygvdx_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndsygvdxBufferSize(handle, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, &out)); err != nil {
+	if err := toError(fndsygvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1908,37 +1912,37 @@ func dsygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRan
 }
 
 // dsygvj wraps cusolverDnDsygvj.
-func dsygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64, work *float64, lwork int32, info *int32, params SyevjInfo) error {
+func dsygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnDsygvj"); err != nil {
 		return err
 	}
-	return toError(fndsygvj(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params))
+	return toError(fndsygvj(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info), params))
 }
 
 // dsygvjBufferSize wraps cusolverDnDsygvjBufferSize, bound as cusolverDnDsygvj_bufferSize.
-func dsygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *float64, lda int32, b *float64, ldb int32, w *float64, lwork *int32, params SyevjInfo) error {
+func dsygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnDsygvj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fndsygvjBufferSize(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params))
+	return toError(fndsygvjBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), lwork, params))
 }
 
 // dsytrd wraps cusolverDnDsytrd.
-func dsytrd(handle Handle, uplo FillMode, n int32, a *float64, lda int32, d *float64, e *float64, tau *float64, work *float64, lwork int32, info *int32) error {
+func dsytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDsytrd"); err != nil {
 		return err
 	}
-	return toError(fndsytrd(handle, uplo, n, a, lda, d, e, tau, work, lwork, info))
+	return toError(fndsytrd(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // dsytrdBufferSize wraps cusolverDnDsytrdBufferSize, bound as cusolverDnDsytrd_bufferSize.
-func dsytrdBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int32, d *float64, e *float64, tau *float64) (int32, error) {
+func dsytrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnDsytrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndsytrdBufferSize(handle, uplo, n, a, lda, d, e, tau, &out)); err != nil {
+	if err := toError(fndsytrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1946,21 +1950,21 @@ func dsytrdBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int
 }
 
 // dsytrf wraps cusolverDnDsytrf.
-func dsytrf(handle Handle, uplo FillMode, n int32, a *float64, lda int32, ipiv *int32, work *float64, lwork int32, info *int32) error {
+func dsytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDsytrf"); err != nil {
 		return err
 	}
-	return toError(fndsytrf(handle, uplo, n, a, lda, ipiv, work, lwork, info))
+	return toError(fndsytrf(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)))
 }
 
 // dsytrfBufferSize wraps cusolverDnDsytrfBufferSize, bound as cusolverDnDsytrf_bufferSize.
-func dsytrfBufferSize(handle Handle, n int32, a *float64, lda int32) (int32, error) {
+func dsytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnDsytrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndsytrfBufferSize(handle, n, a, lda, &out)); err != nil {
+	if err := toError(fndsytrfBufferSize(handle, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1968,21 +1972,21 @@ func dsytrfBufferSize(handle Handle, n int32, a *float64, lda int32) (int32, err
 }
 
 // dsytri wraps cusolverDnDsytri.
-func dsytri(handle Handle, uplo FillMode, n int32, a *float64, lda int32, ipiv *int32, work *float64, lwork int32, info *int32) error {
+func dsytri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnDsytri"); err != nil {
 		return err
 	}
-	return toError(fndsytri(handle, uplo, n, a, lda, ipiv, work, lwork, info))
+	return toError(fndsytri(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)))
 }
 
 // dsytriBufferSize wraps cusolverDnDsytriBufferSize, bound as cusolverDnDsytri_bufferSize.
-func dsytriBufferSize(handle Handle, uplo FillMode, n int32, a *float64, lda int32, ipiv *int32) (int32, error) {
+func dsytriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnDsytri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndsytriBufferSize(handle, uplo, n, a, lda, ipiv, &out)); err != nil {
+	if err := toError(fndsytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2102,14 +2106,14 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 }
 
 // getStream wraps cusolverDnGetStream.
-func getStream(handle Handle) (Stream, error) {
+func getStream(handle Handle) (driver.Stream, error) {
 	if err := checkLibSym("cusolverDnGetStream"); err != nil {
-		var zero Stream
+		var zero driver.Stream
 		return zero, err
 	}
-	var out Stream
+	var out driver.Stream
 	if err := toError(fngetStream(handle, &out)); err != nil {
-		var zero Stream
+		var zero driver.Stream
 		return zero, err
 	}
 	return out, nil
@@ -2326,11 +2330,11 @@ func iRSParamsSetTolInner(params IRSParams, val float64) error {
 }
 
 // iRSXgels wraps cusolverDnIRSXgels.
-func iRSXgels(handle Handle, gelsIrsParams IRSParams, gelsIrsInfos IRSInfos, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA uintptr, ldda CusolverInt, dB uintptr, lddb CusolverInt, dX uintptr, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, niters *CusolverInt, dInfo *CusolverInt) error {
+func iRSXgels(handle Handle, gelsIrsParams IRSParams, gelsIrsInfos IRSInfos, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, niters *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnIRSXgels"); err != nil {
 		return err
 	}
-	return toError(fniRSXgels(handle, gelsIrsParams, gelsIrsInfos, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, niters, dInfo))
+	return toError(fniRSXgels(handle, gelsIrsParams, gelsIrsInfos, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, niters, uintptr(dInfo)))
 }
 
 // iRSXgelsBufferSize wraps cusolverDnIRSXgelsBufferSize, bound as cusolverDnIRSXgels_bufferSize.
@@ -2348,11 +2352,11 @@ func iRSXgelsBufferSize(handle Handle, params IRSParams, m CusolverInt, n Cusolv
 }
 
 // iRSXgesv wraps cusolverDnIRSXgesv.
-func iRSXgesv(handle Handle, gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n CusolverInt, nrhs CusolverInt, dA uintptr, ldda CusolverInt, dB uintptr, lddb CusolverInt, dX uintptr, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, niters *CusolverInt, dInfo *CusolverInt) error {
+func iRSXgesv(handle Handle, gesvIrsParams IRSParams, gesvIrsInfos IRSInfos, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, niters *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnIRSXgesv"); err != nil {
 		return err
 	}
-	return toError(fniRSXgesv(handle, gesvIrsParams, gesvIrsInfos, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, niters, dInfo))
+	return toError(fniRSXgesv(handle, gesvIrsParams, gesvIrsInfos, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, niters, uintptr(dInfo)))
 }
 
 // iRSXgesvBufferSize wraps cusolverDnIRSXgesvBufferSize, bound as cusolverDnIRSXgesv_bufferSize.
@@ -2418,21 +2422,21 @@ func LoggerSetMask(mask int32) error {
 }
 
 // sBgels wraps cusolverDnSBgels.
-func sBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func sBgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSBgels"); err != nil {
 		return err
 	}
-	return toError(fnsBgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnsBgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // sBgelsBufferSize wraps cusolverDnSBgelsBufferSize, bound as cusolverDnSBgels_bufferSize.
-func sBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func sBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnSBgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsBgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnsBgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2440,21 +2444,21 @@ func sBgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // sBgesv wraps cusolverDnSBgesv.
-func sBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func sBgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSBgesv"); err != nil {
 		return err
 	}
-	return toError(fnsBgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnsBgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // sBgesvBufferSize wraps cusolverDnSBgesvBufferSize, bound as cusolverDnSBgesv_bufferSize.
-func sBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func sBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnSBgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsBgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnsBgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2462,21 +2466,21 @@ func sBgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float3
 }
 
 // sHgels wraps cusolverDnSHgels.
-func sHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func sHgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSHgels"); err != nil {
 		return err
 	}
-	return toError(fnsHgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnsHgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // sHgelsBufferSize wraps cusolverDnSHgelsBufferSize, bound as cusolverDnSHgels_bufferSize.
-func sHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func sHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnSHgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsHgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnsHgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2484,21 +2488,21 @@ func sHgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // sHgesv wraps cusolverDnSHgesv.
-func sHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func sHgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSHgesv"); err != nil {
 		return err
 	}
-	return toError(fnsHgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnsHgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // sHgesvBufferSize wraps cusolverDnSHgesvBufferSize, bound as cusolverDnSHgesv_bufferSize.
-func sHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func sHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnSHgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsHgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnsHgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2506,21 +2510,21 @@ func sHgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float3
 }
 
 // sSgels wraps cusolverDnSSgels.
-func sSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func sSgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSSgels"); err != nil {
 		return err
 	}
-	return toError(fnsSgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnsSgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // sSgelsBufferSize wraps cusolverDnSSgelsBufferSize, bound as cusolverDnSSgels_bufferSize.
-func sSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func sSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnSSgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsSgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnsSgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2528,21 +2532,21 @@ func sSgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // sSgesv wraps cusolverDnSSgesv.
-func sSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func sSgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSSgesv"); err != nil {
 		return err
 	}
-	return toError(fnsSgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnsSgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // sSgesvBufferSize wraps cusolverDnSSgesvBufferSize, bound as cusolverDnSSgesv_bufferSize.
-func sSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func sSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnSSgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsSgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnsSgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2550,21 +2554,21 @@ func sSgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float3
 }
 
 // sXgels wraps cusolverDnSXgels.
-func sXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func sXgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSXgels"); err != nil {
 		return err
 	}
-	return toError(fnsXgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnsXgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // sXgelsBufferSize wraps cusolverDnSXgelsBufferSize, bound as cusolverDnSXgels_bufferSize.
-func sXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func sXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnSXgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsXgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnsXgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2572,21 +2576,21 @@ func sXgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // sXgesv wraps cusolverDnSXgesv.
-func sXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func sXgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSXgesv"); err != nil {
 		return err
 	}
-	return toError(fnsXgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnsXgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // sXgesvBufferSize wraps cusolverDnSXgesvBufferSize, bound as cusolverDnSXgesv_bufferSize.
-func sXgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *float32, ldda CusolverInt, dipiv *CusolverInt, dB *float32, lddb CusolverInt, dX *float32, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func sXgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnSXgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsXgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnsXgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2658,7 +2662,7 @@ func setMathMode(handle Handle, mode MathMode) error {
 }
 
 // setStream wraps cusolverDnSetStream.
-func setStream(handle Handle, streamId Stream) error {
+func setStream(handle Handle, streamId driver.Stream) error {
 	if err := checkLibSym("cusolverDnSetStream"); err != nil {
 		return err
 	}
@@ -2666,11 +2670,11 @@ func setStream(handle Handle, streamId Stream) error {
 }
 
 // sgebrd wraps cusolverDnSgebrd.
-func sgebrd(handle Handle, m int32, n int32, a *float32, lda int32, d *float32, e *float32, tauq *float32, taup *float32, work *float32, lwork int32, devInfo *int32) error {
+func sgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSgebrd"); err != nil {
 		return err
 	}
-	return toError(fnsgebrd(handle, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo))
+	return toError(fnsgebrd(handle, m, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tauq), uintptr(taup), uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // sgebrdBufferSize wraps cusolverDnSgebrdBufferSize, bound as cusolverDnSgebrd_bufferSize.
@@ -2688,21 +2692,21 @@ func sgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 }
 
 // sgeqrf wraps cusolverDnSgeqrf.
-func sgeqrf(handle Handle, m int32, n int32, a *float32, lda int32, tau *float32, workspace *float32, lwork int32, devInfo *int32) error {
+func sgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSgeqrf"); err != nil {
 		return err
 	}
-	return toError(fnsgeqrf(handle, m, n, a, lda, tau, workspace, lwork, devInfo))
+	return toError(fnsgeqrf(handle, m, n, uintptr(a), lda, uintptr(tau), uintptr(workspace), lwork, uintptr(devInfo)))
 }
 
 // sgeqrfBufferSize wraps cusolverDnSgeqrfBufferSize, bound as cusolverDnSgeqrf_bufferSize.
-func sgeqrfBufferSize(handle Handle, m int32, n int32, a *float32, lda int32) (int32, error) {
+func sgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnSgeqrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnsgeqrfBufferSize(handle, m, n, a, lda, &out)); err != nil {
+	if err := toError(fnsgeqrfBufferSize(handle, m, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2710,11 +2714,11 @@ func sgeqrfBufferSize(handle Handle, m int32, n int32, a *float32, lda int32) (i
 }
 
 // sgesvd wraps cusolverDnSgesvd.
-func sgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, vt *float32, ldvt int32, work *float32, lwork int32, rwork *float32, info *int32) error {
+func sgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSgesvd"); err != nil {
 		return err
 	}
-	return toError(fnsgesvd(handle, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info))
+	return toError(fnsgesvd(handle, jobu, jobvt, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(vt), ldvt, uintptr(work), lwork, uintptr(rwork), uintptr(info)))
 }
 
 // sgesvdBufferSize wraps cusolverDnSgesvdBufferSize, bound as cusolverDnSgesvd_bufferSize.
@@ -2732,69 +2736,69 @@ func sgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 }
 
 // sgesvdaStridedBatched wraps cusolverDnSgesvdaStridedBatched.
-func sgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA *float32, lda int32, strideA int64, dS *float32, strideS int64, dU *float32, ldu int32, strideU int64, dV *float32, ldv int32, strideV int64, dWork *float32, lwork int32, dInfo *int32, hRNrmF *float64, batchSize int32) error {
+func sgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
 	if err := checkLibSym("cusolverDnSgesvdaStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgesvdaStridedBatched(handle, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, dWork, lwork, dInfo, hRNrmF, batchSize))
+	return toError(fnsgesvdaStridedBatched(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, uintptr(dWork), lwork, uintptr(dInfo), hRNrmF, batchSize))
 }
 
 // sgesvdaStridedBatchedBufferSize wraps cusolverDnSgesvdaStridedBatchedBufferSize, bound as cusolverDnSgesvdaStridedBatched_bufferSize.
-func sgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA *float32, lda int32, strideA int64, dS *float32, strideS int64, dU *float32, ldu int32, strideU int64, dV *float32, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
+func sgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
 	if err := checkLibSym("cusolverDnSgesvdaStridedBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnsgesvdaStridedBatchedBufferSize(handle, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, lwork, batchSize))
+	return toError(fnsgesvdaStridedBatchedBufferSize(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, lwork, batchSize))
 }
 
 // sgesvdj wraps cusolverDnSgesvdj.
-func sgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, work *float32, lwork int32, info *int32, params GesvdjInfo) error {
+func sgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
 	if err := checkLibSym("cusolverDnSgesvdj"); err != nil {
 		return err
 	}
-	return toError(fnsgesvdj(handle, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params))
+	return toError(fnsgesvdj(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params))
 }
 
 // sgesvdjBatched wraps cusolverDnSgesvdjBatched.
-func sgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, work *float32, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+func sgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnSgesvdjBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgesvdjBatched(handle, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize))
+	return toError(fnsgesvdjBatched(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params, batchSize))
 }
 
 // sgesvdjBatchedBufferSize wraps cusolverDnSgesvdjBatchedBufferSize, bound as cusolverDnSgesvdjBatched_bufferSize.
-func sgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+func sgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnSgesvdjBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnsgesvdjBatchedBufferSize(handle, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize))
+	return toError(fnsgesvdjBatchedBufferSize(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params, batchSize))
 }
 
 // sgesvdjBufferSize wraps cusolverDnSgesvdjBufferSize, bound as cusolverDnSgesvdj_bufferSize.
-func sgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a *float32, lda int32, s *float32, u *float32, ldu int32, v *float32, ldv int32, lwork *int32, params GesvdjInfo) error {
+func sgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
 	if err := checkLibSym("cusolverDnSgesvdj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnsgesvdjBufferSize(handle, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params))
+	return toError(fnsgesvdjBufferSize(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params))
 }
 
 // sgetrf wraps cusolverDnSgetrf.
-func sgetrf(handle Handle, m int32, n int32, a *float32, lda int32, workspace *float32, devIpiv *int32, devInfo *int32) error {
+func sgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSgetrf"); err != nil {
 		return err
 	}
-	return toError(fnsgetrf(handle, m, n, a, lda, workspace, devIpiv, devInfo))
+	return toError(fnsgetrf(handle, m, n, uintptr(a), lda, uintptr(workspace), uintptr(devIpiv), uintptr(devInfo)))
 }
 
 // sgetrfBufferSize wraps cusolverDnSgetrfBufferSize, bound as cusolverDnSgetrf_bufferSize.
-func sgetrfBufferSize(handle Handle, m int32, n int32, a *float32, lda int32) (int32, error) {
+func sgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnSgetrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnsgetrfBufferSize(handle, m, n, a, lda, &out)); err != nil {
+	if err := toError(fnsgetrfBufferSize(handle, m, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2802,37 +2806,37 @@ func sgetrfBufferSize(handle Handle, m int32, n int32, a *float32, lda int32) (i
 }
 
 // sgetrs wraps cusolverDnSgetrs.
-func sgetrs(handle Handle, trans Operation, n int32, nrhs int32, a *float32, lda int32, devIpiv *int32, b *float32, ldb int32, devInfo *int32) error {
+func sgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSgetrs"); err != nil {
 		return err
 	}
-	return toError(fnsgetrs(handle, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo))
+	return toError(fnsgetrs(handle, trans, n, nrhs, uintptr(a), lda, uintptr(devIpiv), uintptr(b), ldb, uintptr(devInfo)))
 }
 
 // slaswp wraps cusolverDnSlaswp.
-func slaswp(handle Handle, n int32, a *float32, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+func slaswp(handle Handle, n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
 	if err := checkLibSym("cusolverDnSlaswp"); err != nil {
 		return err
 	}
-	return toError(fnslaswp(handle, n, a, lda, k1, k2, devIpiv, incx))
+	return toError(fnslaswp(handle, n, uintptr(a), lda, k1, k2, uintptr(devIpiv), incx))
 }
 
 // slauum wraps cusolverDnSlauum.
-func slauum(handle Handle, uplo FillMode, n int32, a *float32, lda int32, work *float32, lwork int32, devInfo *int32) error {
+func slauum(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSlauum"); err != nil {
 		return err
 	}
-	return toError(fnslauum(handle, uplo, n, a, lda, work, lwork, devInfo))
+	return toError(fnslauum(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // slauumBufferSize wraps cusolverDnSlauumBufferSize, bound as cusolverDnSlauum_bufferSize.
-func slauumBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int32) (int32, error) {
+func slauumBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnSlauum_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnslauumBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fnslauumBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2840,21 +2844,21 @@ func slauumBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int
 }
 
 // sorgbr wraps cusolverDnSorgbr.
-func sorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
+func sorgbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSorgbr"); err != nil {
 		return err
 	}
-	return toError(fnsorgbr(handle, side, m, n, k, a, lda, tau, work, lwork, info))
+	return toError(fnsorgbr(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // sorgbrBufferSize wraps cusolverDnSorgbrBufferSize, bound as cusolverDnSorgbr_bufferSize.
-func sorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a *float32, lda int32, tau *float32) (int32, error) {
+func sorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnSorgbr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnsorgbrBufferSize(handle, side, m, n, k, a, lda, tau, &out)); err != nil {
+	if err := toError(fnsorgbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2862,21 +2866,21 @@ func sorgbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a
 }
 
 // sorgqr wraps cusolverDnSorgqr.
-func sorgqr(handle Handle, m int32, n int32, k int32, a *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
+func sorgqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSorgqr"); err != nil {
 		return err
 	}
-	return toError(fnsorgqr(handle, m, n, k, a, lda, tau, work, lwork, info))
+	return toError(fnsorgqr(handle, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // sorgqrBufferSize wraps cusolverDnSorgqrBufferSize, bound as cusolverDnSorgqr_bufferSize.
-func sorgqrBufferSize(handle Handle, m int32, n int32, k int32, a *float32, lda int32, tau *float32) (int32, error) {
+func sorgqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnSorgqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnsorgqrBufferSize(handle, m, n, k, a, lda, tau, &out)); err != nil {
+	if err := toError(fnsorgqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2884,21 +2888,21 @@ func sorgqrBufferSize(handle Handle, m int32, n int32, k int32, a *float32, lda 
 }
 
 // sorgtr wraps cusolverDnSorgtr.
-func sorgtr(handle Handle, uplo FillMode, n int32, a *float32, lda int32, tau *float32, work *float32, lwork int32, info *int32) error {
+func sorgtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSorgtr"); err != nil {
 		return err
 	}
-	return toError(fnsorgtr(handle, uplo, n, a, lda, tau, work, lwork, info))
+	return toError(fnsorgtr(handle, uplo, n, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // sorgtrBufferSize wraps cusolverDnSorgtrBufferSize, bound as cusolverDnSorgtr_bufferSize.
-func sorgtrBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int32, tau *float32) (int32, error) {
+func sorgtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnSorgtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnsorgtrBufferSize(handle, uplo, n, a, lda, tau, &out)); err != nil {
+	if err := toError(fnsorgtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2906,21 +2910,21 @@ func sorgtrBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int
 }
 
 // sormqr wraps cusolverDnSormqr.
-func sormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a *float32, lda int32, tau *float32, c *float32, ldc int32, work *float32, lwork int32, devInfo *int32) error {
+func sormqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSormqr"); err != nil {
 		return err
 	}
-	return toError(fnsormqr(handle, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo))
+	return toError(fnsormqr(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // sormqrBufferSize wraps cusolverDnSormqrBufferSize, bound as cusolverDnSormqr_bufferSize.
-func sormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a *float32, lda int32, tau *float32, c *float32, ldc int32) (int32, error) {
+func sormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	if err := checkLibSym("cusolverDnSormqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnsormqrBufferSize(handle, side, trans, m, n, k, a, lda, tau, c, ldc, &out)); err != nil {
+	if err := toError(fnsormqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2928,21 +2932,21 @@ func sormqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 }
 
 // sormtr wraps cusolverDnSormtr.
-func sormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float32, lda int32, tau *float32, c *float32, ldc int32, work *float32, lwork int32, info *int32) error {
+func sormtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSormtr"); err != nil {
 		return err
 	}
-	return toError(fnsormtr(handle, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info))
+	return toError(fnsormtr(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(info)))
 }
 
 // sormtrBufferSize wraps cusolverDnSormtrBufferSize, bound as cusolverDnSormtr_bufferSize.
-func sormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *float32, lda int32, tau *float32, c *float32, ldc int32) (int32, error) {
+func sormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	if err := checkLibSym("cusolverDnSormtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnsormtrBufferSize(handle, side, uplo, trans, m, n, a, lda, tau, c, ldc, &out)); err != nil {
+	if err := toError(fnsormtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2950,29 +2954,29 @@ func sormtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operati
 }
 
 // spotrf wraps cusolverDnSpotrf.
-func spotrf(handle Handle, uplo FillMode, n int32, a *float32, lda int32, workspace *float32, lwork int32, devInfo *int32) error {
+func spotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSpotrf"); err != nil {
 		return err
 	}
-	return toError(fnspotrf(handle, uplo, n, a, lda, workspace, lwork, devInfo))
+	return toError(fnspotrf(handle, uplo, n, uintptr(a), lda, uintptr(workspace), lwork, uintptr(devInfo)))
 }
 
 // spotrfBatched wraps cusolverDnSpotrfBatched.
-func spotrfBatched(handle Handle, uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+func spotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
 	if err := checkLibSym("cusolverDnSpotrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnspotrfBatched(handle, uplo, n, aarray, lda, infoArray, batchSize))
+	return toError(fnspotrfBatched(handle, uplo, n, uintptr(aarray), lda, uintptr(infoArray), batchSize))
 }
 
 // spotrfBufferSize wraps cusolverDnSpotrfBufferSize, bound as cusolverDnSpotrf_bufferSize.
-func spotrfBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int32) (int32, error) {
+func spotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnSpotrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnspotrfBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fnspotrfBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2980,21 +2984,21 @@ func spotrfBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int
 }
 
 // spotri wraps cusolverDnSpotri.
-func spotri(handle Handle, uplo FillMode, n int32, a *float32, lda int32, work *float32, lwork int32, devInfo *int32) error {
+func spotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSpotri"); err != nil {
 		return err
 	}
-	return toError(fnspotri(handle, uplo, n, a, lda, work, lwork, devInfo))
+	return toError(fnspotri(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // spotriBufferSize wraps cusolverDnSpotriBufferSize, bound as cusolverDnSpotri_bufferSize.
-func spotriBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int32) (int32, error) {
+func spotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnSpotri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnspotriBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fnspotriBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3002,37 +3006,37 @@ func spotriBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int
 }
 
 // spotrs wraps cusolverDnSpotrs.
-func spotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a *float32, lda int32, b *float32, ldb int32, devInfo *int32) error {
+func spotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSpotrs"); err != nil {
 		return err
 	}
-	return toError(fnspotrs(handle, uplo, n, nrhs, a, lda, b, ldb, devInfo))
+	return toError(fnspotrs(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(devInfo)))
 }
 
 // spotrsBatched wraps cusolverDnSpotrsBatched.
-func spotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+func spotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
 	if err := checkLibSym("cusolverDnSpotrsBatched"); err != nil {
 		return err
 	}
-	return toError(fnspotrsBatched(handle, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize))
+	return toError(fnspotrsBatched(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(dInfo), batchSize))
 }
 
 // ssyevd wraps cusolverDnSsyevd.
-func ssyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, work *float32, lwork int32, info *int32) error {
+func ssyevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSsyevd"); err != nil {
 		return err
 	}
-	return toError(fnssyevd(handle, jobz, uplo, n, a, lda, w, work, lwork, info))
+	return toError(fnssyevd(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // ssyevdBufferSize wraps cusolverDnSsyevdBufferSize, bound as cusolverDnSsyevd_bufferSize.
-func ssyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32) (int32, error) {
+func ssyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnSsyevd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnssyevdBufferSize(handle, jobz, uplo, n, a, lda, w, &out)); err != nil {
+	if err := toError(fnssyevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3040,21 +3044,21 @@ func ssyevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *fl
 }
 
 // ssyevdx wraps cusolverDnSsyevdx.
-func ssyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *float32, lwork int32, info *int32) error {
+func ssyevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSsyevdx"); err != nil {
 		return err
 	}
-	return toError(fnssyevdx(handle, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info))
+	return toError(fnssyevdx(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // ssyevdxBufferSize wraps cusolverDnSsyevdxBufferSize, bound as cusolverDnSsyevdx_bufferSize.
-func ssyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+func ssyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnSsyevdx_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnssyevdxBufferSize(handle, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, &out)); err != nil {
+	if err := toError(fnssyevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3062,53 +3066,53 @@ func ssyevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMo
 }
 
 // ssyevj wraps cusolverDnSsyevj.
-func ssyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, work *float32, lwork int32, info *int32, params SyevjInfo) error {
+func ssyevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnSsyevj"); err != nil {
 		return err
 	}
-	return toError(fnssyevj(handle, jobz, uplo, n, a, lda, w, work, lwork, info, params))
+	return toError(fnssyevj(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params))
 }
 
 // ssyevjBatched wraps cusolverDnSsyevjBatched.
-func ssyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, work *float32, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+func ssyevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnSsyevjBatched"); err != nil {
 		return err
 	}
-	return toError(fnssyevjBatched(handle, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize))
+	return toError(fnssyevjBatched(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params, batchSize))
 }
 
 // ssyevjBatchedBufferSize wraps cusolverDnSsyevjBatchedBufferSize, bound as cusolverDnSsyevjBatched_bufferSize.
-func ssyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, lwork *int32, params SyevjInfo, batchSize int32) error {
+func ssyevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnSsyevjBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnssyevjBatchedBufferSize(handle, jobz, uplo, n, a, lda, w, lwork, params, batchSize))
+	return toError(fnssyevjBatchedBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params, batchSize))
 }
 
 // ssyevjBufferSize wraps cusolverDnSsyevjBufferSize, bound as cusolverDnSsyevj_bufferSize.
-func ssyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, w *float32, lwork *int32, params SyevjInfo) error {
+func ssyevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnSsyevj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnssyevjBufferSize(handle, jobz, uplo, n, a, lda, w, lwork, params))
+	return toError(fnssyevjBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params))
 }
 
 // ssygvd wraps cusolverDnSsygvd.
-func ssygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32, work *float32, lwork int32, info *int32) error {
+func ssygvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSsygvd"); err != nil {
 		return err
 	}
-	return toError(fnssygvd(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info))
+	return toError(fnssygvd(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // ssygvdBufferSize wraps cusolverDnSsygvdBufferSize, bound as cusolverDnSsygvd_bufferSize.
-func ssygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32) (int32, error) {
+func ssygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnSsygvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnssygvdBufferSize(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, &out)); err != nil {
+	if err := toError(fnssygvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3116,21 +3120,21 @@ func ssygvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 }
 
 // ssygvdx wraps cusolverDnSsygvdx.
-func ssygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32, work *float32, lwork int32, info *int32) error {
+func ssygvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSsygvdx"); err != nil {
 		return err
 	}
-	return toError(fnssygvdx(handle, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info))
+	return toError(fnssygvdx(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // ssygvdxBufferSize wraps cusolverDnSsygvdxBufferSize, bound as cusolverDnSsygvdx_bufferSize.
-func ssygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w *float32) (int32, error) {
+func ssygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float32, vu float32, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnSsygvdx_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnssygvdxBufferSize(handle, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, &out)); err != nil {
+	if err := toError(fnssygvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3138,37 +3142,37 @@ func ssygvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRan
 }
 
 // ssygvj wraps cusolverDnSsygvj.
-func ssygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32, work *float32, lwork int32, info *int32, params SyevjInfo) error {
+func ssygvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnSsygvj"); err != nil {
 		return err
 	}
-	return toError(fnssygvj(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params))
+	return toError(fnssygvj(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info), params))
 }
 
 // ssygvjBufferSize wraps cusolverDnSsygvjBufferSize, bound as cusolverDnSsygvj_bufferSize.
-func ssygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *float32, lda int32, b *float32, ldb int32, w *float32, lwork *int32, params SyevjInfo) error {
+func ssygvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnSsygvj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnssygvjBufferSize(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params))
+	return toError(fnssygvjBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), lwork, params))
 }
 
 // ssytrd wraps cusolverDnSsytrd.
-func ssytrd(handle Handle, uplo FillMode, n int32, a *float32, lda int32, d *float32, e *float32, tau *float32, work *float32, lwork int32, info *int32) error {
+func ssytrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSsytrd"); err != nil {
 		return err
 	}
-	return toError(fnssytrd(handle, uplo, n, a, lda, d, e, tau, work, lwork, info))
+	return toError(fnssytrd(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // ssytrdBufferSize wraps cusolverDnSsytrdBufferSize, bound as cusolverDnSsytrd_bufferSize.
-func ssytrdBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int32, d *float32, e *float32, tau *float32) (int32, error) {
+func ssytrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnSsytrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnssytrdBufferSize(handle, uplo, n, a, lda, d, e, tau, &out)); err != nil {
+	if err := toError(fnssytrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3176,21 +3180,21 @@ func ssytrdBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int
 }
 
 // ssytrf wraps cusolverDnSsytrf.
-func ssytrf(handle Handle, uplo FillMode, n int32, a *float32, lda int32, ipiv *int32, work *float32, lwork int32, info *int32) error {
+func ssytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSsytrf"); err != nil {
 		return err
 	}
-	return toError(fnssytrf(handle, uplo, n, a, lda, ipiv, work, lwork, info))
+	return toError(fnssytrf(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)))
 }
 
 // ssytrfBufferSize wraps cusolverDnSsytrfBufferSize, bound as cusolverDnSsytrf_bufferSize.
-func ssytrfBufferSize(handle Handle, n int32, a *float32, lda int32) (int32, error) {
+func ssytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnSsytrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnssytrfBufferSize(handle, n, a, lda, &out)); err != nil {
+	if err := toError(fnssytrfBufferSize(handle, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3198,21 +3202,21 @@ func ssytrfBufferSize(handle Handle, n int32, a *float32, lda int32) (int32, err
 }
 
 // ssytri wraps cusolverDnSsytri.
-func ssytri(handle Handle, uplo FillMode, n int32, a *float32, lda int32, ipiv *int32, work *float32, lwork int32, info *int32) error {
+func ssytri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnSsytri"); err != nil {
 		return err
 	}
-	return toError(fnssytri(handle, uplo, n, a, lda, ipiv, work, lwork, info))
+	return toError(fnssytri(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)))
 }
 
 // ssytriBufferSize wraps cusolverDnSsytriBufferSize, bound as cusolverDnSsytri_bufferSize.
-func ssytriBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int32, ipiv *int32) (int32, error) {
+func ssytriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnSsytri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnssytriBufferSize(handle, uplo, n, a, lda, ipiv, &out)); err != nil {
+	if err := toError(fnssytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3220,63 +3224,63 @@ func ssytriBufferSize(handle Handle, uplo FillMode, n int32, a *float32, lda int
 }
 
 // xgeev wraps cusolverDnXgeev.
-func xgeev(handle Handle, params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, dataTypeVL DataType, vl uintptr, ldvl int64, dataTypeVR DataType, vr uintptr, ldvr int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func xgeev(handle Handle, params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, dataTypeVL DataType, vl driver.DevicePtr, ldvl int64, dataTypeVR DataType, vr driver.DevicePtr, ldvr int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXgeev"); err != nil {
 		return err
 	}
-	return toError(fnxgeev(handle, params, jobvl, jobvr, n, dataTypeA, a, lda, dataTypeW, w, dataTypeVL, vl, ldvl, dataTypeVR, vr, ldvr, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info))
+	return toError(fnxgeev(handle, params, jobvl, jobvr, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), dataTypeVL, uintptr(vl), ldvl, dataTypeVR, uintptr(vr), ldvr, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)))
 }
 
 // xgeevBufferSize wraps cusolverDnXgeevBufferSize, bound as cusolverDnXgeev_bufferSize.
-func xgeevBufferSize(handle Handle, params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, dataTypeVL DataType, vl uintptr, ldvl int64, dataTypeVR DataType, vr uintptr, ldvr int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xgeevBufferSize(handle Handle, params Params, jobvl EigMode, jobvr EigMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, dataTypeVL DataType, vl driver.DevicePtr, ldvl int64, dataTypeVR DataType, vr driver.DevicePtr, ldvr int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXgeev_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxgeevBufferSize(handle, params, jobvl, jobvr, n, dataTypeA, a, lda, dataTypeW, w, dataTypeVL, vl, ldvl, dataTypeVR, vr, ldvr, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxgeevBufferSize(handle, params, jobvl, jobvr, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), dataTypeVL, uintptr(vl), ldvl, dataTypeVR, uintptr(vr), ldvr, computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xgeqrf wraps cusolverDnXgeqrf.
-func xgeqrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeTau DataType, tau uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func xgeqrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeTau DataType, tau driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXgeqrf"); err != nil {
 		return err
 	}
-	return toError(fnxgeqrf(handle, params, m, n, dataTypeA, a, lda, dataTypeTau, tau, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info))
+	return toError(fnxgeqrf(handle, params, m, n, dataTypeA, uintptr(a), lda, dataTypeTau, uintptr(tau), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)))
 }
 
 // xgeqrfBufferSize wraps cusolverDnXgeqrfBufferSize, bound as cusolverDnXgeqrf_bufferSize.
-func xgeqrfBufferSize(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeTau DataType, tau uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xgeqrfBufferSize(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeTau DataType, tau driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXgeqrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxgeqrfBufferSize(handle, params, m, n, dataTypeA, a, lda, dataTypeTau, tau, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxgeqrfBufferSize(handle, params, m, n, dataTypeA, uintptr(a), lda, dataTypeTau, uintptr(tau), computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xgesvd wraps cusolverDnXgesvd.
-func xgesvd(handle Handle, params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeVT DataType, vt uintptr, ldvt int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func xgesvd(handle Handle, params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeVT DataType, vt driver.DevicePtr, ldvt int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXgesvd"); err != nil {
 		return err
 	}
-	return toError(fnxgesvd(handle, params, jobu, jobvt, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeVT, vt, ldvt, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info))
+	return toError(fnxgesvd(handle, params, jobu, jobvt, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeVT, uintptr(vt), ldvt, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)))
 }
 
 // xgesvdBufferSize wraps cusolverDnXgesvdBufferSize, bound as cusolverDnXgesvd_bufferSize.
-func xgesvdBufferSize(handle Handle, params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeVT DataType, vt uintptr, ldvt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xgesvdBufferSize(handle Handle, params Params, jobu int8, jobvt int8, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeVT DataType, vt driver.DevicePtr, ldvt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXgesvd_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxgesvdBufferSize(handle, params, jobu, jobvt, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeVT, vt, ldvt, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxgesvdBufferSize(handle, params, jobu, jobvt, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeVT, uintptr(vt), ldvt, computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -3335,179 +3339,179 @@ func xgesvdjSetTolerance(info GesvdjInfo, tolerance float64) error {
 }
 
 // xgesvdp wraps cusolverDnXgesvdp.
-func xgesvdp(handle Handle, params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeV DataType, v uintptr, ldv int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32, hErrSigma *float64) error {
+func xgesvdp(handle Handle, params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr, hErrSigma *float64) error {
 	if err := checkLibSym("cusolverDnXgesvdp"); err != nil {
 		return err
 	}
-	return toError(fnxgesvdp(handle, params, jobz, econ, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeV, v, ldv, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo, hErrSigma))
+	return toError(fnxgesvdp(handle, params, jobz, econ, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeV, uintptr(v), ldv, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(dInfo), hErrSigma))
 }
 
 // xgesvdpBufferSize wraps cusolverDnXgesvdpBufferSize, bound as cusolverDnXgesvdp_bufferSize.
-func xgesvdpBufferSize(handle Handle, params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeS DataType, s uintptr, dataTypeU DataType, u uintptr, ldu int64, dataTypeV DataType, v uintptr, ldv int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xgesvdpBufferSize(handle Handle, params Params, jobz EigMode, econ int32, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeS DataType, s driver.DevicePtr, dataTypeU DataType, u driver.DevicePtr, ldu int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXgesvdp_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxgesvdpBufferSize(handle, params, jobz, econ, m, n, dataTypeA, a, lda, dataTypeS, s, dataTypeU, u, ldu, dataTypeV, v, ldv, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxgesvdpBufferSize(handle, params, jobz, econ, m, n, dataTypeA, uintptr(a), lda, dataTypeS, uintptr(s), dataTypeU, uintptr(u), ldu, dataTypeV, uintptr(v), ldv, computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xgesvdr wraps cusolverDnXgesvdr.
-func xgesvdr(handle Handle, params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a uintptr, lda int64, dataTypeSrand DataType, srand uintptr, dataTypeUrand DataType, urand uintptr, ldUrand int64, dataTypeVrand DataType, vrand uintptr, ldVrand int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32) error {
+func xgesvdr(handle Handle, params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeSrand DataType, srand driver.DevicePtr, dataTypeUrand DataType, urand driver.DevicePtr, ldUrand int64, dataTypeVrand DataType, vrand driver.DevicePtr, ldVrand int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXgesvdr"); err != nil {
 		return err
 	}
-	return toError(fnxgesvdr(handle, params, jobu, jobv, m, n, k, p, niters, dataTypeA, a, lda, dataTypeSrand, srand, dataTypeUrand, urand, ldUrand, dataTypeVrand, vrand, ldVrand, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo))
+	return toError(fnxgesvdr(handle, params, jobu, jobv, m, n, k, p, niters, dataTypeA, uintptr(a), lda, dataTypeSrand, uintptr(srand), dataTypeUrand, uintptr(urand), ldUrand, dataTypeVrand, uintptr(vrand), ldVrand, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(dInfo)))
 }
 
 // xgesvdrBufferSize wraps cusolverDnXgesvdrBufferSize, bound as cusolverDnXgesvdr_bufferSize.
-func xgesvdrBufferSize(handle Handle, params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a uintptr, lda int64, dataTypeSrand DataType, srand uintptr, dataTypeUrand DataType, urand uintptr, ldUrand int64, dataTypeVrand DataType, vrand uintptr, ldVrand int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xgesvdrBufferSize(handle Handle, params Params, jobu int8, jobv int8, m int64, n int64, k int64, p int64, niters int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeSrand DataType, srand driver.DevicePtr, dataTypeUrand DataType, urand driver.DevicePtr, ldUrand int64, dataTypeVrand DataType, vrand driver.DevicePtr, ldVrand int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXgesvdr_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxgesvdrBufferSize(handle, params, jobu, jobv, m, n, k, p, niters, dataTypeA, a, lda, dataTypeSrand, srand, dataTypeUrand, urand, ldUrand, dataTypeVrand, vrand, ldVrand, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxgesvdrBufferSize(handle, params, jobu, jobv, m, n, k, p, niters, dataTypeA, uintptr(a), lda, dataTypeSrand, uintptr(srand), dataTypeUrand, uintptr(urand), ldUrand, dataTypeVrand, uintptr(vrand), ldVrand, computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xgetrf wraps cusolverDnXgetrf.
-func xgetrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func xgetrf(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXgetrf"); err != nil {
 		return err
 	}
-	return toError(fnxgetrf(handle, params, m, n, dataTypeA, a, lda, ipiv, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info))
+	return toError(fnxgetrf(handle, params, m, n, dataTypeA, uintptr(a), lda, uintptr(ipiv), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)))
 }
 
 // xgetrfBufferSize wraps cusolverDnXgetrfBufferSize, bound as cusolverDnXgetrf_bufferSize.
-func xgetrfBufferSize(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a uintptr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xgetrfBufferSize(handle Handle, params Params, m int64, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXgetrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxgetrfBufferSize(handle, params, m, n, dataTypeA, a, lda, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxgetrfBufferSize(handle, params, m, n, dataTypeA, uintptr(a), lda, computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xgetrs wraps cusolverDnXgetrs.
-func xgetrs(handle Handle, params Params, trans Operation, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, dataTypeB DataType, b uintptr, ldb int64, info *int32) error {
+func xgetrs(handle Handle, params Params, trans Operation, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, dataTypeB DataType, b driver.DevicePtr, ldb int64, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXgetrs"); err != nil {
 		return err
 	}
-	return toError(fnxgetrs(handle, params, trans, n, nrhs, dataTypeA, a, lda, ipiv, dataTypeB, b, ldb, info))
+	return toError(fnxgetrs(handle, params, trans, n, nrhs, dataTypeA, uintptr(a), lda, uintptr(ipiv), dataTypeB, uintptr(b), ldb, uintptr(info)))
 }
 
 // xlarft wraps cusolverDnXlarft.
-func xlarft(handle Handle, params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v uintptr, ldv int64, dataTypeTau DataType, tau uintptr, dataTypeT DataType, t uintptr, ldt int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint) error {
+func xlarft(handle Handle, params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, dataTypeTau DataType, tau driver.DevicePtr, dataTypeT DataType, t driver.DevicePtr, ldt int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint) error {
 	if err := checkLibSym("cusolverDnXlarft"); err != nil {
 		return err
 	}
-	return toError(fnxlarft(handle, params, direct, storev, n, k, dataTypeV, v, ldv, dataTypeTau, tau, dataTypeT, t, ldt, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost))
+	return toError(fnxlarft(handle, params, direct, storev, n, k, dataTypeV, uintptr(v), ldv, dataTypeTau, uintptr(tau), dataTypeT, uintptr(t), ldt, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost))
 }
 
 // xlarftBufferSize wraps cusolverDnXlarftBufferSize, bound as cusolverDnXlarft_bufferSize.
-func xlarftBufferSize(handle Handle, params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v uintptr, ldv int64, dataTypeTau DataType, tau uintptr, dataTypeT DataType, t uintptr, ldt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xlarftBufferSize(handle Handle, params Params, direct DirectMode, storev StorevMode, n int64, k int64, dataTypeV DataType, v driver.DevicePtr, ldv int64, dataTypeTau DataType, tau driver.DevicePtr, dataTypeT DataType, t driver.DevicePtr, ldt int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXlarft_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxlarftBufferSize(handle, params, direct, storev, n, k, dataTypeV, v, ldv, dataTypeTau, tau, dataTypeT, t, ldt, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxlarftBufferSize(handle, params, direct, storev, n, k, dataTypeV, uintptr(v), ldv, dataTypeTau, uintptr(tau), dataTypeT, uintptr(t), ldt, computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xpotrf wraps cusolverDnXpotrf.
-func xpotrf(handle Handle, params Params, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func xpotrf(handle Handle, params Params, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXpotrf"); err != nil {
 		return err
 	}
-	return toError(fnxpotrf(handle, params, uplo, n, dataTypeA, a, lda, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info))
+	return toError(fnxpotrf(handle, params, uplo, n, dataTypeA, uintptr(a), lda, computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)))
 }
 
 // xpotrfBufferSize wraps cusolverDnXpotrfBufferSize, bound as cusolverDnXpotrf_bufferSize.
-func xpotrfBufferSize(handle Handle, params Params, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xpotrfBufferSize(handle Handle, params Params, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXpotrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxpotrfBufferSize(handle, params, uplo, n, dataTypeA, a, lda, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxpotrfBufferSize(handle, params, uplo, n, dataTypeA, uintptr(a), lda, computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xpotrs wraps cusolverDnXpotrs.
-func xpotrs(handle Handle, params Params, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, dataTypeB DataType, b uintptr, ldb int64, info *int32) error {
+func xpotrs(handle Handle, params Params, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeB DataType, b driver.DevicePtr, ldb int64, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXpotrs"); err != nil {
 		return err
 	}
-	return toError(fnxpotrs(handle, params, uplo, n, nrhs, dataTypeA, a, lda, dataTypeB, b, ldb, info))
+	return toError(fnxpotrs(handle, params, uplo, n, nrhs, dataTypeA, uintptr(a), lda, dataTypeB, uintptr(b), ldb, uintptr(info)))
 }
 
 // xsyevBatched wraps cusolverDnXsyevBatched.
-func xsyevBatched(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32, batchSize int64) error {
+func xsyevBatched(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr, batchSize int64) error {
 	if err := checkLibSym("cusolverDnXsyevBatched"); err != nil {
 		return err
 	}
-	return toError(fnxsyevBatched(handle, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info, batchSize))
+	return toError(fnxsyevBatched(handle, params, jobz, uplo, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info), batchSize))
 }
 
 // xsyevBatchedBufferSize wraps cusolverDnXsyevBatchedBufferSize, bound as cusolverDnXsyevBatched_bufferSize.
-func xsyevBatchedBufferSize(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType, workspaceInBytesOnDevice *uint, workspaceInBytesOnHost *uint, batchSize int64) error {
+func xsyevBatchedBufferSize(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, workspaceInBytesOnDevice *uint, workspaceInBytesOnHost *uint, batchSize int64) error {
 	if err := checkLibSym("cusolverDnXsyevBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnxsyevBatchedBufferSize(handle, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, workspaceInBytesOnDevice, workspaceInBytesOnHost, batchSize))
+	return toError(fnxsyevBatchedBufferSize(handle, params, jobz, uplo, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), computeType, workspaceInBytesOnDevice, workspaceInBytesOnHost, batchSize))
 }
 
 // xsyevd wraps cusolverDnXsyevd.
-func xsyevd(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func xsyevd(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXsyevd"); err != nil {
 		return err
 	}
-	return toError(fnxsyevd(handle, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info))
+	return toError(fnxsyevd(handle, params, jobz, uplo, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)))
 }
 
 // xsyevdBufferSize wraps cusolverDnXsyevdBufferSize, bound as cusolverDnXsyevd_bufferSize.
-func xsyevdBufferSize(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, dataTypeW DataType, w uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xsyevdBufferSize(handle Handle, params Params, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXsyevd_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxsyevdBufferSize(handle, params, jobz, uplo, n, dataTypeA, a, lda, dataTypeW, w, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxsyevdBufferSize(handle, params, jobz, uplo, n, dataTypeA, uintptr(a), lda, dataTypeW, uintptr(w), computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xsyevdx wraps cusolverDnXsyevdx.
-func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, meig64 *int64, dataTypeW DataType, w uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func xsyevdx(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, meig64 *int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXsyevdx"); err != nil {
 		return err
 	}
-	return toError(fnxsyevdx(handle, params, jobz, range_, uplo, n, dataTypeA, a, lda, vl, vu, il, iu, meig64, dataTypeW, w, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info))
+	return toError(fnxsyevdx(handle, params, jobz, range_, uplo, n, dataTypeA, uintptr(a), lda, vl, vu, il, iu, meig64, dataTypeW, uintptr(w), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)))
 }
 
 // xsyevdxBufferSize wraps cusolverDnXsyevdxBufferSize, bound as cusolverDnXsyevdx_bufferSize.
-func xsyevdxBufferSize(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a uintptr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, hMeig *int64, dataTypeW DataType, w uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xsyevdxBufferSize(handle Handle, params Params, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, vl uintptr, vu uintptr, il int64, iu int64, hMeig *int64, dataTypeW DataType, w driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXsyevdx_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxsyevdxBufferSize(handle, params, jobz, range_, uplo, n, dataTypeA, a, lda, vl, vu, il, iu, hMeig, dataTypeW, w, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxsyevdxBufferSize(handle, params, jobz, range_, uplo, n, dataTypeA, uintptr(a), lda, vl, vu, il, iu, hMeig, dataTypeW, uintptr(w), computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -3566,105 +3570,105 @@ func xsyevjSetTolerance(info SyevjInfo, tolerance float64) error {
 }
 
 // xsygvd wraps cusolverDnXsygvd.
-func xsygvd(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA uintptr, lda int64, dataTypeB DataType, dB uintptr, ldb int64, dataTypeW DataType, dW uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32) error {
+func xsygvd(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXsygvd"); err != nil {
 		return err
 	}
-	return toError(fnxsygvd(handle, params, itype, jobz, uplo, n, dataTypeA, dA, lda, dataTypeB, dB, ldb, dataTypeW, dW, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo))
+	return toError(fnxsygvd(handle, params, itype, jobz, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, dataTypeW, uintptr(dW), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(dInfo)))
 }
 
 // xsygvdBufferSize wraps cusolverDnXsygvdBufferSize, bound as cusolverDnXsygvd_bufferSize.
-func xsygvdBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA uintptr, lda int64, dataTypeB DataType, dB uintptr, ldb int64, dataTypeW DataType, dW uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xsygvdBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXsygvd_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxsygvdBufferSize(handle, params, itype, jobz, uplo, n, dataTypeA, dA, lda, dataTypeB, dB, ldb, dataTypeW, dW, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxsygvdBufferSize(handle, params, itype, jobz, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, dataTypeW, uintptr(dW), computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xsygvdx wraps cusolverDnXsygvdx.
-func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, dA uintptr, lda int64, dataTypeB DataType, dB uintptr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW uintptr, computeType DataType, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo *int32) error {
+func xsygvdx(handle Handle, params Params, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXsygvdx"); err != nil {
 		return err
 	}
-	return toError(fnxsygvdx(handle, params, itype, jobz, range_, uplo, n, dataTypeA, dA, lda, dataTypeB, dB, ldb, vl, vu, il, iu, meig, dataTypeW, dW, computeType, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, dInfo))
+	return toError(fnxsygvdx(handle, params, itype, jobz, range_, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, vl, vu, il, iu, meig, dataTypeW, uintptr(dW), computeType, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(dInfo)))
 }
 
 // xsygvdxBufferSize wraps cusolverDnXsygvdxBufferSize, bound as cusolverDnXsygvdx_bufferSize.
-func xsygvdxBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA uintptr, lda int64, dataTypeB DataType, dB uintptr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW uintptr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xsygvdxBufferSize(handle Handle, params Params, itype EigType, jobz EigMode, uplo FillMode, n int64, dataTypeA DataType, dA driver.DevicePtr, lda int64, dataTypeB DataType, dB driver.DevicePtr, ldb int64, vl uintptr, vu uintptr, il int64, iu int64, meig *int64, dataTypeW DataType, dW driver.DevicePtr, computeType DataType) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXsygvdx_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxsygvdxBufferSize(handle, params, itype, jobz, uplo, n, dataTypeA, dA, lda, dataTypeB, dB, ldb, vl, vu, il, iu, meig, dataTypeW, dW, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnxsygvdxBufferSize(handle, params, itype, jobz, uplo, n, dataTypeA, uintptr(dA), lda, dataTypeB, uintptr(dB), ldb, vl, vu, il, iu, meig, dataTypeW, uintptr(dW), computeType, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xsytrs wraps cusolverDnXsytrs.
-func xsytrs(handle Handle, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, dataTypeB DataType, b uintptr, ldb int64, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info *int32) error {
+func xsytrs(handle Handle, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, dataTypeB DataType, b driver.DevicePtr, ldb int64, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXsytrs"); err != nil {
 		return err
 	}
-	return toError(fnxsytrs(handle, uplo, n, nrhs, dataTypeA, a, lda, ipiv, dataTypeB, b, ldb, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, info))
+	return toError(fnxsytrs(handle, uplo, n, nrhs, dataTypeA, uintptr(a), lda, uintptr(ipiv), dataTypeB, uintptr(b), ldb, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(info)))
 }
 
 // xsytrsBufferSize wraps cusolverDnXsytrsBufferSize, bound as cusolverDnXsytrs_bufferSize.
-func xsytrsBufferSize(handle Handle, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a uintptr, lda int64, ipiv *int64, dataTypeB DataType, b uintptr, ldb int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xsytrsBufferSize(handle Handle, uplo FillMode, n int64, nrhs int64, dataTypeA DataType, a driver.DevicePtr, lda int64, ipiv driver.DevicePtr, dataTypeB DataType, b driver.DevicePtr, ldb int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXsytrs_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxsytrsBufferSize(handle, uplo, n, nrhs, dataTypeA, a, lda, ipiv, dataTypeB, b, ldb, &out0, &out1)); err != nil {
+	if err := toError(fnxsytrsBufferSize(handle, uplo, n, nrhs, dataTypeA, uintptr(a), lda, uintptr(ipiv), dataTypeB, uintptr(b), ldb, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // xtrtri wraps cusolverDnXtrtri.
-func xtrtri(handle Handle, uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a uintptr, lda int64, bufferOnDevice uintptr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, devInfo *int32) error {
+func xtrtri(handle Handle, uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64, bufferOnDevice driver.DevicePtr, workspaceInBytesOnDevice uint, bufferOnHost uintptr, workspaceInBytesOnHost uint, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnXtrtri"); err != nil {
 		return err
 	}
-	return toError(fnxtrtri(handle, uplo, diag, n, dataTypeA, a, lda, bufferOnDevice, workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, devInfo))
+	return toError(fnxtrtri(handle, uplo, diag, n, dataTypeA, uintptr(a), lda, uintptr(bufferOnDevice), workspaceInBytesOnDevice, bufferOnHost, workspaceInBytesOnHost, uintptr(devInfo)))
 }
 
 // xtrtriBufferSize wraps cusolverDnXtrtriBufferSize, bound as cusolverDnXtrtri_bufferSize.
-func xtrtriBufferSize(handle Handle, uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a uintptr, lda int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
+func xtrtriBufferSize(handle Handle, uplo FillMode, diag DiagType, n int64, dataTypeA DataType, a driver.DevicePtr, lda int64) (workspaceInBytesOnDevice uint, workspaceInBytesOnHost uint, err error) {
 	if err := checkLibSym("cusolverDnXtrtri_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnxtrtriBufferSize(handle, uplo, diag, n, dataTypeA, a, lda, &out0, &out1)); err != nil {
+	if err := toError(fnxtrtriBufferSize(handle, uplo, diag, n, dataTypeA, uintptr(a), lda, &out0, &out1)); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
 }
 
 // zCgels wraps cusolverDnZCgels.
-func zCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zCgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZCgels"); err != nil {
 		return err
 	}
-	return toError(fnzCgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzCgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zCgelsBufferSize wraps cusolverDnZCgelsBufferSize, bound as cusolverDnZCgels_bufferSize.
-func zCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZCgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzCgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzCgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3672,21 +3676,21 @@ func zCgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // zCgesv wraps cusolverDnZCgesv.
-func zCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zCgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZCgesv"); err != nil {
 		return err
 	}
-	return toError(fnzCgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzCgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zCgesvBufferSize wraps cusolverDnZCgesvBufferSize, bound as cusolverDnZCgesv_bufferSize.
-func zCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZCgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzCgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzCgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3694,21 +3698,21 @@ func zCgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Comple
 }
 
 // zEgels wraps cusolverDnZEgels.
-func zEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zEgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZEgels"); err != nil {
 		return err
 	}
-	return toError(fnzEgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzEgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zEgelsBufferSize wraps cusolverDnZEgelsBufferSize, bound as cusolverDnZEgels_bufferSize.
-func zEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZEgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzEgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzEgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3716,21 +3720,21 @@ func zEgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // zEgesv wraps cusolverDnZEgesv.
-func zEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zEgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZEgesv"); err != nil {
 		return err
 	}
-	return toError(fnzEgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzEgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zEgesvBufferSize wraps cusolverDnZEgesvBufferSize, bound as cusolverDnZEgesv_bufferSize.
-func zEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZEgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzEgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzEgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3738,21 +3742,21 @@ func zEgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Comple
 }
 
 // zKgels wraps cusolverDnZKgels.
-func zKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zKgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZKgels"); err != nil {
 		return err
 	}
-	return toError(fnzKgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzKgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zKgelsBufferSize wraps cusolverDnZKgelsBufferSize, bound as cusolverDnZKgels_bufferSize.
-func zKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZKgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzKgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzKgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3760,21 +3764,21 @@ func zKgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // zKgesv wraps cusolverDnZKgesv.
-func zKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zKgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZKgesv"); err != nil {
 		return err
 	}
-	return toError(fnzKgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzKgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zKgesvBufferSize wraps cusolverDnZKgesvBufferSize, bound as cusolverDnZKgesv_bufferSize.
-func zKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZKgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzKgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzKgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3782,21 +3786,21 @@ func zKgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Comple
 }
 
 // zYgels wraps cusolverDnZYgels.
-func zYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zYgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZYgels"); err != nil {
 		return err
 	}
-	return toError(fnzYgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzYgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zYgelsBufferSize wraps cusolverDnZYgelsBufferSize, bound as cusolverDnZYgels_bufferSize.
-func zYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZYgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzYgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzYgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3804,21 +3808,21 @@ func zYgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // zYgesv wraps cusolverDnZYgesv.
-func zYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zYgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZYgesv"); err != nil {
 		return err
 	}
-	return toError(fnzYgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzYgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zYgesvBufferSize wraps cusolverDnZYgesvBufferSize, bound as cusolverDnZYgesv_bufferSize.
-func zYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZYgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzYgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzYgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3826,21 +3830,21 @@ func zYgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Comple
 }
 
 // zZgels wraps cusolverDnZZgels.
-func zZgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zZgels(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZZgels"); err != nil {
 		return err
 	}
-	return toError(fnzZgels(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzZgels(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zZgelsBufferSize wraps cusolverDnZZgelsBufferSize, bound as cusolverDnZZgels_bufferSize.
-func zZgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zZgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZZgels_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzZgelsBufferSize(handle, m, n, nrhs, dA, ldda, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzZgelsBufferSize(handle, m, n, nrhs, uintptr(dA), ldda, uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3848,21 +3852,21 @@ func zZgelsBufferSize(handle Handle, m CusolverInt, n CusolverInt, nrhs Cusolver
 }
 
 // zZgesv wraps cusolverDnZZgesv.
-func zZgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr, lworkBytes uint, iter *CusolverInt, dInfo *CusolverInt) error {
+func zZgesv(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr, lworkBytes uint, iter *CusolverInt, dInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZZgesv"); err != nil {
 		return err
 	}
-	return toError(fnzZgesv(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, lworkBytes, iter, dInfo))
+	return toError(fnzZgesv(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), lworkBytes, iter, uintptr(dInfo)))
 }
 
 // zZgesvBufferSize wraps cusolverDnZZgesvBufferSize, bound as cusolverDnZZgesv_bufferSize.
-func zZgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Complex128, ldda CusolverInt, dipiv *CusolverInt, dB *Complex128, lddb CusolverInt, dX *Complex128, lddx CusolverInt, dWorkspace uintptr) (uint, error) {
+func zZgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA driver.DevicePtr, ldda CusolverInt, dipiv driver.DevicePtr, dB driver.DevicePtr, lddb CusolverInt, dX driver.DevicePtr, lddx CusolverInt, dWorkspace driver.DevicePtr) (uint, error) {
 	if err := checkLibSym("cusolverDnZZgesv_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnzZgesvBufferSize(handle, n, nrhs, dA, ldda, dipiv, dB, lddb, dX, lddx, dWorkspace, &out)); err != nil {
+	if err := toError(fnzZgesvBufferSize(handle, n, nrhs, uintptr(dA), ldda, uintptr(dipiv), uintptr(dB), lddb, uintptr(dX), lddx, uintptr(dWorkspace), &out)); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -3870,11 +3874,11 @@ func zZgesvBufferSize(handle Handle, n CusolverInt, nrhs CusolverInt, dA *Comple
 }
 
 // zgebrd wraps cusolverDnZgebrd.
-func zgebrd(handle Handle, m int32, n int32, a *Complex128, lda int32, d *float64, e *float64, tauq *Complex128, taup *Complex128, work *Complex128, lwork int32, devInfo *int32) error {
+func zgebrd(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tauq driver.DevicePtr, taup driver.DevicePtr, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZgebrd"); err != nil {
 		return err
 	}
-	return toError(fnzgebrd(handle, m, n, a, lda, d, e, tauq, taup, work, lwork, devInfo))
+	return toError(fnzgebrd(handle, m, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tauq), uintptr(taup), uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // zgebrdBufferSize wraps cusolverDnZgebrdBufferSize, bound as cusolverDnZgebrd_bufferSize.
@@ -3892,21 +3896,21 @@ func zgebrdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 }
 
 // zgeqrf wraps cusolverDnZgeqrf.
-func zgeqrf(handle Handle, m int32, n int32, a *Complex128, lda int32, tau *Complex128, workspace *Complex128, lwork int32, devInfo *int32) error {
+func zgeqrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZgeqrf"); err != nil {
 		return err
 	}
-	return toError(fnzgeqrf(handle, m, n, a, lda, tau, workspace, lwork, devInfo))
+	return toError(fnzgeqrf(handle, m, n, uintptr(a), lda, uintptr(tau), uintptr(workspace), lwork, uintptr(devInfo)))
 }
 
 // zgeqrfBufferSize wraps cusolverDnZgeqrfBufferSize, bound as cusolverDnZgeqrf_bufferSize.
-func zgeqrfBufferSize(handle Handle, m int32, n int32, a *Complex128, lda int32) (int32, error) {
+func zgeqrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnZgeqrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzgeqrfBufferSize(handle, m, n, a, lda, &out)); err != nil {
+	if err := toError(fnzgeqrfBufferSize(handle, m, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3914,11 +3918,11 @@ func zgeqrfBufferSize(handle Handle, m int32, n int32, a *Complex128, lda int32)
 }
 
 // zgesvd wraps cusolverDnZgesvd.
-func zgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, vt *Complex128, ldvt int32, work *Complex128, lwork int32, rwork *float64, info *int32) error {
+func zgesvd(handle Handle, jobu int8, jobvt int8, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, vt driver.DevicePtr, ldvt int32, work driver.DevicePtr, lwork int32, rwork driver.DevicePtr, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZgesvd"); err != nil {
 		return err
 	}
-	return toError(fnzgesvd(handle, jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, rwork, info))
+	return toError(fnzgesvd(handle, jobu, jobvt, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(vt), ldvt, uintptr(work), lwork, uintptr(rwork), uintptr(info)))
 }
 
 // zgesvdBufferSize wraps cusolverDnZgesvdBufferSize, bound as cusolverDnZgesvd_bufferSize.
@@ -3936,69 +3940,69 @@ func zgesvdBufferSize(handle Handle, m int32, n int32) (int32, error) {
 }
 
 // zgesvdaStridedBatched wraps cusolverDnZgesvdaStridedBatched.
-func zgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA *Complex128, lda int32, strideA int64, dS *float64, strideS int64, dU *Complex128, ldu int32, strideU int64, dV *Complex128, ldv int32, strideV int64, dWork *Complex128, lwork int32, dInfo *int32, hRNrmF *float64, batchSize int32) error {
+func zgesvdaStridedBatched(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, dWork driver.DevicePtr, lwork int32, dInfo driver.DevicePtr, hRNrmF *float64, batchSize int32) error {
 	if err := checkLibSym("cusolverDnZgesvdaStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgesvdaStridedBatched(handle, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, dWork, lwork, dInfo, hRNrmF, batchSize))
+	return toError(fnzgesvdaStridedBatched(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, uintptr(dWork), lwork, uintptr(dInfo), hRNrmF, batchSize))
 }
 
 // zgesvdaStridedBatchedBufferSize wraps cusolverDnZgesvdaStridedBatchedBufferSize, bound as cusolverDnZgesvdaStridedBatched_bufferSize.
-func zgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA *Complex128, lda int32, strideA int64, dS *float64, strideS int64, dU *Complex128, ldu int32, strideU int64, dV *Complex128, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
+func zgesvdaStridedBatchedBufferSize(handle Handle, jobz EigMode, rank int32, m int32, n int32, dA driver.DevicePtr, lda int32, strideA int64, dS driver.DevicePtr, strideS int64, dU driver.DevicePtr, ldu int32, strideU int64, dV driver.DevicePtr, ldv int32, strideV int64, lwork *int32, batchSize int32) error {
 	if err := checkLibSym("cusolverDnZgesvdaStridedBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnzgesvdaStridedBatchedBufferSize(handle, jobz, rank, m, n, dA, lda, strideA, dS, strideS, dU, ldu, strideU, dV, ldv, strideV, lwork, batchSize))
+	return toError(fnzgesvdaStridedBatchedBufferSize(handle, jobz, rank, m, n, uintptr(dA), lda, strideA, uintptr(dS), strideS, uintptr(dU), ldu, strideU, uintptr(dV), ldv, strideV, lwork, batchSize))
 }
 
 // zgesvdj wraps cusolverDnZgesvdj.
-func zgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, work *Complex128, lwork int32, info *int32, params GesvdjInfo) error {
+func zgesvdj(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo) error {
 	if err := checkLibSym("cusolverDnZgesvdj"); err != nil {
 		return err
 	}
-	return toError(fnzgesvdj(handle, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params))
+	return toError(fnzgesvdj(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params))
 }
 
 // zgesvdjBatched wraps cusolverDnZgesvdjBatched.
-func zgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, work *Complex128, lwork int32, info *int32, params GesvdjInfo, batchSize int32) error {
+func zgesvdjBatched(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params GesvdjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnZgesvdjBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgesvdjBatched(handle, jobz, m, n, a, lda, s, u, ldu, v, ldv, work, lwork, info, params, batchSize))
+	return toError(fnzgesvdjBatched(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, uintptr(work), lwork, uintptr(info), params, batchSize))
 }
 
 // zgesvdjBatchedBufferSize wraps cusolverDnZgesvdjBatchedBufferSize, bound as cusolverDnZgesvdjBatched_bufferSize.
-func zgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
+func zgesvdjBatchedBufferSize(handle Handle, jobz EigMode, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnZgesvdjBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnzgesvdjBatchedBufferSize(handle, jobz, m, n, a, lda, s, u, ldu, v, ldv, lwork, params, batchSize))
+	return toError(fnzgesvdjBatchedBufferSize(handle, jobz, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params, batchSize))
 }
 
 // zgesvdjBufferSize wraps cusolverDnZgesvdjBufferSize, bound as cusolverDnZgesvdj_bufferSize.
-func zgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a *Complex128, lda int32, s *float64, u *Complex128, ldu int32, v *Complex128, ldv int32, lwork *int32, params GesvdjInfo) error {
+func zgesvdjBufferSize(handle Handle, jobz EigMode, econ int32, m int32, n int32, a driver.DevicePtr, lda int32, s driver.DevicePtr, u driver.DevicePtr, ldu int32, v driver.DevicePtr, ldv int32, lwork *int32, params GesvdjInfo) error {
 	if err := checkLibSym("cusolverDnZgesvdj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnzgesvdjBufferSize(handle, jobz, econ, m, n, a, lda, s, u, ldu, v, ldv, lwork, params))
+	return toError(fnzgesvdjBufferSize(handle, jobz, econ, m, n, uintptr(a), lda, uintptr(s), uintptr(u), ldu, uintptr(v), ldv, lwork, params))
 }
 
 // zgetrf wraps cusolverDnZgetrf.
-func zgetrf(handle Handle, m int32, n int32, a *Complex128, lda int32, workspace *Complex128, devIpiv *int32, devInfo *int32) error {
+func zgetrf(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, devIpiv driver.DevicePtr, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZgetrf"); err != nil {
 		return err
 	}
-	return toError(fnzgetrf(handle, m, n, a, lda, workspace, devIpiv, devInfo))
+	return toError(fnzgetrf(handle, m, n, uintptr(a), lda, uintptr(workspace), uintptr(devIpiv), uintptr(devInfo)))
 }
 
 // zgetrfBufferSize wraps cusolverDnZgetrfBufferSize, bound as cusolverDnZgetrf_bufferSize.
-func zgetrfBufferSize(handle Handle, m int32, n int32, a *Complex128, lda int32) (int32, error) {
+func zgetrfBufferSize(handle Handle, m int32, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnZgetrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzgetrfBufferSize(handle, m, n, a, lda, &out)); err != nil {
+	if err := toError(fnzgetrfBufferSize(handle, m, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4006,29 +4010,29 @@ func zgetrfBufferSize(handle Handle, m int32, n int32, a *Complex128, lda int32)
 }
 
 // zgetrs wraps cusolverDnZgetrs.
-func zgetrs(handle Handle, trans Operation, n int32, nrhs int32, a *Complex128, lda int32, devIpiv *int32, b *Complex128, ldb int32, devInfo *int32) error {
+func zgetrs(handle Handle, trans Operation, n int32, nrhs int32, a driver.DevicePtr, lda int32, devIpiv driver.DevicePtr, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZgetrs"); err != nil {
 		return err
 	}
-	return toError(fnzgetrs(handle, trans, n, nrhs, a, lda, devIpiv, b, ldb, devInfo))
+	return toError(fnzgetrs(handle, trans, n, nrhs, uintptr(a), lda, uintptr(devIpiv), uintptr(b), ldb, uintptr(devInfo)))
 }
 
 // zheevd wraps cusolverDnZheevd.
-func zheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+func zheevd(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZheevd"); err != nil {
 		return err
 	}
-	return toError(fnzheevd(handle, jobz, uplo, n, a, lda, w, work, lwork, info))
+	return toError(fnzheevd(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // zheevdBufferSize wraps cusolverDnZheevdBufferSize, bound as cusolverDnZheevd_bufferSize.
-func zheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64) (int32, error) {
+func zheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnZheevd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzheevdBufferSize(handle, jobz, uplo, n, a, lda, w, &out)); err != nil {
+	if err := toError(fnzheevdBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4036,21 +4040,21 @@ func zheevdBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Co
 }
 
 // zheevdx wraps cusolverDnZheevdx.
-func zheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+func zheevdx(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZheevdx"); err != nil {
 		return err
 	}
-	return toError(fnzheevdx(handle, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, work, lwork, info))
+	return toError(fnzheevdx(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // zheevdxBufferSize wraps cusolverDnZheevdxBufferSize, bound as cusolverDnZheevdx_bufferSize.
-func zheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+func zheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnZheevdx_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzheevdxBufferSize(handle, jobz, range_, uplo, n, a, lda, vl, vu, il, iu, meig, w, &out)); err != nil {
+	if err := toError(fnzheevdxBufferSize(handle, jobz, range_, uplo, n, uintptr(a), lda, vl, vu, il, iu, meig, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4058,53 +4062,53 @@ func zheevdxBufferSize(handle Handle, jobz EigMode, range_ EigRange, uplo FillMo
 }
 
 // zheevj wraps cusolverDnZheevj.
-func zheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo) error {
+func zheevj(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnZheevj"); err != nil {
 		return err
 	}
-	return toError(fnzheevj(handle, jobz, uplo, n, a, lda, w, work, lwork, info, params))
+	return toError(fnzheevj(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params))
 }
 
 // zheevjBatched wraps cusolverDnZheevjBatched.
-func zheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo, batchSize int32) error {
+func zheevjBatched(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnZheevjBatched"); err != nil {
 		return err
 	}
-	return toError(fnzheevjBatched(handle, jobz, uplo, n, a, lda, w, work, lwork, info, params, batchSize))
+	return toError(fnzheevjBatched(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), uintptr(work), lwork, uintptr(info), params, batchSize))
 }
 
 // zheevjBatchedBufferSize wraps cusolverDnZheevjBatchedBufferSize, bound as cusolverDnZheevjBatched_bufferSize.
-func zheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, lwork *int32, params SyevjInfo, batchSize int32) error {
+func zheevjBatchedBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo, batchSize int32) error {
 	if err := checkLibSym("cusolverDnZheevjBatched_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnzheevjBatchedBufferSize(handle, jobz, uplo, n, a, lda, w, lwork, params, batchSize))
+	return toError(fnzheevjBatchedBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params, batchSize))
 }
 
 // zheevjBufferSize wraps cusolverDnZheevjBufferSize, bound as cusolverDnZheevj_bufferSize.
-func zheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, w *float64, lwork *int32, params SyevjInfo) error {
+func zheevjBufferSize(handle Handle, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnZheevj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnzheevjBufferSize(handle, jobz, uplo, n, a, lda, w, lwork, params))
+	return toError(fnzheevjBufferSize(handle, jobz, uplo, n, uintptr(a), lda, uintptr(w), lwork, params))
 }
 
 // zhegvd wraps cusolverDnZhegvd.
-func zhegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+func zhegvd(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZhegvd"); err != nil {
 		return err
 	}
-	return toError(fnzhegvd(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info))
+	return toError(fnzhegvd(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // zhegvdBufferSize wraps cusolverDnZhegvdBufferSize, bound as cusolverDnZhegvd_bufferSize.
-func zhegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64) (int32, error) {
+func zhegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnZhegvd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzhegvdBufferSize(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, &out)); err != nil {
+	if err := toError(fnzhegvdBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4112,21 +4116,21 @@ func zhegvdBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode,
 }
 
 // zhegvdx wraps cusolverDnZhegvdx.
-func zhegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64, work *Complex128, lwork int32, info *int32) error {
+func zhegvdx(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZhegvdx"); err != nil {
 		return err
 	}
-	return toError(fnzhegvdx(handle, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, work, lwork, info))
+	return toError(fnzhegvdx(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), uintptr(work), lwork, uintptr(info)))
 }
 
 // zhegvdxBufferSize wraps cusolverDnZhegvdxBufferSize, bound as cusolverDnZhegvdx_bufferSize.
-func zhegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w *float64) (int32, error) {
+func zhegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRange, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, vl float64, vu float64, il int32, iu int32, meig *int32, w driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnZhegvdx_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzhegvdxBufferSize(handle, itype, jobz, range_, uplo, n, a, lda, b, ldb, vl, vu, il, iu, meig, w, &out)); err != nil {
+	if err := toError(fnzhegvdxBufferSize(handle, itype, jobz, range_, uplo, n, uintptr(a), lda, uintptr(b), ldb, vl, vu, il, iu, meig, uintptr(w), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4134,37 +4138,37 @@ func zhegvdxBufferSize(handle Handle, itype EigType, jobz EigMode, range_ EigRan
 }
 
 // zhegvj wraps cusolverDnZhegvj.
-func zhegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64, work *Complex128, lwork int32, info *int32, params SyevjInfo) error {
+func zhegvj(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnZhegvj"); err != nil {
 		return err
 	}
-	return toError(fnzhegvj(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, work, lwork, info, params))
+	return toError(fnzhegvj(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), uintptr(work), lwork, uintptr(info), params))
 }
 
 // zhegvjBufferSize wraps cusolverDnZhegvjBufferSize, bound as cusolverDnZhegvj_bufferSize.
-func zhegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a *Complex128, lda int32, b *Complex128, ldb int32, w *float64, lwork *int32, params SyevjInfo) error {
+func zhegvjBufferSize(handle Handle, itype EigType, jobz EigMode, uplo FillMode, n int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, w driver.DevicePtr, lwork *int32, params SyevjInfo) error {
 	if err := checkLibSym("cusolverDnZhegvj_bufferSize"); err != nil {
 		return err
 	}
-	return toError(fnzhegvjBufferSize(handle, itype, jobz, uplo, n, a, lda, b, ldb, w, lwork, params))
+	return toError(fnzhegvjBufferSize(handle, itype, jobz, uplo, n, uintptr(a), lda, uintptr(b), ldb, uintptr(w), lwork, params))
 }
 
 // zhetrd wraps cusolverDnZhetrd.
-func zhetrd(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, d *float64, e *float64, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+func zhetrd(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZhetrd"); err != nil {
 		return err
 	}
-	return toError(fnzhetrd(handle, uplo, n, a, lda, d, e, tau, work, lwork, info))
+	return toError(fnzhetrd(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // zhetrdBufferSize wraps cusolverDnZhetrdBufferSize, bound as cusolverDnZhetrd_bufferSize.
-func zhetrdBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, d *float64, e *float64, tau *Complex128) (int32, error) {
+func zhetrdBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, d driver.DevicePtr, e driver.DevicePtr, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnZhetrd_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzhetrdBufferSize(handle, uplo, n, a, lda, d, e, tau, &out)); err != nil {
+	if err := toError(fnzhetrdBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(d), uintptr(e), uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4172,29 +4176,29 @@ func zhetrdBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda 
 }
 
 // zlaswp wraps cusolverDnZlaswp.
-func zlaswp(handle Handle, n int32, a *Complex128, lda int32, k1 int32, k2 int32, devIpiv *int32, incx int32) error {
+func zlaswp(handle Handle, n int32, a driver.DevicePtr, lda int32, k1 int32, k2 int32, devIpiv driver.DevicePtr, incx int32) error {
 	if err := checkLibSym("cusolverDnZlaswp"); err != nil {
 		return err
 	}
-	return toError(fnzlaswp(handle, n, a, lda, k1, k2, devIpiv, incx))
+	return toError(fnzlaswp(handle, n, uintptr(a), lda, k1, k2, uintptr(devIpiv), incx))
 }
 
 // zlauum wraps cusolverDnZlauum.
-func zlauum(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, work *Complex128, lwork int32, devInfo *int32) error {
+func zlauum(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZlauum"); err != nil {
 		return err
 	}
-	return toError(fnzlauum(handle, uplo, n, a, lda, work, lwork, devInfo))
+	return toError(fnzlauum(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // zlauumBufferSize wraps cusolverDnZlauumBufferSize, bound as cusolverDnZlauum_bufferSize.
-func zlauumBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32) (int32, error) {
+func zlauumBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnZlauum_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzlauumBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fnzlauumBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4202,29 +4206,29 @@ func zlauumBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda 
 }
 
 // zpotrf wraps cusolverDnZpotrf.
-func zpotrf(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, workspace *Complex128, lwork int32, devInfo *int32) error {
+func zpotrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, workspace driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZpotrf"); err != nil {
 		return err
 	}
-	return toError(fnzpotrf(handle, uplo, n, a, lda, workspace, lwork, devInfo))
+	return toError(fnzpotrf(handle, uplo, n, uintptr(a), lda, uintptr(workspace), lwork, uintptr(devInfo)))
 }
 
 // zpotrfBatched wraps cusolverDnZpotrfBatched.
-func zpotrfBatched(handle Handle, uplo FillMode, n int32, aarray uintptr, lda int32, infoArray *int32, batchSize int32) error {
+func zpotrfBatched(handle Handle, uplo FillMode, n int32, aarray driver.DevicePtr, lda int32, infoArray driver.DevicePtr, batchSize int32) error {
 	if err := checkLibSym("cusolverDnZpotrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnzpotrfBatched(handle, uplo, n, aarray, lda, infoArray, batchSize))
+	return toError(fnzpotrfBatched(handle, uplo, n, uintptr(aarray), lda, uintptr(infoArray), batchSize))
 }
 
 // zpotrfBufferSize wraps cusolverDnZpotrfBufferSize, bound as cusolverDnZpotrf_bufferSize.
-func zpotrfBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32) (int32, error) {
+func zpotrfBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnZpotrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzpotrfBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fnzpotrfBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4232,21 +4236,21 @@ func zpotrfBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda 
 }
 
 // zpotri wraps cusolverDnZpotri.
-func zpotri(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, work *Complex128, lwork int32, devInfo *int32) error {
+func zpotri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZpotri"); err != nil {
 		return err
 	}
-	return toError(fnzpotri(handle, uplo, n, a, lda, work, lwork, devInfo))
+	return toError(fnzpotri(handle, uplo, n, uintptr(a), lda, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // zpotriBufferSize wraps cusolverDnZpotriBufferSize, bound as cusolverDnZpotri_bufferSize.
-func zpotriBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32) (int32, error) {
+func zpotriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnZpotri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzpotriBufferSize(handle, uplo, n, a, lda, &out)); err != nil {
+	if err := toError(fnzpotriBufferSize(handle, uplo, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4254,37 +4258,37 @@ func zpotriBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda 
 }
 
 // zpotrs wraps cusolverDnZpotrs.
-func zpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a *Complex128, lda int32, b *Complex128, ldb int32, devInfo *int32) error {
+func zpotrs(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZpotrs"); err != nil {
 		return err
 	}
-	return toError(fnzpotrs(handle, uplo, n, nrhs, a, lda, b, ldb, devInfo))
+	return toError(fnzpotrs(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(devInfo)))
 }
 
 // zpotrsBatched wraps cusolverDnZpotrsBatched.
-func zpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a uintptr, lda int32, b uintptr, ldb int32, dInfo *int32, batchSize int32) error {
+func zpotrsBatched(handle Handle, uplo FillMode, n int32, nrhs int32, a driver.DevicePtr, lda int32, b driver.DevicePtr, ldb int32, dInfo driver.DevicePtr, batchSize int32) error {
 	if err := checkLibSym("cusolverDnZpotrsBatched"); err != nil {
 		return err
 	}
-	return toError(fnzpotrsBatched(handle, uplo, n, nrhs, a, lda, b, ldb, dInfo, batchSize))
+	return toError(fnzpotrsBatched(handle, uplo, n, nrhs, uintptr(a), lda, uintptr(b), ldb, uintptr(dInfo), batchSize))
 }
 
 // zsytrf wraps cusolverDnZsytrf.
-func zsytrf(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, ipiv *int32, work *Complex128, lwork int32, info *int32) error {
+func zsytrf(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZsytrf"); err != nil {
 		return err
 	}
-	return toError(fnzsytrf(handle, uplo, n, a, lda, ipiv, work, lwork, info))
+	return toError(fnzsytrf(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)))
 }
 
 // zsytrfBufferSize wraps cusolverDnZsytrfBufferSize, bound as cusolverDnZsytrf_bufferSize.
-func zsytrfBufferSize(handle Handle, n int32, a *Complex128, lda int32) (int32, error) {
+func zsytrfBufferSize(handle Handle, n int32, a driver.DevicePtr, lda int32) (int32, error) {
 	if err := checkLibSym("cusolverDnZsytrf_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzsytrfBufferSize(handle, n, a, lda, &out)); err != nil {
+	if err := toError(fnzsytrfBufferSize(handle, n, uintptr(a), lda, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4292,21 +4296,21 @@ func zsytrfBufferSize(handle Handle, n int32, a *Complex128, lda int32) (int32, 
 }
 
 // zsytri wraps cusolverDnZsytri.
-func zsytri(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, ipiv *int32, work *Complex128, lwork int32, info *int32) error {
+func zsytri(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZsytri"); err != nil {
 		return err
 	}
-	return toError(fnzsytri(handle, uplo, n, a, lda, ipiv, work, lwork, info))
+	return toError(fnzsytri(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), uintptr(work), lwork, uintptr(info)))
 }
 
 // zsytriBufferSize wraps cusolverDnZsytriBufferSize, bound as cusolverDnZsytri_bufferSize.
-func zsytriBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, ipiv *int32) (int32, error) {
+func zsytriBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, ipiv driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnZsytri_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzsytriBufferSize(handle, uplo, n, a, lda, ipiv, &out)); err != nil {
+	if err := toError(fnzsytriBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(ipiv), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4314,21 +4318,21 @@ func zsytriBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda 
 }
 
 // zungbr wraps cusolverDnZungbr.
-func zungbr(handle Handle, side SideMode, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+func zungbr(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZungbr"); err != nil {
 		return err
 	}
-	return toError(fnzungbr(handle, side, m, n, k, a, lda, tau, work, lwork, info))
+	return toError(fnzungbr(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // zungbrBufferSize wraps cusolverDnZungbrBufferSize, bound as cusolverDnZungbr_bufferSize.
-func zungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128) (int32, error) {
+func zungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnZungbr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzungbrBufferSize(handle, side, m, n, k, a, lda, tau, &out)); err != nil {
+	if err := toError(fnzungbrBufferSize(handle, side, m, n, k, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4336,21 +4340,21 @@ func zungbrBufferSize(handle Handle, side SideMode, m int32, n int32, k int32, a
 }
 
 // zungqr wraps cusolverDnZungqr.
-func zungqr(handle Handle, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+func zungqr(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZungqr"); err != nil {
 		return err
 	}
-	return toError(fnzungqr(handle, m, n, k, a, lda, tau, work, lwork, info))
+	return toError(fnzungqr(handle, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // zungqrBufferSize wraps cusolverDnZungqrBufferSize, bound as cusolverDnZungqr_bufferSize.
-func zungqrBufferSize(handle Handle, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128) (int32, error) {
+func zungqrBufferSize(handle Handle, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnZungqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzungqrBufferSize(handle, m, n, k, a, lda, tau, &out)); err != nil {
+	if err := toError(fnzungqrBufferSize(handle, m, n, k, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4358,21 +4362,21 @@ func zungqrBufferSize(handle Handle, m int32, n int32, k int32, a *Complex128, l
 }
 
 // zungtr wraps cusolverDnZungtr.
-func zungtr(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, tau *Complex128, work *Complex128, lwork int32, info *int32) error {
+func zungtr(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZungtr"); err != nil {
 		return err
 	}
-	return toError(fnzungtr(handle, uplo, n, a, lda, tau, work, lwork, info))
+	return toError(fnzungtr(handle, uplo, n, uintptr(a), lda, uintptr(tau), uintptr(work), lwork, uintptr(info)))
 }
 
 // zungtrBufferSize wraps cusolverDnZungtrBufferSize, bound as cusolverDnZungtr_bufferSize.
-func zungtrBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda int32, tau *Complex128) (int32, error) {
+func zungtrBufferSize(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr) (int32, error) {
 	if err := checkLibSym("cusolverDnZungtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzungtrBufferSize(handle, uplo, n, a, lda, tau, &out)); err != nil {
+	if err := toError(fnzungtrBufferSize(handle, uplo, n, uintptr(a), lda, uintptr(tau), &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4380,21 +4384,21 @@ func zungtrBufferSize(handle Handle, uplo FillMode, n int32, a *Complex128, lda 
 }
 
 // zunmqr wraps cusolverDnZunmqr.
-func zunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32, work *Complex128, lwork int32, devInfo *int32) error {
+func zunmqr(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, devInfo driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZunmqr"); err != nil {
 		return err
 	}
-	return toError(fnzunmqr(handle, side, trans, m, n, k, a, lda, tau, c, ldc, work, lwork, devInfo))
+	return toError(fnzunmqr(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(devInfo)))
 }
 
 // zunmqrBufferSize wraps cusolverDnZunmqrBufferSize, bound as cusolverDnZunmqr_bufferSize.
-func zunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32) (int32, error) {
+func zunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n int32, k int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	if err := checkLibSym("cusolverDnZunmqr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzunmqrBufferSize(handle, side, trans, m, n, k, a, lda, tau, c, ldc, &out)); err != nil {
+	if err := toError(fnzunmqrBufferSize(handle, side, trans, m, n, k, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4402,21 +4406,21 @@ func zunmqrBufferSize(handle Handle, side SideMode, trans Operation, m int32, n 
 }
 
 // zunmtr wraps cusolverDnZunmtr.
-func zunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32, work *Complex128, lwork int32, info *int32) error {
+func zunmtr(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32, work driver.DevicePtr, lwork int32, info driver.DevicePtr) error {
 	if err := checkLibSym("cusolverDnZunmtr"); err != nil {
 		return err
 	}
-	return toError(fnzunmtr(handle, side, uplo, trans, m, n, a, lda, tau, c, ldc, work, lwork, info))
+	return toError(fnzunmtr(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, uintptr(work), lwork, uintptr(info)))
 }
 
 // zunmtrBufferSize wraps cusolverDnZunmtrBufferSize, bound as cusolverDnZunmtr_bufferSize.
-func zunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a *Complex128, lda int32, tau *Complex128, c *Complex128, ldc int32) (int32, error) {
+func zunmtrBufferSize(handle Handle, side SideMode, uplo FillMode, trans Operation, m int32, n int32, a driver.DevicePtr, lda int32, tau driver.DevicePtr, c driver.DevicePtr, ldc int32) (int32, error) {
 	if err := checkLibSym("cusolverDnZunmtr_bufferSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnzunmtrBufferSize(handle, side, uplo, trans, m, n, a, lda, tau, c, ldc, &out)); err != nil {
+	if err := toError(fnzunmtrBufferSize(handle, side, uplo, trans, m, n, uintptr(a), lda, uintptr(tau), uintptr(c), ldc, &out)); err != nil {
 		var zero int32
 		return zero, err
 	}

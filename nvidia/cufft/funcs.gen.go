@@ -2,6 +2,8 @@
 
 package cufft
 
+import "github.com/tmc/lib/nvidia/driver"
+
 // Function pointer variables, registered by init via registerFuncs.
 var (
 	fnCreate               func(*Handle) Result
@@ -37,7 +39,7 @@ var (
 	fnresetPlanProperty    func(Handle, Property) Result
 	fnsetAutoAllocation    func(Handle, int32) Result
 	fnsetPlanPropertyInt64 func(Handle, Property, int64) Result
-	fnsetStream            func(Handle, Stream) Result
+	fnsetStream            func(Handle, driver.Stream) Result
 	fnsetWorkArea          func(Handle, uintptr) Result
 )
 
@@ -237,11 +239,11 @@ func EstimateMany(rank int32, n *int32, inembed *int32, istride int32, idist int
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecC2C.
-func execC2C(plan Handle, idata uintptr, odata uintptr, direction int32) error {
+func execC2C(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr, direction int32) error {
 	if err := checkLibSym("cufftExecC2C"); err != nil {
 		return err
 	}
-	return toError(fnexecC2C(plan, idata, odata, direction))
+	return toError(fnexecC2C(plan, uintptr(idata), uintptr(odata), direction))
 }
 
 // execC2R [Handle.ExecC2R] ( [Handle.ExecZ2D]) executes a single-precision (double-precision) complex-to-real, implicitly inverse, cuFFT transform plan.
@@ -259,11 +261,11 @@ func execC2C(plan Handle, idata uintptr, odata uintptr, direction int32) error {
 //   - [Success]: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecC2R.
-func execC2R(plan Handle, idata uintptr, odata uintptr) error {
+func execC2R(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr) error {
 	if err := checkLibSym("cufftExecC2R"); err != nil {
 		return err
 	}
-	return toError(fnexecC2R(plan, idata, odata))
+	return toError(fnexecC2R(plan, uintptr(idata), uintptr(odata)))
 }
 
 // execD2Z [Handle.ExecR2C] ( [Handle.ExecD2Z]) executes a single-precision (double-precision) real-to-complex, implicitly forward, cuFFT transform plan.
@@ -281,11 +283,11 @@ func execC2R(plan Handle, idata uintptr, odata uintptr) error {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecD2Z.
-func execD2Z(plan Handle, idata uintptr, odata uintptr) error {
+func execD2Z(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr) error {
 	if err := checkLibSym("cufftExecD2Z"); err != nil {
 		return err
 	}
-	return toError(fnexecD2Z(plan, idata, odata))
+	return toError(fnexecD2Z(plan, uintptr(idata), uintptr(odata)))
 }
 
 // execR2C [Handle.ExecR2C] ( [Handle.ExecD2Z]) executes a single-precision (double-precision) real-to-complex, implicitly forward, cuFFT transform plan.
@@ -303,11 +305,11 @@ func execD2Z(plan Handle, idata uintptr, odata uintptr) error {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecR2C.
-func execR2C(plan Handle, idata uintptr, odata uintptr) error {
+func execR2C(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr) error {
 	if err := checkLibSym("cufftExecR2C"); err != nil {
 		return err
 	}
-	return toError(fnexecR2C(plan, idata, odata))
+	return toError(fnexecR2C(plan, uintptr(idata), uintptr(odata)))
 }
 
 // execZ2D [Handle.ExecC2R] ( [Handle.ExecZ2D]) executes a single-precision (double-precision) complex-to-real, implicitly inverse, cuFFT transform plan.
@@ -325,11 +327,11 @@ func execR2C(plan Handle, idata uintptr, odata uintptr) error {
 //   - [Success]: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecZ2D.
-func execZ2D(plan Handle, idata uintptr, odata uintptr) error {
+func execZ2D(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr) error {
 	if err := checkLibSym("cufftExecZ2D"); err != nil {
 		return err
 	}
-	return toError(fnexecZ2D(plan, idata, odata))
+	return toError(fnexecZ2D(plan, uintptr(idata), uintptr(odata)))
 }
 
 // execZ2Z [Handle.ExecC2C] ( [Handle.ExecZ2Z]) executes a single-precision (double-precision) complex-to-complex transform plan in the transform direction as specified by direction parameter.
@@ -348,11 +350,11 @@ func execZ2D(plan Handle, idata uintptr, odata uintptr) error {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecZ2Z.
-func execZ2Z(plan Handle, idata uintptr, odata uintptr, direction int32) error {
+func execZ2Z(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr, direction int32) error {
 	if err := checkLibSym("cufftExecZ2Z"); err != nil {
 		return err
 	}
-	return toError(fnexecZ2Z(plan, idata, odata, direction))
+	return toError(fnexecZ2Z(plan, uintptr(idata), uintptr(odata), direction))
 }
 
 // getPlanPropertyInt64 Retrieves the property value identified by the key property associated with the cuFFT plan plan.
@@ -1009,7 +1011,7 @@ func setPlanPropertyInt64(plan Handle, property Property, inputValueInt int64) e
 //   - [Success]: The stream was associated with the plan.
 //
 // Wraps cufftSetStream.
-func setStream(plan Handle, stream Stream) error {
+func setStream(plan Handle, stream driver.Stream) error {
 	if err := checkLibSym("cufftSetStream"); err != nil {
 		return err
 	}
@@ -1029,9 +1031,9 @@ func setStream(plan Handle, stream Stream) error {
 //   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftSetWorkArea.
-func setWorkArea(plan Handle, workArea uintptr) error {
+func setWorkArea(plan Handle, workArea driver.DevicePtr) error {
 	if err := checkLibSym("cufftSetWorkArea"); err != nil {
 		return err
 	}
-	return toError(fnsetWorkArea(plan, workArea))
+	return toError(fnsetWorkArea(plan, uintptr(workArea)))
 }

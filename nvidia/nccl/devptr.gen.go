@@ -2,6 +2,8 @@
 
 package nccl
 
+import "github.com/tmc/lib/nvidia/driver"
+
 // Function pointer variables, registered by init via registerFuncs.
 var (
 	fngetCftDeviceLeInfo          func(Window, uint, int32, Team, *CftLeId, *uint) Result
@@ -28,31 +30,31 @@ func getCftDeviceLeInfo(window Window, offset uint, peerCft int32, cftTeam Team,
 }
 
 // getLsaDevicePointer wraps ncclGetLsaDevicePointer.
-func getLsaDevicePointer(window Window, offset uint, lsaRank int32) (Buffer, error) {
+func getLsaDevicePointer(window Window, offset uint, lsaRank int32) (driver.DevicePtr, error) {
 	if err := checkLibSym("ncclGetLsaDevicePointer"); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
 	var out uintptr
 	if err := toError(fngetLsaDevicePointer(window, offset, lsaRank, &out)); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
-	return Buffer(out), nil
+	return driver.DevicePtr(out), nil
 }
 
 // getLsaMultimemDevicePointer wraps ncclGetLsaMultimemDevicePointer.
-func getLsaMultimemDevicePointer(window Window, offset uint) (Buffer, error) {
+func getLsaMultimemDevicePointer(window Window, offset uint) (driver.DevicePtr, error) {
 	if err := checkLibSym("ncclGetLsaMultimemDevicePointer"); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
 	var out uintptr
 	if err := toError(fngetLsaMultimemDevicePointer(window, offset, &out)); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
-	return Buffer(out), nil
+	return driver.DevicePtr(out), nil
 }
 
 // getMultimemDeviceLeInfo wraps ncclGetMultimemDeviceLeInfo.
@@ -70,17 +72,17 @@ func getMultimemDeviceLeInfo(window Window, offset uint, leOffset *uint) (CftLeI
 }
 
 // getMultimemDevicePointer wraps ncclGetMultimemDevicePointer.
-func getMultimemDevicePointer(window Window, offset uint, multimem MultimemHandle) (Buffer, error) {
+func getMultimemDevicePointer(window Window, offset uint, multimem MultimemHandle) (driver.DevicePtr, error) {
 	if err := checkLibSym("ncclGetMultimemDevicePointer"); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
 	var out uintptr
 	if err := toError(fngetMultimemDevicePointer(window, offset, multimem, &out)); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
-	return Buffer(out), nil
+	return driver.DevicePtr(out), nil
 }
 
 // getPeerDeviceLeInfo wraps ncclGetPeerDeviceLeInfo.
@@ -98,17 +100,17 @@ func getPeerDeviceLeInfo(window Window, offset uint, peerWorld int32, leOffset *
 }
 
 // getPeerDevicePointer wraps ncclGetPeerDevicePointer.
-func getPeerDevicePointer(window Window, offset uint, peer int32) (Buffer, error) {
+func getPeerDevicePointer(window Window, offset uint, peer int32) (driver.DevicePtr, error) {
 	if err := checkLibSym("ncclGetPeerDevicePointer"); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
 	var out uintptr
 	if err := toError(fngetPeerDevicePointer(window, offset, peer, &out)); err != nil {
-		var zero Buffer
+		var zero driver.DevicePtr
 		return zero, err
 	}
-	return Buffer(out), nil
+	return driver.DevicePtr(out), nil
 }
 
 // CftDeviceLeInfo wraps ncclGetCftDeviceLeInfo.
@@ -117,12 +119,12 @@ func (w Window) CftDeviceLeInfo(offset uint, peerCft int32, cftTeam Team, leOffs
 }
 
 // LsaDevicePointer wraps ncclGetLsaDevicePointer.
-func (w Window) LsaDevicePointer(offset uint, lsaRank int32) (Buffer, error) {
+func (w Window) LsaDevicePointer(offset uint, lsaRank int32) (driver.DevicePtr, error) {
 	return getLsaDevicePointer(w, offset, lsaRank)
 }
 
 // LsaMultimemDevicePointer wraps ncclGetLsaMultimemDevicePointer.
-func (w Window) LsaMultimemDevicePointer(offset uint) (Buffer, error) {
+func (w Window) LsaMultimemDevicePointer(offset uint) (driver.DevicePtr, error) {
 	return getLsaMultimemDevicePointer(w, offset)
 }
 
@@ -132,7 +134,7 @@ func (w Window) MultimemDeviceLeInfo(offset uint, leOffset *uint) (CftLeId, erro
 }
 
 // MultimemDevicePointer wraps ncclGetMultimemDevicePointer.
-func (w Window) MultimemDevicePointer(offset uint, multimem MultimemHandle) (Buffer, error) {
+func (w Window) MultimemDevicePointer(offset uint, multimem MultimemHandle) (driver.DevicePtr, error) {
 	return getMultimemDevicePointer(w, offset, multimem)
 }
 
@@ -142,6 +144,6 @@ func (w Window) PeerDeviceLeInfo(offset uint, peerWorld int32, leOffset *uint) (
 }
 
 // PeerDevicePointer wraps ncclGetPeerDevicePointer.
-func (w Window) PeerDevicePointer(offset uint, peer int32) (Buffer, error) {
+func (w Window) PeerDevicePointer(offset uint, peer int32) (driver.DevicePtr, error) {
 	return getPeerDevicePointer(w, offset, peer)
 }

@@ -267,10 +267,10 @@ func (e *Engine) execute(
 	bPtr driver.DevicePtr, bRows, bCols, ldb int,
 	dPtr driver.DevicePtr, dRows, dCols, ldd int,
 ) error {
-	wsPtr := uintptr(e.workspace.Ptr())
+	wsPtr := e.workspace.Ptr()
 	wsSize := e.workspaceSize
 	if cfg.Workspace.Len() > 0 || cfg.WorkspaceSize > 0 {
-		wsPtr = uintptr(cfg.Workspace.Ptr())
+		wsPtr = cfg.Workspace.Ptr()
 		if cfg.WorkspaceSize > 0 {
 			wsSize = cfg.WorkspaceSize
 		} else {
@@ -423,18 +423,18 @@ func (e *Engine) execute(
 			betaPtr = uintptr(unsafe.Pointer(&beta))
 		}
 
-		err = withStream(s, func(streamHandle cublaslt.Stream) error {
+		err = withStream(s, func(streamHandle driver.Stream) error {
 			return e.handle.Matmul(
 				opDesc,
 				alphaPtr,
-				uintptr(aPtr),
+				aPtr,
 				layoutA,
-				uintptr(bPtr),
+				bPtr,
 				layoutB,
 				betaPtr,
-				uintptr(dPtr),
+				dPtr,
 				layoutD,
-				uintptr(dPtr),
+				dPtr,
 				layoutD,
 				algoPtr,
 				wsPtr,
@@ -821,13 +821,11 @@ func (e *Engine) LinearRowMajorF16ToF32(
 	}, w.Ptr(), inFeatures, outFeatures, inFeatures, x.Ptr(), inFeatures, tokens, inFeatures, y.Ptr(), outFeatures, tokens, outFeatures)
 }
 
-func withStream(s *cuda.Stream, fn func(cublaslt.Stream) error) error {
+func withStream(s *cuda.Stream, fn func(driver.Stream) error) error {
 	if s == nil {
 		return fn(0)
 	}
-	return s.WithHandle(func(stream driver.Stream) error {
-		return fn(cublaslt.Stream(stream))
-	})
+	return s.WithHandle(fn)
 }
 
 func validateMatMulLengths(aLen, m, k, bLen, n, dLen int) error {

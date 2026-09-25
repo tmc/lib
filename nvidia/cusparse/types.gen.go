@@ -92,8 +92,5 @@ const (
 	PatchLevel   LibraryPropertyType = 2
 )
 
-// Stream is an opaque CUDA stream handle.
-type Stream uintptr
-
 // LoggerCallback represents cusparseLoggerCallback_t.
 type LoggerCallback uintptr

@@ -88,7 +88,7 @@ func setup(t *testing.T) cublas.Handle {
 
 // devSlice uploads xs and returns the device pointer. The buffer is freed when
 // the test ends.
-func devSlice[T any](t *testing.T, xs []T) uintptr {
+func devSlice[T any](t *testing.T, xs []T) driver.DevicePtr {
 	t.Helper()
 	n := uint(len(xs)) * uint(unsafe.Sizeof(xs[0]))
 	ptr, err := driver.MemAllocBytes(n)
@@ -103,27 +103,17 @@ func devSlice[T any](t *testing.T, xs []T) uintptr {
 	if err := ptr.CopyFromHostPtr(unsafe.Pointer(&xs[0]), n); err != nil {
 		t.Fatalf("MemcpyHtoD: %v", err)
 	}
-	return uintptr(ptr)
-}
-
-// devp reinterprets a device address as the pointer type the generated cuBLAS
-// signatures use for buffer arguments. The bindings declare device buffers as
-// *float32 and *float64 rather than an opaque address type, so every call site
-// must launder a device address through unsafe.Pointer. go vet flags this
-// shape; the conversion is confined to this one function and the tests run
-// with -vet=off.
-func devp[T any](p uintptr) *T {
-	return (*T)(unsafe.Pointer(p)) //lint:ignore unsafeptr device address, never a Go pointer
+	return ptr
 }
 
 // download copies len(xs) elements back from ptr into xs.
-func download[T any](t *testing.T, ptr uintptr, xs []T) {
+func download[T any](t *testing.T, ptr driver.DevicePtr, xs []T) {
 	t.Helper()
 	if err := driver.CtxSynchronize(); err != nil {
 		t.Fatalf("synchronize: %v", err)
 	}
 	n := uint(len(xs)) * uint(unsafe.Sizeof(xs[0]))
-	if err := driver.DevicePtr(ptr).CopyToHostPtr(unsafe.Pointer(&xs[0]), n); err != nil {
+	if err := ptr.CopyToHostPtr(unsafe.Pointer(&xs[0]), n); err != nil {
 		t.Fatalf("MemcpyDtoH: %v", err)
 	}
 }
@@ -241,9 +231,9 @@ func TestSgemm(t *testing.T) {
 				al += 1e-3
 			}
 			err := h.Sgemm(opa, opb, m, n, k, &al,
-				devp[float32](ad), int32(lda),
-				devp[float32](bd), int32(ldb),
-				&be, devp[float32](cd), m)
+				ad, int32(lda),
+				bd, int32(ldb),
+				&be, cd, m)
 			if err != nil {
 				t.Fatalf("Sgemm: %v", err)
 			}
@@ -279,15 +269,15 @@ func TestDgemm(t *testing.T) {
 		// A wrong leading dimension is the canonical binding defect.
 		al = alpha
 		if err := h.Dgemm(cublas.OpN, cublas.OpN, m, n, k, &al,
-			devp[float64](ad), m+1,
-			devp[float64](bd), k, &be,
-			devp[float64](cd), m); err != nil {
+			ad, m+1,
+			bd, k, &be,
+			cd, m); err != nil {
 			t.Fatalf("Dgemm: %v", err)
 		}
 	} else if err := h.Dgemm(cublas.OpN, cublas.OpN, m, n, k, &al,
-		devp[float64](ad), m,
-		devp[float64](bd), k, &be,
-		devp[float64](cd), m); err != nil {
+		ad, m,
+		bd, k, &be,
+		cd, m); err != nil {
 		t.Fatalf("Dgemm: %v", err)
 	}
 	got := make([]float64, m*n)
@@ -315,8 +305,7 @@ func TestLevel1(t *testing.T) {
 	xf, yf := float32s(x), float32s(y)
 	xd := devSlice(t, xf)
 	yd := devSlice(t, yf)
-	px := devp[float32](xd)
-	py := devp[float32](yd)
+	px, py := xd, yd
 
 	t.Run("Sdot", func(t *testing.T) {
 		bind(t)
@@ -414,7 +403,7 @@ func TestLevel1(t *testing.T) {
 		yc := float32s(y)
 		ycd := devSlice(t, yc)
 		al := float32(alpha)
-		if err := h.Saxpy(n, &al, px, incx, devp[float32](ycd), incy); err != nil {
+		if err := h.Saxpy(n, &al, px, incx, ycd, incy); err != nil {
 			t.Fatalf("Saxpy: %v", err)
 		}
 		got := make([]float32, len(yc))

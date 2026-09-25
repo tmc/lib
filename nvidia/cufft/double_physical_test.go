@@ -59,7 +59,7 @@ func TestDoubleRoundTrip(t *testing.T) {
 	}
 	check("upload", ptr.CopyFromHostPtr(unsafe.Pointer(&values[0]), bytes))
 	defer func() { clean("synchronize before release", driver.CtxSynchronize()) }()
-	check("forward", plan.ExecZ2Z(uintptr(ptr), uintptr(ptr), cufft.Forward))
+	check("forward", plan.ExecZ2Z(ptr, ptr, cufft.Forward))
 	check("synchronize forward", driver.CtxSynchronize())
 	check("download forward", ptr.CopyToHostPtr(unsafe.Pointer(&values[0]), bytes))
 	const tolerance = 1e-10
@@ -74,7 +74,7 @@ func TestDoubleRoundTrip(t *testing.T) {
 			t.Errorf("forward[%d]=%v, want %v within %g", k, got, want, tolerance)
 		}
 	}
-	check("inverse", plan.ExecZ2Z(uintptr(ptr), uintptr(ptr), cufft.Inverse))
+	check("inverse", plan.ExecZ2Z(ptr, ptr, cufft.Inverse))
 	check("synchronize inverse", driver.CtxSynchronize())
 	check("download inverse", ptr.CopyToHostPtr(unsafe.Pointer(&values[0]), bytes))
 	for i, v := range values {

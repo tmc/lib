@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublaslt"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // Example runs a single-precision matrix multiply through cublasLtMatmul.
@@ -36,12 +37,12 @@ func Example() {
 	defer bLayout.Destroy()
 	defer cLayout.Destroy()
 
-	var dA, dB, dC uintptr // device allocations, m*k, k*n, m*n floats
+	var dA, dB, dC driver.DevicePtr // device allocations, m*k, k*n, m*n floats
 	alpha, beta := float32(1), float32(0)
 	err = h.Matmul(desc,
 		uintptr(unsafe.Pointer(&alpha)), dA, aLayout, dB, bLayout,
 		uintptr(unsafe.Pointer(&beta)), dC, cLayout, dC, cLayout,
-		nil, 0, 0, cublaslt.Stream(0))
+		nil, 0, 0, 0)
 	if err != nil {
 		fmt.Println("matmul:", err)
 		return

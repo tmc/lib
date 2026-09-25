@@ -4,6 +4,7 @@ package cublasmp
 
 import (
 	"github.com/tmc/lib/nvidia/cublas"
+	"github.com/tmc/lib/nvidia/driver"
 	"unsafe"
 )
 
@@ -22,7 +23,7 @@ import (
 //   - stream: in Stream that will be assigned to the handle
 //
 // Wraps cublasMpCreate.
-func NewHandle(stream cublas.Stream) (Handle, error) {
+func NewHandle(stream driver.Stream) (Handle, error) {
 	return Create(stream)
 }
 
@@ -143,7 +144,7 @@ func (h Handle) GemmBufferSize(transA cublas.Operation, transB cublas.Operation,
 //   - stream: in CUDA stream to set. The stream must belong to the same CUDA context as the current handle stream
 //
 // Wraps cublasMpSetStream.
-func (h Handle) SetStream(stream cublas.Stream) error {
+func (h Handle) SetStream(stream driver.Stream) error {
 	return SetStream(h, stream)
 }
 
@@ -152,6 +153,6 @@ func (h Handle) SetStream(stream cublas.Stream) error {
 // This function returns the current CUDA stream that is being used in the computations.
 //
 // Wraps cublasMpGetStream.
-func (h Handle) Stream() (cublas.Stream, error) {
+func (h Handle) Stream() (driver.Stream, error) {
 	return GetStream(h)
 }

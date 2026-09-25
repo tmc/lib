@@ -11,7 +11,6 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/tmc/lib/nvidia/cusolver"
 	"github.com/tmc/lib/nvidia/cusolvermp"
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
@@ -148,7 +147,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 		}
 	}()
 
-	handle, err := cusolvermp.NewHandle(device, cusolver.Stream(stream))
+	handle, err := cusolvermp.NewHandle(device, stream)
 	if err != nil {
 		t.Fatalf("handle: %v", err)
 	}

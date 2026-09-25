@@ -4,6 +4,7 @@ package cusolvermp
 
 import (
 	"github.com/tmc/lib/nvidia/cusolver"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -11,7 +12,7 @@ import (
 var (
 	fnBufferDeregister   func(Grid, DevicePtr) cusolver.Result
 	fnBufferRegister     func(Grid, DevicePtr, uint) cusolver.Result
-	fnCreate             func(*Handle, int32, cusolver.Stream) cusolver.Result
+	fnCreate             func(*Handle, int32, driver.Stream) cusolver.Result
 	fnCreateDeviceGrid   func(Handle, *Grid, nccl.Comm, int32, int32, GridMapping) cusolver.Result
 	fnCreateMatrixDesc   func(*MatrixDescriptor, Grid, cusolver.DataType, int64, int64, int64, int64, uint32, uint32, int64) cusolver.Result
 	fnDestroy            func(Handle) cusolver.Result
@@ -19,7 +20,7 @@ var (
 	fnDestroyMatrixDesc  func(MatrixDescriptor) cusolver.Result
 	fnFree               func(Grid, DevicePtr) cusolver.Result
 	fnGetMathMode        func(Handle, *cusolver.MathMode) cusolver.Result
-	fnGetStream          func(Handle, *cusolver.Stream) cusolver.Result
+	fnGetStream          func(Handle, *driver.Stream) cusolver.Result
 	fnGetVersion         func(Handle, *int32) cusolver.Result
 	fnGetrf              func(Handle, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, DevicePtr, cusolver.DataType, DevicePtr, uint, HostPtr, uint, DevicePtr) cusolver.Result
 	fnGetrfBufferSize    func(Handle, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, DevicePtr, cusolver.DataType, *uint, *uint) cusolver.Result
@@ -34,7 +35,7 @@ var (
 	fnMatrixScatterH2D   func(Handle, int64, int64, DevicePtr, int64, int64, MatrixDescriptor, int32, HostPtr, int64) cusolver.Result
 	fnNUMROC             func(int64, int64, uint32, uint32, uint32) int64
 	fnSetMathMode        func(Handle, cusolver.MathMode) cusolver.Result
-	fnSetStream          func(Handle, cusolver.Stream) cusolver.Result
+	fnSetStream          func(Handle, driver.Stream) cusolver.Result
 )
 
 // Create creates a cuSOLVERMp handle bound to one device and one stream
@@ -51,7 +52,7 @@ var (
 //   - stream: stream every subsequent operation on this handle is enqueued on; caller-owned
 //
 // Wraps cusolverMpCreate.
-func Create(deviceId int32, stream cusolver.Stream) (Handle, error) {
+func Create(deviceId int32, stream driver.Stream) (Handle, error) {
 	if err := checkLibSym("cusolverMpCreate"); err != nil {
 		var zero Handle
 		return zero, err
@@ -198,14 +199,14 @@ func GetMathMode(handle Handle) (cusolver.MathMode, error) {
 // GetStream returns the stream operations on handle are enqueued on
 //
 // Wraps cusolverMpGetStream.
-func GetStream(handle Handle) (cusolver.Stream, error) {
+func GetStream(handle Handle) (driver.Stream, error) {
 	if err := checkLibSym("cusolverMpGetStream"); err != nil {
-		var zero cusolver.Stream
+		var zero driver.Stream
 		return zero, err
 	}
-	var out cusolver.Stream
+	var out driver.Stream
 	if err := toError(fnGetStream(handle, &out)); err != nil {
-		var zero cusolver.Stream
+		var zero driver.Stream
 		return zero, err
 	}
 	return out, nil
@@ -308,7 +309,7 @@ func SetMathMode(handle Handle, mode cusolver.MathMode) error {
 //   - stream: caller-owned stream, which must outlive the handle's use of it
 //
 // Wraps cusolverMpSetStream.
-func SetStream(handle Handle, stream cusolver.Stream) error {
+func SetStream(handle Handle, stream driver.Stream) error {
 	if err := checkLibSym("cusolverMpSetStream"); err != nil {
 		return err
 	}

@@ -2,6 +2,10 @@
 
 package cusparse
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // MatGet wraps cusparseDnMatGet.
 func (d DnMatDescr) MatGet(rows *int64, cols *int64, ld *int64, values *uintptr, type_ *DataType, order *Order) error {
 	return dnMatGet(d, rows, cols, ld, values, type_, order)
@@ -18,6 +22,6 @@ func (d DnMatDescr) MatSetStridedBatch(batchCount int32, batchStride int64) erro
 }
 
 // MatSetValues wraps cusparseDnMatSetValues.
-func (d DnMatDescr) MatSetValues(values uintptr) error {
+func (d DnMatDescr) MatSetValues(values driver.DevicePtr) error {
 	return dnMatSetValues(d, values)
 }

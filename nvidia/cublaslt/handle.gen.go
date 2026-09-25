@@ -2,6 +2,10 @@
 
 package cublaslt
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // Destroy releases hardware resources used by the cuBLASLt library.
 //
 // Wraps cublasLtDestroy.
@@ -60,7 +64,7 @@ func (h Handle) Destroy() error {
 //   - [Success]: if the operation completed successfully
 //
 // Wraps cublasLtMatmul.
-func (h Handle) Matmul(computeDesc MatmulDesc, alpha uintptr, a uintptr, adesc MatrixLayout, b uintptr, bdesc MatrixLayout, beta uintptr, c uintptr, cdesc MatrixLayout, d uintptr, ddesc MatrixLayout, algo *MatmulAlgo, workspace uintptr, workspaceSizeInBytes uint, stream Stream) error {
+func (h Handle) Matmul(computeDesc MatmulDesc, alpha uintptr, a driver.DevicePtr, adesc MatrixLayout, b driver.DevicePtr, bdesc MatrixLayout, beta uintptr, c driver.DevicePtr, cdesc MatrixLayout, d driver.DevicePtr, ddesc MatrixLayout, algo *MatmulAlgo, workspace driver.DevicePtr, workspaceSizeInBytes uint, stream driver.Stream) error {
 	return matmul(h, computeDesc, alpha, a, adesc, b, bdesc, beta, c, cdesc, d, ddesc, algo, workspace, workspaceSizeInBytes, stream)
 }
 
@@ -164,6 +168,6 @@ func (h Handle) MatmulAlgoInit(computeType ComputeType, scaleType DataType, atyp
 //   - [Success]: if the operation completed successfully
 //
 // Wraps cublasLtMatrixTransform.
-func (h Handle) MatrixTransform(transformDesc MatrixTransformDesc, alpha uintptr, a uintptr, adesc MatrixLayout, beta uintptr, b uintptr, bdesc MatrixLayout, c uintptr, cdesc MatrixLayout, stream Stream) error {
+func (h Handle) MatrixTransform(transformDesc MatrixTransformDesc, alpha uintptr, a driver.DevicePtr, adesc MatrixLayout, beta uintptr, b driver.DevicePtr, bdesc MatrixLayout, c driver.DevicePtr, cdesc MatrixLayout, stream driver.Stream) error {
 	return matrixTransform(h, transformDesc, alpha, a, adesc, beta, b, bdesc, c, cdesc, stream)
 }

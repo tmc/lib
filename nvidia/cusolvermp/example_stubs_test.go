@@ -1,8 +1,8 @@
 package cusolvermp_test
 
 import (
-	"github.com/tmc/lib/nvidia/cusolver"
 	"github.com/tmc/lib/nvidia/cusolvermp"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -13,12 +13,12 @@ import (
 
 func exampleComm() nccl.Comm { return 0 }
 
-func exampleStream() cusolver.Stream { return 0 }
+func exampleStream() driver.Stream { return 0 }
 
 func exampleCoords(nprow, npcol int32) (myrow, mycol uint32) { return 0, 0 }
 
 func exampleHostBuffer(size uint) cusolvermp.HostPtr { return 0 }
 
-func exampleSynchronize(stream cusolver.Stream) {}
+func exampleSynchronize(stream driver.Stream) {}
 
 func exampleReadInfo(dInfo cusolvermp.DevicePtr) int32 { return 0 }

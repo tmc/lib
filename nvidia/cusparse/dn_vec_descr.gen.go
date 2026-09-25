@@ -2,6 +2,10 @@
 
 package cusparse
 
+import (
+	"github.com/tmc/lib/nvidia/driver"
+)
+
 // VecGet wraps cusparseDnVecGet.
 func (d DnVecDescr) VecGet(size *int64, values *uintptr, valueType *DataType) error {
 	return dnVecGet(d, size, values, valueType)
@@ -13,6 +17,6 @@ func (d DnVecDescr) VecGetValues(values *uintptr) error {
 }
 
 // VecSetValues wraps cusparseDnVecSetValues.
-func (d DnVecDescr) VecSetValues(values uintptr) error {
+func (d DnVecDescr) VecSetValues(values driver.DevicePtr) error {
 	return dnVecSetValues(d, values)
 }

@@ -147,7 +147,7 @@ func TestPhysicalInitAll(t *testing.T) {
 			enqueueErr = err
 			break
 		}
-		if err := comm.AllReduce(nccl.Buffer(send[i]), nccl.Buffer(recv[i]), count, nccl.Int32, nccl.Sum, nccl.Stream(streams[i])); err != nil {
+		if err := comm.AllReduce(send[i], recv[i], count, nccl.Int32, nccl.Sum, streams[i]); err != nil {
 			enqueueErr = err
 			break
 		}

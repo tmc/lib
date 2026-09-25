@@ -2,6 +2,8 @@
 
 package cudnn
 
+import "github.com/tmc/lib/nvidia/driver"
+
 // Debug represents [Debug] is a structure used by [SetCallback] and [GetCallback] containing the metadata, such as time, time since start, stream ID, process and thread ID, that the user may choose to print or store in customized callbacks.
 type Debug struct {
 	CudnnVersion uint32
@@ -10,7 +12,7 @@ type Debug struct {
 	TimeUsec     uint32
 	TimeDelta    uint32
 	Handle       Handle
-	Stream       Stream
+	Stream       driver.Stream
 	Pid          uint64
 	Tid          uint64
 	CudaDeviceId int32

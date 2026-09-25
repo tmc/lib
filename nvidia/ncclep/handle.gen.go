@@ -3,7 +3,7 @@
 package ncclep
 
 import (
-	"github.com/tmc/lib/nvidia/nccl"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // Combine combines expert outputs in the original token order.
@@ -16,7 +16,7 @@ import (
 //   - stream: in CUDA stream. If `[Handle.Combine]` is called on a different stream than the stream used in `[Group.CreateHandle]`, it is the responsibility of the user to synchronize between streams to ensure correctness
 //
 // Wraps ncclEpCombine.
-func (h Handle) Combine(inputs *CombineInputs, outputs *CombineOutputs, config *CombineConfig, stream nccl.Stream) error {
+func (h Handle) Combine(inputs *CombineInputs, outputs *CombineOutputs, config *CombineConfig, stream driver.Stream) error {
 	return Combine(h, inputs, outputs, config, stream)
 }
 
@@ -28,7 +28,7 @@ func (h Handle) Combine(inputs *CombineInputs, outputs *CombineOutputs, config *
 //   - stream: in CUDA stream Notes: - If `[Handle.Complete]` is called on a different stream than the operation initiation call (i.e., `[Handle.Dispatch]` or `[Handle.Combine]`), it is the responsibility of the user to synchronize between streams to ensure correctness. - Only LL mode is supported
 //
 // Wraps ncclEpComplete.
-func (h Handle) Complete(config *CompleteConfig, stream nccl.Stream) error {
+func (h Handle) Complete(config *CompleteConfig, stream driver.Stream) error {
 	return Complete(h, config, stream)
 }
 
@@ -52,7 +52,7 @@ func (h Handle) Destroy() error {
 //   - stream: in CUDA stream. If `[Handle.Dispatch]` is called on a different stream than the stream used in `[Group.CreateHandle]`, it is the responsibility of the user to synchronize between streams to ensure correctness
 //
 // Wraps ncclEpDispatch.
-func (h Handle) Dispatch(inputs *DispatchInputs, outputs *DispatchOutputs, layoutInfo *LayoutInfo, config *DispatchConfig, stream nccl.Stream) error {
+func (h Handle) Dispatch(inputs *DispatchInputs, outputs *DispatchOutputs, layoutInfo *LayoutInfo, config *DispatchConfig, stream driver.Stream) error {
 	return Dispatch(h, inputs, outputs, layoutInfo, config, stream)
 }
 
@@ -65,6 +65,6 @@ func (h Handle) Dispatch(inputs *DispatchInputs, outputs *DispatchOutputs, layou
 //   - stream: in CUDA stream
 //
 // Wraps ncclEpUpdateHandle.
-func (h Handle) Update(topkIdx *Tensor, layoutInfo *LayoutInfo, stream nccl.Stream) error {
+func (h Handle) Update(topkIdx *Tensor, layoutInfo *LayoutInfo, stream driver.Stream) error {
 	return UpdateHandle(h, topkIdx, layoutInfo, stream)
 }

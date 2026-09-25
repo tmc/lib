@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublas"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 )
 
@@ -13,12 +14,12 @@ import (
 var (
 	fnBufferDeregister        func(Grid, uintptr) Result
 	fnBufferRegister          func(Grid, uintptr, uint) Result
-	fnCreate                  func(*Handle, cublas.Stream) Result
+	fnCreate                  func(*Handle, driver.Stream) Result
 	fnDestroy                 func(Handle) Result
 	fnFree                    func(Grid, uintptr) Result
 	fnGemm                    func(Handle, cublas.Operation, cublas.Operation, int64, int64, int64, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, uintptr, int64, int64, MatrixDescriptor, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, cublas.ComputeType, uintptr, uint, unsafe.Pointer, uint) Result
 	fnGemmBufferSize          func(Handle, cublas.Operation, cublas.Operation, int64, int64, int64, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, uintptr, int64, int64, MatrixDescriptor, unsafe.Pointer, uintptr, int64, int64, MatrixDescriptor, cublas.ComputeType, *uint, *uint) Result
-	fnGetStream               func(Handle, *cublas.Stream) Result
+	fnGetStream               func(Handle, *driver.Stream) Result
 	fnGetVersion              func(*int32) Result
 	fnGridCreate              func(int64, int64, GridLayout, nccl.Comm, *Grid) Result
 	fnGridDestroy             func(Grid) Result
@@ -26,7 +27,7 @@ var (
 	fnMatrixDescriptorCreate  func(int64, int64, int64, int64, int64, int64, int64, cublas.DataType, Grid, *MatrixDescriptor) Result
 	fnMatrixDescriptorDestroy func(MatrixDescriptor) Result
 	fnMatrixDescriptorInit    func(int64, int64, int64, int64, int64, int64, int64, cublas.DataType, Grid, MatrixDescriptor) Result
-	fnSetStream               func(Handle, cublas.Stream) Result
+	fnSetStream               func(Handle, driver.Stream) Result
 )
 
 // BufferDeregister Deregisters a previously registered device memory buffer from NCCL symmetric memory.
@@ -89,7 +90,7 @@ func BufferRegister(grid Grid, ptr uintptr, size uint) error {
 //   - stream: in Stream that will be assigned to the handle
 //
 // Wraps cublasMpCreate.
-func Create(stream cublas.Stream) (Handle, error) {
+func Create(stream driver.Stream) (Handle, error) {
 	if err := checkLibSym("cublasMpCreate"); err != nil {
 		var zero Handle
 		return zero, err
@@ -255,14 +256,14 @@ func GemmBufferSize(handle Handle, transA cublas.Operation, transB cublas.Operat
 //   - handle: in cuBLASMp library handle
 //
 // Wraps cublasMpGetStream.
-func GetStream(handle Handle) (cublas.Stream, error) {
+func GetStream(handle Handle) (driver.Stream, error) {
 	if err := checkLibSym("cublasMpGetStream"); err != nil {
-		var zero cublas.Stream
+		var zero driver.Stream
 		return zero, err
 	}
-	var out cublas.Stream
+	var out driver.Stream
 	if err := toError(fnGetStream(handle, &out)); err != nil {
-		var zero cublas.Stream
+		var zero driver.Stream
 		return zero, err
 	}
 	return out, nil
@@ -445,7 +446,7 @@ func MatrixDescriptorInit(m int64, n int64, mb int64, nb int64, rsrc int64, csrc
 //   - stream: in CUDA stream to set. The stream must belong to the same CUDA context as the current handle stream
 //
 // Wraps cublasMpSetStream.
-func SetStream(handle Handle, stream cublas.Stream) error {
+func SetStream(handle Handle, stream driver.Stream) error {
 	if err := checkLibSym("cublasMpSetStream"); err != nil {
 		return err
 	}

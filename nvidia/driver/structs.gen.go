@@ -2,9 +2,10 @@
 
 package driver
 
-import "unsafe"
-
-import "fmt"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // Uuid represents CUuuid.
 type Uuid struct {
