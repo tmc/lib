@@ -1,6 +1,7 @@
 package advise
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -298,5 +299,40 @@ func TestPrecedingControlFlowBranchIncludesZeroAndWarpSync(t *testing.T) {
 	}
 	if pc, opcode := precedingControlFlowBranch(fn, 0x20); pc != 0x10 || opcode != "WARPSYNC" {
 		t.Fatalf("WARPSYNC = (0x%x, %q), want (0x10, WARPSYNC)", pc, opcode)
+	}
+}
+
+// TestTiedStallsOrderByPC checks that loads with equal stall counts are
+// reported in PC order, not in map iteration order.
+func TestTiedStallsOrderByPC(t *testing.T) {
+	var samples []*profile.Sample
+	for _, pc := range []uint64{0x30, 0x20, 0x10} {
+		samples = append(samples, &profile.Sample{
+			Location: []*profile.Location{{Address: pc}},
+			Value:    []int64{100},
+			Label:    map[string][]string{"kernel": {"tied"}, "opcode": {"LDG.E"}},
+		})
+	}
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "stall_mem", Unit: "count"}},
+			Sample:     samples,
+		},
+	}
+	want := []uint64{0x10, 0x20, 0x30}
+	for range 20 {
+		report, err := Analyze(cap)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []uint64
+		for _, item := range findings(report) {
+			if strings.HasPrefix(item.Finding, "Memory stalls dominate this load") {
+				got = append(got, item.Location.PC)
+			}
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("stall PCs = %#x, want %#x", got, want)
+		}
 	}
 }

@@ -293,7 +293,13 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *Report, disasm *cu
 			}
 
 			// Report Memory Stalls (capped to 3 individual locations + 1 summary)
-			sort.Slice(memCands, func(i, j int) bool { return memCands[i].stalls > memCands[j].stalls })
+			sort.Slice(memCands, func(i, j int) bool {
+				a, b := memCands[i], memCands[j]
+				if a.stalls != b.stalls {
+					return a.stalls > b.stalls
+				}
+				return a.pc < b.pc
+			})
 			limit := len(memCands)
 			if limit > 3 {
 				// Many adjacent PCs in an unrolled loop are one diagnosis, not
@@ -355,7 +361,13 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *Report, disasm *cu
 			}
 
 			// Report Scoreboard Dependency Stalls (capped to 3)
-			sort.Slice(sbCands, func(i, j int) bool { return sbCands[i].stalls > sbCands[j].stalls })
+			sort.Slice(sbCands, func(i, j int) bool {
+				a, b := sbCands[i], sbCands[j]
+				if a.stalls != b.stalls {
+					return a.stalls > b.stalls
+				}
+				return a.pc < b.pc
+			})
 			sbLimit := len(sbCands)
 			if sbLimit > 3 {
 				sbLimit = 0
@@ -408,7 +420,13 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *Report, disasm *cu
 			}
 
 			// Report Branch Divergence Stalls (capped to 3)
-			sort.Slice(brCands, func(i, j int) bool { return brCands[i].stalls > brCands[j].stalls })
+			sort.Slice(brCands, func(i, j int) bool {
+				a, b := brCands[i], brCands[j]
+				if a.stalls != b.stalls {
+					return a.stalls > b.stalls
+				}
+				return a.pc < b.pc
+			})
 			brLimit := len(brCands)
 			if brLimit > 3 {
 				brLimit = 0
@@ -463,7 +481,13 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *Report, disasm *cu
 			}
 
 			// Report Barrier Synchronization Stalls (capped to 3)
-			sort.Slice(wtCands, func(i, j int) bool { return wtCands[i].stalls > wtCands[j].stalls })
+			sort.Slice(wtCands, func(i, j int) bool {
+				a, b := wtCands[i], wtCands[j]
+				if a.stalls != b.stalls {
+					return a.stalls > b.stalls
+				}
+				return a.pc < b.pc
+			})
 			wtLimit := len(wtCands)
 			if wtLimit > 3 {
 				wtLimit = 3

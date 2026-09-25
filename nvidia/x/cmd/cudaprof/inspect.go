@@ -158,6 +158,7 @@ func runInspectCommand(args []string) error {
 	for name := range cap.Files {
 		report.ArtifactNames = append(report.ArtifactNames, name)
 	}
+	sort.Strings(report.ArtifactNames)
 	if status, ok := cap.Files["capture-status.json"]; ok {
 		var envelope struct {
 			Status inspectCoverage `json:"status"`

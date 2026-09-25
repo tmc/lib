@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -180,6 +181,9 @@ func TestFlightRecorderBundle_InspectCommand(t *testing.T) {
 	}
 	if !hasPprof || !hasTrace || !hasManifest {
 		t.Errorf("ArtifactNames = %v, want gpu.pprof, go.trace, manifest.json", report.ArtifactNames)
+	}
+	if !sort.StringsAreSorted(report.ArtifactNames) {
+		t.Errorf("ArtifactNames = %v, want sorted", report.ArtifactNames)
 	}
 
 	// Also test inspect --coverage bundle.tar.gz
