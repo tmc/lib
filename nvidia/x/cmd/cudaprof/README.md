@@ -75,6 +75,12 @@ if err := driver.ProfilerStop(); err != nil {
 `--finalize=profiler-stop` ends the capture at the first stop, so do not
 use it with a target that stops and starts again.
 
+On linux, `--finalize=exit-group` finalizes a Go target without changing
+it: a seccomp filter holds the target's `exit_group` until the capture is
+published, then lets the process exit with its own status. The filter sets
+`no_new_privs` and is inherited by children, and a child that outlives the
+target has its `exit_group` fail with ENOSYS.
+
 From C, include `<cuda_profiler_api.h>`, link `-lcudart`, and call
 `cudaProfilerStart()` / `cudaDeviceSynchronize()` / `cudaProfilerStop()`.
 From Python, call the driver entry points through
@@ -264,8 +270,9 @@ cudaprof help compare       # one command's flags
 
 ## Traps
 
-- A Go target without `--finalize=profiler-stop` is never finalized and
-  its journal is empty: the agent's exit handler never runs.
+- A Go target without `--finalize=profiler-stop` or `--finalize=exit-group`
+  is never finalized and its journal is empty: the agent's exit handler
+  never runs.
 - Ops join by kernel name. When the two sides split the same work into
   different kernels, a fused kernel on one side and three on the other are
   separate rows that each read as a regression or a win. Group them with

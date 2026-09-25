@@ -4,7 +4,7 @@ import "fmt"
 
 // captureOutcomeGoExit reports a Go target whose journal never finalized and
 // holds no activity records because the target ran without
-// --finalize=profiler-stop. It is split out of not-finalized because the
+// --finalize=profiler-stop or --finalize=exit-group. It is split out of not-finalized because the
 // cause is known and so is the remedy: the Go runtime exits through
 // exit_group, which runs none of the agent's exit-time flushes, and CUPTI's
 // buffers die with the process while the target exits 0.
@@ -31,17 +31,17 @@ func refuseEmpty(result captureResult) captureResult {
 }
 
 // goExitRisk reports whether id is a Go binary that will run under an agent
-// finalizing on exit. finalize is the CUDAPROF_FINALIZE the target receives.
+// finalizing on exit, which a Go target never reaches. finalize is the CUDAPROF_FINALIZE the target receives.
 //
 // The build information is what identifyExecutable already read from the
 // binary with debug/buildinfo, so a stripped Go binary is still detected; a
 // Go program started by a shell script or other non-Go wrapper is not.
 func goExitRisk(id *executableIdentity, finalize string) bool {
-	return id != nil && id.Go != nil && finalize != finalizeProfilerStop
+	return id != nil && id.Go != nil && finalize != finalizeProfilerStop && finalize != finalizeExitGroup
 }
 
-// goExitWarning is printed before a Go target runs without
-// --finalize=profiler-stop.
+// goExitWarning is printed before a Go target runs with neither
+// --finalize=profiler-stop nor --finalize=exit-group.
 //
 // It is a warning, not a refusal, because the launcher cannot see the three
 // ways such a run still collects: the target calls cudaprofagent.Finalize
@@ -51,21 +51,21 @@ func goExitRisk(id *executableIdentity, finalize string) bool {
 // that falls in none of them ends with an unfinalized target journal and no
 // activity, which observeSession reports as captureOutcomeGoExit.
 func goExitWarning(id *executableIdentity) string {
-	return fmt.Sprintf("target %s is a Go binary (%s) and --finalize=%s is not set: "+
+	return fmt.Sprintf("target %s is a Go binary (%s) and neither --finalize=%s nor --finalize=%s is set: "+
 		"a Go program exits through exit_group, which runs none of the agent's exit-time flushes, "+
 		"so unless it calls cudaprofagent.Finalize() before exiting the capture will hold no records. "+
-		"Call driver.ProfilerStop() before the target exits and pass --finalize=%s",
-		id.Path, id.Go.GoVersion, finalizeProfilerStop, finalizeProfilerStop)
+		"Pass --finalize=%s, or call driver.ProfilerStop() before the target exits and pass --finalize=%s",
+		id.Path, id.Go.GoVersion, finalizeProfilerStop, finalizeExitGroup, finalizeExitGroup, finalizeProfilerStop)
 }
 
 // goExitDiagnosis is the capture error of captureOutcomeGoExit: a Go target
 // whose agent loaded and then wrote neither an activity record nor a
 // finalized one.
 func goExitDiagnosis(id *executableIdentity) string {
-	return fmt.Sprintf("target %s is a Go binary (%s) and ran without --finalize=%s: "+
+	return fmt.Sprintf("target %s is a Go binary (%s) and ran without --finalize=%s or --finalize=%s: "+
 		"the agent loaded, then the Go runtime exited through exit_group, which runs none of the agent's exit-time flushes, "+
 		"so CUPTI's buffers were discarded and the capture holds no activity records. "+
-		"Call driver.ProfilerStop() (github.com/tmc/lib/nvidia/driver) before the target exits and re-run with --finalize=%s, "+
+		"Re-run with --finalize=%s, or call driver.ProfilerStop() (github.com/tmc/lib/nvidia/driver) before the target exits and re-run with --finalize=%s, "+
 		"or call cudaprofagent.Finalize() (github.com/tmc/lib/nvidia/x/cudaprofagent) before it exits",
-		id.Path, id.Go.GoVersion, finalizeProfilerStop, finalizeProfilerStop)
+		id.Path, id.Go.GoVersion, finalizeProfilerStop, finalizeExitGroup, finalizeExitGroup, finalizeProfilerStop)
 }

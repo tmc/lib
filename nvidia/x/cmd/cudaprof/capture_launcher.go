@@ -325,6 +325,7 @@ const (
 	captureRangeProfilerAPI = "cudaProfilerApi"
 	finalizeExit            = "exit"
 	finalizeProfilerStop    = "profiler-stop"
+	finalizeExitGroup       = "exit-group"
 )
 
 // captureResult keeps target termination independent from capture status.
@@ -580,8 +581,8 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, err
 			}
 			i = next
-			if v != finalizeExit && v != finalizeProfilerStop {
-				return o, fmt.Errorf("invalid finalize trigger %q (%s or %s)", v, finalizeExit, finalizeProfilerStop)
+			if v != finalizeExit && v != finalizeProfilerStop && v != finalizeExitGroup {
+				return o, fmt.Errorf("invalid finalize trigger %q (%s, %s or %s)", v, finalizeExit, finalizeProfilerStop, finalizeExitGroup)
 			}
 			o.Finalize = v
 		case "--flush-interval", "-flush-interval":

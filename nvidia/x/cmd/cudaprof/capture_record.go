@@ -925,17 +925,22 @@ Options:
                                 temperature and power, read through NVML by cudaprof as
                                 it sees the edge, and lag_nanos after it; wall_clock
                                 places the edges in wall time
-  --finalize <trigger>          when the agent flushes and finalizes: %[6]s (default) or
-                                %[7]s, on the target's cuProfilerStop. A Go target
-                                exits through exit_group and runs neither the agent's atexit
-                                handler nor its ELF destructor, so %[6]s finalization never
-                                fires for it and a ProfilerStop before exit is what publishes
+  --finalize <trigger>          when the agent flushes and finalizes: %[6]s (default),
+                                %[7]s, on the target's cuProfilerStop, or %[11]s, on
+                                the target's exit_group syscall. A Go target exits through
+                                exit_group and runs neither the agent's atexit handler nor
+                                its ELF destructor, so %[6]s finalization never fires for it;
+                                a ProfilerStop before exit, or %[11]s, is what publishes
                                 the capture. capture warns before running a Go binary
-                                without %[7]s, and fails the run with outcome
+                                with neither, and fails the run with outcome
                                 go-exit-not-finalized when its journal then holds no
-                                activity. Independent of --capture-range, which decides
-                                what is collected rather than when it is published; sets
-                                CUDAPROF_FINALIZE
+                                activity. %[11]s holds the syscall with a seccomp
+                                filter until the capture is finalized; the filter sets
+                                no_new_privs (an exec cannot gain privileges) and is
+                                inherited by children, whose exit_group fails with ENOSYS
+                                if they outlive the target. Independent of --capture-range,
+                                which decides what is collected rather than when it is
+                                published; sets CUDAPROF_FINALIZE
   --graph-trace <mode>          how CUDA graph replays are traced: %[9]s (default), one
                                 kernel record per graph node carrying its graph and node
                                 ids, or %[10]s, one envelope per replay and no records for
@@ -989,7 +994,7 @@ github.com/tmc/lib/nvidia/x/cuptirange profiles ranges with user replay (Plan.Ca
 cuptimetrics lists the metrics a given chip offers.
 `, controllerMaxJournalRecords, cudacapture.MaxCaptureFileBytes, cudacapture.MaxCaptureTotalBytes,
 		captureRangeNone, captureRangeProfilerAPI, finalizeExit, finalizeProfilerStop, captureOutcomePartialRecovered,
-		graphTraceNode, graphTraceGraph)
+		graphTraceNode, graphTraceGraph, finalizeExitGroup)
 }
 
 type deviceProvenance struct {

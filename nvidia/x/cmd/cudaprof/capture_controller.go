@@ -854,7 +854,8 @@ func unfinalizedHint(err error, result captureResult) string {
 		"\tdestructor and atexit both run from libc's exit(3), and its SIGTERM terminator\n" +
 		"\tneeds a signal nobody sent, so none of the three fire and CUPTI's buffers are\n" +
 		"\tdiscarded unflushed. A Go target does this by returning from main.\n" +
-		"\tHave the target call cudaprofagent.Finalize() before it exits."
+		"\tHave the target call cudaprofagent.Finalize() before it exits, or capture with\n" +
+		"\t--finalize exit-group."
 }
 
 // Serving workers can legitimately emit more than the transport decoder's

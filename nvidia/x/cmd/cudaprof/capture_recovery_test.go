@@ -487,6 +487,7 @@ func TestCaptureHelpDocumentsTheCollectionPolicyFlags(t *testing.T) {
 		captureRangeProfilerAPI,
 		"--finalize",
 		finalizeProfilerStop,
+		finalizeExitGroup,
 		"--flush-interval",
 		"CUDAPROF_FLUSH_INTERVAL_MS",
 		"--recover-unfinalized",

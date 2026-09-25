@@ -19,4 +19,8 @@
 //
 // Finalize is a no-op when no agent is attached, so the call is safe to leave
 // in a program that is usually run without one.
+//
+// On linux, capturing with cudaprof capture --finalize=exit-group makes the
+// agent finalize on the exit_group syscall instead, which needs no change to
+// the target.
 package cudaprofagent

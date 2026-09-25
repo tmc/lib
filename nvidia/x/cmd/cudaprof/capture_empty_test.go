@@ -39,6 +39,7 @@ func TestGoExitRisk(t *testing.T) {
 		{"go binary, finalize unset", identifyExecutable(goExe), "", true},
 		{"go binary, finalize exit", identifyExecutable(goExe), finalizeExit, true},
 		{"go binary, finalize profiler-stop", identifyExecutable(goExe), finalizeProfilerStop, false},
+		{"go binary, finalize exit-group", identifyExecutable(goExe), finalizeExitGroup, false},
 		{"c binary, finalize unset", identifyExecutable(cExe), "", false},
 		{"c binary, finalize profiler-stop", identifyExecutable(cExe), finalizeProfilerStop, false},
 		{"unreadable binary", identifyExecutable(filepath.Join(t.TempDir(), "missing")), "", false},
