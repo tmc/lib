@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // Kind identifies an execution group. A warpgroup is four warps (128 threads).
@@ -34,12 +36,9 @@ func (k Kind) String() string {
 	}
 }
 
-// Dim3 is a CUDA-style three-dimensional extent.
-type Dim3 struct{ X, Y, Z uint32 }
-
-func (d Dim3) valid() bool { return d.X != 0 && d.Y != 0 && d.Z != 0 }
-func (d Dim3) count() (uint64, error) {
-	if !d.valid() {
+// count returns the number of elements in d.
+func count(d driver.Dim3) (uint64, error) {
+	if d.X == 0 || d.Y == 0 || d.Z == 0 {
 		return 0, errors.New("group dimensions must be nonzero")
 	}
 	n := uint64(d.X) * uint64(d.Y)
@@ -52,17 +51,17 @@ func (d Dim3) count() (uint64, error) {
 // Group is an immutable execution membership description.
 type Group struct {
 	kind   Kind
-	dims   Dim3
+	dims   driver.Dim3
 	parent *Group
 	base   uint64
 }
 
 // New constructs a group. Warp and warpgroup dimensions are fixed by CUDA.
-func New(kind Kind, dims Dim3) (Group, error) {
+func New(kind Kind, dims driver.Dim3) (Group, error) {
 	if kind < Thread || kind > Cluster {
 		return Group{}, errors.New("unsupported execution group kind")
 	}
-	n, err := dims.count()
+	n, err := count(dims)
 	if err != nil {
 		return Group{}, err
 	}
@@ -95,14 +94,14 @@ func New(kind Kind, dims Dim3) (Group, error) {
 func (g Group) Kind() Kind { return g.kind }
 
 // Dims returns thread dimensions, or CTA dimensions for a cluster.
-func (g Group) Dims() Dim3 { return g.dims }
+func (g Group) Dims() driver.Dim3 { return g.dims }
 
 // Size returns the number of participants, or zero for an invalid group.
-func (g Group) Size() uint64 { n, _ := g.dims.count(); return n }
+func (g Group) Size() uint64 { n, _ := count(g.dims); return n }
 
 // Rank returns the linear participant rank for a group-local coordinate.
 // A subgroup's ranks are relative to its parent CTA; other ranks start at zero.
-func (g Group) Rank(index Dim3) (uint64, error) {
+func (g Group) Rank(index driver.Dim3) (uint64, error) {
 	if g.kind == 0 {
 		return 0, errors.New("zero execution group")
 	}
@@ -113,7 +112,7 @@ func (g Group) Rank(index Dim3) (uint64, error) {
 }
 
 // Contains reports whether index is a member of g.
-func (g Group) Contains(index Dim3) bool { _, err := g.Rank(index); return err == nil }
+func (g Group) Contains(index driver.Dim3) bool { _, err := g.Rank(index); return err == nil }
 
 // WarpGroupForCTA returns the warpgroup containing warp in a CTA.
 func WarpGroupForCTA(cta Group, warp uint32) (Group, error) {
@@ -124,7 +123,7 @@ func WarpGroupForCTA(cta Group, warp uint32) (Group, error) {
 	if uint64(warp) >= warps || uint64(warp/4)*4+3 >= warps {
 		return Group{}, errors.New("cta does not contain a complete warpgroup")
 	}
-	g, _ := New(WarpGroup, Dim3{X: 128, Y: 1, Z: 1})
+	g, _ := New(WarpGroup, driver.Dim3{X: 128, Y: 1, Z: 1})
 	g.parent = &cta
 	g.base = uint64(warp/4) * 128
 	return g, nil

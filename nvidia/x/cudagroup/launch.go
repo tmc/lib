@@ -1,11 +1,15 @@
 package cudagroup
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/tmc/lib/nvidia/driver"
+)
 
 // LaunchRequirements describes grid and cluster dimensions in CTAs and block
 // dimensions in threads. A zero Cluster means an ordinary, unclustered launch.
 // Device-specific limits and cluster launch attributes need driver validation.
-type LaunchRequirements struct{ Grid, Block, Cluster Dim3 }
+type LaunchRequirements struct{ Grid, Block, Cluster driver.Dim3 }
 
 // ValidateLaunch checks membership against a launch description. It does not
 // establish device capability, residency, synchronization, or forward progress.
@@ -13,14 +17,14 @@ func ValidateLaunch(req LaunchRequirements, group Group) error {
 	if group.kind == 0 {
 		return errors.New("launch requires an execution group")
 	}
-	if _, err := req.Grid.count(); err != nil {
+	if _, err := count(req.Grid); err != nil {
 		return err
 	}
 	block, err := New(CTA, req.Block)
 	if err != nil {
 		return err
 	}
-	if req.Cluster != (Dim3{}) {
+	if req.Cluster != (driver.Dim3{}) {
 		if _, err := New(Cluster, req.Cluster); err != nil {
 			return err
 		}

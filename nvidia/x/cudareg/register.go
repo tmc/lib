@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/cudagroup"
 )
@@ -129,11 +130,11 @@ func (s Schedule) Validate() error {
 	for i := range roles {
 		for j := i + 1; j < len(roles); j++ {
 			a, b := s.Groups[roles[i]].Group, s.Groups[roles[j]].Group
-			ar, err := a.Rank(cudagroup.Dim3{})
+			ar, err := a.Rank(driver.Dim3{})
 			if err != nil {
 				return fmt.Errorf("group %q rank: %w", roles[i], err)
 			}
-			br, err := b.Rank(cudagroup.Dim3{})
+			br, err := b.Rank(driver.Dim3{})
 			if err != nil {
 				return fmt.Errorf("group %q rank: %w", roles[j], err)
 			}
@@ -238,7 +239,7 @@ func GenerateFixture() (Schedule, string, error) {
 	if err != nil {
 		return Schedule{}, "", err
 	}
-	cta, _ := cudagroup.New(cudagroup.CTA, cudagroup.Dim3{X: 256, Y: 1, Z: 1})
+	cta, _ := cudagroup.New(cudagroup.CTA, driver.Dim3{X: 256, Y: 1, Z: 1})
 	producer, _ := cudagroup.WarpGroupForCTA(cta, 0)
 	consumer, _ := cudagroup.WarpGroupForCTA(cta, 4)
 	s := Schedule{Target: t, CTARegisterPool: 16384, Groups: map[string]Budget{
@@ -253,7 +254,7 @@ func GenerateFixture() (Schedule, string, error) {
 }
 
 func warpgroup() cudagroup.Group {
-	g, _ := cudagroup.New(cudagroup.WarpGroup, cudagroup.Dim3{X: 128, Y: 1, Z: 1})
+	g, _ := cudagroup.New(cudagroup.WarpGroup, driver.Dim3{X: 128, Y: 1, Z: 1})
 	return g
 }
 

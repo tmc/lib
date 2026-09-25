@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudagroup"
 	"github.com/tmc/lib/nvidia/x/cudalayout"
 	"github.com/tmc/lib/nvidia/x/cudapipeline"
@@ -388,7 +389,7 @@ func TestRegisterPoolProgress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cudareg.TargetFor: %v", err)
 	}
-	cta, err := cudagroup.New(cudagroup.CTA, cudagroup.Dim3{X: 256, Y: 1, Z: 1})
+	cta, err := cudagroup.New(cudagroup.CTA, driver.Dim3{X: 256, Y: 1, Z: 1})
 	if err != nil {
 		t.Fatalf("cudagroup.New: %v", err)
 	}

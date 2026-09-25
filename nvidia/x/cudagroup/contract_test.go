@@ -3,10 +3,12 @@ package cudagroup
 import (
 	"math"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func TestWarpgroupParentRanks(t *testing.T) {
-	cta, err := New(CTA, Dim3{32, 4, 2})
+	cta, err := New(CTA, driver.Dim3{X: 32, Y: 4, Z: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -16,7 +18,7 @@ func TestWarpgroupParentRanks(t *testing.T) {
 			t.Fatal(err)
 		}
 		for lane := uint32(0); lane < 128; lane++ {
-			rank, err := g.Rank(Dim3{X: lane})
+			rank, err := g.Rank(driver.Dim3{X: lane})
 			if err != nil || rank != uint64(warp/4)*128+uint64(lane) {
 				t.Fatalf("warp %d lane %d: %d, %v", warp, lane, rank, err)
 			}
@@ -28,24 +30,24 @@ func TestWarpgroupParentRanks(t *testing.T) {
 }
 
 func TestLaunchShapeMutants(t *testing.T) {
-	cta, _ := New(CTA, Dim3{32, 4, 1})
-	req := LaunchRequirements{Grid: Dim3{4, 1, 1}, Block: cta.Dims()}
+	cta, _ := New(CTA, driver.Dim3{X: 32, Y: 4, Z: 1})
+	req := LaunchRequirements{Grid: driver.Dim3{X: 4, Y: 1, Z: 1}, Block: cta.Dims()}
 	if err := ValidateLaunch(req, cta); err != nil {
 		t.Fatal(err)
 	}
-	for _, block := range []Dim3{{128, 1, 1}, {32, 3, 1}, {math.MaxUint32, math.MaxUint32, math.MaxUint32}, {}} {
+	for _, block := range []driver.Dim3{{X: 128, Y: 1, Z: 1}, {X: 32, Y: 3, Z: 1}, {X: math.MaxUint32, Y: math.MaxUint32, Z: math.MaxUint32}, {}} {
 		bad := req
 		bad.Block = block
 		if err := ValidateLaunch(bad, cta); err == nil {
 			t.Fatalf("accepted wrong block %v", block)
 		}
 	}
-	cluster, _ := New(Cluster, Dim3{2, 1, 1})
+	cluster, _ := New(Cluster, driver.Dim3{X: 2, Y: 1, Z: 1})
 	req.Cluster = cluster.Dims()
 	if err := ValidateLaunch(req, cluster); err != nil {
 		t.Fatal(err)
 	}
-	req.Cluster = Dim3{1, 2, 1}
+	req.Cluster = driver.Dim3{X: 1, Y: 2, Z: 1}
 	if err := ValidateLaunch(req, cluster); err == nil {
 		t.Fatal("accepted mismatched cluster")
 	}
@@ -54,7 +56,7 @@ func TestLaunchShapeMutants(t *testing.T) {
 	if err := ValidateLaunch(req, cluster); err == nil {
 		t.Fatal("accepted partial cluster")
 	}
-	if _, err := New(CTA, Dim3{math.MaxUint32, math.MaxUint32, math.MaxUint32}); err == nil {
+	if _, err := New(CTA, driver.Dim3{X: math.MaxUint32, Y: math.MaxUint32, Z: math.MaxUint32}); err == nil {
 		t.Fatal("accepted overflowing extent")
 	}
 	if err := ValidateLaunch(req, Group{}); err == nil {
@@ -63,7 +65,7 @@ func TestLaunchShapeMutants(t *testing.T) {
 }
 
 func TestUniformIssueMutants(t *testing.T) {
-	g, _ := New(WarpGroup, Dim3{128, 1, 1})
+	g, _ := New(WarpGroup, driver.Dim3{X: 128, Y: 1, Z: 1})
 	c, _ := NewCollective(WarpgroupUniformity, g, MemoryCTA)
 	ranks := make([]uint64, 128)
 	args := make([]uint32, 128)
@@ -97,8 +99,8 @@ func TestUniformIssueMutants(t *testing.T) {
 }
 
 func TestTMEMParticipationContract(t *testing.T) {
-	cluster, _ := New(Cluster, Dim3{4, 1, 1})
-	block := Dim3{32, 4, 1}
+	cluster, _ := New(Cluster, driver.Dim3{X: 4, Y: 1, Z: 1})
+	block := driver.Dim3{X: 32, Y: 4, Z: 1}
 	for _, peers := range []TMEMPeers{TMEMGroup1, TMEMGroup2} {
 		c, err := NewTMEMCollective("sm_100a", peers, cluster, block, 2, 1)
 		if err != nil {
@@ -107,7 +109,7 @@ func TestTMEMParticipationContract(t *testing.T) {
 		if c.Peers() != peers || uint64(c.Peers()) == cluster.Size() {
 			t.Fatal("instruction group became cluster size")
 		}
-		req := LaunchRequirements{Grid: Dim3{4, 1, 1}, Block: block, Cluster: cluster.Dims()}
+		req := LaunchRequirements{Grid: driver.Dim3{X: 4, Y: 1, Z: 1}, Block: block, Cluster: cluster.Dims()}
 		if err := c.ValidateLaunch(req); err != nil {
 			t.Fatal(err)
 		}
@@ -157,11 +159,11 @@ func FuzzGroupDimensions(f *testing.F) {
 	f.Add(uint32(32), uint32(4), uint32(1))
 	f.Add(uint32(math.MaxUint32), uint32(math.MaxUint32), uint32(math.MaxUint32))
 	f.Fuzz(func(t *testing.T, x, y, z uint32) {
-		g, err := New(CTA, Dim3{x, y, z})
+		g, err := New(CTA, driver.Dim3{X: x, Y: y, Z: z})
 		if err != nil {
 			return
 		}
-		rank, err := g.Rank(Dim3{x - 1, y - 1, z - 1})
+		rank, err := g.Rank(driver.Dim3{X: x - 1, Y: y - 1, Z: z - 1})
 		if err != nil || rank+1 != g.Size() || g.Size() > 1024 {
 			t.Fatalf("bad rank %d size %d: %v", rank, g.Size(), err)
 		}

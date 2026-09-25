@@ -12,12 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
 
 func nativeFixture(t *testing.T) Fixture {
 	t.Helper()
-	warp, err := New(Warp, Dim3{X: 32, Y: 1, Z: 1})
+	warp, err := New(Warp, driver.Dim3{X: 32, Y: 1, Z: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

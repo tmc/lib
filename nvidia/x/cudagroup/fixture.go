@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudablock"
 )
 
@@ -49,7 +50,7 @@ extern "C" __global__ void cudagroup_reduce_sum(const float* in, float* out) {
 // generated for %s (%d participants)
 	// target=%s
 `, group.kind, group.Size(), target))
-	launch := LaunchRequirements{Grid: Dim3{X: 1, Y: 1, Z: 1}, Block: Dim3{X: 32, Y: 1, Z: 1}}
+	launch := LaunchRequirements{Grid: driver.Dim3{X: 1, Y: 1, Z: 1}, Block: driver.Dim3{X: 32, Y: 1, Z: 1}}
 	return Fixture{Source: src, Group: group, Collective: c, Target: target, Launch: launch}, nil
 }
 
@@ -63,10 +64,10 @@ func (f Fixture) ValidateLaunch() error {
 	default:
 		return errors.New("unsupported reduction fixture target")
 	}
-	if f.Launch.Cluster != (Dim3{}) {
+	if f.Launch.Cluster != (driver.Dim3{}) {
 		return errors.New("reduction fixture requires an unclustered launch")
 	}
-	if f.Launch.Grid != (Dim3{X: 1, Y: 1, Z: 1}) || f.Launch.Block != (Dim3{X: 32, Y: 1, Z: 1}) {
+	if f.Launch.Grid != (driver.Dim3{X: 1, Y: 1, Z: 1}) || f.Launch.Block != (driver.Dim3{X: 32, Y: 1, Z: 1}) {
 		return errors.New("reduction fixture requires a 1x1x1 grid and 32x1x1 block")
 	}
 	return ValidateLaunch(f.Launch, f.Group)

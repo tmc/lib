@@ -1,6 +1,10 @@
 package cudagroup
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/tmc/lib/nvidia/driver"
+)
 
 // TMEMPeers selects allocation-management issue granularity, independently
 // of the size of the enclosing cluster. Other tcgen05 operations differ.
@@ -21,14 +25,14 @@ type Issuer struct{ CTA, Thread uint64 }
 type TMEMCollective struct {
 	peers                 TMEMPeers
 	cluster               Group
-	block                 Dim3
+	block                 driver.Dim3
 	firstCTA, firstThread uint64
 }
 
 // NewTMEMCollective admits the sm_100a subset of PTX 8.6 allocation-management
 // participation. Group2 requires an even/odd peer pair within the cluster.
 // This bounded model uses the same issuing warp index in each peer CTA.
-func NewTMEMCollective(target string, peers TMEMPeers, cluster Group, block Dim3, firstCTA uint64, warp uint32) (TMEMCollective, error) {
+func NewTMEMCollective(target string, peers TMEMPeers, cluster Group, block driver.Dim3, firstCTA uint64, warp uint32) (TMEMCollective, error) {
 	if target != "sm_100a" {
 		return TMEMCollective{}, errors.New("unsupported tmem participation target")
 	}
