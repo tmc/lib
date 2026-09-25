@@ -55,3 +55,49 @@ func TestNVLinkRate(t *testing.T) {
 		}
 	}
 }
+
+// fields returns the values nvlinkCounters.read would read for two
+// links: the data counters, each link's flit and data CRC errors, and
+// the ECC errors. A negative value is one NVML did not report.
+func fields(v ...int64) []nvml.FieldValue {
+	f := make([]nvml.FieldValue, len(v))
+	for i, x := range v {
+		if x < 0 {
+			f[i].NvmlReturn = nvml.ErrNotSupported
+			continue
+		}
+		f[i].Value.Data[0] = uint64(x)
+	}
+	return f
+}
+
+func TestNVLinkCountersUpdate(t *testing.T) {
+	t0 := time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)
+	none := opt[nvlinkErrors]{}
+	steps := []struct {
+		v    []nvml.FieldValue
+		rate opt[uint64]
+		errs opt[nvlinkErrors]
+	}{
+		// The first read sets the error baselines.
+		{fields(100, 100, 5, 1, 5, 1, 50), opt[uint64]{}, some(nvlinkErrors{})},
+		{fields(200, 300, 6, 1, 7, 2, 49), some[uint64](300), some(nvlinkErrors{flit: 3, crc: 1})},
+		// A link that does not answer leaves its sum unchanged.
+		{fields(300, 400, -1, 1, 9, 9, 52), some[uint64](200), some(nvlinkErrors{flit: 3, crc: 8, ecc: 2})},
+		// A failed read keeps the counts but restarts the rate.
+		{nil, opt[uint64]{}, some(nvlinkErrors{flit: 3, crc: 8, ecc: 2})},
+		{fields(500, 400, 6, 1, 7, 2, 50), some[uint64](200), some(nvlinkErrors{flit: 3, crc: 1})},
+	}
+	var c nvlinkCounters
+	for i, st := range steps {
+		rate, errs := c.update(st.v, 2, t0.Add(time.Duration(i)*time.Second))
+		if rate != st.rate || errs != st.errs {
+			t.Errorf("step %d: update = %+v, %+v; want %+v, %+v", i, rate, errs, st.rate, st.errs)
+		}
+	}
+
+	c = nvlinkCounters{}
+	if _, errs := c.update(fields(1, 1, -1, -1, -1, -1, -1), 2, t0); errs != none {
+		t.Errorf("no error counters: errs = %+v, want none", errs)
+	}
+}

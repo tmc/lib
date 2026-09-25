@@ -25,6 +25,7 @@ type options struct {
 	reverse    bool
 	noColor    bool
 	fahrenheit bool
+	infoBar    bool
 	encodeHide time.Duration // negative keeps the meters shown
 }
 
@@ -36,6 +37,7 @@ const helpText = `Available options:
   -r --reverse-abs  : Reverse abscissa: plot the recent data left and older on the right
   -C --no-color     : No colors
   -f --freedom-unit : Use fahrenheit
+  -i --gpu-info     : Show bar with additional GPU parameters
   -E --encode-hide  : Set encode/decode auto hide time in seconds (default 30s, negative = always on screen)
   -h --help         : Print help and exit
   -s --snapshot     : Output the current gpu stats without ncurses (useful for scripting)
@@ -115,6 +117,7 @@ func parseFlags(args []string, stdout, stderr io.Writer) (opts options, status i
 	boolVar(&opts.noColor, "C", "no-color", "do not use color")
 	fs.BoolVar(&opts.noColor, "no-colour", false, "do not use color")
 	boolVar(&opts.fahrenheit, "f", "freedom-unit", "show temperatures in Fahrenheit")
+	boolVar(&opts.infoBar, "i", "gpu-info", "show a bar of more device information")
 	opts.encodeHide = 30 * time.Second
 	hide := func(s string) error {
 		f, err := strconv.ParseFloat(s, 64)

@@ -14,9 +14,9 @@ type nvmlSource struct {
 	handles []nvml.Device
 	devs    []*device
 
-	// nvlinkLast is, per device, the NVLink byte counters at the
-	// previous refresh, from which refresh derives a rate.
-	nvlinkLast []nvlinkSample
+	// nvlinks is, per device, the NVLink counters kept between
+	// refreshes.
+	nvlinks []nvlinkCounters
 
 	// lastUtil is, per device, the newest process utilization sample
 	// seen, so that each refresh reads only newer samples.
@@ -36,7 +36,7 @@ func openNVML(h *host) (*nvmlSource, error) {
 		nvml.Shutdown()
 		return nil, fmt.Errorf("count devices: %w", err)
 	}
-	s := &nvmlSource{host: h, lastUtil: make([]uint64, n), nvlinkLast: make([]nvlinkSample, n)}
+	s := &nvmlSource{host: h, lastUtil: make([]uint64, n), nvlinks: make([]nvlinkCounters, n)}
 	for i := range n {
 		hd, err := nvml.NewDeviceByIndex(i)
 		if err != nil {
@@ -57,6 +57,7 @@ func openNVML(h *host) (*nvmlSource, error) {
 		_, err = hd.TotalEccErrors(nvml.MemoryErrorTypeCorrected, nvml.VolatileEcc)
 		d.ecc = err == nil
 		d.nvlink = probeNVLink(hd)
+		d.cores = get(hd.NumGpuCores())
 		s.handles = append(s.handles, hd)
 		s.devs = append(s.devs, d)
 	}
@@ -152,7 +153,7 @@ func (s *nvmlSource) refresh(d *device) {
 		d.mig = some(mode == 1) // NVML_DEVICE_MIG_ENABLE
 	}
 	if d.nvlink.links > 0 {
-		d.nvlinkRate = s.nvlinkLast[d.index].next(hd, time.Now())
+		d.nvlinkRate, d.nvlinkErrs = s.nvlinks[d.index].read(hd, d.nvlink.links, time.Now())
 	}
 }
 
@@ -221,35 +222,97 @@ type nvlinkSample struct {
 	at     time.Time
 }
 
-// next follows the throughput part of nvlink_refresh_cached_info. It
-// reads the counters summed over all links and returns the rate since
-// the previous read, if there was one. A counter that went backwards
-// counts as no traffic. As in nvtop, a failed read keeps the counters
-// but not their time.
-func (last *nvlinkSample) next(hd nvml.Device, now time.Time) opt[uint64] {
+// nvlinkCounters is what nvlink_refresh_cached_info keeps about a
+// device between refreshes.
+type nvlinkCounters struct {
+	last nvlinkSample
+	errs [3]errorCount // flit CRC, data CRC, and ECC errors
+}
+
+// An errorCount is a cumulative error counter, shown as the errors
+// since its first read.
+type errorCount struct {
+	base, shown uint64
+	read        bool
+}
+
+func (c *errorCount) update(v uint64) {
+	switch {
+	case !c.read:
+		c.base, c.read = v, true
+	case v > c.base:
+		c.shown = v - c.base
+	default:
+		c.shown = 0
+	}
+}
+
+// read follows nvlink_refresh_cached_info. In one call it reads the
+// data counters summed over all links, each of the first links links'
+// CRC error counters, and the ECC error counter, and returns the data
+// rate since the previous read and the errors since the first.
+func (c *nvlinkCounters) read(hd nvml.Device, links uint32, now time.Time) (opt[uint64], opt[nvlinkErrors]) {
 	all := ^uint32(0)
-	v := []nvml.FieldValue{
-		{FieldId: nvml.FieldDevNvlinkThroughputDataTx, ScopeId: all},
-		{FieldId: nvml.FieldDevNvlinkThroughputDataRx, ScopeId: all},
+	v := make([]nvml.FieldValue, 0, 2*links+3)
+	v = append(v,
+		nvml.FieldValue{FieldId: nvml.FieldDevNvlinkThroughputDataTx, ScopeId: all},
+		nvml.FieldValue{FieldId: nvml.FieldDevNvlinkThroughputDataRx, ScopeId: all})
+	for link := range links {
+		v = append(v,
+			nvml.FieldValue{FieldId: nvml.FieldDevNvlinkCrcFlitErrorCountTotal, ScopeId: link},
+			nvml.FieldValue{FieldId: nvml.FieldDevNvlinkCrcDataErrorCountTotal, ScopeId: link})
 	}
-	err := hd.FieldValues(int32(len(v)), &v[0])
-	txOK := err == nil && v[0].NvmlReturn == nvml.Success
-	rxOK := err == nil && v[1].NvmlReturn == nvml.Success
-	if !txOK && !rxOK {
-		last.at = now
-		return opt[uint64]{}
+	v = append(v, nvml.FieldValue{FieldId: nvml.FieldDevNvlinkEccDataErrorCountTotal, ScopeId: 0})
+	if err := hd.FieldValues(int32(len(v)), &v[0]); err != nil {
+		v = nil
 	}
-	var cur nvlinkSample
-	cur.at = now
-	if txOK {
-		cur.tx = v[0].Value.Uint64()
+	return c.update(v, links, now)
+}
+
+// update takes the values read by read, or none if the read failed.
+// As in nvtop, a failed data counter read keeps the counters but not
+// their time, and an error count is shown only once every active link
+// has answered.
+func (c *nvlinkCounters) update(v []nvml.FieldValue, links uint32, now time.Time) (opt[uint64], opt[nvlinkErrors]) {
+	ok := func(i int) bool { return i < len(v) && v[i].NvmlReturn == nvml.Success }
+	var rate opt[uint64]
+	if ok(0) || ok(1) {
+		cur := nvlinkSample{at: now}
+		if ok(0) {
+			cur.tx = v[0].Value.Uint64()
+		}
+		if ok(1) {
+			cur.rx = v[1].Value.Uint64()
+		}
+		rate = nvlinkRate(c.last, cur)
+		c.last = cur
+	} else {
+		c.last.at = now
 	}
-	if rxOK {
-		cur.rx = v[1].Value.Uint64()
+	if len(v) > 0 {
+		var sum [2]uint64
+		var n [2]uint32
+		for link := range int(links) {
+			for k := range 2 {
+				if i := 2 + 2*link + k; ok(i) {
+					sum[k] += v[i].Value.Uint64()
+					n[k]++
+				}
+			}
+		}
+		for k := range 2 {
+			if n[k] == links {
+				c.errs[k].update(sum[k])
+			}
+		}
+		if i := 2 + 2*int(links); ok(i) {
+			c.errs[2].update(v[i].Value.Uint64())
+		}
 	}
-	rate := nvlinkRate(*last, cur)
-	*last = cur
-	return rate
+	if !c.errs[0].read && !c.errs[1].read && !c.errs[2].read {
+		return rate, opt[nvlinkErrors]{}
+	}
+	return rate, some(nvlinkErrors{flit: c.errs[0].shown, crc: c.errs[1].shown, ecc: c.errs[2].shown})
 }
 
 // nvlinkRate returns the rate between samples a and b in KB/s.

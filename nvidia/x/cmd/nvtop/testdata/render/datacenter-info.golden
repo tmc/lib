@@ -1,0 +1,20 @@
+ Device 0 [NVIDIA H100 80GB HBM3] PCIe GEN N/A RX: N/A TX: N/A
+ GPU 1980MHz MEM 2619MHz  TEMP  40°C FAN N/A  POW 120 / 700 W ECC 999/ 0 NVL418x 3.000 GiB/s
+ GPU[                                          N/A] MEM[                                          N/A]
+ NSHC 16896  L2CF N/A    NEXC N/A    NVL FL:00007 EE:23456 CR:00000
+
+ Device 1 [NVIDIA H100 80GB HBM3] PCIe GEN N/A RX: N/A TX: N/A
+ GPU N/A MHz MEM 2619MHz  TEMP N/A°C FAN  30% POW N/A W       ECC   5/ 3 NVL4 0x
+ GPU[                                          N/A] MEM[                                          N/A]
+ NSHC N/A    L2CF N/A    NEXC N/A
+
+    PID USER DEV     TYPE  GPU        GPU MEM    CPU  HOST MEM Command
+
+
+
+
+
+
+
+
+F6Sort    F9Kill    F10Quit

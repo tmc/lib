@@ -46,6 +46,7 @@ type device struct {
 	tempShutdown opt[uint32]
 	ecc          bool // reports memory ECC error counts
 	nvlink       nvlink
+	cores        opt[uint32] // shader cores
 
 	gpuClock    opt[uint32] // MHz
 	gpuClockMax opt[uint32]
@@ -71,6 +72,7 @@ type device struct {
 	eccCorr     opt[uint64] // volatile corrected ECC errors
 	eccUncorr   opt[uint64]
 	nvlinkRate  opt[uint64] // NVLink TX+RX, KB/s
+	nvlinkErrs  opt[nvlinkErrors]
 
 	procs []process
 }
@@ -84,6 +86,14 @@ type nvlink struct {
 
 func (n nvlink) present() bool { return n.version > 0 || n.links > 0 }
 
+// nvlinkErrors are a device's NVLink error counts since nvtop started,
+// summed over its links.
+type nvlinkErrors struct {
+	flit uint64 // flit CRC errors
+	crc  uint64 // data CRC errors
+	ecc  uint64 // ECC data errors
+}
+
 // resetDynamic clears the fields read at every refresh.
 func (d *device) resetDynamic() {
 	*d = device{
@@ -96,6 +106,7 @@ func (d *device) resetDynamic() {
 		tempShutdown: d.tempShutdown,
 		ecc:          d.ecc,
 		nvlink:       d.nvlink,
+		cores:        d.cores,
 		procs:        d.procs,
 	}
 }

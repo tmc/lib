@@ -21,8 +21,20 @@ const (
 	pcieWidth      = 46
 )
 
-// headerRows is the height of a device header.
-const headerRows = 3
+// headerRows is the height of a device header: three lines, and a
+// fourth with -i.
+func (u *ui) headerRows() uint {
+	if u.opts.infoBar {
+		return 4
+	}
+	return 3
+}
+
+// The widths of the fields on a header's fourth line.
+const (
+	infoWidth         = 11
+	nvlinkErrorsWidth = 33
+)
 
 func (u *ui) nameWidth() int { return 11 + u.largestName }
 
@@ -65,7 +77,7 @@ func (u *ui) layout(w, h int) layout {
 			info[i] = 2 // GPU and memory utilization
 		}
 	}
-	return computeLayout(info, headerRows, uint(u.headerWidth()), uint(max(h-1, 0)), uint(w), u.opts.noProcs)
+	return computeLayout(info, u.headerRows(), uint(u.headerWidth()), uint(max(h-1, 0)), uint(w), u.opts.noProcs)
 }
 
 // render draws the whole interface on s.
@@ -281,6 +293,45 @@ func (u *ui) drawDevice(s *screen, r rect, i int, d *device, now time.Time) {
 		meter(memWin, "MEM", 0, "N/A")
 	}
 
+	if u.opts.infoBar {
+		u.drawInfoBar(s, r.x, r.y+3, d)
+	}
+}
+
+// drawInfoBar follows the gpu_info_bar part of draw_devices: the
+// shader cores, L2 cache, and execution engines, and the NVLink errors.
+// NVML reports neither of the last two.
+func (u *ui) drawInfoBar(s *screen, x, y int, d *device) {
+	const sp = 1
+	info := func(x int, label string, v opt[uint32]) {
+		w := s.window(x, y, infoWidth, 1)
+		n := w.print(0, 0, label+" ", fg(cyan))
+		if v.ok {
+			w.printf(n, 0, plain, "%d", v.v)
+		} else {
+			w.print(n, 0, "N/A", plain)
+		}
+	}
+	info(x, "NSHC", d.cores)
+	info(x+sp+infoWidth, "L2CF", opt[uint32]{})
+	info(x+2*(sp+infoWidth), "NEXC", opt[uint32]{})
+	if !u.nvlinkActive || !d.nvlinkErrs.ok {
+		return
+	}
+	w := s.window(x+3*(sp+infoWidth), y, nvlinkErrorsWidth, 1)
+	e := d.nvlinkErrs.v
+	n := w.print(0, 0, "NVL", fg(cyan))
+	count := func(label string, v uint64, c color) {
+		n = w.print(n, 0, label, plain)
+		a := plain
+		if v > 0 {
+			a = fg(c)
+		}
+		n = w.printf(n, 0, a, "%05d", v%100000)
+	}
+	count(" FL:", e.flit, red)
+	count(" EE:", e.ecc, red)
+	count(" CR:", e.crc, yellow)
 }
 
 // showEncDec follows encode_decode_show_select: a meter shows while its

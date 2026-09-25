@@ -20,6 +20,7 @@ func TestRender(t *testing.T) {
 		{name: "no-plot", w: 120, h: 40, opts: options{noPlot: true}},
 		{name: "no-processes", w: 120, h: 40, opts: options{noProcs: true}},
 		{name: "reverse", w: 120, h: 40, opts: options{reverse: true}},
+		{name: "info-bar", w: 120, h: 40, opts: options{infoBar: true}},
 		{name: "always-encdec", w: 120, h: 40, opts: options{encodeHide: -1}},
 		{name: "kill", w: 120, h: 40, keys: []key{keyF9, 'j', 'j'}},
 		{name: "sort", w: 120, h: 40, keys: []key{keyF6, 'j', 'j', 'j', 'j', 'j', 'j', 'j', keyEnter, '+'}},
@@ -63,8 +64,10 @@ func datacenterDevices() []*device {
 			ecc:        true,
 			eccCorr:    some[uint64](1234),
 			eccUncorr:  some[uint64](0),
+			cores:      some[uint32](16896),
 			nvlink:     nvlink{version: 4, links: 18},
 			nvlinkRate: some[uint64](3 << 20),
+			nvlinkErrs: some(nvlinkErrors{flit: 7, ecc: 123456}),
 		},
 		{
 			index:       1,
@@ -84,6 +87,9 @@ func TestRenderDatacenter(t *testing.T) {
 	s := newScreen(120, 20, true)
 	u.render(s)
 	golden(t, "render/datacenter.golden", []byte(s.String()))
+	if _, _, ok := find(s, "NSHC"); ok {
+		t.Errorf("info bar drawn without -i")
+	}
 	checkColors(t, s, []colorCheck{
 		// As in nvtop, a two-digit link count has no space before it.
 		{"NVL418x", 0, cyan},
@@ -95,6 +101,28 @@ func TestRenderDatacenter(t *testing.T) {
 		{"ECC   5/ 3", 4, red},
 		{"ECC   5/ 3", 9, red},
 	})
+}
+
+func TestRenderDatacenterInfoBar(t *testing.T) {
+	u := newUI(datacenterDevices(), options{encodeHide: 30 * time.Second, infoBar: true}, 1, func() time.Time { return testNow })
+	s := newScreen(120, 20, true)
+	u.render(s)
+	golden(t, "render/datacenter-info.golden", []byte(s.String()))
+	checkColors(t, s, []colorCheck{
+		{"NSHC 16896", 0, cyan},
+		{"NSHC 16896", 5, noColor},
+		{"L2CF N/A", 0, cyan},
+		{"NEXC N/A", 5, noColor},
+		{"NVL FL:00007", 0, cyan},
+		{"NVL FL:00007", 7, red},
+		// Counts wrap at five digits.
+		{"EE:23456", 3, red},
+		{"CR:00000", 3, noColor},
+	})
+	// The device without active links has no NVLink error counts.
+	if n := strings.Count(s.String(), "NVL FL:"); n != 1 {
+		t.Errorf("drew %d NVLink error counts, want 1", n)
+	}
 }
 
 // A colorCheck says that the cell off cells into text has color want.

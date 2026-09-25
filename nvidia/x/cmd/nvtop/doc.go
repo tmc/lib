@@ -29,6 +29,9 @@
 //		Do not use color.
 //	-f
 //		Show temperatures in Fahrenheit.
+//	-i
+//		Add a line to each device header with more about the
+//		device: see Interface.
 //	-E seconds
 //		Hide the encoder and decoder meters after this many idle
 //		seconds (default 30); zero or negative keeps them shown.
@@ -56,14 +59,20 @@
 //	0-9               in the signal window, choose a signal by number
 //	F5, Ctrl-L        redraw
 //
-// Nvtop's setup window (F2), configuration file (F12, -c), and extra GPU
-// information bar (-i) are not implemented, and with them the PCIe
-// throughput plots and NVLink error counters that only they show. A
-// terminal too narrow for a window clips it rather than failing.
+// Nvtop's setup window (F2) and configuration file (F12, -c) are not
+// implemented, and with them the PCIe throughput plots that only the
+// setup window turns on. A terminal too narrow for a window clips it
+// rather than failing.
 //
 // Devices with ECC memory show the volatile corrected and uncorrected
 // error counts, and devices with active NVLink links show the link
 // version, the number of links, and their combined throughput.
+//
+// With -i, each header gains a line showing the number of shader cores
+// (NSHC), the L2 cache (L2CF), and the execution engines (NEXC), and, on
+// devices with active NVLink links, the flit CRC (FL), ECC (EE), and data
+// CRC (CR) errors on those links since nvtop started. NVML reports
+// neither the L2 cache nor the execution engines, so they show N/A.
 //
 // # Snapshots
 //
@@ -77,6 +86,9 @@
 // On devices with unified memory, such as GB10, NVML does not report
 // memory use, so both programs take it from /proc/meminfo: the total is
 // MemTotal and the free memory is MemAvailable.
+//
+// Nvtop does not read the shader core count from NVML, so with -i it
+// shows N/A for every NVIDIA device; this one shows the count.
 //
 // A process that NVML lists as both a graphics and a compute process
 // appears once, as type "Both G+C", holding the larger of the two memory

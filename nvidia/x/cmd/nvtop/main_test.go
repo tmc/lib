@@ -20,6 +20,8 @@ func TestParseFlags(t *testing.T) {
 		{args: []string{"--delay=0"}, want: options{delay: 100 * time.Millisecond, encodeHide: 30 * time.Second}, ok: true},
 		{args: []string{"-d", "5000"}, want: options{delay: 99900 * time.Millisecond, encodeHide: 30 * time.Second}, ok: true},
 		{args: []string{"-E", "-1", "-r", "-P", "-f"}, want: options{encodeHide: -time.Second, reverse: true, noProcs: true, fahrenheit: true}, ok: true},
+		{args: []string{"-i"}, want: options{infoBar: true, encodeHide: 30 * time.Second}, ok: true},
+		{args: []string{"--gpu-info"}, want: options{infoBar: true, encodeHide: 30 * time.Second}, ok: true},
 		{args: []string{"-s", "--loop"}, want: options{snapshot: true, loop: true, encodeHide: 30 * time.Second}, ok: true},
 		{args: []string{"-v"}, stdout: "nvtop version " + version},
 		{args: []string{"-h"}, stdout: "Available options:"},
