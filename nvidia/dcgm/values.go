@@ -58,7 +58,7 @@ func (v *FieldValueV1) Type() uint16 { return v.FieldType }
 // It is separate from the error the call itself returned: a call can succeed
 // and still report a per-field failure here, and a field whose Err is nil can
 // still be [FieldValueV1.Blank].
-func (v *FieldValueV1) Err() error { return toError(Result(v.Status)) }
+func (v *FieldValueV1) Err() error { return fieldError(v.Status) }
 
 // Time is when the sample was taken. DCGM reports microseconds since the Unix
 // epoch, and reports zero for a field it never sampled; Time returns the zero
@@ -109,7 +109,17 @@ func (v *FieldValueV2) Type() uint16 { return v.FieldType }
 
 // Err reports the per-field status DCGM returned for this reading. See
 // [FieldValueV1.Err].
-func (v *FieldValueV2) Err() error { return toError(Result(v.Status)) }
+func (v *FieldValueV2) Err() error { return fieldError(v.Status) }
+
+// fieldError converts a per-field status to an error, returning nil for
+// Success. The status belongs to the reading rather than to a call, so it
+// is the bare Result and not a *CallError.
+func fieldError(status int32) error {
+	if r := Result(status); r != Success {
+		return r
+	}
+	return nil
+}
 
 // Time is when the sample was taken, or the zero [time.Time] when DCGM
 // reported no timestamp.

@@ -96,10 +96,10 @@ func TestResultIsShared(t *testing.T) {
 	if !errors.As(error(r), &target) || target != cusolver.ErrZeroPivot {
 		t.Errorf("Result does not carry cusolver.Result")
 	}
-	if toError(cusolver.Success) != nil {
+	if toError(cusolver.Success, "cusolverMpTest") != nil {
 		t.Error("success mapped to a non-nil error")
 	}
-	if toError(cusolver.ErrInvalidValue) == nil {
+	if toError(cusolver.ErrInvalidValue, "cusolverMpTest") == nil {
 		t.Error("failure mapped to a nil error")
 	}
 }

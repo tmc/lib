@@ -51,7 +51,7 @@ func configSet(config Config, param ConfigParam, value unsafe.Pointer, size uint
 	if err := checkLibSym("cudssConfigSet"); err != nil {
 		return err
 	}
-	return toError(fnConfigSet(config, param, value, uint(size)))
+	return toError(fnConfigSet(config, param, value, uint(size)), "cudssConfigSet")
 }
 
 // configGet reads the config parameter param into size bytes at value and
@@ -62,7 +62,7 @@ func configGet(config Config, param ConfigParam, value unsafe.Pointer, size uint
 		return 0, err
 	}
 	var written uint
-	if err := toError(fnConfigGet(config, param, value, uint(size), &written)); err != nil {
+	if err := toError(fnConfigGet(config, param, value, uint(size), &written), "cudssConfigGet"); err != nil {
 		return 0, err
 	}
 	return uintptr(written), nil
@@ -73,7 +73,7 @@ func dataSet(handle Handle, data Data, param DataParam, value unsafe.Pointer, si
 	if err := checkLibSym("cudssDataSet"); err != nil {
 		return err
 	}
-	return toError(fnDataSet(handle, data, param, value, uint(size)))
+	return toError(fnDataSet(handle, data, param, value, uint(size)), "cudssDataSet")
 }
 
 // dataGet reads the data parameter param into size bytes at value and reports
@@ -83,7 +83,7 @@ func dataGet(handle Handle, data Data, param DataParam, value unsafe.Pointer, si
 		return 0, err
 	}
 	var written uint
-	if err := toError(fnDataGet(handle, data, param, value, uint(size), &written)); err != nil {
+	if err := toError(fnDataGet(handle, data, param, value, uint(size), &written), "cudssDataGet"); err != nil {
 		return 0, err
 	}
 	return uintptr(written), nil
@@ -197,7 +197,7 @@ func DataArrayAt(handle Handle, data Data, param DataParam, addr uintptr, size u
 		return 0, err
 	}
 	var written uint
-	if err := toError(fnDataGetAddr(handle, data, param, addr, uint(size), &written)); err != nil {
+	if err := toError(fnDataGetAddr(handle, data, param, addr, uint(size), &written), "cudssDataGet"); err != nil {
 		return 0, err
 	}
 	return uintptr(written), nil
@@ -209,7 +209,7 @@ func SetDataArrayAt(handle Handle, data Data, param DataParam, addr uintptr, siz
 	if err := bindAddrFuncs(); err != nil {
 		return err
 	}
-	return toError(fnDataSetAddr(handle, data, param, addr, uint(size)))
+	return toError(fnDataSetAddr(handle, data, param, addr, uint(size)), "cudssDataSet")
 }
 
 // Configuration parameters. Each accessor's Go type is the C type the

@@ -46,7 +46,7 @@ func BufferDeregister(grid Grid, ptr uintptr) error {
 	if err := checkLibSym("cublasMpBufferDeregister"); err != nil {
 		return err
 	}
-	return toError(fnBufferDeregister(grid, ptr))
+	return toError(fnBufferDeregister(grid, ptr), "cublasMpBufferDeregister")
 }
 
 // BufferRegister Registers a device memory buffer with NCCL symmetric memory for a process grid.
@@ -72,7 +72,7 @@ func BufferRegister(grid Grid, ptr uintptr, size uint) error {
 	if err := checkLibSym("cublasMpBufferRegister"); err != nil {
 		return err
 	}
-	return toError(fnBufferRegister(grid, ptr, size))
+	return toError(fnBufferRegister(grid, ptr, size), "cublasMpBufferRegister")
 }
 
 // Create Initializes the cuBLASMp library handle.
@@ -96,7 +96,7 @@ func Create(stream driver.Stream) (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out, stream)); err != nil {
+	if err := toError(fnCreate(&out, stream), "cublasMpCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -116,7 +116,7 @@ func Destroy(handle Handle) error {
 	if err := checkLibSym("cublasMpDestroy"); err != nil {
 		return err
 	}
-	return toError(fnDestroy(handle))
+	return toError(fnDestroy(handle), "cublasMpDestroy")
 }
 
 // Free Deregisters and frees device memory allocated with [Grid.Malloc].
@@ -136,7 +136,7 @@ func Free(grid Grid, ptr uintptr) error {
 	if err := checkLibSym("cublasMpFree"); err != nil {
 		return err
 	}
-	return toError(fnFree(grid, ptr))
+	return toError(fnFree(grid, ptr), "cublasMpFree")
 }
 
 // Gemm Performs a distributed matrix-matrix multiplication (C = alpha * op(A) * op(B) + beta * C).
@@ -192,7 +192,7 @@ func Gemm(handle Handle, transA cublas.Operation, transB cublas.Operation, m int
 	if err := checkLibSym("cublasMpGemm"); err != nil {
 		return err
 	}
-	return toError(fnGemm(handle, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType, dWork, workspaceSizeInBytesOnDevice, hWork, workspaceSizeInBytesOnHost))
+	return toError(fnGemm(handle, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType, dWork, workspaceSizeInBytesOnDevice, hWork, workspaceSizeInBytesOnHost), "cublasMpGemm")
 }
 
 // GemmBufferSize Computes the workspace size required by [Handle.Gemm].
@@ -243,7 +243,7 @@ func GemmBufferSize(handle Handle, transA cublas.Operation, transB cublas.Operat
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnGemmBufferSize(handle, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType, &out0, &out1)); err != nil {
+	if err := toError(fnGemmBufferSize(handle, transA, transB, m, n, k, alpha, a, ia, ja, descA, b, ib, jb, descB, beta, c, ic, jc, descC, computeType, &out0, &out1), "cublasMpGemm_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -262,7 +262,7 @@ func GetStream(handle Handle) (driver.Stream, error) {
 		return zero, err
 	}
 	var out driver.Stream
-	if err := toError(fnGetStream(handle, &out)); err != nil {
+	if err := toError(fnGetStream(handle, &out), "cublasMpGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
@@ -281,7 +281,7 @@ func GetVersion() (int, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetVersion(&out)); err != nil {
+	if err := toError(fnGetVersion(&out), "cublasMpGetVersion"); err != nil {
 		var zero int
 		return zero, err
 	}
@@ -309,7 +309,7 @@ func GridCreate(nprow int64, npcol int64, layout GridLayout, comm nccl.Comm) (Gr
 		return zero, err
 	}
 	var out Grid
-	if err := toError(fnGridCreate(nprow, npcol, layout, comm, &out)); err != nil {
+	if err := toError(fnGridCreate(nprow, npcol, layout, comm, &out), "cublasMpGridCreate"); err != nil {
 		var zero Grid
 		return zero, err
 	}
@@ -328,7 +328,7 @@ func GridDestroy(grid Grid) error {
 	if err := checkLibSym("cublasMpGridDestroy"); err != nil {
 		return err
 	}
-	return toError(fnGridDestroy(grid))
+	return toError(fnGridDestroy(grid), "cublasMpGridDestroy")
 }
 
 // Malloc Allocates and registers device memory with NCCL symmetric memory.
@@ -350,7 +350,7 @@ func Malloc(grid Grid, size uint) (uintptr, error) {
 		return zero, err
 	}
 	var out uintptr
-	if err := toError(fnMalloc(grid, &out, size)); err != nil {
+	if err := toError(fnMalloc(grid, &out, size), "cublasMpMalloc"); err != nil {
 		var zero uintptr
 		return zero, err
 	}
@@ -386,7 +386,7 @@ func MatrixDescriptorCreate(m int64, n int64, mb int64, nb int64, rsrc int64, cs
 		return zero, err
 	}
 	var out MatrixDescriptor
-	if err := toError(fnMatrixDescriptorCreate(m, n, mb, nb, rsrc, csrc, lld, type_, grid, &out)); err != nil {
+	if err := toError(fnMatrixDescriptorCreate(m, n, mb, nb, rsrc, csrc, lld, type_, grid, &out), "cublasMpMatrixDescriptorCreate"); err != nil {
 		var zero MatrixDescriptor
 		return zero, err
 	}
@@ -404,7 +404,7 @@ func MatrixDescriptorDestroy(desc MatrixDescriptor) error {
 	if err := checkLibSym("cublasMpMatrixDescriptorDestroy"); err != nil {
 		return err
 	}
-	return toError(fnMatrixDescriptorDestroy(desc))
+	return toError(fnMatrixDescriptorDestroy(desc), "cublasMpMatrixDescriptorDestroy")
 }
 
 // MatrixDescriptorInit Initializes the values of an existing matrix descriptor.
@@ -433,7 +433,7 @@ func MatrixDescriptorInit(m int64, n int64, mb int64, nb int64, rsrc int64, csrc
 	if err := checkLibSym("cublasMpMatrixDescriptorInit"); err != nil {
 		return err
 	}
-	return toError(fnMatrixDescriptorInit(m, n, mb, nb, rsrc, csrc, lld, type_, grid, desc))
+	return toError(fnMatrixDescriptorInit(m, n, mb, nb, rsrc, csrc, lld, type_, grid, desc), "cublasMpMatrixDescriptorInit")
 }
 
 // SetStream Sets the CUDA stream for cuBLASMp computations.
@@ -450,5 +450,5 @@ func SetStream(handle Handle, stream driver.Stream) error {
 	if err := checkLibSym("cublasMpSetStream"); err != nil {
 		return err
 	}
-	return toError(fnSetStream(handle, stream))
+	return toError(fnSetStream(handle, stream), "cublasMpSetStream")
 }

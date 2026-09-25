@@ -58,7 +58,7 @@ func Create(deviceId int32, stream driver.Stream) (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out, deviceId, stream)); err != nil {
+	if err := toError(fnCreate(&out, deviceId, stream), "cusolverMpCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -88,7 +88,7 @@ func CreateDeviceGrid(handle Handle, comm nccl.Comm, numRowDevices int32, numCol
 		return zero, err
 	}
 	var out Grid
-	if err := toError(fnCreateDeviceGrid(handle, &out, comm, numRowDevices, numColDevices, mapping)); err != nil {
+	if err := toError(fnCreateDeviceGrid(handle, &out, comm, numRowDevices, numColDevices, mapping), "cusolverMpCreateDeviceGrid"); err != nil {
 		var zero Grid
 		return zero, err
 	}
@@ -128,7 +128,7 @@ func CreateMatrixDesc(grid Grid, dataType cusolver.DataType, mA int64, nA int64,
 		return zero, err
 	}
 	var out MatrixDescriptor
-	if err := toError(fnCreateMatrixDesc(&out, grid, dataType, mA, nA, mBA, nBA, rSRCA, cSRCA, lLDA)); err != nil {
+	if err := toError(fnCreateMatrixDesc(&out, grid, dataType, mA, nA, mBA, nBA, rSRCA, cSRCA, lLDA), "cusolverMpCreateMatrixDesc"); err != nil {
 		var zero MatrixDescriptor
 		return zero, err
 	}
@@ -147,7 +147,7 @@ func Destroy(handle Handle) error {
 	if err := checkLibSym("cusolverMpDestroy"); err != nil {
 		return err
 	}
-	return toError(fnDestroy(handle))
+	return toError(fnDestroy(handle), "cusolverMpDestroy")
 }
 
 // DestroyGrid releases a grid created by [Handle.CreateDeviceGrid]
@@ -162,7 +162,7 @@ func DestroyGrid(grid Grid) error {
 	if err := checkLibSym("cusolverMpDestroyGrid"); err != nil {
 		return err
 	}
-	return toError(fnDestroyGrid(grid))
+	return toError(fnDestroyGrid(grid), "cusolverMpDestroyGrid")
 }
 
 // DestroyMatrixDesc releases a descriptor created by [Grid.CreateMatrixDesc]
@@ -175,7 +175,7 @@ func DestroyMatrixDesc(desc MatrixDescriptor) error {
 	if err := checkLibSym("cusolverMpDestroyMatrixDesc"); err != nil {
 		return err
 	}
-	return toError(fnDestroyMatrixDesc(desc))
+	return toError(fnDestroyMatrixDesc(desc), "cusolverMpDestroyMatrixDesc")
 }
 
 // GetMathMode returns the arithmetic mode set by [Handle.SetMathMode]
@@ -189,7 +189,7 @@ func GetMathMode(handle Handle) (cusolver.MathMode, error) {
 		return zero, err
 	}
 	var out cusolver.MathMode
-	if err := toError(fnGetMathMode(handle, &out)); err != nil {
+	if err := toError(fnGetMathMode(handle, &out), "cusolverMpGetMathMode"); err != nil {
 		var zero cusolver.MathMode
 		return zero, err
 	}
@@ -205,7 +205,7 @@ func GetStream(handle Handle) (driver.Stream, error) {
 		return zero, err
 	}
 	var out driver.Stream
-	if err := toError(fnGetStream(handle, &out)); err != nil {
+	if err := toError(fnGetStream(handle, &out), "cusolverMpGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
@@ -225,7 +225,7 @@ func GetVersion(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetVersion(handle, &out)); err != nil {
+	if err := toError(fnGetVersion(handle, &out), "cusolverMpGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -241,7 +241,7 @@ func LoggerForceDisable() error {
 	if err := checkLibSym("cusolverMpLoggerForceDisable"); err != nil {
 		return err
 	}
-	return toError(fnLoggerForceDisable())
+	return toError(fnLoggerForceDisable(), "cusolverMpLoggerForceDisable")
 }
 
 // LoggerOpenFile sends the library's log to a file
@@ -257,7 +257,7 @@ func LoggerOpenFile(logFile string) error {
 		return err
 	}
 	logFile_cstr := append([]byte(logFile), 0)
-	return toError(fnLoggerOpenFile(&logFile_cstr[0]))
+	return toError(fnLoggerOpenFile(&logFile_cstr[0]), "cusolverMpLoggerOpenFile")
 }
 
 // LoggerSetLevel sets the library's log verbosity
@@ -269,7 +269,7 @@ func LoggerSetLevel(level int32) error {
 	if err := checkLibSym("cusolverMpLoggerSetLevel"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetLevel(level))
+	return toError(fnLoggerSetLevel(level), "cusolverMpLoggerSetLevel")
 }
 
 // LoggerSetMask selects which log categories the library emits
@@ -281,7 +281,7 @@ func LoggerSetMask(mask int32) error {
 	if err := checkLibSym("cusolverMpLoggerSetMask"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetMask(mask))
+	return toError(fnLoggerSetMask(mask), "cusolverMpLoggerSetMask")
 }
 
 // SetMathMode selects the arithmetic the library may use
@@ -296,7 +296,7 @@ func SetMathMode(handle Handle, mode cusolver.MathMode) error {
 	if err := checkLibSym("cusolverMpSetMathMode"); err != nil {
 		return err
 	}
-	return toError(fnSetMathMode(handle, mode))
+	return toError(fnSetMathMode(handle, mode), "cusolverMpSetMathMode")
 }
 
 // SetStream redirects subsequent operations on handle to stream
@@ -313,5 +313,5 @@ func SetStream(handle Handle, stream driver.Stream) error {
 	if err := checkLibSym("cusolverMpSetStream"); err != nil {
 		return err
 	}
-	return toError(fnSetStream(handle, stream))
+	return toError(fnSetStream(handle, stream), "cusolverMpSetStream")
 }

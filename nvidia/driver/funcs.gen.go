@@ -513,7 +513,7 @@ func array3DCreate(pAllocateArray *Array3dDescriptor) (Array, error) {
 		return zero, err
 	}
 	var out Array
-	if err := toError(fnarray3DCreate(&out, pAllocateArray)); err != nil {
+	if err := toError(fnarray3DCreate(&out, pAllocateArray), "cuArray3DCreate_v2"); err != nil {
 		var zero Array
 		return zero, err
 	}
@@ -533,7 +533,7 @@ func array3DGetDescriptor(hArray Array) (Array3dDescriptor, error) {
 		return zero, err
 	}
 	var out Array3dDescriptor
-	if err := toError(fnarray3DGetDescriptor(&out, hArray)); err != nil {
+	if err := toError(fnarray3DGetDescriptor(&out, hArray), "cuArray3DGetDescriptor_v2"); err != nil {
 		var zero Array3dDescriptor
 		return zero, err
 	}
@@ -553,7 +553,7 @@ func arrayCreate(pAllocateArray *ArrayDescriptor) (Array, error) {
 		return zero, err
 	}
 	var out Array
-	if err := toError(fnarrayCreate(&out, pAllocateArray)); err != nil {
+	if err := toError(fnarrayCreate(&out, pAllocateArray), "cuArrayCreate_v2"); err != nil {
 		var zero Array
 		return zero, err
 	}
@@ -571,7 +571,7 @@ func arrayDestroy(hArray Array) error {
 	if err := checkLibSym("cuArrayDestroy"); err != nil {
 		return err
 	}
-	return toError(fnarrayDestroy(hArray))
+	return toError(fnarrayDestroy(hArray), "cuArrayDestroy")
 }
 
 // arrayGetDescriptor Get a 1D or 2D CUDA array descriptor.
@@ -587,7 +587,7 @@ func arrayGetDescriptor(hArray Array) (ArrayDescriptor, error) {
 		return zero, err
 	}
 	var out ArrayDescriptor
-	if err := toError(fnarrayGetDescriptor(&out, hArray)); err != nil {
+	if err := toError(fnarrayGetDescriptor(&out, hArray), "cuArrayGetDescriptor_v2"); err != nil {
 		var zero ArrayDescriptor
 		return zero, err
 	}
@@ -608,7 +608,7 @@ func arrayGetMemoryRequirements(array Array, device Device) (ArrayMemoryRequirem
 		return zero, err
 	}
 	var out ArrayMemoryRequirements
-	if err := toError(fnarrayGetMemoryRequirements(&out, array, device)); err != nil {
+	if err := toError(fnarrayGetMemoryRequirements(&out, array, device), "cuArrayGetMemoryRequirements"); err != nil {
 		var zero ArrayMemoryRequirements
 		return zero, err
 	}
@@ -629,7 +629,7 @@ func arrayGetPlane(hArray Array, planeIdx uint32) (Array, error) {
 		return zero, err
 	}
 	var out Array
-	if err := toError(fnarrayGetPlane(&out, hArray, planeIdx)); err != nil {
+	if err := toError(fnarrayGetPlane(&out, hArray, planeIdx), "cuArrayGetPlane"); err != nil {
 		var zero Array
 		return zero, err
 	}
@@ -649,7 +649,7 @@ func arrayGetSparseProperties(array Array) (ArraySparseProperties, error) {
 		return zero, err
 	}
 	var out ArraySparseProperties
-	if err := toError(fnarrayGetSparseProperties(&out, array)); err != nil {
+	if err := toError(fnarrayGetSparseProperties(&out, array), "cuArrayGetSparseProperties"); err != nil {
 		var zero ArraySparseProperties
 		return zero, err
 	}
@@ -673,7 +673,7 @@ func CheckpointProcessCheckpoint(pid int32, args *CheckpointCheckpointArgs) erro
 	if err := checkLibSym("cuCheckpointProcessCheckpoint"); err != nil {
 		return err
 	}
-	return toError(fnCheckpointProcessCheckpoint(pid, args))
+	return toError(fnCheckpointProcessCheckpoint(pid, args), "cuCheckpointProcessCheckpoint")
 }
 
 // CheckpointProcessGetRestoreThreadId Returns the restore thread ID for a CUDA process
@@ -690,7 +690,7 @@ func CheckpointProcessGetRestoreThreadId(pid int32) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnCheckpointProcessGetRestoreThreadId(pid, &out)); err != nil {
+	if err := toError(fnCheckpointProcessGetRestoreThreadId(pid, &out), "cuCheckpointProcessGetRestoreThreadId"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -710,7 +710,7 @@ func CheckpointProcessGetState(pid int32) (ProcessState, error) {
 		return zero, err
 	}
 	var out ProcessState
-	if err := toError(fnCheckpointProcessGetState(pid, &out)); err != nil {
+	if err := toError(fnCheckpointProcessGetState(pid, &out), "cuCheckpointProcessGetState"); err != nil {
 		var zero ProcessState
 		return zero, err
 	}
@@ -735,7 +735,7 @@ func CheckpointProcessLock(pid int32, args *CheckpointLockArgs) error {
 	if err := checkLibSym("cuCheckpointProcessLock"); err != nil {
 		return err
 	}
-	return toError(fnCheckpointProcessLock(pid, args))
+	return toError(fnCheckpointProcessLock(pid, args), "cuCheckpointProcessLock")
 }
 
 // CheckpointProcessRestore Restore a CUDA process's GPU memory contents from its last checkpoint
@@ -763,7 +763,7 @@ func CheckpointProcessRestore(pid int32, args *CheckpointRestoreArgs) error {
 	if err := checkLibSym("cuCheckpointProcessRestore"); err != nil {
 		return err
 	}
-	return toError(fnCheckpointProcessRestore(pid, args))
+	return toError(fnCheckpointProcessRestore(pid, args), "cuCheckpointProcessRestore")
 }
 
 // CheckpointProcessUnlock Unlock a CUDA process to allow CUDA API calls
@@ -781,7 +781,7 @@ func CheckpointProcessUnlock(pid int32, args *CheckpointUnlockArgs) error {
 	if err := checkLibSym("cuCheckpointProcessUnlock"); err != nil {
 		return err
 	}
-	return toError(fnCheckpointProcessUnlock(pid, args))
+	return toError(fnCheckpointProcessUnlock(pid, args), "cuCheckpointProcessUnlock")
 }
 
 // coredumpDeregisterCompleteCallback Deregister a previously registered coredump complete callback
@@ -799,7 +799,7 @@ func coredumpDeregisterCompleteCallback(callback CoredumpCallbackHandle) error {
 	if err := checkLibSym("cuCoredumpDeregisterCompleteCallback"); err != nil {
 		return err
 	}
-	return toError(fncoredumpDeregisterCompleteCallback(callback))
+	return toError(fncoredumpDeregisterCompleteCallback(callback), "cuCoredumpDeregisterCompleteCallback")
 }
 
 // coredumpDeregisterStartCallback Deregister a previously registered coredump start callback
@@ -817,7 +817,7 @@ func coredumpDeregisterStartCallback(callback CoredumpCallbackHandle) error {
 	if err := checkLibSym("cuCoredumpDeregisterStartCallback"); err != nil {
 		return err
 	}
-	return toError(fncoredumpDeregisterStartCallback(callback))
+	return toError(fncoredumpDeregisterStartCallback(callback), "cuCoredumpDeregisterStartCallback")
 }
 
 // CoredumpGetAttribute Allows caller to fetch a coredump attribute value for the current context
@@ -880,7 +880,7 @@ func CoredumpGetAttribute(attrib CoredumpSettings, value unsafe.Pointer, size *u
 	if err := checkLibSym("cuCoredumpGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnCoredumpGetAttribute(attrib, value, size))
+	return toError(fnCoredumpGetAttribute(attrib, value, size), "cuCoredumpGetAttribute")
 }
 
 // CoredumpGetAttributeGlobal Allows caller to fetch a coredump attribute value for the entire application
@@ -942,7 +942,7 @@ func CoredumpGetAttributeGlobal(attrib CoredumpSettings, value uintptr, size *ui
 	if err := checkLibSym("cuCoredumpGetAttributeGlobal"); err != nil {
 		return err
 	}
-	return toError(fnCoredumpGetAttributeGlobal(attrib, value, size))
+	return toError(fnCoredumpGetAttributeGlobal(attrib, value, size), "cuCoredumpGetAttributeGlobal")
 }
 
 // CoredumpRegisterCompleteCallback Register a callback to be invoked when a GPU coredump completes
@@ -965,7 +965,7 @@ func CoredumpRegisterCompleteCallback(callback uintptr, userData uintptr) (Cored
 		return zero, err
 	}
 	var out CoredumpCallbackHandle
-	if err := toError(fnCoredumpRegisterCompleteCallback(callback, userData, &out)); err != nil {
+	if err := toError(fnCoredumpRegisterCompleteCallback(callback, userData, &out), "cuCoredumpRegisterCompleteCallback"); err != nil {
 		var zero CoredumpCallbackHandle
 		return zero, err
 	}
@@ -992,7 +992,7 @@ func CoredumpRegisterStartCallback(callback uintptr, userData uintptr) (Coredump
 		return zero, err
 	}
 	var out CoredumpCallbackHandle
-	if err := toError(fnCoredumpRegisterStartCallback(callback, userData, &out)); err != nil {
+	if err := toError(fnCoredumpRegisterStartCallback(callback, userData, &out), "cuCoredumpRegisterStartCallback"); err != nil {
 		var zero CoredumpCallbackHandle
 		return zero, err
 	}
@@ -1065,7 +1065,7 @@ func CoredumpSetAttribute(attrib CoredumpSettings, value uintptr, size *uint) er
 	if err := checkLibSym("cuCoredumpSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnCoredumpSetAttribute(attrib, value, size))
+	return toError(fnCoredumpSetAttribute(attrib, value, size), "cuCoredumpSetAttribute")
 }
 
 // CoredumpSetAttributeGlobal Allows caller to set a coredump attribute value globally
@@ -1136,7 +1136,7 @@ func CoredumpSetAttributeGlobal(attrib CoredumpSettings, value uintptr, size *ui
 	if err := checkLibSym("cuCoredumpSetAttributeGlobal"); err != nil {
 		return err
 	}
-	return toError(fnCoredumpSetAttributeGlobal(attrib, value, size))
+	return toError(fnCoredumpSetAttributeGlobal(attrib, value, size), "cuCoredumpSetAttributeGlobal")
 }
 
 // ctxAttach Increment a context's usage-count
@@ -1154,7 +1154,7 @@ func ctxAttach(flags uint32) (Context, error) {
 		return zero, err
 	}
 	var out Context
-	if err := toError(fnctxAttach(&out, flags)); err != nil {
+	if err := toError(fnctxAttach(&out, flags), "cuCtxAttach"); err != nil {
 		var zero Context
 		return zero, err
 	}
@@ -1176,7 +1176,7 @@ func ctxCreate(ctxCreateParams *CtxCreateParams, flags CtxFlags, dev Device) (Co
 		return zero, err
 	}
 	var out Context
-	if err := toError(fnctxCreate(&out, ctxCreateParams, uint32(flags), dev)); err != nil {
+	if err := toError(fnctxCreate(&out, ctxCreateParams, uint32(flags), dev), "cuCtxCreate_v4"); err != nil {
 		var zero Context
 		return zero, err
 	}
@@ -1194,7 +1194,7 @@ func ctxDestroy(ctx Context) error {
 	if err := checkLibSym("cuCtxDestroy_v2"); err != nil {
 		return err
 	}
-	return toError(fnctxDestroy(ctx))
+	return toError(fnctxDestroy(ctx), "cuCtxDestroy_v2")
 }
 
 // ctxDetach Decrement a context's usage-count
@@ -1210,7 +1210,7 @@ func ctxDetach(ctx Context) error {
 	if err := checkLibSym("cuCtxDetach"); err != nil {
 		return err
 	}
-	return toError(fnctxDetach(ctx))
+	return toError(fnctxDetach(ctx), "cuCtxDetach")
 }
 
 // ctxDisablePeerAccess Disables direct access to memory allocations in a peer context and unregisters any registered allocations.
@@ -1224,7 +1224,7 @@ func ctxDisablePeerAccess(peerContext Context) error {
 	if err := checkLibSym("cuCtxDisablePeerAccess"); err != nil {
 		return err
 	}
-	return toError(fnctxDisablePeerAccess(peerContext))
+	return toError(fnctxDisablePeerAccess(peerContext), "cuCtxDisablePeerAccess")
 }
 
 // ctxEnablePeerAccess Enables direct access to memory allocations in a peer context.
@@ -1239,7 +1239,7 @@ func ctxEnablePeerAccess(peerContext Context, flags uint32) error {
 	if err := checkLibSym("cuCtxEnablePeerAccess"); err != nil {
 		return err
 	}
-	return toError(fnctxEnablePeerAccess(peerContext, flags))
+	return toError(fnctxEnablePeerAccess(peerContext, flags), "cuCtxEnablePeerAccess")
 }
 
 // ctxFromGreenCtx Converts a green context into the primary context
@@ -1264,7 +1264,7 @@ func ctxFromGreenCtx(hCtx GreenCtx) (Context, error) {
 		return zero, err
 	}
 	var out Context
-	if err := toError(fnctxFromGreenCtx(&out, hCtx)); err != nil {
+	if err := toError(fnctxFromGreenCtx(&out, hCtx), "cuCtxFromGreenCtx"); err != nil {
 		var zero Context
 		return zero, err
 	}
@@ -1284,7 +1284,7 @@ func ctxGetApiVersion(ctx Context) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnctxGetApiVersion(ctx, &out)); err != nil {
+	if err := toError(fnctxGetApiVersion(ctx, &out), "cuCtxGetApiVersion"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1302,7 +1302,7 @@ func CtxGetCacheConfig() (FuncCacheConfig, error) {
 		return zero, err
 	}
 	var out FuncCacheConfig
-	if err := toError(fnCtxGetCacheConfig(&out)); err != nil {
+	if err := toError(fnCtxGetCacheConfig(&out), "cuCtxGetCacheConfig"); err != nil {
 		var zero FuncCacheConfig
 		return zero, err
 	}
@@ -1320,7 +1320,7 @@ func ctxGetCurrent() (Context, error) {
 		return zero, err
 	}
 	var out Context
-	if err := toError(fnctxGetCurrent(&out)); err != nil {
+	if err := toError(fnctxGetCurrent(&out), "cuCtxGetCurrent"); err != nil {
 		var zero Context
 		return zero, err
 	}
@@ -1343,7 +1343,7 @@ func ctxGetDevResource(hCtx Context, type_ DevResourceType) (DevResource, error)
 		return zero, err
 	}
 	var out DevResource
-	if err := toError(fnctxGetDevResource(hCtx, &out, type_)); err != nil {
+	if err := toError(fnctxGetDevResource(hCtx, &out, type_), "cuCtxGetDevResource"); err != nil {
 		var zero DevResource
 		return zero, err
 	}
@@ -1361,7 +1361,7 @@ func CtxGetDevice() (Device, error) {
 		return zero, err
 	}
 	var out Device
-	if err := toError(fnCtxGetDevice(&out)); err != nil {
+	if err := toError(fnCtxGetDevice(&out), "cuCtxGetDevice"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -1381,7 +1381,7 @@ func ctxGetDeviceV2(ctx Context) (Device, error) {
 		return zero, err
 	}
 	var out Device
-	if err := toError(fnctxGetDeviceV2(&out, ctx)); err != nil {
+	if err := toError(fnctxGetDeviceV2(&out, ctx), "cuCtxGetDevice_v2"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -1401,7 +1401,7 @@ func CtxGetExecAffinity(type_ ExecAffinityType) (ExecAffinityParam, error) {
 		return zero, err
 	}
 	var out ExecAffinityParam
-	if err := toError(fnCtxGetExecAffinity(&out, type_)); err != nil {
+	if err := toError(fnCtxGetExecAffinity(&out, type_), "cuCtxGetExecAffinity"); err != nil {
 		var zero ExecAffinityParam
 		return zero, err
 	}
@@ -1419,7 +1419,7 @@ func CtxGetFlags() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnCtxGetFlags(&out)); err != nil {
+	if err := toError(fnCtxGetFlags(&out), "cuCtxGetFlags"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1439,7 +1439,7 @@ func ctxGetId(ctx Context) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnctxGetId(ctx, &out)); err != nil {
+	if err := toError(fnctxGetId(ctx, &out), "cuCtxGetId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -1459,7 +1459,7 @@ func CtxGetLimit(limit Limit) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnCtxGetLimit(&out, limit)); err != nil {
+	if err := toError(fnCtxGetLimit(&out, limit), "cuCtxGetLimit"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1479,7 +1479,7 @@ func CtxGetSharedMemConfig() (Sharedconfig, error) {
 		return zero, err
 	}
 	var out Sharedconfig
-	if err := toError(fnCtxGetSharedMemConfig(&out)); err != nil {
+	if err := toError(fnCtxGetSharedMemConfig(&out), "cuCtxGetSharedMemConfig"); err != nil {
 		var zero Sharedconfig
 		return zero, err
 	}
@@ -1497,7 +1497,7 @@ func CtxGetStreamPriorityRange() (leastPriority int32, greatestPriority int32, e
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fnCtxGetStreamPriorityRange(&out0, &out1)); err != nil {
+	if err := toError(fnCtxGetStreamPriorityRange(&out0, &out1), "cuCtxGetStreamPriorityRange"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -1514,7 +1514,7 @@ func ctxPopCurrent() (Context, error) {
 		return zero, err
 	}
 	var out Context
-	if err := toError(fnctxPopCurrent(&out)); err != nil {
+	if err := toError(fnctxPopCurrent(&out), "cuCtxPopCurrent_v2"); err != nil {
 		var zero Context
 		return zero, err
 	}
@@ -1532,7 +1532,7 @@ func ctxPushCurrent(ctx Context) error {
 	if err := checkLibSym("cuCtxPushCurrent_v2"); err != nil {
 		return err
 	}
-	return toError(fnctxPushCurrent(ctx))
+	return toError(fnctxPushCurrent(ctx), "cuCtxPushCurrent_v2")
 }
 
 // ctxRecordEvent Records an event.
@@ -1547,7 +1547,7 @@ func ctxRecordEvent(hCtx Context, hEvent Event) error {
 	if err := checkLibSym("cuCtxRecordEvent"); err != nil {
 		return err
 	}
-	return toError(fnctxRecordEvent(hCtx, hEvent))
+	return toError(fnctxRecordEvent(hCtx, hEvent), "cuCtxRecordEvent")
 }
 
 // CtxResetPersistingL2Cache Resets all persisting lines in cache to normal status.
@@ -1559,7 +1559,7 @@ func CtxResetPersistingL2Cache() error {
 	if err := checkLibSym("cuCtxResetPersistingL2Cache"); err != nil {
 		return err
 	}
-	return toError(fnCtxResetPersistingL2Cache())
+	return toError(fnCtxResetPersistingL2Cache(), "cuCtxResetPersistingL2Cache")
 }
 
 // CtxSetCacheConfig Sets the preferred cache configuration for the current context.
@@ -1573,7 +1573,7 @@ func CtxSetCacheConfig(config FuncCacheConfig) error {
 	if err := checkLibSym("cuCtxSetCacheConfig"); err != nil {
 		return err
 	}
-	return toError(fnCtxSetCacheConfig(config))
+	return toError(fnCtxSetCacheConfig(config), "cuCtxSetCacheConfig")
 }
 
 // ctxSetCurrent Binds the specified CUDA context to the calling CPU thread.
@@ -1587,7 +1587,7 @@ func ctxSetCurrent(ctx Context) error {
 	if err := checkLibSym("cuCtxSetCurrent"); err != nil {
 		return err
 	}
-	return toError(fnctxSetCurrent(ctx))
+	return toError(fnctxSetCurrent(ctx), "cuCtxSetCurrent")
 }
 
 // CtxSetFlags Sets the flags for the current context.
@@ -1601,7 +1601,7 @@ func CtxSetFlags(flags uint32) error {
 	if err := checkLibSym("cuCtxSetFlags"); err != nil {
 		return err
 	}
-	return toError(fnCtxSetFlags(flags))
+	return toError(fnCtxSetFlags(flags), "cuCtxSetFlags")
 }
 
 // CtxSetLimit Set resource limits.
@@ -1616,7 +1616,7 @@ func CtxSetLimit(limit Limit, value uint) error {
 	if err := checkLibSym("cuCtxSetLimit"); err != nil {
 		return err
 	}
-	return toError(fnCtxSetLimit(limit, value))
+	return toError(fnCtxSetLimit(limit, value), "cuCtxSetLimit")
 }
 
 // CtxSetSharedMemConfig Sets the shared memory configuration for the current context.
@@ -1632,7 +1632,7 @@ func CtxSetSharedMemConfig(config Sharedconfig) error {
 	if err := checkLibSym("cuCtxSetSharedMemConfig"); err != nil {
 		return err
 	}
-	return toError(fnCtxSetSharedMemConfig(config))
+	return toError(fnCtxSetSharedMemConfig(config), "cuCtxSetSharedMemConfig")
 }
 
 // CtxSynchronize Block for the current context's tasks to complete.
@@ -1644,7 +1644,7 @@ func CtxSynchronize() error {
 	if err := checkLibSym("cuCtxSynchronize"); err != nil {
 		return err
 	}
-	return toError(fnCtxSynchronize())
+	return toError(fnCtxSynchronize(), "cuCtxSynchronize")
 }
 
 // ctxSynchronizeV2 Block for the specified context's tasks to complete.
@@ -1658,7 +1658,7 @@ func ctxSynchronizeV2(ctx Context) error {
 	if err := checkLibSym("cuCtxSynchronize_v2"); err != nil {
 		return err
 	}
-	return toError(fnctxSynchronizeV2(ctx))
+	return toError(fnctxSynchronizeV2(ctx), "cuCtxSynchronize_v2")
 }
 
 // ctxWaitEvent Make a context wait on an event.
@@ -1673,7 +1673,7 @@ func ctxWaitEvent(hCtx Context, hEvent Event) error {
 	if err := checkLibSym("cuCtxWaitEvent"); err != nil {
 		return err
 	}
-	return toError(fnctxWaitEvent(hCtx, hEvent))
+	return toError(fnctxWaitEvent(hCtx, hEvent), "cuCtxWaitEvent")
 }
 
 // destroyExternalMemory Destroys an external memory object.
@@ -1687,7 +1687,7 @@ func destroyExternalMemory(extMem ExternalMemory) error {
 	if err := checkLibSym("cuDestroyExternalMemory"); err != nil {
 		return err
 	}
-	return toError(fndestroyExternalMemory(extMem))
+	return toError(fndestroyExternalMemory(extMem), "cuDestroyExternalMemory")
 }
 
 // destroyExternalSemaphore Destroys an external semaphore.
@@ -1701,7 +1701,7 @@ func destroyExternalSemaphore(extSem ExternalSemaphore) error {
 	if err := checkLibSym("cuDestroyExternalSemaphore"); err != nil {
 		return err
 	}
-	return toError(fndestroyExternalSemaphore(extSem))
+	return toError(fndestroyExternalSemaphore(extSem), "cuDestroyExternalSemaphore")
 }
 
 // DevResourceGenerateDesc Generate a resource descriptor
@@ -1733,7 +1733,7 @@ func DevResourceGenerateDesc(resources *DevResource, nbResources uint32) (DevRes
 		return zero, err
 	}
 	var out DevResourceDesc
-	if err := toError(fnDevResourceGenerateDesc(&out, resources, nbResources)); err != nil {
+	if err := toError(fnDevResourceGenerateDesc(&out, resources, nbResources), "cuDevResourceGenerateDesc"); err != nil {
 		var zero DevResourceDesc
 		return zero, err
 	}
@@ -1809,7 +1809,7 @@ func DevSmResourceSplit(result *DevResource, nbGroups uint32, input *DevResource
 	if err := checkLibSym("cuDevSmResourceSplit"); err != nil {
 		return err
 	}
-	return toError(fnDevSmResourceSplit(result, nbGroups, input, remainder, flags, groupParams))
+	return toError(fnDevSmResourceSplit(result, nbGroups, input, remainder, flags, groupParams), "cuDevSmResourceSplit")
 }
 
 // DevSmResourceSplitByCount Splits [DevResourceTypeSm] resources.
@@ -1865,7 +1865,7 @@ func DevSmResourceSplitByCount(result *DevResource, nbGroups *uint32, input *Dev
 	if err := checkLibSym("cuDevSmResourceSplitByCount"); err != nil {
 		return err
 	}
-	return toError(fnDevSmResourceSplitByCount(result, nbGroups, input, remainder, uint32(flags), minCount))
+	return toError(fnDevSmResourceSplitByCount(result, nbGroups, input, remainder, uint32(flags), minCount), "cuDevSmResourceSplitByCount")
 }
 
 // deviceCanAccessPeer Queries if a device may directly access a peer device's memory.
@@ -1882,7 +1882,7 @@ func deviceCanAccessPeer(dev Device, peerDev Device) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndeviceCanAccessPeer(&out, dev, peerDev)); err != nil {
+	if err := toError(fndeviceCanAccessPeer(&out, dev, peerDev), "cuDeviceCanAccessPeer"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1904,7 +1904,7 @@ func deviceComputeCapability(dev Device) (major int, minor int, err error) {
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fndeviceComputeCapability(&out0, &out1, dev)); err != nil {
+	if err := toError(fndeviceComputeCapability(&out0, &out1, dev), "cuDeviceComputeCapability"); err != nil {
 		return 0, 0, err
 	}
 	return int(out0), int(out1), nil
@@ -1922,7 +1922,7 @@ func deviceGet(ordinal int) (Device, error) {
 		return 0, err
 	}
 	var out Device
-	if err := toError(fndeviceGet(&out, ordinal)); err != nil {
+	if err := toError(fndeviceGet(&out, ordinal), "cuDeviceGet"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -1942,7 +1942,7 @@ func deviceGetAttribute(attrib DeviceAttribute, dev Device) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndeviceGetAttribute(&out, attrib, dev)); err != nil {
+	if err := toError(fndeviceGetAttribute(&out, attrib, dev), "cuDeviceGetAttribute"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1962,7 +1962,7 @@ func deviceGetByPCIBusId(pciBusId string) (Device, error) {
 	}
 	cstr_pciBusId := append([]byte(pciBusId), 0)
 	var out Device
-	if err := toError(fndeviceGetByPCIBusId(&out, &cstr_pciBusId[0])); err != nil {
+	if err := toError(fndeviceGetByPCIBusId(&out, &cstr_pciBusId[0]), "cuDeviceGetByPCIBusId"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -1978,7 +1978,7 @@ func DeviceGetCount() (int, error) {
 		return 0, err
 	}
 	var out int32
-	if err := toError(fnDeviceGetCount(&out)); err != nil {
+	if err := toError(fnDeviceGetCount(&out), "cuDeviceGetCount"); err != nil {
 		return 0, err
 	}
 	return int(out), nil
@@ -1995,7 +1995,7 @@ func deviceGetDefaultMemPool(dev Device) (MemoryPool, error) {
 		return zero, err
 	}
 	var out MemoryPool
-	if err := toError(fndeviceGetDefaultMemPool(&out, dev)); err != nil {
+	if err := toError(fndeviceGetDefaultMemPool(&out, dev), "cuDeviceGetDefaultMemPool"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
@@ -2021,7 +2021,7 @@ func deviceGetDevResource(device Device, type_ DevResourceType) (DevResource, er
 		return zero, err
 	}
 	var out DevResource
-	if err := toError(fndeviceGetDevResource(device, &out, type_)); err != nil {
+	if err := toError(fndeviceGetDevResource(device, &out, type_), "cuDeviceGetDevResource"); err != nil {
 		var zero DevResource
 		return zero, err
 	}
@@ -2042,7 +2042,7 @@ func deviceGetExecAffinitySupport(type_ ExecAffinityType, dev Device) (int32, er
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndeviceGetExecAffinitySupport(&out, type_, dev)); err != nil {
+	if err := toError(fndeviceGetExecAffinitySupport(&out, type_, dev), "cuDeviceGetExecAffinitySupport"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2062,7 +2062,7 @@ func deviceGetGraphMemAttribute(device Device, attr GraphmemAttribute, value uns
 	if err := checkLibSym("cuDeviceGetGraphMemAttribute"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGraphMemAttribute(device, attr, value))
+	return toError(fndeviceGetGraphMemAttribute(device, attr, value), "cuDeviceGetGraphMemAttribute")
 }
 
 // deviceGetHostAtomicCapabilities Queries details about atomic operations supported between the device and host.
@@ -2080,7 +2080,7 @@ func deviceGetHostAtomicCapabilities(operations *AtomicOperation, count uint32, 
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetHostAtomicCapabilities(&out, operations, count, dev)); err != nil {
+	if err := toError(fndeviceGetHostAtomicCapabilities(&out, operations, count, dev), "cuDeviceGetHostAtomicCapabilities"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2101,7 +2101,7 @@ func deviceGetLuid(luid *byte, dev Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetLuid(luid, &out, dev)); err != nil {
+	if err := toError(fndeviceGetLuid(luid, &out, dev), "cuDeviceGetLuid"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2119,7 +2119,7 @@ func deviceGetMemPool(dev Device) (MemoryPool, error) {
 		return zero, err
 	}
 	var out MemoryPool
-	if err := toError(fndeviceGetMemPool(&out, dev)); err != nil {
+	if err := toError(fndeviceGetMemPool(&out, dev), "cuDeviceGetMemPool"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
@@ -2140,7 +2140,7 @@ func deviceGetName(dev Device) (string, error) {
 		return "", err
 	}
 	var buf [256]byte
-	if err := toError(fndeviceGetName(&buf[0], int32(len(buf)), dev)); err != nil {
+	if err := toError(fndeviceGetName(&buf[0], int32(len(buf)), dev), "cuDeviceGetName"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -2163,7 +2163,7 @@ func deviceGetNvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, dev Device, 
 	if err := checkLibSym("cuDeviceGetNvSciSyncAttributes"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetNvSciSyncAttributes(nvSciSyncAttrList, dev, flags))
+	return toError(fndeviceGetNvSciSyncAttributes(nvSciSyncAttrList, dev, flags), "cuDeviceGetNvSciSyncAttributes")
 }
 
 // deviceGetP2PAtomicCapabilities Queries details about atomic operations supported between two devices.
@@ -2182,7 +2182,7 @@ func deviceGetP2PAtomicCapabilities(operations *AtomicOperation, count uint32, s
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetP2PAtomicCapabilities(&out, operations, count, srcDevice, dstDevice)); err != nil {
+	if err := toError(fndeviceGetP2PAtomicCapabilities(&out, operations, count, srcDevice, dstDevice), "cuDeviceGetP2PAtomicCapabilities"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2204,7 +2204,7 @@ func deviceGetP2PAttribute(attrib DeviceP2pattribute, srcDevice Device, dstDevic
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndeviceGetP2PAttribute(&out, attrib, srcDevice, dstDevice)); err != nil {
+	if err := toError(fndeviceGetP2PAttribute(&out, attrib, srcDevice, dstDevice), "cuDeviceGetP2PAttribute"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2225,7 +2225,7 @@ func deviceGetPCIBusId(dev Device) (string, error) {
 		return "", err
 	}
 	var buf [16]byte
-	if err := toError(fndeviceGetPCIBusId(&buf[0], int32(len(buf)), dev)); err != nil {
+	if err := toError(fndeviceGetPCIBusId(&buf[0], int32(len(buf)), dev), "cuDeviceGetPCIBusId"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -2250,7 +2250,7 @@ func deviceGetProperties(dev Device) (Devprop, error) {
 		return zero, err
 	}
 	var out Devprop
-	if err := toError(fndeviceGetProperties(&out, dev)); err != nil {
+	if err := toError(fndeviceGetProperties(&out, dev), "cuDeviceGetProperties"); err != nil {
 		var zero Devprop
 		return zero, err
 	}
@@ -2272,7 +2272,7 @@ func deviceGetTexture1DLinearMaxWidth(format ArrayFormat, numChannels uint32, de
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndeviceGetTexture1DLinearMaxWidth(&out, format, numChannels, dev)); err != nil {
+	if err := toError(fndeviceGetTexture1DLinearMaxWidth(&out, format, numChannels, dev), "cuDeviceGetTexture1DLinearMaxWidth"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2292,7 +2292,7 @@ func deviceGetUuid(dev Device) (Uuid, error) {
 		return zero, err
 	}
 	var out Uuid
-	if err := toError(fndeviceGetUuid(&out, dev)); err != nil {
+	if err := toError(fndeviceGetUuid(&out, dev), "cuDeviceGetUuid_v2"); err != nil {
 		var zero Uuid
 		return zero, err
 	}
@@ -2310,7 +2310,7 @@ func deviceGraphMemTrim(device Device) error {
 	if err := checkLibSym("cuDeviceGraphMemTrim"); err != nil {
 		return err
 	}
-	return toError(fndeviceGraphMemTrim(device))
+	return toError(fndeviceGraphMemTrim(device), "cuDeviceGraphMemTrim")
 }
 
 // devicePrimaryCtxGetState Get the state of the primary context.
@@ -2326,7 +2326,7 @@ func devicePrimaryCtxGetState(dev Device) (flags uint32, active int32, err error
 	}
 	var out1 uint32
 	var out2 int32
-	if err := toError(fndevicePrimaryCtxGetState(dev, &out1, &out2)); err != nil {
+	if err := toError(fndevicePrimaryCtxGetState(dev, &out1, &out2), "cuDevicePrimaryCtxGetState"); err != nil {
 		return 0, 0, err
 	}
 	return out1, out2, nil
@@ -2343,7 +2343,7 @@ func devicePrimaryCtxRelease(dev Device) error {
 	if err := checkLibSym("cuDevicePrimaryCtxRelease_v2"); err != nil {
 		return err
 	}
-	return toError(fndevicePrimaryCtxRelease(dev))
+	return toError(fndevicePrimaryCtxRelease(dev), "cuDevicePrimaryCtxRelease_v2")
 }
 
 // devicePrimaryCtxReset Destroy all allocations and reset all state on the primary context.
@@ -2357,7 +2357,7 @@ func devicePrimaryCtxReset(dev Device) error {
 	if err := checkLibSym("cuDevicePrimaryCtxReset_v2"); err != nil {
 		return err
 	}
-	return toError(fndevicePrimaryCtxReset(dev))
+	return toError(fndevicePrimaryCtxReset(dev), "cuDevicePrimaryCtxReset_v2")
 }
 
 // devicePrimaryCtxRetain Retain the primary context on the GPU.
@@ -2373,7 +2373,7 @@ func devicePrimaryCtxRetain(dev Device) (Context, error) {
 		return zero, err
 	}
 	var out Context
-	if err := toError(fndevicePrimaryCtxRetain(&out, dev)); err != nil {
+	if err := toError(fndevicePrimaryCtxRetain(&out, dev), "cuDevicePrimaryCtxRetain"); err != nil {
 		var zero Context
 		return zero, err
 	}
@@ -2392,7 +2392,7 @@ func devicePrimaryCtxSetFlags(dev Device, flags CtxFlags) error {
 	if err := checkLibSym("cuDevicePrimaryCtxSetFlags_v2"); err != nil {
 		return err
 	}
-	return toError(fndevicePrimaryCtxSetFlags(dev, uint32(flags)))
+	return toError(fndevicePrimaryCtxSetFlags(dev, uint32(flags)), "cuDevicePrimaryCtxSetFlags_v2")
 }
 
 // deviceRegisterAsyncNotification Registers a callback function to receive async notifications.
@@ -2410,7 +2410,7 @@ func deviceRegisterAsyncNotification(device Device, callbackFunc uintptr, userDa
 		return zero, err
 	}
 	var out AsyncCallbackHandle
-	if err := toError(fndeviceRegisterAsyncNotification(device, callbackFunc, userData, &out)); err != nil {
+	if err := toError(fndeviceRegisterAsyncNotification(device, callbackFunc, userData, &out), "cuDeviceRegisterAsyncNotification"); err != nil {
 		var zero AsyncCallbackHandle
 		return zero, err
 	}
@@ -2430,7 +2430,7 @@ func deviceSetGraphMemAttribute(device Device, attr GraphmemAttribute, value uin
 	if err := checkLibSym("cuDeviceSetGraphMemAttribute"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetGraphMemAttribute(device, attr, value))
+	return toError(fndeviceSetGraphMemAttribute(device, attr, value), "cuDeviceSetGraphMemAttribute")
 }
 
 // deviceSetMemPool Sets the current memory pool of a device.
@@ -2442,7 +2442,7 @@ func deviceSetMemPool(dev Device, pool MemoryPool) error {
 	if err := checkLibSym("cuDeviceSetMemPool"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetMemPool(dev, pool))
+	return toError(fndeviceSetMemPool(dev, pool), "cuDeviceSetMemPool")
 }
 
 // deviceTotalMem Returns the total amount of memory on the device.
@@ -2458,7 +2458,7 @@ func deviceTotalMem(dev Device) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndeviceTotalMem(&out, dev)); err != nil {
+	if err := toError(fndeviceTotalMem(&out, dev), "cuDeviceTotalMem_v2"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2477,7 +2477,7 @@ func deviceUnregisterAsyncNotification(device Device, callback AsyncCallbackHand
 	if err := checkLibSym("cuDeviceUnregisterAsyncNotification"); err != nil {
 		return err
 	}
-	return toError(fndeviceUnregisterAsyncNotification(device, callback))
+	return toError(fndeviceUnregisterAsyncNotification(device, callback), "cuDeviceUnregisterAsyncNotification")
 }
 
 // DriverGetVersion Returns the latest CUDA version supported by driver.
@@ -2490,7 +2490,7 @@ func DriverGetVersion() (int, error) {
 		return 0, err
 	}
 	var out int32
-	if err := toError(fnDriverGetVersion(&out)); err != nil {
+	if err := toError(fnDriverGetVersion(&out), "cuDriverGetVersion"); err != nil {
 		return 0, err
 	}
 	return int(out), nil
@@ -2509,7 +2509,7 @@ func eventCreate(flags EventFlags) (Event, error) {
 		return zero, err
 	}
 	var out Event
-	if err := toError(fneventCreate(&out, uint32(flags))); err != nil {
+	if err := toError(fneventCreate(&out, uint32(flags)), "cuEventCreate"); err != nil {
 		var zero Event
 		return zero, err
 	}
@@ -2527,7 +2527,7 @@ func eventDestroy(hEvent Event) error {
 	if err := checkLibSym("cuEventDestroy_v2"); err != nil {
 		return err
 	}
-	return toError(fneventDestroy(hEvent))
+	return toError(fneventDestroy(hEvent), "cuEventDestroy_v2")
 }
 
 // eventElapsedTime Computes the elapsed time between two events.
@@ -2544,7 +2544,7 @@ func eventElapsedTime(hStart Event, hEnd Event) (float32, error) {
 		return zero, err
 	}
 	var out float32
-	if err := toError(fneventElapsedTime(&out, hStart, hEnd)); err != nil {
+	if err := toError(fneventElapsedTime(&out, hStart, hEnd), "cuEventElapsedTime_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -2562,7 +2562,7 @@ func eventQuery(hEvent Event) error {
 	if err := checkLibSym("cuEventQuery"); err != nil {
 		return err
 	}
-	return toError(fneventQuery(hEvent))
+	return toError(fneventQuery(hEvent), "cuEventQuery")
 }
 
 // eventRecord Records an event.
@@ -2577,7 +2577,7 @@ func eventRecord(hEvent Event, hStream Stream) error {
 	if err := checkLibSym("cuEventRecord"); err != nil {
 		return err
 	}
-	return toError(fneventRecord(hEvent, hStream))
+	return toError(fneventRecord(hEvent, hStream), "cuEventRecord")
 }
 
 // eventRecordWithFlags Records an event.
@@ -2593,7 +2593,7 @@ func eventRecordWithFlags(hEvent Event, hStream Stream, flags EventRecordFlags) 
 	if err := checkLibSym("cuEventRecordWithFlags"); err != nil {
 		return err
 	}
-	return toError(fneventRecordWithFlags(hEvent, hStream, uint32(flags)))
+	return toError(fneventRecordWithFlags(hEvent, hStream, uint32(flags)), "cuEventRecordWithFlags")
 }
 
 // eventSynchronize Waits for an event to complete.
@@ -2607,7 +2607,7 @@ func eventSynchronize(hEvent Event) error {
 	if err := checkLibSym("cuEventSynchronize"); err != nil {
 		return err
 	}
-	return toError(fneventSynchronize(hEvent))
+	return toError(fneventSynchronize(hEvent), "cuEventSynchronize")
 }
 
 // externalMemoryGetMappedBuffer Maps a buffer onto an imported memory object.
@@ -2624,7 +2624,7 @@ func externalMemoryGetMappedBuffer(extMem ExternalMemory, bufferDesc *ExternalMe
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnexternalMemoryGetMappedBuffer(&out, extMem, bufferDesc)); err != nil {
+	if err := toError(fnexternalMemoryGetMappedBuffer(&out, extMem, bufferDesc), "cuExternalMemoryGetMappedBuffer"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -2645,7 +2645,7 @@ func externalMemoryGetMappedMipmappedArray(extMem ExternalMemory, mipmapDesc *Ex
 		return zero, err
 	}
 	var out MipmappedArray
-	if err := toError(fnexternalMemoryGetMappedMipmappedArray(&out, extMem, mipmapDesc)); err != nil {
+	if err := toError(fnexternalMemoryGetMappedMipmappedArray(&out, extMem, mipmapDesc), "cuExternalMemoryGetMappedMipmappedArray"); err != nil {
 		var zero MipmappedArray
 		return zero, err
 	}
@@ -2664,7 +2664,7 @@ func FlushGPUDirectRDMAWrites(target FlushGPUDirectRDMAWritesTarget, scope Flush
 	if err := checkLibSym("cuFlushGPUDirectRDMAWrites"); err != nil {
 		return err
 	}
-	return toError(fnFlushGPUDirectRDMAWrites(target, scope))
+	return toError(fnFlushGPUDirectRDMAWrites(target, scope), "cuFlushGPUDirectRDMAWrites")
 }
 
 // funcGetAttribute Returns information about a function.
@@ -2681,7 +2681,7 @@ func funcGetAttribute(attrib FunctionAttribute, hfunc Function) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnfuncGetAttribute(&out, attrib, hfunc)); err != nil {
+	if err := toError(fnfuncGetAttribute(&out, attrib, hfunc), "cuFuncGetAttribute"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2701,7 +2701,7 @@ func funcGetModule(hfunc Function) (Module, error) {
 		return zero, err
 	}
 	var out Module
-	if err := toError(fnfuncGetModule(&out, hfunc)); err != nil {
+	if err := toError(fnfuncGetModule(&out, hfunc), "cuFuncGetModule"); err != nil {
 		var zero Module
 		return zero, err
 	}
@@ -2722,7 +2722,7 @@ func funcGetName(hfunc Function) (string, error) {
 	}
 	var p *byte
 	r := fnfuncGetName(&p, hfunc)
-	if err := toError(r); err != nil {
+	if err := toError(r, "cuFuncGetName"); err != nil {
 		return "", err
 	}
 	return goString(p), nil
@@ -2741,7 +2741,7 @@ func funcGetParamCount(func_ Function) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnfuncGetParamCount(func_, &out)); err != nil {
+	if err := toError(fnfuncGetParamCount(func_, &out), "cuFuncGetParamCount"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -2762,7 +2762,7 @@ func funcGetParamInfo(func_ Function, paramIndex uint) (paramOffset uint, paramS
 	}
 	var out2 uint
 	var out3 uint
-	if err := toError(fnfuncGetParamInfo(func_, paramIndex, &out2, &out3)); err != nil {
+	if err := toError(fnfuncGetParamInfo(func_, paramIndex, &out2, &out3), "cuFuncGetParamInfo"); err != nil {
 		return 0, 0, err
 	}
 	return out2, out3, nil
@@ -2781,7 +2781,7 @@ func funcIsLoaded(function Function) (FunctionLoadingState, error) {
 		return zero, err
 	}
 	var out FunctionLoadingState
-	if err := toError(fnfuncIsLoaded(&out, function)); err != nil {
+	if err := toError(fnfuncIsLoaded(&out, function), "cuFuncIsLoaded"); err != nil {
 		var zero FunctionLoadingState
 		return zero, err
 	}
@@ -2799,7 +2799,7 @@ func funcLoad(function Function) error {
 	if err := checkLibSym("cuFuncLoad"); err != nil {
 		return err
 	}
-	return toError(fnfuncLoad(function))
+	return toError(fnfuncLoad(function), "cuFuncLoad")
 }
 
 // funcSetAttribute Sets information about a function.
@@ -2815,7 +2815,7 @@ func funcSetAttribute(hfunc Function, attrib FunctionAttribute, value int32) err
 	if err := checkLibSym("cuFuncSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnfuncSetAttribute(hfunc, attrib, value))
+	return toError(fnfuncSetAttribute(hfunc, attrib, value), "cuFuncSetAttribute")
 }
 
 // funcSetBlockShape Sets the block-dimensions for the function
@@ -2834,7 +2834,7 @@ func funcSetBlockShape(hfunc Function, x int32, y int32, z int32) error {
 	if err := checkLibSym("cuFuncSetBlockShape"); err != nil {
 		return err
 	}
-	return toError(fnfuncSetBlockShape(hfunc, x, y, z))
+	return toError(fnfuncSetBlockShape(hfunc, x, y, z), "cuFuncSetBlockShape")
 }
 
 // funcSetCacheConfig Sets the preferred cache configuration for a device function.
@@ -2849,7 +2849,7 @@ func funcSetCacheConfig(hfunc Function, config FuncCacheConfig) error {
 	if err := checkLibSym("cuFuncSetCacheConfig"); err != nil {
 		return err
 	}
-	return toError(fnfuncSetCacheConfig(hfunc, config))
+	return toError(fnfuncSetCacheConfig(hfunc, config), "cuFuncSetCacheConfig")
 }
 
 // funcSetSharedMemConfig Sets the shared memory configuration for a device function.
@@ -2866,7 +2866,7 @@ func funcSetSharedMemConfig(hfunc Function, config Sharedconfig) error {
 	if err := checkLibSym("cuFuncSetSharedMemConfig"); err != nil {
 		return err
 	}
-	return toError(fnfuncSetSharedMemConfig(hfunc, config))
+	return toError(fnfuncSetSharedMemConfig(hfunc, config), "cuFuncSetSharedMemConfig")
 }
 
 // funcSetSharedSize Sets the dynamic shared-memory size for the function
@@ -2883,7 +2883,7 @@ func funcSetSharedSize(hfunc Function, bytes uint32) error {
 	if err := checkLibSym("cuFuncSetSharedSize"); err != nil {
 		return err
 	}
-	return toError(fnfuncSetSharedSize(hfunc, bytes))
+	return toError(fnfuncSetSharedSize(hfunc, bytes), "cuFuncSetSharedSize")
 }
 
 // GetExportTable wraps cuGetExportTable.
@@ -2891,7 +2891,7 @@ func GetExportTable(ppExportTable *uintptr, pExportTableId *Uuid) error {
 	if err := checkLibSym("cuGetExportTable"); err != nil {
 		return err
 	}
-	return toError(fnGetExportTable(ppExportTable, pExportTableId))
+	return toError(fnGetExportTable(ppExportTable, pExportTableId), "cuGetExportTable")
 }
 
 // GetProcAddress Returns the requested driver API function pointer.
@@ -2910,7 +2910,7 @@ func GetProcAddress(symbol string, cudaVersion int32, flags DriverprocaddressFla
 	cstr_symbol := append([]byte(symbol), 0)
 	var out1 uintptr
 	var out4 DriverProcAddressQueryResult
-	if err := toError(fnGetProcAddress(&cstr_symbol[0], &out1, cudaVersion, uint64(flags), &out4)); err != nil {
+	if err := toError(fnGetProcAddress(&cstr_symbol[0], &out1, cudaVersion, uint64(flags), &out4), "cuGetProcAddress_v2"); err != nil {
 		return 0, 0, err
 	}
 	return out1, out4, nil
@@ -2932,7 +2932,7 @@ func graphAddBatchMemOpNode(hGraph Graph, dependencies *GraphNode, numDependenci
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddBatchMemOpNode(&out, hGraph, dependencies, numDependencies, nodeParams)); err != nil {
+	if err := toError(fngraphAddBatchMemOpNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddBatchMemOpNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -2955,7 +2955,7 @@ func graphAddChildGraphNode(hGraph Graph, dependencies *GraphNode, numDependenci
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddChildGraphNode(&out, hGraph, dependencies, numDependencies, childGraph)); err != nil {
+	if err := toError(fngraphAddChildGraphNode(&out, hGraph, dependencies, numDependencies, childGraph), "cuGraphAddChildGraphNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -2977,7 +2977,7 @@ func graphAddDependencies(hGraph Graph, from *GraphNode, to *GraphNode, edgeData
 	if err := checkLibSym("cuGraphAddDependencies_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphAddDependencies(hGraph, from, to, edgeData, numDependencies))
+	return toError(fngraphAddDependencies(hGraph, from, to, edgeData, numDependencies), "cuGraphAddDependencies_v2")
 }
 
 // graphAddEmptyNode Creates an empty node and adds it to a graph.
@@ -2995,7 +2995,7 @@ func graphAddEmptyNode(hGraph Graph, dependencies *GraphNode, numDependencies ui
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddEmptyNode(&out, hGraph, dependencies, numDependencies)); err != nil {
+	if err := toError(fngraphAddEmptyNode(&out, hGraph, dependencies, numDependencies), "cuGraphAddEmptyNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3018,7 +3018,7 @@ func graphAddEventRecordNode(hGraph Graph, dependencies *GraphNode, numDependenc
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddEventRecordNode(&out, hGraph, dependencies, numDependencies, event)); err != nil {
+	if err := toError(fngraphAddEventRecordNode(&out, hGraph, dependencies, numDependencies, event), "cuGraphAddEventRecordNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3041,7 +3041,7 @@ func graphAddEventWaitNode(hGraph Graph, dependencies *GraphNode, numDependencie
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddEventWaitNode(&out, hGraph, dependencies, numDependencies, event)); err != nil {
+	if err := toError(fngraphAddEventWaitNode(&out, hGraph, dependencies, numDependencies, event), "cuGraphAddEventWaitNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3064,7 +3064,7 @@ func graphAddExternalSemaphoresSignalNode(hGraph Graph, dependencies *GraphNode,
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddExternalSemaphoresSignalNode(&out, hGraph, dependencies, numDependencies, nodeParams)); err != nil {
+	if err := toError(fngraphAddExternalSemaphoresSignalNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddExternalSemaphoresSignalNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3087,7 +3087,7 @@ func graphAddExternalSemaphoresWaitNode(hGraph Graph, dependencies *GraphNode, n
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddExternalSemaphoresWaitNode(&out, hGraph, dependencies, numDependencies, nodeParams)); err != nil {
+	if err := toError(fngraphAddExternalSemaphoresWaitNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddExternalSemaphoresWaitNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3110,7 +3110,7 @@ func graphAddHostNode(hGraph Graph, dependencies *GraphNode, numDependencies uin
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddHostNode(&out, hGraph, dependencies, numDependencies, nodeParams)); err != nil {
+	if err := toError(fngraphAddHostNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddHostNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3133,7 +3133,7 @@ func graphAddKernelNode(hGraph Graph, dependencies *GraphNode, numDependencies u
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddKernelNode(&out, hGraph, dependencies, numDependencies, nodeParams)); err != nil {
+	if err := toError(fngraphAddKernelNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddKernelNode_v2"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3156,7 +3156,7 @@ func graphAddMemAllocNode(hGraph Graph, dependencies *GraphNode, numDependencies
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddMemAllocNode(&out, hGraph, dependencies, numDependencies, nodeParams)); err != nil {
+	if err := toError(fngraphAddMemAllocNode(&out, hGraph, dependencies, numDependencies, nodeParams), "cuGraphAddMemAllocNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3179,7 +3179,7 @@ func graphAddMemFreeNode(hGraph Graph, dependencies *GraphNode, numDependencies 
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddMemFreeNode(&out, hGraph, dependencies, numDependencies, dptr)); err != nil {
+	if err := toError(fngraphAddMemFreeNode(&out, hGraph, dependencies, numDependencies, dptr), "cuGraphAddMemFreeNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3203,7 +3203,7 @@ func graphAddMemcpyNode(hGraph Graph, dependencies *GraphNode, numDependencies u
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddMemcpyNode(&out, hGraph, dependencies, numDependencies, copyParams, ctx)); err != nil {
+	if err := toError(fngraphAddMemcpyNode(&out, hGraph, dependencies, numDependencies, copyParams, ctx), "cuGraphAddMemcpyNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3227,7 +3227,7 @@ func graphAddMemsetNode(hGraph Graph, dependencies *GraphNode, numDependencies u
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddMemsetNode(&out, hGraph, dependencies, numDependencies, memsetParams, ctx)); err != nil {
+	if err := toError(fngraphAddMemsetNode(&out, hGraph, dependencies, numDependencies, memsetParams, ctx), "cuGraphAddMemsetNode"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3251,7 +3251,7 @@ func graphAddNode(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEd
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphAddNode(&out, hGraph, dependencies, dependencyData, numDependencies, nodeParams)); err != nil {
+	if err := toError(fngraphAddNode(&out, hGraph, dependencies, dependencyData, numDependencies, nodeParams), "cuGraphAddNode_v2"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3271,7 +3271,7 @@ func graphBatchMemOpNodeGetParams(hNode GraphNode) (BatchMemOpNodeParams, error)
 		return zero, err
 	}
 	var out BatchMemOpNodeParams
-	if err := toError(fngraphBatchMemOpNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphBatchMemOpNodeGetParams(hNode, &out), "cuGraphBatchMemOpNodeGetParams"); err != nil {
 		var zero BatchMemOpNodeParams
 		return zero, err
 	}
@@ -3290,7 +3290,7 @@ func graphBatchMemOpNodeSetParams(hNode GraphNode, nodeParams *BatchMemOpNodePar
 	if err := checkLibSym("cuGraphBatchMemOpNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphBatchMemOpNodeSetParams(hNode, nodeParams))
+	return toError(fngraphBatchMemOpNodeSetParams(hNode, nodeParams), "cuGraphBatchMemOpNodeSetParams")
 }
 
 // graphChildGraphNodeGetGraph Gets a handle to the embedded graph of a child graph node.
@@ -3306,7 +3306,7 @@ func graphChildGraphNodeGetGraph(hNode GraphNode) (Graph, error) {
 		return zero, err
 	}
 	var out Graph
-	if err := toError(fngraphChildGraphNodeGetGraph(hNode, &out)); err != nil {
+	if err := toError(fngraphChildGraphNodeGetGraph(hNode, &out), "cuGraphChildGraphNodeGetGraph"); err != nil {
 		var zero Graph
 		return zero, err
 	}
@@ -3326,7 +3326,7 @@ func graphClone(originalGraph Graph) (Graph, error) {
 		return zero, err
 	}
 	var out Graph
-	if err := toError(fngraphClone(&out, originalGraph)); err != nil {
+	if err := toError(fngraphClone(&out, originalGraph), "cuGraphClone"); err != nil {
 		var zero Graph
 		return zero, err
 	}
@@ -3349,7 +3349,7 @@ func graphConditionalHandleCreate(hGraph Graph, ctx Context, defaultLaunchValue 
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fngraphConditionalHandleCreate(&out, hGraph, ctx, defaultLaunchValue, flags)); err != nil {
+	if err := toError(fngraphConditionalHandleCreate(&out, hGraph, ctx, defaultLaunchValue, flags), "cuGraphConditionalHandleCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -3369,7 +3369,7 @@ func graphCreate(flags uint32) (Graph, error) {
 		return zero, err
 	}
 	var out Graph
-	if err := toError(fngraphCreate(&out, flags)); err != nil {
+	if err := toError(fngraphCreate(&out, flags), "cuGraphCreate"); err != nil {
 		var zero Graph
 		return zero, err
 	}
@@ -3390,7 +3390,7 @@ func graphDebugDotPrint(hGraph Graph, path string, flags GraphdebugdotFlags) err
 		return err
 	}
 	cstr_path := append([]byte(path), 0)
-	return toError(fngraphDebugDotPrint(hGraph, &cstr_path[0], uint32(flags)))
+	return toError(fngraphDebugDotPrint(hGraph, &cstr_path[0], uint32(flags)), "cuGraphDebugDotPrint")
 }
 
 // graphDestroy Destroys a graph.
@@ -3404,7 +3404,7 @@ func graphDestroy(hGraph Graph) error {
 	if err := checkLibSym("cuGraphDestroy"); err != nil {
 		return err
 	}
-	return toError(fngraphDestroy(hGraph))
+	return toError(fngraphDestroy(hGraph), "cuGraphDestroy")
 }
 
 // graphDestroyNode Remove a node from the graph.
@@ -3418,7 +3418,7 @@ func graphDestroyNode(hNode GraphNode) error {
 	if err := checkLibSym("cuGraphDestroyNode"); err != nil {
 		return err
 	}
-	return toError(fngraphDestroyNode(hNode))
+	return toError(fngraphDestroyNode(hNode), "cuGraphDestroyNode")
 }
 
 // graphEventRecordNodeGetEvent Returns the event associated with an event record node.
@@ -3434,7 +3434,7 @@ func graphEventRecordNodeGetEvent(hNode GraphNode) (Event, error) {
 		return zero, err
 	}
 	var out Event
-	if err := toError(fngraphEventRecordNodeGetEvent(hNode, &out)); err != nil {
+	if err := toError(fngraphEventRecordNodeGetEvent(hNode, &out), "cuGraphEventRecordNodeGetEvent"); err != nil {
 		var zero Event
 		return zero, err
 	}
@@ -3453,7 +3453,7 @@ func graphEventRecordNodeSetEvent(hNode GraphNode, event Event) error {
 	if err := checkLibSym("cuGraphEventRecordNodeSetEvent"); err != nil {
 		return err
 	}
-	return toError(fngraphEventRecordNodeSetEvent(hNode, event))
+	return toError(fngraphEventRecordNodeSetEvent(hNode, event), "cuGraphEventRecordNodeSetEvent")
 }
 
 // graphEventWaitNodeGetEvent Returns the event associated with an event wait node.
@@ -3469,7 +3469,7 @@ func graphEventWaitNodeGetEvent(hNode GraphNode) (Event, error) {
 		return zero, err
 	}
 	var out Event
-	if err := toError(fngraphEventWaitNodeGetEvent(hNode, &out)); err != nil {
+	if err := toError(fngraphEventWaitNodeGetEvent(hNode, &out), "cuGraphEventWaitNodeGetEvent"); err != nil {
 		var zero Event
 		return zero, err
 	}
@@ -3488,7 +3488,7 @@ func graphEventWaitNodeSetEvent(hNode GraphNode, event Event) error {
 	if err := checkLibSym("cuGraphEventWaitNodeSetEvent"); err != nil {
 		return err
 	}
-	return toError(fngraphEventWaitNodeSetEvent(hNode, event))
+	return toError(fngraphEventWaitNodeSetEvent(hNode, event), "cuGraphEventWaitNodeSetEvent")
 }
 
 // graphExecBatchMemOpNodeSetParams Sets the parameters for a batch mem op node in the given graphExec.
@@ -3504,7 +3504,7 @@ func graphExecBatchMemOpNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nod
 	if err := checkLibSym("cuGraphExecBatchMemOpNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExecBatchMemOpNodeSetParams(hGraphExec, hNode, nodeParams))
+	return toError(fngraphExecBatchMemOpNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecBatchMemOpNodeSetParams")
 }
 
 // graphExecChildGraphNodeSetParams Updates node parameters in the child graph node in the given graphExec.
@@ -3520,7 +3520,7 @@ func graphExecChildGraphNodeSetParams(hGraphExec GraphExec, hNode GraphNode, chi
 	if err := checkLibSym("cuGraphExecChildGraphNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExecChildGraphNodeSetParams(hGraphExec, hNode, childGraph))
+	return toError(fngraphExecChildGraphNodeSetParams(hGraphExec, hNode, childGraph), "cuGraphExecChildGraphNodeSetParams")
 }
 
 // graphExecDestroy Destroys an executable graph.
@@ -3534,7 +3534,7 @@ func graphExecDestroy(hGraphExec GraphExec) error {
 	if err := checkLibSym("cuGraphExecDestroy"); err != nil {
 		return err
 	}
-	return toError(fngraphExecDestroy(hGraphExec))
+	return toError(fngraphExecDestroy(hGraphExec), "cuGraphExecDestroy")
 }
 
 // graphExecEventRecordNodeSetEvent Sets the event for an event record node in the given graphExec.
@@ -3550,7 +3550,7 @@ func graphExecEventRecordNodeSetEvent(hGraphExec GraphExec, hNode GraphNode, eve
 	if err := checkLibSym("cuGraphExecEventRecordNodeSetEvent"); err != nil {
 		return err
 	}
-	return toError(fngraphExecEventRecordNodeSetEvent(hGraphExec, hNode, event))
+	return toError(fngraphExecEventRecordNodeSetEvent(hGraphExec, hNode, event), "cuGraphExecEventRecordNodeSetEvent")
 }
 
 // graphExecEventWaitNodeSetEvent Sets the event for an event wait node in the given graphExec.
@@ -3566,7 +3566,7 @@ func graphExecEventWaitNodeSetEvent(hGraphExec GraphExec, hNode GraphNode, event
 	if err := checkLibSym("cuGraphExecEventWaitNodeSetEvent"); err != nil {
 		return err
 	}
-	return toError(fngraphExecEventWaitNodeSetEvent(hGraphExec, hNode, event))
+	return toError(fngraphExecEventWaitNodeSetEvent(hGraphExec, hNode, event), "cuGraphExecEventWaitNodeSetEvent")
 }
 
 // graphExecExternalSemaphoresSignalNodeSetParams Sets the parameters for an external semaphore signal node in the given graphExec.
@@ -3582,7 +3582,7 @@ func graphExecExternalSemaphoresSignalNodeSetParams(hGraphExec GraphExec, hNode 
 	if err := checkLibSym("cuGraphExecExternalSemaphoresSignalNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExecExternalSemaphoresSignalNodeSetParams(hGraphExec, hNode, nodeParams))
+	return toError(fngraphExecExternalSemaphoresSignalNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecExternalSemaphoresSignalNodeSetParams")
 }
 
 // graphExecExternalSemaphoresWaitNodeSetParams Sets the parameters for an external semaphore wait node in the given graphExec.
@@ -3598,7 +3598,7 @@ func graphExecExternalSemaphoresWaitNodeSetParams(hGraphExec GraphExec, hNode Gr
 	if err := checkLibSym("cuGraphExecExternalSemaphoresWaitNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExecExternalSemaphoresWaitNodeSetParams(hGraphExec, hNode, nodeParams))
+	return toError(fngraphExecExternalSemaphoresWaitNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecExternalSemaphoresWaitNodeSetParams")
 }
 
 // graphExecGetFlags Query the instantiation flags of an executable graph.
@@ -3614,7 +3614,7 @@ func graphExecGetFlags(hGraphExec GraphExec) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fngraphExecGetFlags(hGraphExec, &out)); err != nil {
+	if err := toError(fngraphExecGetFlags(hGraphExec, &out), "cuGraphExecGetFlags"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -3634,7 +3634,7 @@ func graphExecGetId(hGraphExec GraphExec) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fngraphExecGetId(hGraphExec, &out)); err != nil {
+	if err := toError(fngraphExecGetId(hGraphExec, &out), "cuGraphExecGetId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3654,7 +3654,7 @@ func graphExecHostNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodeParam
 	if err := checkLibSym("cuGraphExecHostNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExecHostNodeSetParams(hGraphExec, hNode, nodeParams))
+	return toError(fngraphExecHostNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecHostNodeSetParams")
 }
 
 // graphExecKernelNodeSetParams Sets the parameters for a kernel node in the given graphExec.
@@ -3670,7 +3670,7 @@ func graphExecKernelNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodePar
 	if err := checkLibSym("cuGraphExecKernelNodeSetParams_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphExecKernelNodeSetParams(hGraphExec, hNode, nodeParams))
+	return toError(fngraphExecKernelNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecKernelNodeSetParams_v2")
 }
 
 // graphExecMemcpyNodeSetParams Sets the parameters for a memcpy node in the given graphExec.
@@ -3687,7 +3687,7 @@ func graphExecMemcpyNodeSetParams(hGraphExec GraphExec, hNode GraphNode, copyPar
 	if err := checkLibSym("cuGraphExecMemcpyNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExecMemcpyNodeSetParams(hGraphExec, hNode, copyParams, ctx))
+	return toError(fngraphExecMemcpyNodeSetParams(hGraphExec, hNode, copyParams, ctx), "cuGraphExecMemcpyNodeSetParams")
 }
 
 // graphExecMemsetNodeSetParams Sets the parameters for a memset node in the given graphExec.
@@ -3704,7 +3704,7 @@ func graphExecMemsetNodeSetParams(hGraphExec GraphExec, hNode GraphNode, memsetP
 	if err := checkLibSym("cuGraphExecMemsetNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExecMemsetNodeSetParams(hGraphExec, hNode, memsetParams, ctx))
+	return toError(fngraphExecMemsetNodeSetParams(hGraphExec, hNode, memsetParams, ctx), "cuGraphExecMemsetNodeSetParams")
 }
 
 // graphExecNodeSetParams Update a graph node's parameters in an instantiated graph.
@@ -3720,7 +3720,7 @@ func graphExecNodeSetParams(hGraphExec GraphExec, hNode GraphNode, nodeParams *G
 	if err := checkLibSym("cuGraphExecNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExecNodeSetParams(hGraphExec, hNode, nodeParams))
+	return toError(fngraphExecNodeSetParams(hGraphExec, hNode, nodeParams), "cuGraphExecNodeSetParams")
 }
 
 // graphExecUpdate Check whether an executable graph can be updated with a graph and perform the update if possible.
@@ -3736,7 +3736,7 @@ func graphExecUpdate(hGraphExec GraphExec, hGraph Graph, resultInfo *GraphExecUp
 	if err := checkLibSym("cuGraphExecUpdate_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphExecUpdate(hGraphExec, hGraph, resultInfo))
+	return toError(fngraphExecUpdate(hGraphExec, hGraph, resultInfo), "cuGraphExecUpdate_v2")
 }
 
 // graphExternalSemaphoresSignalNodeGetParams Returns an external semaphore signal node's parameters.
@@ -3752,7 +3752,7 @@ func graphExternalSemaphoresSignalNodeGetParams(hNode GraphNode) (ExtSemSignalNo
 		return zero, err
 	}
 	var out ExtSemSignalNodeParams
-	if err := toError(fngraphExternalSemaphoresSignalNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphExternalSemaphoresSignalNodeGetParams(hNode, &out), "cuGraphExternalSemaphoresSignalNodeGetParams"); err != nil {
 		var zero ExtSemSignalNodeParams
 		return zero, err
 	}
@@ -3771,7 +3771,7 @@ func graphExternalSemaphoresSignalNodeSetParams(hNode GraphNode, nodeParams *Ext
 	if err := checkLibSym("cuGraphExternalSemaphoresSignalNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExternalSemaphoresSignalNodeSetParams(hNode, nodeParams))
+	return toError(fngraphExternalSemaphoresSignalNodeSetParams(hNode, nodeParams), "cuGraphExternalSemaphoresSignalNodeSetParams")
 }
 
 // graphExternalSemaphoresWaitNodeGetParams Returns an external semaphore wait node's parameters.
@@ -3787,7 +3787,7 @@ func graphExternalSemaphoresWaitNodeGetParams(hNode GraphNode) (ExtSemWaitNodePa
 		return zero, err
 	}
 	var out ExtSemWaitNodeParams
-	if err := toError(fngraphExternalSemaphoresWaitNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphExternalSemaphoresWaitNodeGetParams(hNode, &out), "cuGraphExternalSemaphoresWaitNodeGetParams"); err != nil {
 		var zero ExtSemWaitNodeParams
 		return zero, err
 	}
@@ -3806,7 +3806,7 @@ func graphExternalSemaphoresWaitNodeSetParams(hNode GraphNode, nodeParams *ExtSe
 	if err := checkLibSym("cuGraphExternalSemaphoresWaitNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphExternalSemaphoresWaitNodeSetParams(hNode, nodeParams))
+	return toError(fngraphExternalSemaphoresWaitNodeSetParams(hNode, nodeParams), "cuGraphExternalSemaphoresWaitNodeSetParams")
 }
 
 // graphGetEdges Returns a graph's dependency edges.
@@ -3824,7 +3824,7 @@ func graphGetEdges(hGraph Graph, from *GraphNode, to *GraphNode, edgeData *Graph
 	if err := checkLibSym("cuGraphGetEdges_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphGetEdges(hGraph, from, to, edgeData, numEdges))
+	return toError(fngraphGetEdges(hGraph, from, to, edgeData, numEdges), "cuGraphGetEdges_v2")
 }
 
 // graphGetId Returns the id of a given graph.
@@ -3840,7 +3840,7 @@ func graphGetId(hGraph Graph) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fngraphGetId(hGraph, &out)); err != nil {
+	if err := toError(fngraphGetId(hGraph, &out), "cuGraphGetId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3861,7 +3861,7 @@ func graphGetNodes(hGraph Graph, numNodes *uint) (GraphNode, error) {
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphGetNodes(hGraph, &out, numNodes)); err != nil {
+	if err := toError(fngraphGetNodes(hGraph, &out, numNodes), "cuGraphGetNodes"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3882,7 +3882,7 @@ func graphGetRootNodes(hGraph Graph, numRootNodes *uint) (GraphNode, error) {
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphGetRootNodes(hGraph, &out, numRootNodes)); err != nil {
+	if err := toError(fngraphGetRootNodes(hGraph, &out, numRootNodes), "cuGraphGetRootNodes"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -3902,7 +3902,7 @@ func graphHostNodeGetParams(hNode GraphNode) (HostNodeParams, error) {
 		return zero, err
 	}
 	var out HostNodeParams
-	if err := toError(fngraphHostNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphHostNodeGetParams(hNode, &out), "cuGraphHostNodeGetParams"); err != nil {
 		var zero HostNodeParams
 		return zero, err
 	}
@@ -3921,7 +3921,7 @@ func graphHostNodeSetParams(hNode GraphNode, nodeParams *HostNodeParams) error {
 	if err := checkLibSym("cuGraphHostNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphHostNodeSetParams(hNode, nodeParams))
+	return toError(fngraphHostNodeSetParams(hNode, nodeParams), "cuGraphHostNodeSetParams")
 }
 
 // graphInstantiate Creates an executable graph from a graph.
@@ -3938,7 +3938,7 @@ func graphInstantiate(hGraph Graph, flags GraphinstantiateFlags) (GraphExec, err
 		return zero, err
 	}
 	var out GraphExec
-	if err := toError(fngraphInstantiate(&out, hGraph, uint64(flags))); err != nil {
+	if err := toError(fngraphInstantiate(&out, hGraph, uint64(flags)), "cuGraphInstantiateWithFlags"); err != nil {
 		var zero GraphExec
 		return zero, err
 	}
@@ -3959,7 +3959,7 @@ func graphInstantiateWithParams(hGraph Graph, instantiateParams *GraphInstantiat
 		return zero, err
 	}
 	var out GraphExec
-	if err := toError(fngraphInstantiateWithParams(&out, hGraph, instantiateParams)); err != nil {
+	if err := toError(fngraphInstantiateWithParams(&out, hGraph, instantiateParams), "cuGraphInstantiateWithParams"); err != nil {
 		var zero GraphExec
 		return zero, err
 	}
@@ -3978,7 +3978,7 @@ func graphKernelNodeCopyAttributes(dst GraphNode, src GraphNode) error {
 	if err := checkLibSym("cuGraphKernelNodeCopyAttributes"); err != nil {
 		return err
 	}
-	return toError(fngraphKernelNodeCopyAttributes(dst, src))
+	return toError(fngraphKernelNodeCopyAttributes(dst, src), "cuGraphKernelNodeCopyAttributes")
 }
 
 // graphKernelNodeGetAttribute Queries node attribute.
@@ -3992,7 +3992,7 @@ func graphKernelNodeGetAttribute(hNode GraphNode, attr int32) ([8]uint64, error)
 		return zero, err
 	}
 	var out [8]uint64
-	if err := toError(fngraphKernelNodeGetAttribute(hNode, attr, &out)); err != nil {
+	if err := toError(fngraphKernelNodeGetAttribute(hNode, attr, &out), "cuGraphKernelNodeGetAttribute"); err != nil {
 		var zero [8]uint64
 		return zero, err
 	}
@@ -4012,7 +4012,7 @@ func graphKernelNodeGetParams(hNode GraphNode) (KernelNodeParams, error) {
 		return zero, err
 	}
 	var out KernelNodeParams
-	if err := toError(fngraphKernelNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphKernelNodeGetParams(hNode, &out), "cuGraphKernelNodeGetParams_v2"); err != nil {
 		var zero KernelNodeParams
 		return zero, err
 	}
@@ -4028,7 +4028,7 @@ func graphKernelNodeSetAttribute(hNode GraphNode, attr int32, value *[8]uint64) 
 	if err := checkLibSym("cuGraphKernelNodeSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fngraphKernelNodeSetAttribute(hNode, attr, value))
+	return toError(fngraphKernelNodeSetAttribute(hNode, attr, value), "cuGraphKernelNodeSetAttribute")
 }
 
 // graphKernelNodeSetParams Sets a kernel node's parameters.
@@ -4043,7 +4043,7 @@ func graphKernelNodeSetParams(hNode GraphNode, nodeParams *KernelNodeParams) err
 	if err := checkLibSym("cuGraphKernelNodeSetParams_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphKernelNodeSetParams(hNode, nodeParams))
+	return toError(fngraphKernelNodeSetParams(hNode, nodeParams), "cuGraphKernelNodeSetParams_v2")
 }
 
 // graphLaunch Launches an executable graph in a stream.
@@ -4058,7 +4058,7 @@ func graphLaunch(hGraphExec GraphExec, hStream Stream) error {
 	if err := checkLibSym("cuGraphLaunch"); err != nil {
 		return err
 	}
-	return toError(fngraphLaunch(hGraphExec, hStream))
+	return toError(fngraphLaunch(hGraphExec, hStream), "cuGraphLaunch")
 }
 
 // graphMemAllocNodeGetParams Returns a memory alloc node's parameters.
@@ -4074,7 +4074,7 @@ func graphMemAllocNodeGetParams(hNode GraphNode) (MemAllocNodeParams, error) {
 		return zero, err
 	}
 	var out MemAllocNodeParams
-	if err := toError(fngraphMemAllocNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphMemAllocNodeGetParams(hNode, &out), "cuGraphMemAllocNodeGetParams"); err != nil {
 		var zero MemAllocNodeParams
 		return zero, err
 	}
@@ -4094,7 +4094,7 @@ func graphMemFreeNodeGetParams(hNode GraphNode) (DevicePtr, error) {
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fngraphMemFreeNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphMemFreeNodeGetParams(hNode, &out), "cuGraphMemFreeNodeGetParams"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -4114,7 +4114,7 @@ func graphMemcpyNodeGetParams(hNode GraphNode) (Memcpy3d, error) {
 		return zero, err
 	}
 	var out Memcpy3d
-	if err := toError(fngraphMemcpyNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphMemcpyNodeGetParams(hNode, &out), "cuGraphMemcpyNodeGetParams"); err != nil {
 		var zero Memcpy3d
 		return zero, err
 	}
@@ -4133,7 +4133,7 @@ func graphMemcpyNodeSetParams(hNode GraphNode, nodeParams *Memcpy3d) error {
 	if err := checkLibSym("cuGraphMemcpyNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphMemcpyNodeSetParams(hNode, nodeParams))
+	return toError(fngraphMemcpyNodeSetParams(hNode, nodeParams), "cuGraphMemcpyNodeSetParams")
 }
 
 // graphMemsetNodeGetParams Returns a memset node's parameters.
@@ -4149,7 +4149,7 @@ func graphMemsetNodeGetParams(hNode GraphNode) (MemsetNodeParams, error) {
 		return zero, err
 	}
 	var out MemsetNodeParams
-	if err := toError(fngraphMemsetNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphMemsetNodeGetParams(hNode, &out), "cuGraphMemsetNodeGetParams"); err != nil {
 		var zero MemsetNodeParams
 		return zero, err
 	}
@@ -4168,7 +4168,7 @@ func graphMemsetNodeSetParams(hNode GraphNode, nodeParams *MemsetNodeParams) err
 	if err := checkLibSym("cuGraphMemsetNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphMemsetNodeSetParams(hNode, nodeParams))
+	return toError(fngraphMemsetNodeSetParams(hNode, nodeParams), "cuGraphMemsetNodeSetParams")
 }
 
 // graphNodeFindInClone Finds a cloned version of a node.
@@ -4185,7 +4185,7 @@ func graphNodeFindInClone(hOriginalNode GraphNode, hClonedGraph Graph) (GraphNod
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphNodeFindInClone(&out, hOriginalNode, hClonedGraph)); err != nil {
+	if err := toError(fngraphNodeFindInClone(&out, hOriginalNode, hClonedGraph), "cuGraphNodeFindInClone"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -4205,7 +4205,7 @@ func graphNodeGetContainingGraph(hNode GraphNode) (Graph, error) {
 		return zero, err
 	}
 	var out Graph
-	if err := toError(fngraphNodeGetContainingGraph(hNode, &out)); err != nil {
+	if err := toError(fngraphNodeGetContainingGraph(hNode, &out), "cuGraphNodeGetContainingGraph"); err != nil {
 		var zero Graph
 		return zero, err
 	}
@@ -4227,7 +4227,7 @@ func graphNodeGetDependencies(hNode GraphNode, edgeData *GraphEdgeData, numDepen
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphNodeGetDependencies(hNode, &out, edgeData, numDependencies)); err != nil {
+	if err := toError(fngraphNodeGetDependencies(hNode, &out, edgeData, numDependencies), "cuGraphNodeGetDependencies_v2"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -4249,7 +4249,7 @@ func graphNodeGetDependentNodes(hNode GraphNode, edgeData *GraphEdgeData, numDep
 		return zero, err
 	}
 	var out GraphNode
-	if err := toError(fngraphNodeGetDependentNodes(hNode, &out, edgeData, numDependentNodes)); err != nil {
+	if err := toError(fngraphNodeGetDependentNodes(hNode, &out, edgeData, numDependentNodes), "cuGraphNodeGetDependentNodes_v2"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
@@ -4270,7 +4270,7 @@ func graphNodeGetEnabled(hGraphExec GraphExec, hNode GraphNode) (uint32, error) 
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fngraphNodeGetEnabled(hGraphExec, hNode, &out)); err != nil {
+	if err := toError(fngraphNodeGetEnabled(hGraphExec, hNode, &out), "cuGraphNodeGetEnabled"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -4290,7 +4290,7 @@ func graphNodeGetLocalId(hNode GraphNode) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fngraphNodeGetLocalId(hNode, &out)); err != nil {
+	if err := toError(fngraphNodeGetLocalId(hNode, &out), "cuGraphNodeGetLocalId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -4310,7 +4310,7 @@ func graphNodeGetParams(hNode GraphNode) (GraphNodeParams, error) {
 		return zero, err
 	}
 	var out GraphNodeParams
-	if err := toError(fngraphNodeGetParams(hNode, &out)); err != nil {
+	if err := toError(fngraphNodeGetParams(hNode, &out), "cuGraphNodeGetParams"); err != nil {
 		var zero GraphNodeParams
 		return zero, err
 	}
@@ -4330,7 +4330,7 @@ func graphNodeGetToolsId(hNode GraphNode) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fngraphNodeGetToolsId(hNode, &out)); err != nil {
+	if err := toError(fngraphNodeGetToolsId(hNode, &out), "cuGraphNodeGetToolsId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -4350,7 +4350,7 @@ func graphNodeGetType(hNode GraphNode) (GraphNodeType, error) {
 		return zero, err
 	}
 	var out GraphNodeType
-	if err := toError(fngraphNodeGetType(hNode, &out)); err != nil {
+	if err := toError(fngraphNodeGetType(hNode, &out), "cuGraphNodeGetType"); err != nil {
 		var zero GraphNodeType
 		return zero, err
 	}
@@ -4370,7 +4370,7 @@ func graphNodeSetEnabled(hGraphExec GraphExec, hNode GraphNode, isEnabled uint32
 	if err := checkLibSym("cuGraphNodeSetEnabled"); err != nil {
 		return err
 	}
-	return toError(fngraphNodeSetEnabled(hGraphExec, hNode, isEnabled))
+	return toError(fngraphNodeSetEnabled(hGraphExec, hNode, isEnabled), "cuGraphNodeSetEnabled")
 }
 
 // graphNodeSetParams Update a graph node's parameters.
@@ -4385,7 +4385,7 @@ func graphNodeSetParams(hNode GraphNode, nodeParams *GraphNodeParams) error {
 	if err := checkLibSym("cuGraphNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphNodeSetParams(hNode, nodeParams))
+	return toError(fngraphNodeSetParams(hNode, nodeParams), "cuGraphNodeSetParams")
 }
 
 // graphReleaseUserObject Release a user object reference from a graph.
@@ -4401,7 +4401,7 @@ func graphReleaseUserObject(graph Graph, object UserObject, count uint32) error 
 	if err := checkLibSym("cuGraphReleaseUserObject"); err != nil {
 		return err
 	}
-	return toError(fngraphReleaseUserObject(graph, object, count))
+	return toError(fngraphReleaseUserObject(graph, object, count), "cuGraphReleaseUserObject")
 }
 
 // graphRemoveDependencies Removes dependency edges from a graph.
@@ -4419,7 +4419,7 @@ func graphRemoveDependencies(hGraph Graph, from *GraphNode, to *GraphNode, edgeD
 	if err := checkLibSym("cuGraphRemoveDependencies_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphRemoveDependencies(hGraph, from, to, edgeData, numDependencies))
+	return toError(fngraphRemoveDependencies(hGraph, from, to, edgeData, numDependencies), "cuGraphRemoveDependencies_v2")
 }
 
 // graphRetainUserObject Retain a reference to a user object from a graph.
@@ -4436,7 +4436,7 @@ func graphRetainUserObject(graph Graph, object UserObject, count uint32, flags U
 	if err := checkLibSym("cuGraphRetainUserObject"); err != nil {
 		return err
 	}
-	return toError(fngraphRetainUserObject(graph, object, count, uint32(flags)))
+	return toError(fngraphRetainUserObject(graph, object, count, uint32(flags)), "cuGraphRetainUserObject")
 }
 
 // graphUpload Uploads an executable graph in a stream.
@@ -4451,7 +4451,7 @@ func graphUpload(hGraphExec GraphExec, hStream Stream) error {
 	if err := checkLibSym("cuGraphUpload"); err != nil {
 		return err
 	}
-	return toError(fngraphUpload(hGraphExec, hStream))
+	return toError(fngraphUpload(hGraphExec, hStream), "cuGraphUpload")
 }
 
 // graphicsMapResources Map graphics resources for access by CUDA
@@ -4481,7 +4481,7 @@ func graphicsMapResources(count uint32, resources *GraphicsResource, hStream Str
 	if err := checkLibSym("cuGraphicsMapResources"); err != nil {
 		return err
 	}
-	return toError(fngraphicsMapResources(count, resources, hStream))
+	return toError(fngraphicsMapResources(count, resources, hStream), "cuGraphicsMapResources")
 }
 
 // graphicsResourceGetMappedMipmappedArray Get a mipmapped array through which to access a mapped graphics resource.
@@ -4505,7 +4505,7 @@ func graphicsResourceGetMappedMipmappedArray(resource GraphicsResource) (Mipmapp
 		return zero, err
 	}
 	var out MipmappedArray
-	if err := toError(fngraphicsResourceGetMappedMipmappedArray(&out, resource)); err != nil {
+	if err := toError(fngraphicsResourceGetMappedMipmappedArray(&out, resource), "cuGraphicsResourceGetMappedMipmappedArray"); err != nil {
 		var zero MipmappedArray
 		return zero, err
 	}
@@ -4535,7 +4535,7 @@ func graphicsResourceGetMappedPointer(resource GraphicsResource) (pDevPtr Device
 	}
 	var out0 DevicePtr
 	var out1 uint
-	if err := toError(fngraphicsResourceGetMappedPointer(&out0, &out1, resource)); err != nil {
+	if err := toError(fngraphicsResourceGetMappedPointer(&out0, &out1, resource), "cuGraphicsResourceGetMappedPointer_v2"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -4572,7 +4572,7 @@ func graphicsResourceSetMapFlags(resource GraphicsResource, flags GraphicsMapRes
 	if err := checkLibSym("cuGraphicsResourceSetMapFlags_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphicsResourceSetMapFlags(resource, uint32(flags)))
+	return toError(fngraphicsResourceSetMapFlags(resource, uint32(flags)), "cuGraphicsResourceSetMapFlags_v2")
 }
 
 // graphicsSubResourceGetMappedArray Get an array through which to access a subresource of a mapped graphics resource.
@@ -4603,7 +4603,7 @@ func graphicsSubResourceGetMappedArray(resource GraphicsResource, arrayIndex uin
 		return zero, err
 	}
 	var out Array
-	if err := toError(fngraphicsSubResourceGetMappedArray(&out, resource, arrayIndex, mipLevel)); err != nil {
+	if err := toError(fngraphicsSubResourceGetMappedArray(&out, resource, arrayIndex, mipLevel), "cuGraphicsSubResourceGetMappedArray"); err != nil {
 		var zero Array
 		return zero, err
 	}
@@ -4635,7 +4635,7 @@ func graphicsUnmapResources(count uint32, resources *GraphicsResource, hStream S
 	if err := checkLibSym("cuGraphicsUnmapResources"); err != nil {
 		return err
 	}
-	return toError(fngraphicsUnmapResources(count, resources, hStream))
+	return toError(fngraphicsUnmapResources(count, resources, hStream), "cuGraphicsUnmapResources")
 }
 
 // graphicsUnregisterResource Unregisters a graphics resource for access by CUDA
@@ -4655,7 +4655,7 @@ func graphicsUnregisterResource(resource GraphicsResource) error {
 	if err := checkLibSym("cuGraphicsUnregisterResource"); err != nil {
 		return err
 	}
-	return toError(fngraphicsUnregisterResource(resource))
+	return toError(fngraphicsUnregisterResource(resource), "cuGraphicsUnregisterResource")
 }
 
 // greenCtxCreate Creates a green context with a specified set of resources.
@@ -4687,7 +4687,7 @@ func greenCtxCreate(desc DevResourceDesc, dev Device, flags GreenctxcreateFlags)
 		return zero, err
 	}
 	var out GreenCtx
-	if err := toError(fngreenCtxCreate(&out, desc, dev, uint32(flags))); err != nil {
+	if err := toError(fngreenCtxCreate(&out, desc, dev, uint32(flags)), "cuGreenCtxCreate"); err != nil {
 		var zero GreenCtx
 		return zero, err
 	}
@@ -4715,7 +4715,7 @@ func greenCtxDestroy(hCtx GreenCtx) error {
 	if err := checkLibSym("cuGreenCtxDestroy"); err != nil {
 		return err
 	}
-	return toError(fngreenCtxDestroy(hCtx))
+	return toError(fngreenCtxDestroy(hCtx), "cuGreenCtxDestroy")
 }
 
 // greenCtxGetDevResource Get green context resources
@@ -4734,7 +4734,7 @@ func greenCtxGetDevResource(hCtx GreenCtx, type_ DevResourceType) (DevResource, 
 		return zero, err
 	}
 	var out DevResource
-	if err := toError(fngreenCtxGetDevResource(hCtx, &out, type_)); err != nil {
+	if err := toError(fngreenCtxGetDevResource(hCtx, &out, type_), "cuGreenCtxGetDevResource"); err != nil {
 		var zero DevResource
 		return zero, err
 	}
@@ -4759,7 +4759,7 @@ func greenCtxGetId(greenCtx GreenCtx) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fngreenCtxGetId(greenCtx, &out)); err != nil {
+	if err := toError(fngreenCtxGetId(greenCtx, &out), "cuGreenCtxGetId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -4788,7 +4788,7 @@ func greenCtxRecordEvent(hCtx GreenCtx, hEvent Event) error {
 	if err := checkLibSym("cuGreenCtxRecordEvent"); err != nil {
 		return err
 	}
-	return toError(fngreenCtxRecordEvent(hCtx, hEvent))
+	return toError(fngreenCtxRecordEvent(hCtx, hEvent), "cuGreenCtxRecordEvent")
 }
 
 // greenCtxStreamCreate Create a stream for use in the green context
@@ -4824,7 +4824,7 @@ func greenCtxStreamCreate(greenCtx GreenCtx, flags StreamFlags, priority int32) 
 		return zero, err
 	}
 	var out Stream
-	if err := toError(fngreenCtxStreamCreate(&out, greenCtx, uint32(flags), priority)); err != nil {
+	if err := toError(fngreenCtxStreamCreate(&out, greenCtx, uint32(flags), priority), "cuGreenCtxStreamCreate"); err != nil {
 		var zero Stream
 		return zero, err
 	}
@@ -4852,7 +4852,7 @@ func greenCtxWaitEvent(hCtx GreenCtx, hEvent Event) error {
 	if err := checkLibSym("cuGreenCtxWaitEvent"); err != nil {
 		return err
 	}
-	return toError(fngreenCtxWaitEvent(hCtx, hEvent))
+	return toError(fngreenCtxWaitEvent(hCtx, hEvent), "cuGreenCtxWaitEvent")
 }
 
 // ImportExternalMemory Imports an external memory object.
@@ -4868,7 +4868,7 @@ func ImportExternalMemory(memHandleDesc *ExternalMemoryHandleDesc) (ExternalMemo
 		return zero, err
 	}
 	var out ExternalMemory
-	if err := toError(fnImportExternalMemory(&out, memHandleDesc)); err != nil {
+	if err := toError(fnImportExternalMemory(&out, memHandleDesc), "cuImportExternalMemory"); err != nil {
 		var zero ExternalMemory
 		return zero, err
 	}
@@ -4888,7 +4888,7 @@ func ImportExternalSemaphore(semHandleDesc *ExternalSemaphoreHandleDesc) (Extern
 		return zero, err
 	}
 	var out ExternalSemaphore
-	if err := toError(fnImportExternalSemaphore(&out, semHandleDesc)); err != nil {
+	if err := toError(fnImportExternalSemaphore(&out, semHandleDesc), "cuImportExternalSemaphore"); err != nil {
 		var zero ExternalSemaphore
 		return zero, err
 	}
@@ -4906,7 +4906,7 @@ func Init(flags uint32) error {
 	if err := checkLibSym("cuInit"); err != nil {
 		return err
 	}
-	return toError(fnInit(flags))
+	return toError(fnInit(flags), "cuInit")
 }
 
 // ipcCloseMemHandle Attempts to close memory mapped with [IpcOpenMemHandle].
@@ -4920,7 +4920,7 @@ func ipcCloseMemHandle(dptr DevicePtr) error {
 	if err := checkLibSym("cuIpcCloseMemHandle"); err != nil {
 		return err
 	}
-	return toError(fnipcCloseMemHandle(dptr))
+	return toError(fnipcCloseMemHandle(dptr), "cuIpcCloseMemHandle")
 }
 
 // ipcGetEventHandle Gets an interprocess handle for a previously allocated event.
@@ -4936,7 +4936,7 @@ func ipcGetEventHandle(event Event) (IpcEventHandle, error) {
 		return zero, err
 	}
 	var out IpcEventHandle
-	if err := toError(fnipcGetEventHandle(&out, event)); err != nil {
+	if err := toError(fnipcGetEventHandle(&out, event), "cuIpcGetEventHandle"); err != nil {
 		var zero IpcEventHandle
 		return zero, err
 	}
@@ -4956,7 +4956,7 @@ func ipcGetMemHandle(dptr DevicePtr) (IpcMemHandle, error) {
 		return zero, err
 	}
 	var out IpcMemHandle
-	if err := toError(fnipcGetMemHandle(&out, dptr)); err != nil {
+	if err := toError(fnipcGetMemHandle(&out, dptr), "cuIpcGetMemHandle"); err != nil {
 		var zero IpcMemHandle
 		return zero, err
 	}
@@ -4976,7 +4976,7 @@ func IpcOpenEventHandle(handle IpcEventHandle) (Event, error) {
 		return zero, err
 	}
 	var out Event
-	if err := toError(fnIpcOpenEventHandle(&out, handle)); err != nil {
+	if err := toError(fnIpcOpenEventHandle(&out, handle), "cuIpcOpenEventHandle"); err != nil {
 		var zero Event
 		return zero, err
 	}
@@ -4997,7 +4997,7 @@ func IpcOpenMemHandle(handle IpcMemHandle, flags IpcmemFlags) (DevicePtr, error)
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnIpcOpenMemHandle(&out, handle, uint32(flags))); err != nil {
+	if err := toError(fnIpcOpenMemHandle(&out, handle, uint32(flags)), "cuIpcOpenMemHandle_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -5077,7 +5077,7 @@ func kernelGetAttribute(attrib FunctionAttribute, kernel Kernel, dev Device) (in
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnkernelGetAttribute(&out, attrib, kernel, dev)); err != nil {
+	if err := toError(fnkernelGetAttribute(&out, attrib, kernel, dev), "cuKernelGetAttribute"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -5100,7 +5100,7 @@ func kernelGetFunction(kernel Kernel) (Function, error) {
 		return zero, err
 	}
 	var out Function
-	if err := toError(fnkernelGetFunction(&out, kernel)); err != nil {
+	if err := toError(fnkernelGetFunction(&out, kernel), "cuKernelGetFunction"); err != nil {
 		var zero Function
 		return zero, err
 	}
@@ -5122,7 +5122,7 @@ func kernelGetLibrary(kernel Kernel) (Library, error) {
 		return zero, err
 	}
 	var out Library
-	if err := toError(fnkernelGetLibrary(&out, kernel)); err != nil {
+	if err := toError(fnkernelGetLibrary(&out, kernel), "cuKernelGetLibrary"); err != nil {
 		var zero Library
 		return zero, err
 	}
@@ -5148,7 +5148,7 @@ func kernelGetName(hfunc Kernel) (string, error) {
 	}
 	var p *byte
 	r := fnkernelGetName(&p, hfunc)
-	if err := toError(r); err != nil {
+	if err := toError(r, "cuKernelGetName"); err != nil {
 		return "", err
 	}
 	return goString(p), nil
@@ -5169,7 +5169,7 @@ func kernelGetParamCount(kernel Kernel) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnkernelGetParamCount(kernel, &out)); err != nil {
+	if err := toError(fnkernelGetParamCount(kernel, &out), "cuKernelGetParamCount"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -5197,7 +5197,7 @@ func kernelGetParamInfo(kernel Kernel, paramIndex uint) (paramOffset uint, param
 	}
 	var out2 uint
 	var out3 uint
-	if err := toError(fnkernelGetParamInfo(kernel, paramIndex, &out2, &out3)); err != nil {
+	if err := toError(fnkernelGetParamInfo(kernel, paramIndex, &out2, &out3), "cuKernelGetParamInfo"); err != nil {
 		return 0, 0, err
 	}
 	return out2, out3, nil
@@ -5267,7 +5267,7 @@ func kernelSetAttribute(attrib FunctionAttribute, val int32, kernel Kernel, dev 
 	if err := checkLibSym("cuKernelSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnkernelSetAttribute(attrib, val, kernel, dev))
+	return toError(fnkernelSetAttribute(attrib, val, kernel, dev), "cuKernelSetAttribute")
 }
 
 // kernelSetCacheConfig Sets the preferred cache configuration for a device kernel.
@@ -5311,7 +5311,7 @@ func kernelSetCacheConfig(kernel Kernel, config FuncCacheConfig, dev Device) err
 	if err := checkLibSym("cuKernelSetCacheConfig"); err != nil {
 		return err
 	}
-	return toError(fnkernelSetCacheConfig(kernel, config, dev))
+	return toError(fnkernelSetCacheConfig(kernel, config, dev), "cuKernelSetCacheConfig")
 }
 
 // launch Launches a CUDA function
@@ -5327,7 +5327,7 @@ func launch(f Function) error {
 	if err := checkLibSym("cuLaunch"); err != nil {
 		return err
 	}
-	return toError(fnlaunch(f))
+	return toError(fnlaunch(f), "cuLaunch")
 }
 
 // launchCooperativeKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel] where thread blocks can cooperate and synchronize as they execute.
@@ -5350,7 +5350,7 @@ func launchCooperativeKernel(f Function, gridDimX uint32, gridDimY uint32, gridD
 	if err := checkLibSym("cuLaunchCooperativeKernel"); err != nil {
 		return err
 	}
-	return toError(fnlaunchCooperativeKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, (*uintptr)(sliceData(kernelParams))))
+	return toError(fnlaunchCooperativeKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, (*uintptr)(sliceData(kernelParams))), "cuLaunchCooperativeKernel")
 }
 
 // LaunchCooperativeKernelMultiDevice Launches CUDA functions on multiple devices where thread blocks can cooperate and synchronize as they execute
@@ -5368,7 +5368,7 @@ func LaunchCooperativeKernelMultiDevice(launchParamsList *LaunchParams, numDevic
 	if err := checkLibSym("cuLaunchCooperativeKernelMultiDevice"); err != nil {
 		return err
 	}
-	return toError(fnLaunchCooperativeKernelMultiDevice(launchParamsList, numDevices, flags))
+	return toError(fnLaunchCooperativeKernelMultiDevice(launchParamsList, numDevices, flags), "cuLaunchCooperativeKernelMultiDevice")
 }
 
 // launchGrid Launches a CUDA function
@@ -5386,7 +5386,7 @@ func launchGrid(f Function, gridWidth int32, gridHeight int32) error {
 	if err := checkLibSym("cuLaunchGrid"); err != nil {
 		return err
 	}
-	return toError(fnlaunchGrid(f, gridWidth, gridHeight))
+	return toError(fnlaunchGrid(f, gridWidth, gridHeight), "cuLaunchGrid")
 }
 
 // launchGridAsync Launches a CUDA function
@@ -5405,7 +5405,7 @@ func launchGridAsync(f Function, gridWidth int32, gridHeight int32, hStream Stre
 	if err := checkLibSym("cuLaunchGridAsync"); err != nil {
 		return err
 	}
-	return toError(fnlaunchGridAsync(f, gridWidth, gridHeight, hStream))
+	return toError(fnlaunchGridAsync(f, gridWidth, gridHeight, hStream), "cuLaunchGridAsync")
 }
 
 // launchHostFunc Enqueues a host function call in a stream.
@@ -5422,7 +5422,7 @@ func launchHostFunc(hStream Stream, fn uintptr, userData uintptr, syncMode uint3
 	if err := checkLibSym("cuLaunchHostFunc_v2"); err != nil {
 		return err
 	}
-	return toError(fnlaunchHostFunc(hStream, fn, userData, syncMode))
+	return toError(fnlaunchHostFunc(hStream, fn, userData, syncMode), "cuLaunchHostFunc_v2")
 }
 
 // launchKernel Launches a CUDA function [Function] or a CUDA kernel [Kernel].
@@ -5446,7 +5446,7 @@ func launchKernel(f Function, gridDimX uint32, gridDimY uint32, gridDimZ uint32,
 	if err := checkLibSym("cuLaunchKernel"); err != nil {
 		return err
 	}
-	return toError(fnlaunchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, (*uintptr)(sliceData(kernelParams)), nil))
+	return toError(fnlaunchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, (*uintptr)(sliceData(kernelParams)), nil), "cuLaunchKernel")
 }
 
 // launchKernelEx Launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
@@ -5463,7 +5463,7 @@ func launchKernelEx(config *LaunchConfig, f Function, kernelParams []unsafe.Poin
 	if err := checkLibSym("cuLaunchKernelEx"); err != nil {
 		return err
 	}
-	return toError(fnlaunchKernelEx(config, f, (*uintptr)(sliceData(kernelParams)), extra))
+	return toError(fnlaunchKernelEx(config, f, (*uintptr)(sliceData(kernelParams)), extra), "cuLaunchKernelEx")
 }
 
 // libraryEnumerateKernels Retrieve the kernel handles within a library.
@@ -5482,7 +5482,7 @@ func libraryEnumerateKernels(kernels *Kernel, numKernels uint32, lib Library) er
 	if err := checkLibSym("cuLibraryEnumerateKernels"); err != nil {
 		return err
 	}
-	return toError(fnlibraryEnumerateKernels(kernels, numKernels, lib))
+	return toError(fnlibraryEnumerateKernels(kernels, numKernels, lib), "cuLibraryEnumerateKernels")
 }
 
 // libraryGetGlobal Returns a global device pointer
@@ -5506,7 +5506,7 @@ func libraryGetGlobal(library Library, name string) (dptr DevicePtr, bytes uint,
 	cstr_name := append([]byte(name), 0)
 	var out0 DevicePtr
 	var out1 uint
-	if err := toError(fnlibraryGetGlobal(&out0, &out1, library, &cstr_name[0])); err != nil {
+	if err := toError(fnlibraryGetGlobal(&out0, &out1, library, &cstr_name[0]), "cuLibraryGetGlobal"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -5529,7 +5529,7 @@ func libraryGetKernel(library Library, name string) (Kernel, error) {
 	}
 	cstr_name := append([]byte(name), 0)
 	var out Kernel
-	if err := toError(fnlibraryGetKernel(&out, library, &cstr_name[0])); err != nil {
+	if err := toError(fnlibraryGetKernel(&out, library, &cstr_name[0]), "cuLibraryGetKernel"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -5548,7 +5548,7 @@ func libraryGetKernelCount(lib Library) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnlibraryGetKernelCount(&out, lib)); err != nil {
+	if err := toError(fnlibraryGetKernelCount(&out, lib), "cuLibraryGetKernelCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -5577,7 +5577,7 @@ func libraryGetManaged(library Library, name string) (dptr DevicePtr, bytes uint
 	cstr_name := append([]byte(name), 0)
 	var out0 DevicePtr
 	var out1 uint
-	if err := toError(fnlibraryGetManaged(&out0, &out1, library, &cstr_name[0])); err != nil {
+	if err := toError(fnlibraryGetManaged(&out0, &out1, library, &cstr_name[0]), "cuLibraryGetManaged"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -5599,7 +5599,7 @@ func libraryGetModule(library Library) (Module, error) {
 		return zero, err
 	}
 	var out Module
-	if err := toError(fnlibraryGetModule(&out, library)); err != nil {
+	if err := toError(fnlibraryGetModule(&out, library), "cuLibraryGetModule"); err != nil {
 		var zero Module
 		return zero, err
 	}
@@ -5625,7 +5625,7 @@ func libraryGetUnifiedFunction(library Library, symbol string) (uintptr, error) 
 	}
 	cstr_symbol := append([]byte(symbol), 0)
 	var out uintptr
-	if err := toError(fnlibraryGetUnifiedFunction(&out, library, &cstr_symbol[0])); err != nil {
+	if err := toError(fnlibraryGetUnifiedFunction(&out, library, &cstr_symbol[0]), "cuLibraryGetUnifiedFunction"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -5676,7 +5676,7 @@ func libraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintp
 		return zero, err
 	}
 	var out Library
-	if err := toError(fnlibraryLoadData(&out, unsafe.Pointer(nulTerminated(code)), jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions)); err != nil {
+	if err := toError(fnlibraryLoadData(&out, unsafe.Pointer(nulTerminated(code)), jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions), "cuLibraryLoadData"); err != nil {
 		var zero Library
 		return zero, err
 	}
@@ -5728,7 +5728,7 @@ func libraryLoadFromFile(fileName string, jitOptions *JITOption, jitOptionsValue
 	}
 	cstr_fileName := append([]byte(fileName), 0)
 	var out Library
-	if err := toError(fnlibraryLoadFromFile(&out, &cstr_fileName[0], jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions)); err != nil {
+	if err := toError(fnlibraryLoadFromFile(&out, &cstr_fileName[0], jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions), "cuLibraryLoadFromFile"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -5747,7 +5747,7 @@ func libraryUnload(library Library) error {
 	if err := checkLibSym("cuLibraryUnload"); err != nil {
 		return err
 	}
-	return toError(fnlibraryUnload(library))
+	return toError(fnlibraryUnload(library), "cuLibraryUnload")
 }
 
 // linkAddData Add an input to a pending linker invocation.
@@ -5768,7 +5768,7 @@ func linkAddData(state LinkState, type_ JitInputType, data unsafe.Pointer, size 
 	if err := checkLibSym("cuLinkAddData_v2"); err != nil {
 		return err
 	}
-	return toError(fnlinkAddData(state, type_, data, size, name, numOptions, options, optionValues))
+	return toError(fnlinkAddData(state, type_, data, size, name, numOptions, options, optionValues), "cuLinkAddData_v2")
 }
 
 // linkAddFile Add a file input to a pending linker invocation.
@@ -5787,7 +5787,7 @@ func linkAddFile(state LinkState, type_ JitInputType, path *byte, numOptions uin
 	if err := checkLibSym("cuLinkAddFile_v2"); err != nil {
 		return err
 	}
-	return toError(fnlinkAddFile(state, type_, path, numOptions, options, optionValues))
+	return toError(fnlinkAddFile(state, type_, path, numOptions, options, optionValues), "cuLinkAddFile_v2")
 }
 
 // linkComplete Complete a pending linker invocation.
@@ -5803,7 +5803,7 @@ func linkComplete(state LinkState) (cubinOut uintptr, sizeOut uint, err error) {
 	}
 	var out1 uintptr
 	var out2 uint
-	if err := toError(fnlinkComplete(state, &out1, &out2)); err != nil {
+	if err := toError(fnlinkComplete(state, &out1, &out2), "cuLinkComplete"); err != nil {
 		return 0, 0, err
 	}
 	return out1, out2, nil
@@ -5824,7 +5824,7 @@ func LinkCreate(numOptions uint32, options *JITOption, optionValues *uintptr) (L
 		return zero, err
 	}
 	var out LinkState
-	if err := toError(fnLinkCreate(numOptions, options, optionValues, &out)); err != nil {
+	if err := toError(fnLinkCreate(numOptions, options, optionValues, &out), "cuLinkCreate_v2"); err != nil {
 		var zero LinkState
 		return zero, err
 	}
@@ -5842,7 +5842,7 @@ func linkDestroy(state LinkState) error {
 	if err := checkLibSym("cuLinkDestroy"); err != nil {
 		return err
 	}
-	return toError(fnlinkDestroy(state))
+	return toError(fnlinkDestroy(state), "cuLinkDestroy")
 }
 
 // LogsCurrent Sets log iterator to point to the end of log buffer, where the next message would be written.
@@ -5856,7 +5856,7 @@ func LogsCurrent(flags uint32) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnLogsCurrent(&out, flags)); err != nil {
+	if err := toError(fnLogsCurrent(&out, flags), "cuLogsCurrent"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -5884,7 +5884,7 @@ func LogsDumpToFile(iterator *uint32, pathToFile string, flags uint32) error {
 		return err
 	}
 	cstr_pathToFile := append([]byte(pathToFile), 0)
-	return toError(fnLogsDumpToFile(iterator, &cstr_pathToFile[0], flags))
+	return toError(fnLogsDumpToFile(iterator, &cstr_pathToFile[0], flags), "cuLogsDumpToFile")
 }
 
 // LogsDumpToMemory Dump accumulated driver logs into a buffer
@@ -5918,7 +5918,7 @@ func LogsDumpToMemory(iterator *uint32, buffer *byte, size *uint, flags uint32) 
 	if err := checkLibSym("cuLogsDumpToMemory"); err != nil {
 		return err
 	}
-	return toError(fnLogsDumpToMemory(iterator, buffer, size, flags))
+	return toError(fnLogsDumpToMemory(iterator, buffer, size, flags), "cuLogsDumpToMemory")
 }
 
 // LogsRegisterCallback Register a callback function to receive error log messages
@@ -5933,7 +5933,7 @@ func LogsRegisterCallback(callbackFunc uintptr, userData uintptr) (LogsCallbackH
 		return zero, err
 	}
 	var out LogsCallbackHandle
-	if err := toError(fnLogsRegisterCallback(callbackFunc, userData, &out)); err != nil {
+	if err := toError(fnLogsRegisterCallback(callbackFunc, userData, &out), "cuLogsRegisterCallback"); err != nil {
 		var zero LogsCallbackHandle
 		return zero, err
 	}
@@ -5949,7 +5949,7 @@ func logsUnregisterCallback(callback LogsCallbackHandle) error {
 	if err := checkLibSym("cuLogsUnregisterCallback"); err != nil {
 		return err
 	}
-	return toError(fnlogsUnregisterCallback(callback))
+	return toError(fnlogsUnregisterCallback(callback), "cuLogsUnregisterCallback")
 }
 
 // memAddressFree Free an address range reservation.
@@ -5964,7 +5964,7 @@ func memAddressFree(ptr DevicePtr, size uint) error {
 	if err := checkLibSym("cuMemAddressFree"); err != nil {
 		return err
 	}
-	return toError(fnmemAddressFree(ptr, size))
+	return toError(fnmemAddressFree(ptr, size), "cuMemAddressFree")
 }
 
 // memAddressReserve Allocate an address range reservation.
@@ -5983,7 +5983,7 @@ func memAddressReserve(size uint, alignment uint, addr DevicePtr, flags uint64) 
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnmemAddressReserve(&out, size, alignment, addr, flags)); err != nil {
+	if err := toError(fnmemAddressReserve(&out, size, alignment, addr, flags), "cuMemAddressReserve"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -6004,7 +6004,7 @@ func memAdvise(devPtr DevicePtr, count uint, advice MemAdvise, location MemLocat
 	if err := checkLibSym("cuMemAdvise_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemAdvise(devPtr, count, advice, location))
+	return toError(fnmemAdvise(devPtr, count, advice, location), "cuMemAdvise_v2")
 }
 
 // MemAlloc Allocates device memory.
@@ -6033,7 +6033,7 @@ func MemAllocBytes(bytesize uint) (DevicePtr, error) {
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnMemAlloc(&out, bytesize)); err != nil {
+	if err := toError(fnMemAlloc(&out, bytesize), "cuMemAlloc_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -6054,7 +6054,7 @@ func memAllocAsync(bytesize uint, hStream Stream) (DevicePtr, error) {
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnmemAllocAsync(&out, bytesize, hStream)); err != nil {
+	if err := toError(fnmemAllocAsync(&out, bytesize, hStream), "cuMemAllocAsync"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -6076,7 +6076,7 @@ func memAllocFromPoolAsync(bytesize uint, pool MemoryPool, hStream Stream) (Devi
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnmemAllocFromPoolAsync(&out, bytesize, pool, hStream)); err != nil {
+	if err := toError(fnmemAllocFromPoolAsync(&out, bytesize, pool, hStream), "cuMemAllocFromPoolAsync"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -6095,7 +6095,7 @@ func MemAllocHost(pp *uintptr, bytesize uint) error {
 	if err := checkLibSym("cuMemAllocHost_v2"); err != nil {
 		return err
 	}
-	return toError(fnMemAllocHost(pp, bytesize))
+	return toError(fnMemAllocHost(pp, bytesize), "cuMemAllocHost_v2")
 }
 
 // MemAllocManaged Allocates memory that will be automatically managed by the Unified Memory system.
@@ -6126,7 +6126,7 @@ func MemAllocManagedBytes(bytesize uint, flags MemattachFlags) (DevicePtr, error
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnMemAllocManaged(&out, bytesize, uint32(flags))); err != nil {
+	if err := toError(fnMemAllocManaged(&out, bytesize, uint32(flags)), "cuMemAllocManaged"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -6148,7 +6148,7 @@ func MemAllocPitch(widthInBytes uint, height uint, elementSizeBytes uint32) (dpt
 	}
 	var out0 DevicePtr
 	var out1 uint
-	if err := toError(fnMemAllocPitch(&out0, &out1, widthInBytes, height, elementSizeBytes)); err != nil {
+	if err := toError(fnMemAllocPitch(&out0, &out1, widthInBytes, height, elementSizeBytes), "cuMemAllocPitch_v2"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -6170,7 +6170,7 @@ func memBatchDecompressAsync(paramsArray *MemDecompressParams, count uint, flags
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmemBatchDecompressAsync(paramsArray, count, flags, &out, stream)); err != nil {
+	if err := toError(fnmemBatchDecompressAsync(paramsArray, count, flags, &out, stream), "cuMemBatchDecompressAsync"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -6192,7 +6192,7 @@ func MemCreate(size uint, prop *MemAllocationProp, flags uint64) (uint64, error)
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnMemCreate(&out, size, prop, flags)); err != nil {
+	if err := toError(fnMemCreate(&out, size, prop, flags), "cuMemCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -6217,7 +6217,7 @@ func memDiscardAndPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, 
 	if err := checkLibSym("cuMemDiscardAndPrefetchBatchAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemDiscardAndPrefetchBatchAsync(dptrs, sizes, count, prefetchLocs, prefetchLocIdxs, numPrefetchLocs, flags, hStream))
+	return toError(fnmemDiscardAndPrefetchBatchAsync(dptrs, sizes, count, prefetchLocs, prefetchLocIdxs, numPrefetchLocs, flags, hStream), "cuMemDiscardAndPrefetchBatchAsync")
 }
 
 // memDiscardBatchAsync Performs a batch of memory discards asynchronously.
@@ -6235,7 +6235,7 @@ func memDiscardBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, flags uint6
 	if err := checkLibSym("cuMemDiscardBatchAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemDiscardBatchAsync(dptrs, sizes, count, flags, hStream))
+	return toError(fnmemDiscardBatchAsync(dptrs, sizes, count, flags, hStream), "cuMemDiscardBatchAsync")
 }
 
 // MemExportToShareableHandle Exports an allocation to a requested shareable handle type.
@@ -6252,7 +6252,7 @@ func MemExportToShareableHandle(shareableHandle uintptr, handle uint64, handleTy
 	if err := checkLibSym("cuMemExportToShareableHandle"); err != nil {
 		return err
 	}
-	return toError(fnMemExportToShareableHandle(shareableHandle, handle, handleType, flags))
+	return toError(fnMemExportToShareableHandle(shareableHandle, handle, handleType, flags), "cuMemExportToShareableHandle")
 }
 
 // memFree Frees device memory.
@@ -6266,7 +6266,7 @@ func memFree(dptr DevicePtr) error {
 	if err := checkLibSym("cuMemFree_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemFree(dptr))
+	return toError(fnmemFree(dptr), "cuMemFree_v2")
 }
 
 // memFreeAsync Frees memory with stream ordered semantics.
@@ -6281,7 +6281,7 @@ func memFreeAsync(dptr DevicePtr, hStream Stream) error {
 	if err := checkLibSym("cuMemFreeAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemFreeAsync(dptr, hStream))
+	return toError(fnmemFreeAsync(dptr, hStream), "cuMemFreeAsync")
 }
 
 // MemFreeHost Frees page-locked host memory.
@@ -6295,7 +6295,7 @@ func MemFreeHost(p uintptr) error {
 	if err := checkLibSym("cuMemFreeHost"); err != nil {
 		return err
 	}
-	return toError(fnMemFreeHost(p))
+	return toError(fnMemFreeHost(p), "cuMemFreeHost")
 }
 
 // memGetAccess Get the access flags set for the given location and ptr.
@@ -6312,7 +6312,7 @@ func memGetAccess(location *MemLocation, ptr DevicePtr) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnmemGetAccess(&out, location, ptr)); err != nil {
+	if err := toError(fnmemGetAccess(&out, location, ptr), "cuMemGetAccess"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -6332,7 +6332,7 @@ func memGetAddressRange(dptr DevicePtr) (pbase DevicePtr, psize uint, err error)
 	}
 	var out0 DevicePtr
 	var out1 uint
-	if err := toError(fnmemGetAddressRange(&out0, &out1, dptr)); err != nil {
+	if err := toError(fnmemGetAddressRange(&out0, &out1, dptr), "cuMemGetAddressRange_v2"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -6352,7 +6352,7 @@ func MemGetAllocationGranularity(prop *MemAllocationProp, option Memallocationgr
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnMemGetAllocationGranularity(&out, prop, option)); err != nil {
+	if err := toError(fnMemGetAllocationGranularity(&out, prop, option), "cuMemGetAllocationGranularity"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -6372,7 +6372,7 @@ func MemGetAllocationPropertiesFromHandle(handle uint64) (MemAllocationProp, err
 		return zero, err
 	}
 	var out MemAllocationProp
-	if err := toError(fnMemGetAllocationPropertiesFromHandle(&out, handle)); err != nil {
+	if err := toError(fnMemGetAllocationPropertiesFromHandle(&out, handle), "cuMemGetAllocationPropertiesFromHandle"); err != nil {
 		var zero MemAllocationProp
 		return zero, err
 	}
@@ -6390,7 +6390,7 @@ func MemGetDefaultMemPool(location *MemLocation, type_ MemAllocationType) (Memor
 		return zero, err
 	}
 	var out MemoryPool
-	if err := toError(fnMemGetDefaultMemPool(&out, location, type_)); err != nil {
+	if err := toError(fnMemGetDefaultMemPool(&out, location, type_), "cuMemGetDefaultMemPool"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
@@ -6412,7 +6412,7 @@ func memGetHandleForAddressRange(handle uintptr, dptr DevicePtr, size uint, hand
 	if err := checkLibSym("cuMemGetHandleForAddressRange"); err != nil {
 		return err
 	}
-	return toError(fnmemGetHandleForAddressRange(handle, dptr, size, handleType, uint64(flags)))
+	return toError(fnmemGetHandleForAddressRange(handle, dptr, size, handleType, uint64(flags)), "cuMemGetHandleForAddressRange")
 }
 
 // MemGetInfo Gets free and total memory.
@@ -6426,7 +6426,7 @@ func MemGetInfo() (free uint, total uint, err error) {
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnMemGetInfo(&out0, &out1)); err != nil {
+	if err := toError(fnMemGetInfo(&out0, &out1), "cuMemGetInfo_v2"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -6443,7 +6443,7 @@ func MemGetMemPool(location *MemLocation, type_ MemAllocationType) (MemoryPool, 
 		return zero, err
 	}
 	var out MemoryPool
-	if err := toError(fnMemGetMemPool(&out, location, type_)); err != nil {
+	if err := toError(fnMemGetMemPool(&out, location, type_), "cuMemGetMemPool"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
@@ -6463,7 +6463,7 @@ func MemHostAlloc(pp *uintptr, bytesize uint, flags uint32) error {
 	if err := checkLibSym("cuMemHostAlloc"); err != nil {
 		return err
 	}
-	return toError(fnMemHostAlloc(pp, bytesize, flags))
+	return toError(fnMemHostAlloc(pp, bytesize, flags), "cuMemHostAlloc")
 }
 
 // MemHostGetDevicePointer Passes back device pointer of mapped pinned memory.
@@ -6480,7 +6480,7 @@ func MemHostGetDevicePointer(p uintptr, flags uint32) (DevicePtr, error) {
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnMemHostGetDevicePointer(&out, p, flags)); err != nil {
+	if err := toError(fnMemHostGetDevicePointer(&out, p, flags), "cuMemHostGetDevicePointer_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -6500,7 +6500,7 @@ func MemHostGetFlags(p uintptr) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnMemHostGetFlags(&out, p)); err != nil {
+	if err := toError(fnMemHostGetFlags(&out, p), "cuMemHostGetFlags"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -6520,7 +6520,7 @@ func MemHostRegister(p uintptr, bytesize uint, flags uint32) error {
 	if err := checkLibSym("cuMemHostRegister_v2"); err != nil {
 		return err
 	}
-	return toError(fnMemHostRegister(p, bytesize, flags))
+	return toError(fnMemHostRegister(p, bytesize, flags), "cuMemHostRegister_v2")
 }
 
 // MemHostUnregister Unregisters a memory range that was registered with [MemHostRegister].
@@ -6534,7 +6534,7 @@ func MemHostUnregister(p uintptr) error {
 	if err := checkLibSym("cuMemHostUnregister"); err != nil {
 		return err
 	}
-	return toError(fnMemHostUnregister(p))
+	return toError(fnMemHostUnregister(p), "cuMemHostUnregister")
 }
 
 // MemImportFromShareableHandle Imports an allocation from a requested shareable handle type.
@@ -6551,7 +6551,7 @@ func MemImportFromShareableHandle(osHandle uintptr, shHandleType MemAllocationHa
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnMemImportFromShareableHandle(&out, osHandle, shHandleType)); err != nil {
+	if err := toError(fnMemImportFromShareableHandle(&out, osHandle, shHandleType), "cuMemImportFromShareableHandle"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -6573,7 +6573,7 @@ func memMap(ptr DevicePtr, size uint, offset uint, handle uint64, flags uint64) 
 	if err := checkLibSym("cuMemMap"); err != nil {
 		return err
 	}
-	return toError(fnmemMap(ptr, size, offset, handle, flags))
+	return toError(fnmemMap(ptr, size, offset, handle, flags), "cuMemMap")
 }
 
 // memMapArrayAsync Maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays.
@@ -6589,7 +6589,7 @@ func memMapArrayAsync(mapInfoList *ArrayMapInfo, count uint32, hStream Stream) e
 	if err := checkLibSym("cuMemMapArrayAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemMapArrayAsync(mapInfoList, count, hStream))
+	return toError(fnmemMapArrayAsync(mapInfoList, count, hStream), "cuMemMapArrayAsync")
 }
 
 // memPoolCreate Creates a memory pool.
@@ -6603,7 +6603,7 @@ func memPoolCreate(poolProps *MemPoolProps) (MemoryPool, error) {
 		return zero, err
 	}
 	var out MemoryPool
-	if err := toError(fnmemPoolCreate(&out, poolProps)); err != nil {
+	if err := toError(fnmemPoolCreate(&out, poolProps), "cuMemPoolCreate"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
@@ -6619,7 +6619,7 @@ func memPoolDestroy(pool MemoryPool) error {
 	if err := checkLibSym("cuMemPoolDestroy"); err != nil {
 		return err
 	}
-	return toError(fnmemPoolDestroy(pool))
+	return toError(fnmemPoolDestroy(pool), "cuMemPoolDestroy")
 }
 
 // memPoolExportPointer Export data to share a memory pool allocation between processes.
@@ -6635,7 +6635,7 @@ func memPoolExportPointer(ptr DevicePtr) (MemPoolPtrExportData, error) {
 		return zero, err
 	}
 	var out MemPoolPtrExportData
-	if err := toError(fnmemPoolExportPointer(&out, ptr)); err != nil {
+	if err := toError(fnmemPoolExportPointer(&out, ptr), "cuMemPoolExportPointer"); err != nil {
 		var zero MemPoolPtrExportData
 		return zero, err
 	}
@@ -6656,7 +6656,7 @@ func memPoolExportToShareableHandle(handleOut uintptr, pool MemoryPool, handleTy
 	if err := checkLibSym("cuMemPoolExportToShareableHandle"); err != nil {
 		return err
 	}
-	return toError(fnmemPoolExportToShareableHandle(handleOut, pool, handleType, flags))
+	return toError(fnmemPoolExportToShareableHandle(handleOut, pool, handleType, flags), "cuMemPoolExportToShareableHandle")
 }
 
 // memPoolGetAccess Returns the accessibility of a pool from a device.
@@ -6673,7 +6673,7 @@ func memPoolGetAccess(memPool MemoryPool, location *MemLocation) (MemaccessFlags
 		return zero, err
 	}
 	var out MemaccessFlags
-	if err := toError(fnmemPoolGetAccess(&out, memPool, location)); err != nil {
+	if err := toError(fnmemPoolGetAccess(&out, memPool, location), "cuMemPoolGetAccess"); err != nil {
 		var zero MemaccessFlags
 		return zero, err
 	}
@@ -6693,7 +6693,7 @@ func memPoolGetAttribute(pool MemoryPool, attr MempoolAttribute, value uintptr) 
 	if err := checkLibSym("cuMemPoolGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnmemPoolGetAttribute(pool, attr, value))
+	return toError(fnmemPoolGetAttribute(pool, attr, value), "cuMemPoolGetAttribute")
 }
 
 // memPoolImportFromShareableHandle imports a memory pool from a shared handle.
@@ -6711,7 +6711,7 @@ func memPoolImportFromShareableHandle(handle uintptr, handleType MemAllocationHa
 		return zero, err
 	}
 	var out MemoryPool
-	if err := toError(fnmemPoolImportFromShareableHandle(&out, handle, handleType, flags)); err != nil {
+	if err := toError(fnmemPoolImportFromShareableHandle(&out, handle, handleType, flags), "cuMemPoolImportFromShareableHandle"); err != nil {
 		var zero MemoryPool
 		return zero, err
 	}
@@ -6732,7 +6732,7 @@ func memPoolImportPointer(pool MemoryPool, shareData *MemPoolPtrExportData) (Dev
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fnmemPoolImportPointer(&out, pool, shareData)); err != nil {
+	if err := toError(fnmemPoolImportPointer(&out, pool, shareData), "cuMemPoolImportPointer"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -6752,7 +6752,7 @@ func memPoolSetAccess(pool MemoryPool, map_ *MemAccessDesc, count uint) error {
 	if err := checkLibSym("cuMemPoolSetAccess"); err != nil {
 		return err
 	}
-	return toError(fnmemPoolSetAccess(pool, map_, count))
+	return toError(fnmemPoolSetAccess(pool, map_, count), "cuMemPoolSetAccess")
 }
 
 // memPoolSetAttribute Sets attributes of a memory pool.
@@ -6768,7 +6768,7 @@ func memPoolSetAttribute(pool MemoryPool, attr MempoolAttribute, value uintptr) 
 	if err := checkLibSym("cuMemPoolSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnmemPoolSetAttribute(pool, attr, value))
+	return toError(fnmemPoolSetAttribute(pool, attr, value), "cuMemPoolSetAttribute")
 }
 
 // memPoolTrimTo Tries to release memory back to the OS.
@@ -6783,7 +6783,7 @@ func memPoolTrimTo(pool MemoryPool, minBytesToKeep uint) error {
 	if err := checkLibSym("cuMemPoolTrimTo"); err != nil {
 		return err
 	}
-	return toError(fnmemPoolTrimTo(pool, minBytesToKeep))
+	return toError(fnmemPoolTrimTo(pool, minBytesToKeep), "cuMemPoolTrimTo")
 }
 
 // memPrefetchAsync Prefetches memory to the specified destination location.
@@ -6801,7 +6801,7 @@ func memPrefetchAsync(devPtr DevicePtr, count uint, location MemLocation, flags 
 	if err := checkLibSym("cuMemPrefetchAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemPrefetchAsync(devPtr, count, location, flags, hStream))
+	return toError(fnmemPrefetchAsync(devPtr, count, location, flags, hStream), "cuMemPrefetchAsync_v2")
 }
 
 // memPrefetchBatchAsync Performs a batch of memory prefetches asynchronously.
@@ -6822,7 +6822,7 @@ func memPrefetchBatchAsync(dptrs *DevicePtr, sizes *uint, count uint, prefetchLo
 	if err := checkLibSym("cuMemPrefetchBatchAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemPrefetchBatchAsync(dptrs, sizes, count, prefetchLocs, prefetchLocIdxs, numPrefetchLocs, flags, hStream))
+	return toError(fnmemPrefetchBatchAsync(dptrs, sizes, count, prefetchLocs, prefetchLocIdxs, numPrefetchLocs, flags, hStream), "cuMemPrefetchBatchAsync")
 }
 
 // memRangeGetAttribute Query an attribute of a given memory range.
@@ -6840,7 +6840,7 @@ func memRangeGetAttribute(data unsafe.Pointer, dataSize uint, attribute MemRange
 	if err := checkLibSym("cuMemRangeGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnmemRangeGetAttribute(data, dataSize, attribute, devPtr, count))
+	return toError(fnmemRangeGetAttribute(data, dataSize, attribute, devPtr, count), "cuMemRangeGetAttribute")
 }
 
 // memRangeGetAttributes Query attributes of a given memory range.
@@ -6859,7 +6859,7 @@ func memRangeGetAttributes(data *uintptr, dataSizes *uint, attributes *MemRangeA
 	if err := checkLibSym("cuMemRangeGetAttributes"); err != nil {
 		return err
 	}
-	return toError(fnmemRangeGetAttributes(data, dataSizes, attributes, numAttributes, devPtr, count))
+	return toError(fnmemRangeGetAttributes(data, dataSizes, attributes, numAttributes, devPtr, count), "cuMemRangeGetAttributes")
 }
 
 // MemRelease Release a memory handle representing a memory allocation which was previously allocated through [MemCreate].
@@ -6873,7 +6873,7 @@ func MemRelease(handle uint64) error {
 	if err := checkLibSym("cuMemRelease"); err != nil {
 		return err
 	}
-	return toError(fnMemRelease(handle))
+	return toError(fnMemRelease(handle), "cuMemRelease")
 }
 
 // MemRetainAllocationHandle Given an address addr, returns the allocation handle of the backing memory allocation.
@@ -6889,7 +6889,7 @@ func MemRetainAllocationHandle(addr uintptr) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnMemRetainAllocationHandle(&out, addr)); err != nil {
+	if err := toError(fnMemRetainAllocationHandle(&out, addr), "cuMemRetainAllocationHandle"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -6910,7 +6910,7 @@ func memSetAccess(ptr DevicePtr, size uint, desc *MemAccessDesc, count uint) err
 	if err := checkLibSym("cuMemSetAccess"); err != nil {
 		return err
 	}
-	return toError(fnmemSetAccess(ptr, size, desc, count))
+	return toError(fnmemSetAccess(ptr, size, desc, count), "cuMemSetAccess")
 }
 
 // memSetMemPool Sets the current memory pool for a memory location and allocation type.
@@ -6922,7 +6922,7 @@ func memSetMemPool(location *MemLocation, type_ MemAllocationType, pool MemoryPo
 	if err := checkLibSym("cuMemSetMemPool"); err != nil {
 		return err
 	}
-	return toError(fnmemSetMemPool(location, type_, pool))
+	return toError(fnmemSetMemPool(location, type_, pool), "cuMemSetMemPool")
 }
 
 // memUnmap Unmap the backing memory of a given address range.
@@ -6937,7 +6937,7 @@ func memUnmap(ptr DevicePtr, size uint) error {
 	if err := checkLibSym("cuMemUnmap"); err != nil {
 		return err
 	}
-	return toError(fnmemUnmap(ptr, size))
+	return toError(fnmemUnmap(ptr, size), "cuMemUnmap")
 }
 
 // memcpy Copies memory.
@@ -6953,7 +6953,7 @@ func memcpy(dst DevicePtr, src DevicePtr, byteCount uint) error {
 	if err := checkLibSym("cuMemcpy"); err != nil {
 		return err
 	}
-	return toError(fnmemcpy(dst, src, byteCount))
+	return toError(fnmemcpy(dst, src, byteCount), "cuMemcpy")
 }
 
 // Memcpy2D Copies memory for 2D arrays.
@@ -6967,7 +6967,7 @@ func Memcpy2D(pCopy *Memcpy2d) error {
 	if err := checkLibSym("cuMemcpy2D_v2"); err != nil {
 		return err
 	}
-	return toError(fnMemcpy2D(pCopy))
+	return toError(fnMemcpy2D(pCopy), "cuMemcpy2D_v2")
 }
 
 // memcpy2DAsync Copies memory for 2D arrays.
@@ -6982,7 +6982,7 @@ func memcpy2DAsync(pCopy *Memcpy2d, hStream Stream) error {
 	if err := checkLibSym("cuMemcpy2DAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpy2DAsync(pCopy, hStream))
+	return toError(fnmemcpy2DAsync(pCopy, hStream), "cuMemcpy2DAsync_v2")
 }
 
 // Memcpy2DUnaligned Copies memory for 2D arrays.
@@ -6996,7 +6996,7 @@ func Memcpy2DUnaligned(pCopy *Memcpy2d) error {
 	if err := checkLibSym("cuMemcpy2DUnaligned_v2"); err != nil {
 		return err
 	}
-	return toError(fnMemcpy2DUnaligned(pCopy))
+	return toError(fnMemcpy2DUnaligned(pCopy), "cuMemcpy2DUnaligned_v2")
 }
 
 // Memcpy3D Copies memory for 3D arrays.
@@ -7010,7 +7010,7 @@ func Memcpy3D(pCopy *Memcpy3d) error {
 	if err := checkLibSym("cuMemcpy3D_v2"); err != nil {
 		return err
 	}
-	return toError(fnMemcpy3D(pCopy))
+	return toError(fnMemcpy3D(pCopy), "cuMemcpy3D_v2")
 }
 
 // memcpy3DAsync Copies memory for 3D arrays.
@@ -7025,7 +7025,7 @@ func memcpy3DAsync(pCopy *Memcpy3d, hStream Stream) error {
 	if err := checkLibSym("cuMemcpy3DAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpy3DAsync(pCopy, hStream))
+	return toError(fnmemcpy3DAsync(pCopy, hStream), "cuMemcpy3DAsync_v2")
 }
 
 // memcpy3DBatchAsync Performs a batch of 3D memory copies asynchronously.
@@ -7042,7 +7042,7 @@ func memcpy3DBatchAsync(numOps uint, opList *Memcpy3dBatchOp, flags uint64, hStr
 	if err := checkLibSym("cuMemcpy3DBatchAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpy3DBatchAsync(numOps, opList, flags, hStream))
+	return toError(fnmemcpy3DBatchAsync(numOps, opList, flags, hStream), "cuMemcpy3DBatchAsync_v2")
 }
 
 // Memcpy3DPeer Copies memory between contexts.
@@ -7056,7 +7056,7 @@ func Memcpy3DPeer(pCopy *Memcpy3dPeer) error {
 	if err := checkLibSym("cuMemcpy3DPeer"); err != nil {
 		return err
 	}
-	return toError(fnMemcpy3DPeer(pCopy))
+	return toError(fnMemcpy3DPeer(pCopy), "cuMemcpy3DPeer")
 }
 
 // memcpy3DPeerAsync Copies memory between contexts asynchronously.
@@ -7071,7 +7071,7 @@ func memcpy3DPeerAsync(pCopy *Memcpy3dPeer, hStream Stream) error {
 	if err := checkLibSym("cuMemcpy3DPeerAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemcpy3DPeerAsync(pCopy, hStream))
+	return toError(fnmemcpy3DPeerAsync(pCopy, hStream), "cuMemcpy3DPeerAsync")
 }
 
 // memcpy3DWithAttributesAsync Performs 3D memory copy with attributes asynchronously Performs the copy operation specified in op.
@@ -7087,7 +7087,7 @@ func memcpy3DWithAttributesAsync(op *Memcpy3dBatchOp, flags uint64, hStream Stre
 	if err := checkLibSym("cuMemcpy3DWithAttributesAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemcpy3DWithAttributesAsync(op, flags, hStream))
+	return toError(fnmemcpy3DWithAttributesAsync(op, flags, hStream), "cuMemcpy3DWithAttributesAsync")
 }
 
 // memcpyAsync Copies memory asynchronously.
@@ -7104,7 +7104,7 @@ func memcpyAsync(dst DevicePtr, src DevicePtr, byteCount uint, hStream Stream) e
 	if err := checkLibSym("cuMemcpyAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAsync(dst, src, byteCount, hStream))
+	return toError(fnmemcpyAsync(dst, src, byteCount, hStream), "cuMemcpyAsync")
 }
 
 // memcpyAtoA Copies memory from Array to Array.
@@ -7122,7 +7122,7 @@ func memcpyAtoA(dstArray Array, dstOffset uint, srcArray Array, srcOffset uint, 
 	if err := checkLibSym("cuMemcpyAtoA_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAtoA(dstArray, dstOffset, srcArray, srcOffset, byteCount))
+	return toError(fnmemcpyAtoA(dstArray, dstOffset, srcArray, srcOffset, byteCount), "cuMemcpyAtoA_v2")
 }
 
 // memcpyAtoD Copies memory from Array to Device.
@@ -7139,7 +7139,7 @@ func memcpyAtoD(dstDevice DevicePtr, srcArray Array, srcOffset uint, byteCount u
 	if err := checkLibSym("cuMemcpyAtoD_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAtoD(dstDevice, srcArray, srcOffset, byteCount))
+	return toError(fnmemcpyAtoD(dstDevice, srcArray, srcOffset, byteCount), "cuMemcpyAtoD_v2")
 }
 
 // memcpyAtoH Copies memory from Array to Host.
@@ -7156,7 +7156,7 @@ func memcpyAtoH(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, byteCoun
 	if err := checkLibSym("cuMemcpyAtoH_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAtoH(dstHost, srcArray, srcOffset, byteCount))
+	return toError(fnmemcpyAtoH(dstHost, srcArray, srcOffset, byteCount), "cuMemcpyAtoH_v2")
 }
 
 // memcpyAtoHAsync Copies memory from Array to Host.
@@ -7174,7 +7174,7 @@ func memcpyAtoHAsync(dstHost unsafe.Pointer, srcArray Array, srcOffset uint, byt
 	if err := checkLibSym("cuMemcpyAtoHAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyAtoHAsync(dstHost, srcArray, srcOffset, byteCount, hStream))
+	return toError(fnmemcpyAtoHAsync(dstHost, srcArray, srcOffset, byteCount, hStream), "cuMemcpyAtoHAsync_v2")
 }
 
 // memcpyBatchAsync Performs a batch of memory copies asynchronously.
@@ -7195,7 +7195,7 @@ func memcpyBatchAsync(dsts *DevicePtr, srcs *DevicePtr, sizes *uint, count uint,
 	if err := checkLibSym("cuMemcpyBatchAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyBatchAsync(dsts, srcs, sizes, count, attrs, attrsIdxs, numAttrs, hStream))
+	return toError(fnmemcpyBatchAsync(dsts, srcs, sizes, count, attrs, attrsIdxs, numAttrs, hStream), "cuMemcpyBatchAsync_v2")
 }
 
 // memcpyDtoA Copies memory from Device to Array.
@@ -7212,7 +7212,7 @@ func memcpyDtoA(dstArray Array, dstOffset uint, srcDevice DevicePtr, byteCount u
 	if err := checkLibSym("cuMemcpyDtoA_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoA(dstArray, dstOffset, srcDevice, byteCount))
+	return toError(fnmemcpyDtoA(dstArray, dstOffset, srcDevice, byteCount), "cuMemcpyDtoA_v2")
 }
 
 // memcpyDtoD Copies memory from Device to Device.
@@ -7228,7 +7228,7 @@ func memcpyDtoD(dstDevice DevicePtr, srcDevice DevicePtr, byteCount uint) error 
 	if err := checkLibSym("cuMemcpyDtoD_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoD(dstDevice, srcDevice, byteCount))
+	return toError(fnmemcpyDtoD(dstDevice, srcDevice, byteCount), "cuMemcpyDtoD_v2")
 }
 
 // memcpyDtoDAsync Copies memory from Device to Device.
@@ -7245,7 +7245,7 @@ func memcpyDtoDAsync(dstDevice DevicePtr, srcDevice DevicePtr, byteCount uint, h
 	if err := checkLibSym("cuMemcpyDtoDAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoDAsync(dstDevice, srcDevice, byteCount, hStream))
+	return toError(fnmemcpyDtoDAsync(dstDevice, srcDevice, byteCount, hStream), "cuMemcpyDtoDAsync_v2")
 }
 
 // memcpyDtoH Copies memory from Device to Host.
@@ -7261,7 +7261,7 @@ func memcpyDtoH(dstHost unsafe.Pointer, srcDevice DevicePtr, byteCount uint) err
 	if err := checkLibSym("cuMemcpyDtoH_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoH(dstHost, srcDevice, byteCount))
+	return toError(fnmemcpyDtoH(dstHost, srcDevice, byteCount), "cuMemcpyDtoH_v2")
 }
 
 // memcpyDtoHAsync Copies memory from Device to Host.
@@ -7278,7 +7278,7 @@ func memcpyDtoHAsync(dstHost unsafe.Pointer, srcDevice DevicePtr, byteCount uint
 	if err := checkLibSym("cuMemcpyDtoHAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDtoHAsync(dstHost, srcDevice, byteCount, hStream))
+	return toError(fnmemcpyDtoHAsync(dstHost, srcDevice, byteCount, hStream), "cuMemcpyDtoHAsync_v2")
 }
 
 // memcpyHtoA Copies memory from Host to Array.
@@ -7295,7 +7295,7 @@ func memcpyHtoA(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, byteCoun
 	if err := checkLibSym("cuMemcpyHtoA_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyHtoA(dstArray, dstOffset, srcHost, byteCount))
+	return toError(fnmemcpyHtoA(dstArray, dstOffset, srcHost, byteCount), "cuMemcpyHtoA_v2")
 }
 
 // memcpyHtoAAsync Copies memory from Host to Array.
@@ -7313,7 +7313,7 @@ func memcpyHtoAAsync(dstArray Array, dstOffset uint, srcHost unsafe.Pointer, byt
 	if err := checkLibSym("cuMemcpyHtoAAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyHtoAAsync(dstArray, dstOffset, srcHost, byteCount, hStream))
+	return toError(fnmemcpyHtoAAsync(dstArray, dstOffset, srcHost, byteCount, hStream), "cuMemcpyHtoAAsync_v2")
 }
 
 // memcpyHtoD Copies memory from Host to Device.
@@ -7329,7 +7329,7 @@ func memcpyHtoD(dstDevice DevicePtr, srcHost unsafe.Pointer, byteCount uint) err
 	if err := checkLibSym("cuMemcpyHtoD_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyHtoD(dstDevice, srcHost, byteCount))
+	return toError(fnmemcpyHtoD(dstDevice, srcHost, byteCount), "cuMemcpyHtoD_v2")
 }
 
 // memcpyHtoDAsync Copies memory from Host to Device.
@@ -7346,7 +7346,7 @@ func memcpyHtoDAsync(dstDevice DevicePtr, srcHost unsafe.Pointer, byteCount uint
 	if err := checkLibSym("cuMemcpyHtoDAsync_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyHtoDAsync(dstDevice, srcHost, byteCount, hStream))
+	return toError(fnmemcpyHtoDAsync(dstDevice, srcHost, byteCount, hStream), "cuMemcpyHtoDAsync_v2")
 }
 
 // memcpyPeer Copies device memory between two contexts.
@@ -7364,7 +7364,7 @@ func memcpyPeer(dstDevice DevicePtr, dstContext Context, srcDevice DevicePtr, sr
 	if err := checkLibSym("cuMemcpyPeer"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyPeer(dstDevice, dstContext, srcDevice, srcContext, byteCount))
+	return toError(fnmemcpyPeer(dstDevice, dstContext, srcDevice, srcContext, byteCount), "cuMemcpyPeer")
 }
 
 // memcpyPeerAsync Copies device memory between two contexts asynchronously.
@@ -7383,7 +7383,7 @@ func memcpyPeerAsync(dstDevice DevicePtr, dstContext Context, srcDevice DevicePt
 	if err := checkLibSym("cuMemcpyPeerAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyPeerAsync(dstDevice, dstContext, srcDevice, srcContext, byteCount, hStream))
+	return toError(fnmemcpyPeerAsync(dstDevice, dstContext, srcDevice, srcContext, byteCount, hStream), "cuMemcpyPeerAsync")
 }
 
 // memcpyWithAttributesAsync Performs asynchronous memory copy operation with the specified attributes.
@@ -7401,7 +7401,7 @@ func memcpyWithAttributesAsync(dst DevicePtr, src DevicePtr, size uint, attr *Me
 	if err := checkLibSym("cuMemcpyWithAttributesAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyWithAttributesAsync(dst, src, size, attr, hStream))
+	return toError(fnmemcpyWithAttributesAsync(dst, src, size, attr, hStream), "cuMemcpyWithAttributesAsync")
 }
 
 // memsetD16 Initializes device memory.
@@ -7417,7 +7417,7 @@ func memsetD16(dstDevice DevicePtr, us uint16, n uint) error {
 	if err := checkLibSym("cuMemsetD16_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD16(dstDevice, us, n))
+	return toError(fnmemsetD16(dstDevice, us, n), "cuMemsetD16_v2")
 }
 
 // memsetD16Async Sets device memory.
@@ -7434,7 +7434,7 @@ func memsetD16Async(dstDevice DevicePtr, us uint16, n uint, hStream Stream) erro
 	if err := checkLibSym("cuMemsetD16Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD16Async(dstDevice, us, n, hStream))
+	return toError(fnmemsetD16Async(dstDevice, us, n, hStream), "cuMemsetD16Async")
 }
 
 // memsetD2D16 Initializes device memory.
@@ -7452,7 +7452,7 @@ func memsetD2D16(dstDevice DevicePtr, dstPitch uint, us uint16, width uint, heig
 	if err := checkLibSym("cuMemsetD2D16_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D16(dstDevice, dstPitch, us, width, height))
+	return toError(fnmemsetD2D16(dstDevice, dstPitch, us, width, height), "cuMemsetD2D16_v2")
 }
 
 // memsetD2D16Async Sets device memory.
@@ -7471,7 +7471,7 @@ func memsetD2D16Async(dstDevice DevicePtr, dstPitch uint, us uint16, width uint,
 	if err := checkLibSym("cuMemsetD2D16Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D16Async(dstDevice, dstPitch, us, width, height, hStream))
+	return toError(fnmemsetD2D16Async(dstDevice, dstPitch, us, width, height, hStream), "cuMemsetD2D16Async")
 }
 
 // memsetD2D32 Initializes device memory.
@@ -7489,7 +7489,7 @@ func memsetD2D32(dstDevice DevicePtr, dstPitch uint, ui uint32, width uint, heig
 	if err := checkLibSym("cuMemsetD2D32_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D32(dstDevice, dstPitch, ui, width, height))
+	return toError(fnmemsetD2D32(dstDevice, dstPitch, ui, width, height), "cuMemsetD2D32_v2")
 }
 
 // memsetD2D32Async Sets device memory.
@@ -7508,7 +7508,7 @@ func memsetD2D32Async(dstDevice DevicePtr, dstPitch uint, ui uint32, width uint,
 	if err := checkLibSym("cuMemsetD2D32Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D32Async(dstDevice, dstPitch, ui, width, height, hStream))
+	return toError(fnmemsetD2D32Async(dstDevice, dstPitch, ui, width, height, hStream), "cuMemsetD2D32Async")
 }
 
 // memsetD2D8 Initializes device memory.
@@ -7526,7 +7526,7 @@ func memsetD2D8(dstDevice DevicePtr, dstPitch uint, uc uint8, width uint, height
 	if err := checkLibSym("cuMemsetD2D8_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D8(dstDevice, dstPitch, uc, width, height))
+	return toError(fnmemsetD2D8(dstDevice, dstPitch, uc, width, height), "cuMemsetD2D8_v2")
 }
 
 // memsetD2D8Async Sets device memory.
@@ -7545,7 +7545,7 @@ func memsetD2D8Async(dstDevice DevicePtr, dstPitch uint, uc uint8, width uint, h
 	if err := checkLibSym("cuMemsetD2D8Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD2D8Async(dstDevice, dstPitch, uc, width, height, hStream))
+	return toError(fnmemsetD2D8Async(dstDevice, dstPitch, uc, width, height, hStream), "cuMemsetD2D8Async")
 }
 
 // memsetD32 Initializes device memory.
@@ -7561,7 +7561,7 @@ func memsetD32(dstDevice DevicePtr, ui uint32, n uint) error {
 	if err := checkLibSym("cuMemsetD32_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD32(dstDevice, ui, n))
+	return toError(fnmemsetD32(dstDevice, ui, n), "cuMemsetD32_v2")
 }
 
 // memsetD32Async Sets device memory.
@@ -7578,7 +7578,7 @@ func memsetD32Async(dstDevice DevicePtr, ui uint32, n uint, hStream Stream) erro
 	if err := checkLibSym("cuMemsetD32Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD32Async(dstDevice, ui, n, hStream))
+	return toError(fnmemsetD32Async(dstDevice, ui, n, hStream), "cuMemsetD32Async")
 }
 
 // memsetD8 Initializes device memory.
@@ -7594,7 +7594,7 @@ func memsetD8(dstDevice DevicePtr, uc uint8, n uint) error {
 	if err := checkLibSym("cuMemsetD8_v2"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD8(dstDevice, uc, n))
+	return toError(fnmemsetD8(dstDevice, uc, n), "cuMemsetD8_v2")
 }
 
 // memsetD8Async Sets device memory.
@@ -7611,7 +7611,7 @@ func memsetD8Async(dstDevice DevicePtr, uc uint8, n uint, hStream Stream) error 
 	if err := checkLibSym("cuMemsetD8Async"); err != nil {
 		return err
 	}
-	return toError(fnmemsetD8Async(dstDevice, uc, n, hStream))
+	return toError(fnmemsetD8Async(dstDevice, uc, n, hStream), "cuMemsetD8Async")
 }
 
 // mipmappedArrayCreate Creates a CUDA mipmapped array.
@@ -7628,7 +7628,7 @@ func mipmappedArrayCreate(pMipmappedArrayDesc *Array3dDescriptor, numMipmapLevel
 		return zero, err
 	}
 	var out MipmappedArray
-	if err := toError(fnmipmappedArrayCreate(&out, pMipmappedArrayDesc, numMipmapLevels)); err != nil {
+	if err := toError(fnmipmappedArrayCreate(&out, pMipmappedArrayDesc, numMipmapLevels), "cuMipmappedArrayCreate"); err != nil {
 		var zero MipmappedArray
 		return zero, err
 	}
@@ -7646,7 +7646,7 @@ func mipmappedArrayDestroy(hMipmappedArray MipmappedArray) error {
 	if err := checkLibSym("cuMipmappedArrayDestroy"); err != nil {
 		return err
 	}
-	return toError(fnmipmappedArrayDestroy(hMipmappedArray))
+	return toError(fnmipmappedArrayDestroy(hMipmappedArray), "cuMipmappedArrayDestroy")
 }
 
 // mipmappedArrayGetLevel Gets a mipmap level of a CUDA mipmapped array.
@@ -7663,7 +7663,7 @@ func mipmappedArrayGetLevel(hMipmappedArray MipmappedArray, level uint32) (Array
 		return zero, err
 	}
 	var out Array
-	if err := toError(fnmipmappedArrayGetLevel(&out, hMipmappedArray, level)); err != nil {
+	if err := toError(fnmipmappedArrayGetLevel(&out, hMipmappedArray, level), "cuMipmappedArrayGetLevel"); err != nil {
 		var zero Array
 		return zero, err
 	}
@@ -7684,7 +7684,7 @@ func mipmappedArrayGetMemoryRequirements(mipmap MipmappedArray, device Device) (
 		return zero, err
 	}
 	var out ArrayMemoryRequirements
-	if err := toError(fnmipmappedArrayGetMemoryRequirements(&out, mipmap, device)); err != nil {
+	if err := toError(fnmipmappedArrayGetMemoryRequirements(&out, mipmap, device), "cuMipmappedArrayGetMemoryRequirements"); err != nil {
 		var zero ArrayMemoryRequirements
 		return zero, err
 	}
@@ -7704,7 +7704,7 @@ func mipmappedArrayGetSparseProperties(mipmap MipmappedArray) (ArraySparseProper
 		return zero, err
 	}
 	var out ArraySparseProperties
-	if err := toError(fnmipmappedArrayGetSparseProperties(&out, mipmap)); err != nil {
+	if err := toError(fnmipmappedArrayGetSparseProperties(&out, mipmap), "cuMipmappedArrayGetSparseProperties"); err != nil {
 		var zero ArraySparseProperties
 		return zero, err
 	}
@@ -7724,7 +7724,7 @@ func moduleEnumerateFunctions(functions *Function, numFunctions uint32, mod Modu
 	if err := checkLibSym("cuModuleEnumerateFunctions"); err != nil {
 		return err
 	}
-	return toError(fnmoduleEnumerateFunctions(functions, numFunctions, mod))
+	return toError(fnmoduleEnumerateFunctions(functions, numFunctions, mod), "cuModuleEnumerateFunctions")
 }
 
 // moduleGetFunction Returns a function handle.
@@ -7741,7 +7741,7 @@ func moduleGetFunction(hmod Module, name string) (Function, error) {
 	}
 	cstr_name := append([]byte(name), 0)
 	var out Function
-	if err := toError(fnmoduleGetFunction(&out, hmod, &cstr_name[0])); err != nil {
+	if err := toError(fnmoduleGetFunction(&out, hmod, &cstr_name[0]), "cuModuleGetFunction"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -7760,7 +7760,7 @@ func moduleGetFunctionCount(mod Module) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnmoduleGetFunctionCount(&out, mod)); err != nil {
+	if err := toError(fnmoduleGetFunctionCount(&out, mod), "cuModuleGetFunctionCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7782,7 +7782,7 @@ func moduleGetGlobal(hmod Module, name string) (dptr DevicePtr, bytes uint, err 
 	cstr_name := append([]byte(name), 0)
 	var out0 DevicePtr
 	var out1 uint
-	if err := toError(fnmoduleGetGlobal(&out0, &out1, hmod, &cstr_name[0])); err != nil {
+	if err := toError(fnmoduleGetGlobal(&out0, &out1, hmod, &cstr_name[0]), "cuModuleGetGlobal_v2"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -7799,7 +7799,7 @@ func ModuleGetLoadingMode() (ModuleLoadingMode, error) {
 		return zero, err
 	}
 	var out ModuleLoadingMode
-	if err := toError(fnModuleGetLoadingMode(&out)); err != nil {
+	if err := toError(fnModuleGetLoadingMode(&out), "cuModuleGetLoadingMode"); err != nil {
 		var zero ModuleLoadingMode
 		return zero, err
 	}
@@ -7822,7 +7822,7 @@ func moduleGetSurfRef(hmod Module, name *byte) (SurfRef, error) {
 		return zero, err
 	}
 	var out SurfRef
-	if err := toError(fnmoduleGetSurfRef(&out, hmod, name)); err != nil {
+	if err := toError(fnmoduleGetSurfRef(&out, hmod, name), "cuModuleGetSurfRef"); err != nil {
 		var zero SurfRef
 		return zero, err
 	}
@@ -7845,7 +7845,7 @@ func moduleGetTexRef(hmod Module, name *byte) (TexRef, error) {
 		return zero, err
 	}
 	var out TexRef
-	if err := toError(fnmoduleGetTexRef(&out, hmod, name)); err != nil {
+	if err := toError(fnmoduleGetTexRef(&out, hmod, name), "cuModuleGetTexRef"); err != nil {
 		var zero TexRef
 		return zero, err
 	}
@@ -7865,7 +7865,7 @@ func moduleLoad(fname string) (Module, error) {
 	}
 	cstr_fname := append([]byte(fname), 0)
 	var out Module
-	if err := toError(fnmoduleLoad(&out, &cstr_fname[0])); err != nil {
+	if err := toError(fnmoduleLoad(&out, &cstr_fname[0]), "cuModuleLoad"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -7884,7 +7884,7 @@ func moduleLoadData(image []byte) (Module, error) {
 		return zero, err
 	}
 	var out Module
-	if err := toError(fnmoduleLoadData(&out, unsafe.Pointer(nulTerminated(image)))); err != nil {
+	if err := toError(fnmoduleLoadData(&out, unsafe.Pointer(nulTerminated(image))), "cuModuleLoadData"); err != nil {
 		var zero Module
 		return zero, err
 	}
@@ -7907,7 +7907,7 @@ func moduleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optio
 		return zero, err
 	}
 	var out Module
-	if err := toError(fnmoduleLoadDataEx(&out, unsafe.Pointer(nulTerminated(image)), numOptions, options, optionValues)); err != nil {
+	if err := toError(fnmoduleLoadDataEx(&out, unsafe.Pointer(nulTerminated(image)), numOptions, options, optionValues), "cuModuleLoadDataEx"); err != nil {
 		var zero Module
 		return zero, err
 	}
@@ -7927,7 +7927,7 @@ func moduleLoadFatBinary(fatCubin []byte) (Module, error) {
 		return zero, err
 	}
 	var out Module
-	if err := toError(fnmoduleLoadFatBinary(&out, unsafe.Pointer(nulTerminated(fatCubin)))); err != nil {
+	if err := toError(fnmoduleLoadFatBinary(&out, unsafe.Pointer(nulTerminated(fatCubin))), "cuModuleLoadFatBinary"); err != nil {
 		var zero Module
 		return zero, err
 	}
@@ -7945,7 +7945,7 @@ func moduleUnload(hmod Module) error {
 	if err := checkLibSym("cuModuleUnload"); err != nil {
 		return err
 	}
-	return toError(fnmoduleUnload(hmod))
+	return toError(fnmoduleUnload(hmod), "cuModuleUnload")
 }
 
 // multicastAddDevice Associate a device to a multicast object.
@@ -7960,7 +7960,7 @@ func multicastAddDevice(mcHandle uint64, dev Device) error {
 	if err := checkLibSym("cuMulticastAddDevice"); err != nil {
 		return err
 	}
-	return toError(fnmulticastAddDevice(mcHandle, dev))
+	return toError(fnmulticastAddDevice(mcHandle, dev), "cuMulticastAddDevice")
 }
 
 // multicastBindAddr Bind a memory allocation represented by a virtual address to a multicast object.
@@ -7978,7 +7978,7 @@ func multicastBindAddr(mcHandle uint64, mcOffset uint, memptr DevicePtr, size ui
 	if err := checkLibSym("cuMulticastBindAddr"); err != nil {
 		return err
 	}
-	return toError(fnmulticastBindAddr(mcHandle, mcOffset, memptr, size, flags))
+	return toError(fnmulticastBindAddr(mcHandle, mcOffset, memptr, size, flags), "cuMulticastBindAddr")
 }
 
 // multicastBindAddrV2 Bind a memory allocation represented by a virtual address to a multicast object.
@@ -7997,7 +7997,7 @@ func multicastBindAddrV2(mcHandle uint64, dev Device, mcOffset uint, memptr Devi
 	if err := checkLibSym("cuMulticastBindAddr_v2"); err != nil {
 		return err
 	}
-	return toError(fnmulticastBindAddrV2(mcHandle, dev, mcOffset, memptr, size, flags))
+	return toError(fnmulticastBindAddrV2(mcHandle, dev, mcOffset, memptr, size, flags), "cuMulticastBindAddr_v2")
 }
 
 // MulticastBindMem Bind a memory allocation represented by a handle to a multicast object.
@@ -8016,7 +8016,7 @@ func MulticastBindMem(mcHandle uint64, mcOffset uint, memHandle uint64, memOffse
 	if err := checkLibSym("cuMulticastBindMem"); err != nil {
 		return err
 	}
-	return toError(fnMulticastBindMem(mcHandle, mcOffset, memHandle, memOffset, size, flags))
+	return toError(fnMulticastBindMem(mcHandle, mcOffset, memHandle, memOffset, size, flags), "cuMulticastBindMem")
 }
 
 // multicastBindMemV2 Bind a memory allocation represented by a handle to a multicast object.
@@ -8036,7 +8036,7 @@ func multicastBindMemV2(mcHandle uint64, dev Device, mcOffset uint, memHandle ui
 	if err := checkLibSym("cuMulticastBindMem_v2"); err != nil {
 		return err
 	}
-	return toError(fnmulticastBindMemV2(mcHandle, dev, mcOffset, memHandle, memOffset, size, flags))
+	return toError(fnmulticastBindMemV2(mcHandle, dev, mcOffset, memHandle, memOffset, size, flags), "cuMulticastBindMem_v2")
 }
 
 // MulticastCreate Create a generic allocation handle representing a multicast object described by the given properties.
@@ -8052,7 +8052,7 @@ func MulticastCreate(prop *MulticastObjectProp) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnMulticastCreate(&out, prop)); err != nil {
+	if err := toError(fnMulticastCreate(&out, prop), "cuMulticastCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -8073,7 +8073,7 @@ func MulticastGetGranularity(prop *MulticastObjectProp, option Multicastgranular
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnMulticastGetGranularity(&out, prop, option)); err != nil {
+	if err := toError(fnMulticastGetGranularity(&out, prop, option), "cuMulticastGetGranularity"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -8094,7 +8094,7 @@ func multicastUnbind(mcHandle uint64, dev Device, mcOffset uint, size uint) erro
 	if err := checkLibSym("cuMulticastUnbind"); err != nil {
 		return err
 	}
-	return toError(fnmulticastUnbind(mcHandle, dev, mcOffset, size))
+	return toError(fnmulticastUnbind(mcHandle, dev, mcOffset, size), "cuMulticastUnbind")
 }
 
 // occupancyAvailableDynamicSMemPerBlock Returns dynamic shared memory available per block when launching numBlocks blocks on SM.
@@ -8112,7 +8112,7 @@ func occupancyAvailableDynamicSMemPerBlock(func_ Function, numBlocks int32, bloc
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnoccupancyAvailableDynamicSMemPerBlock(&out, func_, numBlocks, blockSize)); err != nil {
+	if err := toError(fnoccupancyAvailableDynamicSMemPerBlock(&out, func_, numBlocks, blockSize), "cuOccupancyAvailableDynamicSMemPerBlock"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -8134,7 +8134,7 @@ func occupancyMaxActiveBlocksPerMultiprocessor(func_ Function, blockSize int32, 
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessor(&out, func_, blockSize, dynamicSMemSize)); err != nil {
+	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessor(&out, func_, blockSize, dynamicSMemSize), "cuOccupancyMaxActiveBlocksPerMultiprocessor"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -8157,7 +8157,7 @@ func occupancyMaxActiveBlocksPerMultiprocessorWithFlags(func_ Function, blockSiz
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags(&out, func_, blockSize, dynamicSMemSize, uint32(flags))); err != nil {
+	if err := toError(fnoccupancyMaxActiveBlocksPerMultiprocessorWithFlags(&out, func_, blockSize, dynamicSMemSize, uint32(flags)), "cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -8178,7 +8178,7 @@ func occupancyMaxActiveClusters(func_ Function, config *LaunchConfig) (int32, er
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnoccupancyMaxActiveClusters(&out, func_, config)); err != nil {
+	if err := toError(fnoccupancyMaxActiveClusters(&out, func_, config), "cuOccupancyMaxActiveClusters"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -8201,7 +8201,7 @@ func occupancyMaxPotentialBlockSize(func_ Function, blockSizeToDynamicSMemSize u
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fnoccupancyMaxPotentialBlockSize(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit)); err != nil {
+	if err := toError(fnoccupancyMaxPotentialBlockSize(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit), "cuOccupancyMaxPotentialBlockSize"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -8224,7 +8224,7 @@ func occupancyMaxPotentialBlockSizeWithFlags(func_ Function, blockSizeToDynamicS
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fnoccupancyMaxPotentialBlockSizeWithFlags(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, uint32(flags))); err != nil {
+	if err := toError(fnoccupancyMaxPotentialBlockSizeWithFlags(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, uint32(flags)), "cuOccupancyMaxPotentialBlockSizeWithFlags"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -8244,7 +8244,7 @@ func occupancyMaxPotentialClusterSize(func_ Function, config *LaunchConfig) (int
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnoccupancyMaxPotentialClusterSize(&out, func_, config)); err != nil {
+	if err := toError(fnoccupancyMaxPotentialClusterSize(&out, func_, config), "cuOccupancyMaxPotentialClusterSize"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -8265,7 +8265,7 @@ func paramSetSize(hfunc Function, numbytes uint32) error {
 	if err := checkLibSym("cuParamSetSize"); err != nil {
 		return err
 	}
-	return toError(fnparamSetSize(hfunc, numbytes))
+	return toError(fnparamSetSize(hfunc, numbytes), "cuParamSetSize")
 }
 
 // paramSetTexRef Adds a texture-reference to the function's argument list
@@ -8281,7 +8281,7 @@ func paramSetTexRef(hfunc Function, texunit int32, hTexRef TexRef) error {
 	if err := checkLibSym("cuParamSetTexRef"); err != nil {
 		return err
 	}
-	return toError(fnparamSetTexRef(hfunc, texunit, hTexRef))
+	return toError(fnparamSetTexRef(hfunc, texunit, hTexRef), "cuParamSetTexRef")
 }
 
 // paramSetf Adds a floating-point parameter to the function's argument list
@@ -8299,7 +8299,7 @@ func paramSetf(hfunc Function, offset int32, value float32) error {
 	if err := checkLibSym("cuParamSetf"); err != nil {
 		return err
 	}
-	return toError(fnparamSetf(hfunc, offset, value))
+	return toError(fnparamSetf(hfunc, offset, value), "cuParamSetf")
 }
 
 // paramSeti Adds an integer parameter to the function's argument list
@@ -8317,7 +8317,7 @@ func paramSeti(hfunc Function, offset int32, value uint32) error {
 	if err := checkLibSym("cuParamSeti"); err != nil {
 		return err
 	}
-	return toError(fnparamSeti(hfunc, offset, value))
+	return toError(fnparamSeti(hfunc, offset, value), "cuParamSeti")
 }
 
 // paramSetv Adds arbitrary data to the function's argument list
@@ -8336,7 +8336,7 @@ func paramSetv(hfunc Function, offset int32, ptr unsafe.Pointer, numbytes uint32
 	if err := checkLibSym("cuParamSetv"); err != nil {
 		return err
 	}
-	return toError(fnparamSetv(hfunc, offset, ptr, numbytes))
+	return toError(fnparamSetv(hfunc, offset, ptr, numbytes), "cuParamSetv")
 }
 
 // pointerGetAttribute Returns information about a pointer.
@@ -8352,7 +8352,7 @@ func pointerGetAttribute(data unsafe.Pointer, attribute PointerAttribute, ptr De
 	if err := checkLibSym("cuPointerGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnpointerGetAttribute(data, attribute, ptr))
+	return toError(fnpointerGetAttribute(data, attribute, ptr), "cuPointerGetAttribute")
 }
 
 // pointerGetAttributes Returns information about a pointer.
@@ -8369,7 +8369,7 @@ func pointerGetAttributes(numAttributes uint32, attributes *PointerAttribute, da
 	if err := checkLibSym("cuPointerGetAttributes"); err != nil {
 		return err
 	}
-	return toError(fnpointerGetAttributes(numAttributes, attributes, data, ptr))
+	return toError(fnpointerGetAttributes(numAttributes, attributes, data, ptr), "cuPointerGetAttributes")
 }
 
 // pointerSetAttribute Set attributes on a previously allocated memory region.
@@ -8385,7 +8385,7 @@ func pointerSetAttribute(value uintptr, attribute PointerAttribute, ptr DevicePt
 	if err := checkLibSym("cuPointerSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnpointerSetAttribute(value, attribute, ptr))
+	return toError(fnpointerSetAttribute(value, attribute, ptr), "cuPointerSetAttribute")
 }
 
 // signalExternalSemaphoresAsync Signals a set of external semaphore objects.
@@ -8402,7 +8402,7 @@ func signalExternalSemaphoresAsync(extSemArray *ExternalSemaphore, paramsArray *
 	if err := checkLibSym("cuSignalExternalSemaphoresAsync"); err != nil {
 		return err
 	}
-	return toError(fnsignalExternalSemaphoresAsync(extSemArray, paramsArray, numExtSems, stream))
+	return toError(fnsignalExternalSemaphoresAsync(extSemArray, paramsArray, numExtSems, stream), "cuSignalExternalSemaphoresAsync")
 }
 
 // streamAddCallback Add a callback to a compute stream.
@@ -8419,7 +8419,7 @@ func streamAddCallback(hStream Stream, callback uintptr, userData uintptr, flags
 	if err := checkLibSym("cuStreamAddCallback"); err != nil {
 		return err
 	}
-	return toError(fnstreamAddCallback(hStream, callback, userData, flags))
+	return toError(fnstreamAddCallback(hStream, callback, userData, flags), "cuStreamAddCallback")
 }
 
 // streamAttachMemAsync Attach memory to a stream asynchronously.
@@ -8436,7 +8436,7 @@ func streamAttachMemAsync(hStream Stream, dptr DevicePtr, length uint, flags Mem
 	if err := checkLibSym("cuStreamAttachMemAsync"); err != nil {
 		return err
 	}
-	return toError(fnstreamAttachMemAsync(hStream, dptr, length, uint32(flags)))
+	return toError(fnstreamAttachMemAsync(hStream, dptr, length, uint32(flags)), "cuStreamAttachMemAsync")
 }
 
 // streamBatchMemOp Batch operations to synchronize the stream via memory operations
@@ -8471,7 +8471,7 @@ func streamBatchMemOp(stream Stream, count uint32, paramArray *[6]uint64, flags 
 	if err := checkLibSym("cuStreamBatchMemOp_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamBatchMemOp(stream, count, paramArray, flags))
+	return toError(fnstreamBatchMemOp(stream, count, paramArray, flags), "cuStreamBatchMemOp_v2")
 }
 
 // streamBeginCapture Begins graph capture on a stream.
@@ -8486,7 +8486,7 @@ func streamBeginCapture(hStream Stream, mode StreamCaptureMode) error {
 	if err := checkLibSym("cuStreamBeginCapture_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamBeginCapture(hStream, mode))
+	return toError(fnstreamBeginCapture(hStream, mode), "cuStreamBeginCapture_v2")
 }
 
 // streamBeginCaptureToCig Begins capture to CIG on a stream.
@@ -8501,7 +8501,7 @@ func streamBeginCaptureToCig(hStream Stream, streamCigCaptureParams *StreamCigCa
 	if err := checkLibSym("cuStreamBeginCaptureToCig"); err != nil {
 		return err
 	}
-	return toError(fnstreamBeginCaptureToCig(hStream, streamCigCaptureParams))
+	return toError(fnstreamBeginCaptureToCig(hStream, streamCigCaptureParams), "cuStreamBeginCaptureToCig")
 }
 
 // streamBeginCaptureToGraph Begins graph capture on a stream to an existing graph.
@@ -8520,7 +8520,7 @@ func streamBeginCaptureToGraph(hStream Stream, hGraph Graph, dependencies *Graph
 	if err := checkLibSym("cuStreamBeginCaptureToGraph"); err != nil {
 		return err
 	}
-	return toError(fnstreamBeginCaptureToGraph(hStream, hGraph, dependencies, dependencyData, numDependencies, mode))
+	return toError(fnstreamBeginCaptureToGraph(hStream, hGraph, dependencies, dependencyData, numDependencies, mode), "cuStreamBeginCaptureToGraph")
 }
 
 // streamCopyAttributes Copies attributes from source stream to destination stream.
@@ -8535,7 +8535,7 @@ func streamCopyAttributes(dst Stream, src Stream) error {
 	if err := checkLibSym("cuStreamCopyAttributes"); err != nil {
 		return err
 	}
-	return toError(fnstreamCopyAttributes(dst, src))
+	return toError(fnstreamCopyAttributes(dst, src), "cuStreamCopyAttributes")
 }
 
 // streamCreate Create a stream.
@@ -8551,7 +8551,7 @@ func streamCreate(flags StreamFlags) (Stream, error) {
 		return zero, err
 	}
 	var out Stream
-	if err := toError(fnstreamCreate(&out, uint32(flags))); err != nil {
+	if err := toError(fnstreamCreate(&out, uint32(flags)), "cuStreamCreate"); err != nil {
 		var zero Stream
 		return zero, err
 	}
@@ -8572,7 +8572,7 @@ func streamCreateWithPriority(flags uint32, priority int32) (Stream, error) {
 		return zero, err
 	}
 	var out Stream
-	if err := toError(fnstreamCreateWithPriority(&out, flags, priority)); err != nil {
+	if err := toError(fnstreamCreateWithPriority(&out, flags, priority), "cuStreamCreateWithPriority"); err != nil {
 		var zero Stream
 		return zero, err
 	}
@@ -8590,7 +8590,7 @@ func streamDestroy(hStream Stream) error {
 	if err := checkLibSym("cuStreamDestroy_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamDestroy(hStream))
+	return toError(fnstreamDestroy(hStream), "cuStreamDestroy_v2")
 }
 
 // streamEndCapture Ends capture on a stream, returning the captured graph.
@@ -8606,7 +8606,7 @@ func streamEndCapture(hStream Stream) (Graph, error) {
 		return zero, err
 	}
 	var out Graph
-	if err := toError(fnstreamEndCapture(hStream, &out)); err != nil {
+	if err := toError(fnstreamEndCapture(hStream, &out), "cuStreamEndCapture"); err != nil {
 		var zero Graph
 		return zero, err
 	}
@@ -8624,7 +8624,7 @@ func streamEndCaptureToCig(hStream Stream) error {
 	if err := checkLibSym("cuStreamEndCaptureToCig"); err != nil {
 		return err
 	}
-	return toError(fnstreamEndCaptureToCig(hStream))
+	return toError(fnstreamEndCaptureToCig(hStream), "cuStreamEndCaptureToCig")
 }
 
 // streamGetAttribute Queries stream attribute.
@@ -8638,7 +8638,7 @@ func streamGetAttribute(hStream Stream, attr int32) ([8]uint64, error) {
 		return zero, err
 	}
 	var out [8]uint64
-	if err := toError(fnstreamGetAttribute(hStream, attr, &out)); err != nil {
+	if err := toError(fnstreamGetAttribute(hStream, attr, &out), "cuStreamGetAttribute"); err != nil {
 		var zero [8]uint64
 		return zero, err
 	}
@@ -8662,7 +8662,7 @@ func streamGetCaptureInfo(hStream Stream, captureStatusOut *StreamCaptureStatus,
 	if err := checkLibSym("cuStreamGetCaptureInfo_v3"); err != nil {
 		return err
 	}
-	return toError(fnstreamGetCaptureInfo(hStream, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut))
+	return toError(fnstreamGetCaptureInfo(hStream, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut), "cuStreamGetCaptureInfo_v3")
 }
 
 // streamGetCtx Query the contexts associated with a stream.
@@ -8678,7 +8678,7 @@ func streamGetCtx(hStream Stream) (pCtx Context, pGreenCtx GreenCtx, err error) 
 	}
 	var out1 Context
 	var out2 GreenCtx
-	if err := toError(fnstreamGetCtx(hStream, &out1, &out2)); err != nil {
+	if err := toError(fnstreamGetCtx(hStream, &out1, &out2), "cuStreamGetCtx_v2"); err != nil {
 		return 0, 0, err
 	}
 	return out1, out2, nil
@@ -8703,7 +8703,7 @@ func streamGetDevResource(hStream Stream, type_ DevResourceType) (DevResource, e
 		return zero, err
 	}
 	var out DevResource
-	if err := toError(fnstreamGetDevResource(hStream, &out, type_)); err != nil {
+	if err := toError(fnstreamGetDevResource(hStream, &out, type_), "cuStreamGetDevResource"); err != nil {
 		var zero DevResource
 		return zero, err
 	}
@@ -8723,7 +8723,7 @@ func streamGetDevice(hStream Stream) (Device, error) {
 		return zero, err
 	}
 	var out Device
-	if err := toError(fnstreamGetDevice(hStream, &out)); err != nil {
+	if err := toError(fnstreamGetDevice(hStream, &out), "cuStreamGetDevice"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -8743,7 +8743,7 @@ func streamGetFlags(hStream Stream) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnstreamGetFlags(hStream, &out)); err != nil {
+	if err := toError(fnstreamGetFlags(hStream, &out), "cuStreamGetFlags"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -8782,7 +8782,7 @@ func streamGetGreenCtx(hStream Stream) (GreenCtx, error) {
 		return zero, err
 	}
 	var out GreenCtx
-	if err := toError(fnstreamGetGreenCtx(hStream, &out)); err != nil {
+	if err := toError(fnstreamGetGreenCtx(hStream, &out), "cuStreamGetGreenCtx"); err != nil {
 		var zero GreenCtx
 		return zero, err
 	}
@@ -8802,7 +8802,7 @@ func streamGetId(hStream Stream) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnstreamGetId(hStream, &out)); err != nil {
+	if err := toError(fnstreamGetId(hStream, &out), "cuStreamGetId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -8822,7 +8822,7 @@ func streamGetPriority(hStream Stream) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnstreamGetPriority(hStream, &out)); err != nil {
+	if err := toError(fnstreamGetPriority(hStream, &out), "cuStreamGetPriority"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -8842,7 +8842,7 @@ func streamIsCapturing(hStream Stream) (StreamCaptureStatus, error) {
 		return zero, err
 	}
 	var out StreamCaptureStatus
-	if err := toError(fnstreamIsCapturing(hStream, &out)); err != nil {
+	if err := toError(fnstreamIsCapturing(hStream, &out), "cuStreamIsCapturing"); err != nil {
 		var zero StreamCaptureStatus
 		return zero, err
 	}
@@ -8860,7 +8860,7 @@ func streamQuery(hStream Stream) error {
 	if err := checkLibSym("cuStreamQuery"); err != nil {
 		return err
 	}
-	return toError(fnstreamQuery(hStream))
+	return toError(fnstreamQuery(hStream), "cuStreamQuery")
 }
 
 // streamSetAttribute Sets stream attribute.
@@ -8872,7 +8872,7 @@ func streamSetAttribute(hStream Stream, attr int32, value *[8]uint64) error {
 	if err := checkLibSym("cuStreamSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnstreamSetAttribute(hStream, attr, value))
+	return toError(fnstreamSetAttribute(hStream, attr, value), "cuStreamSetAttribute")
 }
 
 // streamSynchronize Wait until a stream's tasks are completed.
@@ -8886,7 +8886,7 @@ func streamSynchronize(hStream Stream) error {
 	if err := checkLibSym("cuStreamSynchronize"); err != nil {
 		return err
 	}
-	return toError(fnstreamSynchronize(hStream))
+	return toError(fnstreamSynchronize(hStream), "cuStreamSynchronize")
 }
 
 // streamUpdateCaptureDependencies Update the set of dependencies in a capturing stream.
@@ -8904,7 +8904,7 @@ func streamUpdateCaptureDependencies(hStream Stream, dependencies *GraphNode, de
 	if err := checkLibSym("cuStreamUpdateCaptureDependencies_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamUpdateCaptureDependencies(hStream, dependencies, dependencyData, numDependencies, uint32(flags)))
+	return toError(fnstreamUpdateCaptureDependencies(hStream, dependencies, dependencyData, numDependencies, uint32(flags)), "cuStreamUpdateCaptureDependencies_v2")
 }
 
 // streamWaitEvent Make a compute stream wait on an event.
@@ -8920,7 +8920,7 @@ func streamWaitEvent(hStream Stream, hEvent Event, flags EventWaitFlags) error {
 	if err := checkLibSym("cuStreamWaitEvent"); err != nil {
 		return err
 	}
-	return toError(fnstreamWaitEvent(hStream, hEvent, uint32(flags)))
+	return toError(fnstreamWaitEvent(hStream, hEvent, uint32(flags)), "cuStreamWaitEvent")
 }
 
 // streamWaitValue32 Wait on a memory location
@@ -8957,7 +8957,7 @@ func streamWaitValue32(stream Stream, addr DevicePtr, value uint32, flags Stream
 	if err := checkLibSym("cuStreamWaitValue32_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamWaitValue32(stream, addr, value, uint32(flags)))
+	return toError(fnstreamWaitValue32(stream, addr, value, uint32(flags)), "cuStreamWaitValue32_v2")
 }
 
 // streamWaitValue64 Wait on a memory location
@@ -8993,7 +8993,7 @@ func streamWaitValue64(stream Stream, addr DevicePtr, value uint64, flags Stream
 	if err := checkLibSym("cuStreamWaitValue64_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamWaitValue64(stream, addr, value, uint32(flags)))
+	return toError(fnstreamWaitValue64(stream, addr, value, uint32(flags)), "cuStreamWaitValue64_v2")
 }
 
 // streamWriteValue32 Write a value to memory
@@ -9016,7 +9016,7 @@ func streamWriteValue32(stream Stream, addr DevicePtr, value uint32, flags Strea
 	if err := checkLibSym("cuStreamWriteValue32_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamWriteValue32(stream, addr, value, uint32(flags)))
+	return toError(fnstreamWriteValue32(stream, addr, value, uint32(flags)), "cuStreamWriteValue32_v2")
 }
 
 // streamWriteValue64 Write a value to memory
@@ -9041,7 +9041,7 @@ func streamWriteValue64(stream Stream, addr DevicePtr, value uint64, flags Strea
 	if err := checkLibSym("cuStreamWriteValue64_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamWriteValue64(stream, addr, value, uint32(flags)))
+	return toError(fnstreamWriteValue64(stream, addr, value, uint32(flags)), "cuStreamWriteValue64_v2")
 }
 
 // SurfObjectCreate Creates a surface object.
@@ -9057,7 +9057,7 @@ func SurfObjectCreate(pResDesc *ResourceDesc) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnSurfObjectCreate(&out, pResDesc)); err != nil {
+	if err := toError(fnSurfObjectCreate(&out, pResDesc), "cuSurfObjectCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -9075,7 +9075,7 @@ func SurfObjectDestroy(surfObject uint64) error {
 	if err := checkLibSym("cuSurfObjectDestroy"); err != nil {
 		return err
 	}
-	return toError(fnSurfObjectDestroy(surfObject))
+	return toError(fnSurfObjectDestroy(surfObject), "cuSurfObjectDestroy")
 }
 
 // SurfObjectGetResourceDesc Returns a surface object's resource descriptor.
@@ -9091,7 +9091,7 @@ func SurfObjectGetResourceDesc(surfObject uint64) (ResourceDesc, error) {
 		return zero, err
 	}
 	var out ResourceDesc
-	if err := toError(fnSurfObjectGetResourceDesc(&out, surfObject)); err != nil {
+	if err := toError(fnSurfObjectGetResourceDesc(&out, surfObject), "cuSurfObjectGetResourceDesc"); err != nil {
 		var zero ResourceDesc
 		return zero, err
 	}
@@ -9113,7 +9113,7 @@ func surfRefGetArray(hSurfRef SurfRef) (Array, error) {
 		return zero, err
 	}
 	var out Array
-	if err := toError(fnsurfRefGetArray(&out, hSurfRef)); err != nil {
+	if err := toError(fnsurfRefGetArray(&out, hSurfRef), "cuSurfRefGetArray"); err != nil {
 		var zero Array
 		return zero, err
 	}
@@ -9135,7 +9135,7 @@ func surfRefSetArray(hSurfRef SurfRef, hArray Array, flags uint32) error {
 	if err := checkLibSym("cuSurfRefSetArray"); err != nil {
 		return err
 	}
-	return toError(fnsurfRefSetArray(hSurfRef, hArray, flags))
+	return toError(fnsurfRefSetArray(hSurfRef, hArray, flags), "cuSurfRefSetArray")
 }
 
 // TensorMapEncodeIm2col Create a tensor map descriptor object representing im2col memory region
@@ -9261,7 +9261,7 @@ func TensorMapEncodeIm2col(tensorMap *TensorMap, tensorDataType TensorMapDataTyp
 	if err := checkLibSym("cuTensorMapEncodeIm2col"); err != nil {
 		return err
 	}
-	return toError(fnTensorMapEncodeIm2col(tensorMap, tensorDataType, tensorRank, globalAddress, globalDim, globalStrides, pixelBoxLowerCorner, pixelBoxUpperCorner, channelsPerPixel, pixelsPerColumn, elementStrides, interleave, swizzle, l2Promotion, oobFill))
+	return toError(fnTensorMapEncodeIm2col(tensorMap, tensorDataType, tensorRank, globalAddress, globalDim, globalStrides, pixelBoxLowerCorner, pixelBoxUpperCorner, channelsPerPixel, pixelsPerColumn, elementStrides, interleave, swizzle, l2Promotion, oobFill), "cuTensorMapEncodeIm2col")
 }
 
 // TensorMapEncodeIm2colWide Create a tensor map descriptor object representing im2col memory region, but where the elements are exclusively loaded along the W dimension.
@@ -9389,7 +9389,7 @@ func TensorMapEncodeIm2colWide(tensorMap *TensorMap, tensorDataType TensorMapDat
 	if err := checkLibSym("cuTensorMapEncodeIm2colWide"); err != nil {
 		return err
 	}
-	return toError(fnTensorMapEncodeIm2colWide(tensorMap, tensorDataType, tensorRank, globalAddress, globalDim, globalStrides, pixelBoxLowerCornerWidth, pixelBoxUpperCornerWidth, channelsPerPixel, pixelsPerColumn, elementStrides, interleave, mode, swizzle, l2Promotion, oobFill))
+	return toError(fnTensorMapEncodeIm2colWide(tensorMap, tensorDataType, tensorRank, globalAddress, globalDim, globalStrides, pixelBoxLowerCornerWidth, pixelBoxUpperCornerWidth, channelsPerPixel, pixelsPerColumn, elementStrides, interleave, mode, swizzle, l2Promotion, oobFill), "cuTensorMapEncodeIm2colWide")
 }
 
 // TensorMapEncodeTiled Create a tensor map descriptor object representing tiled memory region
@@ -9499,7 +9499,7 @@ func TensorMapEncodeTiled(tensorMap *TensorMap, tensorDataType TensorMapDataType
 	if err := checkLibSym("cuTensorMapEncodeTiled"); err != nil {
 		return err
 	}
-	return toError(fnTensorMapEncodeTiled(tensorMap, tensorDataType, tensorRank, globalAddress, globalDim, globalStrides, boxDim, elementStrides, interleave, swizzle, l2Promotion, oobFill))
+	return toError(fnTensorMapEncodeTiled(tensorMap, tensorDataType, tensorRank, globalAddress, globalDim, globalStrides, boxDim, elementStrides, interleave, swizzle, l2Promotion, oobFill), "cuTensorMapEncodeTiled")
 }
 
 // TensorMapReplaceAddress Modify an existing tensor map descriptor with an updated global address
@@ -9521,7 +9521,7 @@ func TensorMapReplaceAddress(tensorMap *TensorMap, globalAddress uintptr) error 
 	if err := checkLibSym("cuTensorMapReplaceAddress"); err != nil {
 		return err
 	}
-	return toError(fnTensorMapReplaceAddress(tensorMap, globalAddress))
+	return toError(fnTensorMapReplaceAddress(tensorMap, globalAddress), "cuTensorMapReplaceAddress")
 }
 
 // TexObjectCreate Creates a texture object.
@@ -9539,7 +9539,7 @@ func TexObjectCreate(pResDesc *ResourceDesc, pTexDesc *TextureDesc, pResViewDesc
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnTexObjectCreate(&out, pResDesc, pTexDesc, pResViewDesc)); err != nil {
+	if err := toError(fnTexObjectCreate(&out, pResDesc, pTexDesc, pResViewDesc), "cuTexObjectCreate"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -9557,7 +9557,7 @@ func TexObjectDestroy(texObject uint64) error {
 	if err := checkLibSym("cuTexObjectDestroy"); err != nil {
 		return err
 	}
-	return toError(fnTexObjectDestroy(texObject))
+	return toError(fnTexObjectDestroy(texObject), "cuTexObjectDestroy")
 }
 
 // TexObjectGetResourceDesc Returns a texture object's resource descriptor.
@@ -9573,7 +9573,7 @@ func TexObjectGetResourceDesc(texObject uint64) (ResourceDesc, error) {
 		return zero, err
 	}
 	var out ResourceDesc
-	if err := toError(fnTexObjectGetResourceDesc(&out, texObject)); err != nil {
+	if err := toError(fnTexObjectGetResourceDesc(&out, texObject), "cuTexObjectGetResourceDesc"); err != nil {
 		var zero ResourceDesc
 		return zero, err
 	}
@@ -9593,7 +9593,7 @@ func TexObjectGetResourceViewDesc(texObject uint64) (ResourceViewDesc, error) {
 		return zero, err
 	}
 	var out ResourceViewDesc
-	if err := toError(fnTexObjectGetResourceViewDesc(&out, texObject)); err != nil {
+	if err := toError(fnTexObjectGetResourceViewDesc(&out, texObject), "cuTexObjectGetResourceViewDesc"); err != nil {
 		var zero ResourceViewDesc
 		return zero, err
 	}
@@ -9613,7 +9613,7 @@ func TexObjectGetTextureDesc(texObject uint64) (TextureDesc, error) {
 		return zero, err
 	}
 	var out TextureDesc
-	if err := toError(fnTexObjectGetTextureDesc(&out, texObject)); err != nil {
+	if err := toError(fnTexObjectGetTextureDesc(&out, texObject), "cuTexObjectGetTextureDesc"); err != nil {
 		var zero TextureDesc
 		return zero, err
 	}
@@ -9633,7 +9633,7 @@ func texRefCreate() (TexRef, error) {
 		return zero, err
 	}
 	var out TexRef
-	if err := toError(fntexRefCreate(&out)); err != nil {
+	if err := toError(fntexRefCreate(&out), "cuTexRefCreate"); err != nil {
 		var zero TexRef
 		return zero, err
 	}
@@ -9653,7 +9653,7 @@ func texRefDestroy(hTexRef TexRef) error {
 	if err := checkLibSym("cuTexRefDestroy"); err != nil {
 		return err
 	}
-	return toError(fntexRefDestroy(hTexRef))
+	return toError(fntexRefDestroy(hTexRef), "cuTexRefDestroy")
 }
 
 // texRefGetAddress Gets the address associated with a texture reference.
@@ -9671,7 +9671,7 @@ func texRefGetAddress(hTexRef TexRef) (DevicePtr, error) {
 		return zero, err
 	}
 	var out DevicePtr
-	if err := toError(fntexRefGetAddress(&out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetAddress(&out, hTexRef), "cuTexRefGetAddress_v2"); err != nil {
 		var zero DevicePtr
 		return zero, err
 	}
@@ -9694,7 +9694,7 @@ func texRefGetAddressMode(hTexRef TexRef, dim int32) (AddressMode, error) {
 		return zero, err
 	}
 	var out AddressMode
-	if err := toError(fntexRefGetAddressMode(&out, hTexRef, dim)); err != nil {
+	if err := toError(fntexRefGetAddressMode(&out, hTexRef, dim), "cuTexRefGetAddressMode"); err != nil {
 		var zero AddressMode
 		return zero, err
 	}
@@ -9716,7 +9716,7 @@ func texRefGetArray(hTexRef TexRef) (Array, error) {
 		return zero, err
 	}
 	var out Array
-	if err := toError(fntexRefGetArray(&out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetArray(&out, hTexRef), "cuTexRefGetArray"); err != nil {
 		var zero Array
 		return zero, err
 	}
@@ -9738,7 +9738,7 @@ func texRefGetBorderColor(hTexRef TexRef) (float32, error) {
 		return zero, err
 	}
 	var out float32
-	if err := toError(fntexRefGetBorderColor(&out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetBorderColor(&out, hTexRef), "cuTexRefGetBorderColor"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -9760,7 +9760,7 @@ func texRefGetFilterMode(hTexRef TexRef) (FilterMode, error) {
 		return zero, err
 	}
 	var out FilterMode
-	if err := toError(fntexRefGetFilterMode(&out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetFilterMode(&out, hTexRef), "cuTexRefGetFilterMode"); err != nil {
 		var zero FilterMode
 		return zero, err
 	}
@@ -9782,7 +9782,7 @@ func texRefGetFlags(hTexRef TexRef) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fntexRefGetFlags(&out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetFlags(&out, hTexRef), "cuTexRefGetFlags"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -9804,7 +9804,7 @@ func texRefGetFormat(hTexRef TexRef) (pFormat ArrayFormat, pNumChannels int32, e
 	}
 	var out0 ArrayFormat
 	var out1 int32
-	if err := toError(fntexRefGetFormat(&out0, &out1, hTexRef)); err != nil {
+	if err := toError(fntexRefGetFormat(&out0, &out1, hTexRef), "cuTexRefGetFormat"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -9825,7 +9825,7 @@ func texRefGetMaxAnisotropy(hTexRef TexRef) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fntexRefGetMaxAnisotropy(&out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetMaxAnisotropy(&out, hTexRef), "cuTexRefGetMaxAnisotropy"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -9847,7 +9847,7 @@ func texRefGetMipmapFilterMode(hTexRef TexRef) (FilterMode, error) {
 		return zero, err
 	}
 	var out FilterMode
-	if err := toError(fntexRefGetMipmapFilterMode(&out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetMipmapFilterMode(&out, hTexRef), "cuTexRefGetMipmapFilterMode"); err != nil {
 		var zero FilterMode
 		return zero, err
 	}
@@ -9869,7 +9869,7 @@ func texRefGetMipmapLevelBias(hTexRef TexRef) (float32, error) {
 		return zero, err
 	}
 	var out float32
-	if err := toError(fntexRefGetMipmapLevelBias(&out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetMipmapLevelBias(&out, hTexRef), "cuTexRefGetMipmapLevelBias"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -9891,7 +9891,7 @@ func texRefGetMipmapLevelClamp(hTexRef TexRef) (pminMipmapLevelClamp float32, pm
 	}
 	var out0 float32
 	var out1 float32
-	if err := toError(fntexRefGetMipmapLevelClamp(&out0, &out1, hTexRef)); err != nil {
+	if err := toError(fntexRefGetMipmapLevelClamp(&out0, &out1, hTexRef), "cuTexRefGetMipmapLevelClamp"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -9912,7 +9912,7 @@ func texRefGetMipmappedArray(hTexRef TexRef) (MipmappedArray, error) {
 		return zero, err
 	}
 	var out MipmappedArray
-	if err := toError(fntexRefGetMipmappedArray(&out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetMipmappedArray(&out, hTexRef), "cuTexRefGetMipmappedArray"); err != nil {
 		var zero MipmappedArray
 		return zero, err
 	}
@@ -9936,7 +9936,7 @@ func texRefSetAddress(hTexRef TexRef, dptr DevicePtr, bytes uint) (uint, error) 
 		return zero, err
 	}
 	var out uint
-	if err := toError(fntexRefSetAddress(&out, hTexRef, dptr, bytes)); err != nil {
+	if err := toError(fntexRefSetAddress(&out, hTexRef, dptr, bytes), "cuTexRefSetAddress_v2"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -9959,7 +9959,7 @@ func texRefSetAddress2D(hTexRef TexRef, desc *ArrayDescriptor, dptr DevicePtr, p
 	if err := checkLibSym("cuTexRefSetAddress2D_v3"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetAddress2D(hTexRef, desc, dptr, pitch))
+	return toError(fntexRefSetAddress2D(hTexRef, desc, dptr, pitch), "cuTexRefSetAddress2D_v3")
 }
 
 // texRefSetAddressMode Sets the addressing mode for a texture reference.
@@ -9977,7 +9977,7 @@ func texRefSetAddressMode(hTexRef TexRef, dim int32, am AddressMode) error {
 	if err := checkLibSym("cuTexRefSetAddressMode"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetAddressMode(hTexRef, dim, am))
+	return toError(fntexRefSetAddressMode(hTexRef, dim, am), "cuTexRefSetAddressMode")
 }
 
 // texRefSetArray Binds an array as a texture reference.
@@ -9995,7 +9995,7 @@ func texRefSetArray(hTexRef TexRef, hArray Array, flags uint32) error {
 	if err := checkLibSym("cuTexRefSetArray"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetArray(hTexRef, hArray, flags))
+	return toError(fntexRefSetArray(hTexRef, hArray, flags), "cuTexRefSetArray")
 }
 
 // texRefSetBorderColor Sets the border color for a texture reference.
@@ -10013,7 +10013,7 @@ func texRefSetBorderColor(hTexRef TexRef) (float32, error) {
 		return zero, err
 	}
 	var out float32
-	if err := toError(fntexRefSetBorderColor(hTexRef, &out)); err != nil {
+	if err := toError(fntexRefSetBorderColor(hTexRef, &out), "cuTexRefSetBorderColor"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -10034,7 +10034,7 @@ func texRefSetFilterMode(hTexRef TexRef, fm FilterMode) error {
 	if err := checkLibSym("cuTexRefSetFilterMode"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetFilterMode(hTexRef, fm))
+	return toError(fntexRefSetFilterMode(hTexRef, fm), "cuTexRefSetFilterMode")
 }
 
 // texRefSetFlags Sets the flags for a texture reference.
@@ -10051,7 +10051,7 @@ func texRefSetFlags(hTexRef TexRef, flags uint32) error {
 	if err := checkLibSym("cuTexRefSetFlags"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetFlags(hTexRef, flags))
+	return toError(fntexRefSetFlags(hTexRef, flags), "cuTexRefSetFlags")
 }
 
 // texRefSetFormat Sets the format for a texture reference.
@@ -10069,7 +10069,7 @@ func texRefSetFormat(hTexRef TexRef, fmt ArrayFormat, numPackedComponents int32)
 	if err := checkLibSym("cuTexRefSetFormat"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetFormat(hTexRef, fmt, numPackedComponents))
+	return toError(fntexRefSetFormat(hTexRef, fmt, numPackedComponents), "cuTexRefSetFormat")
 }
 
 // texRefSetMaxAnisotropy Sets the maximum anisotropy for a texture reference.
@@ -10086,7 +10086,7 @@ func texRefSetMaxAnisotropy(hTexRef TexRef, maxAniso uint32) error {
 	if err := checkLibSym("cuTexRefSetMaxAnisotropy"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetMaxAnisotropy(hTexRef, maxAniso))
+	return toError(fntexRefSetMaxAnisotropy(hTexRef, maxAniso), "cuTexRefSetMaxAnisotropy")
 }
 
 // texRefSetMipmapFilterMode Sets the mipmap filtering mode for a texture reference.
@@ -10103,7 +10103,7 @@ func texRefSetMipmapFilterMode(hTexRef TexRef, fm FilterMode) error {
 	if err := checkLibSym("cuTexRefSetMipmapFilterMode"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetMipmapFilterMode(hTexRef, fm))
+	return toError(fntexRefSetMipmapFilterMode(hTexRef, fm), "cuTexRefSetMipmapFilterMode")
 }
 
 // texRefSetMipmapLevelBias Sets the mipmap level bias for a texture reference.
@@ -10120,7 +10120,7 @@ func texRefSetMipmapLevelBias(hTexRef TexRef, bias float32) error {
 	if err := checkLibSym("cuTexRefSetMipmapLevelBias"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetMipmapLevelBias(hTexRef, bias))
+	return toError(fntexRefSetMipmapLevelBias(hTexRef, bias), "cuTexRefSetMipmapLevelBias")
 }
 
 // texRefSetMipmapLevelClamp Sets the mipmap min/max mipmap level clamps for a texture reference.
@@ -10138,7 +10138,7 @@ func texRefSetMipmapLevelClamp(hTexRef TexRef, minMipmapLevelClamp float32, maxM
 	if err := checkLibSym("cuTexRefSetMipmapLevelClamp"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetMipmapLevelClamp(hTexRef, minMipmapLevelClamp, maxMipmapLevelClamp))
+	return toError(fntexRefSetMipmapLevelClamp(hTexRef, minMipmapLevelClamp, maxMipmapLevelClamp), "cuTexRefSetMipmapLevelClamp")
 }
 
 // texRefSetMipmappedArray Binds a mipmapped array to a texture reference.
@@ -10156,7 +10156,7 @@ func texRefSetMipmappedArray(hTexRef TexRef, hMipmappedArray MipmappedArray, fla
 	if err := checkLibSym("cuTexRefSetMipmappedArray"); err != nil {
 		return err
 	}
-	return toError(fntexRefSetMipmappedArray(hTexRef, hMipmappedArray, flags))
+	return toError(fntexRefSetMipmappedArray(hTexRef, hMipmappedArray, flags), "cuTexRefSetMipmappedArray")
 }
 
 // ThreadExchangeStreamCaptureMode Swaps the stream capture interaction mode for a thread.
@@ -10170,7 +10170,7 @@ func ThreadExchangeStreamCaptureMode(mode *StreamCaptureMode) error {
 	if err := checkLibSym("cuThreadExchangeStreamCaptureMode"); err != nil {
 		return err
 	}
-	return toError(fnThreadExchangeStreamCaptureMode(mode))
+	return toError(fnThreadExchangeStreamCaptureMode(mode), "cuThreadExchangeStreamCaptureMode")
 }
 
 // userObjectCreate Create a user object.
@@ -10189,7 +10189,7 @@ func userObjectCreate(ptr uintptr, destroy uintptr, initialRefcount uint32, flag
 		return zero, err
 	}
 	var out UserObject
-	if err := toError(fnuserObjectCreate(&out, ptr, destroy, initialRefcount, uint32(flags))); err != nil {
+	if err := toError(fnuserObjectCreate(&out, ptr, destroy, initialRefcount, uint32(flags)), "cuUserObjectCreate"); err != nil {
 		var zero UserObject
 		return zero, err
 	}
@@ -10208,7 +10208,7 @@ func userObjectRelease(object UserObject, count uint32) error {
 	if err := checkLibSym("cuUserObjectRelease"); err != nil {
 		return err
 	}
-	return toError(fnuserObjectRelease(object, count))
+	return toError(fnuserObjectRelease(object, count), "cuUserObjectRelease")
 }
 
 // userObjectRetain Retain a reference to a user object.
@@ -10223,7 +10223,7 @@ func userObjectRetain(object UserObject, count uint32) error {
 	if err := checkLibSym("cuUserObjectRetain"); err != nil {
 		return err
 	}
-	return toError(fnuserObjectRetain(object, count))
+	return toError(fnuserObjectRetain(object, count), "cuUserObjectRetain")
 }
 
 // waitExternalSemaphoresAsync Waits on a set of external semaphore objects.
@@ -10240,5 +10240,5 @@ func waitExternalSemaphoresAsync(extSemArray *ExternalSemaphore, paramsArray *Ex
 	if err := checkLibSym("cuWaitExternalSemaphoresAsync"); err != nil {
 		return err
 	}
-	return toError(fnwaitExternalSemaphoresAsync(extSemArray, paramsArray, numExtSems, stream))
+	return toError(fnwaitExternalSemaphoresAsync(extSemArray, paramsArray, numExtSems, stream), "cuWaitExternalSemaphoresAsync")
 }

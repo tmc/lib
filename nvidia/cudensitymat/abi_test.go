@@ -291,10 +291,10 @@ func TestResultErrorText(t *testing.T) {
 	if got := ErrInvalidValue.String(); got != "ErrInvalidValue" {
 		t.Errorf("ErrInvalidValue.String() = %q", got)
 	}
-	if toError(Success) != nil {
+	if toError(Success, "cudensitymatTest") != nil {
 		t.Error("toError(Success) is non-nil")
 	}
-	if toError(ErrInvalidValue) == nil {
+	if toError(ErrInvalidValue, "cudensitymatTest") == nil {
 		t.Error("toError(ErrInvalidValue) is nil")
 	}
 }

@@ -12,10 +12,26 @@ func (r Error) Error() string {
 	return fmt.Sprintf("cufile: operation=%v cuda=%v", r.Err, r.CuErr)
 }
 
-// toError converts a Error to an error.
-func toError(r Error) error {
+// CallError reports that a library call returned a failure result.
+//
+// Unwrap returns Result, so errors.Is(err, c) matches a Error constant c
+// and errors.As(err, &r) with r a Error recovers the code.
+type CallError struct {
+	Func   string // the C symbol called
+	Result Error
+}
+
+// Error reports the C symbol called and the result it returned.
+func (e *CallError) Error() string { return e.Func + ": " + e.Result.Error() }
+
+// Unwrap returns the result the call reported.
+func (e *CallError) Unwrap() error { return e.Result }
+
+// toError returns nil if r reports success and otherwise a *CallError
+// naming fn, the C symbol that returned r.
+func toError(r Error, fn string) error {
 	if r.Err == Success {
 		return nil
 	}
-	return r
+	return &CallError{Func: fn, Result: r}
 }

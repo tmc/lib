@@ -25,7 +25,7 @@ func activateFabricPartition(pFmHandle Handle, partitionId uint32) error {
 	if err := checkLibSym("fmActivateFabricPartition"); err != nil {
 		return err
 	}
-	return toError(fnactivateFabricPartition(pFmHandle, partitionId))
+	return toError(fnactivateFabricPartition(pFmHandle, partitionId), "fmActivateFabricPartition")
 }
 
 // activateFabricPartitionWithVFs wraps fmActivateFabricPartitionWithVFs.
@@ -38,7 +38,7 @@ func activateFabricPartitionWithVFs(pFmHandle Handle, partitionId uint32, vfList
 	if err := checkLibSym("fmActivateFabricPartitionWithVFs"); err != nil {
 		return err
 	}
-	return toError(fnactivateFabricPartitionWithVFs(pFmHandle, partitionId, vfList, numVfs))
+	return toError(fnactivateFabricPartitionWithVFs(pFmHandle, partitionId, vfList, numVfs), "fmActivateFabricPartitionWithVFs")
 }
 
 // Connect wraps fmConnect.
@@ -50,7 +50,7 @@ func Connect(connectParams *ConnectParams) (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnConnect(connectParams, &out)); err != nil {
+	if err := toError(fnConnect(connectParams, &out), "fmConnect"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -65,7 +65,7 @@ func deactivateFabricPartition(pFmHandle Handle, partitionId uint32) error {
 	if err := checkLibSym("fmDeactivateFabricPartition"); err != nil {
 		return err
 	}
-	return toError(fndeactivateFabricPartition(pFmHandle, partitionId))
+	return toError(fndeactivateFabricPartition(pFmHandle, partitionId), "fmDeactivateFabricPartition")
 }
 
 // disconnect wraps fmDisconnect.
@@ -75,7 +75,7 @@ func disconnect(pFmHandle Handle) error {
 	if err := checkLibSym("fmDisconnect"); err != nil {
 		return err
 	}
-	return toError(fndisconnect(pFmHandle))
+	return toError(fndisconnect(pFmHandle), "fmDisconnect")
 }
 
 // getNvlinkFailedDevices wraps fmGetNvlinkFailedDevices.
@@ -86,7 +86,7 @@ func getNvlinkFailedDevices(pFmHandle Handle, pFmNvlinkFailedDevices *NvlinkFail
 	if err := checkLibSym("fmGetNvlinkFailedDevices"); err != nil {
 		return err
 	}
-	return toError(fngetNvlinkFailedDevices(pFmHandle, pFmNvlinkFailedDevices))
+	return toError(fngetNvlinkFailedDevices(pFmHandle, pFmNvlinkFailedDevices), "fmGetNvlinkFailedDevices")
 }
 
 // getSupportedFabricPartitions wraps fmGetSupportedFabricPartitions.
@@ -97,7 +97,7 @@ func getSupportedFabricPartitions(pFmHandle Handle, pFmFabricPartition *FabricPa
 	if err := checkLibSym("fmGetSupportedFabricPartitions"); err != nil {
 		return err
 	}
-	return toError(fngetSupportedFabricPartitions(pFmHandle, pFmFabricPartition))
+	return toError(fngetSupportedFabricPartitions(pFmHandle, pFmFabricPartition), "fmGetSupportedFabricPartitions")
 }
 
 // getUnsupportedFabricPartitions wraps fmGetUnsupportedFabricPartitions.
@@ -108,7 +108,7 @@ func getUnsupportedFabricPartitions(pFmHandle Handle, pFmUnupportedFabricPartiti
 	if err := checkLibSym("fmGetUnsupportedFabricPartitions"); err != nil {
 		return err
 	}
-	return toError(fngetUnsupportedFabricPartitions(pFmHandle, pFmUnupportedFabricPartition))
+	return toError(fngetUnsupportedFabricPartitions(pFmHandle, pFmUnupportedFabricPartition), "fmGetUnsupportedFabricPartitions")
 }
 
 // LibInit wraps fmLibInit.
@@ -116,7 +116,7 @@ func LibInit() error {
 	if err := checkLibSym("fmLibInit"); err != nil {
 		return err
 	}
-	return toError(fnLibInit())
+	return toError(fnLibInit(), "fmLibInit")
 }
 
 // LibShutdown wraps fmLibShutdown.
@@ -124,7 +124,7 @@ func LibShutdown() error {
 	if err := checkLibSym("fmLibShutdown"); err != nil {
 		return err
 	}
-	return toError(fnLibShutdown())
+	return toError(fnLibShutdown(), "fmLibShutdown")
 }
 
 // setActivatedFabricPartitions wraps fmSetActivatedFabricPartitions.
@@ -135,5 +135,5 @@ func setActivatedFabricPartitions(pFmHandle Handle, pFmActivatedPartitionList *A
 	if err := checkLibSym("fmSetActivatedFabricPartitions"); err != nil {
 		return err
 	}
-	return toError(fnsetActivatedFabricPartitions(pFmHandle, pFmActivatedPartitionList))
+	return toError(fnsetActivatedFabricPartitions(pFmHandle, pFmActivatedPartitionList), "fmSetActivatedFabricPartitions")
 }

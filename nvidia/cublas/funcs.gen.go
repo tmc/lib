@@ -552,7 +552,7 @@ func asumEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 	if err := checkLibSym("cublasAsumEx"); err != nil {
 		return err
 	}
-	return toError(fnasumEx(handle, n, uintptr(x), xType, incx, result, resultType, executiontype))
+	return toError(fnasumEx(handle, n, uintptr(x), xType, incx, result, resultType, executiontype), "cublasAsumEx")
 }
 
 // asumEx64 wraps cublasAsumEx_64.
@@ -560,7 +560,7 @@ func asumEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 	if err := checkLibSym("cublasAsumEx_64"); err != nil {
 		return err
 	}
-	return toError(fnasumEx64(handle, n, uintptr(x), xType, incx, result, resultType, executiontype))
+	return toError(fnasumEx64(handle, n, uintptr(x), xType, incx, result, resultType, executiontype), "cublasAsumEx_64")
 }
 
 // axpyEx supports the 64-bit Integer Interface.
@@ -595,7 +595,7 @@ func axpyEx(handle Handle, n int32, alpha uintptr, alphaType DataType, x driver.
 	if err := checkLibSym("cublasAxpyEx"); err != nil {
 		return err
 	}
-	return toError(fnaxpyEx(handle, n, alpha, alphaType, uintptr(x), xType, incx, uintptr(y), yType, incy, executiontype))
+	return toError(fnaxpyEx(handle, n, alpha, alphaType, uintptr(x), xType, incx, uintptr(y), yType, incy, executiontype), "cublasAxpyEx")
 }
 
 // axpyEx64 supports the 64-bit Integer Interface.
@@ -630,7 +630,7 @@ func axpyEx64(handle Handle, n int64, alpha uintptr, alphaType DataType, x drive
 	if err := checkLibSym("cublasAxpyEx_64"); err != nil {
 		return err
 	}
-	return toError(fnaxpyEx64(handle, n, alpha, alphaType, uintptr(x), xType, incx, uintptr(y), yType, incy, executiontype))
+	return toError(fnaxpyEx64(handle, n, alpha, alphaType, uintptr(x), xType, incx, uintptr(y), yType, incy, executiontype), "cublasAxpyEx_64")
 }
 
 // caxpy supports the 64-bit Integer Interface.
@@ -658,7 +658,7 @@ func caxpy(handle Handle, n int32, alpha *Complex64, x driver.DevicePtr, incx in
 	if err := checkLibSym("cublasCaxpy_v2"); err != nil {
 		return err
 	}
-	return toError(fncaxpy(handle, n, alpha, uintptr(x), incx, uintptr(y), incy))
+	return toError(fncaxpy(handle, n, alpha, uintptr(x), incx, uintptr(y), incy), "cublasCaxpy_v2")
 }
 
 // caxpy64 supports the 64-bit Integer Interface.
@@ -686,7 +686,7 @@ func caxpy64(handle Handle, n int64, alpha *Complex64, x driver.DevicePtr, incx 
 	if err := checkLibSym("cublasCaxpy_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncaxpy64(handle, n, alpha, uintptr(x), incx, uintptr(y), incy))
+	return toError(fncaxpy64(handle, n, alpha, uintptr(x), incx, uintptr(y), incy), "cublasCaxpy_v2_64")
 }
 
 // ccopy supports the 64-bit Integer Interface.
@@ -713,7 +713,7 @@ func ccopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasCcopy_v2"); err != nil {
 		return err
 	}
-	return toError(fnccopy(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnccopy(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasCcopy_v2")
 }
 
 // ccopy64 supports the 64-bit Integer Interface.
@@ -740,7 +740,7 @@ func ccopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasCcopy_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnccopy64(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnccopy64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasCcopy_v2_64")
 }
 
 // cdgmm supports the 64-bit Integer Interface.
@@ -777,7 +777,7 @@ func cdgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 	if err := checkLibSym("cublasCdgmm"); err != nil {
 		return err
 	}
-	return toError(fncdgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc))
+	return toError(fncdgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasCdgmm")
 }
 
 // cdgmm64 supports the 64-bit Integer Interface.
@@ -814,7 +814,7 @@ func cdgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 	if err := checkLibSym("cublasCdgmm_64"); err != nil {
 		return err
 	}
-	return toError(fncdgmm64(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc))
+	return toError(fncdgmm64(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasCdgmm_64")
 }
 
 // cdotc supports the 64-bit Integer Interface.
@@ -845,7 +845,7 @@ func cdotc(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 		return zero, err
 	}
 	var out Complex64
-	if err := toError(fncdotc(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fncdotc(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasCdotc_v2"); err != nil {
 		var zero Complex64
 		return zero, err
 	}
@@ -880,7 +880,7 @@ func cdotc64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 		return zero, err
 	}
 	var out Complex64
-	if err := toError(fncdotc64(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fncdotc64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasCdotc_v2_64"); err != nil {
 		var zero Complex64
 		return zero, err
 	}
@@ -915,7 +915,7 @@ func cdotu(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 		return zero, err
 	}
 	var out Complex64
-	if err := toError(fncdotu(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fncdotu(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasCdotu_v2"); err != nil {
 		var zero Complex64
 		return zero, err
 	}
@@ -950,7 +950,7 @@ func cdotu64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 		return zero, err
 	}
 	var out Complex64
-	if err := toError(fncdotu64(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fncdotu64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasCdotu_v2_64"); err != nil {
 		var zero Complex64
 		return zero, err
 	}
@@ -994,7 +994,7 @@ func cgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 	if err := checkLibSym("cublasCgbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fncgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fncgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCgbmv_v2")
 }
 
 // cgbmv64 supports the 64-bit Integer Interface.
@@ -1034,7 +1034,7 @@ func cgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 	if err := checkLibSym("cublasCgbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fncgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCgbmv_v2_64")
 }
 
 // cgeam supports the 64-bit Integer Interface.
@@ -1079,7 +1079,7 @@ func cgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	if err := checkLibSym("cublasCgeam"); err != nil {
 		return err
 	}
-	return toError(fncgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fncgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasCgeam")
 }
 
 // cgeam64 supports the 64-bit Integer Interface.
@@ -1124,7 +1124,7 @@ func cgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 	if err := checkLibSym("cublasCgeam_64"); err != nil {
 		return err
 	}
-	return toError(fncgeam64(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fncgeam64(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasCgeam_64")
 }
 
 // cgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
@@ -1163,7 +1163,7 @@ func cgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 	if err := checkLibSym("cublasCgelsBatched"); err != nil {
 		return err
 	}
-	return toError(fncgelsBatched(handle, trans, m, n, nrhs, uintptr(aarray), lda, uintptr(carray), ldc, info, uintptr(devInfoArray), batchSize))
+	return toError(fncgelsBatched(handle, trans, m, n, nrhs, uintptr(aarray), lda, uintptr(carray), ldc, info, uintptr(devInfoArray), batchSize), "cublasCgelsBatched")
 }
 
 // cgemm3m supports the 64-bit Integer Interface.
@@ -1206,7 +1206,7 @@ func cgemm3m(handle Handle, transa Operation, transb Operation, m int32, n int32
 	if err := checkLibSym("cublasCgemm3m"); err != nil {
 		return err
 	}
-	return toError(fncgemm3m(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncgemm3m(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCgemm3m")
 }
 
 // cgemm3mBatched wraps cublasCgemm3mBatched.
@@ -1214,7 +1214,7 @@ func cgemm3mBatched(handle Handle, transa Operation, transb Operation, m int32, 
 	if err := checkLibSym("cublasCgemm3mBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fncgemm3mBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasCgemm3mBatched")
 }
 
 // cgemm3mBatched64 wraps cublasCgemm3mBatched_64.
@@ -1222,7 +1222,7 @@ func cgemm3mBatched64(handle Handle, transa Operation, transb Operation, m int64
 	if err := checkLibSym("cublasCgemm3mBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fncgemm3mBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasCgemm3mBatched_64")
 }
 
 // cgemm3mEx wraps cublasCgemm3mEx.
@@ -1230,7 +1230,7 @@ func cgemm3mEx(handle Handle, transa Operation, transb Operation, m int32, n int
 	if err := checkLibSym("cublasCgemm3mEx"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc))
+	return toError(fncgemm3mEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc), "cublasCgemm3mEx")
 }
 
 // cgemm3mEx64 wraps cublasCgemm3mEx_64.
@@ -1238,7 +1238,7 @@ func cgemm3mEx64(handle Handle, transa Operation, transb Operation, m int64, n i
 	if err := checkLibSym("cublasCgemm3mEx_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc))
+	return toError(fncgemm3mEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc), "cublasCgemm3mEx_64")
 }
 
 // cgemm3mStridedBatched supports the 64-bit Integer Interface.
@@ -1286,7 +1286,7 @@ func cgemm3mStridedBatched(handle Handle, transa Operation, transb Operation, m 
 	if err := checkLibSym("cublasCgemm3mStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fncgemm3mStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasCgemm3mStridedBatched")
 }
 
 // cgemm3mStridedBatched64 supports the 64-bit Integer Interface.
@@ -1334,7 +1334,7 @@ func cgemm3mStridedBatched64(handle Handle, transa Operation, transb Operation, 
 	if err := checkLibSym("cublasCgemm3mStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm3mStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fncgemm3mStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasCgemm3mStridedBatched_64")
 }
 
 // cgemm3m64 supports the 64-bit Integer Interface.
@@ -1377,7 +1377,7 @@ func cgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 	if err := checkLibSym("cublasCgemm3m_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm3m64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncgemm3m64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCgemm3m_64")
 }
 
 // cgemmBatched supports the 64-bit Integer Interface.
@@ -1421,7 +1421,7 @@ func cgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 	if err := checkLibSym("cublasCgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fncgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasCgemmBatched")
 }
 
 // cgemmBatched64 supports the 64-bit Integer Interface.
@@ -1465,7 +1465,7 @@ func cgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 	if err := checkLibSym("cublasCgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fncgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasCgemmBatched_64")
 }
 
 // cgemmEx supports the 64-bit Integer Interface.
@@ -1513,7 +1513,7 @@ func cgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32
 	if err := checkLibSym("cublasCgemmEx"); err != nil {
 		return err
 	}
-	return toError(fncgemmEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc))
+	return toError(fncgemmEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc), "cublasCgemmEx")
 }
 
 // cgemmEx64 supports the 64-bit Integer Interface.
@@ -1561,7 +1561,7 @@ func cgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 	if err := checkLibSym("cublasCgemmEx_64"); err != nil {
 		return err
 	}
-	return toError(fncgemmEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc))
+	return toError(fncgemmEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc), "cublasCgemmEx_64")
 }
 
 // cgemmStridedBatched supports the 64-bit Integer Interface.
@@ -1609,7 +1609,7 @@ func cgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 	if err := checkLibSym("cublasCgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fncgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasCgemmStridedBatched")
 }
 
 // cgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -1657,7 +1657,7 @@ func cgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	if err := checkLibSym("cublasCgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fncgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasCgemmStridedBatched_64")
 }
 
 // cgemm supports the 64-bit Integer Interface.
@@ -1698,7 +1698,7 @@ func cgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	if err := checkLibSym("cublasCgemm_v2"); err != nil {
 		return err
 	}
-	return toError(fncgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCgemm_v2")
 }
 
 // cgemm64 supports the 64-bit Integer Interface.
@@ -1739,7 +1739,7 @@ func cgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 	if err := checkLibSym("cublasCgemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCgemm_v2_64")
 }
 
 // cgemvBatched supports the 64-bit Integer Interface.
@@ -1779,7 +1779,7 @@ func cgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 	if err := checkLibSym("cublasCgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fncgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasCgemvBatched")
 }
 
 // cgemvBatched64 supports the 64-bit Integer Interface.
@@ -1819,7 +1819,7 @@ func cgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 	if err := checkLibSym("cublasCgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fncgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasCgemvBatched_64")
 }
 
 // cgemvStridedBatched supports the 64-bit Integer Interface.
@@ -1863,7 +1863,7 @@ func cgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 	if err := checkLibSym("cublasCgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fncgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fncgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasCgemvStridedBatched")
 }
 
 // cgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -1907,7 +1907,7 @@ func cgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 	if err := checkLibSym("cublasCgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fncgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fncgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasCgemvStridedBatched_64")
 }
 
 // cgemv supports the 64-bit Integer Interface.
@@ -1944,7 +1944,7 @@ func cgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex64, a
 	if err := checkLibSym("cublasCgemv_v2"); err != nil {
 		return err
 	}
-	return toError(fncgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fncgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCgemv_v2")
 }
 
 // cgemv64 supports the 64-bit Integer Interface.
@@ -1981,7 +1981,7 @@ func cgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex64,
 	if err := checkLibSym("cublasCgemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgemv64(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fncgemv64(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCgemv_v2_64")
 }
 
 // cgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
@@ -2016,7 +2016,7 @@ func cgeqrfBatched(handle Handle, m int32, n int32, aarray driver.DevicePtr, lda
 	if err := checkLibSym("cublasCgeqrfBatched"); err != nil {
 		return err
 	}
-	return toError(fncgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize))
+	return toError(fncgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize), "cublasCgeqrfBatched")
 }
 
 // cgerc supports the 64-bit Integer Interface.
@@ -2050,7 +2050,7 @@ func cgerc(handle Handle, m int32, n int32, alpha *Complex64, x driver.DevicePtr
 	if err := checkLibSym("cublasCgerc_v2"); err != nil {
 		return err
 	}
-	return toError(fncgerc(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fncgerc(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCgerc_v2")
 }
 
 // cgerc64 supports the 64-bit Integer Interface.
@@ -2084,7 +2084,7 @@ func cgerc64(handle Handle, m int64, n int64, alpha *Complex64, x driver.DeviceP
 	if err := checkLibSym("cublasCgerc_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgerc64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fncgerc64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCgerc_v2_64")
 }
 
 // cgeru supports the 64-bit Integer Interface.
@@ -2118,7 +2118,7 @@ func cgeru(handle Handle, m int32, n int32, alpha *Complex64, x driver.DevicePtr
 	if err := checkLibSym("cublasCgeru_v2"); err != nil {
 		return err
 	}
-	return toError(fncgeru(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fncgeru(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCgeru_v2")
 }
 
 // cgeru64 supports the 64-bit Integer Interface.
@@ -2152,7 +2152,7 @@ func cgeru64(handle Handle, m int64, n int64, alpha *Complex64, x driver.DeviceP
 	if err := checkLibSym("cublasCgeru_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncgeru64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fncgeru64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCgeru_v2_64")
 }
 
 // cgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
@@ -2187,7 +2187,7 @@ func cgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 	if err := checkLibSym("cublasCgetrfBatched"); err != nil {
 		return err
 	}
-	return toError(fncgetrfBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(info), batchSize))
+	return toError(fncgetrfBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(info), batchSize), "cublasCgetrfBatched")
 }
 
 // cgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
@@ -2220,7 +2220,7 @@ func cgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 	if err := checkLibSym("cublasCgetriBatched"); err != nil {
 		return err
 	}
-	return toError(fncgetriBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(c), ldc, uintptr(info), batchSize))
+	return toError(fncgetriBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(c), ldc, uintptr(info), batchSize), "cublasCgetriBatched")
 }
 
 // cgetrsBatched solves an array of systems of linear equations of the form:
@@ -2259,7 +2259,7 @@ func cgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray d
 	if err := checkLibSym("cublasCgetrsBatched"); err != nil {
 		return err
 	}
-	return toError(fncgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize))
+	return toError(fncgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize), "cublasCgetrsBatched")
 }
 
 // chbmv supports the 64-bit Integer Interface.
@@ -2297,7 +2297,7 @@ func chbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex64, a d
 	if err := checkLibSym("cublasChbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnchbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnchbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasChbmv_v2")
 }
 
 // chbmv64 supports the 64-bit Integer Interface.
@@ -2335,7 +2335,7 @@ func chbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex64, a
 	if err := checkLibSym("cublasChbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnchbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasChbmv_v2_64")
 }
 
 // chemm supports the 64-bit Integer Interface.
@@ -2372,7 +2372,7 @@ func chemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	if err := checkLibSym("cublasChemm_v2"); err != nil {
 		return err
 	}
-	return toError(fnchemm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnchemm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasChemm_v2")
 }
 
 // chemm64 supports the 64-bit Integer Interface.
@@ -2409,7 +2409,7 @@ func chemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 	if err := checkLibSym("cublasChemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchemm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnchemm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasChemm_v2_64")
 }
 
 // chemv supports the 64-bit Integer Interface.
@@ -2446,7 +2446,7 @@ func chemv(handle Handle, uplo FillMode, n int32, alpha *Complex64, a driver.Dev
 	if err := checkLibSym("cublasChemv_v2"); err != nil {
 		return err
 	}
-	return toError(fnchemv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnchemv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasChemv_v2")
 }
 
 // chemv64 supports the 64-bit Integer Interface.
@@ -2483,7 +2483,7 @@ func chemv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, a driver.D
 	if err := checkLibSym("cublasChemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchemv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnchemv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasChemv_v2_64")
 }
 
 // cher2 supports the 64-bit Integer Interface.
@@ -2517,7 +2517,7 @@ func cher2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x driver.Dev
 	if err := checkLibSym("cublasCher2_v2"); err != nil {
 		return err
 	}
-	return toError(fncher2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fncher2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCher2_v2")
 }
 
 // cher264 supports the 64-bit Integer Interface.
@@ -2551,7 +2551,7 @@ func cher264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x driver.D
 	if err := checkLibSym("cublasCher2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncher264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fncher264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCher2_v2_64")
 }
 
 // cher2k supports the 64-bit Integer Interface.
@@ -2589,7 +2589,7 @@ func cher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasCher2k_v2"); err != nil {
 		return err
 	}
-	return toError(fncher2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncher2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCher2k_v2")
 }
 
 // cher2k64 supports the 64-bit Integer Interface.
@@ -2627,7 +2627,7 @@ func cher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasCher2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncher2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncher2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCher2k_v2_64")
 }
 
 // cher supports the 64-bit Integer Interface.
@@ -2659,7 +2659,7 @@ func cher(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 	if err := checkLibSym("cublasCher_v2"); err != nil {
 		return err
 	}
-	return toError(fncher(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fncher(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasCher_v2")
 }
 
 // cher64 supports the 64-bit Integer Interface.
@@ -2691,7 +2691,7 @@ func cher64(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Devi
 	if err := checkLibSym("cublasCher_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncher64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fncher64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasCher_v2_64")
 }
 
 // cherk3mEx supports the 64-bit Integer Interface.
@@ -2735,7 +2735,7 @@ func cherk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, 
 	if err := checkLibSym("cublasCherk3mEx"); err != nil {
 		return err
 	}
-	return toError(fncherk3mEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc))
+	return toError(fncherk3mEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCherk3mEx")
 }
 
 // cherk3mEx64 supports the 64-bit Integer Interface.
@@ -2779,7 +2779,7 @@ func cherk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64
 	if err := checkLibSym("cublasCherk3mEx_64"); err != nil {
 		return err
 	}
-	return toError(fncherk3mEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc))
+	return toError(fncherk3mEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCherk3mEx_64")
 }
 
 // cherkEx supports the 64-bit Integer Interface.
@@ -2823,7 +2823,7 @@ func cherkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, al
 	if err := checkLibSym("cublasCherkEx"); err != nil {
 		return err
 	}
-	return toError(fncherkEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc))
+	return toError(fncherkEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCherkEx")
 }
 
 // cherkEx64 supports the 64-bit Integer Interface.
@@ -2867,7 +2867,7 @@ func cherkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, 
 	if err := checkLibSym("cublasCherkEx_64"); err != nil {
 		return err
 	}
-	return toError(fncherkEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc))
+	return toError(fncherkEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCherkEx_64")
 }
 
 // cherk supports the 64-bit Integer Interface.
@@ -2903,7 +2903,7 @@ func cherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	if err := checkLibSym("cublasCherk_v2"); err != nil {
 		return err
 	}
-	return toError(fncherk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fncherk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasCherk_v2")
 }
 
 // cherk64 supports the 64-bit Integer Interface.
@@ -2939,7 +2939,7 @@ func cherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	if err := checkLibSym("cublasCherk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncherk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fncherk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasCherk_v2_64")
 }
 
 // cherkx supports the 64-bit Integer Interface.
@@ -2979,7 +2979,7 @@ func cherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasCherkx"); err != nil {
 		return err
 	}
-	return toError(fncherkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncherkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCherkx")
 }
 
 // cherkx64 supports the 64-bit Integer Interface.
@@ -3019,7 +3019,7 @@ func cherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasCherkx_64"); err != nil {
 		return err
 	}
-	return toError(fncherkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncherkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCherkx_64")
 }
 
 // chpmv supports the 64-bit Integer Interface.
@@ -3055,7 +3055,7 @@ func chpmv(handle Handle, uplo FillMode, n int32, alpha *Complex64, ap driver.De
 	if err := checkLibSym("cublasChpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnchpmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnchpmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasChpmv_v2")
 }
 
 // chpmv64 supports the 64-bit Integer Interface.
@@ -3091,7 +3091,7 @@ func chpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, ap driver.
 	if err := checkLibSym("cublasChpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchpmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnchpmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasChpmv_v2_64")
 }
 
 // chpr2 supports the 64-bit Integer Interface.
@@ -3126,7 +3126,7 @@ func chpr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x driver.Dev
 	if err := checkLibSym("cublasChpr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnchpr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)))
+	return toError(fnchpr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasChpr2_v2")
 }
 
 // chpr264 supports the 64-bit Integer Interface.
@@ -3161,7 +3161,7 @@ func chpr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x driver.D
 	if err := checkLibSym("cublasChpr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchpr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)))
+	return toError(fnchpr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasChpr2_v2_64")
 }
 
 // chpr supports the 64-bit Integer Interface.
@@ -3194,7 +3194,7 @@ func chpr(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 	if err := checkLibSym("cublasChpr_v2"); err != nil {
 		return err
 	}
-	return toError(fnchpr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)))
+	return toError(fnchpr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasChpr_v2")
 }
 
 // chpr64 supports the 64-bit Integer Interface.
@@ -3227,7 +3227,7 @@ func chpr64(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Devi
 	if err := checkLibSym("cublasChpr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnchpr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)))
+	return toError(fnchpr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasChpr_v2_64")
 }
 
 // cmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
@@ -3257,7 +3257,7 @@ func cmatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 	if err := checkLibSym("cublasCmatinvBatched"); err != nil {
 		return err
 	}
-	return toError(fncmatinvBatched(handle, n, uintptr(a), lda, uintptr(ainv), ldaInv, uintptr(info), batchSize))
+	return toError(fncmatinvBatched(handle, n, uintptr(a), lda, uintptr(ainv), ldaInv, uintptr(info), batchSize), "cublasCmatinvBatched")
 }
 
 // copyEx wraps cublasCopyEx.
@@ -3265,7 +3265,7 @@ func copyEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 	if err := checkLibSym("cublasCopyEx"); err != nil {
 		return err
 	}
-	return toError(fncopyEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy))
+	return toError(fncopyEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy), "cublasCopyEx")
 }
 
 // copyEx64 wraps cublasCopyEx_64.
@@ -3273,7 +3273,7 @@ func copyEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 	if err := checkLibSym("cublasCopyEx_64"); err != nil {
 		return err
 	}
-	return toError(fncopyEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy))
+	return toError(fncopyEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy), "cublasCopyEx_64")
 }
 
 // Create initializes the cuBLAS library and creates a handle to an opaque structure holding the cuBLAS library context.
@@ -3289,7 +3289,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "cublasCreate_v2"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -3325,7 +3325,7 @@ func crot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 	if err := checkLibSym("cublasCrot_v2"); err != nil {
 		return err
 	}
-	return toError(fncrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fncrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasCrot_v2")
 }
 
 // crot64 supports the 64-bit Integer Interface.
@@ -3357,7 +3357,7 @@ func crot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 	if err := checkLibSym("cublasCrot_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fncrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasCrot_v2_64")
 }
 
 // crotg supports the 64-bit Integer Interface.
@@ -3392,7 +3392,7 @@ func crotg(handle Handle, a *Complex64, b *Complex64, c *float32, s *Complex64) 
 	if err := checkLibSym("cublasCrotg_v2"); err != nil {
 		return err
 	}
-	return toError(fncrotg(handle, a, b, c, s))
+	return toError(fncrotg(handle, a, b, c, s), "cublasCrotg_v2")
 }
 
 // cscal supports the 64-bit Integer Interface.
@@ -3419,7 +3419,7 @@ func cscal(handle Handle, n int32, alpha *Complex64, x driver.DevicePtr, incx in
 	if err := checkLibSym("cublasCscal_v2"); err != nil {
 		return err
 	}
-	return toError(fncscal(handle, n, alpha, uintptr(x), incx))
+	return toError(fncscal(handle, n, alpha, uintptr(x), incx), "cublasCscal_v2")
 }
 
 // cscal64 supports the 64-bit Integer Interface.
@@ -3446,7 +3446,7 @@ func cscal64(handle Handle, n int64, alpha *Complex64, x driver.DevicePtr, incx 
 	if err := checkLibSym("cublasCscal_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncscal64(handle, n, alpha, uintptr(x), incx))
+	return toError(fncscal64(handle, n, alpha, uintptr(x), incx), "cublasCscal_v2_64")
 }
 
 // csrot supports the 64-bit Integer Interface.
@@ -3478,7 +3478,7 @@ func csrot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasCsrot_v2"); err != nil {
 		return err
 	}
-	return toError(fncsrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fncsrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasCsrot_v2")
 }
 
 // csrot64 supports the 64-bit Integer Interface.
@@ -3510,7 +3510,7 @@ func csrot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasCsrot_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fncsrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasCsrot_v2_64")
 }
 
 // csscal supports the 64-bit Integer Interface.
@@ -3537,7 +3537,7 @@ func csscal(handle Handle, n int32, alpha *float32, x driver.DevicePtr, incx int
 	if err := checkLibSym("cublasCsscal_v2"); err != nil {
 		return err
 	}
-	return toError(fncsscal(handle, n, alpha, uintptr(x), incx))
+	return toError(fncsscal(handle, n, alpha, uintptr(x), incx), "cublasCsscal_v2")
 }
 
 // csscal64 supports the 64-bit Integer Interface.
@@ -3564,7 +3564,7 @@ func csscal64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx i
 	if err := checkLibSym("cublasCsscal_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsscal64(handle, n, alpha, uintptr(x), incx))
+	return toError(fncsscal64(handle, n, alpha, uintptr(x), incx), "cublasCsscal_v2_64")
 }
 
 // cswap supports the 64-bit Integer Interface.
@@ -3591,7 +3591,7 @@ func cswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasCswap_v2"); err != nil {
 		return err
 	}
-	return toError(fncswap(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fncswap(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasCswap_v2")
 }
 
 // cswap64 supports the 64-bit Integer Interface.
@@ -3618,7 +3618,7 @@ func cswap64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasCswap_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncswap64(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fncswap64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasCswap_v2_64")
 }
 
 // csymm supports the 64-bit Integer Interface.
@@ -3655,7 +3655,7 @@ func csymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	if err := checkLibSym("cublasCsymm_v2"); err != nil {
 		return err
 	}
-	return toError(fncsymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncsymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsymm_v2")
 }
 
 // csymm64 supports the 64-bit Integer Interface.
@@ -3692,7 +3692,7 @@ func csymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 	if err := checkLibSym("cublasCsymm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsymm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncsymm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsymm_v2_64")
 }
 
 // csymv supports the 64-bit Integer Interface.
@@ -3728,7 +3728,7 @@ func csymv(handle Handle, uplo FillMode, n int32, alpha *Complex64, a driver.Dev
 	if err := checkLibSym("cublasCsymv_v2"); err != nil {
 		return err
 	}
-	return toError(fncsymv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fncsymv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCsymv_v2")
 }
 
 // csymv64 supports the 64-bit Integer Interface.
@@ -3764,7 +3764,7 @@ func csymv64(handle Handle, uplo FillMode, n int64, alpha *Complex64, a driver.D
 	if err := checkLibSym("cublasCsymv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fncsymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasCsymv_v2_64")
 }
 
 // csyr2 supports the 64-bit Integer Interface.
@@ -3798,7 +3798,7 @@ func csyr2(handle Handle, uplo FillMode, n int32, alpha *Complex64, x driver.Dev
 	if err := checkLibSym("cublasCsyr2_v2"); err != nil {
 		return err
 	}
-	return toError(fncsyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fncsyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCsyr2_v2")
 }
 
 // csyr264 supports the 64-bit Integer Interface.
@@ -3832,7 +3832,7 @@ func csyr264(handle Handle, uplo FillMode, n int64, alpha *Complex64, x driver.D
 	if err := checkLibSym("cublasCsyr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fncsyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasCsyr2_v2_64")
 }
 
 // csyr2k supports the 64-bit Integer Interface.
@@ -3870,7 +3870,7 @@ func csyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasCsyr2k_v2"); err != nil {
 		return err
 	}
-	return toError(fncsyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncsyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsyr2k_v2")
 }
 
 // csyr2k64 supports the 64-bit Integer Interface.
@@ -3908,7 +3908,7 @@ func csyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasCsyr2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncsyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsyr2k_v2_64")
 }
 
 // csyr supports the 64-bit Integer Interface.
@@ -3940,7 +3940,7 @@ func csyr(handle Handle, uplo FillMode, n int32, alpha *Complex64, x driver.Devi
 	if err := checkLibSym("cublasCsyr_v2"); err != nil {
 		return err
 	}
-	return toError(fncsyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fncsyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasCsyr_v2")
 }
 
 // csyr64 supports the 64-bit Integer Interface.
@@ -3972,7 +3972,7 @@ func csyr64(handle Handle, uplo FillMode, n int64, alpha *Complex64, x driver.De
 	if err := checkLibSym("cublasCsyr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fncsyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasCsyr_v2_64")
 }
 
 // csyrk3mEx supports the 64-bit Integer Interface.
@@ -4016,7 +4016,7 @@ func csyrk3mEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, 
 	if err := checkLibSym("cublasCsyrk3mEx"); err != nil {
 		return err
 	}
-	return toError(fncsyrk3mEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc))
+	return toError(fncsyrk3mEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCsyrk3mEx")
 }
 
 // csyrk3mEx64 supports the 64-bit Integer Interface.
@@ -4060,7 +4060,7 @@ func csyrk3mEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64
 	if err := checkLibSym("cublasCsyrk3mEx_64"); err != nil {
 		return err
 	}
-	return toError(fncsyrk3mEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc))
+	return toError(fncsyrk3mEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCsyrk3mEx_64")
 }
 
 // csyrkEx supports the 64-bit Integer Interface.
@@ -4104,7 +4104,7 @@ func csyrkEx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, al
 	if err := checkLibSym("cublasCsyrkEx"); err != nil {
 		return err
 	}
-	return toError(fncsyrkEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc))
+	return toError(fncsyrkEx(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCsyrkEx")
 }
 
 // csyrkEx64 supports the 64-bit Integer Interface.
@@ -4148,7 +4148,7 @@ func csyrkEx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, 
 	if err := checkLibSym("cublasCsyrkEx_64"); err != nil {
 		return err
 	}
-	return toError(fncsyrkEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc))
+	return toError(fncsyrkEx64(handle, uplo, trans, n, k, alpha, uintptr(a), atype, lda, beta, uintptr(c), ctype, ldc), "cublasCsyrkEx_64")
 }
 
 // csyrk supports the 64-bit Integer Interface.
@@ -4184,7 +4184,7 @@ func csyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	if err := checkLibSym("cublasCsyrk_v2"); err != nil {
 		return err
 	}
-	return toError(fncsyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fncsyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasCsyrk_v2")
 }
 
 // csyrk64 supports the 64-bit Integer Interface.
@@ -4220,7 +4220,7 @@ func csyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	if err := checkLibSym("cublasCsyrk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fncsyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fncsyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasCsyrk_v2_64")
 }
 
 // csyrkx supports the 64-bit Integer Interface.
@@ -4260,7 +4260,7 @@ func csyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasCsyrkx"); err != nil {
 		return err
 	}
-	return toError(fncsyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncsyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsyrkx")
 }
 
 // csyrkx64 supports the 64-bit Integer Interface.
@@ -4300,7 +4300,7 @@ func csyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasCsyrkx_64"); err != nil {
 		return err
 	}
-	return toError(fncsyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fncsyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasCsyrkx_64")
 }
 
 // ctbmv supports the 64-bit Integer Interface.
@@ -4338,7 +4338,7 @@ func ctbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasCtbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnctbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasCtbmv_v2")
 }
 
 // ctbmv64 supports the 64-bit Integer Interface.
@@ -4376,7 +4376,7 @@ func ctbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasCtbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnctbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasCtbmv_v2_64")
 }
 
 // ctbsv supports the 64-bit Integer Interface.
@@ -4415,7 +4415,7 @@ func ctbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasCtbsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnctbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasCtbsv_v2")
 }
 
 // ctbsv64 supports the 64-bit Integer Interface.
@@ -4454,7 +4454,7 @@ func ctbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasCtbsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnctbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasCtbsv_v2_64")
 }
 
 // ctpmv supports the 64-bit Integer Interface.
@@ -4490,7 +4490,7 @@ func ctpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasCtpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnctpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasCtpmv_v2")
 }
 
 // ctpmv64 supports the 64-bit Integer Interface.
@@ -4526,7 +4526,7 @@ func ctpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasCtpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnctpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasCtpmv_v2_64")
 }
 
 // ctpsv supports the 64-bit Integer Interface.
@@ -4563,7 +4563,7 @@ func ctpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasCtpsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnctpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasCtpsv_v2")
 }
 
 // ctpsv64 supports the 64-bit Integer Interface.
@@ -4600,7 +4600,7 @@ func ctpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasCtpsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnctpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasCtpsv_v2_64")
 }
 
 // ctpttr performs the conversion from the triangular packed format to the triangular format
@@ -4628,7 +4628,7 @@ func ctpttr(handle Handle, uplo FillMode, n int32, ap driver.DevicePtr, a driver
 	if err := checkLibSym("cublasCtpttr"); err != nil {
 		return err
 	}
-	return toError(fnctpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda))
+	return toError(fnctpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda), "cublasCtpttr")
 }
 
 // ctrmm supports the 64-bit Integer Interface.
@@ -4668,7 +4668,7 @@ func ctrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	if err := checkLibSym("cublasCtrmm_v2"); err != nil {
 		return err
 	}
-	return toError(fnctrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnctrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasCtrmm_v2")
 }
 
 // ctrmm64 supports the 64-bit Integer Interface.
@@ -4708,7 +4708,7 @@ func ctrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	if err := checkLibSym("cublasCtrmm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnctrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasCtrmm_v2_64")
 }
 
 // ctrmv supports the 64-bit Integer Interface.
@@ -4743,7 +4743,7 @@ func ctrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasCtrmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnctrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasCtrmv_v2")
 }
 
 // ctrmv64 supports the 64-bit Integer Interface.
@@ -4778,7 +4778,7 @@ func ctrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasCtrmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnctrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasCtrmv_v2_64")
 }
 
 // ctrsmBatched supports the 64-bit Integer Interface.
@@ -4820,7 +4820,7 @@ func ctrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 	if err := checkLibSym("cublasCtrsmBatched"); err != nil {
 		return err
 	}
-	return toError(fnctrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount))
+	return toError(fnctrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasCtrsmBatched")
 }
 
 // ctrsmBatched64 supports the 64-bit Integer Interface.
@@ -4862,7 +4862,7 @@ func ctrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 	if err := checkLibSym("cublasCtrsmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnctrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount))
+	return toError(fnctrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasCtrsmBatched_64")
 }
 
 // ctrsm supports the 64-bit Integer Interface.
@@ -4901,7 +4901,7 @@ func ctrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	if err := checkLibSym("cublasCtrsm_v2"); err != nil {
 		return err
 	}
-	return toError(fnctrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb))
+	return toError(fnctrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasCtrsm_v2")
 }
 
 // ctrsm64 supports the 64-bit Integer Interface.
@@ -4940,7 +4940,7 @@ func ctrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	if err := checkLibSym("cublasCtrsm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb))
+	return toError(fnctrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasCtrsm_v2_64")
 }
 
 // ctrsv supports the 64-bit Integer Interface.
@@ -4976,7 +4976,7 @@ func ctrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasCtrsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnctrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnctrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasCtrsv_v2")
 }
 
 // ctrsv64 supports the 64-bit Integer Interface.
@@ -5012,7 +5012,7 @@ func ctrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasCtrsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnctrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnctrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasCtrsv_v2_64")
 }
 
 // ctrttp performs the conversion from the triangular format to the triangular packed format
@@ -5040,7 +5040,7 @@ func ctrttp(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	if err := checkLibSym("cublasCtrttp"); err != nil {
 		return err
 	}
-	return toError(fnctrttp(handle, uplo, n, uintptr(a), lda, uintptr(ap)))
+	return toError(fnctrttp(handle, uplo, n, uintptr(a), lda, uintptr(ap)), "cublasCtrttp")
 }
 
 // dasum supports the 64-bit Integer Interface.
@@ -5070,7 +5070,7 @@ func dasum(handle Handle, n int32, x driver.DevicePtr, incx int32) (float64, err
 		return zero, err
 	}
 	var out float64
-	if err := toError(fndasum(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fndasum(handle, n, uintptr(x), incx, &out), "cublasDasum_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -5104,7 +5104,7 @@ func dasum64(handle Handle, n int64, x driver.DevicePtr, incx int64) (float64, e
 		return zero, err
 	}
 	var out float64
-	if err := toError(fndasum64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fndasum64(handle, n, uintptr(x), incx, &out), "cublasDasum_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -5136,7 +5136,7 @@ func daxpy(handle Handle, n int32, alpha *float64, x driver.DevicePtr, incx int3
 	if err := checkLibSym("cublasDaxpy_v2"); err != nil {
 		return err
 	}
-	return toError(fndaxpy(handle, n, alpha, uintptr(x), incx, uintptr(y), incy))
+	return toError(fndaxpy(handle, n, alpha, uintptr(x), incx, uintptr(y), incy), "cublasDaxpy_v2")
 }
 
 // daxpy64 supports the 64-bit Integer Interface.
@@ -5164,7 +5164,7 @@ func daxpy64(handle Handle, n int64, alpha *float64, x driver.DevicePtr, incx in
 	if err := checkLibSym("cublasDaxpy_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndaxpy64(handle, n, alpha, uintptr(x), incx, uintptr(y), incy))
+	return toError(fndaxpy64(handle, n, alpha, uintptr(x), incx, uintptr(y), incy), "cublasDaxpy_v2_64")
 }
 
 // dcopy supports the 64-bit Integer Interface.
@@ -5191,7 +5191,7 @@ func dcopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasDcopy_v2"); err != nil {
 		return err
 	}
-	return toError(fndcopy(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fndcopy(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasDcopy_v2")
 }
 
 // dcopy64 supports the 64-bit Integer Interface.
@@ -5218,7 +5218,7 @@ func dcopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasDcopy_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndcopy64(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fndcopy64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasDcopy_v2_64")
 }
 
 // ddgmm supports the 64-bit Integer Interface.
@@ -5255,7 +5255,7 @@ func ddgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 	if err := checkLibSym("cublasDdgmm"); err != nil {
 		return err
 	}
-	return toError(fnddgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc))
+	return toError(fnddgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasDdgmm")
 }
 
 // ddgmm64 supports the 64-bit Integer Interface.
@@ -5292,7 +5292,7 @@ func ddgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 	if err := checkLibSym("cublasDdgmm_64"); err != nil {
 		return err
 	}
-	return toError(fnddgmm64(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc))
+	return toError(fnddgmm64(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasDdgmm_64")
 }
 
 // ddot supports the 64-bit Integer Interface.
@@ -5323,7 +5323,7 @@ func ddot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 		return zero, err
 	}
 	var out float64
-	if err := toError(fnddot(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fnddot(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasDdot_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -5358,7 +5358,7 @@ func ddot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 		return zero, err
 	}
 	var out float64
-	if err := toError(fnddot64(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fnddot64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasDdot_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -5372,7 +5372,7 @@ func destroy(handle Handle) error {
 	if err := checkLibSym("cublasDestroy_v2"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle))
+	return toError(fndestroy(handle), "cublasDestroy_v2")
 }
 
 // dgbmv supports the 64-bit Integer Interface.
@@ -5412,7 +5412,7 @@ func dgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 	if err := checkLibSym("cublasDgbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDgbmv_v2")
 }
 
 // dgbmv64 supports the 64-bit Integer Interface.
@@ -5452,7 +5452,7 @@ func dgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 	if err := checkLibSym("cublasDgbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDgbmv_v2_64")
 }
 
 // dgeam supports the 64-bit Integer Interface.
@@ -5497,7 +5497,7 @@ func dgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	if err := checkLibSym("cublasDgeam"); err != nil {
 		return err
 	}
-	return toError(fndgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fndgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasDgeam")
 }
 
 // dgeam64 supports the 64-bit Integer Interface.
@@ -5542,7 +5542,7 @@ func dgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 	if err := checkLibSym("cublasDgeam_64"); err != nil {
 		return err
 	}
-	return toError(fndgeam64(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fndgeam64(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasDgeam_64")
 }
 
 // dgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
@@ -5581,7 +5581,7 @@ func dgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 	if err := checkLibSym("cublasDgelsBatched"); err != nil {
 		return err
 	}
-	return toError(fndgelsBatched(handle, trans, m, n, nrhs, uintptr(aarray), lda, uintptr(carray), ldc, info, uintptr(devInfoArray), batchSize))
+	return toError(fndgelsBatched(handle, trans, m, n, nrhs, uintptr(aarray), lda, uintptr(carray), ldc, info, uintptr(devInfoArray), batchSize), "cublasDgelsBatched")
 }
 
 // dgemmBatched supports the 64-bit Integer Interface.
@@ -5625,7 +5625,7 @@ func dgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 	if err := checkLibSym("cublasDgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fndgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasDgemmBatched")
 }
 
 // dgemmBatched64 supports the 64-bit Integer Interface.
@@ -5669,7 +5669,7 @@ func dgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 	if err := checkLibSym("cublasDgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fndgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasDgemmBatched_64")
 }
 
 // dgemmGroupedBatched supports the 64-bit Integer Interface.
@@ -5716,7 +5716,7 @@ func dgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 	if err := checkLibSym("cublasDgemmGroupedBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemmGroupedBatched(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), ldaArray, uintptr(barray), ldbArray, betaArray, uintptr(carray), ldcArray, groupCount, groupSize))
+	return toError(fndgemmGroupedBatched(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), ldaArray, uintptr(barray), ldbArray, betaArray, uintptr(carray), ldcArray, groupCount, groupSize), "cublasDgemmGroupedBatched")
 }
 
 // dgemmGroupedBatched64 supports the 64-bit Integer Interface.
@@ -5763,7 +5763,7 @@ func dgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 	if err := checkLibSym("cublasDgemmGroupedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemmGroupedBatched64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), ldaArray, uintptr(barray), ldbArray, betaArray, uintptr(carray), ldcArray, groupCount, groupSize))
+	return toError(fndgemmGroupedBatched64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), ldaArray, uintptr(barray), ldbArray, betaArray, uintptr(carray), ldcArray, groupCount, groupSize), "cublasDgemmGroupedBatched_64")
 }
 
 // dgemmStridedBatched supports the 64-bit Integer Interface.
@@ -5811,7 +5811,7 @@ func dgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 	if err := checkLibSym("cublasDgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fndgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasDgemmStridedBatched")
 }
 
 // dgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -5859,7 +5859,7 @@ func dgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	if err := checkLibSym("cublasDgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fndgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasDgemmStridedBatched_64")
 }
 
 // dgemm supports the 64-bit Integer Interface.
@@ -5900,7 +5900,7 @@ func dgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	if err := checkLibSym("cublasDgemm_v2"); err != nil {
 		return err
 	}
-	return toError(fndgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fndgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDgemm_v2")
 }
 
 // dgemm64 supports the 64-bit Integer Interface.
@@ -5941,7 +5941,7 @@ func dgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 	if err := checkLibSym("cublasDgemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fndgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDgemm_v2_64")
 }
 
 // dgemvBatched supports the 64-bit Integer Interface.
@@ -5981,7 +5981,7 @@ func dgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 	if err := checkLibSym("cublasDgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fndgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasDgemvBatched")
 }
 
 // dgemvBatched64 supports the 64-bit Integer Interface.
@@ -6021,7 +6021,7 @@ func dgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 	if err := checkLibSym("cublasDgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fndgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasDgemvBatched_64")
 }
 
 // dgemvStridedBatched supports the 64-bit Integer Interface.
@@ -6065,7 +6065,7 @@ func dgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 	if err := checkLibSym("cublasDgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fndgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fndgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasDgemvStridedBatched")
 }
 
 // dgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -6109,7 +6109,7 @@ func dgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 	if err := checkLibSym("cublasDgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fndgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasDgemvStridedBatched_64")
 }
 
 // dgemv supports the 64-bit Integer Interface.
@@ -6146,7 +6146,7 @@ func dgemv(handle Handle, trans Operation, m int32, n int32, alpha *float64, a d
 	if err := checkLibSym("cublasDgemv_v2"); err != nil {
 		return err
 	}
-	return toError(fndgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDgemv_v2")
 }
 
 // dgemv64 supports the 64-bit Integer Interface.
@@ -6183,7 +6183,7 @@ func dgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float64, a
 	if err := checkLibSym("cublasDgemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndgemv64(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndgemv64(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDgemv_v2_64")
 }
 
 // dgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
@@ -6218,7 +6218,7 @@ func dgeqrfBatched(handle Handle, m int32, n int32, aarray driver.DevicePtr, lda
 	if err := checkLibSym("cublasDgeqrfBatched"); err != nil {
 		return err
 	}
-	return toError(fndgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize))
+	return toError(fndgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize), "cublasDgeqrfBatched")
 }
 
 // dger supports the 64-bit Integer Interface.
@@ -6252,7 +6252,7 @@ func dger(handle Handle, m int32, n int32, alpha *float64, x driver.DevicePtr, i
 	if err := checkLibSym("cublasDger_v2"); err != nil {
 		return err
 	}
-	return toError(fndger(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fndger(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasDger_v2")
 }
 
 // dger64 supports the 64-bit Integer Interface.
@@ -6286,7 +6286,7 @@ func dger64(handle Handle, m int64, n int64, alpha *float64, x driver.DevicePtr,
 	if err := checkLibSym("cublasDger_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndger64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fndger64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasDger_v2_64")
 }
 
 // dgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
@@ -6321,7 +6321,7 @@ func dgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 	if err := checkLibSym("cublasDgetrfBatched"); err != nil {
 		return err
 	}
-	return toError(fndgetrfBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(info), batchSize))
+	return toError(fndgetrfBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(info), batchSize), "cublasDgetrfBatched")
 }
 
 // dgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
@@ -6354,7 +6354,7 @@ func dgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 	if err := checkLibSym("cublasDgetriBatched"); err != nil {
 		return err
 	}
-	return toError(fndgetriBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(c), ldc, uintptr(info), batchSize))
+	return toError(fndgetriBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(c), ldc, uintptr(info), batchSize), "cublasDgetriBatched")
 }
 
 // dgetrsBatched solves an array of systems of linear equations of the form:
@@ -6393,7 +6393,7 @@ func dgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray d
 	if err := checkLibSym("cublasDgetrsBatched"); err != nil {
 		return err
 	}
-	return toError(fndgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize))
+	return toError(fndgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize), "cublasDgetrsBatched")
 }
 
 // dmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
@@ -6423,7 +6423,7 @@ func dmatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 	if err := checkLibSym("cublasDmatinvBatched"); err != nil {
 		return err
 	}
-	return toError(fndmatinvBatched(handle, n, uintptr(a), lda, uintptr(ainv), ldaInv, uintptr(info), batchSize))
+	return toError(fndmatinvBatched(handle, n, uintptr(a), lda, uintptr(ainv), ldaInv, uintptr(info), batchSize), "cublasDmatinvBatched")
 }
 
 // dnrm2 supports the 64-bit Integer Interface.
@@ -6453,7 +6453,7 @@ func dnrm2(handle Handle, n int32, x driver.DevicePtr, incx int32) (float64, err
 		return zero, err
 	}
 	var out float64
-	if err := toError(fndnrm2(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fndnrm2(handle, n, uintptr(x), incx, &out), "cublasDnrm2_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -6487,7 +6487,7 @@ func dnrm264(handle Handle, n int64, x driver.DevicePtr, incx int64) (float64, e
 		return zero, err
 	}
 	var out float64
-	if err := toError(fndnrm264(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fndnrm264(handle, n, uintptr(x), incx, &out), "cublasDnrm2_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -6528,7 +6528,7 @@ func dotEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int3
 	if err := checkLibSym("cublasDotEx"); err != nil {
 		return err
 	}
-	return toError(fndotEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType))
+	return toError(fndotEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType), "cublasDotEx")
 }
 
 // dotEx64 These functions support the 64-bit Integer Interface.
@@ -6565,7 +6565,7 @@ func dotEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx in
 	if err := checkLibSym("cublasDotEx_64"); err != nil {
 		return err
 	}
-	return toError(fndotEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType))
+	return toError(fndotEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType), "cublasDotEx_64")
 }
 
 // dotcEx These functions support the 64-bit Integer Interface.
@@ -6602,7 +6602,7 @@ func dotcEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 	if err := checkLibSym("cublasDotcEx"); err != nil {
 		return err
 	}
-	return toError(fndotcEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType))
+	return toError(fndotcEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType), "cublasDotcEx")
 }
 
 // dotcEx64 These functions support the 64-bit Integer Interface.
@@ -6639,7 +6639,7 @@ func dotcEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 	if err := checkLibSym("cublasDotcEx_64"); err != nil {
 		return err
 	}
-	return toError(fndotcEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType))
+	return toError(fndotcEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, result, resultType, executionType), "cublasDotcEx_64")
 }
 
 // drot supports the 64-bit Integer Interface.
@@ -6671,7 +6671,7 @@ func drot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 	if err := checkLibSym("cublasDrot_v2"); err != nil {
 		return err
 	}
-	return toError(fndrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fndrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasDrot_v2")
 }
 
 // drot64 supports the 64-bit Integer Interface.
@@ -6703,7 +6703,7 @@ func drot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 	if err := checkLibSym("cublasDrot_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fndrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasDrot_v2_64")
 }
 
 // drotg supports the 64-bit Integer Interface.
@@ -6738,7 +6738,7 @@ func drotg(handle Handle, a *float64, b *float64, c *float64, s *float64) error 
 	if err := checkLibSym("cublasDrotg_v2"); err != nil {
 		return err
 	}
-	return toError(fndrotg(handle, a, b, c, s))
+	return toError(fndrotg(handle, a, b, c, s), "cublasDrotg_v2")
 }
 
 // drotm supports the 64-bit Integer Interface.
@@ -6771,7 +6771,7 @@ func drotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasDrotm_v2"); err != nil {
 		return err
 	}
-	return toError(fndrotm(handle, n, uintptr(x), incx, uintptr(y), incy, param))
+	return toError(fndrotm(handle, n, uintptr(x), incx, uintptr(y), incy, param), "cublasDrotm_v2")
 }
 
 // drotm64 supports the 64-bit Integer Interface.
@@ -6804,7 +6804,7 @@ func drotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasDrotm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndrotm64(handle, n, uintptr(x), incx, uintptr(y), incy, param))
+	return toError(fndrotm64(handle, n, uintptr(x), incx, uintptr(y), incy, param), "cublasDrotm_v2_64")
 }
 
 // drotmg supports the 64-bit Integer Interface.
@@ -6835,7 +6835,7 @@ func drotmg(handle Handle, d1 *float64, d2 *float64, x1 *float64, y1 *float64, p
 	if err := checkLibSym("cublasDrotmg_v2"); err != nil {
 		return err
 	}
-	return toError(fndrotmg(handle, d1, d2, x1, y1, param))
+	return toError(fndrotmg(handle, d1, d2, x1, y1, param), "cublasDrotmg_v2")
 }
 
 // dsbmv supports the 64-bit Integer Interface.
@@ -6873,7 +6873,7 @@ func dsbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float64, a dri
 	if err := checkLibSym("cublasDsbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndsbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndsbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDsbmv_v2")
 }
 
 // dsbmv64 supports the 64-bit Integer Interface.
@@ -6911,7 +6911,7 @@ func dsbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float64, a d
 	if err := checkLibSym("cublasDsbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndsbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDsbmv_v2_64")
 }
 
 // dscal supports the 64-bit Integer Interface.
@@ -6938,7 +6938,7 @@ func dscal(handle Handle, n int32, alpha *float64, x driver.DevicePtr, incx int3
 	if err := checkLibSym("cublasDscal_v2"); err != nil {
 		return err
 	}
-	return toError(fndscal(handle, n, alpha, uintptr(x), incx))
+	return toError(fndscal(handle, n, alpha, uintptr(x), incx), "cublasDscal_v2")
 }
 
 // dscal64 supports the 64-bit Integer Interface.
@@ -6965,7 +6965,7 @@ func dscal64(handle Handle, n int64, alpha *float64, x driver.DevicePtr, incx in
 	if err := checkLibSym("cublasDscal_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndscal64(handle, n, alpha, uintptr(x), incx))
+	return toError(fndscal64(handle, n, alpha, uintptr(x), incx), "cublasDscal_v2_64")
 }
 
 // dspmv supports the 64-bit Integer Interface.
@@ -7001,7 +7001,7 @@ func dspmv(handle Handle, uplo FillMode, n int32, alpha *float64, ap driver.Devi
 	if err := checkLibSym("cublasDspmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndspmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndspmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasDspmv_v2")
 }
 
 // dspmv64 supports the 64-bit Integer Interface.
@@ -7037,7 +7037,7 @@ func dspmv64(handle Handle, uplo FillMode, n int64, alpha *float64, ap driver.De
 	if err := checkLibSym("cublasDspmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndspmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndspmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasDspmv_v2_64")
 }
 
 // dspr2 supports the 64-bit Integer Interface.
@@ -7072,7 +7072,7 @@ func dspr2(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Devic
 	if err := checkLibSym("cublasDspr2_v2"); err != nil {
 		return err
 	}
-	return toError(fndspr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)))
+	return toError(fndspr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasDspr2_v2")
 }
 
 // dspr264 supports the 64-bit Integer Interface.
@@ -7107,7 +7107,7 @@ func dspr264(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Dev
 	if err := checkLibSym("cublasDspr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndspr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)))
+	return toError(fndspr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasDspr2_v2_64")
 }
 
 // dspr supports the 64-bit Integer Interface.
@@ -7140,7 +7140,7 @@ func dspr(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 	if err := checkLibSym("cublasDspr_v2"); err != nil {
 		return err
 	}
-	return toError(fndspr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)))
+	return toError(fndspr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasDspr_v2")
 }
 
 // dspr64 supports the 64-bit Integer Interface.
@@ -7173,7 +7173,7 @@ func dspr64(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Devi
 	if err := checkLibSym("cublasDspr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndspr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)))
+	return toError(fndspr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasDspr_v2_64")
 }
 
 // dswap supports the 64-bit Integer Interface.
@@ -7200,7 +7200,7 @@ func dswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasDswap_v2"); err != nil {
 		return err
 	}
-	return toError(fndswap(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fndswap(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasDswap_v2")
 }
 
 // dswap64 supports the 64-bit Integer Interface.
@@ -7227,7 +7227,7 @@ func dswap64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasDswap_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndswap64(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fndswap64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasDswap_v2_64")
 }
 
 // dsymm supports the 64-bit Integer Interface.
@@ -7264,7 +7264,7 @@ func dsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	if err := checkLibSym("cublasDsymm_v2"); err != nil {
 		return err
 	}
-	return toError(fndsymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fndsymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsymm_v2")
 }
 
 // dsymm64 supports the 64-bit Integer Interface.
@@ -7301,7 +7301,7 @@ func dsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 	if err := checkLibSym("cublasDsymm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsymm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fndsymm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsymm_v2_64")
 }
 
 // dsymv supports the 64-bit Integer Interface.
@@ -7337,7 +7337,7 @@ func dsymv(handle Handle, uplo FillMode, n int32, alpha *float64, a driver.Devic
 	if err := checkLibSym("cublasDsymv_v2"); err != nil {
 		return err
 	}
-	return toError(fndsymv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndsymv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDsymv_v2")
 }
 
 // dsymv64 supports the 64-bit Integer Interface.
@@ -7373,7 +7373,7 @@ func dsymv64(handle Handle, uplo FillMode, n int64, alpha *float64, a driver.Dev
 	if err := checkLibSym("cublasDsymv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fndsymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasDsymv_v2_64")
 }
 
 // dsyr2 supports the 64-bit Integer Interface.
@@ -7407,7 +7407,7 @@ func dsyr2(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Devic
 	if err := checkLibSym("cublasDsyr2_v2"); err != nil {
 		return err
 	}
-	return toError(fndsyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fndsyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasDsyr2_v2")
 }
 
 // dsyr264 supports the 64-bit Integer Interface.
@@ -7441,7 +7441,7 @@ func dsyr264(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Dev
 	if err := checkLibSym("cublasDsyr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fndsyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasDsyr2_v2_64")
 }
 
 // dsyr2k supports the 64-bit Integer Interface.
@@ -7479,7 +7479,7 @@ func dsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasDsyr2k_v2"); err != nil {
 		return err
 	}
-	return toError(fndsyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fndsyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsyr2k_v2")
 }
 
 // dsyr2k64 supports the 64-bit Integer Interface.
@@ -7517,7 +7517,7 @@ func dsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasDsyr2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fndsyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsyr2k_v2_64")
 }
 
 // dsyr supports the 64-bit Integer Interface.
@@ -7549,7 +7549,7 @@ func dsyr(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 	if err := checkLibSym("cublasDsyr_v2"); err != nil {
 		return err
 	}
-	return toError(fndsyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fndsyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasDsyr_v2")
 }
 
 // dsyr64 supports the 64-bit Integer Interface.
@@ -7581,7 +7581,7 @@ func dsyr64(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Devi
 	if err := checkLibSym("cublasDsyr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fndsyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasDsyr_v2_64")
 }
 
 // dsyrk supports the 64-bit Integer Interface.
@@ -7617,7 +7617,7 @@ func dsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	if err := checkLibSym("cublasDsyrk_v2"); err != nil {
 		return err
 	}
-	return toError(fndsyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fndsyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasDsyrk_v2")
 }
 
 // dsyrk64 supports the 64-bit Integer Interface.
@@ -7653,7 +7653,7 @@ func dsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	if err := checkLibSym("cublasDsyrk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndsyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fndsyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasDsyrk_v2_64")
 }
 
 // dsyrkx supports the 64-bit Integer Interface.
@@ -7693,7 +7693,7 @@ func dsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasDsyrkx"); err != nil {
 		return err
 	}
-	return toError(fndsyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fndsyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsyrkx")
 }
 
 // dsyrkx64 supports the 64-bit Integer Interface.
@@ -7733,7 +7733,7 @@ func dsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasDsyrkx_64"); err != nil {
 		return err
 	}
-	return toError(fndsyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fndsyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasDsyrkx_64")
 }
 
 // dtbmv supports the 64-bit Integer Interface.
@@ -7771,7 +7771,7 @@ func dtbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasDtbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fndtbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasDtbmv_v2")
 }
 
 // dtbmv64 supports the 64-bit Integer Interface.
@@ -7809,7 +7809,7 @@ func dtbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasDtbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fndtbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasDtbmv_v2_64")
 }
 
 // dtbsv supports the 64-bit Integer Interface.
@@ -7848,7 +7848,7 @@ func dtbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasDtbsv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fndtbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasDtbsv_v2")
 }
 
 // dtbsv64 supports the 64-bit Integer Interface.
@@ -7887,7 +7887,7 @@ func dtbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasDtbsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fndtbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasDtbsv_v2_64")
 }
 
 // dtpmv supports the 64-bit Integer Interface.
@@ -7923,7 +7923,7 @@ func dtpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasDtpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fndtpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasDtpmv_v2")
 }
 
 // dtpmv64 supports the 64-bit Integer Interface.
@@ -7959,7 +7959,7 @@ func dtpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasDtpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fndtpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasDtpmv_v2_64")
 }
 
 // dtpsv supports the 64-bit Integer Interface.
@@ -7996,7 +7996,7 @@ func dtpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasDtpsv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fndtpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasDtpsv_v2")
 }
 
 // dtpsv64 supports the 64-bit Integer Interface.
@@ -8033,7 +8033,7 @@ func dtpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasDtpsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fndtpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasDtpsv_v2_64")
 }
 
 // dtpttr performs the conversion from the triangular packed format to the triangular format
@@ -8061,7 +8061,7 @@ func dtpttr(handle Handle, uplo FillMode, n int32, ap driver.DevicePtr, a driver
 	if err := checkLibSym("cublasDtpttr"); err != nil {
 		return err
 	}
-	return toError(fndtpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda))
+	return toError(fndtpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda), "cublasDtpttr")
 }
 
 // dtrmm supports the 64-bit Integer Interface.
@@ -8101,7 +8101,7 @@ func dtrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	if err := checkLibSym("cublasDtrmm_v2"); err != nil {
 		return err
 	}
-	return toError(fndtrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fndtrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasDtrmm_v2")
 }
 
 // dtrmm64 supports the 64-bit Integer Interface.
@@ -8141,7 +8141,7 @@ func dtrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	if err := checkLibSym("cublasDtrmm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fndtrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasDtrmm_v2_64")
 }
 
 // dtrmv supports the 64-bit Integer Interface.
@@ -8176,7 +8176,7 @@ func dtrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasDtrmv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fndtrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasDtrmv_v2")
 }
 
 // dtrmv64 supports the 64-bit Integer Interface.
@@ -8211,7 +8211,7 @@ func dtrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasDtrmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fndtrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasDtrmv_v2_64")
 }
 
 // dtrsmBatched supports the 64-bit Integer Interface.
@@ -8253,7 +8253,7 @@ func dtrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 	if err := checkLibSym("cublasDtrsmBatched"); err != nil {
 		return err
 	}
-	return toError(fndtrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount))
+	return toError(fndtrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasDtrsmBatched")
 }
 
 // dtrsmBatched64 supports the 64-bit Integer Interface.
@@ -8295,7 +8295,7 @@ func dtrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 	if err := checkLibSym("cublasDtrsmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fndtrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount))
+	return toError(fndtrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasDtrsmBatched_64")
 }
 
 // dtrsm supports the 64-bit Integer Interface.
@@ -8334,7 +8334,7 @@ func dtrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	if err := checkLibSym("cublasDtrsm_v2"); err != nil {
 		return err
 	}
-	return toError(fndtrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb))
+	return toError(fndtrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasDtrsm_v2")
 }
 
 // dtrsm64 supports the 64-bit Integer Interface.
@@ -8373,7 +8373,7 @@ func dtrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	if err := checkLibSym("cublasDtrsm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb))
+	return toError(fndtrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasDtrsm_v2_64")
 }
 
 // dtrsv supports the 64-bit Integer Interface.
@@ -8409,7 +8409,7 @@ func dtrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasDtrsv_v2"); err != nil {
 		return err
 	}
-	return toError(fndtrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fndtrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasDtrsv_v2")
 }
 
 // dtrsv64 supports the 64-bit Integer Interface.
@@ -8445,7 +8445,7 @@ func dtrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasDtrsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fndtrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fndtrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasDtrsv_v2_64")
 }
 
 // dtrttp performs the conversion from the triangular format to the triangular packed format
@@ -8473,7 +8473,7 @@ func dtrttp(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	if err := checkLibSym("cublasDtrttp"); err != nil {
 		return err
 	}
-	return toError(fndtrttp(handle, uplo, n, uintptr(a), lda, uintptr(ap)))
+	return toError(fndtrttp(handle, uplo, n, uintptr(a), lda, uintptr(ap)), "cublasDtrttp")
 }
 
 // dzasum supports the 64-bit Integer Interface.
@@ -8503,7 +8503,7 @@ func dzasum(handle Handle, n int32, x driver.DevicePtr, incx int32) (float64, er
 		return zero, err
 	}
 	var out float64
-	if err := toError(fndzasum(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fndzasum(handle, n, uintptr(x), incx, &out), "cublasDzasum_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -8537,7 +8537,7 @@ func dzasum64(handle Handle, n int64, x driver.DevicePtr, incx int64) (float64, 
 		return zero, err
 	}
 	var out float64
-	if err := toError(fndzasum64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fndzasum64(handle, n, uintptr(x), incx, &out), "cublasDzasum_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -8571,7 +8571,7 @@ func dznrm2(handle Handle, n int32, x driver.DevicePtr, incx int32) (float64, er
 		return zero, err
 	}
 	var out float64
-	if err := toError(fndznrm2(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fndznrm2(handle, n, uintptr(x), incx, &out), "cublasDznrm2_v2"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -8605,7 +8605,7 @@ func dznrm264(handle Handle, n int64, x driver.DevicePtr, incx int64) (float64, 
 		return zero, err
 	}
 	var out float64
-	if err := toError(fndznrm264(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fndznrm264(handle, n, uintptr(x), incx, &out), "cublasDznrm2_v2_64"); err != nil {
 		var zero float64
 		return zero, err
 	}
@@ -8665,7 +8665,7 @@ func gemmBatchedEx(handle Handle, transa Operation, transb Operation, m int32, n
 	if err := checkLibSym("cublasGemmBatchedEx"); err != nil {
 		return err
 	}
-	return toError(fngemmBatchedEx(handle, transa, transb, m, n, k, alpha, uintptr(aarray), atype, lda, uintptr(barray), btype, ldb, beta, uintptr(carray), ctype, ldc, batchCount, computeType, algo))
+	return toError(fngemmBatchedEx(handle, transa, transb, m, n, k, alpha, uintptr(aarray), atype, lda, uintptr(barray), btype, ldb, beta, uintptr(carray), ctype, ldc, batchCount, computeType, algo), "cublasGemmBatchedEx")
 }
 
 // gemmBatchedEx64 supports the 64-bit Integer Interface.
@@ -8721,7 +8721,7 @@ func gemmBatchedEx64(handle Handle, transa Operation, transb Operation, m int64,
 	if err := checkLibSym("cublasGemmBatchedEx_64"); err != nil {
 		return err
 	}
-	return toError(fngemmBatchedEx64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), atype, lda, uintptr(barray), btype, ldb, beta, uintptr(carray), ctype, ldc, batchCount, computeType, algo))
+	return toError(fngemmBatchedEx64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), atype, lda, uintptr(barray), btype, ldb, beta, uintptr(carray), ctype, ldc, batchCount, computeType, algo), "cublasGemmBatchedEx_64")
 }
 
 // gemmEx supports the 64-bit Integer Interface.
@@ -8775,7 +8775,7 @@ func gemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32,
 	if err := checkLibSym("cublasGemmEx"); err != nil {
 		return err
 	}
-	return toError(fngemmEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc, computeType, algo))
+	return toError(fngemmEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc, computeType, algo), "cublasGemmEx")
 }
 
 // gemmEx64 supports the 64-bit Integer Interface.
@@ -8829,7 +8829,7 @@ func gemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int6
 	if err := checkLibSym("cublasGemmEx_64"); err != nil {
 		return err
 	}
-	return toError(fngemmEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc, computeType, algo))
+	return toError(fngemmEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc, computeType, algo), "cublasGemmEx_64")
 }
 
 // gemmGroupedBatchedEx supports the 64-bit Integer Interface.
@@ -8881,7 +8881,7 @@ func gemmGroupedBatchedEx(handle Handle, transaArray *Operation, transbArray *Op
 	if err := checkLibSym("cublasGemmGroupedBatchedEx"); err != nil {
 		return err
 	}
-	return toError(fngemmGroupedBatchedEx(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), atype, ldaArray, uintptr(barray), btype, ldbArray, betaArray, uintptr(carray), ctype, ldcArray, groupCount, groupSize, computeType))
+	return toError(fngemmGroupedBatchedEx(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), atype, ldaArray, uintptr(barray), btype, ldbArray, betaArray, uintptr(carray), ctype, ldcArray, groupCount, groupSize, computeType), "cublasGemmGroupedBatchedEx")
 }
 
 // gemmGroupedBatchedEx64 supports the 64-bit Integer Interface.
@@ -8933,7 +8933,7 @@ func gemmGroupedBatchedEx64(handle Handle, transaArray *Operation, transbArray *
 	if err := checkLibSym("cublasGemmGroupedBatchedEx_64"); err != nil {
 		return err
 	}
-	return toError(fngemmGroupedBatchedEx64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), atype, ldaArray, uintptr(barray), btype, ldbArray, betaArray, uintptr(carray), ctype, ldcArray, groupCount, groupSize, computeType))
+	return toError(fngemmGroupedBatchedEx64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), atype, ldaArray, uintptr(barray), btype, ldbArray, betaArray, uintptr(carray), ctype, ldcArray, groupCount, groupSize, computeType), "cublasGemmGroupedBatchedEx_64")
 }
 
 // gemmStridedBatchedEx supports the 64-bit Integer Interface.
@@ -8993,7 +8993,7 @@ func gemmStridedBatchedEx(handle Handle, transa Operation, transb Operation, m i
 	if err := checkLibSym("cublasGemmStridedBatchedEx"); err != nil {
 		return err
 	}
-	return toError(fngemmStridedBatchedEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, strideA, uintptr(b), btype, ldb, strideB, beta, uintptr(c), ctype, ldc, strideC, batchCount, computeType, algo))
+	return toError(fngemmStridedBatchedEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, strideA, uintptr(b), btype, ldb, strideB, beta, uintptr(c), ctype, ldc, strideC, batchCount, computeType, algo), "cublasGemmStridedBatchedEx")
 }
 
 // gemmStridedBatchedEx64 supports the 64-bit Integer Interface.
@@ -9053,7 +9053,7 @@ func gemmStridedBatchedEx64(handle Handle, transa Operation, transb Operation, m
 	if err := checkLibSym("cublasGemmStridedBatchedEx_64"); err != nil {
 		return err
 	}
-	return toError(fngemmStridedBatchedEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, strideA, uintptr(b), btype, ldb, strideB, beta, uintptr(c), ctype, ldc, strideC, batchCount, computeType, algo))
+	return toError(fngemmStridedBatchedEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, strideA, uintptr(b), btype, ldb, strideB, beta, uintptr(c), ctype, ldc, strideC, batchCount, computeType, algo), "cublasGemmStridedBatchedEx_64")
 }
 
 // getAtomicsMode queries the atomic mode of a specific cuBLAS context.
@@ -9067,7 +9067,7 @@ func getAtomicsMode(handle Handle) (AtomicsMode, error) {
 		return zero, err
 	}
 	var out AtomicsMode
-	if err := toError(fngetAtomicsMode(handle, &out)); err != nil {
+	if err := toError(fngetAtomicsMode(handle, &out), "cublasGetAtomicsMode"); err != nil {
 		var zero AtomicsMode
 		return zero, err
 	}
@@ -9081,7 +9081,7 @@ func getEmulationSpecialValuesSupport(handle Handle, mask *CudaEmulationSpecialV
 	if err := checkLibSym("cublasGetEmulationSpecialValuesSupport"); err != nil {
 		return err
 	}
-	return toError(fngetEmulationSpecialValuesSupport(handle, mask))
+	return toError(fngetEmulationSpecialValuesSupport(handle, mask), "cublasGetEmulationSpecialValuesSupport")
 }
 
 // getEmulationStrategy obtains the value previously programmed to the library handle.
@@ -9091,7 +9091,7 @@ func getEmulationStrategy(handle Handle, emulationStrategy *EmulationStrategy) e
 	if err := checkLibSym("cublasGetEmulationStrategy"); err != nil {
 		return err
 	}
-	return toError(fngetEmulationStrategy(handle, emulationStrategy))
+	return toError(fngetEmulationStrategy(handle, emulationStrategy), "cublasGetEmulationStrategy")
 }
 
 // getFixedPointEmulationMantissaBitCountPointer obtains the value previously programmed to the library handle.
@@ -9101,7 +9101,7 @@ func getFixedPointEmulationMantissaBitCountPointer(handle Handle, mantissaBitCou
 	if err := checkLibSym("cublasGetFixedPointEmulationMantissaBitCountPointer"); err != nil {
 		return err
 	}
-	return toError(fngetFixedPointEmulationMantissaBitCountPointer(handle, mantissaBitCount))
+	return toError(fngetFixedPointEmulationMantissaBitCountPointer(handle, mantissaBitCount), "cublasGetFixedPointEmulationMantissaBitCountPointer")
 }
 
 // getFixedPointEmulationMantissaBitOffset obtains the value previously programmed to the library handle.
@@ -9113,7 +9113,7 @@ func getFixedPointEmulationMantissaBitOffset(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fngetFixedPointEmulationMantissaBitOffset(handle, &out)); err != nil {
+	if err := toError(fngetFixedPointEmulationMantissaBitOffset(handle, &out), "cublasGetFixedPointEmulationMantissaBitOffset"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -9127,7 +9127,7 @@ func getFixedPointEmulationMantissaControl(handle Handle, mantissaControl *CudaE
 	if err := checkLibSym("cublasGetFixedPointEmulationMantissaControl"); err != nil {
 		return err
 	}
-	return toError(fngetFixedPointEmulationMantissaControl(handle, mantissaControl))
+	return toError(fngetFixedPointEmulationMantissaControl(handle, mantissaControl), "cublasGetFixedPointEmulationMantissaControl")
 }
 
 // getFixedPointEmulationMaxMantissaBitCount obtains the value previously programmed to the library handle.
@@ -9139,7 +9139,7 @@ func getFixedPointEmulationMaxMantissaBitCount(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fngetFixedPointEmulationMaxMantissaBitCount(handle, &out)); err != nil {
+	if err := toError(fngetFixedPointEmulationMaxMantissaBitCount(handle, &out), "cublasGetFixedPointEmulationMaxMantissaBitCount"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -9161,7 +9161,7 @@ func GetLoggerCallback(userCallback *LogCallback) error {
 	if err := checkLibSym("cublasGetLoggerCallback"); err != nil {
 		return err
 	}
-	return toError(fnGetLoggerCallback(userCallback))
+	return toError(fnGetLoggerCallback(userCallback), "cublasGetLoggerCallback")
 }
 
 // getMathMode returns the math mode used by the library routines.
@@ -9173,7 +9173,7 @@ func getMathMode(handle Handle) (Math, error) {
 		return zero, err
 	}
 	var out Math
-	if err := toError(fngetMathMode(handle, &out)); err != nil {
+	if err := toError(fngetMathMode(handle, &out), "cublasGetMathMode"); err != nil {
 		var zero Math
 		return zero, err
 	}
@@ -9189,7 +9189,7 @@ func GetMatrix(rows int32, cols int32, elemSize int32, a driver.DevicePtr, lda i
 	if err := checkLibSym("cublasGetMatrix"); err != nil {
 		return err
 	}
-	return toError(fnGetMatrix(rows, cols, elemSize, uintptr(a), lda, b, ldb))
+	return toError(fnGetMatrix(rows, cols, elemSize, uintptr(a), lda, b, ldb), "cublasGetMatrix")
 }
 
 // GetMatrixAsync supports the 64-bit Integer Interface.
@@ -9201,7 +9201,7 @@ func GetMatrixAsync(rows int32, cols int32, elemSize int32, a driver.DevicePtr, 
 	if err := checkLibSym("cublasGetMatrixAsync"); err != nil {
 		return err
 	}
-	return toError(fnGetMatrixAsync(rows, cols, elemSize, uintptr(a), lda, b, ldb, stream))
+	return toError(fnGetMatrixAsync(rows, cols, elemSize, uintptr(a), lda, b, ldb, stream), "cublasGetMatrixAsync")
 }
 
 // GetMatrixAsync64 supports the 64-bit Integer Interface.
@@ -9213,7 +9213,7 @@ func GetMatrixAsync64(rows int64, cols int64, elemSize int64, a driver.DevicePtr
 	if err := checkLibSym("cublasGetMatrixAsync_64"); err != nil {
 		return err
 	}
-	return toError(fnGetMatrixAsync64(rows, cols, elemSize, uintptr(a), lda, b, ldb, stream))
+	return toError(fnGetMatrixAsync64(rows, cols, elemSize, uintptr(a), lda, b, ldb, stream), "cublasGetMatrixAsync_64")
 }
 
 // GetMatrix64 supports the 64-bit Integer Interface.
@@ -9225,7 +9225,7 @@ func GetMatrix64(rows int64, cols int64, elemSize int64, a driver.DevicePtr, lda
 	if err := checkLibSym("cublasGetMatrix_64"); err != nil {
 		return err
 	}
-	return toError(fnGetMatrix64(rows, cols, elemSize, uintptr(a), lda, b, ldb))
+	return toError(fnGetMatrix64(rows, cols, elemSize, uintptr(a), lda, b, ldb), "cublasGetMatrix_64")
 }
 
 // getPointerMode obtains the pointer mode used by the cuBLAS library.
@@ -9237,7 +9237,7 @@ func getPointerMode(handle Handle) (PointerMode, error) {
 		return zero, err
 	}
 	var out PointerMode
-	if err := toError(fngetPointerMode(handle, &out)); err != nil {
+	if err := toError(fngetPointerMode(handle, &out), "cublasGetPointerMode_v2"); err != nil {
 		var zero PointerMode
 		return zero, err
 	}
@@ -9253,7 +9253,7 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetProperty(type_, &out)); err != nil {
+	if err := toError(fnGetProperty(type_, &out), "cublasGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -9269,7 +9269,7 @@ func getSmCountTarget(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fngetSmCountTarget(handle, &out)); err != nil {
+	if err := toError(fngetSmCountTarget(handle, &out), "cublasGetSmCountTarget"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -9285,7 +9285,7 @@ func getStream(handle Handle) (driver.Stream, error) {
 		return zero, err
 	}
 	var out driver.Stream
-	if err := toError(fngetStream(handle, &out)); err != nil {
+	if err := toError(fngetStream(handle, &out), "cublasGetStream_v2"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
@@ -9302,7 +9302,7 @@ func GetVector(n int32, elemSize int32, x driver.DevicePtr, incx int32, y uintpt
 	if err := checkLibSym("cublasGetVector"); err != nil {
 		return err
 	}
-	return toError(fnGetVector(n, elemSize, uintptr(x), incx, y, incy))
+	return toError(fnGetVector(n, elemSize, uintptr(x), incx, y, incy), "cublasGetVector")
 }
 
 // GetVectorAsync supports the 64-bit Integer Interface.
@@ -9314,7 +9314,7 @@ func GetVectorAsync(n int32, elemSize int32, devicePtr driver.DevicePtr, incx in
 	if err := checkLibSym("cublasGetVectorAsync"); err != nil {
 		return err
 	}
-	return toError(fnGetVectorAsync(n, elemSize, uintptr(devicePtr), incx, hostPtr, incy, stream))
+	return toError(fnGetVectorAsync(n, elemSize, uintptr(devicePtr), incx, hostPtr, incy, stream), "cublasGetVectorAsync")
 }
 
 // GetVectorAsync64 supports the 64-bit Integer Interface.
@@ -9326,7 +9326,7 @@ func GetVectorAsync64(n int64, elemSize int64, devicePtr driver.DevicePtr, incx 
 	if err := checkLibSym("cublasGetVectorAsync_64"); err != nil {
 		return err
 	}
-	return toError(fnGetVectorAsync64(n, elemSize, uintptr(devicePtr), incx, hostPtr, incy, stream))
+	return toError(fnGetVectorAsync64(n, elemSize, uintptr(devicePtr), incx, hostPtr, incy, stream), "cublasGetVectorAsync_64")
 }
 
 // GetVector64 supports the 64-bit Integer Interface.
@@ -9339,7 +9339,7 @@ func GetVector64(n int64, elemSize int64, x driver.DevicePtr, incx int64, y uint
 	if err := checkLibSym("cublasGetVector_64"); err != nil {
 		return err
 	}
-	return toError(fnGetVector64(n, elemSize, uintptr(x), incx, y, incy))
+	return toError(fnGetVector64(n, elemSize, uintptr(x), incx, y, incy), "cublasGetVector_64")
 }
 
 // getVersion returns the version number of the cuBLAS library.
@@ -9354,7 +9354,7 @@ func getVersion(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fngetVersion(handle, &out)); err != nil {
+	if err := toError(fngetVersion(handle, &out), "cublasGetVersion_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -9398,7 +9398,7 @@ func hSHgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 	if err := checkLibSym("cublasHSHgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fnhSHgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fnhSHgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasHSHgemvBatched")
 }
 
 // hSHgemvBatched64 supports the 64-bit Integer Interface.
@@ -9438,7 +9438,7 @@ func hSHgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 	if err := checkLibSym("cublasHSHgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhSHgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fnhSHgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasHSHgemvBatched_64")
 }
 
 // hSHgemvStridedBatched supports the 64-bit Integer Interface.
@@ -9482,7 +9482,7 @@ func hSHgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 	if err := checkLibSym("cublasHSHgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnhSHgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fnhSHgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasHSHgemvStridedBatched")
 }
 
 // hSHgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -9526,7 +9526,7 @@ func hSHgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 	if err := checkLibSym("cublasHSHgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhSHgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fnhSHgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasHSHgemvStridedBatched_64")
 }
 
 // hSSgemvBatched supports the 64-bit Integer Interface.
@@ -9566,7 +9566,7 @@ func hSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 	if err := checkLibSym("cublasHSSgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fnhSSgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fnhSSgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasHSSgemvBatched")
 }
 
 // hSSgemvBatched64 supports the 64-bit Integer Interface.
@@ -9606,7 +9606,7 @@ func hSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 	if err := checkLibSym("cublasHSSgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhSSgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fnhSSgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasHSSgemvBatched_64")
 }
 
 // hSSgemvStridedBatched supports the 64-bit Integer Interface.
@@ -9650,7 +9650,7 @@ func hSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 	if err := checkLibSym("cublasHSSgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnhSSgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fnhSSgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasHSSgemvStridedBatched")
 }
 
 // hSSgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -9694,7 +9694,7 @@ func hSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 	if err := checkLibSym("cublasHSSgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhSSgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fnhSSgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasHSSgemvStridedBatched_64")
 }
 
 // hgemm supports the 64-bit Integer Interface.
@@ -9735,7 +9735,7 @@ func hgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	if err := checkLibSym("cublasHgemm"); err != nil {
 		return err
 	}
-	return toError(fnhgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnhgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasHgemm")
 }
 
 // hgemmBatched supports the 64-bit Integer Interface.
@@ -9779,7 +9779,7 @@ func hgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 	if err := checkLibSym("cublasHgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fnhgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fnhgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasHgemmBatched")
 }
 
 // hgemmBatched64 supports the 64-bit Integer Interface.
@@ -9823,7 +9823,7 @@ func hgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 	if err := checkLibSym("cublasHgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fnhgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasHgemmBatched_64")
 }
 
 // hgemmStridedBatched supports the 64-bit Integer Interface.
@@ -9871,7 +9871,7 @@ func hgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 	if err := checkLibSym("cublasHgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnhgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fnhgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasHgemmStridedBatched")
 }
 
 // hgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -9919,7 +9919,7 @@ func hgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	if err := checkLibSym("cublasHgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnhgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fnhgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasHgemmStridedBatched_64")
 }
 
 // hgemm64 supports the 64-bit Integer Interface.
@@ -9960,7 +9960,7 @@ func hgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 	if err := checkLibSym("cublasHgemm_64"); err != nil {
 		return err
 	}
-	return toError(fnhgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnhgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasHgemm_64")
 }
 
 // iamaxEx wraps cublasIamaxEx.
@@ -9970,7 +9970,7 @@ func iamaxEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx in
 		return zero, err
 	}
 	var out int32
-	if err := toError(fniamaxEx(handle, n, uintptr(x), xType, incx, &out)); err != nil {
+	if err := toError(fniamaxEx(handle, n, uintptr(x), xType, incx, &out), "cublasIamaxEx"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -9984,7 +9984,7 @@ func iamaxEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx 
 		return zero, err
 	}
 	var out int64
-	if err := toError(fniamaxEx64(handle, n, uintptr(x), xType, incx, &out)); err != nil {
+	if err := toError(fniamaxEx64(handle, n, uintptr(x), xType, incx, &out), "cublasIamaxEx_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -9998,7 +9998,7 @@ func iaminEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx in
 		return zero, err
 	}
 	var out int32
-	if err := toError(fniaminEx(handle, n, uintptr(x), xType, incx, &out)); err != nil {
+	if err := toError(fniaminEx(handle, n, uintptr(x), xType, incx, &out), "cublasIaminEx"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -10012,7 +10012,7 @@ func iaminEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx 
 		return zero, err
 	}
 	var out int64
-	if err := toError(fniaminEx64(handle, n, uintptr(x), xType, incx, &out)); err != nil {
+	if err := toError(fniaminEx64(handle, n, uintptr(x), xType, incx, &out), "cublasIaminEx_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -10046,7 +10046,7 @@ func icamax(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnicamax(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnicamax(handle, n, uintptr(x), incx, &out), "cublasIcamax_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -10080,7 +10080,7 @@ func icamax64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnicamax64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnicamax64(handle, n, uintptr(x), incx, &out), "cublasIcamax_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -10114,7 +10114,7 @@ func icamin(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnicamin(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnicamin(handle, n, uintptr(x), incx, &out), "cublasIcamin_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -10148,7 +10148,7 @@ func icamin64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnicamin64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnicamin64(handle, n, uintptr(x), incx, &out), "cublasIcamin_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -10182,7 +10182,7 @@ func idamax(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnidamax(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnidamax(handle, n, uintptr(x), incx, &out), "cublasIdamax_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -10216,7 +10216,7 @@ func idamax64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnidamax64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnidamax64(handle, n, uintptr(x), incx, &out), "cublasIdamax_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -10250,7 +10250,7 @@ func idamin(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnidamin(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnidamin(handle, n, uintptr(x), incx, &out), "cublasIdamin_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -10284,7 +10284,7 @@ func idamin64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnidamin64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnidamin64(handle, n, uintptr(x), incx, &out), "cublasIdamin_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -10318,7 +10318,7 @@ func isamax(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnisamax(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnisamax(handle, n, uintptr(x), incx, &out), "cublasIsamax_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -10352,7 +10352,7 @@ func isamax64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnisamax64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnisamax64(handle, n, uintptr(x), incx, &out), "cublasIsamax_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -10386,7 +10386,7 @@ func isamin(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnisamin(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnisamin(handle, n, uintptr(x), incx, &out), "cublasIsamin_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -10420,7 +10420,7 @@ func isamin64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnisamin64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnisamin64(handle, n, uintptr(x), incx, &out), "cublasIsamin_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -10454,7 +10454,7 @@ func izamax(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnizamax(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnizamax(handle, n, uintptr(x), incx, &out), "cublasIzamax_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -10488,7 +10488,7 @@ func izamax64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnizamax64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnizamax64(handle, n, uintptr(x), incx, &out), "cublasIzamax_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -10522,7 +10522,7 @@ func izamin(handle Handle, n int32, x driver.DevicePtr, incx int32) (int32, erro
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnizamin(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnizamin(handle, n, uintptr(x), incx, &out), "cublasIzamin_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -10556,7 +10556,7 @@ func izamin64(handle Handle, n int64, x driver.DevicePtr, incx int64) (int64, er
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnizamin64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnizamin64(handle, n, uintptr(x), incx, &out), "cublasIzamin_v2_64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -10579,7 +10579,7 @@ func LoggerConfigure(logIsOn int32, logToStdOut int32, logToStdErr int32, logFil
 		return err
 	}
 	logFileName_cstr := append([]byte(logFileName), 0)
-	return toError(fnLoggerConfigure(logIsOn, logToStdOut, logToStdErr, &logFileName_cstr[0]))
+	return toError(fnLoggerConfigure(logIsOn, logToStdOut, logToStdErr, &logFileName_cstr[0]), "cublasLoggerConfigure")
 }
 
 // nrm2Ex supports the 64-bit Integer Interface.
@@ -10613,7 +10613,7 @@ func nrm2Ex(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 	if err := checkLibSym("cublasNrm2Ex"); err != nil {
 		return err
 	}
-	return toError(fnnrm2Ex(handle, n, uintptr(x), xType, incx, result, resultType, executionType))
+	return toError(fnnrm2Ex(handle, n, uintptr(x), xType, incx, result, resultType, executionType), "cublasNrm2Ex")
 }
 
 // nrm2Ex64 supports the 64-bit Integer Interface.
@@ -10647,7 +10647,7 @@ func nrm2Ex64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 	if err := checkLibSym("cublasNrm2Ex_64"); err != nil {
 		return err
 	}
-	return toError(fnnrm2Ex64(handle, n, uintptr(x), xType, incx, result, resultType, executionType))
+	return toError(fnnrm2Ex64(handle, n, uintptr(x), xType, incx, result, resultType, executionType), "cublasNrm2Ex_64")
 }
 
 // rotEx supports the 64-bit Integer Interface.
@@ -10684,7 +10684,7 @@ func rotEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int3
 	if err := checkLibSym("cublasRotEx"); err != nil {
 		return err
 	}
-	return toError(fnrotEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, c, s, csType, executiontype))
+	return toError(fnrotEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, c, s, csType, executiontype), "cublasRotEx")
 }
 
 // rotEx64 supports the 64-bit Integer Interface.
@@ -10721,7 +10721,7 @@ func rotEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx in
 	if err := checkLibSym("cublasRotEx_64"); err != nil {
 		return err
 	}
-	return toError(fnrotEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, c, s, csType, executiontype))
+	return toError(fnrotEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, c, s, csType, executiontype), "cublasRotEx_64")
 }
 
 // rotgEx wraps cublasRotgEx.
@@ -10729,7 +10729,7 @@ func rotgEx(handle Handle, a uintptr, b uintptr, abType DataType, c uintptr, s u
 	if err := checkLibSym("cublasRotgEx"); err != nil {
 		return err
 	}
-	return toError(fnrotgEx(handle, a, b, abType, c, s, csType, executiontype))
+	return toError(fnrotgEx(handle, a, b, abType, c, s, csType, executiontype), "cublasRotgEx")
 }
 
 // rotmEx wraps cublasRotmEx.
@@ -10737,7 +10737,7 @@ func rotmEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 	if err := checkLibSym("cublasRotmEx"); err != nil {
 		return err
 	}
-	return toError(fnrotmEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, param, paramType, executiontype))
+	return toError(fnrotmEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, param, paramType, executiontype), "cublasRotmEx")
 }
 
 // rotmEx64 wraps cublasRotmEx_64.
@@ -10745,7 +10745,7 @@ func rotmEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 	if err := checkLibSym("cublasRotmEx_64"); err != nil {
 		return err
 	}
-	return toError(fnrotmEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, param, paramType, executiontype))
+	return toError(fnrotmEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy, param, paramType, executiontype), "cublasRotmEx_64")
 }
 
 // rotmgEx wraps cublasRotmgEx.
@@ -10753,7 +10753,7 @@ func rotmgEx(handle Handle, d1 uintptr, d1Type DataType, d2 uintptr, d2Type Data
 	if err := checkLibSym("cublasRotmgEx"); err != nil {
 		return err
 	}
-	return toError(fnrotmgEx(handle, d1, d1Type, d2, d2Type, x1, x1Type, y1, y1Type, param, paramType, executiontype))
+	return toError(fnrotmgEx(handle, d1, d1Type, d2, d2Type, x1, x1Type, y1, y1Type, param, paramType, executiontype), "cublasRotmgEx")
 }
 
 // sasum supports the 64-bit Integer Interface.
@@ -10783,7 +10783,7 @@ func sasum(handle Handle, n int32, x driver.DevicePtr, incx int32) (float32, err
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnsasum(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnsasum(handle, n, uintptr(x), incx, &out), "cublasSasum_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -10817,7 +10817,7 @@ func sasum64(handle Handle, n int64, x driver.DevicePtr, incx int64) (float32, e
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnsasum64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnsasum64(handle, n, uintptr(x), incx, &out), "cublasSasum_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -10849,7 +10849,7 @@ func saxpy(handle Handle, n int32, alpha *float32, x driver.DevicePtr, incx int3
 	if err := checkLibSym("cublasSaxpy_v2"); err != nil {
 		return err
 	}
-	return toError(fnsaxpy(handle, n, alpha, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnsaxpy(handle, n, alpha, uintptr(x), incx, uintptr(y), incy), "cublasSaxpy_v2")
 }
 
 // saxpy64 supports the 64-bit Integer Interface.
@@ -10877,7 +10877,7 @@ func saxpy64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx in
 	if err := checkLibSym("cublasSaxpy_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsaxpy64(handle, n, alpha, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnsaxpy64(handle, n, alpha, uintptr(x), incx, uintptr(y), incy), "cublasSaxpy_v2_64")
 }
 
 // scalEx supports the 64-bit Integer Interface.
@@ -10909,7 +10909,7 @@ func scalEx(handle Handle, n int32, alpha uintptr, alphaType DataType, x driver.
 	if err := checkLibSym("cublasScalEx"); err != nil {
 		return err
 	}
-	return toError(fnscalEx(handle, n, alpha, alphaType, uintptr(x), xType, incx, executionType))
+	return toError(fnscalEx(handle, n, alpha, alphaType, uintptr(x), xType, incx, executionType), "cublasScalEx")
 }
 
 // scalEx64 supports the 64-bit Integer Interface.
@@ -10941,7 +10941,7 @@ func scalEx64(handle Handle, n int64, alpha uintptr, alphaType DataType, x drive
 	if err := checkLibSym("cublasScalEx_64"); err != nil {
 		return err
 	}
-	return toError(fnscalEx64(handle, n, alpha, alphaType, uintptr(x), xType, incx, executionType))
+	return toError(fnscalEx64(handle, n, alpha, alphaType, uintptr(x), xType, incx, executionType), "cublasScalEx_64")
 }
 
 // scasum supports the 64-bit Integer Interface.
@@ -10971,7 +10971,7 @@ func scasum(handle Handle, n int32, x driver.DevicePtr, incx int32) (float32, er
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnscasum(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnscasum(handle, n, uintptr(x), incx, &out), "cublasScasum_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -11005,7 +11005,7 @@ func scasum64(handle Handle, n int64, x driver.DevicePtr, incx int64) (float32, 
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnscasum64(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnscasum64(handle, n, uintptr(x), incx, &out), "cublasScasum_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -11039,7 +11039,7 @@ func scnrm2(handle Handle, n int32, x driver.DevicePtr, incx int32) (float32, er
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnscnrm2(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnscnrm2(handle, n, uintptr(x), incx, &out), "cublasScnrm2_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -11073,7 +11073,7 @@ func scnrm264(handle Handle, n int64, x driver.DevicePtr, incx int64) (float32, 
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnscnrm264(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnscnrm264(handle, n, uintptr(x), incx, &out), "cublasScnrm2_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -11104,7 +11104,7 @@ func scopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasScopy_v2"); err != nil {
 		return err
 	}
-	return toError(fnscopy(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnscopy(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasScopy_v2")
 }
 
 // scopy64 supports the 64-bit Integer Interface.
@@ -11131,7 +11131,7 @@ func scopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasScopy_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnscopy64(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnscopy64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasScopy_v2_64")
 }
 
 // sdgmm supports the 64-bit Integer Interface.
@@ -11168,7 +11168,7 @@ func sdgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 	if err := checkLibSym("cublasSdgmm"); err != nil {
 		return err
 	}
-	return toError(fnsdgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc))
+	return toError(fnsdgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasSdgmm")
 }
 
 // sdgmm64 supports the 64-bit Integer Interface.
@@ -11205,7 +11205,7 @@ func sdgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 	if err := checkLibSym("cublasSdgmm_64"); err != nil {
 		return err
 	}
-	return toError(fnsdgmm64(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc))
+	return toError(fnsdgmm64(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasSdgmm_64")
 }
 
 // sdot supports the 64-bit Integer Interface.
@@ -11236,7 +11236,7 @@ func sdot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnsdot(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fnsdot(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasSdot_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -11271,7 +11271,7 @@ func sdot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnsdot64(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fnsdot64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasSdot_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -11288,7 +11288,7 @@ func setAtomicsMode(handle Handle, mode AtomicsMode) error {
 	if err := checkLibSym("cublasSetAtomicsMode"); err != nil {
 		return err
 	}
-	return toError(fnsetAtomicsMode(handle, mode))
+	return toError(fnsetAtomicsMode(handle, mode), "cublasSetAtomicsMode")
 }
 
 // setEmulationSpecialValuesSupport sets the value previously programmed to the library handle.
@@ -11298,7 +11298,7 @@ func setEmulationSpecialValuesSupport(handle Handle, mask CudaEmulationSpecialVa
 	if err := checkLibSym("cublasSetEmulationSpecialValuesSupport"); err != nil {
 		return err
 	}
-	return toError(fnsetEmulationSpecialValuesSupport(handle, mask))
+	return toError(fnsetEmulationSpecialValuesSupport(handle, mask), "cublasSetEmulationSpecialValuesSupport")
 }
 
 // setEmulationStrategy The [Handle.SetEmulationStrategy] function enables you to select how the library should make use of floating point emulation.
@@ -11308,7 +11308,7 @@ func setEmulationStrategy(handle Handle, emulationStrategy EmulationStrategy) er
 	if err := checkLibSym("cublasSetEmulationStrategy"); err != nil {
 		return err
 	}
-	return toError(fnsetEmulationStrategy(handle, emulationStrategy))
+	return toError(fnsetEmulationStrategy(handle, emulationStrategy), "cublasSetEmulationStrategy")
 }
 
 // setFixedPointEmulationMantissaBitCountPointer sets the value previously programmed to the library handle.
@@ -11318,7 +11318,7 @@ func setFixedPointEmulationMantissaBitCountPointer(handle Handle, mantissaBitCou
 	if err := checkLibSym("cublasSetFixedPointEmulationMantissaBitCountPointer"); err != nil {
 		return err
 	}
-	return toError(fnsetFixedPointEmulationMantissaBitCountPointer(handle, mantissaBitCount))
+	return toError(fnsetFixedPointEmulationMantissaBitCountPointer(handle, mantissaBitCount), "cublasSetFixedPointEmulationMantissaBitCountPointer")
 }
 
 // setFixedPointEmulationMantissaBitOffset sets the value previously programmed to the library handle.
@@ -11328,7 +11328,7 @@ func setFixedPointEmulationMantissaBitOffset(handle Handle, mantissaBitOffset in
 	if err := checkLibSym("cublasSetFixedPointEmulationMantissaBitOffset"); err != nil {
 		return err
 	}
-	return toError(fnsetFixedPointEmulationMantissaBitOffset(handle, mantissaBitOffset))
+	return toError(fnsetFixedPointEmulationMantissaBitOffset(handle, mantissaBitOffset), "cublasSetFixedPointEmulationMantissaBitOffset")
 }
 
 // setFixedPointEmulationMantissaControl sets the value previously programmed to the library handle.
@@ -11338,7 +11338,7 @@ func setFixedPointEmulationMantissaControl(handle Handle, mantissaControl CudaEm
 	if err := checkLibSym("cublasSetFixedPointEmulationMantissaControl"); err != nil {
 		return err
 	}
-	return toError(fnsetFixedPointEmulationMantissaControl(handle, mantissaControl))
+	return toError(fnsetFixedPointEmulationMantissaControl(handle, mantissaControl), "cublasSetFixedPointEmulationMantissaControl")
 }
 
 // setFixedPointEmulationMaxMantissaBitCount sets the value previously programmed to the library handle.
@@ -11348,7 +11348,7 @@ func setFixedPointEmulationMaxMantissaBitCount(handle Handle, maxMantissaBitCoun
 	if err := checkLibSym("cublasSetFixedPointEmulationMaxMantissaBitCount"); err != nil {
 		return err
 	}
-	return toError(fnsetFixedPointEmulationMaxMantissaBitCount(handle, maxMantissaBitCount))
+	return toError(fnsetFixedPointEmulationMaxMantissaBitCount(handle, maxMantissaBitCount), "cublasSetFixedPointEmulationMaxMantissaBitCount")
 }
 
 // SetLoggerCallback installs a custom user defined callback function via cublas C public API.
@@ -11363,7 +11363,7 @@ func SetLoggerCallback(userCallback LogCallback) error {
 	if err := checkLibSym("cublasSetLoggerCallback"); err != nil {
 		return err
 	}
-	return toError(fnSetLoggerCallback(userCallback))
+	return toError(fnSetLoggerCallback(userCallback), "cublasSetLoggerCallback")
 }
 
 // setMathMode The [Handle.SetMathMode] function enables you to choose the compute precision modes as defined by [Math].
@@ -11375,7 +11375,7 @@ func setMathMode(handle Handle, mode Math) error {
 	if err := checkLibSym("cublasSetMathMode"); err != nil {
 		return err
 	}
-	return toError(fnsetMathMode(handle, mode))
+	return toError(fnsetMathMode(handle, mode), "cublasSetMathMode")
 }
 
 // SetMatrix supports the 64-bit Integer Interface.
@@ -11387,7 +11387,7 @@ func SetMatrix(rows int32, cols int32, elemSize int32, a uintptr, lda int32, b d
 	if err := checkLibSym("cublasSetMatrix"); err != nil {
 		return err
 	}
-	return toError(fnSetMatrix(rows, cols, elemSize, a, lda, uintptr(b), ldb))
+	return toError(fnSetMatrix(rows, cols, elemSize, a, lda, uintptr(b), ldb), "cublasSetMatrix")
 }
 
 // SetMatrixAsync supports the 64-bit Integer Interface.
@@ -11399,7 +11399,7 @@ func SetMatrixAsync(rows int32, cols int32, elemSize int32, a uintptr, lda int32
 	if err := checkLibSym("cublasSetMatrixAsync"); err != nil {
 		return err
 	}
-	return toError(fnSetMatrixAsync(rows, cols, elemSize, a, lda, uintptr(b), ldb, stream))
+	return toError(fnSetMatrixAsync(rows, cols, elemSize, a, lda, uintptr(b), ldb, stream), "cublasSetMatrixAsync")
 }
 
 // SetMatrixAsync64 supports the 64-bit Integer Interface.
@@ -11411,7 +11411,7 @@ func SetMatrixAsync64(rows int64, cols int64, elemSize int64, a uintptr, lda int
 	if err := checkLibSym("cublasSetMatrixAsync_64"); err != nil {
 		return err
 	}
-	return toError(fnSetMatrixAsync64(rows, cols, elemSize, a, lda, uintptr(b), ldb, stream))
+	return toError(fnSetMatrixAsync64(rows, cols, elemSize, a, lda, uintptr(b), ldb, stream), "cublasSetMatrixAsync_64")
 }
 
 // SetMatrix64 supports the 64-bit Integer Interface.
@@ -11423,7 +11423,7 @@ func SetMatrix64(rows int64, cols int64, elemSize int64, a uintptr, lda int64, b
 	if err := checkLibSym("cublasSetMatrix_64"); err != nil {
 		return err
 	}
-	return toError(fnSetMatrix64(rows, cols, elemSize, a, lda, uintptr(b), ldb))
+	return toError(fnSetMatrix64(rows, cols, elemSize, a, lda, uintptr(b), ldb), "cublasSetMatrix_64")
 }
 
 // setPointerMode sets the pointer mode used by the cuBLAS library.
@@ -11433,7 +11433,7 @@ func setPointerMode(handle Handle, mode PointerMode) error {
 	if err := checkLibSym("cublasSetPointerMode_v2"); err != nil {
 		return err
 	}
-	return toError(fnsetPointerMode(handle, mode))
+	return toError(fnsetPointerMode(handle, mode), "cublasSetPointerMode_v2")
 }
 
 // setSmCountTarget The [Handle.SetSmCountTarget] function allows overriding the number of multiprocessors available to the library during kernels execution.
@@ -11447,7 +11447,7 @@ func setSmCountTarget(handle Handle, smCountTarget int32) error {
 	if err := checkLibSym("cublasSetSmCountTarget"); err != nil {
 		return err
 	}
-	return toError(fnsetSmCountTarget(handle, smCountTarget))
+	return toError(fnsetSmCountTarget(handle, smCountTarget), "cublasSetSmCountTarget")
 }
 
 // setStream sets the cuBLAS library stream, which will be used to execute all subsequent calls to the cuBLAS library functions.
@@ -11457,7 +11457,7 @@ func setStream(handle Handle, streamId driver.Stream) error {
 	if err := checkLibSym("cublasSetStream_v2"); err != nil {
 		return err
 	}
-	return toError(fnsetStream(handle, streamId))
+	return toError(fnsetStream(handle, streamId), "cublasSetStream_v2")
 }
 
 // SetVector supports the 64-bit Integer Interface.
@@ -11470,7 +11470,7 @@ func SetVector(n int32, elemSize int32, x uintptr, incx int32, devicePtr driver.
 	if err := checkLibSym("cublasSetVector"); err != nil {
 		return err
 	}
-	return toError(fnSetVector(n, elemSize, x, incx, uintptr(devicePtr), incy))
+	return toError(fnSetVector(n, elemSize, x, incx, uintptr(devicePtr), incy), "cublasSetVector")
 }
 
 // SetVectorAsync supports the 64-bit Integer Interface.
@@ -11482,7 +11482,7 @@ func SetVectorAsync(n int32, elemSize int32, hostPtr unsafe.Pointer, incx int32,
 	if err := checkLibSym("cublasSetVectorAsync"); err != nil {
 		return err
 	}
-	return toError(fnSetVectorAsync(n, elemSize, hostPtr, incx, uintptr(devicePtr), incy, stream))
+	return toError(fnSetVectorAsync(n, elemSize, hostPtr, incx, uintptr(devicePtr), incy, stream), "cublasSetVectorAsync")
 }
 
 // SetVectorAsync64 supports the 64-bit Integer Interface.
@@ -11494,7 +11494,7 @@ func SetVectorAsync64(n int64, elemSize int64, hostPtr unsafe.Pointer, incx int6
 	if err := checkLibSym("cublasSetVectorAsync_64"); err != nil {
 		return err
 	}
-	return toError(fnSetVectorAsync64(n, elemSize, hostPtr, incx, uintptr(devicePtr), incy, stream))
+	return toError(fnSetVectorAsync64(n, elemSize, hostPtr, incx, uintptr(devicePtr), incy, stream), "cublasSetVectorAsync_64")
 }
 
 // SetVector64 supports the 64-bit Integer Interface.
@@ -11507,7 +11507,7 @@ func SetVector64(n int64, elemSize int64, x uintptr, incx int64, devicePtr drive
 	if err := checkLibSym("cublasSetVector_64"); err != nil {
 		return err
 	}
-	return toError(fnSetVector64(n, elemSize, x, incx, uintptr(devicePtr), incy))
+	return toError(fnSetVector64(n, elemSize, x, incx, uintptr(devicePtr), incy), "cublasSetVector_64")
 }
 
 // setWorkspace sets the cuBLAS library workspace to a user-owned device buffer, which will be used to execute all subsequent calls to the cuBLAS library functions (on the currently set stream).
@@ -11526,7 +11526,7 @@ func setWorkspace(handle Handle, workspace driver.DevicePtr, workspaceSizeInByte
 	if err := checkLibSym("cublasSetWorkspace_v2"); err != nil {
 		return err
 	}
-	return toError(fnsetWorkspace(handle, uintptr(workspace), workspaceSizeInBytes))
+	return toError(fnsetWorkspace(handle, uintptr(workspace), workspaceSizeInBytes), "cublasSetWorkspace_v2")
 }
 
 // sgbmv supports the 64-bit Integer Interface.
@@ -11566,7 +11566,7 @@ func sgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 	if err := checkLibSym("cublasSgbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnsgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnsgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSgbmv_v2")
 }
 
 // sgbmv64 supports the 64-bit Integer Interface.
@@ -11606,7 +11606,7 @@ func sgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 	if err := checkLibSym("cublasSgbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnsgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSgbmv_v2_64")
 }
 
 // sgeam supports the 64-bit Integer Interface.
@@ -11651,7 +11651,7 @@ func sgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	if err := checkLibSym("cublasSgeam"); err != nil {
 		return err
 	}
-	return toError(fnsgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnsgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasSgeam")
 }
 
 // sgeam64 supports the 64-bit Integer Interface.
@@ -11696,7 +11696,7 @@ func sgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 	if err := checkLibSym("cublasSgeam_64"); err != nil {
 		return err
 	}
-	return toError(fnsgeam64(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnsgeam64(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasSgeam_64")
 }
 
 // sgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
@@ -11735,7 +11735,7 @@ func sgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 	if err := checkLibSym("cublasSgelsBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgelsBatched(handle, trans, m, n, nrhs, uintptr(aarray), lda, uintptr(carray), ldc, info, uintptr(devInfoArray), batchSize))
+	return toError(fnsgelsBatched(handle, trans, m, n, nrhs, uintptr(aarray), lda, uintptr(carray), ldc, info, uintptr(devInfoArray), batchSize), "cublasSgelsBatched")
 }
 
 // sgemmBatched supports the 64-bit Integer Interface.
@@ -11779,7 +11779,7 @@ func sgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 	if err := checkLibSym("cublasSgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fnsgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasSgemmBatched")
 }
 
 // sgemmBatched64 supports the 64-bit Integer Interface.
@@ -11823,7 +11823,7 @@ func sgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 	if err := checkLibSym("cublasSgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fnsgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasSgemmBatched_64")
 }
 
 // sgemmEx supports the 64-bit Integer Interface.
@@ -11871,7 +11871,7 @@ func sgemmEx(handle Handle, transa Operation, transb Operation, m int32, n int32
 	if err := checkLibSym("cublasSgemmEx"); err != nil {
 		return err
 	}
-	return toError(fnsgemmEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc))
+	return toError(fnsgemmEx(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc), "cublasSgemmEx")
 }
 
 // sgemmEx64 supports the 64-bit Integer Interface.
@@ -11919,7 +11919,7 @@ func sgemmEx64(handle Handle, transa Operation, transb Operation, m int64, n int
 	if err := checkLibSym("cublasSgemmEx_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemmEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc))
+	return toError(fnsgemmEx64(handle, transa, transb, m, n, k, alpha, uintptr(a), atype, lda, uintptr(b), btype, ldb, beta, uintptr(c), ctype, ldc), "cublasSgemmEx_64")
 }
 
 // sgemmGroupedBatched supports the 64-bit Integer Interface.
@@ -11966,7 +11966,7 @@ func sgemmGroupedBatched(handle Handle, transaArray *Operation, transbArray *Ope
 	if err := checkLibSym("cublasSgemmGroupedBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemmGroupedBatched(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), ldaArray, uintptr(barray), ldbArray, betaArray, uintptr(carray), ldcArray, groupCount, groupSize))
+	return toError(fnsgemmGroupedBatched(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), ldaArray, uintptr(barray), ldbArray, betaArray, uintptr(carray), ldcArray, groupCount, groupSize), "cublasSgemmGroupedBatched")
 }
 
 // sgemmGroupedBatched64 supports the 64-bit Integer Interface.
@@ -12013,7 +12013,7 @@ func sgemmGroupedBatched64(handle Handle, transaArray *Operation, transbArray *O
 	if err := checkLibSym("cublasSgemmGroupedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemmGroupedBatched64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), ldaArray, uintptr(barray), ldbArray, betaArray, uintptr(carray), ldcArray, groupCount, groupSize))
+	return toError(fnsgemmGroupedBatched64(handle, transaArray, transbArray, mArray, nArray, kArray, alphaArray, uintptr(aarray), ldaArray, uintptr(barray), ldbArray, betaArray, uintptr(carray), ldcArray, groupCount, groupSize), "cublasSgemmGroupedBatched_64")
 }
 
 // sgemmStridedBatched supports the 64-bit Integer Interface.
@@ -12061,7 +12061,7 @@ func sgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 	if err := checkLibSym("cublasSgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fnsgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasSgemmStridedBatched")
 }
 
 // sgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -12109,7 +12109,7 @@ func sgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	if err := checkLibSym("cublasSgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fnsgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasSgemmStridedBatched_64")
 }
 
 // sgemm supports the 64-bit Integer Interface.
@@ -12150,7 +12150,7 @@ func sgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	if err := checkLibSym("cublasSgemm_v2"); err != nil {
 		return err
 	}
-	return toError(fnsgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnsgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSgemm_v2")
 }
 
 // sgemm64 supports the 64-bit Integer Interface.
@@ -12191,7 +12191,7 @@ func sgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 	if err := checkLibSym("cublasSgemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnsgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSgemm_v2_64")
 }
 
 // sgemvBatched supports the 64-bit Integer Interface.
@@ -12231,7 +12231,7 @@ func sgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *float
 	if err := checkLibSym("cublasSgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fnsgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasSgemvBatched")
 }
 
 // sgemvBatched64 supports the 64-bit Integer Interface.
@@ -12271,7 +12271,7 @@ func sgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *flo
 	if err := checkLibSym("cublasSgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fnsgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasSgemvBatched_64")
 }
 
 // sgemvStridedBatched supports the 64-bit Integer Interface.
@@ -12315,7 +12315,7 @@ func sgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 	if err := checkLibSym("cublasSgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fnsgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasSgemvStridedBatched")
 }
 
 // sgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -12359,7 +12359,7 @@ func sgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 	if err := checkLibSym("cublasSgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fnsgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasSgemvStridedBatched_64")
 }
 
 // sgemv supports the 64-bit Integer Interface.
@@ -12396,7 +12396,7 @@ func sgemv(handle Handle, trans Operation, m int32, n int32, alpha *float32, a d
 	if err := checkLibSym("cublasSgemv_v2"); err != nil {
 		return err
 	}
-	return toError(fnsgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnsgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSgemv_v2")
 }
 
 // sgemv64 supports the 64-bit Integer Interface.
@@ -12433,7 +12433,7 @@ func sgemv64(handle Handle, trans Operation, m int64, n int64, alpha *float32, a
 	if err := checkLibSym("cublasSgemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsgemv64(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnsgemv64(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSgemv_v2_64")
 }
 
 // sgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
@@ -12468,7 +12468,7 @@ func sgeqrfBatched(handle Handle, m int32, n int32, aarray driver.DevicePtr, lda
 	if err := checkLibSym("cublasSgeqrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize))
+	return toError(fnsgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize), "cublasSgeqrfBatched")
 }
 
 // sger supports the 64-bit Integer Interface.
@@ -12502,7 +12502,7 @@ func sger(handle Handle, m int32, n int32, alpha *float32, x driver.DevicePtr, i
 	if err := checkLibSym("cublasSger_v2"); err != nil {
 		return err
 	}
-	return toError(fnsger(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnsger(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasSger_v2")
 }
 
 // sger64 supports the 64-bit Integer Interface.
@@ -12536,7 +12536,7 @@ func sger64(handle Handle, m int64, n int64, alpha *float32, x driver.DevicePtr,
 	if err := checkLibSym("cublasSger_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsger64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnsger64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasSger_v2_64")
 }
 
 // sgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
@@ -12571,7 +12571,7 @@ func sgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 	if err := checkLibSym("cublasSgetrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgetrfBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(info), batchSize))
+	return toError(fnsgetrfBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(info), batchSize), "cublasSgetrfBatched")
 }
 
 // sgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
@@ -12604,7 +12604,7 @@ func sgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 	if err := checkLibSym("cublasSgetriBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgetriBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(c), ldc, uintptr(info), batchSize))
+	return toError(fnsgetriBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(c), ldc, uintptr(info), batchSize), "cublasSgetriBatched")
 }
 
 // sgetrsBatched solves an array of systems of linear equations of the form:
@@ -12643,7 +12643,7 @@ func sgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray d
 	if err := checkLibSym("cublasSgetrsBatched"); err != nil {
 		return err
 	}
-	return toError(fnsgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize))
+	return toError(fnsgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize), "cublasSgetrsBatched")
 }
 
 // smatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
@@ -12673,7 +12673,7 @@ func smatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 	if err := checkLibSym("cublasSmatinvBatched"); err != nil {
 		return err
 	}
-	return toError(fnsmatinvBatched(handle, n, uintptr(a), lda, uintptr(ainv), ldaInv, uintptr(info), batchSize))
+	return toError(fnsmatinvBatched(handle, n, uintptr(a), lda, uintptr(ainv), ldaInv, uintptr(info), batchSize), "cublasSmatinvBatched")
 }
 
 // snrm2 supports the 64-bit Integer Interface.
@@ -12703,7 +12703,7 @@ func snrm2(handle Handle, n int32, x driver.DevicePtr, incx int32) (float32, err
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnsnrm2(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnsnrm2(handle, n, uintptr(x), incx, &out), "cublasSnrm2_v2"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -12737,7 +12737,7 @@ func snrm264(handle Handle, n int64, x driver.DevicePtr, incx int64) (float32, e
 		return zero, err
 	}
 	var out float32
-	if err := toError(fnsnrm264(handle, n, uintptr(x), incx, &out)); err != nil {
+	if err := toError(fnsnrm264(handle, n, uintptr(x), incx, &out), "cublasSnrm2_v2_64"); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -12773,7 +12773,7 @@ func srot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 	if err := checkLibSym("cublasSrot_v2"); err != nil {
 		return err
 	}
-	return toError(fnsrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fnsrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasSrot_v2")
 }
 
 // srot64 supports the 64-bit Integer Interface.
@@ -12805,7 +12805,7 @@ func srot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 	if err := checkLibSym("cublasSrot_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fnsrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasSrot_v2_64")
 }
 
 // srotg supports the 64-bit Integer Interface.
@@ -12840,7 +12840,7 @@ func srotg(handle Handle, a *float32, b *float32, c *float32, s *float32) error 
 	if err := checkLibSym("cublasSrotg_v2"); err != nil {
 		return err
 	}
-	return toError(fnsrotg(handle, a, b, c, s))
+	return toError(fnsrotg(handle, a, b, c, s), "cublasSrotg_v2")
 }
 
 // srotm supports the 64-bit Integer Interface.
@@ -12873,7 +12873,7 @@ func srotm(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasSrotm_v2"); err != nil {
 		return err
 	}
-	return toError(fnsrotm(handle, n, uintptr(x), incx, uintptr(y), incy, param))
+	return toError(fnsrotm(handle, n, uintptr(x), incx, uintptr(y), incy, param), "cublasSrotm_v2")
 }
 
 // srotm64 supports the 64-bit Integer Interface.
@@ -12906,7 +12906,7 @@ func srotm64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasSrotm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsrotm64(handle, n, uintptr(x), incx, uintptr(y), incy, param))
+	return toError(fnsrotm64(handle, n, uintptr(x), incx, uintptr(y), incy, param), "cublasSrotm_v2_64")
 }
 
 // srotmg supports the 64-bit Integer Interface.
@@ -12937,7 +12937,7 @@ func srotmg(handle Handle, d1 *float32, d2 *float32, x1 *float32, y1 *float32, p
 	if err := checkLibSym("cublasSrotmg_v2"); err != nil {
 		return err
 	}
-	return toError(fnsrotmg(handle, d1, d2, x1, y1, param))
+	return toError(fnsrotmg(handle, d1, d2, x1, y1, param), "cublasSrotmg_v2")
 }
 
 // ssbmv supports the 64-bit Integer Interface.
@@ -12975,7 +12975,7 @@ func ssbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *float32, a dri
 	if err := checkLibSym("cublasSsbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnssbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnssbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSsbmv_v2")
 }
 
 // ssbmv64 supports the 64-bit Integer Interface.
@@ -13013,7 +13013,7 @@ func ssbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *float32, a d
 	if err := checkLibSym("cublasSsbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnssbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSsbmv_v2_64")
 }
 
 // sscal supports the 64-bit Integer Interface.
@@ -13040,7 +13040,7 @@ func sscal(handle Handle, n int32, alpha *float32, x driver.DevicePtr, incx int3
 	if err := checkLibSym("cublasSscal_v2"); err != nil {
 		return err
 	}
-	return toError(fnsscal(handle, n, alpha, uintptr(x), incx))
+	return toError(fnsscal(handle, n, alpha, uintptr(x), incx), "cublasSscal_v2")
 }
 
 // sscal64 supports the 64-bit Integer Interface.
@@ -13067,7 +13067,7 @@ func sscal64(handle Handle, n int64, alpha *float32, x driver.DevicePtr, incx in
 	if err := checkLibSym("cublasSscal_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsscal64(handle, n, alpha, uintptr(x), incx))
+	return toError(fnsscal64(handle, n, alpha, uintptr(x), incx), "cublasSscal_v2_64")
 }
 
 // sspmv supports the 64-bit Integer Interface.
@@ -13103,7 +13103,7 @@ func sspmv(handle Handle, uplo FillMode, n int32, alpha *float32, ap driver.Devi
 	if err := checkLibSym("cublasSspmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnsspmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnsspmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasSspmv_v2")
 }
 
 // sspmv64 supports the 64-bit Integer Interface.
@@ -13139,7 +13139,7 @@ func sspmv64(handle Handle, uplo FillMode, n int64, alpha *float32, ap driver.De
 	if err := checkLibSym("cublasSspmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsspmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnsspmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasSspmv_v2_64")
 }
 
 // sspr2 supports the 64-bit Integer Interface.
@@ -13174,7 +13174,7 @@ func sspr2(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Devic
 	if err := checkLibSym("cublasSspr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnsspr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)))
+	return toError(fnsspr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasSspr2_v2")
 }
 
 // sspr264 supports the 64-bit Integer Interface.
@@ -13209,7 +13209,7 @@ func sspr264(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Dev
 	if err := checkLibSym("cublasSspr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsspr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)))
+	return toError(fnsspr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasSspr2_v2_64")
 }
 
 // sspr supports the 64-bit Integer Interface.
@@ -13242,7 +13242,7 @@ func sspr(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 	if err := checkLibSym("cublasSspr_v2"); err != nil {
 		return err
 	}
-	return toError(fnsspr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)))
+	return toError(fnsspr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasSspr_v2")
 }
 
 // sspr64 supports the 64-bit Integer Interface.
@@ -13275,7 +13275,7 @@ func sspr64(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Devi
 	if err := checkLibSym("cublasSspr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsspr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)))
+	return toError(fnsspr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasSspr_v2_64")
 }
 
 // sswap supports the 64-bit Integer Interface.
@@ -13302,7 +13302,7 @@ func sswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasSswap_v2"); err != nil {
 		return err
 	}
-	return toError(fnsswap(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnsswap(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasSswap_v2")
 }
 
 // sswap64 supports the 64-bit Integer Interface.
@@ -13329,7 +13329,7 @@ func sswap64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasSswap_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnsswap64(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnsswap64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasSswap_v2_64")
 }
 
 // ssymm supports the 64-bit Integer Interface.
@@ -13366,7 +13366,7 @@ func ssymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	if err := checkLibSym("cublasSsymm_v2"); err != nil {
 		return err
 	}
-	return toError(fnssymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnssymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsymm_v2")
 }
 
 // ssymm64 supports the 64-bit Integer Interface.
@@ -13403,7 +13403,7 @@ func ssymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 	if err := checkLibSym("cublasSsymm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssymm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnssymm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsymm_v2_64")
 }
 
 // ssymv supports the 64-bit Integer Interface.
@@ -13439,7 +13439,7 @@ func ssymv(handle Handle, uplo FillMode, n int32, alpha *float32, a driver.Devic
 	if err := checkLibSym("cublasSsymv_v2"); err != nil {
 		return err
 	}
-	return toError(fnssymv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnssymv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSsymv_v2")
 }
 
 // ssymv64 supports the 64-bit Integer Interface.
@@ -13475,7 +13475,7 @@ func ssymv64(handle Handle, uplo FillMode, n int64, alpha *float32, a driver.Dev
 	if err := checkLibSym("cublasSsymv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnssymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasSsymv_v2_64")
 }
 
 // ssyr2 supports the 64-bit Integer Interface.
@@ -13509,7 +13509,7 @@ func ssyr2(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Devic
 	if err := checkLibSym("cublasSsyr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnssyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnssyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasSsyr2_v2")
 }
 
 // ssyr264 supports the 64-bit Integer Interface.
@@ -13543,7 +13543,7 @@ func ssyr264(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Dev
 	if err := checkLibSym("cublasSsyr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnssyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasSsyr2_v2_64")
 }
 
 // ssyr2k supports the 64-bit Integer Interface.
@@ -13581,7 +13581,7 @@ func ssyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasSsyr2k_v2"); err != nil {
 		return err
 	}
-	return toError(fnssyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnssyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsyr2k_v2")
 }
 
 // ssyr2k64 supports the 64-bit Integer Interface.
@@ -13619,7 +13619,7 @@ func ssyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasSsyr2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnssyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsyr2k_v2_64")
 }
 
 // ssyr supports the 64-bit Integer Interface.
@@ -13651,7 +13651,7 @@ func ssyr(handle Handle, uplo FillMode, n int32, alpha *float32, x driver.Device
 	if err := checkLibSym("cublasSsyr_v2"); err != nil {
 		return err
 	}
-	return toError(fnssyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fnssyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasSsyr_v2")
 }
 
 // ssyr64 supports the 64-bit Integer Interface.
@@ -13683,7 +13683,7 @@ func ssyr64(handle Handle, uplo FillMode, n int64, alpha *float32, x driver.Devi
 	if err := checkLibSym("cublasSsyr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fnssyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasSsyr_v2_64")
 }
 
 // ssyrk supports the 64-bit Integer Interface.
@@ -13719,7 +13719,7 @@ func ssyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	if err := checkLibSym("cublasSsyrk_v2"); err != nil {
 		return err
 	}
-	return toError(fnssyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fnssyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasSsyrk_v2")
 }
 
 // ssyrk64 supports the 64-bit Integer Interface.
@@ -13755,7 +13755,7 @@ func ssyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	if err := checkLibSym("cublasSsyrk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnssyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fnssyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasSsyrk_v2_64")
 }
 
 // ssyrkx supports the 64-bit Integer Interface.
@@ -13795,7 +13795,7 @@ func ssyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasSsyrkx"); err != nil {
 		return err
 	}
-	return toError(fnssyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnssyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsyrkx")
 }
 
 // ssyrkx64 supports the 64-bit Integer Interface.
@@ -13835,7 +13835,7 @@ func ssyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasSsyrkx_64"); err != nil {
 		return err
 	}
-	return toError(fnssyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnssyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasSsyrkx_64")
 }
 
 // stbmv supports the 64-bit Integer Interface.
@@ -13873,7 +13873,7 @@ func stbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasStbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnstbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasStbmv_v2")
 }
 
 // stbmv64 supports the 64-bit Integer Interface.
@@ -13911,7 +13911,7 @@ func stbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasStbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnstbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasStbmv_v2_64")
 }
 
 // stbsv supports the 64-bit Integer Interface.
@@ -13950,7 +13950,7 @@ func stbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasStbsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnstbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasStbsv_v2")
 }
 
 // stbsv64 supports the 64-bit Integer Interface.
@@ -13989,7 +13989,7 @@ func stbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasStbsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnstbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasStbsv_v2_64")
 }
 
 // stpmv supports the 64-bit Integer Interface.
@@ -14025,7 +14025,7 @@ func stpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasStpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnstpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasStpmv_v2")
 }
 
 // stpmv64 supports the 64-bit Integer Interface.
@@ -14061,7 +14061,7 @@ func stpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasStpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnstpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasStpmv_v2_64")
 }
 
 // stpsv supports the 64-bit Integer Interface.
@@ -14098,7 +14098,7 @@ func stpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasStpsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnstpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasStpsv_v2")
 }
 
 // stpsv64 supports the 64-bit Integer Interface.
@@ -14135,7 +14135,7 @@ func stpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasStpsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnstpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasStpsv_v2_64")
 }
 
 // stpttr performs the conversion from the triangular packed format to the triangular format
@@ -14163,7 +14163,7 @@ func stpttr(handle Handle, uplo FillMode, n int32, ap driver.DevicePtr, a driver
 	if err := checkLibSym("cublasStpttr"); err != nil {
 		return err
 	}
-	return toError(fnstpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda))
+	return toError(fnstpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda), "cublasStpttr")
 }
 
 // strmm supports the 64-bit Integer Interface.
@@ -14203,7 +14203,7 @@ func strmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	if err := checkLibSym("cublasStrmm_v2"); err != nil {
 		return err
 	}
-	return toError(fnstrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnstrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasStrmm_v2")
 }
 
 // strmm64 supports the 64-bit Integer Interface.
@@ -14243,7 +14243,7 @@ func strmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	if err := checkLibSym("cublasStrmm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnstrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasStrmm_v2_64")
 }
 
 // strmv supports the 64-bit Integer Interface.
@@ -14278,7 +14278,7 @@ func strmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasStrmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnstrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasStrmv_v2")
 }
 
 // strmv64 supports the 64-bit Integer Interface.
@@ -14313,7 +14313,7 @@ func strmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasStrmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnstrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasStrmv_v2_64")
 }
 
 // strsmBatched supports the 64-bit Integer Interface.
@@ -14355,7 +14355,7 @@ func strsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 	if err := checkLibSym("cublasStrsmBatched"); err != nil {
 		return err
 	}
-	return toError(fnstrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount))
+	return toError(fnstrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasStrsmBatched")
 }
 
 // strsmBatched64 supports the 64-bit Integer Interface.
@@ -14397,7 +14397,7 @@ func strsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 	if err := checkLibSym("cublasStrsmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnstrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount))
+	return toError(fnstrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasStrsmBatched_64")
 }
 
 // strsm supports the 64-bit Integer Interface.
@@ -14436,7 +14436,7 @@ func strsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	if err := checkLibSym("cublasStrsm_v2"); err != nil {
 		return err
 	}
-	return toError(fnstrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb))
+	return toError(fnstrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasStrsm_v2")
 }
 
 // strsm64 supports the 64-bit Integer Interface.
@@ -14475,7 +14475,7 @@ func strsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	if err := checkLibSym("cublasStrsm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb))
+	return toError(fnstrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasStrsm_v2_64")
 }
 
 // strsv supports the 64-bit Integer Interface.
@@ -14511,7 +14511,7 @@ func strsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasStrsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnstrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnstrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasStrsv_v2")
 }
 
 // strsv64 supports the 64-bit Integer Interface.
@@ -14547,7 +14547,7 @@ func strsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasStrsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnstrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnstrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasStrsv_v2_64")
 }
 
 // strttp performs the conversion from the triangular format to the triangular packed format
@@ -14575,7 +14575,7 @@ func strttp(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	if err := checkLibSym("cublasStrttp"); err != nil {
 		return err
 	}
-	return toError(fnstrttp(handle, uplo, n, uintptr(a), lda, uintptr(ap)))
+	return toError(fnstrttp(handle, uplo, n, uintptr(a), lda, uintptr(ap)), "cublasStrttp")
 }
 
 // swapEx wraps cublasSwapEx.
@@ -14583,7 +14583,7 @@ func swapEx(handle Handle, n int32, x driver.DevicePtr, xType DataType, incx int
 	if err := checkLibSym("cublasSwapEx"); err != nil {
 		return err
 	}
-	return toError(fnswapEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy))
+	return toError(fnswapEx(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy), "cublasSwapEx")
 }
 
 // swapEx64 wraps cublasSwapEx_64.
@@ -14591,7 +14591,7 @@ func swapEx64(handle Handle, n int64, x driver.DevicePtr, xType DataType, incx i
 	if err := checkLibSym("cublasSwapEx_64"); err != nil {
 		return err
 	}
-	return toError(fnswapEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy))
+	return toError(fnswapEx64(handle, n, uintptr(x), xType, incx, uintptr(y), yType, incy), "cublasSwapEx_64")
 }
 
 // tSSgemvBatched supports the 64-bit Integer Interface.
@@ -14631,7 +14631,7 @@ func tSSgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 	if err := checkLibSym("cublasTSSgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fntSSgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fntSSgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasTSSgemvBatched")
 }
 
 // tSSgemvBatched64 supports the 64-bit Integer Interface.
@@ -14671,7 +14671,7 @@ func tSSgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 	if err := checkLibSym("cublasTSSgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fntSSgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fntSSgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasTSSgemvBatched_64")
 }
 
 // tSSgemvStridedBatched supports the 64-bit Integer Interface.
@@ -14715,7 +14715,7 @@ func tSSgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 	if err := checkLibSym("cublasTSSgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fntSSgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fntSSgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasTSSgemvStridedBatched")
 }
 
 // tSSgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -14759,7 +14759,7 @@ func tSSgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 	if err := checkLibSym("cublasTSSgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fntSSgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fntSSgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasTSSgemvStridedBatched_64")
 }
 
 // tSTgemvBatched supports the 64-bit Integer Interface.
@@ -14799,7 +14799,7 @@ func tSTgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *flo
 	if err := checkLibSym("cublasTSTgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fntSTgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fntSTgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasTSTgemvBatched")
 }
 
 // tSTgemvBatched64 supports the 64-bit Integer Interface.
@@ -14839,7 +14839,7 @@ func tSTgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *f
 	if err := checkLibSym("cublasTSTgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fntSTgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fntSTgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasTSTgemvBatched_64")
 }
 
 // tSTgemvStridedBatched supports the 64-bit Integer Interface.
@@ -14883,7 +14883,7 @@ func tSTgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alp
 	if err := checkLibSym("cublasTSTgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fntSTgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fntSTgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasTSTgemvStridedBatched")
 }
 
 // tSTgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -14927,7 +14927,7 @@ func tSTgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, a
 	if err := checkLibSym("cublasTSTgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fntSTgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fntSTgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasTSTgemvStridedBatched_64")
 }
 
 // uint8gemmBias wraps cublasUint8gemmBias.
@@ -14935,7 +14935,7 @@ func uint8gemmBias(handle Handle, transa Operation, transb Operation, transc Ope
 	if err := checkLibSym("cublasUint8gemmBias"); err != nil {
 		return err
 	}
-	return toError(fnuint8gemmBias(handle, transa, transb, transc, m, n, k, uintptr(a), aBias, lda, uintptr(b), bBias, ldb, uintptr(c), cBias, ldc, cMult, cShift))
+	return toError(fnuint8gemmBias(handle, transa, transb, transc, m, n, k, uintptr(a), aBias, lda, uintptr(b), bBias, ldb, uintptr(c), cBias, ldc, cMult, cShift), "cublasUint8gemmBias")
 }
 
 // zaxpy supports the 64-bit Integer Interface.
@@ -14963,7 +14963,7 @@ func zaxpy(handle Handle, n int32, alpha *Complex128, x driver.DevicePtr, incx i
 	if err := checkLibSym("cublasZaxpy_v2"); err != nil {
 		return err
 	}
-	return toError(fnzaxpy(handle, n, alpha, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnzaxpy(handle, n, alpha, uintptr(x), incx, uintptr(y), incy), "cublasZaxpy_v2")
 }
 
 // zaxpy64 supports the 64-bit Integer Interface.
@@ -14991,7 +14991,7 @@ func zaxpy64(handle Handle, n int64, alpha *Complex128, x driver.DevicePtr, incx
 	if err := checkLibSym("cublasZaxpy_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzaxpy64(handle, n, alpha, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnzaxpy64(handle, n, alpha, uintptr(x), incx, uintptr(y), incy), "cublasZaxpy_v2_64")
 }
 
 // zcopy supports the 64-bit Integer Interface.
@@ -15018,7 +15018,7 @@ func zcopy(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasZcopy_v2"); err != nil {
 		return err
 	}
-	return toError(fnzcopy(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnzcopy(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasZcopy_v2")
 }
 
 // zcopy64 supports the 64-bit Integer Interface.
@@ -15045,7 +15045,7 @@ func zcopy64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasZcopy_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzcopy64(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnzcopy64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasZcopy_v2_64")
 }
 
 // zdgmm supports the 64-bit Integer Interface.
@@ -15082,7 +15082,7 @@ func zdgmm(handle Handle, mode SideMode, m int32, n int32, a driver.DevicePtr, l
 	if err := checkLibSym("cublasZdgmm"); err != nil {
 		return err
 	}
-	return toError(fnzdgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc))
+	return toError(fnzdgmm(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasZdgmm")
 }
 
 // zdgmm64 supports the 64-bit Integer Interface.
@@ -15119,7 +15119,7 @@ func zdgmm64(handle Handle, mode SideMode, m int64, n int64, a driver.DevicePtr,
 	if err := checkLibSym("cublasZdgmm_64"); err != nil {
 		return err
 	}
-	return toError(fnzdgmm64(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc))
+	return toError(fnzdgmm64(handle, mode, m, n, uintptr(a), lda, uintptr(x), incx, uintptr(c), ldc), "cublasZdgmm_64")
 }
 
 // zdotc supports the 64-bit Integer Interface.
@@ -15150,7 +15150,7 @@ func zdotc(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 		return zero, err
 	}
 	var out Complex128
-	if err := toError(fnzdotc(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fnzdotc(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasZdotc_v2"); err != nil {
 		var zero Complex128
 		return zero, err
 	}
@@ -15185,7 +15185,7 @@ func zdotc64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 		return zero, err
 	}
 	var out Complex128
-	if err := toError(fnzdotc64(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fnzdotc64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasZdotc_v2_64"); err != nil {
 		var zero Complex128
 		return zero, err
 	}
@@ -15220,7 +15220,7 @@ func zdotu(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 		return zero, err
 	}
 	var out Complex128
-	if err := toError(fnzdotu(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fnzdotu(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasZdotu_v2"); err != nil {
 		var zero Complex128
 		return zero, err
 	}
@@ -15255,7 +15255,7 @@ func zdotu64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 		return zero, err
 	}
 	var out Complex128
-	if err := toError(fnzdotu64(handle, n, uintptr(x), incx, uintptr(y), incy, &out)); err != nil {
+	if err := toError(fnzdotu64(handle, n, uintptr(x), incx, uintptr(y), incy, &out), "cublasZdotu_v2_64"); err != nil {
 		var zero Complex128
 		return zero, err
 	}
@@ -15291,7 +15291,7 @@ func zdrot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasZdrot_v2"); err != nil {
 		return err
 	}
-	return toError(fnzdrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fnzdrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasZdrot_v2")
 }
 
 // zdrot64 supports the 64-bit Integer Interface.
@@ -15323,7 +15323,7 @@ func zdrot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasZdrot_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzdrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fnzdrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasZdrot_v2_64")
 }
 
 // zdscal supports the 64-bit Integer Interface.
@@ -15350,7 +15350,7 @@ func zdscal(handle Handle, n int32, alpha *float64, x driver.DevicePtr, incx int
 	if err := checkLibSym("cublasZdscal_v2"); err != nil {
 		return err
 	}
-	return toError(fnzdscal(handle, n, alpha, uintptr(x), incx))
+	return toError(fnzdscal(handle, n, alpha, uintptr(x), incx), "cublasZdscal_v2")
 }
 
 // zdscal64 supports the 64-bit Integer Interface.
@@ -15377,7 +15377,7 @@ func zdscal64(handle Handle, n int64, alpha *float64, x driver.DevicePtr, incx i
 	if err := checkLibSym("cublasZdscal_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzdscal64(handle, n, alpha, uintptr(x), incx))
+	return toError(fnzdscal64(handle, n, alpha, uintptr(x), incx), "cublasZdscal_v2_64")
 }
 
 // zgbmv supports the 64-bit Integer Interface.
@@ -15417,7 +15417,7 @@ func zgbmv(handle Handle, trans Operation, m int32, n int32, kl int32, ku int32,
 	if err := checkLibSym("cublasZgbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzgbmv(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZgbmv_v2")
 }
 
 // zgbmv64 supports the 64-bit Integer Interface.
@@ -15457,7 +15457,7 @@ func zgbmv64(handle Handle, trans Operation, m int64, n int64, kl int64, ku int6
 	if err := checkLibSym("cublasZgbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzgbmv64(handle, trans, m, n, kl, ku, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZgbmv_v2_64")
 }
 
 // zgeam supports the 64-bit Integer Interface.
@@ -15502,7 +15502,7 @@ func zgeam(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	if err := checkLibSym("cublasZgeam"); err != nil {
 		return err
 	}
-	return toError(fnzgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnzgeam(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasZgeam")
 }
 
 // zgeam64 supports the 64-bit Integer Interface.
@@ -15547,7 +15547,7 @@ func zgeam64(handle Handle, transa Operation, transb Operation, m int64, n int64
 	if err := checkLibSym("cublasZgeam_64"); err != nil {
 		return err
 	}
-	return toError(fnzgeam64(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnzgeam64(handle, transa, transb, m, n, alpha, uintptr(a), lda, beta, uintptr(b), ldb, uintptr(c), ldc), "cublasZgeam_64")
 }
 
 // zgelsBatched Aarray is an array of pointers to matrices stored in column-major format.
@@ -15586,7 +15586,7 @@ func zgelsBatched(handle Handle, trans Operation, m int32, n int32, nrhs int32, 
 	if err := checkLibSym("cublasZgelsBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgelsBatched(handle, trans, m, n, nrhs, uintptr(aarray), lda, uintptr(carray), ldc, info, uintptr(devInfoArray), batchSize))
+	return toError(fnzgelsBatched(handle, trans, m, n, nrhs, uintptr(aarray), lda, uintptr(carray), ldc, info, uintptr(devInfoArray), batchSize), "cublasZgelsBatched")
 }
 
 // zgemm3m supports the 64-bit Integer Interface.
@@ -15629,7 +15629,7 @@ func zgemm3m(handle Handle, transa Operation, transb Operation, m int32, n int32
 	if err := checkLibSym("cublasZgemm3m"); err != nil {
 		return err
 	}
-	return toError(fnzgemm3m(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzgemm3m(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZgemm3m")
 }
 
 // zgemm3m64 supports the 64-bit Integer Interface.
@@ -15672,7 +15672,7 @@ func zgemm3m64(handle Handle, transa Operation, transb Operation, m int64, n int
 	if err := checkLibSym("cublasZgemm3m_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemm3m64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzgemm3m64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZgemm3m_64")
 }
 
 // zgemmBatched supports the 64-bit Integer Interface.
@@ -15716,7 +15716,7 @@ func zgemmBatched(handle Handle, transa Operation, transb Operation, m int32, n 
 	if err := checkLibSym("cublasZgemmBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fnzgemmBatched(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasZgemmBatched")
 }
 
 // zgemmBatched64 supports the 64-bit Integer Interface.
@@ -15760,7 +15760,7 @@ func zgemmBatched64(handle Handle, transa Operation, transb Operation, m int64, 
 	if err := checkLibSym("cublasZgemmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount))
+	return toError(fnzgemmBatched64(handle, transa, transb, m, n, k, alpha, uintptr(aarray), lda, uintptr(barray), ldb, beta, uintptr(carray), ldc, batchCount), "cublasZgemmBatched_64")
 }
 
 // zgemmStridedBatched supports the 64-bit Integer Interface.
@@ -15808,7 +15808,7 @@ func zgemmStridedBatched(handle Handle, transa Operation, transb Operation, m in
 	if err := checkLibSym("cublasZgemmStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fnzgemmStridedBatched(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasZgemmStridedBatched")
 }
 
 // zgemmStridedBatched64 supports the 64-bit Integer Interface.
@@ -15856,7 +15856,7 @@ func zgemmStridedBatched64(handle Handle, transa Operation, transb Operation, m 
 	if err := checkLibSym("cublasZgemmStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount))
+	return toError(fnzgemmStridedBatched64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, strideA, uintptr(b), ldb, strideB, beta, uintptr(c), ldc, strideC, batchCount), "cublasZgemmStridedBatched_64")
 }
 
 // zgemm supports the 64-bit Integer Interface.
@@ -15897,7 +15897,7 @@ func zgemm(handle Handle, transa Operation, transb Operation, m int32, n int32, 
 	if err := checkLibSym("cublasZgemm_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzgemm(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZgemm_v2")
 }
 
 // zgemm64 supports the 64-bit Integer Interface.
@@ -15938,7 +15938,7 @@ func zgemm64(handle Handle, transa Operation, transb Operation, m int64, n int64
 	if err := checkLibSym("cublasZgemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzgemm64(handle, transa, transb, m, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZgemm_v2_64")
 }
 
 // zgemvBatched supports the 64-bit Integer Interface.
@@ -15978,7 +15978,7 @@ func zgemvBatched(handle Handle, trans Operation, m int32, n int32, alpha *Compl
 	if err := checkLibSym("cublasZgemvBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fnzgemvBatched(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasZgemvBatched")
 }
 
 // zgemvBatched64 supports the 64-bit Integer Interface.
@@ -16018,7 +16018,7 @@ func zgemvBatched64(handle Handle, trans Operation, m int64, n int64, alpha *Com
 	if err := checkLibSym("cublasZgemvBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount))
+	return toError(fnzgemvBatched64(handle, trans, m, n, alpha, uintptr(aarray), lda, uintptr(xarray), incx, beta, uintptr(yarray), incy, batchCount), "cublasZgemvBatched_64")
 }
 
 // zgemvStridedBatched supports the 64-bit Integer Interface.
@@ -16062,7 +16062,7 @@ func zgemvStridedBatched(handle Handle, trans Operation, m int32, n int32, alpha
 	if err := checkLibSym("cublasZgemvStridedBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fnzgemvStridedBatched(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasZgemvStridedBatched")
 }
 
 // zgemvStridedBatched64 supports the 64-bit Integer Interface.
@@ -16106,7 +16106,7 @@ func zgemvStridedBatched64(handle Handle, trans Operation, m int64, n int64, alp
 	if err := checkLibSym("cublasZgemvStridedBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount))
+	return toError(fnzgemvStridedBatched64(handle, trans, m, n, alpha, uintptr(a), lda, strideA, uintptr(x), incx, stridex, beta, uintptr(y), incy, stridey, batchCount), "cublasZgemvStridedBatched_64")
 }
 
 // zgemv supports the 64-bit Integer Interface.
@@ -16143,7 +16143,7 @@ func zgemv(handle Handle, trans Operation, m int32, n int32, alpha *Complex128, 
 	if err := checkLibSym("cublasZgemv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzgemv(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZgemv_v2")
 }
 
 // zgemv64 supports the 64-bit Integer Interface.
@@ -16180,7 +16180,7 @@ func zgemv64(handle Handle, trans Operation, m int64, n int64, alpha *Complex128
 	if err := checkLibSym("cublasZgemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgemv64(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzgemv64(handle, trans, m, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZgemv_v2_64")
 }
 
 // zgeqrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions m x n and leading dimension lda.
@@ -16215,7 +16215,7 @@ func zgeqrfBatched(handle Handle, m int32, n int32, aarray driver.DevicePtr, lda
 	if err := checkLibSym("cublasZgeqrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize))
+	return toError(fnzgeqrfBatched(handle, m, n, uintptr(aarray), lda, uintptr(tauArray), info, batchSize), "cublasZgeqrfBatched")
 }
 
 // zgerc supports the 64-bit Integer Interface.
@@ -16249,7 +16249,7 @@ func zgerc(handle Handle, m int32, n int32, alpha *Complex128, x driver.DevicePt
 	if err := checkLibSym("cublasZgerc_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgerc(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnzgerc(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZgerc_v2")
 }
 
 // zgerc64 supports the 64-bit Integer Interface.
@@ -16283,7 +16283,7 @@ func zgerc64(handle Handle, m int64, n int64, alpha *Complex128, x driver.Device
 	if err := checkLibSym("cublasZgerc_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgerc64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnzgerc64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZgerc_v2_64")
 }
 
 // zgeru supports the 64-bit Integer Interface.
@@ -16317,7 +16317,7 @@ func zgeru(handle Handle, m int32, n int32, alpha *Complex128, x driver.DevicePt
 	if err := checkLibSym("cublasZgeru_v2"); err != nil {
 		return err
 	}
-	return toError(fnzgeru(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnzgeru(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZgeru_v2")
 }
 
 // zgeru64 supports the 64-bit Integer Interface.
@@ -16351,7 +16351,7 @@ func zgeru64(handle Handle, m int64, n int64, alpha *Complex128, x driver.Device
 	if err := checkLibSym("cublasZgeru_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzgeru64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnzgeru64(handle, m, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZgeru_v2_64")
 }
 
 // zgetrfBatched Aarray is an array of pointers to matrices stored in column-major format with dimensions nxn and leading dimension lda.
@@ -16386,7 +16386,7 @@ func zgetrfBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 	if err := checkLibSym("cublasZgetrfBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgetrfBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(info), batchSize))
+	return toError(fnzgetrfBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(info), batchSize), "cublasZgetrfBatched")
 }
 
 // zgetriBatched Aarray and Carray are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldc respectively.
@@ -16419,7 +16419,7 @@ func zgetriBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, p driv
 	if err := checkLibSym("cublasZgetriBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgetriBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(c), ldc, uintptr(info), batchSize))
+	return toError(fnzgetriBatched(handle, n, uintptr(a), lda, uintptr(p), uintptr(c), ldc, uintptr(info), batchSize), "cublasZgetriBatched")
 }
 
 // zgetrsBatched solves an array of systems of linear equations of the form:
@@ -16458,7 +16458,7 @@ func zgetrsBatched(handle Handle, trans Operation, n int32, nrhs int32, aarray d
 	if err := checkLibSym("cublasZgetrsBatched"); err != nil {
 		return err
 	}
-	return toError(fnzgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize))
+	return toError(fnzgetrsBatched(handle, trans, n, nrhs, uintptr(aarray), lda, uintptr(devIpiv), uintptr(barray), ldb, info, batchSize), "cublasZgetrsBatched")
 }
 
 // zhbmv supports the 64-bit Integer Interface.
@@ -16496,7 +16496,7 @@ func zhbmv(handle Handle, uplo FillMode, n int32, k int32, alpha *Complex128, a 
 	if err := checkLibSym("cublasZhbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzhbmv(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZhbmv_v2")
 }
 
 // zhbmv64 supports the 64-bit Integer Interface.
@@ -16534,7 +16534,7 @@ func zhbmv64(handle Handle, uplo FillMode, n int64, k int64, alpha *Complex128, 
 	if err := checkLibSym("cublasZhbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzhbmv64(handle, uplo, n, k, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZhbmv_v2_64")
 }
 
 // zhemm supports the 64-bit Integer Interface.
@@ -16571,7 +16571,7 @@ func zhemm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	if err := checkLibSym("cublasZhemm_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhemm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzhemm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZhemm_v2")
 }
 
 // zhemm64 supports the 64-bit Integer Interface.
@@ -16608,7 +16608,7 @@ func zhemm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 	if err := checkLibSym("cublasZhemm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhemm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzhemm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZhemm_v2_64")
 }
 
 // zhemv supports the 64-bit Integer Interface.
@@ -16645,7 +16645,7 @@ func zhemv(handle Handle, uplo FillMode, n int32, alpha *Complex128, a driver.De
 	if err := checkLibSym("cublasZhemv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhemv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzhemv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZhemv_v2")
 }
 
 // zhemv64 supports the 64-bit Integer Interface.
@@ -16682,7 +16682,7 @@ func zhemv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, a driver.
 	if err := checkLibSym("cublasZhemv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhemv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzhemv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZhemv_v2_64")
 }
 
 // zher2 supports the 64-bit Integer Interface.
@@ -16716,7 +16716,7 @@ func zher2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x driver.De
 	if err := checkLibSym("cublasZher2_v2"); err != nil {
 		return err
 	}
-	return toError(fnzher2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnzher2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZher2_v2")
 }
 
 // zher264 supports the 64-bit Integer Interface.
@@ -16750,7 +16750,7 @@ func zher264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x driver.
 	if err := checkLibSym("cublasZher2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzher264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnzher264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZher2_v2_64")
 }
 
 // zher2k supports the 64-bit Integer Interface.
@@ -16788,7 +16788,7 @@ func zher2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasZher2k_v2"); err != nil {
 		return err
 	}
-	return toError(fnzher2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzher2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZher2k_v2")
 }
 
 // zher2k64 supports the 64-bit Integer Interface.
@@ -16826,7 +16826,7 @@ func zher2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasZher2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzher2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzher2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZher2k_v2_64")
 }
 
 // zher supports the 64-bit Integer Interface.
@@ -16858,7 +16858,7 @@ func zher(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 	if err := checkLibSym("cublasZher_v2"); err != nil {
 		return err
 	}
-	return toError(fnzher(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fnzher(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasZher_v2")
 }
 
 // zher64 supports the 64-bit Integer Interface.
@@ -16890,7 +16890,7 @@ func zher64(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Devi
 	if err := checkLibSym("cublasZher_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzher64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fnzher64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasZher_v2_64")
 }
 
 // zherk supports the 64-bit Integer Interface.
@@ -16926,7 +16926,7 @@ func zherk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	if err := checkLibSym("cublasZherk_v2"); err != nil {
 		return err
 	}
-	return toError(fnzherk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fnzherk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasZherk_v2")
 }
 
 // zherk64 supports the 64-bit Integer Interface.
@@ -16962,7 +16962,7 @@ func zherk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	if err := checkLibSym("cublasZherk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzherk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fnzherk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasZherk_v2_64")
 }
 
 // zherkx supports the 64-bit Integer Interface.
@@ -17002,7 +17002,7 @@ func zherkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasZherkx"); err != nil {
 		return err
 	}
-	return toError(fnzherkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzherkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZherkx")
 }
 
 // zherkx64 supports the 64-bit Integer Interface.
@@ -17042,7 +17042,7 @@ func zherkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasZherkx_64"); err != nil {
 		return err
 	}
-	return toError(fnzherkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzherkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZherkx_64")
 }
 
 // zhpmv supports the 64-bit Integer Interface.
@@ -17078,7 +17078,7 @@ func zhpmv(handle Handle, uplo FillMode, n int32, alpha *Complex128, ap driver.D
 	if err := checkLibSym("cublasZhpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhpmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzhpmv(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasZhpmv_v2")
 }
 
 // zhpmv64 supports the 64-bit Integer Interface.
@@ -17114,7 +17114,7 @@ func zhpmv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, ap driver
 	if err := checkLibSym("cublasZhpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhpmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzhpmv64(handle, uplo, n, alpha, uintptr(ap), uintptr(x), incx, beta, uintptr(y), incy), "cublasZhpmv_v2_64")
 }
 
 // zhpr2 supports the 64-bit Integer Interface.
@@ -17149,7 +17149,7 @@ func zhpr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x driver.De
 	if err := checkLibSym("cublasZhpr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhpr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)))
+	return toError(fnzhpr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasZhpr2_v2")
 }
 
 // zhpr264 supports the 64-bit Integer Interface.
@@ -17184,7 +17184,7 @@ func zhpr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x driver.
 	if err := checkLibSym("cublasZhpr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhpr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)))
+	return toError(fnzhpr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(ap)), "cublasZhpr2_v2_64")
 }
 
 // zhpr supports the 64-bit Integer Interface.
@@ -17217,7 +17217,7 @@ func zhpr(handle Handle, uplo FillMode, n int32, alpha *float64, x driver.Device
 	if err := checkLibSym("cublasZhpr_v2"); err != nil {
 		return err
 	}
-	return toError(fnzhpr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)))
+	return toError(fnzhpr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasZhpr_v2")
 }
 
 // zhpr64 supports the 64-bit Integer Interface.
@@ -17250,7 +17250,7 @@ func zhpr64(handle Handle, uplo FillMode, n int64, alpha *float64, x driver.Devi
 	if err := checkLibSym("cublasZhpr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzhpr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)))
+	return toError(fnzhpr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(ap)), "cublasZhpr_v2_64")
 }
 
 // zmatinvBatched A and Ainv are arrays of pointers to matrices stored in column-major format with dimensions n*n and leading dimension lda and ldaInv respectively.
@@ -17280,7 +17280,7 @@ func zmatinvBatched(handle Handle, n int32, a driver.DevicePtr, lda int32, ainv 
 	if err := checkLibSym("cublasZmatinvBatched"); err != nil {
 		return err
 	}
-	return toError(fnzmatinvBatched(handle, n, uintptr(a), lda, uintptr(ainv), ldaInv, uintptr(info), batchSize))
+	return toError(fnzmatinvBatched(handle, n, uintptr(a), lda, uintptr(ainv), ldaInv, uintptr(info), batchSize), "cublasZmatinvBatched")
 }
 
 // zrot supports the 64-bit Integer Interface.
@@ -17312,7 +17312,7 @@ func zrot(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devic
 	if err := checkLibSym("cublasZrot_v2"); err != nil {
 		return err
 	}
-	return toError(fnzrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fnzrot(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasZrot_v2")
 }
 
 // zrot64 supports the 64-bit Integer Interface.
@@ -17344,7 +17344,7 @@ func zrot64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.Dev
 	if err := checkLibSym("cublasZrot_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s))
+	return toError(fnzrot64(handle, n, uintptr(x), incx, uintptr(y), incy, c, s), "cublasZrot_v2_64")
 }
 
 // zrotg supports the 64-bit Integer Interface.
@@ -17379,7 +17379,7 @@ func zrotg(handle Handle, a *Complex128, b *Complex128, c *float64, s *Complex12
 	if err := checkLibSym("cublasZrotg_v2"); err != nil {
 		return err
 	}
-	return toError(fnzrotg(handle, a, b, c, s))
+	return toError(fnzrotg(handle, a, b, c, s), "cublasZrotg_v2")
 }
 
 // zscal supports the 64-bit Integer Interface.
@@ -17406,7 +17406,7 @@ func zscal(handle Handle, n int32, alpha *Complex128, x driver.DevicePtr, incx i
 	if err := checkLibSym("cublasZscal_v2"); err != nil {
 		return err
 	}
-	return toError(fnzscal(handle, n, alpha, uintptr(x), incx))
+	return toError(fnzscal(handle, n, alpha, uintptr(x), incx), "cublasZscal_v2")
 }
 
 // zscal64 supports the 64-bit Integer Interface.
@@ -17433,7 +17433,7 @@ func zscal64(handle Handle, n int64, alpha *Complex128, x driver.DevicePtr, incx
 	if err := checkLibSym("cublasZscal_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzscal64(handle, n, alpha, uintptr(x), incx))
+	return toError(fnzscal64(handle, n, alpha, uintptr(x), incx), "cublasZscal_v2_64")
 }
 
 // zswap supports the 64-bit Integer Interface.
@@ -17460,7 +17460,7 @@ func zswap(handle Handle, n int32, x driver.DevicePtr, incx int32, y driver.Devi
 	if err := checkLibSym("cublasZswap_v2"); err != nil {
 		return err
 	}
-	return toError(fnzswap(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnzswap(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasZswap_v2")
 }
 
 // zswap64 supports the 64-bit Integer Interface.
@@ -17487,7 +17487,7 @@ func zswap64(handle Handle, n int64, x driver.DevicePtr, incx int64, y driver.De
 	if err := checkLibSym("cublasZswap_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzswap64(handle, n, uintptr(x), incx, uintptr(y), incy))
+	return toError(fnzswap64(handle, n, uintptr(x), incx, uintptr(y), incy), "cublasZswap_v2_64")
 }
 
 // zsymm supports the 64-bit Integer Interface.
@@ -17524,7 +17524,7 @@ func zsymm(handle Handle, side SideMode, uplo FillMode, m int32, n int32, alpha 
 	if err := checkLibSym("cublasZsymm_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzsymm(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsymm_v2")
 }
 
 // zsymm64 supports the 64-bit Integer Interface.
@@ -17561,7 +17561,7 @@ func zsymm64(handle Handle, side SideMode, uplo FillMode, m int64, n int64, alph
 	if err := checkLibSym("cublasZsymm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsymm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzsymm64(handle, side, uplo, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsymm_v2_64")
 }
 
 // zsymv supports the 64-bit Integer Interface.
@@ -17597,7 +17597,7 @@ func zsymv(handle Handle, uplo FillMode, n int32, alpha *Complex128, a driver.De
 	if err := checkLibSym("cublasZsymv_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsymv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzsymv(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZsymv_v2")
 }
 
 // zsymv64 supports the 64-bit Integer Interface.
@@ -17633,7 +17633,7 @@ func zsymv64(handle Handle, uplo FillMode, n int64, alpha *Complex128, a driver.
 	if err := checkLibSym("cublasZsymv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy))
+	return toError(fnzsymv64(handle, uplo, n, alpha, uintptr(a), lda, uintptr(x), incx, beta, uintptr(y), incy), "cublasZsymv_v2_64")
 }
 
 // zsyr2 supports the 64-bit Integer Interface.
@@ -17667,7 +17667,7 @@ func zsyr2(handle Handle, uplo FillMode, n int32, alpha *Complex128, x driver.De
 	if err := checkLibSym("cublasZsyr2_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnzsyr2(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZsyr2_v2")
 }
 
 // zsyr264 supports the 64-bit Integer Interface.
@@ -17701,7 +17701,7 @@ func zsyr264(handle Handle, uplo FillMode, n int64, alpha *Complex128, x driver.
 	if err := checkLibSym("cublasZsyr2_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda))
+	return toError(fnzsyr264(handle, uplo, n, alpha, uintptr(x), incx, uintptr(y), incy, uintptr(a), lda), "cublasZsyr2_v2_64")
 }
 
 // zsyr2k supports the 64-bit Integer Interface.
@@ -17739,7 +17739,7 @@ func zsyr2k(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasZsyr2k_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzsyr2k(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsyr2k_v2")
 }
 
 // zsyr2k64 supports the 64-bit Integer Interface.
@@ -17777,7 +17777,7 @@ func zsyr2k64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasZsyr2k_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzsyr2k64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsyr2k_v2_64")
 }
 
 // zsyr supports the 64-bit Integer Interface.
@@ -17809,7 +17809,7 @@ func zsyr(handle Handle, uplo FillMode, n int32, alpha *Complex128, x driver.Dev
 	if err := checkLibSym("cublasZsyr_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fnzsyr(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasZsyr_v2")
 }
 
 // zsyr64 supports the 64-bit Integer Interface.
@@ -17841,7 +17841,7 @@ func zsyr64(handle Handle, uplo FillMode, n int64, alpha *Complex128, x driver.D
 	if err := checkLibSym("cublasZsyr_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda))
+	return toError(fnzsyr64(handle, uplo, n, alpha, uintptr(x), incx, uintptr(a), lda), "cublasZsyr_v2_64")
 }
 
 // zsyrk supports the 64-bit Integer Interface.
@@ -17877,7 +17877,7 @@ func zsyrk(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alph
 	if err := checkLibSym("cublasZsyrk_v2"); err != nil {
 		return err
 	}
-	return toError(fnzsyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fnzsyrk(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasZsyrk_v2")
 }
 
 // zsyrk64 supports the 64-bit Integer Interface.
@@ -17913,7 +17913,7 @@ func zsyrk64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, al
 	if err := checkLibSym("cublasZsyrk_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc))
+	return toError(fnzsyrk64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, beta, uintptr(c), ldc), "cublasZsyrk_v2_64")
 }
 
 // zsyrkx supports the 64-bit Integer Interface.
@@ -17953,7 +17953,7 @@ func zsyrkx(handle Handle, uplo FillMode, trans Operation, n int32, k int32, alp
 	if err := checkLibSym("cublasZsyrkx"); err != nil {
 		return err
 	}
-	return toError(fnzsyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzsyrkx(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsyrkx")
 }
 
 // zsyrkx64 supports the 64-bit Integer Interface.
@@ -17993,7 +17993,7 @@ func zsyrkx64(handle Handle, uplo FillMode, trans Operation, n int64, k int64, a
 	if err := checkLibSym("cublasZsyrkx_64"); err != nil {
 		return err
 	}
-	return toError(fnzsyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc))
+	return toError(fnzsyrkx64(handle, uplo, trans, n, k, alpha, uintptr(a), lda, uintptr(b), ldb, beta, uintptr(c), ldc), "cublasZsyrkx_64")
 }
 
 // ztbmv supports the 64-bit Integer Interface.
@@ -18031,7 +18031,7 @@ func ztbmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasZtbmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnztbmv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasZtbmv_v2")
 }
 
 // ztbmv64 supports the 64-bit Integer Interface.
@@ -18069,7 +18069,7 @@ func ztbmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasZtbmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnztbmv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasZtbmv_v2_64")
 }
 
 // ztbsv supports the 64-bit Integer Interface.
@@ -18108,7 +18108,7 @@ func ztbsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasZtbsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnztbsv(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasZtbsv_v2")
 }
 
 // ztbsv64 supports the 64-bit Integer Interface.
@@ -18147,7 +18147,7 @@ func ztbsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasZtbsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnztbsv64(handle, uplo, trans, diag, n, k, uintptr(a), lda, uintptr(x), incx), "cublasZtbsv_v2_64")
 }
 
 // ztpmv supports the 64-bit Integer Interface.
@@ -18183,7 +18183,7 @@ func ztpmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasZtpmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnztpmv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasZtpmv_v2")
 }
 
 // ztpmv64 supports the 64-bit Integer Interface.
@@ -18219,7 +18219,7 @@ func ztpmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasZtpmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnztpmv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasZtpmv_v2_64")
 }
 
 // ztpsv supports the 64-bit Integer Interface.
@@ -18256,7 +18256,7 @@ func ztpsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasZtpsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnztpsv(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasZtpsv_v2")
 }
 
 // ztpsv64 supports the 64-bit Integer Interface.
@@ -18293,7 +18293,7 @@ func ztpsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasZtpsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx))
+	return toError(fnztpsv64(handle, uplo, trans, diag, n, uintptr(ap), uintptr(x), incx), "cublasZtpsv_v2_64")
 }
 
 // ztpttr performs the conversion from the triangular packed format to the triangular format
@@ -18321,7 +18321,7 @@ func ztpttr(handle Handle, uplo FillMode, n int32, ap driver.DevicePtr, a driver
 	if err := checkLibSym("cublasZtpttr"); err != nil {
 		return err
 	}
-	return toError(fnztpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda))
+	return toError(fnztpttr(handle, uplo, n, uintptr(ap), uintptr(a), lda), "cublasZtpttr")
 }
 
 // ztrmm supports the 64-bit Integer Interface.
@@ -18361,7 +18361,7 @@ func ztrmm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	if err := checkLibSym("cublasZtrmm_v2"); err != nil {
 		return err
 	}
-	return toError(fnztrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnztrmm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasZtrmm_v2")
 }
 
 // ztrmm64 supports the 64-bit Integer Interface.
@@ -18401,7 +18401,7 @@ func ztrmm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	if err := checkLibSym("cublasZtrmm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc))
+	return toError(fnztrmm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, uintptr(c), ldc), "cublasZtrmm_v2_64")
 }
 
 // ztrmv supports the 64-bit Integer Interface.
@@ -18436,7 +18436,7 @@ func ztrmv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasZtrmv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnztrmv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasZtrmv_v2")
 }
 
 // ztrmv64 supports the 64-bit Integer Interface.
@@ -18471,7 +18471,7 @@ func ztrmv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasZtrmv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnztrmv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasZtrmv_v2_64")
 }
 
 // ztrsmBatched supports the 64-bit Integer Interface.
@@ -18513,7 +18513,7 @@ func ztrsmBatched(handle Handle, side SideMode, uplo FillMode, trans Operation, 
 	if err := checkLibSym("cublasZtrsmBatched"); err != nil {
 		return err
 	}
-	return toError(fnztrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount))
+	return toError(fnztrsmBatched(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasZtrsmBatched")
 }
 
 // ztrsmBatched64 supports the 64-bit Integer Interface.
@@ -18555,7 +18555,7 @@ func ztrsmBatched64(handle Handle, side SideMode, uplo FillMode, trans Operation
 	if err := checkLibSym("cublasZtrsmBatched_64"); err != nil {
 		return err
 	}
-	return toError(fnztrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount))
+	return toError(fnztrsmBatched64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb, batchCount), "cublasZtrsmBatched_64")
 }
 
 // ztrsm supports the 64-bit Integer Interface.
@@ -18594,7 +18594,7 @@ func ztrsm(handle Handle, side SideMode, uplo FillMode, trans Operation, diag Di
 	if err := checkLibSym("cublasZtrsm_v2"); err != nil {
 		return err
 	}
-	return toError(fnztrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb))
+	return toError(fnztrsm(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasZtrsm_v2")
 }
 
 // ztrsm64 supports the 64-bit Integer Interface.
@@ -18633,7 +18633,7 @@ func ztrsm64(handle Handle, side SideMode, uplo FillMode, trans Operation, diag 
 	if err := checkLibSym("cublasZtrsm_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb))
+	return toError(fnztrsm64(handle, side, uplo, trans, diag, m, n, alpha, uintptr(a), lda, uintptr(b), ldb), "cublasZtrsm_v2_64")
 }
 
 // ztrsv supports the 64-bit Integer Interface.
@@ -18669,7 +18669,7 @@ func ztrsv(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int32
 	if err := checkLibSym("cublasZtrsv_v2"); err != nil {
 		return err
 	}
-	return toError(fnztrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnztrsv(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasZtrsv_v2")
 }
 
 // ztrsv64 supports the 64-bit Integer Interface.
@@ -18705,7 +18705,7 @@ func ztrsv64(handle Handle, uplo FillMode, trans Operation, diag DiagType, n int
 	if err := checkLibSym("cublasZtrsv_v2_64"); err != nil {
 		return err
 	}
-	return toError(fnztrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx))
+	return toError(fnztrsv64(handle, uplo, trans, diag, n, uintptr(a), lda, uintptr(x), incx), "cublasZtrsv_v2_64")
 }
 
 // ztrttp performs the conversion from the triangular format to the triangular packed format
@@ -18733,5 +18733,5 @@ func ztrttp(handle Handle, uplo FillMode, n int32, a driver.DevicePtr, lda int32
 	if err := checkLibSym("cublasZtrttp"); err != nil {
 		return err
 	}
-	return toError(fnztrttp(handle, uplo, n, uintptr(a), lda, uintptr(ap)))
+	return toError(fnztrttp(handle, uplo, n, uintptr(a), lda, uintptr(ap)), "cublasZtrttp")
 }

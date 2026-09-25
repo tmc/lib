@@ -59,7 +59,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "cudensitymatCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -118,7 +118,7 @@ func createElementaryOperator(handle Handle, numSpaceModes int32, spaceModeExten
 		return zero, err
 	}
 	var out ElementaryOperator
-	if err := toError(fncreateElementaryOperator(handle, numSpaceModes, spaceModeExtents, sparsity, numDiagonals, diagonalOffsets, dataType, tensorData, tensorCallback, tensorGradientCallback, &out)); err != nil {
+	if err := toError(fncreateElementaryOperator(handle, numSpaceModes, spaceModeExtents, sparsity, numDiagonals, diagonalOffsets, dataType, tensorData, tensorCallback, tensorGradientCallback, &out), "cudensitymatCreateElementaryOperator"); err != nil {
 		var zero ElementaryOperator
 		return zero, err
 	}
@@ -144,7 +144,7 @@ func createExpectation(handle Handle, superoperator Operator) (Expectation, erro
 		return zero, err
 	}
 	var out Expectation
-	if err := toError(fncreateExpectation(handle, superoperator, &out)); err != nil {
+	if err := toError(fncreateExpectation(handle, superoperator, &out), "cudensitymatCreateExpectation"); err != nil {
 		var zero Expectation
 		return zero, err
 	}
@@ -176,7 +176,7 @@ func createOperator(handle Handle, numSpaceModes int32, spaceModeExtents *int64)
 		return zero, err
 	}
 	var out Operator
-	if err := toError(fncreateOperator(handle, numSpaceModes, spaceModeExtents, &out)); err != nil {
+	if err := toError(fncreateOperator(handle, numSpaceModes, spaceModeExtents, &out), "cudensitymatCreateOperator"); err != nil {
 		var zero Operator
 		return zero, err
 	}
@@ -199,7 +199,7 @@ func createOperatorTerm(handle Handle, numSpaceModes int32, spaceModeExtents *in
 		return zero, err
 	}
 	var out OperatorTerm
-	if err := toError(fncreateOperatorTerm(handle, numSpaceModes, spaceModeExtents, &out)); err != nil {
+	if err := toError(fncreateOperatorTerm(handle, numSpaceModes, spaceModeExtents, &out), "cudensitymatCreateOperatorTerm"); err != nil {
 		var zero OperatorTerm
 		return zero, err
 	}
@@ -238,7 +238,7 @@ func createState(handle Handle, purity StatePurity, numSpaceModes int32, spaceMo
 		return zero, err
 	}
 	var out State
-	if err := toError(fncreateState(handle, purity, numSpaceModes, spaceModeExtents, batchSize, dataType, &out)); err != nil {
+	if err := toError(fncreateState(handle, purity, numSpaceModes, spaceModeExtents, batchSize, dataType, &out), "cudensitymatCreateState"); err != nil {
 		var zero State
 		return zero, err
 	}
@@ -256,7 +256,7 @@ func createWorkspace(handle Handle) (WorkspaceDescriptor, error) {
 		return zero, err
 	}
 	var out WorkspaceDescriptor
-	if err := toError(fncreateWorkspace(handle, &out)); err != nil {
+	if err := toError(fncreateWorkspace(handle, &out), "cudensitymatCreateWorkspace"); err != nil {
 		var zero WorkspaceDescriptor
 		return zero, err
 	}
@@ -272,7 +272,7 @@ func destroy(handle Handle) error {
 	if err := checkLibSym("cudensitymatDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle))
+	return toError(fndestroy(handle), "cudensitymatDestroy")
 }
 
 // destroyElementaryOperator Destroys an elementary tensor operator (simple or batched).
@@ -284,7 +284,7 @@ func destroyElementaryOperator(elemOperator ElementaryOperator) error {
 	if err := checkLibSym("cudensitymatDestroyElementaryOperator"); err != nil {
 		return err
 	}
-	return toError(fndestroyElementaryOperator(elemOperator))
+	return toError(fndestroyElementaryOperator(elemOperator), "cudensitymatDestroyElementaryOperator")
 }
 
 // destroyExpectation Destroys an expectation value computation object.
@@ -296,7 +296,7 @@ func destroyExpectation(expectation Expectation) error {
 	if err := checkLibSym("cudensitymatDestroyExpectation"); err != nil {
 		return err
 	}
-	return toError(fndestroyExpectation(expectation))
+	return toError(fndestroyExpectation(expectation), "cudensitymatDestroyExpectation")
 }
 
 // destroyOperator Destroys an operator.
@@ -308,7 +308,7 @@ func destroyOperator(superoperator Operator) error {
 	if err := checkLibSym("cudensitymatDestroyOperator"); err != nil {
 		return err
 	}
-	return toError(fndestroyOperator(superoperator))
+	return toError(fndestroyOperator(superoperator), "cudensitymatDestroyOperator")
 }
 
 // destroyOperatorTerm Destroys an operator term.
@@ -320,7 +320,7 @@ func destroyOperatorTerm(operatorTerm OperatorTerm) error {
 	if err := checkLibSym("cudensitymatDestroyOperatorTerm"); err != nil {
 		return err
 	}
-	return toError(fndestroyOperatorTerm(operatorTerm))
+	return toError(fndestroyOperatorTerm(operatorTerm), "cudensitymatDestroyOperatorTerm")
 }
 
 // destroyState Destroys the quantum state.
@@ -332,7 +332,7 @@ func destroyState(state State) error {
 	if err := checkLibSym("cudensitymatDestroyState"); err != nil {
 		return err
 	}
-	return toError(fndestroyState(state))
+	return toError(fndestroyState(state), "cudensitymatDestroyState")
 }
 
 // destroyWorkspace Destroys a workspace descriptor.
@@ -344,7 +344,7 @@ func destroyWorkspace(workspaceDescr WorkspaceDescriptor) error {
 	if err := checkLibSym("cudensitymatDestroyWorkspace"); err != nil {
 		return err
 	}
-	return toError(fndestroyWorkspace(workspaceDescr))
+	return toError(fndestroyWorkspace(workspaceDescr), "cudensitymatDestroyWorkspace")
 }
 
 // elementaryOperatorAttachBuffer Attaches a buffer to the elementary tensor operator (either batched or non-batched).
@@ -359,7 +359,7 @@ func elementaryOperatorAttachBuffer(handle Handle, elemOperator ElementaryOperat
 	if err := checkLibSym("cudensitymatElementaryOperatorAttachBuffer"); err != nil {
 		return err
 	}
-	return toError(fnelementaryOperatorAttachBuffer(handle, elemOperator, buffer, bufferSize))
+	return toError(fnelementaryOperatorAttachBuffer(handle, elemOperator, buffer, bufferSize), "cudensitymatElementaryOperatorAttachBuffer")
 }
 
 // expectationCompute Computes the operator expectation value(s) with respect to the given quantum state(s).
@@ -382,7 +382,7 @@ func expectationCompute(handle Handle, expectation Expectation, time float64, ba
 	if err := checkLibSym("cudensitymatExpectationCompute"); err != nil {
 		return err
 	}
-	return toError(fnexpectationCompute(handle, expectation, time, batchSize, numParams, params, state, expectationValue, workspace, stream))
+	return toError(fnexpectationCompute(handle, expectation, time, batchSize, numParams, params, state, expectationValue, workspace, stream), "cudensitymatExpectationCompute")
 }
 
 // expectationPrepare Prepares the expectation value object for computation.
@@ -408,7 +408,7 @@ func expectationPrepare(handle Handle, expectation Expectation, state State, com
 	if err := checkLibSym("cudensitymatExpectationPrepare"); err != nil {
 		return err
 	}
-	return toError(fnexpectationPrepare(handle, expectation, state, computeType, workspaceSizeLimit, workspace, stream))
+	return toError(fnexpectationPrepare(handle, expectation, state, computeType, workspaceSizeLimit, workspace, stream), "cudensitymatExpectationPrepare")
 }
 
 // getNumRanks Returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
@@ -422,7 +422,7 @@ func getNumRanks(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fngetNumRanks(handle, &out)); err != nil {
+	if err := toError(fngetNumRanks(handle, &out), "cudensitymatGetNumRanks"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -440,7 +440,7 @@ func getProcRank(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fngetProcRank(handle, &out)); err != nil {
+	if err := toError(fngetProcRank(handle, &out), "cudensitymatGetProcRank"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -474,7 +474,7 @@ func operatorAppendTerm(handle Handle, superoperator Operator, operatorTerm Oper
 	if err := checkLibSym("cudensitymatOperatorAppendTerm"); err != nil {
 		return err
 	}
-	return toError(fnoperatorAppendTerm(handle, superoperator, operatorTerm, duality, coefficient, coefficientCallback, coefficientGradientCallback))
+	return toError(fnoperatorAppendTerm(handle, superoperator, operatorTerm, duality, coefficient, coefficientCallback, coefficientGradientCallback), "cudensitymatOperatorAppendTerm")
 }
 
 // operatorComputeAction Computes the action of the operator on a given input quantum state, accumulating the result in the output quantum state (accumulative action).
@@ -501,7 +501,7 @@ func operatorComputeAction(handle Handle, superoperator Operator, time float64, 
 	if err := checkLibSym("cudensitymatOperatorComputeAction"); err != nil {
 		return err
 	}
-	return toError(fnoperatorComputeAction(handle, superoperator, time, batchSize, numParams, params, stateIn, stateOut, workspace, stream))
+	return toError(fnoperatorComputeAction(handle, superoperator, time, batchSize, numParams, params, stateIn, stateOut, workspace, stream), "cudensitymatOperatorComputeAction")
 }
 
 // operatorPrepareAction Prepares the operator for an action on a quantum state.
@@ -528,7 +528,7 @@ func operatorPrepareAction(handle Handle, superoperator Operator, stateIn State,
 	if err := checkLibSym("cudensitymatOperatorPrepareAction"); err != nil {
 		return err
 	}
-	return toError(fnoperatorPrepareAction(handle, superoperator, stateIn, stateOut, computeType, workspaceSizeLimit, workspace, stream))
+	return toError(fnoperatorPrepareAction(handle, superoperator, stateIn, stateOut, computeType, workspaceSizeLimit, workspace, stream), "cudensitymatOperatorPrepareAction")
 }
 
 // operatorTermAppendElementaryProduct Appends a product of elementary tensor operators acting on quantum state modes to the operator term.
@@ -553,7 +553,7 @@ func operatorTermAppendElementaryProduct(handle Handle, operatorTerm OperatorTer
 	if err := checkLibSym("cudensitymatOperatorTermAppendElementaryProduct"); err != nil {
 		return err
 	}
-	return toError(fnoperatorTermAppendElementaryProduct(handle, operatorTerm, numElemOperators, elemOperators, stateModesActedOn, modeActionDuality, coefficient, coefficientCallback, coefficientGradientCallback))
+	return toError(fnoperatorTermAppendElementaryProduct(handle, operatorTerm, numElemOperators, elemOperators, stateModesActedOn, modeActionDuality, coefficient, coefficientCallback, coefficientGradientCallback), "cudensitymatOperatorTermAppendElementaryProduct")
 }
 
 // resetDistributedConfiguration Resets the current distributed execution configuration associated with the given library context by importing a user-provided inter-process communicator (e.g., MPI_Comm).
@@ -572,7 +572,7 @@ func resetDistributedConfiguration(handle Handle, provider DistributedProvider, 
 	if err := checkLibSym("cudensitymatResetDistributedConfiguration"); err != nil {
 		return err
 	}
-	return toError(fnresetDistributedConfiguration(handle, provider, commPtr, commSize))
+	return toError(fnresetDistributedConfiguration(handle, provider, commPtr, commSize), "cudensitymatResetDistributedConfiguration")
 }
 
 // resetRandomSeed Resets the context-level random seed used by the random number generator inside the library context.
@@ -585,7 +585,7 @@ func resetRandomSeed(handle Handle, randomSeed int32) error {
 	if err := checkLibSym("cudensitymatResetRandomSeed"); err != nil {
 		return err
 	}
-	return toError(fnresetRandomSeed(handle, randomSeed))
+	return toError(fnresetRandomSeed(handle, randomSeed), "cudensitymatResetRandomSeed")
 }
 
 // stateAttachComponentStorage Attaches a user-owned GPU-accessible storage buffer for each component (tensor) constituting the quantum state representation (on the current process in multi-process runs).
@@ -615,7 +615,7 @@ func stateAttachComponentStorage(handle Handle, state State, numStateComponents 
 	if err := checkLibSym("cudensitymatStateAttachComponentStorage"); err != nil {
 		return err
 	}
-	return toError(fnstateAttachComponentStorage(handle, state, numStateComponents, componentBuffer, componentBufferSize))
+	return toError(fnstateAttachComponentStorage(handle, state, numStateComponents, componentBuffer, componentBufferSize), "cudensitymatStateAttachComponentStorage")
 }
 
 // stateComputeAccumulation Computes accumulation of a quantum state(s) into another quantum state(s) of compatible shape.
@@ -631,7 +631,7 @@ func stateComputeAccumulation(handle Handle, stateIn State, stateOut State, scal
 	if err := checkLibSym("cudensitymatStateComputeAccumulation"); err != nil {
 		return err
 	}
-	return toError(fnstateComputeAccumulation(handle, stateIn, stateOut, scalingFactors, stream))
+	return toError(fnstateComputeAccumulation(handle, stateIn, stateOut, scalingFactors, stream), "cudensitymatStateComputeAccumulation")
 }
 
 // stateComputeInnerProduct Computes the inner product(s) between the left quantum state(s) and the right quantum state(s): < state(s)Left | state(s)Right >
@@ -657,7 +657,7 @@ func stateComputeInnerProduct(handle Handle, stateLeft State, stateRight State, 
 	if err := checkLibSym("cudensitymatStateComputeInnerProduct"); err != nil {
 		return err
 	}
-	return toError(fnstateComputeInnerProduct(handle, stateLeft, stateRight, innerProduct, stream))
+	return toError(fnstateComputeInnerProduct(handle, stateLeft, stateRight, innerProduct, stream), "cudensitymatStateComputeInnerProduct")
 }
 
 // stateComputeNorm Computes the squared Frobenius norm(s) of the quantum state(s).
@@ -683,7 +683,7 @@ func stateComputeNorm(handle Handle, state State, norm uintptr, stream Stream) e
 	if err := checkLibSym("cudensitymatStateComputeNorm"); err != nil {
 		return err
 	}
-	return toError(fnstateComputeNorm(handle, state, norm, stream))
+	return toError(fnstateComputeNorm(handle, state, norm, stream), "cudensitymatStateComputeNorm")
 }
 
 // stateComputeScaling Multiplies the quantum state(s) by a scalar factor(s).
@@ -698,7 +698,7 @@ func stateComputeScaling(handle Handle, state State, scalingFactors uintptr, str
 	if err := checkLibSym("cudensitymatStateComputeScaling"); err != nil {
 		return err
 	}
-	return toError(fnstateComputeScaling(handle, state, scalingFactors, stream))
+	return toError(fnstateComputeScaling(handle, state, scalingFactors, stream), "cudensitymatStateComputeScaling")
 }
 
 // stateComputeTrace Computes the trace(s) of the quantum state(s).
@@ -718,7 +718,7 @@ func stateComputeTrace(handle Handle, state State, trace uintptr, stream Stream)
 	if err := checkLibSym("cudensitymatStateComputeTrace"); err != nil {
 		return err
 	}
-	return toError(fnstateComputeTrace(handle, state, trace, stream))
+	return toError(fnstateComputeTrace(handle, state, trace, stream), "cudensitymatStateComputeTrace")
 }
 
 // stateGetComponentInfo Queries information for a locally stored component tensor which represents either the full component or its slice (on the current process in multi-process runs).
@@ -744,7 +744,7 @@ func stateGetComponentInfo(handle Handle, state State, stateComponentLocalId int
 	if err := checkLibSym("cudensitymatStateGetComponentInfo"); err != nil {
 		return err
 	}
-	return toError(fnstateGetComponentInfo(handle, state, stateComponentLocalId, stateComponentGlobalId, stateComponentNumModes, stateComponentModeExtents, stateComponentModeOffsets))
+	return toError(fnstateGetComponentInfo(handle, state, stateComponentLocalId, stateComponentGlobalId, stateComponentNumModes, stateComponentModeExtents, stateComponentModeOffsets), "cudensitymatStateGetComponentInfo")
 }
 
 // stateGetComponentNumModes Queries the number of modes in a local component tensor (on the current process in multi-process runs).
@@ -761,7 +761,7 @@ func stateGetComponentNumModes(handle Handle, state State, stateComponentLocalId
 	var out0 int32
 	var out1 int32
 	var out2 int32
-	if err := toError(fnstateGetComponentNumModes(handle, state, stateComponentLocalId, &out0, &out1, &out2)); err != nil {
+	if err := toError(fnstateGetComponentNumModes(handle, state, stateComponentLocalId, &out0, &out1, &out2), "cudensitymatStateGetComponentNumModes"); err != nil {
 		return 0, 0, 0, err
 	}
 	return out0, out1, out2, nil
@@ -779,7 +779,7 @@ func stateGetComponentStorageSize(handle Handle, state State, numStateComponents
 	if err := checkLibSym("cudensitymatStateGetComponentStorageSize"); err != nil {
 		return err
 	}
-	return toError(fnstateGetComponentStorageSize(handle, state, numStateComponents, componentBufferSize))
+	return toError(fnstateGetComponentStorageSize(handle, state, numStateComponents, componentBufferSize), "cudensitymatStateGetComponentStorageSize")
 }
 
 // stateGetNumComponents Queries the number of components (tensors) constituting the chosen quantum state representation (on the current process in multi-process runs).
@@ -818,7 +818,7 @@ func stateGetNumComponents(handle Handle, state State) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnstateGetNumComponents(handle, state, &out)); err != nil {
+	if err := toError(fnstateGetNumComponents(handle, state, &out), "cudensitymatStateGetNumComponents"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -840,7 +840,7 @@ func stateInitializeZero(handle Handle, state State, stream Stream) error {
 	if err := checkLibSym("cudensitymatStateInitializeZero"); err != nil {
 		return err
 	}
-	return toError(fnstateInitializeZero(handle, state, stream))
+	return toError(fnstateInitializeZero(handle, state, stream), "cudensitymatStateInitializeZero")
 }
 
 // workspaceGetMemory Retrieves a workspace buffer.
@@ -857,7 +857,7 @@ func workspaceGetMemory(handle Handle, workspaceDescr WorkspaceDescriptor, memSp
 	}
 	var out0 uintptr
 	var out1 uint
-	if err := toError(fnworkspaceGetMemory(handle, workspaceDescr, memSpace, workspaceKind, &out0, &out1)); err != nil {
+	if err := toError(fnworkspaceGetMemory(handle, workspaceDescr, memSpace, workspaceKind, &out0, &out1), "cudensitymatWorkspaceGetMemory"); err != nil {
 		return *new(uintptr), 0, err
 	}
 	return out0, out1, nil
@@ -877,7 +877,7 @@ func workspaceGetMemorySize(handle Handle, workspaceDescr WorkspaceDescriptor, m
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnworkspaceGetMemorySize(handle, workspaceDescr, memSpace, workspaceKind, &out)); err != nil {
+	if err := toError(fnworkspaceGetMemorySize(handle, workspaceDescr, memSpace, workspaceKind, &out), "cudensitymatWorkspaceGetMemorySize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -898,5 +898,5 @@ func workspaceSetMemory(handle Handle, workspaceDescr WorkspaceDescriptor, memSp
 	if err := checkLibSym("cudensitymatWorkspaceSetMemory"); err != nil {
 		return err
 	}
-	return toError(fnworkspaceSetMemory(handle, workspaceDescr, memSpace, workspaceKind, memoryBuffer, memoryBufferSize))
+	return toError(fnworkspaceSetMemory(handle, workspaceDescr, memSpace, workspaceKind, memoryBuffer, memoryBufferSize), "cudensitymatWorkspaceSetMemory")
 }

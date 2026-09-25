@@ -22,7 +22,7 @@ func getCftDeviceLeInfo(window Window, offset uint, peerCft int32, cftTeam Team,
 		return zero, err
 	}
 	var out CftLeId
-	if err := toError(fngetCftDeviceLeInfo(window, offset, peerCft, cftTeam, &out, leOffset)); err != nil {
+	if err := toError(fngetCftDeviceLeInfo(window, offset, peerCft, cftTeam, &out, leOffset), "ncclGetCftDeviceLeInfo"); err != nil {
 		var zero CftLeId
 		return zero, err
 	}
@@ -36,7 +36,7 @@ func getLsaDevicePointer(window Window, offset uint, lsaRank int32) (driver.Devi
 		return zero, err
 	}
 	var out uintptr
-	if err := toError(fngetLsaDevicePointer(window, offset, lsaRank, &out)); err != nil {
+	if err := toError(fngetLsaDevicePointer(window, offset, lsaRank, &out), "ncclGetLsaDevicePointer"); err != nil {
 		var zero driver.DevicePtr
 		return zero, err
 	}
@@ -50,7 +50,7 @@ func getLsaMultimemDevicePointer(window Window, offset uint) (driver.DevicePtr, 
 		return zero, err
 	}
 	var out uintptr
-	if err := toError(fngetLsaMultimemDevicePointer(window, offset, &out)); err != nil {
+	if err := toError(fngetLsaMultimemDevicePointer(window, offset, &out), "ncclGetLsaMultimemDevicePointer"); err != nil {
 		var zero driver.DevicePtr
 		return zero, err
 	}
@@ -64,7 +64,7 @@ func getMultimemDeviceLeInfo(window Window, offset uint, leOffset *uint) (CftLeI
 		return zero, err
 	}
 	var out CftLeId
-	if err := toError(fngetMultimemDeviceLeInfo(window, offset, &out, leOffset)); err != nil {
+	if err := toError(fngetMultimemDeviceLeInfo(window, offset, &out, leOffset), "ncclGetMultimemDeviceLeInfo"); err != nil {
 		var zero CftLeId
 		return zero, err
 	}
@@ -78,7 +78,7 @@ func getMultimemDevicePointer(window Window, offset uint, multimem MultimemHandl
 		return zero, err
 	}
 	var out uintptr
-	if err := toError(fngetMultimemDevicePointer(window, offset, multimem, &out)); err != nil {
+	if err := toError(fngetMultimemDevicePointer(window, offset, multimem, &out), "ncclGetMultimemDevicePointer"); err != nil {
 		var zero driver.DevicePtr
 		return zero, err
 	}
@@ -92,7 +92,7 @@ func getPeerDeviceLeInfo(window Window, offset uint, peerWorld int32, leOffset *
 		return zero, err
 	}
 	var out CftLeId
-	if err := toError(fngetPeerDeviceLeInfo(window, offset, peerWorld, &out, leOffset)); err != nil {
+	if err := toError(fngetPeerDeviceLeInfo(window, offset, peerWorld, &out, leOffset), "ncclGetPeerDeviceLeInfo"); err != nil {
 		var zero CftLeId
 		return zero, err
 	}
@@ -106,7 +106,7 @@ func getPeerDevicePointer(window Window, offset uint, peer int32) (driver.Device
 		return zero, err
 	}
 	var out uintptr
-	if err := toError(fngetPeerDevicePointer(window, offset, peer, &out)); err != nil {
+	if err := toError(fngetPeerDevicePointer(window, offset, peer, &out), "ncclGetPeerDevicePointer"); err != nil {
 		var zero driver.DevicePtr
 		return zero, err
 	}

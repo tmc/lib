@@ -53,7 +53,7 @@ func Create(backend Backend, deviceAllocator *DeviceAllocator, pinnedAllocator *
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(backend, deviceAllocator, pinnedAllocator, &out)); err != nil {
+	if err := toError(fnCreate(backend, deviceAllocator, pinnedAllocator, &out), "nvjpeg2kCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -72,7 +72,7 @@ func CreateSimple() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreateSimple(&out)); err != nil {
+	if err := toError(fnCreateSimple(&out), "nvjpeg2kCreateSimple"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -95,7 +95,7 @@ func CreateV2(backend Backend, devAllocator *DeviceAllocatorV2, pinnedAllocator 
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreateV2(backend, devAllocator, pinnedAllocator, &out)); err != nil {
+	if err := toError(fnCreateV2(backend, devAllocator, pinnedAllocator, &out), "nvjpeg2kCreateV2"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -123,7 +123,7 @@ func Decode(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, deco
 	if err := checkLibSym("nvjpeg2kDecode"); err != nil {
 		return err
 	}
-	return toError(fnDecode(handle, decodeState, jpeg2kStream, decodeOutput, stream))
+	return toError(fnDecode(handle, decodeState, jpeg2kStream, decodeOutput, stream), "nvjpeg2kDecode")
 }
 
 // DecodeImage decodes a whole image into caller-allocated device buffers, under decode parameters.
@@ -149,7 +149,7 @@ func DecodeImage(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream,
 	if err := checkLibSym("nvjpeg2kDecodeImage"); err != nil {
 		return err
 	}
-	return toError(fnDecodeImage(handle, decodeState, jpeg2kStream, decodeParams, decodeOutput, stream))
+	return toError(fnDecodeImage(handle, decodeState, jpeg2kStream, decodeParams, decodeOutput, stream), "nvjpeg2kDecodeImage")
 }
 
 // DecodeParamsCreate creates a decode parameters handle holding output options.
@@ -161,7 +161,7 @@ func DecodeParamsCreate() (DecodeParams, error) {
 		return zero, err
 	}
 	var out DecodeParams
-	if err := toError(fnDecodeParamsCreate(&out)); err != nil {
+	if err := toError(fnDecodeParamsCreate(&out), "nvjpeg2kDecodeParamsCreate"); err != nil {
 		var zero DecodeParams
 		return zero, err
 	}
@@ -177,7 +177,7 @@ func DecodeParamsDestroy(decodeParams DecodeParams) error {
 	if err := checkLibSym("nvjpeg2kDecodeParamsDestroy"); err != nil {
 		return err
 	}
-	return toError(fnDecodeParamsDestroy(decodeParams))
+	return toError(fnDecodeParamsDestroy(decodeParams), "nvjpeg2kDecodeParamsDestroy")
 }
 
 // DecodeParamsSetDecodeArea restricts decoding to a rectangle within the tile of interest.
@@ -197,7 +197,7 @@ func DecodeParamsSetDecodeArea(decodeParams DecodeParams, startX uint32, endX ui
 	if err := checkLibSym("nvjpeg2kDecodeParamsSetDecodeArea"); err != nil {
 		return err
 	}
-	return toError(fnDecodeParamsSetDecodeArea(decodeParams, startX, endX, startY, endY))
+	return toError(fnDecodeParamsSetDecodeArea(decodeParams, startX, endX, startY, endY), "nvjpeg2kDecodeParamsSetDecodeArea")
 }
 
 // DecodeParamsSetOutputFormat selects planar or interleaved output.
@@ -217,7 +217,7 @@ func DecodeParamsSetOutputFormat(decodeParams DecodeParams, format ImageFormat) 
 	if err := checkLibSym("nvjpeg2kDecodeParamsSetOutputFormat"); err != nil {
 		return err
 	}
-	return toError(fnDecodeParamsSetOutputFormat(decodeParams, format))
+	return toError(fnDecodeParamsSetOutputFormat(decodeParams, format), "nvjpeg2kDecodeParamsSetOutputFormat")
 }
 
 // DecodeParamsSetRGBOutput requests RGB output for chroma-subsampled sYCC streams.
@@ -237,7 +237,7 @@ func DecodeParamsSetRGBOutput(decodeParams DecodeParams, forceRgb int32) error {
 	if err := checkLibSym("nvjpeg2kDecodeParamsSetRGBOutput"); err != nil {
 		return err
 	}
-	return toError(fnDecodeParamsSetRGBOutput(decodeParams, forceRgb))
+	return toError(fnDecodeParamsSetRGBOutput(decodeParams, forceRgb), "nvjpeg2kDecodeParamsSetRGBOutput")
 }
 
 // DecodeStateCreate creates a decode state holding the intermediate buffers a decode needs.
@@ -251,7 +251,7 @@ func DecodeStateCreate(handle Handle) (DecodeState, error) {
 		return zero, err
 	}
 	var out DecodeState
-	if err := toError(fnDecodeStateCreate(handle, &out)); err != nil {
+	if err := toError(fnDecodeStateCreate(handle, &out), "nvjpeg2kDecodeStateCreate"); err != nil {
 		var zero DecodeState
 		return zero, err
 	}
@@ -267,7 +267,7 @@ func DecodeStateDestroy(decodeState DecodeState) error {
 	if err := checkLibSym("nvjpeg2kDecodeStateDestroy"); err != nil {
 		return err
 	}
-	return toError(fnDecodeStateDestroy(decodeState))
+	return toError(fnDecodeStateDestroy(decodeState), "nvjpeg2kDecodeStateDestroy")
 }
 
 // DecodeTile decodes one tile into caller-allocated device buffers.
@@ -294,7 +294,7 @@ func DecodeTile(handle Handle, decodeState DecodeState, jpeg2kStream Bitstream, 
 	if err := checkLibSym("nvjpeg2kDecodeTile"); err != nil {
 		return err
 	}
-	return toError(fnDecodeTile(handle, decodeState, jpeg2kStream, decodeParams, tileId, numResLevels, decodeOutput, stream))
+	return toError(fnDecodeTile(handle, decodeState, jpeg2kStream, decodeParams, tileId, numResLevels, decodeOutput, stream), "nvjpeg2kDecodeTile")
 }
 
 // Destroy releases a library handle and the resources it owns.
@@ -308,7 +308,7 @@ func Destroy(handle Handle) error {
 	if err := checkLibSym("nvjpeg2kDestroy"); err != nil {
 		return err
 	}
-	return toError(fnDestroy(handle))
+	return toError(fnDestroy(handle), "nvjpeg2kDestroy")
 }
 
 // GetCudartProperty returns one component of the CUDA Toolkit version the library was built against.
@@ -326,7 +326,7 @@ func GetCudartProperty(property LibraryPropertyType) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetCudartProperty(property, &out)); err != nil {
+	if err := toError(fnGetCudartProperty(property, &out), "nvjpeg2kGetCudartProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -344,7 +344,7 @@ func GetDeviceMemoryPadding(handle Handle) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnGetDeviceMemoryPadding(&out, handle)); err != nil {
+	if err := toError(fnGetDeviceMemoryPadding(&out, handle), "nvjpeg2kGetDeviceMemoryPadding"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -362,7 +362,7 @@ func GetPinnedMemoryPadding(handle Handle) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnGetPinnedMemoryPadding(&out, handle)); err != nil {
+	if err := toError(fnGetPinnedMemoryPadding(&out, handle), "nvjpeg2kGetPinnedMemoryPadding"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -383,7 +383,7 @@ func GetProperty(property LibraryPropertyType) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetProperty(property, &out)); err != nil {
+	if err := toError(fnGetProperty(property, &out), "nvjpeg2kGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -404,7 +404,7 @@ func SetDeviceMemoryPadding(padding uint, handle Handle) error {
 	if err := checkLibSym("nvjpeg2kSetDeviceMemoryPadding"); err != nil {
 		return err
 	}
-	return toError(fnSetDeviceMemoryPadding(padding, handle))
+	return toError(fnSetDeviceMemoryPadding(padding, handle), "nvjpeg2kSetDeviceMemoryPadding")
 }
 
 // SetPinnedMemoryPadding rounds later pinned host allocations up to a multiple of padding bytes.
@@ -421,7 +421,7 @@ func SetPinnedMemoryPadding(padding uint, handle Handle) error {
 	if err := checkLibSym("nvjpeg2kSetPinnedMemoryPadding"); err != nil {
 		return err
 	}
-	return toError(fnSetPinnedMemoryPadding(padding, handle))
+	return toError(fnSetPinnedMemoryPadding(padding, handle), "nvjpeg2kSetPinnedMemoryPadding")
 }
 
 // StreamCreate creates an empty bitstream handle to parse into.
@@ -433,7 +433,7 @@ func StreamCreate() (Bitstream, error) {
 		return zero, err
 	}
 	var out Bitstream
-	if err := toError(fnStreamCreate(&out)); err != nil {
+	if err := toError(fnStreamCreate(&out), "nvjpeg2kStreamCreate"); err != nil {
 		var zero Bitstream
 		return zero, err
 	}
@@ -449,7 +449,7 @@ func StreamDestroy(streamHandle Bitstream) error {
 	if err := checkLibSym("nvjpeg2kStreamDestroy"); err != nil {
 		return err
 	}
-	return toError(fnStreamDestroy(streamHandle))
+	return toError(fnStreamDestroy(streamHandle), "nvjpeg2kStreamDestroy")
 }
 
 // StreamGetColorSpace returns the color space recorded in a JP2 container.
@@ -466,7 +466,7 @@ func StreamGetColorSpace(streamHandle Bitstream) (ColorSpace, error) {
 		return zero, err
 	}
 	var out ColorSpace
-	if err := toError(fnStreamGetColorSpace(streamHandle, &out)); err != nil {
+	if err := toError(fnStreamGetColorSpace(streamHandle, &out), "nvjpeg2kStreamGetColorSpace"); err != nil {
 		var zero ColorSpace
 		return zero, err
 	}
@@ -499,7 +499,7 @@ func StreamGetComponentNLTInfo(streamHandle Bitstream, componentId uint32) (NLTI
 		return zero, err
 	}
 	var out NLTInfo
-	if err := toError(fnStreamGetComponentNLTInfo(streamHandle, componentId, &out)); err != nil {
+	if err := toError(fnStreamGetComponentNLTInfo(streamHandle, componentId, &out), "nvjpeg2kStreamGetComponentNLTInfo"); err != nil {
 		var zero NLTInfo
 		return zero, err
 	}
@@ -523,7 +523,7 @@ func StreamGetImageComponentInfo(streamHandle Bitstream, componentId uint32) (Im
 		return zero, err
 	}
 	var out ImageComponentInfo
-	if err := toError(fnStreamGetImageComponentInfo(streamHandle, &out, componentId)); err != nil {
+	if err := toError(fnStreamGetImageComponentInfo(streamHandle, &out, componentId), "nvjpeg2kStreamGetImageComponentInfo"); err != nil {
 		var zero ImageComponentInfo
 		return zero, err
 	}
@@ -544,7 +544,7 @@ func StreamGetImageInfo(streamHandle Bitstream) (ImageInfo, error) {
 		return zero, err
 	}
 	var out ImageInfo
-	if err := toError(fnStreamGetImageInfo(streamHandle, &out)); err != nil {
+	if err := toError(fnStreamGetImageInfo(streamHandle, &out), "nvjpeg2kStreamGetImageInfo"); err != nil {
 		var zero ImageInfo
 		return zero, err
 	}
@@ -570,7 +570,7 @@ func StreamGetResolutionComponentDim(streamHandle Bitstream, componentId uint32,
 	}
 	var out0 uint32
 	var out1 uint32
-	if err := toError(fnStreamGetResolutionComponentDim(streamHandle, componentId, tileId, resLevel, &out0, &out1)); err != nil {
+	if err := toError(fnStreamGetResolutionComponentDim(streamHandle, componentId, tileId, resLevel, &out0, &out1), "nvjpeg2kStreamGetResolutionComponentDim"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -595,7 +595,7 @@ func StreamGetResolutionsInTile(streamHandle Bitstream, tileId uint32) (uint32, 
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnStreamGetResolutionsInTile(streamHandle, tileId, &out)); err != nil {
+	if err := toError(fnStreamGetResolutionsInTile(streamHandle, tileId, &out), "nvjpeg2kStreamGetResolutionsInTile"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -618,7 +618,7 @@ func StreamGetTileComponentDim(streamHandle Bitstream, componentId uint32, tileI
 	}
 	var out0 uint32
 	var out1 uint32
-	if err := toError(fnStreamGetTileComponentDim(streamHandle, componentId, tileId, &out0, &out1)); err != nil {
+	if err := toError(fnStreamGetTileComponentDim(streamHandle, componentId, tileId, &out0, &out1), "nvjpeg2kStreamGetTileComponentDim"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -640,5 +640,5 @@ func StreamParseFile(handle Handle, filename string, streamHandle Bitstream) err
 		return err
 	}
 	filename_cstr := append([]byte(filename), 0)
-	return toError(fnStreamParseFile(handle, &filename_cstr[0], streamHandle))
+	return toError(fnStreamParseFile(handle, &filename_cstr[0], streamHandle), "nvjpeg2kStreamParseFile")
 }

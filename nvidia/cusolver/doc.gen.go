@@ -8,424 +8,424 @@
 //
 // # Complex Single-Precision Dense Solvers
 //
-//   - [Handle.CCgels].
-//   - [Handle.CCgelsBufferSize].
-//   - [Handle.CCgesv].
-//   - [Handle.CCgesvBufferSize].
-//   - [Handle.CEgels].
-//   - [Handle.CEgelsBufferSize].
-//   - [Handle.CEgesv].
-//   - [Handle.CEgesvBufferSize].
-//   - [Handle.CKgels].
-//   - [Handle.CKgelsBufferSize].
-//   - [Handle.CKgesv].
-//   - [Handle.CKgesvBufferSize].
-//   - [Handle.CYgels].
-//   - [Handle.CYgelsBufferSize].
-//   - [Handle.CYgesv].
-//   - [Handle.CYgesvBufferSize].
-//   - [Handle.Cgebrd].
-//   - [Handle.CgebrdBufferSize].
-//   - [Handle.Cgeqrf].
-//   - [Handle.CgeqrfBufferSize].
-//   - [Handle.Cgesvd].
-//   - [Handle.CgesvdBufferSize].
-//   - [Handle.CgesvdaStridedBatched].
-//   - [Handle.CgesvdaStridedBatchedBufferSize].
-//   - [Handle.Cgesvdj].
-//   - [Handle.CgesvdjBatched].
-//   - [Handle.CgesvdjBatchedBufferSize].
-//   - [Handle.CgesvdjBufferSize].
-//   - [Handle.Cgetrf].
-//   - [Handle.CgetrfBufferSize].
-//   - [Handle.Cgetrs].
-//   - [Handle.Cheevd].
-//   - [Handle.CheevdBufferSize].
-//   - [Handle.Cheevdx].
-//   - [Handle.CheevdxBufferSize].
-//   - [Handle.Cheevj].
-//   - [Handle.CheevjBatched].
-//   - [Handle.CheevjBatchedBufferSize].
-//   - [Handle.CheevjBufferSize].
-//   - [Handle.Chegvd].
-//   - [Handle.ChegvdBufferSize].
-//   - [Handle.Chegvdx].
-//   - [Handle.ChegvdxBufferSize].
-//   - [Handle.Chegvj].
-//   - [Handle.ChegvjBufferSize].
-//   - [Handle.Chetrd].
-//   - [Handle.ChetrdBufferSize].
+//   - [Handle.CCgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.CCgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.CCgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.CCgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.CEgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.CEgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.CEgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.CEgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.CKgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.CKgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.CKgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.CKgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.CYgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.CYgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.CYgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.CYgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.Cgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.CgebrdBufferSize]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.Cgeqrf]: computes the QR factorization of an m×n matrix
+//   - [Handle.CgeqrfBufferSize]: computes the QR factorization of an m×n matrix
+//   - [Handle.Cgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.CgesvdBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.CgesvdaStridedBatched]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
+//   - [Handle.CgesvdaStridedBatchedBufferSize]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
+//   - [Handle.Cgesvdj]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.CgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.CgesvdjBatchedBufferSize]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.CgesvdjBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.Cgetrf]: computes the LU factorization of an m×n matrix
+//   - [Handle.CgetrfBufferSize]: computes the LU factorization of an m×n matrix
+//   - [Handle.Cgetrs]: solves a linear system of multiple right-hand sides
+//   - [Handle.Cheevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.CheevdBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Cheevdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.CheevdxBufferSize]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Cheevj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.CheevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.CheevjBatchedBufferSize]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.CheevjBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Chegvd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.ChegvdBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Chegvdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.ChegvdxBufferSize]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Chegvj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.ChegvjBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Chetrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+//   - [Handle.ChetrdBufferSize]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
 //   - [Handle.Claswp].
 //   - [Handle.Clauum].
 //   - [Handle.ClauumBufferSize].
-//   - [Handle.Cpotrf].
-//   - [Handle.CpotrfBatched].
-//   - [Handle.CpotrfBufferSize].
-//   - [Handle.Cpotri].
-//   - [Handle.CpotriBufferSize].
-//   - [Handle.Cpotrs].
-//   - [Handle.CpotrsBatched].
-//   - [Handle.Csytrf].
-//   - [Handle.CsytrfBufferSize].
+//   - [Handle.Cpotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
+//   - [Handle.CpotrfBatched]: computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
+//   - [Handle.CpotrfBufferSize]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
+//   - [Handle.Cpotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.CpotriBufferSize]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.Cpotrs]: solves a system of linear equations
+//   - [Handle.CpotrsBatched]: solves a sequence of linear systems
+//   - [Handle.Csytrf]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
+//   - [Handle.CsytrfBufferSize]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //   - [Handle.Csytri].
 //   - [Handle.CsytriBufferSize].
-//   - [Handle.Cungbr].
-//   - [Handle.CungbrBufferSize].
-//   - [Handle.Cungqr].
-//   - [Handle.CungqrBufferSize].
-//   - [Handle.Cungtr].
-//   - [Handle.CungtrBufferSize].
-//   - [Handle.Cunmqr].
-//   - [Handle.CunmqrBufferSize].
-//   - [Handle.Cunmtr].
-//   - [Handle.CunmtrBufferSize].
+//   - [Handle.Cungbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.CungbrBufferSize]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.Cungqr]: overwrites m×n matrix A by
+//   - [Handle.CungqrBufferSize]: overwrites m×n matrix A by
+//   - [Handle.Cungtr]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
+//   - [Handle.CungtrBufferSize]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
+//   - [Handle.Cunmqr]: overwrites m×n matrix C by
+//   - [Handle.CunmqrBufferSize]: overwrites m×n matrix C by
+//   - [Handle.Cunmtr]: overwrites m×n matrix C by
+//   - [Handle.CunmtrBufferSize]: overwrites m×n matrix C by
 //
 // # Handle and Parameter Lifecycle
 //
-//   - [Create].
-//   - [CreateGesvdjInfo].
-//   - [CreateParams].
-//   - [CreateSyevjInfo].
-//   - [Handle.Destroy].
-//   - [GesvdjInfo.Destroy].
-//   - [Params.Destroy].
-//   - [SyevjInfo.Destroy].
+//   - [Create]: initializes the cuSolverDN library and creates a handle on the cuSolverDN context.
+//   - [CreateGesvdjInfo]: creates and initializes the structure of gesvdj and gesvdjBatched to default values.
+//   - [CreateParams]: creates and initializes the structure of 64-bit API to default values.
+//   - [CreateSyevjInfo]: creates and initializes the structure of syevj, syevjBatched and sygvj to default values.
+//   - [Handle.Destroy]: releases CPU-side resources used by the cuSolverDN library.
+//   - [GesvdjInfo.Destroy]: destroys and releases any memory required by the structure.
+//   - [Params.Destroy]: destroys and releases any memory required by the structure.
+//   - [SyevjInfo.Destroy]: destroys and releases any memory required by the structure.
 //
 // # Double-Precision Dense Solvers
 //
-//   - [Handle.DBgels].
-//   - [Handle.DBgelsBufferSize].
-//   - [Handle.DBgesv].
-//   - [Handle.DBgesvBufferSize].
-//   - [Handle.DDgels].
-//   - [Handle.DDgelsBufferSize].
-//   - [Handle.DDgesv].
-//   - [Handle.DDgesvBufferSize].
-//   - [Handle.DHgels].
-//   - [Handle.DHgelsBufferSize].
-//   - [Handle.DHgesv].
-//   - [Handle.DHgesvBufferSize].
-//   - [Handle.DSgels].
-//   - [Handle.DSgelsBufferSize].
-//   - [Handle.DSgesv].
-//   - [Handle.DSgesvBufferSize].
-//   - [Handle.DXgels].
-//   - [Handle.DXgelsBufferSize].
-//   - [Handle.DXgesv].
-//   - [Handle.DXgesvBufferSize].
-//   - [Handle.Dgebrd].
-//   - [Handle.DgebrdBufferSize].
-//   - [Handle.Dgeqrf].
-//   - [Handle.DgeqrfBufferSize].
-//   - [Handle.Dgesvd].
-//   - [Handle.DgesvdBufferSize].
-//   - [Handle.DgesvdaStridedBatched].
-//   - [Handle.DgesvdaStridedBatchedBufferSize].
-//   - [Handle.Dgesvdj].
-//   - [Handle.DgesvdjBatched].
-//   - [Handle.DgesvdjBatchedBufferSize].
-//   - [Handle.DgesvdjBufferSize].
-//   - [Handle.Dgetrf].
-//   - [Handle.DgetrfBufferSize].
-//   - [Handle.Dgetrs].
+//   - [Handle.DBgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DBgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DBgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.DBgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.DDgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DDgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DDgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.DDgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.DHgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DHgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DHgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.DHgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.DSgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DSgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DSgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.DSgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.DXgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DXgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.DXgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.DXgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.Dgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.DgebrdBufferSize]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.Dgeqrf]: computes the QR factorization of an m×n matrix
+//   - [Handle.DgeqrfBufferSize]: computes the QR factorization of an m×n matrix
+//   - [Handle.Dgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.DgesvdBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.DgesvdaStridedBatched]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
+//   - [Handle.DgesvdaStridedBatchedBufferSize]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
+//   - [Handle.Dgesvdj]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.DgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.DgesvdjBatchedBufferSize]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.DgesvdjBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.Dgetrf]: computes the LU factorization of an m×n matrix
+//   - [Handle.DgetrfBufferSize]: computes the LU factorization of an m×n matrix
+//   - [Handle.Dgetrs]: solves a linear system of multiple right-hand sides
 //   - [Handle.Dlaswp].
 //   - [Handle.Dlauum].
 //   - [Handle.DlauumBufferSize].
-//   - [Handle.Dorgbr].
-//   - [Handle.DorgbrBufferSize].
-//   - [Handle.Dorgqr].
-//   - [Handle.DorgqrBufferSize].
-//   - [Handle.Dorgtr].
-//   - [Handle.DorgtrBufferSize].
-//   - [Handle.Dormqr].
-//   - [Handle.DormqrBufferSize].
-//   - [Handle.Dormtr].
-//   - [Handle.DormtrBufferSize].
-//   - [Handle.Dpotrf].
-//   - [Handle.DpotrfBatched].
-//   - [Handle.DpotrfBufferSize].
-//   - [Handle.Dpotri].
-//   - [Handle.DpotriBufferSize].
-//   - [Handle.Dpotrs].
-//   - [Handle.DpotrsBatched].
-//   - [Handle.Dsyevd].
-//   - [Handle.DsyevdBufferSize].
-//   - [Handle.Dsyevdx].
-//   - [Handle.DsyevdxBufferSize].
-//   - [Handle.Dsyevj].
-//   - [Handle.DsyevjBatched].
-//   - [Handle.DsyevjBatchedBufferSize].
-//   - [Handle.DsyevjBufferSize].
-//   - [Handle.Dsygvd].
-//   - [Handle.DsygvdBufferSize].
-//   - [Handle.Dsygvdx].
-//   - [Handle.DsygvdxBufferSize].
-//   - [Handle.Dsygvj].
-//   - [Handle.DsygvjBufferSize].
-//   - [Handle.Dsytrd].
-//   - [Handle.DsytrdBufferSize].
-//   - [Handle.Dsytrf].
-//   - [Handle.DsytrfBufferSize].
+//   - [Handle.Dorgbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.DorgbrBufferSize]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.Dorgqr]: overwrites m×n matrix A by
+//   - [Handle.DorgqrBufferSize]: overwrites m×n matrix A by
+//   - [Handle.Dorgtr]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
+//   - [Handle.DorgtrBufferSize]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
+//   - [Handle.Dormqr]: overwrites m×n matrix C by
+//   - [Handle.DormqrBufferSize]: overwrites m×n matrix C by
+//   - [Handle.Dormtr]: overwrites m×n matrix C by
+//   - [Handle.DormtrBufferSize]: overwrites m×n matrix C by
+//   - [Handle.Dpotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
+//   - [Handle.DpotrfBatched]: computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
+//   - [Handle.DpotrfBufferSize]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
+//   - [Handle.Dpotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.DpotriBufferSize]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.Dpotrs]: solves a system of linear equations
+//   - [Handle.DpotrsBatched]: solves a sequence of linear systems
+//   - [Handle.Dsyevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.DsyevdBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Dsyevdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.DsyevdxBufferSize]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Dsyevj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.DsyevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.DsyevjBatchedBufferSize]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.DsyevjBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Dsygvd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.DsygvdBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Dsygvdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.DsygvdxBufferSize]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Dsygvj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.DsygvjBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Dsytrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+//   - [Handle.DsytrdBufferSize]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+//   - [Handle.Dsytrf]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
+//   - [Handle.DsytrfBufferSize]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //   - [Handle.Dsytri].
 //   - [Handle.DsytriBufferSize].
 //
 // # Configuration and Diagnostics
 //
-//   - [Handle.DeterministicMode].
-//   - [Handle.EmulationSpecialValuesSupport].
-//   - [Handle.EmulationStrategy].
-//   - [Handle.FixedPointEmulationMantissaBitOffset].
-//   - [Handle.FixedPointEmulationMantissaControl].
-//   - [Handle.FixedPointEmulationMaxMantissaBitCount].
-//   - [Handle.MathMode].
+//   - [Handle.DeterministicMode]: queries the deterministic mode which is set for handle.
+//   - [Handle.EmulationSpecialValuesSupport]: queries the special floating point value support which is set for handle if floating point emulation is allowed.
+//   - [Handle.EmulationStrategy]: queries the emulation strategy which is set for handle.
+//   - [Handle.FixedPointEmulationMantissaBitOffset]: queries the mantissa bit offset for fixed point FP64 emulation in case of dynamic mantissa control mode.
+//   - [Handle.FixedPointEmulationMantissaControl]: queries how the number of mantissa bits is determined for fixed point FP64 emulation.
+//   - [Handle.FixedPointEmulationMaxMantissaBitCount]: queries the maximum number of mantissa bits used for fixed point FP64 emulation.
+//   - [Handle.MathMode]: queries the math modes which are set for handle.
 //   - [GetProperty].
 //   - [GetVersion].
-//   - [Params.SetAdvOptions].
-//   - [Handle.SetDeterministicMode].
-//   - [Handle.SetEmulationSpecialValuesSupport].
-//   - [Handle.SetEmulationStrategy].
-//   - [Handle.SetFixedPointEmulationMantissaBitOffset].
-//   - [Handle.SetFixedPointEmulationMantissaControl].
-//   - [Handle.SetFixedPointEmulationMaxMantissaBitCount].
-//   - [Handle.SetMathMode].
+//   - [Params.SetAdvOptions]: configures algorithm algo of function, a 64-bit API routine.
+//   - [Handle.SetDeterministicMode]: sets the deterministic mode of all cuSolverDN functions for handle.
+//   - [Handle.SetEmulationSpecialValuesSupport]: sets the handling of special floating point values for handle, which is used once floating point emulation is allowed.
+//   - [Handle.SetEmulationStrategy]: sets the emulation strategy of all cuSolverDN functions for handle.
+//   - [Handle.SetFixedPointEmulationMantissaBitOffset]: sets the mantissa bit offset for fixed point FP64 emulation in case of dynamic mantissa control mode.
+//   - [Handle.SetFixedPointEmulationMantissaControl]: sets how the number of mantissa bits is determined for fixed point FP64 emulation.
+//   - [Handle.SetFixedPointEmulationMaxMantissaBitCount]: sets the maximum number of mantissa bits for fixed point FP64 emulation.
+//   - [Handle.SetMathMode]: sets the math modes of all cuSolverDN functions for handle.
 //
 // # Stream and Library Queries
 //
-//   - [Handle.Stream].
-//   - [Handle.SetStream].
+//   - [Handle.Stream]: queries the stream to be used by the cuSolverDN library to execute its routines.
+//   - [Handle.SetStream]: sets the stream to be used by the cuSolverDN library to execute its routines.
 //
 // # Iterative Refinement
 //
-//   - [NewIRSInfos].
-//   - [IRSInfos.Destroy].
-//   - [IRSInfos.MaxIters].
-//   - [IRSInfos.Niters].
-//   - [IRSInfos.OuterNiters].
-//   - [IRSInfos.ResidualHistory].
-//   - [IRSInfos.RequestResidual].
-//   - [NewIRSParams].
-//   - [IRSParams.Destroy].
-//   - [IRSParams.DisableFallback].
-//   - [IRSParams.EnableFallback].
-//   - [IRSParams.MaxIters].
-//   - [IRSParams.SetMaxIters].
-//   - [IRSParams.SetMaxItersInner].
-//   - [IRSParams.SetRefinementSolver].
-//   - [IRSParams.SetSolverLowestPrecision].
-//   - [IRSParams.SetSolverMainPrecision].
-//   - [IRSParams.SetSolverPrecisions].
-//   - [IRSParams.SetTol].
-//   - [IRSParams.SetTolInner].
-//   - [Handle.IRSXgels].
-//   - [Handle.IRSXgelsBufferSize].
-//   - [Handle.IRSXgesv].
-//   - [Handle.IRSXgesvBufferSize].
+//   - [NewIRSInfos]: creates and initializes the Infos structure that will hold the refinement information of an Iterative Refinement Solver (IRS) call.
+//   - [IRSInfos.Destroy]: destroys and releases any memory required by the Infos structure.
+//   - [IRSInfos.MaxIters]: returns the maximal allowed number of iterations that was set for the corresponding call to the IRS solver.
+//   - [IRSInfos.Niters]: returns the total number of iterations performed by the IRS solver.
+//   - [IRSInfos.OuterNiters]: returns the number of iterations performed by the outer refinement loop of the IRS solver.
+//   - [IRSInfos.ResidualHistory]: If the user called [IRSInfos.RequestResidual] before the call to the IRS function, then the IRS solver will store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by this function.
+//   - [IRSInfos.RequestResidual]: tells the IRS solver to store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by the [IRSInfos.ResidualHistory] function.
+//   - [NewIRSParams]: creates and initializes the structure of parameters for an IRS solver such as the [Handle.IRSXgesv] or the [Handle.IRSXgels] functions to default values.
+//   - [IRSParams.Destroy]: destroys and releases any memory required by the Params structure.
+//   - [IRSParams.DisableFallback]: disables the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
+//   - [IRSParams.EnableFallback]: enable the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
+//   - [IRSParams.MaxIters]: returns the current setting in the params structure for the maximal allowed number of iterations (for example, either the default MaxIters, or the one set by the user in case he set it using [IRSParams.SetMaxIters]).
+//   - [IRSParams.SetMaxIters]: sets the total number of allowed refinement iterations after which the solver will stop.
+//   - [IRSParams.SetMaxItersInner]: sets the maximal number of iterations allowed for the inner refinement solver.
+//   - [IRSParams.SetRefinementSolver]: sets the refinement solver to be used in the Iterative Refinement Solver functions such as the [Handle.IRSXgesv] or the [Handle.IRSXgels] functions.
+//   - [IRSParams.SetSolverLowestPrecision]: sets the lowest precision that will be used by Iterative Refinement Solver.
+//   - [IRSParams.SetSolverMainPrecision]: sets the main precision for the Iterative Refinement Solver (IRS).
+//   - [IRSParams.SetSolverPrecisions]: sets both the main and the lowest precision for the Iterative Refinement Solver (IRS).
+//   - [IRSParams.SetTol]: sets the tolerance for the refinement solver.
+//   - [IRSParams.SetTolInner]: sets the tolerance for the inner refinement solver when the refinement solver consists of two-levels solver (for example, [IrsRefineClassicalGmres] or [IrsRefineGmresGmres] cases).
+//   - [Handle.IRSXgels]: is designed to perform same functionality as cusolverDngels() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
+//   - [Handle.IRSXgelsBufferSize]: is designed to perform same functionality as cusolverDngels() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
+//   - [Handle.IRSXgesv]: is designed to perform same functionality as cusolverDngesv() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
+//   - [Handle.IRSXgesvBufferSize]: is designed to perform same functionality as cusolverDngesv() functions, but wrapped in a more generic and expert interface that gives user more control to parametrize the function as well as it provides more information on output.
 //
 // # Logging
 //
-//   - [LoggerForceDisable].
-//   - [LoggerOpenFile].
-//   - [LoggerSetCallback].
-//   - [LoggerSetFile].
-//   - [LoggerSetLevel].
-//   - [LoggerSetMask].
+//   - [LoggerForceDisable]: disables logging for the entire run.
+//   - [LoggerOpenFile]: opens a logging output file in the given path.
+//   - [LoggerSetCallback]: sets the logging callback function.
+//   - [LoggerSetFile]: sets the logging output file.
+//   - [LoggerSetLevel]: sets the value of the logging level.
+//   - [LoggerSetMask]: sets the value of the logging mask.
 //
 // # Single-Precision Dense Solvers
 //
-//   - [Handle.SBgels].
-//   - [Handle.SBgelsBufferSize].
-//   - [Handle.SBgesv].
-//   - [Handle.SBgesvBufferSize].
-//   - [Handle.SHgels].
-//   - [Handle.SHgelsBufferSize].
-//   - [Handle.SHgesv].
-//   - [Handle.SHgesvBufferSize].
-//   - [Handle.SSgels].
-//   - [Handle.SSgelsBufferSize].
-//   - [Handle.SSgesv].
-//   - [Handle.SSgesvBufferSize].
-//   - [Handle.SXgels].
-//   - [Handle.SXgelsBufferSize].
-//   - [Handle.SXgesv].
-//   - [Handle.SXgesvBufferSize].
-//   - [Handle.Sgebrd].
-//   - [Handle.SgebrdBufferSize].
-//   - [Handle.Sgeqrf].
-//   - [Handle.SgeqrfBufferSize].
-//   - [Handle.Sgesvd].
-//   - [Handle.SgesvdBufferSize].
-//   - [Handle.SgesvdaStridedBatched].
-//   - [Handle.SgesvdaStridedBatchedBufferSize].
-//   - [Handle.Sgesvdj].
-//   - [Handle.SgesvdjBatched].
-//   - [Handle.SgesvdjBatchedBufferSize].
-//   - [Handle.SgesvdjBufferSize].
-//   - [Handle.Sgetrf].
-//   - [Handle.SgetrfBufferSize].
-//   - [Handle.Sgetrs].
+//   - [Handle.SBgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.SBgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.SBgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.SBgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.SHgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.SHgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.SHgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.SHgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.SSgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.SSgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.SSgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.SSgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.SXgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.SXgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.SXgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.SXgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.Sgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.SgebrdBufferSize]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.Sgeqrf]: computes the QR factorization of an m×n matrix
+//   - [Handle.SgeqrfBufferSize]: computes the QR factorization of an m×n matrix
+//   - [Handle.Sgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.SgesvdBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.SgesvdaStridedBatched]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
+//   - [Handle.SgesvdaStridedBatchedBufferSize]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
+//   - [Handle.Sgesvdj]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.SgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.SgesvdjBatchedBufferSize]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.SgesvdjBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.Sgetrf]: computes the LU factorization of an m×n matrix
+//   - [Handle.SgetrfBufferSize]: computes the LU factorization of an m×n matrix
+//   - [Handle.Sgetrs]: solves a linear system of multiple right-hand sides
 //   - [Handle.Slaswp].
 //   - [Handle.Slauum].
 //   - [Handle.SlauumBufferSize].
-//   - [Handle.Sorgbr].
-//   - [Handle.SorgbrBufferSize].
-//   - [Handle.Sorgqr].
-//   - [Handle.SorgqrBufferSize].
-//   - [Handle.Sorgtr].
-//   - [Handle.SorgtrBufferSize].
-//   - [Handle.Sormqr].
-//   - [Handle.SormqrBufferSize].
-//   - [Handle.Sormtr].
-//   - [Handle.SormtrBufferSize].
-//   - [Handle.Spotrf].
-//   - [Handle.SpotrfBatched].
-//   - [Handle.SpotrfBufferSize].
-//   - [Handle.Spotri].
-//   - [Handle.SpotriBufferSize].
-//   - [Handle.Spotrs].
-//   - [Handle.SpotrsBatched].
-//   - [Handle.Ssyevd].
-//   - [Handle.SsyevdBufferSize].
-//   - [Handle.Ssyevdx].
-//   - [Handle.SsyevdxBufferSize].
-//   - [Handle.Ssyevj].
-//   - [Handle.SsyevjBatched].
-//   - [Handle.SsyevjBatchedBufferSize].
-//   - [Handle.SsyevjBufferSize].
-//   - [Handle.Ssygvd].
-//   - [Handle.SsygvdBufferSize].
-//   - [Handle.Ssygvdx].
-//   - [Handle.SsygvdxBufferSize].
-//   - [Handle.Ssygvj].
-//   - [Handle.SsygvjBufferSize].
-//   - [Handle.Ssytrd].
-//   - [Handle.SsytrdBufferSize].
-//   - [Handle.Ssytrf].
-//   - [Handle.SsytrfBufferSize].
+//   - [Handle.Sorgbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.SorgbrBufferSize]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.Sorgqr]: overwrites m×n matrix A by
+//   - [Handle.SorgqrBufferSize]: overwrites m×n matrix A by
+//   - [Handle.Sorgtr]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
+//   - [Handle.SorgtrBufferSize]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
+//   - [Handle.Sormqr]: overwrites m×n matrix C by
+//   - [Handle.SormqrBufferSize]: overwrites m×n matrix C by
+//   - [Handle.Sormtr]: overwrites m×n matrix C by
+//   - [Handle.SormtrBufferSize]: overwrites m×n matrix C by
+//   - [Handle.Spotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
+//   - [Handle.SpotrfBatched]: computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
+//   - [Handle.SpotrfBufferSize]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
+//   - [Handle.Spotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.SpotriBufferSize]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.Spotrs]: solves a system of linear equations
+//   - [Handle.SpotrsBatched]: solves a sequence of linear systems
+//   - [Handle.Ssyevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.SsyevdBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Ssyevdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.SsyevdxBufferSize]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Ssyevj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.SsyevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.SsyevjBatchedBufferSize]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.SsyevjBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Ssygvd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.SsygvdBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Ssygvdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.SsygvdxBufferSize]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Ssygvj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.SsygvjBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Ssytrd]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+//   - [Handle.SsytrdBufferSize]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
+//   - [Handle.Ssytrf]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
+//   - [Handle.SsytrfBufferSize]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //   - [Handle.Ssytri].
 //   - [Handle.SsytriBufferSize].
 //
 // # Generic Dense Solvers
 //
-//   - [Handle.Xgeev].
-//   - [Handle.XgeevBufferSize].
-//   - [Handle.Xgeqrf].
-//   - [Handle.XgeqrfBufferSize].
-//   - [Handle.Xgesvd].
-//   - [Handle.XgesvdBufferSize].
-//   - [Handle.XgesvdjGetResidual].
-//   - [Handle.XgesvdjGetSweeps].
-//   - [GesvdjInfo.XgesvdjSetMaxSweeps].
-//   - [GesvdjInfo.XgesvdjSetSortEig].
-//   - [GesvdjInfo.XgesvdjSetTolerance].
-//   - [Handle.Xgesvdp].
-//   - [Handle.XgesvdpBufferSize].
-//   - [Handle.Xgesvdr].
-//   - [Handle.XgesvdrBufferSize].
-//   - [Handle.Xgetrf].
-//   - [Handle.XgetrfBufferSize].
-//   - [Handle.Xgetrs].
-//   - [Handle.Xlarft].
-//   - [Handle.XlarftBufferSize].
-//   - [Handle.Xpotrf].
-//   - [Handle.XpotrfBufferSize].
-//   - [Handle.Xpotrs].
-//   - [Handle.XsyevBatched].
-//   - [Handle.XsyevBatchedBufferSize].
-//   - [Handle.Xsyevd].
-//   - [Handle.XsyevdBufferSize].
-//   - [Handle.Xsyevdx].
-//   - [Handle.XsyevdxBufferSize].
-//   - [Handle.XsyevjGetResidual].
-//   - [Handle.XsyevjGetSweeps].
-//   - [SyevjInfo.XsyevjSetMaxSweeps].
-//   - [SyevjInfo.XsyevjSetSortEig].
-//   - [SyevjInfo.XsyevjSetTolerance].
-//   - [Handle.Xsygvd].
-//   - [Handle.XsygvdBufferSize].
-//   - [Handle.Xsygvdx].
-//   - [Handle.XsygvdxBufferSize].
-//   - [Handle.Xsytrs].
-//   - [Handle.XsytrsBufferSize].
-//   - [Handle.Xtrtri].
-//   - [Handle.XtrtriBufferSize].
+//   - [Handle.Xgeev]: computes for an n-by-n real non-symmetric or complex non-Hermitian matrix A the eigenvalues and, optionally, the left and/or right eigenvectors.
+//   - [Handle.XgeevBufferSize]: computes for an n-by-n real non-symmetric or complex non-Hermitian matrix A the eigenvalues and, optionally, the left and/or right eigenvectors.
+//   - [Handle.Xgeqrf]: computes the QR factorization of a m×n matrix
+//   - [Handle.XgeqrfBufferSize]: computes the QR factorization of a m×n matrix
+//   - [Handle.Xgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.XgesvdBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.XgesvdjGetResidual]: reports the Frobenius norm of the internal residual returned by gesvdj.
+//   - [Handle.XgesvdjGetSweeps]: reports number of executed sweeps of gesvdj.
+//   - [GesvdjInfo.XgesvdjSetMaxSweeps]: configures the maximum number of sweeps in gesvdj.
+//   - [GesvdjInfo.XgesvdjSetSortEig]: If sort_svd is zero, the singular values are not sorted.
+//   - [GesvdjInfo.XgesvdjSetTolerance]: configures tolerance of gesvdj.
+//   - [Handle.Xgesvdp]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.XgesvdpBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.Xgesvdr]: computes the approximated rank-k singular value decomposition (k-SVD) of an m×n matrix A and the corresponding left and/or right singular vectors.
+//   - [Handle.XgesvdrBufferSize]: computes the approximated rank-k singular value decomposition (k-SVD) of an m×n matrix A and the corresponding left and/or right singular vectors.
+//   - [Handle.Xgetrf]: computes the LU factorization of a m×n matrix
+//   - [Handle.XgetrfBufferSize]: computes the LU factorization of a m×n matrix
+//   - [Handle.Xgetrs]: solves a linear system of multiple right-hand sides
+//   - [Handle.Xlarft]: forms the triangular factor T of a real block reflector H of order n, which is defined as a product of k elementary reflectors.
+//   - [Handle.XlarftBufferSize]: forms the triangular factor T of a real block reflector H of order n, which is defined as a product of k elementary reflectors.
+//   - [Handle.Xpotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix using the generic API interface.
+//   - [Handle.XpotrfBufferSize]: computes the Cholesky factorization of a Hermitian positive-definite matrix using the generic API interface.
+//   - [Handle.Xpotrs]: solves a system of linear equations
+//   - [Handle.XsyevBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.XsyevBatchedBufferSize]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.Xsyevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A using the generic API interface.
+//   - [Handle.XsyevdBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A using the generic API interface.
+//   - [Handle.Xsyevdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A using the generic API interface.
+//   - [Handle.XsyevdxBufferSize]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A using the generic API interface.
+//   - [Handle.XsyevjGetResidual]: reports residual of syevj or sygvj.
+//   - [Handle.XsyevjGetSweeps]: reports number of executed sweeps of syevj or sygvj.
+//   - [SyevjInfo.XsyevjSetMaxSweeps]: configures maximum number of sweeps in syevj.
+//   - [SyevjInfo.XsyevjSetSortEig]: If sort_eig is zero, the eigenvalues are not sorted.
+//   - [SyevjInfo.XsyevjSetTolerance]: configures tolerance of syevj.
+//   - [Handle.Xsygvd]: The generalized symmetric (Hermitian) definite eigenvalue problem is
+//   - [Handle.XsygvdBufferSize]: The generalized symmetric (Hermitian) definite eigenvalue problem is
+//   - [Handle.Xsygvdx]: The generalized symmetric-definite eigenvalue problem is
+//   - [Handle.XsygvdxBufferSize]: The generalized symmetric-definite eigenvalue problem is
+//   - [Handle.Xsytrs]: solves a system of linear equations using the generic API interface.
+//   - [Handle.XsytrsBufferSize]: solves a system of linear equations using the generic API interface.
+//   - [Handle.Xtrtri]: computes the inverse of a triangular matrix using the generic API interface.
+//   - [Handle.XtrtriBufferSize]: computes the inverse of a triangular matrix using the generic API interface.
 //
 // # Complex Double-Precision Dense Solvers
 //
-//   - [Handle.ZCgels].
-//   - [Handle.ZCgelsBufferSize].
-//   - [Handle.ZCgesv].
-//   - [Handle.ZCgesvBufferSize].
-//   - [Handle.ZEgels].
-//   - [Handle.ZEgelsBufferSize].
-//   - [Handle.ZEgesv].
-//   - [Handle.ZEgesvBufferSize].
-//   - [Handle.ZKgels].
-//   - [Handle.ZKgelsBufferSize].
-//   - [Handle.ZKgesv].
-//   - [Handle.ZKgesvBufferSize].
-//   - [Handle.ZYgels].
-//   - [Handle.ZYgelsBufferSize].
-//   - [Handle.ZYgesv].
-//   - [Handle.ZYgesvBufferSize].
-//   - [Handle.ZZgels].
-//   - [Handle.ZZgelsBufferSize].
-//   - [Handle.ZZgesv].
-//   - [Handle.ZZgesvBufferSize].
-//   - [Handle.Zgebrd].
-//   - [Handle.ZgebrdBufferSize].
-//   - [Handle.Zgeqrf].
-//   - [Handle.ZgeqrfBufferSize].
-//   - [Handle.Zgesvd].
-//   - [Handle.ZgesvdBufferSize].
-//   - [Handle.ZgesvdaStridedBatched].
-//   - [Handle.ZgesvdaStridedBatchedBufferSize].
-//   - [Handle.Zgesvdj].
-//   - [Handle.ZgesvdjBatched].
-//   - [Handle.ZgesvdjBatchedBufferSize].
-//   - [Handle.ZgesvdjBufferSize].
-//   - [Handle.Zgetrf].
-//   - [Handle.ZgetrfBufferSize].
-//   - [Handle.Zgetrs].
-//   - [Handle.Zheevd].
-//   - [Handle.ZheevdBufferSize].
-//   - [Handle.Zheevdx].
-//   - [Handle.ZheevdxBufferSize].
-//   - [Handle.Zheevj].
-//   - [Handle.ZheevjBatched].
-//   - [Handle.ZheevjBatchedBufferSize].
-//   - [Handle.ZheevjBufferSize].
-//   - [Handle.Zhegvd].
-//   - [Handle.ZhegvdBufferSize].
-//   - [Handle.Zhegvdx].
-//   - [Handle.ZhegvdxBufferSize].
-//   - [Handle.Zhegvj].
-//   - [Handle.ZhegvjBufferSize].
+//   - [Handle.ZCgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZCgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZCgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.ZCgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.ZEgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZEgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZEgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.ZEgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.ZKgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZKgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZKgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.ZKgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.ZYgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZYgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZYgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.ZYgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.ZZgels]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZZgelsBufferSize]: These functions compute the solution of a system of linear equations with one or multiple right hand sides using mixed precision iterative refinement techniques based on the QR factorization Xgels.
+//   - [Handle.ZZgesv]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.ZZgesvBufferSize]: These functions are modelled after functions DSGESV and ZCGESV from LAPACK.
+//   - [Handle.Zgebrd]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.ZgebrdBufferSize]: reduces a general m×n matrix A to a real upper or lower bidiagonal form B by an orthogonal transformation: QH∗A∗P=B
+//   - [Handle.Zgeqrf]: computes the QR factorization of an m×n matrix
+//   - [Handle.ZgeqrfBufferSize]: computes the QR factorization of an m×n matrix
+//   - [Handle.Zgesvd]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.ZgesvdBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.ZgesvdaStridedBatched]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
+//   - [Handle.ZgesvdaStridedBatchedBufferSize]: gesvda ( a stands for approximate) approximates the singular value decomposition of a tall skinny m×n matrix A and corresponding the left and right singular vectors.
+//   - [Handle.Zgesvdj]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.ZgesvdjBatched]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.ZgesvdjBatchedBufferSize]: computes singular values and singular vectors of a sequence of general m×n matrices
+//   - [Handle.ZgesvdjBufferSize]: computes the singular value decomposition (SVD) of an m×n matrix A and corresponding the left and/or right singular vectors.
+//   - [Handle.Zgetrf]: computes the LU factorization of an m×n matrix
+//   - [Handle.ZgetrfBufferSize]: computes the LU factorization of an m×n matrix
+//   - [Handle.Zgetrs]: solves a linear system of multiple right-hand sides
+//   - [Handle.Zheevd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.ZheevdBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Zheevdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.ZheevdxBufferSize]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Zheevj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.ZheevjBatched]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.ZheevjBatchedBufferSize]: computes eigenvalues and eigenvectors of a sequence of symmetric (Hermitian) n×n matrices
+//   - [Handle.ZheevjBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix A.
+//   - [Handle.Zhegvd]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.ZhegvdBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Zhegvdx]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.ZhegvdxBufferSize]: computes all or selection of the eigenvalues and optionally eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.Zhegvj]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
+//   - [Handle.ZhegvjBufferSize]: computes eigenvalues and eigenvectors of a symmetric (Hermitian) n×n matrix-pair ( A, B).
 //   - [Handle.Zhetrd].
-//   - [Handle.ZhetrdBufferSize].
+//   - [Handle.ZhetrdBufferSize]: reduces a general symmetric (Hermitian) n×n matrix A to real symmetric tridiagonal form T by an orthogonal transformation: QH∗A∗Q=T
 //   - [Handle.Zlaswp].
 //   - [Handle.Zlauum].
 //   - [Handle.ZlauumBufferSize].
-//   - [Handle.Zpotrf].
-//   - [Handle.ZpotrfBatched].
-//   - [Handle.ZpotrfBufferSize].
-//   - [Handle.Zpotri].
-//   - [Handle.ZpotriBufferSize].
-//   - [Handle.Zpotrs].
-//   - [Handle.ZpotrsBatched].
-//   - [Handle.Zsytrf].
-//   - [Handle.ZsytrfBufferSize].
+//   - [Handle.Zpotrf]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
+//   - [Handle.ZpotrfBatched]: computes the Cholesky factorization of a sequence of Hermitian positive-definite matrices.
+//   - [Handle.ZpotrfBufferSize]: computes the Cholesky factorization of a Hermitian positive-definite matrix.
+//   - [Handle.Zpotri]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.ZpotriBufferSize]: computes the inverse of a positive-definite matrix A using the Cholesky factorization
+//   - [Handle.Zpotrs]: solves a system of linear equations
+//   - [Handle.ZpotrsBatched]: solves a sequence of linear systems
+//   - [Handle.Zsytrf]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
+//   - [Handle.ZsytrfBufferSize]: computes the factorization of a symmetric indefinite matrix using the Bunch-Kaufman diagonal pivoting.
 //   - [Handle.Zsytri].
 //   - [Handle.ZsytriBufferSize].
-//   - [Handle.Zungbr].
-//   - [Handle.ZungbrBufferSize].
-//   - [Handle.Zungqr].
-//   - [Handle.ZungqrBufferSize].
-//   - [Handle.Zungtr].
-//   - [Handle.ZungtrBufferSize].
-//   - [Handle.Zunmqr].
-//   - [Handle.ZunmqrBufferSize].
-//   - [Handle.Zunmtr].
-//   - [Handle.ZunmtrBufferSize].
+//   - [Handle.Zungbr]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.ZungbrBufferSize]: generates one of the unitary matrices Q or P**H determined by gebrd when reducing a matrix A to bidiagonal form: QH∗A∗P=B
+//   - [Handle.Zungqr]: overwrites m×n matrix A by
+//   - [Handle.ZungqrBufferSize]: overwrites m×n matrix A by
+//   - [Handle.Zungtr]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
+//   - [Handle.ZungtrBufferSize]: generates a unitary matrix Q which is defined as the product of n-1 elementary reflectors of order n, as returned by sytrd:
+//   - [Handle.Zunmqr]: overwrites m×n matrix C by
+//   - [Handle.ZunmqrBufferSize]: overwrites m×n matrix C by
+//   - [Handle.Zunmtr]: overwrites m×n matrix C by
+//   - [Handle.ZunmtrBufferSize]: overwrites m×n matrix C by
 //
 // [cuSOLVER Documentation]: https://docs.nvidia.com/cuda/cusolver/index.html
 package cusolver

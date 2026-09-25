@@ -61,7 +61,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "cufftCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -83,7 +83,7 @@ func destroy(plan Handle) error {
 	if err := checkLibSym("cufftDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(plan))
+	return toError(fndestroy(plan), "cufftDestroy")
 }
 
 // Estimate1d During plan execution, cuFFT requires a work area for temporary storage of intermediate results.
@@ -112,7 +112,7 @@ func Estimate1d(nx int32, type_ Type, batch int32) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnEstimate1d(nx, type_, batch, &out)); err != nil {
+	if err := toError(fnEstimate1d(nx, type_, batch, &out), "cufftEstimate1d"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -145,7 +145,7 @@ func Estimate2d(nx int32, ny int32, type_ Type) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnEstimate2d(nx, ny, type_, &out)); err != nil {
+	if err := toError(fnEstimate2d(nx, ny, type_, &out), "cufftEstimate2d"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -179,7 +179,7 @@ func Estimate3d(nx int32, ny int32, nz int32, type_ Type) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnEstimate3d(nx, ny, nz, type_, &out)); err != nil {
+	if err := toError(fnEstimate3d(nx, ny, nz, type_, &out), "cufftEstimate3d"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -216,7 +216,7 @@ func EstimateMany(rank int32, n *int32, inembed *int32, istride int32, idist int
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnEstimateMany(rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out)); err != nil {
+	if err := toError(fnEstimateMany(rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out), "cufftEstimateMany"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -243,7 +243,7 @@ func execC2C(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr, direct
 	if err := checkLibSym("cufftExecC2C"); err != nil {
 		return err
 	}
-	return toError(fnexecC2C(plan, uintptr(idata), uintptr(odata), direction))
+	return toError(fnexecC2C(plan, uintptr(idata), uintptr(odata), direction), "cufftExecC2C")
 }
 
 // execC2R [Handle.ExecC2R] ( [Handle.ExecZ2D]) executes a single-precision (double-precision) complex-to-real, implicitly inverse, cuFFT transform plan.
@@ -265,7 +265,7 @@ func execC2R(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr) error 
 	if err := checkLibSym("cufftExecC2R"); err != nil {
 		return err
 	}
-	return toError(fnexecC2R(plan, uintptr(idata), uintptr(odata)))
+	return toError(fnexecC2R(plan, uintptr(idata), uintptr(odata)), "cufftExecC2R")
 }
 
 // execD2Z [Handle.ExecR2C] ( [Handle.ExecD2Z]) executes a single-precision (double-precision) real-to-complex, implicitly forward, cuFFT transform plan.
@@ -287,7 +287,7 @@ func execD2Z(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr) error 
 	if err := checkLibSym("cufftExecD2Z"); err != nil {
 		return err
 	}
-	return toError(fnexecD2Z(plan, uintptr(idata), uintptr(odata)))
+	return toError(fnexecD2Z(plan, uintptr(idata), uintptr(odata)), "cufftExecD2Z")
 }
 
 // execR2C [Handle.ExecR2C] ( [Handle.ExecD2Z]) executes a single-precision (double-precision) real-to-complex, implicitly forward, cuFFT transform plan.
@@ -309,7 +309,7 @@ func execR2C(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr) error 
 	if err := checkLibSym("cufftExecR2C"); err != nil {
 		return err
 	}
-	return toError(fnexecR2C(plan, uintptr(idata), uintptr(odata)))
+	return toError(fnexecR2C(plan, uintptr(idata), uintptr(odata)), "cufftExecR2C")
 }
 
 // execZ2D [Handle.ExecC2R] ( [Handle.ExecZ2D]) executes a single-precision (double-precision) complex-to-real, implicitly inverse, cuFFT transform plan.
@@ -331,7 +331,7 @@ func execZ2D(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr) error 
 	if err := checkLibSym("cufftExecZ2D"); err != nil {
 		return err
 	}
-	return toError(fnexecZ2D(plan, uintptr(idata), uintptr(odata)))
+	return toError(fnexecZ2D(plan, uintptr(idata), uintptr(odata)), "cufftExecZ2D")
 }
 
 // execZ2Z [Handle.ExecC2C] ( [Handle.ExecZ2Z]) executes a single-precision (double-precision) complex-to-complex transform plan in the transform direction as specified by direction parameter.
@@ -354,7 +354,7 @@ func execZ2Z(plan Handle, idata driver.DevicePtr, odata driver.DevicePtr, direct
 	if err := checkLibSym("cufftExecZ2Z"); err != nil {
 		return err
 	}
-	return toError(fnexecZ2Z(plan, uintptr(idata), uintptr(odata), direction))
+	return toError(fnexecZ2Z(plan, uintptr(idata), uintptr(odata), direction), "cufftExecZ2Z")
 }
 
 // getPlanPropertyInt64 Retrieves the property value identified by the key property associated with the cuFFT plan plan.
@@ -377,7 +377,7 @@ func getPlanPropertyInt64(plan Handle, property Property) (int64, error) {
 		return zero, err
 	}
 	var out int64
-	if err := toError(fngetPlanPropertyInt64(plan, property, &out)); err != nil {
+	if err := toError(fngetPlanPropertyInt64(plan, property, &out), "cufftGetPlanPropertyInt64"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -400,7 +400,7 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetProperty(type_, &out)); err != nil {
+	if err := toError(fnGetProperty(type_, &out), "cufftGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -423,7 +423,7 @@ func getSize(handle Handle) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetSize(handle, &out)); err != nil {
+	if err := toError(fngetSize(handle, &out), "cufftGetSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -454,7 +454,7 @@ func getSize1d(handle Handle, nx int32, type_ Type, batch int32) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetSize1d(handle, nx, type_, batch, &out)); err != nil {
+	if err := toError(fngetSize1d(handle, nx, type_, batch, &out), "cufftGetSize1d"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -485,7 +485,7 @@ func getSize2d(handle Handle, nx int32, ny int32, type_ Type) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetSize2d(handle, nx, ny, type_, &out)); err != nil {
+	if err := toError(fngetSize2d(handle, nx, ny, type_, &out), "cufftGetSize2d"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -517,7 +517,7 @@ func getSize3d(handle Handle, nx int32, ny int32, nz int32, type_ Type) (uint, e
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetSize3d(handle, nx, ny, nz, type_, &out)); err != nil {
+	if err := toError(fngetSize3d(handle, nx, ny, nz, type_, &out), "cufftGetSize3d"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -552,7 +552,7 @@ func getSizeMany(handle Handle, rank int32, n *int32, inembed *int32, istride in
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetSizeMany(handle, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out)); err != nil {
+	if err := toError(fngetSizeMany(handle, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out), "cufftGetSizeMany"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -588,7 +588,7 @@ func getSizeMany64(plan Handle, rank int32, n *int64, inembed *int64, istride in
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetSizeMany64(plan, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out)); err != nil {
+	if err := toError(fngetSizeMany64(plan, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out), "cufftGetSizeMany64"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -607,7 +607,7 @@ func GetVersion() (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetVersion(&out)); err != nil {
+	if err := toError(fnGetVersion(&out), "cufftGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -642,7 +642,7 @@ func makePlan1d(plan Handle, nx int32, type_ Type, batch int32) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmakePlan1d(plan, nx, type_, batch, &out)); err != nil {
+	if err := toError(fnmakePlan1d(plan, nx, type_, batch, &out), "cufftMakePlan1d"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -677,7 +677,7 @@ func makePlan2d(plan Handle, nx int32, ny int32, type_ Type) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmakePlan2d(plan, nx, ny, type_, &out)); err != nil {
+	if err := toError(fnmakePlan2d(plan, nx, ny, type_, &out), "cufftMakePlan2d"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -713,7 +713,7 @@ func makePlan3d(plan Handle, nx int32, ny int32, nz int32, type_ Type) (uint, er
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmakePlan3d(plan, nx, ny, nz, type_, &out)); err != nil {
+	if err := toError(fnmakePlan3d(plan, nx, ny, nz, type_, &out), "cufftMakePlan3d"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -752,7 +752,7 @@ func makePlanMany(plan Handle, rank int32, n *int32, inembed *int32, istride int
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmakePlanMany(plan, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out)); err != nil {
+	if err := toError(fnmakePlanMany(plan, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out), "cufftMakePlanMany"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -791,7 +791,7 @@ func makePlanMany64(plan Handle, rank int32, n *int64, inembed *int64, istride i
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmakePlanMany64(plan, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out)); err != nil {
+	if err := toError(fnmakePlanMany64(plan, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch, &out), "cufftMakePlanMany64"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -825,7 +825,7 @@ func Plan1d(nx int32, type_ Type, batch int32) (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnPlan1d(&out, nx, type_, batch)); err != nil {
+	if err := toError(fnPlan1d(&out, nx, type_, batch), "cufftPlan1d"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -859,7 +859,7 @@ func Plan2d(nx int32, ny int32, type_ Type) (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnPlan2d(&out, nx, ny, type_)); err != nil {
+	if err := toError(fnPlan2d(&out, nx, ny, type_), "cufftPlan2d"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -894,7 +894,7 @@ func Plan3d(nx int32, ny int32, nz int32, type_ Type) (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnPlan3d(&out, nx, ny, nz, type_)); err != nil {
+	if err := toError(fnPlan3d(&out, nx, ny, nz, type_), "cufftPlan3d"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -932,7 +932,7 @@ func PlanMany(rank int32, n *int32, inembed *int32, istride int32, idist int32, 
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnPlanMany(&out, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch)); err != nil {
+	if err := toError(fnPlanMany(&out, rank, n, inembed, istride, idist, onembed, ostride, odist, type_, batch), "cufftPlanMany"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -955,7 +955,7 @@ func resetPlanProperty(plan Handle, property Property) error {
 	if err := checkLibSym("cufftResetPlanProperty"); err != nil {
 		return err
 	}
-	return toError(fnresetPlanProperty(plan, property))
+	return toError(fnresetPlanProperty(plan, property), "cufftResetPlanProperty")
 }
 
 // setAutoAllocation [Handle.SetAutoAllocation] indicates that the caller intends to allocate and manage work areas for plans that have been generated.
@@ -975,7 +975,7 @@ func setAutoAllocation(plan Handle, autoAllocate int32) error {
 	if err := checkLibSym("cufftSetAutoAllocation"); err != nil {
 		return err
 	}
-	return toError(fnsetAutoAllocation(plan, autoAllocate))
+	return toError(fnsetAutoAllocation(plan, autoAllocate), "cufftSetAutoAllocation")
 }
 
 // setPlanPropertyInt64 Associates a cuFFT plan with a property identified by the key property.
@@ -996,7 +996,7 @@ func setPlanPropertyInt64(plan Handle, property Property, inputValueInt int64) e
 	if err := checkLibSym("cufftSetPlanPropertyInt64"); err != nil {
 		return err
 	}
-	return toError(fnsetPlanPropertyInt64(plan, property, inputValueInt))
+	return toError(fnsetPlanPropertyInt64(plan, property, inputValueInt), "cufftSetPlanPropertyInt64")
 }
 
 // setStream Associates a CUDA stream with a cuFFT plan.
@@ -1015,7 +1015,7 @@ func setStream(plan Handle, stream driver.Stream) error {
 	if err := checkLibSym("cufftSetStream"); err != nil {
 		return err
 	}
-	return toError(fnsetStream(plan, stream))
+	return toError(fnsetStream(plan, stream), "cufftSetStream")
 }
 
 // setWorkArea [Handle.SetWorkArea] overrides the work area pointer associated with a plan.
@@ -1035,5 +1035,5 @@ func setWorkArea(plan Handle, workArea driver.DevicePtr) error {
 	if err := checkLibSym("cufftSetWorkArea"); err != nil {
 		return err
 	}
-	return toError(fnsetWorkArea(plan, uintptr(workArea)))
+	return toError(fnsetWorkArea(plan, uintptr(workArea)), "cufftSetWorkArea")
 }

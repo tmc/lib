@@ -59,7 +59,7 @@ func AddPatches(image unsafe.Pointer, ctx Context) error {
 	if err := checkLibSym("sanitizerAddPatches"); err != nil {
 		return err
 	}
-	return toError(fnAddPatches(image, ctx))
+	return toError(fnAddPatches(image, ctx), "sanitizerAddPatches")
 }
 
 // AddPatchesFromFile Load a module containing patches that can be used by the patching API.
@@ -84,7 +84,7 @@ func AddPatchesFromFile(filename string, ctx Context) error {
 		return err
 	}
 	cstr_filename := append([]byte(filename), 0)
-	return toError(fnAddPatchesFromFile(&cstr_filename[0], ctx))
+	return toError(fnAddPatchesFromFile(&cstr_filename[0], ctx), "sanitizerAddPatchesFromFile")
 }
 
 // Alloc Allocate memory on the device.
@@ -100,7 +100,7 @@ func Alloc(ctx Context, size uint) (devPtr uintptr, err error) {
 		return 0, err
 	}
 	var out1 uintptr
-	if err := toError(fnAlloc(ctx, &out1, size)); err != nil {
+	if err := toError(fnAlloc(ctx, &out1, size), "sanitizerAlloc"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -119,7 +119,7 @@ func AllocHost(ctx Context, size uint) (devPtr uintptr, err error) {
 		return 0, err
 	}
 	var out1 uintptr
-	if err := toError(fnAllocHost(ctx, &out1, size)); err != nil {
+	if err := toError(fnAllocHost(ctx, &out1, size), "sanitizerAllocHost"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -145,7 +145,7 @@ func enableAllDomains(enable uint32, subscriber Subscriber) error {
 	if err := checkLibSym("sanitizerEnableAllDomains"); err != nil {
 		return err
 	}
-	return toError(fnenableAllDomains(enable, subscriber))
+	return toError(fnenableAllDomains(enable, subscriber), "sanitizerEnableAllDomains")
 }
 
 // enableCallback Enable or disable callbacks for a specific domain and callback ID
@@ -173,7 +173,7 @@ func enableCallback(enable uint32, subscriber Subscriber, domain CallbackDomain,
 	if err := checkLibSym("sanitizerEnableCallback"); err != nil {
 		return err
 	}
-	return toError(fnenableCallback(enable, subscriber, domain, cbid))
+	return toError(fnenableCallback(enable, subscriber, domain, cbid), "sanitizerEnableCallback")
 }
 
 // enableDomain Enable or disable all callbacks for a specific domain.
@@ -197,7 +197,7 @@ func enableDomain(enable uint32, subscriber Subscriber, domain CallbackDomain) e
 	if err := checkLibSym("sanitizerEnableDomain"); err != nil {
 		return err
 	}
-	return toError(fnenableDomain(enable, subscriber, domain))
+	return toError(fnenableDomain(enable, subscriber, domain), "sanitizerEnableDomain")
 }
 
 // Free Frees memory on the device.
@@ -212,7 +212,7 @@ func Free(ctx Context, devPtr uintptr) error {
 	if err := checkLibSym("sanitizerFree"); err != nil {
 		return err
 	}
-	return toError(fnFree(ctx, devPtr))
+	return toError(fnFree(ctx, devPtr), "sanitizerFree")
 }
 
 // FreeHost Frees host memory.
@@ -227,7 +227,7 @@ func FreeHost(ctx Context, devPtr uintptr) error {
 	if err := checkLibSym("sanitizerFreeHost"); err != nil {
 		return err
 	}
-	return toError(fnFreeHost(ctx, devPtr))
+	return toError(fnFreeHost(ctx, devPtr), "sanitizerFreeHost")
 }
 
 // GetCallbackPcAndSize Get PC and size of a device callback.
@@ -247,7 +247,7 @@ func GetCallbackPcAndSize(ctx Context, deviceCallbackName string) (pc uint64, si
 	cstr_deviceCallbackName := append([]byte(deviceCallbackName), 0)
 	var out2 uint64
 	var out3 uint64
-	if err := toError(fnGetCallbackPcAndSize(ctx, &cstr_deviceCallbackName[0], &out2, &out3)); err != nil {
+	if err := toError(fnGetCallbackPcAndSize(ctx, &cstr_deviceCallbackName[0], &out2, &out3), "sanitizerGetCallbackPcAndSize"); err != nil {
 		return 0, 0, err
 	}
 	return out2, out3, nil
@@ -279,7 +279,7 @@ func getCallbackState(subscriber Subscriber, domain CallbackDomain, cbid uint32)
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fngetCallbackState(&out, subscriber, domain, cbid)); err != nil {
+	if err := toError(fngetCallbackState(&out, subscriber, domain, cbid), "sanitizerGetCallbackState"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -302,7 +302,7 @@ func GetCudaBarrierCount(kernel Function) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetCudaBarrierCount(kernel, &out)); err != nil {
+	if err := toError(fnGetCudaBarrierCount(kernel, &out), "sanitizerGetCudaBarrierCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -325,7 +325,7 @@ func GetFunctionLoadedStatus(func_ Function) (FunctionLoadedStatus, error) {
 		return zero, err
 	}
 	var out FunctionLoadedStatus
-	if err := toError(fnGetFunctionLoadedStatus(func_, &out)); err != nil {
+	if err := toError(fnGetFunctionLoadedStatus(func_, &out), "sanitizerGetFunctionLoadedStatus"); err != nil {
 		var zero FunctionLoadedStatus
 		return zero, err
 	}
@@ -349,7 +349,7 @@ func GetFunctionPcAndSize(module Module, functionName string) (pc uint64, size u
 	cstr_functionName := append([]byte(functionName), 0)
 	var out2 uint64
 	var out3 uint64
-	if err := toError(fnGetFunctionPcAndSize(module, &cstr_functionName[0], &out2, &out3)); err != nil {
+	if err := toError(fnGetFunctionPcAndSize(module, &cstr_functionName[0], &out2, &out3), "sanitizerGetFunctionPcAndSize"); err != nil {
 		return 0, 0, err
 	}
 	return out2, out3, nil
@@ -370,7 +370,7 @@ func getStream(hStream StreamHandle) (Stream, error) {
 		return zero, err
 	}
 	var out Stream
-	if err := toError(fngetStream(hStream, &out)); err != nil {
+	if err := toError(fngetStream(hStream, &out), "sanitizerGetStream"); err != nil {
 		var zero Stream
 		return zero, err
 	}
@@ -393,7 +393,7 @@ func GetStreamHandle(ctx Context, stream Stream) (StreamHandle, error) {
 		return zero, err
 	}
 	var out StreamHandle
-	if err := toError(fnGetStreamHandle(ctx, stream, &out)); err != nil {
+	if err := toError(fnGetStreamHandle(ctx, stream, &out), "sanitizerGetStreamHandle"); err != nil {
 		var zero StreamHandle
 		return zero, err
 	}
@@ -421,7 +421,7 @@ func IsInsideRecursiveCallback() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnIsInsideRecursiveCallback(&out)); err != nil {
+	if err := toError(fnIsInsideRecursiveCallback(&out), "sanitizerIsInsideRecursiveCallback"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -443,7 +443,7 @@ func memcpyDeviceToHost(dst unsafe.Pointer, src uintptr, count uint, stream Stre
 	if err := checkLibSym("sanitizerMemcpyDeviceToHost"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyDeviceToHost(dst, src, count, stream))
+	return toError(fnmemcpyDeviceToHost(dst, src, count, stream), "sanitizerMemcpyDeviceToHost")
 }
 
 // memcpyHostToDeviceAsync Copies data from host to device.
@@ -463,7 +463,7 @@ func memcpyHostToDeviceAsync(dst uintptr, src unsafe.Pointer, count uint, stream
 	if err := checkLibSym("sanitizerMemcpyHostToDeviceAsync"); err != nil {
 		return err
 	}
-	return toError(fnmemcpyHostToDeviceAsync(dst, src, count, stream))
+	return toError(fnmemcpyHostToDeviceAsync(dst, src, count, stream), "sanitizerMemcpyHostToDeviceAsync")
 }
 
 // memset Initializes or sets device memory to a value.
@@ -480,7 +480,7 @@ func memset(devPtr uintptr, value int32, count uint, stream StreamHandle) error 
 	if err := checkLibSym("sanitizerMemset"); err != nil {
 		return err
 	}
-	return toError(fnmemset(devPtr, value, count, stream))
+	return toError(fnmemset(devPtr, value, count, stream), "sanitizerMemset")
 }
 
 // PatchInstructions Set instrumentation points and patches to be applied in a module.
@@ -510,7 +510,7 @@ func PatchInstructions(instructionId InstructionId, module Module, deviceCallbac
 		return err
 	}
 	cstr_deviceCallbackName := append([]byte(deviceCallbackName), 0)
-	return toError(fnPatchInstructions(instructionId, module, &cstr_deviceCallbackName[0]))
+	return toError(fnPatchInstructions(instructionId, module, &cstr_deviceCallbackName[0]), "sanitizerPatchInstructions")
 }
 
 // PatchModule Perform the actual instrumentation of a module.
@@ -534,7 +534,7 @@ func PatchModule(module Module) error {
 	if err := checkLibSym("sanitizerPatchModule"); err != nil {
 		return err
 	}
-	return toError(fnPatchModule(module))
+	return toError(fnPatchModule(module), "sanitizerPatchModule")
 }
 
 // SetCallbackData Specifies the user data pointer for callbacks.
@@ -553,7 +553,7 @@ func SetCallbackData(kernel Function, userdata uintptr) error {
 	if err := checkLibSym("sanitizerSetCallbackData"); err != nil {
 		return err
 	}
-	return toError(fnSetCallbackData(kernel, userdata))
+	return toError(fnSetCallbackData(kernel, userdata), "sanitizerSetCallbackData")
 }
 
 // setDeviceGraphData Specifies the user data pointer accessible from callbacks in the device-launched graphs launched by the specified host-launched graphExec.
@@ -576,7 +576,7 @@ func setDeviceGraphData(graphExec GraphExec, stream StreamHandle, userdata uintp
 	if err := checkLibSym("sanitizerSetDeviceGraphData"); err != nil {
 		return err
 	}
-	return toError(fnsetDeviceGraphData(graphExec, stream, userdata))
+	return toError(fnsetDeviceGraphData(graphExec, stream, userdata), "sanitizerSetDeviceGraphData")
 }
 
 // setLaunchCallbackData Specifies the user data pointer for callbacks.
@@ -598,7 +598,7 @@ func setLaunchCallbackData(launch LaunchHandle, kernel Function, stream StreamHa
 	if err := checkLibSym("sanitizerSetLaunchCallbackData"); err != nil {
 		return err
 	}
-	return toError(fnsetLaunchCallbackData(launch, kernel, stream, userdata))
+	return toError(fnsetLaunchCallbackData(launch, kernel, stream, userdata), "sanitizerSetLaunchCallbackData")
 }
 
 // streamSynchronize Synchronize a given stream.
@@ -612,7 +612,7 @@ func streamSynchronize(stream StreamHandle) error {
 	if err := checkLibSym("sanitizerStreamSynchronize"); err != nil {
 		return err
 	}
-	return toError(fnstreamSynchronize(stream))
+	return toError(fnstreamSynchronize(stream), "sanitizerStreamSynchronize")
 }
 
 // Subscribe Initialize a callback subscriber with a callback function and user data.
@@ -637,7 +637,7 @@ func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {
 		return zero, err
 	}
 	var out Subscriber
-	if err := toError(fnSubscribe(&out, callback, userdata)); err != nil {
+	if err := toError(fnSubscribe(&out, callback, userdata), "sanitizerSubscribe"); err != nil {
 		var zero Subscriber
 		return zero, err
 	}
@@ -662,7 +662,7 @@ func UnpatchModule(module Module) error {
 	if err := checkLibSym("sanitizerUnpatchModule"); err != nil {
 		return err
 	}
-	return toError(fnUnpatchModule(module))
+	return toError(fnUnpatchModule(module), "sanitizerUnpatchModule")
 }
 
 // unsubscribe Unregister a callback subscriber.
@@ -682,5 +682,5 @@ func unsubscribe(subscriber Subscriber) error {
 	if err := checkLibSym("sanitizerUnsubscribe"); err != nil {
 		return err
 	}
-	return toError(fnunsubscribe(subscriber))
+	return toError(fnunsubscribe(subscriber), "sanitizerUnsubscribe")
 }

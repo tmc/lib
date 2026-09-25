@@ -6,9 +6,13 @@ import "github.com/tmc/lib/nvidia/nccl"
 // Result is the NCCL result code shared by this extension and NCCL.
 type Result = nccl.Result
 
-func toError(r Result) error {
+// CallError is the error a failed call returns. It is NCCL's, so errors.As
+// matches it whichever package made the call.
+type CallError = nccl.CallError
+
+func toError(r Result, fn string) error {
 	if r == nccl.Success {
 		return nil
 	}
-	return r
+	return &CallError{Func: fn, Result: r}
 }

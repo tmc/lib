@@ -44,7 +44,7 @@ func Combine(handle Handle, inputs *CombineInputs, outputs *CombineOutputs, conf
 	if err := checkLibSym("ncclEpCombine"); err != nil {
 		return err
 	}
-	return toError(fnCombine(handle, inputs, outputs, config, stream))
+	return toError(fnCombine(handle, inputs, outputs, config, stream), "ncclEpCombine")
 }
 
 // Complete completes a staged EP operation on the given stream.
@@ -60,7 +60,7 @@ func Complete(handle Handle, config *CompleteConfig, stream driver.Stream) error
 	if err := checkLibSym("ncclEpComplete"); err != nil {
 		return err
 	}
-	return toError(fnComplete(handle, config, stream))
+	return toError(fnComplete(handle, config, stream), "ncclEpComplete")
 }
 
 // CreateGroup collectively creates an EP group from an NCCL communicator.
@@ -77,7 +77,7 @@ func CreateGroup(comm nccl.Comm, config *GroupConfig) (Group, error) {
 		return zero, err
 	}
 	var out Group
-	if err := toError(fnCreateGroup(&out, comm, config)); err != nil {
+	if err := toError(fnCreateGroup(&out, comm, config), "ncclEpCreateGroup"); err != nil {
 		var zero Group
 		return zero, err
 	}
@@ -102,7 +102,7 @@ func CreateHandle(epGroup Group, layout Layout, topkIdx *Tensor, layoutInfo *Lay
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreateHandle(&out, epGroup, layout, topkIdx, layoutInfo, config, stream)); err != nil {
+	if err := toError(fnCreateHandle(&out, epGroup, layout, topkIdx, layoutInfo, config, stream), "ncclEpCreateHandle"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -125,7 +125,7 @@ func Dispatch(handle Handle, inputs *DispatchInputs, outputs *DispatchOutputs, l
 	if err := checkLibSym("ncclEpDispatch"); err != nil {
 		return err
 	}
-	return toError(fnDispatch(handle, inputs, outputs, layoutInfo, config, stream))
+	return toError(fnDispatch(handle, inputs, outputs, layoutInfo, config, stream), "ncclEpDispatch")
 }
 
 // ErrorClear clears the group's asynchronous error flag.
@@ -139,7 +139,7 @@ func ErrorClear(epGroup Group) error {
 	if err := checkLibSym("ncclEpErrorClear"); err != nil {
 		return err
 	}
-	return toError(fnErrorClear(epGroup))
+	return toError(fnErrorClear(epGroup), "ncclEpErrorClear")
 }
 
 // GetAsyncError reads the asynchronous error flag without synchronizing the GPU.
@@ -155,7 +155,7 @@ func GetAsyncError(epGroup Group) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetAsyncError(epGroup, &out)); err != nil {
+	if err := toError(fnGetAsyncError(epGroup, &out), "ncclEpGetAsyncError"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -173,7 +173,7 @@ func GetVersion() (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetVersion(&out)); err != nil {
+	if err := toError(fnGetVersion(&out), "ncclEpGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -191,7 +191,7 @@ func GroupDestroy(epGroup Group) error {
 	if err := checkLibSym("ncclEpGroupDestroy"); err != nil {
 		return err
 	}
-	return toError(fnGroupDestroy(epGroup))
+	return toError(fnGroupDestroy(epGroup), "ncclEpGroupDestroy")
 }
 
 // HandleDestroy destroys a handle without freeing caller-owned storage.
@@ -205,7 +205,7 @@ func HandleDestroy(handle Handle) error {
 	if err := checkLibSym("ncclEpHandleDestroy"); err != nil {
 		return err
 	}
-	return toError(fnHandleDestroy(handle))
+	return toError(fnHandleDestroy(handle), "ncclEpHandleDestroy")
 }
 
 // HandleMemSize returns the required caller-owned handle storage size in bytes.
@@ -224,7 +224,7 @@ func HandleMemSize(epGroup Group, layout Layout, config *HandleConfig, numTopk i
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnHandleMemSize(epGroup, layout, config, &out, numTopk)); err != nil {
+	if err := toError(fnHandleMemSize(epGroup, layout, config, &out, numTopk), "ncclEpHandleMemSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -268,7 +268,7 @@ func InitHandle(epGroup Group, layout Layout, config *HandleConfig, numTopk int3
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnInitHandle(&out, epGroup, layout, config, numTopk, handleMem)); err != nil {
+	if err := toError(fnInitHandle(&out, epGroup, layout, config, numTopk, handleMem), "ncclEpInitHandle"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -287,7 +287,7 @@ func MaskClean(epGroup Group, stream driver.Stream) error {
 	if err := checkLibSym("ncclEpMaskClean"); err != nil {
 		return err
 	}
-	return toError(fnMaskClean(epGroup, stream))
+	return toError(fnMaskClean(epGroup, stream), "ncclEpMaskClean")
 }
 
 // MaskQuery copies the rank mask to a device array asynchronously.
@@ -303,7 +303,7 @@ func MaskQuery(epGroup Group, maskStatus nccl.Buffer, stream driver.Stream) erro
 	if err := checkLibSym("ncclEpMaskQuery"); err != nil {
 		return err
 	}
-	return toError(fnMaskQuery(epGroup, maskStatus, stream))
+	return toError(fnMaskQuery(epGroup, maskStatus, stream), "ncclEpMaskQuery")
 }
 
 // MaskUpdate copies a host rank mask to the device asynchronously.
@@ -319,7 +319,7 @@ func MaskUpdate(epGroup Group, mask *int32, stream driver.Stream) error {
 	if err := checkLibSym("ncclEpMaskUpdate"); err != nil {
 		return err
 	}
-	return toError(fnMaskUpdate(epGroup, mask, stream))
+	return toError(fnMaskUpdate(epGroup, mask, stream), "ncclEpMaskUpdate")
 }
 
 // TensorAlloc allocates a tensor descriptor and copies its dimensions.
@@ -338,7 +338,7 @@ func TensorAlloc(ndim uint32, datatype nccl.DataType, sizes *uint, config *Tenso
 		return zero, err
 	}
 	var out *Tensor
-	if err := toError(fnTensorAlloc(&out, ndim, datatype, sizes, config)); err != nil {
+	if err := toError(fnTensorAlloc(&out, ndim, datatype, sizes, config), "ncclEpTensorAlloc"); err != nil {
 		var zero *Tensor
 		return zero, err
 	}
@@ -356,7 +356,7 @@ func TensorDestroy(tensor *Tensor) error {
 	if err := checkLibSym("ncclEpTensorDestroy"); err != nil {
 		return err
 	}
-	return toError(fnTensorDestroy(tensor))
+	return toError(fnTensorDestroy(tensor), "ncclEpTensorDestroy")
 }
 
 // UpdateHandle updates a handle's routing metadata on the given stream.
@@ -373,5 +373,5 @@ func UpdateHandle(handle Handle, topkIdx *Tensor, layoutInfo *LayoutInfo, stream
 	if err := checkLibSym("ncclEpUpdateHandle"); err != nil {
 		return err
 	}
-	return toError(fnUpdateHandle(handle, topkIdx, layoutInfo, stream))
+	return toError(fnUpdateHandle(handle, topkIdx, layoutInfo, stream), "ncclEpUpdateHandle")
 }

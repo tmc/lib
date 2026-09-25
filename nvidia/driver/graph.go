@@ -6,14 +6,14 @@ func (g Graph) Nodes() ([]GraphNode, error) {
 		return nil, err
 	}
 	var numNodes uint
-	if err := toError(fngraphGetNodes(g, nil, &numNodes)); err != nil {
+	if err := toError(fngraphGetNodes(g, nil, &numNodes), "cuGraphGetNodes"); err != nil {
 		return nil, err
 	}
 	if numNodes == 0 {
 		return nil, nil
 	}
 	nodes := make([]GraphNode, numNodes)
-	if err := toError(fngraphGetNodes(g, &nodes[0], &numNodes)); err != nil {
+	if err := toError(fngraphGetNodes(g, &nodes[0], &numNodes), "cuGraphGetNodes"); err != nil {
 		return nil, err
 	}
 	return nodes[:numNodes], nil

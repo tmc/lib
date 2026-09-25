@@ -16,7 +16,7 @@ func CftBarrierCreateRequirement(team Team, nBarriers int32, outHandle *CftBarri
 	if err := checkLibSym("ncclCftBarrierCreateRequirement"); err != nil {
 		return err
 	}
-	return toError(fnCftBarrierCreateRequirement(team, nBarriers, outHandle, outReq))
+	return toError(fnCftBarrierCreateRequirement(team, nBarriers, outHandle, outReq), "ncclCftBarrierCreateRequirement")
 }
 
 // ginBarrierCreateRequirement wraps ncclGinBarrierCreateRequirement.
@@ -24,7 +24,7 @@ func ginBarrierCreateRequirement(comm Comm, team Team, nBarriers int32, outHandl
 	if err := checkLibSym("ncclGinBarrierCreateRequirement"); err != nil {
 		return err
 	}
-	return toError(fnginBarrierCreateRequirement(comm, team, nBarriers, outHandle, outReq))
+	return toError(fnginBarrierCreateRequirement(comm, team, nBarriers, outHandle, outReq), "ncclGinBarrierCreateRequirement")
 }
 
 // LLA2ACalcSlots wraps ncclLLA2ACalcSlots.
@@ -37,7 +37,7 @@ func LLA2ACreateRequirement(nBlocks int32, nSlots int32, outHandle *LLA2AHandle,
 	if err := checkLibSym("ncclLLA2ACreateRequirement"); err != nil {
 		return err
 	}
-	return toError(fnLLA2ACreateRequirement(nBlocks, nSlots, outHandle, outReq))
+	return toError(fnLLA2ACreateRequirement(nBlocks, nSlots, outHandle, outReq), "ncclLLA2ACreateRequirement")
 }
 
 // LsaBarrierCreateRequirement wraps ncclLsaBarrierCreateRequirement.
@@ -45,7 +45,7 @@ func LsaBarrierCreateRequirement(team Team, nBarriers int32, outHandle *LsaBarri
 	if err := checkLibSym("ncclLsaBarrierCreateRequirement"); err != nil {
 		return err
 	}
-	return toError(fnLsaBarrierCreateRequirement(team, nBarriers, outHandle, outReq))
+	return toError(fnLsaBarrierCreateRequirement(team, nBarriers, outHandle, outReq), "ncclLsaBarrierCreateRequirement")
 }
 
 // GinBarrierCreateRequirement wraps ncclGinBarrierCreateRequirement.

@@ -2,67 +2,169 @@
 
 package cusolver
 
-// NewIRSParams wraps cusolverDnIRSParamsCreate.
+// NewIRSParams creates and initializes the structure of parameters for an IRS solver such as the [Handle.IRSXgesv] or the [Handle.IRSXgels] functions to default values.
+//
+// Returns:
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [Success]: The structure was created and initialized successfully.
+//
+// Wraps cusolverDnIRSParamsCreate.
 func NewIRSParams() (IRSParams, error) {
 	return iRSParamsCreate()
 }
 
-// Destroy wraps cusolverDnIRSParamsDestroy.
+// Destroy destroys and releases any memory required by the Params structure.
+//
+// Returns:
+//   - [ErrIrsInfosNotDestroyed]: Not all the Infos structure associated with this Params structure have been destroyed yet.
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The resources were released successfully.
+//
+// Wraps cusolverDnIRSParamsDestroy.
 func (i IRSParams) Destroy() error {
 	return iRSParamsDestroy(i)
 }
 
-// DisableFallback wraps cusolverDnIRSParamsDisableFallback.
+// DisableFallback disables the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
+//
+// Returns:
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsDisableFallback.
 func (i IRSParams) DisableFallback() error {
 	return iRSParamsDisableFallback(i)
 }
 
-// EnableFallback wraps cusolverDnIRSParamsEnableFallback.
+// EnableFallback enable the fallback to the main precision in case the Iterative Refinement Solver (IRS) failed to converge.
+//
+// Returns:
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsEnableFallback.
 func (i IRSParams) EnableFallback() error {
 	return iRSParamsEnableFallback(i)
 }
 
-// MaxIters wraps cusolverDnIRSParamsGetMaxIters.
+// MaxIters returns the current setting in the params structure for the maximal allowed number of iterations (for example, either the default MaxIters, or the one set by the user in case he set it using [IRSParams.SetMaxIters]).
+//
+//   - maxiters: The maximal number of iterations that is currently set
+//
+// Returns:
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsGetMaxIters.
 func (i IRSParams) MaxIters() (CusolverInt, error) {
 	return iRSParamsGetMaxIters(i)
 }
 
-// SetMaxIters wraps cusolverDnIRSParamsSetMaxIters.
+// SetMaxIters sets the total number of allowed refinement iterations after which the solver will stop.
+//
+// Returns:
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsSetMaxIters.
 func (i IRSParams) SetMaxIters(maxiters CusolverInt) error {
 	return iRSParamsSetMaxIters(i, maxiters)
 }
 
-// SetMaxItersInner wraps cusolverDnIRSParamsSetMaxItersInner.
+// SetMaxItersInner sets the maximal number of iterations allowed for the inner refinement solver.
+//
+//   - maxitersInner: Maximum number of allowed inner iterations for the inner refinement solver. Meaningful when the refinement solver is a two-levels solver such as [IrsRefineClassicalGmres] or [IrsRefineGmresGmres]. Value should be less or equal to MaxIters
+//
+// Returns:
+//   - [ErrIrsParamsInvalid]: If the value was larger than MaxIters.
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsSetMaxItersInner.
 func (i IRSParams) SetMaxItersInner(maxitersInner CusolverInt) error {
 	return iRSParamsSetMaxItersInner(i, maxitersInner)
 }
 
-// SetRefinementSolver wraps cusolverDnIRSParamsSetRefinementSolver.
+// SetRefinementSolver sets the refinement solver to be used in the Iterative Refinement Solver functions such as the [Handle.IRSXgesv] or the [Handle.IRSXgels] functions.
+//
+// Returns:
+//   - [IrsRefineClassical]: Classical iterative refinement solver. Similar to the one used in LAPACK routines.
+//   - [IrsRefineClassicalGmres]: Classical iterative refinement solver that uses the GMRES (Generalized Minimal Residual) internally to solve the correction equation at each iteration. We call the classical refinement iteration the outer iteration while the GMRES is called inner iteration. Note that if the tolerance of the inner GMRES is set very low, let say to machine precision, then the outer classical refinement iteration will performs only one iteration and thus this option will behaves like [IrsRefineGmres].
+//   - [IrsRefineGmres]: GMRES (Generalized Minimal Residual) based iterative refinement solver. In recent study, the GMRES method has drawn the scientific community attention for its ability to be used as refinement solver that outperforms the classical iterative refinement method. Based on our experimentation, we recommend this setting.
+//   - [IrsRefineGmresGmres]: Similar to [IrsRefineClassicalGmres] which consists of classical refinement process that uses GMRES to solve the inner correction system, here it is a GMRES (Generalized Minimal Residual) based iterative refinement solver that uses another GMRES internally to solve the preconditioned system.
+//   - [IrsRefineNone]: No refinement solver; the IRS solver performs a factorization followed by a solve without any refinement. For example, if the IRS solver was [Handle.IRSXgesv], this is equivalent to a Xgesv routine without refinement and where the factorization is carried out in the lowest precision. If for example the main precision was R64F and the lowest was R64F as well, then this is equivalent to a call to cusolverDnDgesv().
+//   - [IrsRefineNotSet]: Solver is not set, this value is what is set when creating the params structure. IRS solver will return an error.
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsSetRefinementSolver.
 func (i IRSParams) SetRefinementSolver(refinementSolver IRSRefinement) error {
 	return iRSParamsSetRefinementSolver(i, refinementSolver)
 }
 
-// SetSolverLowestPrecision wraps cusolverDnIRSParamsSetSolverLowestPrecision.
+// SetSolverLowestPrecision sets the lowest precision that will be used by Iterative Refinement Solver.
+//
+// Returns:
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsSetSolverLowestPrecision.
 func (i IRSParams) SetSolverLowestPrecision(solverLowestPrecision PrecType) error {
 	return iRSParamsSetSolverLowestPrecision(i, solverLowestPrecision)
 }
 
-// SetSolverMainPrecision wraps cusolverDnIRSParamsSetSolverMainPrecision.
+// SetSolverMainPrecision sets the main precision for the Iterative Refinement Solver (IRS).
+//
+//   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table in the [IRSParams.SetSolverPrecisions] section above for the supported precisions
+//
+// Returns:
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsSetSolverMainPrecision.
 func (i IRSParams) SetSolverMainPrecision(solverMainPrecision PrecType) error {
 	return iRSParamsSetSolverMainPrecision(i, solverMainPrecision)
 }
 
-// SetSolverPrecisions wraps cusolverDnIRSParamsSetSolverPrecisions.
+// SetSolverPrecisions sets both the main and the lowest precision for the Iterative Refinement Solver (IRS).
+//
+//   - solverMainPrecision: Allowed Inputs/Outputs datatype (for example CUSOLVER_R_FP64 for a real double precision data). See the table below for the supported precisions
+//   - solverLowestPrecision: Allowed lowest compute type (for example R16F for half precision computation). See the table below for the supported precisions
+//
+// Returns:
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created. Supported Inputs/Outputs data type and lower precision for the IRS solver
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsSetSolverPrecisions.
 func (i IRSParams) SetSolverPrecisions(solverMainPrecision PrecType, solverLowestPrecision PrecType) error {
 	return iRSParamsSetSolverPrecisions(i, solverMainPrecision, solverLowestPrecision)
 }
 
-// SetTol wraps cusolverDnIRSParamsSetTol.
+// SetTol sets the tolerance for the refinement solver.
+//
+// RNRM < SQRT(N)*XNRM*ANRM*EPS*BWDMAX where
+// The user can use this function to change the tolerance to a lower or higher value. Our goal is to give the user more control such a way he can investigate and control every detail of the IRS solver. Note that the tolerance value is always in real double precision whatever the Inputs/Outputs datatype is.
+//
+//   - val: Double precision real value to which the refinement tolerance will be set
+//
+// Returns:
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsSetTol.
 func (i IRSParams) SetTol(val float64) error {
 	return iRSParamsSetTol(i, val)
 }
 
-// SetTolInner wraps cusolverDnIRSParamsSetTolInner.
+// SetTolInner sets the tolerance for the inner refinement solver when the refinement solver consists of two-levels solver (for example, [IrsRefineClassicalGmres] or [IrsRefineGmresGmres] cases).
+//
+//   - val: Double precision real value to which the tolerance of the inner refinement solver will be set
+//
+// Returns:
+//   - [ErrIrsParamsNotInitialized]: The Params structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSParamsSetTolInner.
 func (i IRSParams) SetTolInner(val float64) error {
 	return iRSParamsSetTolInner(i, val)
 }

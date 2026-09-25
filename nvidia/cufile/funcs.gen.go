@@ -61,7 +61,7 @@ func batchIOCancel(batchIdp BatchHandle) error {
 	if err := checkLibSym("cuFileBatchIOCancel"); err != nil {
 		return err
 	}
-	return toError(fnbatchIOCancel(batchIdp))
+	return toError(fnbatchIOCancel(batchIdp), "cuFileBatchIOCancel")
 }
 
 // batchIODestroy wraps cuFileBatchIODestroy.
@@ -78,7 +78,7 @@ func batchIOGetStatus(batchIdp BatchHandle, minNr uint32, nr *uint32, iocbp *IOE
 	if err := checkLibSym("cuFileBatchIOGetStatus"); err != nil {
 		return err
 	}
-	return toError(fnbatchIOGetStatus(batchIdp, minNr, nr, iocbp, timeout))
+	return toError(fnbatchIOGetStatus(batchIdp, minNr, nr, iocbp, timeout), "cuFileBatchIOGetStatus")
 }
 
 // BatchIOSetUp wraps cuFileBatchIOSetUp.
@@ -88,7 +88,7 @@ func BatchIOSetUp(nr uint32) (BatchHandle, error) {
 		return zero, err
 	}
 	var out BatchHandle
-	if err := toError(fnBatchIOSetUp(&out, nr)); err != nil {
+	if err := toError(fnBatchIOSetUp(&out, nr), "cuFileBatchIOSetUp"); err != nil {
 		var zero BatchHandle
 		return zero, err
 	}
@@ -100,7 +100,7 @@ func batchIOSubmit(batchIdp BatchHandle, nr uint32, iocbp *IOParams, flags uint3
 	if err := checkLibSym("cuFileBatchIOSubmit"); err != nil {
 		return err
 	}
-	return toError(fnbatchIOSubmit(batchIdp, nr, iocbp, flags))
+	return toError(fnbatchIOSubmit(batchIdp, nr, iocbp, flags), "cuFileBatchIOSubmit")
 }
 
 // BufDeregister wraps cuFileBufDeregister.
@@ -108,7 +108,7 @@ func BufDeregister(bufPtrBase uintptr) error {
 	if err := checkLibSym("cuFileBufDeregister"); err != nil {
 		return err
 	}
-	return toError(fnBufDeregister(bufPtrBase))
+	return toError(fnBufDeregister(bufPtrBase), "cuFileBufDeregister")
 }
 
 // BufRegister wraps cuFileBufRegister.
@@ -116,7 +116,7 @@ func BufRegister(bufPtrBase uintptr, length uint, flags int32) error {
 	if err := checkLibSym("cuFileBufRegister"); err != nil {
 		return err
 	}
-	return toError(fnBufRegister(bufPtrBase, length, flags))
+	return toError(fnBufRegister(bufPtrBase, length, flags), "cuFileBufRegister")
 }
 
 // DriverClose wraps cuFileDriverClose, bound as cuFileDriverClose_v2.
@@ -124,7 +124,7 @@ func DriverClose() error {
 	if err := checkLibSym("cuFileDriverClose_v2"); err != nil {
 		return err
 	}
-	return toError(fnDriverClose())
+	return toError(fnDriverClose(), "cuFileDriverClose_v2")
 }
 
 // DriverGetP2PFlags wraps cuFileDriverGetP2PFlags.
@@ -134,7 +134,7 @@ func DriverGetP2PFlags(statusFlag DriverStatusFlags) (P2PFlags, error) {
 		return zero, err
 	}
 	var out P2PFlags
-	if err := toError(fnDriverGetP2PFlags(statusFlag, &out)); err != nil {
+	if err := toError(fnDriverGetP2PFlags(statusFlag, &out), "cuFileDriverGetP2PFlags"); err != nil {
 		var zero P2PFlags
 		return zero, err
 	}
@@ -148,7 +148,7 @@ func DriverGetProperties() (DrvProps, error) {
 		return zero, err
 	}
 	var out DrvProps
-	if err := toError(fnDriverGetProperties(&out)); err != nil {
+	if err := toError(fnDriverGetProperties(&out), "cuFileDriverGetProperties"); err != nil {
 		var zero DrvProps
 		return zero, err
 	}
@@ -160,7 +160,7 @@ func DriverOpen() error {
 	if err := checkLibSym("cuFileDriverOpen"); err != nil {
 		return err
 	}
-	return toError(fnDriverOpen())
+	return toError(fnDriverOpen(), "cuFileDriverOpen")
 }
 
 // DriverSetMaxCacheSize wraps cuFileDriverSetMaxCacheSize.
@@ -168,7 +168,7 @@ func DriverSetMaxCacheSize(maxCacheSize uint) error {
 	if err := checkLibSym("cuFileDriverSetMaxCacheSize"); err != nil {
 		return err
 	}
-	return toError(fnDriverSetMaxCacheSize(maxCacheSize))
+	return toError(fnDriverSetMaxCacheSize(maxCacheSize), "cuFileDriverSetMaxCacheSize")
 }
 
 // DriverSetMaxDirectIOSize wraps cuFileDriverSetMaxDirectIOSize.
@@ -176,7 +176,7 @@ func DriverSetMaxDirectIOSize(maxDirectIoSize uint) error {
 	if err := checkLibSym("cuFileDriverSetMaxDirectIOSize"); err != nil {
 		return err
 	}
-	return toError(fnDriverSetMaxDirectIOSize(maxDirectIoSize))
+	return toError(fnDriverSetMaxDirectIOSize(maxDirectIoSize), "cuFileDriverSetMaxDirectIOSize")
 }
 
 // DriverSetMaxPinnedMemSize wraps cuFileDriverSetMaxPinnedMemSize.
@@ -184,7 +184,7 @@ func DriverSetMaxPinnedMemSize(maxPinnedSize uint) error {
 	if err := checkLibSym("cuFileDriverSetMaxPinnedMemSize"); err != nil {
 		return err
 	}
-	return toError(fnDriverSetMaxPinnedMemSize(maxPinnedSize))
+	return toError(fnDriverSetMaxPinnedMemSize(maxPinnedSize), "cuFileDriverSetMaxPinnedMemSize")
 }
 
 // DriverSetP2PFlags wraps cuFileDriverSetP2PFlags.
@@ -192,7 +192,7 @@ func DriverSetP2PFlags(statusFlag DriverStatusFlags, p2pFlags P2PFlags) error {
 	if err := checkLibSym("cuFileDriverSetP2PFlags"); err != nil {
 		return err
 	}
-	return toError(fnDriverSetP2PFlags(statusFlag, p2pFlags))
+	return toError(fnDriverSetP2PFlags(statusFlag, p2pFlags), "cuFileDriverSetP2PFlags")
 }
 
 // DriverSetPollMode wraps cuFileDriverSetPollMode.
@@ -200,7 +200,7 @@ func DriverSetPollMode(poll bool, pollThresholdSize uint) error {
 	if err := checkLibSym("cuFileDriverSetPollMode"); err != nil {
 		return err
 	}
-	return toError(fnDriverSetPollMode(poll, pollThresholdSize))
+	return toError(fnDriverSetPollMode(poll, pollThresholdSize), "cuFileDriverSetPollMode")
 }
 
 // ExportPCIeTopology wraps cuFileExportPCIeTopology.
@@ -208,7 +208,7 @@ func ExportPCIeTopology(filename *byte) error {
 	if err := checkLibSym("cuFileExportPCIeTopology"); err != nil {
 		return err
 	}
-	return toError(fnExportPCIeTopology(filename))
+	return toError(fnExportPCIeTopology(filename), "cuFileExportPCIeTopology")
 }
 
 // GetBARSizeInKB wraps cuFileGetBARSizeInKB.
@@ -218,7 +218,7 @@ func GetBARSizeInKB(gpuIndex int32) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnGetBARSizeInKB(gpuIndex, &out)); err != nil {
+	if err := toError(fnGetBARSizeInKB(gpuIndex, &out), "cuFileGetBARSizeInKB"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -232,7 +232,7 @@ func GetParameterBool(param CUFileBoolConfigParameter) (bool, error) {
 		return zero, err
 	}
 	var out bool
-	if err := toError(fnGetParameterBool(param, &out)); err != nil {
+	if err := toError(fnGetParameterBool(param, &out), "cuFileGetParameterBool"); err != nil {
 		var zero bool
 		return zero, err
 	}
@@ -244,7 +244,7 @@ func GetParameterGpuBounceBufferSlabArray(sizeValues *uint, countValues *uint, l
 	if err := checkLibSym("cuFileGetParameterGpuBounceBufferSlabArray"); err != nil {
 		return err
 	}
-	return toError(fnGetParameterGpuBounceBufferSlabArray(sizeValues, countValues, len_))
+	return toError(fnGetParameterGpuBounceBufferSlabArray(sizeValues, countValues, len_), "cuFileGetParameterGpuBounceBufferSlabArray")
 }
 
 // GetParameterMinMaxValue wraps cuFileGetParameterMinMaxValue.
@@ -254,7 +254,7 @@ func GetParameterMinMaxValue(param CUFileSizeTConfigParameter) (uint, uint, erro
 	}
 	var out0 uint
 	var out1 uint
-	if err := toError(fnGetParameterMinMaxValue(param, &out0, &out1)); err != nil {
+	if err := toError(fnGetParameterMinMaxValue(param, &out0, &out1), "cuFileGetParameterMinMaxValue"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -265,7 +265,7 @@ func GetParameterPosixPoolSlabArray(sizeValues *uint, countValues *uint, len_ in
 	if err := checkLibSym("cuFileGetParameterPosixPoolSlabArray"); err != nil {
 		return err
 	}
-	return toError(fnGetParameterPosixPoolSlabArray(sizeValues, countValues, len_))
+	return toError(fnGetParameterPosixPoolSlabArray(sizeValues, countValues, len_), "cuFileGetParameterPosixPoolSlabArray")
 }
 
 // GetParameterSizeT wraps cuFileGetParameterSizeT.
@@ -275,7 +275,7 @@ func GetParameterSizeT(param CUFileSizeTConfigParameter) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnGetParameterSizeT(param, &out)); err != nil {
+	if err := toError(fnGetParameterSizeT(param, &out), "cuFileGetParameterSizeT"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -287,7 +287,7 @@ func GetParameterString(param CUFileStringConfigParameter, descStr *byte, len_ i
 	if err := checkLibSym("cuFileGetParameterString"); err != nil {
 		return err
 	}
-	return toError(fnGetParameterString(param, descStr, len_))
+	return toError(fnGetParameterString(param, descStr, len_), "cuFileGetParameterString")
 }
 
 // GetStatsL1 wraps cuFileGetStatsL1.
@@ -297,7 +297,7 @@ func GetStatsL1() (StatsLevel1, error) {
 		return zero, err
 	}
 	var out StatsLevel1
-	if err := toError(fnGetStatsL1(&out)); err != nil {
+	if err := toError(fnGetStatsL1(&out), "cuFileGetStatsL1"); err != nil {
 		var zero StatsLevel1
 		return zero, err
 	}
@@ -311,7 +311,7 @@ func GetStatsL2() (StatsLevel2, error) {
 		return zero, err
 	}
 	var out StatsLevel2
-	if err := toError(fnGetStatsL2(&out)); err != nil {
+	if err := toError(fnGetStatsL2(&out), "cuFileGetStatsL2"); err != nil {
 		var zero StatsLevel2
 		return zero, err
 	}
@@ -325,7 +325,7 @@ func GetStatsL3() (StatsLevel3, error) {
 		return zero, err
 	}
 	var out StatsLevel3
-	if err := toError(fnGetStatsL3(&out)); err != nil {
+	if err := toError(fnGetStatsL3(&out), "cuFileGetStatsL3"); err != nil {
 		var zero StatsLevel3
 		return zero, err
 	}
@@ -339,7 +339,7 @@ func GetStatsLevel() (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetStatsLevel(&out)); err != nil {
+	if err := toError(fnGetStatsLevel(&out), "cuFileGetStatsLevel"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -353,7 +353,7 @@ func GetVersion() (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetVersion(&out)); err != nil {
+	if err := toError(fnGetVersion(&out), "cuFileGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -376,7 +376,7 @@ func handleRegister(descr *Descr) (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnhandleRegister(&out, descr)); err != nil {
+	if err := toError(fnhandleRegister(&out, descr), "cuFileHandleRegister"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -397,7 +397,7 @@ func readAsync(fh Handle, bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, b
 	if err := checkLibSym("cuFileReadAsync"); err != nil {
 		return err
 	}
-	return toError(fnreadAsync(fh, bufPtrBase, sizeP, fileOffsetP, bufPtrOffsetP, bytesReadP, stream))
+	return toError(fnreadAsync(fh, bufPtrBase, sizeP, fileOffsetP, bufPtrOffsetP, bytesReadP, stream), "cuFileReadAsync")
 }
 
 // SetParameterBool wraps cuFileSetParameterBool.
@@ -405,7 +405,7 @@ func SetParameterBool(param CUFileBoolConfigParameter, value bool) error {
 	if err := checkLibSym("cuFileSetParameterBool"); err != nil {
 		return err
 	}
-	return toError(fnSetParameterBool(param, value))
+	return toError(fnSetParameterBool(param, value), "cuFileSetParameterBool")
 }
 
 // SetParameterGpuBounceBufferSlabArray wraps cuFileSetParameterGpuBounceBufferSlabArray.
@@ -413,7 +413,7 @@ func SetParameterGpuBounceBufferSlabArray(sizeValues *uint, countValues *uint, l
 	if err := checkLibSym("cuFileSetParameterGpuBounceBufferSlabArray"); err != nil {
 		return err
 	}
-	return toError(fnSetParameterGpuBounceBufferSlabArray(sizeValues, countValues, len_))
+	return toError(fnSetParameterGpuBounceBufferSlabArray(sizeValues, countValues, len_), "cuFileSetParameterGpuBounceBufferSlabArray")
 }
 
 // SetParameterPosixPoolSlabArray wraps cuFileSetParameterPosixPoolSlabArray.
@@ -421,7 +421,7 @@ func SetParameterPosixPoolSlabArray(sizeValues *uint, countValues *uint, len_ in
 	if err := checkLibSym("cuFileSetParameterPosixPoolSlabArray"); err != nil {
 		return err
 	}
-	return toError(fnSetParameterPosixPoolSlabArray(sizeValues, countValues, len_))
+	return toError(fnSetParameterPosixPoolSlabArray(sizeValues, countValues, len_), "cuFileSetParameterPosixPoolSlabArray")
 }
 
 // SetParameterSizeT wraps cuFileSetParameterSizeT.
@@ -429,7 +429,7 @@ func SetParameterSizeT(param CUFileSizeTConfigParameter, value uint) error {
 	if err := checkLibSym("cuFileSetParameterSizeT"); err != nil {
 		return err
 	}
-	return toError(fnSetParameterSizeT(param, value))
+	return toError(fnSetParameterSizeT(param, value), "cuFileSetParameterSizeT")
 }
 
 // SetParameterString wraps cuFileSetParameterString.
@@ -437,7 +437,7 @@ func SetParameterString(param CUFileStringConfigParameter, descStr *byte) error 
 	if err := checkLibSym("cuFileSetParameterString"); err != nil {
 		return err
 	}
-	return toError(fnSetParameterString(param, descStr))
+	return toError(fnSetParameterString(param, descStr), "cuFileSetParameterString")
 }
 
 // SetStatsLevel wraps cuFileSetStatsLevel.
@@ -445,7 +445,7 @@ func SetStatsLevel(level int32) error {
 	if err := checkLibSym("cuFileSetStatsLevel"); err != nil {
 		return err
 	}
-	return toError(fnSetStatsLevel(level))
+	return toError(fnSetStatsLevel(level), "cuFileSetStatsLevel")
 }
 
 // StatsReset wraps cuFileStatsReset.
@@ -453,7 +453,7 @@ func StatsReset() error {
 	if err := checkLibSym("cuFileStatsReset"); err != nil {
 		return err
 	}
-	return toError(fnStatsReset())
+	return toError(fnStatsReset(), "cuFileStatsReset")
 }
 
 // StatsStart wraps cuFileStatsStart.
@@ -461,7 +461,7 @@ func StatsStart() error {
 	if err := checkLibSym("cuFileStatsStart"); err != nil {
 		return err
 	}
-	return toError(fnStatsStart())
+	return toError(fnStatsStart(), "cuFileStatsStart")
 }
 
 // StatsStop wraps cuFileStatsStop.
@@ -469,7 +469,7 @@ func StatsStop() error {
 	if err := checkLibSym("cuFileStatsStop"); err != nil {
 		return err
 	}
-	return toError(fnStatsStop())
+	return toError(fnStatsStop(), "cuFileStatsStop")
 }
 
 // StreamDeregister wraps cuFileStreamDeregister.
@@ -477,7 +477,7 @@ func StreamDeregister(stream Stream) error {
 	if err := checkLibSym("cuFileStreamDeregister"); err != nil {
 		return err
 	}
-	return toError(fnStreamDeregister(stream))
+	return toError(fnStreamDeregister(stream), "cuFileStreamDeregister")
 }
 
 // StreamRegister wraps cuFileStreamRegister.
@@ -485,7 +485,7 @@ func StreamRegister(stream Stream, flags uint32) error {
 	if err := checkLibSym("cuFileStreamRegister"); err != nil {
 		return err
 	}
-	return toError(fnStreamRegister(stream, flags))
+	return toError(fnStreamRegister(stream, flags), "cuFileStreamRegister")
 }
 
 // UseCount wraps cuFileUseCount.
@@ -511,5 +511,5 @@ func writeAsync(fh Handle, bufPtrBase uintptr, sizeP *uint, fileOffsetP *int64, 
 	if err := checkLibSym("cuFileWriteAsync"); err != nil {
 		return err
 	}
-	return toError(fnwriteAsync(fh, bufPtrBase, sizeP, fileOffsetP, bufPtrOffsetP, bytesWrittenP, stream))
+	return toError(fnwriteAsync(fh, bufPtrBase, sizeP, fileOffsetP, bufPtrOffsetP, bytesWrittenP, stream), "cuFileWriteAsync")
 }

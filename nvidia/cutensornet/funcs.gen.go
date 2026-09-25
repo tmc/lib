@@ -90,7 +90,7 @@ func contractSlices(handle Handle, plan ContractionPlan, rawDataIn *uintptr, raw
 	if err := checkLibSym("cutensornetContractSlices"); err != nil {
 		return err
 	}
-	return toError(fncontractSlices(handle, plan, rawDataIn, rawDataOut, accumulateOutput, workDesc, sliceGroup, stream))
+	return toError(fncontractSlices(handle, plan, rawDataIn, rawDataOut, accumulateOutput, workDesc, sliceGroup, stream), "cutensornetContractSlices")
 }
 
 // contractionAutotune wraps cutensornetContractionAutotune.
@@ -100,7 +100,7 @@ func contractionAutotune(handle Handle, plan ContractionPlan, rawDataIn *uintptr
 	if err := checkLibSym("cutensornetContractionAutotune"); err != nil {
 		return err
 	}
-	return toError(fncontractionAutotune(handle, plan, rawDataIn, rawDataOut, workDesc, pref, stream))
+	return toError(fncontractionAutotune(handle, plan, rawDataIn, rawDataOut, workDesc, pref, stream), "cutensornetContractionAutotune")
 }
 
 // contractionAutotunePreferenceGetAttribute wraps cutensornetContractionAutotunePreferenceGetAttribute.
@@ -110,7 +110,7 @@ func contractionAutotunePreferenceGetAttribute(handle Handle, autotunePreference
 	if err := checkLibSym("cutensornetContractionAutotunePreferenceGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fncontractionAutotunePreferenceGetAttribute(handle, autotunePreference, attr, buffer, sizeInBytes))
+	return toError(fncontractionAutotunePreferenceGetAttribute(handle, autotunePreference, attr, buffer, sizeInBytes), "cutensornetContractionAutotunePreferenceGetAttribute")
 }
 
 // contractionAutotunePreferenceSetAttribute wraps cutensornetContractionAutotunePreferenceSetAttribute.
@@ -120,7 +120,7 @@ func contractionAutotunePreferenceSetAttribute(handle Handle, autotunePreference
 	if err := checkLibSym("cutensornetContractionAutotunePreferenceSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fncontractionAutotunePreferenceSetAttribute(handle, autotunePreference, attr, buffer, sizeInBytes))
+	return toError(fncontractionAutotunePreferenceSetAttribute(handle, autotunePreference, attr, buffer, sizeInBytes), "cutensornetContractionAutotunePreferenceSetAttribute")
 }
 
 // contractionOptimize wraps cutensornetContractionOptimize.
@@ -128,7 +128,7 @@ func contractionOptimize(handle Handle, networkDesc NetworkDescriptor, optimizer
 	if err := checkLibSym("cutensornetContractionOptimize"); err != nil {
 		return err
 	}
-	return toError(fncontractionOptimize(handle, networkDesc, optimizerConfig, workspaceSizeConstraint, optimizerInfo))
+	return toError(fncontractionOptimize(handle, networkDesc, optimizerConfig, workspaceSizeConstraint, optimizerInfo), "cutensornetContractionOptimize")
 }
 
 // contractionOptimizerConfigGetAttribute wraps cutensornetContractionOptimizerConfigGetAttribute.
@@ -136,7 +136,7 @@ func contractionOptimizerConfigGetAttribute(handle Handle, optimizerConfig Contr
 	if err := checkLibSym("cutensornetContractionOptimizerConfigGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fncontractionOptimizerConfigGetAttribute(handle, optimizerConfig, attr, buffer, sizeInBytes))
+	return toError(fncontractionOptimizerConfigGetAttribute(handle, optimizerConfig, attr, buffer, sizeInBytes), "cutensornetContractionOptimizerConfigGetAttribute")
 }
 
 // contractionOptimizerConfigSetAttribute wraps cutensornetContractionOptimizerConfigSetAttribute.
@@ -144,7 +144,7 @@ func contractionOptimizerConfigSetAttribute(handle Handle, optimizerConfig Contr
 	if err := checkLibSym("cutensornetContractionOptimizerConfigSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fncontractionOptimizerConfigSetAttribute(handle, optimizerConfig, attr, buffer, sizeInBytes))
+	return toError(fncontractionOptimizerConfigSetAttribute(handle, optimizerConfig, attr, buffer, sizeInBytes), "cutensornetContractionOptimizerConfigSetAttribute")
 }
 
 // contractionOptimizerInfoGetAttribute wraps cutensornetContractionOptimizerInfoGetAttribute.
@@ -152,7 +152,7 @@ func contractionOptimizerInfoGetAttribute(handle Handle, optimizerInfo Contracti
 	if err := checkLibSym("cutensornetContractionOptimizerInfoGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fncontractionOptimizerInfoGetAttribute(handle, optimizerInfo, attr, buffer, sizeInBytes))
+	return toError(fncontractionOptimizerInfoGetAttribute(handle, optimizerInfo, attr, buffer, sizeInBytes), "cutensornetContractionOptimizerInfoGetAttribute")
 }
 
 // contractionOptimizerInfoGetPackedSize wraps cutensornetContractionOptimizerInfoGetPackedSize.
@@ -162,7 +162,7 @@ func contractionOptimizerInfoGetPackedSize(handle Handle, optimizerInfo Contract
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncontractionOptimizerInfoGetPackedSize(handle, optimizerInfo, &out)); err != nil {
+	if err := toError(fncontractionOptimizerInfoGetPackedSize(handle, optimizerInfo, &out), "cutensornetContractionOptimizerInfoGetPackedSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -174,7 +174,7 @@ func contractionOptimizerInfoPackData(handle Handle, optimizerInfo ContractionOp
 	if err := checkLibSym("cutensornetContractionOptimizerInfoPackData"); err != nil {
 		return err
 	}
-	return toError(fncontractionOptimizerInfoPackData(handle, optimizerInfo, buffer, sizeInBytes))
+	return toError(fncontractionOptimizerInfoPackData(handle, optimizerInfo, buffer, sizeInBytes), "cutensornetContractionOptimizerInfoPackData")
 }
 
 // contractionOptimizerInfoSetAttribute wraps cutensornetContractionOptimizerInfoSetAttribute.
@@ -182,7 +182,7 @@ func contractionOptimizerInfoSetAttribute(handle Handle, optimizerInfo Contracti
 	if err := checkLibSym("cutensornetContractionOptimizerInfoSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fncontractionOptimizerInfoSetAttribute(handle, optimizerInfo, attr, buffer, sizeInBytes))
+	return toError(fncontractionOptimizerInfoSetAttribute(handle, optimizerInfo, attr, buffer, sizeInBytes), "cutensornetContractionOptimizerInfoSetAttribute")
 }
 
 // Create wraps cutensornetCreate.
@@ -192,7 +192,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "cutensornetCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -208,7 +208,7 @@ func createContractionAutotunePreference(handle Handle) (ContractionAutotunePref
 		return zero, err
 	}
 	var out ContractionAutotunePreference
-	if err := toError(fncreateContractionAutotunePreference(handle, &out)); err != nil {
+	if err := toError(fncreateContractionAutotunePreference(handle, &out), "cutensornetCreateContractionAutotunePreference"); err != nil {
 		var zero ContractionAutotunePreference
 		return zero, err
 	}
@@ -222,7 +222,7 @@ func createContractionOptimizerConfig(handle Handle) (ContractionOptimizerConfig
 		return zero, err
 	}
 	var out ContractionOptimizerConfig
-	if err := toError(fncreateContractionOptimizerConfig(handle, &out)); err != nil {
+	if err := toError(fncreateContractionOptimizerConfig(handle, &out), "cutensornetCreateContractionOptimizerConfig"); err != nil {
 		var zero ContractionOptimizerConfig
 		return zero, err
 	}
@@ -236,7 +236,7 @@ func createContractionOptimizerInfo(handle Handle, networkDesc NetworkDescriptor
 		return zero, err
 	}
 	var out ContractionOptimizerInfo
-	if err := toError(fncreateContractionOptimizerInfo(handle, networkDesc, &out)); err != nil {
+	if err := toError(fncreateContractionOptimizerInfo(handle, networkDesc, &out), "cutensornetCreateContractionOptimizerInfo"); err != nil {
 		var zero ContractionOptimizerInfo
 		return zero, err
 	}
@@ -250,7 +250,7 @@ func createContractionOptimizerInfoFromPackedData(handle Handle, networkDesc Net
 		return zero, err
 	}
 	var out ContractionOptimizerInfo
-	if err := toError(fncreateContractionOptimizerInfoFromPackedData(handle, networkDesc, buffer, sizeInBytes, &out)); err != nil {
+	if err := toError(fncreateContractionOptimizerInfoFromPackedData(handle, networkDesc, buffer, sizeInBytes, &out), "cutensornetCreateContractionOptimizerInfoFromPackedData"); err != nil {
 		var zero ContractionOptimizerInfo
 		return zero, err
 	}
@@ -266,7 +266,7 @@ func createContractionPlan(handle Handle, networkDesc NetworkDescriptor, optimiz
 		return zero, err
 	}
 	var out ContractionPlan
-	if err := toError(fncreateContractionPlan(handle, networkDesc, optimizerInfo, workDesc, &out)); err != nil {
+	if err := toError(fncreateContractionPlan(handle, networkDesc, optimizerInfo, workDesc, &out), "cutensornetCreateContractionPlan"); err != nil {
 		var zero ContractionPlan
 		return zero, err
 	}
@@ -280,7 +280,7 @@ func createNetwork(handle Handle) (NetworkDescriptor, error) {
 		return zero, err
 	}
 	var out NetworkDescriptor
-	if err := toError(fncreateNetwork(handle, &out)); err != nil {
+	if err := toError(fncreateNetwork(handle, &out), "cutensornetCreateNetwork"); err != nil {
 		var zero NetworkDescriptor
 		return zero, err
 	}
@@ -294,7 +294,7 @@ func createNetworkAutotunePreference(handle Handle) (NetworkAutotunePreference, 
 		return zero, err
 	}
 	var out NetworkAutotunePreference
-	if err := toError(fncreateNetworkAutotunePreference(handle, &out)); err != nil {
+	if err := toError(fncreateNetworkAutotunePreference(handle, &out), "cutensornetCreateNetworkAutotunePreference"); err != nil {
 		var zero NetworkAutotunePreference
 		return zero, err
 	}
@@ -310,7 +310,7 @@ func createNetworkDescriptor(handle Handle, numInputs int32, numModesIn *int32, 
 		return zero, err
 	}
 	var out NetworkDescriptor
-	if err := toError(fncreateNetworkDescriptor(handle, numInputs, numModesIn, (*uintptr)(sliceData(extentsIn)), (*uintptr)(sliceData(stridesIn)), (*uintptr)(sliceData(modesIn)), qualifiersIn, numModesOut, extentsOut, stridesOut, modesOut, dataType, computeType, &out)); err != nil {
+	if err := toError(fncreateNetworkDescriptor(handle, numInputs, numModesIn, (*uintptr)(sliceData(extentsIn)), (*uintptr)(sliceData(stridesIn)), (*uintptr)(sliceData(modesIn)), qualifiersIn, numModesOut, extentsOut, stridesOut, modesOut, dataType, computeType, &out), "cutensornetCreateNetworkDescriptor"); err != nil {
 		var zero NetworkDescriptor
 		return zero, err
 	}
@@ -324,7 +324,7 @@ func createSliceGroupFromIDRange(handle Handle, sliceIdStart int64, sliceIdStop 
 		return zero, err
 	}
 	var out SliceGroup
-	if err := toError(fncreateSliceGroupFromIDRange(handle, sliceIdStart, sliceIdStop, sliceIdStep, &out)); err != nil {
+	if err := toError(fncreateSliceGroupFromIDRange(handle, sliceIdStart, sliceIdStop, sliceIdStep, &out), "cutensornetCreateSliceGroupFromIDRange"); err != nil {
 		var zero SliceGroup
 		return zero, err
 	}
@@ -338,7 +338,7 @@ func createSliceGroupFromIDs(handle Handle, beginIDSequence *int64, endIDSequenc
 		return zero, err
 	}
 	var out SliceGroup
-	if err := toError(fncreateSliceGroupFromIDs(handle, beginIDSequence, endIDSequence, &out)); err != nil {
+	if err := toError(fncreateSliceGroupFromIDs(handle, beginIDSequence, endIDSequence, &out), "cutensornetCreateSliceGroupFromIDs"); err != nil {
 		var zero SliceGroup
 		return zero, err
 	}
@@ -352,7 +352,7 @@ func createTensorDescriptor(handle Handle, numModes int32, extents *int64, strid
 		return zero, err
 	}
 	var out TensorDescriptor
-	if err := toError(fncreateTensorDescriptor(handle, numModes, extents, strides, modeLabels, dataType, &out)); err != nil {
+	if err := toError(fncreateTensorDescriptor(handle, numModes, extents, strides, modeLabels, dataType, &out), "cutensornetCreateTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
 		return zero, err
 	}
@@ -366,7 +366,7 @@ func createWorkspaceDescriptor(handle Handle) (WorkspaceDescriptor, error) {
 		return zero, err
 	}
 	var out WorkspaceDescriptor
-	if err := toError(fncreateWorkspaceDescriptor(handle, &out)); err != nil {
+	if err := toError(fncreateWorkspaceDescriptor(handle, &out), "cutensornetCreateWorkspaceDescriptor"); err != nil {
 		var zero WorkspaceDescriptor
 		return zero, err
 	}
@@ -378,7 +378,7 @@ func destroy(handle Handle) error {
 	if err := checkLibSym("cutensornetDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle))
+	return toError(fndestroy(handle), "cutensornetDestroy")
 }
 
 // destroyContractionAutotunePreference wraps cutensornetDestroyContractionAutotunePreference.
@@ -388,7 +388,7 @@ func destroyContractionAutotunePreference(autotunePreference ContractionAutotune
 	if err := checkLibSym("cutensornetDestroyContractionAutotunePreference"); err != nil {
 		return err
 	}
-	return toError(fndestroyContractionAutotunePreference(autotunePreference))
+	return toError(fndestroyContractionAutotunePreference(autotunePreference), "cutensornetDestroyContractionAutotunePreference")
 }
 
 // destroyContractionOptimizerConfig wraps cutensornetDestroyContractionOptimizerConfig.
@@ -396,7 +396,7 @@ func destroyContractionOptimizerConfig(optimizerConfig ContractionOptimizerConfi
 	if err := checkLibSym("cutensornetDestroyContractionOptimizerConfig"); err != nil {
 		return err
 	}
-	return toError(fndestroyContractionOptimizerConfig(optimizerConfig))
+	return toError(fndestroyContractionOptimizerConfig(optimizerConfig), "cutensornetDestroyContractionOptimizerConfig")
 }
 
 // destroyContractionOptimizerInfo wraps cutensornetDestroyContractionOptimizerInfo.
@@ -404,7 +404,7 @@ func destroyContractionOptimizerInfo(optimizerInfo ContractionOptimizerInfo) err
 	if err := checkLibSym("cutensornetDestroyContractionOptimizerInfo"); err != nil {
 		return err
 	}
-	return toError(fndestroyContractionOptimizerInfo(optimizerInfo))
+	return toError(fndestroyContractionOptimizerInfo(optimizerInfo), "cutensornetDestroyContractionOptimizerInfo")
 }
 
 // destroyContractionPlan wraps cutensornetDestroyContractionPlan.
@@ -414,7 +414,7 @@ func destroyContractionPlan(plan ContractionPlan) error {
 	if err := checkLibSym("cutensornetDestroyContractionPlan"); err != nil {
 		return err
 	}
-	return toError(fndestroyContractionPlan(plan))
+	return toError(fndestroyContractionPlan(plan), "cutensornetDestroyContractionPlan")
 }
 
 // destroyNetwork wraps cutensornetDestroyNetwork.
@@ -422,7 +422,7 @@ func destroyNetwork(networkDesc NetworkDescriptor) error {
 	if err := checkLibSym("cutensornetDestroyNetwork"); err != nil {
 		return err
 	}
-	return toError(fndestroyNetwork(networkDesc))
+	return toError(fndestroyNetwork(networkDesc), "cutensornetDestroyNetwork")
 }
 
 // destroyNetworkAutotunePreference wraps cutensornetDestroyNetworkAutotunePreference.
@@ -430,7 +430,7 @@ func destroyNetworkAutotunePreference(autotunePreference NetworkAutotunePreferen
 	if err := checkLibSym("cutensornetDestroyNetworkAutotunePreference"); err != nil {
 		return err
 	}
-	return toError(fndestroyNetworkAutotunePreference(autotunePreference))
+	return toError(fndestroyNetworkAutotunePreference(autotunePreference), "cutensornetDestroyNetworkAutotunePreference")
 }
 
 // destroyNetworkDescriptor wraps cutensornetDestroyNetworkDescriptor.
@@ -440,7 +440,7 @@ func destroyNetworkDescriptor(networkDesc NetworkDescriptor) error {
 	if err := checkLibSym("cutensornetDestroyNetworkDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyNetworkDescriptor(networkDesc))
+	return toError(fndestroyNetworkDescriptor(networkDesc), "cutensornetDestroyNetworkDescriptor")
 }
 
 // destroySliceGroup wraps cutensornetDestroySliceGroup.
@@ -448,7 +448,7 @@ func destroySliceGroup(sliceGroup SliceGroup) error {
 	if err := checkLibSym("cutensornetDestroySliceGroup"); err != nil {
 		return err
 	}
-	return toError(fndestroySliceGroup(sliceGroup))
+	return toError(fndestroySliceGroup(sliceGroup), "cutensornetDestroySliceGroup")
 }
 
 // destroyTensorDescriptor wraps cutensornetDestroyTensorDescriptor.
@@ -456,7 +456,7 @@ func destroyTensorDescriptor(tensorDesc TensorDescriptor) error {
 	if err := checkLibSym("cutensornetDestroyTensorDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyTensorDescriptor(tensorDesc))
+	return toError(fndestroyTensorDescriptor(tensorDesc), "cutensornetDestroyTensorDescriptor")
 }
 
 // destroyWorkspaceDescriptor wraps cutensornetDestroyWorkspaceDescriptor.
@@ -464,7 +464,7 @@ func destroyWorkspaceDescriptor(workDesc WorkspaceDescriptor) error {
 	if err := checkLibSym("cutensornetDestroyWorkspaceDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyWorkspaceDescriptor(workDesc))
+	return toError(fndestroyWorkspaceDescriptor(workDesc), "cutensornetDestroyWorkspaceDescriptor")
 }
 
 // distributedGetNumRanks wraps cutensornetDistributedGetNumRanks.
@@ -474,7 +474,7 @@ func distributedGetNumRanks(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndistributedGetNumRanks(handle, &out)); err != nil {
+	if err := toError(fndistributedGetNumRanks(handle, &out), "cutensornetDistributedGetNumRanks"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -488,7 +488,7 @@ func distributedGetProcRank(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndistributedGetProcRank(handle, &out)); err != nil {
+	if err := toError(fndistributedGetProcRank(handle, &out), "cutensornetDistributedGetProcRank"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -500,7 +500,7 @@ func distributedResetConfiguration(handle Handle, commPtr unsafe.Pointer, commSi
 	if err := checkLibSym("cutensornetDistributedResetConfiguration"); err != nil {
 		return err
 	}
-	return toError(fndistributedResetConfiguration(handle, commPtr, commSize))
+	return toError(fndistributedResetConfiguration(handle, commPtr, commSize), "cutensornetDistributedResetConfiguration")
 }
 
 // distributedSynchronize wraps cutensornetDistributedSynchronize.
@@ -508,7 +508,7 @@ func distributedSynchronize(handle Handle) error {
 	if err := checkLibSym("cutensornetDistributedSynchronize"); err != nil {
 		return err
 	}
-	return toError(fndistributedSynchronize(handle))
+	return toError(fndistributedSynchronize(handle), "cutensornetDistributedSynchronize")
 }
 
 // GetCudartVersion wraps cutensornetGetCudartVersion.
@@ -528,7 +528,7 @@ func getOutputTensorDescriptor(handle Handle, networkDesc NetworkDescriptor) (Te
 		return zero, err
 	}
 	var out TensorDescriptor
-	if err := toError(fngetOutputTensorDescriptor(handle, networkDesc, &out)); err != nil {
+	if err := toError(fngetOutputTensorDescriptor(handle, networkDesc, &out), "cutensornetGetOutputTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
 		return zero, err
 	}
@@ -542,7 +542,7 @@ func getOutputTensorDetails(handle Handle, networkDesc NetworkDescriptor, numMod
 	if err := checkLibSym("cutensornetGetOutputTensorDetails"); err != nil {
 		return err
 	}
-	return toError(fngetOutputTensorDetails(handle, networkDesc, numModes, dataSize, modeLabels, extents, strides))
+	return toError(fngetOutputTensorDetails(handle, networkDesc, numModes, dataSize, modeLabels, extents, strides), "cutensornetGetOutputTensorDetails")
 }
 
 // getTensorDetails wraps cutensornetGetTensorDetails.
@@ -550,7 +550,7 @@ func getTensorDetails(handle Handle, tensorDesc TensorDescriptor, numModes *int3
 	if err := checkLibSym("cutensornetGetTensorDetails"); err != nil {
 		return err
 	}
-	return toError(fngetTensorDetails(handle, tensorDesc, numModes, dataSize, modeLabels, extents, strides))
+	return toError(fngetTensorDetails(handle, tensorDesc, numModes, dataSize, modeLabels, extents, strides), "cutensornetGetTensorDetails")
 }
 
 // GetVersion wraps cutensornetGetVersion.
@@ -568,7 +568,7 @@ func LoggerForceDisable() error {
 	if err := checkLibSym("cutensornetLoggerForceDisable"); err != nil {
 		return err
 	}
-	return toError(fnLoggerForceDisable())
+	return toError(fnLoggerForceDisable(), "cutensornetLoggerForceDisable")
 }
 
 // LoggerOpenFile wraps cutensornetLoggerOpenFile.
@@ -577,7 +577,7 @@ func LoggerOpenFile(logFile string) error {
 		return err
 	}
 	logFile_cstr := append([]byte(logFile), 0)
-	return toError(fnLoggerOpenFile(&logFile_cstr[0]))
+	return toError(fnLoggerOpenFile(&logFile_cstr[0]), "cutensornetLoggerOpenFile")
 }
 
 // LoggerSetLevel wraps cutensornetLoggerSetLevel.
@@ -585,7 +585,7 @@ func LoggerSetLevel(level int32) error {
 	if err := checkLibSym("cutensornetLoggerSetLevel"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetLevel(level))
+	return toError(fnLoggerSetLevel(level), "cutensornetLoggerSetLevel")
 }
 
 // LoggerSetMask wraps cutensornetLoggerSetMask.
@@ -593,7 +593,7 @@ func LoggerSetMask(mask int32) error {
 	if err := checkLibSym("cutensornetLoggerSetMask"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetMask(mask))
+	return toError(fnLoggerSetMask(mask), "cutensornetLoggerSetMask")
 }
 
 // networkAppendTensor wraps cutensornetNetworkAppendTensor.
@@ -603,7 +603,7 @@ func networkAppendTensor(handle Handle, networkDesc NetworkDescriptor, numModes 
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnnetworkAppendTensor(handle, networkDesc, numModes, extents, modeLabels, qualifiers, dataType, &out)); err != nil {
+	if err := toError(fnnetworkAppendTensor(handle, networkDesc, numModes, extents, modeLabels, qualifiers, dataType, &out), "cutensornetNetworkAppendTensor"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -615,7 +615,7 @@ func networkAutotuneContraction(handle Handle, networkDesc NetworkDescriptor, wo
 	if err := checkLibSym("cutensornetNetworkAutotuneContraction"); err != nil {
 		return err
 	}
-	return toError(fnnetworkAutotuneContraction(handle, networkDesc, workDesc, pref, stream))
+	return toError(fnnetworkAutotuneContraction(handle, networkDesc, workDesc, pref, stream), "cutensornetNetworkAutotuneContraction")
 }
 
 // networkAutotunePreferenceGetAttribute wraps cutensornetNetworkAutotunePreferenceGetAttribute.
@@ -623,7 +623,7 @@ func networkAutotunePreferenceGetAttribute(handle Handle, autotunePreference Net
 	if err := checkLibSym("cutensornetNetworkAutotunePreferenceGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnnetworkAutotunePreferenceGetAttribute(handle, autotunePreference, attr, buffer, sizeInBytes))
+	return toError(fnnetworkAutotunePreferenceGetAttribute(handle, autotunePreference, attr, buffer, sizeInBytes), "cutensornetNetworkAutotunePreferenceGetAttribute")
 }
 
 // networkAutotunePreferenceSetAttribute wraps cutensornetNetworkAutotunePreferenceSetAttribute.
@@ -631,7 +631,7 @@ func networkAutotunePreferenceSetAttribute(handle Handle, autotunePreference Net
 	if err := checkLibSym("cutensornetNetworkAutotunePreferenceSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnnetworkAutotunePreferenceSetAttribute(handle, autotunePreference, attr, buf, sizeInBytes))
+	return toError(fnnetworkAutotunePreferenceSetAttribute(handle, autotunePreference, attr, buf, sizeInBytes), "cutensornetNetworkAutotunePreferenceSetAttribute")
 }
 
 // networkContract wraps cutensornetNetworkContract.
@@ -639,7 +639,7 @@ func networkContract(handle Handle, networkDesc NetworkDescriptor, accumulateOut
 	if err := checkLibSym("cutensornetNetworkContract"); err != nil {
 		return err
 	}
-	return toError(fnnetworkContract(handle, networkDesc, accumulateOutput, workDesc, sliceGroup, stream))
+	return toError(fnnetworkContract(handle, networkDesc, accumulateOutput, workDesc, sliceGroup, stream), "cutensornetNetworkContract")
 }
 
 // networkGetAttribute wraps cutensornetNetworkGetAttribute.
@@ -647,7 +647,7 @@ func networkGetAttribute(handle Handle, networkDesc NetworkDescriptor, attr Netw
 	if err := checkLibSym("cutensornetNetworkGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnnetworkGetAttribute(handle, networkDesc, attr, buffer, sizeInBytes))
+	return toError(fnnetworkGetAttribute(handle, networkDesc, attr, buffer, sizeInBytes), "cutensornetNetworkGetAttribute")
 }
 
 // networkPrepareContraction wraps cutensornetNetworkPrepareContraction.
@@ -655,7 +655,7 @@ func networkPrepareContraction(handle Handle, networkDesc NetworkDescriptor, wor
 	if err := checkLibSym("cutensornetNetworkPrepareContraction"); err != nil {
 		return err
 	}
-	return toError(fnnetworkPrepareContraction(handle, networkDesc, workDesc))
+	return toError(fnnetworkPrepareContraction(handle, networkDesc, workDesc), "cutensornetNetworkPrepareContraction")
 }
 
 // networkSetAttribute wraps cutensornetNetworkSetAttribute.
@@ -663,7 +663,7 @@ func networkSetAttribute(handle Handle, networkDesc NetworkDescriptor, attr Netw
 	if err := checkLibSym("cutensornetNetworkSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnnetworkSetAttribute(handle, networkDesc, attr, buffer, sizeInBytes))
+	return toError(fnnetworkSetAttribute(handle, networkDesc, attr, buffer, sizeInBytes), "cutensornetNetworkSetAttribute")
 }
 
 // networkSetInputTensorMemory wraps cutensornetNetworkSetInputTensorMemory.
@@ -671,7 +671,7 @@ func networkSetInputTensorMemory(handle Handle, networkDesc NetworkDescriptor, t
 	if err := checkLibSym("cutensornetNetworkSetInputTensorMemory"); err != nil {
 		return err
 	}
-	return toError(fnnetworkSetInputTensorMemory(handle, networkDesc, tensorId, buffer, strides))
+	return toError(fnnetworkSetInputTensorMemory(handle, networkDesc, tensorId, buffer, strides), "cutensornetNetworkSetInputTensorMemory")
 }
 
 // networkSetOptimizerInfo wraps cutensornetNetworkSetOptimizerInfo.
@@ -679,7 +679,7 @@ func networkSetOptimizerInfo(handle Handle, networkDesc NetworkDescriptor, optim
 	if err := checkLibSym("cutensornetNetworkSetOptimizerInfo"); err != nil {
 		return err
 	}
-	return toError(fnnetworkSetOptimizerInfo(handle, networkDesc, optimizerInfo))
+	return toError(fnnetworkSetOptimizerInfo(handle, networkDesc, optimizerInfo), "cutensornetNetworkSetOptimizerInfo")
 }
 
 // networkSetOutputTensor wraps cutensornetNetworkSetOutputTensor.
@@ -687,7 +687,7 @@ func networkSetOutputTensor(handle Handle, networkDesc NetworkDescriptor, numMod
 	if err := checkLibSym("cutensornetNetworkSetOutputTensor"); err != nil {
 		return err
 	}
-	return toError(fnnetworkSetOutputTensor(handle, networkDesc, numModes, modeLabels, dataType))
+	return toError(fnnetworkSetOutputTensor(handle, networkDesc, numModes, modeLabels, dataType), "cutensornetNetworkSetOutputTensor")
 }
 
 // networkSetOutputTensorMemory wraps cutensornetNetworkSetOutputTensorMemory.
@@ -695,7 +695,7 @@ func networkSetOutputTensorMemory(handle Handle, networkDesc NetworkDescriptor, 
 	if err := checkLibSym("cutensornetNetworkSetOutputTensorMemory"); err != nil {
 		return err
 	}
-	return toError(fnnetworkSetOutputTensorMemory(handle, networkDesc, buffer, strides))
+	return toError(fnnetworkSetOutputTensorMemory(handle, networkDesc, buffer, strides), "cutensornetNetworkSetOutputTensorMemory")
 }
 
 // updateContractionOptimizerInfoFromPackedData wraps cutensornetUpdateContractionOptimizerInfoFromPackedData.
@@ -703,7 +703,7 @@ func updateContractionOptimizerInfoFromPackedData(handle Handle, buffer unsafe.P
 	if err := checkLibSym("cutensornetUpdateContractionOptimizerInfoFromPackedData"); err != nil {
 		return err
 	}
-	return toError(fnupdateContractionOptimizerInfoFromPackedData(handle, buffer, sizeInBytes, optimizerInfo))
+	return toError(fnupdateContractionOptimizerInfoFromPackedData(handle, buffer, sizeInBytes, optimizerInfo), "cutensornetUpdateContractionOptimizerInfoFromPackedData")
 }
 
 // workspaceComputeContractionSizes wraps cutensornetWorkspaceComputeContractionSizes.
@@ -711,7 +711,7 @@ func workspaceComputeContractionSizes(handle Handle, networkDesc NetworkDescript
 	if err := checkLibSym("cutensornetWorkspaceComputeContractionSizes"); err != nil {
 		return err
 	}
-	return toError(fnworkspaceComputeContractionSizes(handle, networkDesc, optimizerInfo, workDesc))
+	return toError(fnworkspaceComputeContractionSizes(handle, networkDesc, optimizerInfo, workDesc), "cutensornetWorkspaceComputeContractionSizes")
 }
 
 // workspaceGetMemory wraps cutensornetWorkspaceGetMemory.
@@ -719,7 +719,7 @@ func workspaceGetMemory(handle Handle, workDesc WorkspaceDescriptor, memSpace Me
 	if err := checkLibSym("cutensornetWorkspaceGetMemory"); err != nil {
 		return err
 	}
-	return toError(fnworkspaceGetMemory(handle, workDesc, memSpace, workKind, memoryPtr, memorySize))
+	return toError(fnworkspaceGetMemory(handle, workDesc, memSpace, workKind, memoryPtr, memorySize), "cutensornetWorkspaceGetMemory")
 }
 
 // workspaceGetMemorySize wraps cutensornetWorkspaceGetMemorySize.
@@ -729,7 +729,7 @@ func workspaceGetMemorySize(handle Handle, workDesc WorkspaceDescriptor, workPre
 		return zero, err
 	}
 	var out int64
-	if err := toError(fnworkspaceGetMemorySize(handle, workDesc, workPref, memSpace, workKind, &out)); err != nil {
+	if err := toError(fnworkspaceGetMemorySize(handle, workDesc, workPref, memSpace, workKind, &out), "cutensornetWorkspaceGetMemorySize"); err != nil {
 		var zero int64
 		return zero, err
 	}
@@ -741,7 +741,7 @@ func workspacePurgeCache(handle Handle, workDesc WorkspaceDescriptor, memSpace M
 	if err := checkLibSym("cutensornetWorkspacePurgeCache"); err != nil {
 		return err
 	}
-	return toError(fnworkspacePurgeCache(handle, workDesc, memSpace))
+	return toError(fnworkspacePurgeCache(handle, workDesc, memSpace), "cutensornetWorkspacePurgeCache")
 }
 
 // workspaceSetMemory wraps cutensornetWorkspaceSetMemory.
@@ -749,5 +749,5 @@ func workspaceSetMemory(handle Handle, workDesc WorkspaceDescriptor, memSpace Me
 	if err := checkLibSym("cutensornetWorkspaceSetMemory"); err != nil {
 		return err
 	}
-	return toError(fnworkspaceSetMemory(handle, workDesc, memSpace, workKind, memoryPtr, memorySize))
+	return toError(fnworkspaceSetMemory(handle, workDesc, memSpace, workKind, memoryPtr, memorySize), "cutensornetWorkspaceSetMemory")
 }

@@ -78,7 +78,7 @@ func abs2SumArray(handle Handle, sv uintptr, svDataType DataType, nIndexBits uin
 	if err := checkLibSym("custatevecAbs2SumArray"); err != nil {
 		return err
 	}
-	return toError(fnabs2SumArray(handle, sv, svDataType, nIndexBits, abs2sum, bitOrdering, bitOrderingLen, maskBitString, maskOrdering, maskLen))
+	return toError(fnabs2SumArray(handle, sv, svDataType, nIndexBits, abs2sum, bitOrdering, bitOrderingLen, maskBitString, maskOrdering, maskLen), "custatevecAbs2SumArray")
 }
 
 // applyMatrix applies a gate matrix to a state vector in place.
@@ -130,7 +130,7 @@ func applyMatrix(handle Handle, sv uintptr, svDataType DataType, nIndexBits uint
 	if err := checkLibSym("custatevecApplyMatrix"); err != nil {
 		return err
 	}
-	return toError(fnapplyMatrix(handle, sv, svDataType, nIndexBits, matrix, matrixDataType, layout, adjoint, targets, nTargets, controls, controlBitValues, nControls, computeType, extraWorkspace, extraWorkspaceSizeInBytes))
+	return toError(fnapplyMatrix(handle, sv, svDataType, nIndexBits, matrix, matrixDataType, layout, adjoint, targets, nTargets, controls, controlBitValues, nControls, computeType, extraWorkspace, extraWorkspaceSizeInBytes), "custatevecApplyMatrix")
 }
 
 // applyMatrixGetWorkspaceSize returns the extra workspace size in bytes that a matching [Handle.ApplyMatrix] call needs.
@@ -161,7 +161,7 @@ func applyMatrixGetWorkspaceSize(handle Handle, svDataType DataType, nIndexBits 
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnapplyMatrixGetWorkspaceSize(handle, svDataType, nIndexBits, matrix, matrixDataType, layout, adjoint, nTargets, nControls, computeType, &out)); err != nil {
+	if err := toError(fnapplyMatrixGetWorkspaceSize(handle, svDataType, nIndexBits, matrix, matrixDataType, layout, adjoint, nTargets, nControls, computeType, &out), "custatevecApplyMatrixGetWorkspaceSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -182,7 +182,7 @@ func communicatorCreate(handle Handle, communicatorType CommunicatorType, soname
 		return zero, err
 	}
 	var out Communicator
-	if err := toError(fncommunicatorCreate(handle, &out, communicatorType, soname)); err != nil {
+	if err := toError(fncommunicatorCreate(handle, &out, communicatorType, soname), "custatevecCommunicatorCreate"); err != nil {
 		var zero Communicator
 		return zero, err
 	}
@@ -199,7 +199,7 @@ func communicatorDestroy(handle Handle, communicator Communicator) error {
 	if err := checkLibSym("custatevecCommunicatorDestroy"); err != nil {
 		return err
 	}
-	return toError(fncommunicatorDestroy(handle, communicator))
+	return toError(fncommunicatorDestroy(handle, communicator), "custatevecCommunicatorDestroy")
 }
 
 // computeExpectation computes the expectation value of an observable matrix.
@@ -251,7 +251,7 @@ func computeExpectation(handle Handle, sv uintptr, svDataType DataType, nIndexBi
 	if err := checkLibSym("custatevecComputeExpectation"); err != nil {
 		return err
 	}
-	return toError(fncomputeExpectation(handle, sv, svDataType, nIndexBits, expectationValue, expectationDataType, residualNorm, matrix, matrixDataType, layout, basisBits, nBasisBits, computeType, extraWorkspace, extraWorkspaceSizeInBytes))
+	return toError(fncomputeExpectation(handle, sv, svDataType, nIndexBits, expectationValue, expectationDataType, residualNorm, matrix, matrixDataType, layout, basisBits, nBasisBits, computeType, extraWorkspace, extraWorkspaceSizeInBytes), "custatevecComputeExpectation")
 }
 
 // computeExpectationGetWorkspaceSize returns the extra workspace size in bytes that a matching [Handle.ComputeExpectation] call needs.
@@ -279,7 +279,7 @@ func computeExpectationGetWorkspaceSize(handle Handle, svDataType DataType, nInd
 		return zero, err
 	}
 	var out uint
-	if err := toError(fncomputeExpectationGetWorkspaceSize(handle, svDataType, nIndexBits, matrix, matrixDataType, layout, nBasisBits, computeType, &out)); err != nil {
+	if err := toError(fncomputeExpectationGetWorkspaceSize(handle, svDataType, nIndexBits, matrix, matrixDataType, layout, nBasisBits, computeType, &out), "custatevecComputeExpectationGetWorkspaceSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -299,7 +299,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "custatevecCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -317,7 +317,7 @@ func destroy(handle Handle) error {
 	if err := checkLibSym("custatevecDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle))
+	return toError(fndestroy(handle), "custatevecDestroy")
 }
 
 // distIndexBitSwapSchedulerCreate [Create] distributed index bit swap scheduler.
@@ -334,7 +334,7 @@ func distIndexBitSwapSchedulerCreate(handle Handle, nGlobalIndexBits uint32, nLo
 		return zero, err
 	}
 	var out DistIndexBitSwapScheduler
-	if err := toError(fndistIndexBitSwapSchedulerCreate(handle, &out, nGlobalIndexBits, nLocalIndexBits)); err != nil {
+	if err := toError(fndistIndexBitSwapSchedulerCreate(handle, &out, nGlobalIndexBits, nLocalIndexBits), "custatevecDistIndexBitSwapSchedulerCreate"); err != nil {
 		var zero DistIndexBitSwapScheduler
 		return zero, err
 	}
@@ -351,7 +351,7 @@ func distIndexBitSwapSchedulerDestroy(handle Handle, scheduler DistIndexBitSwapS
 	if err := checkLibSym("custatevecDistIndexBitSwapSchedulerDestroy"); err != nil {
 		return err
 	}
-	return toError(fndistIndexBitSwapSchedulerDestroy(handle, scheduler))
+	return toError(fndistIndexBitSwapSchedulerDestroy(handle, scheduler), "custatevecDistIndexBitSwapSchedulerDestroy")
 }
 
 // distIndexBitSwapSchedulerGetParameters Get parameters to be set to the state vector swap worker
@@ -367,7 +367,7 @@ func distIndexBitSwapSchedulerGetParameters(handle Handle, scheduler DistIndexBi
 	if err := checkLibSym("custatevecDistIndexBitSwapSchedulerGetParameters"); err != nil {
 		return err
 	}
-	return toError(fndistIndexBitSwapSchedulerGetParameters(handle, scheduler, swapBatchIndex, orgSubSVIndex, parameters))
+	return toError(fndistIndexBitSwapSchedulerGetParameters(handle, scheduler, swapBatchIndex, orgSubSVIndex, parameters), "custatevecDistIndexBitSwapSchedulerGetParameters")
 }
 
 // distIndexBitSwapSchedulerSetIndexBitSwaps Set index bit swaps to distributed index bit swap scheduler.
@@ -388,7 +388,7 @@ func distIndexBitSwapSchedulerSetIndexBitSwaps(handle Handle, scheduler DistInde
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndistIndexBitSwapSchedulerSetIndexBitSwaps(handle, scheduler, indexBitSwaps, nIndexBitSwaps, maskBitString, maskOrdering, maskLen, &out)); err != nil {
+	if err := toError(fndistIndexBitSwapSchedulerSetIndexBitSwaps(handle, scheduler, indexBitSwaps, nIndexBitSwaps, maskBitString, maskOrdering, maskLen, &out), "custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -411,7 +411,7 @@ func getDefaultWorkspaceSize(handle Handle) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetDefaultWorkspaceSize(handle, &out)); err != nil {
+	if err := toError(fngetDefaultWorkspaceSize(handle, &out), "custatevecGetDefaultWorkspaceSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -432,7 +432,7 @@ func GetProperty(type_ PropertyType) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetProperty(type_, &out)); err != nil {
+	if err := toError(fnGetProperty(type_, &out), "custatevecGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -453,7 +453,7 @@ func getStream(handle Handle) (Stream, error) {
 		return zero, err
 	}
 	var out Stream
-	if err := toError(fngetStream(handle, &out)); err != nil {
+	if err := toError(fngetStream(handle, &out), "custatevecGetStream"); err != nil {
 		var zero Stream
 		return zero, err
 	}
@@ -489,7 +489,7 @@ func initializeStateVector(handle Handle, sv uintptr, svDataType DataType, nInde
 	if err := checkLibSym("custatevecInitializeStateVector"); err != nil {
 		return err
 	}
-	return toError(fninitializeStateVector(handle, sv, svDataType, nIndexBits, svType))
+	return toError(fninitializeStateVector(handle, sv, svDataType, nIndexBits, svType), "custatevecInitializeStateVector")
 }
 
 // measureOnZBasis measures a state vector on the Z basis and returns the parity of the measured bits.
@@ -525,7 +525,7 @@ func measureOnZBasis(handle Handle, sv uintptr, svDataType DataType, nIndexBits 
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnmeasureOnZBasis(handle, sv, svDataType, nIndexBits, &out, basisBits, nBasisBits, randnum, collapse)); err != nil {
+	if err := toError(fnmeasureOnZBasis(handle, sv, svDataType, nIndexBits, &out, basisBits, nBasisBits, randnum, collapse), "custatevecMeasureOnZBasis"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -553,7 +553,7 @@ func sVSwapWorkerCreate(handle Handle, communicator Communicator, orgSubSV uintp
 	var out0 SVSwapWorker
 	var out1 uint
 	var out2 uint
-	if err := toError(fnsVSwapWorkerCreate(handle, &out0, communicator, orgSubSV, orgSubSVIndex, orgEvent, svDataType, stream, &out1, &out2)); err != nil {
+	if err := toError(fnsVSwapWorkerCreate(handle, &out0, communicator, orgSubSV, orgSubSVIndex, orgEvent, svDataType, stream, &out1, &out2), "custatevecSVSwapWorkerCreate"); err != nil {
 		return *new(SVSwapWorker), 0, 0, err
 	}
 	return out0, out1, out2, nil
@@ -580,7 +580,7 @@ func sVSwapWorkerCreateWithSemaphore(handle Handle, communicator Communicator, o
 	var out0 SVSwapWorker
 	var out1 uint
 	var out2 uint
-	if err := toError(fnsVSwapWorkerCreateWithSemaphore(handle, &out0, communicator, orgSubSV, orgSubSVIndex, orgSemaphore, svDataType, stream, &out1, &out2)); err != nil {
+	if err := toError(fnsVSwapWorkerCreateWithSemaphore(handle, &out0, communicator, orgSubSV, orgSubSVIndex, orgSemaphore, svDataType, stream, &out1, &out2), "custatevecSVSwapWorkerCreateWithSemaphore"); err != nil {
 		return *new(SVSwapWorker), 0, 0, err
 	}
 	return out0, out1, out2, nil
@@ -596,7 +596,7 @@ func sVSwapWorkerDestroy(handle Handle, svSwapWorker SVSwapWorker) error {
 	if err := checkLibSym("custatevecSVSwapWorkerDestroy"); err != nil {
 		return err
 	}
-	return toError(fnsVSwapWorkerDestroy(handle, svSwapWorker))
+	return toError(fnsVSwapWorkerDestroy(handle, svSwapWorker), "custatevecSVSwapWorkerDestroy")
 }
 
 // sVSwapWorkerExecute Execute the data transfer.
@@ -611,7 +611,7 @@ func sVSwapWorkerExecute(handle Handle, svSwapWorker SVSwapWorker, begin Index, 
 	if err := checkLibSym("custatevecSVSwapWorkerExecute"); err != nil {
 		return err
 	}
-	return toError(fnsVSwapWorkerExecute(handle, svSwapWorker, begin, end))
+	return toError(fnsVSwapWorkerExecute(handle, svSwapWorker, begin, end), "custatevecSVSwapWorkerExecute")
 }
 
 // sVSwapWorkerSetExtraWorkspace Set extra workspace.
@@ -626,7 +626,7 @@ func sVSwapWorkerSetExtraWorkspace(handle Handle, svSwapWorker SVSwapWorker, ext
 	if err := checkLibSym("custatevecSVSwapWorkerSetExtraWorkspace"); err != nil {
 		return err
 	}
-	return toError(fnsVSwapWorkerSetExtraWorkspace(handle, svSwapWorker, extraWorkspace, extraWorkspaceSizeInBytes))
+	return toError(fnsVSwapWorkerSetExtraWorkspace(handle, svSwapWorker, extraWorkspace, extraWorkspaceSizeInBytes), "custatevecSVSwapWorkerSetExtraWorkspace")
 }
 
 // sVSwapWorkerSetParameters Set state vector swap parameters.
@@ -641,7 +641,7 @@ func sVSwapWorkerSetParameters(handle Handle, svSwapWorker SVSwapWorker, paramet
 	if err := checkLibSym("custatevecSVSwapWorkerSetParameters"); err != nil {
 		return err
 	}
-	return toError(fnsVSwapWorkerSetParameters(handle, svSwapWorker, parameters, peer))
+	return toError(fnsVSwapWorkerSetParameters(handle, svSwapWorker, parameters, peer), "custatevecSVSwapWorkerSetParameters")
 }
 
 // sVSwapWorkerSetSubSVsP2P Set sub state vector pointers accessible via GPUDirect P2P with CUDA IPC events
@@ -658,7 +658,7 @@ func sVSwapWorkerSetSubSVsP2P(handle Handle, svSwapWorker SVSwapWorker, dstSubSV
 	if err := checkLibSym("custatevecSVSwapWorkerSetSubSVsP2P"); err != nil {
 		return err
 	}
-	return toError(fnsVSwapWorkerSetSubSVsP2P(handle, svSwapWorker, dstSubSVsP2P, dstSubSVIndicesP2P, dstEvents, nDstSubSVsP2P))
+	return toError(fnsVSwapWorkerSetSubSVsP2P(handle, svSwapWorker, dstSubSVsP2P, dstSubSVIndicesP2P, dstEvents, nDstSubSVsP2P), "custatevecSVSwapWorkerSetSubSVsP2P")
 }
 
 // sVSwapWorkerSetSubSVsP2PWithSemaphores Set sub state vector pointers accessible via GPUDirect P2P with semaphores
@@ -675,7 +675,7 @@ func sVSwapWorkerSetSubSVsP2PWithSemaphores(handle Handle, svSwapWorker SVSwapWo
 	if err := checkLibSym("custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores"); err != nil {
 		return err
 	}
-	return toError(fnsVSwapWorkerSetSubSVsP2PWithSemaphores(handle, svSwapWorker, dstSubSVsP2P, dstSubSVIndicesP2P, dstSemaphores, nDstSubSVsP2P))
+	return toError(fnsVSwapWorkerSetSubSVsP2PWithSemaphores(handle, svSwapWorker, dstSubSVsP2P, dstSubSVIndicesP2P, dstSemaphores, nDstSubSVsP2P), "custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores")
 }
 
 // sVSwapWorkerSetTransferWorkspace Set transfer workspace.
@@ -690,7 +690,7 @@ func sVSwapWorkerSetTransferWorkspace(handle Handle, svSwapWorker SVSwapWorker, 
 	if err := checkLibSym("custatevecSVSwapWorkerSetTransferWorkspace"); err != nil {
 		return err
 	}
-	return toError(fnsVSwapWorkerSetTransferWorkspace(handle, svSwapWorker, transferWorkspace, transferWorkspaceSizeInBytes))
+	return toError(fnsVSwapWorkerSetTransferWorkspace(handle, svSwapWorker, transferWorkspace, transferWorkspaceSizeInBytes), "custatevecSVSwapWorkerSetTransferWorkspace")
 }
 
 // setStream binds the CUDA stream on which subsequent calls enqueue work.
@@ -705,7 +705,7 @@ func setStream(handle Handle, streamId Stream) error {
 	if err := checkLibSym("custatevecSetStream"); err != nil {
 		return err
 	}
-	return toError(fnsetStream(handle, streamId))
+	return toError(fnsetStream(handle, streamId), "custatevecSetStream")
 }
 
 // setWorkspace attaches caller-owned device memory as the handle's workspace.
@@ -731,5 +731,5 @@ func setWorkspace(handle Handle, workspace uintptr, workspaceSizeInBytes uint) e
 	if err := checkLibSym("custatevecSetWorkspace"); err != nil {
 		return err
 	}
-	return toError(fnsetWorkspace(handle, workspace, workspaceSizeInBytes))
+	return toError(fnsetWorkspace(handle, workspace, workspaceSizeInBytes), "custatevecSetWorkspace")
 }

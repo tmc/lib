@@ -98,7 +98,7 @@ func AllToAllMem(team Team, dest uintptr, src uintptr, nelems uint) error {
 	if err := checkLibSym("nvshmem_alltoallmem"); err != nil {
 		return err
 	}
-	return toError(fnAllToAllMem(team, dest, src, nelems))
+	return toError(fnAllToAllMem(team, dest, src, nelems), "nvshmem_alltoallmem")
 }
 
 // Barrier wraps nvshmem_barrier.
@@ -106,7 +106,7 @@ func Barrier(team Team) error {
 	if err := checkLibSym("nvshmem_barrier"); err != nil {
 		return err
 	}
-	return toError(fnBarrier(team))
+	return toError(fnBarrier(team), "nvshmem_barrier")
 }
 
 // BarrierAll wraps nvshmem_barrier_all.
@@ -123,7 +123,7 @@ func BroadcastMem(team Team, dest uintptr, src uintptr, nelems uint, pERoot int3
 	if err := checkLibSym("nvshmem_broadcastmem"); err != nil {
 		return err
 	}
-	return toError(fnBroadcastMem(team, dest, src, nelems, pERoot))
+	return toError(fnBroadcastMem(team, dest, src, nelems, pERoot), "nvshmem_broadcastmem")
 }
 
 // Calloc wraps nvshmem_calloc.
@@ -141,7 +141,7 @@ func FCollectMem(team Team, dest uintptr, src uintptr, nelems uint) error {
 	if err := checkLibSym("nvshmem_fcollectmem"); err != nil {
 		return err
 	}
-	return toError(fnFCollectMem(team, dest, src, nelems))
+	return toError(fnFCollectMem(team, dest, src, nelems), "nvshmem_fcollectmem")
 }
 
 // Fence wraps nvshmem_fence.
@@ -318,7 +318,7 @@ func TeamSplit2D(parentTeam Team, xrange int32, xaxisConfig *TeamConfig, xaxisMa
 	if err := checkLibSym("nvshmem_team_split_2d"); err != nil {
 		return err
 	}
-	return toError(fnTeamSplit2D(parentTeam, xrange, xaxisConfig, xaxisMask, xaxisTeam, yaxisConfig, yaxisMask, yaxisTeam))
+	return toError(fnTeamSplit2D(parentTeam, xrange, xaxisConfig, xaxisMask, xaxisTeam, yaxisConfig, yaxisMask, yaxisTeam), "nvshmem_team_split_2d")
 }
 
 // TeamSplitStrided wraps nvshmem_team_split_strided.
@@ -328,7 +328,7 @@ func TeamSplitStrided(parentTeam Team, pEStart int32, pEStride int32, pESize int
 		return zero, err
 	}
 	var out Team
-	if err := toError(fnTeamSplitStrided(parentTeam, pEStart, pEStride, pESize, config, configMask, &out)); err != nil {
+	if err := toError(fnTeamSplitStrided(parentTeam, pEStart, pEStride, pESize, config, configMask, &out), "nvshmem_team_split_strided"); err != nil {
 		var zero Team
 		return zero, err
 	}
@@ -340,7 +340,7 @@ func TeamSync(team Team) error {
 	if err := checkLibSym("nvshmem_team_sync"); err != nil {
 		return err
 	}
-	return toError(fnTeamSync(team))
+	return toError(fnTeamSync(team), "nvshmem_team_sync")
 }
 
 // TeamTranslatePE wraps nvshmem_team_translate_pe.
@@ -358,7 +358,7 @@ func AllToAllMemOnStream(team Team, dest uintptr, src uintptr, nelem uint, strea
 	if err := checkLibSym("nvshmemx_alltoallmem_on_stream"); err != nil {
 		return err
 	}
-	return toError(fnAllToAllMemOnStream(team, dest, src, nelem, stream))
+	return toError(fnAllToAllMemOnStream(team, dest, src, nelem, stream), "nvshmemx_alltoallmem_on_stream")
 }
 
 // BarrierAllOnStream wraps nvshmemx_barrier_all_on_stream.
@@ -375,7 +375,7 @@ func BarrierOnStream(team Team, stream driver.Stream) error {
 	if err := checkLibSym("nvshmemx_barrier_on_stream"); err != nil {
 		return err
 	}
-	return toError(fnBarrierOnStream(team, stream))
+	return toError(fnBarrierOnStream(team, stream), "nvshmemx_barrier_on_stream")
 }
 
 // BroadcastMemOnStream wraps nvshmemx_broadcastmem_on_stream.
@@ -383,7 +383,7 @@ func BroadcastMemOnStream(team Team, dest uintptr, src uintptr, nelem uint, pERo
 	if err := checkLibSym("nvshmemx_broadcastmem_on_stream"); err != nil {
 		return err
 	}
-	return toError(fnBroadcastMemOnStream(team, dest, src, nelem, pERoot, stream))
+	return toError(fnBroadcastMemOnStream(team, dest, src, nelem, pERoot, stream), "nvshmemx_broadcastmem_on_stream")
 }
 
 // BufferRegister wraps nvshmemx_buffer_register.
@@ -391,7 +391,7 @@ func BufferRegister(addr uintptr, length uint) error {
 	if err := checkLibSym("nvshmemx_buffer_register"); err != nil {
 		return err
 	}
-	return toError(fnBufferRegister(addr, length))
+	return toError(fnBufferRegister(addr, length), "nvshmemx_buffer_register")
 }
 
 // BufferRegisterSymmetric wraps nvshmemx_buffer_register_symmetric.
@@ -419,7 +419,7 @@ func BufferUnregister(addr uintptr) error {
 	if err := checkLibSym("nvshmemx_buffer_unregister"); err != nil {
 		return err
 	}
-	return toError(fnBufferUnregister(addr))
+	return toError(fnBufferUnregister(addr), "nvshmemx_buffer_unregister")
 }
 
 // BufferUnregisterAll wraps nvshmemx_buffer_unregister_all.
@@ -436,7 +436,7 @@ func BufferUnregisterSymmetric(mmapPtr uintptr, size uint) error {
 	if err := checkLibSym("nvshmemx_buffer_unregister_symmetric"); err != nil {
 		return err
 	}
-	return toError(fnBufferUnregisterSymmetric(mmapPtr, size))
+	return toError(fnBufferUnregisterSymmetric(mmapPtr, size), "nvshmemx_buffer_unregister_symmetric")
 }
 
 // CULibraryFinalize wraps nvshmemx_culibrary_finalize.
@@ -444,7 +444,7 @@ func CULibraryFinalize(library driver.Library) error {
 	if err := checkLibSym("nvshmemx_culibrary_finalize"); err != nil {
 		return err
 	}
-	return toError(fnCULibraryFinalize(library))
+	return toError(fnCULibraryFinalize(library), "nvshmemx_culibrary_finalize")
 }
 
 // CULibraryInit wraps nvshmemx_culibrary_init.
@@ -452,7 +452,7 @@ func CULibraryInit(library driver.Library) error {
 	if err := checkLibSym("nvshmemx_culibrary_init"); err != nil {
 		return err
 	}
-	return toError(fnCULibraryInit(library))
+	return toError(fnCULibraryInit(library), "nvshmemx_culibrary_init")
 }
 
 // CUModuleFinalize wraps nvshmemx_cumodule_finalize.
@@ -460,7 +460,7 @@ func CUModuleFinalize(module driver.Module) error {
 	if err := checkLibSym("nvshmemx_cumodule_finalize"); err != nil {
 		return err
 	}
-	return toError(fnCUModuleFinalize(module))
+	return toError(fnCUModuleFinalize(module), "nvshmemx_cumodule_finalize")
 }
 
 // CUModuleInit wraps nvshmemx_cumodule_init.
@@ -468,7 +468,7 @@ func CUModuleInit(module driver.Module) error {
 	if err := checkLibSym("nvshmemx_cumodule_init"); err != nil {
 		return err
 	}
-	return toError(fnCUModuleInit(module))
+	return toError(fnCUModuleInit(module), "nvshmemx_cumodule_init")
 }
 
 // FCollectMemOnStream wraps nvshmemx_fcollectmem_on_stream.
@@ -476,7 +476,7 @@ func FCollectMemOnStream(team Team, dest uintptr, src uintptr, nelem uint, strea
 	if err := checkLibSym("nvshmemx_fcollectmem_on_stream"); err != nil {
 		return err
 	}
-	return toError(fnFCollectMemOnStream(team, dest, src, nelem, stream))
+	return toError(fnFCollectMemOnStream(team, dest, src, nelem, stream), "nvshmemx_fcollectmem_on_stream")
 }
 
 // Flush wraps nvshmemx_flush.
@@ -504,7 +504,7 @@ func GetUniqueID() (UniqueID, error) {
 		return zero, err
 	}
 	var out UniqueID
-	if err := toError(fnGetUniqueID(&out)); err != nil {
+	if err := toError(fnGetUniqueID(&out), "nvshmemx_get_uniqueid"); err != nil {
 		var zero UniqueID
 		return zero, err
 	}
@@ -599,7 +599,7 @@ func SetAttrMPICommArgs(mpiComm uintptr, nvshmemAttr *InitAttr) error {
 	if err := checkLibSym("nvshmemx_set_attr_mpi_comm_args"); err != nil {
 		return err
 	}
-	return toError(fnSetAttrMPICommArgs(mpiComm, nvshmemAttr))
+	return toError(fnSetAttrMPICommArgs(mpiComm, nvshmemAttr), "nvshmemx_set_attr_mpi_comm_args")
 }
 
 // SetAttrUniqueIDArgs wraps nvshmemx_set_attr_uniqueid_args.
@@ -607,7 +607,7 @@ func SetAttrUniqueIDArgs(myrank int32, nranks int32, uniqueid *UniqueID, attr *I
 	if err := checkLibSym("nvshmemx_set_attr_uniqueid_args"); err != nil {
 		return err
 	}
-	return toError(fnSetAttrUniqueIDArgs(myrank, nranks, uniqueid, attr))
+	return toError(fnSetAttrUniqueIDArgs(myrank, nranks, uniqueid, attr), "nvshmemx_set_attr_uniqueid_args")
 }
 
 // SignalOpOnStream wraps nvshmemx_signal_op_on_stream.
@@ -644,7 +644,7 @@ func TeamGetUniqueID() (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnTeamGetUniqueID(&out)); err != nil {
+	if err := toError(fnTeamGetUniqueID(&out), "nvshmemx_team_get_uniqueid"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -656,7 +656,7 @@ func TeamInit(team *Team, config *TeamConfig, configMask int, npes int32, peIdxI
 	if err := checkLibSym("nvshmemx_team_init"); err != nil {
 		return err
 	}
-	return toError(fnTeamInit(team, config, configMask, npes, peIdxInTeam))
+	return toError(fnTeamInit(team, config, configMask, npes, peIdxInTeam), "nvshmemx_team_init")
 }
 
 // TeamSyncOnStream wraps nvshmemx_team_sync_on_stream.
@@ -664,5 +664,5 @@ func TeamSyncOnStream(team Team, stream driver.Stream) error {
 	if err := checkLibSym("nvshmemx_team_sync_on_stream"); err != nil {
 		return err
 	}
-	return toError(fnTeamSyncOnStream(team, stream))
+	return toError(fnTeamSyncOnStream(team, stream), "nvshmemx_team_sync_on_stream")
 }

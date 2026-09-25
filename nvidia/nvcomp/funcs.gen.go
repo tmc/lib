@@ -41,7 +41,7 @@ func CompressAsync(deviceUncompressedChunkPtrs DevicePointerArray, deviceUncompr
 	if err := checkLibSym("nvcompBatchedLZ4CompressAsync"); err != nil {
 		return err
 	}
-	return toError(fnCompressAsync(deviceUncompressedChunkPtrs, deviceUncompressedChunkBytes, maxUncompressedChunkBytes, numChunks, deviceTempPtr, tempBytes, deviceCompressedChunkPtrs, deviceCompressedChunkBytes, compressOpts, deviceStatuses, stream))
+	return toError(fnCompressAsync(deviceUncompressedChunkPtrs, deviceUncompressedChunkBytes, maxUncompressedChunkBytes, numChunks, deviceTempPtr, tempBytes, deviceCompressedChunkPtrs, deviceCompressedChunkBytes, compressOpts, deviceStatuses, stream), "nvcompBatchedLZ4CompressAsync")
 }
 
 // CompressGetMaxOutputChunkSize Get the maximum size that a chunk of size at most maxUncompressedChunkBytes could compress to.
@@ -56,7 +56,7 @@ func CompressGetMaxOutputChunkSize(maxUncompressedChunkBytes uint, compressOpts 
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnCompressGetMaxOutputChunkSize(maxUncompressedChunkBytes, compressOpts, &out)); err != nil {
+	if err := toError(fnCompressGetMaxOutputChunkSize(maxUncompressedChunkBytes, compressOpts, &out), "nvcompBatchedLZ4CompressGetMaxOutputChunkSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -74,7 +74,7 @@ func CompressGetRequiredAlignments(compressOpts CompressOpts) (AlignmentRequirem
 		return zero, err
 	}
 	var out AlignmentRequirements
-	if err := toError(fnCompressGetRequiredAlignments(compressOpts, &out)); err != nil {
+	if err := toError(fnCompressGetRequiredAlignments(compressOpts, &out), "nvcompBatchedLZ4CompressGetRequiredAlignments"); err != nil {
 		var zero AlignmentRequirements
 		return zero, err
 	}
@@ -97,7 +97,7 @@ func CompressGetTempSizeAsync(numChunks uint, maxUncompressedChunkBytes uint, co
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnCompressGetTempSizeAsync(numChunks, maxUncompressedChunkBytes, compressOpts, &out, maxTotalUncompressedBytes)); err != nil {
+	if err := toError(fnCompressGetTempSizeAsync(numChunks, maxUncompressedChunkBytes, compressOpts, &out, maxTotalUncompressedBytes), "nvcompBatchedLZ4CompressGetTempSizeAsync"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -123,7 +123,7 @@ func CompressGetTempSizeSync(deviceUncompressedChunkPtrs DevicePointerArray, dev
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnCompressGetTempSizeSync(deviceUncompressedChunkPtrs, deviceUncompressedChunkBytes, numChunks, maxUncompressedChunkBytes, compressOpts, &out, maxTotalUncompressedBytes, stream)); err != nil {
+	if err := toError(fnCompressGetTempSizeSync(deviceUncompressedChunkPtrs, deviceUncompressedChunkBytes, numChunks, maxUncompressedChunkBytes, compressOpts, &out, maxTotalUncompressedBytes, stream), "nvcompBatchedLZ4CompressGetTempSizeSync"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -153,7 +153,7 @@ func DecompressAsync(deviceCompressedChunkPtrs DevicePointerArray, deviceCompres
 	if err := checkLibSym("nvcompBatchedLZ4DecompressAsync"); err != nil {
 		return err
 	}
-	return toError(fnDecompressAsync(deviceCompressedChunkPtrs, deviceCompressedChunkBytes, deviceUncompressedBufferBytes, deviceUncompressedChunkBytes, numChunks, deviceTempPtr, tempBytes, deviceUncompressedChunkPtrs, decompressOpts, deviceStatuses, stream))
+	return toError(fnDecompressAsync(deviceCompressedChunkPtrs, deviceCompressedChunkBytes, deviceUncompressedBufferBytes, deviceUncompressedChunkBytes, numChunks, deviceTempPtr, tempBytes, deviceUncompressedChunkPtrs, decompressOpts, deviceStatuses, stream), "nvcompBatchedLZ4DecompressAsync")
 }
 
 // DecompressGetRequiredAlignments Get the minimum buffer alignment requirements for decompression.
@@ -167,7 +167,7 @@ func DecompressGetRequiredAlignments(decompressOpts DecompressOpts) (AlignmentRe
 		return zero, err
 	}
 	var out AlignmentRequirements
-	if err := toError(fnDecompressGetRequiredAlignments(decompressOpts, &out)); err != nil {
+	if err := toError(fnDecompressGetRequiredAlignments(decompressOpts, &out), "nvcompBatchedLZ4DecompressGetRequiredAlignments"); err != nil {
 		var zero AlignmentRequirements
 		return zero, err
 	}
@@ -190,7 +190,7 @@ func DecompressGetTempSizeAsync(numChunks uint, maxUncompressedChunkBytes uint, 
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnDecompressGetTempSizeAsync(numChunks, maxUncompressedChunkBytes, decompressOpts, &out, maxTotalUncompressedBytes)); err != nil {
+	if err := toError(fnDecompressGetTempSizeAsync(numChunks, maxUncompressedChunkBytes, decompressOpts, &out, maxTotalUncompressedBytes), "nvcompBatchedLZ4DecompressGetTempSizeAsync"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -217,7 +217,7 @@ func DecompressGetTempSizeSync(deviceCompressedChunkPtrs DevicePointerArray, dev
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnDecompressGetTempSizeSync(deviceCompressedChunkPtrs, deviceCompressedChunkBytes, numChunks, maxUncompressedChunkBytes, &out, maxTotalUncompressedBytes, decompressOpts, deviceStatuses, stream)); err != nil {
+	if err := toError(fnDecompressGetTempSizeSync(deviceCompressedChunkPtrs, deviceCompressedChunkBytes, numChunks, maxUncompressedChunkBytes, &out, maxTotalUncompressedBytes, decompressOpts, deviceStatuses, stream), "nvcompBatchedLZ4DecompressGetTempSizeSync"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -239,7 +239,7 @@ func GetDecompressSizeAsync(deviceCompressedChunkPtrs DevicePointerArray, device
 	if err := checkLibSym("nvcompBatchedLZ4GetDecompressSizeAsync"); err != nil {
 		return err
 	}
-	return toError(fnGetDecompressSizeAsync(deviceCompressedChunkPtrs, deviceCompressedChunkBytes, deviceUncompressedChunkBytes, numChunks, stream))
+	return toError(fnGetDecompressSizeAsync(deviceCompressedChunkPtrs, deviceCompressedChunkBytes, deviceUncompressedChunkBytes, numChunks, stream), "nvcompBatchedLZ4GetDecompressSizeAsync")
 }
 
 // GetProperties Retrieve the nvCOMP library properties.
@@ -251,7 +251,7 @@ func GetProperties() (Properties, error) {
 		return zero, err
 	}
 	var out Properties
-	if err := toError(fnGetProperties(&out)); err != nil {
+	if err := toError(fnGetProperties(&out), "nvcompGetProperties"); err != nil {
 		var zero Properties
 		return zero, err
 	}

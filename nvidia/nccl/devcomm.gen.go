@@ -21,7 +21,7 @@ func commQueryProperties(comm Comm, props *CommProperties) error {
 	if err := checkLibSym("ncclCommQueryProperties"); err != nil {
 		return err
 	}
-	return toError(fncommQueryProperties(comm, props))
+	return toError(fncommQueryProperties(comm, props), "ncclCommQueryProperties")
 }
 
 // devCommCreate wraps ncclDevCommCreate.
@@ -29,7 +29,7 @@ func devCommCreate(comm Comm, reqs *DevCommRequirements, outDevComm *DevComm) er
 	if err := checkLibSym("ncclDevCommCreate"); err != nil {
 		return err
 	}
-	return toError(fndevCommCreate(comm, reqs, outDevComm))
+	return toError(fndevCommCreate(comm, reqs, outDevComm), "ncclDevCommCreate")
 }
 
 // devCommDestroy wraps ncclDevCommDestroy.
@@ -37,7 +37,7 @@ func devCommDestroy(comm Comm, devComm *DevComm) error {
 	if err := checkLibSym("ncclDevCommDestroy"); err != nil {
 		return err
 	}
-	return toError(fndevCommDestroy(comm, devComm))
+	return toError(fndevCommDestroy(comm, devComm), "ncclDevCommDestroy")
 }
 
 // teamCft wraps ncclTeamCft.

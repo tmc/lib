@@ -218,7 +218,7 @@ func ActivityConfigurePCSampling(ctx Context, config *ActivityPCSamplingConfig) 
 	if err := checkLibSym("cuptiActivityConfigurePCSampling"); err != nil {
 		return err
 	}
-	return toError(fnActivityConfigurePCSampling(ctx, config))
+	return toError(fnActivityConfigurePCSampling(ctx, config), "cuptiActivityConfigurePCSampling")
 }
 
 // ActivityConfigureUnifiedMemoryCounter Set Unified Memory Counter configuration.
@@ -239,7 +239,7 @@ func ActivityConfigureUnifiedMemoryCounter(config *ActivityUnifiedMemoryCounterC
 	if err := checkLibSym("cuptiActivityConfigureUnifiedMemoryCounter"); err != nil {
 		return err
 	}
-	return toError(fnActivityConfigureUnifiedMemoryCounter(config, count))
+	return toError(fnActivityConfigureUnifiedMemoryCounter(config, count), "cuptiActivityConfigureUnifiedMemoryCounter")
 }
 
 // ActivityDisable Disable collection of a specific kind of activity record.
@@ -256,7 +256,7 @@ func ActivityDisable(kind ActivityKind) error {
 	if err := checkLibSym("cuptiActivityDisable"); err != nil {
 		return err
 	}
-	return toError(fnActivityDisable(kind))
+	return toError(fnActivityDisable(kind), "cuptiActivityDisable")
 }
 
 // ActivityDisableContext Disable collection of a specific kind of activity record for a context.
@@ -274,7 +274,7 @@ func ActivityDisableContext(context Context, kind ActivityKind) error {
 	if err := checkLibSym("cuptiActivityDisableContext"); err != nil {
 		return err
 	}
-	return toError(fnActivityDisableContext(context, kind))
+	return toError(fnActivityDisableContext(context, kind), "cuptiActivityDisableContext")
 }
 
 // activityDisableV2 Disable collection of a specific kind of activity record for the subscriber.
@@ -293,7 +293,7 @@ func activityDisableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig
 	if err := checkLibSym("cuptiActivityDisable_v2"); err != nil {
 		return err
 	}
-	return toError(fnactivityDisableV2(subscriber, kind, pActivityConfig))
+	return toError(fnactivityDisableV2(subscriber, kind, pActivityConfig), "cuptiActivityDisable_v2")
 }
 
 // ActivityEnable Enable collection of a specific kind of activity record.
@@ -311,7 +311,7 @@ func ActivityEnable(kind ActivityKind) error {
 	if err := checkLibSym("cuptiActivityEnable"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnable(kind))
+	return toError(fnActivityEnable(kind), "cuptiActivityEnable")
 }
 
 // ActivityEnableAllSyncRecords Enables collecting records for all synchronization operations.
@@ -329,7 +329,7 @@ func ActivityEnableAllSyncRecords(enable uint8) error {
 	if err := checkLibSym("cuptiActivityEnableAllSyncRecords"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableAllSyncRecords(enable))
+	return toError(fnActivityEnableAllSyncRecords(enable), "cuptiActivityEnableAllSyncRecords")
 }
 
 // ActivityEnableAllocationSource Enables tracking the source library for memory allocation requests.
@@ -347,7 +347,7 @@ func ActivityEnableAllocationSource(enable uint8) error {
 	if err := checkLibSym("cuptiActivityEnableAllocationSource"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableAllocationSource(enable))
+	return toError(fnActivityEnableAllocationSource(enable), "cuptiActivityEnableAllocationSource")
 }
 
 // ActivityEnableAndDump Enable collection of a specific kind of activity record.
@@ -366,7 +366,7 @@ func ActivityEnableAndDump(kind ActivityKind) error {
 	if err := checkLibSym("cuptiActivityEnableAndDump"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableAndDump(kind))
+	return toError(fnActivityEnableAndDump(kind), "cuptiActivityEnableAndDump")
 }
 
 // activityEnableAndDumpV2 Enable collection of a specific kind of activity record.
@@ -387,7 +387,7 @@ func activityEnableAndDumpV2(subscriber Subscriber, kind ActivityKind, activityC
 	if err := checkLibSym("cuptiActivityEnableAndDump_v2"); err != nil {
 		return err
 	}
-	return toError(fnactivityEnableAndDumpV2(subscriber, kind, activityConfig))
+	return toError(fnactivityEnableAndDumpV2(subscriber, kind, activityConfig), "cuptiActivityEnableAndDump_v2")
 }
 
 // ActivityEnableContext Enable collection of a specific kind of activity record for a context.
@@ -406,7 +406,7 @@ func ActivityEnableContext(context Context, kind ActivityKind) error {
 	if err := checkLibSym("cuptiActivityEnableContext"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableContext(context, kind))
+	return toError(fnActivityEnableContext(context, kind), "cuptiActivityEnableContext")
 }
 
 // ActivityEnableCudaEventDeviceTimestamps Enable/Disable collecting device timestamp for [ActivityKindCudaEvent] record.
@@ -424,7 +424,7 @@ func ActivityEnableCudaEventDeviceTimestamps(enable uint8) error {
 	if err := checkLibSym("cuptiActivityEnableCudaEventDeviceTimestamps"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableCudaEventDeviceTimestamps(enable))
+	return toError(fnActivityEnableCudaEventDeviceTimestamps(enable), "cuptiActivityEnableCudaEventDeviceTimestamps")
 }
 
 // ActivityEnableDeviceGraph Controls the collection of records for device launched graphs.
@@ -442,7 +442,7 @@ func ActivityEnableDeviceGraph(enable uint8) error {
 	if err := checkLibSym("cuptiActivityEnableDeviceGraph"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableDeviceGraph(enable))
+	return toError(fnActivityEnableDeviceGraph(enable), "cuptiActivityEnableDeviceGraph")
 }
 
 // ActivityEnableDriverApi Controls the collection of activity records for specific CUDA Driver APIs.
@@ -461,7 +461,7 @@ func ActivityEnableDriverApi(cbid uint32, enable uint8) error {
 	if err := checkLibSym("cuptiActivityEnableDriverApi"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableDriverApi(cbid, enable))
+	return toError(fnActivityEnableDriverApi(cbid, enable), "cuptiActivityEnableDriverApi")
 }
 
 // ActivityEnableHWTrace Enables CUDA kernel timestamp collection via Hardware Event System (HES).
@@ -478,7 +478,7 @@ func ActivityEnableHWTrace(enable uint8) error {
 	if err := checkLibSym("cuptiActivityEnableHWTrace"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableHWTrace(enable))
+	return toError(fnActivityEnableHWTrace(enable), "cuptiActivityEnableHWTrace")
 }
 
 // ActivityEnableLatencyTimestamps Controls the collection of queued and submitted timestamps for kernels.
@@ -496,7 +496,7 @@ func ActivityEnableLatencyTimestamps(enable uint8) error {
 	if err := checkLibSym("cuptiActivityEnableLatencyTimestamps"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableLatencyTimestamps(enable))
+	return toError(fnActivityEnableLatencyTimestamps(enable), "cuptiActivityEnableLatencyTimestamps")
 }
 
 // ActivityEnableLaunchAttributes Controls the collection of launch attributes for kernels.
@@ -510,7 +510,7 @@ func ActivityEnableLaunchAttributes(enable uint8) error {
 	if err := checkLibSym("cuptiActivityEnableLaunchAttributes"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableLaunchAttributes(enable))
+	return toError(fnActivityEnableLaunchAttributes(enable), "cuptiActivityEnableLaunchAttributes")
 }
 
 // ActivityEnableRuntimeApi Controls the collection of activity records for specific CUDA Runtime APIs.
@@ -529,7 +529,7 @@ func ActivityEnableRuntimeApi(cbid uint32, enable uint8) error {
 	if err := checkLibSym("cuptiActivityEnableRuntimeApi"); err != nil {
 		return err
 	}
-	return toError(fnActivityEnableRuntimeApi(cbid, enable))
+	return toError(fnActivityEnableRuntimeApi(cbid, enable), "cuptiActivityEnableRuntimeApi")
 }
 
 // activityEnableV2 Enable collection of a specific kind of activity record for the subscriber.
@@ -549,7 +549,7 @@ func activityEnableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig 
 	if err := checkLibSym("cuptiActivityEnable_v2"); err != nil {
 		return err
 	}
-	return toError(fnactivityEnableV2(subscriber, kind, pActivityConfig))
+	return toError(fnactivityEnableV2(subscriber, kind, pActivityConfig), "cuptiActivityEnable_v2")
 }
 
 // ActivityFlush Wait for all activity records to be delivered via the completion callback.
@@ -571,7 +571,7 @@ func ActivityFlush(context Context, streamId uint32, flag uint32) error {
 	if err := checkLibSym("cuptiActivityFlush"); err != nil {
 		return err
 	}
-	return toError(fnActivityFlush(context, streamId, flag))
+	return toError(fnActivityFlush(context, streamId, flag), "cuptiActivityFlush")
 }
 
 // ActivityFlushAll Request to deliver activity records via the buffer completion callback.
@@ -589,7 +589,7 @@ func ActivityFlushAll(flag uint32) error {
 	if err := checkLibSym("cuptiActivityFlushAll"); err != nil {
 		return err
 	}
-	return toError(fnActivityFlushAll(flag))
+	return toError(fnActivityFlushAll(flag), "cuptiActivityFlushAll")
 }
 
 // ActivityFlushPeriod Sets the flush period for the worker thread.
@@ -607,7 +607,7 @@ func ActivityFlushPeriod(time uint32) error {
 	if err := checkLibSym("cuptiActivityFlushPeriod"); err != nil {
 		return err
 	}
-	return toError(fnActivityFlushPeriod(time))
+	return toError(fnActivityFlushPeriod(time), "cuptiActivityFlushPeriod")
 }
 
 // ActivityGetAttribute Read an activity API attribute.
@@ -627,7 +627,7 @@ func ActivityGetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.
 	if err := checkLibSym("cuptiActivityGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnActivityGetAttribute(attr, valueSize, value))
+	return toError(fnActivityGetAttribute(attr, valueSize, value), "cuptiActivityGetAttribute")
 }
 
 // activityGetAttributeV2 Read an activity API attribute.
@@ -648,7 +648,7 @@ func activityGetAttributeV2(subscriber Subscriber, attr ActivityAttribute, value
 	if err := checkLibSym("cuptiActivityGetAttribute_v2"); err != nil {
 		return err
 	}
-	return toError(fnactivityGetAttributeV2(subscriber, attr, valueSize, value))
+	return toError(fnactivityGetAttributeV2(subscriber, attr, valueSize, value), "cuptiActivityGetAttribute_v2")
 }
 
 // activityGetEnabledKinds Get the enabled activity kinds for a subscriber.
@@ -669,7 +669,7 @@ func activityGetEnabledKinds(subscriber Subscriber, buffer *ActivityKind, buffer
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnactivityGetEnabledKinds(subscriber, buffer, bufferSize, &out)); err != nil {
+	if err := toError(fnactivityGetEnabledKinds(subscriber, buffer, bufferSize, &out), "cuptiActivityGetEnabledKinds"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -694,7 +694,7 @@ func ActivityGetNextRecord(buffer *uint8, validBufferSizeBytes uint, record **Ac
 	if err := checkLibSym("cuptiActivityGetNextRecord"); err != nil {
 		return err
 	}
-	return toError(fnActivityGetNextRecord(buffer, validBufferSizeBytes, record))
+	return toError(fnActivityGetNextRecord(buffer, validBufferSizeBytes, record), "cuptiActivityGetNextRecord")
 }
 
 // ActivityGetNumDroppedRecords Get the number of activity records that were dropped of insufficient buffer space.
@@ -714,7 +714,7 @@ func ActivityGetNumDroppedRecords(context Context, streamId uint32) (uint, error
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnActivityGetNumDroppedRecords(context, streamId, &out)); err != nil {
+	if err := toError(fnActivityGetNumDroppedRecords(context, streamId, &out), "cuptiActivityGetNumDroppedRecords"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -740,7 +740,7 @@ func ActivityGetStructSize(activityKind ActivityKind, version uint32) (uint, err
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnActivityGetStructSize(activityKind, version, &out)); err != nil {
+	if err := toError(fnActivityGetStructSize(activityKind, version, &out), "cuptiActivityGetStructSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -764,7 +764,7 @@ func ActivityPopExternalCorrelationId(kind ExternalCorrelationKind) (uint64, err
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnActivityPopExternalCorrelationId(kind, &out)); err != nil {
+	if err := toError(fnActivityPopExternalCorrelationId(kind, &out), "cuptiActivityPopExternalCorrelationId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -786,7 +786,7 @@ func ActivityPushExternalCorrelationId(kind ExternalCorrelationKind, id uint64) 
 	if err := checkLibSym("cuptiActivityPushExternalCorrelationId"); err != nil {
 		return err
 	}
-	return toError(fnActivityPushExternalCorrelationId(kind, id))
+	return toError(fnActivityPushExternalCorrelationId(kind, id), "cuptiActivityPushExternalCorrelationId")
 }
 
 // ActivityRegisterCallbacks Registers callback functions with CUPTI for activity buffer handling.
@@ -804,7 +804,7 @@ func ActivityRegisterCallbacks(funcBufferRequested uintptr, funcBufferCompleted 
 	if err := checkLibSym("cuptiActivityRegisterCallbacks"); err != nil {
 		return err
 	}
-	return toError(fnActivityRegisterCallbacks(funcBufferRequested, funcBufferCompleted))
+	return toError(fnActivityRegisterCallbacks(funcBufferRequested, funcBufferCompleted), "cuptiActivityRegisterCallbacks")
 }
 
 // activityRegisterCallbacksV2 Registers callback functions with CUPTI for activity buffer handling for the subscriber.
@@ -823,7 +823,7 @@ func activityRegisterCallbacksV2(subscriber Subscriber, funcBufferRequested uint
 	if err := checkLibSym("cuptiActivityRegisterCallbacks_v2"); err != nil {
 		return err
 	}
-	return toError(fnactivityRegisterCallbacksV2(subscriber, funcBufferRequested, funcBufferCompleted))
+	return toError(fnactivityRegisterCallbacksV2(subscriber, funcBufferRequested, funcBufferCompleted), "cuptiActivityRegisterCallbacks_v2")
 }
 
 // ActivityRegisterTimestampCallback Registers callback function with CUPTI for providing timestamp.
@@ -840,7 +840,7 @@ func ActivityRegisterTimestampCallback(funcTimestamp uintptr) error {
 	if err := checkLibSym("cuptiActivityRegisterTimestampCallback"); err != nil {
 		return err
 	}
-	return toError(fnActivityRegisterTimestampCallback(funcTimestamp))
+	return toError(fnActivityRegisterTimestampCallback(funcTimestamp), "cuptiActivityRegisterTimestampCallback")
 }
 
 // ActivitySetAttribute Write an activity API attribute.
@@ -861,7 +861,7 @@ func ActivitySetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.
 	if err := checkLibSym("cuptiActivitySetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnActivitySetAttribute(attr, valueSize, value))
+	return toError(fnActivitySetAttribute(attr, valueSize, value), "cuptiActivitySetAttribute")
 }
 
 // activitySetAttributeV2 Write an activity API attribute.
@@ -882,7 +882,7 @@ func activitySetAttributeV2(subscriber Subscriber, attr ActivityAttribute, value
 	if err := checkLibSym("cuptiActivitySetAttribute_v2"); err != nil {
 		return err
 	}
-	return toError(fnactivitySetAttributeV2(subscriber, attr, valueSize, value))
+	return toError(fnactivitySetAttributeV2(subscriber, attr, valueSize, value), "cuptiActivitySetAttribute_v2")
 }
 
 // CheckpointFree Free the backing data for a checkpoint.
@@ -903,7 +903,7 @@ func CheckpointFree(handle *Checkpoint) error {
 	if err := checkLibSym("cuptiCheckpointFree"); err != nil {
 		return err
 	}
-	return toError(fnCheckpointFree(handle))
+	return toError(fnCheckpointFree(handle), "cuptiCheckpointFree")
 }
 
 // CheckpointRestore Restore a checkpoint to the device associated with its context.
@@ -924,7 +924,7 @@ func CheckpointRestore(handle *Checkpoint) error {
 	if err := checkLibSym("cuptiCheckpointRestore"); err != nil {
 		return err
 	}
-	return toError(fnCheckpointRestore(handle))
+	return toError(fnCheckpointRestore(handle), "cuptiCheckpointRestore")
 }
 
 // CheckpointSave Initialize and save a checkpoint of the device state associated with the handle context.
@@ -946,7 +946,7 @@ func CheckpointSave(handle *Checkpoint) error {
 	if err := checkLibSym("cuptiCheckpointSave"); err != nil {
 		return err
 	}
-	return toError(fnCheckpointSave(handle))
+	return toError(fnCheckpointSave(handle), "cuptiCheckpointSave")
 }
 
 // ComputeCapabilitySupported Check support for a compute capability.
@@ -968,7 +968,7 @@ func ComputeCapabilitySupported(major int32, minor int32) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnComputeCapabilitySupported(major, minor, &out)); err != nil {
+	if err := toError(fnComputeCapabilitySupported(major, minor, &out), "cuptiComputeCapabilitySupported"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -999,7 +999,7 @@ func DeviceEnumEventDomains(device Device, arraySizeBytes *uint, domainArray *ui
 	if err := checkLibSym("cuptiDeviceEnumEventDomains"); err != nil {
 		return err
 	}
-	return toError(fnDeviceEnumEventDomains(device, arraySizeBytes, domainArray))
+	return toError(fnDeviceEnumEventDomains(device, arraySizeBytes, domainArray), "cuptiDeviceEnumEventDomains")
 }
 
 // DeviceEnumMetrics Get the metrics for a device.
@@ -1028,7 +1028,7 @@ func DeviceEnumMetrics(device Device, arraySizeBytes *uint, metricArray *uint32)
 	if err := checkLibSym("cuptiDeviceEnumMetrics"); err != nil {
 		return err
 	}
-	return toError(fnDeviceEnumMetrics(device, arraySizeBytes, metricArray))
+	return toError(fnDeviceEnumMetrics(device, arraySizeBytes, metricArray), "cuptiDeviceEnumMetrics")
 }
 
 // DeviceGetAttribute Read a device attribute.
@@ -1054,7 +1054,7 @@ func DeviceGetAttribute(device Device, attrib DeviceAttribute, valueSize *uint, 
 	if err := checkLibSym("cuptiDeviceGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnDeviceGetAttribute(device, attrib, valueSize, value))
+	return toError(fnDeviceGetAttribute(device, attrib, valueSize, value), "cuptiDeviceGetAttribute")
 }
 
 // DeviceGetChipName wraps cuptiDeviceGetChipName.
@@ -1062,7 +1062,7 @@ func DeviceGetChipName(pParams *DeviceGetChipNameParams) error {
 	if err := checkLibSym("cuptiDeviceGetChipName"); err != nil {
 		return err
 	}
-	return toError(fnDeviceGetChipName(pParams))
+	return toError(fnDeviceGetChipName(pParams), "cuptiDeviceGetChipName")
 }
 
 // DeviceGetEventDomainAttribute Read an event domain attribute.
@@ -1093,7 +1093,7 @@ func DeviceGetEventDomainAttribute(device Device, eventDomain uint32, attrib Eve
 	if err := checkLibSym("cuptiDeviceGetEventDomainAttribute"); err != nil {
 		return err
 	}
-	return toError(fnDeviceGetEventDomainAttribute(device, eventDomain, attrib, valueSize, value))
+	return toError(fnDeviceGetEventDomainAttribute(device, eventDomain, attrib, valueSize, value), "cuptiDeviceGetEventDomainAttribute")
 }
 
 // DeviceGetNumEventDomains Get the number of domains for a device.
@@ -1117,7 +1117,7 @@ func DeviceGetNumEventDomains(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnDeviceGetNumEventDomains(device, &out)); err != nil {
+	if err := toError(fnDeviceGetNumEventDomains(device, &out), "cuptiDeviceGetNumEventDomains"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1145,7 +1145,7 @@ func DeviceGetNumMetrics(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnDeviceGetNumMetrics(device, &out)); err != nil {
+	if err := toError(fnDeviceGetNumMetrics(device, &out), "cuptiDeviceGetNumMetrics"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1171,7 +1171,7 @@ func DeviceSupported(dev Device) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnDeviceSupported(dev, &out)); err != nil {
+	if err := toError(fnDeviceSupported(dev, &out), "cuptiDeviceSupported"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1194,7 +1194,7 @@ func DeviceVirtualizationMode(dev Device, mode *VirtualizationMode) error {
 	if err := checkLibSym("cuptiDeviceVirtualizationMode"); err != nil {
 		return err
 	}
-	return toError(fnDeviceVirtualizationMode(dev, mode))
+	return toError(fnDeviceVirtualizationMode(dev, mode), "cuptiDeviceVirtualizationMode")
 }
 
 // DisableKernelReplayMode Disable kernel replay mode.
@@ -1216,7 +1216,7 @@ func DisableKernelReplayMode(context Context) error {
 	if err := checkLibSym("cuptiDisableKernelReplayMode"); err != nil {
 		return err
 	}
-	return toError(fnDisableKernelReplayMode(context))
+	return toError(fnDisableKernelReplayMode(context), "cuptiDisableKernelReplayMode")
 }
 
 // enableAllDomains Enable or disable all callbacks in all domains.
@@ -1236,7 +1236,7 @@ func enableAllDomains(enable uint32, subscriber Subscriber) error {
 	if err := checkLibSym("cuptiEnableAllDomains"); err != nil {
 		return err
 	}
-	return toError(fnenableAllDomains(enable, subscriber))
+	return toError(fnenableAllDomains(enable, subscriber), "cuptiEnableAllDomains")
 }
 
 // enableCallback Enable or disabled callbacks for a specific domain and callback ID.
@@ -1258,7 +1258,7 @@ func enableCallback(enable uint32, subscriber Subscriber, domain CallbackDomain,
 	if err := checkLibSym("cuptiEnableCallback"); err != nil {
 		return err
 	}
-	return toError(fnenableCallback(enable, subscriber, domain, cbid))
+	return toError(fnenableCallback(enable, subscriber, domain, cbid), "cuptiEnableCallback")
 }
 
 // enableDomain Enable or disabled all callbacks for a specific domain.
@@ -1279,7 +1279,7 @@ func enableDomain(enable uint32, subscriber Subscriber, domain CallbackDomain) e
 	if err := checkLibSym("cuptiEnableDomain"); err != nil {
 		return err
 	}
-	return toError(fnenableDomain(enable, subscriber, domain))
+	return toError(fnenableDomain(enable, subscriber, domain), "cuptiEnableDomain")
 }
 
 // EnableKernelReplayMode Enable kernel replay mode.
@@ -1302,7 +1302,7 @@ func EnableKernelReplayMode(context Context) error {
 	if err := checkLibSym("cuptiEnableKernelReplayMode"); err != nil {
 		return err
 	}
-	return toError(fnEnableKernelReplayMode(context))
+	return toError(fnEnableKernelReplayMode(context), "cuptiEnableKernelReplayMode")
 }
 
 // EnumEventDomains Get the event domains available on any device.
@@ -1326,7 +1326,7 @@ func EnumEventDomains(arraySizeBytes *uint, domainArray *uint32) error {
 	if err := checkLibSym("cuptiEnumEventDomains"); err != nil {
 		return err
 	}
-	return toError(fnEnumEventDomains(arraySizeBytes, domainArray))
+	return toError(fnEnumEventDomains(arraySizeBytes, domainArray), "cuptiEnumEventDomains")
 }
 
 // EnumMetrics Get all the metrics available on any device.
@@ -1351,7 +1351,7 @@ func EnumMetrics(arraySizeBytes *uint, metricArray *uint32) error {
 	if err := checkLibSym("cuptiEnumMetrics"); err != nil {
 		return err
 	}
-	return toError(fnEnumMetrics(arraySizeBytes, metricArray))
+	return toError(fnEnumMetrics(arraySizeBytes, metricArray), "cuptiEnumMetrics")
 }
 
 // EventDomainEnumEvents Get the events in a domain.
@@ -1380,7 +1380,7 @@ func EventDomainEnumEvents(eventDomain uint32, arraySizeBytes *uint, eventArray 
 	if err := checkLibSym("cuptiEventDomainEnumEvents"); err != nil {
 		return err
 	}
-	return toError(fnEventDomainEnumEvents(eventDomain, arraySizeBytes, eventArray))
+	return toError(fnEventDomainEnumEvents(eventDomain, arraySizeBytes, eventArray), "cuptiEventDomainEnumEvents")
 }
 
 // EventDomainGetAttribute Read an event domain attribute.
@@ -1407,7 +1407,7 @@ func EventDomainGetAttribute(eventDomain uint32, attrib EventDomainAttribute, va
 	if err := checkLibSym("cuptiEventDomainGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnEventDomainGetAttribute(eventDomain, attrib, valueSize, value))
+	return toError(fnEventDomainGetAttribute(eventDomain, attrib, valueSize, value), "cuptiEventDomainGetAttribute")
 }
 
 // EventDomainGetNumEvents Get number of events in a domain.
@@ -1431,7 +1431,7 @@ func EventDomainGetNumEvents(eventDomain uint32) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnEventDomainGetNumEvents(eventDomain, &out)); err != nil {
+	if err := toError(fnEventDomainGetNumEvents(eventDomain, &out), "cuptiEventDomainGetNumEvents"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1464,7 +1464,7 @@ func EventGetAttribute(event uint32, attrib EventAttribute, valueSize *uint, val
 	if err := checkLibSym("cuptiEventGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnEventGetAttribute(event, attrib, valueSize, value))
+	return toError(fnEventGetAttribute(event, attrib, valueSize, value), "cuptiEventGetAttribute")
 }
 
 // EventGetIdFromName Find an event by name.
@@ -1490,7 +1490,7 @@ func EventGetIdFromName(device Device, eventName string) (uint32, error) {
 	}
 	cstr_eventName := append([]byte(eventName), 0)
 	var out uint32
-	if err := toError(fnEventGetIdFromName(device, &cstr_eventName[0], &out)); err != nil {
+	if err := toError(fnEventGetIdFromName(device, &cstr_eventName[0], &out), "cuptiEventGetIdFromName"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -1525,7 +1525,7 @@ func eventGroupAddEvent(eventGroup EventGroup, event uint32) error {
 	if err := checkLibSym("cuptiEventGroupAddEvent"); err != nil {
 		return err
 	}
-	return toError(fneventGroupAddEvent(eventGroup, event))
+	return toError(fneventGroupAddEvent(eventGroup, event), "cuptiEventGroupAddEvent")
 }
 
 // eventGroupCreate Create a new event group for a context.
@@ -1552,7 +1552,7 @@ func eventGroupCreate(context Context, flags uint32) (EventGroup, error) {
 		return zero, err
 	}
 	var out EventGroup
-	if err := toError(fneventGroupCreate(context, &out, flags)); err != nil {
+	if err := toError(fneventGroupCreate(context, &out, flags), "cuptiEventGroupCreate"); err != nil {
 		var zero EventGroup
 		return zero, err
 	}
@@ -1579,7 +1579,7 @@ func eventGroupDestroy(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupDestroy"); err != nil {
 		return err
 	}
-	return toError(fneventGroupDestroy(eventGroup))
+	return toError(fneventGroupDestroy(eventGroup), "cuptiEventGroupDestroy")
 }
 
 // eventGroupDisable Disable an event group.
@@ -1602,7 +1602,7 @@ func eventGroupDisable(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupDisable"); err != nil {
 		return err
 	}
-	return toError(fneventGroupDisable(eventGroup))
+	return toError(fneventGroupDisable(eventGroup), "cuptiEventGroupDisable")
 }
 
 // eventGroupEnable Enable an event group.
@@ -1629,7 +1629,7 @@ func eventGroupEnable(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupEnable"); err != nil {
 		return err
 	}
-	return toError(fneventGroupEnable(eventGroup))
+	return toError(fneventGroupEnable(eventGroup), "cuptiEventGroupEnable")
 }
 
 // eventGroupGetAttribute Read an event group attribute.
@@ -1660,7 +1660,7 @@ func eventGroupGetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, v
 	if err := checkLibSym("cuptiEventGroupGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fneventGroupGetAttribute(eventGroup, attrib, valueSize, value))
+	return toError(fneventGroupGetAttribute(eventGroup, attrib, valueSize, value), "cuptiEventGroupGetAttribute")
 }
 
 // eventGroupReadAllEvents Read the values for all the events in an event group.
@@ -1723,7 +1723,7 @@ func eventGroupReadAllEvents(eventGroup EventGroup, flags ReadEventFlags, eventV
 		return zero, err
 	}
 	var out uint
-	if err := toError(fneventGroupReadAllEvents(eventGroup, flags, eventValueBufferSizeBytes, eventValueBuffer, eventIdArraySizeBytes, eventIdArray, &out)); err != nil {
+	if err := toError(fneventGroupReadAllEvents(eventGroup, flags, eventValueBufferSizeBytes, eventValueBuffer, eventIdArraySizeBytes, eventIdArray, &out), "cuptiEventGroupReadAllEvents"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1778,7 +1778,7 @@ func eventGroupReadEvent(eventGroup EventGroup, flags ReadEventFlags, event uint
 	if err := checkLibSym("cuptiEventGroupReadEvent"); err != nil {
 		return err
 	}
-	return toError(fneventGroupReadEvent(eventGroup, flags, event, eventValueBufferSizeBytes, eventValueBuffer))
+	return toError(fneventGroupReadEvent(eventGroup, flags, event, eventValueBufferSizeBytes, eventValueBuffer), "cuptiEventGroupReadEvent")
 }
 
 // eventGroupRemoveAllEvents Remove all events from an event group.
@@ -1801,7 +1801,7 @@ func eventGroupRemoveAllEvents(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupRemoveAllEvents"); err != nil {
 		return err
 	}
-	return toError(fneventGroupRemoveAllEvents(eventGroup))
+	return toError(fneventGroupRemoveAllEvents(eventGroup), "cuptiEventGroupRemoveAllEvents")
 }
 
 // eventGroupRemoveEvent Remove an event from an event group.
@@ -1826,7 +1826,7 @@ func eventGroupRemoveEvent(eventGroup EventGroup, event uint32) error {
 	if err := checkLibSym("cuptiEventGroupRemoveEvent"); err != nil {
 		return err
 	}
-	return toError(fneventGroupRemoveEvent(eventGroup, event))
+	return toError(fneventGroupRemoveEvent(eventGroup, event), "cuptiEventGroupRemoveEvent")
 }
 
 // eventGroupResetAllEvents Zero all the event counts in an event group.
@@ -1853,7 +1853,7 @@ func eventGroupResetAllEvents(eventGroup EventGroup) error {
 	if err := checkLibSym("cuptiEventGroupResetAllEvents"); err != nil {
 		return err
 	}
-	return toError(fneventGroupResetAllEvents(eventGroup))
+	return toError(fneventGroupResetAllEvents(eventGroup), "cuptiEventGroupResetAllEvents")
 }
 
 // eventGroupSetAttribute Write an event group attribute.
@@ -1876,7 +1876,7 @@ func eventGroupSetAttribute(eventGroup EventGroup, attrib EventGroupAttribute, v
 	if err := checkLibSym("cuptiEventGroupSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fneventGroupSetAttribute(eventGroup, attrib, valueSize, value))
+	return toError(fneventGroupSetAttribute(eventGroup, attrib, valueSize, value), "cuptiEventGroupSetAttribute")
 }
 
 // EventGroupSetDisable Disable an event group set.
@@ -1900,7 +1900,7 @@ func EventGroupSetDisable(eventGroupSet *EventGroupSet) error {
 	if err := checkLibSym("cuptiEventGroupSetDisable"); err != nil {
 		return err
 	}
-	return toError(fnEventGroupSetDisable(eventGroupSet))
+	return toError(fnEventGroupSetDisable(eventGroupSet), "cuptiEventGroupSetDisable")
 }
 
 // EventGroupSetEnable Enable an event group set.
@@ -1926,7 +1926,7 @@ func EventGroupSetEnable(eventGroupSet *EventGroupSet) error {
 	if err := checkLibSym("cuptiEventGroupSetEnable"); err != nil {
 		return err
 	}
-	return toError(fnEventGroupSetEnable(eventGroupSet))
+	return toError(fnEventGroupSetEnable(eventGroupSet), "cuptiEventGroupSetEnable")
 }
 
 // EventGroupSetsCreate For a set of events, get the grouping that indicates the number of passes and the event groups necessary to collect the events.
@@ -1963,7 +1963,7 @@ func EventGroupSetsCreate(context Context, eventIdArraySizeBytes uint, eventIdAr
 		return nil, err
 	}
 	var out3 *EventGroupSets
-	if err := toError(fnEventGroupSetsCreate(context, eventIdArraySizeBytes, eventIdArray, &out3)); err != nil {
+	if err := toError(fnEventGroupSetsCreate(context, eventIdArraySizeBytes, eventIdArray, &out3), "cuptiEventGroupSetsCreate"); err != nil {
 		return nil, err
 	}
 	return out3, nil
@@ -1988,7 +1988,7 @@ func EventGroupSetsDestroy(eventGroupSets *EventGroupSets) error {
 	if err := checkLibSym("cuptiEventGroupSetsDestroy"); err != nil {
 		return err
 	}
-	return toError(fnEventGroupSetsDestroy(eventGroupSets))
+	return toError(fnEventGroupSetsDestroy(eventGroupSets), "cuptiEventGroupSetsDestroy")
 }
 
 // Finalize Detach CUPTI from the running process.
@@ -2000,7 +2000,7 @@ func Finalize() error {
 	if err := checkLibSym("cuptiFinalize"); err != nil {
 		return err
 	}
-	return toError(fnFinalize())
+	return toError(fnFinalize(), "cuptiFinalize")
 }
 
 // GetAutoBoostState Get auto boost state.
@@ -2020,7 +2020,7 @@ func GetAutoBoostState(context Context, state *ActivityAutoBoostState) error {
 	if err := checkLibSym("cuptiGetAutoBoostState"); err != nil {
 		return err
 	}
-	return toError(fnGetAutoBoostState(context, state))
+	return toError(fnGetAutoBoostState(context, state), "cuptiGetAutoBoostState")
 }
 
 // GetCallbackName Get the name of a callback for a specific domain and callback ID.
@@ -2042,7 +2042,7 @@ func GetCallbackName(domain CallbackDomain, cbid uint32) (string, error) {
 	}
 	var p *byte
 	r := fnGetCallbackName(domain, cbid, &p)
-	if err := toError(r); err != nil {
+	if err := toError(r, "cuptiGetCallbackName"); err != nil {
 		return "", err
 	}
 	return goString(p), nil
@@ -2068,7 +2068,7 @@ func getCallbackState(subscriber Subscriber, domain CallbackDomain, cbid uint32)
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fngetCallbackState(&out, subscriber, domain, cbid)); err != nil {
+	if err := toError(fngetCallbackState(&out, subscriber, domain, cbid), "cuptiGetCallbackState"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2090,7 +2090,7 @@ func GetContextId(context Context) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetContextId(context, &out)); err != nil {
+	if err := toError(fnGetContextId(context, &out), "cuptiGetContextId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2111,7 +2111,7 @@ func GetCubinCrc(pParams *GetCubinCrcParams) error {
 	if err := checkLibSym("cuptiGetCubinCrc"); err != nil {
 		return err
 	}
-	return toError(fnGetCubinCrc(pParams))
+	return toError(fnGetCubinCrc(pParams), "cuptiGetCubinCrc")
 }
 
 // GetDeviceId Get the ID of a device.
@@ -2131,7 +2131,7 @@ func GetDeviceId(context Context) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetDeviceId(context, &out)); err != nil {
+	if err := toError(fnGetDeviceId(context, &out), "cuptiGetDeviceId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2157,7 +2157,7 @@ func getEnabledCallbacks(subscriber Subscriber, domain CallbackDomain, buffer *u
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fngetEnabledCallbacks(subscriber, domain, buffer, bufferSize, &out)); err != nil {
+	if err := toError(fngetEnabledCallbacks(subscriber, domain, buffer, bufferSize, &out), "cuptiGetEnabledCallbacks"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2180,7 +2180,7 @@ func GetGraphExecId(graphExec GraphExec) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetGraphExecId(graphExec, &out)); err != nil {
+	if err := toError(fnGetGraphExecId(graphExec, &out), "cuptiGetGraphExecId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2203,7 +2203,7 @@ func GetGraphId(graph Graph) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetGraphId(graph, &out)); err != nil {
+	if err := toError(fnGetGraphId(graph, &out), "cuptiGetGraphId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2226,7 +2226,7 @@ func GetGraphNodeId(node GraphNode) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnGetGraphNodeId(node, &out)); err != nil {
+	if err := toError(fnGetGraphNodeId(node, &out), "cuptiGetGraphNodeId"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -2242,7 +2242,7 @@ func GetLastError() error {
 	if err := checkLibSym("cuptiGetLastError"); err != nil {
 		return err
 	}
-	return toError(fnGetLastError())
+	return toError(fnGetLastError(), "cuptiGetLastError")
 }
 
 // GetNumEventDomains Get the number of event domains available on any device.
@@ -2263,7 +2263,7 @@ func GetNumEventDomains() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetNumEventDomains(&out)); err != nil {
+	if err := toError(fnGetNumEventDomains(&out), "cuptiGetNumEventDomains"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2288,7 +2288,7 @@ func GetNumMetrics() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetNumMetrics(&out)); err != nil {
+	if err := toError(fnGetNumMetrics(&out), "cuptiGetNumMetrics"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2311,7 +2311,7 @@ func GetSassToSourceCorrelation(pParams *GetSassToSourceCorrelationParams) error
 	if err := checkLibSym("cuptiGetSassToSourceCorrelation"); err != nil {
 		return err
 	}
-	return toError(fnGetSassToSourceCorrelation(pParams))
+	return toError(fnGetSassToSourceCorrelation(pParams), "cuptiGetSassToSourceCorrelation")
 }
 
 // GetStreamId Get the ID of a stream.
@@ -2334,7 +2334,7 @@ func GetStreamId(context Context, stream Stream) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetStreamId(context, stream, &out)); err != nil {
+	if err := toError(fnGetStreamId(context, stream, &out), "cuptiGetStreamId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2360,7 +2360,7 @@ func GetStreamIdEx(context Context, stream Stream, perThreadStream uint8) (uint3
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetStreamIdEx(context, stream, perThreadStream, &out)); err != nil {
+	if err := toError(fnGetStreamIdEx(context, stream, perThreadStream, &out), "cuptiGetStreamIdEx"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2379,7 +2379,7 @@ func GetThreadIdType(type_ *ActivityThreadIdType) error {
 	if err := checkLibSym("cuptiGetThreadIdType"); err != nil {
 		return err
 	}
-	return toError(fnGetThreadIdType(type_))
+	return toError(fnGetThreadIdType(type_), "cuptiGetThreadIdType")
 }
 
 // GetTimestamp Get the CUPTI timestamp.
@@ -2396,7 +2396,7 @@ func GetTimestamp() (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnGetTimestamp(&out)); err != nil {
+	if err := toError(fnGetTimestamp(&out), "cuptiGetTimestamp"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -2418,7 +2418,7 @@ func GetVersion() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetVersion(&out)); err != nil {
+	if err := toError(fnGetVersion(&out), "cuptiGetVersion"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2440,7 +2440,7 @@ func IsTracingSessionRunning() (uint8, error) {
 		return zero, err
 	}
 	var out uint8
-	if err := toError(fnIsTracingSessionRunning(&out)); err != nil {
+	if err := toError(fnIsTracingSessionRunning(&out), "cuptiIsTracingSessionRunning"); err != nil {
 		var zero uint8
 		return zero, err
 	}
@@ -2467,7 +2467,7 @@ func KernelReplaySubscribeUpdate(updateFunc uintptr, customData uintptr) error {
 	if err := checkLibSym("cuptiKernelReplaySubscribeUpdate"); err != nil {
 		return err
 	}
-	return toError(fnKernelReplaySubscribeUpdate(updateFunc, customData))
+	return toError(fnKernelReplaySubscribeUpdate(updateFunc, customData), "cuptiKernelReplaySubscribeUpdate")
 }
 
 // MetricCreateEventGroupSets For a set of metrics, get the grouping that indicates the number of passes and the event groups necessary to collect the events required for those metrics.
@@ -2498,7 +2498,7 @@ func MetricCreateEventGroupSets(context Context, metricIdArraySizeBytes uint, me
 		return nil, err
 	}
 	var out3 *EventGroupSets
-	if err := toError(fnMetricCreateEventGroupSets(context, metricIdArraySizeBytes, metricIdArray, &out3)); err != nil {
+	if err := toError(fnMetricCreateEventGroupSets(context, metricIdArraySizeBytes, metricIdArray, &out3), "cuptiMetricCreateEventGroupSets"); err != nil {
 		return nil, err
 	}
 	return out3, nil
@@ -2528,7 +2528,7 @@ func MetricEnumEvents(metric uint32, eventIdArraySizeBytes *uint, eventIdArray *
 	if err := checkLibSym("cuptiMetricEnumEvents"); err != nil {
 		return err
 	}
-	return toError(fnMetricEnumEvents(metric, eventIdArraySizeBytes, eventIdArray))
+	return toError(fnMetricEnumEvents(metric, eventIdArraySizeBytes, eventIdArray), "cuptiMetricEnumEvents")
 }
 
 // MetricEnumProperties Get the properties required to calculating a metric.
@@ -2555,7 +2555,7 @@ func MetricEnumProperties(metric uint32, propIdArraySizeBytes *uint, propIdArray
 	if err := checkLibSym("cuptiMetricEnumProperties"); err != nil {
 		return err
 	}
-	return toError(fnMetricEnumProperties(metric, propIdArraySizeBytes, propIdArray))
+	return toError(fnMetricEnumProperties(metric, propIdArraySizeBytes, propIdArray), "cuptiMetricEnumProperties")
 }
 
 // MetricGetAttribute Get a metric attribute.
@@ -2584,7 +2584,7 @@ func MetricGetAttribute(metric uint32, attrib MetricAttribute, valueSize *uint, 
 	if err := checkLibSym("cuptiMetricGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnMetricGetAttribute(metric, attrib, valueSize, value))
+	return toError(fnMetricGetAttribute(metric, attrib, valueSize, value), "cuptiMetricGetAttribute")
 }
 
 // MetricGetIdFromName Find an metric by name.
@@ -2610,7 +2610,7 @@ func MetricGetIdFromName(device Device, metricName string) (uint32, error) {
 	}
 	cstr_metricName := append([]byte(metricName), 0)
 	var out uint32
-	if err := toError(fnMetricGetIdFromName(device, &cstr_metricName[0], &out)); err != nil {
+	if err := toError(fnMetricGetIdFromName(device, &cstr_metricName[0], &out), "cuptiMetricGetIdFromName"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -2638,7 +2638,7 @@ func MetricGetNumEvents(metric uint32) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnMetricGetNumEvents(metric, &out)); err != nil {
+	if err := toError(fnMetricGetNumEvents(metric, &out), "cuptiMetricGetNumEvents"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2667,7 +2667,7 @@ func MetricGetNumProperties(metric uint32) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnMetricGetNumProperties(metric, &out)); err != nil {
+	if err := toError(fnMetricGetNumProperties(metric, &out), "cuptiMetricGetNumProperties"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2701,7 +2701,7 @@ func MetricGetRequiredEventGroupSets(context Context, metric uint32) (eventGroup
 		return nil, err
 	}
 	var out2 *EventGroupSets
-	if err := toError(fnMetricGetRequiredEventGroupSets(context, metric, &out2)); err != nil {
+	if err := toError(fnMetricGetRequiredEventGroupSets(context, metric, &out2), "cuptiMetricGetRequiredEventGroupSets"); err != nil {
 		return nil, err
 	}
 	return out2, nil
@@ -2755,7 +2755,7 @@ func MetricGetValue(device Device, metric uint32, eventIdArraySizeBytes uint, ev
 		return zero, err
 	}
 	var out [1]uint64
-	if err := toError(fnMetricGetValue(device, metric, eventIdArraySizeBytes, eventIdArray, eventValueArraySizeBytes, eventValueArray, timeDuration, &out)); err != nil {
+	if err := toError(fnMetricGetValue(device, metric, eventIdArraySizeBytes, eventIdArray, eventValueArraySizeBytes, eventValueArray, timeDuration, &out), "cuptiMetricGetValue"); err != nil {
 		var zero [1]uint64
 		return zero, err
 	}
@@ -2813,7 +2813,7 @@ func MetricGetValue2(metric uint32, eventIdArraySizeBytes uint, eventIdArray *ui
 		return zero, err
 	}
 	var out [1]uint64
-	if err := toError(fnMetricGetValue2(metric, eventIdArraySizeBytes, eventIdArray, eventValueArraySizeBytes, eventValueArray, propIdArraySizeBytes, propIdArray, propValueArraySizeBytes, propValueArray, &out)); err != nil {
+	if err := toError(fnMetricGetValue2(metric, eventIdArraySizeBytes, eventIdArray, eventValueArraySizeBytes, eventValueArray, propIdArraySizeBytes, propIdArray, propValueArraySizeBytes, propValueArray, &out), "cuptiMetricGetValue2"); err != nil {
 		var zero [1]uint64
 		return zero, err
 	}
@@ -2835,7 +2835,7 @@ func PCSamplingDisable(pParams *PCSamplingDisableParams) error {
 	if err := checkLibSym("cuptiPCSamplingDisable"); err != nil {
 		return err
 	}
-	return toError(fnPCSamplingDisable(pParams))
+	return toError(fnPCSamplingDisable(pParams), "cuptiPCSamplingDisable")
 }
 
 // PCSamplingEnable Enable PC sampling.
@@ -2851,7 +2851,7 @@ func PCSamplingEnable(pParams *PCSamplingEnableParams) error {
 	if err := checkLibSym("cuptiPCSamplingEnable"); err != nil {
 		return err
 	}
-	return toError(fnPCSamplingEnable(pParams))
+	return toError(fnPCSamplingEnable(pParams), "cuptiPCSamplingEnable")
 }
 
 // PCSamplingGetConfigurationAttribute Read PC Sampling configuration attribute.
@@ -2869,7 +2869,7 @@ func PCSamplingGetConfigurationAttribute(pParams *PCSamplingConfigurationInfoPar
 	if err := checkLibSym("cuptiPCSamplingGetConfigurationAttribute"); err != nil {
 		return err
 	}
-	return toError(fnPCSamplingGetConfigurationAttribute(pParams))
+	return toError(fnPCSamplingGetConfigurationAttribute(pParams), "cuptiPCSamplingGetConfigurationAttribute")
 }
 
 // PCSamplingGetData Flush GPU PC sampling data periodically.
@@ -2889,7 +2889,7 @@ func PCSamplingGetData(pParams *PCSamplingGetDataParams) error {
 	if err := checkLibSym("cuptiPCSamplingGetData"); err != nil {
 		return err
 	}
-	return toError(fnPCSamplingGetData(pParams))
+	return toError(fnPCSamplingGetData(pParams), "cuptiPCSamplingGetData")
 }
 
 // PCSamplingGetNumStallReasons Get PC sampling stall reason count.
@@ -2905,7 +2905,7 @@ func PCSamplingGetNumStallReasons(pParams *PCSamplingGetNumStallReasonsParams) e
 	if err := checkLibSym("cuptiPCSamplingGetNumStallReasons"); err != nil {
 		return err
 	}
-	return toError(fnPCSamplingGetNumStallReasons(pParams))
+	return toError(fnPCSamplingGetNumStallReasons(pParams), "cuptiPCSamplingGetNumStallReasons")
 }
 
 // PCSamplingGetStallReasons Get PC sampling stall reasons.
@@ -2921,7 +2921,7 @@ func PCSamplingGetStallReasons(pParams *PCSamplingGetStallReasonsParams) error {
 	if err := checkLibSym("cuptiPCSamplingGetStallReasons"); err != nil {
 		return err
 	}
-	return toError(fnPCSamplingGetStallReasons(pParams))
+	return toError(fnPCSamplingGetStallReasons(pParams), "cuptiPCSamplingGetStallReasons")
 }
 
 // PCSamplingSetConfigurationAttribute Write PC Sampling configuration attribute.
@@ -2938,7 +2938,7 @@ func PCSamplingSetConfigurationAttribute(pParams *PCSamplingConfigurationInfoPar
 	if err := checkLibSym("cuptiPCSamplingSetConfigurationAttribute"); err != nil {
 		return err
 	}
-	return toError(fnPCSamplingSetConfigurationAttribute(pParams))
+	return toError(fnPCSamplingSetConfigurationAttribute(pParams), "cuptiPCSamplingSetConfigurationAttribute")
 }
 
 // PCSamplingStart Start PC sampling.
@@ -2957,7 +2957,7 @@ func PCSamplingStart(pParams *PCSamplingStartParams) error {
 	if err := checkLibSym("cuptiPCSamplingStart"); err != nil {
 		return err
 	}
-	return toError(fnPCSamplingStart(pParams))
+	return toError(fnPCSamplingStart(pParams), "cuptiPCSamplingStart")
 }
 
 // PCSamplingStop Stop PC sampling.
@@ -2976,7 +2976,7 @@ func PCSamplingStop(pParams *PCSamplingStopParams) error {
 	if err := checkLibSym("cuptiPCSamplingStop"); err != nil {
 		return err
 	}
-	return toError(fnPCSamplingStop(pParams))
+	return toError(fnPCSamplingStop(pParams), "cuptiPCSamplingStop")
 }
 
 // PmSamplingCounterDataGetSampleInfo Get the sample info (start and end time stamp) for the given sample index.
@@ -2994,7 +2994,7 @@ func PmSamplingCounterDataGetSampleInfo(pParams *PmSamplingCounterDataGetSampleI
 	if err := checkLibSym("cuptiPmSamplingCounterDataGetSampleInfo"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingCounterDataGetSampleInfo(pParams))
+	return toError(fnPmSamplingCounterDataGetSampleInfo(pParams), "cuptiPmSamplingCounterDataGetSampleInfo")
 }
 
 // PmSamplingCounterDataImageInitialize Initialize the counter data to CUPTI record format for storing the metric data.
@@ -3011,7 +3011,7 @@ func PmSamplingCounterDataImageInitialize(pParams *PmSamplingCounterDataImageIni
 	if err := checkLibSym("cuptiPmSamplingCounterDataImageInitialize"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingCounterDataImageInitialize(pParams))
+	return toError(fnPmSamplingCounterDataImageInitialize(pParams), "cuptiPmSamplingCounterDataImageInitialize")
 }
 
 // PmSamplingDecodeData Decode the metrics data stored in the hardware buffer to the counter data image.
@@ -3029,7 +3029,7 @@ func PmSamplingDecodeData(pParams *PmSamplingDecodeDataParams) error {
 	if err := checkLibSym("cuptiPmSamplingDecodeData"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingDecodeData(pParams))
+	return toError(fnPmSamplingDecodeData(pParams), "cuptiPmSamplingDecodeData")
 }
 
 // PmSamplingDisable Disable PM sampling on the CUDA device and destroy the PM sampling object.
@@ -3045,7 +3045,7 @@ func PmSamplingDisable(pParams *PmSamplingDisableParams) error {
 	if err := checkLibSym("cuptiPmSamplingDisable"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingDisable(pParams))
+	return toError(fnPmSamplingDisable(pParams), "cuptiPmSamplingDisable")
 }
 
 // PmSamplingEnable Create a PM sampling object and enable PM sampling on the CUDA device.
@@ -3064,7 +3064,7 @@ func PmSamplingEnable(pParams *PmSamplingEnableParams) error {
 	if err := checkLibSym("cuptiPmSamplingEnable"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingEnable(pParams))
+	return toError(fnPmSamplingEnable(pParams), "cuptiPmSamplingEnable")
 }
 
 // PmSamplingGetCounterAvailability Query counter availibility information in a buffer which can be used to filter unavailable raw metrics on host.
@@ -3083,7 +3083,7 @@ func PmSamplingGetCounterAvailability(pParams *PmSamplingGetCounterAvailabilityP
 	if err := checkLibSym("cuptiPmSamplingGetCounterAvailability"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingGetCounterAvailability(pParams))
+	return toError(fnPmSamplingGetCounterAvailability(pParams), "cuptiPmSamplingGetCounterAvailability")
 }
 
 // PmSamplingGetCounterDataInfo Get the counter data info like number of samples, number of populated samples and number of completed samples in a counter data image.
@@ -3099,7 +3099,7 @@ func PmSamplingGetCounterDataInfo(pParams *PmSamplingGetCounterDataInfoParams) e
 	if err := checkLibSym("cuptiPmSamplingGetCounterDataInfo"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingGetCounterDataInfo(pParams))
+	return toError(fnPmSamplingGetCounterDataInfo(pParams), "cuptiPmSamplingGetCounterDataInfo")
 }
 
 // PmSamplingGetCounterDataSize Query the size of the counter data image which will be used to store the metrics data.
@@ -3118,7 +3118,7 @@ func PmSamplingGetCounterDataSize(pParams *PmSamplingGetCounterDataSizeParams) e
 	if err := checkLibSym("cuptiPmSamplingGetCounterDataSize"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingGetCounterDataSize(pParams))
+	return toError(fnPmSamplingGetCounterDataSize(pParams), "cuptiPmSamplingGetCounterDataSize")
 }
 
 // PmSamplingSetConfig Set the configuration for PM sampling like sampling interval, HW buffer size, trigger mode and the config image which has scheduling info for metric collection.
@@ -3134,7 +3134,7 @@ func PmSamplingSetConfig(pParams *PmSamplingSetConfigParams) error {
 	if err := checkLibSym("cuptiPmSamplingSetConfig"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingSetConfig(pParams))
+	return toError(fnPmSamplingSetConfig(pParams), "cuptiPmSamplingSetConfig")
 }
 
 // PmSamplingStart Start the PM sampling.
@@ -3153,7 +3153,7 @@ func PmSamplingStart(pParams *PmSamplingStartParams) error {
 	if err := checkLibSym("cuptiPmSamplingStart"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingStart(pParams))
+	return toError(fnPmSamplingStart(pParams), "cuptiPmSamplingStart")
 }
 
 // PmSamplingStop Stop the PM sampling.
@@ -3172,7 +3172,7 @@ func PmSamplingStop(pParams *PmSamplingStopParams) error {
 	if err := checkLibSym("cuptiPmSamplingStop"); err != nil {
 		return err
 	}
-	return toError(fnPmSamplingStop(pParams))
+	return toError(fnPmSamplingStop(pParams), "cuptiPmSamplingStop")
 }
 
 // ProfilerBeginPass Replay API: used for multipass collection.
@@ -3186,7 +3186,7 @@ func ProfilerBeginPass(pParams *ProfilerBeginPassParams) error {
 	if err := checkLibSym("cuptiProfilerBeginPass"); err != nil {
 		return err
 	}
-	return toError(fnProfilerBeginPass(pParams))
+	return toError(fnProfilerBeginPass(pParams), "cuptiProfilerBeginPass")
 }
 
 // ProfilerBeginSession Begin profiling session sets up the profiling on the device.
@@ -3200,7 +3200,7 @@ func ProfilerBeginSession(pParams *ProfilerBeginSessionParams) error {
 	if err := checkLibSym("cuptiProfilerBeginSession"); err != nil {
 		return err
 	}
-	return toError(fnProfilerBeginSession(pParams))
+	return toError(fnProfilerBeginSession(pParams), "cuptiProfilerBeginSession")
 }
 
 // ProfilerCounterDataImageCalculateScratchBufferSize A temporary storage for CounterData image needed for internal operations.
@@ -3214,7 +3214,7 @@ func ProfilerCounterDataImageCalculateScratchBufferSize(pParams *ProfilerCounter
 	if err := checkLibSym("cuptiProfilerCounterDataImageCalculateScratchBufferSize"); err != nil {
 		return err
 	}
-	return toError(fnProfilerCounterDataImageCalculateScratchBufferSize(pParams))
+	return toError(fnProfilerCounterDataImageCalculateScratchBufferSize(pParams), "cuptiProfilerCounterDataImageCalculateScratchBufferSize")
 }
 
 // ProfilerCounterDataImageCalculateSize A CounterData image allocates space for values for each counter for each range.
@@ -3228,7 +3228,7 @@ func ProfilerCounterDataImageCalculateSize(pParams *ProfilerCounterDataImageCalc
 	if err := checkLibSym("cuptiProfilerCounterDataImageCalculateSize"); err != nil {
 		return err
 	}
-	return toError(fnProfilerCounterDataImageCalculateSize(pParams))
+	return toError(fnProfilerCounterDataImageCalculateSize(pParams), "cuptiProfilerCounterDataImageCalculateSize")
 }
 
 // ProfilerCounterDataImageInitialize wraps cuptiProfilerCounterDataImageInitialize.
@@ -3236,7 +3236,7 @@ func ProfilerCounterDataImageInitialize(pParams *ProfilerCounterDataImageInitial
 	if err := checkLibSym("cuptiProfilerCounterDataImageInitialize"); err != nil {
 		return err
 	}
-	return toError(fnProfilerCounterDataImageInitialize(pParams))
+	return toError(fnProfilerCounterDataImageInitialize(pParams), "cuptiProfilerCounterDataImageInitialize")
 }
 
 // ProfilerCounterDataImageInitializeScratchBuffer wraps cuptiProfilerCounterDataImageInitializeScratchBuffer.
@@ -3244,7 +3244,7 @@ func ProfilerCounterDataImageInitializeScratchBuffer(pParams *ProfilerCounterDat
 	if err := checkLibSym("cuptiProfilerCounterDataImageInitializeScratchBuffer"); err != nil {
 		return err
 	}
-	return toError(fnProfilerCounterDataImageInitializeScratchBuffer(pParams))
+	return toError(fnProfilerCounterDataImageInitializeScratchBuffer(pParams), "cuptiProfilerCounterDataImageInitializeScratchBuffer")
 }
 
 // ProfilerDeInitialize DeInitializes the profiler interface.
@@ -3254,7 +3254,7 @@ func ProfilerDeInitialize(pParams *ProfilerDeInitializeParams) error {
 	if err := checkLibSym("cuptiProfilerDeInitialize"); err != nil {
 		return err
 	}
-	return toError(fnProfilerDeInitialize(pParams))
+	return toError(fnProfilerDeInitialize(pParams), "cuptiProfilerDeInitialize")
 }
 
 // ProfilerDeviceSupported Query device compatibility with Profiling API.
@@ -3266,7 +3266,7 @@ func ProfilerDeviceSupported(pParams *ProfilerDeviceSupportedParams) error {
 	if err := checkLibSym("cuptiProfilerDeviceSupported"); err != nil {
 		return err
 	}
-	return toError(fnProfilerDeviceSupported(pParams))
+	return toError(fnProfilerDeviceSupported(pParams), "cuptiProfilerDeviceSupported")
 }
 
 // ProfilerDisableProfiling Disable Profiling.
@@ -3280,7 +3280,7 @@ func ProfilerDisableProfiling(pParams *ProfilerDisableProfilingParams) error {
 	if err := checkLibSym("cuptiProfilerDisableProfiling"); err != nil {
 		return err
 	}
-	return toError(fnProfilerDisableProfiling(pParams))
+	return toError(fnProfilerDisableProfiling(pParams), "cuptiProfilerDisableProfiling")
 }
 
 // ProfilerEnableProfiling Enables Profiling.
@@ -3294,7 +3294,7 @@ func ProfilerEnableProfiling(pParams *ProfilerEnableProfilingParams) error {
 	if err := checkLibSym("cuptiProfilerEnableProfiling"); err != nil {
 		return err
 	}
-	return toError(fnProfilerEnableProfiling(pParams))
+	return toError(fnProfilerEnableProfiling(pParams), "cuptiProfilerEnableProfiling")
 }
 
 // ProfilerEndPass Replay API: used for multipass collection.
@@ -3308,7 +3308,7 @@ func ProfilerEndPass(pParams *ProfilerEndPassParams) error {
 	if err := checkLibSym("cuptiProfilerEndPass"); err != nil {
 		return err
 	}
-	return toError(fnProfilerEndPass(pParams))
+	return toError(fnProfilerEndPass(pParams), "cuptiProfilerEndPass")
 }
 
 // ProfilerEndSession Ends profiling session.
@@ -3322,7 +3322,7 @@ func ProfilerEndSession(pParams *ProfilerEndSessionParams) error {
 	if err := checkLibSym("cuptiProfilerEndSession"); err != nil {
 		return err
 	}
-	return toError(fnProfilerEndSession(pParams))
+	return toError(fnProfilerEndSession(pParams), "cuptiProfilerEndSession")
 }
 
 // ProfilerFlushCounterData Decode all the submitted passes.
@@ -3336,7 +3336,7 @@ func ProfilerFlushCounterData(pParams *ProfilerFlushCounterDataParams) error {
 	if err := checkLibSym("cuptiProfilerFlushCounterData"); err != nil {
 		return err
 	}
-	return toError(fnProfilerFlushCounterData(pParams))
+	return toError(fnProfilerFlushCounterData(pParams), "cuptiProfilerFlushCounterData")
 }
 
 // ProfilerGetCounterAvailability Query counter availibility.
@@ -3348,7 +3348,7 @@ func ProfilerGetCounterAvailability(pParams *ProfilerGetCounterAvailabilityParam
 	if err := checkLibSym("cuptiProfilerGetCounterAvailability"); err != nil {
 		return err
 	}
-	return toError(fnProfilerGetCounterAvailability(pParams))
+	return toError(fnProfilerGetCounterAvailability(pParams), "cuptiProfilerGetCounterAvailability")
 }
 
 // ProfilerHostConfigAddMetrics Add the metrics to the profiler host object for generating the config image.
@@ -3367,7 +3367,7 @@ func ProfilerHostConfigAddMetrics(pParams *ProfilerHostConfigAddMetricsParams) e
 	if err := checkLibSym("cuptiProfilerHostConfigAddMetrics"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostConfigAddMetrics(pParams))
+	return toError(fnProfilerHostConfigAddMetrics(pParams), "cuptiProfilerHostConfigAddMetrics")
 }
 
 // ProfilerHostDeinitialize Deinitialize and destroy the profiler host object ([ProfilerHost]).
@@ -3383,7 +3383,7 @@ func ProfilerHostDeinitialize(pParams *ProfilerHostDeinitializeParams) error {
 	if err := checkLibSym("cuptiProfilerHostDeinitialize"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostDeinitialize(pParams))
+	return toError(fnProfilerHostDeinitialize(pParams), "cuptiProfilerHostDeinitialize")
 }
 
 // ProfilerHostEvaluateToGpuValues Evaluate the metric values for the range index stored in the counter data.
@@ -3400,7 +3400,7 @@ func ProfilerHostEvaluateToGpuValues(pParams *ProfilerHostEvaluateToGpuValuesPar
 	if err := checkLibSym("cuptiProfilerHostEvaluateToGpuValues"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostEvaluateToGpuValues(pParams))
+	return toError(fnProfilerHostEvaluateToGpuValues(pParams), "cuptiProfilerHostEvaluateToGpuValues")
 }
 
 // ProfilerHostGetBaseMetrics Get the list of supported base metrics for the chip.
@@ -3416,7 +3416,7 @@ func ProfilerHostGetBaseMetrics(pParams *ProfilerHostGetBaseMetricsParams) error
 	if err := checkLibSym("cuptiProfilerHostGetBaseMetrics"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetBaseMetrics(pParams))
+	return toError(fnProfilerHostGetBaseMetrics(pParams), "cuptiProfilerHostGetBaseMetrics")
 }
 
 // ProfilerHostGetConfigImage Get the config image for the metrics added to the profiler host object.
@@ -3434,7 +3434,7 @@ func ProfilerHostGetConfigImage(pParams *ProfilerHostGetConfigImageParams) error
 	if err := checkLibSym("cuptiProfilerHostGetConfigImage"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetConfigImage(pParams))
+	return toError(fnProfilerHostGetConfigImage(pParams), "cuptiProfilerHostGetConfigImage")
 }
 
 // ProfilerHostGetConfigImageSize Get the size of the config image for the metrics added to the profiler host object.
@@ -3452,7 +3452,7 @@ func ProfilerHostGetConfigImageSize(pParams *ProfilerHostGetConfigImageSizeParam
 	if err := checkLibSym("cuptiProfilerHostGetConfigImageSize"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetConfigImageSize(pParams))
+	return toError(fnProfilerHostGetConfigImageSize(pParams), "cuptiProfilerHostGetConfigImageSize")
 }
 
 // ProfilerHostGetMaxNumHardwareMetricsPerPass Get the maximum number of hardware metrics (metric names which doesn’t include sass keyword) that can be scheduled in a single pass for a chip.
@@ -3470,7 +3470,7 @@ func ProfilerHostGetMaxNumHardwareMetricsPerPass(pParams *ProfilerHostGetMaxNumH
 	if err := checkLibSym("cuptiProfilerHostGetMaxNumHardwareMetricsPerPass"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetMaxNumHardwareMetricsPerPass(pParams))
+	return toError(fnProfilerHostGetMaxNumHardwareMetricsPerPass(pParams), "cuptiProfilerHostGetMaxNumHardwareMetricsPerPass")
 }
 
 // ProfilerHostGetMetricProperties Get the properties of the metric.
@@ -3487,7 +3487,7 @@ func ProfilerHostGetMetricProperties(pParams *ProfilerHostGetMetricPropertiesPar
 	if err := checkLibSym("cuptiProfilerHostGetMetricProperties"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetMetricProperties(pParams))
+	return toError(fnProfilerHostGetMetricProperties(pParams), "cuptiProfilerHostGetMetricProperties")
 }
 
 // ProfilerHostGetMetricsInSinglePassSet Get all the metrics defined in the single pass metric set.
@@ -3505,7 +3505,7 @@ func ProfilerHostGetMetricsInSinglePassSet(pParams *ProfilerHostGetMetricsInSing
 	if err := checkLibSym("cuptiProfilerHostGetMetricsInSinglePassSet"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetMetricsInSinglePassSet(pParams))
+	return toError(fnProfilerHostGetMetricsInSinglePassSet(pParams), "cuptiProfilerHostGetMetricsInSinglePassSet")
 }
 
 // ProfilerHostGetNumOfPasses Get the number of passes required for profiling the scheduled metrics in the config image.
@@ -3521,7 +3521,7 @@ func ProfilerHostGetNumOfPasses(pParams *ProfilerHostGetNumOfPassesParams) error
 	if err := checkLibSym("cuptiProfilerHostGetNumOfPasses"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetNumOfPasses(pParams))
+	return toError(fnProfilerHostGetNumOfPasses(pParams), "cuptiProfilerHostGetNumOfPasses")
 }
 
 // ProfilerHostGetRangeName Get the range name for the range index stored in the counter data.
@@ -3539,7 +3539,7 @@ func ProfilerHostGetRangeName(pParams *ProfilerHostGetRangeNameParams) error {
 	if err := checkLibSym("cuptiProfilerHostGetRangeName"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetRangeName(pParams))
+	return toError(fnProfilerHostGetRangeName(pParams), "cuptiProfilerHostGetRangeName")
 }
 
 // ProfilerHostGetSinglePassSets Get the single pass metric sets defined in the metric config file.
@@ -3557,7 +3557,7 @@ func ProfilerHostGetSinglePassSets(pParams *ProfilerHostGetSinglePassSetsParams)
 	if err := checkLibSym("cuptiProfilerHostGetSinglePassSets"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetSinglePassSets(pParams))
+	return toError(fnProfilerHostGetSinglePassSets(pParams), "cuptiProfilerHostGetSinglePassSets")
 }
 
 // ProfilerHostGetSubMetrics Get the list of supported sub-metrics for the metric.
@@ -3574,7 +3574,7 @@ func ProfilerHostGetSubMetrics(pParams *ProfilerHostGetSubMetricsParams) error {
 	if err := checkLibSym("cuptiProfilerHostGetSubMetrics"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetSubMetrics(pParams))
+	return toError(fnProfilerHostGetSubMetrics(pParams), "cuptiProfilerHostGetSubMetrics")
 }
 
 // ProfilerHostGetSupportedChips Get the list of supported chips.
@@ -3590,7 +3590,7 @@ func ProfilerHostGetSupportedChips(pParams *ProfilerHostGetSupportedChipsParams)
 	if err := checkLibSym("cuptiProfilerHostGetSupportedChips"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostGetSupportedChips(pParams))
+	return toError(fnProfilerHostGetSupportedChips(pParams), "cuptiProfilerHostGetSupportedChips")
 }
 
 // ProfilerHostInitialize Create and initialize the profiler host object ([ProfilerHost]).
@@ -3607,7 +3607,7 @@ func ProfilerHostInitialize(pParams *ProfilerHostInitializeParams) error {
 	if err := checkLibSym("cuptiProfilerHostInitialize"); err != nil {
 		return err
 	}
-	return toError(fnProfilerHostInitialize(pParams))
+	return toError(fnProfilerHostInitialize(pParams), "cuptiProfilerHostInitialize")
 }
 
 // ProfilerInitialize Initializes the profiler interface.
@@ -3622,7 +3622,7 @@ func ProfilerInitialize(pParams *ProfilerInitializeParams) error {
 	if err := checkLibSym("cuptiProfilerInitialize"); err != nil {
 		return err
 	}
-	return toError(fnProfilerInitialize(pParams))
+	return toError(fnProfilerInitialize(pParams), "cuptiProfilerInitialize")
 }
 
 // ProfilerIsPassCollected Asynchronous call to query if the submitted pass to GPU is collected.
@@ -3636,7 +3636,7 @@ func ProfilerIsPassCollected(pParams *ProfilerIsPassCollectedParams) error {
 	if err := checkLibSym("cuptiProfilerIsPassCollected"); err != nil {
 		return err
 	}
-	return toError(fnProfilerIsPassCollected(pParams))
+	return toError(fnProfilerIsPassCollected(pParams), "cuptiProfilerIsPassCollected")
 }
 
 // ProfilerPopRange Range API’s : Pop user range.
@@ -3650,7 +3650,7 @@ func ProfilerPopRange(pParams *ProfilerPopRangeParams) error {
 	if err := checkLibSym("cuptiProfilerPopRange"); err != nil {
 		return err
 	}
-	return toError(fnProfilerPopRange(pParams))
+	return toError(fnProfilerPopRange(pParams), "cuptiProfilerPopRange")
 }
 
 // ProfilerPushRange Range API’s : Push user range.
@@ -3664,7 +3664,7 @@ func ProfilerPushRange(pParams *ProfilerPushRangeParams) error {
 	if err := checkLibSym("cuptiProfilerPushRange"); err != nil {
 		return err
 	}
-	return toError(fnProfilerPushRange(pParams))
+	return toError(fnProfilerPushRange(pParams), "cuptiProfilerPushRange")
 }
 
 // ProfilerSetConfig Set metrics configuration to be profiled.
@@ -3678,7 +3678,7 @@ func ProfilerSetConfig(pParams *ProfilerSetConfigParams) error {
 	if err := checkLibSym("cuptiProfilerSetConfig"); err != nil {
 		return err
 	}
-	return toError(fnProfilerSetConfig(pParams))
+	return toError(fnProfilerSetConfig(pParams), "cuptiProfilerSetConfig")
 }
 
 // ProfilerUnsetConfig Unset metrics configuration profiled.
@@ -3692,7 +3692,7 @@ func ProfilerUnsetConfig(pParams *ProfilerUnsetConfigParams) error {
 	if err := checkLibSym("cuptiProfilerUnsetConfig"); err != nil {
 		return err
 	}
-	return toError(fnProfilerUnsetConfig(pParams))
+	return toError(fnProfilerUnsetConfig(pParams), "cuptiProfilerUnsetConfig")
 }
 
 // RangeProfilerCounterDataGetRangeInfo Get the range name for the given range index.
@@ -3708,7 +3708,7 @@ func RangeProfilerCounterDataGetRangeInfo(pParams *RangeProfilerCounterDataGetRa
 	if err := checkLibSym("cuptiRangeProfilerCounterDataGetRangeInfo"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerCounterDataGetRangeInfo(pParams))
+	return toError(fnRangeProfilerCounterDataGetRangeInfo(pParams), "cuptiRangeProfilerCounterDataGetRangeInfo")
 }
 
 // RangeProfilerCounterDataImageInitialize Initialize the counter data image with the profiling data for the ranges profiled.
@@ -3725,7 +3725,7 @@ func RangeProfilerCounterDataImageInitialize(pParams *RangeProfilerCounterDataIm
 	if err := checkLibSym("cuptiRangeProfilerCounterDataImageInitialize"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerCounterDataImageInitialize(pParams))
+	return toError(fnRangeProfilerCounterDataImageInitialize(pParams), "cuptiRangeProfilerCounterDataImageInitialize")
 }
 
 // RangeProfilerDecodeData Decode the profiling data stored in the hardware to the counter data image passed in the SetConfig API.
@@ -3744,7 +3744,7 @@ func RangeProfilerDecodeData(pParams *RangeProfilerDecodeDataParams) error {
 	if err := checkLibSym("cuptiRangeProfilerDecodeData"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerDecodeData(pParams))
+	return toError(fnRangeProfilerDecodeData(pParams), "cuptiRangeProfilerDecodeData")
 }
 
 // RangeProfilerDisable Disable the range profiler on the CUDA context and destroy the range profiler object.
@@ -3759,7 +3759,7 @@ func RangeProfilerDisable(pParams *RangeProfilerDisableParams) error {
 	if err := checkLibSym("cuptiRangeProfilerDisable"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerDisable(pParams))
+	return toError(fnRangeProfilerDisable(pParams), "cuptiRangeProfilerDisable")
 }
 
 // RangeProfilerEnable Create a range profiler object and enable range profiling on the CUDA context.
@@ -3777,7 +3777,7 @@ func RangeProfilerEnable(pParams *RangeProfilerEnableParams) error {
 	if err := checkLibSym("cuptiRangeProfilerEnable"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerEnable(pParams))
+	return toError(fnRangeProfilerEnable(pParams), "cuptiRangeProfilerEnable")
 }
 
 // RangeProfilerGetCounterDataInfo Get the number of ranges stored in the counter data image.
@@ -3793,7 +3793,7 @@ func RangeProfilerGetCounterDataInfo(pParams *RangeProfilerGetCounterDataInfoPar
 	if err := checkLibSym("cuptiRangeProfilerGetCounterDataInfo"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerGetCounterDataInfo(pParams))
+	return toError(fnRangeProfilerGetCounterDataInfo(pParams), "cuptiRangeProfilerGetCounterDataInfo")
 }
 
 // RangeProfilerGetCounterDataSize Get the size of the counter data image required to store the profiling data for the ranges profiled.
@@ -3810,7 +3810,7 @@ func RangeProfilerGetCounterDataSize(pParams *RangeProfilerGetCounterDataSizePar
 	if err := checkLibSym("cuptiRangeProfilerGetCounterDataSize"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerGetCounterDataSize(pParams))
+	return toError(fnRangeProfilerGetCounterDataSize(pParams), "cuptiRangeProfilerGetCounterDataSize")
 }
 
 // RangeProfilerPopRange pop the current range to the Range Profiler.
@@ -3829,7 +3829,7 @@ func RangeProfilerPopRange(pParams *RangeProfilerPopRangeParams) error {
 	if err := checkLibSym("cuptiRangeProfilerPopRange"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerPopRange(pParams))
+	return toError(fnRangeProfilerPopRange(pParams), "cuptiRangeProfilerPopRange")
 }
 
 // RangeProfilerPushRange Add a new range to the Range Profiler with a given range name.
@@ -3848,7 +3848,7 @@ func RangeProfilerPushRange(pParams *RangeProfilerPushRangeParams) error {
 	if err := checkLibSym("cuptiRangeProfilerPushRange"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerPushRange(pParams))
+	return toError(fnRangeProfilerPushRange(pParams), "cuptiRangeProfilerPushRange")
 }
 
 // RangeProfilerSetConfig Set the configuration for range profiler like maximum number of ranges per pass, number of nesting levels, range and replay mode and the config image which has scheduling info for metric collection.
@@ -3863,7 +3863,7 @@ func RangeProfilerSetConfig(pParams *RangeProfilerSetConfigParams) error {
 	if err := checkLibSym("cuptiRangeProfilerSetConfig"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerSetConfig(pParams))
+	return toError(fnRangeProfilerSetConfig(pParams), "cuptiRangeProfilerSetConfig")
 }
 
 // RangeProfilerStart Start the range profiler.
@@ -3880,7 +3880,7 @@ func RangeProfilerStart(pParams *RangeProfilerStartParams) error {
 	if err := checkLibSym("cuptiRangeProfilerStart"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerStart(pParams))
+	return toError(fnRangeProfilerStart(pParams), "cuptiRangeProfilerStart")
 }
 
 // RangeProfilerStop Stop the range profiler.
@@ -3897,7 +3897,7 @@ func RangeProfilerStop(pParams *RangeProfilerStopParams) error {
 	if err := checkLibSym("cuptiRangeProfilerStop"); err != nil {
 		return err
 	}
-	return toError(fnRangeProfilerStop(pParams))
+	return toError(fnRangeProfilerStop(pParams), "cuptiRangeProfilerStop")
 }
 
 // RegisterComputeCrcCallback Register callback function with CUPTI to use your own algorithm to compute cubin crc.
@@ -3914,7 +3914,7 @@ func RegisterComputeCrcCallback(funcComputeCubinCrc uintptr) error {
 	if err := checkLibSym("cuptiRegisterComputeCrcCallback"); err != nil {
 		return err
 	}
-	return toError(fnRegisterComputeCrcCallback(funcComputeCubinCrc))
+	return toError(fnRegisterComputeCrcCallback(funcComputeCubinCrc), "cuptiRegisterComputeCrcCallback")
 }
 
 // SassMetricsDisable SASS metric data collection disable API will mark the end of a range, any kernel launched after this API call will not be profiled for the SASS metrics.
@@ -3932,7 +3932,7 @@ func SassMetricsDisable(pParams *SassMetricsDisableParams) error {
 	if err := checkLibSym("cuptiSassMetricsDisable"); err != nil {
 		return err
 	}
-	return toError(fnSassMetricsDisable(pParams))
+	return toError(fnSassMetricsDisable(pParams), "cuptiSassMetricsDisable")
 }
 
 // SassMetricsEnable Sass metric data collection enable API will mark the start of a range, between which kernel will be profiled for SASS metrics.
@@ -3950,7 +3950,7 @@ func SassMetricsEnable(pParams *SassMetricsEnableParams) error {
 	if err := checkLibSym("cuptiSassMetricsEnable"); err != nil {
 		return err
 	}
-	return toError(fnSassMetricsEnable(pParams))
+	return toError(fnSassMetricsEnable(pParams), "cuptiSassMetricsEnable")
 }
 
 // SassMetricsFlushData Flush SASS metrics data from CUPTI internal buffer to the user buffer.
@@ -3969,7 +3969,7 @@ func SassMetricsFlushData(pParams *SassMetricsFlushDataParams) error {
 	if err := checkLibSym("cuptiSassMetricsFlushData"); err != nil {
 		return err
 	}
-	return toError(fnSassMetricsFlushData(pParams))
+	return toError(fnSassMetricsFlushData(pParams), "cuptiSassMetricsFlushData")
 }
 
 // SassMetricsGetDataProperties SASS metric data properties API will give the data regarding number of instances of a metric value and number of SASS instruction data has been collected.
@@ -3988,7 +3988,7 @@ func SassMetricsGetDataProperties(pParams *SassMetricsGetDataPropertiesParams) e
 	if err := checkLibSym("cuptiSassMetricsGetDataProperties"); err != nil {
 		return err
 	}
-	return toError(fnSassMetricsGetDataProperties(pParams))
+	return toError(fnSassMetricsGetDataProperties(pParams), "cuptiSassMetricsGetDataProperties")
 }
 
 // SassMetricsGetMetrics Get the list of all supported SASS metrics for the chip.
@@ -4004,7 +4004,7 @@ func SassMetricsGetMetrics(pParams *SassMetricsGetMetricsParams) error {
 	if err := checkLibSym("cuptiSassMetricsGetMetrics"); err != nil {
 		return err
 	}
-	return toError(fnSassMetricsGetMetrics(pParams))
+	return toError(fnSassMetricsGetMetrics(pParams), "cuptiSassMetricsGetMetrics")
 }
 
 // SassMetricsGetNumOfMetrics Get the number of supported SASS metrics for the chip.
@@ -4020,7 +4020,7 @@ func SassMetricsGetNumOfMetrics(pParams *SassMetricsGetNumOfMetricsParams) error
 	if err := checkLibSym("cuptiSassMetricsGetNumOfMetrics"); err != nil {
 		return err
 	}
-	return toError(fnSassMetricsGetNumOfMetrics(pParams))
+	return toError(fnSassMetricsGetNumOfMetrics(pParams), "cuptiSassMetricsGetNumOfMetrics")
 }
 
 // SassMetricsGetProperties Get metric properties for the queried metric.
@@ -4038,7 +4038,7 @@ func SassMetricsGetProperties(pParams *SassMetricsGetPropertiesParams) error {
 	if err := checkLibSym("cuptiSassMetricsGetProperties"); err != nil {
 		return err
 	}
-	return toError(fnSassMetricsGetProperties(pParams))
+	return toError(fnSassMetricsGetProperties(pParams), "cuptiSassMetricsGetProperties")
 }
 
 // SassMetricsSetConfig Set config for the SASS metric data collection for a device.
@@ -4058,7 +4058,7 @@ func SassMetricsSetConfig(pParams *SassMetricsSetConfigParams) error {
 	if err := checkLibSym("cuptiSassMetricsSetConfig"); err != nil {
 		return err
 	}
-	return toError(fnSassMetricsSetConfig(pParams))
+	return toError(fnSassMetricsSetConfig(pParams), "cuptiSassMetricsSetConfig")
 }
 
 // SassMetricsUnsetConfig Unset config API will reset the SASS metric data collection configuration for the device.
@@ -4078,7 +4078,7 @@ func SassMetricsUnsetConfig(pParams *SassMetricsUnsetConfigParams) error {
 	if err := checkLibSym("cuptiSassMetricsUnsetConfig"); err != nil {
 		return err
 	}
-	return toError(fnSassMetricsUnsetConfig(pParams))
+	return toError(fnSassMetricsUnsetConfig(pParams), "cuptiSassMetricsUnsetConfig")
 }
 
 // SetEventCollectionMode Set the event collection mode.
@@ -4105,7 +4105,7 @@ func SetEventCollectionMode(context Context, mode EventCollectionMode) error {
 	if err := checkLibSym("cuptiSetEventCollectionMode"); err != nil {
 		return err
 	}
-	return toError(fnSetEventCollectionMode(context, mode))
+	return toError(fnSetEventCollectionMode(context, mode), "cuptiSetEventCollectionMode")
 }
 
 // SetThreadIdType Set the thread-id type.
@@ -4120,7 +4120,7 @@ func SetThreadIdType(type_ ActivityThreadIdType) error {
 	if err := checkLibSym("cuptiSetThreadIdType"); err != nil {
 		return err
 	}
-	return toError(fnSetThreadIdType(type_))
+	return toError(fnSetThreadIdType(type_), "cuptiSetThreadIdType")
 }
 
 // Subscribe Initialize a callback subscriber with a callback function and user data.
@@ -4143,7 +4143,7 @@ func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {
 		return zero, err
 	}
 	var out Subscriber
-	if err := toError(fnSubscribe(&out, callback, userdata)); err != nil {
+	if err := toError(fnSubscribe(&out, callback, userdata), "cuptiSubscribe"); err != nil {
 		var zero Subscriber
 		return zero, err
 	}
@@ -4171,7 +4171,7 @@ func SubscribeV2(callback uintptr, userdata uintptr, pParams *SubscriberParams) 
 		return zero, err
 	}
 	var out Subscriber
-	if err := toError(fnSubscribeV2(&out, callback, userdata, pParams)); err != nil {
+	if err := toError(fnSubscribeV2(&out, callback, userdata, pParams), "cuptiSubscribe_v2"); err != nil {
 		var zero Subscriber
 		return zero, err
 	}
@@ -4194,7 +4194,7 @@ func SupportedDomains() (domainCount uint, domainTable uintptr, err error) {
 	}
 	var out0 uint
 	var out1 uintptr
-	if err := toError(fnSupportedDomains(&out0, &out1)); err != nil {
+	if err := toError(fnSupportedDomains(&out0, &out1), "cuptiSupportedDomains"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -4216,5 +4216,5 @@ func unsubscribe(subscriber Subscriber) error {
 	if err := checkLibSym("cuptiUnsubscribe"); err != nil {
 		return err
 	}
-	return toError(fnunsubscribe(subscriber))
+	return toError(fnunsubscribe(subscriber), "cuptiUnsubscribe")
 }

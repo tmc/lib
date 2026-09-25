@@ -38,7 +38,7 @@ func LLPoisonBuffer(buffer uintptr, sizeBytes uint, dtype nccl.DataType) error {
 	if err := checkLibSym("ncclLLPoisonBuffer"); err != nil {
 		return err
 	}
-	return toError(fnLLPoisonBuffer(buffer, sizeBytes, dtype))
+	return toError(fnLLPoisonBuffer(buffer, sizeBytes, dtype), "ncclLLPoisonBuffer")
 }
 
 // LLPoisonBufferAsync wraps ncclLLPoisonBufferAsync.
@@ -46,5 +46,5 @@ func LLPoisonBufferAsync(buffer uintptr, sizeBytes uint, dtype nccl.DataType, st
 	if err := checkLibSym("ncclLLPoisonBufferAsync"); err != nil {
 		return err
 	}
-	return toError(fnLLPoisonBufferAsync(buffer, sizeBytes, dtype, stream))
+	return toError(fnLLPoisonBufferAsync(buffer, sizeBytes, dtype, stream), "ncclLLPoisonBufferAsync")
 }

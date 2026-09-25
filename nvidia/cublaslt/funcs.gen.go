@@ -71,7 +71,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "cublasLtCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -87,7 +87,7 @@ func destroy(lightHandle Handle) error {
 	if err := checkLibSym("cublasLtDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(lightHandle))
+	return toError(fndestroy(lightHandle), "cublasLtDestroy")
 }
 
 // emulationDescCreate creates a new emulation descriptor.
@@ -105,7 +105,7 @@ func emulationDescCreate() (EmulationDesc, error) {
 		return zero, err
 	}
 	var out EmulationDesc
-	if err := toError(fnemulationDescCreate(&out)); err != nil {
+	if err := toError(fnemulationDescCreate(&out), "cublasLtEmulationDescCreate"); err != nil {
 		var zero EmulationDesc
 		return zero, err
 	}
@@ -124,7 +124,7 @@ func emulationDescDestroy(emulationDesc EmulationDesc) error {
 	if err := checkLibSym("cublasLtEmulationDescDestroy"); err != nil {
 		return err
 	}
-	return toError(fnemulationDescDestroy(emulationDesc))
+	return toError(fnemulationDescDestroy(emulationDesc), "cublasLtEmulationDescDestroy")
 }
 
 // emulationDescGetAttribute returns the value of the queried attribute belonging to a previously created emulation descriptor.
@@ -146,7 +146,7 @@ func emulationDescGetAttribute(emulationDesc EmulationDesc, attr EmulationDescAt
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnemulationDescGetAttribute(emulationDesc, attr, buf, sizeInBytes, &out)); err != nil {
+	if err := toError(fnemulationDescGetAttribute(emulationDesc, attr, buf, sizeInBytes, &out), "cublasLtEmulationDescGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -158,7 +158,7 @@ func emulationDescInit_internal(emulationDesc EmulationDesc, size uint) error {
 	if err := checkLibSym("cublasLtEmulationDescInit_internal"); err != nil {
 		return err
 	}
-	return toError(fnemulationDescInit_internal(emulationDesc, size))
+	return toError(fnemulationDescInit_internal(emulationDesc, size), "cublasLtEmulationDescInit_internal")
 }
 
 // emulationDescSetAttribute sets the value of the specified attribute belonging to a previously created emulation descriptor.
@@ -177,7 +177,7 @@ func emulationDescSetAttribute(emulationDesc EmulationDesc, attr EmulationDescAt
 	if err := checkLibSym("cublasLtEmulationDescSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnemulationDescSetAttribute(emulationDesc, attr, buf, sizeInBytes))
+	return toError(fnemulationDescSetAttribute(emulationDesc, attr, buf, sizeInBytes), "cublasLtEmulationDescSetAttribute")
 }
 
 // GetProperty returns the value of the requested property by writing it to the memory location pointed to by the value parameter.
@@ -190,7 +190,7 @@ func GetProperty(type_ LibraryPropertyType, value *int32) error {
 	if err := checkLibSym("cublasLtGetProperty"); err != nil {
 		return err
 	}
-	return toError(fnGetProperty(type_, value))
+	return toError(fnGetProperty(type_, value), "cublasLtGetProperty")
 }
 
 // GroupedMatrixLayoutCreate Experimental: This function creates a grouped matrix layout descriptor by allocating the memory needed to hold its opaque structure.
@@ -213,7 +213,7 @@ func GroupedMatrixLayoutCreate(type_ DataType, groupCount int32, rowsArray uintp
 		return zero, err
 	}
 	var out MatrixLayout
-	if err := toError(fnGroupedMatrixLayoutCreate(&out, type_, groupCount, rowsArray, colsArray, ldArray)); err != nil {
+	if err := toError(fnGroupedMatrixLayoutCreate(&out, type_, groupCount, rowsArray, colsArray, ldArray), "cublasLtGroupedMatrixLayoutCreate"); err != nil {
 		var zero MatrixLayout
 		return zero, err
 	}
@@ -225,7 +225,7 @@ func groupedMatrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ D
 	if err := checkLibSym("cublasLtGroupedMatrixLayoutInit_internal"); err != nil {
 		return err
 	}
-	return toError(fngroupedMatrixLayoutInit_internal(matLayout, size, type_, groupCount, rowsArray, colsArray, ldArray))
+	return toError(fngroupedMatrixLayoutInit_internal(matLayout, size, type_, groupCount, rowsArray, colsArray, ldArray), "cublasLtGroupedMatrixLayoutInit_internal")
 }
 
 // HeuristicsCacheGetCapacity Returns the Heuristics Cache capacity.
@@ -235,7 +235,7 @@ func HeuristicsCacheGetCapacity(capacity *uint) error {
 	if err := checkLibSym("cublasLtHeuristicsCacheGetCapacity"); err != nil {
 		return err
 	}
-	return toError(fnHeuristicsCacheGetCapacity(capacity))
+	return toError(fnHeuristicsCacheGetCapacity(capacity), "cublasLtHeuristicsCacheGetCapacity")
 }
 
 // HeuristicsCacheSetCapacity Sets the Heuristics Cache capacity.
@@ -247,7 +247,7 @@ func HeuristicsCacheSetCapacity(capacity uint) error {
 	if err := checkLibSym("cublasLtHeuristicsCacheSetCapacity"); err != nil {
 		return err
 	}
-	return toError(fnHeuristicsCacheSetCapacity(capacity))
+	return toError(fnHeuristicsCacheSetCapacity(capacity), "cublasLtHeuristicsCacheSetCapacity")
 }
 
 // LoggerForceDisable Experimental: This function disables logging for the entire run.
@@ -263,7 +263,7 @@ func LoggerForceDisable() error {
 	if err := checkLibSym("cublasLtLoggerForceDisable"); err != nil {
 		return err
 	}
-	return toError(fnLoggerForceDisable())
+	return toError(fnLoggerForceDisable(), "cublasLtLoggerForceDisable")
 }
 
 // LoggerOpenFile Experimental: This function opens and sets the logging output file in the given path.
@@ -278,7 +278,7 @@ func LoggerOpenFile(logFile *byte) error {
 	if err := checkLibSym("cublasLtLoggerOpenFile"); err != nil {
 		return err
 	}
-	return toError(fnLoggerOpenFile(logFile))
+	return toError(fnLoggerOpenFile(logFile), "cublasLtLoggerOpenFile")
 }
 
 // LoggerSetCallback Experimental: This function sets the logging callback function.
@@ -293,7 +293,7 @@ func LoggerSetCallback(callback uintptr) error {
 	if err := checkLibSym("cublasLtLoggerSetCallback"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetCallback(callback))
+	return toError(fnLoggerSetCallback(callback), "cublasLtLoggerSetCallback")
 }
 
 // LoggerSetFile Experimental: This function sets the logging output file.
@@ -308,7 +308,7 @@ func LoggerSetFile(file uintptr) error {
 	if err := checkLibSym("cublasLtLoggerSetFile"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetFile(file))
+	return toError(fnLoggerSetFile(file), "cublasLtLoggerSetFile")
 }
 
 // LoggerSetLevel Experimental: This function sets the value of the logging level.
@@ -324,7 +324,7 @@ func LoggerSetLevel(level int32) error {
 	if err := checkLibSym("cublasLtLoggerSetLevel"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetLevel(level))
+	return toError(fnLoggerSetLevel(level), "cublasLtLoggerSetLevel")
 }
 
 // LoggerSetMask Experimental: This function sets the value of the logging mask.
@@ -339,7 +339,7 @@ func LoggerSetMask(mask int32) error {
 	if err := checkLibSym("cublasLtLoggerSetMask"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetMask(mask))
+	return toError(fnLoggerSetMask(mask), "cublasLtLoggerSetMask")
 }
 
 // matmul computes the matrix multiplication of matrices A and B to produce the output matrix D, according to the following operation:
@@ -403,7 +403,7 @@ func matmul(lightHandle Handle, computeDesc MatmulDesc, alpha uintptr, a driver.
 	if err := checkLibSym("cublasLtMatmul"); err != nil {
 		return err
 	}
-	return toError(fnmatmul(lightHandle, computeDesc, alpha, uintptr(a), adesc, uintptr(b), bdesc, beta, uintptr(c), cdesc, uintptr(d), ddesc, algo, uintptr(workspace), workspaceSizeInBytes, stream))
+	return toError(fnmatmul(lightHandle, computeDesc, alpha, uintptr(a), adesc, uintptr(b), bdesc, beta, uintptr(c), cdesc, uintptr(d), ddesc, algo, uintptr(workspace), workspaceSizeInBytes, stream), "cublasLtMatmul")
 }
 
 // MatmulAlgoCapGetAttribute returns the value of the queried capability attribute for an initialized [MatmulAlgo] descriptor structure.
@@ -427,7 +427,7 @@ func MatmulAlgoCapGetAttribute(algo *MatmulAlgo, attr MatmulAlgoCapAttributes, b
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnMatmulAlgoCapGetAttribute(algo, attr, buf, sizeInBytes, &out)); err != nil {
+	if err := toError(fnMatmulAlgoCapGetAttribute(algo, attr, buf, sizeInBytes, &out), "cublasLtMatmulAlgoCapGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -461,7 +461,7 @@ func matmulAlgoCheck(lightHandle Handle, operationDesc MatmulDesc, adesc MatrixL
 		return zero, err
 	}
 	var out MatmulHeuristicResult
-	if err := toError(fnmatmulAlgoCheck(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, algo, &out)); err != nil {
+	if err := toError(fnmatmulAlgoCheck(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, algo, &out), "cublasLtMatmulAlgoCheck"); err != nil {
 		var zero MatmulHeuristicResult
 		return zero, err
 	}
@@ -487,7 +487,7 @@ func MatmulAlgoConfigGetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnMatmulAlgoConfigGetAttribute(algo, attr, buf, sizeInBytes, &out)); err != nil {
+	if err := toError(fnMatmulAlgoConfigGetAttribute(algo, attr, buf, sizeInBytes, &out), "cublasLtMatmulAlgoConfigGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -510,7 +510,7 @@ func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 	if err := checkLibSym("cublasLtMatmulAlgoConfigSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnMatmulAlgoConfigSetAttribute(algo, attr, buf, sizeInBytes))
+	return toError(fnMatmulAlgoConfigSetAttribute(algo, attr, buf, sizeInBytes), "cublasLtMatmulAlgoConfigSetAttribute")
 }
 
 // matmulAlgoGetHeuristic retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
@@ -537,7 +537,7 @@ func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc 
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnmatmulAlgoGetHeuristic(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, preference, requestedAlgoCount, heuristicResultsArray, &out)); err != nil {
+	if err := toError(fnmatmulAlgoGetHeuristic(lightHandle, operationDesc, adesc, bdesc, cdesc, ddesc, preference, requestedAlgoCount, heuristicResultsArray, &out), "cublasLtMatmulAlgoGetHeuristic"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -570,7 +570,7 @@ func matmulAlgoGetIds(lightHandle Handle, computeType ComputeType, scaleType Dat
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnmatmulAlgoGetIds(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, requestedAlgoCount, algoIdsArray, &out)); err != nil {
+	if err := toError(fnmatmulAlgoGetIds(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, requestedAlgoCount, algoIdsArray, &out), "cublasLtMatmulAlgoGetIds"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -599,7 +599,7 @@ func matmulAlgoInit(lightHandle Handle, computeType ComputeType, scaleType DataT
 	if err := checkLibSym("cublasLtMatmulAlgoInit"); err != nil {
 		return err
 	}
-	return toError(fnmatmulAlgoInit(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, algoId, algo))
+	return toError(fnmatmulAlgoInit(lightHandle, computeType, scaleType, atype, btype, ctype, dtype, algoId, algo), "cublasLtMatmulAlgoInit")
 }
 
 // matmulDescCreate creates a matrix multiply descriptor by allocating the memory needed to hold its opaque structure.
@@ -619,7 +619,7 @@ func matmulDescCreate(computeType ComputeType, scaleType DataType) (MatmulDesc, 
 		return zero, err
 	}
 	var out MatmulDesc
-	if err := toError(fnmatmulDescCreate(&out, computeType, scaleType)); err != nil {
+	if err := toError(fnmatmulDescCreate(&out, computeType, scaleType), "cublasLtMatmulDescCreate"); err != nil {
 		var zero MatmulDesc
 		return zero, err
 	}
@@ -638,7 +638,7 @@ func matmulDescDestroy(matmulDesc MatmulDesc) error {
 	if err := checkLibSym("cublasLtMatmulDescDestroy"); err != nil {
 		return err
 	}
-	return toError(fnmatmulDescDestroy(matmulDesc))
+	return toError(fnmatmulDescDestroy(matmulDesc), "cublasLtMatmulDescDestroy")
 }
 
 // matmulDescGetAttribute returns the value of the queried attribute belonging to a previously created matrix multiply descriptor.
@@ -660,7 +660,7 @@ func matmulDescGetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, bu
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmatmulDescGetAttribute(matmulDesc, attr, buf, sizeInBytes, &out)); err != nil {
+	if err := toError(fnmatmulDescGetAttribute(matmulDesc, attr, buf, sizeInBytes, &out), "cublasLtMatmulDescGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -672,7 +672,7 @@ func matmulDescInit_internal(matmulDesc MatmulDesc, size uint, computeType Compu
 	if err := checkLibSym("cublasLtMatmulDescInit_internal"); err != nil {
 		return err
 	}
-	return toError(fnmatmulDescInit_internal(matmulDesc, size, computeType, scaleType))
+	return toError(fnmatmulDescInit_internal(matmulDesc, size, computeType, scaleType), "cublasLtMatmulDescInit_internal")
 }
 
 // matmulDescSetAttribute sets the value of the specified attribute belonging to a previously created matrix multiply descriptor.
@@ -691,7 +691,7 @@ func matmulDescSetAttribute(matmulDesc MatmulDesc, attr MatmulDescAttributes, bu
 	if err := checkLibSym("cublasLtMatmulDescSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnmatmulDescSetAttribute(matmulDesc, attr, buf, sizeInBytes))
+	return toError(fnmatmulDescSetAttribute(matmulDesc, attr, buf, sizeInBytes), "cublasLtMatmulDescSetAttribute")
 }
 
 // matmulPreferenceCreate creates a matrix multiply heuristic search preferences descriptor by allocating the memory needed to hold its opaque structure.
@@ -709,7 +709,7 @@ func matmulPreferenceCreate() (MatmulPreference, error) {
 		return zero, err
 	}
 	var out MatmulPreference
-	if err := toError(fnmatmulPreferenceCreate(&out)); err != nil {
+	if err := toError(fnmatmulPreferenceCreate(&out), "cublasLtMatmulPreferenceCreate"); err != nil {
 		var zero MatmulPreference
 		return zero, err
 	}
@@ -728,7 +728,7 @@ func matmulPreferenceDestroy(pref MatmulPreference) error {
 	if err := checkLibSym("cublasLtMatmulPreferenceDestroy"); err != nil {
 		return err
 	}
-	return toError(fnmatmulPreferenceDestroy(pref))
+	return toError(fnmatmulPreferenceDestroy(pref), "cublasLtMatmulPreferenceDestroy")
 }
 
 // matmulPreferenceGetAttribute returns the value of the queried attribute belonging to a previously created matrix multiply heuristic search preferences descriptor.
@@ -750,7 +750,7 @@ func matmulPreferenceGetAttribute(pref MatmulPreference, attr MatmulPreferenceAt
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmatmulPreferenceGetAttribute(pref, attr, buf, sizeInBytes, &out)); err != nil {
+	if err := toError(fnmatmulPreferenceGetAttribute(pref, attr, buf, sizeInBytes, &out), "cublasLtMatmulPreferenceGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -762,7 +762,7 @@ func matmulPreferenceInit_internal(pref MatmulPreference, size uint) error {
 	if err := checkLibSym("cublasLtMatmulPreferenceInit_internal"); err != nil {
 		return err
 	}
-	return toError(fnmatmulPreferenceInit_internal(pref, size))
+	return toError(fnmatmulPreferenceInit_internal(pref, size), "cublasLtMatmulPreferenceInit_internal")
 }
 
 // matmulPreferenceSetAttribute sets the value of the specified attribute belonging to a previously created matrix multiply preferences descriptor.
@@ -781,7 +781,7 @@ func matmulPreferenceSetAttribute(pref MatmulPreference, attr MatmulPreferenceAt
 	if err := checkLibSym("cublasLtMatmulPreferenceSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnmatmulPreferenceSetAttribute(pref, attr, buf, sizeInBytes))
+	return toError(fnmatmulPreferenceSetAttribute(pref, attr, buf, sizeInBytes), "cublasLtMatmulPreferenceSetAttribute")
 }
 
 // matrixLayoutCreate creates a matrix layout descriptor by allocating the memory needed to hold its opaque structure.
@@ -803,7 +803,7 @@ func matrixLayoutCreate(type_ DataType, rows uint64, cols uint64, ld int64) (Mat
 		return zero, err
 	}
 	var out MatrixLayout
-	if err := toError(fnmatrixLayoutCreate(&out, type_, rows, cols, ld)); err != nil {
+	if err := toError(fnmatrixLayoutCreate(&out, type_, rows, cols, ld), "cublasLtMatrixLayoutCreate"); err != nil {
 		var zero MatrixLayout
 		return zero, err
 	}
@@ -822,7 +822,7 @@ func matrixLayoutDestroy(matLayout MatrixLayout) error {
 	if err := checkLibSym("cublasLtMatrixLayoutDestroy"); err != nil {
 		return err
 	}
-	return toError(fnmatrixLayoutDestroy(matLayout))
+	return toError(fnmatrixLayoutDestroy(matLayout), "cublasLtMatrixLayoutDestroy")
 }
 
 // matrixLayoutGetAttribute returns the value of the queried attribute belonging to the specified matrix layout descriptor.
@@ -844,7 +844,7 @@ func matrixLayoutGetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmatrixLayoutGetAttribute(matLayout, attr, buf, sizeInBytes, &out)); err != nil {
+	if err := toError(fnmatrixLayoutGetAttribute(matLayout, attr, buf, sizeInBytes, &out), "cublasLtMatrixLayoutGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -856,7 +856,7 @@ func matrixLayoutInit_internal(matLayout MatrixLayout, size uint, type_ DataType
 	if err := checkLibSym("cublasLtMatrixLayoutInit_internal"); err != nil {
 		return err
 	}
-	return toError(fnmatrixLayoutInit_internal(matLayout, size, type_, rows, cols, ld))
+	return toError(fnmatrixLayoutInit_internal(matLayout, size, type_, rows, cols, ld), "cublasLtMatrixLayoutInit_internal")
 }
 
 // matrixLayoutSetAttribute sets the value of the specified attribute belonging to a previously created matrix layout descriptor.
@@ -875,7 +875,7 @@ func matrixLayoutSetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute
 	if err := checkLibSym("cublasLtMatrixLayoutSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnmatrixLayoutSetAttribute(matLayout, attr, buf, sizeInBytes))
+	return toError(fnmatrixLayoutSetAttribute(matLayout, attr, buf, sizeInBytes), "cublasLtMatrixLayoutSetAttribute")
 }
 
 // matrixTransform computes the matrix transformation operation on the input matrices A and B, to produce the output matrix C, according to the below operation:
@@ -908,7 +908,7 @@ func matrixTransform(lightHandle Handle, transformDesc MatrixTransformDesc, alph
 	if err := checkLibSym("cublasLtMatrixTransform"); err != nil {
 		return err
 	}
-	return toError(fnmatrixTransform(lightHandle, transformDesc, alpha, uintptr(a), adesc, beta, uintptr(b), bdesc, uintptr(c), cdesc, stream))
+	return toError(fnmatrixTransform(lightHandle, transformDesc, alpha, uintptr(a), adesc, beta, uintptr(b), bdesc, uintptr(c), cdesc, stream), "cublasLtMatrixTransform")
 }
 
 // matrixTransformDescCreate creates a matrix transform descriptor by allocating the memory needed to hold its opaque structure.
@@ -927,7 +927,7 @@ func matrixTransformDescCreate(scaleType DataType) (MatrixTransformDesc, error) 
 		return zero, err
 	}
 	var out MatrixTransformDesc
-	if err := toError(fnmatrixTransformDescCreate(&out, scaleType)); err != nil {
+	if err := toError(fnmatrixTransformDescCreate(&out, scaleType), "cublasLtMatrixTransformDescCreate"); err != nil {
 		var zero MatrixTransformDesc
 		return zero, err
 	}
@@ -946,7 +946,7 @@ func matrixTransformDescDestroy(transformDesc MatrixTransformDesc) error {
 	if err := checkLibSym("cublasLtMatrixTransformDescDestroy"); err != nil {
 		return err
 	}
-	return toError(fnmatrixTransformDescDestroy(transformDesc))
+	return toError(fnmatrixTransformDescDestroy(transformDesc), "cublasLtMatrixTransformDescDestroy")
 }
 
 // matrixTransformDescGetAttribute returns the value of the queried attribute belonging to a previously created matrix transform descriptor.
@@ -968,7 +968,7 @@ func matrixTransformDescGetAttribute(transformDesc MatrixTransformDesc, attr Mat
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnmatrixTransformDescGetAttribute(transformDesc, attr, buf, sizeInBytes, &out)); err != nil {
+	if err := toError(fnmatrixTransformDescGetAttribute(transformDesc, attr, buf, sizeInBytes, &out), "cublasLtMatrixTransformDescGetAttribute"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -980,7 +980,7 @@ func matrixTransformDescInit_internal(transformDesc MatrixTransformDesc, size ui
 	if err := checkLibSym("cublasLtMatrixTransformDescInit_internal"); err != nil {
 		return err
 	}
-	return toError(fnmatrixTransformDescInit_internal(transformDesc, size, scaleType))
+	return toError(fnmatrixTransformDescInit_internal(transformDesc, size, scaleType), "cublasLtMatrixTransformDescInit_internal")
 }
 
 // matrixTransformDescSetAttribute sets the value of the specified attribute belonging to a previously created matrix transform descriptor.
@@ -999,5 +999,5 @@ func matrixTransformDescSetAttribute(transformDesc MatrixTransformDesc, attr Mat
 	if err := checkLibSym("cublasLtMatrixTransformDescSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnmatrixTransformDescSetAttribute(transformDesc, attr, buf, sizeInBytes))
+	return toError(fnmatrixTransformDescSetAttribute(transformDesc, attr, buf, sizeInBytes), "cublasLtMatrixTransformDescSetAttribute")
 }

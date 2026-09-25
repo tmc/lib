@@ -140,7 +140,7 @@ func blockedEllGet(spMatDescr SpMatDescr, rows *int64, cols *int64, ellBlockSize
 	if err := checkLibSym("cusparseBlockedEllGet"); err != nil {
 		return err
 	}
-	return toError(fnblockedEllGet(spMatDescr, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType))
+	return toError(fnblockedEllGet(spMatDescr, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType), "cusparseBlockedEllGet")
 }
 
 // bsrSetStridedBatch wraps cusparseBsrSetStridedBatch.
@@ -148,7 +148,7 @@ func bsrSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, offsetsBatchStr
 	if err := checkLibSym("cusparseBsrSetStridedBatch"); err != nil {
 		return err
 	}
-	return toError(fnbsrSetStridedBatch(spMatDescr, batchCount, offsetsBatchStride, columnsBatchStride, valuesBatchStride))
+	return toError(fnbsrSetStridedBatch(spMatDescr, batchCount, offsetsBatchStride, columnsBatchStride, valuesBatchStride), "cusparseBsrSetStridedBatch")
 }
 
 // constBlockedEllGet wraps cusparseConstBlockedEllGet.
@@ -156,7 +156,7 @@ func constBlockedEllGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, el
 	if err := checkLibSym("cusparseConstBlockedEllGet"); err != nil {
 		return err
 	}
-	return toError(fnconstBlockedEllGet(spMatDescr, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType))
+	return toError(fnconstBlockedEllGet(spMatDescr, rows, cols, ellBlockSize, ellCols, ellColInd, ellValue, ellIdxType, idxBase, valueType), "cusparseConstBlockedEllGet")
 }
 
 // constCooGet wraps cusparseConstCooGet.
@@ -164,7 +164,7 @@ func constCooGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, nnz *int6
 	if err := checkLibSym("cusparseConstCooGet"); err != nil {
 		return err
 	}
-	return toError(fnconstCooGet(spMatDescr, rows, cols, nnz, cooRowInd, cooColInd, cooValues, idxType, idxBase, valueType))
+	return toError(fnconstCooGet(spMatDescr, rows, cols, nnz, cooRowInd, cooColInd, cooValues, idxType, idxBase, valueType), "cusparseConstCooGet")
 }
 
 // constCscGet wraps cusparseConstCscGet.
@@ -172,7 +172,7 @@ func constCscGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, nnz *int6
 	if err := checkLibSym("cusparseConstCscGet"); err != nil {
 		return err
 	}
-	return toError(fnconstCscGet(spMatDescr, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType))
+	return toError(fnconstCscGet(spMatDescr, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseConstCscGet")
 }
 
 // constCsrGet wraps cusparseConstCsrGet.
@@ -180,7 +180,7 @@ func constCsrGet(spMatDescr ConstSpMatDescr, rows *int64, cols *int64, nnz *int6
 	if err := checkLibSym("cusparseConstCsrGet"); err != nil {
 		return err
 	}
-	return toError(fnconstCsrGet(spMatDescr, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType))
+	return toError(fnconstCsrGet(spMatDescr, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseConstCsrGet")
 }
 
 // constDnMatGet wraps cusparseConstDnMatGet.
@@ -188,7 +188,7 @@ func constDnMatGet(dnMatDescr ConstDnMatDescr, rows *int64, cols *int64, ld *int
 	if err := checkLibSym("cusparseConstDnMatGet"); err != nil {
 		return err
 	}
-	return toError(fnconstDnMatGet(dnMatDescr, rows, cols, ld, values, type_, order))
+	return toError(fnconstDnMatGet(dnMatDescr, rows, cols, ld, values, type_, order), "cusparseConstDnMatGet")
 }
 
 // constDnMatGetValues wraps cusparseConstDnMatGetValues.
@@ -196,7 +196,7 @@ func constDnMatGetValues(dnMatDescr ConstDnMatDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseConstDnMatGetValues"); err != nil {
 		return err
 	}
-	return toError(fnconstDnMatGetValues(dnMatDescr, values))
+	return toError(fnconstDnMatGetValues(dnMatDescr, values), "cusparseConstDnMatGetValues")
 }
 
 // constDnVecGet wraps cusparseConstDnVecGet.
@@ -204,7 +204,7 @@ func constDnVecGet(dnVecDescr ConstDnVecDescr, size *int64, values *uintptr, val
 	if err := checkLibSym("cusparseConstDnVecGet"); err != nil {
 		return err
 	}
-	return toError(fnconstDnVecGet(dnVecDescr, size, values, valueType))
+	return toError(fnconstDnVecGet(dnVecDescr, size, values, valueType), "cusparseConstDnVecGet")
 }
 
 // constDnVecGetValues wraps cusparseConstDnVecGetValues.
@@ -212,7 +212,7 @@ func constDnVecGetValues(dnVecDescr ConstDnVecDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseConstDnVecGetValues"); err != nil {
 		return err
 	}
-	return toError(fnconstDnVecGetValues(dnVecDescr, values))
+	return toError(fnconstDnVecGetValues(dnVecDescr, values), "cusparseConstDnVecGetValues")
 }
 
 // constSpMatGetValues wraps cusparseConstSpMatGetValues.
@@ -220,7 +220,7 @@ func constSpMatGetValues(spMatDescr ConstSpMatDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseConstSpMatGetValues"); err != nil {
 		return err
 	}
-	return toError(fnconstSpMatGetValues(spMatDescr, values))
+	return toError(fnconstSpMatGetValues(spMatDescr, values), "cusparseConstSpMatGetValues")
 }
 
 // constSpVecGet wraps cusparseConstSpVecGet.
@@ -228,7 +228,7 @@ func constSpVecGet(spVecDescr ConstSpVecDescr, size *int64, nnz *int64, indices 
 	if err := checkLibSym("cusparseConstSpVecGet"); err != nil {
 		return err
 	}
-	return toError(fnconstSpVecGet(spVecDescr, size, nnz, indices, values, idxType, idxBase, valueType))
+	return toError(fnconstSpVecGet(spVecDescr, size, nnz, indices, values, idxType, idxBase, valueType), "cusparseConstSpVecGet")
 }
 
 // constSpVecGetValues wraps cusparseConstSpVecGetValues.
@@ -236,7 +236,7 @@ func constSpVecGetValues(spVecDescr ConstSpVecDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseConstSpVecGetValues"); err != nil {
 		return err
 	}
-	return toError(fnconstSpVecGetValues(spVecDescr, values))
+	return toError(fnconstSpVecGetValues(spVecDescr, values), "cusparseConstSpVecGetValues")
 }
 
 // cooGet wraps cusparseCooGet.
@@ -244,7 +244,7 @@ func cooGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, cooRowI
 	if err := checkLibSym("cusparseCooGet"); err != nil {
 		return err
 	}
-	return toError(fncooGet(spMatDescr, rows, cols, nnz, cooRowInd, cooColInd, cooValues, idxType, idxBase, valueType))
+	return toError(fncooGet(spMatDescr, rows, cols, nnz, cooRowInd, cooColInd, cooValues, idxType, idxBase, valueType), "cusparseCooGet")
 }
 
 // cooSetPointers wraps cusparseCooSetPointers.
@@ -252,7 +252,7 @@ func cooSetPointers(spMatDescr SpMatDescr, cooRows driver.DevicePtr, cooColumns 
 	if err := checkLibSym("cusparseCooSetPointers"); err != nil {
 		return err
 	}
-	return toError(fncooSetPointers(spMatDescr, uintptr(cooRows), uintptr(cooColumns), uintptr(cooValues)))
+	return toError(fncooSetPointers(spMatDescr, uintptr(cooRows), uintptr(cooColumns), uintptr(cooValues)), "cusparseCooSetPointers")
 }
 
 // cooSetStridedBatch wraps cusparseCooSetStridedBatch.
@@ -260,7 +260,7 @@ func cooSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, batchStride int
 	if err := checkLibSym("cusparseCooSetStridedBatch"); err != nil {
 		return err
 	}
-	return toError(fncooSetStridedBatch(spMatDescr, batchCount, batchStride))
+	return toError(fncooSetStridedBatch(spMatDescr, batchCount, batchStride), "cusparseCooSetStridedBatch")
 }
 
 // Create wraps cusparseCreate.
@@ -270,7 +270,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "cusparseCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -284,7 +284,7 @@ func CreateBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols int64,
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateBlockedEll(&out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateBlockedEll(&out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType), "cusparseCreateBlockedEll"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -298,7 +298,7 @@ func CreateBsr(brows int64, bcols int64, bnnz int64, rowBlockSize int64, colBloc
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateBsr(&out, brows, bcols, bnnz, rowBlockSize, colBlockSize, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order)); err != nil {
+	if err := toError(fnCreateBsr(&out, brows, bcols, bnnz, rowBlockSize, colBlockSize, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order), "cusparseCreateBsr"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -312,7 +312,7 @@ func CreateConstBlockedEll(rows int64, cols int64, ellBlockSize int64, ellCols i
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstBlockedEll(&out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstBlockedEll(&out, rows, cols, ellBlockSize, ellCols, uintptr(ellColInd), uintptr(ellValue), ellIdxType, idxBase, valueType), "cusparseCreateConstBlockedEll"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -326,7 +326,7 @@ func CreateConstBsr(brows int64, bcols int64, bnnz int64, rowBlockDim int64, col
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstBsr(&out, brows, bcols, bnnz, rowBlockDim, colBlockDim, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order)); err != nil {
+	if err := toError(fnCreateConstBsr(&out, brows, bcols, bnnz, rowBlockDim, colBlockDim, uintptr(bsrRowOffsets), uintptr(bsrColInd), uintptr(bsrValues), bsrRowOffsetsType, bsrColIndType, idxBase, valueType, order), "cusparseCreateConstBsr"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -340,7 +340,7 @@ func CreateConstCoo(rows int64, cols int64, nnz int64, cooRowInd driver.DevicePt
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstCoo(&out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstCoo(&out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType), "cusparseCreateConstCoo"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -354,7 +354,7 @@ func CreateConstCsc(rows int64, cols int64, nnz int64, cscColOffsets driver.Devi
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstCsc(&out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstCsc(&out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseCreateConstCsc"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -368,7 +368,7 @@ func CreateConstCsr(rows int64, cols int64, nnz int64, csrRowOffsets driver.Devi
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstCsr(&out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstCsr(&out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseCreateConstCsr"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -382,7 +382,7 @@ func CreateConstDnMat(rows int64, cols int64, ld int64, values driver.DevicePtr,
 		return zero, err
 	}
 	var out ConstDnMatDescr
-	if err := toError(fnCreateConstDnMat(&out, rows, cols, ld, uintptr(values), valueType, order)); err != nil {
+	if err := toError(fnCreateConstDnMat(&out, rows, cols, ld, uintptr(values), valueType, order), "cusparseCreateConstDnMat"); err != nil {
 		var zero ConstDnMatDescr
 		return zero, err
 	}
@@ -396,7 +396,7 @@ func CreateConstDnVec(size int64, values driver.DevicePtr, valueType DataType) (
 		return zero, err
 	}
 	var out ConstDnVecDescr
-	if err := toError(fnCreateConstDnVec(&out, size, uintptr(values), valueType)); err != nil {
+	if err := toError(fnCreateConstDnVec(&out, size, uintptr(values), valueType), "cusparseCreateConstDnVec"); err != nil {
 		var zero ConstDnVecDescr
 		return zero, err
 	}
@@ -410,7 +410,7 @@ func CreateConstSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int6
 		return zero, err
 	}
 	var out ConstSpMatDescr
-	if err := toError(fnCreateConstSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType), "cusparseCreateConstSlicedEll"); err != nil {
 		var zero ConstSpMatDescr
 		return zero, err
 	}
@@ -424,7 +424,7 @@ func CreateConstSpVec(size int64, nnz int64, indices driver.DevicePtr, values dr
 		return zero, err
 	}
 	var out ConstSpVecDescr
-	if err := toError(fnCreateConstSpVec(&out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateConstSpVec(&out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType), "cusparseCreateConstSpVec"); err != nil {
 		var zero ConstSpVecDescr
 		return zero, err
 	}
@@ -438,7 +438,7 @@ func CreateCoo(rows int64, cols int64, nnz int64, cooRowInd driver.DevicePtr, co
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateCoo(&out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateCoo(&out, rows, cols, nnz, uintptr(cooRowInd), uintptr(cooColInd), uintptr(cooValues), cooIdxType, idxBase, valueType), "cusparseCreateCoo"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -452,7 +452,7 @@ func CreateCsc(rows int64, cols int64, nnz int64, cscColOffsets driver.DevicePtr
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateCsc(&out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateCsc(&out, rows, cols, nnz, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues), cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseCreateCsc"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -466,7 +466,7 @@ func CreateCsr(rows int64, cols int64, nnz int64, csrRowOffsets driver.DevicePtr
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateCsr(&out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateCsr(&out, rows, cols, nnz, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues), csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseCreateCsr"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -480,7 +480,7 @@ func CreateDnMat(rows int64, cols int64, ld int64, values driver.DevicePtr, valu
 		return zero, err
 	}
 	var out DnMatDescr
-	if err := toError(fnCreateDnMat(&out, rows, cols, ld, uintptr(values), valueType, order)); err != nil {
+	if err := toError(fnCreateDnMat(&out, rows, cols, ld, uintptr(values), valueType, order), "cusparseCreateDnMat"); err != nil {
 		var zero DnMatDescr
 		return zero, err
 	}
@@ -494,7 +494,7 @@ func CreateDnVec(size int64, values driver.DevicePtr, valueType DataType) (DnVec
 		return zero, err
 	}
 	var out DnVecDescr
-	if err := toError(fnCreateDnVec(&out, size, uintptr(values), valueType)); err != nil {
+	if err := toError(fnCreateDnVec(&out, size, uintptr(values), valueType), "cusparseCreateDnVec"); err != nil {
 		var zero DnVecDescr
 		return zero, err
 	}
@@ -508,7 +508,7 @@ func CreateSlicedEll(rows int64, cols int64, nnz int64, sellValuesSize int64, sl
 		return zero, err
 	}
 	var out SpMatDescr
-	if err := toError(fnCreateSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateSlicedEll(&out, rows, cols, nnz, sellValuesSize, sliceSize, uintptr(sellSliceOffsets), uintptr(sellColInd), uintptr(sellValues), sellSliceOffsetsType, sellColIndType, idxBase, valueType), "cusparseCreateSlicedEll"); err != nil {
 		var zero SpMatDescr
 		return zero, err
 	}
@@ -522,7 +522,7 @@ func CreateSpVec(size int64, nnz int64, indices driver.DevicePtr, values driver.
 		return zero, err
 	}
 	var out SpVecDescr
-	if err := toError(fnCreateSpVec(&out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType)); err != nil {
+	if err := toError(fnCreateSpVec(&out, size, nnz, uintptr(indices), uintptr(values), idxType, idxBase, valueType), "cusparseCreateSpVec"); err != nil {
 		var zero SpVecDescr
 		return zero, err
 	}
@@ -534,7 +534,7 @@ func cscGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, cscColO
 	if err := checkLibSym("cusparseCscGet"); err != nil {
 		return err
 	}
-	return toError(fncscGet(spMatDescr, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType))
+	return toError(fncscGet(spMatDescr, rows, cols, nnz, cscColOffsets, cscRowInd, cscValues, cscColOffsetsType, cscRowIndType, idxBase, valueType), "cusparseCscGet")
 }
 
 // cscSetPointers wraps cusparseCscSetPointers.
@@ -542,7 +542,7 @@ func cscSetPointers(spMatDescr SpMatDescr, cscColOffsets driver.DevicePtr, cscRo
 	if err := checkLibSym("cusparseCscSetPointers"); err != nil {
 		return err
 	}
-	return toError(fncscSetPointers(spMatDescr, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues)))
+	return toError(fncscSetPointers(spMatDescr, uintptr(cscColOffsets), uintptr(cscRowInd), uintptr(cscValues)), "cusparseCscSetPointers")
 }
 
 // csrGet wraps cusparseCsrGet.
@@ -550,7 +550,7 @@ func csrGet(spMatDescr SpMatDescr, rows *int64, cols *int64, nnz *int64, csrRowO
 	if err := checkLibSym("cusparseCsrGet"); err != nil {
 		return err
 	}
-	return toError(fncsrGet(spMatDescr, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType))
+	return toError(fncsrGet(spMatDescr, rows, cols, nnz, csrRowOffsets, csrColInd, csrValues, csrRowOffsetsType, csrColIndType, idxBase, valueType), "cusparseCsrGet")
 }
 
 // csrSetPointers wraps cusparseCsrSetPointers.
@@ -558,7 +558,7 @@ func csrSetPointers(spMatDescr SpMatDescr, csrRowOffsets driver.DevicePtr, csrCo
 	if err := checkLibSym("cusparseCsrSetPointers"); err != nil {
 		return err
 	}
-	return toError(fncsrSetPointers(spMatDescr, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues)))
+	return toError(fncsrSetPointers(spMatDescr, uintptr(csrRowOffsets), uintptr(csrColInd), uintptr(csrValues)), "cusparseCsrSetPointers")
 }
 
 // csrSetStridedBatch wraps cusparseCsrSetStridedBatch.
@@ -566,7 +566,7 @@ func csrSetStridedBatch(spMatDescr SpMatDescr, batchCount int32, offsetsBatchStr
 	if err := checkLibSym("cusparseCsrSetStridedBatch"); err != nil {
 		return err
 	}
-	return toError(fncsrSetStridedBatch(spMatDescr, batchCount, offsetsBatchStride, columnsValuesBatchStride))
+	return toError(fncsrSetStridedBatch(spMatDescr, batchCount, offsetsBatchStride, columnsValuesBatchStride), "cusparseCsrSetStridedBatch")
 }
 
 // denseToSparseAnalysis wraps cusparseDenseToSparseAnalysis, bound as cusparseDenseToSparse_analysis.
@@ -574,7 +574,7 @@ func denseToSparseAnalysis(handle Handle, matA ConstDnMatDescr, matB SpMatDescr,
 	if err := checkLibSym("cusparseDenseToSparse_analysis"); err != nil {
 		return err
 	}
-	return toError(fndenseToSparseAnalysis(handle, matA, matB, alg, uintptr(externalBuffer)))
+	return toError(fndenseToSparseAnalysis(handle, matA, matB, alg, uintptr(externalBuffer)), "cusparseDenseToSparse_analysis")
 }
 
 // denseToSparseBufferSize wraps cusparseDenseToSparseBufferSize, bound as cusparseDenseToSparse_bufferSize.
@@ -584,7 +584,7 @@ func denseToSparseBufferSize(handle Handle, matA ConstDnMatDescr, matB SpMatDesc
 		return zero, err
 	}
 	var out uint
-	if err := toError(fndenseToSparseBufferSize(handle, matA, matB, alg, &out)); err != nil {
+	if err := toError(fndenseToSparseBufferSize(handle, matA, matB, alg, &out), "cusparseDenseToSparse_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -596,7 +596,7 @@ func denseToSparseConvert(handle Handle, matA ConstDnMatDescr, matB SpMatDescr, 
 	if err := checkLibSym("cusparseDenseToSparse_convert"); err != nil {
 		return err
 	}
-	return toError(fndenseToSparseConvert(handle, matA, matB, alg, uintptr(externalBuffer)))
+	return toError(fndenseToSparseConvert(handle, matA, matB, alg, uintptr(externalBuffer)), "cusparseDenseToSparse_convert")
 }
 
 // destroy wraps cusparseDestroy.
@@ -604,7 +604,7 @@ func destroy(handle Handle) error {
 	if err := checkLibSym("cusparseDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle))
+	return toError(fndestroy(handle), "cusparseDestroy")
 }
 
 // destroyDnMat wraps cusparseDestroyDnMat.
@@ -612,7 +612,7 @@ func destroyDnMat(dnMatDescr ConstDnMatDescr) error {
 	if err := checkLibSym("cusparseDestroyDnMat"); err != nil {
 		return err
 	}
-	return toError(fndestroyDnMat(dnMatDescr))
+	return toError(fndestroyDnMat(dnMatDescr), "cusparseDestroyDnMat")
 }
 
 // destroyDnVec wraps cusparseDestroyDnVec.
@@ -620,7 +620,7 @@ func destroyDnVec(dnVecDescr ConstDnVecDescr) error {
 	if err := checkLibSym("cusparseDestroyDnVec"); err != nil {
 		return err
 	}
-	return toError(fndestroyDnVec(dnVecDescr))
+	return toError(fndestroyDnVec(dnVecDescr), "cusparseDestroyDnVec")
 }
 
 // destroySpMat wraps cusparseDestroySpMat.
@@ -628,7 +628,7 @@ func destroySpMat(spMatDescr ConstSpMatDescr) error {
 	if err := checkLibSym("cusparseDestroySpMat"); err != nil {
 		return err
 	}
-	return toError(fndestroySpMat(spMatDescr))
+	return toError(fndestroySpMat(spMatDescr), "cusparseDestroySpMat")
 }
 
 // destroySpVec wraps cusparseDestroySpVec.
@@ -636,7 +636,7 @@ func destroySpVec(spVecDescr ConstSpVecDescr) error {
 	if err := checkLibSym("cusparseDestroySpVec"); err != nil {
 		return err
 	}
-	return toError(fndestroySpVec(spVecDescr))
+	return toError(fndestroySpVec(spVecDescr), "cusparseDestroySpVec")
 }
 
 // dnMatGet wraps cusparseDnMatGet.
@@ -644,7 +644,7 @@ func dnMatGet(dnMatDescr DnMatDescr, rows *int64, cols *int64, ld *int64, values
 	if err := checkLibSym("cusparseDnMatGet"); err != nil {
 		return err
 	}
-	return toError(fndnMatGet(dnMatDescr, rows, cols, ld, values, type_, order))
+	return toError(fndnMatGet(dnMatDescr, rows, cols, ld, values, type_, order), "cusparseDnMatGet")
 }
 
 // dnMatGetStridedBatch wraps cusparseDnMatGetStridedBatch.
@@ -654,7 +654,7 @@ func dnMatGetStridedBatch(dnMatDescr ConstDnMatDescr) (batchCount int32, batchSt
 	}
 	var out0 int32
 	var out1 int64
-	if err := toError(fndnMatGetStridedBatch(dnMatDescr, &out0, &out1)); err != nil {
+	if err := toError(fndnMatGetStridedBatch(dnMatDescr, &out0, &out1), "cusparseDnMatGetStridedBatch"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -665,7 +665,7 @@ func dnMatGetValues(dnMatDescr DnMatDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseDnMatGetValues"); err != nil {
 		return err
 	}
-	return toError(fndnMatGetValues(dnMatDescr, values))
+	return toError(fndnMatGetValues(dnMatDescr, values), "cusparseDnMatGetValues")
 }
 
 // dnMatSetStridedBatch wraps cusparseDnMatSetStridedBatch.
@@ -673,7 +673,7 @@ func dnMatSetStridedBatch(dnMatDescr DnMatDescr, batchCount int32, batchStride i
 	if err := checkLibSym("cusparseDnMatSetStridedBatch"); err != nil {
 		return err
 	}
-	return toError(fndnMatSetStridedBatch(dnMatDescr, batchCount, batchStride))
+	return toError(fndnMatSetStridedBatch(dnMatDescr, batchCount, batchStride), "cusparseDnMatSetStridedBatch")
 }
 
 // dnMatSetValues wraps cusparseDnMatSetValues.
@@ -681,7 +681,7 @@ func dnMatSetValues(dnMatDescr DnMatDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDnMatSetValues"); err != nil {
 		return err
 	}
-	return toError(fndnMatSetValues(dnMatDescr, uintptr(values)))
+	return toError(fndnMatSetValues(dnMatDescr, uintptr(values)), "cusparseDnMatSetValues")
 }
 
 // dnVecGet wraps cusparseDnVecGet.
@@ -689,7 +689,7 @@ func dnVecGet(dnVecDescr DnVecDescr, size *int64, values *uintptr, valueType *Da
 	if err := checkLibSym("cusparseDnVecGet"); err != nil {
 		return err
 	}
-	return toError(fndnVecGet(dnVecDescr, size, values, valueType))
+	return toError(fndnVecGet(dnVecDescr, size, values, valueType), "cusparseDnVecGet")
 }
 
 // dnVecGetValues wraps cusparseDnVecGetValues.
@@ -697,7 +697,7 @@ func dnVecGetValues(dnVecDescr DnVecDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseDnVecGetValues"); err != nil {
 		return err
 	}
-	return toError(fndnVecGetValues(dnVecDescr, values))
+	return toError(fndnVecGetValues(dnVecDescr, values), "cusparseDnVecGetValues")
 }
 
 // dnVecSetValues wraps cusparseDnVecSetValues.
@@ -705,7 +705,7 @@ func dnVecSetValues(dnVecDescr DnVecDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseDnVecSetValues"); err != nil {
 		return err
 	}
-	return toError(fndnVecSetValues(dnVecDescr, uintptr(values)))
+	return toError(fndnVecSetValues(dnVecDescr, uintptr(values)), "cusparseDnVecSetValues")
 }
 
 // gather wraps cusparseGather.
@@ -713,7 +713,7 @@ func gather(handle Handle, vecY ConstDnVecDescr, vecX SpVecDescr) error {
 	if err := checkLibSym("cusparseGather"); err != nil {
 		return err
 	}
-	return toError(fngather(handle, vecY, vecX))
+	return toError(fngather(handle, vecY, vecX), "cusparseGather")
 }
 
 // GetErrorName wraps cusparseGetErrorName.
@@ -739,7 +739,7 @@ func getPointerMode(handle Handle) (PointerMode, error) {
 		return zero, err
 	}
 	var out PointerMode
-	if err := toError(fngetPointerMode(handle, &out)); err != nil {
+	if err := toError(fngetPointerMode(handle, &out), "cusparseGetPointerMode"); err != nil {
 		var zero PointerMode
 		return zero, err
 	}
@@ -753,7 +753,7 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetProperty(type_, &out)); err != nil {
+	if err := toError(fnGetProperty(type_, &out), "cusparseGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -767,7 +767,7 @@ func getStream(handle Handle) (driver.Stream, error) {
 		return zero, err
 	}
 	var out driver.Stream
-	if err := toError(fngetStream(handle, &out)); err != nil {
+	if err := toError(fngetStream(handle, &out), "cusparseGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
@@ -781,7 +781,7 @@ func getVersion(handle Handle) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fngetVersion(handle, &out)); err != nil {
+	if err := toError(fngetVersion(handle, &out), "cusparseGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -793,7 +793,7 @@ func LoggerForceDisable() error {
 	if err := checkLibSym("cusparseLoggerForceDisable"); err != nil {
 		return err
 	}
-	return toError(fnLoggerForceDisable())
+	return toError(fnLoggerForceDisable(), "cusparseLoggerForceDisable")
 }
 
 // LoggerOpenFile wraps cusparseLoggerOpenFile.
@@ -801,7 +801,7 @@ func LoggerOpenFile(logFile *byte) error {
 	if err := checkLibSym("cusparseLoggerOpenFile"); err != nil {
 		return err
 	}
-	return toError(fnLoggerOpenFile(logFile))
+	return toError(fnLoggerOpenFile(logFile), "cusparseLoggerOpenFile")
 }
 
 // LoggerSetCallback wraps cusparseLoggerSetCallback.
@@ -809,7 +809,7 @@ func LoggerSetCallback(callback LoggerCallback) error {
 	if err := checkLibSym("cusparseLoggerSetCallback"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetCallback(callback))
+	return toError(fnLoggerSetCallback(callback), "cusparseLoggerSetCallback")
 }
 
 // LoggerSetFile wraps cusparseLoggerSetFile.
@@ -817,7 +817,7 @@ func LoggerSetFile(file *FILE) error {
 	if err := checkLibSym("cusparseLoggerSetFile"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetFile(file))
+	return toError(fnLoggerSetFile(file), "cusparseLoggerSetFile")
 }
 
 // LoggerSetLevel wraps cusparseLoggerSetLevel.
@@ -825,7 +825,7 @@ func LoggerSetLevel(level int32) error {
 	if err := checkLibSym("cusparseLoggerSetLevel"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetLevel(level))
+	return toError(fnLoggerSetLevel(level), "cusparseLoggerSetLevel")
 }
 
 // LoggerSetMask wraps cusparseLoggerSetMask.
@@ -833,7 +833,7 @@ func LoggerSetMask(mask int32) error {
 	if err := checkLibSym("cusparseLoggerSetMask"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetMask(mask))
+	return toError(fnLoggerSetMask(mask), "cusparseLoggerSetMask")
 }
 
 // sDDMM wraps cusparseSDDMM.
@@ -841,7 +841,7 @@ func sDDMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA Cons
 	if err := checkLibSym("cusparseSDDMM"); err != nil {
 		return err
 	}
-	return toError(fnsDDMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)))
+	return toError(fnsDDMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)), "cusparseSDDMM")
 }
 
 // sDDMMBufferSize wraps cusparseSDDMMBufferSize, bound as cusparseSDDMM_bufferSize.
@@ -851,7 +851,7 @@ func sDDMMBufferSize(handle Handle, opA Operation, opB Operation, alpha uintptr,
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsDDMMBufferSize(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, &out)); err != nil {
+	if err := toError(fnsDDMMBufferSize(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, &out), "cusparseSDDMM_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -863,7 +863,7 @@ func sDDMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr,
 	if err := checkLibSym("cusparseSDDMM_preprocess"); err != nil {
 		return err
 	}
-	return toError(fnsDDMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)))
+	return toError(fnsDDMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)), "cusparseSDDMM_preprocess")
 }
 
 // scatter wraps cusparseScatter.
@@ -871,7 +871,7 @@ func scatter(handle Handle, vecX ConstSpVecDescr, vecY DnVecDescr) error {
 	if err := checkLibSym("cusparseScatter"); err != nil {
 		return err
 	}
-	return toError(fnscatter(handle, vecX, vecY))
+	return toError(fnscatter(handle, vecX, vecY), "cusparseScatter")
 }
 
 // setPointerMode wraps cusparseSetPointerMode.
@@ -879,7 +879,7 @@ func setPointerMode(handle Handle, mode PointerMode) error {
 	if err := checkLibSym("cusparseSetPointerMode"); err != nil {
 		return err
 	}
-	return toError(fnsetPointerMode(handle, mode))
+	return toError(fnsetPointerMode(handle, mode), "cusparseSetPointerMode")
 }
 
 // setStream wraps cusparseSetStream.
@@ -887,7 +887,7 @@ func setStream(handle Handle, streamId driver.Stream) error {
 	if err := checkLibSym("cusparseSetStream"); err != nil {
 		return err
 	}
-	return toError(fnsetStream(handle, streamId))
+	return toError(fnsetStream(handle, streamId), "cusparseSetStream")
 }
 
 // spGEMMCompute wraps cusparseSpGEMMCompute, bound as cusparseSpGEMM_compute.
@@ -895,7 +895,7 @@ func spGEMMCompute(handle Handle, opA Operation, opB Operation, alpha uintptr, m
 	if err := checkLibSym("cusparseSpGEMM_compute"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMCompute(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize2, uintptr(externalBuffer2)))
+	return toError(fnspGEMMCompute(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize2, uintptr(externalBuffer2)), "cusparseSpGEMM_compute")
 }
 
 // spGEMMCopy wraps cusparseSpGEMMCopy, bound as cusparseSpGEMM_copy.
@@ -903,7 +903,7 @@ func spGEMMCopy(handle Handle, opA Operation, opB Operation, alpha uintptr, matA
 	if err := checkLibSym("cusparseSpGEMM_copy"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMCopy(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr))
+	return toError(fnspGEMMCopy(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr), "cusparseSpGEMM_copy")
 }
 
 // SpGEMMCreateDescr wraps cusparseSpGEMMCreateDescr, bound as cusparseSpGEMM_createDescr.
@@ -913,7 +913,7 @@ func SpGEMMCreateDescr() (SpGEMMDescr, error) {
 		return zero, err
 	}
 	var out SpGEMMDescr
-	if err := toError(fnSpGEMMCreateDescr(&out)); err != nil {
+	if err := toError(fnSpGEMMCreateDescr(&out), "cusparseSpGEMM_createDescr"); err != nil {
 		var zero SpGEMMDescr
 		return zero, err
 	}
@@ -925,7 +925,7 @@ func spGEMMDestroyDescr(descr SpGEMMDescr) error {
 	if err := checkLibSym("cusparseSpGEMM_destroyDescr"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMDestroyDescr(descr))
+	return toError(fnspGEMMDestroyDescr(descr), "cusparseSpGEMM_destroyDescr")
 }
 
 // spGEMMEstimateMemory wraps cusparseSpGEMMEstimateMemory, bound as cusparseSpGEMM_estimateMemory.
@@ -933,7 +933,7 @@ func spGEMMEstimateMemory(handle Handle, opA Operation, opB Operation, alpha uin
 	if err := checkLibSym("cusparseSpGEMM_estimateMemory"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMEstimateMemory(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, chunkFraction, bufferSize3, uintptr(externalBuffer3), bufferSize2))
+	return toError(fnspGEMMEstimateMemory(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, chunkFraction, bufferSize3, uintptr(externalBuffer3), bufferSize2), "cusparseSpGEMM_estimateMemory")
 }
 
 // spGEMMGetNumProducts wraps cusparseSpGEMMGetNumProducts, bound as cusparseSpGEMM_getNumProducts.
@@ -941,7 +941,7 @@ func spGEMMGetNumProducts(spgemmDescr SpGEMMDescr, numProds *int64) error {
 	if err := checkLibSym("cusparseSpGEMM_getNumProducts"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMGetNumProducts(spgemmDescr, numProds))
+	return toError(fnspGEMMGetNumProducts(spgemmDescr, numProds), "cusparseSpGEMM_getNumProducts")
 }
 
 // spGEMMWorkEstimation wraps cusparseSpGEMMWorkEstimation, bound as cusparseSpGEMM_workEstimation.
@@ -949,7 +949,7 @@ func spGEMMWorkEstimation(handle Handle, opA Operation, opB Operation, alpha uin
 	if err := checkLibSym("cusparseSpGEMM_workEstimation"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMWorkEstimation(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize1, uintptr(externalBuffer1)))
+	return toError(fnspGEMMWorkEstimation(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr, bufferSize1, uintptr(externalBuffer1)), "cusparseSpGEMM_workEstimation")
 }
 
 // spGEMMreuseCompute wraps cusparseSpGEMMreuseCompute, bound as cusparseSpGEMMreuse_compute.
@@ -957,7 +957,7 @@ func spGEMMreuseCompute(handle Handle, opA Operation, opB Operation, alpha uintp
 	if err := checkLibSym("cusparseSpGEMMreuse_compute"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMreuseCompute(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr))
+	return toError(fnspGEMMreuseCompute(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, spgemmDescr), "cusparseSpGEMMreuse_compute")
 }
 
 // spGEMMreuseCopy wraps cusparseSpGEMMreuseCopy, bound as cusparseSpGEMMreuse_copy.
@@ -965,7 +965,7 @@ func spGEMMreuseCopy(handle Handle, opA Operation, opB Operation, matA ConstSpMa
 	if err := checkLibSym("cusparseSpGEMMreuse_copy"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMreuseCopy(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize5, uintptr(externalBuffer5)))
+	return toError(fnspGEMMreuseCopy(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize5, uintptr(externalBuffer5)), "cusparseSpGEMMreuse_copy")
 }
 
 // spGEMMreuseNnz wraps cusparseSpGEMMreuseNnz, bound as cusparseSpGEMMreuse_nnz.
@@ -973,7 +973,7 @@ func spGEMMreuseNnz(handle Handle, opA Operation, opB Operation, matA ConstSpMat
 	if err := checkLibSym("cusparseSpGEMMreuse_nnz"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMreuseNnz(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize2, uintptr(externalBuffer2), bufferSize3, uintptr(externalBuffer3), bufferSize4, uintptr(externalBuffer4)))
+	return toError(fnspGEMMreuseNnz(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize2, uintptr(externalBuffer2), bufferSize3, uintptr(externalBuffer3), bufferSize4, uintptr(externalBuffer4)), "cusparseSpGEMMreuse_nnz")
 }
 
 // spGEMMreuseWorkEstimation wraps cusparseSpGEMMreuseWorkEstimation, bound as cusparseSpGEMMreuse_workEstimation.
@@ -981,7 +981,7 @@ func spGEMMreuseWorkEstimation(handle Handle, opA Operation, opB Operation, matA
 	if err := checkLibSym("cusparseSpGEMMreuse_workEstimation"); err != nil {
 		return err
 	}
-	return toError(fnspGEMMreuseWorkEstimation(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize1, uintptr(externalBuffer1)))
+	return toError(fnspGEMMreuseWorkEstimation(handle, opA, opB, matA, matB, matC, alg, spgemmDescr, bufferSize1, uintptr(externalBuffer1)), "cusparseSpGEMMreuse_workEstimation")
 }
 
 // spMM wraps cusparseSpMM.
@@ -989,7 +989,7 @@ func spMM(handle Handle, opA Operation, opB Operation, alpha uintptr, matA Const
 	if err := checkLibSym("cusparseSpMM"); err != nil {
 		return err
 	}
-	return toError(fnspMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)))
+	return toError(fnspMM(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)), "cusparseSpMM")
 }
 
 // spMMBufferSize wraps cusparseSpMMBufferSize, bound as cusparseSpMM_bufferSize.
@@ -999,7 +999,7 @@ func spMMBufferSize(handle Handle, opA Operation, opB Operation, alpha uintptr, 
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnspMMBufferSize(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, &out)); err != nil {
+	if err := toError(fnspMMBufferSize(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, &out), "cusparseSpMM_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1011,7 +1011,7 @@ func spMMPreprocess(handle Handle, opA Operation, opB Operation, alpha uintptr, 
 	if err := checkLibSym("cusparseSpMM_preprocess"); err != nil {
 		return err
 	}
-	return toError(fnspMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)))
+	return toError(fnspMMPreprocess(handle, opA, opB, alpha, matA, matB, beta, matC, computeType, alg, uintptr(externalBuffer)), "cusparseSpMM_preprocess")
 }
 
 // spMV wraps cusparseSpMV.
@@ -1019,7 +1019,7 @@ func spMV(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr, vec
 	if err := checkLibSym("cusparseSpMV"); err != nil {
 		return err
 	}
-	return toError(fnspMV(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, uintptr(externalBuffer)))
+	return toError(fnspMV(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, uintptr(externalBuffer)), "cusparseSpMV")
 }
 
 // spMVBufferSize wraps cusparseSpMVBufferSize, bound as cusparseSpMV_bufferSize.
@@ -1029,7 +1029,7 @@ func spMVBufferSize(handle Handle, opA Operation, alpha uintptr, matA ConstSpMat
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnspMVBufferSize(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, &out)); err != nil {
+	if err := toError(fnspMVBufferSize(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, &out), "cusparseSpMV_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1041,7 +1041,7 @@ func spMVOp(handle Handle, plan SpMVOpPlan, alpha uintptr, beta uintptr, vecX Co
 	if err := checkLibSym("cusparseSpMVOp"); err != nil {
 		return err
 	}
-	return toError(fnspMVOp(handle, plan, alpha, beta, vecX, vecY, vecZ))
+	return toError(fnspMVOp(handle, plan, alpha, beta, vecX, vecY, vecZ), "cusparseSpMVOp")
 }
 
 // spMVOpBufferSize wraps cusparseSpMVOpBufferSize, bound as cusparseSpMVOp_bufferSize.
@@ -1051,7 +1051,7 @@ func spMVOpBufferSize(handle Handle, opA Operation, matA ConstSpMatDescr, vecX C
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnspMVOpBufferSize(handle, opA, matA, vecX, vecY, vecZ, computeType, &out)); err != nil {
+	if err := toError(fnspMVOpBufferSize(handle, opA, matA, vecX, vecY, vecZ, computeType, &out), "cusparseSpMVOp_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1065,7 +1065,7 @@ func spMVOpCreateDescr(handle Handle, opA Operation, matA ConstSpMatDescr, vecX 
 		return zero, err
 	}
 	var out SpMVOpDescr
-	if err := toError(fnspMVOpCreateDescr(handle, &out, opA, matA, vecX, vecY, vecZ, computeType, uintptr(buffer))); err != nil {
+	if err := toError(fnspMVOpCreateDescr(handle, &out, opA, matA, vecX, vecY, vecZ, computeType, uintptr(buffer)), "cusparseSpMVOp_createDescr"); err != nil {
 		var zero SpMVOpDescr
 		return zero, err
 	}
@@ -1079,7 +1079,7 @@ func spMVOpCreatePlan(handle Handle, desc SpMVOpDescr, code uintptr, codeSize ui
 		return zero, err
 	}
 	var out SpMVOpPlan
-	if err := toError(fnspMVOpCreatePlan(handle, desc, &out, code, codeSize)); err != nil {
+	if err := toError(fnspMVOpCreatePlan(handle, desc, &out, code, codeSize), "cusparseSpMVOp_createPlan"); err != nil {
 		var zero SpMVOpPlan
 		return zero, err
 	}
@@ -1091,7 +1091,7 @@ func spMVOpDestroyDescr(desc SpMVOpDescr) error {
 	if err := checkLibSym("cusparseSpMVOp_destroyDescr"); err != nil {
 		return err
 	}
-	return toError(fnspMVOpDestroyDescr(desc))
+	return toError(fnspMVOpDestroyDescr(desc), "cusparseSpMVOp_destroyDescr")
 }
 
 // spMVOpDestroyPlan wraps cusparseSpMVOpDestroyPlan, bound as cusparseSpMVOp_destroyPlan.
@@ -1099,7 +1099,7 @@ func spMVOpDestroyPlan(plan SpMVOpPlan) error {
 	if err := checkLibSym("cusparseSpMVOp_destroyPlan"); err != nil {
 		return err
 	}
-	return toError(fnspMVOpDestroyPlan(plan))
+	return toError(fnspMVOpDestroyPlan(plan), "cusparseSpMVOp_destroyPlan")
 }
 
 // spMVOpSetGlobalUserData wraps cusparseSpMVOpSetGlobalUserData, bound as cusparseSpMVOp_setGlobalUserData.
@@ -1107,7 +1107,7 @@ func spMVOpSetGlobalUserData(handle Handle, plan SpMVOpPlan, globalDataName *byt
 	if err := checkLibSym("cusparseSpMVOp_setGlobalUserData"); err != nil {
 		return err
 	}
-	return toError(fnspMVOpSetGlobalUserData(handle, plan, globalDataName, inputData, dataSize))
+	return toError(fnspMVOpSetGlobalUserData(handle, plan, globalDataName, inputData, dataSize), "cusparseSpMVOp_setGlobalUserData")
 }
 
 // spMVPreprocess wraps cusparseSpMVPreprocess, bound as cusparseSpMV_preprocess.
@@ -1115,7 +1115,7 @@ func spMVPreprocess(handle Handle, opA Operation, alpha uintptr, matA ConstSpMat
 	if err := checkLibSym("cusparseSpMV_preprocess"); err != nil {
 		return err
 	}
-	return toError(fnspMVPreprocess(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, uintptr(externalBuffer)))
+	return toError(fnspMVPreprocess(handle, opA, alpha, matA, vecX, beta, vecY, computeType, alg, uintptr(externalBuffer)), "cusparseSpMV_preprocess")
 }
 
 // spMatGetAttribute wraps cusparseSpMatGetAttribute.
@@ -1123,7 +1123,7 @@ func spMatGetAttribute(spMatDescr ConstSpMatDescr, attribute SpMatAttribute, dat
 	if err := checkLibSym("cusparseSpMatGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnspMatGetAttribute(spMatDescr, attribute, data, dataSize))
+	return toError(fnspMatGetAttribute(spMatDescr, attribute, data, dataSize), "cusparseSpMatGetAttribute")
 }
 
 // spMatGetFormat wraps cusparseSpMatGetFormat.
@@ -1133,7 +1133,7 @@ func spMatGetFormat(spMatDescr ConstSpMatDescr) (Format, error) {
 		return zero, err
 	}
 	var out Format
-	if err := toError(fnspMatGetFormat(spMatDescr, &out)); err != nil {
+	if err := toError(fnspMatGetFormat(spMatDescr, &out), "cusparseSpMatGetFormat"); err != nil {
 		var zero Format
 		return zero, err
 	}
@@ -1147,7 +1147,7 @@ func spMatGetIndexBase(spMatDescr ConstSpMatDescr) (IndexBase, error) {
 		return zero, err
 	}
 	var out IndexBase
-	if err := toError(fnspMatGetIndexBase(spMatDescr, &out)); err != nil {
+	if err := toError(fnspMatGetIndexBase(spMatDescr, &out), "cusparseSpMatGetIndexBase"); err != nil {
 		var zero IndexBase
 		return zero, err
 	}
@@ -1162,7 +1162,7 @@ func spMatGetSize(spMatDescr ConstSpMatDescr) (rows int64, cols int64, nnz int64
 	var out0 int64
 	var out1 int64
 	var out2 int64
-	if err := toError(fnspMatGetSize(spMatDescr, &out0, &out1, &out2)); err != nil {
+	if err := toError(fnspMatGetSize(spMatDescr, &out0, &out1, &out2), "cusparseSpMatGetSize"); err != nil {
 		return 0, 0, 0, err
 	}
 	return out0, out1, out2, nil
@@ -1175,7 +1175,7 @@ func spMatGetStridedBatch(spMatDescr ConstSpMatDescr) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnspMatGetStridedBatch(spMatDescr, &out)); err != nil {
+	if err := toError(fnspMatGetStridedBatch(spMatDescr, &out), "cusparseSpMatGetStridedBatch"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1187,7 +1187,7 @@ func spMatGetValues(spMatDescr SpMatDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseSpMatGetValues"); err != nil {
 		return err
 	}
-	return toError(fnspMatGetValues(spMatDescr, values))
+	return toError(fnspMatGetValues(spMatDescr, values), "cusparseSpMatGetValues")
 }
 
 // spMatSetAttribute wraps cusparseSpMatSetAttribute.
@@ -1195,7 +1195,7 @@ func spMatSetAttribute(spMatDescr SpMatDescr, attribute SpMatAttribute, data uin
 	if err := checkLibSym("cusparseSpMatSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnspMatSetAttribute(spMatDescr, attribute, data, dataSize))
+	return toError(fnspMatSetAttribute(spMatDescr, attribute, data, dataSize), "cusparseSpMatSetAttribute")
 }
 
 // spMatSetValues wraps cusparseSpMatSetValues.
@@ -1203,7 +1203,7 @@ func spMatSetValues(spMatDescr SpMatDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpMatSetValues"); err != nil {
 		return err
 	}
-	return toError(fnspMatSetValues(spMatDescr, uintptr(values)))
+	return toError(fnspMatSetValues(spMatDescr, uintptr(values)), "cusparseSpMatSetValues")
 }
 
 // spSMAnalysis wraps cusparseSpSMAnalysis, bound as cusparseSpSM_analysis.
@@ -1211,7 +1211,7 @@ func spSMAnalysis(handle Handle, opA Operation, opB Operation, alpha uintptr, ma
 	if err := checkLibSym("cusparseSpSM_analysis"); err != nil {
 		return err
 	}
-	return toError(fnspSMAnalysis(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, uintptr(externalBuffer)))
+	return toError(fnspSMAnalysis(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, uintptr(externalBuffer)), "cusparseSpSM_analysis")
 }
 
 // spSMBufferSize wraps cusparseSpSMBufferSize, bound as cusparseSpSM_bufferSize.
@@ -1221,7 +1221,7 @@ func spSMBufferSize(handle Handle, opA Operation, opB Operation, alpha uintptr, 
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnspSMBufferSize(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, &out)); err != nil {
+	if err := toError(fnspSMBufferSize(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr, &out), "cusparseSpSM_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1235,7 +1235,7 @@ func SpSMCreateDescr() (SpSMDescr, error) {
 		return zero, err
 	}
 	var out SpSMDescr
-	if err := toError(fnSpSMCreateDescr(&out)); err != nil {
+	if err := toError(fnSpSMCreateDescr(&out), "cusparseSpSM_createDescr"); err != nil {
 		var zero SpSMDescr
 		return zero, err
 	}
@@ -1247,7 +1247,7 @@ func spSMDestroyDescr(descr SpSMDescr) error {
 	if err := checkLibSym("cusparseSpSM_destroyDescr"); err != nil {
 		return err
 	}
-	return toError(fnspSMDestroyDescr(descr))
+	return toError(fnspSMDestroyDescr(descr), "cusparseSpSM_destroyDescr")
 }
 
 // spSMSolve wraps cusparseSpSMSolve, bound as cusparseSpSM_solve.
@@ -1255,7 +1255,7 @@ func spSMSolve(handle Handle, opA Operation, opB Operation, alpha uintptr, matA 
 	if err := checkLibSym("cusparseSpSM_solve"); err != nil {
 		return err
 	}
-	return toError(fnspSMSolve(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr))
+	return toError(fnspSMSolve(handle, opA, opB, alpha, matA, matB, matC, computeType, alg, spsmDescr), "cusparseSpSM_solve")
 }
 
 // spSMUpdateMatrix wraps cusparseSpSMUpdateMatrix, bound as cusparseSpSM_updateMatrix.
@@ -1263,7 +1263,7 @@ func spSMUpdateMatrix(handle Handle, spsmDescr SpSMDescr, newValues driver.Devic
 	if err := checkLibSym("cusparseSpSM_updateMatrix"); err != nil {
 		return err
 	}
-	return toError(fnspSMUpdateMatrix(handle, spsmDescr, uintptr(newValues), updatePart))
+	return toError(fnspSMUpdateMatrix(handle, spsmDescr, uintptr(newValues), updatePart), "cusparseSpSM_updateMatrix")
 }
 
 // spSVAnalysis wraps cusparseSpSVAnalysis, bound as cusparseSpSV_analysis.
@@ -1271,7 +1271,7 @@ func spSVAnalysis(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDe
 	if err := checkLibSym("cusparseSpSV_analysis"); err != nil {
 		return err
 	}
-	return toError(fnspSVAnalysis(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, uintptr(externalBuffer)))
+	return toError(fnspSVAnalysis(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, uintptr(externalBuffer)), "cusparseSpSV_analysis")
 }
 
 // spSVBufferSize wraps cusparseSpSVBufferSize, bound as cusparseSpSV_bufferSize.
@@ -1281,7 +1281,7 @@ func spSVBufferSize(handle Handle, opA Operation, alpha uintptr, matA ConstSpMat
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnspSVBufferSize(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, &out)); err != nil {
+	if err := toError(fnspSVBufferSize(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr, &out), "cusparseSpSV_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -1295,7 +1295,7 @@ func SpSVCreateDescr() (SpSVDescr, error) {
 		return zero, err
 	}
 	var out SpSVDescr
-	if err := toError(fnSpSVCreateDescr(&out)); err != nil {
+	if err := toError(fnSpSVCreateDescr(&out), "cusparseSpSV_createDescr"); err != nil {
 		var zero SpSVDescr
 		return zero, err
 	}
@@ -1307,7 +1307,7 @@ func spSVDestroyDescr(descr SpSVDescr) error {
 	if err := checkLibSym("cusparseSpSV_destroyDescr"); err != nil {
 		return err
 	}
-	return toError(fnspSVDestroyDescr(descr))
+	return toError(fnspSVDestroyDescr(descr), "cusparseSpSV_destroyDescr")
 }
 
 // spSVSolve wraps cusparseSpSVSolve, bound as cusparseSpSV_solve.
@@ -1315,7 +1315,7 @@ func spSVSolve(handle Handle, opA Operation, alpha uintptr, matA ConstSpMatDescr
 	if err := checkLibSym("cusparseSpSV_solve"); err != nil {
 		return err
 	}
-	return toError(fnspSVSolve(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr))
+	return toError(fnspSVSolve(handle, opA, alpha, matA, vecX, vecY, computeType, alg, spsvDescr), "cusparseSpSV_solve")
 }
 
 // spSVUpdateMatrix wraps cusparseSpSVUpdateMatrix, bound as cusparseSpSV_updateMatrix.
@@ -1323,7 +1323,7 @@ func spSVUpdateMatrix(handle Handle, spsvDescr SpSVDescr, newValues driver.Devic
 	if err := checkLibSym("cusparseSpSV_updateMatrix"); err != nil {
 		return err
 	}
-	return toError(fnspSVUpdateMatrix(handle, spsvDescr, uintptr(newValues), updatePart))
+	return toError(fnspSVUpdateMatrix(handle, spsvDescr, uintptr(newValues), updatePart), "cusparseSpSV_updateMatrix")
 }
 
 // spVecGet wraps cusparseSpVecGet.
@@ -1331,7 +1331,7 @@ func spVecGet(spVecDescr SpVecDescr, size *int64, nnz *int64, indices *uintptr, 
 	if err := checkLibSym("cusparseSpVecGet"); err != nil {
 		return err
 	}
-	return toError(fnspVecGet(spVecDescr, size, nnz, indices, values, idxType, idxBase, valueType))
+	return toError(fnspVecGet(spVecDescr, size, nnz, indices, values, idxType, idxBase, valueType), "cusparseSpVecGet")
 }
 
 // spVecGetIndexBase wraps cusparseSpVecGetIndexBase.
@@ -1341,7 +1341,7 @@ func spVecGetIndexBase(spVecDescr ConstSpVecDescr) (IndexBase, error) {
 		return zero, err
 	}
 	var out IndexBase
-	if err := toError(fnspVecGetIndexBase(spVecDescr, &out)); err != nil {
+	if err := toError(fnspVecGetIndexBase(spVecDescr, &out), "cusparseSpVecGetIndexBase"); err != nil {
 		var zero IndexBase
 		return zero, err
 	}
@@ -1353,7 +1353,7 @@ func spVecGetValues(spVecDescr SpVecDescr, values *uintptr) error {
 	if err := checkLibSym("cusparseSpVecGetValues"); err != nil {
 		return err
 	}
-	return toError(fnspVecGetValues(spVecDescr, values))
+	return toError(fnspVecGetValues(spVecDescr, values), "cusparseSpVecGetValues")
 }
 
 // spVecSetValues wraps cusparseSpVecSetValues.
@@ -1361,7 +1361,7 @@ func spVecSetValues(spVecDescr SpVecDescr, values driver.DevicePtr) error {
 	if err := checkLibSym("cusparseSpVecSetValues"); err != nil {
 		return err
 	}
-	return toError(fnspVecSetValues(spVecDescr, uintptr(values)))
+	return toError(fnspVecSetValues(spVecDescr, uintptr(values)), "cusparseSpVecSetValues")
 }
 
 // sparseToDense wraps cusparseSparseToDense.
@@ -1369,7 +1369,7 @@ func sparseToDense(handle Handle, matA ConstSpMatDescr, matB DnMatDescr, alg Spa
 	if err := checkLibSym("cusparseSparseToDense"); err != nil {
 		return err
 	}
-	return toError(fnsparseToDense(handle, matA, matB, alg, uintptr(externalBuffer)))
+	return toError(fnsparseToDense(handle, matA, matB, alg, uintptr(externalBuffer)), "cusparseSparseToDense")
 }
 
 // sparseToDenseBufferSize wraps cusparseSparseToDenseBufferSize, bound as cusparseSparseToDense_bufferSize.
@@ -1379,7 +1379,7 @@ func sparseToDenseBufferSize(handle Handle, matA ConstSpMatDescr, matB DnMatDesc
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsparseToDenseBufferSize(handle, matA, matB, alg, &out)); err != nil {
+	if err := toError(fnsparseToDenseBufferSize(handle, matA, matB, alg, &out), "cusparseSparseToDense_bufferSize"); err != nil {
 		var zero uint
 		return zero, err
 	}

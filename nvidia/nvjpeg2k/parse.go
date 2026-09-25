@@ -25,7 +25,7 @@ func (h Handle) Parse(data []byte, bs Bitstream) error {
 	if err := checkLibSym("nvjpeg2kStreamParse"); err != nil {
 		return err
 	}
-	err := toError(fnStreamParse(h, &data[0], uint(len(data)), 0, 0, bs))
+	err := toError(fnStreamParse(h, &data[0], uint(len(data)), 0, 0, bs), "nvjpeg2kStreamParse")
 	runtime.KeepAlive(data)
 	return err
 }

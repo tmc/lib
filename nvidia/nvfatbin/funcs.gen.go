@@ -37,7 +37,7 @@ func addCubin(handle Handle, code unsafe.Pointer, size uint, arch string, identi
 	}
 	cstr_arch := append([]byte(arch), 0)
 	cstr_identifier := append([]byte(identifier), 0)
-	return toError(fnaddCubin(handle, code, size, &cstr_arch[0], &cstr_identifier[0]))
+	return toError(fnaddCubin(handle, code, size, &cstr_arch[0], &cstr_identifier[0]), "nvFatbinAddCubin")
 }
 
 // addIndex [Handle.AddIndex] adds an index file to the fatbinary.
@@ -53,7 +53,7 @@ func addIndex(handle Handle, code unsafe.Pointer, size uint, identifier string) 
 		return err
 	}
 	cstr_identifier := append([]byte(identifier), 0)
-	return toError(fnaddIndex(handle, code, size, &cstr_identifier[0]))
+	return toError(fnaddIndex(handle, code, size, &cstr_identifier[0]), "nvFatbinAddIndex")
 }
 
 // addLTOIR [Handle.AddLTOIR] adds LTOIR to the fatbinary.
@@ -73,7 +73,7 @@ func addLTOIR(handle Handle, code unsafe.Pointer, size uint, arch string, identi
 	cstr_arch := append([]byte(arch), 0)
 	cstr_identifier := append([]byte(identifier), 0)
 	cstr_optionsCmdLine := append([]byte(optionsCmdLine), 0)
-	return toError(fnaddLTOIR(handle, code, size, &cstr_arch[0], &cstr_identifier[0], &cstr_optionsCmdLine[0]))
+	return toError(fnaddLTOIR(handle, code, size, &cstr_arch[0], &cstr_identifier[0], &cstr_optionsCmdLine[0]), "nvFatbinAddLTOIR")
 }
 
 // addPTX [Handle.AddPTX] adds PTX to the fatbinary.
@@ -93,7 +93,7 @@ func addPTX(handle Handle, code unsafe.Pointer, size uint, arch string, identifi
 	cstr_arch := append([]byte(arch), 0)
 	cstr_identifier := append([]byte(identifier), 0)
 	cstr_optionsCmdLine := append([]byte(optionsCmdLine), 0)
-	return toError(fnaddPTX(handle, code, size, &cstr_arch[0], &cstr_identifier[0], &cstr_optionsCmdLine[0]))
+	return toError(fnaddPTX(handle, code, size, &cstr_arch[0], &cstr_identifier[0], &cstr_optionsCmdLine[0]), "nvFatbinAddPTX")
 }
 
 // addReloc [Handle.AddReloc] adds relocatable PTX entries from a host object to the fatbinary.
@@ -107,7 +107,7 @@ func addReloc(handle Handle, code unsafe.Pointer, size uint) error {
 	if err := checkLibSym("nvFatbinAddReloc"); err != nil {
 		return err
 	}
-	return toError(fnaddReloc(handle, code, size))
+	return toError(fnaddReloc(handle, code, size), "nvFatbinAddReloc")
 }
 
 // addTileIR [Handle.AddTileIR] adds Tile IR to the fatbinary.
@@ -125,7 +125,7 @@ func addTileIR(handle Handle, code unsafe.Pointer, size uint, identifier string,
 	}
 	cstr_identifier := append([]byte(identifier), 0)
 	cstr_optionsCmdLine := append([]byte(optionsCmdLine), 0)
-	return toError(fnaddTileIR(handle, code, size, &cstr_identifier[0], &cstr_optionsCmdLine[0]))
+	return toError(fnaddTileIR(handle, code, size, &cstr_identifier[0], &cstr_optionsCmdLine[0]), "nvFatbinAddTileIR")
 }
 
 // Create [Create] creates a new handle
@@ -150,7 +150,7 @@ func Create(options []string) (Handle, error) {
 		_ = cstrs_options
 	}
 	var out Handle
-	if err := toError(fnCreate(&out, carg_options, uint(len(options)))); err != nil {
+	if err := toError(fnCreate(&out, carg_options, uint(len(options))), "nvFatbinCreate"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -165,7 +165,7 @@ func destroy(handleIndirect *Handle) error {
 	if err := checkLibSym("nvFatbinDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handleIndirect))
+	return toError(fndestroy(handleIndirect), "nvFatbinDestroy")
 }
 
 // get [Handle.Get] returns the completed fatbinary.
@@ -186,7 +186,7 @@ func get(handle Handle) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fnget(handle, unsafe.Pointer(&buf[0]))); err != nil {
+	if err := toError(fnget(handle, unsafe.Pointer(&buf[0])), "nvFatbinGet"); err != nil {
 		return nil, fmt.Errorf("get: %w", err)
 	}
 	return buf[:size], nil
@@ -203,7 +203,7 @@ func size(handle Handle) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnsize(handle, &out)); err != nil {
+	if err := toError(fnsize(handle, &out), "nvFatbinSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -219,7 +219,7 @@ func Version() (major uint32, minor uint32, err error) {
 	}
 	var out0 uint32
 	var out1 uint32
-	if err := toError(fnVersion(&out0, &out1)); err != nil {
+	if err := toError(fnVersion(&out0, &out1), "nvFatbinVersion"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil

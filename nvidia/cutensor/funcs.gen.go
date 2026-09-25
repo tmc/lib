@@ -55,7 +55,7 @@ func contract(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, b uintp
 	if err := checkLibSym("cutensorContract"); err != nil {
 		return err
 	}
-	return toError(fncontract(handle, plan, alpha, a, b, beta, c, d, workspace, workspaceSize, stream))
+	return toError(fncontract(handle, plan, alpha, a, b, beta, c, d, workspace, workspaceSize, stream), "cutensorContract")
 }
 
 // contractTrinary wraps cutensorContractTrinary.
@@ -63,7 +63,7 @@ func contractTrinary(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, 
 	if err := checkLibSym("cutensorContractTrinary"); err != nil {
 		return err
 	}
-	return toError(fncontractTrinary(handle, plan, alpha, a, b, c, beta, d, e, workspace, workspaceSize, stream))
+	return toError(fncontractTrinary(handle, plan, alpha, a, b, c, beta, d, e, workspace, workspaceSize, stream), "cutensorContractTrinary")
 }
 
 // Create wraps cutensorCreate.
@@ -73,7 +73,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "cutensorCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -87,7 +87,7 @@ func createContraction(handle Handle, descA TensorDescriptor, modeA *int32, opA 
 		return zero, err
 	}
 	var out OperationDescriptor
-	if err := toError(fncreateContraction(handle, &out, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, descCompute)); err != nil {
+	if err := toError(fncreateContraction(handle, &out, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, descCompute), "cutensorCreateContraction"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -101,7 +101,7 @@ func createContractionTrinary(handle Handle, descA TensorDescriptor, modeA *int3
 		return zero, err
 	}
 	var out OperationDescriptor
-	if err := toError(fncreateContractionTrinary(handle, &out, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opD, descE, modeE, descCompute)); err != nil {
+	if err := toError(fncreateContractionTrinary(handle, &out, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opD, descE, modeE, descCompute), "cutensorCreateContractionTrinary"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -115,7 +115,7 @@ func createElementwiseBinary(handle Handle, descA TensorDescriptor, modeA *int32
 		return zero, err
 	}
 	var out OperationDescriptor
-	if err := toError(fncreateElementwiseBinary(handle, &out, descA, modeA, opA, descC, modeC, opC, descD, modeD, opAC, descCompute)); err != nil {
+	if err := toError(fncreateElementwiseBinary(handle, &out, descA, modeA, opA, descC, modeC, opC, descD, modeD, opAC, descCompute), "cutensorCreateElementwiseBinary"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -129,7 +129,7 @@ func createElementwiseTrinary(handle Handle, descA TensorDescriptor, modeA *int3
 		return zero, err
 	}
 	var out OperationDescriptor
-	if err := toError(fncreateElementwiseTrinary(handle, &out, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opAB, opABC, descCompute)); err != nil {
+	if err := toError(fncreateElementwiseTrinary(handle, &out, descA, modeA, opA, descB, modeB, opB, descC, modeC, opC, descD, modeD, opAB, opABC, descCompute), "cutensorCreateElementwiseTrinary"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -143,7 +143,7 @@ func createPermutation(handle Handle, descA TensorDescriptor, modeA *int32, opA 
 		return zero, err
 	}
 	var out OperationDescriptor
-	if err := toError(fncreatePermutation(handle, &out, descA, modeA, opA, descB, modeB, descCompute)); err != nil {
+	if err := toError(fncreatePermutation(handle, &out, descA, modeA, opA, descB, modeB, descCompute), "cutensorCreatePermutation"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -157,7 +157,7 @@ func createPlan(handle Handle, desc OperationDescriptor, pref PlanPreference, wo
 		return zero, err
 	}
 	var out Plan
-	if err := toError(fncreatePlan(handle, &out, desc, pref, workspaceSizeLimit)); err != nil {
+	if err := toError(fncreatePlan(handle, &out, desc, pref, workspaceSizeLimit), "cutensorCreatePlan"); err != nil {
 		var zero Plan
 		return zero, err
 	}
@@ -171,7 +171,7 @@ func createPlanPreference(handle Handle, algo AlgoT, jitMode JitmodeT) (PlanPref
 		return zero, err
 	}
 	var out PlanPreference
-	if err := toError(fncreatePlanPreference(handle, &out, algo, jitMode)); err != nil {
+	if err := toError(fncreatePlanPreference(handle, &out, algo, jitMode), "cutensorCreatePlanPreference"); err != nil {
 		var zero PlanPreference
 		return zero, err
 	}
@@ -185,7 +185,7 @@ func createReduction(handle Handle, descA TensorDescriptor, modeA *int32, opA Op
 		return zero, err
 	}
 	var out OperationDescriptor
-	if err := toError(fncreateReduction(handle, &out, descA, modeA, opA, descC, modeC, opC, descD, modeD, opReduce, descCompute)); err != nil {
+	if err := toError(fncreateReduction(handle, &out, descA, modeA, opA, descC, modeC, opC, descD, modeD, opReduce, descCompute), "cutensorCreateReduction"); err != nil {
 		var zero OperationDescriptor
 		return zero, err
 	}
@@ -199,7 +199,7 @@ func createTensorDescriptor(handle Handle, numModes uint32, extent *int64, strid
 		return zero, err
 	}
 	var out TensorDescriptor
-	if err := toError(fncreateTensorDescriptor(handle, &out, numModes, extent, stride, dataType, alignmentRequirement)); err != nil {
+	if err := toError(fncreateTensorDescriptor(handle, &out, numModes, extent, stride, dataType, alignmentRequirement), "cutensorCreateTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
 		return zero, err
 	}
@@ -211,7 +211,7 @@ func destroy(handle Handle) error {
 	if err := checkLibSym("cutensorDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle))
+	return toError(fndestroy(handle), "cutensorDestroy")
 }
 
 // destroyOperationDescriptor wraps cutensorDestroyOperationDescriptor.
@@ -219,7 +219,7 @@ func destroyOperationDescriptor(desc OperationDescriptor) error {
 	if err := checkLibSym("cutensorDestroyOperationDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyOperationDescriptor(desc))
+	return toError(fndestroyOperationDescriptor(desc), "cutensorDestroyOperationDescriptor")
 }
 
 // destroyPlan wraps cutensorDestroyPlan.
@@ -227,7 +227,7 @@ func destroyPlan(plan Plan) error {
 	if err := checkLibSym("cutensorDestroyPlan"); err != nil {
 		return err
 	}
-	return toError(fndestroyPlan(plan))
+	return toError(fndestroyPlan(plan), "cutensorDestroyPlan")
 }
 
 // destroyPlanPreference wraps cutensorDestroyPlanPreference.
@@ -235,7 +235,7 @@ func destroyPlanPreference(pref PlanPreference) error {
 	if err := checkLibSym("cutensorDestroyPlanPreference"); err != nil {
 		return err
 	}
-	return toError(fndestroyPlanPreference(pref))
+	return toError(fndestroyPlanPreference(pref), "cutensorDestroyPlanPreference")
 }
 
 // destroyTensorDescriptor wraps cutensorDestroyTensorDescriptor.
@@ -243,7 +243,7 @@ func destroyTensorDescriptor(desc TensorDescriptor) error {
 	if err := checkLibSym("cutensorDestroyTensorDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyTensorDescriptor(desc))
+	return toError(fndestroyTensorDescriptor(desc), "cutensorDestroyTensorDescriptor")
 }
 
 // elementwiseBinaryExecute wraps cutensorElementwiseBinaryExecute.
@@ -251,7 +251,7 @@ func elementwiseBinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a 
 	if err := checkLibSym("cutensorElementwiseBinaryExecute"); err != nil {
 		return err
 	}
-	return toError(fnelementwiseBinaryExecute(handle, plan, alpha, a, gamma, c, d, stream))
+	return toError(fnelementwiseBinaryExecute(handle, plan, alpha, a, gamma, c, d, stream), "cutensorElementwiseBinaryExecute")
 }
 
 // elementwiseTrinaryExecute wraps cutensorElementwiseTrinaryExecute.
@@ -259,7 +259,7 @@ func elementwiseTrinaryExecute(handle Handle, plan Plan, alpha unsafe.Pointer, a
 	if err := checkLibSym("cutensorElementwiseTrinaryExecute"); err != nil {
 		return err
 	}
-	return toError(fnelementwiseTrinaryExecute(handle, plan, alpha, a, beta, b, gamma, c, d, stream))
+	return toError(fnelementwiseTrinaryExecute(handle, plan, alpha, a, beta, b, gamma, c, d, stream), "cutensorElementwiseTrinaryExecute")
 }
 
 // estimateWorkspaceSize wraps cutensorEstimateWorkspaceSize.
@@ -269,7 +269,7 @@ func estimateWorkspaceSize(handle Handle, desc OperationDescriptor, planPref Pla
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnestimateWorkspaceSize(handle, desc, planPref, workspacePref, &out)); err != nil {
+	if err := toError(fnestimateWorkspaceSize(handle, desc, planPref, workspacePref, &out), "cutensorEstimateWorkspaceSize"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -303,7 +303,7 @@ func handleReadPlanCacheFromFile(handle Handle, filename *byte) (uint32, error) 
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnhandleReadPlanCacheFromFile(handle, filename, &out)); err != nil {
+	if err := toError(fnhandleReadPlanCacheFromFile(handle, filename, &out), "cutensorHandleReadPlanCacheFromFile"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -315,7 +315,7 @@ func handleResizePlanCache(handle Handle, numEntries uint32) error {
 	if err := checkLibSym("cutensorHandleResizePlanCache"); err != nil {
 		return err
 	}
-	return toError(fnhandleResizePlanCache(handle, numEntries))
+	return toError(fnhandleResizePlanCache(handle, numEntries), "cutensorHandleResizePlanCache")
 }
 
 // handleWritePlanCacheToFile wraps cutensorHandleWritePlanCacheToFile.
@@ -323,7 +323,7 @@ func handleWritePlanCacheToFile(handle Handle, filename *byte) error {
 	if err := checkLibSym("cutensorHandleWritePlanCacheToFile"); err != nil {
 		return err
 	}
-	return toError(fnhandleWritePlanCacheToFile(handle, filename))
+	return toError(fnhandleWritePlanCacheToFile(handle, filename), "cutensorHandleWritePlanCacheToFile")
 }
 
 // LoggerForceDisable wraps cutensorLoggerForceDisable.
@@ -331,7 +331,7 @@ func LoggerForceDisable() error {
 	if err := checkLibSym("cutensorLoggerForceDisable"); err != nil {
 		return err
 	}
-	return toError(fnLoggerForceDisable())
+	return toError(fnLoggerForceDisable(), "cutensorLoggerForceDisable")
 }
 
 // LoggerOpenFile wraps cutensorLoggerOpenFile.
@@ -339,7 +339,7 @@ func LoggerOpenFile(logFile *byte) error {
 	if err := checkLibSym("cutensorLoggerOpenFile"); err != nil {
 		return err
 	}
-	return toError(fnLoggerOpenFile(logFile))
+	return toError(fnLoggerOpenFile(logFile), "cutensorLoggerOpenFile")
 }
 
 // LoggerSetCallback wraps cutensorLoggerSetCallback.
@@ -347,7 +347,7 @@ func LoggerSetCallback(callback uintptr) error {
 	if err := checkLibSym("cutensorLoggerSetCallback"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetCallback(callback))
+	return toError(fnLoggerSetCallback(callback), "cutensorLoggerSetCallback")
 }
 
 // LoggerSetFile wraps cutensorLoggerSetFile.
@@ -355,7 +355,7 @@ func LoggerSetFile(file uintptr) error {
 	if err := checkLibSym("cutensorLoggerSetFile"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetFile(file))
+	return toError(fnLoggerSetFile(file), "cutensorLoggerSetFile")
 }
 
 // LoggerSetLevel wraps cutensorLoggerSetLevel.
@@ -363,7 +363,7 @@ func LoggerSetLevel(level int32) error {
 	if err := checkLibSym("cutensorLoggerSetLevel"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetLevel(level))
+	return toError(fnLoggerSetLevel(level), "cutensorLoggerSetLevel")
 }
 
 // LoggerSetMask wraps cutensorLoggerSetMask.
@@ -371,7 +371,7 @@ func LoggerSetMask(mask int32) error {
 	if err := checkLibSym("cutensorLoggerSetMask"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetMask(mask))
+	return toError(fnLoggerSetMask(mask), "cutensorLoggerSetMask")
 }
 
 // operationDescriptorGetAttribute wraps cutensorOperationDescriptorGetAttribute.
@@ -379,7 +379,7 @@ func operationDescriptorGetAttribute(handle Handle, desc OperationDescriptor, at
 	if err := checkLibSym("cutensorOperationDescriptorGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnoperationDescriptorGetAttribute(handle, desc, attr, buf, sizeInBytes))
+	return toError(fnoperationDescriptorGetAttribute(handle, desc, attr, buf, sizeInBytes), "cutensorOperationDescriptorGetAttribute")
 }
 
 // operationDescriptorSetAttribute wraps cutensorOperationDescriptorSetAttribute.
@@ -387,7 +387,7 @@ func operationDescriptorSetAttribute(handle Handle, desc OperationDescriptor, at
 	if err := checkLibSym("cutensorOperationDescriptorSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnoperationDescriptorSetAttribute(handle, desc, attr, buf, sizeInBytes))
+	return toError(fnoperationDescriptorSetAttribute(handle, desc, attr, buf, sizeInBytes), "cutensorOperationDescriptorSetAttribute")
 }
 
 // permute wraps cutensorPermute.
@@ -395,7 +395,7 @@ func permute(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, b uintpt
 	if err := checkLibSym("cutensorPermute"); err != nil {
 		return err
 	}
-	return toError(fnpermute(handle, plan, alpha, a, b, stream))
+	return toError(fnpermute(handle, plan, alpha, a, b, stream), "cutensorPermute")
 }
 
 // planGetAttribute wraps cutensorPlanGetAttribute.
@@ -403,7 +403,7 @@ func planGetAttribute(handle Handle, plan Plan, attr PlanattributeT, buf uintptr
 	if err := checkLibSym("cutensorPlanGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnplanGetAttribute(handle, plan, attr, buf, sizeInBytes))
+	return toError(fnplanGetAttribute(handle, plan, attr, buf, sizeInBytes), "cutensorPlanGetAttribute")
 }
 
 // planPreferenceGetAttribute wraps cutensorPlanPreferenceGetAttribute.
@@ -411,7 +411,7 @@ func planPreferenceGetAttribute(handle Handle, pref PlanPreference, attr Planpre
 	if err := checkLibSym("cutensorPlanPreferenceGetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnplanPreferenceGetAttribute(handle, pref, attr, buf, sizeInBytes))
+	return toError(fnplanPreferenceGetAttribute(handle, pref, attr, buf, sizeInBytes), "cutensorPlanPreferenceGetAttribute")
 }
 
 // planPreferenceSetAttribute wraps cutensorPlanPreferenceSetAttribute.
@@ -419,7 +419,7 @@ func planPreferenceSetAttribute(handle Handle, pref PlanPreference, attr Planpre
 	if err := checkLibSym("cutensorPlanPreferenceSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnplanPreferenceSetAttribute(handle, pref, attr, buf, sizeInBytes))
+	return toError(fnplanPreferenceSetAttribute(handle, pref, attr, buf, sizeInBytes), "cutensorPlanPreferenceSetAttribute")
 }
 
 // readKernelCacheFromFile wraps cutensorReadKernelCacheFromFile.
@@ -427,7 +427,7 @@ func readKernelCacheFromFile(handle Handle, filename *byte) error {
 	if err := checkLibSym("cutensorReadKernelCacheFromFile"); err != nil {
 		return err
 	}
-	return toError(fnreadKernelCacheFromFile(handle, filename))
+	return toError(fnreadKernelCacheFromFile(handle, filename), "cutensorReadKernelCacheFromFile")
 }
 
 // reduce wraps cutensorReduce.
@@ -435,7 +435,7 @@ func reduce(handle Handle, plan Plan, alpha unsafe.Pointer, a uintptr, beta unsa
 	if err := checkLibSym("cutensorReduce"); err != nil {
 		return err
 	}
-	return toError(fnreduce(handle, plan, alpha, a, beta, c, d, workspace, workspaceSize, stream))
+	return toError(fnreduce(handle, plan, alpha, a, beta, c, d, workspace, workspaceSize, stream), "cutensorReduce")
 }
 
 // writeKernelCacheToFile wraps cutensorWriteKernelCacheToFile.
@@ -443,5 +443,5 @@ func writeKernelCacheToFile(handle Handle, filename *byte) error {
 	if err := checkLibSym("cutensorWriteKernelCacheToFile"); err != nil {
 		return err
 	}
-	return toError(fnwriteKernelCacheToFile(handle, filename))
+	return toError(fnwriteKernelCacheToFile(handle, filename), "cutensorWriteKernelCacheToFile")
 }

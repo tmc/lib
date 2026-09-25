@@ -40,10 +40,10 @@ func TestResultValues(t *testing.T) {
 			t.Errorf("%v.Code() = %d, want %d", r, got, code)
 		}
 	}
-	if toError(Success) != nil {
+	if toError(Success, "nvjpeg2kTest") != nil {
 		t.Error("toError(Success) is not nil")
 	}
-	if toError(ErrBadJpeg) == nil {
+	if toError(ErrBadJpeg, "nvjpeg2kTest") == nil {
 		t.Error("toError(ErrBadJpeg) is nil")
 	}
 }

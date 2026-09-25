@@ -59,7 +59,7 @@ func addNameExpression(prog Program, nameExpression *byte) error {
 	if err := checkLibSym("nvrtcAddNameExpression"); err != nil {
 		return err
 	}
-	return toError(fnaddNameExpression(prog, nameExpression))
+	return toError(fnaddNameExpression(prog, nameExpression), "nvrtcAddNameExpression")
 }
 
 // compileProgram [Program.Compile] compiles the given program.
@@ -86,7 +86,7 @@ func compileProgram(prog Program, options []string) error {
 		carg_options = &ptrs_options[0]
 		_ = cstrs_options
 	}
-	return toError(fncompileProgram(prog, int32(len(options)), carg_options))
+	return toError(fncompileProgram(prog, int32(len(options)), carg_options), "nvrtcCompileProgram")
 }
 
 // CreateProgram [CreateProgram] creates an instance of [Program] with the given input parameters, and sets the output parameter prog with it.
@@ -125,7 +125,7 @@ func CreateProgram(src string, name string, headers ...Header) (Program, error) 
 		carg_headers_Source = &ptrs[len(headers)]
 	}
 	var out Program
-	if err := toError(fnCreateProgram(&out, &cstr_src[0], &cstr_name[0], int32(len(headers)), carg_headers_Source, carg_headers_Name)); err != nil {
+	if err := toError(fnCreateProgram(&out, &cstr_src[0], &cstr_name[0], int32(len(headers)), carg_headers_Source, carg_headers_Name), "nvrtcCreateProgram"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -142,7 +142,7 @@ func destroyProgram(prog *Program) error {
 	if err := checkLibSym("nvrtcDestroyProgram"); err != nil {
 		return err
 	}
-	return toError(fndestroyProgram(prog))
+	return toError(fndestroyProgram(prog), "nvrtcDestroyProgram")
 }
 
 // GetBundledHeadersInfo [GetBundledHeadersInfo] queries information about the bundled headers without extracting them.
@@ -158,7 +158,7 @@ func GetBundledHeadersInfo() (BundledHeadersInfo, error) {
 	}
 	var errlog_errorLog *byte
 	var out BundledHeadersInfo
-	if err := toError(fnGetBundledHeadersInfo(&out, &errlog_errorLog)); err != nil {
+	if err := toError(fnGetBundledHeadersInfo(&out, &errlog_errorLog), "nvrtcGetBundledHeadersInfo"); err != nil {
 		return BundledHeadersInfo{}, errorLogDetail(err, errlog_errorLog)
 	}
 	return out, nil
@@ -184,7 +184,7 @@ func getCUBIN(prog Program) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetCUBIN(prog, &buf[0])); err != nil {
+	if err := toError(fngetCUBIN(prog, &buf[0]), "nvrtcGetCUBIN"); err != nil {
 		return nil, fmt.Errorf("getcubin: %w", err)
 	}
 	return buf[:size], nil
@@ -203,7 +203,7 @@ func getCUBINSize(prog Program) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetCUBINSize(prog, &out)); err != nil {
+	if err := toError(fngetCUBINSize(prog, &out), "nvrtcGetCUBINSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -230,7 +230,7 @@ func getLTOIR(prog Program) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetLTOIR(prog, &buf[0])); err != nil {
+	if err := toError(fngetLTOIR(prog, &buf[0]), "nvrtcGetLTOIR"); err != nil {
 		return nil, fmt.Errorf("getltoir: %w", err)
 	}
 	return buf[:size], nil
@@ -249,7 +249,7 @@ func getLTOIRSize(prog Program) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetLTOIRSize(prog, &out)); err != nil {
+	if err := toError(fngetLTOIRSize(prog, &out), "nvrtcGetLTOIRSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -269,7 +269,7 @@ func getLoweredName(prog Program, nameExpression *byte, loweredName **byte) erro
 	if err := checkLibSym("nvrtcGetLoweredName"); err != nil {
 		return err
 	}
-	return toError(fngetLoweredName(prog, nameExpression, loweredName))
+	return toError(fngetLoweredName(prog, nameExpression, loweredName), "nvrtcGetLoweredName")
 }
 
 // GetNumSupportedArchs [GetNumSupportedArchs] sets the output parameter numArchs with the number of architectures supported by NVRTC.
@@ -283,7 +283,7 @@ func GetNumSupportedArchs() (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetNumSupportedArchs(&out)); err != nil {
+	if err := toError(fnGetNumSupportedArchs(&out), "nvrtcGetNumSupportedArchs"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -310,7 +310,7 @@ func getOptiXIR(prog Program) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetOptiXIR(prog, &buf[0])); err != nil {
+	if err := toError(fngetOptiXIR(prog, &buf[0]), "nvrtcGetOptiXIR"); err != nil {
 		return nil, fmt.Errorf("getoptixir: %w", err)
 	}
 	return buf[:size], nil
@@ -329,7 +329,7 @@ func getOptiXIRSize(prog Program) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetOptiXIRSize(prog, &out)); err != nil {
+	if err := toError(fngetOptiXIRSize(prog, &out), "nvrtcGetOptiXIRSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -347,7 +347,7 @@ func getPCHCreateStatus(prog Program) error {
 	if err := checkLibSym("nvrtcGetPCHCreateStatus"); err != nil {
 		return err
 	}
-	return toError(fngetPCHCreateStatus(prog))
+	return toError(fngetPCHCreateStatus(prog), "nvrtcGetPCHCreateStatus")
 }
 
 // GetPCHHeapSize retrieve the current size of the PCH Heap.
@@ -359,7 +359,7 @@ func GetPCHHeapSize() (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fnGetPCHHeapSize(&out)); err != nil {
+	if err := toError(fnGetPCHHeapSize(&out), "nvrtcGetPCHHeapSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -377,7 +377,7 @@ func getPCHHeapSizeRequired(prog Program) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetPCHHeapSizeRequired(prog, &out)); err != nil {
+	if err := toError(fngetPCHHeapSizeRequired(prog, &out), "nvrtcGetPCHHeapSizeRequired"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -404,7 +404,7 @@ func getPTX(prog Program) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetPTX(prog, &buf[0])); err != nil {
+	if err := toError(fngetPTX(prog, &buf[0]), "nvrtcGetPTX"); err != nil {
 		return nil, fmt.Errorf("getptx: %w", err)
 	}
 	return buf[:size], nil
@@ -423,7 +423,7 @@ func getPTXSize(prog Program) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetPTXSize(prog, &out)); err != nil {
+	if err := toError(fngetPTXSize(prog, &out), "nvrtcGetPTXSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -450,7 +450,7 @@ func getProgramLog(prog Program) (string, error) {
 		return "", nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetProgramLog(prog, &buf[0])); err != nil {
+	if err := toError(fngetProgramLog(prog, &buf[0]), "nvrtcGetProgramLog"); err != nil {
 		return "", fmt.Errorf("getprogramlog: %w", err)
 	}
 	if size > 0 && buf[size-1] == 0 {
@@ -472,7 +472,7 @@ func getProgramLogSize(prog Program) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetProgramLogSize(prog, &out)); err != nil {
+	if err := toError(fngetProgramLogSize(prog, &out), "nvrtcGetProgramLogSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -490,7 +490,7 @@ func GetSupportedArchs(supportedArchs *int32) error {
 	if err := checkLibSym("nvrtcGetSupportedArchs"); err != nil {
 		return err
 	}
-	return toError(fnGetSupportedArchs(supportedArchs))
+	return toError(fnGetSupportedArchs(supportedArchs), "nvrtcGetSupportedArchs")
 }
 
 // getTileIR [Program.TileIR] stores the cuda_tile IR generated by the previous compilation of prog in the memory pointed by TileIR.
@@ -513,7 +513,7 @@ func getTileIR(prog Program) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetTileIR(prog, &buf[0])); err != nil {
+	if err := toError(fngetTileIR(prog, &buf[0]), "nvrtcGetTileIR"); err != nil {
 		return nil, fmt.Errorf("gettileir: %w", err)
 	}
 	return buf[:size], nil
@@ -532,7 +532,7 @@ func getTileIRSize(prog Program) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetTileIRSize(prog, &out)); err != nil {
+	if err := toError(fngetTileIRSize(prog, &out), "nvrtcGetTileIRSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -554,7 +554,7 @@ func InstallBundledHeaders(installPath string, flags uint32) error {
 	}
 	cstr_installPath := append([]byte(installPath), 0)
 	var errlog_errorLog *byte
-	return errorLogDetail(toError(fnInstallBundledHeaders(&cstr_installPath[0], flags, &errlog_errorLog)), errlog_errorLog)
+	return errorLogDetail(toError(fnInstallBundledHeaders(&cstr_installPath[0], flags, &errlog_errorLog), "nvrtcInstallBundledHeaders"), errlog_errorLog)
 }
 
 // RemoveBundledHeaders [RemoveBundledHeaders] removes previously installed bundled headers.
@@ -571,7 +571,7 @@ func RemoveBundledHeaders(installPath string) error {
 	}
 	cstr_installPath := append([]byte(installPath), 0)
 	var errlog_errorLog *byte
-	return errorLogDetail(toError(fnRemoveBundledHeaders(&cstr_installPath[0], &errlog_errorLog)), errlog_errorLog)
+	return errorLogDetail(toError(fnRemoveBundledHeaders(&cstr_installPath[0], &errlog_errorLog), "nvrtcRemoveBundledHeaders"), errlog_errorLog)
 }
 
 // setFlowCallback Registers a callback that can cancel program compilation.
@@ -587,7 +587,7 @@ func setFlowCallback(prog Program, callback uintptr, payload uintptr) error {
 	if err := checkLibSym("nvrtcSetFlowCallback"); err != nil {
 		return err
 	}
-	return toError(fnsetFlowCallback(prog, callback, payload))
+	return toError(fnsetFlowCallback(prog, callback, payload), "nvrtcSetFlowCallback")
 }
 
 // SetPCHHeapSize set the size of the PCH Heap.
@@ -601,7 +601,7 @@ func SetPCHHeapSize(size uint) error {
 	if err := checkLibSym("nvrtcSetPCHHeapSize"); err != nil {
 		return err
 	}
-	return toError(fnSetPCHHeapSize(size))
+	return toError(fnSetPCHHeapSize(size), "nvrtcSetPCHHeapSize")
 }
 
 // Version [Version] sets the output parameters major and minor with the CUDA Runtime Compilation version number.
@@ -613,7 +613,7 @@ func Version() (major int32, minor int32, err error) {
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fnVersion(&out0, &out1)); err != nil {
+	if err := toError(fnVersion(&out0, &out1), "nvrtcVersion"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil

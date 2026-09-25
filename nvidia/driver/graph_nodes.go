@@ -23,7 +23,7 @@ func graphNodes(g Graph, limit int, query func(Graph, *GraphNode, *uint) Result)
 		return nil, fmt.Errorf("driver: invalid graph node limit %d", limit)
 	}
 	var n uint
-	if err := toError(query(g, nil, &n)); err != nil {
+	if err := toError(query(g, nil, &n), "cuGraphGetNodes"); err != nil {
 		return nil, err
 	}
 	if n > uint(limit) {
@@ -36,7 +36,7 @@ func graphNodes(g Graph, limit int, query func(Graph, *GraphNode, *uint) Result)
 	var pin runtime.Pinner
 	pin.Pin(&nodes[0])
 	defer pin.Unpin()
-	if err := toError(query(g, &nodes[0], &n)); err != nil {
+	if err := toError(query(g, &nodes[0], &n), "cuGraphGetNodes"); err != nil {
 		return nil, err
 	}
 	if n != uint(len(nodes)) {

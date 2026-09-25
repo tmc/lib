@@ -80,7 +80,7 @@ func HostlibInit(flags InitFlags, attr *InitAttr) error {
 	if err := checkLibSym("nvshmemx_hostlib_init_attr"); err != nil {
 		return err
 	}
-	return toError(fnHostlibInitAttr(uint32(flags), attr))
+	return toError(fnHostlibInitAttr(uint32(flags), attr), "nvshmemx_hostlib_init_attr")
 }
 
 // Finalize shuts NVSHMEM down. It is collective: every PE calls it.

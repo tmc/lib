@@ -231,7 +231,7 @@ func checkVersion() error {
 		return nil
 	}
 	var out0 uint32
-	if err := toError(fnGetVersion(&out0)); err != nil {
+	if err := toError(fnGetVersion(&out0), "cuptiGetVersion"); err != nil {
 		return nil
 	}
 	raw := int(out0)

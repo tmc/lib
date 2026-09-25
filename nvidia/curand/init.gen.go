@@ -230,7 +230,7 @@ func checkVersion() error {
 		return nil
 	}
 	var out0 int32
-	if err := toError(fnGetVersion(&out0)); err != nil {
+	if err := toError(fnGetVersion(&out0), "curandGetVersion"); err != nil {
 		return nil
 	}
 	raw := int(out0)

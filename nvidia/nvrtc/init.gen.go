@@ -231,7 +231,7 @@ func checkVersion() error {
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fnVersion(&out0, &out1)); err != nil {
+	if err := toError(fnVersion(&out0, &out1), "nvrtcVersion"); err != nil {
 		return nil
 	}
 	raw := int(out0)

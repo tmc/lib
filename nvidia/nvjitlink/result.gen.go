@@ -70,12 +70,28 @@ func goString(p *byte) string {
 	return string(buf)
 }
 
-// toError converts a Result to an error, returning nil for Success.
-func toError(r Result) error {
+// CallError reports that a library call returned a failure result.
+//
+// Unwrap returns Result, so errors.Is(err, c) matches a Result constant c
+// and errors.As(err, &r) with r a Result recovers the code.
+type CallError struct {
+	Func   string // the C symbol called
+	Result Result
+}
+
+// Error reports the C symbol called and the result it returned.
+func (e *CallError) Error() string { return e.Func + ": " + e.Result.Error() }
+
+// Unwrap returns the result the call reported.
+func (e *CallError) Unwrap() error { return e.Result }
+
+// toError returns nil if r reports success and otherwise a *CallError
+// naming fn, the C symbol that returned r.
+func toError(r Result, fn string) error {
 	if r == Success {
 		return nil
 	}
-	return r
+	return &CallError{Func: fn, Result: r}
 }
 
 // resultNames maps Result constants to their Go names.

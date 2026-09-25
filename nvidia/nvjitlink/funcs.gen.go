@@ -31,7 +31,7 @@ func addData(handle Handle, inputType InputType, data unsafe.Pointer, size uint,
 		return err
 	}
 	cstr_name := append([]byte(name), 0)
-	return toError(fnaddData(handle, inputType, data, size, &cstr_name[0]))
+	return toError(fnaddData(handle, inputType, data, size, &cstr_name[0]), "__nvJitLinkAddData_13_2")
 }
 
 // addFile wraps nvJitLinkAddFile, bound as __nvJitLinkAddFile_13_2.
@@ -40,7 +40,7 @@ func addFile(handle Handle, inputType InputType, fileName string) error {
 		return err
 	}
 	cstr_fileName := append([]byte(fileName), 0)
-	return toError(fnaddFile(handle, inputType, &cstr_fileName[0]))
+	return toError(fnaddFile(handle, inputType, &cstr_fileName[0]), "__nvJitLinkAddFile_13_2")
 }
 
 // complete wraps nvJitLinkComplete, bound as __nvJitLinkComplete_13_2.
@@ -48,7 +48,7 @@ func complete(handle Handle) error {
 	if err := checkLibSym("__nvJitLinkComplete_13_2"); err != nil {
 		return err
 	}
-	return toError(fncomplete(handle))
+	return toError(fncomplete(handle), "__nvJitLinkComplete_13_2")
 }
 
 // Create wraps nvJitLinkCreate, bound as __nvJitLinkCreate_13_2.
@@ -68,7 +68,7 @@ func Create(options []string) (Handle, error) {
 		_ = cstrs_options
 	}
 	var out Handle
-	if err := toError(fnCreate(&out, uint32(len(options)), carg_options)); err != nil {
+	if err := toError(fnCreate(&out, uint32(len(options)), carg_options), "__nvJitLinkCreate_13_2"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -79,7 +79,7 @@ func destroy(handle *Handle) error {
 	if err := checkLibSym("__nvJitLinkDestroy_13_2"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle))
+	return toError(fndestroy(handle), "__nvJitLinkDestroy_13_2")
 }
 
 // getErrorLog wraps nvJitLinkGetErrorLog, bound as __nvJitLinkGetErrorLog_13_2.
@@ -95,7 +95,7 @@ func getErrorLog(handle Handle) (string, error) {
 		return "", nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetErrorLog(handle, &buf[0])); err != nil {
+	if err := toError(fngetErrorLog(handle, &buf[0]), "__nvJitLinkGetErrorLog_13_2"); err != nil {
 		return "", fmt.Errorf("geterrorlog: %w", err)
 	}
 	if size > 0 && buf[size-1] == 0 {
@@ -111,7 +111,7 @@ func getErrorLogSize(handle Handle) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetErrorLogSize(handle, &out)); err != nil {
+	if err := toError(fngetErrorLogSize(handle, &out), "__nvJitLinkGetErrorLogSize_13_2"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -131,7 +131,7 @@ func getInfoLog(handle Handle) (string, error) {
 		return "", nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetInfoLog(handle, &buf[0])); err != nil {
+	if err := toError(fngetInfoLog(handle, &buf[0]), "__nvJitLinkGetInfoLog_13_2"); err != nil {
 		return "", fmt.Errorf("getinfolog: %w", err)
 	}
 	if size > 0 && buf[size-1] == 0 {
@@ -147,7 +147,7 @@ func getInfoLogSize(handle Handle) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetInfoLogSize(handle, &out)); err != nil {
+	if err := toError(fngetInfoLogSize(handle, &out), "__nvJitLinkGetInfoLogSize_13_2"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -167,7 +167,7 @@ func getLinkedCubin(handle Handle) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetLinkedCubin(handle, unsafe.Pointer(&buf[0]))); err != nil {
+	if err := toError(fngetLinkedCubin(handle, unsafe.Pointer(&buf[0])), "__nvJitLinkGetLinkedCubin_13_2"); err != nil {
 		return nil, fmt.Errorf("getlinkedcubin: %w", err)
 	}
 	return buf[:size], nil
@@ -180,7 +180,7 @@ func getLinkedCubinSize(handle Handle) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetLinkedCubinSize(handle, &out)); err != nil {
+	if err := toError(fngetLinkedCubinSize(handle, &out), "__nvJitLinkGetLinkedCubinSize_13_2"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -200,7 +200,7 @@ func getLinkedPtx(handle Handle) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetLinkedPtx(handle, &buf[0])); err != nil {
+	if err := toError(fngetLinkedPtx(handle, &buf[0]), "__nvJitLinkGetLinkedPtx_13_2"); err != nil {
 		return nil, fmt.Errorf("getlinkedptx: %w", err)
 	}
 	return buf[:size], nil
@@ -213,7 +213,7 @@ func getLinkedPtxSize(handle Handle) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetLinkedPtxSize(handle, &out)); err != nil {
+	if err := toError(fngetLinkedPtxSize(handle, &out), "__nvJitLinkGetLinkedPtxSize_13_2"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -229,7 +229,7 @@ func Version() (major uint32, minor uint32, err error) {
 	}
 	var out0 uint32
 	var out1 uint32
-	if err := toError(fnVersion(&out0, &out1)); err != nil {
+	if err := toError(fnVersion(&out0, &out1), "nvJitLinkVersion"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil

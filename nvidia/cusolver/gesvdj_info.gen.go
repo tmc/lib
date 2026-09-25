@@ -2,22 +2,48 @@
 
 package cusolver
 
-// Destroy wraps cusolverDnDestroyGesvdjInfo.
+// Destroy destroys and releases any memory required by the structure.
+//
+// Returns:
+//   - [Success]: The resources were released successfully.
+//
+// Wraps cusolverDnDestroyGesvdjInfo.
 func (g GesvdjInfo) Destroy() error {
 	return destroyGesvdjInfo(g)
 }
 
-// XgesvdjSetMaxSweeps wraps cusolverDnXgesvdjSetMaxSweeps.
+// XgesvdjSetMaxSweeps configures the maximum number of sweeps in gesvdj.
+//
+//   - maxSweeps: Maximum number of sweeps
+//
+// Returns:
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnXgesvdjSetMaxSweeps.
 func (g GesvdjInfo) XgesvdjSetMaxSweeps(maxSweeps int32) error {
 	return xgesvdjSetMaxSweeps(g, maxSweeps)
 }
 
-// XgesvdjSetSortEig wraps cusolverDnXgesvdjSetSortEig.
+// XgesvdjSetSortEig If sortSvd is zero, the singular values are not sorted.
+//
+//   - sortSvd: If sortSvd is zero, the singular values are not sorted
+//
+// Returns:
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnXgesvdjSetSortEig.
 func (g GesvdjInfo) XgesvdjSetSortEig(sortSvd int32) error {
 	return xgesvdjSetSortEig(g, sortSvd)
 }
 
-// XgesvdjSetTolerance wraps cusolverDnXgesvdjSetTolerance.
+// XgesvdjSetTolerance configures tolerance of gesvdj.
+//
+//   - tolerance: Accuracy of numerical singular values
+//
+// Returns:
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnXgesvdjSetTolerance.
 func (g GesvdjInfo) XgesvdjSetTolerance(tolerance float64) error {
 	return xgesvdjSetTolerance(g, tolerance)
 }

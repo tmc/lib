@@ -393,7 +393,7 @@ func computeInstanceDestroy(computeInstance ComputeInstance) error {
 	if err := checkLibSym("nvmlComputeInstanceDestroy"); err != nil {
 		return err
 	}
-	return toError(fncomputeInstanceDestroy(computeInstance))
+	return toError(fncomputeInstanceDestroy(computeInstance), "nvmlComputeInstanceDestroy")
 }
 
 // computeInstanceGetInfo Get compute instance information.
@@ -412,7 +412,7 @@ func computeInstanceGetInfo(computeInstance ComputeInstance) (ComputeInstanceInf
 		return zero, err
 	}
 	var out ComputeInstanceInfo
-	if err := toError(fncomputeInstanceGetInfo(computeInstance, &out)); err != nil {
+	if err := toError(fncomputeInstanceGetInfo(computeInstance, &out), "nvmlComputeInstanceGetInfo_v2"); err != nil {
 		var zero ComputeInstanceInfo
 		return zero, err
 	}
@@ -433,7 +433,7 @@ func deviceClearAccountingPids(device Device) error {
 	if err := checkLibSym("nvmlDeviceClearAccountingPids"); err != nil {
 		return err
 	}
-	return toError(fndeviceClearAccountingPids(device))
+	return toError(fndeviceClearAccountingPids(device), "nvmlDeviceClearAccountingPids")
 }
 
 // deviceClearCpuAffinity Clear all affinity bindings for the calling thread.
@@ -449,7 +449,7 @@ func deviceClearCpuAffinity(device Device) error {
 	if err := checkLibSym("nvmlDeviceClearCpuAffinity"); err != nil {
 		return err
 	}
-	return toError(fndeviceClearCpuAffinity(device))
+	return toError(fndeviceClearCpuAffinity(device), "nvmlDeviceClearCpuAffinity")
 }
 
 // deviceClearEccErrorCounts Clear the ECC error and other memory error counts for the device.
@@ -469,7 +469,7 @@ func deviceClearEccErrorCounts(device Device, counterType EccCounterType) error 
 	if err := checkLibSym("nvmlDeviceClearEccErrorCounts"); err != nil {
 		return err
 	}
-	return toError(fndeviceClearEccErrorCounts(device, counterType))
+	return toError(fndeviceClearEccErrorCounts(device, counterType), "nvmlDeviceClearEccErrorCounts")
 }
 
 // deviceClearFieldValues Clear values for a list of fields for a device.
@@ -485,7 +485,7 @@ func deviceClearFieldValues(device Device, valuesCount int32, values *FieldValue
 	if err := checkLibSym("nvmlDeviceClearFieldValues"); err != nil {
 		return err
 	}
-	return toError(fndeviceClearFieldValues(device, valuesCount, values))
+	return toError(fndeviceClearFieldValues(device, valuesCount, values), "nvmlDeviceClearFieldValues")
 }
 
 // deviceCreateGpuInstance Create GPU instance.
@@ -506,7 +506,7 @@ func deviceCreateGpuInstance(device Device, profileId uint32) (GpuInstance, erro
 		return zero, err
 	}
 	var out GpuInstance
-	if err := toError(fndeviceCreateGpuInstance(device, profileId, &out)); err != nil {
+	if err := toError(fndeviceCreateGpuInstance(device, profileId, &out), "nvmlDeviceCreateGpuInstance"); err != nil {
 		var zero GpuInstance
 		return zero, err
 	}
@@ -532,7 +532,7 @@ func deviceCreateGpuInstanceWithPlacement(device Device, profileId uint32, place
 		return zero, err
 	}
 	var out GpuInstance
-	if err := toError(fndeviceCreateGpuInstanceWithPlacement(device, profileId, placement, &out)); err != nil {
+	if err := toError(fndeviceCreateGpuInstanceWithPlacement(device, profileId, placement, &out), "nvmlDeviceCreateGpuInstanceWithPlacement"); err != nil {
 		var zero GpuInstance
 		return zero, err
 	}
@@ -548,7 +548,7 @@ func DeviceDiscoverGpus(pciInfo *PciInfo) error {
 	if err := checkLibSym("nvmlDeviceDiscoverGpus"); err != nil {
 		return err
 	}
-	return toError(fnDeviceDiscoverGpus(pciInfo))
+	return toError(fnDeviceDiscoverGpus(pciInfo), "nvmlDeviceDiscoverGpus")
 }
 
 // deviceFreezeNvLinkUtilizationCounter Freeze the NVLINK utilization counters Both the receive and transmit counters are operated on by this function
@@ -569,7 +569,7 @@ func deviceFreezeNvLinkUtilizationCounter(device Device, link uint32, counter ui
 	if err := checkLibSym("nvmlDeviceFreezeNvLinkUtilizationCounter"); err != nil {
 		return err
 	}
-	return toError(fndeviceFreezeNvLinkUtilizationCounter(device, link, counter, freeze))
+	return toError(fndeviceFreezeNvLinkUtilizationCounter(device, link, counter, freeze), "nvmlDeviceFreezeNvLinkUtilizationCounter")
 }
 
 // deviceGetAPIRestriction Retrieves the root/admin permissions on the target API.
@@ -588,7 +588,7 @@ func deviceGetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted 
 	if err := checkLibSym("nvmlDeviceGetAPIRestriction"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetAPIRestriction(device, apiType, isRestricted))
+	return toError(fndeviceGetAPIRestriction(device, apiType, isRestricted), "nvmlDeviceGetAPIRestriction")
 }
 
 // deviceGetAccountingBufferSize Returns the number of processes that the circular buffer with accounting pids can hold.
@@ -608,7 +608,7 @@ func deviceGetAccountingBufferSize(device Device, bufferSize *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetAccountingBufferSize"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetAccountingBufferSize(device, bufferSize))
+	return toError(fndeviceGetAccountingBufferSize(device, bufferSize), "nvmlDeviceGetAccountingBufferSize")
 }
 
 // deviceGetAccountingMode Queries the state of per process accounting mode.
@@ -628,7 +628,7 @@ func deviceGetAccountingMode(device Device) (EnableState, error) {
 		return zero, err
 	}
 	var out EnableState
-	if err := toError(fndeviceGetAccountingMode(device, &out)); err != nil {
+	if err := toError(fndeviceGetAccountingMode(device, &out), "nvmlDeviceGetAccountingMode"); err != nil {
 		var zero EnableState
 		return zero, err
 	}
@@ -655,7 +655,7 @@ func deviceGetAccountingPids(device Device, count *uint32, pids *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetAccountingPids"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetAccountingPids(device, count, pids))
+	return toError(fndeviceGetAccountingPids(device, count, pids), "nvmlDeviceGetAccountingPids")
 }
 
 // deviceGetAccountingStats Queries process's accounting stats.
@@ -676,7 +676,7 @@ func deviceGetAccountingStats(device Device, pid uint32, stats *AccountingStats)
 	if err := checkLibSym("nvmlDeviceGetAccountingStats"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetAccountingStats(device, pid, stats))
+	return toError(fndeviceGetAccountingStats(device, pid, stats), "nvmlDeviceGetAccountingStats")
 }
 
 // deviceGetActiveVgpus wraps [nvmlDeviceGetActiveVgpus].
@@ -690,7 +690,7 @@ func deviceGetActiveVgpus(device Device, vgpuCount *uint32, vgpuInstances *VgpuI
 	if err := checkLibSym("nvmlDeviceGetActiveVgpus"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetActiveVgpus(device, vgpuCount, vgpuInstances))
+	return toError(fndeviceGetActiveVgpus(device, vgpuCount, vgpuInstances), "nvmlDeviceGetActiveVgpus")
 }
 
 // deviceGetAdaptiveClockInfoStatus Gets the device's Adaptive Clock status
@@ -707,7 +707,7 @@ func deviceGetAdaptiveClockInfoStatus(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetAdaptiveClockInfoStatus(device, &out)); err != nil {
+	if err := toError(fndeviceGetAdaptiveClockInfoStatus(device, &out), "nvmlDeviceGetAdaptiveClockInfoStatus"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -731,7 +731,7 @@ func deviceGetAddressingMode(device Device) (DeviceAddressingMode, error) {
 	}
 	var out DeviceAddressingMode
 	out.Version = DeviceAddressingModeV1Version
-	if err := toError(fndeviceGetAddressingMode(device, &out)); err != nil {
+	if err := toError(fndeviceGetAddressingMode(device, &out), "nvmlDeviceGetAddressingMode"); err != nil {
 		var zero DeviceAddressingMode
 		return zero, err
 	}
@@ -751,7 +751,7 @@ func deviceGetApplicationsClock(device Device, clockType ClockType) (uint32, err
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetApplicationsClock(device, clockType, &out)); err != nil {
+	if err := toError(fndeviceGetApplicationsClock(device, clockType, &out), "nvmlDeviceGetApplicationsClock"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -772,7 +772,7 @@ func deviceGetArchitecture(device Device) (DeviceArchitecture, error) {
 		return zero, err
 	}
 	var out DeviceArchitecture
-	if err := toError(fndeviceGetArchitecture(device, &out)); err != nil {
+	if err := toError(fndeviceGetArchitecture(device, &out), "nvmlDeviceGetArchitecture"); err != nil {
 		var zero DeviceArchitecture
 		return zero, err
 	}
@@ -795,7 +795,7 @@ func deviceGetAttributes(device Device, attributes *DeviceAttributes) error {
 	if err := checkLibSym("nvmlDeviceGetAttributes_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetAttributes(device, attributes))
+	return toError(fndeviceGetAttributes(device, attributes), "nvmlDeviceGetAttributes_v2")
 }
 
 // deviceGetAutoBoostedClocksEnabled Retrieve the current state of Auto Boosted clocks on a device and store it in isEnabled
@@ -815,7 +815,7 @@ func deviceGetAutoBoostedClocksEnabled(device Device, isEnabled *EnableState, de
 	if err := checkLibSym("nvmlDeviceGetAutoBoostedClocksEnabled"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetAutoBoostedClocksEnabled(device, isEnabled, defaultIsEnabled))
+	return toError(fndeviceGetAutoBoostedClocksEnabled(device, isEnabled, defaultIsEnabled), "nvmlDeviceGetAutoBoostedClocksEnabled")
 }
 
 // deviceGetBAR1MemoryInfo Gets Total, Available and Used size of BAR1 memory.
@@ -837,7 +837,7 @@ func deviceGetBAR1MemoryInfo(device Device) (BAR1Memory, error) {
 		return zero, err
 	}
 	var out BAR1Memory
-	if err := toError(fndeviceGetBAR1MemoryInfo(device, &out)); err != nil {
+	if err := toError(fndeviceGetBAR1MemoryInfo(device, &out), "nvmlDeviceGetBAR1MemoryInfo"); err != nil {
 		var zero BAR1Memory
 		return zero, err
 	}
@@ -860,7 +860,7 @@ func deviceGetBoardId(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetBoardId(device, &out)); err != nil {
+	if err := toError(fndeviceGetBoardId(device, &out), "nvmlDeviceGetBoardId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -883,7 +883,7 @@ func deviceGetBoardPartNumber(device Device) (string, error) {
 		return "", err
 	}
 	var buf_ [80]byte
-	if err := toError(fndeviceGetBoardPartNumber(device, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fndeviceGetBoardPartNumber(device, &buf_[0], uint32(len(buf_))), "nvmlDeviceGetBoardPartNumber"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -910,7 +910,7 @@ func deviceGetBrand(device Device) (BrandType, error) {
 		return zero, err
 	}
 	var out BrandType
-	if err := toError(fndeviceGetBrand(device, &out)); err != nil {
+	if err := toError(fndeviceGetBrand(device, &out), "nvmlDeviceGetBrand"); err != nil {
 		var zero BrandType
 		return zero, err
 	}
@@ -931,7 +931,7 @@ func deviceGetBridgeChipInfo(device Device, bridgeHierarchy *BridgeChipHierarchy
 	if err := checkLibSym("nvmlDeviceGetBridgeChipInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetBridgeChipInfo(device, bridgeHierarchy))
+	return toError(fndeviceGetBridgeChipInfo(device, bridgeHierarchy), "nvmlDeviceGetBridgeChipInfo")
 }
 
 // deviceGetBusType Get the type of the GPU Bus (PCIe, PCI, ...)
@@ -950,7 +950,7 @@ func deviceGetBusType(device Device) (BusType, error) {
 		return zero, err
 	}
 	var out BusType
-	if err := toError(fndeviceGetBusType(device, &out)); err != nil {
+	if err := toError(fndeviceGetBusType(device, &out), "nvmlDeviceGetBusType"); err != nil {
 		var zero BusType
 		return zero, err
 	}
@@ -969,7 +969,7 @@ func deviceGetC2cModeInfoV(device Device, c2cModeInfo *C2cModeInfoV1) error {
 	if err := checkLibSym("nvmlDeviceGetC2cModeInfoV"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetC2cModeInfoV(device, c2cModeInfo))
+	return toError(fndeviceGetC2cModeInfoV(device, c2cModeInfo), "nvmlDeviceGetC2cModeInfoV")
 }
 
 // deviceGetCapabilities wraps nvmlDeviceGetCapabilities.
@@ -983,7 +983,7 @@ func deviceGetCapabilities(device Device) (DeviceCapabilities, error) {
 	}
 	var out DeviceCapabilities
 	out.Version = DeviceCapabilitiesV1Version
-	if err := toError(fndeviceGetCapabilities(device, &out)); err != nil {
+	if err := toError(fndeviceGetCapabilities(device, &out), "nvmlDeviceGetCapabilities"); err != nil {
 		var zero DeviceCapabilities
 		return zero, err
 	}
@@ -1006,7 +1006,7 @@ func deviceGetClkMonStatus(device Device, status *ClkMonStatus) error {
 	if err := checkLibSym("nvmlDeviceGetClkMonStatus"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetClkMonStatus(device, status))
+	return toError(fndeviceGetClkMonStatus(device, status), "nvmlDeviceGetClkMonStatus")
 }
 
 // deviceGetClock Retrieves the clock speed for the clock specified by the clock type and clock ID.
@@ -1027,7 +1027,7 @@ func deviceGetClock(device Device, clockType ClockType, clockId ClockId) (uint32
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetClock(device, clockType, clockId, &out)); err != nil {
+	if err := toError(fndeviceGetClock(device, clockType, clockId, &out), "nvmlDeviceGetClock"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1052,7 +1052,7 @@ func deviceGetClockInfo(device Device, type_ ClockType) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetClockInfo(device, type_, &out)); err != nil {
+	if err := toError(fndeviceGetClockInfo(device, type_, &out), "nvmlDeviceGetClockInfo"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1074,7 +1074,7 @@ func deviceGetClockOffsets(device Device, info *ClockOffset) error {
 	if err := checkLibSym("nvmlDeviceGetClockOffsets"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetClockOffsets(device, info))
+	return toError(fndeviceGetClockOffsets(device, info), "nvmlDeviceGetClockOffsets")
 }
 
 // deviceGetComputeInstanceId Get compute instance ID for the given MIG device handle.
@@ -1094,7 +1094,7 @@ func deviceGetComputeInstanceId(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetComputeInstanceId(device, &out)); err != nil {
+	if err := toError(fndeviceGetComputeInstanceId(device, &out), "nvmlDeviceGetComputeInstanceId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1121,7 +1121,7 @@ func deviceGetComputeMode(device Device) (ComputeMode, error) {
 		return zero, err
 	}
 	var out ComputeMode
-	if err := toError(fndeviceGetComputeMode(device, &out)); err != nil {
+	if err := toError(fndeviceGetComputeMode(device, &out), "nvmlDeviceGetComputeMode"); err != nil {
 		var zero ComputeMode
 		return zero, err
 	}
@@ -1150,7 +1150,7 @@ func deviceGetComputeRunningProcesses(device Device, infoCount *uint32, infos *P
 	if err := checkLibSym("nvmlDeviceGetComputeRunningProcesses_v3"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetComputeRunningProcesses(device, infoCount, infos))
+	return toError(fndeviceGetComputeRunningProcesses(device, infoCount, infos), "nvmlDeviceGetComputeRunningProcesses_v3")
 }
 
 // deviceGetConfComputeGpuAttestationReport Get Conf Computing GPU attestation report.
@@ -1167,7 +1167,7 @@ func deviceGetConfComputeGpuAttestationReport(device Device, gpuAtstReport *Conf
 	if err := checkLibSym("nvmlDeviceGetConfComputeGpuAttestationReport"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetConfComputeGpuAttestationReport(device, gpuAtstReport))
+	return toError(fndeviceGetConfComputeGpuAttestationReport(device, gpuAtstReport), "nvmlDeviceGetConfComputeGpuAttestationReport")
 }
 
 // deviceGetConfComputeGpuCertificate Get Conf Computing GPU certificate details.
@@ -1184,7 +1184,7 @@ func deviceGetConfComputeGpuCertificate(device Device, gpuCert *ConfComputeGpuCe
 	if err := checkLibSym("nvmlDeviceGetConfComputeGpuCertificate"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetConfComputeGpuCertificate(device, gpuCert))
+	return toError(fndeviceGetConfComputeGpuCertificate(device, gpuCert), "nvmlDeviceGetConfComputeGpuCertificate")
 }
 
 // deviceGetConfComputeMemSizeInfo Get Conf Computing Protected and Unprotected Memory Sizes.
@@ -1201,7 +1201,7 @@ func deviceGetConfComputeMemSizeInfo(device Device, memInfo *ConfComputeMemSizeI
 	if err := checkLibSym("nvmlDeviceGetConfComputeMemSizeInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetConfComputeMemSizeInfo(device, memInfo))
+	return toError(fndeviceGetConfComputeMemSizeInfo(device, memInfo), "nvmlDeviceGetConfComputeMemSizeInfo")
 }
 
 // deviceGetConfComputeProtectedMemoryUsage Get Conf Computing protected memory usage.
@@ -1220,7 +1220,7 @@ func deviceGetConfComputeProtectedMemoryUsage(device Device) (Memory, error) {
 		return zero, err
 	}
 	var out Memory
-	if err := toError(fndeviceGetConfComputeProtectedMemoryUsage(device, &out)); err != nil {
+	if err := toError(fndeviceGetConfComputeProtectedMemoryUsage(device, &out), "nvmlDeviceGetConfComputeProtectedMemoryUsage"); err != nil {
 		var zero Memory
 		return zero, err
 	}
@@ -1242,7 +1242,7 @@ func deviceGetCoolerInfo(device Device, coolerInfo *CoolerInfo) error {
 	if err := checkLibSym("nvmlDeviceGetCoolerInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetCoolerInfo(device, coolerInfo))
+	return toError(fndeviceGetCoolerInfo(device, coolerInfo), "nvmlDeviceGetCoolerInfo")
 }
 
 // DeviceGetCount Retrieves the number of compute devices in the system.
@@ -1261,7 +1261,7 @@ func DeviceGetCount() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnDeviceGetCount(&out)); err != nil {
+	if err := toError(fnDeviceGetCount(&out), "nvmlDeviceGetCount_v2"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1283,7 +1283,7 @@ func deviceGetCpuAffinity(device Device, cpuSetSize uint32, cpuSet *uint) error 
 	if err := checkLibSym("nvmlDeviceGetCpuAffinity"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetCpuAffinity(device, cpuSetSize, cpuSet))
+	return toError(fndeviceGetCpuAffinity(device, cpuSetSize, cpuSet), "nvmlDeviceGetCpuAffinity")
 }
 
 // deviceGetCpuAffinityWithinScope Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity within node or socket for the device.
@@ -1304,7 +1304,7 @@ func deviceGetCpuAffinityWithinScope(device Device, cpuSetSize uint32, cpuSet *u
 	if err := checkLibSym("nvmlDeviceGetCpuAffinityWithinScope"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetCpuAffinityWithinScope(device, cpuSetSize, cpuSet, scope))
+	return toError(fndeviceGetCpuAffinityWithinScope(device, cpuSetSize, cpuSet, scope), "nvmlDeviceGetCpuAffinityWithinScope")
 }
 
 // deviceGetCreatableVgpus wraps [nvmlDeviceGetCreatableVgpus].
@@ -1318,7 +1318,7 @@ func deviceGetCreatableVgpus(device Device, vgpuCount *uint32, vgpuTypeIds *Vgpu
 	if err := checkLibSym("nvmlDeviceGetCreatableVgpus"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetCreatableVgpus(device, vgpuCount, vgpuTypeIds))
+	return toError(fndeviceGetCreatableVgpus(device, vgpuCount, vgpuTypeIds), "nvmlDeviceGetCreatableVgpus")
 }
 
 // deviceGetCudaComputeCapability Retrieves the CUDA compute capability of the device.
@@ -1339,7 +1339,7 @@ func deviceGetCudaComputeCapability(device Device, minor *int32) (int32, error) 
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndeviceGetCudaComputeCapability(device, &out, minor)); err != nil {
+	if err := toError(fndeviceGetCudaComputeCapability(device, &out, minor), "nvmlDeviceGetCudaComputeCapability"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1362,7 +1362,7 @@ func deviceGetCurrPcieLinkGeneration(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetCurrPcieLinkGeneration(device, &out)); err != nil {
+	if err := toError(fndeviceGetCurrPcieLinkGeneration(device, &out), "nvmlDeviceGetCurrPcieLinkGeneration"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1385,7 +1385,7 @@ func deviceGetCurrPcieLinkWidth(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetCurrPcieLinkWidth(device, &out)); err != nil {
+	if err := toError(fndeviceGetCurrPcieLinkWidth(device, &out), "nvmlDeviceGetCurrPcieLinkWidth"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1411,7 +1411,7 @@ func deviceGetCurrentClockFreqs(device Device, currentClockFreqs *DeviceCurrentC
 	if err := checkLibSym("nvmlDeviceGetCurrentClockFreqs"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetCurrentClockFreqs(device, currentClockFreqs))
+	return toError(fndeviceGetCurrentClockFreqs(device, currentClockFreqs), "nvmlDeviceGetCurrentClockFreqs")
 }
 
 // deviceGetCurrentClocksEventReasons Retrieves current clocks event reasons.
@@ -1435,7 +1435,7 @@ func deviceGetCurrentClocksEventReasons(device Device) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fndeviceGetCurrentClocksEventReasons(device, &out)); err != nil {
+	if err := toError(fndeviceGetCurrentClocksEventReasons(device, &out), "nvmlDeviceGetCurrentClocksEventReasons"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -1453,7 +1453,7 @@ func deviceGetCurrentClocksThrottleReasons(device Device, clocksThrottleReasons 
 	if err := checkLibSym("nvmlDeviceGetCurrentClocksThrottleReasons"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetCurrentClocksThrottleReasons(device, clocksThrottleReasons))
+	return toError(fndeviceGetCurrentClocksThrottleReasons(device, clocksThrottleReasons), "nvmlDeviceGetCurrentClocksThrottleReasons")
 }
 
 // deviceGetDecoderUtilization Retrieves the current utilization and sampling size in microseconds for the Decoder
@@ -1475,7 +1475,7 @@ func deviceGetDecoderUtilization(device Device, samplingPeriodUs *uint32) (uint3
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetDecoderUtilization(device, &out, samplingPeriodUs)); err != nil {
+	if err := toError(fndeviceGetDecoderUtilization(device, &out, samplingPeriodUs), "nvmlDeviceGetDecoderUtilization"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1495,7 +1495,7 @@ func deviceGetDefaultApplicationsClock(device Device, clockType ClockType) (uint
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetDefaultApplicationsClock(device, clockType, &out)); err != nil {
+	if err := toError(fndeviceGetDefaultApplicationsClock(device, clockType, &out), "nvmlDeviceGetDefaultApplicationsClock"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1518,7 +1518,7 @@ func deviceGetDefaultEccMode(device Device, defaultMode *EnableState) error {
 	if err := checkLibSym("nvmlDeviceGetDefaultEccMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetDefaultEccMode(device, defaultMode))
+	return toError(fndeviceGetDefaultEccMode(device, defaultMode), "nvmlDeviceGetDefaultEccMode")
 }
 
 // deviceGetDetailedEccErrors Retrieves the detailed ECC error counts for the device.
@@ -1545,7 +1545,7 @@ func deviceGetDetailedEccErrors(device Device, errorType MemoryErrorType, counte
 		return zero, err
 	}
 	var out EccErrorCounts
-	if err := toError(fndeviceGetDetailedEccErrors(device, errorType, counterType, &out)); err != nil {
+	if err := toError(fndeviceGetDetailedEccErrors(device, errorType, counterType, &out), "nvmlDeviceGetDetailedEccErrors"); err != nil {
 		var zero EccErrorCounts
 		return zero, err
 	}
@@ -1568,7 +1568,7 @@ func deviceGetDeviceHandleFromMigDeviceHandle(migDevice Device) (Device, error) 
 		return zero, err
 	}
 	var out Device
-	if err := toError(fndeviceGetDeviceHandleFromMigDeviceHandle(migDevice, &out)); err != nil {
+	if err := toError(fndeviceGetDeviceHandleFromMigDeviceHandle(migDevice, &out), "nvmlDeviceGetDeviceHandleFromMigDeviceHandle"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -1594,7 +1594,7 @@ func deviceGetDisplayActive(device Device) (EnableState, error) {
 		return zero, err
 	}
 	var out EnableState
-	if err := toError(fndeviceGetDisplayActive(device, &out)); err != nil {
+	if err := toError(fndeviceGetDisplayActive(device, &out), "nvmlDeviceGetDisplayActive"); err != nil {
 		var zero EnableState
 		return zero, err
 	}
@@ -1619,7 +1619,7 @@ func deviceGetDisplayMode(device Device) (EnableState, error) {
 		return zero, err
 	}
 	var out EnableState
-	if err := toError(fndeviceGetDisplayMode(device, &out)); err != nil {
+	if err := toError(fndeviceGetDisplayMode(device, &out), "nvmlDeviceGetDisplayMode"); err != nil {
 		var zero EnableState
 		return zero, err
 	}
@@ -1644,7 +1644,7 @@ func deviceGetDramEncryptionMode(device Device, current *DramEncryptionInfo, pen
 	if err := checkLibSym("nvmlDeviceGetDramEncryptionMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetDramEncryptionMode(device, current, pending))
+	return toError(fndeviceGetDramEncryptionMode(device, current, pending), "nvmlDeviceGetDramEncryptionMode")
 }
 
 // deviceGetDriverModel Retrieves the current and pending driver model for the device.
@@ -1666,7 +1666,7 @@ func deviceGetDriverModel(device Device, current *DriverModel, pending *DriverMo
 	if err := checkLibSym("nvmlDeviceGetDriverModel_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetDriverModel(device, current, pending))
+	return toError(fndeviceGetDriverModel(device, current, pending), "nvmlDeviceGetDriverModel_v2")
 }
 
 // deviceGetDynamicPstatesInfo Retrieve performance monitor samples from the associated subdevice.
@@ -1678,7 +1678,7 @@ func deviceGetDynamicPstatesInfo(device Device, pDynamicPstatesInfo *GpuDynamicP
 	if err := checkLibSym("nvmlDeviceGetDynamicPstatesInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetDynamicPstatesInfo(device, pDynamicPstatesInfo))
+	return toError(fndeviceGetDynamicPstatesInfo(device, pDynamicPstatesInfo), "nvmlDeviceGetDynamicPstatesInfo")
 }
 
 // deviceGetEccMode Retrieves the current and pending ECC modes for the device.
@@ -1699,7 +1699,7 @@ func deviceGetEccMode(device Device, current *EnableState, pending *EnableState)
 	if err := checkLibSym("nvmlDeviceGetEccMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetEccMode(device, current, pending))
+	return toError(fndeviceGetEccMode(device, current, pending), "nvmlDeviceGetEccMode")
 }
 
 // deviceGetEncoderCapacity Retrieves the current capacity of the device's encoder, as a percentage of maximum encoder capacity with valid values in the range 0-100.
@@ -1719,7 +1719,7 @@ func deviceGetEncoderCapacity(device Device, encoderQueryType EncoderType) (uint
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetEncoderCapacity(device, encoderQueryType, &out)); err != nil {
+	if err := toError(fndeviceGetEncoderCapacity(device, encoderQueryType, &out), "nvmlDeviceGetEncoderCapacity"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1743,7 +1743,7 @@ func deviceGetEncoderSessions(device Device, sessionCount *uint32, sessionInfos 
 	if err := checkLibSym("nvmlDeviceGetEncoderSessions"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetEncoderSessions(device, sessionCount, sessionInfos))
+	return toError(fndeviceGetEncoderSessions(device, sessionCount, sessionInfos), "nvmlDeviceGetEncoderSessions")
 }
 
 // deviceGetEncoderStats Retrieves the current encoder statistics for a given device.
@@ -1762,7 +1762,7 @@ func deviceGetEncoderStats(device Device, sessionCount *uint32, averageFps *uint
 	if err := checkLibSym("nvmlDeviceGetEncoderStats"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetEncoderStats(device, sessionCount, averageFps, averageLatency))
+	return toError(fndeviceGetEncoderStats(device, sessionCount, averageFps, averageLatency), "nvmlDeviceGetEncoderStats")
 }
 
 // deviceGetEncoderUtilization Retrieves the current utilization and sampling size in microseconds for the Encoder
@@ -1784,7 +1784,7 @@ func deviceGetEncoderUtilization(device Device, samplingPeriodUs *uint32) (uint3
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetEncoderUtilization(device, &out, samplingPeriodUs)); err != nil {
+	if err := toError(fndeviceGetEncoderUtilization(device, &out, samplingPeriodUs), "nvmlDeviceGetEncoderUtilization"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1808,7 +1808,7 @@ func deviceGetEnforcedPowerLimit(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetEnforcedPowerLimit(device, &out)); err != nil {
+	if err := toError(fndeviceGetEnforcedPowerLimit(device, &out), "nvmlDeviceGetEnforcedPowerLimit"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1834,7 +1834,7 @@ func deviceGetFBCSessions(device Device, sessionCount *uint32, sessionInfo *FBCS
 	if err := checkLibSym("nvmlDeviceGetFBCSessions"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetFBCSessions(device, sessionCount, sessionInfo))
+	return toError(fndeviceGetFBCSessions(device, sessionCount, sessionInfo), "nvmlDeviceGetFBCSessions")
 }
 
 // deviceGetFBCStats Retrieves the active frame buffer capture sessions statistics for a given device.
@@ -1851,7 +1851,7 @@ func deviceGetFBCStats(device Device, fbcStats *FBCStats) error {
 	if err := checkLibSym("nvmlDeviceGetFBCStats"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetFBCStats(device, fbcStats))
+	return toError(fndeviceGetFBCStats(device, fbcStats), "nvmlDeviceGetFBCStats")
 }
 
 // deviceGetFanControlPolicy Gets current fan control policy.
@@ -1872,7 +1872,7 @@ func deviceGetFanControlPolicy(device Device, fan uint32) (FanControlPolicy, err
 		return zero, err
 	}
 	var out FanControlPolicy
-	if err := toError(fndeviceGetFanControlPolicy(device, fan, &out)); err != nil {
+	if err := toError(fndeviceGetFanControlPolicy(device, fan, &out), "nvmlDeviceGetFanControlPolicy_v2"); err != nil {
 		var zero FanControlPolicy
 		return zero, err
 	}
@@ -1895,7 +1895,7 @@ func deviceGetFanSpeedRPM(device Device, fanSpeed *FanSpeedInfo) error {
 	if err := checkLibSym("nvmlDeviceGetFanSpeedRPM"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetFanSpeedRPM(device, fanSpeed))
+	return toError(fndeviceGetFanSpeedRPM(device, fanSpeed), "nvmlDeviceGetFanSpeedRPM")
 }
 
 // deviceGetFanSpeed Retrieves the intended operating speed of the device's specified fan.
@@ -1917,7 +1917,7 @@ func deviceGetFanSpeed(device Device, fan uint32) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetFanSpeed(device, fan, &out)); err != nil {
+	if err := toError(fndeviceGetFanSpeed(device, fan, &out), "nvmlDeviceGetFanSpeed_v2"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -1937,7 +1937,7 @@ func deviceGetFieldValues(device Device, valuesCount int32, values *FieldValue) 
 	if err := checkLibSym("nvmlDeviceGetFieldValues"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetFieldValues(device, valuesCount, values))
+	return toError(fndeviceGetFieldValues(device, valuesCount, values), "nvmlDeviceGetFieldValues")
 }
 
 // deviceGetGpcClkMinMaxVfOffset Retrieve the GPCCLK min max VF offset value.
@@ -1955,7 +1955,7 @@ func deviceGetGpcClkMinMaxVfOffset(device Device) (int32, int32, error) {
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fndeviceGetGpcClkMinMaxVfOffset(device, &out0, &out1)); err != nil {
+	if err := toError(fndeviceGetGpcClkMinMaxVfOffset(device, &out0, &out1), "nvmlDeviceGetGpcClkMinMaxVfOffset"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -1975,7 +1975,7 @@ func deviceGetGpcClkVfOffset(device Device) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndeviceGetGpcClkVfOffset(device, &out)); err != nil {
+	if err := toError(fndeviceGetGpcClkVfOffset(device, &out), "nvmlDeviceGetGpcClkVfOffset"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -1999,7 +1999,7 @@ func deviceGetGpuFabricInfo(device Device, gpuFabricInfo *GpuFabricInfo) error {
 	if err := checkLibSym("nvmlDeviceGetGpuFabricInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGpuFabricInfo(device, gpuFabricInfo))
+	return toError(fndeviceGetGpuFabricInfo(device, gpuFabricInfo), "nvmlDeviceGetGpuFabricInfo")
 }
 
 // deviceGetGpuFabricInfoV Versioned wrapper around [Device.GpuFabricInfo] that accepts a versioned [GpuFabricInfoV2] or later output structure.
@@ -2018,7 +2018,7 @@ func deviceGetGpuFabricInfoV(device Device, gpuFabricInfo *GpuFabricInfoV) error
 	if err := checkLibSym("nvmlDeviceGetGpuFabricInfoV"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGpuFabricInfoV(device, gpuFabricInfo))
+	return toError(fndeviceGetGpuFabricInfoV(device, gpuFabricInfo), "nvmlDeviceGetGpuFabricInfoV")
 }
 
 // deviceGetGpuInstanceById Get GPU instances for given instance ID.
@@ -2038,7 +2038,7 @@ func deviceGetGpuInstanceById(device Device, id uint32) (GpuInstance, error) {
 		return zero, err
 	}
 	var out GpuInstance
-	if err := toError(fndeviceGetGpuInstanceById(device, id, &out)); err != nil {
+	if err := toError(fndeviceGetGpuInstanceById(device, id, &out), "nvmlDeviceGetGpuInstanceById"); err != nil {
 		var zero GpuInstance
 		return zero, err
 	}
@@ -2062,7 +2062,7 @@ func deviceGetGpuInstanceId(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetGpuInstanceId(device, &out)); err != nil {
+	if err := toError(fndeviceGetGpuInstanceId(device, &out), "nvmlDeviceGetGpuInstanceId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2086,7 +2086,7 @@ func deviceGetGpuInstancePossiblePlacements(device Device, profileId uint32, pla
 	if err := checkLibSym("nvmlDeviceGetGpuInstancePossiblePlacements_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGpuInstancePossiblePlacements(device, profileId, placements, count))
+	return toError(fndeviceGetGpuInstancePossiblePlacements(device, profileId, placements, count), "nvmlDeviceGetGpuInstancePossiblePlacements_v2")
 }
 
 // deviceGetGpuInstanceProfileInfo Get GPU instance profile information
@@ -2109,7 +2109,7 @@ func deviceGetGpuInstanceProfileInfo(device Device, profile uint32) (GpuInstance
 		return zero, err
 	}
 	var out GpuInstanceProfileInfo
-	if err := toError(fndeviceGetGpuInstanceProfileInfo(device, profile, &out)); err != nil {
+	if err := toError(fndeviceGetGpuInstanceProfileInfo(device, profile, &out), "nvmlDeviceGetGpuInstanceProfileInfo"); err != nil {
 		var zero GpuInstanceProfileInfo
 		return zero, err
 	}
@@ -2136,7 +2136,7 @@ func deviceGetGpuInstanceProfileInfoByIdV(device Device, profileId uint32) (GpuI
 	}
 	var out GpuInstanceProfileInfoV2
 	out.Version = GpuInstanceProfileInfoV2Version
-	if err := toError(fndeviceGetGpuInstanceProfileInfoByIdV(device, profileId, &out)); err != nil {
+	if err := toError(fndeviceGetGpuInstanceProfileInfoByIdV(device, profileId, &out), "nvmlDeviceGetGpuInstanceProfileInfoByIdV"); err != nil {
 		var zero GpuInstanceProfileInfoV2
 		return zero, err
 	}
@@ -2163,7 +2163,7 @@ func deviceGetGpuInstanceProfileInfoV(device Device, profile uint32) (GpuInstanc
 	}
 	var out GpuInstanceProfileInfoV2
 	out.Version = GpuInstanceProfileInfoV2Version
-	if err := toError(fndeviceGetGpuInstanceProfileInfoV(device, profile, &out)); err != nil {
+	if err := toError(fndeviceGetGpuInstanceProfileInfoV(device, profile, &out), "nvmlDeviceGetGpuInstanceProfileInfoV"); err != nil {
 		var zero GpuInstanceProfileInfoV2
 		return zero, err
 	}
@@ -2185,7 +2185,7 @@ func deviceGetGpuInstanceRemainingCapacity(device Device, profileId uint32, coun
 	if err := checkLibSym("nvmlDeviceGetGpuInstanceRemainingCapacity"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGpuInstanceRemainingCapacity(device, profileId, count))
+	return toError(fndeviceGetGpuInstanceRemainingCapacity(device, profileId, count), "nvmlDeviceGetGpuInstanceRemainingCapacity")
 }
 
 // deviceGetGpuInstances Get GPU instances for given profile ID.
@@ -2204,7 +2204,7 @@ func deviceGetGpuInstances(device Device, profileId uint32, gpuInstances *GpuIns
 	if err := checkLibSym("nvmlDeviceGetGpuInstances"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGpuInstances(device, profileId, gpuInstances, count))
+	return toError(fndeviceGetGpuInstances(device, profileId, gpuInstances, count), "nvmlDeviceGetGpuInstances")
 }
 
 // deviceGetGpuMaxPcieLinkGeneration Retrieves the maximum PCIe link generation supported by this device
@@ -2223,7 +2223,7 @@ func deviceGetGpuMaxPcieLinkGeneration(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetGpuMaxPcieLinkGeneration(device, &out)); err != nil {
+	if err := toError(fndeviceGetGpuMaxPcieLinkGeneration(device, &out), "nvmlDeviceGetGpuMaxPcieLinkGeneration"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2247,7 +2247,7 @@ func deviceGetGpuOperationMode(device Device, current *GpuOperationMode, pending
 	if err := checkLibSym("nvmlDeviceGetGpuOperationMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGpuOperationMode(device, current, pending))
+	return toError(fndeviceGetGpuOperationMode(device, current, pending), "nvmlDeviceGetGpuOperationMode")
 }
 
 // deviceGetGraphicsRunningProcesses Get information about processes with a graphics context on a device
@@ -2272,7 +2272,7 @@ func deviceGetGraphicsRunningProcesses(device Device, infoCount *uint32, infos *
 	if err := checkLibSym("nvmlDeviceGetGraphicsRunningProcesses_v3"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGraphicsRunningProcesses(device, infoCount, infos))
+	return toError(fndeviceGetGraphicsRunningProcesses(device, infoCount, infos), "nvmlDeviceGetGraphicsRunningProcesses_v3")
 }
 
 // deviceGetGridLicensableFeatures Retrieve the vGPU Software licensable features.
@@ -2289,7 +2289,7 @@ func deviceGetGridLicensableFeatures(device Device, pGridLicensableFeatures *Gri
 	if err := checkLibSym("nvmlDeviceGetGridLicensableFeatures_v4"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGridLicensableFeatures(device, pGridLicensableFeatures))
+	return toError(fndeviceGetGridLicensableFeatures(device, pGridLicensableFeatures), "nvmlDeviceGetGridLicensableFeatures_v4")
 }
 
 // deviceGetGspFirmwareMode Retrieve GSP firmware mode.
@@ -2307,7 +2307,7 @@ func deviceGetGspFirmwareMode(device Device, isEnabled *uint32, defaultMode *uin
 	if err := checkLibSym("nvmlDeviceGetGspFirmwareMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGspFirmwareMode(device, isEnabled, defaultMode))
+	return toError(fndeviceGetGspFirmwareMode(device, isEnabled, defaultMode), "nvmlDeviceGetGspFirmwareMode")
 }
 
 // deviceGetGspFirmwareVersion Retrieve GSP firmware version.
@@ -2324,7 +2324,7 @@ func deviceGetGspFirmwareVersion(device Device, version *byte) error {
 	if err := checkLibSym("nvmlDeviceGetGspFirmwareVersion"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetGspFirmwareVersion(device, version))
+	return toError(fndeviceGetGspFirmwareVersion(device, version), "nvmlDeviceGetGspFirmwareVersion")
 }
 
 // deviceGetHandleByIndex Acquire the handle for a particular device, based on its index.
@@ -2351,7 +2351,7 @@ func deviceGetHandleByIndex(index uint32) (Device, error) {
 		return zero, err
 	}
 	var out Device
-	if err := toError(fndeviceGetHandleByIndex(index, &out)); err != nil {
+	if err := toError(fndeviceGetHandleByIndex(index, &out), "nvmlDeviceGetHandleByIndex_v2"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -2379,7 +2379,7 @@ func deviceGetHandleByPciBusId(pciBusId string) (Device, error) {
 	}
 	pciBusId_cstr := append([]byte(pciBusId), 0)
 	var out Device
-	if err := toError(fndeviceGetHandleByPciBusId(&pciBusId_cstr[0], &out)); err != nil {
+	if err := toError(fndeviceGetHandleByPciBusId(&pciBusId_cstr[0], &out), "nvmlDeviceGetHandleByPciBusId_v2"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -2408,7 +2408,7 @@ func deviceGetHandleBySerial(serial *byte) (Device, error) {
 		return zero, err
 	}
 	var out Device
-	if err := toError(fndeviceGetHandleBySerial(serial, &out)); err != nil {
+	if err := toError(fndeviceGetHandleBySerial(serial, &out), "nvmlDeviceGetHandleBySerial"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -2434,7 +2434,7 @@ func deviceGetHandleByUUID(uuid string) (Device, error) {
 	}
 	uuid_cstr := append([]byte(uuid), 0)
 	var out Device
-	if err := toError(fndeviceGetHandleByUUID(&uuid_cstr[0], &out)); err != nil {
+	if err := toError(fndeviceGetHandleByUUID(&uuid_cstr[0], &out), "nvmlDeviceGetHandleByUUID"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -2458,7 +2458,7 @@ func deviceGetHandleByUUIDV(uuid *UUID) (Device, error) {
 		return zero, err
 	}
 	var out Device
-	if err := toError(fndeviceGetHandleByUUIDV(uuid, &out)); err != nil {
+	if err := toError(fndeviceGetHandleByUUIDV(uuid, &out), "nvmlDeviceGetHandleByUUIDV"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -2479,7 +2479,7 @@ func deviceGetHostVgpuMode(device Device, pHostVgpuMode *HostVgpuMode) error {
 	if err := checkLibSym("nvmlDeviceGetHostVgpuMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetHostVgpuMode(device, pHostVgpuMode))
+	return toError(fndeviceGetHostVgpuMode(device, pHostVgpuMode), "nvmlDeviceGetHostVgpuMode")
 }
 
 // deviceGetHostname Get the hostname for the device.
@@ -2498,7 +2498,7 @@ func deviceGetHostname(device Device, hostname *HostnameV1) error {
 	if err := checkLibSym("nvmlDeviceGetHostname_v1"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetHostname(device, hostname))
+	return toError(fndeviceGetHostname(device, hostname), "nvmlDeviceGetHostname_v1")
 }
 
 // deviceGetIndex Retrieves the NVML index of this device.
@@ -2523,7 +2523,7 @@ func deviceGetIndex(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetIndex(device, &out)); err != nil {
+	if err := toError(fndeviceGetIndex(device, &out), "nvmlDeviceGetIndex"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2547,7 +2547,7 @@ func deviceGetInforomConfigurationChecksum(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetInforomConfigurationChecksum(device, &out)); err != nil {
+	if err := toError(fndeviceGetInforomConfigurationChecksum(device, &out), "nvmlDeviceGetInforomConfigurationChecksum"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2572,7 +2572,7 @@ func deviceGetInforomImageVersion(device Device) (string, error) {
 		return "", err
 	}
 	var buf_ [16]byte
-	if err := toError(fndeviceGetInforomImageVersion(device, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fndeviceGetInforomImageVersion(device, &buf_[0], uint32(len(buf_))), "nvmlDeviceGetInforomImageVersion"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -2602,7 +2602,7 @@ func deviceGetInforomVersion(device Device, object InforomObject) (string, error
 		return "", err
 	}
 	var buf_ [16]byte
-	if err := toError(fndeviceGetInforomVersion(device, object, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fndeviceGetInforomVersion(device, object, &buf_[0], uint32(len(buf_))), "nvmlDeviceGetInforomVersion"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -2626,7 +2626,7 @@ func deviceGetIrqNum(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetIrqNum(device, &out)); err != nil {
+	if err := toError(fndeviceGetIrqNum(device, &out), "nvmlDeviceGetIrqNum"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2652,7 +2652,7 @@ func deviceGetJpgUtilization(device Device, samplingPeriodUs *uint32) (uint32, e
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetJpgUtilization(device, &out, samplingPeriodUs)); err != nil {
+	if err := toError(fndeviceGetJpgUtilization(device, &out, samplingPeriodUs), "nvmlDeviceGetJpgUtilization"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2675,7 +2675,7 @@ func deviceGetLastBBXFlushTime(device Device, timestamp *uint64, durationUs *uin
 	if err := checkLibSym("nvmlDeviceGetLastBBXFlushTime"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetLastBBXFlushTime(device, timestamp, durationUs))
+	return toError(fndeviceGetLastBBXFlushTime(device, timestamp, durationUs), "nvmlDeviceGetLastBBXFlushTime")
 }
 
 // deviceGetMPSComputeRunningProcesses Get information about processes with a Multi-Process Service (MPS) compute context on a device
@@ -2700,7 +2700,7 @@ func deviceGetMPSComputeRunningProcesses(device Device, infoCount *uint32, infos
 	if err := checkLibSym("nvmlDeviceGetMPSComputeRunningProcesses_v3"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetMPSComputeRunningProcesses(device, infoCount, infos))
+	return toError(fndeviceGetMPSComputeRunningProcesses(device, infoCount, infos), "nvmlDeviceGetMPSComputeRunningProcesses_v3")
 }
 
 // deviceGetMarginTemperature Retrieves the thermal margin temperature (distance to nearest slowdown threshold).
@@ -2718,7 +2718,7 @@ func deviceGetMarginTemperature(device Device) (MarginTemperature, error) {
 	}
 	var out MarginTemperature
 	out.Version = MarginTemperatureV1Version
-	if err := toError(fndeviceGetMarginTemperature(device, &out)); err != nil {
+	if err := toError(fndeviceGetMarginTemperature(device, &out), "nvmlDeviceGetMarginTemperature"); err != nil {
 		var zero MarginTemperature
 		return zero, err
 	}
@@ -2745,7 +2745,7 @@ func deviceGetMaxClockInfo(device Device, type_ ClockType) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetMaxClockInfo(device, type_, &out)); err != nil {
+	if err := toError(fndeviceGetMaxClockInfo(device, type_, &out), "nvmlDeviceGetMaxClockInfo"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2769,7 +2769,7 @@ func deviceGetMaxCustomerBoostClock(device Device, clockType ClockType) (uint32,
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetMaxCustomerBoostClock(device, clockType, &out)); err != nil {
+	if err := toError(fndeviceGetMaxCustomerBoostClock(device, clockType, &out), "nvmlDeviceGetMaxCustomerBoostClock"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2791,7 +2791,7 @@ func deviceGetMaxMigDeviceCount(device Device, count *uint32) error {
 	if err := checkLibSym("nvmlDeviceGetMaxMigDeviceCount"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetMaxMigDeviceCount(device, count))
+	return toError(fndeviceGetMaxMigDeviceCount(device, count), "nvmlDeviceGetMaxMigDeviceCount")
 }
 
 // deviceGetMaxPcieLinkGeneration Retrieves the maximum PCIe link generation possible with this device and system
@@ -2811,7 +2811,7 @@ func deviceGetMaxPcieLinkGeneration(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetMaxPcieLinkGeneration(device, &out)); err != nil {
+	if err := toError(fndeviceGetMaxPcieLinkGeneration(device, &out), "nvmlDeviceGetMaxPcieLinkGeneration"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2835,7 +2835,7 @@ func deviceGetMaxPcieLinkWidth(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetMaxPcieLinkWidth(device, &out)); err != nil {
+	if err := toError(fndeviceGetMaxPcieLinkWidth(device, &out), "nvmlDeviceGetMaxPcieLinkWidth"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2857,7 +2857,7 @@ func deviceGetMemClkMinMaxVfOffset(device Device) (int32, int32, error) {
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fndeviceGetMemClkMinMaxVfOffset(device, &out0, &out1)); err != nil {
+	if err := toError(fndeviceGetMemClkMinMaxVfOffset(device, &out0, &out1), "nvmlDeviceGetMemClkMinMaxVfOffset"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -2877,7 +2877,7 @@ func deviceGetMemClkVfOffset(device Device) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndeviceGetMemClkVfOffset(device, &out)); err != nil {
+	if err := toError(fndeviceGetMemClkVfOffset(device, &out), "nvmlDeviceGetMemClkVfOffset"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -2902,7 +2902,7 @@ func deviceGetMemoryAffinity(device Device, nodeSetSize uint32, nodeSet *uint, s
 	if err := checkLibSym("nvmlDeviceGetMemoryAffinity"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetMemoryAffinity(device, nodeSetSize, nodeSet, scope))
+	return toError(fndeviceGetMemoryAffinity(device, nodeSetSize, nodeSet, scope), "nvmlDeviceGetMemoryAffinity")
 }
 
 // deviceGetMemoryBusWidth Gets the device's memory bus width
@@ -2919,7 +2919,7 @@ func deviceGetMemoryBusWidth(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetMemoryBusWidth(device, &out)); err != nil {
+	if err := toError(fndeviceGetMemoryBusWidth(device, &out), "nvmlDeviceGetMemoryBusWidth"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -2948,7 +2948,7 @@ func deviceGetMemoryErrorCounter(device Device, errorType MemoryErrorType, count
 	if err := checkLibSym("nvmlDeviceGetMemoryErrorCounter"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetMemoryErrorCounter(device, errorType, counterType, locationType, count))
+	return toError(fndeviceGetMemoryErrorCounter(device, errorType, counterType, locationType, count), "nvmlDeviceGetMemoryErrorCounter")
 }
 
 // deviceGetMemoryInfo Retrieves the amount of used, free, reserved and total memory available on the device, in bytes.
@@ -2971,7 +2971,7 @@ func deviceGetMemoryInfo(device Device) (MemoryV2, error) {
 	}
 	var out MemoryV2
 	out.Version = MemoryV2Version
-	if err := toError(fndeviceGetMemoryInfo(device, &out)); err != nil {
+	if err := toError(fndeviceGetMemoryInfo(device, &out), "nvmlDeviceGetMemoryInfo_v2"); err != nil {
 		var zero MemoryV2
 		return zero, err
 	}
@@ -2996,7 +2996,7 @@ func deviceGetMigDeviceHandleByIndex(device Device, index uint32) (Device, error
 		return zero, err
 	}
 	var out Device
-	if err := toError(fndeviceGetMigDeviceHandleByIndex(device, index, &out)); err != nil {
+	if err := toError(fndeviceGetMigDeviceHandleByIndex(device, index, &out), "nvmlDeviceGetMigDeviceHandleByIndex"); err != nil {
 		var zero Device
 		return zero, err
 	}
@@ -3021,7 +3021,7 @@ func deviceGetMigMode(device Device, pendingMode *uint32) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetMigMode(device, &out, pendingMode)); err != nil {
+	if err := toError(fndeviceGetMigMode(device, &out, pendingMode), "nvmlDeviceGetMigMode"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3043,7 +3043,7 @@ func deviceGetMinMaxClockOfPState(device Device, type_ ClockType, pstate Pstates
 	if err := checkLibSym("nvmlDeviceGetMinMaxClockOfPState"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetMinMaxClockOfPState(device, type_, pstate, minClockMHz, maxClockMHz))
+	return toError(fndeviceGetMinMaxClockOfPState(device, type_, pstate, minClockMHz, maxClockMHz), "nvmlDeviceGetMinMaxClockOfPState")
 }
 
 // deviceGetMinMaxFanSpeed Retrieves the min and max fan speed that user can set for the GPU fan.
@@ -3063,7 +3063,7 @@ func deviceGetMinMaxFanSpeed(device Device) (uint32, uint32, error) {
 	}
 	var out0 uint32
 	var out1 uint32
-	if err := toError(fndeviceGetMinMaxFanSpeed(device, &out0, &out1)); err != nil {
+	if err := toError(fndeviceGetMinMaxFanSpeed(device, &out0, &out1), "nvmlDeviceGetMinMaxFanSpeed"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -3085,7 +3085,7 @@ func deviceGetMinorNumber(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetMinorNumber(device, &out)); err != nil {
+	if err := toError(fndeviceGetMinorNumber(device, &out), "nvmlDeviceGetMinorNumber"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3108,7 +3108,7 @@ func deviceGetModuleId(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetModuleId(device, &out)); err != nil {
+	if err := toError(fndeviceGetModuleId(device, &out), "nvmlDeviceGetModuleId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3131,7 +3131,7 @@ func deviceGetMultiGpuBoard(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetMultiGpuBoard(device, &out)); err != nil {
+	if err := toError(fndeviceGetMultiGpuBoard(device, &out), "nvmlDeviceGetMultiGpuBoard"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3156,7 +3156,7 @@ func deviceGetName(device Device) (string, error) {
 		return "", err
 	}
 	var buf_ [96]byte
-	if err := toError(fndeviceGetName(device, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fndeviceGetName(device, &buf_[0], uint32(len(buf_))), "nvmlDeviceGetName"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -3182,7 +3182,7 @@ func deviceGetNumFans(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetNumFans(device, &out)); err != nil {
+	if err := toError(fndeviceGetNumFans(device, &out), "nvmlDeviceGetNumFans"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3206,7 +3206,7 @@ func deviceGetNumGpuCores(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetNumGpuCores(device, &out)); err != nil {
+	if err := toError(fndeviceGetNumGpuCores(device, &out), "nvmlDeviceGetNumGpuCores"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3227,7 +3227,7 @@ func deviceGetNumaNodeId(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetNumaNodeId(device, &out)); err != nil {
+	if err := toError(fndeviceGetNumaNodeId(device, &out), "nvmlDeviceGetNumaNodeId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3252,7 +3252,7 @@ func deviceGetNvLinkCapability(device Device, link uint32, capability NvLinkCapa
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetNvLinkCapability(device, link, capability, &out)); err != nil {
+	if err := toError(fndeviceGetNvLinkCapability(device, link, capability, &out), "nvmlDeviceGetNvLinkCapability"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3277,7 +3277,7 @@ func deviceGetNvLinkErrorCounter(device Device, link uint32, counter NvLinkError
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fndeviceGetNvLinkErrorCounter(device, link, counter, &out)); err != nil {
+	if err := toError(fndeviceGetNvLinkErrorCounter(device, link, counter, &out), "nvmlDeviceGetNvLinkErrorCounter"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -3299,7 +3299,7 @@ func deviceGetNvLinkInfo(device Device) (NvLinkInfo, error) {
 	}
 	var out NvLinkInfo
 	out.Version = NvLinkInfoV1Version
-	if err := toError(fndeviceGetNvLinkInfo(device, &out)); err != nil {
+	if err := toError(fndeviceGetNvLinkInfo(device, &out), "nvmlDeviceGetNvLinkInfo"); err != nil {
 		var zero NvLinkInfo
 		return zero, err
 	}
@@ -3319,7 +3319,7 @@ func deviceGetNvLinkRemoteDeviceType(device Device, link uint32, pNvLinkDeviceTy
 	if err := checkLibSym("nvmlDeviceGetNvLinkRemoteDeviceType"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetNvLinkRemoteDeviceType(device, link, pNvLinkDeviceType))
+	return toError(fndeviceGetNvLinkRemoteDeviceType(device, link, pNvLinkDeviceType), "nvmlDeviceGetNvLinkRemoteDeviceType")
 }
 
 // deviceGetNvLinkRemotePciInfo Retrieves the PCI information for the remote node on a NvLink link Note: pciSubSystemId is not filled in this function and is indeterminate
@@ -3339,7 +3339,7 @@ func deviceGetNvLinkRemotePciInfo(device Device, link uint32) (PciInfo, error) {
 		return zero, err
 	}
 	var out PciInfo
-	if err := toError(fndeviceGetNvLinkRemotePciInfo(device, link, &out)); err != nil {
+	if err := toError(fndeviceGetNvLinkRemotePciInfo(device, link, &out), "nvmlDeviceGetNvLinkRemotePciInfo_v2"); err != nil {
 		var zero PciInfo
 		return zero, err
 	}
@@ -3363,7 +3363,7 @@ func deviceGetNvLinkState(device Device, link uint32) (EnableState, error) {
 		return zero, err
 	}
 	var out EnableState
-	if err := toError(fndeviceGetNvLinkState(device, link, &out)); err != nil {
+	if err := toError(fndeviceGetNvLinkState(device, link, &out), "nvmlDeviceGetNvLinkState"); err != nil {
 		var zero EnableState
 		return zero, err
 	}
@@ -3388,7 +3388,7 @@ func deviceGetNvLinkUtilizationControl(device Device, link uint32, counter uint3
 	if err := checkLibSym("nvmlDeviceGetNvLinkUtilizationControl"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetNvLinkUtilizationControl(device, link, counter, control))
+	return toError(fndeviceGetNvLinkUtilizationControl(device, link, counter, control), "nvmlDeviceGetNvLinkUtilizationControl")
 }
 
 // deviceGetNvLinkUtilizationCounter Retrieve the NVLINK utilization counter based on the current control for a specified counter.
@@ -3410,7 +3410,7 @@ func deviceGetNvLinkUtilizationCounter(device Device, link uint32, counter uint3
 	if err := checkLibSym("nvmlDeviceGetNvLinkUtilizationCounter"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetNvLinkUtilizationCounter(device, link, counter, rxcounter, txcounter))
+	return toError(fndeviceGetNvLinkUtilizationCounter(device, link, counter, rxcounter, txcounter), "nvmlDeviceGetNvLinkUtilizationCounter")
 }
 
 // deviceGetNvLinkVersion Retrieves the version of the device's NvLink for the link specified
@@ -3430,7 +3430,7 @@ func deviceGetNvLinkVersion(device Device, link uint32) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetNvLinkVersion(device, link, &out)); err != nil {
+	if err := toError(fndeviceGetNvLinkVersion(device, link, &out), "nvmlDeviceGetNvLinkVersion"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3451,7 +3451,7 @@ func deviceGetNvlinkBwMode(device Device, getBwMode *NvlinkGetBwMode) error {
 	if err := checkLibSym("nvmlDeviceGetNvlinkBwMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetNvlinkBwMode(device, getBwMode))
+	return toError(fndeviceGetNvlinkBwMode(device, getBwMode), "nvmlDeviceGetNvlinkBwMode")
 }
 
 // deviceGetNvlinkSupportedBwModes Get the supported NvLink Reduced Bandwidth Modes of the device
@@ -3468,7 +3468,7 @@ func deviceGetNvlinkSupportedBwModes(device Device, supportedBwMode *NvlinkSuppo
 	if err := checkLibSym("nvmlDeviceGetNvlinkSupportedBwModes"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetNvlinkSupportedBwModes(device, supportedBwMode))
+	return toError(fndeviceGetNvlinkSupportedBwModes(device, supportedBwMode), "nvmlDeviceGetNvlinkSupportedBwModes")
 }
 
 // deviceGetOfaUtilization Retrieves the current utilization and sampling size in microseconds for the OFA (Optical Flow Accelerator)
@@ -3490,7 +3490,7 @@ func deviceGetOfaUtilization(device Device, samplingPeriodUs *uint32) (uint32, e
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetOfaUtilization(device, &out, samplingPeriodUs)); err != nil {
+	if err := toError(fndeviceGetOfaUtilization(device, &out, samplingPeriodUs), "nvmlDeviceGetOfaUtilization"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3511,7 +3511,7 @@ func deviceGetP2PStatus(device1 Device, device2 Device, p2pIndex GpuP2PCapsIndex
 	if err := checkLibSym("nvmlDeviceGetP2PStatus"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetP2PStatus(device1, device2, p2pIndex, p2pStatus))
+	return toError(fndeviceGetP2PStatus(device1, device2, p2pIndex, p2pStatus), "nvmlDeviceGetP2PStatus")
 }
 
 // deviceGetPciInfo Retrieves the PCI attributes of this device.
@@ -3531,7 +3531,7 @@ func deviceGetPciInfo(device Device) (PciInfo, error) {
 		return zero, err
 	}
 	var out PciInfo
-	if err := toError(fndeviceGetPciInfo(device, &out)); err != nil {
+	if err := toError(fndeviceGetPciInfo(device, &out), "nvmlDeviceGetPciInfo_v3"); err != nil {
 		var zero PciInfo
 		return zero, err
 	}
@@ -3556,7 +3556,7 @@ func deviceGetPciInfoExt(device Device) (PciInfoExt, error) {
 	}
 	var out PciInfoExt
 	out.Version = PciInfoExtV1Version
-	if err := toError(fndeviceGetPciInfoExt(device, &out)); err != nil {
+	if err := toError(fndeviceGetPciInfoExt(device, &out), "nvmlDeviceGetPciInfoExt"); err != nil {
 		var zero PciInfoExt
 		return zero, err
 	}
@@ -3577,7 +3577,7 @@ func deviceGetPcieLinkMaxSpeed(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetPcieLinkMaxSpeed(device, &out)); err != nil {
+	if err := toError(fndeviceGetPcieLinkMaxSpeed(device, &out), "nvmlDeviceGetPcieLinkMaxSpeed"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3600,7 +3600,7 @@ func deviceGetPcieReplayCounter(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetPcieReplayCounter(device, &out)); err != nil {
+	if err := toError(fndeviceGetPcieReplayCounter(device, &out), "nvmlDeviceGetPcieReplayCounter"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3621,7 +3621,7 @@ func deviceGetPcieSpeed(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetPcieSpeed(device, &out)); err != nil {
+	if err := toError(fndeviceGetPcieSpeed(device, &out), "nvmlDeviceGetPcieSpeed"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3646,7 +3646,7 @@ func deviceGetPcieThroughput(device Device, counter PcieUtilCounter) (uint32, er
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetPcieThroughput(device, counter, &out)); err != nil {
+	if err := toError(fndeviceGetPcieThroughput(device, counter, &out), "nvmlDeviceGetPcieThroughput"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3671,7 +3671,7 @@ func deviceGetPdi(device Device) (Pdi, error) {
 	}
 	var out Pdi
 	out.Version = PdiV1Version
-	if err := toError(fndeviceGetPdi(device, &out)); err != nil {
+	if err := toError(fndeviceGetPdi(device, &out), "nvmlDeviceGetPdi"); err != nil {
 		var zero Pdi
 		return zero, err
 	}
@@ -3697,7 +3697,7 @@ func deviceGetPerformanceModes(device Device, perfModes *DevicePerfModes) error 
 	if err := checkLibSym("nvmlDeviceGetPerformanceModes"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetPerformanceModes(device, perfModes))
+	return toError(fndeviceGetPerformanceModes(device, perfModes), "nvmlDeviceGetPerformanceModes")
 }
 
 // deviceGetPerformanceState Retrieves the current performance state for the device.
@@ -3717,7 +3717,7 @@ func deviceGetPerformanceState(device Device) (Pstates, error) {
 		return zero, err
 	}
 	var out Pstates
-	if err := toError(fndeviceGetPerformanceState(device, &out)); err != nil {
+	if err := toError(fndeviceGetPerformanceState(device, &out), "nvmlDeviceGetPerformanceState"); err != nil {
 		var zero Pstates
 		return zero, err
 	}
@@ -3743,7 +3743,7 @@ func deviceGetPersistenceMode(device Device) (EnableState, error) {
 		return zero, err
 	}
 	var out EnableState
-	if err := toError(fndeviceGetPersistenceMode(device, &out)); err != nil {
+	if err := toError(fndeviceGetPersistenceMode(device, &out), "nvmlDeviceGetPersistenceMode"); err != nil {
 		var zero EnableState
 		return zero, err
 	}
@@ -3761,7 +3761,7 @@ func deviceGetPgpuMetadataString(device Device, pgpuMetadata *byte, bufferSize *
 	if err := checkLibSym("nvmlDeviceGetPgpuMetadataString"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetPgpuMetadataString(device, pgpuMetadata, bufferSize))
+	return toError(fndeviceGetPgpuMetadataString(device, pgpuMetadata, bufferSize), "nvmlDeviceGetPgpuMetadataString")
 }
 
 // deviceGetPlatformInfo Get platform information of this device.
@@ -3779,7 +3779,7 @@ func deviceGetPlatformInfo(device Device, platformInfo *PlatformInfo) error {
 	if err := checkLibSym("nvmlDeviceGetPlatformInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetPlatformInfo(device, platformInfo))
+	return toError(fndeviceGetPlatformInfo(device, platformInfo), "nvmlDeviceGetPlatformInfo")
 }
 
 // deviceGetPowerManagementDefaultLimit Retrieves default power management limit on this device, in milliwatts.
@@ -3798,7 +3798,7 @@ func deviceGetPowerManagementDefaultLimit(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetPowerManagementDefaultLimit(device, &out)); err != nil {
+	if err := toError(fndeviceGetPowerManagementDefaultLimit(device, &out), "nvmlDeviceGetPowerManagementDefaultLimit"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3823,7 +3823,7 @@ func deviceGetPowerManagementLimit(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetPowerManagementLimit(device, &out)); err != nil {
+	if err := toError(fndeviceGetPowerManagementLimit(device, &out), "nvmlDeviceGetPowerManagementLimit"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3846,7 +3846,7 @@ func deviceGetPowerManagementLimitConstraints(device Device, minLimit *uint32, m
 	if err := checkLibSym("nvmlDeviceGetPowerManagementLimitConstraints"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetPowerManagementLimitConstraints(device, minLimit, maxLimit))
+	return toError(fndeviceGetPowerManagementLimitConstraints(device, minLimit, maxLimit), "nvmlDeviceGetPowerManagementLimitConstraints")
 }
 
 // deviceGetPowerManagementMode Retrieves the power management mode associated with this device.
@@ -3870,7 +3870,7 @@ func deviceGetPowerManagementMode(device Device) (EnableState, error) {
 		return zero, err
 	}
 	var out EnableState
-	if err := toError(fndeviceGetPowerManagementMode(device, &out)); err != nil {
+	if err := toError(fndeviceGetPowerManagementMode(device, &out), "nvmlDeviceGetPowerManagementMode"); err != nil {
 		var zero EnableState
 		return zero, err
 	}
@@ -3892,7 +3892,7 @@ func deviceGetPowerMizerMode(device Device, powerMizerMode *DevicePowerMizerMode
 	if err := checkLibSym("nvmlDeviceGetPowerMizerMode_v1"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetPowerMizerMode(device, powerMizerMode))
+	return toError(fndeviceGetPowerMizerMode(device, powerMizerMode), "nvmlDeviceGetPowerMizerMode_v1")
 }
 
 // deviceGetPowerSource Gets the devices power source
@@ -3909,7 +3909,7 @@ func deviceGetPowerSource(device Device) (PowerSource, error) {
 		return zero, err
 	}
 	var out PowerSource
-	if err := toError(fndeviceGetPowerSource(device, &out)); err != nil {
+	if err := toError(fndeviceGetPowerSource(device, &out), "nvmlDeviceGetPowerSource"); err != nil {
 		var zero PowerSource
 		return zero, err
 	}
@@ -3935,7 +3935,7 @@ func deviceGetPowerState(device Device) (Pstates, error) {
 		return zero, err
 	}
 	var out Pstates
-	if err := toError(fndeviceGetPowerState(device, &out)); err != nil {
+	if err := toError(fndeviceGetPowerState(device, &out), "nvmlDeviceGetPowerState"); err != nil {
 		var zero Pstates
 		return zero, err
 	}
@@ -3961,7 +3961,7 @@ func deviceGetPowerUsage(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetPowerUsage(device, &out)); err != nil {
+	if err := toError(fndeviceGetPowerUsage(device, &out), "nvmlDeviceGetPowerUsage"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -3990,7 +3990,7 @@ func deviceGetProcessUtilization(device Device, utilization *ProcessUtilizationS
 	if err := checkLibSym("nvmlDeviceGetProcessUtilization"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetProcessUtilization(device, utilization, processSamplesCount, lastSeenTimeStamp))
+	return toError(fndeviceGetProcessUtilization(device, utilization, processSamplesCount, lastSeenTimeStamp), "nvmlDeviceGetProcessUtilization")
 }
 
 // deviceGetProcessesUtilizationInfo Retrieves the recent utilization and process ID for all running processes
@@ -4014,7 +4014,7 @@ func deviceGetProcessesUtilizationInfo(device Device, procesesUtilInfo *Processe
 	if err := checkLibSym("nvmlDeviceGetProcessesUtilizationInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetProcessesUtilizationInfo(device, procesesUtilInfo))
+	return toError(fndeviceGetProcessesUtilizationInfo(device, procesesUtilInfo), "nvmlDeviceGetProcessesUtilizationInfo")
 }
 
 // deviceGetRemappedRows Get number of remapped rows.
@@ -4038,7 +4038,7 @@ func deviceGetRemappedRows(device Device, uncRows *uint32, isPending *uint32, fa
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetRemappedRows(device, &out, uncRows, isPending, failureOccurred)); err != nil {
+	if err := toError(fndeviceGetRemappedRows(device, &out, uncRows, isPending, failureOccurred), "nvmlDeviceGetRemappedRows"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -4062,7 +4062,7 @@ func deviceGetRepairStatus(device Device) (RepairStatus, error) {
 	}
 	var out RepairStatus
 	out.Version = RepairStatusV1Version
-	if err := toError(fndeviceGetRepairStatus(device, &out)); err != nil {
+	if err := toError(fndeviceGetRepairStatus(device, &out), "nvmlDeviceGetRepairStatus"); err != nil {
 		var zero RepairStatus
 		return zero, err
 	}
@@ -4083,7 +4083,7 @@ func deviceGetRetiredPagesPendingStatus(device Device, isPending *EnableState) e
 	if err := checkLibSym("nvmlDeviceGetRetiredPagesPendingStatus"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetRetiredPagesPendingStatus(device, isPending))
+	return toError(fndeviceGetRetiredPagesPendingStatus(device, isPending), "nvmlDeviceGetRetiredPagesPendingStatus")
 }
 
 // deviceGetRetiredPages Returns the list of retired pages by source, including pages that are pending retirement The address information provided from this API is the hardware address of the page that was retired.
@@ -4105,7 +4105,7 @@ func deviceGetRetiredPages(device Device, cause PageRetirementCause, pageCount *
 	if err := checkLibSym("nvmlDeviceGetRetiredPages_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetRetiredPages(device, cause, pageCount, addresses, timestamps))
+	return toError(fndeviceGetRetiredPages(device, cause, pageCount, addresses, timestamps), "nvmlDeviceGetRetiredPages_v2")
 }
 
 // deviceGetRowRemapperHistogram Get the row remapper histogram.
@@ -4120,7 +4120,7 @@ func deviceGetRowRemapperHistogram(device Device, values *RowRemapperHistogramVa
 	if err := checkLibSym("nvmlDeviceGetRowRemapperHistogram"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetRowRemapperHistogram(device, values))
+	return toError(fndeviceGetRowRemapperHistogram(device, values), "nvmlDeviceGetRowRemapperHistogram")
 }
 
 // deviceGetRunningProcessDetailList Get information about running processes on a device for input context
@@ -4143,7 +4143,7 @@ func deviceGetRunningProcessDetailList(device Device, plist *ProcessDetailList) 
 	if err := checkLibSym("nvmlDeviceGetRunningProcessDetailList"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetRunningProcessDetailList(device, plist))
+	return toError(fndeviceGetRunningProcessDetailList(device, plist), "nvmlDeviceGetRunningProcessDetailList")
 }
 
 // deviceGetSamples Gets recent samples for the GPU.
@@ -4171,7 +4171,7 @@ func deviceGetSamples(device Device, type_ SamplingType, lastSeenTimeStamp uint6
 	if err := checkLibSym("nvmlDeviceGetSamples"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetSamples(device, type_, lastSeenTimeStamp, sampleValType, sampleCount, samples))
+	return toError(fndeviceGetSamples(device, type_, lastSeenTimeStamp, sampleValType, sampleCount, samples), "nvmlDeviceGetSamples")
 }
 
 // deviceGetSerial Retrieves the globally unique board serial number associated with this device's board.
@@ -4191,7 +4191,7 @@ func deviceGetSerial(device Device) (string, error) {
 		return "", err
 	}
 	var buf_ [30]byte
-	if err := toError(fndeviceGetSerial(device, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fndeviceGetSerial(device, &buf_[0], uint32(len(buf_))), "nvmlDeviceGetSerial"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -4216,7 +4216,7 @@ func deviceGetSramEccErrorStatus(device Device, status *EccSramErrorStatus) erro
 	if err := checkLibSym("nvmlDeviceGetSramEccErrorStatus"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetSramEccErrorStatus(device, status))
+	return toError(fndeviceGetSramEccErrorStatus(device, status), "nvmlDeviceGetSramEccErrorStatus")
 }
 
 // deviceGetSramUniqueUncorrectedEccErrorCounts wraps [nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts].
@@ -4229,7 +4229,7 @@ func deviceGetSramUniqueUncorrectedEccErrorCounts(device Device, errorCounts *Ec
 	if err := checkLibSym("nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetSramUniqueUncorrectedEccErrorCounts(device, errorCounts))
+	return toError(fndeviceGetSramUniqueUncorrectedEccErrorCounts(device, errorCounts), "nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts")
 }
 
 // deviceGetSupportedClocksEventReasons Retrieves bitmask of supported clocks event reasons that can be returned by [Device.CurrentClocksEventReasons]
@@ -4252,7 +4252,7 @@ func deviceGetSupportedClocksEventReasons(device Device) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fndeviceGetSupportedClocksEventReasons(device, &out)); err != nil {
+	if err := toError(fndeviceGetSupportedClocksEventReasons(device, &out), "nvmlDeviceGetSupportedClocksEventReasons"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -4270,7 +4270,7 @@ func deviceGetSupportedClocksThrottleReasons(device Device, supportedClocksThrot
 	if err := checkLibSym("nvmlDeviceGetSupportedClocksThrottleReasons"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetSupportedClocksThrottleReasons(device, supportedClocksThrottleReasons))
+	return toError(fndeviceGetSupportedClocksThrottleReasons(device, supportedClocksThrottleReasons), "nvmlDeviceGetSupportedClocksThrottleReasons")
 }
 
 // deviceGetSupportedEventTypes Returns information about events supported on device
@@ -4293,7 +4293,7 @@ func deviceGetSupportedEventTypes(device Device) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fndeviceGetSupportedEventTypes(device, &out)); err != nil {
+	if err := toError(fndeviceGetSupportedEventTypes(device, &out), "nvmlDeviceGetSupportedEventTypes"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -4317,7 +4317,7 @@ func deviceGetSupportedGraphicsClocks(device Device, memoryClockMHz uint32, coun
 	if err := checkLibSym("nvmlDeviceGetSupportedGraphicsClocks"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetSupportedGraphicsClocks(device, memoryClockMHz, count, clocksMHz))
+	return toError(fndeviceGetSupportedGraphicsClocks(device, memoryClockMHz, count, clocksMHz), "nvmlDeviceGetSupportedGraphicsClocks")
 }
 
 // deviceGetSupportedMemoryClocks Retrieves the list of possible memory clocks that can be used as an argument for [Device.SetMemoryLockedClocks].
@@ -4336,7 +4336,7 @@ func deviceGetSupportedMemoryClocks(device Device, count *uint32, clocksMHz *uin
 	if err := checkLibSym("nvmlDeviceGetSupportedMemoryClocks"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetSupportedMemoryClocks(device, count, clocksMHz))
+	return toError(fndeviceGetSupportedMemoryClocks(device, count, clocksMHz), "nvmlDeviceGetSupportedMemoryClocks")
 }
 
 // deviceGetSupportedPerformanceStates Get all supported Performance States (P-States) for the device.
@@ -4355,7 +4355,7 @@ func deviceGetSupportedPerformanceStates(device Device, pstates *Pstates, size u
 	if err := checkLibSym("nvmlDeviceGetSupportedPerformanceStates"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetSupportedPerformanceStates(device, pstates, size))
+	return toError(fndeviceGetSupportedPerformanceStates(device, pstates, size), "nvmlDeviceGetSupportedPerformanceStates")
 }
 
 // deviceGetSupportedVgpus wraps [nvmlDeviceGetSupportedVgpus].
@@ -4369,7 +4369,7 @@ func deviceGetSupportedVgpus(device Device, vgpuCount *uint32, vgpuTypeIds *Vgpu
 	if err := checkLibSym("nvmlDeviceGetSupportedVgpus"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetSupportedVgpus(device, vgpuCount, vgpuTypeIds))
+	return toError(fndeviceGetSupportedVgpus(device, vgpuCount, vgpuTypeIds), "nvmlDeviceGetSupportedVgpus")
 }
 
 // deviceGetTargetFanSpeed Retrieves the intended target speed of the device's specified fan.
@@ -4391,7 +4391,7 @@ func deviceGetTargetFanSpeed(device Device, fan uint32) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetTargetFanSpeed(device, fan, &out)); err != nil {
+	if err := toError(fndeviceGetTargetFanSpeed(device, fan, &out), "nvmlDeviceGetTargetFanSpeed"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -4411,7 +4411,7 @@ func deviceGetTemperature(device Device, sensorType TemperatureSensors) (uint32,
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetTemperature(device, sensorType, &out)); err != nil {
+	if err := toError(fndeviceGetTemperature(device, sensorType, &out), "nvmlDeviceGetTemperature"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -4438,7 +4438,7 @@ func deviceGetTemperatureThreshold(device Device, thresholdType TemperatureThres
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetTemperatureThreshold(device, thresholdType, &out)); err != nil {
+	if err := toError(fndeviceGetTemperatureThreshold(device, thresholdType, &out), "nvmlDeviceGetTemperatureThreshold"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -4459,7 +4459,7 @@ func deviceGetTemperatureV(device Device, temperature *Temperature) error {
 	if err := checkLibSym("nvmlDeviceGetTemperatureV"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetTemperatureV(device, temperature))
+	return toError(fndeviceGetTemperatureV(device, temperature), "nvmlDeviceGetTemperatureV")
 }
 
 // deviceGetThermalSettings Used to execute a list of thermal system instructions.
@@ -4475,7 +4475,7 @@ func deviceGetThermalSettings(device Device, sensorIndex uint32, pThermalSetting
 	if err := checkLibSym("nvmlDeviceGetThermalSettings"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetThermalSettings(device, sensorIndex, pThermalSettings))
+	return toError(fndeviceGetThermalSettings(device, sensorIndex, pThermalSettings), "nvmlDeviceGetThermalSettings")
 }
 
 // deviceGetTopologyCommonAncestor Retrieve the common ancestor for two devices For all products.
@@ -4491,7 +4491,7 @@ func deviceGetTopologyCommonAncestor(device1 Device, device2 Device, pathInfo *G
 	if err := checkLibSym("nvmlDeviceGetTopologyCommonAncestor"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetTopologyCommonAncestor(device1, device2, pathInfo))
+	return toError(fndeviceGetTopologyCommonAncestor(device1, device2, pathInfo), "nvmlDeviceGetTopologyCommonAncestor")
 }
 
 // deviceGetTopologyNearestGpus Retrieve the set of GPUs that are nearest to a given device at a specific interconnectivity level For all products.
@@ -4508,7 +4508,7 @@ func deviceGetTopologyNearestGpus(device Device, level GpuTopologyLevel, count *
 	if err := checkLibSym("nvmlDeviceGetTopologyNearestGpus"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetTopologyNearestGpus(device, level, count, deviceArray))
+	return toError(fndeviceGetTopologyNearestGpus(device, level, count, deviceArray), "nvmlDeviceGetTopologyNearestGpus")
 }
 
 // deviceGetTotalEccErrors Retrieves the total ECC error counts for the device.
@@ -4532,7 +4532,7 @@ func deviceGetTotalEccErrors(device Device, errorType MemoryErrorType, counterTy
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fndeviceGetTotalEccErrors(device, errorType, counterType, &out)); err != nil {
+	if err := toError(fndeviceGetTotalEccErrors(device, errorType, counterType, &out), "nvmlDeviceGetTotalEccErrors"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -4555,7 +4555,7 @@ func deviceGetTotalEnergyConsumption(device Device) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fndeviceGetTotalEnergyConsumption(device, &out)); err != nil {
+	if err := toError(fndeviceGetTotalEnergyConsumption(device, &out), "nvmlDeviceGetTotalEnergyConsumption"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -4580,7 +4580,7 @@ func deviceGetUUID(device Device) (string, error) {
 		return "", err
 	}
 	var buf_ [96]byte
-	if err := toError(fndeviceGetUUID(device, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fndeviceGetUUID(device, &buf_[0], uint32(len(buf_))), "nvmlDeviceGetUUID"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -4606,7 +4606,7 @@ func deviceGetUnrepairableMemoryFlag(device Device) (UnrepairableMemoryStatusV1,
 		return zero, err
 	}
 	var out UnrepairableMemoryStatusV1
-	if err := toError(fndeviceGetUnrepairableMemoryFlag(device, &out)); err != nil {
+	if err := toError(fndeviceGetUnrepairableMemoryFlag(device, &out), "nvmlDeviceGetUnrepairableMemoryFlag_v1"); err != nil {
 		var zero UnrepairableMemoryStatusV1
 		return zero, err
 	}
@@ -4631,7 +4631,7 @@ func deviceGetUtilizationRates(device Device) (Utilization, error) {
 		return zero, err
 	}
 	var out Utilization
-	if err := toError(fndeviceGetUtilizationRates(device, &out)); err != nil {
+	if err := toError(fndeviceGetUtilizationRates(device, &out), "nvmlDeviceGetUtilizationRates"); err != nil {
 		var zero Utilization
 		return zero, err
 	}
@@ -4655,7 +4655,7 @@ func deviceGetVbiosVersion(device Device) (string, error) {
 		return "", err
 	}
 	var buf_ [32]byte
-	if err := toError(fndeviceGetVbiosVersion(device, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fndeviceGetVbiosVersion(device, &buf_[0], uint32(len(buf_))), "nvmlDeviceGetVbiosVersion"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -4678,7 +4678,7 @@ func deviceGetVgpuCapabilities(device Device, capability DeviceVgpuCapability) (
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceGetVgpuCapabilities(device, capability, &out)); err != nil {
+	if err := toError(fndeviceGetVgpuCapabilities(device, capability, &out), "nvmlDeviceGetVgpuCapabilities"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -4700,7 +4700,7 @@ func deviceGetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeter
 	if err := checkLibSym("nvmlDeviceGetVgpuHeterogeneousMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuHeterogeneousMode(device, pHeterogeneousMode))
+	return toError(fndeviceGetVgpuHeterogeneousMode(device, pHeterogeneousMode), "nvmlDeviceGetVgpuHeterogeneousMode")
 }
 
 // deviceGetVgpuInstancesUtilizationInfo wraps [nvmlDeviceGetVgpuInstancesUtilizationInfo].
@@ -4713,7 +4713,7 @@ func deviceGetVgpuInstancesUtilizationInfo(device Device, vgpuUtilInfo *VgpuInst
 	if err := checkLibSym("nvmlDeviceGetVgpuInstancesUtilizationInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuInstancesUtilizationInfo(device, vgpuUtilInfo))
+	return toError(fndeviceGetVgpuInstancesUtilizationInfo(device, vgpuUtilInfo), "nvmlDeviceGetVgpuInstancesUtilizationInfo")
 }
 
 // deviceGetVgpuMetadata wraps [nvmlDeviceGetVgpuMetadata].
@@ -4727,7 +4727,7 @@ func deviceGetVgpuMetadata(device Device, pgpuMetadata *VgpuPgpuMetadata, buffer
 	if err := checkLibSym("nvmlDeviceGetVgpuMetadata"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuMetadata(device, pgpuMetadata, bufferSize))
+	return toError(fndeviceGetVgpuMetadata(device, pgpuMetadata, bufferSize), "nvmlDeviceGetVgpuMetadata")
 }
 
 // deviceGetVgpuProcessUtilization wraps [nvmlDeviceGetVgpuProcessUtilization].
@@ -4742,7 +4742,7 @@ func deviceGetVgpuProcessUtilization(device Device, lastSeenTimeStamp uint64, vg
 	if err := checkLibSym("nvmlDeviceGetVgpuProcessUtilization"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuProcessUtilization(device, lastSeenTimeStamp, vgpuProcessSamplesCount, utilizationSamples))
+	return toError(fndeviceGetVgpuProcessUtilization(device, lastSeenTimeStamp, vgpuProcessSamplesCount, utilizationSamples), "nvmlDeviceGetVgpuProcessUtilization")
 }
 
 // deviceGetVgpuProcessesUtilizationInfo wraps [nvmlDeviceGetVgpuProcessesUtilizationInfo].
@@ -4755,7 +4755,7 @@ func deviceGetVgpuProcessesUtilizationInfo(device Device, vgpuProcUtilInfo *Vgpu
 	if err := checkLibSym("nvmlDeviceGetVgpuProcessesUtilizationInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuProcessesUtilizationInfo(device, vgpuProcUtilInfo))
+	return toError(fndeviceGetVgpuProcessesUtilizationInfo(device, vgpuProcUtilInfo), "nvmlDeviceGetVgpuProcessesUtilizationInfo")
 }
 
 // deviceGetVgpuSchedulerCapabilities wraps [nvmlDeviceGetVgpuSchedulerCapabilities].
@@ -4768,7 +4768,7 @@ func deviceGetVgpuSchedulerCapabilities(device Device, pCapabilities *VgpuSchedu
 	if err := checkLibSym("nvmlDeviceGetVgpuSchedulerCapabilities"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuSchedulerCapabilities(device, pCapabilities))
+	return toError(fndeviceGetVgpuSchedulerCapabilities(device, pCapabilities), "nvmlDeviceGetVgpuSchedulerCapabilities")
 }
 
 // deviceGetVgpuSchedulerLog wraps [nvmlDeviceGetVgpuSchedulerLog_v2].
@@ -4781,7 +4781,7 @@ func deviceGetVgpuSchedulerLog(device Device, pSchedulerLogInfo *VgpuSchedulerLo
 	if err := checkLibSym("nvmlDeviceGetVgpuSchedulerLog_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuSchedulerLog(device, pSchedulerLogInfo))
+	return toError(fndeviceGetVgpuSchedulerLog(device, pSchedulerLogInfo), "nvmlDeviceGetVgpuSchedulerLog_v2")
 }
 
 // deviceGetVgpuSchedulerState wraps [nvmlDeviceGetVgpuSchedulerState_v2].
@@ -4794,7 +4794,7 @@ func deviceGetVgpuSchedulerState(device Device, pSchedulerStateInfo *VgpuSchedul
 	if err := checkLibSym("nvmlDeviceGetVgpuSchedulerState_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuSchedulerState(device, pSchedulerStateInfo))
+	return toError(fndeviceGetVgpuSchedulerState(device, pSchedulerStateInfo), "nvmlDeviceGetVgpuSchedulerState_v2")
 }
 
 // deviceGetVgpuTypeCreatablePlacements Query the creatable vGPU placement ID of the vGPU type.
@@ -4813,7 +4813,7 @@ func deviceGetVgpuTypeCreatablePlacements(device Device, vgpuTypeId VgpuTypeId, 
 	if err := checkLibSym("nvmlDeviceGetVgpuTypeCreatablePlacements"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuTypeCreatablePlacements(device, vgpuTypeId, pPlacementList))
+	return toError(fndeviceGetVgpuTypeCreatablePlacements(device, vgpuTypeId, pPlacementList), "nvmlDeviceGetVgpuTypeCreatablePlacements")
 }
 
 // deviceGetVgpuTypeSupportedPlacements Query the supported vGPU placement ID of the vGPU type.
@@ -4832,7 +4832,7 @@ func deviceGetVgpuTypeSupportedPlacements(device Device, vgpuTypeId VgpuTypeId, 
 	if err := checkLibSym("nvmlDeviceGetVgpuTypeSupportedPlacements"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuTypeSupportedPlacements(device, vgpuTypeId, pPlacementList))
+	return toError(fndeviceGetVgpuTypeSupportedPlacements(device, vgpuTypeId, pPlacementList), "nvmlDeviceGetVgpuTypeSupportedPlacements")
 }
 
 // deviceGetVgpuUtilization wraps [nvmlDeviceGetVgpuUtilization].
@@ -4848,7 +4848,7 @@ func deviceGetVgpuUtilization(device Device, lastSeenTimeStamp uint64, sampleVal
 	if err := checkLibSym("nvmlDeviceGetVgpuUtilization"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVgpuUtilization(device, lastSeenTimeStamp, sampleValType, vgpuInstanceSamplesCount, utilizationSamples))
+	return toError(fndeviceGetVgpuUtilization(device, lastSeenTimeStamp, sampleValType, vgpuInstanceSamplesCount, utilizationSamples), "nvmlDeviceGetVgpuUtilization")
 }
 
 // deviceGetViolationStatus Use [Device.FieldValues] to query this data.
@@ -4865,7 +4865,7 @@ func deviceGetViolationStatus(device Device, perfPolicyType PerfPolicyType, viol
 	if err := checkLibSym("nvmlDeviceGetViolationStatus"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetViolationStatus(device, perfPolicyType, violTime))
+	return toError(fndeviceGetViolationStatus(device, perfPolicyType, violTime), "nvmlDeviceGetViolationStatus")
 }
 
 // deviceGetVirtualizationMode This method is used to get the virtualization mode corresponding to the GPU.
@@ -4882,7 +4882,7 @@ func deviceGetVirtualizationMode(device Device, pVirtualMode *GpuVirtualizationM
 	if err := checkLibSym("nvmlDeviceGetVirtualizationMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetVirtualizationMode(device, pVirtualMode))
+	return toError(fndeviceGetVirtualizationMode(device, pVirtualMode), "nvmlDeviceGetVirtualizationMode")
 }
 
 // deviceIsMigDeviceHandle Test if the given handle refers to a MIG device.
@@ -4902,7 +4902,7 @@ func deviceIsMigDeviceHandle(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fndeviceIsMigDeviceHandle(device, &out)); err != nil {
+	if err := toError(fndeviceIsMigDeviceHandle(device, &out), "nvmlDeviceIsMigDeviceHandle"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -4919,7 +4919,7 @@ func DeviceModifyDrainState(pciInfo *PciInfo, newState EnableState) error {
 	if err := checkLibSym("nvmlDeviceModifyDrainState"); err != nil {
 		return err
 	}
-	return toError(fnDeviceModifyDrainState(pciInfo, newState))
+	return toError(fnDeviceModifyDrainState(pciInfo, newState), "nvmlDeviceModifyDrainState")
 }
 
 // deviceOnSameBoard Check if the GPU devices are on the same physical board.
@@ -4939,7 +4939,7 @@ func deviceOnSameBoard(device1 Device, device2 Device) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fndeviceOnSameBoard(device1, device2, &out)); err != nil {
+	if err := toError(fndeviceOnSameBoard(device1, device2, &out), "nvmlDeviceOnSameBoard"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -4960,7 +4960,7 @@ func devicePowerSmoothingActivatePresetProfile(device Device, profile *PowerSmoo
 	if err := checkLibSym("nvmlDevicePowerSmoothingActivatePresetProfile"); err != nil {
 		return err
 	}
-	return toError(fndevicePowerSmoothingActivatePresetProfile(device, profile))
+	return toError(fndevicePowerSmoothingActivatePresetProfile(device, profile), "nvmlDevicePowerSmoothingActivatePresetProfile")
 }
 
 // devicePowerSmoothingSetState Enable or disable the Power Smoothing Feature.
@@ -4978,7 +4978,7 @@ func devicePowerSmoothingSetState(device Device, state *PowerSmoothingState) err
 	if err := checkLibSym("nvmlDevicePowerSmoothingSetState"); err != nil {
 		return err
 	}
-	return toError(fndevicePowerSmoothingSetState(device, state))
+	return toError(fndevicePowerSmoothingSetState(device, state), "nvmlDevicePowerSmoothingSetState")
 }
 
 // devicePowerSmoothingUpdatePresetProfileParam Update the value of a specific profile parameter contained within [PowerSmoothingProfile].
@@ -4996,7 +4996,7 @@ func devicePowerSmoothingUpdatePresetProfileParam(device Device, profile *PowerS
 	if err := checkLibSym("nvmlDevicePowerSmoothingUpdatePresetProfileParam"); err != nil {
 		return err
 	}
-	return toError(fndevicePowerSmoothingUpdatePresetProfileParam(device, profile))
+	return toError(fndevicePowerSmoothingUpdatePresetProfileParam(device, profile), "nvmlDevicePowerSmoothingUpdatePresetProfileParam")
 }
 
 // DeviceQueryDrainState wraps [nvmlDeviceQueryDrainState].
@@ -5009,7 +5009,7 @@ func DeviceQueryDrainState(pciInfo *PciInfo, currentState *EnableState) error {
 	if err := checkLibSym("nvmlDeviceQueryDrainState"); err != nil {
 		return err
 	}
-	return toError(fnDeviceQueryDrainState(pciInfo, currentState))
+	return toError(fnDeviceQueryDrainState(pciInfo, currentState), "nvmlDeviceQueryDrainState")
 }
 
 // deviceReadPRMCounters wraps [nvmlDeviceReadPRMCounters_v1].
@@ -5022,7 +5022,7 @@ func deviceReadPRMCounters(device Device, counterList *PRMCounterListV1) error {
 	if err := checkLibSym("nvmlDeviceReadPRMCounters_v1"); err != nil {
 		return err
 	}
-	return toError(fndeviceReadPRMCounters(device, counterList))
+	return toError(fndeviceReadPRMCounters(device, counterList), "nvmlDeviceReadPRMCounters_v1")
 }
 
 // deviceReadWritePRM wraps [nvmlDeviceReadWritePRM_v1].
@@ -5035,7 +5035,7 @@ func deviceReadWritePRM(device Device, buffer *PRMTLVV1) error {
 	if err := checkLibSym("nvmlDeviceReadWritePRM_v1"); err != nil {
 		return err
 	}
-	return toError(fndeviceReadWritePRM(device, buffer))
+	return toError(fndeviceReadWritePRM(device, buffer), "nvmlDeviceReadWritePRM_v1")
 }
 
 // deviceRegisterEvents Starts recording of events on a specified devices and add the events to specified [EventSet]
@@ -5061,7 +5061,7 @@ func deviceRegisterEvents(device Device, eventTypes uint64, set EventSet) error 
 	if err := checkLibSym("nvmlDeviceRegisterEvents"); err != nil {
 		return err
 	}
-	return toError(fndeviceRegisterEvents(device, eventTypes, set))
+	return toError(fndeviceRegisterEvents(device, eventTypes, set), "nvmlDeviceRegisterEvents")
 }
 
 // DeviceRemoveGpu wraps [nvmlDeviceRemoveGpu], bound as nvmlDeviceRemoveGpu_v2.
@@ -5075,7 +5075,7 @@ func DeviceRemoveGpu(pciInfo *PciInfo, gpuState DetachGpuState, linkState PcieLi
 	if err := checkLibSym("nvmlDeviceRemoveGpu_v2"); err != nil {
 		return err
 	}
-	return toError(fnDeviceRemoveGpu(pciInfo, gpuState, linkState))
+	return toError(fnDeviceRemoveGpu(pciInfo, gpuState, linkState), "nvmlDeviceRemoveGpu_v2")
 }
 
 // deviceResetApplicationsClocks Applications clocks are deprecated and will be removed in CUDA 14.0.
@@ -5091,7 +5091,7 @@ func deviceResetApplicationsClocks(device Device) error {
 	if err := checkLibSym("nvmlDeviceResetApplicationsClocks"); err != nil {
 		return err
 	}
-	return toError(fndeviceResetApplicationsClocks(device))
+	return toError(fndeviceResetApplicationsClocks(device), "nvmlDeviceResetApplicationsClocks")
 }
 
 // deviceResetGpuLockedClocks Resets the gpu clock to the default value
@@ -5109,7 +5109,7 @@ func deviceResetGpuLockedClocks(device Device) error {
 	if err := checkLibSym("nvmlDeviceResetGpuLockedClocks"); err != nil {
 		return err
 	}
-	return toError(fndeviceResetGpuLockedClocks(device))
+	return toError(fndeviceResetGpuLockedClocks(device), "nvmlDeviceResetGpuLockedClocks")
 }
 
 // deviceResetMemoryLockedClocks Resets the memory clock to the default value
@@ -5127,7 +5127,7 @@ func deviceResetMemoryLockedClocks(device Device) error {
 	if err := checkLibSym("nvmlDeviceResetMemoryLockedClocks"); err != nil {
 		return err
 	}
-	return toError(fndeviceResetMemoryLockedClocks(device))
+	return toError(fndeviceResetMemoryLockedClocks(device), "nvmlDeviceResetMemoryLockedClocks")
 }
 
 // deviceResetNvLinkErrorCounters Resets all error counters to zero Please refer to [NvLinkErrorCounter] for the list of error counters that are reset
@@ -5144,7 +5144,7 @@ func deviceResetNvLinkErrorCounters(device Device, link uint32) error {
 	if err := checkLibSym("nvmlDeviceResetNvLinkErrorCounters"); err != nil {
 		return err
 	}
-	return toError(fndeviceResetNvLinkErrorCounters(device, link))
+	return toError(fndeviceResetNvLinkErrorCounters(device, link), "nvmlDeviceResetNvLinkErrorCounters")
 }
 
 // deviceResetNvLinkUtilizationCounter Reset the NVLINK utilization counters Both the receive and transmit counters are operated on by this function
@@ -5164,7 +5164,7 @@ func deviceResetNvLinkUtilizationCounter(device Device, link uint32, counter uin
 	if err := checkLibSym("nvmlDeviceResetNvLinkUtilizationCounter"); err != nil {
 		return err
 	}
-	return toError(fndeviceResetNvLinkUtilizationCounter(device, link, counter))
+	return toError(fndeviceResetNvLinkUtilizationCounter(device, link, counter), "nvmlDeviceResetNvLinkUtilizationCounter")
 }
 
 // deviceSetAPIRestriction Changes the root/admin restructions on certain APIs.
@@ -5183,7 +5183,7 @@ func deviceSetAPIRestriction(device Device, apiType RestrictedAPI, isRestricted 
 	if err := checkLibSym("nvmlDeviceSetAPIRestriction"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetAPIRestriction(device, apiType, isRestricted))
+	return toError(fndeviceSetAPIRestriction(device, apiType, isRestricted), "nvmlDeviceSetAPIRestriction")
 }
 
 // deviceSetAccountingMode Enables or disables per process accounting.
@@ -5202,7 +5202,7 @@ func deviceSetAccountingMode(device Device, mode EnableState) error {
 	if err := checkLibSym("nvmlDeviceSetAccountingMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetAccountingMode(device, mode))
+	return toError(fndeviceSetAccountingMode(device, mode), "nvmlDeviceSetAccountingMode")
 }
 
 // deviceSetApplicationsClocks Applications clocks are deprecated and will be removed in CUDA 14.0.
@@ -5218,7 +5218,7 @@ func deviceSetApplicationsClocks(device Device, memClockMHz uint32, graphicsCloc
 	if err := checkLibSym("nvmlDeviceSetApplicationsClocks"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetApplicationsClocks(device, memClockMHz, graphicsClockMHz))
+	return toError(fndeviceSetApplicationsClocks(device, memClockMHz, graphicsClockMHz), "nvmlDeviceSetApplicationsClocks")
 }
 
 // deviceSetAutoBoostedClocksEnabled Try to set the current state of Auto Boosted clocks on a device.
@@ -5238,7 +5238,7 @@ func deviceSetAutoBoostedClocksEnabled(device Device, enabled EnableState) error
 	if err := checkLibSym("nvmlDeviceSetAutoBoostedClocksEnabled"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetAutoBoostedClocksEnabled(device, enabled))
+	return toError(fndeviceSetAutoBoostedClocksEnabled(device, enabled), "nvmlDeviceSetAutoBoostedClocksEnabled")
 }
 
 // deviceSetClockOffsets Control current clock offset of some clock domain for a given PState
@@ -5256,7 +5256,7 @@ func deviceSetClockOffsets(device Device, info *ClockOffset) error {
 	if err := checkLibSym("nvmlDeviceSetClockOffsets"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetClockOffsets(device, info))
+	return toError(fndeviceSetClockOffsets(device, info), "nvmlDeviceSetClockOffsets")
 }
 
 // deviceSetComputeMode Set the compute mode for the device or MIG device.
@@ -5280,7 +5280,7 @@ func deviceSetComputeMode(device Device, mode ComputeMode) error {
 	if err := checkLibSym("nvmlDeviceSetComputeMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetComputeMode(device, mode))
+	return toError(fndeviceSetComputeMode(device, mode), "nvmlDeviceSetComputeMode")
 }
 
 // deviceSetConfComputeUnprotectedMemSize Set Conf Computing Unprotected Memory Size.
@@ -5297,7 +5297,7 @@ func deviceSetConfComputeUnprotectedMemSize(device Device, sizeKiB uint64) error
 	if err := checkLibSym("nvmlDeviceSetConfComputeUnprotectedMemSize"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetConfComputeUnprotectedMemSize(device, sizeKiB))
+	return toError(fndeviceSetConfComputeUnprotectedMemSize(device, sizeKiB), "nvmlDeviceSetConfComputeUnprotectedMemSize")
 }
 
 // deviceSetCpuAffinity Sets the ideal affinity for the calling thread and device using the guidelines given in [Device.CpuAffinity].
@@ -5313,7 +5313,7 @@ func deviceSetCpuAffinity(device Device) error {
 	if err := checkLibSym("nvmlDeviceSetCpuAffinity"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetCpuAffinity(device))
+	return toError(fndeviceSetCpuAffinity(device), "nvmlDeviceSetCpuAffinity")
 }
 
 // deviceSetDefaultAutoBoostedClocksEnabled Try to set the default state of Auto Boosted clocks on a device.
@@ -5333,7 +5333,7 @@ func deviceSetDefaultAutoBoostedClocksEnabled(device Device, enabled EnableState
 	if err := checkLibSym("nvmlDeviceSetDefaultAutoBoostedClocksEnabled"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetDefaultAutoBoostedClocksEnabled(device, enabled, flags))
+	return toError(fndeviceSetDefaultAutoBoostedClocksEnabled(device, enabled, flags), "nvmlDeviceSetDefaultAutoBoostedClocksEnabled")
 }
 
 // deviceSetDefaultFanSpeed Sets the speed of the fan control policy to default.
@@ -5350,7 +5350,7 @@ func deviceSetDefaultFanSpeed(device Device, fan uint32) error {
 	if err := checkLibSym("nvmlDeviceSetDefaultFanSpeed_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetDefaultFanSpeed(device, fan))
+	return toError(fndeviceSetDefaultFanSpeed(device, fan), "nvmlDeviceSetDefaultFanSpeed_v2")
 }
 
 // deviceSetDramEncryptionMode Set the DRAM Encryption mode for the device.
@@ -5371,7 +5371,7 @@ func deviceSetDramEncryptionMode(device Device, dramEncryption *DramEncryptionIn
 	if err := checkLibSym("nvmlDeviceSetDramEncryptionMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetDramEncryptionMode(device, dramEncryption))
+	return toError(fndeviceSetDramEncryptionMode(device, dramEncryption), "nvmlDeviceSetDramEncryptionMode")
 }
 
 // deviceSetDriverModel Set the driver model for the device.
@@ -5398,7 +5398,7 @@ func deviceSetDriverModel(device Device, driverModel DriverModel, flags uint32) 
 	if err := checkLibSym("nvmlDeviceSetDriverModel"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetDriverModel(device, driverModel, flags))
+	return toError(fndeviceSetDriverModel(device, driverModel, flags), "nvmlDeviceSetDriverModel")
 }
 
 // deviceSetEccMode Set the ECC mode for the device.
@@ -5419,7 +5419,7 @@ func deviceSetEccMode(device Device, ecc EnableState) error {
 	if err := checkLibSym("nvmlDeviceSetEccMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetEccMode(device, ecc))
+	return toError(fndeviceSetEccMode(device, ecc), "nvmlDeviceSetEccMode")
 }
 
 // deviceSetFanControlPolicy Sets current fan control policy.
@@ -5439,7 +5439,7 @@ func deviceSetFanControlPolicy(device Device, fan uint32, policy FanControlPolic
 	if err := checkLibSym("nvmlDeviceSetFanControlPolicy"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetFanControlPolicy(device, fan, policy))
+	return toError(fndeviceSetFanControlPolicy(device, fan, policy), "nvmlDeviceSetFanControlPolicy")
 }
 
 // deviceSetFanSpeed Sets the speed of a specified fan.
@@ -5459,7 +5459,7 @@ func deviceSetFanSpeed(device Device, fan uint32, speed uint32) error {
 	if err := checkLibSym("nvmlDeviceSetFanSpeed_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetFanSpeed(device, fan, speed))
+	return toError(fndeviceSetFanSpeed(device, fan, speed), "nvmlDeviceSetFanSpeed_v2")
 }
 
 // deviceSetGpcClkVfOffset Set the GPCCLK VF offset value
@@ -5476,7 +5476,7 @@ func deviceSetGpcClkVfOffset(device Device, offset int32) error {
 	if err := checkLibSym("nvmlDeviceSetGpcClkVfOffset"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetGpcClkVfOffset(device, offset))
+	return toError(fndeviceSetGpcClkVfOffset(device, offset), "nvmlDeviceSetGpcClkVfOffset")
 }
 
 // deviceSetGpuLockedClocks Set clocks that device will lock to.
@@ -5501,7 +5501,7 @@ func deviceSetGpuLockedClocks(device Device, minGpuClockMHz uint32, maxGpuClockM
 	if err := checkLibSym("nvmlDeviceSetGpuLockedClocks"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetGpuLockedClocks(device, minGpuClockMHz, maxGpuClockMHz))
+	return toError(fndeviceSetGpuLockedClocks(device, minGpuClockMHz, maxGpuClockMHz), "nvmlDeviceSetGpuLockedClocks")
 }
 
 // deviceSetGpuOperationMode Sets new GOM.
@@ -5522,7 +5522,7 @@ func deviceSetGpuOperationMode(device Device, mode GpuOperationMode) error {
 	if err := checkLibSym("nvmlDeviceSetGpuOperationMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetGpuOperationMode(device, mode))
+	return toError(fndeviceSetGpuOperationMode(device, mode), "nvmlDeviceSetGpuOperationMode")
 }
 
 // deviceSetHostname Set the hostname for the device.
@@ -5542,7 +5542,7 @@ func deviceSetHostname(device Device, hostname *HostnameV1) error {
 	if err := checkLibSym("nvmlDeviceSetHostname_v1"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetHostname(device, hostname))
+	return toError(fndeviceSetHostname(device, hostname), "nvmlDeviceSetHostname_v1")
 }
 
 // deviceSetMemClkVfOffset Set the MemClk (Memory Clock) VF offset value.
@@ -5559,7 +5559,7 @@ func deviceSetMemClkVfOffset(device Device, offset int32) error {
 	if err := checkLibSym("nvmlDeviceSetMemClkVfOffset"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetMemClkVfOffset(device, offset))
+	return toError(fndeviceSetMemClkVfOffset(device, offset), "nvmlDeviceSetMemClkVfOffset")
 }
 
 // deviceSetMemoryLockedClocks Set memory clocks that device will lock to.
@@ -5581,7 +5581,7 @@ func deviceSetMemoryLockedClocks(device Device, minMemClockMHz uint32, maxMemClo
 	if err := checkLibSym("nvmlDeviceSetMemoryLockedClocks"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetMemoryLockedClocks(device, minMemClockMHz, maxMemClockMHz))
+	return toError(fndeviceSetMemoryLockedClocks(device, minMemClockMHz, maxMemClockMHz), "nvmlDeviceSetMemoryLockedClocks")
 }
 
 // deviceSetMigMode Set MIG mode for the device.
@@ -5605,7 +5605,7 @@ func deviceSetMigMode(device Device, mode uint32, activationStatus *Result) erro
 	if err := checkLibSym("nvmlDeviceSetMigMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetMigMode(device, mode, activationStatus))
+	return toError(fndeviceSetMigMode(device, mode, activationStatus), "nvmlDeviceSetMigMode")
 }
 
 // deviceSetNvLinkDeviceLowPowerThreshold Set NvLink Low Power Threshold for device.
@@ -5622,7 +5622,7 @@ func deviceSetNvLinkDeviceLowPowerThreshold(device Device, info *NvLinkPowerThre
 	if err := checkLibSym("nvmlDeviceSetNvLinkDeviceLowPowerThreshold"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetNvLinkDeviceLowPowerThreshold(device, info))
+	return toError(fndeviceSetNvLinkDeviceLowPowerThreshold(device, info), "nvmlDeviceSetNvLinkDeviceLowPowerThreshold")
 }
 
 // deviceSetNvLinkUtilizationControl Set the NVLINK utilization counter control information for the specified counter, 0 or 1.
@@ -5644,7 +5644,7 @@ func deviceSetNvLinkUtilizationControl(device Device, link uint32, counter uint3
 	if err := checkLibSym("nvmlDeviceSetNvLinkUtilizationControl"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetNvLinkUtilizationControl(device, link, counter, control, reset))
+	return toError(fndeviceSetNvLinkUtilizationControl(device, link, counter, control, reset), "nvmlDeviceSetNvLinkUtilizationControl")
 }
 
 // deviceSetNvlinkBwMode Set the NvLink Reduced Bandwidth Mode for the device
@@ -5661,7 +5661,7 @@ func deviceSetNvlinkBwMode(device Device, setBwMode *NvlinkSetBwMode) error {
 	if err := checkLibSym("nvmlDeviceSetNvlinkBwMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetNvlinkBwMode(device, setBwMode))
+	return toError(fndeviceSetNvlinkBwMode(device, setBwMode), "nvmlDeviceSetNvlinkBwMode")
 }
 
 // deviceSetPersistenceMode Set the persistence mode for the device.
@@ -5683,7 +5683,7 @@ func deviceSetPersistenceMode(device Device, mode EnableState) error {
 	if err := checkLibSym("nvmlDeviceSetPersistenceMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetPersistenceMode(device, mode))
+	return toError(fndeviceSetPersistenceMode(device, mode), "nvmlDeviceSetPersistenceMode")
 }
 
 // deviceSetPowerManagementLimit Set new power limit of this device.
@@ -5710,7 +5710,7 @@ func deviceSetPowerManagementLimit(device Device, powerValue *PowerValueV2) erro
 	if err := checkLibSym("nvmlDeviceSetPowerManagementLimit_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetPowerManagementLimit(device, powerValue))
+	return toError(fndeviceSetPowerManagementLimit(device, powerValue), "nvmlDeviceSetPowerManagementLimit_v2")
 }
 
 // deviceSetPowerMizerMode Sets the new power mizer mode.
@@ -5727,7 +5727,7 @@ func deviceSetPowerMizerMode(device Device, powerMizerMode *DevicePowerMizerMode
 	if err := checkLibSym("nvmlDeviceSetPowerMizerMode_v1"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetPowerMizerMode(device, powerMizerMode))
+	return toError(fndeviceSetPowerMizerMode(device, powerMizerMode), "nvmlDeviceSetPowerMizerMode_v1")
 }
 
 // deviceSetRusdSettings wraps [nvmlDeviceSetRusdSettings_v1].
@@ -5740,7 +5740,7 @@ func deviceSetRusdSettings(device Device, settings *RusdSettingsV1) error {
 	if err := checkLibSym("nvmlDeviceSetRusdSettings_v1"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetRusdSettings(device, settings))
+	return toError(fndeviceSetRusdSettings(device, settings), "nvmlDeviceSetRusdSettings_v1")
 }
 
 // deviceSetTemperatureThreshold Sets the temperature threshold for the GPU with the specified threshold type in degrees C.
@@ -5759,7 +5759,7 @@ func deviceSetTemperatureThreshold(device Device, thresholdType TemperatureThres
 	if err := checkLibSym("nvmlDeviceSetTemperatureThreshold"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetTemperatureThreshold(device, thresholdType, temp))
+	return toError(fndeviceSetTemperatureThreshold(device, thresholdType, temp), "nvmlDeviceSetTemperatureThreshold")
 }
 
 // deviceSetVgpuCapabilities Set the desirable vGPU capability of a device
@@ -5777,7 +5777,7 @@ func deviceSetVgpuCapabilities(device Device, capability DeviceVgpuCapability, s
 	if err := checkLibSym("nvmlDeviceSetVgpuCapabilities"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetVgpuCapabilities(device, capability, state))
+	return toError(fndeviceSetVgpuCapabilities(device, capability, state), "nvmlDeviceSetVgpuCapabilities")
 }
 
 // deviceSetVgpuHeterogeneousMode Enable or disable vGPU heterogeneous mode for the device.
@@ -5795,7 +5795,7 @@ func deviceSetVgpuHeterogeneousMode(device Device, pHeterogeneousMode *VgpuHeter
 	if err := checkLibSym("nvmlDeviceSetVgpuHeterogeneousMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetVgpuHeterogeneousMode(device, pHeterogeneousMode))
+	return toError(fndeviceSetVgpuHeterogeneousMode(device, pHeterogeneousMode), "nvmlDeviceSetVgpuHeterogeneousMode")
 }
 
 // deviceSetVgpuSchedulerState wraps [nvmlDeviceSetVgpuSchedulerState_v2].
@@ -5808,7 +5808,7 @@ func deviceSetVgpuSchedulerState(device Device, pSchedulerState *VgpuSchedulerSt
 	if err := checkLibSym("nvmlDeviceSetVgpuSchedulerState_v2"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetVgpuSchedulerState(device, pSchedulerState))
+	return toError(fndeviceSetVgpuSchedulerState(device, pSchedulerState), "nvmlDeviceSetVgpuSchedulerState_v2")
 }
 
 // deviceSetVirtualizationMode This method is used to set the virtualization mode corresponding to the GPU.
@@ -5825,7 +5825,7 @@ func deviceSetVirtualizationMode(device Device, virtualMode GpuVirtualizationMod
 	if err := checkLibSym("nvmlDeviceSetVirtualizationMode"); err != nil {
 		return err
 	}
-	return toError(fndeviceSetVirtualizationMode(device, virtualMode))
+	return toError(fndeviceSetVirtualizationMode(device, virtualMode), "nvmlDeviceSetVirtualizationMode")
 }
 
 // deviceValidateInforom Reads the infoROM from the flash and verifies the checksums.
@@ -5841,7 +5841,7 @@ func deviceValidateInforom(device Device) error {
 	if err := checkLibSym("nvmlDeviceValidateInforom"); err != nil {
 		return err
 	}
-	return toError(fndeviceValidateInforom(device))
+	return toError(fndeviceValidateInforom(device), "nvmlDeviceValidateInforom")
 }
 
 // deviceVgpuForceGspUnload Executes a forced GSP unload operation on a device
@@ -5859,7 +5859,7 @@ func deviceVgpuForceGspUnload(device Device) error {
 	if err := checkLibSym("nvmlDeviceVgpuForceGspUnload"); err != nil {
 		return err
 	}
-	return toError(fndeviceVgpuForceGspUnload(device))
+	return toError(fndeviceVgpuForceGspUnload(device), "nvmlDeviceVgpuForceGspUnload")
 }
 
 // deviceWorkloadPowerProfileClearRequestedProfiles wraps [nvmlDeviceWorkloadPowerProfileClearRequestedProfiles].
@@ -5874,7 +5874,7 @@ func deviceWorkloadPowerProfileClearRequestedProfiles(device Device, requestedPr
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileClearRequestedProfiles"); err != nil {
 		return err
 	}
-	return toError(fndeviceWorkloadPowerProfileClearRequestedProfiles(device, requestedProfiles))
+	return toError(fndeviceWorkloadPowerProfileClearRequestedProfiles(device, requestedProfiles), "nvmlDeviceWorkloadPowerProfileClearRequestedProfiles")
 }
 
 // deviceWorkloadPowerProfileGetCurrentProfiles wraps [nvmlDeviceWorkloadPowerProfileGetCurrentProfiles].
@@ -5887,7 +5887,7 @@ func deviceWorkloadPowerProfileGetCurrentProfiles(device Device, currentProfiles
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileGetCurrentProfiles"); err != nil {
 		return err
 	}
-	return toError(fndeviceWorkloadPowerProfileGetCurrentProfiles(device, currentProfiles))
+	return toError(fndeviceWorkloadPowerProfileGetCurrentProfiles(device, currentProfiles), "nvmlDeviceWorkloadPowerProfileGetCurrentProfiles")
 }
 
 // deviceWorkloadPowerProfileGetProfilesInfo wraps [nvmlDeviceWorkloadPowerProfileGetProfilesInfo].
@@ -5900,7 +5900,7 @@ func deviceWorkloadPowerProfileGetProfilesInfo(device Device, profilesInfo *Work
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileGetProfilesInfo"); err != nil {
 		return err
 	}
-	return toError(fndeviceWorkloadPowerProfileGetProfilesInfo(device, profilesInfo))
+	return toError(fndeviceWorkloadPowerProfileGetProfilesInfo(device, profilesInfo), "nvmlDeviceWorkloadPowerProfileGetProfilesInfo")
 }
 
 // deviceWorkloadPowerProfileSetRequestedProfiles wraps [nvmlDeviceWorkloadPowerProfileSetRequestedProfiles].
@@ -5915,7 +5915,7 @@ func deviceWorkloadPowerProfileSetRequestedProfiles(device Device, requestedProf
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileSetRequestedProfiles"); err != nil {
 		return err
 	}
-	return toError(fndeviceWorkloadPowerProfileSetRequestedProfiles(device, requestedProfiles))
+	return toError(fndeviceWorkloadPowerProfileSetRequestedProfiles(device, requestedProfiles), "nvmlDeviceWorkloadPowerProfileSetRequestedProfiles")
 }
 
 // deviceWorkloadPowerProfileUpdateProfiles wraps [nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1].
@@ -5928,7 +5928,7 @@ func deviceWorkloadPowerProfileUpdateProfiles(device Device, updateProfiles *Wor
 	if err := checkLibSym("nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1"); err != nil {
 		return err
 	}
-	return toError(fndeviceWorkloadPowerProfileUpdateProfiles(device, updateProfiles))
+	return toError(fndeviceWorkloadPowerProfileUpdateProfiles(device, updateProfiles), "nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1")
 }
 
 // eventSetCreate Create an empty set of events.
@@ -5947,7 +5947,7 @@ func eventSetCreate() (EventSet, error) {
 		return zero, err
 	}
 	var out EventSet
-	if err := toError(fneventSetCreate(&out)); err != nil {
+	if err := toError(fneventSetCreate(&out), "nvmlEventSetCreate"); err != nil {
 		var zero EventSet
 		return zero, err
 	}
@@ -5968,7 +5968,7 @@ func eventSetFree(set EventSet) error {
 	if err := checkLibSym("nvmlEventSetFree"); err != nil {
 		return err
 	}
-	return toError(fneventSetFree(set))
+	return toError(fneventSetFree(set), "nvmlEventSetFree")
 }
 
 // eventSetWait Waits on events and delivers events
@@ -5994,7 +5994,7 @@ func eventSetWait(set EventSet, data *EventData, timeoutms uint32) error {
 	if err := checkLibSym("nvmlEventSetWait_v2"); err != nil {
 		return err
 	}
-	return toError(fneventSetWait(set, data, timeoutms))
+	return toError(fneventSetWait(set, data, timeoutms), "nvmlEventSetWait_v2")
 }
 
 // GetExcludedDeviceCount Retrieves the number of excluded GPU devices in the system.
@@ -6012,7 +6012,7 @@ func GetExcludedDeviceCount() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetExcludedDeviceCount(&out)); err != nil {
+	if err := toError(fnGetExcludedDeviceCount(&out), "nvmlGetExcludedDeviceCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -6037,7 +6037,7 @@ func GetExcludedDeviceInfoByIndex(index uint32) (ExcludedDeviceInfo, error) {
 		return zero, err
 	}
 	var out ExcludedDeviceInfo
-	if err := toError(fnGetExcludedDeviceInfoByIndex(index, &out)); err != nil {
+	if err := toError(fnGetExcludedDeviceInfoByIndex(index, &out), "nvmlGetExcludedDeviceInfoByIndex"); err != nil {
 		var zero ExcludedDeviceInfo
 		return zero, err
 	}
@@ -6055,7 +6055,7 @@ func GetVgpuCompatibility(vgpuMetadata *VgpuMetadata, pgpuMetadata *VgpuPgpuMeta
 	if err := checkLibSym("nvmlGetVgpuCompatibility"); err != nil {
 		return err
 	}
-	return toError(fnGetVgpuCompatibility(vgpuMetadata, pgpuMetadata, compatibilityInfo))
+	return toError(fnGetVgpuCompatibility(vgpuMetadata, pgpuMetadata, compatibilityInfo), "nvmlGetVgpuCompatibility")
 }
 
 // GetVgpuDriverCapabilities wraps [nvmlGetVgpuDriverCapabilities].
@@ -6070,7 +6070,7 @@ func GetVgpuDriverCapabilities(capability VgpuDriverCapability) (uint32, error) 
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGetVgpuDriverCapabilities(capability, &out)); err != nil {
+	if err := toError(fnGetVgpuDriverCapabilities(capability, &out), "nvmlGetVgpuDriverCapabilities"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -6087,7 +6087,7 @@ func GetVgpuVersion(supported *VgpuVersion, current *VgpuVersion) error {
 	if err := checkLibSym("nvmlGetVgpuVersion"); err != nil {
 		return err
 	}
-	return toError(fnGetVgpuVersion(supported, current))
+	return toError(fnGetVgpuVersion(supported, current), "nvmlGetVgpuVersion")
 }
 
 // GpmMetricsGet Calculate GPM metrics from two samples.
@@ -6106,7 +6106,7 @@ func GpmMetricsGet(metricsGet *GpmMetricsGetParams) error {
 	if err := checkLibSym("nvmlGpmMetricsGet"); err != nil {
 		return err
 	}
-	return toError(fnGpmMetricsGet(metricsGet))
+	return toError(fnGpmMetricsGet(metricsGet), "nvmlGpmMetricsGet")
 }
 
 // gpmMigSampleGet Read a sample of GPM metrics into the provided gpmSample buffer for a MIG GPU Instance.
@@ -6127,7 +6127,7 @@ func gpmMigSampleGet(device Device, gpuInstanceId uint32, gpmSample GpmSample) e
 	if err := checkLibSym("nvmlGpmMigSampleGet"); err != nil {
 		return err
 	}
-	return toError(fngpmMigSampleGet(device, gpuInstanceId, gpmSample))
+	return toError(fngpmMigSampleGet(device, gpuInstanceId, gpmSample), "nvmlGpmMigSampleGet")
 }
 
 // gpmQueryDeviceSupport Indicate whether the supplied device supports GPM
@@ -6146,7 +6146,7 @@ func gpmQueryDeviceSupport(device Device, gpmSupport *GpmSupport) error {
 	if err := checkLibSym("nvmlGpmQueryDeviceSupport"); err != nil {
 		return err
 	}
-	return toError(fngpmQueryDeviceSupport(device, gpmSupport))
+	return toError(fngpmQueryDeviceSupport(device, gpmSupport), "nvmlGpmQueryDeviceSupport")
 }
 
 // gpmQueryIfStreamingEnabled Get GPM stream state.
@@ -6165,7 +6165,7 @@ func gpmQueryIfStreamingEnabled(device Device) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fngpmQueryIfStreamingEnabled(device, &out)); err != nil {
+	if err := toError(fngpmQueryIfStreamingEnabled(device, &out), "nvmlGpmQueryIfStreamingEnabled"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -6187,7 +6187,7 @@ func gpmSampleAlloc() (GpmSample, error) {
 		return zero, err
 	}
 	var out GpmSample
-	if err := toError(fngpmSampleAlloc(&out)); err != nil {
+	if err := toError(fngpmSampleAlloc(&out), "nvmlGpmSampleAlloc"); err != nil {
 		var zero GpmSample
 		return zero, err
 	}
@@ -6207,7 +6207,7 @@ func gpmSampleFree(gpmSample GpmSample) error {
 	if err := checkLibSym("nvmlGpmSampleFree"); err != nil {
 		return err
 	}
-	return toError(fngpmSampleFree(gpmSample))
+	return toError(fngpmSampleFree(gpmSample), "nvmlGpmSampleFree")
 }
 
 // gpmSampleGet Read a sample of GPM metrics into the provided gpmSample buffer.
@@ -6225,7 +6225,7 @@ func gpmSampleGet(device Device, gpmSample GpmSample) error {
 	if err := checkLibSym("nvmlGpmSampleGet"); err != nil {
 		return err
 	}
-	return toError(fngpmSampleGet(device, gpmSample))
+	return toError(fngpmSampleGet(device, gpmSample), "nvmlGpmSampleGet")
 }
 
 // gpmSetStreamingEnabled Set GPM stream state.
@@ -6242,7 +6242,7 @@ func gpmSetStreamingEnabled(device Device, state uint32) error {
 	if err := checkLibSym("nvmlGpmSetStreamingEnabled"); err != nil {
 		return err
 	}
-	return toError(fngpmSetStreamingEnabled(device, state))
+	return toError(fngpmSetStreamingEnabled(device, state), "nvmlGpmSetStreamingEnabled")
 }
 
 // gpuInstanceCreateComputeInstance Create compute instance.
@@ -6263,7 +6263,7 @@ func gpuInstanceCreateComputeInstance(gpuInstance GpuInstance, profileId uint32)
 		return zero, err
 	}
 	var out ComputeInstance
-	if err := toError(fngpuInstanceCreateComputeInstance(gpuInstance, profileId, &out)); err != nil {
+	if err := toError(fngpuInstanceCreateComputeInstance(gpuInstance, profileId, &out), "nvmlGpuInstanceCreateComputeInstance"); err != nil {
 		var zero ComputeInstance
 		return zero, err
 	}
@@ -6289,7 +6289,7 @@ func gpuInstanceCreateComputeInstanceWithPlacement(gpuInstance GpuInstance, prof
 		return zero, err
 	}
 	var out ComputeInstance
-	if err := toError(fngpuInstanceCreateComputeInstanceWithPlacement(gpuInstance, profileId, placement, &out)); err != nil {
+	if err := toError(fngpuInstanceCreateComputeInstanceWithPlacement(gpuInstance, profileId, placement, &out), "nvmlGpuInstanceCreateComputeInstanceWithPlacement"); err != nil {
 		var zero ComputeInstance
 		return zero, err
 	}
@@ -6309,7 +6309,7 @@ func gpuInstanceDestroy(gpuInstance GpuInstance) error {
 	if err := checkLibSym("nvmlGpuInstanceDestroy"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceDestroy(gpuInstance))
+	return toError(fngpuInstanceDestroy(gpuInstance), "nvmlGpuInstanceDestroy")
 }
 
 // gpuInstanceGetActiveVgpus wraps [nvmlGpuInstanceGetActiveVgpus].
@@ -6322,7 +6322,7 @@ func gpuInstanceGetActiveVgpus(gpuInstance GpuInstance, pVgpuInstanceInfo *Activ
 	if err := checkLibSym("nvmlGpuInstanceGetActiveVgpus"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceGetActiveVgpus(gpuInstance, pVgpuInstanceInfo))
+	return toError(fngpuInstanceGetActiveVgpus(gpuInstance, pVgpuInstanceInfo), "nvmlGpuInstanceGetActiveVgpus")
 }
 
 // gpuInstanceGetComputeInstanceById Get compute instance for given instance ID.
@@ -6342,7 +6342,7 @@ func gpuInstanceGetComputeInstanceById(gpuInstance GpuInstance, id uint32) (Comp
 		return zero, err
 	}
 	var out ComputeInstance
-	if err := toError(fngpuInstanceGetComputeInstanceById(gpuInstance, id, &out)); err != nil {
+	if err := toError(fngpuInstanceGetComputeInstanceById(gpuInstance, id, &out), "nvmlGpuInstanceGetComputeInstanceById"); err != nil {
 		var zero ComputeInstance
 		return zero, err
 	}
@@ -6366,7 +6366,7 @@ func gpuInstanceGetComputeInstancePossiblePlacements(gpuInstance GpuInstance, pr
 	if err := checkLibSym("nvmlGpuInstanceGetComputeInstancePossiblePlacements"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceGetComputeInstancePossiblePlacements(gpuInstance, profileId, placements, count))
+	return toError(fngpuInstanceGetComputeInstancePossiblePlacements(gpuInstance, profileId, placements, count), "nvmlGpuInstanceGetComputeInstancePossiblePlacements")
 }
 
 // gpuInstanceGetComputeInstanceProfileInfo Get compute instance profile information.
@@ -6390,7 +6390,7 @@ func gpuInstanceGetComputeInstanceProfileInfo(gpuInstance GpuInstance, profile u
 		return zero, err
 	}
 	var out ComputeInstanceProfileInfo
-	if err := toError(fngpuInstanceGetComputeInstanceProfileInfo(gpuInstance, profile, engProfile, &out)); err != nil {
+	if err := toError(fngpuInstanceGetComputeInstanceProfileInfo(gpuInstance, profile, engProfile, &out), "nvmlGpuInstanceGetComputeInstanceProfileInfo"); err != nil {
 		var zero ComputeInstanceProfileInfo
 		return zero, err
 	}
@@ -6418,7 +6418,7 @@ func gpuInstanceGetComputeInstanceProfileInfoV(gpuInstance GpuInstance, profile 
 	}
 	var out ComputeInstanceProfileInfoV2
 	out.Version = ComputeInstanceProfileInfoV2Version
-	if err := toError(fngpuInstanceGetComputeInstanceProfileInfoV(gpuInstance, profile, engProfile, &out)); err != nil {
+	if err := toError(fngpuInstanceGetComputeInstanceProfileInfoV(gpuInstance, profile, engProfile, &out), "nvmlGpuInstanceGetComputeInstanceProfileInfoV"); err != nil {
 		var zero ComputeInstanceProfileInfoV2
 		return zero, err
 	}
@@ -6440,7 +6440,7 @@ func gpuInstanceGetComputeInstanceRemainingCapacity(gpuInstance GpuInstance, pro
 	if err := checkLibSym("nvmlGpuInstanceGetComputeInstanceRemainingCapacity"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceGetComputeInstanceRemainingCapacity(gpuInstance, profileId, count))
+	return toError(fngpuInstanceGetComputeInstanceRemainingCapacity(gpuInstance, profileId, count), "nvmlGpuInstanceGetComputeInstanceRemainingCapacity")
 }
 
 // gpuInstanceGetComputeInstances Get compute instances for given profile ID.
@@ -6459,7 +6459,7 @@ func gpuInstanceGetComputeInstances(gpuInstance GpuInstance, profileId uint32, c
 	if err := checkLibSym("nvmlGpuInstanceGetComputeInstances"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceGetComputeInstances(gpuInstance, profileId, computeInstances, count))
+	return toError(fngpuInstanceGetComputeInstances(gpuInstance, profileId, computeInstances, count), "nvmlGpuInstanceGetComputeInstances")
 }
 
 // gpuInstanceGetCreatableVgpus wraps [nvmlGpuInstanceGetCreatableVgpus].
@@ -6472,7 +6472,7 @@ func gpuInstanceGetCreatableVgpus(gpuInstance GpuInstance, pVgpus *VgpuTypeIdInf
 	if err := checkLibSym("nvmlGpuInstanceGetCreatableVgpus"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceGetCreatableVgpus(gpuInstance, pVgpus))
+	return toError(fngpuInstanceGetCreatableVgpus(gpuInstance, pVgpus), "nvmlGpuInstanceGetCreatableVgpus")
 }
 
 // gpuInstanceGetInfo Get GPU instance information.
@@ -6491,7 +6491,7 @@ func gpuInstanceGetInfo(gpuInstance GpuInstance) (GpuInstanceInfo, error) {
 		return zero, err
 	}
 	var out GpuInstanceInfo
-	if err := toError(fngpuInstanceGetInfo(gpuInstance, &out)); err != nil {
+	if err := toError(fngpuInstanceGetInfo(gpuInstance, &out), "nvmlGpuInstanceGetInfo"); err != nil {
 		var zero GpuInstanceInfo
 		return zero, err
 	}
@@ -6508,7 +6508,7 @@ func gpuInstanceGetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneous
 	if err := checkLibSym("nvmlGpuInstanceGetVgpuHeterogeneousMode"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceGetVgpuHeterogeneousMode(gpuInstance, pHeterogeneousMode))
+	return toError(fngpuInstanceGetVgpuHeterogeneousMode(gpuInstance, pHeterogeneousMode), "nvmlGpuInstanceGetVgpuHeterogeneousMode")
 }
 
 // gpuInstanceGetVgpuSchedulerLog wraps [nvmlGpuInstanceGetVgpuSchedulerLog_v2].
@@ -6521,7 +6521,7 @@ func gpuInstanceGetVgpuSchedulerLog(gpuInstance GpuInstance, pSchedulerLogInfo *
 	if err := checkLibSym("nvmlGpuInstanceGetVgpuSchedulerLog_v2"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceGetVgpuSchedulerLog(gpuInstance, pSchedulerLogInfo))
+	return toError(fngpuInstanceGetVgpuSchedulerLog(gpuInstance, pSchedulerLogInfo), "nvmlGpuInstanceGetVgpuSchedulerLog_v2")
 }
 
 // gpuInstanceGetVgpuSchedulerState wraps [nvmlGpuInstanceGetVgpuSchedulerState_v2].
@@ -6534,7 +6534,7 @@ func gpuInstanceGetVgpuSchedulerState(gpuInstance GpuInstance, pSchedulerStateIn
 	if err := checkLibSym("nvmlGpuInstanceGetVgpuSchedulerState_v2"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceGetVgpuSchedulerState(gpuInstance, pSchedulerStateInfo))
+	return toError(fngpuInstanceGetVgpuSchedulerState(gpuInstance, pSchedulerStateInfo), "nvmlGpuInstanceGetVgpuSchedulerState_v2")
 }
 
 // gpuInstanceGetVgpuTypeCreatablePlacements wraps [nvmlGpuInstanceGetVgpuTypeCreatablePlacements].
@@ -6547,7 +6547,7 @@ func gpuInstanceGetVgpuTypeCreatablePlacements(gpuInstance GpuInstance, pCreatab
 	if err := checkLibSym("nvmlGpuInstanceGetVgpuTypeCreatablePlacements"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceGetVgpuTypeCreatablePlacements(gpuInstance, pCreatablePlacementInfo))
+	return toError(fngpuInstanceGetVgpuTypeCreatablePlacements(gpuInstance, pCreatablePlacementInfo), "nvmlGpuInstanceGetVgpuTypeCreatablePlacements")
 }
 
 // gpuInstanceSetVgpuHeterogeneousMode wraps [nvmlGpuInstanceSetVgpuHeterogeneousMode].
@@ -6560,7 +6560,7 @@ func gpuInstanceSetVgpuHeterogeneousMode(gpuInstance GpuInstance, pHeterogeneous
 	if err := checkLibSym("nvmlGpuInstanceSetVgpuHeterogeneousMode"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceSetVgpuHeterogeneousMode(gpuInstance, pHeterogeneousMode))
+	return toError(fngpuInstanceSetVgpuHeterogeneousMode(gpuInstance, pHeterogeneousMode), "nvmlGpuInstanceSetVgpuHeterogeneousMode")
 }
 
 // gpuInstanceSetVgpuSchedulerState wraps [nvmlGpuInstanceSetVgpuSchedulerState_v2].
@@ -6573,7 +6573,7 @@ func gpuInstanceSetVgpuSchedulerState(gpuInstance GpuInstance, pSchedulerState *
 	if err := checkLibSym("nvmlGpuInstanceSetVgpuSchedulerState_v2"); err != nil {
 		return err
 	}
-	return toError(fngpuInstanceSetVgpuSchedulerState(gpuInstance, pSchedulerState))
+	return toError(fngpuInstanceSetVgpuSchedulerState(gpuInstance, pSchedulerState), "nvmlGpuInstanceSetVgpuSchedulerState_v2")
 }
 
 // Init Initialize NVML, but don't initialize any GPUs yet.
@@ -6592,7 +6592,7 @@ func Init() error {
 	if err := checkLibSym("nvmlInit_v2"); err != nil {
 		return err
 	}
-	return toError(fnInit())
+	return toError(fnInit(), "nvmlInit_v2")
 }
 
 // InitWithFlags [InitWithFlags] is a variant of [Init], that allows passing a set of boolean values modifying the behaviour of [Init].
@@ -6608,7 +6608,7 @@ func InitWithFlags(flags uint32) error {
 	if err := checkLibSym("nvmlInitWithFlags"); err != nil {
 		return err
 	}
-	return toError(fnInitWithFlags(flags))
+	return toError(fnInitWithFlags(flags), "nvmlInitWithFlags")
 }
 
 // SetVgpuVersion wraps [nvmlSetVgpuVersion].
@@ -6620,7 +6620,7 @@ func SetVgpuVersion(vgpuVersion *VgpuVersion) error {
 	if err := checkLibSym("nvmlSetVgpuVersion"); err != nil {
 		return err
 	}
-	return toError(fnSetVgpuVersion(vgpuVersion))
+	return toError(fnSetVgpuVersion(vgpuVersion), "nvmlSetVgpuVersion")
 }
 
 // Shutdown Shut down NVML by releasing all GPU resources previously allocated with [Init].
@@ -6635,7 +6635,7 @@ func Shutdown() error {
 	if err := checkLibSym("nvmlShutdown"); err != nil {
 		return err
 	}
-	return toError(fnShutdown())
+	return toError(fnShutdown(), "nvmlShutdown")
 }
 
 // SystemEventSetCreate Create an empty set of system events.
@@ -6652,7 +6652,7 @@ func SystemEventSetCreate(request *SystemEventSetCreateRequest) error {
 	if err := checkLibSym("nvmlSystemEventSetCreate"); err != nil {
 		return err
 	}
-	return toError(fnSystemEventSetCreate(request))
+	return toError(fnSystemEventSetCreate(request), "nvmlSystemEventSetCreate")
 }
 
 // SystemEventSetFree Releases system event set
@@ -6669,7 +6669,7 @@ func SystemEventSetFree(request *SystemEventSetFreeRequest) error {
 	if err := checkLibSym("nvmlSystemEventSetFree"); err != nil {
 		return err
 	}
-	return toError(fnSystemEventSetFree(request))
+	return toError(fnSystemEventSetFree(request), "nvmlSystemEventSetFree")
 }
 
 // SystemEventSetWait Waits on system events and delivers events
@@ -6690,7 +6690,7 @@ func SystemEventSetWait(request *SystemEventSetWaitRequest) error {
 	if err := checkLibSym("nvmlSystemEventSetWait"); err != nil {
 		return err
 	}
-	return toError(fnSystemEventSetWait(request))
+	return toError(fnSystemEventSetWait(request), "nvmlSystemEventSetWait")
 }
 
 // SystemGetConfComputeCapabilities Get Conf Computing System capabilities.
@@ -6706,7 +6706,7 @@ func SystemGetConfComputeCapabilities(capabilities *ConfComputeSystemCaps) error
 	if err := checkLibSym("nvmlSystemGetConfComputeCapabilities"); err != nil {
 		return err
 	}
-	return toError(fnSystemGetConfComputeCapabilities(capabilities))
+	return toError(fnSystemGetConfComputeCapabilities(capabilities), "nvmlSystemGetConfComputeCapabilities")
 }
 
 // SystemGetConfComputeGpusReadyState Get Conf Computing GPUs ready state.
@@ -6725,7 +6725,7 @@ func SystemGetConfComputeGpusReadyState() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnSystemGetConfComputeGpusReadyState(&out)); err != nil {
+	if err := toError(fnSystemGetConfComputeGpusReadyState(&out), "nvmlSystemGetConfComputeGpusReadyState"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -6745,7 +6745,7 @@ func SystemGetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo *ConfCompu
 	if err := checkLibSym("nvmlSystemGetConfComputeKeyRotationThresholdInfo"); err != nil {
 		return err
 	}
-	return toError(fnSystemGetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo))
+	return toError(fnSystemGetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo), "nvmlSystemGetConfComputeKeyRotationThresholdInfo")
 }
 
 // SystemGetConfComputeSettings Get Conf Computing System Settings.
@@ -6761,7 +6761,7 @@ func SystemGetConfComputeSettings(settings *SystemConfComputeSettings) error {
 	if err := checkLibSym("nvmlSystemGetConfComputeSettings"); err != nil {
 		return err
 	}
-	return toError(fnSystemGetConfComputeSettings(settings))
+	return toError(fnSystemGetConfComputeSettings(settings), "nvmlSystemGetConfComputeSettings")
 }
 
 // SystemGetConfComputeState Get Conf Computing System State.
@@ -6779,7 +6779,7 @@ func SystemGetConfComputeState() (ConfComputeSystemState, error) {
 		return zero, err
 	}
 	var out ConfComputeSystemState
-	if err := toError(fnSystemGetConfComputeState(&out)); err != nil {
+	if err := toError(fnSystemGetConfComputeState(&out), "nvmlSystemGetConfComputeState"); err != nil {
 		var zero ConfComputeSystemState
 		return zero, err
 	}
@@ -6802,7 +6802,7 @@ func SystemGetCudaDriverVersion() (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnSystemGetCudaDriverVersion(&out)); err != nil {
+	if err := toError(fnSystemGetCudaDriverVersion(&out), "nvmlSystemGetCudaDriverVersion_v2"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -6824,7 +6824,7 @@ func SystemGetDriverBranch(branchInfo *SystemDriverBranchInfo, length uint32) er
 	if err := checkLibSym("nvmlSystemGetDriverBranch"); err != nil {
 		return err
 	}
-	return toError(fnSystemGetDriverBranch(branchInfo, length))
+	return toError(fnSystemGetDriverBranch(branchInfo, length), "nvmlSystemGetDriverBranch")
 }
 
 // SystemGetDriverVersion Retrieves the version of the system's graphics driver.
@@ -6843,7 +6843,7 @@ func SystemGetDriverVersion() (string, error) {
 		return "", err
 	}
 	var buf_ [256]byte
-	if err := toError(fnSystemGetDriverVersion(&buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fnSystemGetDriverVersion(&buf_[0], uint32(len(buf_))), "nvmlSystemGetDriverVersion"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -6868,7 +6868,7 @@ func SystemGetHicVersion(hwbcCount *uint32, hwbcEntries *HwbcEntry) error {
 	if err := checkLibSym("nvmlSystemGetHicVersion"); err != nil {
 		return err
 	}
-	return toError(fnSystemGetHicVersion(hwbcCount, hwbcEntries))
+	return toError(fnSystemGetHicVersion(hwbcCount, hwbcEntries), "nvmlSystemGetHicVersion")
 }
 
 // SystemGetNVMLVersion Retrieves the version of the NVML library.
@@ -6887,7 +6887,7 @@ func SystemGetNVMLVersion() (string, error) {
 		return "", err
 	}
 	var buf_ [256]byte
-	if err := toError(fnSystemGetNVMLVersion(&buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fnSystemGetNVMLVersion(&buf_[0], uint32(len(buf_))), "nvmlSystemGetNVMLVersion"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -6910,7 +6910,7 @@ func SystemGetNvlinkBwMode() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnSystemGetNvlinkBwMode(&out)); err != nil {
+	if err := toError(fnSystemGetNvlinkBwMode(&out), "nvmlSystemGetNvlinkBwMode"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -6934,7 +6934,7 @@ func SystemGetProcessName(pid uint32) (string, error) {
 		return "", err
 	}
 	var buf_ [256]byte
-	if err := toError(fnSystemGetProcessName(pid, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fnSystemGetProcessName(pid, &buf_[0], uint32(len(buf_))), "nvmlSystemGetProcessName"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -6957,7 +6957,7 @@ func SystemGetTopologyGpuSet(cpuNumber uint32, count *uint32, deviceArray *Devic
 	if err := checkLibSym("nvmlSystemGetTopologyGpuSet"); err != nil {
 		return err
 	}
-	return toError(fnSystemGetTopologyGpuSet(cpuNumber, count, deviceArray))
+	return toError(fnSystemGetTopologyGpuSet(cpuNumber, count, deviceArray), "nvmlSystemGetTopologyGpuSet")
 }
 
 // SystemRegisterEvents Starts recording of events on system and add the events to specified [SystemEventSet]
@@ -6979,7 +6979,7 @@ func SystemRegisterEvents(request *SystemRegisterEventRequest) error {
 	if err := checkLibSym("nvmlSystemRegisterEvents"); err != nil {
 		return err
 	}
-	return toError(fnSystemRegisterEvents(request))
+	return toError(fnSystemRegisterEvents(request), "nvmlSystemRegisterEvents")
 }
 
 // SystemSetConfComputeGpusReadyState Set Conf Computing GPUs ready state.
@@ -6996,7 +6996,7 @@ func SystemSetConfComputeGpusReadyState(isAcceptingWork uint32) error {
 	if err := checkLibSym("nvmlSystemSetConfComputeGpusReadyState"); err != nil {
 		return err
 	}
-	return toError(fnSystemSetConfComputeGpusReadyState(isAcceptingWork))
+	return toError(fnSystemSetConfComputeGpusReadyState(isAcceptingWork), "nvmlSystemSetConfComputeGpusReadyState")
 }
 
 // SystemSetConfComputeKeyRotationThresholdInfo Set Conf Computing key rotation threshold.
@@ -7013,7 +7013,7 @@ func SystemSetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo *ConfCompu
 	if err := checkLibSym("nvmlSystemSetConfComputeKeyRotationThresholdInfo"); err != nil {
 		return err
 	}
-	return toError(fnSystemSetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo))
+	return toError(fnSystemSetConfComputeKeyRotationThresholdInfo(pKeyRotationThrInfo), "nvmlSystemSetConfComputeKeyRotationThresholdInfo")
 }
 
 // SystemSetNvlinkBwMode Set the global nvlink bandwith mode
@@ -7027,7 +7027,7 @@ func SystemSetNvlinkBwMode(nvlinkBwMode uint32) error {
 	if err := checkLibSym("nvmlSystemSetNvlinkBwMode"); err != nil {
 		return err
 	}
-	return toError(fnSystemSetNvlinkBwMode(nvlinkBwMode))
+	return toError(fnSystemSetNvlinkBwMode(nvlinkBwMode), "nvmlSystemSetNvlinkBwMode")
 }
 
 // UnitGetCount Retrieves the number of units in the system.
@@ -7045,7 +7045,7 @@ func UnitGetCount() (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnUnitGetCount(&out)); err != nil {
+	if err := toError(fnUnitGetCount(&out), "nvmlUnitGetCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7068,7 +7068,7 @@ func unitGetDevices(unit Unit, deviceCount *uint32, devices *Device) error {
 	if err := checkLibSym("nvmlUnitGetDevices"); err != nil {
 		return err
 	}
-	return toError(fnunitGetDevices(unit, deviceCount, devices))
+	return toError(fnunitGetDevices(unit, deviceCount, devices), "nvmlUnitGetDevices")
 }
 
 // unitGetFanSpeedInfo Retrieves the fan speed readings for the unit.
@@ -7086,7 +7086,7 @@ func unitGetFanSpeedInfo(unit Unit, fanSpeeds *UnitFanSpeeds) error {
 	if err := checkLibSym("nvmlUnitGetFanSpeedInfo"); err != nil {
 		return err
 	}
-	return toError(fnunitGetFanSpeedInfo(unit, fanSpeeds))
+	return toError(fnunitGetFanSpeedInfo(unit, fanSpeeds), "nvmlUnitGetFanSpeedInfo")
 }
 
 // unitGetHandleByIndex Acquire the handle for a particular unit, based on its index.
@@ -7107,7 +7107,7 @@ func unitGetHandleByIndex(index uint32) (Unit, error) {
 		return zero, err
 	}
 	var out Unit
-	if err := toError(fnunitGetHandleByIndex(index, &out)); err != nil {
+	if err := toError(fnunitGetHandleByIndex(index, &out), "nvmlUnitGetHandleByIndex"); err != nil {
 		var zero Unit
 		return zero, err
 	}
@@ -7132,7 +7132,7 @@ func unitGetLedState(unit Unit) (LedState, error) {
 		return zero, err
 	}
 	var out LedState
-	if err := toError(fnunitGetLedState(unit, &out)); err != nil {
+	if err := toError(fnunitGetLedState(unit, &out), "nvmlUnitGetLedState"); err != nil {
 		var zero LedState
 		return zero, err
 	}
@@ -7154,7 +7154,7 @@ func unitGetPsuInfo(unit Unit, psu *PSUInfo) error {
 	if err := checkLibSym("nvmlUnitGetPsuInfo"); err != nil {
 		return err
 	}
-	return toError(fnunitGetPsuInfo(unit, psu))
+	return toError(fnunitGetPsuInfo(unit, psu), "nvmlUnitGetPsuInfo")
 }
 
 // unitGetTemperature Retrieves the temperature readings for the unit, in degrees C.
@@ -7175,7 +7175,7 @@ func unitGetTemperature(unit Unit, type_ uint32) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnunitGetTemperature(unit, type_, &out)); err != nil {
+	if err := toError(fnunitGetTemperature(unit, type_, &out), "nvmlUnitGetTemperature"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7199,7 +7199,7 @@ func unitGetUnitInfo(unit Unit) (UnitInfo, error) {
 		return zero, err
 	}
 	var out UnitInfo
-	if err := toError(fnunitGetUnitInfo(unit, &out)); err != nil {
+	if err := toError(fnunitGetUnitInfo(unit, &out), "nvmlUnitGetUnitInfo"); err != nil {
 		var zero UnitInfo
 		return zero, err
 	}
@@ -7224,7 +7224,7 @@ func unitSetLedState(unit Unit, color LedColor) error {
 	if err := checkLibSym("nvmlUnitSetLedState"); err != nil {
 		return err
 	}
-	return toError(fnunitSetLedState(unit, color))
+	return toError(fnunitSetLedState(unit, color), "nvmlUnitSetLedState")
 }
 
 // vgpuInstanceClearAccountingPids wraps [nvmlVgpuInstanceClearAccountingPids].
@@ -7236,7 +7236,7 @@ func vgpuInstanceClearAccountingPids(vgpuInstance VgpuInstance) error {
 	if err := checkLibSym("nvmlVgpuInstanceClearAccountingPids"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceClearAccountingPids(vgpuInstance))
+	return toError(fnvgpuInstanceClearAccountingPids(vgpuInstance), "nvmlVgpuInstanceClearAccountingPids")
 }
 
 // vgpuInstanceGetAccountingMode wraps [nvmlVgpuInstanceGetAccountingMode].
@@ -7251,7 +7251,7 @@ func vgpuInstanceGetAccountingMode(vgpuInstance VgpuInstance) (EnableState, erro
 		return zero, err
 	}
 	var out EnableState
-	if err := toError(fnvgpuInstanceGetAccountingMode(vgpuInstance, &out)); err != nil {
+	if err := toError(fnvgpuInstanceGetAccountingMode(vgpuInstance, &out), "nvmlVgpuInstanceGetAccountingMode"); err != nil {
 		var zero EnableState
 		return zero, err
 	}
@@ -7269,7 +7269,7 @@ func vgpuInstanceGetAccountingPids(vgpuInstance VgpuInstance, count *uint32, pid
 	if err := checkLibSym("nvmlVgpuInstanceGetAccountingPids"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetAccountingPids(vgpuInstance, count, pids))
+	return toError(fnvgpuInstanceGetAccountingPids(vgpuInstance, count, pids), "nvmlVgpuInstanceGetAccountingPids")
 }
 
 // vgpuInstanceGetAccountingStats wraps [nvmlVgpuInstanceGetAccountingStats].
@@ -7283,7 +7283,7 @@ func vgpuInstanceGetAccountingStats(vgpuInstance VgpuInstance, pid uint32, stats
 	if err := checkLibSym("nvmlVgpuInstanceGetAccountingStats"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetAccountingStats(vgpuInstance, pid, stats))
+	return toError(fnvgpuInstanceGetAccountingStats(vgpuInstance, pid, stats), "nvmlVgpuInstanceGetAccountingStats")
 }
 
 // vgpuInstanceGetEccMode wraps [nvmlVgpuInstanceGetEccMode].
@@ -7296,7 +7296,7 @@ func vgpuInstanceGetEccMode(vgpuInstance VgpuInstance, eccMode *EnableState) err
 	if err := checkLibSym("nvmlVgpuInstanceGetEccMode"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetEccMode(vgpuInstance, eccMode))
+	return toError(fnvgpuInstanceGetEccMode(vgpuInstance, eccMode), "nvmlVgpuInstanceGetEccMode")
 }
 
 // vgpuInstanceGetEncoderCapacity wraps [nvmlVgpuInstanceGetEncoderCapacity].
@@ -7311,7 +7311,7 @@ func vgpuInstanceGetEncoderCapacity(vgpuInstance VgpuInstance) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnvgpuInstanceGetEncoderCapacity(vgpuInstance, &out)); err != nil {
+	if err := toError(fnvgpuInstanceGetEncoderCapacity(vgpuInstance, &out), "nvmlVgpuInstanceGetEncoderCapacity"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7329,7 +7329,7 @@ func vgpuInstanceGetEncoderSessions(vgpuInstance VgpuInstance, sessionCount *uin
 	if err := checkLibSym("nvmlVgpuInstanceGetEncoderSessions"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetEncoderSessions(vgpuInstance, sessionCount, sessionInfo))
+	return toError(fnvgpuInstanceGetEncoderSessions(vgpuInstance, sessionCount, sessionInfo), "nvmlVgpuInstanceGetEncoderSessions")
 }
 
 // vgpuInstanceGetEncoderStats wraps [nvmlVgpuInstanceGetEncoderStats].
@@ -7344,7 +7344,7 @@ func vgpuInstanceGetEncoderStats(vgpuInstance VgpuInstance, sessionCount *uint32
 	if err := checkLibSym("nvmlVgpuInstanceGetEncoderStats"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetEncoderStats(vgpuInstance, sessionCount, averageFps, averageLatency))
+	return toError(fnvgpuInstanceGetEncoderStats(vgpuInstance, sessionCount, averageFps, averageLatency), "nvmlVgpuInstanceGetEncoderStats")
 }
 
 // vgpuInstanceGetFBCSessions wraps [nvmlVgpuInstanceGetFBCSessions].
@@ -7358,7 +7358,7 @@ func vgpuInstanceGetFBCSessions(vgpuInstance VgpuInstance, sessionCount *uint32,
 	if err := checkLibSym("nvmlVgpuInstanceGetFBCSessions"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetFBCSessions(vgpuInstance, sessionCount, sessionInfo))
+	return toError(fnvgpuInstanceGetFBCSessions(vgpuInstance, sessionCount, sessionInfo), "nvmlVgpuInstanceGetFBCSessions")
 }
 
 // vgpuInstanceGetFBCStats wraps [nvmlVgpuInstanceGetFBCStats].
@@ -7371,7 +7371,7 @@ func vgpuInstanceGetFBCStats(vgpuInstance VgpuInstance, fbcStats *FBCStats) erro
 	if err := checkLibSym("nvmlVgpuInstanceGetFBCStats"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetFBCStats(vgpuInstance, fbcStats))
+	return toError(fnvgpuInstanceGetFBCStats(vgpuInstance, fbcStats), "nvmlVgpuInstanceGetFBCStats")
 }
 
 // vgpuInstanceGetFbUsage wraps [nvmlVgpuInstanceGetFbUsage].
@@ -7386,7 +7386,7 @@ func vgpuInstanceGetFbUsage(vgpuInstance VgpuInstance) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnvgpuInstanceGetFbUsage(vgpuInstance, &out)); err != nil {
+	if err := toError(fnvgpuInstanceGetFbUsage(vgpuInstance, &out), "nvmlVgpuInstanceGetFbUsage"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -7405,7 +7405,7 @@ func vgpuInstanceGetFrameRateLimit(vgpuInstance VgpuInstance) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnvgpuInstanceGetFrameRateLimit(vgpuInstance, &out)); err != nil {
+	if err := toError(fnvgpuInstanceGetFrameRateLimit(vgpuInstance, &out), "nvmlVgpuInstanceGetFrameRateLimit"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7424,7 +7424,7 @@ func vgpuInstanceGetGpuInstanceId(vgpuInstance VgpuInstance) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnvgpuInstanceGetGpuInstanceId(vgpuInstance, &out)); err != nil {
+	if err := toError(fnvgpuInstanceGetGpuInstanceId(vgpuInstance, &out), "nvmlVgpuInstanceGetGpuInstanceId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7442,7 +7442,7 @@ func vgpuInstanceGetGpuPciId(vgpuInstance VgpuInstance, vgpuPciId *byte, length 
 	if err := checkLibSym("nvmlVgpuInstanceGetGpuPciId"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetGpuPciId(vgpuInstance, vgpuPciId, length))
+	return toError(fnvgpuInstanceGetGpuPciId(vgpuInstance, vgpuPciId, length), "nvmlVgpuInstanceGetGpuPciId")
 }
 
 // vgpuInstanceGetLicenseInfo wraps [nvmlVgpuInstanceGetLicenseInfo], bound as nvmlVgpuInstanceGetLicenseInfo_v2.
@@ -7455,7 +7455,7 @@ func vgpuInstanceGetLicenseInfo(vgpuInstance VgpuInstance, licenseInfo *VgpuLice
 	if err := checkLibSym("nvmlVgpuInstanceGetLicenseInfo_v2"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetLicenseInfo(vgpuInstance, licenseInfo))
+	return toError(fnvgpuInstanceGetLicenseInfo(vgpuInstance, licenseInfo), "nvmlVgpuInstanceGetLicenseInfo_v2")
 }
 
 // vgpuInstanceGetLicenseStatus wraps [nvmlVgpuInstanceGetLicenseStatus].
@@ -7470,7 +7470,7 @@ func vgpuInstanceGetLicenseStatus(vgpuInstance VgpuInstance, licensed *uint32) e
 	if err := checkLibSym("nvmlVgpuInstanceGetLicenseStatus"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetLicenseStatus(vgpuInstance, licensed))
+	return toError(fnvgpuInstanceGetLicenseStatus(vgpuInstance, licensed), "nvmlVgpuInstanceGetLicenseStatus")
 }
 
 // vgpuInstanceGetMdevUUID wraps [nvmlVgpuInstanceGetMdevUUID].
@@ -7485,7 +7485,7 @@ func vgpuInstanceGetMdevUUID(vgpuInstance VgpuInstance) (string, error) {
 		return "", err
 	}
 	var buf_ [96]byte
-	if err := toError(fnvgpuInstanceGetMdevUUID(vgpuInstance, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fnvgpuInstanceGetMdevUUID(vgpuInstance, &buf_[0], uint32(len(buf_))), "nvmlVgpuInstanceGetMdevUUID"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -7506,7 +7506,7 @@ func vgpuInstanceGetMetadata(vgpuInstance VgpuInstance, vgpuMetadata *VgpuMetada
 	if err := checkLibSym("nvmlVgpuInstanceGetMetadata"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetMetadata(vgpuInstance, vgpuMetadata, bufferSize))
+	return toError(fnvgpuInstanceGetMetadata(vgpuInstance, vgpuMetadata, bufferSize), "nvmlVgpuInstanceGetMetadata")
 }
 
 // vgpuInstanceGetPlacementId Query the placement ID of active vGPU instance.
@@ -7523,7 +7523,7 @@ func vgpuInstanceGetPlacementId(vgpuInstance VgpuInstance, pPlacement *VgpuPlace
 	if err := checkLibSym("nvmlVgpuInstanceGetPlacementId"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetPlacementId(vgpuInstance, pPlacement))
+	return toError(fnvgpuInstanceGetPlacementId(vgpuInstance, pPlacement), "nvmlVgpuInstanceGetPlacementId")
 }
 
 // vgpuInstanceGetRuntimeStateSize Retrieve the currently used runtime state size of the vGPU instance
@@ -7544,7 +7544,7 @@ func vgpuInstanceGetRuntimeStateSize(vgpuInstance VgpuInstance) (VgpuRuntimeStat
 	}
 	var out VgpuRuntimeState
 	out.Version = VgpuRuntimeStateV1Version
-	if err := toError(fnvgpuInstanceGetRuntimeStateSize(vgpuInstance, &out)); err != nil {
+	if err := toError(fnvgpuInstanceGetRuntimeStateSize(vgpuInstance, &out), "nvmlVgpuInstanceGetRuntimeStateSize"); err != nil {
 		var zero VgpuRuntimeState
 		return zero, err
 	}
@@ -7563,7 +7563,7 @@ func vgpuInstanceGetType(vgpuInstance VgpuInstance) (VgpuTypeId, error) {
 		return zero, err
 	}
 	var out VgpuTypeId
-	if err := toError(fnvgpuInstanceGetType(vgpuInstance, &out)); err != nil {
+	if err := toError(fnvgpuInstanceGetType(vgpuInstance, &out), "nvmlVgpuInstanceGetType"); err != nil {
 		var zero VgpuTypeId
 		return zero, err
 	}
@@ -7582,7 +7582,7 @@ func vgpuInstanceGetUUID(vgpuInstance VgpuInstance) (string, error) {
 		return "", err
 	}
 	var buf_ [96]byte
-	if err := toError(fnvgpuInstanceGetUUID(vgpuInstance, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fnvgpuInstanceGetUUID(vgpuInstance, &buf_[0], uint32(len(buf_))), "nvmlVgpuInstanceGetUUID"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -7604,7 +7604,7 @@ func vgpuInstanceGetVmDriverVersion(vgpuInstance VgpuInstance) (string, error) {
 		return "", err
 	}
 	var buf_ [80]byte
-	if err := toError(fnvgpuInstanceGetVmDriverVersion(vgpuInstance, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fnvgpuInstanceGetVmDriverVersion(vgpuInstance, &buf_[0], uint32(len(buf_))), "nvmlVgpuInstanceGetVmDriverVersion"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -7626,7 +7626,7 @@ func vgpuInstanceGetVmID(vgpuInstance VgpuInstance, vmId *byte, size uint32, vmI
 	if err := checkLibSym("nvmlVgpuInstanceGetVmID"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceGetVmID(vgpuInstance, vmId, size, vmIdType))
+	return toError(fnvgpuInstanceGetVmID(vgpuInstance, vmId, size, vmIdType), "nvmlVgpuInstanceGetVmID")
 }
 
 // vgpuInstanceSetEncoderCapacity wraps [nvmlVgpuInstanceSetEncoderCapacity].
@@ -7639,7 +7639,7 @@ func vgpuInstanceSetEncoderCapacity(vgpuInstance VgpuInstance, encoderCapacity u
 	if err := checkLibSym("nvmlVgpuInstanceSetEncoderCapacity"); err != nil {
 		return err
 	}
-	return toError(fnvgpuInstanceSetEncoderCapacity(vgpuInstance, encoderCapacity))
+	return toError(fnvgpuInstanceSetEncoderCapacity(vgpuInstance, encoderCapacity), "nvmlVgpuInstanceSetEncoderCapacity")
 }
 
 // vgpuTypeGetBAR1Info wraps [nvmlVgpuTypeGetBAR1Info].
@@ -7652,7 +7652,7 @@ func vgpuTypeGetBAR1Info(vgpuTypeId VgpuTypeId, bar1Info *VgpuTypeBar1Info) erro
 	if err := checkLibSym("nvmlVgpuTypeGetBAR1Info"); err != nil {
 		return err
 	}
-	return toError(fnvgpuTypeGetBAR1Info(vgpuTypeId, bar1Info))
+	return toError(fnvgpuTypeGetBAR1Info(vgpuTypeId, bar1Info), "nvmlVgpuTypeGetBAR1Info")
 }
 
 // vgpuTypeGetCapabilities wraps [nvmlVgpuTypeGetCapabilities].
@@ -7668,7 +7668,7 @@ func vgpuTypeGetCapabilities(vgpuTypeId VgpuTypeId, capability VgpuCapability) (
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnvgpuTypeGetCapabilities(vgpuTypeId, capability, &out)); err != nil {
+	if err := toError(fnvgpuTypeGetCapabilities(vgpuTypeId, capability, &out), "nvmlVgpuTypeGetCapabilities"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7686,7 +7686,7 @@ func vgpuTypeGetClass(vgpuTypeId VgpuTypeId, vgpuTypeClass *byte, size *uint32) 
 	if err := checkLibSym("nvmlVgpuTypeGetClass"); err != nil {
 		return err
 	}
-	return toError(fnvgpuTypeGetClass(vgpuTypeId, vgpuTypeClass, size))
+	return toError(fnvgpuTypeGetClass(vgpuTypeId, vgpuTypeClass, size), "nvmlVgpuTypeGetClass")
 }
 
 // vgpuTypeGetDeviceID wraps [nvmlVgpuTypeGetDeviceID].
@@ -7700,7 +7700,7 @@ func vgpuTypeGetDeviceID(vgpuTypeId VgpuTypeId, deviceID *uint64, subsystemID *u
 	if err := checkLibSym("nvmlVgpuTypeGetDeviceID"); err != nil {
 		return err
 	}
-	return toError(fnvgpuTypeGetDeviceID(vgpuTypeId, deviceID, subsystemID))
+	return toError(fnvgpuTypeGetDeviceID(vgpuTypeId, deviceID, subsystemID), "nvmlVgpuTypeGetDeviceID")
 }
 
 // vgpuTypeGetFbReservation Retrieve the static framebuffer reservation of the vGPU type in bytes
@@ -7717,7 +7717,7 @@ func vgpuTypeGetFbReservation(vgpuTypeId VgpuTypeId) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnvgpuTypeGetFbReservation(vgpuTypeId, &out)); err != nil {
+	if err := toError(fnvgpuTypeGetFbReservation(vgpuTypeId, &out), "nvmlVgpuTypeGetFbReservation"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -7736,7 +7736,7 @@ func vgpuTypeGetFrameRateLimit(vgpuTypeId VgpuTypeId) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnvgpuTypeGetFrameRateLimit(vgpuTypeId, &out)); err != nil {
+	if err := toError(fnvgpuTypeGetFrameRateLimit(vgpuTypeId, &out), "nvmlVgpuTypeGetFrameRateLimit"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7755,7 +7755,7 @@ func vgpuTypeGetFramebufferSize(vgpuTypeId VgpuTypeId) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnvgpuTypeGetFramebufferSize(vgpuTypeId, &out)); err != nil {
+	if err := toError(fnvgpuTypeGetFramebufferSize(vgpuTypeId, &out), "nvmlVgpuTypeGetFramebufferSize"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -7774,7 +7774,7 @@ func vgpuTypeGetGpuInstanceProfileId(vgpuTypeId VgpuTypeId) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnvgpuTypeGetGpuInstanceProfileId(vgpuTypeId, &out)); err != nil {
+	if err := toError(fnvgpuTypeGetGpuInstanceProfileId(vgpuTypeId, &out), "nvmlVgpuTypeGetGpuInstanceProfileId"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7795,7 +7795,7 @@ func vgpuTypeGetGspHeapSize(vgpuTypeId VgpuTypeId) (uint64, error) {
 		return zero, err
 	}
 	var out uint64
-	if err := toError(fnvgpuTypeGetGspHeapSize(vgpuTypeId, &out)); err != nil {
+	if err := toError(fnvgpuTypeGetGspHeapSize(vgpuTypeId, &out), "nvmlVgpuTypeGetGspHeapSize"); err != nil {
 		var zero uint64
 		return zero, err
 	}
@@ -7814,7 +7814,7 @@ func vgpuTypeGetLicense(vgpuTypeId VgpuTypeId) (string, error) {
 		return "", err
 	}
 	var buf_ [128]byte
-	if err := toError(fnvgpuTypeGetLicense(vgpuTypeId, &buf_[0], uint32(len(buf_)))); err != nil {
+	if err := toError(fnvgpuTypeGetLicense(vgpuTypeId, &buf_[0], uint32(len(buf_))), "nvmlVgpuTypeGetLicense"); err != nil {
 		return "", err
 	}
 	n := 0
@@ -7837,7 +7837,7 @@ func vgpuTypeGetMaxInstances(device Device, vgpuTypeId VgpuTypeId) (uint32, erro
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnvgpuTypeGetMaxInstances(device, vgpuTypeId, &out)); err != nil {
+	if err := toError(fnvgpuTypeGetMaxInstances(device, vgpuTypeId, &out), "nvmlVgpuTypeGetMaxInstances"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7853,7 +7853,7 @@ func VgpuTypeGetMaxInstancesPerGpuInstance(pMaxInstance *VgpuTypeMaxInstance) er
 	if err := checkLibSym("nvmlVgpuTypeGetMaxInstancesPerGpuInstance"); err != nil {
 		return err
 	}
-	return toError(fnVgpuTypeGetMaxInstancesPerGpuInstance(pMaxInstance))
+	return toError(fnVgpuTypeGetMaxInstancesPerGpuInstance(pMaxInstance), "nvmlVgpuTypeGetMaxInstancesPerGpuInstance")
 }
 
 // vgpuTypeGetMaxInstancesPerVm wraps [nvmlVgpuTypeGetMaxInstancesPerVm].
@@ -7868,7 +7868,7 @@ func vgpuTypeGetMaxInstancesPerVm(vgpuTypeId VgpuTypeId) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnvgpuTypeGetMaxInstancesPerVm(vgpuTypeId, &out)); err != nil {
+	if err := toError(fnvgpuTypeGetMaxInstancesPerVm(vgpuTypeId, &out), "nvmlVgpuTypeGetMaxInstancesPerVm"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7886,7 +7886,7 @@ func vgpuTypeGetName(vgpuTypeId VgpuTypeId, vgpuTypeName *byte, size *uint32) er
 	if err := checkLibSym("nvmlVgpuTypeGetName"); err != nil {
 		return err
 	}
-	return toError(fnvgpuTypeGetName(vgpuTypeId, vgpuTypeName, size))
+	return toError(fnvgpuTypeGetName(vgpuTypeId, vgpuTypeName, size), "nvmlVgpuTypeGetName")
 }
 
 // vgpuTypeGetNumDisplayHeads wraps [nvmlVgpuTypeGetNumDisplayHeads].
@@ -7901,7 +7901,7 @@ func vgpuTypeGetNumDisplayHeads(vgpuTypeId VgpuTypeId) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnvgpuTypeGetNumDisplayHeads(vgpuTypeId, &out)); err != nil {
+	if err := toError(fnvgpuTypeGetNumDisplayHeads(vgpuTypeId, &out), "nvmlVgpuTypeGetNumDisplayHeads"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -7920,5 +7920,5 @@ func vgpuTypeGetResolution(vgpuTypeId VgpuTypeId, displayIndex uint32, xdim *uin
 	if err := checkLibSym("nvmlVgpuTypeGetResolution"); err != nil {
 		return err
 	}
-	return toError(fnvgpuTypeGetResolution(vgpuTypeId, displayIndex, xdim, ydim))
+	return toError(fnvgpuTypeGetResolution(vgpuTypeId, displayIndex, xdim, ydim), "nvmlVgpuTypeGetResolution")
 }

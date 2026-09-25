@@ -46,7 +46,7 @@ func Finalize(handle Handle) error {
 	if err := checkLibSym("ncclM2nFinalize"); err != nil {
 		return err
 	}
-	return toError(fnFinalize(handle))
+	return toError(fnFinalize(handle), "ncclM2nFinalize")
 }
 
 // GetLastError copies the most recent M2N error detail from the calling OS thread.
@@ -75,7 +75,7 @@ func GroupAbort() error {
 	if err := checkLibSym("ncclM2nGroupAbort"); err != nil {
 		return err
 	}
-	return toError(fnGroupAbort())
+	return toError(fnGroupAbort(), "ncclM2nGroupAbort")
 }
 
 // GroupEnd ends a group and submits recorded operations at the outermost level.
@@ -104,7 +104,7 @@ func GroupEnd() error {
 	if err := checkLibSym("ncclM2nGroupEnd"); err != nil {
 		return err
 	}
-	return toError(fnGroupEnd())
+	return toError(fnGroupEnd(), "ncclM2nGroupEnd")
 }
 
 // GroupStart begins a nested group on the calling OS thread.
@@ -153,7 +153,7 @@ func GroupStart() error {
 	if err := checkLibSym("ncclM2nGroupStart"); err != nil {
 		return err
 	}
-	return toError(fnGroupStart())
+	return toError(fnGroupStart(), "ncclM2nGroupStart")
 }
 
 // Init initializes M2N and returns an explicit handle.
@@ -178,7 +178,7 @@ func Init(config *Config) (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnInit(&out, config)); err != nil {
+	if err := toError(fnInit(&out, config), "ncclM2nInit"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -207,7 +207,7 @@ func Reshard(handle Handle, comm nccl.Comm, src *DistTensor, dst *DistTensor, st
 	if err := checkLibSym("ncclReshard"); err != nil {
 		return err
 	}
-	return toError(fnReshard(handle, comm, src, dst, stream))
+	return toError(fnReshard(handle, comm, src, dst, stream), "ncclReshard")
 }
 
 // ReshardWithWindow reshards tensors using a caller-registered NCCL window.
@@ -236,5 +236,5 @@ func ReshardWithWindow(handle Handle, comm nccl.Comm, window nccl.Window, src *D
 	if err := checkLibSym("ncclReshardWithWindow"); err != nil {
 		return err
 	}
-	return toError(fnReshardWithWindow(handle, comm, window, src, dst, stream))
+	return toError(fnReshardWithWindow(handle, comm, window, src, dst, stream), "ncclReshardWithWindow")
 }

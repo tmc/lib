@@ -67,10 +67,26 @@ func (s Status) Error() string {
 	return "nvshmem: " + s.String()
 }
 
-// toError returns nil for Success and the status itself otherwise.
-func toError(s Status) error {
+// CallError reports that a library call returned a failure status.
+//
+// Unwrap returns Result, so errors.Is(err, c) matches a Status constant c
+// and errors.As(err, &s) with s a Status recovers the code.
+type CallError struct {
+	Func   string // the C symbol called
+	Result Status
+}
+
+// Error reports the C symbol called and the status it returned.
+func (e *CallError) Error() string { return e.Func + ": " + e.Result.Error() }
+
+// Unwrap returns the status the call reported.
+func (e *CallError) Unwrap() error { return e.Result }
+
+// toError returns nil if s is Success and otherwise a *CallError naming fn,
+// the C symbol that returned s.
+func toError(s Status, fn string) error {
 	if s == Success {
 		return nil
 	}
-	return s
+	return &CallError{Func: fn, Result: s}
 }

@@ -231,7 +231,7 @@ func checkVersion() error {
 	}
 	var out0 uint32
 	var out1 uint32
-	if err := toError(fnVersion(&out0, &out1)); err != nil {
+	if err := toError(fnVersion(&out0, &out1), "nvJitLinkVersion"); err != nil {
 		return nil
 	}
 	raw := int(out0)

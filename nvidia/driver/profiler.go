@@ -50,7 +50,7 @@ func ProfilerStart() error {
 	if err := bindProfiler(); err != nil {
 		return err
 	}
-	return toError(fnProfilerStart())
+	return toError(fnProfilerStart(), "cuProfilerStart")
 }
 
 // ProfilerStop flushes an attached external profiler's buffers and stops
@@ -73,5 +73,5 @@ func ProfilerStop() error {
 	if err := bindProfiler(); err != nil {
 		return err
 	}
-	return toError(fnProfilerStop())
+	return toError(fnProfilerStop(), "cuProfilerStop")
 }

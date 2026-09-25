@@ -43,7 +43,7 @@ func addModuleToProgram(prog Program, buffer unsafe.Pointer, size uint, name str
 		return err
 	}
 	cstr_name := append([]byte(name), 0)
-	return toError(fnaddModuleToProgram(prog, buffer, size, &cstr_name[0]))
+	return toError(fnaddModuleToProgram(prog, buffer, size, &cstr_name[0]), "nvvmAddModuleToProgram")
 }
 
 // compileProgram Compile the NVVM program.
@@ -131,7 +131,7 @@ func compileProgram(prog Program, options []string) error {
 		carg_options = &ptrs_options[0]
 		_ = cstrs_options
 	}
-	return toError(fncompileProgram(prog, int32(len(options)), carg_options))
+	return toError(fncompileProgram(prog, int32(len(options)), carg_options), "nvvmCompileProgram")
 }
 
 // CreateProgram Create a program, and set the value of its handle to *prog.
@@ -143,7 +143,7 @@ func CreateProgram() (Program, error) {
 		return zero, err
 	}
 	var out Program
-	if err := toError(fnCreateProgram(&out)); err != nil {
+	if err := toError(fnCreateProgram(&out), "nvvmCreateProgram"); err != nil {
 		var zero Program
 		return zero, err
 	}
@@ -159,7 +159,7 @@ func destroyProgram(prog *Program) error {
 	if err := checkLibSym("nvvmDestroyProgram"); err != nil {
 		return err
 	}
-	return toError(fndestroyProgram(prog))
+	return toError(fndestroyProgram(prog), "nvvmDestroyProgram")
 }
 
 // getCompiledResult Get the compiled result.
@@ -182,7 +182,7 @@ func getCompiledResult(prog Program) ([]byte, error) {
 		return nil, nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetCompiledResult(prog, &buf[0])); err != nil {
+	if err := toError(fngetCompiledResult(prog, &buf[0]), "nvvmGetCompiledResult"); err != nil {
 		return nil, fmt.Errorf("getcompiledresult: %w", err)
 	}
 	return buf[:size], nil
@@ -199,7 +199,7 @@ func getCompiledResultSize(prog Program) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetCompiledResultSize(prog, &out)); err != nil {
+	if err := toError(fngetCompiledResultSize(prog, &out), "nvvmGetCompiledResultSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -227,7 +227,7 @@ func getProgramLog(prog Program) (string, error) {
 		return "", nil
 	}
 	buf := make([]byte, size)
-	if err := toError(fngetProgramLog(prog, &buf[0])); err != nil {
+	if err := toError(fngetProgramLog(prog, &buf[0]), "nvvmGetProgramLog"); err != nil {
 		return "", fmt.Errorf("getprogramlog: %w", err)
 	}
 	if size > 0 && buf[size-1] == 0 {
@@ -250,7 +250,7 @@ func getProgramLogSize(prog Program) (uint, error) {
 		return zero, err
 	}
 	var out uint
-	if err := toError(fngetProgramLogSize(prog, &out)); err != nil {
+	if err := toError(fngetProgramLogSize(prog, &out), "nvvmGetProgramLogSize"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -268,7 +268,7 @@ func IRVersion() (majorIR int32, minorIR int32, majorDbg int32, minorDbg int32, 
 	var out1 int32
 	var out2 int32
 	var out3 int32
-	if err := toError(fnIRVersion(&out0, &out1, &out2, &out3)); err != nil {
+	if err := toError(fnIRVersion(&out0, &out1, &out2, &out3), "nvvmIRVersion"); err != nil {
 		return 0, 0, 0, 0, err
 	}
 	return out0, out1, out2, out3, nil
@@ -287,7 +287,7 @@ func LLVMVersion(arch string) (int32, error) {
 	}
 	cstr_arch := append([]byte(arch), 0)
 	var out int32
-	if err := toError(fnLLVMVersion(&cstr_arch[0], &out)); err != nil {
+	if err := toError(fnLLVMVersion(&cstr_arch[0], &out), "nvvmLLVMVersion"); err != nil {
 		return 0, err
 	}
 	return out, nil
@@ -318,7 +318,7 @@ func lazyAddModuleToProgram(prog Program, buffer unsafe.Pointer, size uint, name
 		return err
 	}
 	cstr_name := append([]byte(name), 0)
-	return toError(fnlazyAddModuleToProgram(prog, buffer, size, &cstr_name[0]))
+	return toError(fnlazyAddModuleToProgram(prog, buffer, size, &cstr_name[0]), "nvvmLazyAddModuleToProgram")
 }
 
 // verifyProgram Verify the NVVM program.
@@ -347,7 +347,7 @@ func verifyProgram(prog Program, options []string) error {
 		carg_options = &ptrs_options[0]
 		_ = cstrs_options
 	}
-	return toError(fnverifyProgram(prog, int32(len(options)), carg_options))
+	return toError(fnverifyProgram(prog, int32(len(options)), carg_options), "nvvmVerifyProgram")
 }
 
 // Version Get the NVVM version.
@@ -359,7 +359,7 @@ func Version() (major int32, minor int32, err error) {
 	}
 	var out0 int32
 	var out1 int32
-	if err := toError(fnVersion(&out0, &out1)); err != nil {
+	if err := toError(fnVersion(&out0, &out1), "nvvmVersion"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil

@@ -58,7 +58,7 @@ func ConfigCreate() (Config, error) {
 		return zero, err
 	}
 	var out Config
-	if err := toError(fnConfigCreate(&out)); err != nil {
+	if err := toError(fnConfigCreate(&out), "cudssConfigCreate"); err != nil {
 		var zero Config
 		return zero, err
 	}
@@ -70,7 +70,7 @@ func ConfigDestroy(solverConfig Config) error {
 	if err := checkLibSym("cudssConfigDestroy"); err != nil {
 		return err
 	}
-	return toError(fnConfigDestroy(solverConfig))
+	return toError(fnConfigDestroy(solverConfig), "cudssConfigDestroy")
 }
 
 // Create wraps cudssCreate.
@@ -80,7 +80,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "cudssCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -94,7 +94,7 @@ func CreateMg(deviceCount int32, deviceIndices *int32) (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreateMg(&out, deviceCount, deviceIndices)); err != nil {
+	if err := toError(fnCreateMg(&out, deviceCount, deviceIndices), "cudssCreateMg"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -108,7 +108,7 @@ func DataCreate(handle Handle) (Data, error) {
 		return zero, err
 	}
 	var out Data
-	if err := toError(fnDataCreate(handle, &out)); err != nil {
+	if err := toError(fnDataCreate(handle, &out), "cudssDataCreate"); err != nil {
 		var zero Data
 		return zero, err
 	}
@@ -120,7 +120,7 @@ func DataDestroy(handle Handle, solverData Data) error {
 	if err := checkLibSym("cudssDataDestroy"); err != nil {
 		return err
 	}
-	return toError(fnDataDestroy(handle, solverData))
+	return toError(fnDataDestroy(handle, solverData), "cudssDataDestroy")
 }
 
 // Destroy wraps cudssDestroy.
@@ -128,7 +128,7 @@ func Destroy(handle Handle) error {
 	if err := checkLibSym("cudssDestroy"); err != nil {
 		return err
 	}
-	return toError(fnDestroy(handle))
+	return toError(fnDestroy(handle), "cudssDestroy")
 }
 
 // Execute wraps cudssExecute.
@@ -136,7 +136,7 @@ func Execute(handle Handle, phase Phase, solverConfig Config, solverData Data, i
 	if err := checkLibSym("cudssExecute"); err != nil {
 		return err
 	}
-	return toError(fnExecute(handle, phase, solverConfig, solverData, inputMatrix, solution, rhs))
+	return toError(fnExecute(handle, phase, solverConfig, solverData, inputMatrix, solution, rhs), "cudssExecute")
 }
 
 // GetDeviceMemHandler wraps cudssGetDeviceMemHandler.
@@ -146,7 +146,7 @@ func GetDeviceMemHandler(handle Handle) (DeviceMemHandler, error) {
 		return zero, err
 	}
 	var out DeviceMemHandler
-	if err := toError(fnGetDeviceMemHandler(handle, &out)); err != nil {
+	if err := toError(fnGetDeviceMemHandler(handle, &out), "cudssGetDeviceMemHandler"); err != nil {
 		var zero DeviceMemHandler
 		return zero, err
 	}
@@ -160,7 +160,7 @@ func GetProperty(propertyType LibraryPropertyType) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetProperty(propertyType, &out)); err != nil {
+	if err := toError(fnGetProperty(propertyType, &out), "cudssGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -172,7 +172,7 @@ func LoggerForceDisable() error {
 	if err := checkLibSym("cudssLoggerForceDisable"); err != nil {
 		return err
 	}
-	return toError(fnLoggerForceDisable())
+	return toError(fnLoggerForceDisable(), "cudssLoggerForceDisable")
 }
 
 // LoggerOpenFile wraps cudssLoggerOpenFile.
@@ -181,7 +181,7 @@ func LoggerOpenFile(logFile string) error {
 		return err
 	}
 	logFile_cstr := append([]byte(logFile), 0)
-	return toError(fnLoggerOpenFile(&logFile_cstr[0]))
+	return toError(fnLoggerOpenFile(&logFile_cstr[0]), "cudssLoggerOpenFile")
 }
 
 // LoggerSetCallback wraps cudssLoggerSetCallback.
@@ -189,7 +189,7 @@ func LoggerSetCallback(callback uintptr) error {
 	if err := checkLibSym("cudssLoggerSetCallback"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetCallback(callback))
+	return toError(fnLoggerSetCallback(callback), "cudssLoggerSetCallback")
 }
 
 // LoggerSetLevel wraps cudssLoggerSetLevel.
@@ -197,7 +197,7 @@ func LoggerSetLevel(level int32) error {
 	if err := checkLibSym("cudssLoggerSetLevel"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetLevel(level))
+	return toError(fnLoggerSetLevel(level), "cudssLoggerSetLevel")
 }
 
 // LoggerSetMask wraps cudssLoggerSetMask.
@@ -205,7 +205,7 @@ func LoggerSetMask(mask int32) error {
 	if err := checkLibSym("cudssLoggerSetMask"); err != nil {
 		return err
 	}
-	return toError(fnLoggerSetMask(mask))
+	return toError(fnLoggerSetMask(mask), "cudssLoggerSetMask")
 }
 
 // MatrixCreateBatchCsr wraps cudssMatrixCreateBatchCsr.
@@ -215,7 +215,7 @@ func MatrixCreateBatchCsr(batchCount int64, nrows uintptr, ncols uintptr, nnz ui
 		return zero, err
 	}
 	var out Matrix
-	if err := toError(fnMatrixCreateBatchCsr(&out, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)); err != nil {
+	if err := toError(fnMatrixCreateBatchCsr(&out, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateBatchCsr"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
@@ -229,7 +229,7 @@ func MatrixCreateBatchDn(batchCount int64, nrows uintptr, ncols uintptr, ld uint
 		return zero, err
 	}
 	var out Matrix
-	if err := toError(fnMatrixCreateBatchDn(&out, batchCount, nrows, ncols, ld, values, integerType, valueType, layout)); err != nil {
+	if err := toError(fnMatrixCreateBatchDn(&out, batchCount, nrows, ncols, ld, values, integerType, valueType, layout), "cudssMatrixCreateBatchDn"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
@@ -243,7 +243,7 @@ func MatrixCreateCsr(nrows int64, ncols int64, nnz int64, rowStart uintptr, rowE
 		return zero, err
 	}
 	var out Matrix
-	if err := toError(fnMatrixCreateCsr(&out, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)); err != nil {
+	if err := toError(fnMatrixCreateCsr(&out, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixCreateCsr"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
@@ -257,7 +257,7 @@ func MatrixCreateDn(nrows int64, ncols int64, ld int64, values uintptr, valueTyp
 		return zero, err
 	}
 	var out Matrix
-	if err := toError(fnMatrixCreateDn(&out, nrows, ncols, ld, values, valueType, layout)); err != nil {
+	if err := toError(fnMatrixCreateDn(&out, nrows, ncols, ld, values, valueType, layout), "cudssMatrixCreateDn"); err != nil {
 		var zero Matrix
 		return zero, err
 	}
@@ -269,7 +269,7 @@ func MatrixDestroy(matrix Matrix) error {
 	if err := checkLibSym("cudssMatrixDestroy"); err != nil {
 		return err
 	}
-	return toError(fnMatrixDestroy(matrix))
+	return toError(fnMatrixDestroy(matrix), "cudssMatrixDestroy")
 }
 
 // MatrixGetBatchCsr wraps cudssMatrixGetBatchCsr.
@@ -277,7 +277,7 @@ func MatrixGetBatchCsr(matrix Matrix, batchCount *int64, nrows *uintptr, ncols *
 	if err := checkLibSym("cudssMatrixGetBatchCsr"); err != nil {
 		return err
 	}
-	return toError(fnMatrixGetBatchCsr(matrix, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase))
+	return toError(fnMatrixGetBatchCsr(matrix, batchCount, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixGetBatchCsr")
 }
 
 // MatrixGetBatchDn wraps cudssMatrixGetBatchDn.
@@ -285,7 +285,7 @@ func MatrixGetBatchDn(matrix Matrix, batchCount *int64, nrows *uintptr, ncols *u
 	if err := checkLibSym("cudssMatrixGetBatchDn"); err != nil {
 		return err
 	}
-	return toError(fnMatrixGetBatchDn(matrix, batchCount, nrows, ncols, ld, values, indexType, valueType, layout))
+	return toError(fnMatrixGetBatchDn(matrix, batchCount, nrows, ncols, ld, values, indexType, valueType, layout), "cudssMatrixGetBatchDn")
 }
 
 // MatrixGetCsr wraps cudssMatrixGetCsr.
@@ -293,7 +293,7 @@ func MatrixGetCsr(matrix Matrix, nrows *int64, ncols *int64, nnz *int64, rowStar
 	if err := checkLibSym("cudssMatrixGetCsr"); err != nil {
 		return err
 	}
-	return toError(fnMatrixGetCsr(matrix, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase))
+	return toError(fnMatrixGetCsr(matrix, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase), "cudssMatrixGetCsr")
 }
 
 // MatrixGetDistributionRow1d wraps cudssMatrixGetDistributionRow1d.
@@ -301,7 +301,7 @@ func MatrixGetDistributionRow1d(matrix Matrix, firstRow *int64, lastRow *int64) 
 	if err := checkLibSym("cudssMatrixGetDistributionRow1d"); err != nil {
 		return err
 	}
-	return toError(fnMatrixGetDistributionRow1d(matrix, firstRow, lastRow))
+	return toError(fnMatrixGetDistributionRow1d(matrix, firstRow, lastRow), "cudssMatrixGetDistributionRow1d")
 }
 
 // MatrixGetDn wraps cudssMatrixGetDn.
@@ -309,7 +309,7 @@ func MatrixGetDn(matrix Matrix, nrows *int64, ncols *int64, ld *int64, values *u
 	if err := checkLibSym("cudssMatrixGetDn"); err != nil {
 		return err
 	}
-	return toError(fnMatrixGetDn(matrix, nrows, ncols, ld, values, type_, layout))
+	return toError(fnMatrixGetDn(matrix, nrows, ncols, ld, values, type_, layout), "cudssMatrixGetDn")
 }
 
 // MatrixGetFormat wraps cudssMatrixGetFormat.
@@ -319,7 +319,7 @@ func MatrixGetFormat(matrix Matrix) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnMatrixGetFormat(matrix, &out)); err != nil {
+	if err := toError(fnMatrixGetFormat(matrix, &out), "cudssMatrixGetFormat"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -331,7 +331,7 @@ func MatrixSetBatchCsrPointers(matrix Matrix, rowOffsets *uintptr, rowEnd *uintp
 	if err := checkLibSym("cudssMatrixSetBatchCsrPointers"); err != nil {
 		return err
 	}
-	return toError(fnMatrixSetBatchCsrPointers(matrix, rowOffsets, rowEnd, colIndices, values))
+	return toError(fnMatrixSetBatchCsrPointers(matrix, rowOffsets, rowEnd, colIndices, values), "cudssMatrixSetBatchCsrPointers")
 }
 
 // MatrixSetBatchValues wraps cudssMatrixSetBatchValues.
@@ -339,7 +339,7 @@ func MatrixSetBatchValues(matrix Matrix, values *uintptr) error {
 	if err := checkLibSym("cudssMatrixSetBatchValues"); err != nil {
 		return err
 	}
-	return toError(fnMatrixSetBatchValues(matrix, values))
+	return toError(fnMatrixSetBatchValues(matrix, values), "cudssMatrixSetBatchValues")
 }
 
 // MatrixSetCsrPointers wraps cudssMatrixSetCsrPointers.
@@ -347,7 +347,7 @@ func MatrixSetCsrPointers(matrix Matrix, rowOffsets uintptr, rowEnd uintptr, col
 	if err := checkLibSym("cudssMatrixSetCsrPointers"); err != nil {
 		return err
 	}
-	return toError(fnMatrixSetCsrPointers(matrix, rowOffsets, rowEnd, colIndices, values))
+	return toError(fnMatrixSetCsrPointers(matrix, rowOffsets, rowEnd, colIndices, values), "cudssMatrixSetCsrPointers")
 }
 
 // MatrixSetDistributionRow1d wraps cudssMatrixSetDistributionRow1d.
@@ -355,7 +355,7 @@ func MatrixSetDistributionRow1d(matrix Matrix, firstRow int64, lastRow int64) er
 	if err := checkLibSym("cudssMatrixSetDistributionRow1d"); err != nil {
 		return err
 	}
-	return toError(fnMatrixSetDistributionRow1d(matrix, firstRow, lastRow))
+	return toError(fnMatrixSetDistributionRow1d(matrix, firstRow, lastRow), "cudssMatrixSetDistributionRow1d")
 }
 
 // MatrixSetValues wraps cudssMatrixSetValues.
@@ -363,7 +363,7 @@ func MatrixSetValues(matrix Matrix, values uintptr) error {
 	if err := checkLibSym("cudssMatrixSetValues"); err != nil {
 		return err
 	}
-	return toError(fnMatrixSetValues(matrix, values))
+	return toError(fnMatrixSetValues(matrix, values), "cudssMatrixSetValues")
 }
 
 // SetCommLayer wraps cudssSetCommLayer.
@@ -372,7 +372,7 @@ func SetCommLayer(handle Handle, commLibFileName string) error {
 		return err
 	}
 	commLibFileName_cstr := append([]byte(commLibFileName), 0)
-	return toError(fnSetCommLayer(handle, &commLibFileName_cstr[0]))
+	return toError(fnSetCommLayer(handle, &commLibFileName_cstr[0]), "cudssSetCommLayer")
 }
 
 // SetDeviceMemHandler wraps cudssSetDeviceMemHandler.
@@ -380,7 +380,7 @@ func SetDeviceMemHandler(handle Handle, handler *DeviceMemHandler) error {
 	if err := checkLibSym("cudssSetDeviceMemHandler"); err != nil {
 		return err
 	}
-	return toError(fnSetDeviceMemHandler(handle, handler))
+	return toError(fnSetDeviceMemHandler(handle, handler), "cudssSetDeviceMemHandler")
 }
 
 // SetMgStreams wraps cudssSetMgStreams.
@@ -388,7 +388,7 @@ func SetMgStreams(handle Handle, streams *Stream, streamCount int32) error {
 	if err := checkLibSym("cudssSetMgStreams"); err != nil {
 		return err
 	}
-	return toError(fnSetMgStreams(handle, streams, streamCount))
+	return toError(fnSetMgStreams(handle, streams, streamCount), "cudssSetMgStreams")
 }
 
 // SetStream wraps cudssSetStream.
@@ -396,7 +396,7 @@ func SetStream(handle Handle, stream Stream) error {
 	if err := checkLibSym("cudssSetStream"); err != nil {
 		return err
 	}
-	return toError(fnSetStream(handle, stream))
+	return toError(fnSetStream(handle, stream), "cudssSetStream")
 }
 
 // SetThreadingLayer wraps cudssSetThreadingLayer.
@@ -405,5 +405,5 @@ func SetThreadingLayer(handle Handle, thrLibFileName string) error {
 		return err
 	}
 	thrLibFileName_cstr := append([]byte(thrLibFileName), 0)
-	return toError(fnSetThreadingLayer(handle, &thrLibFileName_cstr[0]))
+	return toError(fnSetThreadingLayer(handle, &thrLibFileName_cstr[0]), "cudssSetThreadingLayer")
 }

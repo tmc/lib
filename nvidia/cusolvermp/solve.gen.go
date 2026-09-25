@@ -20,7 +20,7 @@ func GetrfBufferSize(handle Handle, m, n int64, dA DevicePtr, ia, ja int64, desc
 		return 0, 0, err
 	}
 	var device, host uint
-	if err := toError(fnGetrfBufferSize(handle, m, n, dA, ia, ja, descA, dIpiv, computeType, &device, &host)); err != nil {
+	if err := toError(fnGetrfBufferSize(handle, m, n, dA, ia, ja, descA, dIpiv, computeType, &device, &host), "cusolverMpGetrf_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	return device, host, nil
@@ -52,7 +52,7 @@ func Getrf(handle Handle, m, n int64, dA DevicePtr, ia, ja int64, descA MatrixDe
 	if err := checkLibSym("cusolverMpGetrf"); err != nil {
 		return err
 	}
-	return toError(fnGetrf(handle, m, n, dA, ia, ja, descA, dIpiv, computeType, dWork, deviceBytes, hWork, hostBytes, dInfo))
+	return toError(fnGetrf(handle, m, n, dA, ia, ja, descA, dIpiv, computeType, dWork, deviceBytes, hWork, hostBytes, dInfo), "cusolverMpGetrf")
 }
 
 // GetrsBufferSize wraps cusolverMpGetrs_bufferSize. It reports how many bytes
@@ -64,7 +64,7 @@ func GetrsBufferSize(handle Handle, trans cusolver.Operation, n, nrhs int64, dA 
 		return 0, 0, err
 	}
 	var device, host uint
-	if err := toError(fnGetrsBufferSize(handle, trans, n, nrhs, dA, ia, ja, descA, dIpiv, dB, ib, jb, descB, computeType, &device, &host)); err != nil {
+	if err := toError(fnGetrsBufferSize(handle, trans, n, nrhs, dA, ia, ja, descA, dIpiv, dB, ib, jb, descB, computeType, &device, &host), "cusolverMpGetrs_bufferSize"); err != nil {
 		return 0, 0, err
 	}
 	return device, host, nil
@@ -90,5 +90,5 @@ func Getrs(handle Handle, trans cusolver.Operation, n, nrhs int64, dA DevicePtr,
 	if err := checkLibSym("cusolverMpGetrs"); err != nil {
 		return err
 	}
-	return toError(fnGetrs(handle, trans, n, nrhs, dA, ia, ja, descA, dIpiv, dB, ib, jb, descB, computeType, dWork, deviceBytes, hWork, hostBytes, dInfo))
+	return toError(fnGetrs(handle, trans, n, nrhs, dA, ia, ja, descA, dIpiv, dB, ib, jb, descB, computeType, dWork, deviceBytes, hWork, hostBytes, dInfo), "cusolverMpGetrs")
 }

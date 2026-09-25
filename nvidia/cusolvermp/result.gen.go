@@ -7,10 +7,15 @@ import "github.com/tmc/lib/nvidia/cusolver"
 // Result is the cuSOLVER status code, which cuSOLVERMp returns unchanged.
 type Result = cusolver.Result
 
-// toError converts a Result to an error, returning nil for success.
-func toError(r Result) error {
+// CallError reports that a cuSOLVERMp call returned a failure status. It is
+// cuSOLVER's, so errors.As matches it whichever package made the call.
+type CallError = cusolver.CallError
+
+// toError returns nil if r is success and otherwise a *CallError naming fn,
+// the C symbol that returned r.
+func toError(r Result, fn string) error {
 	if r == cusolver.Success {
 		return nil
 	}
-	return r
+	return &CallError{Func: fn, Result: r}
 }

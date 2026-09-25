@@ -244,7 +244,7 @@ func activationBackward(handle Handle, activationDesc ActivationDescriptor, alph
 	if err := checkLibSym("cudnnActivationBackward"); err != nil {
 		return err
 	}
-	return toError(fnactivationBackward(handle, activationDesc, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)))
+	return toError(fnactivationBackward(handle, activationDesc, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)), "cudnnActivationBackward")
 }
 
 // activationForward This routine applies a specified neuron activation function element-wise over each input value.
@@ -268,7 +268,7 @@ func activationForward(handle Handle, activationDesc ActivationDescriptor, alpha
 	if err := checkLibSym("cudnnActivationForward"); err != nil {
 		return err
 	}
-	return toError(fnactivationForward(handle, activationDesc, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
+	return toError(fnactivationForward(handle, activationDesc, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)), "cudnnActivationForward")
 }
 
 // addTensor adds the scaled values of a bias tensor to another tensor.
@@ -293,7 +293,7 @@ func addTensor(handle Handle, alpha unsafe.Pointer, aDesc TensorDescriptor, a dr
 	if err := checkLibSym("cudnnAddTensor"); err != nil {
 		return err
 	}
-	return toError(fnaddTensor(handle, alpha, aDesc, uintptr(a), beta, cDesc, uintptr(c)))
+	return toError(fnaddTensor(handle, alpha, aDesc, uintptr(a), beta, cDesc, uintptr(c)), "cudnnAddTensor")
 }
 
 // AdvVersionCheck Cross-library version checker.
@@ -309,7 +309,7 @@ func AdvVersionCheck() error {
 	if err := checkLibSym("cudnnAdvVersionCheck"); err != nil {
 		return err
 	}
-	return toError(fnAdvVersionCheck())
+	return toError(fnAdvVersionCheck(), "cudnnAdvVersionCheck")
 }
 
 // backendCreateDescriptor allocates memory in the descriptor for a given descriptor type and at the location pointed by the descriptor.
@@ -328,7 +328,7 @@ func backendCreateDescriptor(descriptorType BackendDescriptorType) (BackendDescr
 		return zero, err
 	}
 	var out BackendDescriptor
-	if err := toError(fnbackendCreateDescriptor(descriptorType, &out)); err != nil {
+	if err := toError(fnbackendCreateDescriptor(descriptorType, &out), "cudnnBackendCreateDescriptor"); err != nil {
 		var zero BackendDescriptor
 		return zero, err
 	}
@@ -348,7 +348,7 @@ func backendDestroyDescriptor(descriptor BackendDescriptor) error {
 	if err := checkLibSym("cudnnBackendDestroyDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnbackendDestroyDescriptor(descriptor))
+	return toError(fnbackendDestroyDescriptor(descriptor), "cudnnBackendDestroyDescriptor")
 }
 
 // backendExecute executes the given Engine Configuration Plan on the VariantPack and the finalized ExecutionPlan on the data.
@@ -366,7 +366,7 @@ func backendExecute(handle Handle, executionPlan BackendDescriptor, variantPack 
 	if err := checkLibSym("cudnnBackendExecute"); err != nil {
 		return err
 	}
-	return toError(fnbackendExecute(handle, executionPlan, variantPack))
+	return toError(fnbackendExecute(handle, executionPlan, variantPack), "cudnnBackendExecute")
 }
 
 // backendFinalize finalizes the memory pointed to by the descriptor.
@@ -386,7 +386,7 @@ func backendFinalize(descriptor BackendDescriptor) error {
 	if err := checkLibSym("cudnnBackendFinalize"); err != nil {
 		return err
 	}
-	return toError(fnbackendFinalize(descriptor))
+	return toError(fnbackendFinalize(descriptor), "cudnnBackendFinalize")
 }
 
 // backendGetAttribute retrieves the values of an attribute of a descriptor.
@@ -408,7 +408,7 @@ func backendGetAttribute(descriptor BackendDescriptor, attributeName BackendAttr
 		return 0, err
 	}
 	var out4 int64
-	if err := toError(fnbackendGetAttribute(descriptor, attributeName, attributeType, requestedElementCount, &out4, arrayOfElements)); err != nil {
+	if err := toError(fnbackendGetAttribute(descriptor, attributeName, attributeType, requestedElementCount, &out4, arrayOfElements), "cudnnBackendGetAttribute"); err != nil {
 		return 0, err
 	}
 	return out4, nil
@@ -429,7 +429,7 @@ func backendInitialize(descriptor BackendDescriptor) error {
 	if err := checkLibSym("cudnnBackendInitialize"); err != nil {
 		return err
 	}
-	return toError(fnbackendInitialize(descriptor))
+	return toError(fnbackendInitialize(descriptor), "cudnnBackendInitialize")
 }
 
 // backendPopulateCudaGraph wraps cudnnBackendPopulateCudaGraph.
@@ -437,7 +437,7 @@ func backendPopulateCudaGraph(handle Handle, executionPlan BackendDescriptor, va
 	if err := checkLibSym("cudnnBackendPopulateCudaGraph"); err != nil {
 		return err
 	}
-	return toError(fnbackendPopulateCudaGraph(handle, executionPlan, variantPack, graph))
+	return toError(fnbackendPopulateCudaGraph(handle, executionPlan, variantPack, graph), "cudnnBackendPopulateCudaGraph")
 }
 
 // backendSetAttribute sets an attribute of a descriptor to values provided as a pointer.
@@ -458,7 +458,7 @@ func backendSetAttribute(descriptor BackendDescriptor, attributeName BackendAttr
 	if err := checkLibSym("cudnnBackendSetAttribute"); err != nil {
 		return err
 	}
-	return toError(fnbackendSetAttribute(descriptor, attributeName, attributeType, elementCount, arrayOfElements))
+	return toError(fnbackendSetAttribute(descriptor, attributeName, attributeType, elementCount, arrayOfElements), "cudnnBackendSetAttribute")
 }
 
 // backendUpdateCudaGraph wraps cudnnBackendUpdateCudaGraph.
@@ -466,7 +466,7 @@ func backendUpdateCudaGraph(handle Handle, executionPlan BackendDescriptor, vari
 	if err := checkLibSym("cudnnBackendUpdateCudaGraph"); err != nil {
 		return err
 	}
-	return toError(fnbackendUpdateCudaGraph(handle, executionPlan, variantPack, graph))
+	return toError(fnbackendUpdateCudaGraph(handle, executionPlan, variantPack, graph), "cudnnBackendUpdateCudaGraph")
 }
 
 // batchNormalizationBackward performs the backward batch normalization layer computation.
@@ -496,7 +496,7 @@ func batchNormalizationBackward(handle Handle, mode BatchNormMode, alphaDataDiff
 	if err := checkLibSym("cudnnBatchNormalizationBackward"); err != nil {
 		return err
 	}
-	return toError(fnbatchNormalizationBackward(handle, mode, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, uintptr(x), dyDesc, uintptr(dy), dxDesc, uintptr(dx), dBnScaleBiasDesc, uintptr(bnScale), uintptr(dBnScaleResult), uintptr(dBnBiasResult), epsilon, uintptr(savedMean), uintptr(savedInvVariance)))
+	return toError(fnbatchNormalizationBackward(handle, mode, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, uintptr(x), dyDesc, uintptr(dy), dxDesc, uintptr(dx), dBnScaleBiasDesc, uintptr(bnScale), uintptr(dBnScaleResult), uintptr(dBnBiasResult), epsilon, uintptr(savedMean), uintptr(savedInvVariance)), "cudnnBatchNormalizationBackward")
 }
 
 // batchNormalizationBackwardEx is an extension of the [Handle.BatchNormalizationBackward] for performing the backward batch normalization layer computation with a fast NHWC semi-persistent kernel.
@@ -525,7 +525,7 @@ func batchNormalizationBackwardEx(handle Handle, mode BatchNormMode, bnOps Batch
 	if err := checkLibSym("cudnnBatchNormalizationBackwardEx"); err != nil {
 		return err
 	}
-	if err := toError(fnbatchNormalizationBackwardEx(handle, mode, bnOps, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, uintptr(xData), yDesc, uintptr(yData), dyDesc, uintptr(dyData), dzDesc, uintptr(dzData), dxDesc, uintptr(dxData), dBnScaleBiasDesc, uintptr(bnScaleData), uintptr(bnBiasData), uintptr(dBnScaleData), uintptr(dBnBiasData), epsilon, uintptr(savedMean), uintptr(savedInvVariance), activationDesc, uintptr(workSpace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes))); err != nil {
+	if err := toError(fnbatchNormalizationBackwardEx(handle, mode, bnOps, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, uintptr(xData), yDesc, uintptr(yData), dyDesc, uintptr(dyData), dzDesc, uintptr(dzData), dxDesc, uintptr(dxData), dBnScaleBiasDesc, uintptr(bnScaleData), uintptr(bnBiasData), uintptr(dBnScaleData), uintptr(dBnBiasData), epsilon, uintptr(savedMean), uintptr(savedInvVariance), activationDesc, uintptr(workSpace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes)), "cudnnBatchNormalizationBackwardEx"); err != nil {
 		return err
 	}
 	return nil
@@ -556,7 +556,7 @@ func batchNormalizationForwardInference(handle Handle, mode BatchNormMode, alpha
 	if err := checkLibSym("cudnnBatchNormalizationForwardInference"); err != nil {
 		return err
 	}
-	return toError(fnbatchNormalizationForwardInference(handle, mode, alpha, beta, xDesc, uintptr(x), yDesc, uintptr(y), bnScaleBiasMeanVarDesc, uintptr(bnScale), uintptr(bnBias), uintptr(estimatedMean), uintptr(estimatedVariance), epsilon))
+	return toError(fnbatchNormalizationForwardInference(handle, mode, alpha, beta, xDesc, uintptr(x), yDesc, uintptr(y), bnScaleBiasMeanVarDesc, uintptr(bnScale), uintptr(bnBias), uintptr(estimatedMean), uintptr(estimatedVariance), epsilon), "cudnnBatchNormalizationForwardInference")
 }
 
 // batchNormalizationForwardTraining performs the forward batch normalization layer computation for the training phase.
@@ -588,7 +588,7 @@ func batchNormalizationForwardTraining(handle Handle, mode BatchNormMode, alpha 
 	if err := checkLibSym("cudnnBatchNormalizationForwardTraining"); err != nil {
 		return err
 	}
-	return toError(fnbatchNormalizationForwardTraining(handle, mode, alpha, beta, xDesc, uintptr(x), yDesc, uintptr(y), bnScaleBiasMeanVarDesc, uintptr(bnScale), uintptr(bnBias), exponentialAverageFactor, uintptr(resultRunningMean), uintptr(resultRunningVariance), epsilon, uintptr(resultSaveMean), uintptr(resultSaveInvVariance)))
+	return toError(fnbatchNormalizationForwardTraining(handle, mode, alpha, beta, xDesc, uintptr(x), yDesc, uintptr(y), bnScaleBiasMeanVarDesc, uintptr(bnScale), uintptr(bnBias), exponentialAverageFactor, uintptr(resultRunningMean), uintptr(resultRunningVariance), epsilon, uintptr(resultSaveMean), uintptr(resultSaveInvVariance)), "cudnnBatchNormalizationForwardTraining")
 }
 
 // batchNormalizationForwardTrainingEx is an extension of the [Handle.BatchNormalizationForwardTraining] for performing the forward batch normalization layer computation.
@@ -614,7 +614,7 @@ func batchNormalizationForwardTrainingEx(handle Handle, mode BatchNormMode, bnOp
 	if err := checkLibSym("cudnnBatchNormalizationForwardTrainingEx"); err != nil {
 		return err
 	}
-	if err := toError(fnbatchNormalizationForwardTrainingEx(handle, mode, bnOps, alpha, beta, xDesc, uintptr(xData), zDesc, uintptr(zData), yDesc, uintptr(yData), bnScaleBiasMeanVarDesc, uintptr(bnScale), uintptr(bnBias), exponentialAverageFactor, uintptr(resultRunningMean), uintptr(resultRunningVariance), epsilon, uintptr(resultSaveMean), uintptr(resultSaveInvVariance), activationDesc, uintptr(workspace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes))); err != nil {
+	if err := toError(fnbatchNormalizationForwardTrainingEx(handle, mode, bnOps, alpha, beta, xDesc, uintptr(xData), zDesc, uintptr(zData), yDesc, uintptr(yData), bnScaleBiasMeanVarDesc, uintptr(bnScale), uintptr(bnBias), exponentialAverageFactor, uintptr(resultRunningMean), uintptr(resultRunningVariance), epsilon, uintptr(resultSaveMean), uintptr(resultSaveInvVariance), activationDesc, uintptr(workspace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes)), "cudnnBatchNormalizationForwardTrainingEx"); err != nil {
 		return err
 	}
 	return nil
@@ -640,7 +640,7 @@ func buildRNNDynamic(handle Handle, rnnDesc RNNDescriptor, miniBatch int32) erro
 	if err := checkLibSym("cudnnBuildRNNDynamic"); err != nil {
 		return err
 	}
-	return toError(fnbuildRNNDynamic(handle, rnnDesc, miniBatch))
+	return toError(fnbuildRNNDynamic(handle, rnnDesc, miniBatch), "cudnnBuildRNNDynamic")
 }
 
 // cTCLoss returns the CTC costs and gradients, given the probabilities and labels.
@@ -670,7 +670,7 @@ func cTCLoss(handle Handle, probsDesc TensorDescriptor, probs driver.DevicePtr, 
 	if err := checkLibSym("cudnnCTCLoss"); err != nil {
 		return err
 	}
-	if err := toError(fncTCLoss(handle, probsDesc, uintptr(probs), hostLabels, hostLabelLengths, hostInputLengths, uintptr(costs), gradientsDesc, uintptr(gradients), algo, ctcLossDesc, uintptr(workspace), uint(workSpaceSizeInBytes))); err != nil {
+	if err := toError(fncTCLoss(handle, probsDesc, uintptr(probs), hostLabels, hostLabelLengths, hostInputLengths, uintptr(costs), gradientsDesc, uintptr(gradients), algo, ctcLossDesc, uintptr(workspace), uint(workSpaceSizeInBytes)), "cudnnCTCLoss"); err != nil {
 		return err
 	}
 	return nil
@@ -704,7 +704,7 @@ func cTCLossV8(handle Handle, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, p
 	if err := checkLibSym("cudnnCTCLoss_v8"); err != nil {
 		return err
 	}
-	if err := toError(fncTCLossV8(handle, algo, ctcLossDesc, probsDesc, uintptr(probs), labels, labelLengths, inputLengths, uintptr(costs), gradientsDesc, uintptr(gradients), uint(workSpaceSizeInBytes), uintptr(workspace))); err != nil {
+	if err := toError(fncTCLossV8(handle, algo, ctcLossDesc, probsDesc, uintptr(probs), labels, labelLengths, inputLengths, uintptr(costs), gradientsDesc, uintptr(gradients), uint(workSpaceSizeInBytes), uintptr(workspace)), "cudnnCTCLoss_v8"); err != nil {
 		return err
 	}
 	return nil
@@ -723,7 +723,7 @@ func CnnVersionCheck() error {
 	if err := checkLibSym("cudnnCnnVersionCheck"); err != nil {
 		return err
 	}
-	return toError(fnCnnVersionCheck())
+	return toError(fnCnnVersionCheck(), "cudnnCnnVersionCheck")
 }
 
 // convolutionBackwardBias computes the convolution function gradient with respect to the bias, which is the sum of every element belonging to the same feature map across all of the images of the input tensor.
@@ -745,7 +745,7 @@ func convolutionBackwardBias(handle Handle, alpha unsafe.Pointer, dyDesc TensorD
 	if err := checkLibSym("cudnnConvolutionBackwardBias"); err != nil {
 		return err
 	}
-	return toError(fnconvolutionBackwardBias(handle, alpha, dyDesc, uintptr(dy), beta, dbDesc, uintptr(db)))
+	return toError(fnconvolutionBackwardBias(handle, alpha, dyDesc, uintptr(dy), beta, dbDesc, uintptr(db)), "cudnnConvolutionBackwardBias")
 }
 
 // convolutionBackwardData computes the convolution data gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward].
@@ -770,7 +770,7 @@ func convolutionBackwardData(handle Handle, alpha unsafe.Pointer, wDesc FilterDe
 	if err := checkLibSym("cudnnConvolutionBackwardData"); err != nil {
 		return err
 	}
-	if err := toError(fnconvolutionBackwardData(handle, alpha, wDesc, uintptr(w), dyDesc, uintptr(dy), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), beta, dxDesc, uintptr(dx))); err != nil {
+	if err := toError(fnconvolutionBackwardData(handle, alpha, wDesc, uintptr(w), dyDesc, uintptr(dy), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), beta, dxDesc, uintptr(dx)), "cudnnConvolutionBackwardData"); err != nil {
 		return err
 	}
 	return nil
@@ -798,7 +798,7 @@ func convolutionBackwardFilter(handle Handle, alpha unsafe.Pointer, xDesc Tensor
 	if err := checkLibSym("cudnnConvolutionBackwardFilter"); err != nil {
 		return err
 	}
-	if err := toError(fnconvolutionBackwardFilter(handle, alpha, xDesc, uintptr(x), dyDesc, uintptr(dy), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), beta, dwDesc, uintptr(dw))); err != nil {
+	if err := toError(fnconvolutionBackwardFilter(handle, alpha, xDesc, uintptr(x), dyDesc, uintptr(dy), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), beta, dwDesc, uintptr(dw)), "cudnnConvolutionBackwardFilter"); err != nil {
 		return err
 	}
 	return nil
@@ -827,7 +827,7 @@ func convolutionBiasActivationForward(handle Handle, alpha1 unsafe.Pointer, xDes
 	if err := checkLibSym("cudnnConvolutionBiasActivationForward"); err != nil {
 		return err
 	}
-	if err := toError(fnconvolutionBiasActivationForward(handle, alpha1, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), alpha2, zDesc, uintptr(z), biasDesc, uintptr(bias), activationDesc, yDesc, uintptr(y))); err != nil {
+	if err := toError(fnconvolutionBiasActivationForward(handle, alpha1, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), alpha2, zDesc, uintptr(z), biasDesc, uintptr(bias), activationDesc, yDesc, uintptr(y)), "cudnnConvolutionBiasActivationForward"); err != nil {
 		return err
 	}
 	return nil
@@ -855,7 +855,7 @@ func convolutionForward(handle Handle, alpha unsafe.Pointer, xDesc TensorDescrip
 	if err := checkLibSym("cudnnConvolutionForward"); err != nil {
 		return err
 	}
-	if err := toError(fnconvolutionForward(handle, alpha, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), beta, yDesc, uintptr(y))); err != nil {
+	if err := toError(fnconvolutionForward(handle, alpha, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, algo, uintptr(workSpace), uint(workSpaceSizeInBytes), beta, yDesc, uintptr(y)), "cudnnConvolutionForward"); err != nil {
 		return err
 	}
 	return nil
@@ -881,7 +881,7 @@ func Create() (Handle, error) {
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnCreate(&out)); err != nil {
+	if err := toError(fnCreate(&out), "cudnnCreate"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -905,7 +905,7 @@ func CreateActivationDescriptor() (ActivationDescriptor, error) {
 		return zero, err
 	}
 	var out ActivationDescriptor
-	if err := toError(fnCreateActivationDescriptor(&out)); err != nil {
+	if err := toError(fnCreateActivationDescriptor(&out), "cudnnCreateActivationDescriptor"); err != nil {
 		var zero ActivationDescriptor
 		return zero, err
 	}
@@ -930,7 +930,7 @@ func CreateAttnDescriptor() (AttnDescriptor, error) {
 		return zero, err
 	}
 	var out AttnDescriptor
-	if err := toError(fnCreateAttnDescriptor(&out)); err != nil {
+	if err := toError(fnCreateAttnDescriptor(&out), "cudnnCreateAttnDescriptor"); err != nil {
 		var zero AttnDescriptor
 		return zero, err
 	}
@@ -951,7 +951,7 @@ func CreateCTCLossDescriptor() (CTCLossDescriptor, error) {
 		return zero, err
 	}
 	var out CTCLossDescriptor
-	if err := toError(fnCreateCTCLossDescriptor(&out)); err != nil {
+	if err := toError(fnCreateCTCLossDescriptor(&out), "cudnnCreateCTCLossDescriptor"); err != nil {
 		var zero CTCLossDescriptor
 		return zero, err
 	}
@@ -975,7 +975,7 @@ func CreateConvolutionDescriptor() (ConvolutionDescriptor, error) {
 		return zero, err
 	}
 	var out ConvolutionDescriptor
-	if err := toError(fnCreateConvolutionDescriptor(&out)); err != nil {
+	if err := toError(fnCreateConvolutionDescriptor(&out), "cudnnCreateConvolutionDescriptor"); err != nil {
 		var zero ConvolutionDescriptor
 		return zero, err
 	}
@@ -997,7 +997,7 @@ func CreateDropoutDescriptor() (DropoutDescriptor, error) {
 		return zero, err
 	}
 	var out DropoutDescriptor
-	if err := toError(fnCreateDropoutDescriptor(&out)); err != nil {
+	if err := toError(fnCreateDropoutDescriptor(&out), "cudnnCreateDropoutDescriptor"); err != nil {
 		var zero DropoutDescriptor
 		return zero, err
 	}
@@ -1021,7 +1021,7 @@ func CreateFilterDescriptor() (FilterDescriptor, error) {
 		return zero, err
 	}
 	var out FilterDescriptor
-	if err := toError(fnCreateFilterDescriptor(&out)); err != nil {
+	if err := toError(fnCreateFilterDescriptor(&out), "cudnnCreateFilterDescriptor"); err != nil {
 		var zero FilterDescriptor
 		return zero, err
 	}
@@ -1046,7 +1046,7 @@ func CreateFusedOpsConstParamPack(ops FusedOps) (FusedOpsConstParamPack, error) 
 		return zero, err
 	}
 	var out FusedOpsConstParamPack
-	if err := toError(fnCreateFusedOpsConstParamPack(&out, ops)); err != nil {
+	if err := toError(fnCreateFusedOpsConstParamPack(&out, ops), "cudnnCreateFusedOpsConstParamPack"); err != nil {
 		var zero FusedOpsConstParamPack
 		return zero, err
 	}
@@ -1073,7 +1073,7 @@ func CreateFusedOpsPlan(ops FusedOps) (FusedOpsPlan, error) {
 		return zero, err
 	}
 	var out FusedOpsPlan
-	if err := toError(fnCreateFusedOpsPlan(&out, ops)); err != nil {
+	if err := toError(fnCreateFusedOpsPlan(&out, ops), "cudnnCreateFusedOpsPlan"); err != nil {
 		var zero FusedOpsPlan
 		return zero, err
 	}
@@ -1100,7 +1100,7 @@ func CreateFusedOpsVariantParamPack(ops FusedOps) (FusedOpsVariantParamPack, err
 		return zero, err
 	}
 	var out FusedOpsVariantParamPack
-	if err := toError(fnCreateFusedOpsVariantParamPack(&out, ops)); err != nil {
+	if err := toError(fnCreateFusedOpsVariantParamPack(&out, ops), "cudnnCreateFusedOpsVariantParamPack"); err != nil {
 		var zero FusedOpsVariantParamPack
 		return zero, err
 	}
@@ -1120,7 +1120,7 @@ func CreateLRNDescriptor() (LRNDescriptor, error) {
 		return zero, err
 	}
 	var out LRNDescriptor
-	if err := toError(fnCreateLRNDescriptor(&out)); err != nil {
+	if err := toError(fnCreateLRNDescriptor(&out), "cudnnCreateLRNDescriptor"); err != nil {
 		var zero LRNDescriptor
 		return zero, err
 	}
@@ -1145,7 +1145,7 @@ func CreateOpTensorDescriptor() (OpTensorDescriptor, error) {
 		return zero, err
 	}
 	var out OpTensorDescriptor
-	if err := toError(fnCreateOpTensorDescriptor(&out)); err != nil {
+	if err := toError(fnCreateOpTensorDescriptor(&out), "cudnnCreateOpTensorDescriptor"); err != nil {
 		var zero OpTensorDescriptor
 		return zero, err
 	}
@@ -1167,7 +1167,7 @@ func CreatePoolingDescriptor() (PoolingDescriptor, error) {
 		return zero, err
 	}
 	var out PoolingDescriptor
-	if err := toError(fnCreatePoolingDescriptor(&out)); err != nil {
+	if err := toError(fnCreatePoolingDescriptor(&out), "cudnnCreatePoolingDescriptor"); err != nil {
 		var zero PoolingDescriptor
 		return zero, err
 	}
@@ -1188,7 +1188,7 @@ func CreateRNNDataDescriptor() (RNNDataDescriptor, error) {
 		return zero, err
 	}
 	var out RNNDataDescriptor
-	if err := toError(fnCreateRNNDataDescriptor(&out)); err != nil {
+	if err := toError(fnCreateRNNDataDescriptor(&out), "cudnnCreateRNNDataDescriptor"); err != nil {
 		var zero RNNDataDescriptor
 		return zero, err
 	}
@@ -1209,7 +1209,7 @@ func CreateRNNDescriptor() (RNNDescriptor, error) {
 		return zero, err
 	}
 	var out RNNDescriptor
-	if err := toError(fnCreateRNNDescriptor(&out)); err != nil {
+	if err := toError(fnCreateRNNDescriptor(&out), "cudnnCreateRNNDescriptor"); err != nil {
 		var zero RNNDescriptor
 		return zero, err
 	}
@@ -1232,7 +1232,7 @@ func CreateReduceTensorDescriptor() (ReduceTensorDescriptor, error) {
 		return zero, err
 	}
 	var out ReduceTensorDescriptor
-	if err := toError(fnCreateReduceTensorDescriptor(&out)); err != nil {
+	if err := toError(fnCreateReduceTensorDescriptor(&out), "cudnnCreateReduceTensorDescriptor"); err != nil {
 		var zero ReduceTensorDescriptor
 		return zero, err
 	}
@@ -1257,7 +1257,7 @@ func CreateSeqDataDescriptor() (SeqDataDescriptor, error) {
 		return zero, err
 	}
 	var out SeqDataDescriptor
-	if err := toError(fnCreateSeqDataDescriptor(&out)); err != nil {
+	if err := toError(fnCreateSeqDataDescriptor(&out), "cudnnCreateSeqDataDescriptor"); err != nil {
 		var zero SeqDataDescriptor
 		return zero, err
 	}
@@ -1277,7 +1277,7 @@ func CreateSpatialTransformerDescriptor() (SpatialTransformerDescriptor, error) 
 		return zero, err
 	}
 	var out SpatialTransformerDescriptor
-	if err := toError(fnCreateSpatialTransformerDescriptor(&out)); err != nil {
+	if err := toError(fnCreateSpatialTransformerDescriptor(&out), "cudnnCreateSpatialTransformerDescriptor"); err != nil {
 		var zero SpatialTransformerDescriptor
 		return zero, err
 	}
@@ -1300,7 +1300,7 @@ func CreateTensorDescriptor() (TensorDescriptor, error) {
 		return zero, err
 	}
 	var out TensorDescriptor
-	if err := toError(fnCreateTensorDescriptor(&out)); err != nil {
+	if err := toError(fnCreateTensorDescriptor(&out), "cudnnCreateTensorDescriptor"); err != nil {
 		var zero TensorDescriptor
 		return zero, err
 	}
@@ -1325,7 +1325,7 @@ func CreateTensorTransformDescriptor() (TensorTransformDescriptor, error) {
 		return zero, err
 	}
 	var out TensorTransformDescriptor
-	if err := toError(fnCreateTensorTransformDescriptor(&out)); err != nil {
+	if err := toError(fnCreateTensorTransformDescriptor(&out), "cudnnCreateTensorTransformDescriptor"); err != nil {
 		var zero TensorTransformDescriptor
 		return zero, err
 	}
@@ -1350,7 +1350,7 @@ func deriveBNTensorDescriptor(derivedBnDesc TensorDescriptor, xDesc TensorDescri
 	if err := checkLibSym("cudnnDeriveBNTensorDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnderiveBNTensorDescriptor(derivedBnDesc, xDesc, mode))
+	return toError(fnderiveBNTensorDescriptor(derivedBnDesc, xDesc, mode), "cudnnDeriveBNTensorDescriptor")
 }
 
 // deriveNormTensorDescriptor derives tensor descriptors for the normalization mean, invariance, normBias, and normScale subtensors from the layer’s x data descriptor and norm mode.
@@ -1372,7 +1372,7 @@ func deriveNormTensorDescriptor(derivedNormScaleBiasDesc TensorDescriptor, deriv
 	if err := checkLibSym("cudnnDeriveNormTensorDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnderiveNormTensorDescriptor(derivedNormScaleBiasDesc, derivedNormMeanVarDesc, xDesc, mode, groupCnt))
+	return toError(fnderiveNormTensorDescriptor(derivedNormScaleBiasDesc, derivedNormMeanVarDesc, xDesc, mode, groupCnt), "cudnnDeriveNormTensorDescriptor")
 }
 
 // destroy releases the resources used by the cuDNN handle.
@@ -1389,7 +1389,7 @@ func destroy(handle Handle) error {
 	if err := checkLibSym("cudnnDestroy"); err != nil {
 		return err
 	}
-	return toError(fndestroy(handle))
+	return toError(fndestroy(handle), "cudnnDestroy")
 }
 
 // destroyActivationDescriptor destroys a previously created activation descriptor object.
@@ -1404,7 +1404,7 @@ func destroyActivationDescriptor(activationDesc ActivationDescriptor) error {
 	if err := checkLibSym("cudnnDestroyActivationDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyActivationDescriptor(activationDesc))
+	return toError(fndestroyActivationDescriptor(activationDesc), "cudnnDestroyActivationDescriptor")
 }
 
 // destroyAttnDescriptor destroys the attention descriptor object and releases its memory.
@@ -1423,7 +1423,7 @@ func destroyAttnDescriptor(attnDesc AttnDescriptor) error {
 	if err := checkLibSym("cudnnDestroyAttnDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyAttnDescriptor(attnDesc))
+	return toError(fndestroyAttnDescriptor(attnDesc), "cudnnDestroyAttnDescriptor")
 }
 
 // destroyCTCLossDescriptor destroys a CTC loss function descriptor object.
@@ -1438,7 +1438,7 @@ func destroyCTCLossDescriptor(ctcLossDesc CTCLossDescriptor) error {
 	if err := checkLibSym("cudnnDestroyCTCLossDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyCTCLossDescriptor(ctcLossDesc))
+	return toError(fndestroyCTCLossDescriptor(ctcLossDesc), "cudnnDestroyCTCLossDescriptor")
 }
 
 // destroyConvolutionDescriptor destroys a previously created convolution descriptor object.
@@ -1455,7 +1455,7 @@ func destroyConvolutionDescriptor(convDesc ConvolutionDescriptor) error {
 	if err := checkLibSym("cudnnDestroyConvolutionDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyConvolutionDescriptor(convDesc))
+	return toError(fndestroyConvolutionDescriptor(convDesc), "cudnnDestroyConvolutionDescriptor")
 }
 
 // destroyDropoutDescriptor destroys a previously created dropout descriptor object.
@@ -1468,7 +1468,7 @@ func destroyDropoutDescriptor(dropoutDesc DropoutDescriptor) error {
 	if err := checkLibSym("cudnnDestroyDropoutDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyDropoutDescriptor(dropoutDesc))
+	return toError(fndestroyDropoutDescriptor(dropoutDesc), "cudnnDestroyDropoutDescriptor")
 }
 
 // destroyFilterDescriptor destroys a filter object.
@@ -1485,7 +1485,7 @@ func destroyFilterDescriptor(filterDesc FilterDescriptor) error {
 	if err := checkLibSym("cudnnDestroyFilterDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyFilterDescriptor(filterDesc))
+	return toError(fndestroyFilterDescriptor(filterDesc), "cudnnDestroyFilterDescriptor")
 }
 
 // destroyFusedOpsConstParamPack destroys a previously-created [FusedOpsConstParamPack] structure.
@@ -1505,7 +1505,7 @@ func destroyFusedOpsConstParamPack(constPack FusedOpsConstParamPack) error {
 	if err := checkLibSym("cudnnDestroyFusedOpsConstParamPack"); err != nil {
 		return err
 	}
-	return toError(fndestroyFusedOpsConstParamPack(constPack))
+	return toError(fndestroyFusedOpsConstParamPack(constPack), "cudnnDestroyFusedOpsConstParamPack")
 }
 
 // destroyFusedOpsPlan destroys the plan descriptor provided.
@@ -1524,7 +1524,7 @@ func destroyFusedOpsPlan(plan FusedOpsPlan) error {
 	if err := checkLibSym("cudnnDestroyFusedOpsPlan"); err != nil {
 		return err
 	}
-	return toError(fndestroyFusedOpsPlan(plan))
+	return toError(fndestroyFusedOpsPlan(plan), "cudnnDestroyFusedOpsPlan")
 }
 
 // destroyFusedOpsVariantParamPack destroys a previously-created descriptor for cudnnFusedOps constant parameters.
@@ -1543,7 +1543,7 @@ func destroyFusedOpsVariantParamPack(varPack FusedOpsVariantParamPack) error {
 	if err := checkLibSym("cudnnDestroyFusedOpsVariantParamPack"); err != nil {
 		return err
 	}
-	return toError(fndestroyFusedOpsVariantParamPack(varPack))
+	return toError(fndestroyFusedOpsVariantParamPack(varPack), "cudnnDestroyFusedOpsVariantParamPack")
 }
 
 // destroyLRNDescriptor destroys a previously created LRN descriptor object.
@@ -1556,7 +1556,7 @@ func destroyLRNDescriptor(lrnDesc LRNDescriptor) error {
 	if err := checkLibSym("cudnnDestroyLRNDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyLRNDescriptor(lrnDesc))
+	return toError(fndestroyLRNDescriptor(lrnDesc), "cudnnDestroyLRNDescriptor")
 }
 
 // destroyOpTensorDescriptor deletes a tensor pointwise math descriptor object.
@@ -1573,7 +1573,7 @@ func destroyOpTensorDescriptor(opTensorDesc OpTensorDescriptor) error {
 	if err := checkLibSym("cudnnDestroyOpTensorDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyOpTensorDescriptor(opTensorDesc))
+	return toError(fndestroyOpTensorDescriptor(opTensorDesc), "cudnnDestroyOpTensorDescriptor")
 }
 
 // destroyPoolingDescriptor destroys a previously created pooling descriptor object.
@@ -1588,7 +1588,7 @@ func destroyPoolingDescriptor(poolingDesc PoolingDescriptor) error {
 	if err := checkLibSym("cudnnDestroyPoolingDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyPoolingDescriptor(poolingDesc))
+	return toError(fndestroyPoolingDescriptor(poolingDesc), "cudnnDestroyPoolingDescriptor")
 }
 
 // destroyRNNDataDescriptor destroys a previously created RNN data descriptor object.
@@ -1603,7 +1603,7 @@ func destroyRNNDataDescriptor(rnnDataDesc RNNDataDescriptor) error {
 	if err := checkLibSym("cudnnDestroyRNNDataDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyRNNDataDescriptor(rnnDataDesc))
+	return toError(fndestroyRNNDataDescriptor(rnnDataDesc), "cudnnDestroyRNNDataDescriptor")
 }
 
 // destroyRNNDescriptor destroys a previously created RNN descriptor object.
@@ -1620,7 +1620,7 @@ func destroyRNNDescriptor(rnnDesc RNNDescriptor) error {
 	if err := checkLibSym("cudnnDestroyRNNDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyRNNDescriptor(rnnDesc))
+	return toError(fndestroyRNNDescriptor(rnnDesc), "cudnnDestroyRNNDescriptor")
 }
 
 // destroyReduceTensorDescriptor destroys a previously created reduce tensor descriptor object.
@@ -1637,7 +1637,7 @@ func destroyReduceTensorDescriptor(reduceTensorDesc ReduceTensorDescriptor) erro
 	if err := checkLibSym("cudnnDestroyReduceTensorDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyReduceTensorDescriptor(reduceTensorDesc))
+	return toError(fndestroyReduceTensorDescriptor(reduceTensorDesc), "cudnnDestroyReduceTensorDescriptor")
 }
 
 // destroySeqDataDescriptor destroys the sequence data descriptor object and releases its memory.
@@ -1656,7 +1656,7 @@ func destroySeqDataDescriptor(seqDataDesc SeqDataDescriptor) error {
 	if err := checkLibSym("cudnnDestroySeqDataDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroySeqDataDescriptor(seqDataDesc))
+	return toError(fndestroySeqDataDescriptor(seqDataDesc), "cudnnDestroySeqDataDescriptor")
 }
 
 // destroySpatialTransformerDescriptor destroys a previously created spatial transformer descriptor object.
@@ -1669,7 +1669,7 @@ func destroySpatialTransformerDescriptor(stDesc SpatialTransformerDescriptor) er
 	if err := checkLibSym("cudnnDestroySpatialTransformerDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroySpatialTransformerDescriptor(stDesc))
+	return toError(fndestroySpatialTransformerDescriptor(stDesc), "cudnnDestroySpatialTransformerDescriptor")
 }
 
 // destroyTensorDescriptor destroys a previously created tensor descriptor object.
@@ -1686,7 +1686,7 @@ func destroyTensorDescriptor(tensorDesc TensorDescriptor) error {
 	if err := checkLibSym("cudnnDestroyTensorDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyTensorDescriptor(tensorDesc))
+	return toError(fndestroyTensorDescriptor(tensorDesc), "cudnnDestroyTensorDescriptor")
 }
 
 // destroyTensorTransformDescriptor Destroys a previously created tensor transform descriptor.
@@ -1703,7 +1703,7 @@ func destroyTensorTransformDescriptor(transformDesc TensorTransformDescriptor) e
 	if err := checkLibSym("cudnnDestroyTensorTransformDescriptor"); err != nil {
 		return err
 	}
-	return toError(fndestroyTensorTransformDescriptor(transformDesc))
+	return toError(fndestroyTensorTransformDescriptor(transformDesc), "cudnnDestroyTensorTransformDescriptor")
 }
 
 // divisiveNormalizationBackward performs the backward DivisiveNormalization layer computation.
@@ -1728,7 +1728,7 @@ func divisiveNormalizationBackward(handle Handle, normDesc LRNDescriptor, mode D
 	if err := checkLibSym("cudnnDivisiveNormalizationBackward"); err != nil {
 		return err
 	}
-	return toError(fndivisiveNormalizationBackward(handle, normDesc, mode, alpha, xDesc, uintptr(x), uintptr(means), uintptr(dy), uintptr(temp), uintptr(temp2), beta, dXdMeansDesc, uintptr(dx), uintptr(dMeans)))
+	return toError(fndivisiveNormalizationBackward(handle, normDesc, mode, alpha, xDesc, uintptr(x), uintptr(means), uintptr(dy), uintptr(temp), uintptr(temp2), beta, dXdMeansDesc, uintptr(dx), uintptr(dMeans)), "cudnnDivisiveNormalizationBackward")
 }
 
 // divisiveNormalizationForward performs the forward spatial DivisiveNormalization layer computation.
@@ -1751,7 +1751,7 @@ func divisiveNormalizationForward(handle Handle, normDesc LRNDescriptor, mode Di
 	if err := checkLibSym("cudnnDivisiveNormalizationForward"); err != nil {
 		return err
 	}
-	return toError(fndivisiveNormalizationForward(handle, normDesc, mode, alpha, xDesc, uintptr(x), uintptr(means), uintptr(temp), uintptr(temp2), beta, yDesc, uintptr(y)))
+	return toError(fndivisiveNormalizationForward(handle, normDesc, mode, alpha, xDesc, uintptr(x), uintptr(means), uintptr(temp), uintptr(temp2), beta, yDesc, uintptr(y)), "cudnnDivisiveNormalizationForward")
 }
 
 // dropoutBackward performs backward dropout operation over dy returning results in dx.
@@ -1774,7 +1774,7 @@ func dropoutBackward(handle Handle, dropoutDesc DropoutDescriptor, dydesc Tensor
 	if err := checkLibSym("cudnnDropoutBackward"); err != nil {
 		return err
 	}
-	if err := toError(fndropoutBackward(handle, dropoutDesc, dydesc, uintptr(dy), dxdesc, uintptr(dx), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes))); err != nil {
+	if err := toError(fndropoutBackward(handle, dropoutDesc, dydesc, uintptr(dy), dxdesc, uintptr(dx), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes)), "cudnnDropoutBackward"); err != nil {
 		return err
 	}
 	return nil
@@ -1800,7 +1800,7 @@ func dropoutForward(handle Handle, dropoutDesc DropoutDescriptor, xdesc TensorDe
 	if err := checkLibSym("cudnnDropoutForward"); err != nil {
 		return err
 	}
-	if err := toError(fndropoutForward(handle, dropoutDesc, xdesc, uintptr(x), ydesc, uintptr(y), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes))); err != nil {
+	if err := toError(fndropoutForward(handle, dropoutDesc, xdesc, uintptr(x), ydesc, uintptr(y), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes)), "cudnnDropoutForward"); err != nil {
 		return err
 	}
 	return nil
@@ -1819,7 +1819,7 @@ func dropoutGetReserveSpaceSize(xdesc TensorDescriptor) (sizeInBytes int, err er
 		return 0, err
 	}
 	var out1 uint
-	if err := toError(fndropoutGetReserveSpaceSize(xdesc, &out1)); err != nil {
+	if err := toError(fndropoutGetReserveSpaceSize(xdesc, &out1), "cudnnDropoutGetReserveSpaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out1), nil
@@ -1838,7 +1838,7 @@ func dropoutGetStatesSize(handle Handle) (sizeInBytes int, err error) {
 		return 0, err
 	}
 	var out1 uint
-	if err := toError(fndropoutGetStatesSize(handle, &out1)); err != nil {
+	if err := toError(fndropoutGetStatesSize(handle, &out1), "cudnnDropoutGetStatesSize"); err != nil {
 		return 0, err
 	}
 	return int(out1), nil
@@ -1869,7 +1869,7 @@ func findConvolutionBackwardDataAlgorithm(handle Handle, wDesc FilterDescriptor,
 	}
 	out7 := make([]ConvolutionBwdDataAlgoPerf, requestedAlgoCount)
 	var out6 int32
-	if err := toError(fnfindConvolutionBackwardDataAlgorithm(handle, wDesc, dyDesc, convDesc, dxDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7))); err != nil {
+	if err := toError(fnfindConvolutionBackwardDataAlgorithm(handle, wDesc, dyDesc, convDesc, dxDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnFindConvolutionBackwardDataAlgorithm"); err != nil {
 		return nil, err
 	}
 	return out7[:min(int(out6), len(out7))], nil
@@ -1897,7 +1897,7 @@ func findConvolutionBackwardDataAlgorithmEx(handle Handle, wDesc FilterDescripto
 	}
 	out10 := make([]ConvolutionBwdDataAlgoPerf, requestedAlgoCount)
 	var out9 int32
-	if err := toError(fnfindConvolutionBackwardDataAlgorithmEx(handle, wDesc, uintptr(w), dyDesc, uintptr(dy), convDesc, dxDesc, uintptr(dx), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes))); err != nil {
+	if err := toError(fnfindConvolutionBackwardDataAlgorithmEx(handle, wDesc, uintptr(w), dyDesc, uintptr(dy), convDesc, dxDesc, uintptr(dx), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes)), "cudnnFindConvolutionBackwardDataAlgorithmEx"); err != nil {
 		return nil, err
 	}
 	return out10[:min(int(out9), len(out10))], nil
@@ -1926,7 +1926,7 @@ func findConvolutionBackwardFilterAlgorithm(handle Handle, xDesc TensorDescripto
 	}
 	out7 := make([]ConvolutionBwdFilterAlgoPerf, requestedAlgoCount)
 	var out6 int32
-	if err := toError(fnfindConvolutionBackwardFilterAlgorithm(handle, xDesc, dyDesc, convDesc, dwDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7))); err != nil {
+	if err := toError(fnfindConvolutionBackwardFilterAlgorithm(handle, xDesc, dyDesc, convDesc, dwDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnFindConvolutionBackwardFilterAlgorithm"); err != nil {
 		return nil, err
 	}
 	return out7[:min(int(out6), len(out7))], nil
@@ -1954,7 +1954,7 @@ func findConvolutionBackwardFilterAlgorithmEx(handle Handle, xDesc TensorDescrip
 	}
 	out10 := make([]ConvolutionBwdFilterAlgoPerf, requestedAlgoCount)
 	var out9 int32
-	if err := toError(fnfindConvolutionBackwardFilterAlgorithmEx(handle, xDesc, uintptr(x), dyDesc, uintptr(y), convDesc, dwDesc, uintptr(dw), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes))); err != nil {
+	if err := toError(fnfindConvolutionBackwardFilterAlgorithmEx(handle, xDesc, uintptr(x), dyDesc, uintptr(y), convDesc, dwDesc, uintptr(dw), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes)), "cudnnFindConvolutionBackwardFilterAlgorithmEx"); err != nil {
 		return nil, err
 	}
 	return out10[:min(int(out9), len(out10))], nil
@@ -1984,7 +1984,7 @@ func findConvolutionForwardAlgorithm(handle Handle, xDesc TensorDescriptor, wDes
 	}
 	out7 := make([]ConvolutionFwdAlgoPerf, requestedAlgoCount)
 	var out6 int32
-	if err := toError(fnfindConvolutionForwardAlgorithm(handle, xDesc, wDesc, convDesc, yDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7))); err != nil {
+	if err := toError(fnfindConvolutionForwardAlgorithm(handle, xDesc, wDesc, convDesc, yDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnFindConvolutionForwardAlgorithm"); err != nil {
 		return nil, err
 	}
 	return out7[:min(int(out6), len(out7))], nil
@@ -2011,7 +2011,7 @@ func findConvolutionForwardAlgorithmEx(handle Handle, xDesc TensorDescriptor, x 
 	}
 	out10 := make([]ConvolutionFwdAlgoPerf, requestedAlgoCount)
 	var out9 int32
-	if err := toError(fnfindConvolutionForwardAlgorithmEx(handle, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, yDesc, uintptr(y), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes))); err != nil {
+	if err := toError(fnfindConvolutionForwardAlgorithmEx(handle, xDesc, uintptr(x), wDesc, uintptr(w), convDesc, yDesc, uintptr(y), int32(requestedAlgoCount), &out9, unsafe.SliceData(out10), uintptr(workSpace), uint(workSpaceSizeInBytes)), "cudnnFindConvolutionForwardAlgorithmEx"); err != nil {
 		return nil, err
 	}
 	return out10[:min(int(out9), len(out10))], nil
@@ -2033,7 +2033,7 @@ func fusedOpsExecute(handle Handle, plan FusedOpsPlan, varPack FusedOpsVariantPa
 	if err := checkLibSym("cudnnFusedOpsExecute"); err != nil {
 		return err
 	}
-	return toError(fnfusedOpsExecute(handle, plan, varPack))
+	return toError(fnfusedOpsExecute(handle, plan, varPack), "cudnnFusedOpsExecute")
 }
 
 // getActivationDescriptor queries a previously initialized generic activation descriptor object.
@@ -2053,7 +2053,7 @@ func getActivationDescriptor(activationDesc ActivationDescriptor) (mode Activati
 	var out1 ActivationMode
 	var out2 NanPropagation
 	var out3 float64
-	if err := toError(fngetActivationDescriptor(activationDesc, &out1, &out2, &out3)); err != nil {
+	if err := toError(fngetActivationDescriptor(activationDesc, &out1, &out2, &out3), "cudnnGetActivationDescriptor"); err != nil {
 		return 0, 0, 0, err
 	}
 	return out1, out2, out3, nil
@@ -2075,7 +2075,7 @@ func getActivationDescriptorSwishBeta(activationDesc ActivationDescriptor) (swis
 		return 0, err
 	}
 	var out1 float64
-	if err := toError(fngetActivationDescriptorSwishBeta(activationDesc, &out1)); err != nil {
+	if err := toError(fngetActivationDescriptorSwishBeta(activationDesc, &out1), "cudnnGetActivationDescriptorSwishBeta"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -2155,7 +2155,7 @@ func getAttnDescriptor(attnDesc AttnDescriptor) (AttnConfig, error) {
 	var out17 int32
 	var out18 int32
 	var out19 int32
-	if err := toError(fngetAttnDescriptor(attnDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8, &out9, &out10, &out11, &out12, &out13, &out14, &out15, &out16, &out17, &out18, &out19)); err != nil {
+	if err := toError(fngetAttnDescriptor(attnDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8, &out9, &out10, &out11, &out12, &out13, &out14, &out15, &out16, &out17, &out18, &out19), "cudnnGetAttnDescriptor"); err != nil {
 		return AttnConfig{}, err
 	}
 	return AttnConfig{
@@ -2202,7 +2202,7 @@ func getBatchNormalizationBackwardExWorkspaceSize(handle Handle, mode BatchNormM
 		return 0, err
 	}
 	var out10 uint
-	if err := toError(fngetBatchNormalizationBackwardExWorkspaceSize(handle, mode, bnOps, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dBnScaleBiasDesc, activationDesc, &out10)); err != nil {
+	if err := toError(fngetBatchNormalizationBackwardExWorkspaceSize(handle, mode, bnOps, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dBnScaleBiasDesc, activationDesc, &out10), "cudnnGetBatchNormalizationBackwardExWorkspaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out10), nil
@@ -2230,7 +2230,7 @@ func getBatchNormalizationForwardTrainingExWorkspaceSize(handle Handle, mode Bat
 		return 0, err
 	}
 	var out8 uint
-	if err := toError(fngetBatchNormalizationForwardTrainingExWorkspaceSize(handle, mode, bnOps, xDesc, zDesc, yDesc, bnScaleBiasMeanVarDesc, activationDesc, &out8)); err != nil {
+	if err := toError(fngetBatchNormalizationForwardTrainingExWorkspaceSize(handle, mode, bnOps, xDesc, zDesc, yDesc, bnScaleBiasMeanVarDesc, activationDesc, &out8), "cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out8), nil
@@ -2257,7 +2257,7 @@ func getBatchNormalizationTrainingExReserveSpaceSize(handle Handle, mode BatchNo
 		return 0, err
 	}
 	var out5 uint
-	if err := toError(fngetBatchNormalizationTrainingExReserveSpaceSize(handle, mode, bnOps, activationDesc, xDesc, &out5)); err != nil {
+	if err := toError(fngetBatchNormalizationTrainingExReserveSpaceSize(handle, mode, bnOps, activationDesc, xDesc, &out5), "cudnnGetBatchNormalizationTrainingExReserveSpaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out5), nil
@@ -2292,7 +2292,7 @@ func getCTCLossDescriptor(ctcLossDesc CTCLossDescriptor) (CTCLossConfig, error) 
 	var out2 LossNormalizationMode
 	var out3 CTCGradMode
 	var out4 int32
-	if err := toError(fngetCTCLossDescriptor(ctcLossDesc, &out1, &out2, &out3, &out4)); err != nil {
+	if err := toError(fngetCTCLossDescriptor(ctcLossDesc, &out1, &out2, &out3, &out4), "cudnnGetCTCLossDescriptor_v9"); err != nil {
 		return CTCLossConfig{}, err
 	}
 	return CTCLossConfig{
@@ -2326,7 +2326,7 @@ func getCTCLossWorkspaceSize(handle Handle, probsDesc TensorDescriptor, gradient
 		return 0, err
 	}
 	var out8 uint
-	if err := toError(fngetCTCLossWorkspaceSize(handle, probsDesc, gradientsDesc, labels, labelLengths, inputLengths, algo, ctcLossDesc, &out8)); err != nil {
+	if err := toError(fngetCTCLossWorkspaceSize(handle, probsDesc, gradientsDesc, labels, labelLengths, inputLengths, algo, ctcLossDesc, &out8), "cudnnGetCTCLossWorkspaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out8), nil
@@ -2352,7 +2352,7 @@ func getCTCLossWorkspaceSizeV8(handle Handle, algo CTCLossAlgo, ctcLossDesc CTCL
 		return 0, err
 	}
 	var out5 uint
-	if err := toError(fngetCTCLossWorkspaceSizeV8(handle, algo, ctcLossDesc, probsDesc, gradientsDesc, &out5)); err != nil {
+	if err := toError(fngetCTCLossWorkspaceSizeV8(handle, algo, ctcLossDesc, probsDesc, gradientsDesc, &out5), "cudnnGetCTCLossWorkspaceSize_v8"); err != nil {
 		return 0, err
 	}
 	return int(out5), nil
@@ -2373,7 +2373,7 @@ func GetCallback(fptr uintptr) (mask uint32, udata uintptr, err error) {
 	}
 	var out0 uint32
 	var out1 uintptr
-	if err := toError(fnGetCallback(&out0, &out1, fptr)); err != nil {
+	if err := toError(fnGetCallback(&out0, &out1, fptr), "cudnnGetCallback"); err != nil {
 		return 0, 0, err
 	}
 	return out0, out1, nil
@@ -2424,7 +2424,7 @@ func getConvolution2dDescriptor(convDesc ConvolutionDescriptor) (Convolution2DCo
 	var out6 int32
 	var out7 ConvolutionMode
 	var out8 DataType
-	if err := toError(fngetConvolution2dDescriptor(convDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8)); err != nil {
+	if err := toError(fngetConvolution2dDescriptor(convDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8), "cudnnGetConvolution2dDescriptor"); err != nil {
 		return Convolution2DConfig{}, err
 	}
 	return Convolution2DConfig{
@@ -2462,7 +2462,7 @@ func getConvolution2dForwardOutputDim(convDesc ConvolutionDescriptor, inputTenso
 	var out4 int32
 	var out5 int32
 	var out6 int32
-	if err := toError(fngetConvolution2dForwardOutputDim(convDesc, inputTensorDesc, filterDesc, &out3, &out4, &out5, &out6)); err != nil {
+	if err := toError(fngetConvolution2dForwardOutputDim(convDesc, inputTensorDesc, filterDesc, &out3, &out4, &out5, &out6), "cudnnGetConvolution2dForwardOutputDim"); err != nil {
 		return 0, 0, 0, 0, err
 	}
 	return out3, out4, out5, out6, nil
@@ -2486,7 +2486,7 @@ func getConvolutionBackwardDataAlgorithmMaxCount(handle Handle) (count int32, er
 		return 0, err
 	}
 	var out1 int32
-	if err := toError(fngetConvolutionBackwardDataAlgorithmMaxCount(handle, &out1)); err != nil {
+	if err := toError(fngetConvolutionBackwardDataAlgorithmMaxCount(handle, &out1), "cudnnGetConvolutionBackwardDataAlgorithmMaxCount"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -2512,7 +2512,7 @@ func getConvolutionBackwardDataAlgorithm(handle Handle, filterDesc FilterDescrip
 	}
 	out7 := make([]ConvolutionBwdDataAlgoPerf, requestedAlgoCount)
 	var out6 int32
-	if err := toError(fngetConvolutionBackwardDataAlgorithm(handle, filterDesc, diffDesc, convDesc, gradDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7))); err != nil {
+	if err := toError(fngetConvolutionBackwardDataAlgorithm(handle, filterDesc, diffDesc, convDesc, gradDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnGetConvolutionBackwardDataAlgorithm_v7"); err != nil {
 		return nil, err
 	}
 	return out7[:min(int(out6), len(out7))], nil
@@ -2541,7 +2541,7 @@ func getConvolutionBackwardDataWorkspaceSize(handle Handle, wDesc FilterDescript
 		return 0, err
 	}
 	var out6 uint
-	if err := toError(fngetConvolutionBackwardDataWorkspaceSize(handle, wDesc, dyDesc, convDesc, dxDesc, algo, &out6)); err != nil {
+	if err := toError(fngetConvolutionBackwardDataWorkspaceSize(handle, wDesc, dyDesc, convDesc, dxDesc, algo, &out6), "cudnnGetConvolutionBackwardDataWorkspaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out6), nil
@@ -2565,7 +2565,7 @@ func getConvolutionBackwardFilterAlgorithmMaxCount(handle Handle) (count int32, 
 		return 0, err
 	}
 	var out1 int32
-	if err := toError(fngetConvolutionBackwardFilterAlgorithmMaxCount(handle, &out1)); err != nil {
+	if err := toError(fngetConvolutionBackwardFilterAlgorithmMaxCount(handle, &out1), "cudnnGetConvolutionBackwardFilterAlgorithmMaxCount"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -2591,7 +2591,7 @@ func getConvolutionBackwardFilterAlgorithm(handle Handle, srcDesc TensorDescript
 	}
 	out7 := make([]ConvolutionBwdFilterAlgoPerf, requestedAlgoCount)
 	var out6 int32
-	if err := toError(fngetConvolutionBackwardFilterAlgorithm(handle, srcDesc, diffDesc, convDesc, gradDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7))); err != nil {
+	if err := toError(fngetConvolutionBackwardFilterAlgorithm(handle, srcDesc, diffDesc, convDesc, gradDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnGetConvolutionBackwardFilterAlgorithm_v7"); err != nil {
 		return nil, err
 	}
 	return out7[:min(int(out6), len(out7))], nil
@@ -2619,7 +2619,7 @@ func getConvolutionBackwardFilterWorkspaceSize(handle Handle, xDesc TensorDescri
 		return 0, err
 	}
 	var out6 uint
-	if err := toError(fngetConvolutionBackwardFilterWorkspaceSize(handle, xDesc, dyDesc, convDesc, gradDesc, algo, &out6)); err != nil {
+	if err := toError(fngetConvolutionBackwardFilterWorkspaceSize(handle, xDesc, dyDesc, convDesc, gradDesc, algo, &out6), "cudnnGetConvolutionBackwardFilterWorkspaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out6), nil
@@ -2643,7 +2643,7 @@ func getConvolutionForwardAlgorithmMaxCount(handle Handle) (count int32, err err
 		return 0, err
 	}
 	var out1 int32
-	if err := toError(fngetConvolutionForwardAlgorithmMaxCount(handle, &out1)); err != nil {
+	if err := toError(fngetConvolutionForwardAlgorithmMaxCount(handle, &out1), "cudnnGetConvolutionForwardAlgorithmMaxCount"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -2669,7 +2669,7 @@ func getConvolutionForwardAlgorithm(handle Handle, srcDesc TensorDescriptor, fil
 	}
 	out7 := make([]ConvolutionFwdAlgoPerf, requestedAlgoCount)
 	var out6 int32
-	if err := toError(fngetConvolutionForwardAlgorithm(handle, srcDesc, filterDesc, convDesc, destDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7))); err != nil {
+	if err := toError(fngetConvolutionForwardAlgorithm(handle, srcDesc, filterDesc, convDesc, destDesc, int32(requestedAlgoCount), &out6, unsafe.SliceData(out7)), "cudnnGetConvolutionForwardAlgorithm_v7"); err != nil {
 		return nil, err
 	}
 	return out7[:min(int(out6), len(out7))], nil
@@ -2696,7 +2696,7 @@ func getConvolutionForwardWorkspaceSize(handle Handle, xDesc TensorDescriptor, w
 		return 0, err
 	}
 	var out6 uint
-	if err := toError(fngetConvolutionForwardWorkspaceSize(handle, xDesc, wDesc, convDesc, yDesc, algo, &out6)); err != nil {
+	if err := toError(fngetConvolutionForwardWorkspaceSize(handle, xDesc, wDesc, convDesc, yDesc, algo, &out6), "cudnnGetConvolutionForwardWorkspaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out6), nil
@@ -2718,7 +2718,7 @@ func getConvolutionGroupCount(convDesc ConvolutionDescriptor) (groupCount int32,
 		return 0, err
 	}
 	var out1 int32
-	if err := toError(fngetConvolutionGroupCount(convDesc, &out1)); err != nil {
+	if err := toError(fngetConvolutionGroupCount(convDesc, &out1), "cudnnGetConvolutionGroupCount"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -2740,7 +2740,7 @@ func getConvolutionMathType(convDesc ConvolutionDescriptor) (mathType MathType, 
 		return 0, err
 	}
 	var out1 MathType
-	if err := toError(fngetConvolutionMathType(convDesc, &out1)); err != nil {
+	if err := toError(fngetConvolutionMathType(convDesc, &out1), "cudnnGetConvolutionMathType"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -2781,7 +2781,7 @@ func getConvolutionNdDescriptor(convDesc ConvolutionDescriptor, arrayLengthReque
 	var out6 ConvolutionMode
 	var out7 DataType
 	var out2 int32
-	if err := toError(fngetConvolutionNdDescriptor(convDesc, int32(arrayLengthRequested), &out2, unsafe.SliceData(out3), unsafe.SliceData(out4), unsafe.SliceData(out5), &out6, &out7)); err != nil {
+	if err := toError(fngetConvolutionNdDescriptor(convDesc, int32(arrayLengthRequested), &out2, unsafe.SliceData(out3), unsafe.SliceData(out4), unsafe.SliceData(out5), &out6, &out7), "cudnnGetConvolutionNdDescriptor"); err != nil {
 		return ConvolutionConfig{}, err
 	}
 	return ConvolutionConfig{
@@ -2814,7 +2814,7 @@ func getConvolutionNdForwardOutputDim(convDesc ConvolutionDescriptor, inputTenso
 		return nil, err
 	}
 	out4 := make([]int32, nbDims)
-	if err := toError(fngetConvolutionNdForwardOutputDim(convDesc, inputTensorDesc, filterDesc, int32(nbDims), unsafe.SliceData(out4))); err != nil {
+	if err := toError(fngetConvolutionNdForwardOutputDim(convDesc, inputTensorDesc, filterDesc, int32(nbDims), unsafe.SliceData(out4)), "cudnnGetConvolutionNdForwardOutputDim"); err != nil {
 		return nil, err
 	}
 	return out4, nil
@@ -2838,7 +2838,7 @@ func getConvolutionReorderType(convDesc ConvolutionDescriptor) (reorderType Reor
 		return 0, err
 	}
 	var out1 ReorderType
-	if err := toError(fngetConvolutionReorderType(convDesc, &out1)); err != nil {
+	if err := toError(fngetConvolutionReorderType(convDesc, &out1), "cudnnGetConvolutionReorderType"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -2874,7 +2874,7 @@ func getDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle) (dropout
 	var out2 float32
 	var out3 uintptr
 	var out4 uint64
-	if err := toError(fngetDropoutDescriptor(dropoutDesc, handle, &out2, &out3, &out4)); err != nil {
+	if err := toError(fngetDropoutDescriptor(dropoutDesc, handle, &out2, &out3, &out4), "cudnnGetDropoutDescriptor"); err != nil {
 		return 0, 0, 0, err
 	}
 	return out2, out3, out4, nil
@@ -2917,7 +2917,7 @@ func getFilter4dDescriptor(filterDesc FilterDescriptor) (Filter4DConfig, error) 
 	var out4 int32
 	var out5 int32
 	var out6 int32
-	if err := toError(fngetFilter4dDescriptor(filterDesc, &out1, &out2, &out3, &out4, &out5, &out6)); err != nil {
+	if err := toError(fngetFilter4dDescriptor(filterDesc, &out1, &out2, &out3, &out4, &out5, &out6), "cudnnGetFilter4dDescriptor"); err != nil {
 		return Filter4DConfig{}, err
 	}
 	return Filter4DConfig{
@@ -2951,7 +2951,7 @@ func getFilterNdDescriptor(filterDesc FilterDescriptor, nbDimsRequested int) (da
 	var out3 TensorFormat
 	out5 := make([]int32, nbDimsRequested)
 	var out4 int32
-	if err := toError(fngetFilterNdDescriptor(filterDesc, int32(nbDimsRequested), &out2, &out3, &out4, unsafe.SliceData(out5))); err != nil {
+	if err := toError(fngetFilterNdDescriptor(filterDesc, int32(nbDimsRequested), &out2, &out3, &out4, unsafe.SliceData(out5)), "cudnnGetFilterNdDescriptor"); err != nil {
 		return 0, 0, nil, err
 	}
 	return out2, out3, out5[:min(int(out4), len(out5))], nil
@@ -2975,7 +2975,7 @@ func getFilterSizeInBytes(filterDesc FilterDescriptor) (size int, err error) {
 		return 0, err
 	}
 	var out1 uint
-	if err := toError(fngetFilterSizeInBytes(filterDesc, &out1)); err != nil {
+	if err := toError(fngetFilterSizeInBytes(filterDesc, &out1), "cudnnGetFilterSizeInBytes"); err != nil {
 		return 0, err
 	}
 	return int(out1), nil
@@ -3009,7 +3009,7 @@ func getFoldedConvBackwardDataDescriptors(handle Handle, filterDesc FilterDescri
 	if err := checkLibSym("cudnnGetFoldedConvBackwardDataDescriptors"); err != nil {
 		return err
 	}
-	return toError(fngetFoldedConvBackwardDataDescriptors(handle, filterDesc, diffDesc, convDesc, gradDesc, transformFormat, foldedFilterDesc, paddedDiffDesc, foldedConvDesc, foldedGradDesc, filterFoldTransDesc, diffPadTransDesc, gradFoldTransDesc, gradUnfoldTransDesc))
+	return toError(fngetFoldedConvBackwardDataDescriptors(handle, filterDesc, diffDesc, convDesc, gradDesc, transformFormat, foldedFilterDesc, paddedDiffDesc, foldedConvDesc, foldedGradDesc, filterFoldTransDesc, diffPadTransDesc, gradFoldTransDesc, gradUnfoldTransDesc), "cudnnGetFoldedConvBackwardDataDescriptors")
 }
 
 // getFusedOpsConstParamPackAttribute retrieves the values of the descriptor pointed to by the param pointer input.
@@ -3032,7 +3032,7 @@ func getFusedOpsConstParamPackAttribute(constPack FusedOpsConstParamPack, paramL
 		return 0, err
 	}
 	var out3 int32
-	if err := toError(fngetFusedOpsConstParamPackAttribute(constPack, paramLabel, param, &out3)); err != nil {
+	if err := toError(fngetFusedOpsConstParamPackAttribute(constPack, paramLabel, param, &out3), "cudnnGetFusedOpsConstParamPackAttribute"); err != nil {
 		return 0, err
 	}
 	return out3, nil
@@ -3054,7 +3054,7 @@ func getFusedOpsVariantParamPackAttribute(varPack FusedOpsVariantParamPack, para
 	if err := checkLibSym("cudnnGetFusedOpsVariantParamPackAttribute"); err != nil {
 		return err
 	}
-	return toError(fngetFusedOpsVariantParamPackAttribute(varPack, paramLabel, ptr))
+	return toError(fngetFusedOpsVariantParamPackAttribute(varPack, paramLabel, ptr), "cudnnGetFusedOpsVariantParamPackAttribute")
 }
 
 // getLRNDescriptor retrieves values stored in the previously initialized LRN descriptor object.
@@ -3073,7 +3073,7 @@ func getLRNDescriptor(normDesc LRNDescriptor) (lrnN uint32, lrnAlpha float64, lr
 	var out2 float64
 	var out3 float64
 	var out4 float64
-	if err := toError(fngetLRNDescriptor(normDesc, &out1, &out2, &out3, &out4)); err != nil {
+	if err := toError(fngetLRNDescriptor(normDesc, &out1, &out2, &out3, &out4), "cudnnGetLRNDescriptor"); err != nil {
 		return 0, 0, 0, 0, err
 	}
 	return out1, out2, out3, out4, nil
@@ -3129,7 +3129,7 @@ func getMultiHeadAttnBuffers(handle Handle, attnDesc AttnDescriptor) (weightSize
 	var out2 uint
 	var out3 uint
 	var out4 uint
-	if err := toError(fngetMultiHeadAttnBuffers(handle, attnDesc, &out2, &out3, &out4)); err != nil {
+	if err := toError(fngetMultiHeadAttnBuffers(handle, attnDesc, &out2, &out3, &out4), "cudnnGetMultiHeadAttnBuffers"); err != nil {
 		return 0, 0, 0, err
 	}
 	return int(out2), int(out3), int(out4), nil
@@ -3156,7 +3156,7 @@ func getMultiHeadAttnWeights(handle Handle, attnDesc AttnDescriptor, wKind Multi
 		return 0, err
 	}
 	var out6 uintptr
-	if err := toError(fngetMultiHeadAttnWeights(handle, attnDesc, wKind, uint(weightSizeInBytes), uintptr(weights), wDesc, &out6)); err != nil {
+	if err := toError(fngetMultiHeadAttnWeights(handle, attnDesc, wKind, uint(weightSizeInBytes), uintptr(weights), wDesc, &out6), "cudnnGetMultiHeadAttnWeights"); err != nil {
 		return 0, err
 	}
 	return out6, nil
@@ -3184,7 +3184,7 @@ func getNormalizationBackwardWorkspaceSize(handle Handle, mode NormMode, normOps
 		return 0, err
 	}
 	var out12 uint
-	if err := toError(fngetNormalizationBackwardWorkspaceSize(handle, mode, normOps, algo, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dNormScaleBiasDesc, activationDesc, normMeanVarDesc, &out12, groupCnt)); err != nil {
+	if err := toError(fngetNormalizationBackwardWorkspaceSize(handle, mode, normOps, algo, xDesc, yDesc, dyDesc, dzDesc, dxDesc, dNormScaleBiasDesc, activationDesc, normMeanVarDesc, &out12, groupCnt), "cudnnGetNormalizationBackwardWorkspaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out12), nil
@@ -3212,7 +3212,7 @@ func getNormalizationForwardTrainingWorkspaceSize(handle Handle, mode NormMode, 
 		return 0, err
 	}
 	var out10 uint
-	if err := toError(fngetNormalizationForwardTrainingWorkspaceSize(handle, mode, normOps, algo, xDesc, zDesc, yDesc, normScaleBiasDesc, activationDesc, normMeanVarDesc, &out10, groupCnt)); err != nil {
+	if err := toError(fngetNormalizationForwardTrainingWorkspaceSize(handle, mode, normOps, algo, xDesc, zDesc, yDesc, normScaleBiasDesc, activationDesc, normMeanVarDesc, &out10, groupCnt), "cudnnGetNormalizationForwardTrainingWorkspaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out10), nil
@@ -3240,7 +3240,7 @@ func getNormalizationTrainingReserveSpaceSize(handle Handle, mode NormMode, norm
 		return 0, err
 	}
 	var out6 uint
-	if err := toError(fngetNormalizationTrainingReserveSpaceSize(handle, mode, normOps, algo, activationDesc, xDesc, &out6, groupCnt)); err != nil {
+	if err := toError(fngetNormalizationTrainingReserveSpaceSize(handle, mode, normOps, algo, activationDesc, xDesc, &out6, groupCnt), "cudnnGetNormalizationTrainingReserveSpaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out6), nil
@@ -3264,7 +3264,7 @@ func getOpTensorDescriptor(opTensorDesc OpTensorDescriptor) (opTensorOp OpTensor
 	var out1 OpTensorOp
 	var out2 DataType
 	var out3 NanPropagation
-	if err := toError(fngetOpTensorDescriptor(opTensorDesc, &out1, &out2, &out3)); err != nil {
+	if err := toError(fngetOpTensorDescriptor(opTensorDesc, &out1, &out2, &out3), "cudnnGetOpTensorDescriptor"); err != nil {
 		return 0, 0, 0, err
 	}
 	return out1, out2, out3, nil
@@ -3312,7 +3312,7 @@ func getPooling2dDescriptor(poolingDesc PoolingDescriptor) (Pooling2DConfig, err
 	var out6 int32
 	var out7 int32
 	var out8 int32
-	if err := toError(fngetPooling2dDescriptor(poolingDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8)); err != nil {
+	if err := toError(fngetPooling2dDescriptor(poolingDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8), "cudnnGetPooling2dDescriptor"); err != nil {
 		return Pooling2DConfig{}, err
 	}
 	return Pooling2DConfig{
@@ -3348,7 +3348,7 @@ func getPooling2dForwardOutputDim(poolingDesc PoolingDescriptor, inputTensorDesc
 	var out3 int32
 	var out4 int32
 	var out5 int32
-	if err := toError(fngetPooling2dForwardOutputDim(poolingDesc, inputTensorDesc, &out2, &out3, &out4, &out5)); err != nil {
+	if err := toError(fngetPooling2dForwardOutputDim(poolingDesc, inputTensorDesc, &out2, &out3, &out4, &out5), "cudnnGetPooling2dForwardOutputDim"); err != nil {
 		return 0, 0, 0, 0, err
 	}
 	return out2, out3, out4, out5, nil
@@ -3387,7 +3387,7 @@ func getPoolingNdDescriptor(poolingDesc PoolingDescriptor, nbDimsRequested int) 
 	out6 := make([]int32, nbDimsRequested)
 	out7 := make([]int32, nbDimsRequested)
 	var out4 int32
-	if err := toError(fngetPoolingNdDescriptor(poolingDesc, int32(nbDimsRequested), &out2, &out3, &out4, unsafe.SliceData(out5), unsafe.SliceData(out6), unsafe.SliceData(out7))); err != nil {
+	if err := toError(fngetPoolingNdDescriptor(poolingDesc, int32(nbDimsRequested), &out2, &out3, &out4, unsafe.SliceData(out5), unsafe.SliceData(out6), unsafe.SliceData(out7)), "cudnnGetPoolingNdDescriptor"); err != nil {
 		return PoolingConfig{}, err
 	}
 	return PoolingConfig{
@@ -3418,7 +3418,7 @@ func getPoolingNdForwardOutputDim(poolingDesc PoolingDescriptor, inputTensorDesc
 		return nil, err
 	}
 	out3 := make([]int32, nbDims)
-	if err := toError(fngetPoolingNdForwardOutputDim(poolingDesc, inputTensorDesc, int32(nbDims), unsafe.SliceData(out3))); err != nil {
+	if err := toError(fngetPoolingNdForwardOutputDim(poolingDesc, inputTensorDesc, int32(nbDims), unsafe.SliceData(out3)), "cudnnGetPoolingNdForwardOutputDim"); err != nil {
 		return nil, err
 	}
 	return out3, nil
@@ -3439,7 +3439,7 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetProperty(type_, &out)); err != nil {
+	if err := toError(fnGetProperty(type_, &out), "cudnnGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -3481,7 +3481,7 @@ func getRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, arrayLengthRequested in
 	var out4 int32
 	var out5 int32
 	out7 := make([]int32, arrayLengthRequested)
-	if err := toError(fngetRNNDataDescriptor(rnnDataDesc, &out1, &out2, &out3, &out4, &out5, int32(arrayLengthRequested), unsafe.SliceData(out7), paddingFill)); err != nil {
+	if err := toError(fngetRNNDataDescriptor(rnnDataDesc, &out1, &out2, &out3, &out4, &out5, int32(arrayLengthRequested), unsafe.SliceData(out7), paddingFill), "cudnnGetRNNDataDescriptor"); err != nil {
 		return RNNDataConfig{}, err
 	}
 	return RNNDataConfig{
@@ -3556,7 +3556,7 @@ func getRNNDescriptor(rnnDesc RNNDescriptor) (RNNConfig, error) {
 	var out12 int32
 	var out13 DropoutDescriptor
 	var out14 uint32
-	if err := toError(fngetRNNDescriptor(rnnDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8, &out9, &out10, &out11, &out12, &out13, &out14)); err != nil {
+	if err := toError(fngetRNNDescriptor(rnnDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8, &out9, &out10, &out11, &out12, &out13, &out14), "cudnnGetRNNDescriptor_v8"); err != nil {
 		return RNNConfig{}, err
 	}
 	return RNNConfig{
@@ -3596,7 +3596,7 @@ func getRNNTempSpaceSizes(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardM
 	}
 	var out4 uint
 	var out5 uint
-	if err := toError(fngetRNNTempSpaceSizes(handle, rnnDesc, fwdMode, xDesc, &out4, &out5)); err != nil {
+	if err := toError(fngetRNNTempSpaceSizes(handle, rnnDesc, fwdMode, xDesc, &out4, &out5), "cudnnGetRNNTempSpaceSizes"); err != nil {
 		return 0, 0, err
 	}
 	return int(out4), int(out5), nil
@@ -3622,7 +3622,7 @@ func getRNNWeightParams(handle Handle, rnnDesc RNNDescriptor, pseudoLayer int32,
 	}
 	var out7 uintptr
 	var out9 uintptr
-	if err := toError(fngetRNNWeightParams(handle, rnnDesc, pseudoLayer, uint(weightSpaceSize), uintptr(weightSpace), linLayerID, mDesc, &out7, bDesc, &out9)); err != nil {
+	if err := toError(fngetRNNWeightParams(handle, rnnDesc, pseudoLayer, uint(weightSpaceSize), uintptr(weightSpace), linLayerID, mDesc, &out7, bDesc, &out9), "cudnnGetRNNWeightParams"); err != nil {
 		return 0, 0, err
 	}
 	return out7, out9, nil
@@ -3646,7 +3646,7 @@ func getRNNWeightSpaceSize(handle Handle, rnnDesc RNNDescriptor) (weightSpaceSiz
 		return 0, err
 	}
 	var out2 uint
-	if err := toError(fngetRNNWeightSpaceSize(handle, rnnDesc, &out2)); err != nil {
+	if err := toError(fngetRNNWeightSpaceSize(handle, rnnDesc, &out2), "cudnnGetRNNWeightSpaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out2), nil
@@ -3686,7 +3686,7 @@ func getReduceTensorDescriptor(reduceTensorDesc ReduceTensorDescriptor) (ReduceT
 	var out3 NanPropagation
 	var out4 ReduceTensorIndices
 	var out5 IndicesType
-	if err := toError(fngetReduceTensorDescriptor(reduceTensorDesc, &out1, &out2, &out3, &out4, &out5)); err != nil {
+	if err := toError(fngetReduceTensorDescriptor(reduceTensorDesc, &out1, &out2, &out3, &out4, &out5), "cudnnGetReduceTensorDescriptor"); err != nil {
 		return ReduceTensorConfig{}, err
 	}
 	return ReduceTensorConfig{
@@ -3715,7 +3715,7 @@ func getReductionIndicesSize(handle Handle, reduceTensorDesc ReduceTensorDescrip
 		return 0, err
 	}
 	var out4 uint
-	if err := toError(fngetReductionIndicesSize(handle, reduceTensorDesc, aDesc, cDesc, &out4)); err != nil {
+	if err := toError(fngetReductionIndicesSize(handle, reduceTensorDesc, aDesc, cDesc, &out4), "cudnnGetReductionIndicesSize"); err != nil {
 		return 0, err
 	}
 	return int(out4), nil
@@ -3738,7 +3738,7 @@ func getReductionWorkspaceSize(handle Handle, reduceTensorDesc ReduceTensorDescr
 		return 0, err
 	}
 	var out4 uint
-	if err := toError(fngetReductionWorkspaceSize(handle, reduceTensorDesc, aDesc, cDesc, &out4)); err != nil {
+	if err := toError(fngetReductionWorkspaceSize(handle, reduceTensorDesc, aDesc, cDesc, &out4), "cudnnGetReductionWorkspaceSize"); err != nil {
 		return 0, err
 	}
 	return int(out4), nil
@@ -3768,7 +3768,7 @@ func getSeqDataDescriptor(seqDataDesc SeqDataDescriptor, nbDimsRequested int, se
 	out8 := make([]int32, seqLengthSizeRequested)
 	var out2 int32
 	var out6 uint
-	if err := toError(fngetSeqDataDescriptor(seqDataDesc, &out1, &out2, int32(nbDimsRequested), unsafe.SliceData(out4), unsafe.SliceData(out5), &out6, uint(seqLengthSizeRequested), unsafe.SliceData(out8), paddingFill)); err != nil {
+	if err := toError(fngetSeqDataDescriptor(seqDataDesc, &out1, &out2, int32(nbDimsRequested), unsafe.SliceData(out4), unsafe.SliceData(out5), &out6, uint(seqLengthSizeRequested), unsafe.SliceData(out8), paddingFill), "cudnnGetSeqDataDescriptor"); err != nil {
 		return 0, nil, nil, nil, err
 	}
 	return out1, out4[:min(int(out2), len(out4))], out5[:min(int(out2), len(out5))], out8[:min(int(out6), len(out8))], nil
@@ -3791,7 +3791,7 @@ func getStream(handle Handle) (driver.Stream, error) {
 		return zero, err
 	}
 	var out driver.Stream
-	if err := toError(fngetStream(handle, &out)); err != nil {
+	if err := toError(fngetStream(handle, &out), "cudnnGetStream"); err != nil {
 		var zero driver.Stream
 		return zero, err
 	}
@@ -3840,7 +3840,7 @@ func getTensor4dDescriptor(tensorDesc TensorDescriptor) (Tensor4DConfig, error) 
 	var out7 int32
 	var out8 int32
 	var out9 int32
-	if err := toError(fngetTensor4dDescriptor(tensorDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8, &out9)); err != nil {
+	if err := toError(fngetTensor4dDescriptor(tensorDesc, &out1, &out2, &out3, &out4, &out5, &out6, &out7, &out8, &out9), "cudnnGetTensor4dDescriptor"); err != nil {
 		return Tensor4DConfig{}, err
 	}
 	return Tensor4DConfig{
@@ -3874,7 +3874,7 @@ func getTensorNdDescriptor(tensorDesc TensorDescriptor, nbDimsRequested int) (da
 	out4 := make([]int32, nbDimsRequested)
 	out5 := make([]int32, nbDimsRequested)
 	var out3 int32
-	if err := toError(fngetTensorNdDescriptor(tensorDesc, int32(nbDimsRequested), &out2, &out3, unsafe.SliceData(out4), unsafe.SliceData(out5))); err != nil {
+	if err := toError(fngetTensorNdDescriptor(tensorDesc, int32(nbDimsRequested), &out2, &out3, unsafe.SliceData(out4), unsafe.SliceData(out5)), "cudnnGetTensorNdDescriptor"); err != nil {
 		return 0, nil, nil, err
 	}
 	return out2, out4[:min(int(out3), len(out4))], out5[:min(int(out3), len(out5))], nil
@@ -3895,7 +3895,7 @@ func getTensorSizeInBytes(tensorDesc TensorDescriptor) (size int, err error) {
 		return 0, err
 	}
 	var out1 uint
-	if err := toError(fngetTensorSizeInBytes(tensorDesc, &out1)); err != nil {
+	if err := toError(fngetTensorSizeInBytes(tensorDesc, &out1), "cudnnGetTensorSizeInBytes"); err != nil {
 		return 0, err
 	}
 	return int(out1), nil
@@ -3934,7 +3934,7 @@ func getTensorTransformDescriptor(transformDesc TensorTransformDescriptor, nbDim
 	out4 := make([]int32, nbDimsRequested)
 	out5 := make([]uint32, nbDimsRequested)
 	var out6 FoldingDirection
-	if err := toError(fngetTensorTransformDescriptor(transformDesc, uint32(nbDimsRequested), &out2, unsafe.SliceData(out3), unsafe.SliceData(out4), unsafe.SliceData(out5), &out6)); err != nil {
+	if err := toError(fngetTensorTransformDescriptor(transformDesc, uint32(nbDimsRequested), &out2, unsafe.SliceData(out3), unsafe.SliceData(out4), unsafe.SliceData(out5), &out6), "cudnnGetTensorTransformDescriptor"); err != nil {
 		return TensorTransformConfig{}, err
 	}
 	return TensorTransformConfig{
@@ -3972,7 +3972,7 @@ func GraphVersionCheck() error {
 	if err := checkLibSym("cudnnGraphVersionCheck"); err != nil {
 		return err
 	}
-	return toError(fnGraphVersionCheck())
+	return toError(fnGraphVersionCheck(), "cudnnGraphVersionCheck")
 }
 
 // im2Col constructs the A matrix necessary to perform a forward pass of GEMM convolution.
@@ -3996,7 +3996,7 @@ func im2Col(handle Handle, xDesc TensorDescriptor, x driver.DevicePtr, wDesc Fil
 	if err := checkLibSym("cudnnIm2Col"); err != nil {
 		return err
 	}
-	return toError(fnim2Col(handle, xDesc, uintptr(x), wDesc, convDesc, uintptr(colBuffer)))
+	return toError(fnim2Col(handle, xDesc, uintptr(x), wDesc, convDesc, uintptr(colBuffer)), "cudnnIm2Col")
 }
 
 // initTransformDest initializes and returns a destination tensor descriptor destDesc for tensor transform operations.
@@ -4021,7 +4021,7 @@ func initTransformDest(transformDesc TensorTransformDescriptor, srcDesc TensorDe
 		return 0, err
 	}
 	var out3 uint
-	if err := toError(fninitTransformDest(transformDesc, srcDesc, destDesc, &out3)); err != nil {
+	if err := toError(fninitTransformDest(transformDesc, srcDesc, destDesc, &out3), "cudnnInitTransformDest"); err != nil {
 		return 0, err
 	}
 	return int(out3), nil
@@ -4049,7 +4049,7 @@ func lRNCrossChannelBackward(handle Handle, normDesc LRNDescriptor, lrnMode LRNM
 	if err := checkLibSym("cudnnLRNCrossChannelBackward"); err != nil {
 		return err
 	}
-	return toError(fnlRNCrossChannelBackward(handle, normDesc, lrnMode, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)))
+	return toError(fnlRNCrossChannelBackward(handle, normDesc, lrnMode, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)), "cudnnLRNCrossChannelBackward")
 }
 
 // lRNCrossChannelForward performs the forward LRN layer computation.
@@ -4073,7 +4073,7 @@ func lRNCrossChannelForward(handle Handle, normDesc LRNDescriptor, lrnMode LRNMo
 	if err := checkLibSym("cudnnLRNCrossChannelForward"); err != nil {
 		return err
 	}
-	return toError(fnlRNCrossChannelForward(handle, normDesc, lrnMode, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
+	return toError(fnlRNCrossChannelForward(handle, normDesc, lrnMode, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)), "cudnnLRNCrossChannelForward")
 }
 
 // makeFusedOpsPlan determines the optimum kernel to execute, and the workspace size the user should allocate, prior to the actual execution of the fused operations by [Handle.FusedOpsExecute].
@@ -4096,7 +4096,7 @@ func makeFusedOpsPlan(handle Handle, plan FusedOpsPlan, constPack FusedOpsConstP
 		return 0, err
 	}
 	var out3 uint
-	if err := toError(fnmakeFusedOpsPlan(handle, plan, constPack, &out3)); err != nil {
+	if err := toError(fnmakeFusedOpsPlan(handle, plan, constPack, &out3), "cudnnMakeFusedOpsPlan"); err != nil {
 		return 0, err
 	}
 	return int(out3), nil
@@ -4133,7 +4133,7 @@ func multiHeadAttnBackwardData(handle Handle, attnDesc AttnDescriptor, loWinIdx 
 	if err := checkLibSym("cudnnMultiHeadAttnBackwardData"); err != nil {
 		return err
 	}
-	if err := toError(fnmultiHeadAttnBackwardData(handle, attnDesc, loWinIdx, hiWinIdx, uintptr(devSeqLengthsDQDO), uintptr(devSeqLengthsDKDV), doDesc, uintptr(dout), dqDesc, uintptr(dqueries), uintptr(queries), dkDesc, uintptr(dkeys), uintptr(keys), dvDesc, uintptr(dvalues), uintptr(values), uint(weightSizeInBytes), uintptr(weights), uint(workSpaceSizeInBytes), uintptr(workSpace), uint(reserveSpaceSizeInBytes), uintptr(reserveSpace))); err != nil {
+	if err := toError(fnmultiHeadAttnBackwardData(handle, attnDesc, loWinIdx, hiWinIdx, uintptr(devSeqLengthsDQDO), uintptr(devSeqLengthsDKDV), doDesc, uintptr(dout), dqDesc, uintptr(dqueries), uintptr(queries), dkDesc, uintptr(dkeys), uintptr(keys), dvDesc, uintptr(dvalues), uintptr(values), uint(weightSizeInBytes), uintptr(weights), uint(workSpaceSizeInBytes), uintptr(workSpace), uint(reserveSpaceSizeInBytes), uintptr(reserveSpace)), "cudnnMultiHeadAttnBackwardData"); err != nil {
 		return err
 	}
 	return nil
@@ -4172,7 +4172,7 @@ func multiHeadAttnBackwardWeights(handle Handle, attnDesc AttnDescriptor, addGra
 	if err := checkLibSym("cudnnMultiHeadAttnBackwardWeights"); err != nil {
 		return err
 	}
-	if err := toError(fnmultiHeadAttnBackwardWeights(handle, attnDesc, addGrad, qDesc, uintptr(queries), kDesc, uintptr(keys), vDesc, uintptr(values), doDesc, uintptr(dout), uint(weightSizeInBytes), uintptr(weights), uintptr(dweights), uint(workSpaceSizeInBytes), uintptr(workSpace), uint(reserveSpaceSizeInBytes), uintptr(reserveSpace))); err != nil {
+	if err := toError(fnmultiHeadAttnBackwardWeights(handle, attnDesc, addGrad, qDesc, uintptr(queries), kDesc, uintptr(keys), vDesc, uintptr(values), doDesc, uintptr(dout), uint(weightSizeInBytes), uintptr(weights), uintptr(dweights), uint(workSpaceSizeInBytes), uintptr(workSpace), uint(reserveSpaceSizeInBytes), uintptr(reserveSpace)), "cudnnMultiHeadAttnBackwardWeights"); err != nil {
 		return err
 	}
 	return nil
@@ -4211,7 +4211,7 @@ func multiHeadAttnForward(handle Handle, attnDesc AttnDescriptor, currIdx int32,
 	if err := checkLibSym("cudnnMultiHeadAttnForward"); err != nil {
 		return err
 	}
-	if err := toError(fnmultiHeadAttnForward(handle, attnDesc, currIdx, loWinIdx, hiWinIdx, uintptr(devSeqLengthsQO), uintptr(devSeqLengthsKV), qDesc, uintptr(queries), uintptr(residuals), kDesc, uintptr(keys), vDesc, uintptr(values), oDesc, uintptr(out), uint(weightSizeInBytes), uintptr(weights), uint(workSpaceSizeInBytes), uintptr(workSpace), uint(reserveSpaceSizeInBytes), uintptr(reserveSpace))); err != nil {
+	if err := toError(fnmultiHeadAttnForward(handle, attnDesc, currIdx, loWinIdx, hiWinIdx, uintptr(devSeqLengthsQO), uintptr(devSeqLengthsKV), qDesc, uintptr(queries), uintptr(residuals), kDesc, uintptr(keys), vDesc, uintptr(values), oDesc, uintptr(out), uint(weightSizeInBytes), uintptr(weights), uint(workSpaceSizeInBytes), uintptr(workSpace), uint(reserveSpaceSizeInBytes), uintptr(reserveSpace)), "cudnnMultiHeadAttnForward"); err != nil {
 		return err
 	}
 	return nil
@@ -4246,7 +4246,7 @@ func normalizationBackward(handle Handle, mode NormMode, normOps NormOps, algo N
 	if err := checkLibSym("cudnnNormalizationBackward"); err != nil {
 		return err
 	}
-	if err := toError(fnnormalizationBackward(handle, mode, normOps, algo, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, uintptr(xData), yDesc, uintptr(yData), dyDesc, uintptr(dyData), dzDesc, uintptr(dzData), dxDesc, uintptr(dxData), dNormScaleBiasDesc, uintptr(normScaleData), uintptr(normBiasData), uintptr(dNormScaleData), uintptr(dNormBiasData), epsilon, normMeanVarDesc, uintptr(savedMean), uintptr(savedInvVariance), activationDesc, uintptr(workSpace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes), groupCnt)); err != nil {
+	if err := toError(fnnormalizationBackward(handle, mode, normOps, algo, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, uintptr(xData), yDesc, uintptr(yData), dyDesc, uintptr(dyData), dzDesc, uintptr(dzData), dxDesc, uintptr(dxData), dNormScaleBiasDesc, uintptr(normScaleData), uintptr(normBiasData), uintptr(dNormScaleData), uintptr(dNormBiasData), epsilon, normMeanVarDesc, uintptr(savedMean), uintptr(savedInvVariance), activationDesc, uintptr(workSpace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes), groupCnt), "cudnnNormalizationBackward"); err != nil {
 		return err
 	}
 	return nil
@@ -4281,7 +4281,7 @@ func normalizationForwardInference(handle Handle, mode NormMode, normOps NormOps
 	if err := checkLibSym("cudnnNormalizationForwardInference"); err != nil {
 		return err
 	}
-	return toError(fnnormalizationForwardInference(handle, mode, normOps, algo, alpha, beta, xDesc, uintptr(x), normScaleBiasDesc, uintptr(normScale), uintptr(normBias), normMeanVarDesc, uintptr(estimatedMean), uintptr(estimatedVariance), zDesc, uintptr(z), activationDesc, yDesc, uintptr(y), epsilon, groupCnt))
+	return toError(fnnormalizationForwardInference(handle, mode, normOps, algo, alpha, beta, xDesc, uintptr(x), normScaleBiasDesc, uintptr(normScale), uintptr(normBias), normMeanVarDesc, uintptr(estimatedMean), uintptr(estimatedVariance), zDesc, uintptr(z), activationDesc, yDesc, uintptr(y), epsilon, groupCnt), "cudnnNormalizationForwardInference")
 }
 
 // normalizationForwardTraining performs the forward normalization layer computation for the training phase.
@@ -4315,7 +4315,7 @@ func normalizationForwardTraining(handle Handle, mode NormMode, normOps NormOps,
 	if err := checkLibSym("cudnnNormalizationForwardTraining"); err != nil {
 		return err
 	}
-	if err := toError(fnnormalizationForwardTraining(handle, mode, normOps, algo, alpha, beta, xDesc, uintptr(xData), normScaleBiasDesc, uintptr(normScale), uintptr(normBias), exponentialAverageFactor, normMeanVarDesc, uintptr(resultRunningMean), uintptr(resultRunningVariance), epsilon, uintptr(resultSaveMean), uintptr(resultSaveInvVariance), activationDesc, zDesc, uintptr(zData), yDesc, uintptr(yData), uintptr(workspace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes), groupCnt)); err != nil {
+	if err := toError(fnnormalizationForwardTraining(handle, mode, normOps, algo, alpha, beta, xDesc, uintptr(xData), normScaleBiasDesc, uintptr(normScale), uintptr(normBias), exponentialAverageFactor, normMeanVarDesc, uintptr(resultRunningMean), uintptr(resultRunningVariance), epsilon, uintptr(resultSaveMean), uintptr(resultSaveInvVariance), activationDesc, zDesc, uintptr(zData), yDesc, uintptr(yData), uintptr(workspace), uint(workSpaceSizeInBytes), uintptr(reserveSpace), uint(reserveSpaceSizeInBytes), groupCnt), "cudnnNormalizationForwardTraining"); err != nil {
 		return err
 	}
 	return nil
@@ -4344,7 +4344,7 @@ func opTensor(handle Handle, opTensorDesc OpTensorDescriptor, alpha1 unsafe.Poin
 	if err := checkLibSym("cudnnOpTensor"); err != nil {
 		return err
 	}
-	return toError(fnopTensor(handle, opTensorDesc, alpha1, aDesc, uintptr(a), alpha2, bDesc, uintptr(b), beta, cDesc, uintptr(c)))
+	return toError(fnopTensor(handle, opTensorDesc, alpha1, aDesc, uintptr(a), alpha2, bDesc, uintptr(b), beta, cDesc, uintptr(c)), "cudnnOpTensor")
 }
 
 // OpsVersionCheck Cross-library version checker.
@@ -4360,7 +4360,7 @@ func OpsVersionCheck() error {
 	if err := checkLibSym("cudnnOpsVersionCheck"); err != nil {
 		return err
 	}
-	return toError(fnOpsVersionCheck())
+	return toError(fnOpsVersionCheck(), "cudnnOpsVersionCheck")
 }
 
 // poolingBackward computes the gradient of a pooling operation.
@@ -4386,7 +4386,7 @@ func poolingBackward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.
 	if err := checkLibSym("cudnnPoolingBackward"); err != nil {
 		return err
 	}
-	return toError(fnpoolingBackward(handle, poolingDesc, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)))
+	return toError(fnpoolingBackward(handle, poolingDesc, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), xDesc, uintptr(x), beta, dxDesc, uintptr(dx)), "cudnnPoolingBackward")
 }
 
 // poolingForward computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width.
@@ -4410,7 +4410,7 @@ func poolingForward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.P
 	if err := checkLibSym("cudnnPoolingForward"); err != nil {
 		return err
 	}
-	return toError(fnpoolingForward(handle, poolingDesc, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
+	return toError(fnpoolingForward(handle, poolingDesc, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)), "cudnnPoolingForward")
 }
 
 // queryRuntimeError cuDNN library functions perform extensive input argument checking before launching GPU kernels.
@@ -4434,7 +4434,7 @@ func queryRuntimeError(handle Handle, mode ErrQueryMode, tag *RuntimeTag) (rstat
 		return 0, err
 	}
 	var out1 Result
-	if err := toError(fnqueryRuntimeError(handle, &out1, mode, tag)); err != nil {
+	if err := toError(fnqueryRuntimeError(handle, &out1, mode, tag), "cudnnQueryRuntimeError"); err != nil {
 		return 0, err
 	}
 	return out1, nil
@@ -4478,7 +4478,7 @@ func rNNBackwardData(handle Handle, rnnDesc RNNDescriptor, devSeqLengths driver.
 	if err := checkLibSym("cudnnRNNBackwardData_v8"); err != nil {
 		return err
 	}
-	if err := toError(fnrNNBackwardData(handle, rnnDesc, uintptr(devSeqLengths), yDesc, uintptr(y), uintptr(dy), xDesc, uintptr(dx), hDesc, uintptr(hx), uintptr(dhy), uintptr(dhx), cDesc, uintptr(cx), uintptr(dcy), uintptr(dcx), uint(weightSpaceSize), uintptr(weightSpace), uint(workSpaceSize), uintptr(workSpace), uint(reserveSpaceSize), uintptr(reserveSpace))); err != nil {
+	if err := toError(fnrNNBackwardData(handle, rnnDesc, uintptr(devSeqLengths), yDesc, uintptr(y), uintptr(dy), xDesc, uintptr(dx), hDesc, uintptr(hx), uintptr(dhy), uintptr(dhx), cDesc, uintptr(cx), uintptr(dcy), uintptr(dcx), uint(weightSpaceSize), uintptr(weightSpace), uint(workSpaceSize), uintptr(workSpace), uint(reserveSpaceSize), uintptr(reserveSpace)), "cudnnRNNBackwardData_v8"); err != nil {
 		return err
 	}
 	return nil
@@ -4516,7 +4516,7 @@ func rNNBackwardWeights(handle Handle, rnnDesc RNNDescriptor, addGrad WgradMode,
 	if err := checkLibSym("cudnnRNNBackwardWeights_v8"); err != nil {
 		return err
 	}
-	if err := toError(fnrNNBackwardWeights(handle, rnnDesc, addGrad, uintptr(devSeqLengths), xDesc, uintptr(x), hDesc, uintptr(hx), yDesc, uintptr(y), uint(weightSpaceSize), uintptr(dweightSpace), uint(workSpaceSize), uintptr(workSpace), uint(reserveSpaceSize), uintptr(reserveSpace))); err != nil {
+	if err := toError(fnrNNBackwardWeights(handle, rnnDesc, addGrad, uintptr(devSeqLengths), xDesc, uintptr(x), hDesc, uintptr(hx), yDesc, uintptr(y), uint(weightSpaceSize), uintptr(dweightSpace), uint(workSpaceSize), uintptr(workSpace), uint(reserveSpaceSize), uintptr(reserveSpace)), "cudnnRNNBackwardWeights_v8"); err != nil {
 		return err
 	}
 	return nil
@@ -4552,7 +4552,7 @@ func rNNForward(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardMode, devSe
 	if err := checkLibSym("cudnnRNNForward"); err != nil {
 		return err
 	}
-	if err := toError(fnrNNForward(handle, rnnDesc, fwdMode, uintptr(devSeqLengths), xDesc, uintptr(x), yDesc, uintptr(y), hDesc, uintptr(hx), uintptr(hy), cDesc, uintptr(cx), uintptr(cy), uint(weightSpaceSize), uintptr(weightSpace), uint(workSpaceSize), uintptr(workSpace), uint(reserveSpaceSize), uintptr(reserveSpace))); err != nil {
+	if err := toError(fnrNNForward(handle, rnnDesc, fwdMode, uintptr(devSeqLengths), xDesc, uintptr(x), yDesc, uintptr(y), hDesc, uintptr(hx), uintptr(hy), cDesc, uintptr(cx), uintptr(cy), uint(weightSpaceSize), uintptr(weightSpace), uint(workSpaceSize), uintptr(workSpace), uint(reserveSpaceSize), uintptr(reserveSpace)), "cudnnRNNForward"); err != nil {
 		return err
 	}
 	return nil
@@ -4576,7 +4576,7 @@ func rNNGetClip(rnnDesc RNNDescriptor) (clipMode RNNClipMode, lclip float64, rcl
 	var out1 RNNClipMode
 	var out2 float64
 	var out3 float64
-	if err := toError(fnrNNGetClip(rnnDesc, &out1, &out2, &out3)); err != nil {
+	if err := toError(fnrNNGetClip(rnnDesc, &out1, &out2, &out3), "cudnnRNNGetClip_v9"); err != nil {
 		return 0, 0, 0, err
 	}
 	return out1, out2, out3, nil
@@ -4598,7 +4598,7 @@ func rNNSetClip(rnnDesc RNNDescriptor, clipMode RNNClipMode, lclip float64, rcli
 	if err := checkLibSym("cudnnRNNSetClip_v9"); err != nil {
 		return err
 	}
-	return toError(fnrNNSetClip(rnnDesc, clipMode, lclip, rclip))
+	return toError(fnrNNSetClip(rnnDesc, clipMode, lclip, rclip), "cudnnRNNSetClip_v9")
 }
 
 // reduceTensor reduces tensor A by implementing the equation C = alpha * reduce op ( A ) + beta * C, given tensors A and C and scaling factors alpha and beta.
@@ -4629,7 +4629,7 @@ func reduceTensor(handle Handle, reduceTensorDesc ReduceTensorDescriptor, indice
 	if err := checkLibSym("cudnnReduceTensor"); err != nil {
 		return err
 	}
-	if err := toError(fnreduceTensor(handle, reduceTensorDesc, uintptr(indices), uint(indicesSizeInBytes), uintptr(workspace), uint(workspaceSizeInBytes), alpha, aDesc, uintptr(a), beta, cDesc, uintptr(c))); err != nil {
+	if err := toError(fnreduceTensor(handle, reduceTensorDesc, uintptr(indices), uint(indicesSizeInBytes), uintptr(workspace), uint(workspaceSizeInBytes), alpha, aDesc, uintptr(a), beta, cDesc, uintptr(c)), "cudnnReduceTensor"); err != nil {
 		return err
 	}
 	return nil
@@ -4656,7 +4656,7 @@ func reorderFilterAndBias(handle Handle, filterDesc FilterDescriptor, reorderTyp
 	if err := checkLibSym("cudnnReorderFilterAndBias"); err != nil {
 		return err
 	}
-	return toError(fnreorderFilterAndBias(handle, filterDesc, reorderType, uintptr(filterData), uintptr(reorderedFilterData), reorderBias, uintptr(biasData), uintptr(reorderedBiasData)))
+	return toError(fnreorderFilterAndBias(handle, filterDesc, reorderType, uintptr(filterData), uintptr(reorderedFilterData), reorderBias, uintptr(biasData), uintptr(reorderedBiasData)), "cudnnReorderFilterAndBias")
 }
 
 // restoreDropoutDescriptor restores a dropout descriptor to a previously saved-off state.
@@ -4675,7 +4675,7 @@ func restoreDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, drop
 	if err := checkLibSym("cudnnRestoreDropoutDescriptor"); err != nil {
 		return err
 	}
-	if err := toError(fnrestoreDropoutDescriptor(dropoutDesc, handle, dropout, uintptr(states), uint(stateSizeInBytes), seed)); err != nil {
+	if err := toError(fnrestoreDropoutDescriptor(dropoutDesc, handle, dropout, uintptr(states), uint(stateSizeInBytes), seed), "cudnnRestoreDropoutDescriptor"); err != nil {
 		return err
 	}
 	return nil
@@ -4702,7 +4702,7 @@ func scaleTensor(handle Handle, yDesc TensorDescriptor, y driver.DevicePtr, alph
 	if err := checkLibSym("cudnnScaleTensor"); err != nil {
 		return err
 	}
-	return toError(fnscaleTensor(handle, yDesc, uintptr(y), alpha))
+	return toError(fnscaleTensor(handle, yDesc, uintptr(y), alpha), "cudnnScaleTensor")
 }
 
 // setActivationDescriptor initializes a previously created generic activation descriptor object.
@@ -4721,7 +4721,7 @@ func setActivationDescriptor(activationDesc ActivationDescriptor, mode Activatio
 	if err := checkLibSym("cudnnSetActivationDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetActivationDescriptor(activationDesc, mode, reluNanOpt, coef))
+	return toError(fnsetActivationDescriptor(activationDesc, mode, reluNanOpt, coef), "cudnnSetActivationDescriptor")
 }
 
 // setActivationDescriptorSwishBeta sets the beta parameter of the SWISH activation function to swish_beta.
@@ -4740,7 +4740,7 @@ func setActivationDescriptorSwishBeta(activationDesc ActivationDescriptor, swish
 	if err := checkLibSym("cudnnSetActivationDescriptorSwishBeta"); err != nil {
 		return err
 	}
-	return toError(fnsetActivationDescriptorSwishBeta(activationDesc, swishBeta))
+	return toError(fnsetActivationDescriptorSwishBeta(activationDesc, swishBeta), "cudnnSetActivationDescriptorSwishBeta")
 }
 
 // setAttnDescriptor configures a multihead attention descriptor that was previously created using the [CreateAttnDescriptor] function.
@@ -4774,7 +4774,7 @@ func setAttnDescriptor(attnDesc AttnDescriptor, attnMode uint32, nHeads int32, s
 	if err := checkLibSym("cudnnSetAttnDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetAttnDescriptor(attnDesc, attnMode, nHeads, smScaler, dataType, computePrec, mathType, attnDropoutDesc, postDropoutDesc, qSize, kSize, vSize, qProjSize, kProjSize, vProjSize, oProjSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize))
+	return toError(fnsetAttnDescriptor(attnDesc, attnMode, nHeads, smScaler, dataType, computePrec, mathType, attnDropoutDesc, postDropoutDesc, qSize, kSize, vSize, qProjSize, kProjSize, vProjSize, oProjSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize), "cudnnSetAttnDescriptor")
 }
 
 // setCTCLossDescriptor sets a CTC loss function descriptor.
@@ -4790,7 +4790,7 @@ func setCTCLossDescriptor(ctcLossDesc CTCLossDescriptor, cfg CTCLossConfig) erro
 	if err := checkLibSym("cudnnSetCTCLossDescriptor_v9"); err != nil {
 		return err
 	}
-	if err := toError(fnsetCTCLossDescriptor(ctcLossDesc, cfg.CompType, cfg.NormMode, cfg.CTCGradMode, cfg.MaxLabelLength)); err != nil {
+	if err := toError(fnsetCTCLossDescriptor(ctcLossDesc, cfg.CompType, cfg.NormMode, cfg.CTCGradMode, cfg.MaxLabelLength), "cudnnSetCTCLossDescriptor_v9"); err != nil {
 		return err
 	}
 	return nil
@@ -4808,7 +4808,7 @@ func SetCallback(mask uint32, udata uintptr, fptr uintptr) error {
 	if err := checkLibSym("cudnnSetCallback"); err != nil {
 		return err
 	}
-	return toError(fnSetCallback(mask, udata, fptr))
+	return toError(fnSetCallback(mask, udata, fptr), "cudnnSetCallback")
 }
 
 // setConvolution2dDescriptor initializes a previously created convolution descriptor object into a 2D correlation.
@@ -4835,7 +4835,7 @@ func setConvolution2dDescriptor(convDesc ConvolutionDescriptor, padH int32, padW
 	if err := checkLibSym("cudnnSetConvolution2dDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetConvolution2dDescriptor(convDesc, padH, padW, u, v, dilationH, dilationW, mode, computeType))
+	return toError(fnsetConvolution2dDescriptor(convDesc, padH, padW, u, v, dilationH, dilationW, mode, computeType), "cudnnSetConvolution2dDescriptor")
 }
 
 // setConvolutionGroupCount allows the user to specify the number of groups to be used in the associated convolution.
@@ -4853,7 +4853,7 @@ func setConvolutionGroupCount(convDesc ConvolutionDescriptor, groupCount int32) 
 	if err := checkLibSym("cudnnSetConvolutionGroupCount"); err != nil {
 		return err
 	}
-	return toError(fnsetConvolutionGroupCount(convDesc, groupCount))
+	return toError(fnsetConvolutionGroupCount(convDesc, groupCount), "cudnnSetConvolutionGroupCount")
 }
 
 // setConvolutionMathType allows the user to specify whether or not the use of tensor op is permitted in the library routines associated with a given convolution descriptor.
@@ -4871,7 +4871,7 @@ func setConvolutionMathType(convDesc ConvolutionDescriptor, mathType MathType) e
 	if err := checkLibSym("cudnnSetConvolutionMathType"); err != nil {
 		return err
 	}
-	return toError(fnsetConvolutionMathType(convDesc, mathType))
+	return toError(fnsetConvolutionMathType(convDesc, mathType), "cudnnSetConvolutionMathType")
 }
 
 // setConvolutionNdDescriptor initializes a previously created generic convolution descriptor object into a Nd correlation.
@@ -4898,7 +4898,7 @@ func setConvolutionNdDescriptor(convDesc ConvolutionDescriptor, padA []int32, fi
 	if len(dilationA) != len(padA) {
 		return fmt.Errorf("dilationA has %d elements, padA has %d", len(dilationA), len(padA))
 	}
-	if err := toError(fnsetConvolutionNdDescriptor(convDesc, int32(len(padA)), unsafe.SliceData(padA), unsafe.SliceData(filterStrideA), unsafe.SliceData(dilationA), mode, computeType)); err != nil {
+	if err := toError(fnsetConvolutionNdDescriptor(convDesc, int32(len(padA)), unsafe.SliceData(padA), unsafe.SliceData(filterStrideA), unsafe.SliceData(dilationA), mode, computeType), "cudnnSetConvolutionNdDescriptor"); err != nil {
 		return err
 	}
 	return nil
@@ -4922,7 +4922,7 @@ func setConvolutionReorderType(convDesc ConvolutionDescriptor, reorderType Reord
 	if err := checkLibSym("cudnnSetConvolutionReorderType"); err != nil {
 		return err
 	}
-	return toError(fnsetConvolutionReorderType(convDesc, reorderType))
+	return toError(fnsetConvolutionReorderType(convDesc, reorderType), "cudnnSetConvolutionReorderType")
 }
 
 // setDropoutDescriptor initializes a previously created dropout descriptor object.
@@ -4948,7 +4948,7 @@ func setDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout 
 	if err := checkLibSym("cudnnSetDropoutDescriptor"); err != nil {
 		return err
 	}
-	if err := toError(fnsetDropoutDescriptor(dropoutDesc, handle, dropout, uintptr(states), uint(stateSizeInBytes), seed)); err != nil {
+	if err := toError(fnsetDropoutDescriptor(dropoutDesc, handle, dropout, uintptr(states), uint(stateSizeInBytes), seed), "cudnnSetDropoutDescriptor"); err != nil {
 		return err
 	}
 	return nil
@@ -4975,7 +4975,7 @@ func setFilter4dDescriptor(filterDesc FilterDescriptor, dataType DataType, forma
 	if err := checkLibSym("cudnnSetFilter4dDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetFilter4dDescriptor(filterDesc, dataType, format, k, c, h, w))
+	return toError(fnsetFilter4dDescriptor(filterDesc, dataType, format, k, c, h, w), "cudnnSetFilter4dDescriptor")
 }
 
 // setFilterNdDescriptor initializes a previously created filter descriptor object.
@@ -4996,7 +4996,7 @@ func setFilterNdDescriptor(filterDesc FilterDescriptor, dataType DataType, forma
 	if err := checkLibSym("cudnnSetFilterNdDescriptor"); err != nil {
 		return err
 	}
-	if err := toError(fnsetFilterNdDescriptor(filterDesc, dataType, format, int32(len(filterDimA)), unsafe.SliceData(filterDimA))); err != nil {
+	if err := toError(fnsetFilterNdDescriptor(filterDesc, dataType, format, int32(len(filterDimA)), unsafe.SliceData(filterDimA)), "cudnnSetFilterNdDescriptor"); err != nil {
 		return err
 	}
 	return nil
@@ -5020,7 +5020,7 @@ func setFusedOpsConstParamPackAttribute(constPack FusedOpsConstParamPack, paramL
 	if err := checkLibSym("cudnnSetFusedOpsConstParamPackAttribute"); err != nil {
 		return err
 	}
-	return toError(fnsetFusedOpsConstParamPackAttribute(constPack, paramLabel, param))
+	return toError(fnsetFusedOpsConstParamPackAttribute(constPack, paramLabel, param), "cudnnSetFusedOpsConstParamPackAttribute")
 }
 
 // setFusedOpsVariantParamPackAttribute sets the variable parameter pack descriptor.
@@ -5040,7 +5040,7 @@ func setFusedOpsVariantParamPackAttribute(varPack FusedOpsVariantParamPack, para
 	if err := checkLibSym("cudnnSetFusedOpsVariantParamPackAttribute"); err != nil {
 		return err
 	}
-	return toError(fnsetFusedOpsVariantParamPackAttribute(varPack, paramLabel, ptr))
+	return toError(fnsetFusedOpsVariantParamPackAttribute(varPack, paramLabel, ptr), "cudnnSetFusedOpsVariantParamPackAttribute")
 }
 
 // setLRNDescriptor initializes a previously created LRN descriptor object.
@@ -5057,7 +5057,7 @@ func setLRNDescriptor(normDesc LRNDescriptor, lrnN uint32, lrnAlpha float64, lrn
 	if err := checkLibSym("cudnnSetLRNDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetLRNDescriptor(normDesc, lrnN, lrnAlpha, lrnBeta, lrnK))
+	return toError(fnsetLRNDescriptor(normDesc, lrnN, lrnAlpha, lrnBeta, lrnK), "cudnnSetLRNDescriptor")
 }
 
 // setOpTensorDescriptor initializes a tensor pointwise math descriptor.
@@ -5078,7 +5078,7 @@ func setOpTensorDescriptor(opTensorDesc OpTensorDescriptor, opTensorOp OpTensorO
 	if err := checkLibSym("cudnnSetOpTensorDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetOpTensorDescriptor(opTensorDesc, opTensorOp, opTensorCompType, opTensorNanOpt))
+	return toError(fnsetOpTensorDescriptor(opTensorDesc, opTensorOp, opTensorCompType, opTensorNanOpt), "cudnnSetOpTensorDescriptor")
 }
 
 // setPooling2dDescriptor initializes a previously created generic pooling descriptor object into a 2D description.
@@ -5104,7 +5104,7 @@ func setPooling2dDescriptor(poolingDesc PoolingDescriptor, mode PoolingMode, max
 	if err := checkLibSym("cudnnSetPooling2dDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetPooling2dDescriptor(poolingDesc, mode, maxpoolingNanOpt, windowHeight, windowWidth, verticalPadding, horizontalPadding, verticalStride, horizontalStride))
+	return toError(fnsetPooling2dDescriptor(poolingDesc, mode, maxpoolingNanOpt, windowHeight, windowWidth, verticalPadding, horizontalPadding, verticalStride, horizontalStride), "cudnnSetPooling2dDescriptor")
 }
 
 // setPoolingNdDescriptor initializes a previously created generic pooling descriptor object.
@@ -5131,7 +5131,7 @@ func setPoolingNdDescriptor(poolingDesc PoolingDescriptor, mode PoolingMode, max
 	if len(strideA) != len(windowDimA) {
 		return fmt.Errorf("strideA has %d elements, windowDimA has %d", len(strideA), len(windowDimA))
 	}
-	if err := toError(fnsetPoolingNdDescriptor(poolingDesc, mode, maxpoolingNanOpt, int32(len(windowDimA)), unsafe.SliceData(windowDimA), unsafe.SliceData(paddingA), unsafe.SliceData(strideA))); err != nil {
+	if err := toError(fnsetPoolingNdDescriptor(poolingDesc, mode, maxpoolingNanOpt, int32(len(windowDimA)), unsafe.SliceData(windowDimA), unsafe.SliceData(paddingA), unsafe.SliceData(strideA)), "cudnnSetPoolingNdDescriptor"); err != nil {
 		return err
 	}
 	return nil
@@ -5158,7 +5158,7 @@ func setRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, dataType DataType, layo
 	if err := checkLibSym("cudnnSetRNNDataDescriptor"); err != nil {
 		return err
 	}
-	if err := toError(fnsetRNNDataDescriptor(rnnDataDesc, dataType, layout, maxSeqLength, int32(len(seqLengthArray)), vectorSize, unsafe.SliceData(seqLengthArray), paddingFill)); err != nil {
+	if err := toError(fnsetRNNDataDescriptor(rnnDataDesc, dataType, layout, maxSeqLength, int32(len(seqLengthArray)), vectorSize, unsafe.SliceData(seqLengthArray), paddingFill), "cudnnSetRNNDataDescriptor"); err != nil {
 		return err
 	}
 	return nil
@@ -5188,7 +5188,7 @@ func setRNNDescriptor(rnnDesc RNNDescriptor, algo RNNAlgo, cellMode RNNMode, bia
 	if err := checkLibSym("cudnnSetRNNDescriptor_v8"); err != nil {
 		return err
 	}
-	return toError(fnsetRNNDescriptor(rnnDesc, algo, cellMode, biasMode, dirMode, inputMode, dataType, mathPrec, mathType, inputSize, hiddenSize, projSize, numLayers, dropoutDesc, auxFlags))
+	return toError(fnsetRNNDescriptor(rnnDesc, algo, cellMode, biasMode, dirMode, inputMode, dataType, mathPrec, mathType, inputSize, hiddenSize, projSize, numLayers, dropoutDesc, auxFlags), "cudnnSetRNNDescriptor_v8")
 }
 
 // setReduceTensorDescriptor initializes a previously created reduce tensor descriptor object.
@@ -5211,7 +5211,7 @@ func setReduceTensorDescriptor(reduceTensorDesc ReduceTensorDescriptor, reduceTe
 	if err := checkLibSym("cudnnSetReduceTensorDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetReduceTensorDescriptor(reduceTensorDesc, reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType))
+	return toError(fnsetReduceTensorDescriptor(reduceTensorDesc, reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType), "cudnnSetReduceTensorDescriptor")
 }
 
 // setSeqDataDescriptor initializes a previously created sequence data descriptor object.
@@ -5237,7 +5237,7 @@ func setSeqDataDescriptor(seqDataDesc SeqDataDescriptor, dataType DataType, dimA
 	if len(axes) != len(dimA) {
 		return fmt.Errorf("axes has %d elements, dimA has %d", len(axes), len(dimA))
 	}
-	if err := toError(fnsetSeqDataDescriptor(seqDataDesc, dataType, int32(len(dimA)), unsafe.SliceData(dimA), unsafe.SliceData(axes), uint(len(seqLengthArray)), unsafe.SliceData(seqLengthArray), paddingFill)); err != nil {
+	if err := toError(fnsetSeqDataDescriptor(seqDataDesc, dataType, int32(len(dimA)), unsafe.SliceData(dimA), unsafe.SliceData(axes), uint(len(seqLengthArray)), unsafe.SliceData(seqLengthArray), paddingFill), "cudnnSetSeqDataDescriptor"); err != nil {
 		return err
 	}
 	return nil
@@ -5258,7 +5258,7 @@ func setSpatialTransformerNdDescriptor(stDesc SpatialTransformerDescriptor, samp
 	if err := checkLibSym("cudnnSetSpatialTransformerNdDescriptor"); err != nil {
 		return err
 	}
-	if err := toError(fnsetSpatialTransformerNdDescriptor(stDesc, samplerType, dataType, int32(len(dimA)), unsafe.SliceData(dimA))); err != nil {
+	if err := toError(fnsetSpatialTransformerNdDescriptor(stDesc, samplerType, dataType, int32(len(dimA)), unsafe.SliceData(dimA)), "cudnnSetSpatialTransformerNdDescriptor"); err != nil {
 		return err
 	}
 	return nil
@@ -5282,7 +5282,7 @@ func setStream(handle Handle, streamId driver.Stream) error {
 	if err := checkLibSym("cudnnSetStream"); err != nil {
 		return err
 	}
-	return toError(fnsetStream(handle, streamId))
+	return toError(fnsetStream(handle, streamId), "cudnnSetStream")
 }
 
 // setTensor sets all the elements of a tensor to a given value.
@@ -5301,7 +5301,7 @@ func setTensor(handle Handle, yDesc TensorDescriptor, y driver.DevicePtr, valueP
 	if err := checkLibSym("cudnnSetTensor"); err != nil {
 		return err
 	}
-	return toError(fnsetTensor(handle, yDesc, uintptr(y), valuePtr))
+	return toError(fnsetTensor(handle, yDesc, uintptr(y), valuePtr), "cudnnSetTensor")
 }
 
 // setTensor4dDescriptor initializes a previously created generic tensor descriptor object into a 4D tensor.
@@ -5325,7 +5325,7 @@ func setTensor4dDescriptor(tensorDesc TensorDescriptor, format TensorFormat, dat
 	if err := checkLibSym("cudnnSetTensor4dDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetTensor4dDescriptor(tensorDesc, format, dataType, n, c, h, w))
+	return toError(fnsetTensor4dDescriptor(tensorDesc, format, dataType, n, c, h, w), "cudnnSetTensor4dDescriptor")
 }
 
 // setTensor4dDescriptorEx initializes a previously created generic tensor descriptor object into a 4D tensor, similarly to [TensorDescriptor.Set4D] but with the strides explicitly passed as parameters.
@@ -5352,7 +5352,7 @@ func setTensor4dDescriptorEx(tensorDesc TensorDescriptor, dataType DataType, n i
 	if err := checkLibSym("cudnnSetTensor4dDescriptorEx"); err != nil {
 		return err
 	}
-	return toError(fnsetTensor4dDescriptorEx(tensorDesc, dataType, n, c, h, w, nStride, cStride, hStride, wStride))
+	return toError(fnsetTensor4dDescriptorEx(tensorDesc, dataType, n, c, h, w, nStride, cStride, hStride, wStride), "cudnnSetTensor4dDescriptorEx")
 }
 
 // setTensorNdDescriptor initializes a previously created generic tensor descriptor object.
@@ -5374,7 +5374,7 @@ func setTensorNdDescriptor(tensorDesc TensorDescriptor, dataType DataType, dimA 
 	if len(strideA) != len(dimA) {
 		return fmt.Errorf("strideA has %d elements, dimA has %d", len(strideA), len(dimA))
 	}
-	if err := toError(fnsetTensorNdDescriptor(tensorDesc, dataType, int32(len(dimA)), unsafe.SliceData(dimA), unsafe.SliceData(strideA))); err != nil {
+	if err := toError(fnsetTensorNdDescriptor(tensorDesc, dataType, int32(len(dimA)), unsafe.SliceData(dimA), unsafe.SliceData(strideA)), "cudnnSetTensorNdDescriptor"); err != nil {
 		return err
 	}
 	return nil
@@ -5397,7 +5397,7 @@ func setTensorNdDescriptorEx(tensorDesc TensorDescriptor, format TensorFormat, d
 	if err := checkLibSym("cudnnSetTensorNdDescriptorEx"); err != nil {
 		return err
 	}
-	if err := toError(fnsetTensorNdDescriptorEx(tensorDesc, format, dataType, int32(len(dimA)), unsafe.SliceData(dimA))); err != nil {
+	if err := toError(fnsetTensorNdDescriptorEx(tensorDesc, format, dataType, int32(len(dimA)), unsafe.SliceData(dimA)), "cudnnSetTensorNdDescriptorEx"); err != nil {
 		return err
 	}
 	return nil
@@ -5424,7 +5424,7 @@ func setTensorTransformDescriptor(transformDesc TensorTransformDescriptor, nbDim
 	if err := checkLibSym("cudnnSetTensorTransformDescriptor"); err != nil {
 		return err
 	}
-	return toError(fnsetTensorTransformDescriptor(transformDesc, nbDims, destFormat, padBeforeA, padAfterA, foldA, direction))
+	return toError(fnsetTensorTransformDescriptor(transformDesc, nbDims, destFormat, padBeforeA, padAfterA, foldA, direction), "cudnnSetTensorTransformDescriptor")
 }
 
 // softmaxBackward This routine computes the gradient of the softmax function.
@@ -5447,7 +5447,7 @@ func softmaxBackward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alp
 	if err := checkLibSym("cudnnSoftmaxBackward"); err != nil {
 		return err
 	}
-	return toError(fnsoftmaxBackward(handle, algo, mode, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), beta, dxDesc, uintptr(dx)))
+	return toError(fnsoftmaxBackward(handle, algo, mode, alpha, yDesc, uintptr(y), dyDesc, uintptr(dy), beta, dxDesc, uintptr(dx)), "cudnnSoftmaxBackward")
 }
 
 // softmaxForward This routine computes the softmax function.
@@ -5468,7 +5468,7 @@ func softmaxForward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alph
 	if err := checkLibSym("cudnnSoftmaxForward"); err != nil {
 		return err
 	}
-	return toError(fnsoftmaxForward(handle, algo, mode, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
+	return toError(fnsoftmaxForward(handle, algo, mode, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)), "cudnnSoftmaxForward")
 }
 
 // spatialTfGridGeneratorBackward computes the gradient of a grid generation operation.
@@ -5491,7 +5491,7 @@ func spatialTfGridGeneratorBackward(handle Handle, stDesc SpatialTransformerDesc
 	if err := checkLibSym("cudnnSpatialTfGridGeneratorBackward"); err != nil {
 		return err
 	}
-	return toError(fnspatialTfGridGeneratorBackward(handle, stDesc, uintptr(dgrid), uintptr(dtheta)))
+	return toError(fnspatialTfGridGeneratorBackward(handle, stDesc, uintptr(dgrid), uintptr(dtheta)), "cudnnSpatialTfGridGeneratorBackward")
 }
 
 // spatialTfGridGeneratorForward generates a grid of coordinates in the input tensor corresponding to each pixel from the output tensor.
@@ -5512,7 +5512,7 @@ func spatialTfGridGeneratorForward(handle Handle, stDesc SpatialTransformerDescr
 	if err := checkLibSym("cudnnSpatialTfGridGeneratorForward"); err != nil {
 		return err
 	}
-	return toError(fnspatialTfGridGeneratorForward(handle, stDesc, uintptr(theta), uintptr(grid)))
+	return toError(fnspatialTfGridGeneratorForward(handle, stDesc, uintptr(theta), uintptr(grid)), "cudnnSpatialTfGridGeneratorForward")
 }
 
 // spatialTfSamplerBackward computes the gradient of a sampling operation.
@@ -5537,7 +5537,7 @@ func spatialTfSamplerBackward(handle Handle, stDesc SpatialTransformerDescriptor
 	if err := checkLibSym("cudnnSpatialTfSamplerBackward"); err != nil {
 		return err
 	}
-	return toError(fnspatialTfSamplerBackward(handle, stDesc, alpha, xDesc, uintptr(x), beta, dxDesc, uintptr(dx), alphaDgrid, dyDesc, uintptr(dy), uintptr(grid), betaDgrid, uintptr(dgrid)))
+	return toError(fnspatialTfSamplerBackward(handle, stDesc, alpha, xDesc, uintptr(x), beta, dxDesc, uintptr(dx), alphaDgrid, dyDesc, uintptr(dy), uintptr(grid), betaDgrid, uintptr(dgrid)), "cudnnSpatialTfSamplerBackward")
 }
 
 // spatialTfSamplerForward performs a sampler operation and generates the output tensor using the grid given by the grid generator.
@@ -5560,7 +5560,7 @@ func spatialTfSamplerForward(handle Handle, stDesc SpatialTransformerDescriptor,
 	if err := checkLibSym("cudnnSpatialTfSamplerForward"); err != nil {
 		return err
 	}
-	return toError(fnspatialTfSamplerForward(handle, stDesc, alpha, xDesc, uintptr(x), uintptr(grid), beta, yDesc, uintptr(y)))
+	return toError(fnspatialTfSamplerForward(handle, stDesc, alpha, xDesc, uintptr(x), uintptr(grid), beta, yDesc, uintptr(y)), "cudnnSpatialTfSamplerForward")
 }
 
 // transformFilter converts the filter between different formats, data types, or dimensions based on the described transformation.
@@ -5585,7 +5585,7 @@ func transformFilter(handle Handle, transDesc TensorTransformDescriptor, alpha u
 	if err := checkLibSym("cudnnTransformFilter"); err != nil {
 		return err
 	}
-	return toError(fntransformFilter(handle, transDesc, alpha, srcDesc, uintptr(srcData), beta, destDesc, uintptr(destData)))
+	return toError(fntransformFilter(handle, transDesc, alpha, srcDesc, uintptr(srcData), beta, destDesc, uintptr(destData)), "cudnnTransformFilter")
 }
 
 // transformTensor copies the scaled data from one tensor to another tensor with a different layout.
@@ -5610,7 +5610,7 @@ func transformTensor(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor
 	if err := checkLibSym("cudnnTransformTensor"); err != nil {
 		return err
 	}
-	return toError(fntransformTensor(handle, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)))
+	return toError(fntransformTensor(handle, alpha, xDesc, uintptr(x), beta, yDesc, uintptr(y)), "cudnnTransformTensor")
 }
 
 // transformTensorEx converts the tensor layouts between different formats.
@@ -5635,5 +5635,5 @@ func transformTensorEx(handle Handle, transDesc TensorTransformDescriptor, alpha
 	if err := checkLibSym("cudnnTransformTensorEx"); err != nil {
 		return err
 	}
-	return toError(fntransformTensorEx(handle, transDesc, alpha, srcDesc, uintptr(srcData), beta, destDesc, uintptr(destData)))
+	return toError(fntransformTensorEx(handle, transDesc, alpha, srcDesc, uintptr(srcData), beta, destDesc, uintptr(destData)), "cudnnTransformTensorEx")
 }

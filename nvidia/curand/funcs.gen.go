@@ -40,7 +40,7 @@ func CreateGenerator(rngType RngType) (Generator, error) {
 		return zero, err
 	}
 	var out Generator
-	if err := toError(fnCreateGenerator(&out, rngType)); err != nil {
+	if err := toError(fnCreateGenerator(&out, rngType), "curandCreateGenerator"); err != nil {
 		var zero Generator
 		return zero, err
 	}
@@ -54,7 +54,7 @@ func CreateGeneratorHost(rngType RngType) (Generator, error) {
 		return zero, err
 	}
 	var out Generator
-	if err := toError(fnCreateGeneratorHost(&out, rngType)); err != nil {
+	if err := toError(fnCreateGeneratorHost(&out, rngType), "curandCreateGeneratorHost"); err != nil {
 		var zero Generator
 		return zero, err
 	}
@@ -68,7 +68,7 @@ func CreatePoissonDistribution(lambda float64) (DiscreteDistribution, error) {
 		return zero, err
 	}
 	var out DiscreteDistribution
-	if err := toError(fnCreatePoissonDistribution(lambda, &out)); err != nil {
+	if err := toError(fnCreatePoissonDistribution(lambda, &out), "curandCreatePoissonDistribution"); err != nil {
 		var zero DiscreteDistribution
 		return zero, err
 	}
@@ -80,7 +80,7 @@ func destroyDistribution(discreteDistribution DiscreteDistribution) error {
 	if err := checkLibSym("curandDestroyDistribution"); err != nil {
 		return err
 	}
-	return toError(fndestroyDistribution(discreteDistribution))
+	return toError(fndestroyDistribution(discreteDistribution), "curandDestroyDistribution")
 }
 
 // destroyGenerator wraps curandDestroyGenerator.
@@ -88,7 +88,7 @@ func destroyGenerator(generator Generator) error {
 	if err := checkLibSym("curandDestroyGenerator"); err != nil {
 		return err
 	}
-	return toError(fndestroyGenerator(generator))
+	return toError(fndestroyGenerator(generator), "curandDestroyGenerator")
 }
 
 // generate wraps curandGenerate.
@@ -96,7 +96,7 @@ func generate(generator Generator, outputPtr *uint32, num uint) error {
 	if err := checkLibSym("curandGenerate"); err != nil {
 		return err
 	}
-	return toError(fngenerate(generator, outputPtr, num))
+	return toError(fngenerate(generator, outputPtr, num), "curandGenerate")
 }
 
 // generateBinomial wraps curandGenerateBinomial.
@@ -104,7 +104,7 @@ func generateBinomial(generator Generator, outputPtr *uint32, num uint, n uint32
 	if err := checkLibSym("curandGenerateBinomial"); err != nil {
 		return err
 	}
-	return toError(fngenerateBinomial(generator, outputPtr, num, n, p))
+	return toError(fngenerateBinomial(generator, outputPtr, num, n, p), "curandGenerateBinomial")
 }
 
 // generateLogNormal wraps curandGenerateLogNormal.
@@ -112,7 +112,7 @@ func generateLogNormal(generator Generator, outputPtr *float32, n uint, mean flo
 	if err := checkLibSym("curandGenerateLogNormal"); err != nil {
 		return err
 	}
-	return toError(fngenerateLogNormal(generator, outputPtr, n, mean, stddev))
+	return toError(fngenerateLogNormal(generator, outputPtr, n, mean, stddev), "curandGenerateLogNormal")
 }
 
 // generateLogNormalDouble wraps curandGenerateLogNormalDouble.
@@ -120,7 +120,7 @@ func generateLogNormalDouble(generator Generator, outputPtr *float64, n uint, me
 	if err := checkLibSym("curandGenerateLogNormalDouble"); err != nil {
 		return err
 	}
-	return toError(fngenerateLogNormalDouble(generator, outputPtr, n, mean, stddev))
+	return toError(fngenerateLogNormalDouble(generator, outputPtr, n, mean, stddev), "curandGenerateLogNormalDouble")
 }
 
 // generateLongLong wraps curandGenerateLongLong.
@@ -128,7 +128,7 @@ func generateLongLong(generator Generator, outputPtr *uint64, num uint) error {
 	if err := checkLibSym("curandGenerateLongLong"); err != nil {
 		return err
 	}
-	return toError(fngenerateLongLong(generator, outputPtr, num))
+	return toError(fngenerateLongLong(generator, outputPtr, num), "curandGenerateLongLong")
 }
 
 // generateNormal wraps curandGenerateNormal.
@@ -136,7 +136,7 @@ func generateNormal(generator Generator, outputPtr *float32, n uint, mean float3
 	if err := checkLibSym("curandGenerateNormal"); err != nil {
 		return err
 	}
-	return toError(fngenerateNormal(generator, outputPtr, n, mean, stddev))
+	return toError(fngenerateNormal(generator, outputPtr, n, mean, stddev), "curandGenerateNormal")
 }
 
 // generateNormalDouble wraps curandGenerateNormalDouble.
@@ -144,7 +144,7 @@ func generateNormalDouble(generator Generator, outputPtr *float64, n uint, mean 
 	if err := checkLibSym("curandGenerateNormalDouble"); err != nil {
 		return err
 	}
-	return toError(fngenerateNormalDouble(generator, outputPtr, n, mean, stddev))
+	return toError(fngenerateNormalDouble(generator, outputPtr, n, mean, stddev), "curandGenerateNormalDouble")
 }
 
 // generatePoisson wraps curandGeneratePoisson.
@@ -152,7 +152,7 @@ func generatePoisson(generator Generator, outputPtr *uint32, n uint, lambda floa
 	if err := checkLibSym("curandGeneratePoisson"); err != nil {
 		return err
 	}
-	return toError(fngeneratePoisson(generator, outputPtr, n, lambda))
+	return toError(fngeneratePoisson(generator, outputPtr, n, lambda), "curandGeneratePoisson")
 }
 
 // generateSeeds wraps curandGenerateSeeds.
@@ -160,7 +160,7 @@ func generateSeeds(generator Generator) error {
 	if err := checkLibSym("curandGenerateSeeds"); err != nil {
 		return err
 	}
-	return toError(fngenerateSeeds(generator))
+	return toError(fngenerateSeeds(generator), "curandGenerateSeeds")
 }
 
 // generateUniform wraps curandGenerateUniform.
@@ -168,7 +168,7 @@ func generateUniform(generator Generator, outputPtr *float32, num uint) error {
 	if err := checkLibSym("curandGenerateUniform"); err != nil {
 		return err
 	}
-	return toError(fngenerateUniform(generator, outputPtr, num))
+	return toError(fngenerateUniform(generator, outputPtr, num), "curandGenerateUniform")
 }
 
 // generateUniformDouble wraps curandGenerateUniformDouble.
@@ -176,7 +176,7 @@ func generateUniformDouble(generator Generator, outputPtr *float64, num uint) er
 	if err := checkLibSym("curandGenerateUniformDouble"); err != nil {
 		return err
 	}
-	return toError(fngenerateUniformDouble(generator, outputPtr, num))
+	return toError(fngenerateUniformDouble(generator, outputPtr, num), "curandGenerateUniformDouble")
 }
 
 // GetDirectionVectors32 wraps curandGetDirectionVectors32.
@@ -186,7 +186,7 @@ func GetDirectionVectors32(set DirectionVectorSet) (*DirectionVectors32, error) 
 		return zero, err
 	}
 	var out *DirectionVectors32
-	if err := toError(fnGetDirectionVectors32(&out, set)); err != nil {
+	if err := toError(fnGetDirectionVectors32(&out, set), "curandGetDirectionVectors32"); err != nil {
 		var zero *DirectionVectors32
 		return zero, err
 	}
@@ -200,7 +200,7 @@ func GetDirectionVectors64(set DirectionVectorSet) (*DirectionVectors64, error) 
 		return zero, err
 	}
 	var out *DirectionVectors64
-	if err := toError(fnGetDirectionVectors64(&out, set)); err != nil {
+	if err := toError(fnGetDirectionVectors64(&out, set), "curandGetDirectionVectors64"); err != nil {
 		var zero *DirectionVectors64
 		return zero, err
 	}
@@ -214,7 +214,7 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetProperty(type_, &out)); err != nil {
+	if err := toError(fnGetProperty(type_, &out), "curandGetProperty"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -228,7 +228,7 @@ func GetScrambleConstants32() (*uint32, error) {
 		return zero, err
 	}
 	var out *uint32
-	if err := toError(fnGetScrambleConstants32(&out)); err != nil {
+	if err := toError(fnGetScrambleConstants32(&out), "curandGetScrambleConstants32"); err != nil {
 		var zero *uint32
 		return zero, err
 	}
@@ -242,7 +242,7 @@ func GetScrambleConstants64() (*uint64, error) {
 		return zero, err
 	}
 	var out *uint64
-	if err := toError(fnGetScrambleConstants64(&out)); err != nil {
+	if err := toError(fnGetScrambleConstants64(&out), "curandGetScrambleConstants64"); err != nil {
 		var zero *uint64
 		return zero, err
 	}
@@ -256,7 +256,7 @@ func GetVersion() (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetVersion(&out)); err != nil {
+	if err := toError(fnGetVersion(&out), "curandGetVersion"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -268,7 +268,7 @@ func setGeneratorOffset(generator Generator, offset uint64) error {
 	if err := checkLibSym("curandSetGeneratorOffset"); err != nil {
 		return err
 	}
-	return toError(fnsetGeneratorOffset(generator, offset))
+	return toError(fnsetGeneratorOffset(generator, offset), "curandSetGeneratorOffset")
 }
 
 // setGeneratorOrdering wraps curandSetGeneratorOrdering.
@@ -276,7 +276,7 @@ func setGeneratorOrdering(generator Generator, order Ordering) error {
 	if err := checkLibSym("curandSetGeneratorOrdering"); err != nil {
 		return err
 	}
-	return toError(fnsetGeneratorOrdering(generator, order))
+	return toError(fnsetGeneratorOrdering(generator, order), "curandSetGeneratorOrdering")
 }
 
 // setPseudoRandomGeneratorSeed wraps curandSetPseudoRandomGeneratorSeed.
@@ -284,7 +284,7 @@ func setPseudoRandomGeneratorSeed(generator Generator, seed uint64) error {
 	if err := checkLibSym("curandSetPseudoRandomGeneratorSeed"); err != nil {
 		return err
 	}
-	return toError(fnsetPseudoRandomGeneratorSeed(generator, seed))
+	return toError(fnsetPseudoRandomGeneratorSeed(generator, seed), "curandSetPseudoRandomGeneratorSeed")
 }
 
 // setQuasiRandomGeneratorDimensions wraps curandSetQuasiRandomGeneratorDimensions.
@@ -292,7 +292,7 @@ func setQuasiRandomGeneratorDimensions(generator Generator, numDimensions uint32
 	if err := checkLibSym("curandSetQuasiRandomGeneratorDimensions"); err != nil {
 		return err
 	}
-	return toError(fnsetQuasiRandomGeneratorDimensions(generator, numDimensions))
+	return toError(fnsetQuasiRandomGeneratorDimensions(generator, numDimensions), "curandSetQuasiRandomGeneratorDimensions")
 }
 
 // setStream wraps curandSetStream.
@@ -300,5 +300,5 @@ func setStream(generator Generator, stream Stream) error {
 	if err := checkLibSym("curandSetStream"); err != nil {
 		return err
 	}
-	return toError(fnsetStream(generator, stream))
+	return toError(fnsetStream(generator, stream), "curandSetStream")
 }

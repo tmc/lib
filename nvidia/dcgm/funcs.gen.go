@@ -127,7 +127,7 @@ func ConnectV2(ipAddress *byte, connectParams *ConnectV2Params) (Handle, error) 
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnConnectV2(ipAddress, connectParams, &out)); err != nil {
+	if err := toError(fnConnectV2(ipAddress, connectParams, &out), "dcgmConnect_v2"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -147,7 +147,7 @@ func ConnectV3(connectionString *byte, connectParams *ConnectV3Params) (Handle, 
 		return zero, err
 	}
 	var out Handle
-	if err := toError(fnConnectV3(connectionString, connectParams, &out)); err != nil {
+	if err := toError(fnConnectV3(connectionString, connectParams, &out), "dcgmConnect_v3"); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -163,7 +163,7 @@ func Disconnect(pDcgmHandle Handle) error {
 	if err := checkLibSym("dcgmDisconnect"); err != nil {
 		return err
 	}
-	return toError(fnDisconnect(pDcgmHandle))
+	return toError(fnDisconnect(pDcgmHandle), "dcgmDisconnect")
 }
 
 // EntitiesGetLatestValues Request the latest cached or live field value for a list of fields for a group of entities
@@ -184,7 +184,7 @@ func EntitiesGetLatestValues(pDcgmHandle Handle, entities *GroupEntityPair, enti
 	if err := checkLibSym("dcgmEntitiesGetLatestValues"); err != nil {
 		return err
 	}
-	return toError(fnEntitiesGetLatestValues(pDcgmHandle, entities, entityCount, fields, fieldCount, flags, values))
+	return toError(fnEntitiesGetLatestValues(pDcgmHandle, entities, entityCount, fields, fieldCount, flags, values), "dcgmEntitiesGetLatestValues")
 }
 
 // EntityGetLatestValues Request latest cached field value for a group of fields for a specific entity
@@ -201,7 +201,7 @@ func EntityGetLatestValues(pDcgmHandle Handle, entityGroup FieldEntityGroup, ent
 	if err := checkLibSym("dcgmEntityGetLatestValues"); err != nil {
 		return err
 	}
-	return toError(fnEntityGetLatestValues(pDcgmHandle, entityGroup, entityId, fields, count, values))
+	return toError(fnEntityGetLatestValues(pDcgmHandle, entityGroup, entityId, fields, count, values), "dcgmEntityGetLatestValues")
 }
 
 // FieldGroupCreate Used to create a group of fields and return the handle in dcgmFieldGroupId
@@ -219,7 +219,7 @@ func FieldGroupCreate(dcgmHandle Handle, numFieldIds int32, fieldIds *uint16, fi
 		return zero, err
 	}
 	var out FieldGrp
-	if err := toError(fnFieldGroupCreate(dcgmHandle, numFieldIds, fieldIds, fieldGroupName, &out)); err != nil {
+	if err := toError(fnFieldGroupCreate(dcgmHandle, numFieldIds, fieldIds, fieldGroupName, &out), "dcgmFieldGroupCreate"); err != nil {
 		var zero FieldGrp
 		return zero, err
 	}
@@ -236,7 +236,7 @@ func FieldGroupDestroy(dcgmHandle Handle, dcgmFieldGroupId FieldGrp) error {
 	if err := checkLibSym("dcgmFieldGroupDestroy"); err != nil {
 		return err
 	}
-	return toError(fnFieldGroupDestroy(dcgmHandle, dcgmFieldGroupId))
+	return toError(fnFieldGroupDestroy(dcgmHandle, dcgmFieldGroupId), "dcgmFieldGroupDestroy")
 }
 
 // FieldGroupGetAll Used to get information about all field groups in the system.
@@ -249,7 +249,7 @@ func FieldGroupGetAll(dcgmHandle Handle, allGroupInfo *AllFieldGroup) error {
 	if err := checkLibSym("dcgmFieldGroupGetAll"); err != nil {
 		return err
 	}
-	return toError(fnFieldGroupGetAll(dcgmHandle, allGroupInfo))
+	return toError(fnFieldGroupGetAll(dcgmHandle, allGroupInfo), "dcgmFieldGroupGetAll")
 }
 
 // FieldGroupGetInfo Used to get information about a field group that was created with [Handle.FieldGroupCreate].
@@ -262,7 +262,7 @@ func FieldGroupGetInfo(dcgmHandle Handle, fieldGroupInfo *FieldGroupInfo) error 
 	if err := checkLibSym("dcgmFieldGroupGetInfo"); err != nil {
 		return err
 	}
-	return toError(fnFieldGroupGetInfo(dcgmHandle, fieldGroupInfo))
+	return toError(fnFieldGroupGetInfo(dcgmHandle, fieldGroupInfo), "dcgmFieldGroupGetInfo")
 }
 
 // GetAllDevices This method is used to get identifiers corresponding to all the devices on the system.
@@ -281,7 +281,7 @@ func GetAllDevices(pDcgmHandle Handle, gpuIdList *uint32) (int32, error) {
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetAllDevices(pDcgmHandle, gpuIdList, &out)); err != nil {
+	if err := toError(fnGetAllDevices(pDcgmHandle, gpuIdList, &out), "dcgmGetAllDevices"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -304,7 +304,7 @@ func GetAllSupportedDevices(pDcgmHandle Handle, gpuIdList *uint32) (int32, error
 		return zero, err
 	}
 	var out int32
-	if err := toError(fnGetAllSupportedDevices(pDcgmHandle, gpuIdList, &out)); err != nil {
+	if err := toError(fnGetAllSupportedDevices(pDcgmHandle, gpuIdList, &out), "dcgmGetAllSupportedDevices"); err != nil {
 		var zero int32
 		return zero, err
 	}
@@ -323,7 +323,7 @@ func GetCpuHierarchyV2(dcgmHandle Handle, cpuHierarchy *CpuHierarchy) error {
 	if err := checkLibSym("dcgmGetCpuHierarchy_v2"); err != nil {
 		return err
 	}
-	return toError(fnGetCpuHierarchyV2(dcgmHandle, cpuHierarchy))
+	return toError(fnGetCpuHierarchyV2(dcgmHandle, cpuHierarchy), "dcgmGetCpuHierarchy_v2")
 }
 
 // GetDeviceAttributes Gets device attributes corresponding to the gpuId.
@@ -337,7 +337,7 @@ func GetDeviceAttributes(pDcgmHandle Handle, gpuId uint32, pDcgmAttr *DeviceAttr
 	if err := checkLibSym("dcgmGetDeviceAttributes"); err != nil {
 		return err
 	}
-	return toError(fnGetDeviceAttributes(pDcgmHandle, gpuId, pDcgmAttr))
+	return toError(fnGetDeviceAttributes(pDcgmHandle, gpuId, pDcgmAttr), "dcgmGetDeviceAttributes")
 }
 
 // GetDeviceTopology Gets device topology corresponding to the gpuId.
@@ -351,7 +351,7 @@ func GetDeviceTopology(pDcgmHandle Handle, gpuId uint32, pDcgmDeviceTopology *De
 	if err := checkLibSym("dcgmGetDeviceTopology"); err != nil {
 		return err
 	}
-	return toError(fnGetDeviceTopology(pDcgmHandle, gpuId, pDcgmDeviceTopology))
+	return toError(fnGetDeviceTopology(pDcgmHandle, gpuId, pDcgmDeviceTopology), "dcgmGetDeviceTopology")
 }
 
 // GetDeviceWorkloadPowerProfileInfo Gets device workload power profile information and status.
@@ -366,7 +366,7 @@ func GetDeviceWorkloadPowerProfileInfo(pDcgmHandle Handle, gpuId uint32, profile
 	if err := checkLibSym("dcgmGetDeviceWorkloadPowerProfileInfo"); err != nil {
 		return err
 	}
-	return toError(fnGetDeviceWorkloadPowerProfileInfo(pDcgmHandle, gpuId, profilesInfo, profilesStatus))
+	return toError(fnGetDeviceWorkloadPowerProfileInfo(pDcgmHandle, gpuId, profilesInfo, profilesStatus), "dcgmGetDeviceWorkloadPowerProfileInfo")
 }
 
 // GetEntityGroupEntities Gets the list of entities that exist for a given entity group.
@@ -382,7 +382,7 @@ func GetEntityGroupEntities(dcgmHandle Handle, entityGroup FieldEntityGroup, ent
 	if err := checkLibSym("dcgmGetEntityGroupEntities"); err != nil {
 		return err
 	}
-	return toError(fnGetEntityGroupEntities(dcgmHandle, entityGroup, entities, numEntities, flags))
+	return toError(fnGetEntityGroupEntities(dcgmHandle, entityGroup, entities, numEntities, flags), "dcgmGetEntityGroupEntities")
 }
 
 // GetFieldSummary Get a summary of the values for a field id over a period of time.
@@ -395,7 +395,7 @@ func GetFieldSummary(pDcgmHandle Handle, request *FieldSummaryRequest) error {
 	if err := checkLibSym("dcgmGetFieldSummary"); err != nil {
 		return err
 	}
-	return toError(fnGetFieldSummary(pDcgmHandle, request))
+	return toError(fnGetFieldSummary(pDcgmHandle, request), "dcgmGetFieldSummary")
 }
 
 // GetGpuChipArchitecture Gets simplified GPU chip architecture enumeration.
@@ -411,7 +411,7 @@ func GetGpuChipArchitecture(dcgmHandle Handle, gpuId uint32) (ChipArchitecture, 
 		return zero, err
 	}
 	var out ChipArchitecture
-	if err := toError(fnGetGpuChipArchitecture(dcgmHandle, gpuId, &out)); err != nil {
+	if err := toError(fnGetGpuChipArchitecture(dcgmHandle, gpuId, &out), "dcgmGetGpuChipArchitecture"); err != nil {
 		var zero ChipArchitecture
 		return zero, err
 	}
@@ -428,7 +428,7 @@ func GetGpuInstanceHierarchy(dcgmHandle Handle, hierarchy *MigHierarchyV2) error
 	if err := checkLibSym("dcgmGetGpuInstanceHierarchy"); err != nil {
 		return err
 	}
-	return toError(fnGetGpuInstanceHierarchy(dcgmHandle, hierarchy))
+	return toError(fnGetGpuInstanceHierarchy(dcgmHandle, hierarchy), "dcgmGetGpuInstanceHierarchy")
 }
 
 // GetGpuStatus Get the status of a GPU
@@ -444,7 +444,7 @@ func GetGpuStatus(pDcgmHandle Handle, gpuId uint32) (EntityStatus, error) {
 		return zero, err
 	}
 	var out EntityStatus
-	if err := toError(fnGetGpuStatus(pDcgmHandle, gpuId, &out)); err != nil {
+	if err := toError(fnGetGpuStatus(pDcgmHandle, gpuId, &out), "dcgmGetGpuStatus"); err != nil {
 		var zero EntityStatus
 		return zero, err
 	}
@@ -462,7 +462,7 @@ func GetGroupTopology(pDcgmHandle Handle, groupId GpuGrp, pDcgmGroupTopology *Gr
 	if err := checkLibSym("dcgmGetGroupTopology"); err != nil {
 		return err
 	}
-	return toError(fnGetGroupTopology(pDcgmHandle, groupId, pDcgmGroupTopology))
+	return toError(fnGetGroupTopology(pDcgmHandle, groupId, pDcgmGroupTopology), "dcgmGetGroupTopology")
 }
 
 // GetLatestValuesForFields Request latest cached field value for a GPU
@@ -478,7 +478,7 @@ func GetLatestValuesForFields(pDcgmHandle Handle, gpuId int32, fields *uint16, c
 	if err := checkLibSym("dcgmGetLatestValuesForFields"); err != nil {
 		return err
 	}
-	return toError(fnGetLatestValuesForFields(pDcgmHandle, gpuId, fields, count, values))
+	return toError(fnGetLatestValuesForFields(pDcgmHandle, gpuId, fields, count, values), "dcgmGetLatestValuesForFields")
 }
 
 // GetNvLinkLinkStatus Get the NvLink link status for every NvLink in this system.
@@ -491,7 +491,7 @@ func GetNvLinkLinkStatus(dcgmHandle Handle, linkStatus *NvLinkStatus) error {
 	if err := checkLibSym("dcgmGetNvLinkLinkStatus"); err != nil {
 		return err
 	}
-	return toError(fnGetNvLinkLinkStatus(dcgmHandle, linkStatus))
+	return toError(fnGetNvLinkLinkStatus(dcgmHandle, linkStatus), "dcgmGetNvLinkLinkStatus")
 }
 
 // GetNvLinkP2PStatus Get the NvLink P2P status for every GPU NvLink in this system.
@@ -504,7 +504,7 @@ func GetNvLinkP2PStatus(dcgmHandle Handle, linkStatus *NvLinkP2PStatus) error {
 	if err := checkLibSym("dcgmGetNvLinkP2PStatus"); err != nil {
 		return err
 	}
-	return toError(fnGetNvLinkP2PStatus(dcgmHandle, linkStatus))
+	return toError(fnGetNvLinkP2PStatus(dcgmHandle, linkStatus), "dcgmGetNvLinkP2PStatus")
 }
 
 // GroupAddDevice Used to add specified GPU Id to the group represented by groupId.
@@ -518,7 +518,7 @@ func GroupAddDevice(pDcgmHandle Handle, groupId GpuGrp, gpuId uint32) error {
 	if err := checkLibSym("dcgmGroupAddDevice"); err != nil {
 		return err
 	}
-	return toError(fnGroupAddDevice(pDcgmHandle, groupId, gpuId))
+	return toError(fnGroupAddDevice(pDcgmHandle, groupId, gpuId), "dcgmGroupAddDevice")
 }
 
 // GroupAddEntity Used to add specified entity to the group represented by groupId.
@@ -533,7 +533,7 @@ func GroupAddEntity(pDcgmHandle Handle, groupId GpuGrp, entityGroupId FieldEntit
 	if err := checkLibSym("dcgmGroupAddEntity"); err != nil {
 		return err
 	}
-	return toError(fnGroupAddEntity(pDcgmHandle, groupId, entityGroupId, entityId))
+	return toError(fnGroupAddEntity(pDcgmHandle, groupId, entityGroupId, entityId), "dcgmGroupAddEntity")
 }
 
 // GroupCreate Used to create a entity group handle which can store one or more entity Ids as an opaque handle returned in pDcgmGrpId.
@@ -556,7 +556,7 @@ func GroupCreate(pDcgmHandle Handle, type_ GroupType, groupName *byte) (GpuGrp, 
 		return zero, err
 	}
 	var out GpuGrp
-	if err := toError(fnGroupCreate(pDcgmHandle, type_, groupName, &out)); err != nil {
+	if err := toError(fnGroupCreate(pDcgmHandle, type_, groupName, &out), "dcgmGroupCreate"); err != nil {
 		var zero GpuGrp
 		return zero, err
 	}
@@ -573,7 +573,7 @@ func GroupDestroy(pDcgmHandle Handle, groupId GpuGrp) error {
 	if err := checkLibSym("dcgmGroupDestroy"); err != nil {
 		return err
 	}
-	return toError(fnGroupDestroy(pDcgmHandle, groupId))
+	return toError(fnGroupDestroy(pDcgmHandle, groupId), "dcgmGroupDestroy")
 }
 
 // GroupGetAllIds Used to get the Ids of all groups of entities.
@@ -589,7 +589,7 @@ func GroupGetAllIds(pDcgmHandle Handle, groupIdList *GpuGrp) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnGroupGetAllIds(pDcgmHandle, groupIdList, &out)); err != nil {
+	if err := toError(fnGroupGetAllIds(pDcgmHandle, groupIdList, &out), "dcgmGroupGetAllIds"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -607,7 +607,7 @@ func GroupGetInfo(pDcgmHandle Handle, groupId GpuGrp, pDcgmGroupInfo *GroupInfo)
 	if err := checkLibSym("dcgmGroupGetInfo"); err != nil {
 		return err
 	}
-	return toError(fnGroupGetInfo(pDcgmHandle, groupId, pDcgmGroupInfo))
+	return toError(fnGroupGetInfo(pDcgmHandle, groupId, pDcgmGroupInfo), "dcgmGroupGetInfo")
 }
 
 // GroupRemoveDevice Used to remove specified GPU Id from the group represented by groupId.
@@ -621,7 +621,7 @@ func GroupRemoveDevice(pDcgmHandle Handle, groupId GpuGrp, gpuId uint32) error {
 	if err := checkLibSym("dcgmGroupRemoveDevice"); err != nil {
 		return err
 	}
-	return toError(fnGroupRemoveDevice(pDcgmHandle, groupId, gpuId))
+	return toError(fnGroupRemoveDevice(pDcgmHandle, groupId, gpuId), "dcgmGroupRemoveDevice")
 }
 
 // GroupRemoveEntity Used to remove specified entity from the group represented by groupId.
@@ -636,7 +636,7 @@ func GroupRemoveEntity(pDcgmHandle Handle, groupId GpuGrp, entityGroupId FieldEn
 	if err := checkLibSym("dcgmGroupRemoveEntity"); err != nil {
 		return err
 	}
-	return toError(fnGroupRemoveEntity(pDcgmHandle, groupId, entityGroupId, entityId))
+	return toError(fnGroupRemoveEntity(pDcgmHandle, groupId, entityGroupId, entityId), "dcgmGroupRemoveEntity")
 }
 
 // HealthCheck Check the configured watches for any errors/failures/warnings that have occurred since the last time this check was invoked.
@@ -650,7 +650,7 @@ func HealthCheck(pDcgmHandle Handle, groupId GpuGrp, results *HealthResponse) er
 	if err := checkLibSym("dcgmHealthCheck"); err != nil {
 		return err
 	}
-	return toError(fnHealthCheck(pDcgmHandle, groupId, results))
+	return toError(fnHealthCheck(pDcgmHandle, groupId, results), "dcgmHealthCheck")
 }
 
 // HealthGet Retrieve the current state of the DCGM health check system
@@ -664,7 +664,7 @@ func HealthGet(pDcgmHandle Handle, groupId GpuGrp, systems *HealthSystems) error
 	if err := checkLibSym("dcgmHealthGet"); err != nil {
 		return err
 	}
-	return toError(fnHealthGet(pDcgmHandle, groupId, systems))
+	return toError(fnHealthGet(pDcgmHandle, groupId, systems), "dcgmHealthGet")
 }
 
 // HostengineEnvironmentVariableInfo This method is used to retrieve the value of an environment variable from the hostengine.
@@ -677,7 +677,7 @@ func HostengineEnvironmentVariableInfo(pDcgmHandle Handle, pEnvVarInfo *EnvVarIn
 	if err := checkLibSym("dcgmHostengineEnvironmentVariableInfo"); err != nil {
 		return err
 	}
-	return toError(fnHostengineEnvironmentVariableInfo(pDcgmHandle, pEnvVarInfo))
+	return toError(fnHostengineEnvironmentVariableInfo(pDcgmHandle, pEnvVarInfo), "dcgmHostengineEnvironmentVariableInfo")
 }
 
 // HostengineIsHealthy is used to return whether or not the host engine considers itself healthy
@@ -690,7 +690,7 @@ func HostengineIsHealthy(pDcgmHandle Handle, heHealth *HostengineHealth) error {
 	if err := checkLibSym("dcgmHostengineIsHealthy"); err != nil {
 		return err
 	}
-	return toError(fnHostengineIsHealthy(pDcgmHandle, heHealth))
+	return toError(fnHostengineIsHealthy(pDcgmHandle, heHealth), "dcgmHostengineIsHealthy")
 }
 
 // HostengineVersionInfo This method is used to return information about the build environment of the hostengine.
@@ -703,7 +703,7 @@ func HostengineVersionInfo(pDcgmHandle Handle, pVersionInfo *VersionInfoStruct) 
 	if err := checkLibSym("dcgmHostengineVersionInfo"); err != nil {
 		return err
 	}
-	return toError(fnHostengineVersionInfo(pDcgmHandle, pVersionInfo))
+	return toError(fnHostengineVersionInfo(pDcgmHandle, pVersionInfo), "dcgmHostengineVersionInfo")
 }
 
 // Init This method is used to initialize DCGM within this process.
@@ -717,7 +717,7 @@ func Init() error {
 	if err := checkLibSym("dcgmInit"); err != nil {
 		return err
 	}
-	return toError(fnInit())
+	return toError(fnInit(), "dcgmInit")
 }
 
 // IntrospectGetHostengineCpuUtilization Retrieve the CPU utilization of the DCGM hostengine process.
@@ -731,7 +731,7 @@ func IntrospectGetHostengineCpuUtilization(pDcgmHandle Handle, cpuUtil *Introspe
 	if err := checkLibSym("dcgmIntrospectGetHostengineCpuUtilization"); err != nil {
 		return err
 	}
-	return toError(fnIntrospectGetHostengineCpuUtilization(pDcgmHandle, cpuUtil, waitIfNoData))
+	return toError(fnIntrospectGetHostengineCpuUtilization(pDcgmHandle, cpuUtil, waitIfNoData), "dcgmIntrospectGetHostengineCpuUtilization")
 }
 
 // IntrospectGetHostengineMemoryUsage Retrieve the total amount of memory that the hostengine process is currently using.
@@ -745,7 +745,7 @@ func IntrospectGetHostengineMemoryUsage(pDcgmHandle Handle, memoryInfo *Introspe
 	if err := checkLibSym("dcgmIntrospectGetHostengineMemoryUsage"); err != nil {
 		return err
 	}
-	return toError(fnIntrospectGetHostengineMemoryUsage(pDcgmHandle, memoryInfo, waitIfNoData))
+	return toError(fnIntrospectGetHostengineMemoryUsage(pDcgmHandle, memoryInfo, waitIfNoData), "dcgmIntrospectGetHostengineMemoryUsage")
 }
 
 // ModuleGetStatuses Get the status of all of the DCGM modules.
@@ -758,7 +758,7 @@ func ModuleGetStatuses(pDcgmHandle Handle, moduleStatuses *ModuleGetStatusesStru
 	if err := checkLibSym("dcgmModuleGetStatuses"); err != nil {
 		return err
 	}
-	return toError(fnModuleGetStatuses(pDcgmHandle, moduleStatuses))
+	return toError(fnModuleGetStatuses(pDcgmHandle, moduleStatuses), "dcgmModuleGetStatuses")
 }
 
 // ModuleIdToName describes DCGM Module by given Module ID
@@ -770,7 +770,7 @@ func ModuleIdToName(id ModuleId) (uintptr, error) {
 		return zero, err
 	}
 	var out uintptr
-	if err := toError(fnModuleIdToName(id, &out)); err != nil {
+	if err := toError(fnModuleIdToName(id, &out), "dcgmModuleIdToName"); err != nil {
 		var zero uintptr
 		return zero, err
 	}
@@ -786,7 +786,7 @@ func PowerProfileIdToName(id PowerProfileType) (uintptr, error) {
 		return zero, err
 	}
 	var out uintptr
-	if err := toError(fnPowerProfileIdToName(id, &out)); err != nil {
+	if err := toError(fnPowerProfileIdToName(id, &out), "dcgmPowerProfileIdToName"); err != nil {
 		var zero uintptr
 		return zero, err
 	}
@@ -826,7 +826,7 @@ func ProfGetSupportedMetricGroups(pDcgmHandle Handle, metricGroups *ProfGetMetri
 	if err := checkLibSym("dcgmProfGetSupportedMetricGroups"); err != nil {
 		return err
 	}
-	return toError(fnProfGetSupportedMetricGroups(pDcgmHandle, metricGroups))
+	return toError(fnProfGetSupportedMetricGroups(pDcgmHandle, metricGroups), "dcgmProfGetSupportedMetricGroups")
 }
 
 // Shutdown This method is used to shut down DCGM.
@@ -836,7 +836,7 @@ func Shutdown() error {
 	if err := checkLibSym("dcgmShutdown"); err != nil {
 		return err
 	}
-	return toError(fnShutdown())
+	return toError(fnShutdown(), "dcgmShutdown")
 }
 
 // StartEmbeddedV2 Start an embedded host engine agent within this process.
@@ -854,7 +854,7 @@ func StartEmbeddedV2(params *StartEmbeddedV2ParamsV1) error {
 	if err := checkLibSym("dcgmStartEmbedded_v2"); err != nil {
 		return err
 	}
-	return toError(fnStartEmbeddedV2(params))
+	return toError(fnStartEmbeddedV2(params), "dcgmStartEmbedded_v2")
 }
 
 // StatusClear Used to clear all the errors in the status handle created by the API [NewStatusHandle].
@@ -866,7 +866,7 @@ func StatusClear(statusHandle StatusHandle) error {
 	if err := checkLibSym("dcgmStatusClear"); err != nil {
 		return err
 	}
-	return toError(fnStatusClear(statusHandle))
+	return toError(fnStatusClear(statusHandle), "dcgmStatusClear")
 }
 
 // StatusCreate Creates reference to DCGM status handler which can be used to get the statuses for multiple operations on one or more devices.
@@ -891,7 +891,7 @@ func StatusCreate() (StatusHandle, error) {
 		return zero, err
 	}
 	var out StatusHandle
-	if err := toError(fnStatusCreate(&out)); err != nil {
+	if err := toError(fnStatusCreate(&out), "dcgmStatusCreate"); err != nil {
 		var zero StatusHandle
 		return zero, err
 	}
@@ -907,7 +907,7 @@ func StatusDestroy(statusHandle StatusHandle) error {
 	if err := checkLibSym("dcgmStatusDestroy"); err != nil {
 		return err
 	}
-	return toError(fnStatusDestroy(statusHandle))
+	return toError(fnStatusDestroy(statusHandle), "dcgmStatusDestroy")
 }
 
 // StatusGetCount Used to get count of error entries stored inside the opaque handle statusHandle.
@@ -922,7 +922,7 @@ func StatusGetCount(statusHandle StatusHandle) (uint32, error) {
 		return zero, err
 	}
 	var out uint32
-	if err := toError(fnStatusGetCount(statusHandle, &out)); err != nil {
+	if err := toError(fnStatusGetCount(statusHandle, &out), "dcgmStatusGetCount"); err != nil {
 		var zero uint32
 		return zero, err
 	}
@@ -939,7 +939,7 @@ func StatusPopError(statusHandle StatusHandle, pDcgmErrorInfo *ErrorInfo) error 
 	if err := checkLibSym("dcgmStatusPopError"); err != nil {
 		return err
 	}
-	return toError(fnStatusPopError(statusHandle, pDcgmErrorInfo))
+	return toError(fnStatusPopError(statusHandle, pDcgmErrorInfo), "dcgmStatusPopError")
 }
 
 // StopEmbedded Stop the embedded host engine within this process that was started with [StartEmbeddedV2]
@@ -951,7 +951,7 @@ func StopEmbedded(pDcgmHandle Handle) error {
 	if err := checkLibSym("dcgmStopEmbedded"); err != nil {
 		return err
 	}
-	return toError(fnStopEmbedded(pDcgmHandle))
+	return toError(fnStopEmbedded(pDcgmHandle), "dcgmStopEmbedded")
 }
 
 // UnwatchFields Request that DCGM stop recording updates for a given field collection.
@@ -965,7 +965,7 @@ func UnwatchFields(pDcgmHandle Handle, groupId GpuGrp, fieldGroupId FieldGrp) er
 	if err := checkLibSym("dcgmUnwatchFields"); err != nil {
 		return err
 	}
-	return toError(fnUnwatchFields(pDcgmHandle, groupId, fieldGroupId))
+	return toError(fnUnwatchFields(pDcgmHandle, groupId, fieldGroupId), "dcgmUnwatchFields")
 }
 
 // UpdateAllFields This method is used to tell the DCGM module to update all the fields being watched.
@@ -982,7 +982,7 @@ func UpdateAllFields(pDcgmHandle Handle, waitForUpdate int32) error {
 	if err := checkLibSym("dcgmUpdateAllFields"); err != nil {
 		return err
 	}
-	return toError(fnUpdateAllFields(pDcgmHandle, waitForUpdate))
+	return toError(fnUpdateAllFields(pDcgmHandle, waitForUpdate), "dcgmUpdateAllFields")
 }
 
 // VersionInfo This method is used to return information about the build environment where DCGM was built.
@@ -994,7 +994,7 @@ func VersionInfo(pVersionInfo *VersionInfoStruct) error {
 	if err := checkLibSym("dcgmVersionInfo"); err != nil {
 		return err
 	}
-	return toError(fnVersionInfo(pVersionInfo))
+	return toError(fnVersionInfo(pVersionInfo), "dcgmVersionInfo")
 }
 
 // WatchFields Request that DCGM start recording updates for a given field collection.
@@ -1014,5 +1014,5 @@ func WatchFields(pDcgmHandle Handle, groupId GpuGrp, fieldGroupId FieldGrp, upda
 	if err := checkLibSym("dcgmWatchFields"); err != nil {
 		return err
 	}
-	return toError(fnWatchFields(pDcgmHandle, groupId, fieldGroupId, updateFreq, maxKeepAge, maxKeepSamples))
+	return toError(fnWatchFields(pDcgmHandle, groupId, fieldGroupId, updateFreq, maxKeepAge, maxKeepSamples), "dcgmWatchFields")
 }

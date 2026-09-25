@@ -2,12 +2,26 @@
 
 package cusolver
 
-// Destroy wraps cusolverDnDestroyParams.
+// Destroy destroys and releases any memory required by the structure.
+//
+// Returns:
+//   - [Success]: The resources were released successfully.
+//
+// Wraps cusolverDnDestroyParams.
 func (p Params) Destroy() error {
 	return destroyParams(p)
 }
 
-// SetAdvOptions wraps cusolverDnSetAdvOptions.
+// SetAdvOptions configures algorithm algo of function, a 64-bit API routine.
+//
+//   - function: The routine to be configured
+//   - algo: The algorithm to be configured
+//
+// Returns:
+//   - [ErrInvalidValue]: Wrong combination of function and algo.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnSetAdvOptions.
 func (p Params) SetAdvOptions(function Function, algo AlgMode) error {
 	return setAdvOptions(p, function, algo)
 }

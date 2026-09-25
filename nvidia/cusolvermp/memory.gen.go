@@ -15,7 +15,7 @@ func Malloc(grid Grid, size uint) (DevicePtr, error) {
 		return 0, err
 	}
 	var ptr DevicePtr
-	if err := toError(fnMalloc(grid, &ptr, size)); err != nil {
+	if err := toError(fnMalloc(grid, &ptr, size), "cusolverMpMalloc"); err != nil {
 		return 0, err
 	}
 	return ptr, nil
@@ -29,7 +29,7 @@ func Free(grid Grid, ptr DevicePtr) error {
 	if err := checkLibSym("cusolverMpFree"); err != nil {
 		return err
 	}
-	return toError(fnFree(grid, ptr))
+	return toError(fnFree(grid, ptr), "cusolverMpFree")
 }
 
 // BufferRegister wraps cusolverMpBufferRegister. It registers size bytes of
@@ -43,7 +43,7 @@ func BufferRegister(grid Grid, ptr DevicePtr, size uint) error {
 	if err := checkLibSym("cusolverMpBufferRegister"); err != nil {
 		return err
 	}
-	return toError(fnBufferRegister(grid, ptr, size))
+	return toError(fnBufferRegister(grid, ptr, size), "cusolverMpBufferRegister")
 }
 
 // BufferDeregister wraps cusolverMpBufferDeregister. It withdraws a
@@ -52,7 +52,7 @@ func BufferDeregister(grid Grid, ptr DevicePtr) error {
 	if err := checkLibSym("cusolverMpBufferDeregister"); err != nil {
 		return err
 	}
-	return toError(fnBufferDeregister(grid, ptr))
+	return toError(fnBufferDeregister(grid, ptr), "cusolverMpBufferDeregister")
 }
 
 // NUMROC wraps cusolverMpNUMROC. It reports how many rows or columns of an
@@ -89,7 +89,7 @@ func MatrixScatterH2D(handle Handle, m, n int64, dA DevicePtr, ia, ja int64, des
 	if err := checkLibSym("cusolverMpMatrixScatterH2D"); err != nil {
 		return err
 	}
-	return toError(fnMatrixScatterH2D(handle, m, n, dA, ia, ja, descA, root, hSrc, hLdSrc))
+	return toError(fnMatrixScatterH2D(handle, m, n, dA, ia, ja, descA, root, hSrc, hLdSrc), "cusolverMpMatrixScatterH2D")
 }
 
 // MatrixGatherD2H wraps cusolverMpMatrixGatherD2H. It collects the m-by-n
@@ -107,7 +107,7 @@ func MatrixGatherD2H(handle Handle, m, n int64, dA DevicePtr, ia, ja int64, desc
 	if err := checkLibSym("cusolverMpMatrixGatherD2H"); err != nil {
 		return err
 	}
-	return toError(fnMatrixGatherD2H(handle, m, n, dA, ia, ja, descA, root, hDst, hLdDst))
+	return toError(fnMatrixGatherD2H(handle, m, n, dA, ia, ja, descA, root, hDst, hLdDst), "cusolverMpMatrixGatherD2H")
 }
 
 // Malloc allocates device memory registered with g. See [Malloc].

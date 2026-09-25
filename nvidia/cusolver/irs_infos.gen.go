@@ -2,37 +2,94 @@
 
 package cusolver
 
-// NewIRSInfos wraps cusolverDnIRSInfosCreate.
+// NewIRSInfos creates and initializes the Infos structure that will hold the refinement information of an Iterative Refinement Solver (IRS) call.
+//
+// Returns:
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [Success]: The structure was initialized successfully.
+//
+// Wraps cusolverDnIRSInfosCreate.
 func NewIRSInfos() (IRSInfos, error) {
 	return iRSInfosCreate()
 }
 
-// Destroy wraps cusolverDnIRSInfosDestroy.
+// Destroy destroys and releases any memory required by the Infos structure.
+//
+// Returns:
+//   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
+//   - [Success]: The resources were released successfully.
+//
+// Wraps cusolverDnIRSInfosDestroy.
 func (i IRSInfos) Destroy() error {
 	return iRSInfosDestroy(i)
 }
 
-// MaxIters wraps cusolverDnIRSInfosGetMaxIters.
+// MaxIters returns the maximal allowed number of iterations that was set for the corresponding call to the IRS solver.
+//
+//   - maxiters: The maximal number of iterations that is currently set
+//
+// Returns:
+//   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSInfosGetMaxIters.
 func (i IRSInfos) MaxIters() (CusolverInt, error) {
 	return iRSInfosGetMaxIters(i)
 }
 
-// Niters wraps cusolverDnIRSInfosGetNiters.
+// Niters returns the total number of iterations performed by the IRS solver.
+//
+//   - niters: The total number of iterations performed by the IRS solver
+//
+// Returns:
+//   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSInfosGetNiters.
 func (i IRSInfos) Niters() (CusolverInt, error) {
 	return iRSInfosGetNiters(i)
 }
 
-// OuterNiters wraps cusolverDnIRSInfosGetOuterNiters.
+// OuterNiters returns the number of iterations performed by the outer refinement loop of the IRS solver.
+//
+//   - outerNiters: The number of iterations of the outer refinement loop of the IRS solver
+//
+// Returns:
+//   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSInfosGetOuterNiters.
 func (i IRSInfos) OuterNiters() (CusolverInt, error) {
 	return iRSInfosGetOuterNiters(i)
 }
 
-// RequestResidual wraps cusolverDnIRSInfosRequestResidual.
+// RequestResidual tells the IRS solver to store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by the [IRSInfos.ResidualHistory] function.
+//
+// Returns:
+//   - [ErrIrsInfosNotInitialized]: The Infos structure was not created.
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSInfosRequestResidual.
 func (i IRSInfos) RequestResidual() error {
 	return iRSInfosRequestResidual(i)
 }
 
-// ResidualHistory wraps cusolverDnIRSInfosGetResidualHistory.
+// ResidualHistory If the user called [IRSInfos.RequestResidual] before the call to the IRS function, then the IRS solver will store the convergence history (residual norms) of the refinement phase in a matrix that can be accessed via a pointer returned by this function.
+//
+// The residual history matrix consists of two columns (even for the multiple right-hand side case NRHS) of MaxIters+1 row, thus a matrix of size ( MaxIters+1,2). Only the first OuterNiters+1 rows contains the residual norms the other (e.g., OuterNiters+2:Maxiters+1) are garbage. On the first column, each row “i” specify the total number of iterations happened till this outer iteration “i” and on the second columns the residual norm corresponding to this outer iteration “i”. Thus, the first row (e.g., outer iteration “0”) consists of the initial residual (e.g., the residual before the refinement loop start) then the consecutive rows are the residual obtained at each outer iteration of the refinement loop. Note, it only consists of the history of the outer loop.
+// If the refinement solver was [IrsRefineClassical] or [IrsRefineGmres], then OuterNiters=Niters (Niters is the total number of iterations performed) and there is Niters+1 rows of norms that correspond to the Niters outer iterations.
+// If the refinement solver was [IrsRefineClassicalGmres] or [IrsRefineGmresGmres], then OuterNiters <= Niters corresponds to the outer iterations performed by the outer refinement loop. Thus, there is OuterNiters+1 residual norms where row “i” correspond to the outer iteration “i” and the first column specify the total number of iterations (outer and inner) that were performed till this step the second columns correspond to the residual norm at this step.
+// For example, let’s say the user specifies [IrsRefineClassicalGmres] as a refinement solver and say it needed 3 outer iterations to converge and 4,3,3 inner iterations at each outer, respectively. This consists of 10 total iterations. Row 0 corresponds to the first residual before the refinement start, so it has 0 in its first column. On row 1 which corresponds to the outer iteration 1, it will be 4 (4 is the total number of iterations that were performed till now), on row 2 it will be 7, and on row 3 it will be 10.
+// In summary, let’s define ldh=Maxiters+1, the leading dimension of the residual matrix. then residualHistory [i] shows the total number of iterations performed at the outer iteration “i” and residualHistory [i+ldh] corresponds to the norm of the residual at this outer iteration.
+//
+//   - residualHistory: Returns a void pointer to the matrix of the convergence history residual norms. See the description above for the relation between the residual norm datatype and the inout datatype
+//
+// Returns:
+//   - [ErrInvalidValue]: This function was called without calling [IRSInfos.RequestResidual] in advance.
+//   - [ErrIrsInfosNotInitialized]: The Infos structure was not created
+//   - [Success]: The operation completed successfully.
+//
+// Wraps cusolverDnIRSInfosGetResidualHistory.
 func (i IRSInfos) ResidualHistory(residualHistory *uintptr) error {
 	return iRSInfosGetResidualHistory(i, residualHistory)
 }
