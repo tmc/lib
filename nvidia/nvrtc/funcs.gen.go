@@ -391,6 +391,8 @@ func getPCHHeapSizeRequired(prog Program) (uint, error) {
 //   - prog: in CUDA Runtime Compilation program
 //   - ptx: out Compiled result. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
 //
+// The result does not include the C string's terminating NUL.
+//
 // Wraps nvrtcGetPTX.
 func getPTX(prog Program) ([]byte, error) {
 	if err := checkLibSym("nvrtcGetPTX"); err != nil {
@@ -406,6 +408,9 @@ func getPTX(prog Program) ([]byte, error) {
 	buf := make([]byte, size)
 	if err := toError(fngetPTX(prog, &buf[0]), "nvrtcGetPTX"); err != nil {
 		return nil, fmt.Errorf("getptx: %w", err)
+	}
+	if size > 0 && buf[size-1] == 0 {
+		size--
 	}
 	return buf[:size], nil
 }

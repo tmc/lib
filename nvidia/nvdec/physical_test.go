@@ -43,7 +43,7 @@ func testPhysicalDecode(t *testing.T, name string, codec nvdec.Codec) {
 	check(driver.Init(0))
 	dev, e := driver.DeviceGet(0)
 	check(e)
-	ctx, e := driver.NewContext(nil, 0, dev)
+	ctx, e := driver.NewContext(dev, 0)
 	check(e)
 	defer func() {
 		if err := ctx.Destroy(); err != nil {

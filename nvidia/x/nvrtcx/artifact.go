@@ -1,7 +1,6 @@
 package nvrtcx
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 
@@ -134,13 +133,6 @@ func outputFlags(kind OutputKind, flags []string) ([]string, error) {
 	return flags, nil
 }
 
-// ptxText converts the PTX buffer NVRTC returns into text. nvrtcGetPTXSize
-// counts the trailing NUL, which is not part of the assembly and makes the
-// result compare, hash, and grep as binary.
-func ptxText(b []byte) string {
-	return string(bytes.TrimSuffix(b, []byte{0}))
-}
-
 func getArtifact(prog nvrtc.Program, kind OutputKind) (*CompiledModule, error) {
 	cm := &CompiledModule{output: kind}
 	var data []byte
@@ -148,7 +140,7 @@ func getArtifact(prog nvrtc.Program, kind OutputKind) (*CompiledModule, error) {
 	switch kind {
 	case OutputAuto, OutputPTX:
 		data, err = prog.PTX()
-		cm.ptx = ptxText(data)
+		cm.ptx = string(data)
 		if kind == OutputAuto && err == nil {
 			cm.cubin, _ = prog.CUBIN()
 		}
@@ -157,7 +149,7 @@ func getArtifact(prog nvrtc.Program, kind OutputKind) (*CompiledModule, error) {
 		cm.cubin = data
 		if err == nil {
 			if ptxData, ptxErr := prog.PTX(); ptxErr == nil {
-				cm.ptx = ptxText(ptxData)
+				cm.ptx = string(ptxData)
 			}
 		}
 	case OutputLTOIR:
@@ -171,7 +163,7 @@ func getArtifact(prog nvrtc.Program, kind OutputKind) (*CompiledModule, error) {
 		if len(data) == 0 {
 			return nil, fmt.Errorf("nvrtcx: compiler returned empty PTX")
 		}
-		cm.ptx = ptxText(data)
+		cm.ptx = string(data)
 		fallthrough
 	case OutputTileIR:
 		data, err = prog.TileIR()

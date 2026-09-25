@@ -194,8 +194,9 @@ func TestCompileAndRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCompiledResult: %v", err)
 	}
-	// The size/get pair is the classic out-parameter defect site.
-	if uint(len(ptx)) != size {
+	// The size/get pair is the classic out-parameter defect site. The size
+	// counts the PTX's terminating NUL, which CompiledResult drops.
+	if uint(len(ptx))+1 != size {
 		t.Fatalf("GetCompiledResult returned %d bytes, GetCompiledResultSize said %d", len(ptx), size)
 	}
 	text := string(ptx)

@@ -119,6 +119,8 @@ func (p Program) PCHHeapSizeRequired() (uint, error) {
 //
 // [Program.PTXSize]
 //
+// The result does not include the C string's terminating NUL.
+//
 // Wraps nvrtcGetPTX.
 func (p Program) PTX() ([]byte, error) {
 	return getPTX(p)

@@ -65,7 +65,7 @@ func TestPhysicalLoweredName(t *testing.T) {
 	if got, ok := cached.LoweredName("fill<7>"); !ok || got != name {
 		t.Fatalf("cached name %q differs from %q", got, name)
 	}
-	ctx, e := driver.NewContext(nil, 0, dev)
+	ctx, e := driver.NewContext(dev, 0)
 	check(e)
 	defer func() { check(ctx.Destroy()) }()
 	cubin := cached.CUBIN()

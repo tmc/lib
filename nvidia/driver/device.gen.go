@@ -15,13 +15,9 @@ func (d Device) CanAccessPeer(peerDev Device) (int32, error) {
 	return deviceCanAccessPeer(d, peerDev)
 }
 
-// ComputeCapability Returns the compute capability of the device
+// ComputeCapability returns the major and minor revision numbers of the device's compute capability.
 //
-// See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
-//
-// Deprecated: This function was deprecated as of CUDA 5.0 and its functionality superseded by [Device.Attribute](). Returns in *major and *minor the major and minor revision numbers that define the compute capability of the device dev.
-//
-// Wraps cuDeviceComputeCapability.
+// It calls [Device.Attribute], which supersedes the deprecated cuDeviceComputeCapability.
 func (d Device) ComputeCapability() (major int, minor int, err error) {
 	return deviceComputeCapability(d)
 }

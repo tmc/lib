@@ -30,7 +30,7 @@ func Example() {
 		fmt.Println("name:", err)
 		return
 	}
-	ctx, err := driver.NewContext(nil, 0, dev)
+	ctx, err := driver.NewContext(dev, 0)
 	if err != nil {
 		fmt.Println("context:", err)
 		return

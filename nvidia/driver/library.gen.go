@@ -152,6 +152,9 @@ func (l Library) Unload() error {
 //
 // See also: [LibraryLoadFromFile], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
 //
+// If code does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise code is passed without copying.
+//
 // Wraps cuLibraryLoadData.
 func LibraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintptr, numJitOptions uint32, libraryOptions *LibraryOption, libraryOptionValues *uintptr, numLibraryOptions uint32) (Library, error) {
 	return libraryLoadData(code, jitOptions, jitOptionsValues, numJitOptions, libraryOptions, libraryOptionValues, numLibraryOptions)

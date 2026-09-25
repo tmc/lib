@@ -2,22 +2,22 @@
 
 package driver
 
-import "unsafe"
-
 // AddData Add an input to a pending linker invocation.
 //
 // Ownership of data is retained by the caller. No reference is retained to any inputs after this call returns. This method accepts only compiler options, which are used if the data must be compiled from PTX, and does not accept any of [JITWallTime], [JITInfoLogBuffer], [JITErrorLogBuffer], [JITTargetFromCucontext], or [JITTarget]. Note: For LTO-IR input, only LTO-IR compiled with toolkits prior to CUDA 12.0 will be accepted See also: [LinkCreate], [LinkState.AddFile], [LinkState.Complete], [LinkState.Destroy]
 //
 //   - data: The input data. PTX must be NULL-terminated
-//   - size: The length of the input data
 //   - name: An optional name for this input in log messages
 //   - numOptions: Size of options
 //   - options: Options to be applied only for this input (overrides options from [LinkCreate] )
 //   - optionValues: Array of option values, each cast to void *
 //
+// If data does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise data is passed without copying.
+//
 // Wraps cuLinkAddData, bound as cuLinkAddData_v2.
-func (l LinkState) AddData(type_ JitInputType, data unsafe.Pointer, size uint, name *byte, numOptions uint32, options *JITOption, optionValues *uintptr) error {
-	return linkAddData(l, type_, data, size, name, numOptions, options, optionValues)
+func (l LinkState) AddData(type_ JitInputType, data []byte, name *byte, numOptions uint32, options *JITOption, optionValues *uintptr) error {
+	return linkAddData(l, type_, data, name, numOptions, options, optionValues)
 }
 
 // AddFile Add a file input to a pending linker invocation.

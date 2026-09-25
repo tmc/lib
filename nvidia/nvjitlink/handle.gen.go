@@ -50,6 +50,8 @@ func (h Handle) LinkedCubinSize() (uint, error) {
 }
 
 // LinkedPtx wraps nvJitLinkGetLinkedPtx, bound as __nvJitLinkGetLinkedPtx_13_2.
+//
+// The result does not include the C string's terminating NUL.
 func (h Handle) LinkedPtx() ([]byte, error) {
 	return getLinkedPtx(h)
 }

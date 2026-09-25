@@ -1889,22 +1889,16 @@ func deviceCanAccessPeer(dev Device, peerDev Device) (int32, error) {
 	return out, nil
 }
 
-// deviceComputeCapability Returns the compute capability of the device
+// deviceComputeCapability returns the major and minor revision numbers of the device's compute capability.
 //
-//   - dev: Device handle
-//
-// See also: [Device.Attribute], [DeviceGetCount], [Device.Name], [Device.Uuid], [DeviceGet], [Device.TotalMem]
-//
-// Deprecated: This function was deprecated as of CUDA 5.0 and its functionality superseded by [Device.Attribute](). Returns in *major and *minor the major and minor revision numbers that define the compute capability of the device dev.
-//
-// Wraps cuDeviceComputeCapability.
+// It calls [Device.Attribute], which supersedes the deprecated cuDeviceComputeCapability.
 func deviceComputeCapability(dev Device) (major int, minor int, err error) {
-	if err := checkLibSym("cuDeviceComputeCapability"); err != nil {
+	out0, err := deviceGetAttribute(DevAttrComputeCapabilityMajor, dev)
+	if err != nil {
 		return 0, 0, err
 	}
-	var out0 int32
-	var out1 int32
-	if err := toError(fndeviceComputeCapability(&out0, &out1, dev), "cuDeviceComputeCapability"); err != nil {
+	out1, err := deviceGetAttribute(DevAttrComputeCapabilityMinor, dev)
+	if err != nil {
 		return 0, 0, err
 	}
 	return int(out0), int(out1), nil
@@ -5669,6 +5663,9 @@ func libraryGetUnifiedFunction(library Library, symbol string) (uintptr, error) 
 //
 // See also: [LibraryLoadFromFile], [Library.Unload], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx]
 //
+// If code does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise code is passed without copying.
+//
 // Wraps cuLibraryLoadData.
 func libraryLoadData(code []byte, jitOptions *JITOption, jitOptionsValues *uintptr, numJitOptions uint32, libraryOptions *LibraryOption, libraryOptionValues *uintptr, numLibraryOptions uint32) (Library, error) {
 	if err := checkLibSym("cuLibraryLoadData"); err != nil {
@@ -5763,12 +5760,15 @@ func libraryUnload(library Library) error {
 //   - options: Options to be applied only for this input (overrides options from [LinkCreate] )
 //   - optionValues: Array of option values, each cast to void *
 //
+// If data does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise data is passed without copying.
+//
 // Wraps cuLinkAddData, bound as cuLinkAddData_v2.
-func linkAddData(state LinkState, type_ JitInputType, data unsafe.Pointer, size uint, name *byte, numOptions uint32, options *JITOption, optionValues *uintptr) error {
+func linkAddData(state LinkState, type_ JitInputType, data []byte, name *byte, numOptions uint32, options *JITOption, optionValues *uintptr) error {
 	if err := checkLibSym("cuLinkAddData_v2"); err != nil {
 		return err
 	}
-	return toError(fnlinkAddData(state, type_, data, size, name, numOptions, options, optionValues), "cuLinkAddData_v2")
+	return toError(fnlinkAddData(state, type_, unsafe.Pointer(nulTerminated(data)), uint(len(data)), name, numOptions, options, optionValues), "cuLinkAddData_v2")
 }
 
 // linkAddFile Add a file input to a pending linker invocation.
@@ -7881,6 +7881,9 @@ func moduleLoad(fname string) (Module, error) {
 //
 //   - image: Module data to load
 //
+// If image does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise image is passed without copying.
+//
 // Wraps cuModuleLoadData.
 func moduleLoadData(image []byte) (Module, error) {
 	if err := checkLibSym("cuModuleLoadData"); err != nil {
@@ -7904,6 +7907,9 @@ func moduleLoadData(image []byte) (Module, error) {
 //   - options: Options for JIT
 //   - optionValues: Option values for JIT
 //
+// If image does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise image is passed without copying.
+//
 // Wraps cuModuleLoadDataEx.
 func moduleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optionValues *uintptr) (Module, error) {
 	if err := checkLibSym("cuModuleLoadDataEx"); err != nil {
@@ -7923,6 +7929,9 @@ func moduleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optio
 // Takes a pointer fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures. Prior to CUDA 4.0, there was no documented API for constructing and using fat binary objects by programmers. Starting with CUDA 4.0, fat binary objects can be constructed by providing the -fatbin option to nvcc. More information can be found in the nvcc document. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [Module.Unload]
 //
 //   - fatCubin: Fat binary to load
+//
+// If fatCubin does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise fatCubin is passed without copying.
 //
 // Wraps cuModuleLoadFatBinary.
 func moduleLoadFatBinary(fatCubin []byte) (Module, error) {

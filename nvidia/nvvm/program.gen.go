@@ -104,6 +104,8 @@ func (p *Program) Destroy() error {
 //
 // The result is stored in the memory pointed to by buffer.
 //
+// The result does not include the C string's terminating NUL.
+//
 // Wraps nvvmGetCompiledResult.
 func (p Program) CompiledResult() ([]byte, error) {
 	return getCompiledResult(p)

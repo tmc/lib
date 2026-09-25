@@ -37,7 +37,7 @@ func TestPhysicalTransfer(t *testing.T) {
 	check(driver.Init(0))
 	dev, err := driver.DeviceGet(0)
 	check(err)
-	ctx, err := driver.NewContext(nil, 0, dev)
+	ctx, err := driver.NewContext(dev, 0)
 	check(err)
 	cleanup(ctx.Destroy)
 	check(cufile.DriverOpen())

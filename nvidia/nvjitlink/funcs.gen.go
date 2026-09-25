@@ -188,6 +188,8 @@ func getLinkedCubinSize(handle Handle) (uint, error) {
 }
 
 // getLinkedPtx wraps nvJitLinkGetLinkedPtx, bound as __nvJitLinkGetLinkedPtx_13_2.
+//
+// The result does not include the C string's terminating NUL.
 func getLinkedPtx(handle Handle) ([]byte, error) {
 	if err := checkLibSym("__nvJitLinkGetLinkedPtx_13_2"); err != nil {
 		return nil, err
@@ -202,6 +204,9 @@ func getLinkedPtx(handle Handle) ([]byte, error) {
 	buf := make([]byte, size)
 	if err := toError(fngetLinkedPtx(handle, &buf[0]), "__nvJitLinkGetLinkedPtx_13_2"); err != nil {
 		return nil, fmt.Errorf("getlinkedptx: %w", err)
+	}
+	if size > 0 && buf[size-1] == 0 {
+		size--
 	}
 	return buf[:size], nil
 }

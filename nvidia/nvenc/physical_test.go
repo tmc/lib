@@ -59,7 +59,7 @@ func physicalEncode(t *testing.T) (err error) {
 	if err != nil {
 		return err
 	}
-	ctx, err := driver.NewContext(nil, 0, dev)
+	ctx, err := driver.NewContext(dev, 0)
 	if err != nil {
 		return err
 	}

@@ -97,6 +97,9 @@ func ModuleLoad(fname string) (Module, error) {
 //
 //   - image: Module data to load
 //
+// If image does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise image is passed without copying.
+//
 // Wraps cuModuleLoadData.
 func ModuleLoadData(image []byte) (Module, error) {
 	return moduleLoadData(image)
@@ -111,6 +114,9 @@ func ModuleLoadData(image []byte) (Module, error) {
 //   - options: Options for JIT
 //   - optionValues: Option values for JIT
 //
+// If image does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise image is passed without copying.
+//
 // Wraps cuModuleLoadDataEx.
 func ModuleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optionValues *uintptr) (Module, error) {
 	return moduleLoadDataEx(image, numOptions, options, optionValues)
@@ -121,6 +127,9 @@ func ModuleLoadDataEx(image []byte, numOptions uint32, options *JITOption, optio
 // Takes a pointer fatCubin and loads the corresponding module module into the current context. The pointer represents a fat binary object, which is a collection of different cubin and/or PTX files, all representing the same device code, but compiled and optimized for different architectures. Prior to CUDA 4.0, there was no documented API for constructing and using fat binary objects by programmers. Starting with CUDA 4.0, fat binary objects can be constructed by providing the -fatbin option to nvcc. More information can be found in the nvcc document. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Module.Function], [Module.Global], [Module.TexRef], [ModuleLoad], [ModuleLoadData], [ModuleLoadDataEx], [Module.Unload]
 //
 //   - fatCubin: Fat binary to load
+//
+// If fatCubin does not end in a NUL byte, the wrapper copies it once to append
+// the terminator PTX text needs; otherwise fatCubin is passed without copying.
 //
 // Wraps cuModuleLoadFatBinary.
 func ModuleLoadFatBinary(fatCubin []byte) (Module, error) {

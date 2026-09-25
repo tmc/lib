@@ -55,7 +55,7 @@ func TestFatbinPipeline(t *testing.T) {
 	check(err)
 	arch := fmt.Sprintf("%d%d", ccMajor, ccMinor)
 	t.Logf("target sm_%s", arch)
-	ctx, err := driver.NewContext(nil, 0, dev)
+	ctx, err := driver.NewContext(dev, 0)
 	check(err)
 	defer func() { check(ctx.Destroy()) }()
 

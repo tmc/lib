@@ -169,6 +169,8 @@ func destroyProgram(prog *Program) error {
 //   - prog (in): NVVM program
 //   - buffer (out): Compiled result
 //
+// The result does not include the C string's terminating NUL.
+//
 // Wraps nvvmGetCompiledResult.
 func getCompiledResult(prog Program) ([]byte, error) {
 	if err := checkLibSym("nvvmGetCompiledResult"); err != nil {
@@ -184,6 +186,9 @@ func getCompiledResult(prog Program) ([]byte, error) {
 	buf := make([]byte, size)
 	if err := toError(fngetCompiledResult(prog, &buf[0]), "nvvmGetCompiledResult"); err != nil {
 		return nil, fmt.Errorf("getcompiledresult: %w", err)
+	}
+	if size > 0 && buf[size-1] == 0 {
+		size--
 	}
 	return buf[:size], nil
 }

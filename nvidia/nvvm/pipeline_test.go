@@ -46,7 +46,7 @@ func TestCompilerPipeline(t *testing.T) {
 		}
 		t.Logf("NVVM LLVM version %d", llvm)
 	}
-	ctx, err := driver.NewContext(nil, 0, dev)
+	ctx, err := driver.NewContext(dev, 0)
 	check(err)
 	defer func() { check(ctx.Destroy()) }()
 
