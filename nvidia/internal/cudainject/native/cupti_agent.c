@@ -2937,14 +2937,14 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	   supported configuration recorded in the capability record, whereas
 	   failing the capture would lose the kernels and copies as well.
 
-	   CUDAPROF_MEMSETS=0 leaves the kind off. With it enabled, CUDA 13
+	   The kind is off unless CUDAPROF_MEMSETS=1. With it enabled, CUDA 13
 	   cuGraphLaunch on a GB10 faulted inside libcuda, called from CUPTI, for an
 	   MLX LoRA run that relaunched a cached exec updated with a captured
 	   memset node (5 of 5 runs; 0 of 3 with every other kind this agent
 	   enables). The fault is in the driver, and the kind is the only switch
-	   this agent holds over it. */
+	   this agent holds over it, so a target must ask for it. */
 	const char *memset_setting = getenv("CUDAPROF_MEMSETS");
-	int memset_requested = !(memset_setting != NULL && strcmp(memset_setting, "0") == 0);
+	int memset_requested = memset_setting != NULL && strcmp(memset_setting, "1") == 0;
 	if (memset_requested && memset_layout_ok) {
 		result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MEMSET);
 		if (result == CUPTI_SUCCESS) memset_enabled = 1;

@@ -1237,7 +1237,7 @@ func TestCapabilityDistinguishesUnverifiedFromVerified(t *testing.T) {
 	bin := controlBinary(t, noStructSizeSymbol)
 	dir := t.TempDir()
 	cmd := exec.Command(bin, "sustained", "1", "4", "256", "100")
-	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex)
+	cmd.Env = append(os.Environ(), "CUDAPROF_TRANSPORT="+dir, "CUDAPROF_SESSION="+sessionHex, "CUDAPROF_MEMSETS=1")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("run without the struct-size symbol: %v: %s", err, out)
 	}
@@ -1415,6 +1415,9 @@ func TestCapabilityReportsProducerBounds(t *testing.T) {
 	}
 	if c.capability.FlushIntervalMS != 0 {
 		t.Errorf("flush_interval_ms = %d, want 0 by default", c.capability.FlushIntervalMS)
+	}
+	if c.capability.Memsets || c.capability.MemsetsRequested {
+		t.Errorf("memsets=%v memsets_requested=%v, want false/false by default", c.capability.Memsets, c.capability.MemsetsRequested)
 	}
 }
 
@@ -2355,7 +2358,7 @@ func TestPeriodicFlushPublishesWithoutATrigger(t *testing.T) {
 func TestMemsetsReachTheJournal(t *testing.T) {
 	// One thread, one buffer, no kernels/memcpys/apis of interest, six memsets.
 	// argv: scenario threads buffers per_buffer pause_micros _ markers memsets
-	_, status, captures := run(t, "sustained", "1", "1", "8", "0", "0", "0", "6")
+	_, status, captures := runEnv(t, []string{"CUDAPROF_MEMSETS=1"}, "sustained", "1", "1", "8", "0", "0", "0", "6")
 	c := only(t, captures)
 	if !c.capability.Memsets {
 		t.Fatal("capability reports memsets = false: the producer never enabled CUPTI_ACTIVITY_KIND_MEMSET, so every assertion below would be about an empty set")
@@ -2396,32 +2399,49 @@ func TestMemsetsReachTheJournal(t *testing.T) {
 	}
 }
 
-// TestMemsetsOff covers CUDAPROF_MEMSETS=0: the kind is never enabled, the
-// capability record says it was declined rather than unavailable, and the
-// other kinds are collected as before.
-func TestMemsetsOff(t *testing.T) {
-	_, status, captures := runEnv(t, []string{"CUDAPROF_MEMSETS=0"}, "sustained", "1", "1", "8", "0", "0", "0", "6")
-	c := only(t, captures)
-	if c.capability.Memsets || c.capability.MemsetsRequested {
-		t.Errorf("capability memsets=%v memsets_requested=%v, want false/false", c.capability.Memsets, c.capability.MemsetsRequested)
+// TestMemsetsOptIn covers CUDAPROF_MEMSETS: the kind is enabled only for
+// the value 1, the capability record says whether it was asked for, and the
+// other kinds are collected either way. Memsets are opt-in because enabling
+// them has faulted CUDA graph relaunches inside the driver.
+func TestMemsetsOptIn(t *testing.T) {
+	tests := []struct {
+		name string
+		env  []string
+		want bool
+	}{
+		{"unset", nil, false},
+		{"zero", []string{"CUDAPROF_MEMSETS=0"}, false},
+		{"empty", []string{"CUDAPROF_MEMSETS="}, false},
+		{"true", []string{"CUDAPROF_MEMSETS=true"}, false},
+		{"one", []string{"CUDAPROF_MEMSETS=1"}, true},
 	}
-	if len(c.memsets) != 0 {
-		t.Errorf("got %d memset records, want 0", len(c.memsets))
-	}
-	if c.counts[kindActivity] == 0 {
-		t.Error("run with memsets off retained no activity")
-	}
-	if len(c.failures) != 0 {
-		t.Errorf("producer reported failures: %q", c.failures)
-	}
-	if !status.Exited() || status.ExitStatus() != 0 {
-		t.Errorf("status = %v, want clean exit", status)
-	}
-
-	_, _, captures = run(t, "sustained", "1", "1", "8", "0", "0", "0", "6")
-	c = only(t, captures)
-	if !c.capability.Memsets || !c.capability.MemsetsRequested || len(c.memsets) != 6 {
-		t.Errorf("default run: memsets=%v memsets_requested=%v records=%d, want true/true/6", c.capability.Memsets, c.capability.MemsetsRequested, len(c.memsets))
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Remove any inherited setting so "unset" means unset.
+			t.Setenv("CUDAPROF_MEMSETS", "")
+			os.Unsetenv("CUDAPROF_MEMSETS")
+			_, status, captures := runEnv(t, tc.env, "sustained", "1", "1", "8", "0", "0", "0", "6")
+			c := only(t, captures)
+			if c.capability.Memsets != tc.want || c.capability.MemsetsRequested != tc.want {
+				t.Errorf("capability memsets=%v memsets_requested=%v, want %v/%v", c.capability.Memsets, c.capability.MemsetsRequested, tc.want, tc.want)
+			}
+			want := 0
+			if tc.want {
+				want = 6
+			}
+			if len(c.memsets) != want {
+				t.Errorf("got %d memset records, want %d", len(c.memsets), want)
+			}
+			if c.counts[kindActivity] == 0 {
+				t.Error("run retained no activity")
+			}
+			if len(c.failures) != 0 {
+				t.Errorf("producer reported failures: %q", c.failures)
+			}
+			if !status.Exited() || status.ExitStatus() != 0 {
+				t.Errorf("status = %v, want clean exit", status)
+			}
+		})
 	}
 }
 

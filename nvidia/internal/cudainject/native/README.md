@@ -139,7 +139,7 @@ driver API attribution, which dominates journal volume on serving workloads.
 The capability record states which attribution was enabled, so an activity-only
 run is a recorded configuration rather than a silent degradation.
 
-`CUDAPROF_MEMSETS=0` leaves memset activity off. With it on, CUDA 13
+Memset activity is off unless `CUDAPROF_MEMSETS=1`. With it on, CUDA 13
 `cuGraphLaunch` has faulted inside libcuda, called from CUPTI, for an MLX
 workload that relaunches cached graph execs updated with captured memset
 nodes. The capability record's `memsets_requested` says which was asked for.
