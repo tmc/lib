@@ -610,6 +610,39 @@ func TestCompareGraphTraceMode(t *testing.T) {
 	}
 }
 
+// TestCompareNotesUncollectedMemsets checks that a side whose agent did not
+// collect memsets says so, rather than reporting its memset time as zero.
+func TestCompareNotesUncollectedMemsets(t *testing.T) {
+	recs := []rec{{subtype: "kernel", name: "k", start: 1100, end: 1200}}
+	const note = "memsets not collected"
+	tests := []struct {
+		name       string
+		capability map[string]any
+		want       bool
+	}{
+		{"off", map[string]any{"memsets": false}, true},
+		{"on", map[string]any{"memsets": true}, false},
+		{"absent", map[string]any{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := phaseStatus(1000, 2000)
+			status["capability"] = tt.capability
+			c, err := compareCaptures(compareCapture(recs, phaseStatus(1000, 2000)), compareCapture(recs, status), nil, nil, compareOptions{phase: -1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			notes := strings.Join(c.Notes, "\n")
+			if got := strings.Contains(notes, "target: "+note); got != tt.want {
+				t.Errorf("notes %q: target %q = %v, want %v", c.Notes, note, got, tt.want)
+			}
+			if strings.Contains(notes, "base: "+note) {
+				t.Errorf("notes %q: base has no capability record and must not be reported", c.Notes)
+			}
+		})
+	}
+}
+
 // sequence returns back-to-back kernels of the given names and durations,
 // starting at 1000.
 func sequence(kernels ...any) []rec {

@@ -422,6 +422,9 @@ func TestCaptureEnvironmentExportsAPIActivity(t *testing.T) {
 	}
 }
 
+// TestCaptureEnvironmentExportsMemsets pins memsets as opt-in: the launcher
+// always exports CUDAPROF_MEMSETS, 1 only for --memsets, so a value the
+// caller's environment carries cannot turn the kind on or off.
 func TestCaptureEnvironmentExportsMemsets(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -429,11 +432,12 @@ func TestCaptureEnvironmentExportsMemsets(t *testing.T) {
 		env  []string
 		want string
 	}{
-		{"unset", nil, nil, ""},
+		{"default", nil, nil, "0"},
 		{"off", []string{"--memsets=false"}, nil, "0"},
 		{"on", []string{"--memsets"}, nil, "1"},
-		{"inherits", nil, []string{"CUDAPROF_MEMSETS=0"}, "0"},
-		{"overrides", []string{"-memsets=true"}, []string{"CUDAPROF_MEMSETS=0"}, "1"},
+		{"single dash", []string{"-memsets=true"}, nil, "1"},
+		{"inherited on", nil, []string{"CUDAPROF_MEMSETS=1"}, "0"},
+		{"inherited off", []string{"--memsets"}, []string{"CUDAPROF_MEMSETS=0"}, "1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			o, err := parseCaptureArgs(append(append([]string(nil), tc.args...), "--", "true"))

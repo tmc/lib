@@ -31,8 +31,9 @@ func markTargetFailed(result captureResult) captureResult {
 }
 
 // targetFailureMessage says how the target ended. When the agent collected
-// memsets it adds the one lever known to matter: with memset activity on,
-// cuGraphLaunch has faulted inside libcuda for a CUDA-graph workload. A Go
+// memsets, which it does only for --memsets, it adds the one lever known to
+// matter: with memset activity on, cuGraphLaunch has faulted inside libcuda
+// for a CUDA-graph workload. A Go
 // program reports such a fault as exit status 2, not as a signal, so that
 // status gets the hint too.
 func targetFailureMessage(result captureResult) string {

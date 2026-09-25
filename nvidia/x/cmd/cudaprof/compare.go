@@ -468,6 +468,9 @@ type CompareSide struct {
 	// GraphTraceMode is how the agent traced graph replays, or empty when
 	// the capture predates the key and the mode is UNREAD.
 	GraphTraceMode graphTraceMode `json:"graph_trace_mode,omitempty"`
+	// Memsets reports whether the agent collected memset activity, or is nil
+	// when the capture does not say. Without it a memset counts as idle.
+	Memsets *bool `json:"memsets,omitempty"`
 
 	// Warmup describes what -warmup-ms or -warmup-until cut off the front of
 	// the window, and WarmupNanos how long that was. StartTimestamp is the
@@ -792,6 +795,9 @@ func compareSides(b, t *CompareSide, rules opRules, stages stageBoundaries, opts
 		name string
 		side *CompareSide
 	}{{"base", b}, {"target", t}} {
+		if m := s.side.Memsets; m != nil && !*m {
+			c.Notes = append(c.Notes, fmt.Sprintf("%s: memsets not collected (capture with --memsets), so memset time is counted as idle", s.name))
+		}
 		switch n := s.side.UnrecordedConfigs; {
 		case n == 0:
 		case n == s.side.KernelCount:
@@ -1186,6 +1192,7 @@ func measureCompareSide(cap *cudacapture.Capture, rules opRules, stages stageBou
 		}
 	}
 	side.GraphTraceMode, _ = captureGraphTraceMode(status.Capability)
+	side.Memsets = captureMemsets(status.Capability)
 	if err := side.selectWindow(status.PhaseReceipt, opts.phase, records); err != nil {
 		return nil, err
 	}

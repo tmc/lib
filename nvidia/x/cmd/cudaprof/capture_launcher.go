@@ -227,13 +227,11 @@ type captureOptions struct {
 	// target's own environment alone, as the collection policy below does.
 	APIActivity    bool
 	apiActivitySet bool
-	// Memsets collects memset activity. It is on by default because the
-	// agent's default is on; setting it false exports CUDAPROF_MEMSETS=0.
-	// With the kind enabled, cuGraphLaunch has faulted inside libcuda for a
-	// CUDA-graph MLX workload on GB10, so off is how such a target is
-	// captured at all. memsetsSet works as apiActivitySet does.
-	Memsets    bool
-	memsetsSet bool
+	// Memsets collects memset activity. It is off by default: with the kind
+	// enabled, cuGraphLaunch has faulted inside libcuda for a CUDA-graph MLX
+	// workload on GB10. The launcher always exports CUDAPROF_MEMSETS, so a
+	// value inherited from the caller's environment cannot turn it on.
+	Memsets bool
 	// PCSampling turns on the agent's program-counter sampler, which is what
 	// turns a capture into per-line counts. It is off by default because it is
 	// not free: measured on GB10 it costs 25-27 microseconds of host drain per
@@ -482,7 +480,7 @@ type captureWorker struct {
 // parseCaptureArgs parses only the launcher options before --. This preserves
 // every target argument, including strings beginning with a dash.
 func parseCaptureArgs(args []string) (captureOptions, error) {
-	o := captureOptions{Trace: true, APIActivity: true, Memsets: true, FollowChildren: true, Replay: "off", Timeout: 0, DrainTimeout: 2 * time.Second}
+	o := captureOptions{Trace: true, APIActivity: true, FollowChildren: true, Replay: "off", Timeout: 0, DrainTimeout: 2 * time.Second}
 	var i int
 	for i < len(args) {
 		arg := args[i]
@@ -516,7 +514,7 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			if err != nil {
 				return o, err
 			}
-			o.Memsets, o.memsetsSet = v, true
+			o.Memsets = v
 		case "--pcsampling", "-pcsampling":
 			v, err := captureBool(name, value, hasValue)
 			if err != nil {
@@ -932,13 +930,13 @@ func captureEnvironment(o captureOptions, session, dir string) []string {
 		}
 		env = setCaptureEnv(env, "CUDAPROF_API_ACTIVITY", value)
 	}
-	if o.memsetsSet {
-		value := "1"
-		if !o.Memsets {
-			value = "0"
-		}
-		env = setCaptureEnv(env, "CUDAPROF_MEMSETS", value)
+	// Memsets are opt-in, and exported either way so an inherited value
+	// cannot decide.
+	memsets := "0"
+	if o.Memsets {
+		memsets = "1"
 	}
+	env = setCaptureEnv(env, "CUDAPROF_MEMSETS", memsets)
 	if o.Inject != "" && o.InjectMode == injectModeCUDA {
 		// The driver dlopens this path from whatever directory the target
 		// runs in, so a relative one would name a different file or none.

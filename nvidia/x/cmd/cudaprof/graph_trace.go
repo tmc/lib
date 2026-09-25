@@ -37,6 +37,18 @@ func parseGraphTraceMode(s string) (graphTraceMode, error) {
 	return "", fmt.Errorf("invalid graph trace mode %q (%s or %s)", s, graphTraceNode, graphTraceGraph)
 }
 
+// captureMemsets reports whether the agent collected memset activity, or nil
+// when the capability record does not say.
+func captureMemsets(capability json.RawMessage) *bool {
+	var c struct {
+		Memsets *bool `json:"memsets"`
+	}
+	if len(capability) == 0 || json.Unmarshal(capability, &c) != nil {
+		return nil
+	}
+	return c.Memsets
+}
+
 // captureGraphTraceMode reads the graph trace mode from an agent capability
 // record. It reports false when the record does not state one: an agent that
 // predates the key enabled graph tracing whenever CUPTI allowed it, and which
