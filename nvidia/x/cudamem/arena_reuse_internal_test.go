@@ -12,8 +12,13 @@ import (
 // fakeBlocks is a block allocator that hands out distinct fake pointers and
 // counts calls, standing in for the driver.
 type fakeBlocks struct {
-	calls int
-	next  driver.DevicePtr
+	calls, frees int
+	next         driver.DevicePtr
+}
+
+func (f *fakeBlocks) free(Slice[byte]) error {
+	f.frees++
+	return nil
 }
 
 func (f *fakeBlocks) alloc(bytes int) (Slice[byte], error) {
@@ -24,7 +29,7 @@ func (f *fakeBlocks) alloc(bytes int) (Slice[byte], error) {
 
 func newFakeArena(chunk int) (*Arena, *fakeBlocks) {
 	f := &fakeBlocks{}
-	return &Arena{chunk: chunk, newBlock: f.alloc}, f
+	return &Arena{chunk: chunk, newBlock: f.alloc, freeBlock: f.free}, f
 }
 
 // step makes a training step's requests: activations that live for the
@@ -86,6 +91,34 @@ func TestArenaStepReuse(t *testing.T) {
 	}
 	if got := step(t, a, sizes, 3); !reflect.DeepEqual(got, again) {
 		t.Fatal("identical steps after growth got different pointers")
+	}
+}
+
+// TestArenaGrowthBounded checks that steps whose large requests grow and
+// shrink replace blocks too small for them instead of accumulating one
+// block per size seen: once the arena has seen a sequence of steps,
+// repeating it allocates nothing.
+func TestArenaGrowthBounded(t *testing.T) {
+	a, f := newFakeArena(1 << 16)
+	sizes := []int{1 << 18, 1 << 19, 1 << 18, 1 << 20, 1 << 19, 1 << 18}
+	for _, n := range sizes {
+		step(t, a, []int{1000, n, 3000}, 2)
+	}
+	calls := f.calls
+	for _, n := range sizes {
+		step(t, a, []int{1000, n, 3000}, 2)
+	}
+	if f.calls != calls {
+		t.Fatalf("repeating the steps allocated %d more blocks", f.calls-calls)
+	}
+	if live := f.calls - f.frees; live != len(a.blocks) || live != len(a.spans) {
+		t.Fatalf("%d blocks allocated and not freed, arena holds %d blocks and %d spans", live, len(a.blocks), len(a.spans))
+	}
+	if err := a.Free(); err != nil {
+		t.Fatal(err)
+	}
+	if f.calls != f.frees {
+		t.Fatalf("Free left %d blocks", f.calls-f.frees)
 	}
 }
 

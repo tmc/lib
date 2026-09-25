@@ -33,8 +33,10 @@ type Arena struct {
 	cur    int
 	offset int
 
-	// newBlock allocates a block; tests replace it to count allocations.
-	newBlock func(bytes int) (Slice[byte], error)
+	// newBlock allocates a block and freeBlock frees one; tests replace
+	// them to count calls.
+	newBlock  func(bytes int) (Slice[byte], error)
+	freeBlock func(Slice[byte]) error
 
 	// inUse is the bytes handed out and not released, and highWater the
 	// most inUse has been.
@@ -175,6 +177,11 @@ func allocInBlock[T any](a *Arena, length int) (Slice[T], error) {
 // one there if the next block is missing or smaller than size. With the
 // blocks reused in order, a sequence of requests repeated after a Reset gets
 // the same pointers and allocates nothing.
+//
+// A next block smaller than size holds nothing live, since allocations fill
+// blocks in order, so it is freed and replaced rather than kept behind the
+// new one. Otherwise steps whose large requests vary in size would leave
+// a block of every size seen and the arena would grow without bound.
 func (a *Arena) nextBlock(size int) error {
 	next := a.cur + 1
 	if len(a.blocks) == 0 {
@@ -192,11 +199,26 @@ func (a *Arena) nextBlock(size int) error {
 	if err != nil {
 		return err
 	}
-	a.frees = append(a.frees, block.Free)
 	a.spans = append(a.spans, arenaSpan{block.ptr, block.len})
-	a.blocks = slices.Insert(a.blocks, next, block)
+	if next < len(a.blocks) {
+		old := a.blocks[next]
+		a.blocks[next] = block
+		a.spans = slices.DeleteFunc(a.spans, func(s arenaSpan) bool { return s.ptr == old.ptr })
+		if err := a.releaseBlock(old); err != nil {
+			a.frees = append(a.frees, func() error { return a.releaseBlock(old) })
+		}
+	} else {
+		a.blocks = append(a.blocks, block)
+	}
 	a.cur, a.offset = next, 0
 	return nil
+}
+
+func (a *Arena) releaseBlock(b Slice[byte]) error {
+	if a.freeBlock != nil {
+		return a.freeBlock(b)
+	}
+	return b.Free()
 }
 
 // A Mark records a point in an arena's allocations for [Arena.Release].
@@ -333,6 +355,9 @@ func (a *Arena) Err() error {
 // retained for another Free; successful releases are never repeated.
 func (a *Arena) Free() error {
 	frees := a.frees
+	for _, b := range a.blocks {
+		frees = append(frees, func() error { return a.releaseBlock(b) })
+	}
 	a.spans = nil
 	a.blocks, a.cur, a.offset = nil, 0, 0
 	a.inUse, a.highWater = 0, 0
