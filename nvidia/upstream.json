@@ -219,11 +219,11 @@
           },
           {
             "path": "nvidia/cublaslt/funcs.gen.go",
-            "sha256": "10095c5b8f4e2372d7904dc7d7f6c6add0da0455747c1fac326546446d8ad33e"
+            "sha256": "baaa114923b2dd5dae3440cc3b1b691930c807b63f5908fc4a4ba3c5b6dab8db"
           },
           {
             "path": "nvidia/cublaslt/handle.gen.go",
-            "sha256": "c93575ee56bbba95af63e0ea381556b125a493adf6f23f6e2b53824d259d5746"
+            "sha256": "7dd9ae33be3c1ce1eb23586440502300a451e1784357c86933475c57b425d5b3"
           },
           {
             "path": "nvidia/cublaslt/handles.gen.go",
@@ -259,7 +259,7 @@
           },
           {
             "path": "nvidia/cublaslt/matrix_layout.gen.go",
-            "sha256": "ba962ff0ed541951405788e41b73e6f7c262db65f0c8cb21be864a02c2fbb3c6"
+            "sha256": "babf56ce1f4dad197330042352597ba2ac88de2e49b7ead5bffcfba46e7b481d"
           },
           {
             "path": "nvidia/cublaslt/matrix_transform_desc.gen.go",
@@ -291,10 +291,10 @@
       "package": "github.com/tmc/lib/nvidia/cublaslt",
       "repositories": {
         "codegen": {
-          "commit": "93cb27ce365bded33fb1a8c798fbf71cbdf8493f",
-          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8cdab9e: cublasLtNumericalImplFlags_t, spelled as macros above a uint64_t typedef, is now the NumericalImplFlags type with typed constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream.",
+          "commit": "fc6bb1689cafe33578ed6b9c0520221d7d645f01",
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8cdab9e: cublasLtNumericalImplFlags_t, spelled as macros above a uint64_t typedef, is now the NumericalImplFlags type with typed constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen fc6bb16",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "a5a315e8f84bda6708dc268eb462ae8f41768eee"
+          "tree": "e958bebd069a2a22281b54da713e3d09943d151b"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",

@@ -366,11 +366,11 @@ func LoggerSetMask(mask int32) error {
 // Note
 // Because the shape information for the matrices is only available on the GPU (see [GroupedMatrixLayoutRowsArray], [GroupedMatrixLayoutColsArray], and [GroupedMatrixLayoutLdArray]), the arguments validation is very limited. So it is possible that invalid arguments are not detected which will result in an undefined behavior.
 // NOTES:
-// 6( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55)
+// 7( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55)
 // Epilogue modes that combine ReLU, dReLu, GELU, or dGELU with Bias (see [MatmulDescEpilogue] in [MatmulDescAttributes]) are not supported when D matrix memory order is defined as [OrderRow]. For best performance when using the bias vector, specify zero beta and set pointer mode to [PointerModeHost].
-// 7( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)
+// 8( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)
 // Use of CUBLAS_ORDER_ROW together with [CublasOpC] (Hermitian operator) is not supported unless all of A, B, C, and D matrices use the CUBLAS_ORDER_ROW ordering.
-// 8( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
+// 9( 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
 // FP8 DType is not supported when scaling modes are one of [MatmulMatrixScaleOuterVec32F], [MatmulMatrixScaleVec12832F], and CUBLASLT_MATMUL_MATRIX_SCALE_BLK128x128_32F.
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
@@ -378,6 +378,11 @@ func LoggerSetMask(mask int32) error {
 //   - alpha: Pointers to the scalars used in the multiplication
 //   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
 //   - adesc: Handles to the previous created descriptors of the type [MatrixLayout]
+//   - b: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
+//   - bdesc: Handles to the previous created descriptors of the type [MatrixLayout]
+//   - beta: Pointers to the scalars used in the multiplication
+//   - c: Pointers to the GPU memory associated with the corresponding descriptors Adesc, Bdesc and Cdesc
+//   - cdesc: Handles to the previous created descriptors of the type [MatrixLayout]
 //   - d: Pointer to the GPU memory associated with the descriptor Ddesc
 //   - ddesc: Handle to the previous created descriptor of the type [MatrixLayout]
 //   - algo: Handle for matrix multiplication algorithm to be used. See [MatmulAlgo]. When NULL, an implicit heuristics query with default search preferences will be performed to determine actual algorithm to use
@@ -437,6 +442,9 @@ func MatmulAlgoCapGetAttribute(algo *MatmulAlgo, attr MatmulAlgoCapAttributes, b
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
 //   - adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
 //   - algo: Descriptor which specifies which matrix multiplication algorithm should be used. See [MatmulAlgo]. May point to result->algo
 //   - result: Pointer to the structure holding the results returned by this function. The results comprise of the required workspace and the calculated wave count. The algo field is never updated. See [MatmulHeuristicResult]
 //
@@ -507,16 +515,15 @@ func MatmulAlgoConfigSetAttribute(algo *MatmulAlgo, attr MatmulAlgoConfigAttribu
 
 // matmulAlgoGetHeuristic retrieves the possible algorithms for the matrix multiply operation [Handle.Matmul] function with the given input matrices A, B and C, and the output matrix D.
 //
-//   - lightHandle: in Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
-//   - operationDesc: in Handle to the matrix multiplication descriptor
-//   - adesc: in Handle to the layout descriptors for matrix A
-//   - bdesc: in Handle to the layout descriptors for matrix B
-//   - cdesc: in Handle to the layout descriptors for matrix C
-//   - ddesc: in Handle to the layout descriptors for matrix D
-//   - preference: in Pointer to the structure holding the heuristic search preferences descriptor. See [MatrixLayout]
-//   - requestedAlgoCount: in Size of heuristicResultsArray (in elements) and requested maximum number of algorithms to return
-//   - heuristicResultsArray: in, out Output algorithms and associated runtime characteristics, ordered in increasing estimated compute time
-//   - returnAlgoCount: out The number of heuristicResultsArray elements written
+//   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
+//   - operationDesc: Handle to a previously created matrix multiplication descriptor of type [MatmulDesc]
+//   - adesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - bdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - cdesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - ddesc: Handles to the previously created matrix layout descriptors of the type [MatrixLayout]
+//   - preference: Pointer to the structure holding the heuristic search preferences descriptor. See [MatmulPreference]
+//   - requestedAlgoCount: Size of the heuristicResultsArray (in elements). This is the requested maximum number of algorithms to return
+//   - returnAlgoCount: Number of algorithms returned by this function. This is the number of heuristicResultsArray elements written
 //
 // Returns:
 //   - [ErrInvalidValue]: if requestedAlgoCount is less or equal to zero
@@ -544,6 +551,11 @@ func matmulAlgoGetHeuristic(lightHandle Handle, operationDesc MatmulDesc, adesc 
 //
 //   - lightHandle: Pointer to the allocated cuBLASLt handle for the cuBLASLt context. See [Handle]
 //   - computeType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
+//   - scaleType: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
+//   - atype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
+//   - btype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
+//   - ctype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
+//   - dtype: Data types of the computation type, scaling factors and of the operand matrices. See cudaDataType_t
 //   - requestedAlgoCount: Number of algorithms requested. Must be > 0
 //   - returnAlgoCount: Number of algorithms actually returned by this function
 //
@@ -571,6 +583,9 @@ func matmulAlgoGetIds(lightHandle Handle, computeType ComputeType, scaleType Dat
 //   - computeType: Compute type. See [MatmulDescComputeType] of [MatmulDescAttributes]
 //   - scaleType: Scale type. See [MatmulDescScaleType] of [MatmulDescAttributes]. Usually same as computeType
 //   - atype: Datatype precision for the input and output matrices. See cudaDataType_t
+//   - btype: Datatype precision for the input and output matrices. See cudaDataType_t
+//   - ctype: Datatype precision for the input and output matrices. See cudaDataType_t
+//   - dtype: Datatype precision for the input and output matrices. See cudaDataType_t
 //   - algoId: Specifies the algorithm being initialized. Should be a valid algoId returned by the [Handle.MatmulAlgoGetIds] function
 //   - algo: Pointer to the opaque structure to be initialized. See [MatmulAlgo]
 //
@@ -774,6 +789,7 @@ func matmulPreferenceSetAttribute(pref MatmulPreference, attr MatmulPreferenceAt
 //   - matLayout: Pointer to the structure holding the matrix layout descriptor created by this function. See [MatrixLayout]
 //   - type_: Enumerant that specifies the data precision for the matrix layout descriptor this function creates. See cudaDataType_t
 //   - rows: Number of rows and columns of the matrix
+//   - cols: Number of rows and columns of the matrix
 //   - ld: The leading dimension of the matrix. In column major layout, this is the number of elements to jump to reach the next column. Thus ld >= m (number of rows)
 //
 // Returns:
@@ -872,7 +888,11 @@ func matrixLayoutSetAttribute(matLayout MatrixLayout, attr MatrixLayoutAttribute
 //   - alpha: Pointers to the scalars used in the multiplication
 //   - a: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
 //   - adesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
+//   - beta: Pointers to the scalars used in the multiplication
+//   - b: Pointers to the GPU memory associated with the corresponding descriptors Adesc and Bdesc
+//   - bdesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
 //   - c: Pointer to the GPU memory associated with the Cdesc descriptor
+//   - cdesc: Handles to the previous created descriptors of the type [MatrixLayout].Adesc or Bdesc can be NULL if the corresponding pointer is NULL and the corresponding scalar is zero
 //   - stream: The CUDA stream where all the GPU work will be submitted
 //
 // Returns:

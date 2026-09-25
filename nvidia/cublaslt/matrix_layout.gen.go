@@ -7,6 +7,7 @@ package cublaslt
 //   - matLayout: Pointer to the structure holding the matrix layout descriptor created by this function. See [MatrixLayout]
 //   - type_: Enumerant that specifies the data precision for the matrix layout descriptor this function creates. See cudaDataType_t
 //   - rows: Number of rows and columns of the matrix
+//   - cols: Number of rows and columns of the matrix
 //   - ld: The leading dimension of the matrix. In column major layout, this is the number of elements to jump to reach the next column. Thus ld >= m (number of rows)
 //
 // Returns:
