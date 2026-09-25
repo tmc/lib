@@ -6,3 +6,5 @@ session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
 session_url=https://claude.ai/code/session_01EtvqCzGak7aomYVo1jAaL4
 
 rebased onto e23792646 as 9ee6c32fb 9ee6c32fb610c4451089498a151877c9d4b10fe4, 2026-09-25T01:25:49-07:00
+
+rebased onto 520d9d60c; go vet darwin+linux and go test -count=1 ./x/cudaprof/... ./x/cmd/cudaprof green there
