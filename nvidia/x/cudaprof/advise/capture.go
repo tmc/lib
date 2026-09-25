@@ -98,11 +98,6 @@ func determineArchWithSource(cap *cudacapture.Capture) (string, deviceSource) {
 	return "", sourceUnknown
 }
 
-func determineArch(cap *cudacapture.Capture) string {
-	arch, _ := determineArchWithSource(cap)
-	return arch
-}
-
 // determineDeviceLimits looks up the physical max warps per SM and max blocks per SM
 // keyed by compute capability via x/cudaoccupancy. Returns ok=false if architecture is unknown.
 func determineDeviceLimits(cap *cudacapture.Capture) (maxWarps int, maxBlocks int, src deviceSource, ok bool) {

@@ -73,17 +73,6 @@ func (b *journalBuilder) kernelOn(device, context uint32, start, end uint64, cor
 	return b
 }
 
-// overhead appends one CUPTI overhead span. It carries no device, exactly as
-// the producer writes it: CUPTI's own cost is charged to a host thread.
-func (b *journalBuilder) overhead(start, end uint64, overheadKind uint32) *journalBuilder {
-	b.append(wire.KindActivity, map[string]any{
-		"kind": "activity", "subtype": "overhead", "valid": true,
-		"start": start, "end": end, "overhead_kind": overheadKind, "object_kind": 2,
-		"process_id": 4242, "thread_id": 99,
-	})
-	return b
-}
-
 // graphNode appends one kernel that names the graph it ran as a node of,
 // which is what makes a replay envelope's exclusion sound: the envelope is
 // excluded because it spans records like this one.

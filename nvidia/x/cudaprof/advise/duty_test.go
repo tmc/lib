@@ -778,7 +778,6 @@ func concentratedIdleJournal(n int, kernelNs, smallGapNs, stallNs uint64) []byte
 // finding that appears and disappears for reasons unrelated to whether it is
 // true cannot be acted on.
 func TestAdvice_DominantIdleGapReportedAtAnyDutyCycle(t *testing.T) {
-	const stallFinding = "holds"
 	tests := []struct {
 		name      string
 		kernelNs  uint64
