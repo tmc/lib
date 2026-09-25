@@ -1,0 +1,7 @@
+commit: 93b7bba55c0f679ff67fda8879e6d5da579b82a7
+date: 2026-09-24 01:40:55 -0700
+agent: claude-code 2.1.280 (Claude Code)
+model: claude-opus-5-5
+tty: not a tty pid: 67385 ITERM_SESSION_ID=w8t0p7:83F85174-6333-4D12-A1D1-E43469447ABD
+session=e22659c3-8454-445f-b681-7f347795c131
+context: post-rebase fix after rebasing next onto main 31912dc00 (backup next-prerebase-20260924)
