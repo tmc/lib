@@ -9,7 +9,7 @@ type FieldOutputFormat struct {
 	Width     int16
 }
 
-// FieldMeta represents Structure to store meta data for the field.
+// FieldMeta stores meta data for the field.
 type FieldMeta struct {
 	FieldId     uint16
 	FieldType   byte
@@ -28,13 +28,13 @@ type Link struct {
 	Data [4]byte
 }
 
-// ConnectV2ParamsV1 represents Connection options for [ConnectV2] (v1) NOTE: This version is deprecated..
+// ConnectV2ParamsV1 represents connection options for [ConnectV2] (v1) NOTE: This version is deprecated.
 type ConnectV2ParamsV1 struct {
 	Version                uint32
 	PersistAfterDisconnect uint32
 }
 
-// ConnectV2Params represents Connection options for [ConnectV2] (v2).
+// ConnectV2Params represents connection options for [ConnectV2] (v2).
 type ConnectV2Params struct {
 	Version                uint32
 	PersistAfterDisconnect uint32
@@ -42,26 +42,26 @@ type ConnectV2Params struct {
 	AddressIsUnixSocket    uint32
 }
 
-// ConnectV3Params represents Connection options for [ConnectV3] (v1).
+// ConnectV3Params represents connection options for [ConnectV3] (v1).
 type ConnectV3Params struct {
 	Version                uint32
 	PersistAfterDisconnect uint32
 	TimeoutMs              uint32
 }
 
-// HostengineHealth represents Typedef for [HostengineHealth].
+// HostengineHealth represents typedef for [HostengineHealth].
 type HostengineHealth struct {
 	Version       uint32
 	OverallHealth uint32
 }
 
-// GroupEntityPair represents Represents a entityGroupId + entityId pair to uniquely identify a given entityId inside a group of entities Added in DCGM 1.5.0.
+// GroupEntityPair represents a entityGroupId + entityId pair to uniquely identify a given entityId inside a group of entities Added in DCGM 1.5.0.
 type GroupEntityPair struct {
 	EntityGroupId FieldEntityGroup
 	EntityId      FieldEid
 }
 
-// GroupInfoV2 represents Structure to store information for DCGM group Added in DCGM 1.5.0.
+// GroupInfoV2 stores information for DCGM group Added in DCGM 1.5.0.
 type GroupInfoV2 struct {
 	Version    uint32
 	Count      uint32
@@ -69,7 +69,7 @@ type GroupInfoV2 struct {
 	EntityList [64]GroupEntityPair
 }
 
-// GroupInfo represents Structure to store information for DCGM group Added in DCGM 1.5.0.
+// GroupInfo stores information for DCGM group Added in DCGM 1.5.0.
 type GroupInfo struct {
 	Version    uint32
 	Count      uint32
@@ -77,14 +77,14 @@ type GroupInfo struct {
 	EntityList [1024]GroupEntityPair
 }
 
-// MigHierarchyInfo represents Represents a pair of entity pairings to uniquely identify an entity and its place in the hierarchy..
+// MigHierarchyInfo represents a pair of entity pairings to uniquely identify an entity and its place in the hierarchy.
 type MigHierarchyInfo struct {
 	Entity       GroupEntityPair
 	Parent       GroupEntityPair
 	SliceProfile MigProfile
 }
 
-// MigEntityInfo represents Provides additional information about location of MIG entities..
+// MigEntityInfo provides additional information about location of MIG entities.
 type MigEntityInfo struct {
 	GpuUuid               [128]byte
 	NvmlGpuIndex          uint32
@@ -114,7 +114,7 @@ type CpuHierarchyOwnedCores struct {
 	Bitmask [16]uint64
 }
 
-// CpuHierarchyV1 represents Hierarchy of CPUs and their cores.
+// CpuHierarchyV1 represents hierarchy of CPUs and their cores.
 type CpuHierarchyV1 struct {
 	Version uint32
 	NumCpus uint32
@@ -141,7 +141,7 @@ type CpuHierarchyCpuV2 struct {
 	Serial     [256]byte
 }
 
-// FieldGroupInfo represents Structure to represent information about a field group.
+// FieldGroupInfo represents information about a field group.
 type FieldGroupInfo struct {
 	Version        uint32
 	NumFieldIds    uint32
@@ -157,28 +157,28 @@ type AllFieldGroup struct {
 	FieldGroups    [64]FieldGroupInfo
 }
 
-// ErrorInfo represents Structure to represent error attributes.
+// ErrorInfo represents error attributes.
 type ErrorInfo struct {
 	GpuId   uint32
 	FieldId int16
 	Status  int32
 }
 
-// ClockSet represents Represents a set of memory, SM, and video clocks for a device..
+// ClockSet represents a set of memory, SM, and video clocks for a device.
 type ClockSet struct {
 	Version  int32
 	MemClock uint32
 	SmClock  uint32
 }
 
-// DeviceSupportedClockSets represents Represents list of supported clock sets for a device.
+// DeviceSupportedClockSets represents list of supported clock sets for a device.
 type DeviceSupportedClockSets struct {
 	Version  uint32
 	Count    uint32
 	ClockSet [256]ClockSet
 }
 
-// DevicePidAccountingStats represents Represents accounting data for one process.
+// DevicePidAccountingStats represents accounting data for one process.
 type DevicePidAccountingStats struct {
 	Version           uint32
 	Pid               uint32
@@ -189,14 +189,14 @@ type DevicePidAccountingStats struct {
 	ActiveTimeUsec    uint64
 }
 
-// DeviceThermals represents Represents thermal information.
+// DeviceThermals represents thermal information.
 type DeviceThermals struct {
 	Version      uint32
 	SlowdownTemp uint32
 	ShutdownTemp uint32
 }
 
-// DevicePowerLimits represents Represents various power limits.
+// DevicePowerLimits represents various power limits.
 type DevicePowerLimits struct {
 	Version            uint32
 	CurPowerLimit      uint32
@@ -206,7 +206,7 @@ type DevicePowerLimits struct {
 	MaxPowerLimit      uint32
 }
 
-// DeviceIdentifiers represents Represents device identifiers.
+// DeviceIdentifiers represents device identifiers.
 type DeviceIdentifiers struct {
 	Version             uint32
 	BrandName           [256]byte
@@ -222,7 +222,7 @@ type DeviceIdentifiers struct {
 	VirtualizationMode  uint32
 }
 
-// DeviceMemoryUsage represents Represents device memory and usage.
+// DeviceMemoryUsage represents device memory and usage.
 type DeviceMemoryUsage struct {
 	Version   uint32
 	Bar1Total uint32
@@ -231,7 +231,7 @@ type DeviceMemoryUsage struct {
 	FbFree    uint32
 }
 
-// DeviceVgpuUtilInfo represents Represents utilization values for vGPUs running on the device.
+// DeviceVgpuUtilInfo represents utilization values for vGPUs running on the device.
 type DeviceVgpuUtilInfo struct {
 	Version uint32
 	VgpuId  uint32
@@ -241,7 +241,7 @@ type DeviceVgpuUtilInfo struct {
 	DecUtil uint32
 }
 
-// DeviceEncStats represents Represents current encoder statistics for the given device/vGPU instance.
+// DeviceEncStats represents current encoder statistics for the given device/vGPU instance.
 type DeviceEncStats struct {
 	Version        uint32
 	SessionCount   uint32
@@ -249,7 +249,7 @@ type DeviceEncStats struct {
 	AverageLatency uint32
 }
 
-// DeviceFbcStats represents Represents current frame buffer capture sessions statistics for the given device/vGPU instance.
+// DeviceFbcStats represents current frame buffer capture sessions statistics for the given device/vGPU instance.
 type DeviceFbcStats struct {
 	Version        uint32
 	SessionCount   uint32
@@ -257,7 +257,7 @@ type DeviceFbcStats struct {
 	AverageLatency uint32
 }
 
-// DeviceFbcSessionInfo represents Represents information about active FBC session on the given device/vGPU instance.
+// DeviceFbcSessionInfo represents information about active FBC session on the given device/vGPU instance.
 type DeviceFbcSessionInfo struct {
 	Version        uint32
 	SessionId      uint32
@@ -274,14 +274,14 @@ type DeviceFbcSessionInfo struct {
 	AverageLatency uint32
 }
 
-// DeviceFbcSessions represents Represents all the active FBC sessions on the given device/vGPU instance.
+// DeviceFbcSessions represents all the active FBC sessions on the given device/vGPU instance.
 type DeviceFbcSessions struct {
 	Version      uint32
 	SessionCount uint32
 	SessionInfo  [256]DeviceFbcSessionInfo
 }
 
-// DeviceVgpuEncSessions represents Represents information about active encoder sessions on the given vGPU instance.
+// DeviceVgpuEncSessions represents information about active encoder sessions on the given vGPU instance.
 type DeviceVgpuEncSessions struct {
 	Version            uint32
 	EncoderSessionInfo [1]uint32
@@ -294,7 +294,7 @@ type DeviceVgpuEncSessions struct {
 	AverageLatency     uint32
 }
 
-// DeviceVgpuProcessUtilInfo represents Represents utilization values for processes running in vGPU VMs using the device.
+// DeviceVgpuProcessUtilInfo represents utilization values for processes running in vGPU VMs using the device.
 type DeviceVgpuProcessUtilInfo struct {
 	Version             uint32
 	VgpuProcessUtilInfo [1]uint32
@@ -306,7 +306,7 @@ type DeviceVgpuProcessUtilInfo struct {
 	DecUtil             uint32
 }
 
-// DeviceVgpuTypeInfoV1 represents Represents static info related to vGPUs supported on the device..
+// DeviceVgpuTypeInfoV1 represents static info related to vGPUs supported on the device.
 type DeviceVgpuTypeInfoV1 struct {
 	Version         uint32
 	VgpuTypeInfo    [1]uint32
@@ -341,7 +341,7 @@ type DeviceVgpuTypeInfo struct {
 	GpuInstanceProfileId int32
 }
 
-// DeviceSupportedVgpuTypeInfo represents Represents the info related to vGPUs supported on the device..
+// DeviceSupportedVgpuTypeInfo represents the info related to vGPUs supported on the device.
 type DeviceSupportedVgpuTypeInfo struct {
 	Version              uint32
 	DeviceId             uint64
@@ -374,7 +374,7 @@ type DeviceAttributes struct {
 	Settings        DeviceSettings
 }
 
-// DeviceMigAttributesInfo represents Structure to represent attributes info for a MIG device.
+// DeviceMigAttributesInfo represents attributes info for a MIG device.
 type DeviceMigAttributesInfo struct {
 	Version                   uint32
 	GpuInstanceId             uint32
@@ -390,14 +390,14 @@ type DeviceMigAttributesInfo struct {
 	MemorySizeMB              uint64
 }
 
-// DeviceMigAttributes represents Structure to represent attributes for a MIG device.
+// DeviceMigAttributes represents attributes for a MIG device.
 type DeviceMigAttributes struct {
 	Version           uint32
 	MigDevicesCount   uint32
 	MigAttributesInfo DeviceMigAttributesInfo
 }
 
-// GpuInstanceProfileInfo represents Structure to represent GPU instance profile information.
+// GpuInstanceProfileInfo represents GPU instance profile information.
 type GpuInstanceProfileInfo struct {
 	Version             uint32
 	Id                  uint32
@@ -413,14 +413,14 @@ type GpuInstanceProfileInfo struct {
 	MemorySizeMB        uint64
 }
 
-// GpuInstanceProfiles represents Structure to represent GPU instance profiles.
+// GpuInstanceProfiles represents GPU instance profiles.
 type GpuInstanceProfiles struct {
 	Version      uint32
 	ProfileCount uint32
 	ProfileInfo  GpuInstanceProfileInfo
 }
 
-// ComputeInstanceProfileInfo represents Structure to represent Compute instance profile information.
+// ComputeInstanceProfileInfo represents compute instance profile information.
 type ComputeInstanceProfileInfo struct {
 	Version               uint32
 	GpuInstanceId         uint32
@@ -435,14 +435,14 @@ type ComputeInstanceProfileInfo struct {
 	SharedOfaCount        uint32
 }
 
-// ComputeInstanceProfiles represents Structure to represent Compute instance profiles.
+// ComputeInstanceProfiles represents compute instance profiles.
 type ComputeInstanceProfiles struct {
 	Version      uint32
 	ProfileCount uint32
 	ProfileInfo  ComputeInstanceProfileInfo
 }
 
-// WorkloadPowerProfileInfo represents Information about the specified power profile.
+// WorkloadPowerProfileInfo represents information about the specified power profile.
 type WorkloadPowerProfileInfo struct {
 	Version         uint32
 	ProfileId       PowerProfileType
@@ -450,14 +450,14 @@ type WorkloadPowerProfileInfo struct {
 	ConflictingMask [8]uint32
 }
 
-// WorkloadPowerProfileProfilesInfo represents Information about the supported power profiles.
+// WorkloadPowerProfileProfilesInfo represents information about the supported power profiles.
 type WorkloadPowerProfileProfilesInfo struct {
 	Version              uint32
 	WorkloadPowerProfile [255]WorkloadPowerProfileInfo
 	ProfileCount         uint32
 }
 
-// DeviceWorkloadPowerProfilesStatus represents Device workload profile information.
+// DeviceWorkloadPowerProfilesStatus represents device workload profile information.
 type DeviceWorkloadPowerProfilesStatus struct {
 	Version              uint32
 	ProfileMask          [8]uint32
@@ -465,19 +465,19 @@ type DeviceWorkloadPowerProfilesStatus struct {
 	EnforcedProfileMask  [8]uint32
 }
 
-// ConfigPerfStateSettings represents Used to represent Performance state settings.
+// ConfigPerfStateSettings represents used to represent Performance state settings.
 type ConfigPerfStateSettings struct {
 	SyncBoost    uint32
 	TargetClocks ClockSet
 }
 
-// ConfigPowerLimit represents Used to represents the power capping limit for each GPU in the group or to represent the power budget for the entire group.
+// ConfigPowerLimit represents used to represents the power capping limit for each GPU in the group or to represent the power budget for the entire group.
 type ConfigPowerLimit struct {
 	Type ConfigPowerLimitType
 	Val  uint32
 }
 
-// ConfigV1 represents Structure to represent default and target configuration for a device.
+// ConfigV1 represents default and target configuration for a device.
 type ConfigV1 struct {
 	Version     uint32
 	GpuId       uint32
@@ -506,7 +506,7 @@ type WorkloadPowerProfile struct {
 	ProfileMask [8]uint32
 }
 
-// PolicyViolation represents Remove from doxygen documentation Define the structure that contains specific policy information.
+// PolicyViolation represents remove from doxygen documentation Define the structure that contains specific policy information.
 type PolicyViolation struct {
 	Version                 uint32
 	NotifyOnEccDbe          uint32
@@ -514,19 +514,19 @@ type PolicyViolation struct {
 	NotifyOnMaxRetiredPages uint32
 }
 
-// PolicyConditionParams represents Structure for policy condition parameters..
+// PolicyConditionParams is a structure for policy condition parameters.
 type PolicyConditionParams struct {
 	Tag int32
 	Val [1]uint64
 }
 
-// PolicyViolationNotify represents Structure to fill when a user queries for policy violations.
+// PolicyViolationNotify fills when a user queries for policy violations.
 type PolicyViolationNotify struct {
 	GpuId             uint32
 	ViolationOccurred uint32
 }
 
-// Policy represents Define the structure that specifies a policy to be enforced for a GPU.
+// Policy represents the structure that specifies a policy to be enforced for a GPU.
 type Policy struct {
 	Version    uint32
 	Condition  PolicyCondition
@@ -538,52 +538,52 @@ type Policy struct {
 	Parms      [7]PolicyConditionParams
 }
 
-// PolicyConditionDbe represents Define the ECC DBE return structure.
+// PolicyConditionDbe represents the ECC DBE return structure.
 type PolicyConditionDbe struct {
 	Timestamp int64
 	Location  int32
 	Numerrors uint32
 }
 
-// PolicyConditionPci represents Define the PCI replay error return structure.
+// PolicyConditionPci represents the PCI replay error return structure.
 type PolicyConditionPci struct {
 	Timestamp int64
 	Counter   uint32
 }
 
-// PolicyConditionMpr represents Define the maximum pending retired pages limit return structure.
+// PolicyConditionMpr represents the maximum pending retired pages limit return structure.
 type PolicyConditionMpr struct {
 	Timestamp int64
 	Sbepages  uint32
 	Dbepages  uint32
 }
 
-// PolicyConditionThermal represents Define the thermal policy violations return structure.
+// PolicyConditionThermal represents the thermal policy violations return structure.
 type PolicyConditionThermal struct {
 	Timestamp        int64
 	ThermalViolation uint32
 }
 
-// PolicyConditionPower represents Define the power policy violations return structure.
+// PolicyConditionPower represents the power policy violations return structure.
 type PolicyConditionPower struct {
 	Timestamp      int64
 	PowerViolation uint32
 }
 
-// PolicyConditionNvlink represents Define the nvlink policy violations return structure.
+// PolicyConditionNvlink represents the nvlink policy violations return structure.
 type PolicyConditionNvlink struct {
 	Timestamp int64
 	FieldId   uint16
 	Counter   uint32
 }
 
-// PolicyConditionXID represents Define the xid policy violations return structure.
+// PolicyConditionXID represents the xid policy violations return structure.
 type PolicyConditionXID struct {
 	Timestamp int64
 	Errnum    uint32
 }
 
-// PolicyCallbackResponse represents Define the structure that is given to the callback function.
+// PolicyCallbackResponse represents the structure that is given to the callback function.
 type PolicyCallbackResponse struct {
 	Version   uint32
 	Condition PolicyCondition
@@ -591,7 +591,7 @@ type PolicyCallbackResponse struct {
 	GpuId     uint32
 }
 
-// FieldValueV1 represents This structure is used to represent value for the field to be queried..
+// FieldValueV1 is used to represent value for the field to be queried.
 type FieldValueV1 struct {
 	Version   uint32
 	FieldId   uint16
@@ -601,7 +601,7 @@ type FieldValueV1 struct {
 	Value     [512]uint64
 }
 
-// FieldValueV2 represents This structure is used to represent value for the field to be queried..
+// FieldValueV2 is used to represent value for the field to be queried.
 type FieldValueV2 struct {
 	Version       uint32
 	EntityGroupId FieldEntityGroup
@@ -614,21 +614,21 @@ type FieldValueV2 struct {
 	Value         [512]uint64
 }
 
-// StatSummaryInt64 represents Summary of time series data in int64 format..
+// StatSummaryInt64 represents summary of time series data in int64 format.
 type StatSummaryInt64 struct {
 	MinValue int64
 	MaxValue int64
 	Average  int64
 }
 
-// StatSummaryInt32 represents Same as [StatSummaryInt64], but with 32-bit integer values.
+// StatSummaryInt32 represents same as [StatSummaryInt64], but with 32-bit integer values.
 type StatSummaryInt32 struct {
 	MinValue int32
 	MaxValue int32
 	Average  int32
 }
 
-// StatSummaryFp64 represents Summary of time series data in double-precision format..
+// StatSummaryFp64 represents summary of time series data in double-precision format.
 type StatSummaryFp64 struct {
 	MinValue float64
 	MaxValue float64
@@ -641,7 +641,7 @@ type DiagErrorDetail struct {
 	Code uint32
 }
 
-// DiagErrorDetailV2 represents Error details Since DCGM 3.3.
+// DiagErrorDetailV2 represents error details Since DCGM 3.3.
 type DiagErrorDetailV2 struct {
 	Msg      [512]byte
 	GpuId    int32
@@ -650,14 +650,14 @@ type DiagErrorDetailV2 struct {
 	Severity uint32
 }
 
-// DiagInfoV1 represents Diagnostic plugin per-entity info results v1 Since DCGM 4.0.
+// DiagInfoV1 represents diagnostic plugin per-entity info results v1 Since DCGM 4.0.
 type DiagInfoV1 struct {
 	Entity GroupEntityPair
 	Msg    [512]byte
 	TestId uint32
 }
 
-// DiagErrorV1 represents Diagnostic plugin per-entity error results v1 Since DCGM 4.0.
+// DiagErrorV1 represents diagnostic plugin per-entity error results v1 Since DCGM 4.0.
 type DiagErrorV1 struct {
 	Entity   GroupEntityPair
 	Code     uint32
@@ -667,20 +667,20 @@ type DiagErrorV1 struct {
 	TestId   uint32
 }
 
-// DiagEntityResultV1 represents Diagnostic plugin per-entity error results v1 Since DCGM 4.0 See also PluginInterface.h: dcgmDiagEntityResults_v1..
+// DiagEntityResultV1 represents diagnostic plugin per-entity error results v1 Since DCGM 4.0 See also PluginInterface.h: dcgmDiagEntityResults_v1.
 type DiagEntityResultV1 struct {
 	Entity GroupEntityPair
 	Result DiagResult
 	TestId uint32
 }
 
-// DiagTestAuxDataV1 represents Per test aux data structure v1 Since DCGM 4.0.
+// DiagTestAuxDataV1 represents per test aux data structure v1 Since DCGM 4.0.
 type DiagTestAuxDataV1 struct {
 	Version uint32
 	Data    [2048]byte
 }
 
-// DiagTestRunV2 represents Information about each test run..
+// DiagTestRunV2 represents information about each test run.
 type DiagTestRunV2 struct {
 	Name          [32]byte
 	PluginName    [32]byte
@@ -696,7 +696,7 @@ type DiagTestRunV2 struct {
 	AuxData       DiagTestAuxDataV1
 }
 
-// DiagTestRunV1 represents Information about each test run..
+// DiagTestRunV1 represents information about each test run.
 type DiagTestRunV1 struct {
 	Name          [32]byte
 	PluginName    [32]byte
@@ -712,7 +712,7 @@ type DiagTestRunV1 struct {
 	AuxData       DiagTestAuxDataV1
 }
 
-// DiagEntityV1 represents Additional entity details for entity-centric diagnostic run..
+// DiagEntityV1 represents additional entity details for entity-centric diagnostic run.
 type DiagEntityV1 struct {
 	Entity      GroupEntityPair
 	SerialNum   [256]byte
@@ -727,7 +727,7 @@ type IncidentInfo struct {
 	EntityInfo GroupEntityPair
 }
 
-// HealthResponse represents Health response structure version 4 - Simply list the incidents instead of reporting by entity Since DCGM 2.0.
+// HealthResponse represents health response structure version 4 - Simply list the incidents instead of reporting by entity Since DCGM 2.0.
 type HealthResponse struct {
 	Version       uint32
 	OverallHealth HealthWatchResults
@@ -735,7 +735,7 @@ type HealthResponse struct {
 	Incidents     [1024]IncidentInfo
 }
 
-// HealthSetParamsV2 represents Structure used to set health watches via the dcgmHealthSet_v2 API.
+// HealthSetParamsV2 is a structure used to set health watches via the dcgmHealthSet_v2 API.
 type HealthSetParamsV2 struct {
 	Version        uint32
 	GroupId        GpuGrp
@@ -751,13 +751,13 @@ type ProcessUtilInfo struct {
 	MemUtil float64
 }
 
-// ProcessUtilSample represents Internal structure used to get the PID and the corresponding utilization rate.
+// ProcessUtilSample represents internal structure used to get the PID and the corresponding utilization rate.
 type ProcessUtilSample struct {
 	Util float64
 	Pid  uint32
 }
 
-// PidSingleInfo represents Info corresponding to single PID.
+// PidSingleInfo represents info corresponding to single PID.
 type PidSingleInfo struct {
 	GpuId                    uint32
 	EnergyConsumed           int64
@@ -791,7 +791,7 @@ type PidSingleInfo struct {
 	Systems                  [10][2]uint32
 }
 
-// PidInfo represents To store process statistics.
+// PidInfo represents to store process statistics.
 type PidInfo struct {
 	Version uint32
 	Pid     uint32
@@ -801,7 +801,7 @@ type PidInfo struct {
 	Gpus    [32]PidSingleInfo
 }
 
-// GpuUsageInfo represents Info corresponding to the job on a GPU.
+// GpuUsageInfo represents info corresponding to the job on a GPU.
 type GpuUsageInfo struct {
 	GpuId                    uint32
 	EnergyConsumed           int64
@@ -835,7 +835,7 @@ type GpuUsageInfo struct {
 	Systems                  [10][2]uint32
 }
 
-// JobInfo represents To store job statistics The following fields are not applicable in the summary info: - pcieRxBandwidth (Min/Max) - pcieTxBandwidth (Min/Max) - smUtilization (Min/Max) - memoryUtilization (Min/Max) - memoryClock (Min/Max) - smClock (Min/Max) - processSamples The average value in the above fields (in the summary) is the average of the averages of respective fields from all GPUs.
+// JobInfo represents to store job statistics The following fields are not applicable in the summary info: - pcieRxBandwidth (Min/Max) - pcieTxBandwidth (Min/Max) - smUtilization (Min/Max) - memoryUtilization (Min/Max) - memoryClock (Min/Max) - smClock (Min/Max) - processSamples The average value in the above fields (in the summary) is the average of the averages of respective fields from all GPUs.
 type JobInfo struct {
 	Version uint32
 	NumGpus int32
@@ -843,7 +843,7 @@ type JobInfo struct {
 	Gpus    [32]GpuUsageInfo
 }
 
-// RunningProcess represents Running process information for a compute or graphics process.
+// RunningProcess represents running process information for a compute or graphics process.
 type RunningProcess struct {
 	Version    uint32
 	Pid        uint32
@@ -864,7 +864,7 @@ type DiagTestResultV3 struct {
 	Info   [512]byte
 }
 
-// DiagResponsePerGpuV4 represents Per GPU diagnostics result structure.
+// DiagResponsePerGpuV4 represents per GPU diagnostics result structure.
 type DiagResponsePerGpuV4 struct {
 	GpuId              uint32
 	HwDiagnosticReturn uint32
@@ -878,14 +878,14 @@ type DiagResponsePerGpuV5 struct {
 	Results            [13]DiagTestResultV3
 }
 
-// DiagResponsePerGpuV3 represents Per gpu response structure v3 Since DCGM 2.4.
+// DiagResponsePerGpuV3 represents per gpu response structure v3 Since DCGM 2.4.
 type DiagResponsePerGpuV3 struct {
 	GpuId              uint32
 	HwDiagnosticReturn uint32
 	Results            [9]DiagTestResultV2
 }
 
-// DiagResponse represents Global diagnostics result structure v12 Since DCGM 4.2 Note: This structure is not byte-for-byte compatible with v11..
+// DiagResponse represents global diagnostics result structure v12 Since DCGM 4.2 Note: This structure is not byte-for-byte compatible with v11.
 type DiagResponse struct {
 	Version       uint32
 	NumTests      uint8
@@ -905,7 +905,7 @@ type DiagResponse struct {
 	Unused        [621952]byte
 }
 
-// DiagResponseV11 represents Global diagnostics result structure v11 Since DCGM 4.0 @deprecated Use [DiagResponse] instead..
+// DiagResponseV11 represents global diagnostics result structure v11 Since DCGM 4.0 @deprecated Use [DiagResponse] instead.
 type DiagResponseV11 struct {
 	Version       uint32
 	NumTests      uint8
@@ -925,7 +925,7 @@ type DiagResponseV11 struct {
 	Unused        [682880]byte
 }
 
-// DiagResponseV10 represents Global diagnostics result structure v10 Since DCGM 3.3.7 @deprecated Use [DiagResponse] instead..
+// DiagResponseV10 represents global diagnostics result structure v10 Since DCGM 3.3.7 @deprecated Use [DiagResponse] instead.
 type DiagResponseV10 struct {
 	Version           uint32
 	GpuCount          uint32
@@ -940,7 +940,7 @@ type DiagResponseV10 struct {
 	AuxDataPerTest    [13]DiagTestAuxDataV1
 }
 
-// DiagResponseV9 represents Global diagnostics result structure v9 Since DCGM 3.3.
+// DiagResponseV9 represents global diagnostics result structure v9 Since DCGM 3.3.
 type DiagResponseV9 struct {
 	Version           uint32
 	GpuCount          uint32
@@ -955,7 +955,7 @@ type DiagResponseV9 struct {
 	Unused            [596]byte
 }
 
-// DiagResponseV8 represents Global diagnostics result structure v8 Since DCGM 3.0.
+// DiagResponseV8 represents global diagnostics result structure v8 Since DCGM 3.0.
 type DiagResponseV8 struct {
 	Version           uint32
 	GpuCount          uint32
@@ -969,7 +969,7 @@ type DiagResponseV8 struct {
 	Unused            [596]byte
 }
 
-// DiagResponseV7 represents Global diagnostics result structure v7 Since DCGM 2.4.
+// DiagResponseV7 represents global diagnostics result structure v7 Since DCGM 2.4.
 type DiagResponseV7 struct {
 	Version           uint32
 	GpuCount          uint32
@@ -980,7 +980,7 @@ type DiagResponseV7 struct {
 	Unused            [1024]byte
 }
 
-// DiagStatus represents Diagnostics live status structure v1 Since DCGM 4.0.
+// DiagStatus represents diagnostics live status structure v1 Since DCGM 4.0.
 type DiagStatus struct {
 	Version        uint32
 	TotalTests     uint32
@@ -989,7 +989,7 @@ type DiagStatus struct {
 	ErrorCode      uint32
 }
 
-// DeviceTopologyV1 represents Device topology information.
+// DeviceTopologyV1 represents device topology information.
 type DeviceTopologyV1 struct {
 	Version         uint32
 	CpuAffinityMask [8]uint
@@ -997,7 +997,7 @@ type DeviceTopologyV1 struct {
 	GpuPaths        [31][3]uint32
 }
 
-// DeviceTopology represents Device topology information with 64-bit topology path and NvLink link-id masks..
+// DeviceTopology represents device topology information with 64-bit topology path and NvLink link-id masks.
 type DeviceTopology struct {
 	Version         uint32
 	CpuAffinityMask [8]uint
@@ -1005,7 +1005,7 @@ type DeviceTopology struct {
 	GpuPaths        [31][3]uint64
 }
 
-// GroupTopologyV1 represents Group topology information.
+// GroupTopologyV1 represents group topology information.
 type GroupTopologyV1 struct {
 	Version              uint32
 	GroupCpuAffinityMask [8]uint
@@ -1013,7 +1013,7 @@ type GroupTopologyV1 struct {
 	SlowestPath          GpuTopologyLevelV1
 }
 
-// GroupTopology represents Group topology information with 64-bit topology path..
+// GroupTopology represents group topology information with 64-bit topology path.
 type GroupTopology struct {
 	Version              uint32
 	GroupCpuAffinityMask [8]uint
@@ -1027,7 +1027,7 @@ type IntrospectMemory struct {
 	BytesUsed int64
 }
 
-// IntrospectCpuUtil represents DCGM CPU Utilization information..
+// IntrospectCpuUtil represents DCGM CPU Utilization information.
 type IntrospectCpuUtil struct {
 	Version uint32
 	Total   float64
@@ -1035,7 +1035,7 @@ type IntrospectCpuUtil struct {
 	User    float64
 }
 
-// RunDiagV7 represents Run diagnostic structure v7 @deprecated Use [RunDiagV10] instead.
+// RunDiagV7 represents run diagnostic structure v7 @deprecated Use [RunDiagV10] instead.
 type RunDiagV7 struct {
 	Version            uint32
 	Flags              uint32
@@ -1058,7 +1058,7 @@ type RunDiagV7 struct {
 	FailCheckInterval  uint32
 }
 
-// RunDiagV8 represents Run diagnostic structure v8 @deprecated Use [RunDiagV10] instead.
+// RunDiagV8 represents run diagnostic structure v8 @deprecated Use [RunDiagV10] instead.
 type RunDiagV8 struct {
 	Version             uint32
 	Flags               uint32
@@ -1082,7 +1082,7 @@ type RunDiagV8 struct {
 	ExpectedNumEntities [50]byte
 }
 
-// RunDiagV9 represents Run diagnostic structure v9 @deprecated Use [RunDiagV10] instead.
+// RunDiagV9 represents run diagnostic structure v9 @deprecated Use [RunDiagV10] instead.
 type RunDiagV9 struct {
 	Version             uint32
 	Flags               uint32
@@ -1107,7 +1107,7 @@ type RunDiagV9 struct {
 	WatchFrequency      uint32
 }
 
-// RunDiagV10 represents Run diagnostic structure v10 Since DCGM 4.0.
+// RunDiagV10 represents run diagnostic structure v10 Since DCGM 4.0.
 type RunDiagV10 struct {
 	Version             uint32
 	Flags               uint32
@@ -1133,7 +1133,7 @@ type RunDiagV10 struct {
 	IgnoreErrorCodes    [512]byte
 }
 
-// RunMnDiag represents Multi-node diagnostic parameters structure v1.
+// RunMnDiag represents multi-node diagnostic parameters structure v1.
 type RunMnDiag struct {
 	Version   uint32
 	HostList  [72][256]byte
@@ -1236,7 +1236,7 @@ type TopoSchedHint struct {
 	HintFlags   uint64
 }
 
-// NvLinkGpuLinkStatusV1 represents State of NvLink links for a GPU.
+// NvLinkGpuLinkStatusV1 represents state of NvLink links for a GPU.
 type NvLinkGpuLinkStatusV1 struct {
 	EntityId  FieldEid
 	LinkState [6]NvLinkLinkState
@@ -1260,13 +1260,13 @@ type NvLinkGpuLinkStatusV4 struct {
 	LinkState [36]NvLinkLinkState
 }
 
-// NvLinkNvSwitchLinkStatus represents State of NvLink links for a NvSwitch.
+// NvLinkNvSwitchLinkStatus represents state of NvLink links for a NvSwitch.
 type NvLinkNvSwitchLinkStatus struct {
 	EntityId  FieldEid
 	LinkState [256]NvLinkLinkState
 }
 
-// NvLinkStatusV4 represents Status of all of the NvLinks in a given system.
+// NvLinkStatusV4 represents status of all of the NvLinks in a given system.
 type NvLinkStatusV4 struct {
 	Version       uint32
 	NumGpus       uint32
@@ -1275,7 +1275,7 @@ type NvLinkStatusV4 struct {
 	NvSwitches    [12]NvLinkNvSwitchLinkStatus
 }
 
-// NvLinkStatus represents Status of all of the NvLinks in a given system.
+// NvLinkStatus represents status of all of the NvLinks in a given system.
 type NvLinkStatus struct {
 	Version       uint32
 	NumGpus       uint32
@@ -1290,14 +1290,14 @@ type NvLinkGpuLinkP2PStatusV1 struct {
 	LinkStatus [32]NvLinkGpuP2PStatus
 }
 
-// NvLinkP2PStatus represents P2P status of all of the NvLinks in a given system..
+// NvLinkP2PStatus represents P2P status of all of the NvLinks in a given system.
 type NvLinkP2PStatus struct {
 	Version uint32
 	NumGpus uint32
 	Gpus    [32]NvLinkGpuLinkP2PStatusV1
 }
 
-// SummaryResponse represents [SummaryResponse] is part of dcgmFieldSummaryRequest, so it uses dcgmFieldSummaryRequest's version..
+// SummaryResponse is part of dcgmFieldSummaryRequest, so it uses dcgmFieldSummaryRequest's version.
 type SummaryResponse struct {
 	FieldType    uint32
 	SummaryCount uint32
@@ -1316,7 +1316,7 @@ type FieldSummaryRequest struct {
 	Response        SummaryResponse
 }
 
-// ModuleGetStatusesModule represents Status of all of the modules of the host engine.
+// ModuleGetStatusesModule represents status of all of the modules of the host engine.
 type ModuleGetStatusesModule struct {
 	Id     ModuleId
 	Status ModuleStatus
@@ -1329,7 +1329,7 @@ type ModuleGetStatusesStruct struct {
 	Statuses    [16]ModuleGetStatusesModule
 }
 
-// StartEmbeddedV2ParamsV1 represents Options for [StartEmbeddedV2] Added in DCGM 2.0.0 Note: size of denyList is changed from DcgmModuleIdCount to a fixed value of DCGM_MODULE_IDS_COUNT_V1.
+// StartEmbeddedV2ParamsV1 represents options for [StartEmbeddedV2] Added in DCGM 2.0.0 Note: size of denyList is changed from DcgmModuleIdCount to a fixed value of DCGM_MODULE_IDS_COUNT_V1.
 type StartEmbeddedV2ParamsV1 struct {
 	Version       uint32
 	OpMode        OperationMode
@@ -1340,7 +1340,7 @@ type StartEmbeddedV2ParamsV1 struct {
 	DenyList      [10]uint32
 }
 
-// StartEmbeddedV2ParamsV2 represents Options for [StartEmbeddedV2ParamsV2] Added in DCGM 2.4.0, renamed members in 3.0.0 Note: size of denyList is changed from DcgmModuleIdCount to a fixed value of DCGM_MODULE_IDS_COUNT_V1.
+// StartEmbeddedV2ParamsV2 represents options for [StartEmbeddedV2ParamsV2] Added in DCGM 2.4.0, renamed members in 3.0.0 Note: size of denyList is changed from DcgmModuleIdCount to a fixed value of DCGM_MODULE_IDS_COUNT_V1.
 type StartEmbeddedV2ParamsV2 struct {
 	Version        uint32
 	OpMode         OperationMode
@@ -1352,7 +1352,7 @@ type StartEmbeddedV2ParamsV2 struct {
 	DenyList       [10]uint32
 }
 
-// StartEmbeddedV2Params represents Options for [StartEmbeddedV2Params] Added in DCGM 4.3, expanded the size of denyList from DCGM_MODULE_ID_COUNT_V1 to DCGM_MODULE_ID_COUNT_V2.
+// StartEmbeddedV2Params represents options for [StartEmbeddedV2Params] Added in DCGM 4.3, expanded the size of denyList from DCGM_MODULE_ID_COUNT_V1 to DCGM_MODULE_ID_COUNT_V2.
 type StartEmbeddedV2Params struct {
 	Version        uint32
 	OpMode         OperationMode
@@ -1364,7 +1364,7 @@ type StartEmbeddedV2Params struct {
 	DenyList       [16]uint32
 }
 
-// ProfMetricGroupInfoV2 represents Structure to return all of the profiling metric groups that are available for the given groupId..
+// ProfMetricGroupInfoV2 returns all of the profiling metric groups that are available for the given groupId.
 type ProfMetricGroupInfoV2 struct {
 	MajorId     uint16
 	MinorId     uint16
@@ -1381,20 +1381,20 @@ type ProfGetMetricGroups struct {
 	MetricGroups    [10]ProfMetricGroupInfoV2
 }
 
-// SettingsSetLoggingSeverityV1 represents Version 1 of [SettingsSetLoggingSeverity].
+// SettingsSetLoggingSeverityV1 represents version 1 of [SettingsSetLoggingSeverity].
 type SettingsSetLoggingSeverityV1 struct {
 	TargetLogger   int32
 	TargetSeverity LoggingSeverity
 }
 
-// SettingsSetLoggingSeverity represents Version 2 of [SettingsSetLoggingSeverity].
+// SettingsSetLoggingSeverity represents version 2 of [SettingsSetLoggingSeverity].
 type SettingsSetLoggingSeverity struct {
 	Version        uint32
 	TargetLogger   int32
 	TargetSeverity LoggingSeverity
 }
 
-// VersionInfoStruct represents Structure to describe the DCGM build environment ver 2.0.
+// VersionInfoStruct describes the DCGM build environment ver 2.0.
 type VersionInfoStruct struct {
 	Version            uint32
 	RawBuildInfoString [512]byte
@@ -1408,7 +1408,7 @@ type EnvVarInfo struct {
 	Ret         Result
 }
 
-// ModulesReloadable represents Structure to describe the Mark Modules Reloadable request..
+// ModulesReloadable describes the Mark Modules Reloadable request.
 type ModulesReloadable struct {
 	Version    uint32
 	ModuleMask uint32

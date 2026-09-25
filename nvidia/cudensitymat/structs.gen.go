@@ -2,21 +2,21 @@
 
 package cudensitymat
 
-// WrappedScalarCallback represents Scalar callback wrapper data structure.
+// WrappedScalarCallback represents scalar callback wrapper data structure.
 type WrappedScalarCallback struct {
 	Callback uintptr
 	Device   CallbackDevice
 	Wrapper  uintptr
 }
 
-// WrappedTensorCallback represents Tensor callback wrapper data structure.
+// WrappedTensorCallback represents tensor callback wrapper data structure.
 type WrappedTensorCallback struct {
 	Callback uintptr
 	Device   CallbackDevice
 	Wrapper  uintptr
 }
 
-// WrappedScalarGradientCallback represents Scalar gradient callback wrapper data structure.
+// WrappedScalarGradientCallback represents scalar gradient callback wrapper data structure.
 type WrappedScalarGradientCallback struct {
 	Callback  uintptr
 	Device    CallbackDevice
@@ -24,7 +24,7 @@ type WrappedScalarGradientCallback struct {
 	Direction DifferentiationDir
 }
 
-// WrappedTensorGradientCallback represents Tensor gradient callback wrapper data structure.
+// WrappedTensorGradientCallback represents tensor gradient callback wrapper data structure.
 type WrappedTensorGradientCallback struct {
 	Callback  uintptr
 	Device    CallbackDevice

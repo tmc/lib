@@ -7,7 +7,7 @@ package cufile
 
 import "fmt"
 
-// OpError represents cufileop status enum Note: on success the error code is set to @ref [Success]..
+// OpError represents cufileop status enum Note: on success the error code is set to @ref [Success].
 type OpError int32
 
 const (

@@ -4,7 +4,7 @@ package cupti
 
 import "fmt"
 
-// ActivityKind The kinds of activity records.
+// ActivityKind represents the kinds of activity records.
 type ActivityKind int32
 
 const (
@@ -262,7 +262,7 @@ func (e ActivityKind) String() string {
 	return fmt.Sprintf("ActivityKind(%d)", e)
 }
 
-// ActivityObjectKind The kinds of activity objects.
+// ActivityObjectKind represents the kinds of activity objects.
 type ActivityObjectKind int32
 
 const (
@@ -296,7 +296,7 @@ func (e ActivityObjectKind) String() string {
 	return fmt.Sprintf("ActivityObjectKind(%d)", e)
 }
 
-// ActivityOverheadKind The kinds of activity overhead.
+// ActivityOverheadKind represents the kinds of activity overhead.
 type ActivityOverheadKind int32
 
 const (
@@ -343,7 +343,7 @@ func (e ActivityOverheadKind) String() string {
 	return fmt.Sprintf("ActivityOverheadKind(%d)", e)
 }
 
-// ActivityComputeApiKind The kind of a compute API.
+// ActivityComputeApiKind represents the kind of a compute API.
 type ActivityComputeApiKind int32
 
 const (
@@ -369,7 +369,7 @@ func (e ActivityComputeApiKind) String() string {
 	return fmt.Sprintf("ActivityComputeApiKind(%d)", e)
 }
 
-// ActivityFlag Flags associated with activity records.
+// ActivityFlag represents flags associated with activity records.
 type ActivityFlag int32
 
 const (
@@ -460,7 +460,7 @@ func (e ActivityFlag) String() string {
 	return fmt.Sprintf("ActivityFlag(%d)", e)
 }
 
-// ActivityPCSamplingStallReason The stall reason for PC sampling activity.
+// ActivityPCSamplingStallReason represents the stall reason for PC sampling activity.
 type ActivityPCSamplingStallReason int32
 
 const (
@@ -522,7 +522,7 @@ func (e ActivityPCSamplingStallReason) String() string {
 	return fmt.Sprintf("ActivityPCSamplingStallReason(%d)", e)
 }
 
-// ActivityPCSamplingPeriod Sampling period for PC sampling method Sampling period can be set using [ActivityConfigurePCSampling]
+// ActivityPCSamplingPeriod represents sampling period for PC sampling method Sampling period can be set using [ActivityConfigurePCSampling].
 type ActivityPCSamplingPeriod int32
 
 const (
@@ -556,7 +556,7 @@ func (e ActivityPCSamplingPeriod) String() string {
 	return fmt.Sprintf("ActivityPCSamplingPeriod(%d)", e)
 }
 
-// ActivityMemcpyKind The kind of a memory copy, indicating the source and destination targets of the copy.
+// ActivityMemcpyKind represents the kind of a memory copy, indicating the source and destination targets of the copy.
 type ActivityMemcpyKind int32
 
 const (
@@ -605,7 +605,7 @@ func (e ActivityMemcpyKind) String() string {
 	return fmt.Sprintf("ActivityMemcpyKind(%d)", e)
 }
 
-// ActivityMemoryKind The kinds of memory accessed by a memory operation/copy.
+// ActivityMemoryKind represents the kinds of memory accessed by a memory operation/copy.
 type ActivityMemoryKind int32
 
 const (
@@ -645,7 +645,7 @@ func (e ActivityMemoryKind) String() string {
 	return fmt.Sprintf("ActivityMemoryKind(%d)", e)
 }
 
-// ActivityPreemptionKind The kind of a preemption activity.
+// ActivityPreemptionKind represents the kind of a preemption activity.
 type ActivityPreemptionKind int32
 
 const (
@@ -670,7 +670,7 @@ func (e ActivityPreemptionKind) String() string {
 	return fmt.Sprintf("ActivityPreemptionKind(%d)", e)
 }
 
-// ActivityEnvironmentKind The kind of environment data.
+// ActivityEnvironmentKind represents the kind of environment data.
 type ActivityEnvironmentKind int32
 
 const (
@@ -704,7 +704,7 @@ func (e ActivityEnvironmentKind) String() string {
 	return fmt.Sprintf("ActivityEnvironmentKind(%d)", e)
 }
 
-// EnvironmentClocksThrottleReason Reasons for clock throttling.
+// EnvironmentClocksThrottleReason represents reasons for clock throttling.
 type EnvironmentClocksThrottleReason uint32
 
 const (
@@ -744,7 +744,7 @@ func (e EnvironmentClocksThrottleReason) String() string {
 	return fmt.Sprintf("EnvironmentClocksThrottleReason(%d)", e)
 }
 
-// ActivityUnifiedMemoryCounterScope Scope of the unified memory counter (deprecated in CUDA 7.0)
+// ActivityUnifiedMemoryCounterScope represents scope of the unified memory counter (deprecated in CUDA 7.0).
 type ActivityUnifiedMemoryCounterScope int32
 
 const (
@@ -774,7 +774,7 @@ func (e ActivityUnifiedMemoryCounterScope) String() string {
 	return fmt.Sprintf("ActivityUnifiedMemoryCounterScope(%d)", e)
 }
 
-// ActivityUnifiedMemoryCounterKind Kind of the Unified Memory counter Many activities are associated with Unified Memory mechanism; among them are transfers from host to device, device to host, page fault at host side.
+// ActivityUnifiedMemoryCounterKind represents kind of the Unified Memory counter Many activities are associated with Unified Memory mechanism; among them are transfers from host to device, device to host, page fault at host side.
 type ActivityUnifiedMemoryCounterKind int32
 
 const (
@@ -826,7 +826,7 @@ func (e ActivityUnifiedMemoryCounterKind) String() string {
 	return fmt.Sprintf("ActivityUnifiedMemoryCounterKind(%d)", e)
 }
 
-// ActivityUnifiedMemoryAccessType Memory access type for unified memory page faults This is valid for [ActivityUnifiedMemoryCounterKindGpuPageFault] and [ActivityUnifiedMemoryCounterKindCpuPageFaultCount]
+// ActivityUnifiedMemoryAccessType represents memory access type for unified memory page faults This is valid for [ActivityUnifiedMemoryCounterKindGpuPageFault] and [ActivityUnifiedMemoryCounterKindCpuPageFaultCount].
 type ActivityUnifiedMemoryAccessType int32
 
 const (
@@ -854,7 +854,7 @@ func (e ActivityUnifiedMemoryAccessType) String() string {
 	return fmt.Sprintf("ActivityUnifiedMemoryAccessType(%d)", e)
 }
 
-// ActivityUnifiedMemoryMigrationCause Migration cause of the Unified Memory counter This is valid for [ActivityUnifiedMemoryCounterKindBytesTransferHtod] and [ActivityUnifiedMemoryCounterKindBytesTransferDtoh]
+// ActivityUnifiedMemoryMigrationCause represents migration cause of the Unified Memory counter This is valid for [ActivityUnifiedMemoryCounterKindBytesTransferHtod] and [ActivityUnifiedMemoryCounterKindBytesTransferDtoh].
 type ActivityUnifiedMemoryMigrationCause int32
 
 const (
@@ -890,7 +890,7 @@ func (e ActivityUnifiedMemoryMigrationCause) String() string {
 	return fmt.Sprintf("ActivityUnifiedMemoryMigrationCause(%d)", e)
 }
 
-// ActivityUnifiedMemoryRemoteMapCause Remote memory map cause of the Unified Memory counter This is valid for [ActivityUnifiedMemoryCounterKindRemoteMap]
+// ActivityUnifiedMemoryRemoteMapCause represents remote memory map cause of the Unified Memory counter This is valid for [ActivityUnifiedMemoryCounterKindRemoteMap].
 type ActivityUnifiedMemoryRemoteMapCause int32
 
 const (
@@ -926,7 +926,7 @@ func (e ActivityUnifiedMemoryRemoteMapCause) String() string {
 	return fmt.Sprintf("ActivityUnifiedMemoryRemoteMapCause(%d)", e)
 }
 
-// ActivityInstructionClass SASS instruction classification.
+// ActivityInstructionClass represents SASS instruction classification.
 type ActivityInstructionClass int32
 
 const (
@@ -1006,7 +1006,7 @@ func (e ActivityInstructionClass) String() string {
 	return fmt.Sprintf("ActivityInstructionClass(%d)", e)
 }
 
-// ActivityPartitionedGlobalCacheConfig Partitioned global caching option
+// ActivityPartitionedGlobalCacheConfig represents partitioned global caching option.
 type ActivityPartitionedGlobalCacheConfig int32
 
 const (
@@ -1034,7 +1034,7 @@ func (e ActivityPartitionedGlobalCacheConfig) String() string {
 	return fmt.Sprintf("ActivityPartitionedGlobalCacheConfig(%d)", e)
 }
 
-// ActivitySynchronizationType Synchronization type.
+// ActivitySynchronizationType represents synchronization type.
 type ActivitySynchronizationType int32
 
 const (
@@ -1096,7 +1096,7 @@ func (e ActivityStreamFlag) String() string {
 	return fmt.Sprintf("ActivityStreamFlag(%d)", e)
 }
 
-// LinkFlag Link flags.
+// LinkFlag represents link flags.
 type LinkFlag int32
 
 const (
@@ -1127,7 +1127,7 @@ func (e LinkFlag) String() string {
 	return fmt.Sprintf("LinkFlag(%d)", e)
 }
 
-// ActivityMemoryOperationType Memory operation types.
+// ActivityMemoryOperationType represents memory operation types.
 type ActivityMemoryOperationType int32
 
 const (
@@ -1152,7 +1152,7 @@ func (e ActivityMemoryOperationType) String() string {
 	return fmt.Sprintf("ActivityMemoryOperationType(%d)", e)
 }
 
-// ActivityMemoryPoolType Memory pool types.
+// ActivityMemoryPoolType represents memory pool types.
 type ActivityMemoryPoolType int32
 
 const (
@@ -1177,7 +1177,7 @@ func (e ActivityMemoryPoolType) String() string {
 	return fmt.Sprintf("ActivityMemoryPoolType(%d)", e)
 }
 
-// ActivityMemoryPoolOperationType Memory pool operation types.
+// ActivityMemoryPoolOperationType represents memory pool operation types.
 type ActivityMemoryPoolOperationType int32
 
 const (
@@ -1234,7 +1234,7 @@ func (e ChannelType) String() string {
 	return fmt.Sprintf("ChannelType(%d)", e)
 }
 
-// ContextCigMode CIG (CUDA in Graphics) Modes.
+// ContextCigMode represents CIG (CUDA in Graphics) Modes.
 type ContextCigMode int32
 
 const (
@@ -1284,7 +1284,7 @@ func (e NvtxExtPayloadType) String() string {
 	return fmt.Sprintf("NvtxExtPayloadType(%d)", e)
 }
 
-// ActivityMemcpyFieldIds Enum identifiers for fields to trace memory copies.
+// ActivityMemcpyFieldIds represents enum identifiers for fields to trace memory copies.
 type ActivityMemcpyFieldIds int32
 
 const (
@@ -1352,7 +1352,7 @@ func (e ActivityMemcpyFieldIds) String() string {
 	return fmt.Sprintf("ActivityMemcpyFieldIds(%d)", e)
 }
 
-// ActivityMemcpy2FieldIds Enum identifiers for fields to trace peer-to-peer memory copies.
+// ActivityMemcpy2FieldIds represents enum identifiers for fields to trace peer-to-peer memory copies.
 type ActivityMemcpy2FieldIds int32
 
 const (
@@ -1426,7 +1426,7 @@ func (e ActivityMemcpy2FieldIds) String() string {
 	return fmt.Sprintf("ActivityMemcpy2FieldIds(%d)", e)
 }
 
-// ActivityMemsetFieldIds Enum identifiers for fields to trace memset operations.
+// ActivityMemsetFieldIds represents enum identifiers for fields to trace memset operations.
 type ActivityMemsetFieldIds int32
 
 const (
@@ -1488,7 +1488,7 @@ func (e ActivityMemsetFieldIds) String() string {
 	return fmt.Sprintf("ActivityMemsetFieldIds(%d)", e)
 }
 
-// ActivityMemoryFieldIds Enum identifiers for fields to trace memory allocation and free operation.
+// ActivityMemoryFieldIds represents enum identifiers for fields to trace memory allocation and free operation.
 type ActivityMemoryFieldIds int32
 
 const (
@@ -1559,7 +1559,7 @@ func (e ActivityMemoryFieldIds) String() string {
 	return fmt.Sprintf("ActivityMemoryFieldIds(%d)", e)
 }
 
-// ActivityMemoryPoolFieldIds Enum identifiers for fields to trace CUDA memory pool creation, destruction and trimming.
+// ActivityMemoryPoolFieldIds represents enum identifiers for fields to trace CUDA memory pool creation, destruction and trimming.
 type ActivityMemoryPoolFieldIds int32
 
 const (
@@ -1612,7 +1612,7 @@ func (e ActivityMemoryPoolFieldIds) String() string {
 	return fmt.Sprintf("ActivityMemoryPoolFieldIds(%d)", e)
 }
 
-// ActivityLaunchType The type of the CUDA kernel launch.
+// ActivityLaunchType represents the type of the CUDA kernel launch.
 type ActivityLaunchType int32
 
 const (
@@ -1639,7 +1639,7 @@ func (e ActivityLaunchType) String() string {
 	return fmt.Sprintf("ActivityLaunchType(%d)", e)
 }
 
-// FuncShmemLimitConfig The shared memory limit per block config for a kernel This should be used to set 'cudaOccFuncShmemConfig' field in occupancy calculator API
+// FuncShmemLimitConfig represents the shared memory limit per block config for a kernel This should be used to set 'cudaOccFuncShmemConfig' field in occupancy calculator API.
 type FuncShmemLimitConfig int32
 
 const (
@@ -1661,7 +1661,7 @@ func (e FuncShmemLimitConfig) String() string {
 	return fmt.Sprintf("FuncShmemLimitConfig(%d)", e)
 }
 
-// ActivityKernelFieldIds Enum identifiers for fields to trace kernel operations.
+// ActivityKernelFieldIds represents enum identifiers for fields to trace kernel operations.
 type ActivityKernelFieldIds int32
 
 const (
@@ -1813,7 +1813,7 @@ func (e ActivityKernelFieldIds) String() string {
 	return fmt.Sprintf("ActivityKernelFieldIds(%d)", e)
 }
 
-// ActivityApiFieldIds Enum identifiers for fields in [ActivityAPI].
+// ActivityApiFieldIds represents enum identifiers for fields in [ActivityAPI].
 type ActivityApiFieldIds int32
 
 const (
@@ -1851,7 +1851,7 @@ func (e ActivityApiFieldIds) String() string {
 	return fmt.Sprintf("ActivityApiFieldIds(%d)", e)
 }
 
-// ActivityDeviceFieldIds Enum identifiers for fields in [ActivityDevice6].
+// ActivityDeviceFieldIds represents enum identifiers for fields in [ActivityDevice6].
 type ActivityDeviceFieldIds int32
 
 const (
@@ -1979,7 +1979,7 @@ func (e ActivityDeviceFieldIds) String() string {
 	return fmt.Sprintf("ActivityDeviceFieldIds(%d)", e)
 }
 
-// ActivityContextFieldIds Enum identifiers for fields to trace context.
+// ActivityContextFieldIds represents enum identifiers for fields to trace context.
 type ActivityContextFieldIds int32
 
 const (
@@ -2023,7 +2023,7 @@ func (e ActivityContextFieldIds) String() string {
 	return fmt.Sprintf("ActivityContextFieldIds(%d)", e)
 }
 
-// ActivityNameFieldIds Enum identifiers for fields in [ActivityName].
+// ActivityNameFieldIds represents enum identifiers for fields in [ActivityName].
 type ActivityNameFieldIds int32
 
 const (
@@ -2048,7 +2048,7 @@ func (e ActivityNameFieldIds) String() string {
 	return fmt.Sprintf("ActivityNameFieldIds(%d)", e)
 }
 
-// ActivityMarkerFieldIds Enum identifiers for fields to trace NVTX markers/ranges.
+// ActivityMarkerFieldIds represents enum identifiers for fields to trace NVTX markers/ranges.
 type ActivityMarkerFieldIds int32
 
 const (
@@ -2086,7 +2086,7 @@ func (e ActivityMarkerFieldIds) String() string {
 	return fmt.Sprintf("ActivityMarkerFieldIds(%d)", e)
 }
 
-// ActivityMarkerDataFieldIds Enum identifiers for fields to trace detailed information for a marker.
+// ActivityMarkerDataFieldIds represents enum identifiers for fields to trace detailed information for a marker.
 type ActivityMarkerDataFieldIds int32
 
 const (
@@ -2124,7 +2124,7 @@ func (e ActivityMarkerDataFieldIds) String() string {
 	return fmt.Sprintf("ActivityMarkerDataFieldIds(%d)", e)
 }
 
-// ActivityOverheadFieldIds Enum identifiers for fields to trace CUPTI and driver overhead information.
+// ActivityOverheadFieldIds represents enum identifiers for fields to trace CUPTI and driver overhead information.
 type ActivityOverheadFieldIds int32
 
 const (
@@ -2162,7 +2162,7 @@ func (e ActivityOverheadFieldIds) String() string {
 	return fmt.Sprintf("ActivityOverheadFieldIds(%d)", e)
 }
 
-// ActivityUvmCounterFieldIds Enum identifiers for fields in [ActivityUnifiedMemoryCounter3].
+// ActivityUvmCounterFieldIds represents enum identifiers for fields in [ActivityUnifiedMemoryCounter3].
 type ActivityUvmCounterFieldIds int32
 
 const (
@@ -2211,7 +2211,7 @@ func (e ActivityUvmCounterFieldIds) String() string {
 	return fmt.Sprintf("ActivityUvmCounterFieldIds(%d)", e)
 }
 
-// ActivityCudaEventFieldIds Enum identifiers for fields to trace CUDA Event operations.
+// ActivityCudaEventFieldIds represents enum identifiers for fields to trace CUDA Event operations.
 type ActivityCudaEventFieldIds int32
 
 const (
@@ -2249,7 +2249,7 @@ func (e ActivityCudaEventFieldIds) String() string {
 	return fmt.Sprintf("ActivityCudaEventFieldIds(%d)", e)
 }
 
-// ActivityStreamFieldIds Enum identifiers for fields to trace CUDA Stream operations.
+// ActivityStreamFieldIds represents enum identifiers for fields to trace CUDA Stream operations.
 type ActivityStreamFieldIds int32
 
 const (
@@ -2281,7 +2281,7 @@ func (e ActivityStreamFieldIds) String() string {
 	return fmt.Sprintf("ActivityStreamFieldIds(%d)", e)
 }
 
-// ActivitySynchronizationFieldIds Enum identifiers for fields to trace various CUDA synchronization APIs.
+// ActivitySynchronizationFieldIds represents enum identifiers for fields to trace various CUDA synchronization APIs.
 type ActivitySynchronizationFieldIds int32
 
 const (
@@ -2325,7 +2325,7 @@ func (e ActivitySynchronizationFieldIds) String() string {
 	return fmt.Sprintf("ActivitySynchronizationFieldIds(%d)", e)
 }
 
-// OpenAccEventKind The OpenAcc event kind for OpenAcc activity records.
+// OpenAccEventKind represents the OpenAcc event kind for OpenAcc activity records.
 type OpenAccEventKind int32
 
 const (
@@ -2392,7 +2392,7 @@ func (e OpenAccEventKind) String() string {
 	return fmt.Sprintf("OpenAccEventKind(%d)", e)
 }
 
-// OpenAccConstructKind The OpenAcc parent construct kind for OpenAcc activity records.
+// OpenAccConstructKind represents the OpenAcc parent construct kind for OpenAcc activity records.
 type OpenAccConstructKind int32
 
 const (
@@ -2496,7 +2496,7 @@ func (e OpenMpEventKind) String() string {
 	return fmt.Sprintf("OpenMpEventKind(%d)", e)
 }
 
-// ExternalCorrelationKind The kind of external APIs supported for correlation.
+// ExternalCorrelationKind represents the kind of external APIs supported for correlation.
 type ExternalCorrelationKind int32
 
 const (
@@ -2533,7 +2533,7 @@ func (e ExternalCorrelationKind) String() string {
 	return fmt.Sprintf("ExternalCorrelationKind(%d)", e)
 }
 
-// ActivityExternalCorrelationFieldIds Enum identifiers for fields in [ActivityExternalCorrelation].
+// ActivityExternalCorrelationFieldIds represents enum identifiers for fields in [ActivityExternalCorrelation].
 type ActivityExternalCorrelationFieldIds int32
 
 const (
@@ -2559,7 +2559,7 @@ func (e ActivityExternalCorrelationFieldIds) String() string {
 	return fmt.Sprintf("ActivityExternalCorrelationFieldIds(%d)", e)
 }
 
-// DevType The device type for device connected to NVLink.
+// DevType represents the device type for device connected to NVLink.
 type DevType int32
 
 const (
@@ -2584,7 +2584,7 @@ func (e DevType) String() string {
 	return fmt.Sprintf("DevType(%d)", e)
 }
 
-// PcieDeviceType Field to differentiate whether PCIE Activity record is of a GPU or a PCI Bridge
+// PcieDeviceType represents field to differentiate whether PCIE Activity record is of a GPU or a PCI Bridge.
 type PcieDeviceType int32
 
 const (
@@ -2606,7 +2606,7 @@ func (e PcieDeviceType) String() string {
 	return fmt.Sprintf("PcieDeviceType(%d)", e)
 }
 
-// PcieGen PCIE Generation.
+// PcieGen represents PCIE Generation.
 type PcieGen int32
 
 const (
@@ -2670,7 +2670,7 @@ func (e ConfidentialComputeRotationEventType) String() string {
 	return fmt.Sprintf("ConfidentialComputeRotationEventType(%d)", e)
 }
 
-// ActivityConfidentialComputeRotationFieldIds Enum identifiers for fields in [ActivityConfidentialComputeRotation].
+// ActivityConfidentialComputeRotationFieldIds represents enum identifiers for fields in [ActivityConfidentialComputeRotation].
 type ActivityConfidentialComputeRotationFieldIds int32
 
 const (
@@ -2704,7 +2704,7 @@ func (e ActivityConfidentialComputeRotationFieldIds) String() string {
 	return fmt.Sprintf("ActivityConfidentialComputeRotationFieldIds(%d)", e)
 }
 
-// ActivityJitEntryType The types of JIT entry.
+// ActivityJitEntryType represents the types of JIT entry.
 type ActivityJitEntryType int32
 
 const (
@@ -2729,7 +2729,7 @@ func (e ActivityJitEntryType) String() string {
 	return fmt.Sprintf("ActivityJitEntryType(%d)", e)
 }
 
-// ActivityJitOperationType The types of JIT compilation operations.
+// ActivityJitOperationType represents the types of JIT compilation operations.
 type ActivityJitOperationType int32
 
 const (
@@ -2757,7 +2757,7 @@ func (e ActivityJitOperationType) String() string {
 	return fmt.Sprintf("ActivityJitOperationType(%d)", e)
 }
 
-// ActivityJitFieldIds Enum identifiers for fields to trace JIT operations.
+// ActivityJitFieldIds represents enum identifiers for fields to trace JIT operations.
 type ActivityJitFieldIds int32
 
 const (
@@ -2807,7 +2807,7 @@ func (e ActivityJitFieldIds) String() string {
 	return fmt.Sprintf("ActivityJitFieldIds(%d)", e)
 }
 
-// ActivityGraphTraceFieldIds Enum identifiers for fields to trace graph execution.
+// ActivityGraphTraceFieldIds represents enum identifiers for fields to trace graph execution.
 type ActivityGraphTraceFieldIds int32
 
 const (
@@ -2851,7 +2851,7 @@ func (e ActivityGraphTraceFieldIds) String() string {
 	return fmt.Sprintf("ActivityGraphTraceFieldIds(%d)", e)
 }
 
-// DeviceGraphLaunchMode The launch mode for device graph execution.
+// DeviceGraphLaunchMode represents the launch mode for device graph execution.
 type DeviceGraphLaunchMode int32
 
 const (
@@ -2876,7 +2876,7 @@ func (e DeviceGraphLaunchMode) String() string {
 	return fmt.Sprintf("DeviceGraphLaunchMode(%d)", e)
 }
 
-// ActivityDeviceGraphTraceFieldIds Enum identifiers for fields in [ActivityDeviceGraphTrace].
+// ActivityDeviceGraphTraceFieldIds represents enum identifiers for fields in [ActivityDeviceGraphTrace].
 type ActivityDeviceGraphTraceFieldIds int32
 
 const (
@@ -2917,7 +2917,7 @@ func (e ActivityDeviceGraphTraceFieldIds) String() string {
 	return fmt.Sprintf("ActivityDeviceGraphTraceFieldIds(%d)", e)
 }
 
-// ActivityMemDecompressFieldIds Enum identifiers for fields to trace decompression operations.
+// ActivityMemDecompressFieldIds represents enum identifiers for fields to trace decompression operations.
 type ActivityMemDecompressFieldIds int32
 
 const (
@@ -2964,7 +2964,7 @@ func (e ActivityMemDecompressFieldIds) String() string {
 	return fmt.Sprintf("ActivityMemDecompressFieldIds(%d)", e)
 }
 
-// ActivityGraphHostNodeFieldIds Enum identifiers for fields in [ActivityGraphHostNode].
+// ActivityGraphHostNodeFieldIds represents enum identifiers for fields in [ActivityGraphHostNode].
 type ActivityGraphHostNodeFieldIds int32
 
 const (
@@ -3010,7 +3010,7 @@ func (e ActivityGraphHostNodeFieldIds) String() string {
 	return fmt.Sprintf("ActivityGraphHostNodeFieldIds(%d)", e)
 }
 
-// ComputeEngineCtxSwitchOperationType The operation type of CUDA context switch event records.
+// ComputeEngineCtxSwitchOperationType represents the operation type of CUDA context switch event records.
 type ComputeEngineCtxSwitchOperationType int32
 
 const (
@@ -3035,7 +3035,7 @@ func (e ComputeEngineCtxSwitchOperationType) String() string {
 	return fmt.Sprintf("ComputeEngineCtxSwitchOperationType(%d)", e)
 }
 
-// ActivityComputeEngineCtxSwitchFieldIds Enum identifiers for fields in [ActivityComputeEngineCtxSwitch].
+// ActivityComputeEngineCtxSwitchFieldIds represents enum identifiers for fields in [ActivityComputeEngineCtxSwitch].
 type ActivityComputeEngineCtxSwitchFieldIds int32
 
 const (
@@ -3060,7 +3060,7 @@ func (e ActivityComputeEngineCtxSwitchFieldIds) String() string {
 	return fmt.Sprintf("ActivityComputeEngineCtxSwitchFieldIds(%d)", e)
 }
 
-// ActivityHostLaunchFieldIds Enum identifiers for fields in [ActivityHostLaunch].
+// ActivityHostLaunchFieldIds represents enum identifiers for fields in [ActivityHostLaunch].
 type ActivityHostLaunchFieldIds int32
 
 const (
@@ -3100,7 +3100,7 @@ func (e ActivityHostLaunchFieldIds) String() string {
 	return fmt.Sprintf("ActivityHostLaunchFieldIds(%d)", e)
 }
 
-// ActivityGreenContextFieldIds Enum identifiers for fields to trace green context information.
+// ActivityGreenContextFieldIds represents enum identifiers for fields to trace green context information.
 type ActivityGreenContextFieldIds int32
 
 const (
@@ -3138,7 +3138,7 @@ func (e ActivityGreenContextFieldIds) String() string {
 	return fmt.Sprintf("ActivityGreenContextFieldIds(%d)", e)
 }
 
-// ActivityAttribute Activity attributes.
+// ActivityAttribute represents activity attributes.
 type ActivityAttribute int32
 
 const (
@@ -3235,7 +3235,7 @@ func (e ActivityAttribute) String() string {
 	return fmt.Sprintf("ActivityAttribute(%d)", e)
 }
 
-// ActivityThreadIdType Thread-Id types.
+// ActivityThreadIdType represents Thread-Id types.
 type ActivityThreadIdType int32
 
 const (
@@ -3262,7 +3262,7 @@ func (e ActivityThreadIdType) String() string {
 	return fmt.Sprintf("ActivityThreadIdType(%d)", e)
 }
 
-// VirtualizationMode This indicates the virtualization mode in which CUDA device is running
+// VirtualizationMode indicates the virtualization mode in which CUDA device is running.
 type VirtualizationMode int32
 
 const (
@@ -3290,7 +3290,7 @@ func (e VirtualizationMode) String() string {
 	return fmt.Sprintf("VirtualizationMode(%d)", e)
 }
 
-// ApiCallbackSite Specifies the point in an API call that a callback is issued.
+// ApiCallbackSite specifies the point in an API call that a callback is issued.
 type ApiCallbackSite int32
 
 const (
@@ -3312,7 +3312,7 @@ func (e ApiCallbackSite) String() string {
 	return fmt.Sprintf("ApiCallbackSite(%d)", e)
 }
 
-// CallbackDomain Callback domains.
+// CallbackDomain represents callback domains.
 type CallbackDomain int32
 
 const (
@@ -3355,7 +3355,7 @@ func (e CallbackDomain) String() string {
 	return fmt.Sprintf("CallbackDomain(%d)", e)
 }
 
-// CallbackIdResource Callback IDs for resource domain.
+// CallbackIdResource represents callback IDs for resource domain.
 type CallbackIdResource int32
 
 const (
@@ -3447,7 +3447,7 @@ func (e CallbackIdResource) String() string {
 	return fmt.Sprintf("CallbackIdResource(%d)", e)
 }
 
-// CallbackIdSync Callback IDs for synchronization domain.
+// CallbackIdSync represents callback IDs for synchronization domain.
 type CallbackIdSync int32
 
 const (
@@ -3475,7 +3475,7 @@ func (e CallbackIdSync) String() string {
 	return fmt.Sprintf("CallbackIdSync(%d)", e)
 }
 
-// CallbackIdState Callback IDs for state domain.
+// CallbackIdState represents callback IDs for state domain.
 type CallbackIdState int32
 
 const (
@@ -3508,7 +3508,7 @@ func (e CallbackIdState) String() string {
 	return fmt.Sprintf("CallbackIdState(%d)", e)
 }
 
-// DeviceAttributeDeviceClass Device class.
+// DeviceAttributeDeviceClass represents device class.
 type DeviceAttributeDeviceClass int32
 
 const (
@@ -3533,7 +3533,7 @@ func (e DeviceAttributeDeviceClass) String() string {
 	return fmt.Sprintf("DeviceAttributeDeviceClass(%d)", e)
 }
 
-// DeviceAttribute Device attributes.
+// DeviceAttribute represents device attributes.
 type DeviceAttribute int32
 
 const (
@@ -3626,7 +3626,7 @@ func (e DeviceAttribute) String() string {
 	return fmt.Sprintf("DeviceAttribute(%d)", e)
 }
 
-// EventDomainAttribute Event domain attributes.
+// EventDomainAttribute represents event domain attributes.
 type EventDomainAttribute int32
 
 const (
@@ -3658,7 +3658,7 @@ func (e EventDomainAttribute) String() string {
 	return fmt.Sprintf("EventDomainAttribute(%d)", e)
 }
 
-// EventCollectionMethod The collection method used for an event.
+// EventCollectionMethod represents the collection method used for an event.
 type EventCollectionMethod int32
 
 const (
@@ -3687,7 +3687,7 @@ func (e EventCollectionMethod) String() string {
 	return fmt.Sprintf("EventCollectionMethod(%d)", e)
 }
 
-// EventGroupAttribute Event group attributes.
+// EventGroupAttribute represents event group attributes.
 type EventGroupAttribute int32
 
 const (
@@ -3729,7 +3729,7 @@ func (e EventGroupAttribute) String() string {
 	return fmt.Sprintf("EventGroupAttribute(%d)", e)
 }
 
-// EventProfilingScope Profiling scope for event.
+// EventProfilingScope represents profiling scope for event.
 type EventProfilingScope int32
 
 const (
@@ -3755,7 +3755,7 @@ func (e EventProfilingScope) String() string {
 	return fmt.Sprintf("EventProfilingScope(%d)", e)
 }
 
-// EventAttribute Event attributes.
+// EventAttribute represents event attributes.
 type EventAttribute int32
 
 const (
@@ -3789,7 +3789,7 @@ func (e EventAttribute) String() string {
 	return fmt.Sprintf("EventAttribute(%d)", e)
 }
 
-// EventCollectionMode Event collection modes.
+// EventCollectionMode represents event collection modes.
 type EventCollectionMode int32
 
 const (
@@ -3813,7 +3813,7 @@ func (e EventCollectionMode) String() string {
 	return fmt.Sprintf("EventCollectionMode(%d)", e)
 }
 
-// EventCategory An event category.
+// EventCategory represents an event category.
 type EventCategory int32
 
 const (
@@ -3844,7 +3844,7 @@ func (e EventCategory) String() string {
 	return fmt.Sprintf("EventCategory(%d)", e)
 }
 
-// ReadEventFlags Flags for [EventGroup.ReadEvent] an [EventGroup.ReadAllEvents].
+// ReadEventFlags represents flags for [EventGroup.ReadEvent] an [EventGroup.ReadAllEvents].
 type ReadEventFlags int32
 
 const (
@@ -3863,7 +3863,7 @@ func (e ReadEventFlags) String() string {
 	return fmt.Sprintf("ReadEventFlags(%d)", e)
 }
 
-// MetricCategory A metric category.
+// MetricCategory represents a metric category.
 type MetricCategory int32
 
 const (
@@ -3900,7 +3900,7 @@ func (e MetricCategory) String() string {
 	return fmt.Sprintf("MetricCategory(%d)", e)
 }
 
-// MetricEvaluationMode A metric evaluation mode.
+// MetricEvaluationMode represents a metric evaluation mode.
 type MetricEvaluationMode int32
 
 const (
@@ -3924,7 +3924,7 @@ func (e MetricEvaluationMode) String() string {
 	return fmt.Sprintf("MetricEvaluationMode(%d)", e)
 }
 
-// MetricValueKind Kinds of metric values.
+// MetricValueKind represents kinds of metric values.
 type MetricValueKind int32
 
 const (
@@ -3965,7 +3965,7 @@ func (e MetricValueKind) String() string {
 	return fmt.Sprintf("MetricValueKind(%d)", e)
 }
 
-// MetricValueUtilizationLevel Enumeration of utilization levels for metrics values of kind [MetricValueKindUtilizationLevel].
+// MetricValueUtilizationLevel is an enumeration of utilization levels for metrics values of kind [MetricValueKindUtilizationLevel].
 type MetricValueUtilizationLevel int32
 
 const (
@@ -3996,7 +3996,7 @@ func (e MetricValueUtilizationLevel) String() string {
 	return fmt.Sprintf("MetricValueUtilizationLevel(%d)", e)
 }
 
-// MetricAttribute Metric attributes.
+// MetricAttribute represents metric attributes.
 type MetricAttribute int32
 
 const (
@@ -4034,7 +4034,7 @@ func (e MetricAttribute) String() string {
 	return fmt.Sprintf("MetricAttribute(%d)", e)
 }
 
-// MetricPropertyDeviceClass Device class.
+// MetricPropertyDeviceClass represents device class.
 type MetricPropertyDeviceClass int32
 
 const (
@@ -4059,7 +4059,7 @@ func (e MetricPropertyDeviceClass) String() string {
 	return fmt.Sprintf("MetricPropertyDeviceClass(%d)", e)
 }
 
-// MetricPropertyID Metric device properties.
+// MetricPropertyID represents metric device properties.
 type MetricPropertyID int32
 
 const (
@@ -4120,7 +4120,7 @@ func (e MetricPropertyID) String() string {
 	return fmt.Sprintf("MetricPropertyID(%d)", e)
 }
 
-// ProfilerRange Profiler range attribute A metric enabled in the session's configuration is collected separately per unique range-stack in the pass. This is an attribute to collect metrics around each kernel in a profiling session or in an user defined range.
+// ProfilerRange represents profiler range attribute A metric enabled in the session's configuration is collected separately per unique range-stack in the pass. This is an attribute to collect metrics around each kernel in a profiling session or in an user defined range.
 type ProfilerRange int32
 
 const (
@@ -4145,7 +4145,7 @@ func (e ProfilerRange) String() string {
 	return fmt.Sprintf("ProfilerRange(%d)", e)
 }
 
-// ProfilerReplayMode Profiler replay attribute For metrics which require multipass collection, a replay of the GPU kernel(s) is required. This is an attribute which specify how the replay of the kernel(s) to be measured is done.
+// ProfilerReplayMode represents profiler replay attribute For metrics which require multipass collection, a replay of the GPU kernel(s) is required. This is an attribute which specify how the replay of the kernel(s) to be measured is done.
 type ProfilerReplayMode int32
 
 const (
@@ -4202,7 +4202,7 @@ func (e ProfilerSupportLevel) String() string {
 	return fmt.Sprintf("ProfilerSupportLevel(%d)", e)
 }
 
-// ProfilerApi Profiler API types
+// ProfilerApi represents profiler API types.
 type ProfilerApi int32
 
 const (
@@ -4299,7 +4299,7 @@ func (e ProfilerType) String() string {
 	return fmt.Sprintf("ProfilerType(%d)", e)
 }
 
-// PCSamplingCollectionMode PC Sampling collection mode
+// PCSamplingCollectionMode represents PC Sampling collection mode.
 type PCSamplingCollectionMode int32
 
 const (
@@ -4321,7 +4321,7 @@ func (e PCSamplingCollectionMode) String() string {
 	return fmt.Sprintf("PCSamplingCollectionMode(%d)", e)
 }
 
-// PCSamplingOutputDataFormat PC Sampling output data format
+// PCSamplingOutputDataFormat represents PC Sampling output data format.
 type PCSamplingOutputDataFormat int32
 
 const (
@@ -4340,7 +4340,7 @@ func (e PCSamplingOutputDataFormat) String() string {
 	return fmt.Sprintf("PCSamplingOutputDataFormat(%d)", e)
 }
 
-// PCSamplingConfigurationAttributeType PC Sampling configuration attributes PC Sampling configuration attribute types.
+// PCSamplingConfigurationAttributeType represents PC Sampling configuration attributes PC Sampling configuration attribute types.
 type PCSamplingConfigurationAttributeType int32
 
 const (
@@ -4486,7 +4486,7 @@ func (e SassMetricsOutputGranularity) String() string {
 	return fmt.Sprintf("SassMetricsOutputGranularity(%d)", e)
 }
 
-// CheckpointOptimizations Specifies optimization options for a checkpoint, may be OR'd together to specify multiple options.
+// CheckpointOptimizations specifies optimization options for a checkpoint, may be OR'd together to specify multiple options.
 type CheckpointOptimizations int32
 
 const (

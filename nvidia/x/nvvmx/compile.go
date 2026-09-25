@@ -61,7 +61,7 @@ func (r *Result) Close() error {
 type program interface {
 	AddModuleTo(unsafe.Pointer, uint, string) error
 	LazyAddModuleTo(unsafe.Pointer, uint, string) error
-	Compile([]string) error
+	Compile(...string) error
 	CompiledResult() ([]byte, error)
 	Log() (string, error)
 	close() error
@@ -148,7 +148,7 @@ func compile(inputs []Input, options []string, create func() (program, error)) (
 			return result, fmt.Errorf("add %q: %w", input.Name, err)
 		}
 	}
-	if err := h.Compile(append([]string(nil), options...)); err != nil {
+	if err := h.Compile(options...); err != nil {
 		return result, fmt.Errorf("compile: %w", err)
 	}
 	data, err := h.CompiledResult()

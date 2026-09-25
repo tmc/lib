@@ -23,7 +23,7 @@ func Example() {
 .address_size 64
 .visible .entry noop() { ret; }
 `
-	h, err := nvjitlink.Create([]string{"-arch=sm_70"})
+	h, err := nvjitlink.Create("-arch=sm_70")
 	if err != nil {
 		fmt.Println("create:", err)
 		return

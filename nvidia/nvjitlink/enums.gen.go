@@ -4,7 +4,7 @@ package nvjitlink
 
 import "fmt"
 
-// InputType The enumerated type [InputType] defines the kind of inputs that can be passed to nvJitLinkAdd* APIs.
+// InputType defines the kind of inputs that can be passed to nvJitLinkAdd* APIs.
 type InputType int32
 
 const (

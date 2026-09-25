@@ -52,7 +52,7 @@ func complete(handle Handle) error {
 }
 
 // Create wraps nvJitLinkCreate, bound as __nvJitLinkCreate_13_2.
-func Create(options []string) (Handle, error) {
+func Create(options ...string) (Handle, error) {
 	if err := checkLibSym("__nvJitLinkCreate_13_2"); err != nil {
 		return 0, err
 	}

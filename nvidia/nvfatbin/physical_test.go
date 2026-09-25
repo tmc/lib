@@ -77,7 +77,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 			t.Errorf("destroy program: %v", err)
 		}
 	}()
-	if err := prog.Compile([]string{"--gpu-architecture=sm_" + arch}); err != nil {
+	if err := prog.Compile("--gpu-architecture=sm_" + arch); err != nil {
 		log, _ := prog.Log()
 		t.Fatalf("compile: %v\n%s", err, log)
 	}
@@ -92,7 +92,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 	}
 	t.Logf("nvFatbin version %d.%d, target sm_%s", majorV, minorV, arch)
 
-	h, err := nvfatbin.Create([]string{"-64"})
+	h, err := nvfatbin.Create("-64")
 	if err != nil {
 		t.Skipf("nvFatbin unavailable: %v", err)
 	}

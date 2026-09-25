@@ -50,13 +50,13 @@ type IOEvents struct {
 	Ret    uint
 }
 
-// OpCounter represents Counter structure for tracking operation successes and failures.
+// OpCounter represents counter structure for tracking operation successes and failures.
 type OpCounter struct {
 	Ok  uint64
 	Err uint64
 }
 
-// StatsLevel1 represents Level 1 Statistics: Basic IO and operation counters.
+// StatsLevel1 represents level 1 Statistics: Basic IO and operation counters.
 type StatsLevel1 struct {
 	ReadOps                 OpCounter
 	WriteOps                OpCounter
@@ -103,7 +103,7 @@ type StatsLevel1 struct {
 	LastBatchWriteBytes     uint64
 }
 
-// StatsLevel2 represents Level 2 Statistics: Includes Level 1 plus size histograms and detailed metrics.
+// StatsLevel2 represents level 2 Statistics: Includes Level 1 plus size histograms and detailed metrics.
 type StatsLevel2 struct {
 	Basic           StatsLevel1
 	ReadSizeKbHist  [32]uint64
@@ -144,7 +144,7 @@ type PerGpuStats struct {
 	RegBytes           uint64
 }
 
-// StatsLevel3 represents Level 3 Statistics: Includes Level 2 plus per-GPU and subsystem statistics.
+// StatsLevel3 represents level 3 Statistics: Includes Level 2 plus per-GPU and subsystem statistics.
 type StatsLevel3 struct {
 	Detailed    StatsLevel2
 	NumGpus     uint32

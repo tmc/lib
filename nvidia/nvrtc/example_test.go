@@ -29,7 +29,7 @@ extern "C" __global__ void saxpy(float a, float *x, float *y, int n) {
 	}
 	defer prog.Destroy()
 
-	if err := prog.Compile([]string{"--gpu-architecture=compute_70"}); err != nil {
+	if err := prog.Compile("--gpu-architecture=compute_70"); err != nil {
 		log, _ := prog.Log()
 		fmt.Printf("compile: %v\n%s", err, log)
 		return

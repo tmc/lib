@@ -4,7 +4,7 @@ package nvml
 
 import "fmt"
 
-// DeviceAddressingModeType represents Enum to represent device addressing mode values.
+// DeviceAddressingModeType represents device addressing mode values.
 type DeviceAddressingModeType int32
 
 const (
@@ -26,7 +26,7 @@ func (e DeviceAddressingModeType) String() string {
 	return fmt.Sprintf("DeviceAddressingModeType(%d)", e)
 }
 
-// BridgeChipType represents Enum to represent type of bridge chip.
+// BridgeChipType represents type of bridge chip.
 type BridgeChipType int32
 
 const (
@@ -45,7 +45,7 @@ func (e BridgeChipType) String() string {
 	return fmt.Sprintf("BridgeChipType(%d)", e)
 }
 
-// NvLinkUtilizationCountUnits represents Enum to represent the NvLink utilization counter packet units.
+// NvLinkUtilizationCountUnits represents the NvLink utilization counter packet units.
 type NvLinkUtilizationCountUnits int32
 
 const (
@@ -73,7 +73,7 @@ func (e NvLinkUtilizationCountUnits) String() string {
 	return fmt.Sprintf("NvLinkUtilizationCountUnits(%d)", e)
 }
 
-// NvLinkUtilizationCountPktTypes represents Enum to represent the NvLink utilization counter packet types to count ** this is ONLY applicable with the units as packets or bytes ** as specified in [NvLinkUtilizationCountUnits] ** all packet filter descriptions are target GPU centric ** these can be "OR'd" together.
+// NvLinkUtilizationCountPktTypes represents the NvLink utilization counter packet types to count ** this is ONLY applicable with the units as packets or bytes ** as specified in [NvLinkUtilizationCountUnits] ** all packet filter descriptions are target GPU centric ** these can be "OR'd" together.
 type NvLinkUtilizationCountPktTypes int32
 
 const (
@@ -113,7 +113,7 @@ func (e NvLinkUtilizationCountPktTypes) String() string {
 	return fmt.Sprintf("NvLinkUtilizationCountPktTypes(%d)", e)
 }
 
-// NvLinkCapability represents Enum to represent NvLink queryable capabilities.
+// NvLinkCapability represents NvLink queryable capabilities.
 type NvLinkCapability int32
 
 const (
@@ -147,7 +147,7 @@ func (e NvLinkCapability) String() string {
 	return fmt.Sprintf("NvLinkCapability(%d)", e)
 }
 
-// NvLinkErrorCounter represents Enum to represent NvLink queryable error counters.
+// NvLinkErrorCounter represents NvLink queryable error counters.
 type NvLinkErrorCounter int32
 
 const (
@@ -178,7 +178,7 @@ func (e NvLinkErrorCounter) String() string {
 	return fmt.Sprintf("NvLinkErrorCounter(%d)", e)
 }
 
-// IntNvLinkDeviceType represents Enum to represent NvLink's remote device type.
+// IntNvLinkDeviceType represents NvLink's remote device type.
 type IntNvLinkDeviceType int32
 
 const (
@@ -203,7 +203,7 @@ func (e IntNvLinkDeviceType) String() string {
 	return fmt.Sprintf("IntNvLinkDeviceType(%d)", e)
 }
 
-// GpuTopologyLevel represents Represents level relationships within a system between two GPUs The enums are spaced to allow for future relationships.
+// GpuTopologyLevel represents level relationships within a system between two GPUs The enums are spaced to allow for future relationships.
 type GpuTopologyLevel int32
 
 const (
@@ -305,7 +305,7 @@ func (e GpuP2PCapsIndex) String() string {
 	return fmt.Sprintf("GpuP2PCapsIndex(%d)", e)
 }
 
-// SamplingType represents Represents Type of Sampling Event.
+// SamplingType represents type of Sampling Event.
 type SamplingType int32
 
 const (
@@ -351,7 +351,7 @@ func (e SamplingType) String() string {
 	return fmt.Sprintf("SamplingType(%d)", e)
 }
 
-// PcieUtilCounter represents Represents the queryable PCIe utilization counters.
+// PcieUtilCounter represents the queryable PCIe utilization counters.
 type PcieUtilCounter int32
 
 const (
@@ -373,7 +373,7 @@ func (e PcieUtilCounter) String() string {
 	return fmt.Sprintf("PcieUtilCounter(%d)", e)
 }
 
-// ValueType represents Represents the type for sample value returned.
+// ValueType represents the type for sample value returned.
 type ValueType int32
 
 const (
@@ -410,7 +410,7 @@ func (e ValueType) String() string {
 	return fmt.Sprintf("ValueType(%d)", e)
 }
 
-// PerfPolicyType represents Represents type of perf policy for which violation times can be queried.
+// PerfPolicyType represents type of perf policy for which violation times can be queried.
 type PerfPolicyType int32
 
 const (
@@ -450,7 +450,7 @@ func (e PerfPolicyType) String() string {
 	return fmt.Sprintf("PerfPolicyType(%d)", e)
 }
 
-// ThermalTarget represents Represents the thermal sensor targets.
+// ThermalTarget represents the thermal sensor targets.
 type ThermalTarget int32
 
 const (
@@ -493,7 +493,7 @@ func (e ThermalTarget) String() string {
 	return fmt.Sprintf("ThermalTarget(%d)", e)
 }
 
-// ThermalController represents Represents the thermal sensor controllers.
+// ThermalController represents the thermal sensor controllers.
 type ThermalController int32
 
 const (
@@ -563,7 +563,7 @@ func (e ThermalController) String() string {
 	return fmt.Sprintf("ThermalController(%d)", e)
 }
 
-// CoolerControl represents Cooler control type.
+// CoolerControl represents cooler control type.
 type CoolerControl int32
 
 const (
@@ -614,7 +614,7 @@ func (e CoolerTarget) String() string {
 	return fmt.Sprintf("CoolerTarget(%d)", e)
 }
 
-// UUIDType represents Enum to represent different UUID types.
+// UUIDType represents different UUID types.
 type UUIDType int32
 
 const (
@@ -636,7 +636,7 @@ func (e UUIDType) String() string {
 	return fmt.Sprintf("UUIDType(%d)", e)
 }
 
-// EnableState represents Generic enable/disable enum..
+// EnableState represents generic enable/disable enum.
 type EnableState int32
 
 const (
@@ -723,7 +723,7 @@ func (e BrandType) String() string {
 	return fmt.Sprintf("BrandType(%d)", e)
 }
 
-// TemperatureThresholds represents Temperature thresholds..
+// TemperatureThresholds represents temperature thresholds.
 type TemperatureThresholds int32
 
 const (
@@ -763,7 +763,7 @@ func (e TemperatureThresholds) String() string {
 	return fmt.Sprintf("TemperatureThresholds(%d)", e)
 }
 
-// TemperatureSensors represents Temperature sensors..
+// TemperatureSensors represents temperature sensors.
 type TemperatureSensors int32
 
 const (
@@ -782,7 +782,7 @@ func (e TemperatureSensors) String() string {
 	return fmt.Sprintf("TemperatureSensors(%d)", e)
 }
 
-// ComputeMode represents Compute mode..
+// ComputeMode represents compute mode.
 type ComputeMode int32
 
 const (
@@ -810,7 +810,7 @@ func (e ComputeMode) String() string {
 	return fmt.Sprintf("ComputeMode(%d)", e)
 }
 
-// MemoryErrorType represents Memory error types.
+// MemoryErrorType represents memory error types.
 type MemoryErrorType int32
 
 const (
@@ -832,7 +832,7 @@ func (e MemoryErrorType) String() string {
 	return fmt.Sprintf("MemoryErrorType(%d)", e)
 }
 
-// EccCounterType represents ECC counter types..
+// EccCounterType represents ECC counter types.
 type EccCounterType int32
 
 const (
@@ -854,7 +854,7 @@ func (e EccCounterType) String() string {
 	return fmt.Sprintf("EccCounterType(%d)", e)
 }
 
-// ClockType represents Clock types..
+// ClockType represents clock types.
 type ClockType int32
 
 const (
@@ -882,7 +882,7 @@ func (e ClockType) String() string {
 	return fmt.Sprintf("ClockType(%d)", e)
 }
 
-// ClockId represents Clock Ids..
+// ClockId represents clock Ids.
 type ClockId int32
 
 const (
@@ -910,7 +910,7 @@ func (e ClockId) String() string {
 	return fmt.Sprintf("ClockId(%d)", e)
 }
 
-// DriverModel represents Driver models..
+// DriverModel represents driver models.
 type DriverModel int32
 
 const (
@@ -932,7 +932,7 @@ func (e DriverModel) String() string {
 	return fmt.Sprintf("DriverModel(%d)", e)
 }
 
-// Pstates represents Allowed PStates..
+// Pstates represents allowed PStates.
 type Pstates int32
 
 const (
@@ -996,7 +996,7 @@ func (e Pstates) String() string {
 	return fmt.Sprintf("Pstates(%d)", e)
 }
 
-// GpuOperationMode represents GPU Operation Mode GOM allows to reduce power usage and optimize GPU throughput by disabling GPU features..
+// GpuOperationMode represents GPU Operation Mode GOM allows to reduce power usage and optimize GPU throughput by disabling GPU features.
 type GpuOperationMode int32
 
 const (
@@ -1018,7 +1018,7 @@ func (e GpuOperationMode) String() string {
 	return fmt.Sprintf("GpuOperationMode(%d)", e)
 }
 
-// InforomObject represents Available infoROM objects..
+// InforomObject represents available infoROM objects.
 type InforomObject int32
 
 const (
@@ -1046,7 +1046,7 @@ func (e InforomObject) String() string {
 	return fmt.Sprintf("InforomObject(%d)", e)
 }
 
-// MemoryLocation represents See [Device.MemoryErrorCounter].
+// MemoryLocation represents see [Device.MemoryErrorCounter].
 type MemoryLocation int32
 
 const (
@@ -1087,7 +1087,7 @@ func (e MemoryLocation) String() string {
 	return fmt.Sprintf("MemoryLocation(%d)", e)
 }
 
-// PageRetirementCause represents Causes for page retirement.
+// PageRetirementCause represents causes for page retirement.
 type PageRetirementCause int32
 
 const (
@@ -1131,7 +1131,7 @@ func (e RestrictedAPI) String() string {
 	return fmt.Sprintf("RestrictedAPI(%d)", e)
 }
 
-// GpuUtilizationDomainId represents Represents the GPU utilization domains.
+// GpuUtilizationDomainId represents the GPU utilization domains.
 type GpuUtilizationDomainId int32
 
 const (
@@ -1186,7 +1186,7 @@ func (e GpuVirtualizationMode) String() string {
 	return fmt.Sprintf("GpuVirtualizationMode(%d)", e)
 }
 
-// HostVgpuMode represents Host vGPU modes.
+// HostVgpuMode represents host vGPU modes.
 type HostVgpuMode int32
 
 const (
@@ -1327,7 +1327,7 @@ func (e VgpuDriverCapability) String() string {
 	return fmt.Sprintf("VgpuDriverCapability(%d)", e)
 }
 
-// DeviceVgpuCapability represents Device vGPU queryable capabilities.
+// DeviceVgpuCapability represents device vGPU queryable capabilities.
 type DeviceVgpuCapability int32
 
 const (
@@ -1379,7 +1379,7 @@ func (e DeviceVgpuCapability) String() string {
 	return fmt.Sprintf("DeviceVgpuCapability(%d)", e)
 }
 
-// DeviceGpuRecoveryAction represents Enum describing the GPU Recovery Action.
+// DeviceGpuRecoveryAction describes the GPU Recovery Action.
 type DeviceGpuRecoveryAction int32
 
 const (
@@ -1407,7 +1407,7 @@ func (e DeviceGpuRecoveryAction) String() string {
 	return fmt.Sprintf("DeviceGpuRecoveryAction(%d)", e)
 }
 
-// FanState represents Fan state enum..
+// FanState represents fan state enum.
 type FanState int32
 
 const (
@@ -1426,7 +1426,7 @@ func (e FanState) String() string {
 	return fmt.Sprintf("FanState(%d)", e)
 }
 
-// LedColor represents Led color enum..
+// LedColor represents led color enum.
 type LedColor int32
 
 const (
@@ -1445,7 +1445,7 @@ func (e LedColor) String() string {
 	return fmt.Sprintf("LedColor(%d)", e)
 }
 
-// EncoderType represents Represents type of encoder for capacity can be queried.
+// EncoderType represents type of encoder for capacity can be queried.
 type EncoderType int32
 
 const (
@@ -1470,7 +1470,7 @@ func (e EncoderType) String() string {
 	return fmt.Sprintf("EncoderType(%d)", e)
 }
 
-// FBCSessionType represents Represents frame buffer capture session type.
+// FBCSessionType represents frame buffer capture session type.
 type FBCSessionType int32
 
 const (
@@ -1498,7 +1498,7 @@ func (e FBCSessionType) String() string {
 	return fmt.Sprintf("FBCSessionType(%d)", e)
 }
 
-// DetachGpuState represents Is the GPU device to be removed from the kernel by [DeviceRemoveGpu].
+// DetachGpuState is the GPU device to be removed from the kernel by [DeviceRemoveGpu].
 type DetachGpuState int32
 
 const (
@@ -1517,7 +1517,7 @@ func (e DetachGpuState) String() string {
 	return fmt.Sprintf("DetachGpuState(%d)", e)
 }
 
-// PcieLinkState represents Parent bridge PCIe link state requested by [DeviceRemoveGpu].
+// PcieLinkState represents parent bridge PCIe link state requested by [DeviceRemoveGpu].
 type PcieLinkState int32
 
 const (
@@ -1560,7 +1560,7 @@ func (e ClockLimitId) String() string {
 	return fmt.Sprintf("ClockLimitId(%d)", e)
 }
 
-// NvlinkVersion represents Represents Nvlink Version.
+// NvlinkVersion represents nvlink Version.
 type NvlinkVersion int32
 
 const (
@@ -2474,7 +2474,7 @@ func (e PowerProfileType) String() string {
 	return fmt.Sprintf("PowerProfileType(%d)", e)
 }
 
-// PowerProfileOperation represents Enum for operation to perform on the requested profiles.
+// PowerProfileOperation is an enum for operation to perform on the requested profiles.
 type PowerProfileOperation int32
 
 const (
@@ -2496,7 +2496,7 @@ func (e PowerProfileOperation) String() string {
 	return fmt.Sprintf("PowerProfileOperation(%d)", e)
 }
 
-// DeviceArchitecture represents Simplified chip architecture.
+// DeviceArchitecture represents simplified chip architecture.
 type DeviceArchitecture uint32
 
 const (
@@ -2567,7 +2567,7 @@ func (e BusType) String() string {
 	return fmt.Sprintf("BusType(%d)", e)
 }
 
-// FanControlPolicy represents Device Fan control policy.
+// FanControlPolicy represents device Fan control policy.
 type FanControlPolicy uint32
 
 const (
@@ -2586,7 +2586,7 @@ func (e FanControlPolicy) String() string {
 	return fmt.Sprintf("FanControlPolicy(%d)", e)
 }
 
-// PowerSource represents Device Power Source.
+// PowerSource represents device Power Source.
 type PowerSource uint32
 
 const (
@@ -2608,7 +2608,7 @@ func (e PowerSource) String() string {
 	return fmt.Sprintf("PowerSource(%d)", e)
 }
 
-// PowerScopeType represents Device Scope - This is useful to retrieve the telemetry at GPU and module (e.g..
+// PowerScopeType represents device Scope - This is useful to retrieve the telemetry at GPU and module (e.g. GPU + CPU) level.
 type PowerScopeType uint8
 
 const (
@@ -2630,7 +2630,7 @@ func (e PowerScopeType) String() string {
 	return fmt.Sprintf("PowerScopeType(%d)", e)
 }
 
-// GpuFabricState represents Probe State of GPU registration process.
+// GpuFabricState represents probe State of GPU registration process.
 type GpuFabricState uint8
 
 const (

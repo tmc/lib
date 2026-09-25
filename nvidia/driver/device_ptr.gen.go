@@ -295,6 +295,11 @@ func (d DevicePtr) CopyToHostPtr(dstHost unsafe.Pointer, byteCount uint) error {
 //   - hStream: Stream identifier
 //
 // The copy covers all of dstHost: len(dstHost) values of type T.
+// The copy may still be in progress when the call returns: dstHost must
+// stay reachable and neither read nor modified until the stream is synchronized.
+// The copy is asynchronous with respect to the host only when dstHost is
+// page-locked (pinned or registered) memory; otherwise it is staged
+// through a pinned buffer or completes before the call returns.
 //
 // Wraps cuMemcpyDtoHAsync, bound as cuMemcpyDtoHAsync_v2.
 func (d DevicePtr) CopyToHostAsync[T any](dstHost []T, hStream Stream) error {
@@ -338,6 +343,11 @@ func (d DevicePtr) CopyFromHostPtr(srcHost unsafe.Pointer, byteCount uint) error
 //   - hStream: Stream identifier
 //
 // The copy covers all of srcHost: len(srcHost) values of type T.
+// The copy may still be in progress when the call returns: srcHost must
+// stay reachable and unmodified until the stream is synchronized.
+// The copy is asynchronous with respect to the host only when srcHost is
+// page-locked (pinned or registered) memory; otherwise it is staged
+// through a pinned buffer or completes before the call returns.
 //
 // Wraps cuMemcpyHtoDAsync, bound as cuMemcpyHtoDAsync_v2.
 func (d DevicePtr) CopyFromHostAsync[T any](srcHost []T, hStream Stream) error {

@@ -2,7 +2,7 @@
 
 package nvrtc
 
-// BundledHeadersInfo represents Structure containing information about bundled headers.
+// BundledHeadersInfo contains information about bundled headers.
 type BundledHeadersInfo struct {
 	// Non-zero if bundled headers are available
 	Available int32

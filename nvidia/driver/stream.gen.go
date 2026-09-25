@@ -482,6 +482,8 @@ func (s Stream) LaunchHostFunc(fn uintptr, userData uintptr, syncMode uint32) er
 //
 // The allocation holds n values of type T: bytesize is n times the size of T.
 // A negative n, or one whose size overflows uint, is an error.
+// T must not contain Go pointers: the garbage collector does not scan
+// device memory.
 //
 // Wraps cuMemAllocAsync.
 func (s Stream) MemAllocAsync[T any](n int) (DevicePtr, error) {

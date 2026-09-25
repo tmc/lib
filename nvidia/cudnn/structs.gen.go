@@ -4,7 +4,7 @@ package cudnn
 
 import "github.com/tmc/lib/nvidia/driver"
 
-// Debug represents [Debug] is a structure used by [SetCallback] and [GetCallback] containing the metadata, such as time, time since start, stream ID, process and thread ID, that the user may choose to print or store in customized callbacks.
+// Debug is a structure used by [SetCallback] and [GetCallback] containing the metadata, such as time, time since start, stream ID, process and thread ID, that the user may choose to print or store in customized callbacks.
 type Debug struct {
 	CudnnVersion uint32
 	CudnnStatus  Result
@@ -19,13 +19,13 @@ type Debug struct {
 	Reserved     [15]int32
 }
 
-// Fraction represents [Fraction] is a structure that allows a user to define int64_t fractions.
+// Fraction is a structure that allows a user to define int64_t fractions.
 type Fraction struct {
 	Numerator   int64
 	Denominator int64
 }
 
-// ConvolutionFwdAlgoPerf represents This structure is deprecated and is currently only used by deprecated APIs.
+// ConvolutionFwdAlgoPerf is deprecated and is currently only used by deprecated APIs.
 type ConvolutionFwdAlgoPerf struct {
 	Algo        ConvolutionFwdAlgo
 	Status      Result
@@ -36,7 +36,7 @@ type ConvolutionFwdAlgoPerf struct {
 	Reserved    [3]int32
 }
 
-// ConvolutionBwdDataAlgoPerf represents This structure is deprecated and is currently only used by deprecated APIs.
+// ConvolutionBwdDataAlgoPerf is deprecated and is currently only used by deprecated APIs.
 type ConvolutionBwdDataAlgoPerf struct {
 	Algo        ConvolutionBwdDataAlgo
 	Status      Result
@@ -47,7 +47,7 @@ type ConvolutionBwdDataAlgoPerf struct {
 	Reserved    [3]int32
 }
 
-// ConvolutionBwdFilterAlgoPerf represents This structure is deprecated and is currently only used by deprecated APIs.
+// ConvolutionBwdFilterAlgoPerf is deprecated and is currently only used by deprecated APIs.
 type ConvolutionBwdFilterAlgoPerf struct {
 	Algo        ConvolutionBwdFilterAlgo
 	Status      Result

@@ -134,7 +134,7 @@ func addTileIR(handle Handle, code unsafe.Pointer, size uint, identifier string,
 //   - optionsCount (in): Number of options
 //
 // Wraps nvFatbinCreate.
-func Create(options []string) (Handle, error) {
+func Create(options ...string) (Handle, error) {
 	if err := checkLibSym("nvFatbinCreate"); err != nil {
 		return 0, err
 	}

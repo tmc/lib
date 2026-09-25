@@ -68,7 +68,7 @@ func TestFatbinPipeline(t *testing.T) {
 		t.Fatalf("could not retarget testdata/addone.ptx at sm_%s", arch)
 	}
 
-	handle, err := nvfatbin.Create([]string{"-64", "-cuda"})
+	handle, err := nvfatbin.Create("-64", "-cuda")
 	check(err)
 	defer func() { check(handle.Destroy()) }()
 	check(handle.AddPTXString(ptx, arch, "addone.ptx", ""))
@@ -119,7 +119,7 @@ func TestFatbinPipeline(t *testing.T) {
 
 	// Packaging PTX does not validate its instructions. Confirm that the
 	// driver rejects a packaged kernel with an invalid instruction.
-	bad, err := nvfatbin.Create([]string{"-64", "-cuda"})
+	bad, err := nvfatbin.Create("-64", "-cuda")
 	check(err)
 	defer func() { check(bad.Destroy()) }()
 	invalid := strings.Replace(ptx, "add.f32", "invalid_instruction.f32", 1)
@@ -144,7 +144,7 @@ func TestDestroyZeroesHandle(t *testing.T) {
 	if os.Getenv("NVFATBIN_PHYSICAL_TEST") != "1" {
 		t.Skip("set NVFATBIN_PHYSICAL_TEST=1 to run against a real libnvfatbin")
 	}
-	handle, err := nvfatbin.Create(nil)
+	handle, err := nvfatbin.Create()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestUnrecognizedOption(t *testing.T) {
 	if os.Getenv("NVFATBIN_LIBRARY_TEST") != "1" {
 		t.Skip("set NVFATBIN_LIBRARY_TEST=1 to run against a real libnvfatbin (no GPU needed)")
 	}
-	handle, err := nvfatbin.Create([]string{"-not-an-option"})
+	handle, err := nvfatbin.Create("-not-an-option")
 	if err == nil {
 		handle.Destroy()
 		t.Fatal("Create accepted an unrecognized option")

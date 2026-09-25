@@ -56,7 +56,7 @@ func TestNativeFlowCallback(t *testing.T) {
 			if err := program.SetFlowCallback(callback, token); err != nil {
 				t.Fatal(err)
 			}
-			err = program.Compile([]string{"--gpu-architecture=compute_80"})
+			err = program.Compile("--gpu-architecture=compute_80")
 			log, logErr := program.Log()
 			if logErr != nil {
 				t.Fatal(logErr)

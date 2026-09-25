@@ -22,7 +22,7 @@ func Example() {
 .address_size 64
 .visible .entry noop() { ret; }
 `
-	h, err := nvfatbin.Create([]string{"-cuda"})
+	h, err := nvfatbin.Create("-cuda")
 	if err != nil {
 		fmt.Println("create:", err)
 		return

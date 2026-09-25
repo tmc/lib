@@ -696,7 +696,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 					return prog, "", nil, fmt.Errorf("nvrtcx: set flow callback: %w", err)
 				}
 			}
-			compileErr := prog.Compile(sourceFlags)
+			compileErr := prog.Compile(sourceFlags...)
 			log, logErr := prog.Log()
 			return prog, log, compileErr, logErr
 		}

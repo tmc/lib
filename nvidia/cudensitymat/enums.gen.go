@@ -4,7 +4,7 @@ package cudensitymat
 
 import "fmt"
 
-// ComputeType represents Supported compute types..
+// ComputeType represents supported compute types.
 type ComputeType int32
 
 const (
@@ -23,7 +23,7 @@ func (e ComputeType) String() string {
 	return fmt.Sprintf("ComputeType(%d)", e)
 }
 
-// DistributedProvider represents Supported providers of the distributed communication service..
+// DistributedProvider represents supported providers of the distributed communication service.
 type DistributedProvider int32
 
 const (
@@ -45,7 +45,7 @@ func (e DistributedProvider) String() string {
 	return fmt.Sprintf("DistributedProvider(%d)", e)
 }
 
-// CallbackDevice represents Supported target devices for user-defined callbacks..
+// CallbackDevice represents supported target devices for user-defined callbacks.
 type CallbackDevice int32
 
 const (
@@ -64,7 +64,7 @@ func (e CallbackDevice) String() string {
 	return fmt.Sprintf("CallbackDevice(%d)", e)
 }
 
-// DifferentiationDir represents Supported differentiation directions..
+// DifferentiationDir represents supported differentiation directions.
 type DifferentiationDir int32
 
 const (
@@ -80,7 +80,7 @@ func (e DifferentiationDir) String() string {
 	return fmt.Sprintf("DifferentiationDir(%d)", e)
 }
 
-// StatePurity represents Quantum state purity (pure or mixed state)..
+// StatePurity represents quantum state purity (pure or mixed state).
 type StatePurity int32
 
 const (
@@ -99,7 +99,7 @@ func (e StatePurity) String() string {
 	return fmt.Sprintf("StatePurity(%d)", e)
 }
 
-// ElementaryOperatorSparsity represents Elementary operator sparsity kind..
+// ElementaryOperatorSparsity represents elementary operator sparsity kind.
 type ElementaryOperatorSparsity int32
 
 const (
@@ -118,7 +118,7 @@ func (e ElementaryOperatorSparsity) String() string {
 	return fmt.Sprintf("ElementaryOperatorSparsity(%d)", e)
 }
 
-// Memspace represents Memory spaces for workspace buffer allocation..
+// Memspace represents memory spaces for workspace buffer allocation.
 type Memspace int32
 
 const (
@@ -137,7 +137,7 @@ func (e Memspace) String() string {
 	return fmt.Sprintf("Memspace(%d)", e)
 }
 
-// WorkspaceKind represents Kinds of workspace memory buffers..
+// WorkspaceKind represents kinds of workspace memory buffers.
 type WorkspaceKind int32
 
 const (

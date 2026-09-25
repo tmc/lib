@@ -33,7 +33,7 @@ func (p *fakeProgram) AddModuleTo(ptr unsafe.Pointer, size uint, _ string) error
 func (p *fakeProgram) LazyAddModuleTo(ptr unsafe.Pointer, size uint, _ string) error {
 	return p.add(ptr, size, true)
 }
-func (p *fakeProgram) Compile([]string) error {
+func (p *fakeProgram) Compile(...string) error {
 	if p.fail == "compile" {
 		return errInjected
 	}

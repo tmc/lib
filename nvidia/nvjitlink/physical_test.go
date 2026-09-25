@@ -73,7 +73,7 @@ func compilePTX(t *testing.T, arch string) []byte {
 			t.Errorf("destroy program: %v", err)
 		}
 	}()
-	if err := prog.Compile([]string{"--gpu-architecture=compute_" + arch}); err != nil {
+	if err := prog.Compile("--gpu-architecture=compute_" + arch); err != nil {
 		log, _ := prog.Log()
 		t.Fatalf("compile: %v\n%s", err, log)
 	}
@@ -147,7 +147,7 @@ func TestLinkAndRun(t *testing.T) {
 		t.Logf("nvJitLink version %d.%d", major, minor)
 	}
 
-	handle, err := nvjitlink.Create([]string{"-arch=sm_" + arch})
+	handle, err := nvjitlink.Create("-arch=sm_" + arch)
 	if err != nil {
 		t.Skipf("nvJitLink unavailable: %v", err)
 	}

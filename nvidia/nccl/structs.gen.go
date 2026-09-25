@@ -43,7 +43,7 @@ type ConfigExt struct {
 	Val  [1]uint64
 }
 
-// CollConfig represents Per-collective configuration.
+// CollConfig represents per-collective configuration.
 type CollConfig struct {
 	Size              uint
 	Magic             uint32
@@ -59,7 +59,7 @@ type CollConfig struct {
 	UserProfilerTag   uint64
 }
 
-// SimInfo represents This struct will be used by [GroupSimulateEnd] to return information about the calls.
+// SimInfo will be used by [GroupSimulateEnd] to return information about the calls.
 //
 // The zero value is not usable. NewSimInfo applies the defaults
 // NCCL_SIM_INFO_INITIALIZER sets; start from it and assign to the result. A
@@ -72,7 +72,7 @@ type SimInfo struct {
 	EstimatedTime float32
 }
 
-// WaitSignalDesc represents Wait Signal Descriptor Describes how many signal operations to wait for from a particular rank on a given signal index and context.
+// WaitSignalDesc represents wait Signal Descriptor Describes how many signal operations to wait for from a particular rank on a given signal index and context.
 type WaitSignalDesc struct {
 	OpCnt  int32
 	Peer   int32

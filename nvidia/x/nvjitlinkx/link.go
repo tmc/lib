@@ -81,7 +81,7 @@ func (h *nativeHandle) close() error { return h.Handle.Destroy() }
 // Link does not install a library or cache results.
 func Link(inputs []Input, options ...string) (*Result, error) {
 	return link(inputs, options, func(options []string) (linkHandle, error) {
-		h, err := nvjitlink.Create(options)
+		h, err := nvjitlink.Create(options...)
 		if err != nil {
 			return nil, err
 		}

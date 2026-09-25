@@ -100,6 +100,8 @@ func (m MemoryPool) TrimTo(minBytesToKeep uint) error {
 //
 // The allocation holds n values of type T: bytesize is n times the size of T.
 // A negative n, or one whose size overflows uint, is an error.
+// T must not contain Go pointers: the garbage collector does not scan
+// device memory.
 //
 // Wraps cuMemAllocFromPoolAsync.
 func (m MemoryPool) MemAllocFromPoolAsync[T any](n int, hStream Stream) (DevicePtr, error) {

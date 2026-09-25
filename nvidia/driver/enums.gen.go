@@ -4,7 +4,7 @@ package driver
 
 import "fmt"
 
-// IpcmemFlags CUDA Ipc Mem Flags
+// IpcmemFlags represents CUDA Ipc Mem Flags.
 type IpcmemFlags int32
 
 const (
@@ -21,7 +21,7 @@ func (e IpcmemFlags) String() string {
 	return fmt.Sprintf("IpcmemFlags(%d)", e)
 }
 
-// MemattachFlags CUDA Mem Attach Flags
+// MemattachFlags represents CUDA Mem Attach Flags.
 type MemattachFlags int32
 
 const (
@@ -44,7 +44,7 @@ func (e MemattachFlags) String() string {
 	return fmt.Sprintf("MemattachFlags(%d)", e)
 }
 
-// CtxFlags Context creation flags
+// CtxFlags represents context creation flags.
 type CtxFlags uint32
 
 const (
@@ -92,7 +92,7 @@ func (e CtxFlags) String() string {
 	return fmt.Sprintf("CtxFlags(%d)", e)
 }
 
-// EventSchedFlags Event sched flags
+// EventSchedFlags represents event sched flags.
 type EventSchedFlags int32
 
 const (
@@ -117,7 +117,7 @@ func (e EventSchedFlags) String() string {
 	return fmt.Sprintf("EventSchedFlags(%d)", e)
 }
 
-// ClEventFlags NVCL event scheduling flags
+// ClEventFlags represents NVCL event scheduling flags.
 type ClEventFlags int32
 
 const (
@@ -142,7 +142,7 @@ func (e ClEventFlags) String() string {
 	return fmt.Sprintf("ClEventFlags(%d)", e)
 }
 
-// ClContextFlags NVCL context scheduling flags
+// ClContextFlags represents NVCL context scheduling flags.
 type ClContextFlags int32
 
 const (
@@ -188,7 +188,7 @@ func (e HostTaskSyncMode) String() string {
 	return fmt.Sprintf("HostTaskSyncMode(%d)", e)
 }
 
-// StreamFlags Stream creation flags
+// StreamFlags represents stream creation flags.
 type StreamFlags uint32
 
 const (
@@ -207,7 +207,7 @@ func (e StreamFlags) String() string {
 	return fmt.Sprintf("StreamFlags(%d)", e)
 }
 
-// EventFlags Event creation flags
+// EventFlags represents event creation flags.
 type EventFlags uint32
 
 const (
@@ -233,7 +233,7 @@ func (e EventFlags) String() string {
 	return fmt.Sprintf("EventFlags(%d)", e)
 }
 
-// EventRecordFlags Event record flags
+// EventRecordFlags represents event record flags.
 type EventRecordFlags int32
 
 const (
@@ -252,7 +252,7 @@ func (e EventRecordFlags) String() string {
 	return fmt.Sprintf("EventRecordFlags(%d)", e)
 }
 
-// EventWaitFlags Event wait flags
+// EventWaitFlags represents event wait flags.
 type EventWaitFlags int32
 
 const (
@@ -271,7 +271,7 @@ func (e EventWaitFlags) String() string {
 	return fmt.Sprintf("EventWaitFlags(%d)", e)
 }
 
-// AtomicOperation CUDA-valid Atomic Operations
+// AtomicOperation represents CUDA-valid Atomic Operations.
 type AtomicOperation int32
 
 const (
@@ -323,7 +323,7 @@ func (e AtomicOperation) String() string {
 	return fmt.Sprintf("AtomicOperation(%d)", e)
 }
 
-// AtomicOperationCapability CUDA-valid Atomic Operation capabilities
+// AtomicOperationCapability represents CUDA-valid Atomic Operation capabilities.
 type AtomicOperationCapability int32
 
 const (
@@ -357,7 +357,7 @@ func (e AtomicOperationCapability) String() string {
 	return fmt.Sprintf("AtomicOperationCapability(%d)", e)
 }
 
-// StreamwaitvalueFlags Flags for [Stream.WaitValue32] and [Stream.WaitValue64]
+// StreamwaitvalueFlags represents flags for [Stream.WaitValue32] and [Stream.WaitValue64].
 type StreamwaitvalueFlags int32
 
 const (
@@ -385,7 +385,7 @@ func (e StreamwaitvalueFlags) String() string {
 	return fmt.Sprintf("StreamwaitvalueFlags(%d)", e)
 }
 
-// StreamwritevalueFlags Flags for [Stream.WriteValue32]
+// StreamwritevalueFlags represents flags for [Stream.WriteValue32].
 type StreamwritevalueFlags int32
 
 const (
@@ -404,7 +404,7 @@ func (e StreamwritevalueFlags) String() string {
 	return fmt.Sprintf("StreamwritevalueFlags(%d)", e)
 }
 
-// StreamBatchMemOpType Operations for [Stream.BatchMemOp]
+// StreamBatchMemOpType represents operations for [Stream.BatchMemOp].
 type StreamBatchMemOpType int32
 
 const (
@@ -439,7 +439,7 @@ func (e StreamBatchMemOpType) String() string {
 	return fmt.Sprintf("StreamBatchMemOpType(%d)", e)
 }
 
-// StreammemorybarrierFlags Flags for CUstreamBatchMemOpParams.memoryBarrier
+// StreammemorybarrierFlags represents flags for CUstreamBatchMemOpParams.memoryBarrier.
 type StreammemorybarrierFlags int32
 
 const (
@@ -458,7 +458,7 @@ func (e StreammemorybarrierFlags) String() string {
 	return fmt.Sprintf("StreammemorybarrierFlags(%d)", e)
 }
 
-// StreamAtomicReductionOpType Atomic reduction operation types for CUstreamBatchMemOpParams.atomicReductionreductionOp
+// StreamAtomicReductionOpType represents atomic reduction operation types for CUstreamBatchMemOpParams.atomicReductionreductionOp.
 type StreamAtomicReductionOpType int32
 
 const (
@@ -480,7 +480,7 @@ func (e StreamAtomicReductionOpType) String() string {
 	return fmt.Sprintf("StreamAtomicReductionOpType(%d)", e)
 }
 
-// StreamAtomicReductionDataType Atomic reduction data types for CUstreamBatchMemOpParams.atomicReductiondataType
+// StreamAtomicReductionDataType represents atomic reduction data types for CUstreamBatchMemOpParams.atomicReductiondataType.
 type StreamAtomicReductionDataType int32
 
 const (
@@ -499,7 +499,7 @@ func (e StreamAtomicReductionDataType) String() string {
 	return fmt.Sprintf("StreamAtomicReductionDataType(%d)", e)
 }
 
-// OccupancyFlags Occupancy calculator flag
+// OccupancyFlags represents occupancy calculator flag.
 type OccupancyFlags int32
 
 const (
@@ -519,7 +519,7 @@ func (e OccupancyFlags) String() string {
 	return fmt.Sprintf("OccupancyFlags(%d)", e)
 }
 
-// StreamupdatecapturedependenciesFlags Flags for [Stream.UpdateCaptureDependencies]
+// StreamupdatecapturedependenciesFlags represents flags for [Stream.UpdateCaptureDependencies].
 type StreamupdatecapturedependenciesFlags int32
 
 const (
@@ -538,7 +538,7 @@ func (e StreamupdatecapturedependenciesFlags) String() string {
 	return fmt.Sprintf("StreamupdatecapturedependenciesFlags(%d)", e)
 }
 
-// AsyncNotificationType Types of async notification that can be sent
+// AsyncNotificationType represents types of async notification that can be sent.
 type AsyncNotificationType int32
 
 const (
@@ -554,7 +554,7 @@ func (e AsyncNotificationType) String() string {
 	return fmt.Sprintf("AsyncNotificationType(%d)", e)
 }
 
-// ArrayFormat Array formats
+// ArrayFormat represents array formats.
 type ArrayFormat int32
 
 const (
@@ -795,7 +795,7 @@ func (e ArrayFormat) String() string {
 	return fmt.Sprintf("ArrayFormat(%d)", e)
 }
 
-// AddressMode Texture reference addressing modes
+// AddressMode represents texture reference addressing modes.
 type AddressMode int32
 
 const (
@@ -820,7 +820,7 @@ func (e AddressMode) String() string {
 	return fmt.Sprintf("AddressMode(%d)", e)
 }
 
-// FilterMode Texture reference filtering modes
+// FilterMode represents texture reference filtering modes.
 type FilterMode int32
 
 const (
@@ -839,7 +839,7 @@ func (e FilterMode) String() string {
 	return fmt.Sprintf("FilterMode(%d)", e)
 }
 
-// DeviceAttribute Device properties
+// DeviceAttribute represents device properties.
 type DeviceAttribute int32
 
 const (
@@ -1350,7 +1350,7 @@ func (e DeviceAttribute) String() string {
 	return fmt.Sprintf("DeviceAttribute(%d)", e)
 }
 
-// PointerAttribute Pointer information
+// PointerAttribute represents pointer information.
 type PointerAttribute int32
 
 const (
@@ -1442,7 +1442,7 @@ func (e PointerAttribute) String() string {
 	return fmt.Sprintf("PointerAttribute(%d)", e)
 }
 
-// FunctionAttribute Function properties
+// FunctionAttribute represents function properties.
 type FunctionAttribute int32
 
 const (
@@ -1519,7 +1519,7 @@ func (e FunctionAttribute) String() string {
 	return fmt.Sprintf("FunctionAttribute(%d)", e)
 }
 
-// FuncCacheConfig Function cache configurations
+// FuncCacheConfig represents function cache configurations.
 type FuncCacheConfig int32
 
 const (
@@ -1544,7 +1544,7 @@ func (e FuncCacheConfig) String() string {
 	return fmt.Sprintf("FuncCacheConfig(%d)", e)
 }
 
-// Sharedconfig Shared memory configurations
+// Sharedconfig represents shared memory configurations.
 type Sharedconfig int32
 
 const (
@@ -1566,7 +1566,7 @@ func (e Sharedconfig) String() string {
 	return fmt.Sprintf("Sharedconfig(%d)", e)
 }
 
-// SharedCarveout Shared memory carveout configurations.
+// SharedCarveout represents shared memory carveout configurations.
 type SharedCarveout int32
 
 const (
@@ -1588,7 +1588,7 @@ func (e SharedCarveout) String() string {
 	return fmt.Sprintf("SharedCarveout(%d)", e)
 }
 
-// MemoryType Memory types
+// MemoryType represents memory types.
 type MemoryType uint32
 
 const (
@@ -1613,7 +1613,7 @@ func (e MemoryType) String() string {
 	return fmt.Sprintf("MemoryType(%d)", e)
 }
 
-// Computemode Compute Modes
+// Computemode represents compute Modes.
 type Computemode int32
 
 const (
@@ -1637,7 +1637,7 @@ func (e Computemode) String() string {
 	return fmt.Sprintf("Computemode(%d)", e)
 }
 
-// MemAdvise Memory advise values
+// MemAdvise represents memory advise values.
 type MemAdvise int32
 
 const (
@@ -1710,7 +1710,7 @@ func (e MemRangeAttribute) String() string {
 	return fmt.Sprintf("MemRangeAttribute(%d)", e)
 }
 
-// JITOption Online compiler and linker options
+// JITOption represents online compiler and linker options.
 type JITOption int32
 
 const (
@@ -1869,7 +1869,7 @@ func (e JITOption) String() string {
 	return fmt.Sprintf("JITOption(%d)", e)
 }
 
-// JitTarget Online compilation targets
+// JitTarget represents online compilation targets.
 type JitTarget int32
 
 const (
@@ -1984,7 +1984,7 @@ func (e JitTarget) String() string {
 	return fmt.Sprintf("JitTarget(%d)", e)
 }
 
-// JitFallback Cubin matching fallback strategies
+// JitFallback represents cubin matching fallback strategies.
 type JitFallback int32
 
 const (
@@ -2004,7 +2004,7 @@ func (e JitFallback) String() string {
 	return fmt.Sprintf("JitFallback(%d)", e)
 }
 
-// JitCachemode Caching modes for dlcm
+// JitCachemode represents caching modes for dlcm.
 type JitCachemode int32
 
 const (
@@ -2026,7 +2026,7 @@ func (e JitCachemode) String() string {
 	return fmt.Sprintf("JitCachemode(%d)", e)
 }
 
-// JitInputType Device code formats
+// JitInputType represents device code formats.
 type JitInputType int32
 
 const (
@@ -2065,7 +2065,7 @@ func (e JitInputType) String() string {
 	return fmt.Sprintf("JitInputType(%d)", e)
 }
 
-// GraphicsRegisterFlags Flags to register a graphics resource
+// GraphicsRegisterFlags represents flags to register a graphics resource.
 type GraphicsRegisterFlags int32
 
 const (
@@ -2093,7 +2093,7 @@ func (e GraphicsRegisterFlags) String() string {
 	return fmt.Sprintf("GraphicsRegisterFlags(%d)", e)
 }
 
-// GraphicsMapResourceFlags Flags for mapping and unmapping interop resources
+// GraphicsMapResourceFlags represents flags for mapping and unmapping interop resources.
 type GraphicsMapResourceFlags int32
 
 const (
@@ -2115,7 +2115,7 @@ func (e GraphicsMapResourceFlags) String() string {
 	return fmt.Sprintf("GraphicsMapResourceFlags(%d)", e)
 }
 
-// ArrayCubemapFace Array indices for cube faces
+// ArrayCubemapFace represents array indices for cube faces.
 type ArrayCubemapFace int32
 
 const (
@@ -2146,7 +2146,7 @@ func (e ArrayCubemapFace) String() string {
 	return fmt.Sprintf("ArrayCubemapFace(%d)", e)
 }
 
-// Limit Limits
+// Limit represents limits.
 type Limit uint32
 
 const (
@@ -2193,7 +2193,7 @@ func (e Limit) String() string {
 	return fmt.Sprintf("Limit(%d)", e)
 }
 
-// Resourcetype Resource types
+// Resourcetype represents resource types.
 type Resourcetype int32
 
 const (
@@ -2218,7 +2218,7 @@ func (e Resourcetype) String() string {
 	return fmt.Sprintf("Resourcetype(%d)", e)
 }
 
-// AccessProperty Specifies performance hint with [AccessPolicyWindow] for hitProp and missProp members.
+// AccessProperty specifies performance hint with [AccessPolicyWindow] for hitProp and missProp members.
 type AccessProperty int32
 
 const (
@@ -2240,7 +2240,7 @@ func (e AccessProperty) String() string {
 	return fmt.Sprintf("AccessProperty(%d)", e)
 }
 
-// GraphConditionalNodeType Conditional node types
+// GraphConditionalNodeType represents conditional node types.
 type GraphConditionalNodeType int32
 
 const (
@@ -2265,7 +2265,7 @@ func (e GraphConditionalNodeType) String() string {
 	return fmt.Sprintf("GraphConditionalNodeType(%d)", e)
 }
 
-// GraphNodeType Graph node types
+// GraphNodeType represents graph node types.
 type GraphNodeType int32
 
 const (
@@ -2320,7 +2320,7 @@ func (e GraphNodeType) String() string {
 	return fmt.Sprintf("GraphNodeType(%d)", e)
 }
 
-// GraphDependencyType Type annotations that can be applied to graph edges as part of [GraphEdgeData].
+// GraphDependencyType represents type annotations that can be applied to graph edges as part of [GraphEdgeData].
 type GraphDependencyType int32
 
 const (
@@ -2339,7 +2339,7 @@ func (e GraphDependencyType) String() string {
 	return fmt.Sprintf("GraphDependencyType(%d)", e)
 }
 
-// GraphInstantiateResult Graph instantiation results
+// GraphInstantiateResult represents graph instantiation results.
 type GraphInstantiateResult int32
 
 const (
@@ -2400,7 +2400,7 @@ func (e SynchronizationPolicy) String() string {
 	return fmt.Sprintf("SynchronizationPolicy(%d)", e)
 }
 
-// ClusterSchedulingPolicy Cluster scheduling policies.
+// ClusterSchedulingPolicy represents cluster scheduling policies.
 type ClusterSchedulingPolicy int32
 
 const (
@@ -2423,7 +2423,7 @@ func (e ClusterSchedulingPolicy) String() string {
 	return fmt.Sprintf("ClusterSchedulingPolicy(%d)", e)
 }
 
-// LaunchMemSyncDomain Memory Synchronization Domain A kernel can be launched in a specified memory synchronization domain that affects all memory operations issued by that kernel. A memory barrier issued in one domain will only order memory operations in that domain, thus eliminating latency increase from memory barriers ordering unrelated traffic. By default, kernels are launched in domain 0. Kernel launched with [LaunchMemSyncDomainRemote] will have a different domain ID. User may also alter the domain ID with [LaunchMemSyncDomainMap] for a specific stream / graph node / kernel launch. See [LaunchAttributeMemSyncDomain], [Stream.SetAttribute], [Function.LaunchKernelEx], [KernelNode.SetAttribute]. Memory operations done in kernels launched in different domains are considered system-scope distanced. In other words, a GPU scoped memory synchronization is not sufficient for memory order to be observed by kernels in another memory synchronization domain even if they are on the same GPU.
+// LaunchMemSyncDomain represents memory Synchronization Domain A kernel can be launched in a specified memory synchronization domain that affects all memory operations issued by that kernel. A memory barrier issued in one domain will only order memory operations in that domain, thus eliminating latency increase from memory barriers ordering unrelated traffic. By default, kernels are launched in domain 0. Kernel launched with [LaunchMemSyncDomainRemote] will have a different domain ID. User may also alter the domain ID with [LaunchMemSyncDomainMap] for a specific stream / graph node / kernel launch. See [LaunchAttributeMemSyncDomain], [Stream.SetAttribute], [Function.LaunchKernelEx], [KernelNode.SetAttribute]. Memory operations done in kernels launched in different domains are considered system-scope distanced. In other words, a GPU scoped memory synchronization is not sufficient for memory order to be observed by kernels in another memory synchronization domain even if they are on the same GPU.
 type LaunchMemSyncDomain int32
 
 const (
@@ -2442,7 +2442,7 @@ func (e LaunchMemSyncDomain) String() string {
 	return fmt.Sprintf("LaunchMemSyncDomain(%d)", e)
 }
 
-// LaunchAttributePortableClusterMode Enum for defining applicability of portable cluster size, used with [Function.LaunchKernelEx]
+// LaunchAttributePortableClusterMode is an enum for defining applicability of portable cluster size, used with [Function.LaunchKernelEx].
 type LaunchAttributePortableClusterMode int32
 
 const (
@@ -2466,7 +2466,7 @@ func (e LaunchAttributePortableClusterMode) String() string {
 	return fmt.Sprintf("LaunchAttributePortableClusterMode(%d)", e)
 }
 
-// SharedMemoryMode Shared memory related attributes for use with [Function.LaunchKernelEx]
+// SharedMemoryMode represents shared memory related attributes for use with [Function.LaunchKernelEx].
 type SharedMemoryMode int32
 
 const (
@@ -2488,7 +2488,7 @@ func (e SharedMemoryMode) String() string {
 	return fmt.Sprintf("SharedMemoryMode(%d)", e)
 }
 
-// LaunchAttributeID Launch attributes enum; used as id field of [LaunchAttribute]
+// LaunchAttributeID represents launch attributes enum; used as id field of [LaunchAttribute].
 type LaunchAttributeID int32
 
 const (
@@ -2558,7 +2558,7 @@ func (e LaunchAttributeID) String() string {
 	return fmt.Sprintf("LaunchAttributeID(%d)", e)
 }
 
-// StreamCaptureStatus Possible stream capture statuses returned by [Stream.IsCapturing]
+// StreamCaptureStatus represents possible stream capture statuses returned by [Stream.IsCapturing].
 type StreamCaptureStatus int32
 
 const (
@@ -2580,7 +2580,7 @@ func (e StreamCaptureStatus) String() string {
 	return fmt.Sprintf("StreamCaptureStatus(%d)", e)
 }
 
-// StreamCaptureMode Possible modes for stream capture thread interactions.
+// StreamCaptureMode represents possible modes for stream capture thread interactions.
 type StreamCaptureMode int32
 
 const (
@@ -2602,7 +2602,7 @@ func (e StreamCaptureMode) String() string {
 	return fmt.Sprintf("StreamCaptureMode(%d)", e)
 }
 
-// DriverprocaddressFlags Flags to specify search options.
+// DriverprocaddressFlags represents flags to specify search options.
 type DriverprocaddressFlags int32
 
 const (
@@ -2624,7 +2624,7 @@ func (e DriverprocaddressFlags) String() string {
 	return fmt.Sprintf("DriverprocaddressFlags(%d)", e)
 }
 
-// DriverProcAddressQueryResult Flags to indicate search status.
+// DriverProcAddressQueryResult represents flags to indicate search status.
 type DriverProcAddressQueryResult int32
 
 const (
@@ -2646,7 +2646,7 @@ func (e DriverProcAddressQueryResult) String() string {
 	return fmt.Sprintf("DriverProcAddressQueryResult(%d)", e)
 }
 
-// ExecAffinityType Execution Affinity Types
+// ExecAffinityType represents execution Affinity Types.
 type ExecAffinityType int32
 
 const (
@@ -2698,7 +2698,7 @@ func (e StreamCigDataType) String() string {
 	return fmt.Sprintf("StreamCigDataType(%d)", e)
 }
 
-// LibraryOption Library options to be specified with [LibraryLoadData] or [LibraryLoadFromFile]
+// LibraryOption represents library options to be specified with [LibraryLoadData] or [LibraryLoadFromFile].
 type LibraryOption int32
 
 const (
@@ -2721,7 +2721,7 @@ func (e LibraryOption) String() string {
 	return fmt.Sprintf("LibraryOption(%d)", e)
 }
 
-// DeviceP2pattribute P2P Attributes
+// DeviceP2pattribute represents P2P Attributes.
 type DeviceP2pattribute int32
 
 const (
@@ -2753,7 +2753,7 @@ func (e DeviceP2pattribute) String() string {
 	return fmt.Sprintf("DeviceP2pattribute(%d)", e)
 }
 
-// ResourceViewFormat Resource view format
+// ResourceViewFormat represents resource view format.
 type ResourceViewFormat int32
 
 const (
@@ -2871,7 +2871,7 @@ func (e ResourceViewFormat) String() string {
 	return fmt.Sprintf("ResourceViewFormat(%d)", e)
 }
 
-// TensorMapDataType Tensor map data type
+// TensorMapDataType represents tensor map data type.
 type TensorMapDataType int32
 
 const (
@@ -2932,7 +2932,7 @@ func (e TensorMapDataType) String() string {
 	return fmt.Sprintf("TensorMapDataType(%d)", e)
 }
 
-// TensorMapInterleave Tensor map interleave layout type
+// TensorMapInterleave represents tensor map interleave layout type.
 type TensorMapInterleave int32
 
 const (
@@ -2954,7 +2954,7 @@ func (e TensorMapInterleave) String() string {
 	return fmt.Sprintf("TensorMapInterleave(%d)", e)
 }
 
-// TensorMapSwizzle Tensor map swizzling mode of shared memory banks
+// TensorMapSwizzle represents tensor map swizzling mode of shared memory banks.
 type TensorMapSwizzle int32
 
 const (
@@ -2988,7 +2988,7 @@ func (e TensorMapSwizzle) String() string {
 	return fmt.Sprintf("TensorMapSwizzle(%d)", e)
 }
 
-// TensorMapL2promotion Tensor map L2 promotion type
+// TensorMapL2promotion represents tensor map L2 promotion type.
 type TensorMapL2promotion int32
 
 const (
@@ -3013,7 +3013,7 @@ func (e TensorMapL2promotion) String() string {
 	return fmt.Sprintf("TensorMapL2promotion(%d)", e)
 }
 
-// TensorMapFloatOOBfill Tensor map out-of-bounds fill type
+// TensorMapFloatOOBfill represents tensor map out-of-bounds fill type.
 type TensorMapFloatOOBfill int32
 
 const (
@@ -3032,7 +3032,7 @@ func (e TensorMapFloatOOBfill) String() string {
 	return fmt.Sprintf("TensorMapFloatOOBfill(%d)", e)
 }
 
-// TensorMapIm2ColWideMode Tensor map Im2Col wide mode
+// TensorMapIm2ColWideMode represents tensor map Im2Col wide mode.
 type TensorMapIm2ColWideMode int32
 
 const (
@@ -3051,7 +3051,7 @@ func (e TensorMapIm2ColWideMode) String() string {
 	return fmt.Sprintf("TensorMapIm2ColWideMode(%d)", e)
 }
 
-// PointerAttributeAccessFlags Access flags that specify the level of access the current context's device has on the memory referenced.
+// PointerAttributeAccessFlags represents access flags that specify the level of access the current context's device has on the memory referenced.
 type PointerAttributeAccessFlags int32
 
 const (
@@ -3076,7 +3076,7 @@ func (e PointerAttributeAccessFlags) String() string {
 	return fmt.Sprintf("PointerAttributeAccessFlags(%d)", e)
 }
 
-// ExternalMemoryHandleType External memory handle types
+// ExternalMemoryHandleType represents external memory handle types.
 type ExternalMemoryHandleType int32
 
 const (
@@ -3116,7 +3116,7 @@ func (e ExternalMemoryHandleType) String() string {
 	return fmt.Sprintf("ExternalMemoryHandleType(%d)", e)
 }
 
-// ExternalSemaphoreHandleType External semaphore handle types
+// ExternalSemaphoreHandleType represents external semaphore handle types.
 type ExternalSemaphoreHandleType int32
 
 const (
@@ -3164,7 +3164,7 @@ func (e ExternalSemaphoreHandleType) String() string {
 	return fmt.Sprintf("ExternalSemaphoreHandleType(%d)", e)
 }
 
-// MemAllocationHandleType Flags for specifying particular handle types
+// MemAllocationHandleType represents flags for specifying particular handle types.
 type MemAllocationHandleType int32
 
 const (
@@ -3195,7 +3195,7 @@ func (e MemAllocationHandleType) String() string {
 	return fmt.Sprintf("MemAllocationHandleType(%d)", e)
 }
 
-// MemaccessFlags Specifies the memory protection flags for mapping.
+// MemaccessFlags specifies the memory protection flags for mapping.
 type MemaccessFlags int32
 
 const (
@@ -3217,7 +3217,7 @@ func (e MemaccessFlags) String() string {
 	return fmt.Sprintf("MemaccessFlags(%d)", e)
 }
 
-// MemLocationType Specifies the type of location
+// MemLocationType specifies the type of location.
 type MemLocationType int32
 
 const (
@@ -3252,7 +3252,7 @@ func (e MemLocationType) String() string {
 	return fmt.Sprintf("MemLocationType(%d)", e)
 }
 
-// MemAllocationType Defines the allocation types available
+// MemAllocationType defines the allocation types available.
 type MemAllocationType int32
 
 const (
@@ -3274,7 +3274,7 @@ func (e MemAllocationType) String() string {
 	return fmt.Sprintf("MemAllocationType(%d)", e)
 }
 
-// MemallocationgranularityFlags Flag for requesting different optimal and required granularities for an allocation.
+// MemallocationgranularityFlags represents flag for requesting different optimal and required granularities for an allocation.
 type MemallocationgranularityFlags int32
 
 const (
@@ -3293,7 +3293,7 @@ func (e MemallocationgranularityFlags) String() string {
 	return fmt.Sprintf("MemallocationgranularityFlags(%d)", e)
 }
 
-// MemRangeHandleType Specifies the handle type for address range
+// MemRangeHandleType specifies the handle type for address range.
 type MemRangeHandleType int32
 
 const (
@@ -3309,7 +3309,7 @@ func (e MemRangeHandleType) String() string {
 	return fmt.Sprintf("MemRangeHandleType(%d)", e)
 }
 
-// MemRangeFlags Flag for requesting handle type for address range.
+// MemRangeFlags represents flag for requesting handle type for address range.
 type MemRangeFlags int32
 
 const (
@@ -3325,7 +3325,7 @@ func (e MemRangeFlags) String() string {
 	return fmt.Sprintf("MemRangeFlags(%d)", e)
 }
 
-// ArraySparseSubresourceType Sparse subresource types
+// ArraySparseSubresourceType represents sparse subresource types.
 type ArraySparseSubresourceType int32
 
 const (
@@ -3344,7 +3344,7 @@ func (e ArraySparseSubresourceType) String() string {
 	return fmt.Sprintf("ArraySparseSubresourceType(%d)", e)
 }
 
-// MemOperationType Memory operation types
+// MemOperationType represents memory operation types.
 type MemOperationType int32
 
 const (
@@ -3363,7 +3363,7 @@ func (e MemOperationType) String() string {
 	return fmt.Sprintf("MemOperationType(%d)", e)
 }
 
-// MemHandleType Memory handle types
+// MemHandleType represents memory handle types.
 type MemHandleType int32
 
 const (
@@ -3379,7 +3379,7 @@ func (e MemHandleType) String() string {
 	return fmt.Sprintf("MemHandleType(%d)", e)
 }
 
-// MemAllocationCompType Specifies compression attribute for an allocation.
+// MemAllocationCompType specifies compression attribute for an allocation.
 type MemAllocationCompType int32
 
 const (
@@ -3398,7 +3398,7 @@ func (e MemAllocationCompType) String() string {
 	return fmt.Sprintf("MemAllocationCompType(%d)", e)
 }
 
-// MulticastgranularityFlags Flags for querying different granularities for a multicast object
+// MulticastgranularityFlags represents flags for querying different granularities for a multicast object.
 type MulticastgranularityFlags int32
 
 const (
@@ -3417,7 +3417,7 @@ func (e MulticastgranularityFlags) String() string {
 	return fmt.Sprintf("MulticastgranularityFlags(%d)", e)
 }
 
-// GraphExecUpdateResult CUDA Graph Update error types
+// GraphExecUpdateResult represents CUDA Graph Update error types.
 type GraphExecUpdateResult int32
 
 const (
@@ -3463,7 +3463,7 @@ func (e GraphExecUpdateResult) String() string {
 	return fmt.Sprintf("GraphExecUpdateResult(%d)", e)
 }
 
-// MempoolAttribute CUDA memory pool attributes
+// MempoolAttribute represents CUDA memory pool attributes.
 type MempoolAttribute int32
 
 const (
@@ -3519,7 +3519,7 @@ func (e MempoolAttribute) String() string {
 	return fmt.Sprintf("MempoolAttribute(%d)", e)
 }
 
-// MemcpyFlags Flags to specify for copies within a batch.
+// MemcpyFlags represents flags to specify for copies within a batch.
 type MemcpyFlags int32
 
 const (
@@ -3538,7 +3538,7 @@ func (e MemcpyFlags) String() string {
 	return fmt.Sprintf("MemcpyFlags(%d)", e)
 }
 
-// MemcpySrcAccessOrder These flags allow applications to convey the source access ordering CUDA must maintain.
+// MemcpySrcAccessOrder represents flags that allow applications to convey the source access ordering CUDA must maintain.
 type MemcpySrcAccessOrder int32
 
 const (
@@ -3566,7 +3566,7 @@ func (e MemcpySrcAccessOrder) String() string {
 	return fmt.Sprintf("MemcpySrcAccessOrder(%d)", e)
 }
 
-// Memcpy3DOperandType These flags allow applications to convey the operand type for individual copies specified in [Stream.Memcpy3DBatchAsync].
+// Memcpy3DOperandType represents flags that allow applications to convey the operand type for individual copies specified in [Stream.Memcpy3DBatchAsync].
 type Memcpy3DOperandType int32
 
 const (
@@ -3610,7 +3610,7 @@ func (e GraphmemAttribute) String() string {
 	return fmt.Sprintf("GraphmemAttribute(%d)", e)
 }
 
-// GraphChildGraphNodeOwnership Child graph node ownership
+// GraphChildGraphNodeOwnership represents child graph node ownership.
 type GraphChildGraphNodeOwnership int32
 
 const (
@@ -3632,7 +3632,7 @@ func (e GraphChildGraphNodeOwnership) String() string {
 	return fmt.Sprintf("GraphChildGraphNodeOwnership(%d)", e)
 }
 
-// FlushGPUDirectRDMAWritesOptions Bitmasks for [DevAttrGpuDirectRdmaFlushWritesOptions]
+// FlushGPUDirectRDMAWritesOptions represents bitmasks for [DevAttrGpuDirectRdmaFlushWritesOptions].
 type FlushGPUDirectRDMAWritesOptions int32
 
 const (
@@ -3653,7 +3653,7 @@ func (e FlushGPUDirectRDMAWritesOptions) String() string {
 	return fmt.Sprintf("FlushGPUDirectRDMAWritesOptions(%d)", e)
 }
 
-// GPUDirectRDMAWritesOrdering Platform native ordering for GPUDirect RDMA writes
+// GPUDirectRDMAWritesOrdering represents platform native ordering for GPUDirect RDMA writes.
 type GPUDirectRDMAWritesOrdering int32
 
 const (
@@ -3678,7 +3678,7 @@ func (e GPUDirectRDMAWritesOrdering) String() string {
 	return fmt.Sprintf("GPUDirectRDMAWritesOrdering(%d)", e)
 }
 
-// FlushGPUDirectRDMAWritesScope The scopes for [FlushGPUDirectRDMAWrites]
+// FlushGPUDirectRDMAWritesScope represents the scopes for [FlushGPUDirectRDMAWrites].
 type FlushGPUDirectRDMAWritesScope int32
 
 const (
@@ -3699,7 +3699,7 @@ func (e FlushGPUDirectRDMAWritesScope) String() string {
 	return fmt.Sprintf("FlushGPUDirectRDMAWritesScope(%d)", e)
 }
 
-// FlushGPUDirectRDMAWritesTarget The targets for [FlushGPUDirectRDMAWrites]
+// FlushGPUDirectRDMAWritesTarget represents the targets for [FlushGPUDirectRDMAWrites].
 type FlushGPUDirectRDMAWritesTarget int32
 
 const (
@@ -3716,7 +3716,7 @@ func (e FlushGPUDirectRDMAWritesTarget) String() string {
 	return fmt.Sprintf("FlushGPUDirectRDMAWritesTarget(%d)", e)
 }
 
-// GraphdebugdotFlags The additional write options for [Graph.DebugDotPrint]
+// GraphdebugdotFlags represents the additional write options for [Graph.DebugDotPrint].
 type GraphdebugdotFlags int32
 
 const (
@@ -3777,7 +3777,7 @@ func (e GraphdebugdotFlags) String() string {
 	return fmt.Sprintf("GraphdebugdotFlags(%d)", e)
 }
 
-// UserobjectFlags Flags for user objects for graphs
+// UserobjectFlags represents flags for user objects for graphs.
 type UserobjectFlags int32
 
 const (
@@ -3794,7 +3794,7 @@ func (e UserobjectFlags) String() string {
 	return fmt.Sprintf("UserobjectFlags(%d)", e)
 }
 
-// UserobjectretainFlags Flags for retaining user object references for graphs
+// UserobjectretainFlags represents flags for retaining user object references for graphs.
 type UserobjectretainFlags int32
 
 const (
@@ -3811,7 +3811,7 @@ func (e UserobjectretainFlags) String() string {
 	return fmt.Sprintf("UserobjectretainFlags(%d)", e)
 }
 
-// GraphinstantiateFlags Flags for instantiating a graph
+// GraphinstantiateFlags represents flags for instantiating a graph.
 type GraphinstantiateFlags int32
 
 const (
@@ -3837,7 +3837,7 @@ func (e GraphinstantiateFlags) String() string {
 	return fmt.Sprintf("GraphinstantiateFlags(%d)", e)
 }
 
-// DeviceNumaConfig CUDA device NUMA configuration
+// DeviceNumaConfig represents CUDA device NUMA configuration.
 type DeviceNumaConfig int32
 
 const (
@@ -3856,7 +3856,7 @@ func (e DeviceNumaConfig) String() string {
 	return fmt.Sprintf("DeviceNumaConfig(%d)", e)
 }
 
-// ProcessState CUDA Process States
+// ProcessState represents CUDA Process States.
 type ProcessState int32
 
 const (
@@ -3884,7 +3884,7 @@ func (e ProcessState) String() string {
 	return fmt.Sprintf("ProcessState(%d)", e)
 }
 
-// ModuleLoadingMode CUDA Lazy Loading status
+// ModuleLoadingMode represents CUDA Lazy Loading status.
 type ModuleLoadingMode int32
 
 const (
@@ -3903,7 +3903,7 @@ func (e ModuleLoadingMode) String() string {
 	return fmt.Sprintf("ModuleLoadingMode(%d)", e)
 }
 
-// MemDecompressAlgorithm Bitmasks for [DevAttrMemDecompressAlgorithmMask].
+// MemDecompressAlgorithm represents bitmasks for [DevAttrMemDecompressAlgorithmMask].
 type MemDecompressAlgorithm int32
 
 const (
@@ -3947,7 +3947,7 @@ func (e FunctionLoadingState) String() string {
 	return fmt.Sprintf("FunctionLoadingState(%d)", e)
 }
 
-// CoredumpSettings Flags for choosing a coredump attribute to get/set
+// CoredumpSettings represents flags for choosing a coredump attribute to get/set.
 type CoredumpSettings int32
 
 const (
@@ -3981,7 +3981,7 @@ func (e CoredumpSettings) String() string {
 	return fmt.Sprintf("CoredumpSettings(%d)", e)
 }
 
-// CoredumpGenerationFlags Flags for controlling coredump contents
+// CoredumpGenerationFlags represents flags for controlling coredump contents.
 type CoredumpGenerationFlags int32
 
 const (

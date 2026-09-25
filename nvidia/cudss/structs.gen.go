@@ -27,7 +27,7 @@ type CudssFp64mp2 struct {
 	Lo float64
 }
 
-// DistributedInterface represents Interface to communication layer..
+// DistributedInterface represents interface to communication layer.
 type DistributedInterface struct {
 	CudssCommRankDevice         uintptr
 	CudssCommSizeDevice         uintptr
@@ -52,7 +52,7 @@ type DistributedInterface struct {
 	CudssDistributedGetProperty uintptr
 }
 
-// ThreadingInterface represents Interface to threading layer.
+// ThreadingInterface represents interface to threading layer.
 type ThreadingInterface struct {
 	CudssGetMaxThreads        uintptr
 	CudssParallelFor          uintptr

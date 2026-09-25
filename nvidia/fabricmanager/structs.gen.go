@@ -2,7 +2,7 @@
 
 package fabricmanager
 
-// ConnectParamsV1 represents Connection options for [Connect].
+// ConnectParamsV1 represents connection options for [Connect].
 type ConnectParamsV1 struct {
 	Version             uint32
 	AddressInfo         [256]byte
@@ -27,7 +27,7 @@ type PciDevice struct {
 	Function uint32
 }
 
-// FabricPartitionGpuInfo represents Structure to store information about a GPU belonging to fabric partition.
+// FabricPartitionGpuInfo stores information about a GPU belonging to fabric partition.
 type FabricPartitionGpuInfo struct {
 	PhysicalId          uint32
 	Uuid                [80]byte
@@ -37,7 +37,7 @@ type FabricPartitionGpuInfo struct {
 	NvlinkLineRateMBps  uint32
 }
 
-// FabricPartitionInfo represents Structure to store information about a fabric partition.
+// FabricPartitionInfo stores information about a fabric partition.
 type FabricPartitionInfo struct {
 	PartitionId uint32
 	IsActive    uint32
@@ -45,7 +45,7 @@ type FabricPartitionInfo struct {
 	GpuInfo     [16]FabricPartitionGpuInfo
 }
 
-// FabricPartitionList represents Structure to store information about all the supported fabric partitions.
+// FabricPartitionList stores information about all the supported fabric partitions.
 type FabricPartitionList struct {
 	Version          uint32
 	NumPartitions    uint32
@@ -53,14 +53,14 @@ type FabricPartitionList struct {
 	PartitionInfo    [64]FabricPartitionInfo
 }
 
-// ActivatedFabricPartitionList represents Structure to store information about all the activated fabric partitionIds.
+// ActivatedFabricPartitionList stores information about all the activated fabric partitionIds.
 type ActivatedFabricPartitionList struct {
 	Version       uint32
 	NumPartitions uint32
 	PartitionIds  [64]uint32
 }
 
-// NvlinkFailedDeviceInfo represents Structure to store information about a NVSwitch or GPU with failed NVLinks.
+// NvlinkFailedDeviceInfo stores information about a NVSwitch or GPU with failed NVLinks.
 type NvlinkFailedDeviceInfo struct {
 	Uuid     [80]byte
 	PciBusId [32]byte
@@ -68,7 +68,7 @@ type NvlinkFailedDeviceInfo struct {
 	PortNum  [64]uint32
 }
 
-// NvlinkFailedDevices represents Structure to store a list of NVSwitches and GPUs with failed NVLinks.
+// NvlinkFailedDevices stores a list of NVSwitches and GPUs with failed NVLinks.
 type NvlinkFailedDevices struct {
 	Version     uint32
 	NumGpus     uint32
@@ -77,14 +77,14 @@ type NvlinkFailedDevices struct {
 	SwitchInfo  [12]NvlinkFailedDeviceInfo
 }
 
-// UnsupportedFabricPartitionInfo represents Structure to store information about a unsupported fabric partition.
+// UnsupportedFabricPartitionInfo stores information about a unsupported fabric partition.
 type UnsupportedFabricPartitionInfo struct {
 	PartitionId    uint32
 	NumGpus        uint32
 	GpuPhysicalIds [16]uint32
 }
 
-// UnsupportedFabricPartitionList represents Structure to store information about all the unsupported fabric partitions.
+// UnsupportedFabricPartitionList stores information about all the unsupported fabric partitions.
 type UnsupportedFabricPartitionList struct {
 	Version       uint32
 	NumPartitions uint32

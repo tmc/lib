@@ -107,6 +107,11 @@ func (a Array) CopyToHostPtr(dstHost unsafe.Pointer, srcOffset uint, byteCount u
 //   - hStream: Stream identifier
 //
 // The copy covers all of dstHost: len(dstHost) values of type T.
+// The copy may still be in progress when the call returns: dstHost must
+// stay reachable and neither read nor modified until the stream is synchronized.
+// The copy is asynchronous with respect to the host only when dstHost is
+// page-locked (pinned or registered) memory; otherwise it is staged
+// through a pinned buffer or completes before the call returns.
 //
 // Wraps cuMemcpyAtoHAsync, bound as cuMemcpyAtoHAsync_v2.
 func (a Array) CopyToHostAsync[T any](dstHost []T, srcOffset uint, hStream Stream) error {
@@ -165,6 +170,11 @@ func (a Array) CopyFromHostPtr(dstOffset uint, srcHost unsafe.Pointer, byteCount
 //   - hStream: Stream identifier
 //
 // The copy covers all of srcHost: len(srcHost) values of type T.
+// The copy may still be in progress when the call returns: srcHost must
+// stay reachable and unmodified until the stream is synchronized.
+// The copy is asynchronous with respect to the host only when srcHost is
+// page-locked (pinned or registered) memory; otherwise it is staged
+// through a pinned buffer or completes before the call returns.
 //
 // Wraps cuMemcpyHtoAAsync, bound as cuMemcpyHtoAAsync_v2.
 func (a Array) CopyFromHostAsync[T any](dstOffset uint, srcHost []T, hStream Stream) error {

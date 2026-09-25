@@ -2,37 +2,37 @@
 
 package cublaslt
 
-// MatrixLayoutOpaque represents Semi-opaque descriptor for matrix memory layout.
+// MatrixLayoutOpaque represents semi-opaque descriptor for matrix memory layout.
 type MatrixLayoutOpaque struct {
 	Data [14]uint64
 }
 
-// MatmulAlgo represents Semi-opaque algorithm descriptor (to avoid complicated alloc/free schemes) This structure can be trivially serialized and later restored for use with the same version of cuBLAS library to save on selecting the right configuration again..
+// MatmulAlgo represents semi-opaque algorithm descriptor (to avoid complicated alloc/free schemes) This structure can be trivially serialized and later restored for use with the same version of cuBLAS library to save on selecting the right configuration again.
 type MatmulAlgo struct {
 	Data [8]uint64
 }
 
-// MatmulDescOpaque represents Semi-opaque descriptor for [Handle.Matmul] operation details.
+// MatmulDescOpaque represents semi-opaque descriptor for [Handle.Matmul] operation details.
 type MatmulDescOpaque struct {
 	Data [32]uint64
 }
 
-// MatrixTransformDescOpaque represents Semi-opaque descriptor for [Handle.MatrixTransform] operation details.
+// MatrixTransformDescOpaque represents semi-opaque descriptor for [Handle.MatrixTransform] operation details.
 type MatrixTransformDescOpaque struct {
 	Data [8]uint64
 }
 
-// MatmulPreferenceOpaque represents Semi-opaque descriptor for cublasLtMatmulPreference() operation details.
+// MatmulPreferenceOpaque represents semi-opaque descriptor for cublasLtMatmulPreference() operation details.
 type MatmulPreferenceOpaque struct {
 	Data [12]uint64
 }
 
-// EmulationDescOpaque represents Semi-opaque descriptor for properties related to floating point emulation.
+// EmulationDescOpaque represents semi-opaque descriptor for properties related to floating point emulation.
 type EmulationDescOpaque struct {
 	Data [8]uint64
 }
 
-// MatmulHeuristicResult represents Results structure used by [Handle.MatmulAlgoGetHeuristic] Holds returned configured algo descriptor and its runtime properties..
+// MatmulHeuristicResult represents results structure used by [Handle.MatmulAlgoGetHeuristic] Holds returned configured algo descriptor and its runtime properties.
 type MatmulHeuristicResult struct {
 	Algo          MatmulAlgo
 	WorkspaceSize uint

@@ -4,7 +4,7 @@ package cutensor
 
 import "fmt"
 
-// OperatorT represents This enum captures all unary and binary element-wise operations supported by the cuTENSOR library..
+// OperatorT captures all unary and binary element-wise operations supported by the cuTENSOR library.
 type OperatorT int32
 
 const (
@@ -116,7 +116,7 @@ func (e OperatorT) String() string {
 	return fmt.Sprintf("OperatorT(%d)", e)
 }
 
-// AlgoT represents Allows users to specify the algorithm to be used for performing the desired tensor operation..
+// AlgoT represents allows users to specify the algorithm to be used for performing the desired tensor operation.
 type AlgoT int32
 
 const (
@@ -144,7 +144,7 @@ func (e AlgoT) String() string {
 	return fmt.Sprintf("AlgoT(%d)", e)
 }
 
-// WorksizepreferenceT represents This enum gives users finer control over the suggested workspace This enum gives users finer control over the amount of workspace that is suggested by [Handle.EstimateWorkspaceSize].
+// WorksizepreferenceT gives users finer control over the suggested workspace This enum gives users finer control over the amount of workspace that is suggested by [Handle.EstimateWorkspaceSize].
 type WorksizepreferenceT int32
 
 const (
@@ -166,7 +166,7 @@ func (e WorksizepreferenceT) String() string {
 	return fmt.Sprintf("WorksizepreferenceT(%d)", e)
 }
 
-// OperationdescriptorattributeT represents This enum lists all attributes of a [OperationDescriptor] that can be modified (see [OperationDescriptor.SetAttribute] and [OperationDescriptor.Attribute])..
+// OperationdescriptorattributeT lists all attributes of a [OperationDescriptor] that can be modified (see [OperationDescriptor.SetAttribute] and [OperationDescriptor.Attribute]).
 type OperationdescriptorattributeT int32
 
 const (
@@ -203,7 +203,7 @@ func (e OperationdescriptorattributeT) String() string {
 	return fmt.Sprintf("OperationdescriptorattributeT(%d)", e)
 }
 
-// PlanpreferenceattributeT represents This enum lists all attributes of a [PlanPreference] object that can be modified..
+// PlanpreferenceattributeT lists all attributes of a [PlanPreference] object that can be modified.
 type PlanpreferenceattributeT int32
 
 const (
@@ -237,7 +237,7 @@ func (e PlanpreferenceattributeT) String() string {
 	return fmt.Sprintf("PlanpreferenceattributeT(%d)", e)
 }
 
-// AutotunemodeT represents This enum determines the mode w.r.t..
+// AutotunemodeT determines the mode w.r.t. cuTENSOR's auto-tuning capability.
 type AutotunemodeT int32
 
 const (
@@ -256,7 +256,7 @@ func (e AutotunemodeT) String() string {
 	return fmt.Sprintf("AutotunemodeT(%d)", e)
 }
 
-// JitmodeT represents This enum determines the mode w.r.t..
+// JitmodeT determines the mode w.r.t. cuTENSOR's just-in-time compilation capability.
 type JitmodeT int32
 
 const (
@@ -275,7 +275,7 @@ func (e JitmodeT) String() string {
 	return fmt.Sprintf("JitmodeT(%d)", e)
 }
 
-// CachemodeT represents This enum defines what is considered a cache hit..
+// CachemodeT defines what is considered a cache hit.
 type CachemodeT int32
 
 const (
@@ -294,7 +294,7 @@ func (e CachemodeT) String() string {
 	return fmt.Sprintf("CachemodeT(%d)", e)
 }
 
-// PlanattributeT represents This enum lists all attributes of a [Plan] object that can be retrieved via [Plan.Attribute]..
+// PlanattributeT lists all attributes of a [Plan] object that can be retrieved via [Plan.Attribute].
 type PlanattributeT int32
 
 const (

@@ -89,8 +89,8 @@ func (p Program) AddModuleTo(buffer unsafe.Pointer, size uint, name string) erro
 //   - options (in): Compiler options in the form of C string array
 //
 // Wraps nvvmCompileProgram.
-func (p Program) Compile(options []string) error {
-	return compileProgram(p, options)
+func (p Program) Compile(options ...string) error {
+	return compileProgram(p, options...)
 }
 
 // Destroy Destroy a program.
@@ -168,6 +168,6 @@ func (p Program) LazyAddModuleTo(buffer unsafe.Pointer, size uint, name string) 
 //   - options (in): Compiler options in the form of C string array
 //
 // Wraps nvvmVerifyProgram.
-func (p Program) Verify(options []string) error {
-	return verifyProgram(p, options)
+func (p Program) Verify(options ...string) error {
+	return verifyProgram(p, options...)
 }

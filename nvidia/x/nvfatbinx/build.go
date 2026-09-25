@@ -101,7 +101,7 @@ func (h *nativeHandle) add(input Input) error {
 // they are never silently omitted or converted to another format.
 func Build(inputs []Input, options ...string) (*Result, error) {
 	return build(inputs, options, func(options []string) (handle, error) {
-		h, err := nvfatbin.Create(options)
+		h, err := nvfatbin.Create(options...)
 		if err != nil {
 			return nil, err
 		}

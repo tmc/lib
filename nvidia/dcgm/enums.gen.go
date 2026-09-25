@@ -32,7 +32,7 @@ func (e GpuVirtualizationMode) String() string {
 	return fmt.Sprintf("GpuVirtualizationMode(%d)", e)
 }
 
-// FieldEntityGroup represents Enum of possible field entity groups.
+// FieldEntityGroup is an enum of possible field entity groups.
 type FieldEntityGroup int32
 
 const (
@@ -78,7 +78,7 @@ func (e FieldEntityGroup) String() string {
 	return fmt.Sprintf("FieldEntityGroup(%d)", e)
 }
 
-// OperationMode represents Operation mode for DCGM DCGM can run in auto-mode where it runs additional threads in the background to collect any metrics of interest and auto manages any operations needed for policy management. DCGM can also operate in manual-mode where it's execution is controlled by the user. In this mode, the user has to periodically call APIs such as dcgmPolicyTrigger and [Handle.UpdateAllFields] which tells DCGM to wake up and perform data collection and operations needed for policy management..
+// OperationMode represents operation mode for DCGM DCGM can run in auto-mode where it runs additional threads in the background to collect any metrics of interest and auto manages any operations needed for policy management. DCGM can also operate in manual-mode where it's execution is controlled by the user. In this mode, the user has to periodically call APIs such as dcgmPolicyTrigger and [Handle.UpdateAllFields] which tells DCGM to wake up and perform data collection and operations needed for policy management.
 type OperationMode int32
 
 const (
@@ -97,7 +97,7 @@ func (e OperationMode) String() string {
 	return fmt.Sprintf("OperationMode(%d)", e)
 }
 
-// Order represents When more than one value is returned from a query, which order should it be returned in?.
+// Order represents when more than one value is returned from a query, which order should it be returned in?.
 type Order int32
 
 const (
@@ -116,7 +116,7 @@ func (e Order) String() string {
 	return fmt.Sprintf("Order(%d)", e)
 }
 
-// EntityStatus represents Status of an entity (GPU, NvSwitch, etc.).
+// EntityStatus represents status of an entity (GPU, NvSwitch, etc.).
 type EntityStatus int32
 
 const (
@@ -153,7 +153,7 @@ func (e EntityStatus) String() string {
 	return fmt.Sprintf("EntityStatus(%d)", e)
 }
 
-// GroupType represents Type of GPU groups.
+// GroupType is a type of GPU groups.
 type GroupType int32
 
 const (
@@ -184,7 +184,7 @@ func (e GroupType) String() string {
 	return fmt.Sprintf("GroupType(%d)", e)
 }
 
-// ChipArchitecture represents Simplified chip architecture..
+// ChipArchitecture represents simplified chip architecture.
 type ChipArchitecture uint32
 
 const (
@@ -231,7 +231,7 @@ func (e ChipArchitecture) String() string {
 	return fmt.Sprintf("ChipArchitecture(%d)", e)
 }
 
-// ConfigType represents Represents the type of configuration to be fetched from the GPUs.
+// ConfigType represents the type of configuration to be fetched from the GPUs.
 type ConfigType int32
 
 const (
@@ -250,7 +250,7 @@ func (e ConfigType) String() string {
 	return fmt.Sprintf("ConfigType(%d)", e)
 }
 
-// ConfigPowerLimitType represents Represents the power cap for each member of the group..
+// ConfigPowerLimitType represents the power cap for each member of the group.
 type ConfigPowerLimitType int32
 
 const (
@@ -269,7 +269,7 @@ func (e ConfigPowerLimitType) String() string {
 	return fmt.Sprintf("ConfigPowerLimitType(%d)", e)
 }
 
-// LoggingSeverity represents DCGM Logging Severities..
+// LoggingSeverity represents DCGM Logging Severities.
 type LoggingSeverity int32
 
 const (
@@ -306,7 +306,7 @@ func (e LoggingSeverity) String() string {
 	return fmt.Sprintf("LoggingSeverity(%d)", e)
 }
 
-// MigProfile represents Enum for the different kinds of MIG profiles.
+// MigProfile is an enum for the different kinds of MIG profiles.
 type MigProfile int32
 
 const (
@@ -512,7 +512,7 @@ func (e WorkloadProfileAction) String() string {
 	return fmt.Sprintf("WorkloadProfileAction(%d)", e)
 }
 
-// PolicyConditionIdx represents Enumeration for policy conditions..
+// PolicyConditionIdx is an enumeration for policy conditions.
 type PolicyConditionIdx int32
 
 const (
@@ -546,7 +546,7 @@ func (e PolicyConditionIdx) String() string {
 	return fmt.Sprintf("PolicyConditionIdx(%d)", e)
 }
 
-// PolicyCondition represents Bitmask enumeration for policy conditions..
+// PolicyCondition represents bitmask enumeration for policy conditions.
 type PolicyCondition int32
 
 const (
@@ -580,7 +580,7 @@ func (e PolicyCondition) String() string {
 	return fmt.Sprintf("PolicyCondition(%d)", e)
 }
 
-// PolicyMode represents Enumeration for policy modes.
+// PolicyMode is an enumeration for policy modes.
 type PolicyMode int32
 
 const (
@@ -599,7 +599,7 @@ func (e PolicyMode) String() string {
 	return fmt.Sprintf("PolicyMode(%d)", e)
 }
 
-// PolicyIsolation represents Enumeration for policy isolation modes.
+// PolicyIsolation is an enumeration for policy isolation modes.
 type PolicyIsolation int32
 
 const (
@@ -615,7 +615,7 @@ func (e PolicyIsolation) String() string {
 	return fmt.Sprintf("PolicyIsolation(%d)", e)
 }
 
-// PolicyAction represents Enumeration for policy actions.
+// PolicyAction is an enumeration for policy actions.
 type PolicyAction int32
 
 const (
@@ -634,7 +634,7 @@ func (e PolicyAction) String() string {
 	return fmt.Sprintf("PolicyAction(%d)", e)
 }
 
-// PolicyValidation represents Enumeration for policy validation actions.
+// PolicyValidation is an enumeration for policy validation actions.
 type PolicyValidation int32
 
 const (
@@ -662,7 +662,7 @@ func (e PolicyValidation) String() string {
 	return fmt.Sprintf("PolicyValidation(%d)", e)
 }
 
-// PolicyFailureResp represents Enumeration for policy failure responses.
+// PolicyFailureResp is an enumeration for policy failure responses.
 type PolicyFailureResp int32
 
 const (
@@ -678,7 +678,7 @@ func (e PolicyFailureResp) String() string {
 	return fmt.Sprintf("PolicyFailureResp(%d)", e)
 }
 
-// HealthSystems represents Systems structure used to enable or disable health watch systems.
+// HealthSystems represents systems structure used to enable or disable health watch systems.
 type HealthSystems uint32
 
 const (
@@ -733,7 +733,7 @@ func (e HealthSystems) String() string {
 	return fmt.Sprintf("HealthSystems(%d)", e)
 }
 
-// HealthWatchResults represents Health Watch test results.
+// HealthWatchResults represents health Watch test results.
 type HealthWatchResults int32
 
 const (
@@ -755,7 +755,7 @@ func (e HealthWatchResults) String() string {
 	return fmt.Sprintf("HealthWatchResults(%d)", e)
 }
 
-// DiagResult represents Diagnostic test results.
+// DiagResult represents diagnostic test results.
 type DiagResult int32
 
 const (
@@ -783,7 +783,7 @@ func (e DiagResult) String() string {
 	return fmt.Sprintf("DiagResult(%d)", e)
 }
 
-// DiagnosticLevel represents Enumeration for diagnostic levels.
+// DiagnosticLevel is an enumeration for diagnostic levels.
 type DiagnosticLevel int32
 
 const (
@@ -811,7 +811,7 @@ func (e DiagnosticLevel) String() string {
 	return fmt.Sprintf("DiagnosticLevel(%d)", e)
 }
 
-// PerGpuTestIndices represents Diagnostic per gpu tests - fixed indices for dcgmDiagResponsePerGpu_t.results[].
+// PerGpuTestIndices represents diagnostic per gpu tests - fixed indices for dcgmDiagResponsePerGpu_t.results[].
 type PerGpuTestIndices int32
 
 const (
@@ -924,7 +924,7 @@ func (e SoftwareTest) String() string {
 	return fmt.Sprintf("SoftwareTest(%d)", e)
 }
 
-// GpuTopologyLevelV1 represents Represents level relationships within a system between two GPUs The enums are spaced to allow for future relationships..
+// GpuTopologyLevelV1 represents level relationships within a system between two GPUs The enums are spaced to allow for future relationships.
 type GpuTopologyLevelV1 int32
 
 const (
@@ -1012,7 +1012,7 @@ func (e GpuTopologyLevelV1) String() string {
 	return fmt.Sprintf("GpuTopologyLevelV1(%d)", e)
 }
 
-// GpuNVLinkErrorType represents Identifies a GPU NVLink error type returned by DCGM_FI_DEV_NVLINK_ERROR.
+// GpuNVLinkErrorType identifies a GPU NVLink error type returned by DCGM_FI_DEV_NVLINK_ERROR.
 type GpuNVLinkErrorType int32
 
 const (
@@ -1056,7 +1056,7 @@ func (e NvLinkLinkState) String() string {
 	return fmt.Sprintf("NvLinkLinkState(%d)", e)
 }
 
-// NvLinkGpuP2PStatus represents Nvlink P2P link status..
+// NvLinkGpuP2PStatus represents nvlink P2P link status.
 type NvLinkGpuP2PStatus int32
 
 const (
@@ -1090,7 +1090,7 @@ func (e NvLinkGpuP2PStatus) String() string {
 	return fmt.Sprintf("NvLinkGpuP2PStatus(%d)", e)
 }
 
-// ModuleId represents Module IDs.
+// ModuleId represents module IDs.
 type ModuleId int32
 
 const (
@@ -1139,7 +1139,7 @@ func (e ModuleId) String() string {
 	return fmt.Sprintf("ModuleId(%d)", e)
 }
 
-// ModuleStatus represents Module Status..
+// ModuleStatus represents module Status.
 type ModuleStatus int32
 
 const (

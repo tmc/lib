@@ -95,7 +95,7 @@ func (e StateVectorType) String() string {
 	return fmt.Sprintf("StateVectorType(%d)", e)
 }
 
-// CommunicatorType \typedef [CommunicatorType] Constant to specify the communicator used in inter-process communications.
+// CommunicatorType specifies the communicator used in inter-process communications.
 type CommunicatorType int32
 
 const (
@@ -117,7 +117,7 @@ func (e CommunicatorType) String() string {
 	return fmt.Sprintf("CommunicatorType(%d)", e)
 }
 
-// DataTransferType \typedef [DataTransferType] Constant to specify the data transfer direction in point-to-point communication.
+// DataTransferType specifies the data transfer direction in point-to-point communication.
 type DataTransferType int32
 
 const (

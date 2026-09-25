@@ -4,7 +4,7 @@ package cutensornet
 
 import "fmt"
 
-// ComputeType represents Encodes cuTensorNet's compute type (see "User Guide - Accuracy Guarantees" for details)..
+// ComputeType represents encodes cuTensorNet's compute type (see "User Guide - Accuracy Guarantees" for details).
 type ComputeType int32
 
 const (
@@ -47,7 +47,7 @@ func (e ComputeType) String() string {
 	return fmt.Sprintf("ComputeType(%d)", e)
 }
 
-// NetworkAttributes represents This enum lists all attributes of a [NetworkDescriptor] that are accessible..
+// NetworkAttributes lists all attributes of a [NetworkDescriptor] that are accessible.
 type NetworkAttributes int32
 
 const (
@@ -81,7 +81,7 @@ func (e NetworkAttributes) String() string {
 	return fmt.Sprintf("NetworkAttributes(%d)", e)
 }
 
-// GraphAlgo represents This enum lists graph algorithms that can be set..
+// GraphAlgo lists graph algorithms that can be set.
 type GraphAlgo int32
 
 const (
@@ -100,7 +100,7 @@ func (e GraphAlgo) String() string {
 	return fmt.Sprintf("GraphAlgo(%d)", e)
 }
 
-// MemoryModel represents This enum lists memory models used to determine workspace size..
+// MemoryModel lists memory models used to determine workspace size.
 type MemoryModel int32
 
 const (
@@ -119,7 +119,7 @@ func (e MemoryModel) String() string {
 	return fmt.Sprintf("MemoryModel(%d)", e)
 }
 
-// OptimizerCost represents This enum lists various cost functions to optimize with..
+// OptimizerCost lists various cost functions to optimize with.
 type OptimizerCost int32
 
 const (
@@ -138,7 +138,7 @@ func (e OptimizerCost) String() string {
 	return fmt.Sprintf("OptimizerCost(%d)", e)
 }
 
-// SmartOption represents This enum lists various smart optimization options.
+// SmartOption lists various smart optimization options.
 type SmartOption int32
 
 const (
@@ -157,7 +157,7 @@ func (e SmartOption) String() string {
 	return fmt.Sprintf("SmartOption(%d)", e)
 }
 
-// ContractionOptimizerConfigAttributes represents This enum lists all attributes of a [ContractionOptimizerConfig] that can be modified..
+// ContractionOptimizerConfigAttributes lists all attributes of a [ContractionOptimizerConfig] that can be modified.
 type ContractionOptimizerConfigAttributes int32
 
 const (
@@ -233,7 +233,7 @@ func (e ContractionOptimizerConfigAttributes) String() string {
 	return fmt.Sprintf("ContractionOptimizerConfigAttributes(%d)", e)
 }
 
-// ContractionOptimizerInfoAttributes represents This enum lists all attributes of a [ContractionOptimizerInfo] that are accessible..
+// ContractionOptimizerInfoAttributes lists all attributes of a [ContractionOptimizerInfo] that are accessible.
 type ContractionOptimizerInfoAttributes int32
 
 const (
@@ -288,7 +288,7 @@ func (e ContractionOptimizerInfoAttributes) String() string {
 	return fmt.Sprintf("ContractionOptimizerInfoAttributes(%d)", e)
 }
 
-// ContractionAutotunePreferenceAttributes represents DEPRECATED: This enum lists all attributes of a [ContractionAutotunePreference] that are accessible..
+// ContractionAutotunePreferenceAttributes represents DEPRECATED: This enum lists all attributes of a [ContractionAutotunePreference] that are accessible.
 type ContractionAutotunePreferenceAttributes int32
 
 const (
@@ -307,7 +307,7 @@ func (e ContractionAutotunePreferenceAttributes) String() string {
 	return fmt.Sprintf("ContractionAutotunePreferenceAttributes(%d)", e)
 }
 
-// NetworkAutotunePreferenceAttributes represents This enum lists all attributes of a [NetworkAutotunePreference] that are accessible..
+// NetworkAutotunePreferenceAttributes lists all attributes of a [NetworkAutotunePreference] that are accessible.
 type NetworkAutotunePreferenceAttributes int32
 
 const (
@@ -326,7 +326,7 @@ func (e NetworkAutotunePreferenceAttributes) String() string {
 	return fmt.Sprintf("NetworkAutotunePreferenceAttributes(%d)", e)
 }
 
-// WorksizePref represents Workspace preference enumeration..
+// WorksizePref represents workspace preference enumeration.
 type WorksizePref int32
 
 const (
@@ -348,7 +348,7 @@ func (e WorksizePref) String() string {
 	return fmt.Sprintf("WorksizePref(%d)", e)
 }
 
-// Memspace represents Memory space enumeration for workspace allocation..
+// Memspace represents memory space enumeration for workspace allocation.
 type Memspace int32
 
 const (
@@ -367,7 +367,7 @@ func (e Memspace) String() string {
 	return fmt.Sprintf("Memspace(%d)", e)
 }
 
-// WorkspaceKind represents Type enumeration for workspace allocation..
+// WorkspaceKind is a type enumeration for workspace allocation.
 type WorkspaceKind int32
 
 const (

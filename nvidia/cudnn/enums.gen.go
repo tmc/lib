@@ -4,7 +4,7 @@ package cudnn
 
 import "fmt"
 
-// ErrQueryMode [ErrQueryMode] is an enumerated type passed to [Handle.QueryRuntimeError] to select the remote kernel error query mode.
+// ErrQueryMode is an enumerated type passed to [Handle.QueryRuntimeError] to select the remote kernel error query mode.
 type ErrQueryMode int32
 
 const (
@@ -29,7 +29,7 @@ func (e ErrQueryMode) String() string {
 	return fmt.Sprintf("ErrQueryMode(%d)", e)
 }
 
-// DataType [DataType] is an enumerated type indicating the data type to which a tensor descriptor or filter descriptor refers.
+// DataType is an enumerated type indicating the data type to which a tensor descriptor or filter descriptor refers.
 type DataType int32
 
 const (
@@ -121,7 +121,7 @@ func (e DataType) String() string {
 	return fmt.Sprintf("DataType(%d)", e)
 }
 
-// MathType [MathType] is an enumerated type used to indicate if the use of Tensor Core operations is permitted in a given library routine.
+// MathType is an enumerated type used to indicate if the use of Tensor Core operations is permitted in a given library routine.
 type MathType int32
 
 const (
@@ -150,7 +150,7 @@ func (e MathType) String() string {
 	return fmt.Sprintf("MathType(%d)", e)
 }
 
-// NanPropagation This enumerated type is deprecated and is currently only used by deprecated APIs.
+// NanPropagation is deprecated and is currently only used by deprecated APIs.
 type NanPropagation int32
 
 const (
@@ -171,7 +171,7 @@ func (e NanPropagation) String() string {
 	return fmt.Sprintf("NanPropagation(%d)", e)
 }
 
-// CTCGradMode Enumerated type used by [CTCLossDescriptor.Set] and [CTCLossDescriptor.Get] to indicate the behavior for out of boundary (OOB) samples. OOB samples are samples where L+R > T is encountered during the gradient calculation.
+// CTCGradMode is an enumerated type used by [CTCLossDescriptor.Set] and [CTCLossDescriptor.Get] to indicate the behavior for out of boundary (OOB) samples. OOB samples are samples where L+R > T is encountered during the gradient calculation.
 type CTCGradMode int32
 
 const (
@@ -190,7 +190,7 @@ func (e CTCGradMode) String() string {
 	return fmt.Sprintf("CTCGradMode(%d)", e)
 }
 
-// TensorFormat [TensorFormat] is an enumerated type used by [TensorDescriptor.Set4D] to create a tensor with a pre-defined layout. For a detailed explanation of how these tensors are arranged in memory, refer to Data Layout Formats.
+// TensorFormat is an enumerated type used by [TensorDescriptor.Set4D] to create a tensor with a pre-defined layout. For a detailed explanation of how these tensors are arranged in memory, refer to Data Layout Formats.
 type TensorFormat int32
 
 const (
@@ -213,7 +213,7 @@ func (e TensorFormat) String() string {
 	return fmt.Sprintf("TensorFormat(%d)", e)
 }
 
-// ReduceTensorOp This enumerated type is deprecated and is currently only used by deprecated APIs.
+// ReduceTensorOp is deprecated and is currently only used by deprecated APIs.
 type ReduceTensorOp int32
 
 const (
@@ -257,7 +257,7 @@ func (e ReduceTensorOp) String() string {
 	return fmt.Sprintf("ReduceTensorOp(%d)", e)
 }
 
-// ActivationMode This enumerated type is deprecated and is currently only used by deprecated APIs.
+// ActivationMode is deprecated and is currently only used by deprecated APIs.
 type ActivationMode int32
 
 const (
@@ -292,7 +292,7 @@ func (e ActivationMode) String() string {
 	return fmt.Sprintf("ActivationMode(%d)", e)
 }
 
-// Severity [Severity] is an enumerated type passed to the customized callback function for logging that users may set.
+// Severity is an enumerated type passed to the customized callback function for logging that users may set.
 type Severity int32
 
 const (
@@ -317,7 +317,7 @@ func (e Severity) String() string {
 	return fmt.Sprintf("Severity(%d)", e)
 }
 
-// ConvolutionMode This enumerated type is deprecated and is currently only used by deprecated APIs.
+// ConvolutionMode is deprecated and is currently only used by deprecated APIs.
 type ConvolutionMode int32
 
 const (
@@ -338,7 +338,7 @@ func (e ConvolutionMode) String() string {
 	return fmt.Sprintf("ConvolutionMode(%d)", e)
 }
 
-// ReorderType This enumerated type is deprecated and is currently only used by deprecated APIs.
+// ReorderType is deprecated and is currently only used by deprecated APIs.
 type ReorderType int32
 
 const (
@@ -357,7 +357,7 @@ func (e ReorderType) String() string {
 	return fmt.Sprintf("ReorderType(%d)", e)
 }
 
-// PointwiseMode [PointwiseMode] is an enumerated type to indicate the intended pointwise math operation in the backend pointwise operation descriptor.
+// PointwiseMode is an enumerated type to indicate the intended pointwise math operation in the backend pointwise operation descriptor.
 type PointwiseMode int32
 
 const (
@@ -562,7 +562,7 @@ func (e PointwiseMode) String() string {
 	return fmt.Sprintf("PointwiseMode(%d)", e)
 }
 
-// ResampleMode [ResampleMode] is an enumerated type to indicate the resample mode in the backend resample operations.
+// ResampleMode is an enumerated type to indicate the resample mode in the backend resample operations.
 type ResampleMode int32
 
 const (
@@ -591,7 +591,7 @@ func (e ResampleMode) String() string {
 	return fmt.Sprintf("ResampleMode(%d)", e)
 }
 
-// SignalMode [SignalMode] is an enumerated type to indicate the signaling mode in the backend signal operation.
+// SignalMode is an enumerated type to indicate the signaling mode in the backend signal operation.
 type SignalMode int32
 
 const (
@@ -612,7 +612,7 @@ func (e SignalMode) String() string {
 	return fmt.Sprintf("SignalMode(%d)", e)
 }
 
-// GenStatsMode [GenStatsMode] is an enumerated type to indicate the statistics mode in the backend statistics generation operation.
+// GenStatsMode is an enumerated type to indicate the statistics mode in the backend statistics generation operation.
 type GenStatsMode int32
 
 const (
@@ -629,7 +629,7 @@ func (e GenStatsMode) String() string {
 	return fmt.Sprintf("GenStatsMode(%d)", e)
 }
 
-// BnFinalizeStatsMode [BnFinalizeStatsMode] is an enumerated type that that exposes the different mathematical operation modes that converts batch norm statistics and the trained scale and bias to the equivalent scale and bias to be applied in the next normalization stage for inference and training use cases.
+// BnFinalizeStatsMode is an enumerated type that that exposes the different mathematical operation modes that converts batch norm statistics and the trained scale and bias to the equivalent scale and bias to be applied in the next normalization stage for inference and training use cases.
 type BnFinalizeStatsMode int32
 
 const (
@@ -648,7 +648,7 @@ func (e BnFinalizeStatsMode) String() string {
 	return fmt.Sprintf("BnFinalizeStatsMode(%d)", e)
 }
 
-// RngDistribution [RngDistribution] is an enumerated type to indicate the distribution to be used in the backend Rng (random number generator) operation.
+// RngDistribution is an enumerated type to indicate the distribution to be used in the backend Rng (random number generator) operation.
 type RngDistribution int32
 
 const (
@@ -695,7 +695,7 @@ func (e MoeGroupedMatmulMode) String() string {
 	return fmt.Sprintf("MoeGroupedMatmulMode(%d)", e)
 }
 
-// BackendAttributeName [BackendAttributeName] is an enumerated type that indicates the backend descriptor attributes that can be set or get using [BackendDescriptor.SetAttribute] and [BackendDescriptor.Attribute] functions. The backend descriptor to which an attribute belongs is identified by the prefix of the attribute name.
+// BackendAttributeName is an enumerated type that indicates the backend descriptor attributes that can be set or get using [BackendDescriptor.SetAttribute] and [BackendDescriptor.Attribute] functions. The backend descriptor to which an attribute belongs is identified by the prefix of the attribute name.
 type BackendAttributeName int32
 
 const (
@@ -1637,7 +1637,7 @@ func (e BackendAttributeName) String() string {
 	return fmt.Sprintf("BackendAttributeName(%d)", e)
 }
 
-// BackendAttributeType The enumeration type [BackendAttributeType] specifies the data type of an attribute of a cuDNN backend descriptor.
+// BackendAttributeType specifies the data type of an attribute of a cuDNN backend descriptor.
 type BackendAttributeType int32
 
 const (
@@ -1744,7 +1744,7 @@ func (e BackendAttributeType) String() string {
 	return fmt.Sprintf("BackendAttributeType(%d)", e)
 }
 
-// BackendDescriptorType [BackendDescriptor] is an enumerated type that indicates the type of backend descriptors.
+// BackendDescriptorType is an enumerated type that indicates the type of backend descriptors.
 type BackendDescriptorType int32
 
 const (
@@ -1941,7 +1941,7 @@ func (e BackendNumericalNote) String() string {
 	return fmt.Sprintf("BackendNumericalNote(%d)", e)
 }
 
-// BackendBehaviorNote [BackendBehaviorNote] is an enumerated type that indicates queryable behavior notes of an engine.
+// BackendBehaviorNote is an enumerated type that indicates queryable behavior notes of an engine.
 type BackendBehaviorNote int32
 
 const (
@@ -1972,7 +1972,7 @@ func (e BackendBehaviorNote) String() string {
 	return fmt.Sprintf("BackendBehaviorNote(%d)", e)
 }
 
-// BackendKnobType [BackendKnobType] is an enumerated type that indicates the type of performance knobs.
+// BackendKnobType is an enumerated type that indicates the type of performance knobs.
 type BackendKnobType int32
 
 const (
@@ -2135,7 +2135,7 @@ func (e BackendKnobType) String() string {
 	return fmt.Sprintf("BackendKnobType(%d)", e)
 }
 
-// BackendLayoutType [BackendLayoutType] is an enumerated type that indicates queryable layout requirements of an engine.
+// BackendLayoutType is an enumerated type that indicates queryable layout requirements of an engine.
 type BackendLayoutType int32
 
 const (
@@ -2163,7 +2163,7 @@ func (e BackendLayoutType) String() string {
 	return fmt.Sprintf("BackendLayoutType(%d)", e)
 }
 
-// BackendHeurMode [BackendHeurMode] is an enumerated type that indicates the operation mode of a [BackendEngineheurDescriptor].
+// BackendHeurMode is an enumerated type that indicates the operation mode of a [BackendEngineheurDescriptor].
 type BackendHeurMode int32
 
 const (
@@ -2193,7 +2193,7 @@ func (e BackendHeurMode) String() string {
 	return fmt.Sprintf("BackendHeurMode(%d)", e)
 }
 
-// BackendTensorReordering [BackendTensorReordering] is an enumerated type that indicates tensor reordering as a property of the tensor descriptor. Users can get and set this property in a [BackendTensorDescriptor] using the [BackendDescriptor.SetAttribute] and [BackendDescriptor.Attribute] functions.
+// BackendTensorReordering is an enumerated type that indicates tensor reordering as a property of the tensor descriptor. Users can get and set this property in a [BackendTensorDescriptor] using the [BackendDescriptor.SetAttribute] and [BackendDescriptor.Attribute] functions.
 type BackendTensorReordering int32
 
 const (
@@ -2218,7 +2218,7 @@ func (e BackendTensorReordering) String() string {
 	return fmt.Sprintf("BackendTensorReordering(%d)", e)
 }
 
-// PaddingMode [PaddingMode] is an enumerated type to indicate the padding mode in the backend resample operations.
+// PaddingMode is an enumerated type to indicate the padding mode in the backend resample operations.
 type PaddingMode int32
 
 const (
@@ -2240,7 +2240,7 @@ func (e PaddingMode) String() string {
 	return fmt.Sprintf("PaddingMode(%d)", e)
 }
 
-// BackendNormMode [BackendNormMode] is an enumerated type to indicate the normalization mode in the backend normalization forward and normalization backward operations. For reference: [GroupNorm] is not yet supported. If you try to use it, cuDNN returns a [ErrInternalError] error.
+// BackendNormMode is an enumerated type to indicate the normalization mode in the backend normalization forward and normalization backward operations. For reference: [GroupNorm] is not yet supported. If you try to use it, cuDNN returns a [ErrInternalError] error.
 type BackendNormMode int32
 
 const (
@@ -2271,7 +2271,7 @@ func (e BackendNormMode) String() string {
 	return fmt.Sprintf("BackendNormMode(%d)", e)
 }
 
-// BackendNormFwdPhase [BackendNormFwdPhase] is an enumerated type used to distinguish the inference and training phase of the normalization forward operation.
+// BackendNormFwdPhase is an enumerated type used to distinguish the inference and training phase of the normalization forward operation.
 type BackendNormFwdPhase int32
 
 const (
@@ -2290,7 +2290,7 @@ func (e BackendNormFwdPhase) String() string {
 	return fmt.Sprintf("BackendNormFwdPhase(%d)", e)
 }
 
-// Determinism [Determinism] is an enumerated type used to indicate if the computed results are deterministic (reproducible).
+// Determinism is an enumerated type used to indicate if the computed results are deterministic (reproducible).
 type Determinism int32
 
 const (
@@ -2309,7 +2309,7 @@ func (e Determinism) String() string {
 	return fmt.Sprintf("Determinism(%d)", e)
 }
 
-// FoldingDirection [FoldingDirection] is an enumerated type used to select the folding direction.
+// FoldingDirection is an enumerated type used to select the folding direction.
 type FoldingDirection int32
 
 const (
@@ -2328,7 +2328,7 @@ func (e FoldingDirection) String() string {
 	return fmt.Sprintf("FoldingDirection(%d)", e)
 }
 
-// OpTensorOp [OpTensorOp] is an enumerated type used to indicate the Tensor Core operation to be used by the [Handle.OpTensor] routine. This enumerated type is used as a field for the [OpTensorDescriptor] descriptor.
+// OpTensorOp is an enumerated type used to indicate the Tensor Core operation to be used by the [Handle.OpTensor] routine. This enumerated type is used as a field for the [OpTensorDescriptor] descriptor.
 type OpTensorOp int32
 
 const (
@@ -2361,7 +2361,7 @@ func (e OpTensorOp) String() string {
 	return fmt.Sprintf("OpTensorOp(%d)", e)
 }
 
-// ReduceTensorIndices This enumerated type is deprecated and is currently only used by deprecated APIs.
+// ReduceTensorIndices is deprecated and is currently only used by deprecated APIs.
 type ReduceTensorIndices int32
 
 const (
@@ -2381,7 +2381,7 @@ func (e ReduceTensorIndices) String() string {
 	return fmt.Sprintf("ReduceTensorIndices(%d)", e)
 }
 
-// IndicesType This enumerated type is deprecated and is currently only used by deprecated APIs.
+// IndicesType is deprecated and is currently only used by deprecated APIs.
 type IndicesType int32
 
 const (
@@ -2406,7 +2406,7 @@ func (e IndicesType) String() string {
 	return fmt.Sprintf("IndicesType(%d)", e)
 }
 
-// SoftmaxAlgorithm [SoftmaxAlgorithm] is used to select an implementation of the softmax function used in [Handle.SoftmaxForward] and [Handle.SoftmaxBackward].
+// SoftmaxAlgorithm is used to select an implementation of the softmax function used in [Handle.SoftmaxForward] and [Handle.SoftmaxBackward].
 type SoftmaxAlgorithm int32
 
 const (
@@ -2429,7 +2429,7 @@ func (e SoftmaxAlgorithm) String() string {
 	return fmt.Sprintf("SoftmaxAlgorithm(%d)", e)
 }
 
-// SoftmaxMode [SoftmaxMode] is used to select over which data the [Handle.SoftmaxForward] and [Handle.SoftmaxBackward] are computing their results.
+// SoftmaxMode is used to select over which data the [Handle.SoftmaxForward] and [Handle.SoftmaxBackward] are computing their results.
 type SoftmaxMode int32
 
 const (
@@ -2448,7 +2448,7 @@ func (e SoftmaxMode) String() string {
 	return fmt.Sprintf("SoftmaxMode(%d)", e)
 }
 
-// PoolingMode This enumerated type is deprecated and is currently only used by deprecated APIs.
+// PoolingMode is deprecated and is currently only used by deprecated APIs.
 type PoolingMode int32
 
 const (
@@ -2474,7 +2474,7 @@ func (e PoolingMode) String() string {
 	return fmt.Sprintf("PoolingMode(%d)", e)
 }
 
-// LRNMode [LRNMode] is an enumerated type used to specify the mode of operation in [Handle.LRNCrossChannelForward] and [Handle.LRNCrossChannelBackward].
+// LRNMode is an enumerated type used to specify the mode of operation in [Handle.LRNCrossChannelForward] and [Handle.LRNCrossChannelBackward].
 type LRNMode int32
 
 const (
@@ -2490,7 +2490,7 @@ func (e LRNMode) String() string {
 	return fmt.Sprintf("LRNMode(%d)", e)
 }
 
-// DivNormMode [DivNormMode] is an enumerated type used to specify the mode of operation in [Handle.DivisiveNormalizationForward] and [Handle.DivisiveNormalizationBackward].
+// DivNormMode is an enumerated type used to specify the mode of operation in [Handle.DivisiveNormalizationForward] and [Handle.DivisiveNormalizationBackward].
 type DivNormMode int32
 
 const (
@@ -2507,7 +2507,7 @@ func (e DivNormMode) String() string {
 	return fmt.Sprintf("DivNormMode(%d)", e)
 }
 
-// BatchNormMode This enumerated type is deprecated and is currently only used by deprecated APIs.
+// BatchNormMode is deprecated and is currently only used by deprecated APIs.
 type BatchNormMode int32
 
 const (
@@ -2532,7 +2532,7 @@ func (e BatchNormMode) String() string {
 	return fmt.Sprintf("BatchNormMode(%d)", e)
 }
 
-// BatchNormOps This enumerated type is deprecated and is currently only used by deprecated APIs.
+// BatchNormOps is deprecated and is currently only used by deprecated APIs.
 type BatchNormOps int32
 
 const (
@@ -2554,7 +2554,7 @@ func (e BatchNormOps) String() string {
 	return fmt.Sprintf("BatchNormOps(%d)", e)
 }
 
-// NormMode This enumerated type is deprecated and is currently only used by deprecated APIs.
+// NormMode is deprecated and is currently only used by deprecated APIs.
 type NormMode int32
 
 const (
@@ -2575,7 +2575,7 @@ func (e NormMode) String() string {
 	return fmt.Sprintf("NormMode(%d)", e)
 }
 
-// NormAlgo This enumerated type is deprecated and is currently only used by deprecated APIs.
+// NormAlgo is deprecated and is currently only used by deprecated APIs.
 type NormAlgo int32
 
 const (
@@ -2595,7 +2595,7 @@ func (e NormAlgo) String() string {
 	return fmt.Sprintf("NormAlgo(%d)", e)
 }
 
-// NormOps This enumerated type is deprecated and is currently only used by deprecated APIs.
+// NormOps is deprecated and is currently only used by deprecated APIs.
 type NormOps int32
 
 const (
@@ -2617,7 +2617,7 @@ func (e NormOps) String() string {
 	return fmt.Sprintf("NormOps(%d)", e)
 }
 
-// SamplerType [SamplerType] is an enumerated type passed to [SpatialTransformerDescriptor.Set] to select the sampler type to be used by [Handle.SpatialTfSamplerForward] and [Handle.SpatialTfSamplerBackward].
+// SamplerType is an enumerated type passed to [SpatialTransformerDescriptor.Set] to select the sampler type to be used by [Handle.SpatialTfSamplerForward] and [Handle.SpatialTfSamplerBackward].
 type SamplerType int32
 
 const (
@@ -2633,7 +2633,7 @@ func (e SamplerType) String() string {
 	return fmt.Sprintf("SamplerType(%d)", e)
 }
 
-// ConvolutionFwdAlgo [ConvolutionFwdAlgo] is an enumerated type that exposes the different algorithms available to execute the forward convolution operation.
+// ConvolutionFwdAlgo is an enumerated type that exposes the different algorithms available to execute the forward convolution operation.
 type ConvolutionFwdAlgo int32
 
 const (
@@ -2680,7 +2680,7 @@ func (e ConvolutionFwdAlgo) String() string {
 	return fmt.Sprintf("ConvolutionFwdAlgo(%d)", e)
 }
 
-// ConvolutionBwdFilterAlgo [ConvolutionBwdFilterAlgo] is an enumerated type that exposes the different algorithms available to execute the backward filter convolution operation.
+// ConvolutionBwdFilterAlgo is an enumerated type that exposes the different algorithms available to execute the backward filter convolution operation.
 type ConvolutionBwdFilterAlgo int32
 
 const (
@@ -2722,7 +2722,7 @@ func (e ConvolutionBwdFilterAlgo) String() string {
 	return fmt.Sprintf("ConvolutionBwdFilterAlgo(%d)", e)
 }
 
-// ConvolutionBwdDataAlgo [ConvolutionBwdDataAlgo] is an enumerated type that exposes the different algorithms available to execute the backward data convolution operation.
+// ConvolutionBwdDataAlgo is an enumerated type that exposes the different algorithms available to execute the backward data convolution operation.
 type ConvolutionBwdDataAlgo int32
 
 const (
@@ -2762,7 +2762,7 @@ func (e ConvolutionBwdDataAlgo) String() string {
 	return fmt.Sprintf("ConvolutionBwdDataAlgo(%d)", e)
 }
 
-// CTCLossAlgo [CTCLossAlgo] is an enumerated type that exposes the different algorithms available to execute the CTC loss operation.
+// CTCLossAlgo is an enumerated type that exposes the different algorithms available to execute the CTC loss operation.
 type CTCLossAlgo int32
 
 const (
@@ -2781,7 +2781,7 @@ func (e CTCLossAlgo) String() string {
 	return fmt.Sprintf("CTCLossAlgo(%d)", e)
 }
 
-// RNNAlgo [RNNAlgo] is an enumerated type used to specify the algorithm.
+// RNNAlgo is an enumerated type used to specify the algorithm.
 type RNNAlgo int32
 
 const (
@@ -2812,7 +2812,7 @@ func (e RNNAlgo) String() string {
 	return fmt.Sprintf("RNNAlgo(%d)", e)
 }
 
-// ForwardMode [ForwardMode] is an enumerated type to specify inference or training mode in RNN API.
+// ForwardMode is an enumerated type to specify inference or training mode in RNN API.
 type ForwardMode int32
 
 const (
@@ -2831,7 +2831,7 @@ func (e ForwardMode) String() string {
 	return fmt.Sprintf("ForwardMode(%d)", e)
 }
 
-// RNNMode [RNNMode] is an enumerated type used to specify the type of network.
+// RNNMode is an enumerated type used to specify the type of network.
 type RNNMode int32
 
 const (
@@ -2857,7 +2857,7 @@ func (e RNNMode) String() string {
 	return fmt.Sprintf("RNNMode(%d)", e)
 }
 
-// RNNBiasMode [RNNBiasMode] is an enumerated type used to specify the number of bias vectors for RNN functions.
+// RNNBiasMode is an enumerated type used to specify the number of bias vectors for RNN functions.
 type RNNBiasMode int32
 
 const (
@@ -2882,7 +2882,7 @@ func (e RNNBiasMode) String() string {
 	return fmt.Sprintf("RNNBiasMode(%d)", e)
 }
 
-// DirectionMode [DirectionMode] is an enumerated type used to specify the recurrence pattern.
+// DirectionMode is an enumerated type used to specify the recurrence pattern.
 type DirectionMode int32
 
 const (
@@ -2901,7 +2901,7 @@ func (e DirectionMode) String() string {
 	return fmt.Sprintf("DirectionMode(%d)", e)
 }
 
-// RNNInputMode [RNNInputMode] is an enumerated type used to specify the behavior of the first layer.
+// RNNInputMode is an enumerated type used to specify the behavior of the first layer.
 type RNNInputMode int32
 
 const (
@@ -2920,7 +2920,7 @@ func (e RNNInputMode) String() string {
 	return fmt.Sprintf("RNNInputMode(%d)", e)
 }
 
-// RNNClipMode [RNNClipMode] is an enumerated type used to select the LSTM cell clipping mode.
+// RNNClipMode is an enumerated type used to select the LSTM cell clipping mode.
 type RNNClipMode int32
 
 const (
@@ -2939,7 +2939,7 @@ func (e RNNClipMode) String() string {
 	return fmt.Sprintf("RNNClipMode(%d)", e)
 }
 
-// RNNDataLayout [RNNDataLayout] is an enumerated type used to select the RNN data layout.
+// RNNDataLayout is an enumerated type used to select the RNN data layout.
 type RNNDataLayout int32
 
 const (
@@ -2961,7 +2961,7 @@ func (e RNNDataLayout) String() string {
 	return fmt.Sprintf("RNNDataLayout(%d)", e)
 }
 
-// SeqDataAxis [SeqDataAxis] is an enumerated type that indexes active dimensions in the dimA[] argument that is passed to the [SeqDataDescriptor.Set] function to configure the sequence data descriptor of type [SeqDataDescriptor]. [SeqDataAxis] constants are also used in the axis[] argument of the [SeqDataDescriptor.Set] call to define the layout of the sequence data buffer in memory. Refer to [SeqDataDescriptor.Set] for a detailed description on how to use the [SeqDataAxis] enumerated type. The CUDNN_SEQDATA_DIM_COUNT macro defines the number of constants in the [SeqDataAxis] enumerated type. This value is currently set to 4.
+// SeqDataAxis is an enumerated type that indexes active dimensions in the dimA[] argument that is passed to the [SeqDataDescriptor.Set] function to configure the sequence data descriptor of type [SeqDataDescriptor]. [SeqDataAxis] constants are also used in the axis[] argument of the [SeqDataDescriptor.Set] call to define the layout of the sequence data buffer in memory. Refer to [SeqDataDescriptor.Set] for a detailed description on how to use the [SeqDataAxis] enumerated type. The CUDNN_SEQDATA_DIM_COUNT macro defines the number of constants in the [SeqDataAxis] enumerated type. This value is currently set to 4.
 type SeqDataAxis int32
 
 const (
@@ -2990,7 +2990,7 @@ func (e SeqDataAxis) String() string {
 	return fmt.Sprintf("SeqDataAxis(%d)", e)
 }
 
-// MultiHeadAttnWeightKind [MultiHeadAttnWeightKind] is an enumerated type that specifies a group of weights or biases in the [Handle.MultiHeadAttnWeights] function.
+// MultiHeadAttnWeightKind is an enumerated type that specifies a group of weights or biases in the [Handle.MultiHeadAttnWeights] function.
 type MultiHeadAttnWeightKind int32
 
 const (
@@ -3027,7 +3027,7 @@ func (e MultiHeadAttnWeightKind) String() string {
 	return fmt.Sprintf("MultiHeadAttnWeightKind(%d)", e)
 }
 
-// WgradMode [WgradMode] is an enumerated type that selects how buffers holding gradients of the loss function, computed with respect to trainable parameters, are updated. Currently, this type is used by the [Handle.MultiHeadAttnBackwardWeights] and [Handle.RNNBackwardWeights] functions only.
+// WgradMode is an enumerated type that selects how buffers holding gradients of the loss function, computed with respect to trainable parameters, are updated. Currently, this type is used by the [Handle.MultiHeadAttnBackwardWeights] and [Handle.RNNBackwardWeights] functions only.
 type WgradMode int32
 
 const (
@@ -3046,7 +3046,7 @@ func (e WgradMode) String() string {
 	return fmt.Sprintf("WgradMode(%d)", e)
 }
 
-// LossNormalizationMode [LossNormalizationMode] is an enumerated type that controls the input normalization mode for a loss function.
+// LossNormalizationMode is an enumerated type that controls the input normalization mode for a loss function.
 type LossNormalizationMode int32
 
 const (
@@ -3067,7 +3067,7 @@ func (e LossNormalizationMode) String() string {
 	return fmt.Sprintf("LossNormalizationMode(%d)", e)
 }
 
-// FusedOps This enumerated type is deprecated and is currently only used by deprecated APIs.
+// FusedOps is deprecated and is currently only used by deprecated APIs.
 type FusedOps int32
 
 const (
@@ -3101,7 +3101,7 @@ func (e FusedOps) String() string {
 	return fmt.Sprintf("FusedOps(%d)", e)
 }
 
-// FusedOpsConstParamLabel For the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsVariantParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Forward) for [FusedOpsConstParamLabel]  For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsConstParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Backward) for [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsConstParamLabel]  The following operation performs the computation, where ∗ denotes convolution operator: y=α1(w∗x)+α2z+b For the attribute CUDNN_FUSED_CONVOLUTION_SCALE_BIAS_ADD_RELU in [FusedOpsConstParamLabel] 
+// FusedOpsConstParamLabel represents for the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsVariantParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Forward) for [FusedOpsConstParamLabel]  For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsConstParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Backward) for [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsConstParamLabel]  The following operation performs the computation, where ∗ denotes convolution operator: y=α1(w∗x)+α2z+b For the attribute CUDNN_FUSED_CONVOLUTION_SCALE_BIAS_ADD_RELU in [FusedOpsConstParamLabel] .
 type FusedOpsConstParamLabel int32
 
 const (
@@ -3231,7 +3231,7 @@ func (e FusedOpsConstParamLabel) String() string {
 	return fmt.Sprintf("FusedOpsConstParamLabel(%d)", e)
 }
 
-// FusedOpsPointerPlaceHolder This enumerated type is deprecated and is currently only used by deprecated APIs.
+// FusedOpsPointerPlaceHolder is deprecated and is currently only used by deprecated APIs.
 type FusedOpsPointerPlaceHolder int32
 
 const (
@@ -3253,7 +3253,7 @@ func (e FusedOpsPointerPlaceHolder) String() string {
 	return fmt.Sprintf("FusedOpsPointerPlaceHolder(%d)", e)
 }
 
-// FusedOpsVariantParamLabel For the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsConstParamLabel]  Note For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note
+// FusedOpsVariantParamLabel represents for the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsConstParamLabel]  Note For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note.
 type FusedOpsVariantParamLabel int32
 
 const (

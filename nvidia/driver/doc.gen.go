@@ -7,6 +7,13 @@
 // Functions returning a C status report errors wrapping CUresult with descriptive messages
 // from cuGetErrorName and cuGetErrorString.
 //
+// CUDA binds the current context to the calling OS thread, and the Go
+// scheduler moves goroutines between threads. A goroutine that makes a
+// context current with [Context.SetCurrent] or [Context.PushCurrent], such
+// as the primary context from [Device.PrimaryCtxRetain], should call
+// [runtime.LockOSThread] first and keep the thread locked while it makes
+// calls that use that context.
+//
 // # Array Management
 //
 //   - [NewArray3D]: Creates a 3D CUDA array.

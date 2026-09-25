@@ -9,7 +9,7 @@ type Int2 struct {
 	Y int32
 }
 
-// SVSwapParameters represents \typedef [SVSwapParameters] This struct holds necessary information to execute data transfers between a pair of devices..
+// SVSwapParameters holds necessary information to execute data transfers between a pair of devices.
 type SVSwapParameters struct {
 	SwapBatchIndex       int32
 	OrgSubSVIndex        int32

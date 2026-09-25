@@ -160,7 +160,7 @@ func TestCompileAndRun(t *testing.T) {
 	if err := prog.AddModuleTo(unsafe.Pointer(&ir[0]), uint(len(ir)), "fill.ll"); err != nil {
 		t.Fatalf("AddModuleTo: %v", err)
 	}
-	if err := prog.Verify(nil); err != nil {
+	if err := prog.Verify(); err != nil {
 		log, _ := prog.Log()
 		t.Fatalf("Verify: %v\n%s", err, log)
 	}
@@ -172,7 +172,7 @@ func TestCompileAndRun(t *testing.T) {
 	// oracle are unchanged; only the PTX target moves.
 	log := ""
 	for _, try := range archFallbacks(arch) {
-		if err := prog.Compile([]string{"-arch=compute_" + try}); err == nil {
+		if err := prog.Compile("-arch=compute_" + try); err == nil {
 			arch = try
 			log = ""
 			break

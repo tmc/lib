@@ -16,7 +16,7 @@ type NvtxExtPayloadAttr struct {
 	Attributes uintptr
 }
 
-// ActivityUnifiedMemoryCounterConfig represents Unified Memory counters configuration structure This structure controls the enable/disable of the various Unified Memory counters consisting of scope, kind and other parameters. See function [ActivityConfigureUnifiedMemoryCounter].
+// ActivityUnifiedMemoryCounterConfig represents unified Memory counters configuration structure This structure controls the enable/disable of the various Unified Memory counters consisting of scope, kind and other parameters. See function [ActivityConfigureUnifiedMemoryCounter].
 type ActivityUnifiedMemoryCounterConfig struct {
 	_        [0]uint64
 	Scope    ActivityUnifiedMemoryCounterScope
@@ -25,7 +25,7 @@ type ActivityUnifiedMemoryCounterConfig struct {
 	Enable   uint32
 }
 
-// ActivityAutoBoostState represents Device auto boost state structure This structure defines auto boost state for a device.
+// ActivityAutoBoostState represents device auto boost state structure This structure defines auto boost state for a device.
 type ActivityAutoBoostState struct {
 	_       [0]uint64
 	Enabled uint32
@@ -777,7 +777,7 @@ type ActivityOpenMp struct {
 	CuThreadId  uint32
 }
 
-// ActivityExternalCorrelation represents the activity record for correlation with external records This activity record correlates native CUDA records (e.g.
+// ActivityExternalCorrelation represents the activity record for correlation with external records This activity record correlates native CUDA records (e.g. CUDA Driver API, kernels, memcpys, ...) with records from external APIs such as OpenACC. ([ActivityKindExternalCorrelation]). [ActivityKind].
 type ActivityExternalCorrelation struct {
 	Kind          ActivityKind
 	ExternalKind  ExternalCorrelationKind
@@ -817,7 +817,7 @@ type ActivityPcie struct {
 	Attr           [36]uint32
 }
 
-// ActivityConfidentialComputeRotation represents Event related to confidential compute encryption rotation This structure gives timestamps for stages of encryption rotation.
+// ActivityConfidentialComputeRotation represents event related to confidential compute encryption rotation This structure gives timestamps for stages of encryption rotation.
 type ActivityConfidentialComputeRotation struct {
 	Kind        ActivityKind
 	EventType   ConfidentialComputeRotationEventType
@@ -986,7 +986,7 @@ type ActivityGreenContext struct {
 	LogicalTpcMask     [32]uint32
 }
 
-// ActivityConfig represents Activity configuration.
+// ActivityConfig represents activity configuration.
 type ActivityConfig struct {
 	StructSize     uint
 	FieldSelection ActivityFieldSelection
@@ -1005,7 +1005,7 @@ type BufferCallbackCompleteInfo struct {
 	NumRecordLayouts uint
 }
 
-// ActivityObjectKindId represents Identifiers for object kinds as specified by [ActivityObjectKind].
+// ActivityObjectKindId represents identifiers for object kinds as specified by [ActivityObjectKind].
 type ActivityObjectKindId struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [3]uint32
@@ -2137,7 +2137,7 @@ type ActivityMarkerData struct {
 	Category    uint32
 }
 
-// CallbackData represents Data passed into a runtime or driver API callback function.
+// CallbackData represents data passed into a runtime or driver API callback function.
 type CallbackData struct {
 	CallbackSite        ApiCallbackSite
 	FunctionName        uintptr
@@ -2150,14 +2150,14 @@ type CallbackData struct {
 	CorrelationId       uint32
 }
 
-// ResourceData represents Data passed into a resource callback function.
+// ResourceData represents data passed into a resource callback function.
 type ResourceData struct {
 	Context            Context
 	ResourceHandle     [1]uint64
 	ResourceDescriptor uintptr
 }
 
-// ModuleResourceData represents Module data passed into a resource callback function.
+// ModuleResourceData represents module data passed into a resource callback function.
 type ModuleResourceData struct {
 	ModuleId  uint32
 	CubinSize uint
@@ -2175,32 +2175,32 @@ type GraphData struct {
 	GraphExec     GraphExec
 }
 
-// SynchronizeData represents Data passed into a synchronize callback function.
+// SynchronizeData represents data passed into a synchronize callback function.
 type SynchronizeData struct {
 	Context Context
 	Stream  Stream
 }
 
-// NvtxData represents Data passed into a NVTX callback function.
+// NvtxData represents data passed into a NVTX callback function.
 type NvtxData struct {
 	FunctionName        uintptr
 	FunctionParams      uintptr
 	FunctionReturnValue uintptr
 }
 
-// StreamAttrData represents Stream attribute data passed into a resource callback function for [CbidResourceStreamAttributeChanged] callback Data passed into a resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource]. The stream attribute data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data.
+// StreamAttrData represents stream attribute data passed into a resource callback function for [CbidResourceStreamAttributeChanged] callback Data passed into a resource callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainResource]. The stream attribute data is valid only within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of that data.
 type StreamAttrData struct {
 	Stream Stream
 	Attr   int32
 	Value  uintptr
 }
 
-// StateData represents Data passed into a State callback function.
+// StateData represents data passed into a State callback function.
 type StateData struct {
 	Notification [2]uint64
 }
 
-// SubscriberParams represents Params for [SubscribeV2].
+// SubscriberParams represents params for [SubscribeV2].
 type SubscriberParams struct {
 	StructSize               uint
 	SubscriberName           uintptr
@@ -2228,19 +2228,19 @@ type MetricValue struct {
 	Data [1]uint64
 }
 
-// ProfilerInitializeParams represents Default parameter for [ProfilerInitialize].
+// ProfilerInitializeParams represents default parameter for [ProfilerInitialize].
 type ProfilerInitializeParams struct {
 	StructSize uint
 	PPriv      uintptr
 }
 
-// ProfilerDeInitializeParams represents Default parameter for [ProfilerDeInitialize].
+// ProfilerDeInitializeParams represents default parameter for [ProfilerDeInitialize].
 type ProfilerDeInitializeParams struct {
 	StructSize uint
 	PPriv      uintptr
 }
 
-// ProfilerCounterDataImageOptions represents Input parameter to define the counterDataImage.
+// ProfilerCounterDataImageOptions represents input parameter to define the counterDataImage.
 type ProfilerCounterDataImageOptions struct {
 	StructSize            uint
 	PPriv                 uintptr
@@ -2251,7 +2251,7 @@ type ProfilerCounterDataImageOptions struct {
 	MaxRangeNameLength    uint32
 }
 
-// ProfilerCounterDataImageCalculateSizeParams represents Params for [ProfilerCounterDataImageCalculateSize].
+// ProfilerCounterDataImageCalculateSizeParams represents params for [ProfilerCounterDataImageCalculateSize].
 type ProfilerCounterDataImageCalculateSizeParams struct {
 	StructSize                    uint
 	PPriv                         uintptr
@@ -2260,7 +2260,7 @@ type ProfilerCounterDataImageCalculateSizeParams struct {
 	CounterDataImageSize          uint
 }
 
-// ProfilerCounterDataImageInitializeParams represents Params for [ProfilerCounterDataImageInitialize].
+// ProfilerCounterDataImageInitializeParams represents params for [ProfilerCounterDataImageInitialize].
 type ProfilerCounterDataImageInitializeParams struct {
 	StructSize                    uint
 	PPriv                         uintptr
@@ -2270,7 +2270,7 @@ type ProfilerCounterDataImageInitializeParams struct {
 	PCounterDataImage             uintptr
 }
 
-// ProfilerCounterDataImageCalculateScratchBufferSizeParams represents Params for [ProfilerCounterDataImageCalculateScratchBufferSize].
+// ProfilerCounterDataImageCalculateScratchBufferSizeParams represents params for [ProfilerCounterDataImageCalculateScratchBufferSize].
 type ProfilerCounterDataImageCalculateScratchBufferSizeParams struct {
 	StructSize                   uint
 	PPriv                        uintptr
@@ -2279,7 +2279,7 @@ type ProfilerCounterDataImageCalculateScratchBufferSizeParams struct {
 	CounterDataScratchBufferSize uint
 }
 
-// ProfilerCounterDataImageInitializeScratchBufferParams represents Params for [ProfilerCounterDataImageInitializeScratchBuffer].
+// ProfilerCounterDataImageInitializeScratchBufferParams represents params for [ProfilerCounterDataImageInitializeScratchBuffer].
 type ProfilerCounterDataImageInitializeScratchBufferParams struct {
 	StructSize                   uint
 	PPriv                        uintptr
@@ -2289,7 +2289,7 @@ type ProfilerCounterDataImageInitializeScratchBufferParams struct {
 	PCounterDataScratchBuffer    uintptr
 }
 
-// ProfilerBeginSessionParams represents Params for [ProfilerBeginSession].
+// ProfilerBeginSessionParams represents params for [ProfilerBeginSession].
 type ProfilerBeginSessionParams struct {
 	StructSize                   uint
 	PPriv                        uintptr
@@ -2306,14 +2306,14 @@ type ProfilerBeginSessionParams struct {
 	MaxLaunchesPerPass           uint
 }
 
-// ProfilerEndSessionParams represents Params for [ProfilerEndSession].
+// ProfilerEndSessionParams represents params for [ProfilerEndSession].
 type ProfilerEndSessionParams struct {
 	StructSize uint
 	PPriv      uintptr
 	Ctx        Context
 }
 
-// ProfilerSetConfigParams represents Params for [ProfilerSetConfig].
+// ProfilerSetConfigParams represents params for [ProfilerSetConfig].
 type ProfilerSetConfigParams struct {
 	StructSize         uint
 	PPriv              uintptr
@@ -2326,21 +2326,21 @@ type ProfilerSetConfigParams struct {
 	TargetNestingLevel uint16
 }
 
-// ProfilerUnsetConfigParams represents Params for [ProfilerUnsetConfig].
+// ProfilerUnsetConfigParams represents params for [ProfilerUnsetConfig].
 type ProfilerUnsetConfigParams struct {
 	StructSize uint
 	PPriv      uintptr
 	Ctx        Context
 }
 
-// ProfilerBeginPassParams represents Params for [ProfilerBeginPass].
+// ProfilerBeginPassParams represents params for [ProfilerBeginPass].
 type ProfilerBeginPassParams struct {
 	StructSize uint
 	PPriv      uintptr
 	Ctx        Context
 }
 
-// ProfilerEndPassParams represents Params for [ProfilerEndPass].
+// ProfilerEndPassParams represents params for [ProfilerEndPass].
 type ProfilerEndPassParams struct {
 	StructSize         uint
 	PPriv              uintptr
@@ -2350,21 +2350,21 @@ type ProfilerEndPassParams struct {
 	AllPassesSubmitted uint8
 }
 
-// ProfilerEnableProfilingParams represents Params for [ProfilerEnableProfiling].
+// ProfilerEnableProfilingParams represents params for [ProfilerEnableProfiling].
 type ProfilerEnableProfilingParams struct {
 	StructSize uint
 	PPriv      uintptr
 	Ctx        Context
 }
 
-// ProfilerDisableProfilingParams represents Params for [ProfilerDisableProfiling].
+// ProfilerDisableProfilingParams represents params for [ProfilerDisableProfiling].
 type ProfilerDisableProfilingParams struct {
 	StructSize uint
 	PPriv      uintptr
 	Ctx        Context
 }
 
-// ProfilerIsPassCollectedParams represents Params for [ProfilerIsPassCollected].
+// ProfilerIsPassCollectedParams represents params for [ProfilerIsPassCollected].
 type ProfilerIsPassCollectedParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2375,7 +2375,7 @@ type ProfilerIsPassCollectedParams struct {
 	AllPassesCollected   uint8
 }
 
-// ProfilerFlushCounterDataParams represents Params for [ProfilerFlushCounterData].
+// ProfilerFlushCounterDataParams represents params for [ProfilerFlushCounterData].
 type ProfilerFlushCounterDataParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2400,7 +2400,7 @@ type ProfilerPopRangeParams struct {
 	Ctx        Context
 }
 
-// ProfilerGetCounterAvailabilityParams represents Params for [ProfilerGetCounterAvailability].
+// ProfilerGetCounterAvailabilityParams represents params for [ProfilerGetCounterAvailability].
 type ProfilerGetCounterAvailabilityParams struct {
 	StructSize                   uint
 	PPriv                        uintptr
@@ -2410,7 +2410,7 @@ type ProfilerGetCounterAvailabilityParams struct {
 	BAllowDeviceLevelCounters    bool
 }
 
-// ProfilerDeviceSupportedParams represents Params for [ProfilerDeviceSupported].
+// ProfilerDeviceSupportedParams represents params for [ProfilerDeviceSupported].
 type ProfilerDeviceSupportedParams struct {
 	StructSize          uint
 	PPriv               uintptr
@@ -2426,7 +2426,7 @@ type ProfilerDeviceSupportedParams struct {
 	Sku                 ProfilerSupportLevel
 }
 
-// ProfilerHostInitializeParams represents Params for [ProfilerHostInitialize].
+// ProfilerHostInitializeParams represents params for [ProfilerHostInitialize].
 type ProfilerHostInitializeParams struct {
 	StructSize                uint
 	PPriv                     uintptr
@@ -2437,14 +2437,14 @@ type ProfilerHostInitializeParams struct {
 	PSinglePassMetricSetName  uintptr
 }
 
-// ProfilerHostDeinitializeParams represents Params for [ProfilerHostDeinitialize].
+// ProfilerHostDeinitializeParams represents params for [ProfilerHostDeinitialize].
 type ProfilerHostDeinitializeParams struct {
 	StructSize  uint
 	PPriv       uintptr
 	PHostObject uintptr
 }
 
-// ProfilerHostGetSupportedChipsParams represents Params for [ProfilerHostGetSupportedChips].
+// ProfilerHostGetSupportedChipsParams represents params for [ProfilerHostGetSupportedChips].
 type ProfilerHostGetSupportedChipsParams struct {
 	StructSize  uint
 	PPriv       uintptr
@@ -2452,7 +2452,7 @@ type ProfilerHostGetSupportedChipsParams struct {
 	PpChipNames uintptr
 }
 
-// ProfilerHostGetBaseMetricsParams represents Params for cuptiProfilerHostGetSupportedMetrics.
+// ProfilerHostGetBaseMetricsParams represents params for cuptiProfilerHostGetSupportedMetrics.
 type ProfilerHostGetBaseMetricsParams struct {
 	StructSize    uint
 	PPriv         uintptr
@@ -2462,7 +2462,7 @@ type ProfilerHostGetBaseMetricsParams struct {
 	NumMetrics    uint
 }
 
-// ProfilerHostGetSubMetricsParams represents Params for [ProfilerHostGetSubMetrics].
+// ProfilerHostGetSubMetricsParams represents params for [ProfilerHostGetSubMetrics].
 type ProfilerHostGetSubMetricsParams struct {
 	StructSize      uint
 	PPriv           uintptr
@@ -2473,7 +2473,7 @@ type ProfilerHostGetSubMetricsParams struct {
 	PpSubMetrics    uintptr
 }
 
-// ProfilerHostGetMetricPropertiesParams represents Params for [ProfilerHostGetMetricProperties].
+// ProfilerHostGetMetricPropertiesParams represents params for [ProfilerHostGetMetricProperties].
 type ProfilerHostGetMetricPropertiesParams struct {
 	StructSize            uint
 	PPriv                 uintptr
@@ -2486,7 +2486,7 @@ type ProfilerHostGetMetricPropertiesParams struct {
 	MetricCollectionScope MetricCollectionScope
 }
 
-// ProfilerHostGetRangeNameParams represents Params for [ProfilerHostGetRangeName].
+// ProfilerHostGetRangeNameParams represents params for [ProfilerHostGetRangeName].
 type ProfilerHostGetRangeNameParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2497,7 +2497,7 @@ type ProfilerHostGetRangeNameParams struct {
 	PRangeName           uintptr
 }
 
-// ProfilerHostEvaluateToGpuValuesParams represents Params for [ProfilerHostEvaluateToGpuValues].
+// ProfilerHostEvaluateToGpuValuesParams represents params for [ProfilerHostEvaluateToGpuValues].
 type ProfilerHostEvaluateToGpuValuesParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2510,7 +2510,7 @@ type ProfilerHostEvaluateToGpuValuesParams struct {
 	PMetricValues        uintptr
 }
 
-// ProfilerHostConfigAddMetricsParams represents Params for [ProfilerHostConfigAddMetrics].
+// ProfilerHostConfigAddMetricsParams represents params for [ProfilerHostConfigAddMetrics].
 type ProfilerHostConfigAddMetricsParams struct {
 	StructSize    uint
 	PPriv         uintptr
@@ -2519,7 +2519,7 @@ type ProfilerHostConfigAddMetricsParams struct {
 	NumMetrics    uint
 }
 
-// ProfilerHostGetConfigImageSizeParams represents Params for [ProfilerHostGetConfigImageSize].
+// ProfilerHostGetConfigImageSizeParams represents params for [ProfilerHostGetConfigImageSize].
 type ProfilerHostGetConfigImageSizeParams struct {
 	StructSize      uint
 	PPriv           uintptr
@@ -2527,7 +2527,7 @@ type ProfilerHostGetConfigImageSizeParams struct {
 	ConfigImageSize uint
 }
 
-// ProfilerHostGetConfigImageParams represents Params for [ProfilerHostGetConfigImage].
+// ProfilerHostGetConfigImageParams represents params for [ProfilerHostGetConfigImage].
 type ProfilerHostGetConfigImageParams struct {
 	StructSize      uint
 	PPriv           uintptr
@@ -2536,7 +2536,7 @@ type ProfilerHostGetConfigImageParams struct {
 	PConfigImage    uintptr
 }
 
-// ProfilerHostGetNumOfPassesParams represents Params for [ProfilerHostGetNumOfPasses].
+// ProfilerHostGetNumOfPassesParams represents params for [ProfilerHostGetNumOfPasses].
 type ProfilerHostGetNumOfPassesParams struct {
 	StructSize      uint
 	PPriv           uintptr
@@ -2545,7 +2545,7 @@ type ProfilerHostGetNumOfPassesParams struct {
 	NumOfPasses     uint
 }
 
-// ProfilerHostGetMaxNumHardwareMetricsPerPassParams represents Params for [ProfilerHostGetMaxNumHardwareMetricsPerPass].
+// ProfilerHostGetMaxNumHardwareMetricsPerPassParams represents params for [ProfilerHostGetMaxNumHardwareMetricsPerPass].
 type ProfilerHostGetMaxNumHardwareMetricsPerPassParams struct {
 	StructSize                uint
 	PPriv                     uintptr
@@ -2555,7 +2555,7 @@ type ProfilerHostGetMaxNumHardwareMetricsPerPassParams struct {
 	MaxMetricsPerPass         uint
 }
 
-// ProfilerHostGetSinglePassSetsParams represents Params for [ProfilerHostGetSinglePassSets].
+// ProfilerHostGetSinglePassSetsParams represents params for [ProfilerHostGetSinglePassSets].
 type ProfilerHostGetSinglePassSetsParams struct {
 	StructSize          uint
 	PPriv               uintptr
@@ -2564,7 +2564,7 @@ type ProfilerHostGetSinglePassSetsParams struct {
 	PpSinglePassSets    uintptr
 }
 
-// ProfilerHostGetMetricsInSinglePassSetParams represents Params for [ProfilerHostGetMetricsInSinglePassSet].
+// ProfilerHostGetMetricsInSinglePassSetParams represents params for [ProfilerHostGetMetricsInSinglePassSet].
 type ProfilerHostGetMetricsInSinglePassSetParams struct {
 	StructSize                  uint
 	PPriv                       uintptr
@@ -2576,7 +2576,7 @@ type ProfilerHostGetMetricsInSinglePassSetParams struct {
 	PMetricsBuffer              uintptr
 }
 
-// RangeProfilerSetConfigParams represents Params for [RangeProfilerSetConfig].
+// RangeProfilerSetConfigParams represents params for [RangeProfilerSetConfig].
 type RangeProfilerSetConfigParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2594,7 +2594,7 @@ type RangeProfilerSetConfigParams struct {
 	TargetNestingLevel   uint16
 }
 
-// RangeProfilerEnableParams represents Params for [RangeProfilerEnable].
+// RangeProfilerEnableParams represents params for [RangeProfilerEnable].
 type RangeProfilerEnableParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2602,21 +2602,21 @@ type RangeProfilerEnableParams struct {
 	PRangeProfilerObject uintptr
 }
 
-// RangeProfilerDisableParams represents Params for [RangeProfilerDisable].
+// RangeProfilerDisableParams represents params for [RangeProfilerDisable].
 type RangeProfilerDisableParams struct {
 	StructSize           uint
 	PPriv                uintptr
 	PRangeProfilerObject uintptr
 }
 
-// RangeProfilerStartParams represents Params for [RangeProfilerStart].
+// RangeProfilerStartParams represents params for [RangeProfilerStart].
 type RangeProfilerStartParams struct {
 	StructSize           uint
 	PPriv                uintptr
 	PRangeProfilerObject uintptr
 }
 
-// RangeProfilerStopParams represents Params for [RangeProfilerStop].
+// RangeProfilerStopParams represents params for [RangeProfilerStop].
 type RangeProfilerStopParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2626,7 +2626,7 @@ type RangeProfilerStopParams struct {
 	IsAllPassSubmitted   uint8
 }
 
-// RangeProfilerPushRangeParams represents Params for [RangeProfilerPushRange].
+// RangeProfilerPushRangeParams represents params for [RangeProfilerPushRange].
 type RangeProfilerPushRangeParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2634,14 +2634,14 @@ type RangeProfilerPushRangeParams struct {
 	PRangeName           uintptr
 }
 
-// RangeProfilerPopRangeParams represents Params for [RangeProfilerPopRange].
+// RangeProfilerPopRangeParams represents params for [RangeProfilerPopRange].
 type RangeProfilerPopRangeParams struct {
 	StructSize           uint
 	PPriv                uintptr
 	PRangeProfilerObject uintptr
 }
 
-// RangeProfilerDecodeDataParams represents Params for [RangeProfilerDecodeData].
+// RangeProfilerDecodeDataParams represents params for [RangeProfilerDecodeData].
 type RangeProfilerDecodeDataParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2649,7 +2649,7 @@ type RangeProfilerDecodeDataParams struct {
 	NumOfRangeDropped    uint
 }
 
-// RangeProfilerGetCounterDataSizeParams represents Params for [RangeProfilerGetCounterDataSize].
+// RangeProfilerGetCounterDataSizeParams represents params for [RangeProfilerGetCounterDataSize].
 type RangeProfilerGetCounterDataSizeParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2661,7 +2661,7 @@ type RangeProfilerGetCounterDataSizeParams struct {
 	CounterDataSize      uint
 }
 
-// RangeProfilerCounterDataImageInitializeParams represents Params for [RangeProfilerCounterDataImageInitialize].
+// RangeProfilerCounterDataImageInitializeParams represents params for [RangeProfilerCounterDataImageInitialize].
 type RangeProfilerCounterDataImageInitializeParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2670,7 +2670,7 @@ type RangeProfilerCounterDataImageInitializeParams struct {
 	PCounterData         uintptr
 }
 
-// RangeProfilerGetCounterDataInfoParams represents Params for [RangeProfilerGetCounterDataInfo].
+// RangeProfilerGetCounterDataInfoParams represents params for [RangeProfilerGetCounterDataInfo].
 type RangeProfilerGetCounterDataInfoParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2679,7 +2679,7 @@ type RangeProfilerGetCounterDataInfoParams struct {
 	NumTotalRanges       uint
 }
 
-// RangeProfilerCounterDataGetRangeInfoParams represents Params for [RangeProfilerCounterDataGetRangeInfo].
+// RangeProfilerCounterDataGetRangeInfoParams represents params for [RangeProfilerCounterDataGetRangeInfo].
 type RangeProfilerCounterDataGetRangeInfoParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2710,7 +2710,7 @@ type PCSamplingPCData struct {
 	CorrelationId    uint32
 }
 
-// PCSamplingData represents Collected PC Sampling data.
+// PCSamplingData represents collected PC Sampling data.
 type PCSamplingData struct {
 	Size                      uint
 	CollectNumPcs             uint
@@ -2740,7 +2740,7 @@ type PCSamplingConfigurationInfoParams struct {
 	PPCSamplingConfigurationInfo uintptr
 }
 
-// PCSamplingGetDataParams represents Params for [PCSamplingEnable].
+// PCSamplingGetDataParams represents params for [PCSamplingEnable].
 type PCSamplingGetDataParams struct {
 	Size           uint
 	PPriv          uintptr
@@ -2748,35 +2748,35 @@ type PCSamplingGetDataParams struct {
 	PcSamplingData uintptr
 }
 
-// PCSamplingEnableParams represents Params for [PCSamplingEnable].
+// PCSamplingEnableParams represents params for [PCSamplingEnable].
 type PCSamplingEnableParams struct {
 	Size  uint
 	PPriv uintptr
 	Ctx   Context
 }
 
-// PCSamplingDisableParams represents Params for [PCSamplingDisable].
+// PCSamplingDisableParams represents params for [PCSamplingDisable].
 type PCSamplingDisableParams struct {
 	Size  uint
 	PPriv uintptr
 	Ctx   Context
 }
 
-// PCSamplingStartParams represents Params for [PCSamplingStart].
+// PCSamplingStartParams represents params for [PCSamplingStart].
 type PCSamplingStartParams struct {
 	Size  uint
 	PPriv uintptr
 	Ctx   Context
 }
 
-// PCSamplingStopParams represents Params for [PCSamplingStop].
+// PCSamplingStopParams represents params for [PCSamplingStop].
 type PCSamplingStopParams struct {
 	Size  uint
 	PPriv uintptr
 	Ctx   Context
 }
 
-// PCSamplingGetNumStallReasonsParams represents Params for [PCSamplingGetNumStallReasons].
+// PCSamplingGetNumStallReasonsParams represents params for [PCSamplingGetNumStallReasons].
 type PCSamplingGetNumStallReasonsParams struct {
 	Size            uint
 	PPriv           uintptr
@@ -2784,7 +2784,7 @@ type PCSamplingGetNumStallReasonsParams struct {
 	NumStallReasons uintptr
 }
 
-// PCSamplingGetStallReasonsParams represents Params for [PCSamplingGetStallReasons].
+// PCSamplingGetStallReasonsParams represents params for [PCSamplingGetStallReasons].
 type PCSamplingGetStallReasonsParams struct {
 	Size             uint
 	PPriv            uintptr
@@ -2794,7 +2794,7 @@ type PCSamplingGetStallReasonsParams struct {
 	StallReasons     uintptr
 }
 
-// GetSassToSourceCorrelationParams represents Params for [GetSassToSourceCorrelation].
+// GetSassToSourceCorrelationParams represents params for [GetSassToSourceCorrelation].
 type GetSassToSourceCorrelationParams struct {
 	Size         uint
 	Cubin        uintptr
@@ -2806,7 +2806,7 @@ type GetSassToSourceCorrelationParams struct {
 	DirName      uintptr
 }
 
-// GetCubinCrcParams represents Params for [GetCubinCrc].
+// GetCubinCrcParams represents params for [GetCubinCrc].
 type GetCubinCrcParams struct {
 	Size      uint
 	CubinSize uint
@@ -2814,7 +2814,7 @@ type GetCubinCrcParams struct {
 	CubinCrc  uint64
 }
 
-// PmSamplingSetConfigParams represents Params for [PmSamplingSetConfig].
+// PmSamplingSetConfigParams represents params for [PmSamplingSetConfig].
 type PmSamplingSetConfigParams struct {
 	StructSize         uint
 	PPriv              uintptr
@@ -2827,7 +2827,7 @@ type PmSamplingSetConfigParams struct {
 	HwBufferAppendMode PmSamplingHardwareBufferAppendMode
 }
 
-// PmSamplingEnableParams represents Params for [PmSamplingEnable].
+// PmSamplingEnableParams represents params for [PmSamplingEnable].
 type PmSamplingEnableParams struct {
 	StructSize        uint
 	PPriv             uintptr
@@ -2835,28 +2835,28 @@ type PmSamplingEnableParams struct {
 	PPmSamplingObject uintptr
 }
 
-// PmSamplingDisableParams represents Params for [PmSamplingDisable].
+// PmSamplingDisableParams represents params for [PmSamplingDisable].
 type PmSamplingDisableParams struct {
 	StructSize        uint
 	PPriv             uintptr
 	PPmSamplingObject uintptr
 }
 
-// PmSamplingStartParams represents Params for [PmSamplingStart].
+// PmSamplingStartParams represents params for [PmSamplingStart].
 type PmSamplingStartParams struct {
 	StructSize        uint
 	PPriv             uintptr
 	PPmSamplingObject uintptr
 }
 
-// PmSamplingStopParams represents Params for [PmSamplingStop].
+// PmSamplingStopParams represents params for [PmSamplingStop].
 type PmSamplingStopParams struct {
 	StructSize        uint
 	PPriv             uintptr
 	PPmSamplingObject uintptr
 }
 
-// PmSamplingDecodeDataParams represents Params for [PmSamplingDecodeData].
+// PmSamplingDecodeDataParams represents params for [PmSamplingDecodeData].
 type PmSamplingDecodeDataParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2867,7 +2867,7 @@ type PmSamplingDecodeDataParams struct {
 	Overflow             uint8
 }
 
-// PmSamplingGetCounterAvailabilityParams represents Params for cuptiPmSamplingGetCounterData.
+// PmSamplingGetCounterAvailabilityParams represents params for cuptiPmSamplingGetCounterData.
 type PmSamplingGetCounterAvailabilityParams struct {
 	StructSize                   uint
 	PPriv                        uintptr
@@ -2876,7 +2876,7 @@ type PmSamplingGetCounterAvailabilityParams struct {
 	PCounterAvailabilityImage    uintptr
 }
 
-// PmSamplingGetCounterDataSizeParams represents Params for [PmSamplingGetCounterDataSize].
+// PmSamplingGetCounterDataSizeParams represents params for [PmSamplingGetCounterDataSize].
 type PmSamplingGetCounterDataSizeParams struct {
 	StructSize        uint
 	PPriv             uintptr
@@ -2887,7 +2887,7 @@ type PmSamplingGetCounterDataSizeParams struct {
 	CounterDataSize   uint
 }
 
-// PmSamplingCounterDataImageInitializeParams represents Params for [PmSamplingCounterDataImageInitialize].
+// PmSamplingCounterDataImageInitializeParams represents params for [PmSamplingCounterDataImageInitialize].
 type PmSamplingCounterDataImageInitializeParams struct {
 	StructSize        uint
 	PPriv             uintptr
@@ -2896,7 +2896,7 @@ type PmSamplingCounterDataImageInitializeParams struct {
 	PCounterData      uintptr
 }
 
-// PmSamplingGetCounterDataInfoParams represents Params for [PmSamplingGetCounterDataInfo].
+// PmSamplingGetCounterDataInfoParams represents params for [PmSamplingGetCounterDataInfo].
 type PmSamplingGetCounterDataInfoParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2907,7 +2907,7 @@ type PmSamplingGetCounterDataInfoParams struct {
 	NumCompletedSamples  uint
 }
 
-// PmSamplingCounterDataGetSampleInfoParams represents Params for [PmSamplingCounterDataGetSampleInfo].
+// PmSamplingCounterDataGetSampleInfoParams represents params for [PmSamplingCounterDataGetSampleInfo].
 type PmSamplingCounterDataGetSampleInfoParams struct {
 	StructSize           uint
 	PPriv                uintptr
@@ -2926,7 +2926,7 @@ type SassMetricsMetricDetails struct {
 	PMetricDescription uintptr
 }
 
-// SassMetricsGetNumOfMetricsParams represents Params for [SassMetricsGetNumOfMetrics].
+// SassMetricsGetNumOfMetricsParams represents params for [SassMetricsGetNumOfMetrics].
 type SassMetricsGetNumOfMetricsParams struct {
 	StructSize   uint
 	PPriv        uintptr
@@ -2934,7 +2934,7 @@ type SassMetricsGetNumOfMetricsParams struct {
 	NumOfMetrics uint
 }
 
-// SassMetricsGetMetricsParams represents Params for [SassMetricsGetMetrics].
+// SassMetricsGetMetricsParams represents params for [SassMetricsGetMetrics].
 type SassMetricsGetMetricsParams struct {
 	StructSize   uint
 	PPriv        uintptr
@@ -2943,7 +2943,7 @@ type SassMetricsGetMetricsParams struct {
 	PMetricsList uintptr
 }
 
-// SassMetricsGetPropertiesParams represents Params for [SassMetricsGetProperties].
+// SassMetricsGetPropertiesParams represents params for [SassMetricsGetProperties].
 type SassMetricsGetPropertiesParams struct {
 	StructSize  uint
 	PPriv       uintptr
@@ -2958,7 +2958,7 @@ type SassMetricsConfig struct {
 	OutputGranularity uint8
 }
 
-// SassMetricsSetConfigParams represents Params for [SassMetricsSetConfig].
+// SassMetricsSetConfigParams represents params for [SassMetricsSetConfig].
 type SassMetricsSetConfigParams struct {
 	StructSize        uint
 	PPriv             uintptr
@@ -2967,14 +2967,14 @@ type SassMetricsSetConfigParams struct {
 	DeviceIndex       uint32
 }
 
-// SassMetricsUnsetConfigParams represents Params for [SassMetricsUnsetConfig].
+// SassMetricsUnsetConfigParams represents params for [SassMetricsUnsetConfig].
 type SassMetricsUnsetConfigParams struct {
 	StructSize  uint
 	PPriv       uintptr
 	DeviceIndex uint32
 }
 
-// SassMetricsEnableParams represents Params for [SassMetricsEnable].
+// SassMetricsEnableParams represents params for [SassMetricsEnable].
 type SassMetricsEnableParams struct {
 	StructSize         uint
 	PPriv              uintptr
@@ -2982,7 +2982,7 @@ type SassMetricsEnableParams struct {
 	EnableLazyPatching uint8
 }
 
-// SassMetricsDisableParams represents Params for [SassMetricsDisable].
+// SassMetricsDisableParams represents params for [SassMetricsDisable].
 type SassMetricsDisableParams struct {
 	StructSize          uint
 	PPriv               uintptr
@@ -2990,7 +2990,7 @@ type SassMetricsDisableParams struct {
 	NumOfDroppedRecords uint
 }
 
-// SassMetricsGetDataPropertiesParams represents Params for [SassMetricsGetDataProperties].
+// SassMetricsGetDataPropertiesParams represents params for [SassMetricsGetDataProperties].
 type SassMetricsGetDataPropertiesParams struct {
 	StructSize                     uint
 	PPriv                          uintptr
@@ -3016,7 +3016,7 @@ type SassMetricsData struct {
 	PInstanceValues uintptr
 }
 
-// SassMetricsFlushDataParams represents Params for [SassMetricsFlushData].
+// SassMetricsFlushDataParams represents params for [SassMetricsFlushData].
 type SassMetricsFlushDataParams struct {
 	StructSize                     uint
 	PPriv                          uintptr
@@ -3026,7 +3026,7 @@ type SassMetricsFlushDataParams struct {
 	PMetricsData                   uintptr
 }
 
-// Checkpoint represents Configuration and handle for a CUPTI Checkpoint A CUptiCheckpoint object should be initialized with desired options prior to passing into any CUPTI Checkpoint API function. The first call into a Checkpoint API function will initialize internal state based on these options. Subsequent changes to these options will not have any effect. Checkpoint data is saved in device, host, and filesystem space. There are options to reserve memory at each level (device, host, filesystem) which are intended to allow a guarantee that a certain amount of memory will remain free for use after the checkpoint is saved. Note, however, that falling back to slower levels of memory (host, and then filesystem) to save the checkpoint will result in performance degradation. Currently, the filesystem limitation is not implemented. Note that falling back to filesystem storage may significantly impact the performance for saving and restoring a checkpoint.
+// Checkpoint represents configuration and handle for a CUPTI Checkpoint A CUptiCheckpoint object should be initialized with desired options prior to passing into any CUPTI Checkpoint API function. The first call into a Checkpoint API function will initialize internal state based on these options. Subsequent changes to these options will not have any effect. Checkpoint data is saved in device, host, and filesystem space. There are options to reserve memory at each level (device, host, filesystem) which are intended to allow a guarantee that a certain amount of memory will remain free for use after the checkpoint is saved. Note, however, that falling back to slower levels of memory (host, and then filesystem) to save the checkpoint will result in performance degradation. Currently, the filesystem limitation is not implemented. Note that falling back to filesystem storage may significantly impact the performance for saving and restoring a checkpoint.
 type Checkpoint struct {
 	StructSize      uint
 	Ctx             Context

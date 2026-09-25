@@ -37,7 +37,7 @@ func TestNoFallbackFailsCleanly(t *testing.T) {
 		reexecWithStub(t)
 		return
 	}
-	if _, err := nvjitlink.Create(nil); err == nil {
+	if _, err := nvjitlink.Create(); err == nil {
 		t.Fatal("Create succeeded against a library exporting no usable symbol")
 	} else if se := new(nvjitlink.SymbolError); !errors.As(err, &se) {
 		t.Fatalf("Create returned %v (%T), want *SymbolError", err, err)

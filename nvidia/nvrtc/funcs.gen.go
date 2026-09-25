@@ -71,7 +71,7 @@ func addNameExpression(prog Program, nameExpression *byte) error {
 //   - options: in Compiler options in the form of C string array. options can be NULL when numOptions is 0. Returns [Success] [ErrOutOfMemory] [ErrInvalidInput] [ErrInvalidProgram] [ErrInvalidOption] [ErrCompilation] [ErrBuiltinOperationFailure] [ErrTimeFileWriteFailed] [ErrCancelled]
 //
 // Wraps nvrtcCompileProgram.
-func compileProgram(prog Program, options []string) error {
+func compileProgram(prog Program, options ...string) error {
 	if err := checkLibSym("nvrtcCompileProgram"); err != nil {
 		return err
 	}

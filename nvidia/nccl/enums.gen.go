@@ -29,7 +29,7 @@ func (e HostCftMode) String() string {
 	return fmt.Sprintf("HostCftMode(%d)", e)
 }
 
-// CommMemStat Memory statistic selectors for [Comm.MemStats].
+// CommMemStat represents memory statistic selectors for [Comm.MemStats].
 type CommMemStat int32
 
 const (
@@ -54,7 +54,7 @@ func (e CommMemStat) String() string {
 	return fmt.Sprintf("CommMemStat(%d)", e)
 }
 
-// RedOp Defines the reduction operation.
+// RedOp defines the reduction operation.
 type RedOp int32
 
 const (
@@ -88,7 +88,7 @@ func (e RedOp) String() string {
 	return fmt.Sprintf("RedOp(%d)", e)
 }
 
-// DataType NCCL defines the following integral and floating data-types.
+// DataType represents NCCL defines the following integral and floating data-types.
 type DataType int32
 
 const (
@@ -145,7 +145,7 @@ func (e DataType) String() string {
 	return fmt.Sprintf("DataType(%d)", e)
 }
 
-// ScalarResidence Indicates where (memory space) scalar arguments reside and when they can be dereferenced.
+// ScalarResidence indicates where (memory space) scalar arguments reside and when they can be dereferenced.
 type ScalarResidence int32
 
 const (

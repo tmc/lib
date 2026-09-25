@@ -12,7 +12,7 @@ type Uuid struct {
 	Bytes [16]byte
 }
 
-// MemFabricHandle represents Fabric handle - An opaque handle representing a memory allocation that can be exported to processes in same or different nodes. For IPC between processes on different nodes they must be connected via the NVSwitch fabric.
+// MemFabricHandle represents fabric handle - An opaque handle representing a memory allocation that can be exported to processes in same or different nodes. For IPC between processes on different nodes they must be connected via the NVSwitch fabric.
 type MemFabricHandle struct {
 	Data [64]uint8
 }
@@ -27,7 +27,7 @@ type IpcMemHandle struct {
 	Reserved [64]byte
 }
 
-// StreamBatchMemOpParams represents Per-operation parameters for [Stream.BatchMemOp].
+// StreamBatchMemOpParams represents per-operation parameters for [Stream.BatchMemOp].
 type StreamBatchMemOpParams struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [6]uint64
@@ -74,7 +74,7 @@ type StreammemopatomicreductionparamsSt struct {
 	Alias       DevicePtr
 }
 
-// BatchMemOpNodeParams represents Batch memory operation node parameters Used in the legacy [Graph.AddBatchMemOpNode] api.
+// BatchMemOpNodeParams represents batch memory operation node parameters Used in the legacy [Graph.AddBatchMemOpNode] api.
 type BatchMemOpNodeParams struct {
 	Ctx        Context
 	Count      uint32
@@ -82,7 +82,7 @@ type BatchMemOpNodeParams struct {
 	Flags      uint32
 }
 
-// BatchMemOpNodeParamsV2 represents Batch memory operation node parameters.
+// BatchMemOpNodeParamsV2 represents batch memory operation node parameters.
 type BatchMemOpNodeParamsV2 struct {
 	// Context to use for the operations.
 	Ctx Context
@@ -94,14 +94,14 @@ type BatchMemOpNodeParamsV2 struct {
 	Flags uint32
 }
 
-// AsyncNotificationInfo represents Information passed to the user via the async notification callback.
+// AsyncNotificationInfo represents information passed to the user via the async notification callback.
 type AsyncNotificationInfo struct {
 	// The type of notification being sent
 	Type AsyncNotificationType
 	Info [1]uint64
 }
 
-// Devprop represents Legacy device properties.
+// Devprop represents legacy device properties.
 type Devprop struct {
 	// Maximum number of threads per block
 	MaxThreadsPerBlock int32
@@ -125,7 +125,7 @@ type Devprop struct {
 	TextureAlign int32
 }
 
-// AccessPolicyWindow represents Specifies an access policy for a window, a contiguous extent of memory beginning at base_ptr and ending at base_ptr + num_bytes. num_bytes is limited by [DevAttrMaxAccessPolicyWindowSize]. Partition into many segments and assign segments such that: sum of "hit segments" / window == approx. ratio. sum of "miss segments" / window == approx 1-ratio. Segments and ratio specifications are fitted to the capabilities of the architecture. Accesses in a hit segment apply the hitProp access policy. Accesses in a miss segment apply the missProp access policy.
+// AccessPolicyWindow specifies an access policy for a window, a contiguous extent of memory beginning at base_ptr and ending at base_ptr + num_bytes. num_bytes is limited by [DevAttrMaxAccessPolicyWindowSize]. Partition into many segments and assign segments such that: sum of "hit segments" / window == approx. ratio. sum of "miss segments" / window == approx 1-ratio. Segments and ratio specifications are fitted to the capabilities of the architecture. Accesses in a hit segment apply the hitProp access policy. Accesses in a miss segment apply the missProp access policy.
 type AccessPolicyWindow struct {
 	// Starting address of the access policy window. CUDA driver may align it.
 	BasePtr uintptr
@@ -207,7 +207,7 @@ type KernelNodeParamsV3 struct {
 	Ctx Context
 }
 
-// MemsetNodeParams represents Memset node parameters.
+// MemsetNodeParams represents memset node parameters.
 type MemsetNodeParams struct {
 	// Destination device pointer
 	Dst DevicePtr
@@ -223,7 +223,7 @@ type MemsetNodeParams struct {
 	Height uint
 }
 
-// MemsetNodeParamsV2 represents Memset node parameters.
+// MemsetNodeParamsV2 represents memset node parameters.
 type MemsetNodeParamsV2 struct {
 	// Destination device pointer
 	Dst DevicePtr
@@ -241,7 +241,7 @@ type MemsetNodeParamsV2 struct {
 	Ctx Context
 }
 
-// HostNodeParams represents Host node parameters.
+// HostNodeParams represents host node parameters.
 type HostNodeParams struct {
 	// The function to call when the node executes
 	Fn uintptr
@@ -249,7 +249,7 @@ type HostNodeParams struct {
 	UserData uintptr
 }
 
-// HostNodeParamsV2 represents Host node parameters.
+// HostNodeParamsV2 represents host node parameters.
 type HostNodeParamsV2 struct {
 	// The function to call when the node executes
 	Fn uintptr
@@ -259,7 +259,7 @@ type HostNodeParamsV2 struct {
 	SyncMode uint32
 }
 
-// ConditionalNodeParams represents Conditional node parameters.
+// ConditionalNodeParams represents conditional node parameters.
 type ConditionalNodeParams struct {
 	Handle uint64
 	// Type of conditional node.
@@ -270,7 +270,7 @@ type ConditionalNodeParams struct {
 	Ctx Context
 }
 
-// GraphEdgeData represents Optional annotation for edges in a CUDA graph.
+// GraphEdgeData represents optional annotation for edges in a CUDA graph.
 type GraphEdgeData struct {
 	FromPort uint8
 	ToPort   uint8
@@ -278,7 +278,7 @@ type GraphEdgeData struct {
 	Reserved [5]uint8
 }
 
-// GraphInstantiateParams represents Graph instantiation parameters.
+// GraphInstantiateParams represents graph instantiation parameters.
 type GraphInstantiateParams struct {
 	// Instantiation flags
 	Flags uint64
@@ -290,7 +290,7 @@ type GraphInstantiateParams struct {
 	ResultOut GraphInstantiateResult
 }
 
-// LaunchMemSyncDomainMap represents Memory Synchronization Domain map See cudaLaunchMemSyncDomain.
+// LaunchMemSyncDomainMap represents memory Synchronization Domain map See cudaLaunchMemSyncDomain.
 type LaunchMemSyncDomainMap struct {
 	// The default domain ID to use for designated kernels
 	Default uint8
@@ -298,13 +298,13 @@ type LaunchMemSyncDomainMap struct {
 	Remote uint8
 }
 
-// StreamAttrValueV1 represents Launch attributes union; used as value field of [LaunchAttribute].
+// StreamAttrValueV1 represents launch attributes union; used as value field of [LaunchAttribute].
 type StreamAttrValueV1 struct {
 	// Data stores the raw bytes of the underlying C union.
 	Data [8]uint64
 }
 
-// LaunchAttribute represents Launch attribute.
+// LaunchAttribute represents launch attribute.
 type LaunchAttribute struct {
 	// Attribute to set
 	Id  LaunchAttributeID
@@ -333,13 +333,13 @@ type LaunchConfig struct {
 	NumAttrs uint32
 }
 
-// ExecAffinitySmCount represents Value for [ExecAffinityTypeSmCount].
+// ExecAffinitySmCount represents value for [ExecAffinityTypeSmCount].
 type ExecAffinitySmCount struct {
 	// The number of SMs the context is limited to use.
 	Val uint32
 }
 
-// ExecAffinityParam represents Execution Affinity Parameters.
+// ExecAffinityParam represents execution Affinity Parameters.
 type ExecAffinityParam struct {
 	// Type of execution affinity.
 	Type  ExecAffinityType
@@ -354,7 +354,7 @@ type CtxCigParam struct {
 	SharedData uintptr
 }
 
-// CtxCreateParams represents Params for creating CUDA context.
+// CtxCreateParams represents params for creating CUDA context.
 type CtxCreateParams struct {
 	// Array of execution affinity parameters to limit context resources (e.g., SM count). Only supported Volta+ MPS. Mutually exclusive with cigParams.
 	ExecAffinityParams uintptr
@@ -372,7 +372,7 @@ type StreamCigParam struct {
 	StreamSharedData uintptr
 }
 
-// StreamCigCaptureParams represents Params for capturing CUDA stream to CIG streamCigParams must be non-NULL.
+// StreamCigCaptureParams represents params for capturing CUDA stream to CIG streamCigParams must be non-NULL.
 type StreamCigCaptureParams struct {
 	// CIG (CUDA in Graphics) parameters for sharing command list data from D3D12 graphics clients.
 	StreamCigParams uintptr
@@ -530,7 +530,7 @@ type Memcpy3dPeer struct {
 	Depth uint
 }
 
-// MemcpyNodeParams represents Memcpy node parameters.
+// MemcpyNodeParams represents memcpy node parameters.
 type MemcpyNodeParams struct {
 	// Must be zero
 	Flags int32
@@ -542,7 +542,7 @@ type MemcpyNodeParams struct {
 	CopyParams Memcpy3d
 }
 
-// ArrayDescriptor represents Array descriptor.
+// ArrayDescriptor represents array descriptor.
 type ArrayDescriptor struct {
 	// Width of array
 	Width uint
@@ -597,7 +597,7 @@ type ResourceDesc struct {
 	Flags uint32
 }
 
-// TextureDesc represents Texture descriptor.
+// TextureDesc represents texture descriptor.
 type TextureDesc struct {
 	// Address modes
 	AddressMode [3]AddressMode
@@ -620,7 +620,7 @@ type TextureDesc struct {
 	Reserved    [12]int32
 }
 
-// ResourceViewDesc represents Resource view descriptor.
+// ResourceViewDesc represents resource view descriptor.
 type ResourceViewDesc struct {
 	// Resource view format
 	Format ResourceViewFormat
@@ -641,7 +641,7 @@ type ResourceViewDesc struct {
 	Reserved  [16]uint32
 }
 
-// TensorMap represents Tensor map descriptor.
+// TensorMap represents tensor map descriptor.
 //
 // C declares CUtensorMap with 128-byte alignment, which a Go type cannot
 // express: a TensorMap declared as a variable or allocated with new is at
@@ -662,7 +662,7 @@ type PointerAttributeP2PTokens struct {
 	VaSpaceToken uint32
 }
 
-// LaunchParams represents Kernel launch parameters.
+// LaunchParams represents kernel launch parameters.
 type LaunchParams struct {
 	// Kernel to launch
 	Function Function
@@ -682,7 +682,7 @@ type LaunchParams struct {
 	KernelParams uintptr
 }
 
-// ExternalMemoryHandleDesc represents External memory handle descriptor.
+// ExternalMemoryHandleDesc represents external memory handle descriptor.
 type ExternalMemoryHandleDesc struct {
 	Type     ExternalMemoryHandleType
 	Handle   [2]uint64
@@ -691,7 +691,7 @@ type ExternalMemoryHandleDesc struct {
 	Reserved [16]uint32
 }
 
-// ExternalMemoryBufferDesc represents External memory buffer descriptor.
+// ExternalMemoryBufferDesc represents external memory buffer descriptor.
 type ExternalMemoryBufferDesc struct {
 	Offset   uint64
 	Size     uint64
@@ -699,7 +699,7 @@ type ExternalMemoryBufferDesc struct {
 	Reserved [16]uint32
 }
 
-// ExternalMemoryMipmappedArrayDesc represents External memory mipmap descriptor.
+// ExternalMemoryMipmappedArrayDesc represents external memory mipmap descriptor.
 type ExternalMemoryMipmappedArrayDesc struct {
 	Offset    uint64
 	ArrayDesc Array3dDescriptor
@@ -707,7 +707,7 @@ type ExternalMemoryMipmappedArrayDesc struct {
 	Reserved  [16]uint32
 }
 
-// ExternalSemaphoreHandleDesc represents External semaphore handle descriptor.
+// ExternalSemaphoreHandleDesc represents external semaphore handle descriptor.
 type ExternalSemaphoreHandleDesc struct {
 	Type     ExternalSemaphoreHandleType
 	Handle   [2]uint64
@@ -715,21 +715,21 @@ type ExternalSemaphoreHandleDesc struct {
 	Reserved [16]uint32
 }
 
-// ExternalSemaphoreSignalParams represents External semaphore signal parameters.
+// ExternalSemaphoreSignalParams represents external semaphore signal parameters.
 type ExternalSemaphoreSignalParams struct {
 	Params   [9]uint64
 	Flags    uint32
 	Reserved [16]uint32
 }
 
-// ExternalSemaphoreWaitParams represents External semaphore wait parameters.
+// ExternalSemaphoreWaitParams represents external semaphore wait parameters.
 type ExternalSemaphoreWaitParams struct {
 	Params   [9]uint64
 	Flags    uint32
 	Reserved [16]uint32
 }
 
-// ExtSemSignalNodeParams represents Semaphore signal node parameters.
+// ExtSemSignalNodeParams represents semaphore signal node parameters.
 type ExtSemSignalNodeParams struct {
 	// Array of external semaphore handles.
 	ExtSemArray uintptr
@@ -739,7 +739,7 @@ type ExtSemSignalNodeParams struct {
 	NumExtSems uint32
 }
 
-// ExtSemSignalNodeParamsV2 represents Semaphore signal node parameters.
+// ExtSemSignalNodeParamsV2 represents semaphore signal node parameters.
 type ExtSemSignalNodeParamsV2 struct {
 	// Array of external semaphore handles.
 	ExtSemArray uintptr
@@ -749,7 +749,7 @@ type ExtSemSignalNodeParamsV2 struct {
 	NumExtSems uint32
 }
 
-// ExtSemWaitNodeParams represents Semaphore wait node parameters.
+// ExtSemWaitNodeParams represents semaphore wait node parameters.
 type ExtSemWaitNodeParams struct {
 	// Array of external semaphore handles.
 	ExtSemArray uintptr
@@ -759,7 +759,7 @@ type ExtSemWaitNodeParams struct {
 	NumExtSems uint32
 }
 
-// ExtSemWaitNodeParamsV2 represents Semaphore wait node parameters.
+// ExtSemWaitNodeParamsV2 represents semaphore wait node parameters.
 type ExtSemWaitNodeParamsV2 struct {
 	// Array of external semaphore handles.
 	ExtSemArray uintptr
@@ -769,7 +769,7 @@ type ExtSemWaitNodeParamsV2 struct {
 	NumExtSems uint32
 }
 
-// ArrayMapInfo represents Specifies the CUDA array or CUDA mipmapped array memory mapping information.
+// ArrayMapInfo specifies the CUDA array or CUDA mipmapped array memory mapping information.
 type ArrayMapInfo struct {
 	// Resource type
 	ResourceType Resourcetype
@@ -792,14 +792,14 @@ type ArrayMapInfo struct {
 	Reserved [2]uint32
 }
 
-// MemLocation represents Specifies a memory location.
+// MemLocation specifies a memory location.
 type MemLocation struct {
 	// Specifies the location type, which modifies the meaning of id.
 	Type MemLocationType
 	Id   int32
 }
 
-// MemAllocationProp represents Specifies the allocation properties for a allocation.
+// MemAllocationProp specifies the allocation properties for a allocation.
 type MemAllocationProp struct {
 	Type                 MemAllocationType
 	RequestedHandleTypes MemAllocationHandleType
@@ -808,7 +808,7 @@ type MemAllocationProp struct {
 	AllocFlags           [4]uint16
 }
 
-// MulticastObjectProp represents Specifies the properties for a multicast object.
+// MulticastObjectProp specifies the properties for a multicast object.
 type MulticastObjectProp struct {
 	NumDevices  uint32
 	Size        uint
@@ -816,7 +816,7 @@ type MulticastObjectProp struct {
 	Flags       uint64
 }
 
-// MemAccessDesc represents Memory access descriptor.
+// MemAccessDesc represents memory access descriptor.
 type MemAccessDesc struct {
 	// Location on which the request is to change it's accessibility
 	Location MemLocation
@@ -824,14 +824,14 @@ type MemAccessDesc struct {
 	Flags MemaccessFlags
 }
 
-// GraphExecUpdateResultInfo represents Result information returned by [GraphExec.Update].
+// GraphExecUpdateResultInfo represents result information returned by [GraphExec.Update].
 type GraphExecUpdateResultInfo struct {
 	Result        GraphExecUpdateResult
 	ErrorNode     GraphNode
 	ErrorFromNode GraphNode
 }
 
-// MemPoolProps represents Specifies the properties of allocations made from the pool.
+// MemPoolProps specifies the properties of allocations made from the pool.
 type MemPoolProps struct {
 	// Allocation type. Currently must be specified as [MemAllocationTypePinned]
 	AllocType MemAllocationType
@@ -848,12 +848,12 @@ type MemPoolProps struct {
 	Reserved [54]uint8
 }
 
-// MemPoolPtrExportData represents Opaque data for exporting a pool allocation.
+// MemPoolPtrExportData represents opaque data for exporting a pool allocation.
 type MemPoolPtrExportData struct {
 	Reserved [64]uint8
 }
 
-// MemcpyAttributes represents Attributes specific to copies within a batch.
+// MemcpyAttributes represents attributes specific to copies within a batch.
 type MemcpyAttributes struct {
 	// Source access ordering to be observed for copies with this attribute.
 	SrcAccessOrder MemcpySrcAccessOrder
@@ -865,21 +865,21 @@ type MemcpyAttributes struct {
 	Flags uint32
 }
 
-// Offset3D represents Struct representing a 3D offset.
+// Offset3D represents a 3D offset.
 type Offset3D struct {
 	X uint
 	Y uint
 	Z uint
 }
 
-// Extent3D represents Struct representing width/height/depth of a [Array] in elements.
+// Extent3D represents width/height/depth of a [Array] in elements.
 type Extent3D struct {
 	Width  uint
 	Height uint
 	Depth  uint
 }
 
-// Memcpy3DOperand represents Struct representing an operand for copy with [Stream.Memcpy3DBatchAsync].
+// Memcpy3DOperand represents an operand for copy with [Stream.Memcpy3DBatchAsync].
 type Memcpy3DOperand struct {
 	Type Memcpy3DOperandType
 	Op   [4]uint64
@@ -899,7 +899,7 @@ type Memcpy3dBatchOp struct {
 	Flags uint32
 }
 
-// MemAllocNodeParams represents Memory allocation node parameters.
+// MemAllocNodeParams represents memory allocation node parameters.
 type MemAllocNodeParams struct {
 	PoolProps MemPoolProps
 	// in: array of memory access descriptors. Used to describe peer GPU access
@@ -912,7 +912,7 @@ type MemAllocNodeParams struct {
 	Dptr DevicePtr
 }
 
-// MemAllocNodeParamsV2 represents Memory allocation node parameters.
+// MemAllocNodeParamsV2 represents memory allocation node parameters.
 type MemAllocNodeParamsV2 struct {
 	PoolProps MemPoolProps
 	// in: array of memory access descriptors. Used to describe peer GPU access
@@ -925,32 +925,32 @@ type MemAllocNodeParamsV2 struct {
 	Dptr DevicePtr
 }
 
-// MemFreeNodeParams represents Memory free node parameters.
+// MemFreeNodeParams represents memory free node parameters.
 type MemFreeNodeParams struct {
 	// in: the pointer to free
 	Dptr DevicePtr
 }
 
-// ChildGraphNodeParams represents Child graph node parameters.
+// ChildGraphNodeParams represents child graph node parameters.
 type ChildGraphNodeParams struct {
 	Graph Graph
 	// The ownership relationship of the child graph node.
 	Ownership GraphChildGraphNodeOwnership
 }
 
-// EventRecordNodeParams represents Event record node parameters.
+// EventRecordNodeParams represents event record node parameters.
 type EventRecordNodeParams struct {
 	// The event to record when the node executes
 	Event Event
 }
 
-// EventWaitNodeParams represents Event wait node parameters.
+// EventWaitNodeParams represents event wait node parameters.
 type EventWaitNodeParams struct {
 	// The event to wait on from the node
 	Event Event
 }
 
-// GraphNodeParams represents Graph node parameters.
+// GraphNodeParams represents graph node parameters.
 type GraphNodeParams struct {
 	// Type of the node
 	Type GraphNodeType
@@ -1003,7 +1003,7 @@ type CheckpointUnlockArgs struct {
 	Reserved [8]uint64
 }
 
-// MemDecompressParams represents Structure describing the parameters that compose a single decompression operation.
+// MemDecompressParams describes the parameters that compose a single decompression operation.
 type MemDecompressParams struct {
 	SrcNumBytes uint
 	DstNumBytes uint
@@ -1014,7 +1014,7 @@ type MemDecompressParams struct {
 	Padding     [20]uint8
 }
 
-// DevSmResource represents \struct [DevSmResource] Data for SM-related resources All parameters in this structure are OUTPUT only.
+// DevSmResource represents data for SM-related resources All parameters in this structure are OUTPUT only.
 type DevSmResource struct {
 	// The amount of streaming multiprocessors available in this resource.
 	SmCount uint32
@@ -1025,7 +1025,7 @@ type DevSmResource struct {
 	Flags uint32
 }
 
-// DevWorkqueueConfigResource represents \struct [DevWorkqueueConfigResource] Data for workqueue configuration related resources.
+// DevWorkqueueConfigResource represents data for workqueue configuration related resources.
 type DevWorkqueueConfigResource struct {
 	// The device on which the workqueue resources are available
 	Device Device
@@ -1035,13 +1035,13 @@ type DevWorkqueueConfigResource struct {
 	SharingScope DevWorkqueueConfigScope
 }
 
-// DevWorkqueueResource represents \struct [DevWorkqueueResource] Handle to a pre-existing workqueue related resource.
+// DevWorkqueueResource represents handle to a pre-existing workqueue related resource.
 type DevWorkqueueResource struct {
 	// Reserved for future use
 	Reserved [40]uint8
 }
 
-// CuDevSmResourceGroupParams represents \struct [CuDevSmResourceGroupParams] Input data for splitting SMs.
+// CuDevSmResourceGroupParams represents input data for splitting SMs.
 type CuDevSmResourceGroupParams struct {
 	// The amount of SMs available in this resource.
 	SmCount uint32
@@ -1073,6 +1073,21 @@ type Dim3 struct {
 // extents: a launch rejects a zero member.
 func Dims(x, y, z uint32) Dim3 {
 	return Dim3{X: x, Y: y, Z: z}
+}
+
+// GridFor returns the one-dimensional grid of blocks of block threads
+// that covers n threads: Dims(ceil(n/block), 1, 1). It returns the zero
+// Dim3 if block is zero, and a grid with a zero member if n is zero; a
+// launch rejects both.
+func GridFor(n, block uint32) Dim3 {
+	if block == 0 {
+		return Dim3{}
+	}
+	x := n / block
+	if n%block != 0 {
+		x++
+	}
+	return Dims(x, 1, 1)
 }
 
 // String returns d as XxYxZ, such as 64x1x1.

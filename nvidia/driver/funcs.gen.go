@@ -6013,6 +6013,8 @@ func memAdvise(devPtr DevicePtr, count uint, advice MemAdvise, location MemLocat
 //
 // The allocation holds n values of type T: bytesize is n times the size of T.
 // A negative n, or one whose size overflows uint, is an error.
+// T must not contain Go pointers: the garbage collector does not scan
+// device memory.
 //
 // Wraps cuMemAlloc, bound as cuMemAlloc_v2.
 func MemAlloc[T any](n int) (DevicePtr, error) {
@@ -6106,6 +6108,8 @@ func MemAllocHost(pp *uintptr, bytesize uint) error {
 //
 // The allocation holds n values of type T: bytesize is n times the size of T.
 // A negative n, or one whose size overflows uint, is an error.
+// T must not contain Go pointers: the garbage collector does not scan
+// device memory.
 //
 // Wraps cuMemAllocManaged.
 func MemAllocManaged[T any](n int, flags MemattachFlags) (DevicePtr, error) {

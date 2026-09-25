@@ -116,7 +116,7 @@ func addModuleToProgram(prog Program, buffer unsafe.Pointer, size uint, name str
 //   - options (in): Compiler options in the form of C string array
 //
 // Wraps nvvmCompileProgram.
-func compileProgram(prog Program, options []string) error {
+func compileProgram(prog Program, options ...string) error {
 	if err := checkLibSym("nvvmCompileProgram"); err != nil {
 		return err
 	}
@@ -332,7 +332,7 @@ func lazyAddModuleToProgram(prog Program, buffer unsafe.Pointer, size uint, name
 //   - options (in): Compiler options in the form of C string array
 //
 // Wraps nvvmVerifyProgram.
-func verifyProgram(prog Program, options []string) error {
+func verifyProgram(prog Program, options ...string) error {
 	if err := checkLibSym("nvvmVerifyProgram"); err != nil {
 		return err
 	}

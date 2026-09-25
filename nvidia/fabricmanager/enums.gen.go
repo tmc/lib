@@ -4,7 +4,7 @@ package fabricmanager
 
 import "fmt"
 
-// NvFmApiAddrTypes @enum [NvFmApiAddrTypes] @brief an enumeration of supported address types
+// NvFmApiAddrTypes represents @brief an enumeration of supported address types.
 type NvFmApiAddrTypes int32
 
 const (

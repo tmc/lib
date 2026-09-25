@@ -4,7 +4,7 @@ package cublaslt
 
 import "fmt"
 
-// MatmulTile represents Tile size (in C/D matrix Rows x Cols) General order of tile IDs is sorted by size first and by first dimension second..
+// MatmulTile represents tile size (in C/D matrix Rows x Cols) General order of tile IDs is sorted by size first and by first dimension second.
 type MatmulTile int32
 
 const (
@@ -1925,7 +1925,7 @@ func (e MatmulTile) String() string {
 	return fmt.Sprintf("MatmulTile(%d)", e)
 }
 
-// MatmulStages represents Size and number of stages in which elements are read into shared memory General order of stages IDs is sorted by stage size first and by number of stages second..
+// MatmulStages represents size and number of stages in which elements are read into shared memory General order of stages IDs is sorted by stage size first and by number of stages second.
 type MatmulStages int32
 
 const (
@@ -2052,7 +2052,7 @@ func (e MatmulStages) String() string {
 	return fmt.Sprintf("MatmulStages(%d)", e)
 }
 
-// ClusterShape represents Thread Block Cluster size Typically dimensioned similar to [MatmulTile], with the third coordinate unused at this time..
+// ClusterShape represents thread Block Cluster size Typically dimensioned similar to [MatmulTile], with the third coordinate unused at this time.
 type ClusterShape int32
 
 const (
@@ -2221,7 +2221,7 @@ func (e ClusterShape) String() string {
 	return fmt.Sprintf("ClusterShape(%d)", e)
 }
 
-// MatmulInnerShape represents Inner size of the kernel Represents various aspects of internal kernel design, that don't impact CUDA grid size but may have other more subtle effects..
+// MatmulInnerShape represents inner size of the kernel Represents various aspects of internal kernel design, that don't impact CUDA grid size but may have other more subtle effects.
 type MatmulInnerShape int32
 
 const (
@@ -2252,7 +2252,7 @@ func (e MatmulInnerShape) String() string {
 	return fmt.Sprintf("MatmulInnerShape(%d)", e)
 }
 
-// MatmulMatrixScale represents Scaling mode for per-matrix scaling..
+// MatmulMatrixScale represents scaling mode for per-matrix scaling.
 type MatmulMatrixScale int32
 
 const (
@@ -2289,7 +2289,7 @@ func (e MatmulMatrixScale) String() string {
 	return fmt.Sprintf("MatmulMatrixScale(%d)", e)
 }
 
-// PointerMode represents Pointer mode to use for alpha/beta.
+// PointerMode represents pointer mode to use for alpha/beta.
 type PointerMode int32
 
 const (
@@ -2317,7 +2317,7 @@ func (e PointerMode) String() string {
 	return fmt.Sprintf("PointerMode(%d)", e)
 }
 
-// PointerModeMask represents Mask to define pointer mode capability.
+// PointerModeMask represents mask to define pointer mode capability.
 type PointerModeMask int32
 
 const (
@@ -2345,7 +2345,7 @@ func (e PointerModeMask) String() string {
 	return fmt.Sprintf("PointerModeMask(%d)", e)
 }
 
-// Order represents Enum for data ordering.
+// Order is an enum for data ordering.
 type Order int32
 
 const (
@@ -2373,7 +2373,7 @@ func (e Order) String() string {
 	return fmt.Sprintf("Order(%d)", e)
 }
 
-// BatchMode represents Enum for batch mode.
+// BatchMode is an enum for batch mode.
 type BatchMode int32
 
 const (
@@ -2395,7 +2395,7 @@ func (e BatchMode) String() string {
 	return fmt.Sprintf("BatchMode(%d)", e)
 }
 
-// IntegerWidth represents Experimental: Enum for integer width of array pointer elements.
+// IntegerWidth represents experimental: Enum for integer width of array pointer elements.
 type IntegerWidth int32
 
 const (
@@ -2414,7 +2414,7 @@ func (e IntegerWidth) String() string {
 	return fmt.Sprintf("IntegerWidth(%d)", e)
 }
 
-// MatrixLayoutAttribute represents Attributes of memory layout.
+// MatrixLayoutAttribute represents attributes of memory layout.
 type MatrixLayoutAttribute int32
 
 const (
@@ -2469,7 +2469,7 @@ func (e MatrixLayoutAttribute) String() string {
 	return fmt.Sprintf("MatrixLayoutAttribute(%d)", e)
 }
 
-// MatmulDescAttributes represents [Handle.Matmul] descriptor attributes to define details of the operation..
+// MatmulDescAttributes represents [Handle.Matmul] descriptor attributes to define details of the operation.
 type MatmulDescAttributes int32
 
 const (
@@ -2587,7 +2587,7 @@ func (e MatmulDescAttributes) String() string {
 	return fmt.Sprintf("MatmulDescAttributes(%d)", e)
 }
 
-// MatrixTransformDescAttributes represents Matrix transform descriptor attributes to define details of the operation..
+// MatrixTransformDescAttributes represents matrix transform descriptor attributes to define details of the operation.
 type MatrixTransformDescAttributes int32
 
 const (
@@ -2612,7 +2612,7 @@ func (e MatrixTransformDescAttributes) String() string {
 	return fmt.Sprintf("MatrixTransformDescAttributes(%d)", e)
 }
 
-// EmulationDescAttributes represents Emulation descriptor attributes to configure floating point emulation.
+// EmulationDescAttributes represents emulation descriptor attributes to configure floating point emulation.
 type EmulationDescAttributes int32
 
 const (
@@ -2643,7 +2643,7 @@ func (e EmulationDescAttributes) String() string {
 	return fmt.Sprintf("EmulationDescAttributes(%d)", e)
 }
 
-// ReductionScheme represents Reduction scheme for portions of the dot-product calculated in parallel (a..
+// ReductionScheme represents reduction scheme for portions of the dot-product calculated in parallel (a.
 type ReductionScheme int32
 
 const (
@@ -2671,7 +2671,7 @@ func (e ReductionScheme) String() string {
 	return fmt.Sprintf("ReductionScheme(%d)", e)
 }
 
-// Epilogue represents Postprocessing options for the epilogue.
+// Epilogue represents postprocessing options for the epilogue.
 type Epilogue int32
 
 const (
@@ -2759,7 +2759,7 @@ func (e MatmulSearch) String() string {
 	return fmt.Sprintf("MatmulSearch(%d)", e)
 }
 
-// MatmulPreferenceAttributes represents Algo search preference to fine tune the heuristic function..
+// MatmulPreferenceAttributes represents algo search preference to fine tune the heuristic function.
 type MatmulPreferenceAttributes int32
 
 const (
@@ -2808,7 +2808,7 @@ func (e MatmulPreferenceAttributes) String() string {
 	return fmt.Sprintf("MatmulPreferenceAttributes(%d)", e)
 }
 
-// MatmulAlgoCapAttributes represents Capabilities Attributes that can be retrieved from an initialized Algo structure.
+// MatmulAlgoCapAttributes represents capabilities Attributes that can be retrieved from an initialized Algo structure.
 type MatmulAlgoCapAttributes int32
 
 const (
@@ -2884,7 +2884,7 @@ func (e MatmulAlgoCapAttributes) String() string {
 	return fmt.Sprintf("MatmulAlgoCapAttributes(%d)", e)
 }
 
-// MatmulAlgoConfigAttributes represents Algo Configuration Attributes that can be set according to the Algo capabilities.
+// MatmulAlgoConfigAttributes represents algo Configuration Attributes that can be set according to the Algo capabilities.
 type MatmulAlgoConfigAttributes int32
 
 const (
@@ -2924,7 +2924,7 @@ func (e MatmulAlgoConfigAttributes) String() string {
 	return fmt.Sprintf("MatmulAlgoConfigAttributes(%d)", e)
 }
 
-// NumericalImplFlags represents Implementation details that may affect numerical behavior of algorithms..
+// NumericalImplFlags represents implementation details that may affect numerical behavior of algorithms.
 type NumericalImplFlags uint64
 
 const (

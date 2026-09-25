@@ -40,7 +40,7 @@ define void @zero(float* %out) {
 		fmt.Println("add module:", err)
 		return
 	}
-	if err := prog.Compile([]string{"-arch=compute_70"}); err != nil {
+	if err := prog.Compile("-arch=compute_70"); err != nil {
 		log, _ := prog.Log()
 		fmt.Printf("compile: %v\n%s", err, log)
 		return

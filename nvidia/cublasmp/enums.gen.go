@@ -4,7 +4,7 @@ package cublasmp
 
 import "fmt"
 
-// GridLayout Describes the ordering of the process grid.
+// GridLayout describes the ordering of the process grid.
 type GridLayout int32
 
 const (

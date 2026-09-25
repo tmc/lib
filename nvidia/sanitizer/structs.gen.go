@@ -2,7 +2,7 @@
 
 package sanitizer
 
-// CallbackData represents Data passed into a runtime or driver API callback function.
+// CallbackData represents data passed into a runtime or driver API callback function.
 type CallbackData struct {
 	CallbackSite        ApiCallbackSite
 	FunctionName        uintptr
@@ -12,14 +12,14 @@ type CallbackData struct {
 	Context             Context
 }
 
-// ResourceContextData represents Data passed into a context resource callback function.
+// ResourceContextData represents data passed into a context resource callback function.
 type ResourceContextData struct {
 	Context      Context
 	GreenContext GreenContext
 	Device       Device
 }
 
-// ResourceStreamData represents Data passed into a stream resource callback function.
+// ResourceStreamData represents data passed into a stream resource callback function.
 type ResourceStreamData struct {
 	Context      Context
 	GreenContext GreenContext
@@ -27,7 +27,7 @@ type ResourceStreamData struct {
 	HStream      StreamHandle
 }
 
-// ResourceModuleData represents Data passed into a module resource callback function.
+// ResourceModuleData represents data passed into a module resource callback function.
 type ResourceModuleData struct {
 	Context   Context
 	Module    Module
@@ -36,7 +36,7 @@ type ResourceModuleData struct {
 	Library   Library
 }
 
-// ResourceMemoryData represents Data passed into a memory resource callback function.
+// ResourceMemoryData represents data passed into a memory resource callback function.
 type ResourceMemoryData struct {
 	Address      uint64
 	Size         uint64
@@ -51,14 +51,14 @@ type ResourceMemoryData struct {
 	SourceDevice Device
 }
 
-// ResourceMempoolData represents Data passed into a mempool resource callback function.
+// ResourceMempoolData represents data passed into a mempool resource callback function.
 type ResourceMempoolData struct {
 	MemoryPool MemoryPool
 	Device     Device
 	PeerDevice Device
 }
 
-// ResourceArrayData represents Data passed into a CUDA array callback function.
+// ResourceArrayData represents data passed into a CUDA array callback function.
 type ResourceArrayData struct {
 	Context Context
 	HArray  Array
@@ -67,13 +67,13 @@ type ResourceArrayData struct {
 	Depth   uint64
 }
 
-// ResourceLogicalEndpointData represents Data passed into a logical endpoint resource callback function.
+// ResourceLogicalEndpointData represents data passed into a logical endpoint resource callback function.
 type ResourceLogicalEndpointData struct {
 	Address uint64
 	Size    uint64
 }
 
-// ResourceFunctionsLazyLoadedData represents Data passed into a CUDA function callback function.
+// ResourceFunctionsLazyLoadedData represents data passed into a CUDA function callback function.
 type ResourceFunctionsLazyLoadedData struct {
 	Context      Context
 	Module       Module
@@ -81,13 +81,13 @@ type ResourceFunctionsLazyLoadedData struct {
 	NumFunctions uint32
 }
 
-// ResourceVirtualRange represents Data passed into a VA reservation callback function.
+// ResourceVirtualRange represents data passed into a VA reservation callback function.
 type ResourceVirtualRange struct {
 	Address uint64
 	Size    uint64
 }
 
-// SynchronizeData represents Data passed into a synchronization callback function.
+// SynchronizeData represents data passed into a synchronization callback function.
 type SynchronizeData struct {
 	Context      Context
 	Stream       Stream
@@ -95,7 +95,7 @@ type SynchronizeData struct {
 	GreenContext GreenContext
 }
 
-// LaunchData represents Data passed into a launch callback function.
+// LaunchData represents data passed into a launch callback function.
 type LaunchData struct {
 	Context      Context
 	Stream       Stream
@@ -114,7 +114,7 @@ type LaunchData struct {
 	HApiStream   StreamHandle
 }
 
-// MemcpyData represents Data passed into a memcpy callback function.
+// MemcpyData represents data passed into a memcpy callback function.
 type MemcpyData struct {
 	SrcContext Context
 	DstContext Context
@@ -137,7 +137,7 @@ type MemcpyData struct {
 	HApiStream StreamHandle
 }
 
-// MemsetData represents Data passed into a memset callback function.
+// MemsetData represents data passed into a memset callback function.
 type MemsetData struct {
 	Context     Context
 	Stream      Stream
@@ -151,7 +151,7 @@ type MemsetData struct {
 	IsAsync     uint32
 }
 
-// BatchMemopData represents Data passed into a batch memop callback function.
+// BatchMemopData represents data passed into a batch memop callback function.
 type BatchMemopData struct {
 	Context         Context
 	Stream          Stream
@@ -162,7 +162,7 @@ type BatchMemopData struct {
 	AtomicOperation BatchMemopAtomicOp
 }
 
-// UvmData represents Data passed into a managed memory callback function Data passed into a managed memory callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainUvm]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
+// UvmData represents data passed into a managed memory callback function Data passed into a managed memory callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainUvm]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type UvmData struct {
 	Context    Context
 	Visibility MemoryVisibility
@@ -171,7 +171,7 @@ type UvmData struct {
 	Address    uint64
 }
 
-// GraphExecData represents Data passed into a graphexec creation callback function Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to [CbidGraphsGraphexecCreating]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
+// GraphExecData represents data passed into a graphexec creation callback function Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to [CbidGraphsGraphexecCreating]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type GraphExecData struct {
 	Graph                       Graph
 	GraphExec                   GraphExec
@@ -180,7 +180,7 @@ type GraphExecData struct {
 	DeviceGraphLaunchesContext  Context
 }
 
-// GraphNodeLaunchData represents Data passed into a graph node launch callback function Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to SANITIZER_CBID_GRAPHS_LAUNCH_NODE_BEGIN or SANITIZER_CBID_GRAPHS_LAUNCH_NODE_END. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
+// GraphNodeLaunchData represents data passed into a graph node launch callback function Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to SANITIZER_CBID_GRAPHS_LAUNCH_NODE_BEGIN or SANITIZER_CBID_GRAPHS_LAUNCH_NODE_END. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type GraphNodeLaunchData struct {
 	GraphExec      GraphExec
 	LaunchId       uint32
@@ -190,7 +190,7 @@ type GraphNodeLaunchData struct {
 	IsGraphUpload  uint32
 }
 
-// GraphLaunchData represents Data passed into a graph launch callback function Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to [CbidGraphsLaunchBegin] or [CbidGraphsLaunchEnd]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
+// GraphLaunchData represents data passed into a graph launch callback function Data passed into a graphs callback function as the cbdata argument to [CallbackFunc]. The cbdata will be this type for domain equal to [CbDomainGraphs] and cbid equal to [CbidGraphsLaunchBegin] or [CbidGraphsLaunchEnd]. The callback data is only valid within the invocation of the callback function that is passed the data. If you need to retain some data for use outside of the callback, you must make a copy of it.
 type GraphLaunchData struct {
 	Context       Context
 	Stream        Stream
@@ -199,7 +199,7 @@ type GraphLaunchData struct {
 	IsGraphUpload uint32
 }
 
-// EventData represents Data passed into an event callback function.
+// EventData represents data passed into an event callback function.
 type EventData struct {
 	Event    Event
 	Context  Context
@@ -208,7 +208,7 @@ type EventData struct {
 	HStream  StreamHandle
 }
 
-// ExternalMemoryData represents Data passed into an external memory callback function.
+// ExternalMemoryData represents data passed into an external memory callback function.
 type ExternalMemoryData struct {
 	Context   Context
 	Device    Device
@@ -217,7 +217,7 @@ type ExternalMemoryData struct {
 	Size      uint64
 }
 
-// ErrorLoggingData represents Data passed into an error logging callback function.
+// ErrorLoggingData represents data passed into an error logging callback function.
 type ErrorLoggingData struct {
 	Message  uintptr
 	Tid      uint32

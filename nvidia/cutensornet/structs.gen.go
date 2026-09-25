@@ -2,7 +2,7 @@
 
 package cutensornet
 
-// TensorIDList represents Holds a list of input tensor IDs..
+// TensorIDList holds a list of input tensor IDs.
 type TensorIDList struct {
 	NumTensors int32
 	Data       uintptr
@@ -14,25 +14,25 @@ type NodePair struct {
 	Second int32
 }
 
-// ContractionPath represents Holds information about the contraction path..
+// ContractionPath holds information about the contraction path.
 type ContractionPath struct {
 	NumContractions int32
 	Data            uintptr
 }
 
-// SliceInfoPair represents A pair of int32_t and int64_t values holding the sliced Mode and intended extent size of mode..
+// SliceInfoPair represents a pair of int32_t and int64_t values holding the sliced Mode and intended extent size of mode.
 type SliceInfoPair struct {
 	SlicedMode   int32
 	SlicedExtent int64
 }
 
-// SlicingConfig represents Holds information about slicing..
+// SlicingConfig holds information about slicing.
 type SlicingConfig struct {
 	NumSlicedModes uint32
 	Data           uintptr
 }
 
-// TensorQualifiers represents Holds qualifiers/flags about the input tensors..
+// TensorQualifiers holds qualifiers/flags about the input tensors.
 type TensorQualifiers struct {
 	IsConjugate      int32
 	IsConstant       int32

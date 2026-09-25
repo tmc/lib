@@ -86,7 +86,7 @@ func (e OverflowPolicy) String() string {
 	return fmt.Sprintf("OverflowPolicy(%d)", e)
 }
 
-// Layout represents Dispatch output layout Controls the shape and contents of the user-visible dispatch output tensors (tokens, topk_weights, topk_idx) and their expected shape in Combine. Each layout is supported by a subset of algorithms: HT: [LayoutFlat], [LayoutExpertMajor]. LL: [LayoutExpertMajor], [LayoutRankMajor]..
+// Layout represents dispatch output layout Controls the shape and contents of the user-visible dispatch output tensors (tokens, topk_weights, topk_idx) and their expected shape in Combine. Each layout is supported by a subset of algorithms: HT: [LayoutFlat], [LayoutExpertMajor]. LL: [LayoutExpertMajor], [LayoutRankMajor].
 type Layout int32
 
 const (
@@ -111,7 +111,7 @@ func (e Layout) String() string {
 	return fmt.Sprintf("Layout(%d)", e)
 }
 
-// PassDir represents Training pass direction for [Handle.Dispatch] / [Handle.Combine]..
+// PassDir represents training pass direction for [Handle.Dispatch] / [Handle.Combine].
 type PassDir int32
 
 const (
@@ -152,7 +152,7 @@ func (e ZeroCopyMode) String() string {
 	return fmt.Sprintf("ZeroCopyMode(%d)", e)
 }
 
-// ExpertIdKind represents Numbering convention for the recv_topk_idx output of dispatch..
+// ExpertIdKind represents numbering convention for the recv_topk_idx output of dispatch.
 type ExpertIdKind int32
 
 const (

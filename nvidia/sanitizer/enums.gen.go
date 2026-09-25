@@ -4125,7 +4125,7 @@ func (e RuntimeAPICBID) String() string {
 	return fmt.Sprintf("RuntimeAPICBID(%d)", e)
 }
 
-// PatchResult Sanitizer patch result codes Error and result codes returned by Sanitizer patches.
+// PatchResult represents sanitizer patch result codes Error and result codes returned by Sanitizer patches.
 type PatchResult int32
 
 const (
@@ -4147,7 +4147,7 @@ func (e PatchResult) String() string {
 	return fmt.Sprintf("PatchResult(%d)", e)
 }
 
-// DeviceMemoryFlags Flags describing a memory access Flags describing a memory access.
+// DeviceMemoryFlags represents flags describing a memory access Flags describing a memory access.
 type DeviceMemoryFlags int32
 
 const (
@@ -4190,7 +4190,7 @@ func (e DeviceMemoryFlags) String() string {
 	return fmt.Sprintf("DeviceMemoryFlags(%d)", e)
 }
 
-// BarrierFlags Flags describing a barrier Flags describing a barrier.
+// BarrierFlags represents flags describing a barrier Flags describing a barrier.
 type BarrierFlags int32
 
 const (
@@ -4217,7 +4217,7 @@ func (e BarrierFlags) String() string {
 	return fmt.Sprintf("BarrierFlags(%d)", e)
 }
 
-// CallFlags Flags describing a function call.
+// CallFlags represents flags describing a function call.
 type CallFlags int32
 
 const (
@@ -4240,7 +4240,7 @@ func (e CallFlags) String() string {
 	return fmt.Sprintf("CallFlags(%d)", e)
 }
 
-// CudaBarrierInstructionKind CUDA Barrier action kind.
+// CudaBarrierInstructionKind represents CUDA Barrier action kind.
 type CudaBarrierInstructionKind int32
 
 const (
@@ -4292,7 +4292,7 @@ func (e CudaBarrierInstructionKind) String() string {
 	return fmt.Sprintf("CudaBarrierInstructionKind(%d)", e)
 }
 
-// CacheControlInstructionKind Cache control action.
+// CacheControlInstructionKind represents cache control action.
 type CacheControlInstructionKind int32
 
 const (
@@ -4317,7 +4317,7 @@ func (e CacheControlInstructionKind) String() string {
 	return fmt.Sprintf("CacheControlInstructionKind(%d)", e)
 }
 
-// WarpgroupMMAAsyncFlags Flags describing a warpgroup aligned MMA async.
+// WarpgroupMMAAsyncFlags represents flags describing a warpgroup aligned MMA async.
 type WarpgroupMMAAsyncFlags int32
 
 const (
@@ -4368,7 +4368,7 @@ func (e LoadMode) String() string {
 	return fmt.Sprintf("LoadMode(%d)", e)
 }
 
-// InstructionId Instrumentation.
+// InstructionId represents instrumentation.
 type InstructionId int32
 
 const (
@@ -4588,7 +4588,7 @@ func (e FunctionLoadedStatus) String() string {
 	return fmt.Sprintf("FunctionLoadedStatus(%d)", e)
 }
 
-// CallbackDomain Callback domains.
+// CallbackDomain represents callback domains.
 type CallbackDomain int32
 
 const (
@@ -4657,7 +4657,7 @@ func (e CallbackDomain) String() string {
 	return fmt.Sprintf("CallbackDomain(%d)", e)
 }
 
-// ApiCallbackSite Specifies the point in an API call that a callback is issued.
+// ApiCallbackSite specifies the point in an API call that a callback is issued.
 type ApiCallbackSite int32
 
 const (
@@ -4679,7 +4679,7 @@ func (e ApiCallbackSite) String() string {
 	return fmt.Sprintf("ApiCallbackSite(%d)", e)
 }
 
-// CallbackIdResource Callback IDs for resource domain.
+// CallbackIdResource represents callback IDs for resource domain.
 type CallbackIdResource int32
 
 const (
@@ -4801,7 +4801,7 @@ func (e CallbackIdResource) String() string {
 	return fmt.Sprintf("CallbackIdResource(%d)", e)
 }
 
-// ResourceMemoryFlags Flags describing a memory allocation.
+// ResourceMemoryFlags represents flags describing a memory allocation.
 type ResourceMemoryFlags int32
 
 const (
@@ -4847,7 +4847,7 @@ func (e ResourceMemoryFlags) String() string {
 	return fmt.Sprintf("ResourceMemoryFlags(%d)", e)
 }
 
-// ResourceMemoryPermissions Permissions for a memory allocation.
+// ResourceMemoryPermissions represents permissions for a memory allocation.
 type ResourceMemoryPermissions int32
 
 const (
@@ -4879,7 +4879,7 @@ func (e ResourceMemoryPermissions) String() string {
 	return fmt.Sprintf("ResourceMemoryPermissions(%d)", e)
 }
 
-// MemoryVisibility Specifies the visibility of an allocation Specifies the visibility of an allocation.
+// MemoryVisibility specifies the visibility of an allocation Specifies the visibility of an allocation.
 type MemoryVisibility int32
 
 const (
@@ -4910,7 +4910,7 @@ func (e MemoryVisibility) String() string {
 	return fmt.Sprintf("MemoryVisibility(%d)", e)
 }
 
-// CallbackIdSync Callback IDs for synchronization domain.
+// CallbackIdSync represents callback IDs for synchronization domain.
 type CallbackIdSync int32
 
 const (
@@ -4942,7 +4942,7 @@ func (e CallbackIdSync) String() string {
 	return fmt.Sprintf("CallbackIdSync(%d)", e)
 }
 
-// CallbackIdLaunch Callback IDs for launch domain.
+// CallbackIdLaunch represents callback IDs for launch domain.
 type CallbackIdLaunch int32
 
 const (
@@ -4973,7 +4973,7 @@ func (e CallbackIdLaunch) String() string {
 	return fmt.Sprintf("CallbackIdLaunch(%d)", e)
 }
 
-// CallbackIdMemcpy Callback IDs for memcpy domain.
+// CallbackIdMemcpy represents callback IDs for memcpy domain.
 type CallbackIdMemcpy int32
 
 const (
@@ -4998,7 +4998,7 @@ func (e CallbackIdMemcpy) String() string {
 	return fmt.Sprintf("CallbackIdMemcpy(%d)", e)
 }
 
-// MemcpyDirection Memcpy direction.
+// MemcpyDirection represents memcpy direction.
 type MemcpyDirection int32
 
 const (
@@ -5032,7 +5032,7 @@ func (e MemcpyDirection) String() string {
 	return fmt.Sprintf("MemcpyDirection(%d)", e)
 }
 
-// CallbackIdMemset Callback IDs for memset domain.
+// CallbackIdMemset represents callback IDs for memset domain.
 type CallbackIdMemset int32
 
 const (
@@ -5057,7 +5057,7 @@ func (e CallbackIdMemset) String() string {
 	return fmt.Sprintf("CallbackIdMemset(%d)", e)
 }
 
-// CallbackIdBatchMemop Callback IDs for batch memop domain.
+// CallbackIdBatchMemop represents callback IDs for batch memop domain.
 type CallbackIdBatchMemop int32
 
 const (
@@ -5088,7 +5088,7 @@ func (e CallbackIdBatchMemop) String() string {
 	return fmt.Sprintf("CallbackIdBatchMemop(%d)", e)
 }
 
-// BatchMemopType Specifies the type of batch memory operation.
+// BatchMemopType specifies the type of batch memory operation.
 type BatchMemopType int32
 
 const (
@@ -5110,7 +5110,7 @@ func (e BatchMemopType) String() string {
 	return fmt.Sprintf("BatchMemopType(%d)", e)
 }
 
-// BatchMemopAtomicOp Specifies the type of atomic operation for batch memory atomic reduction.
+// BatchMemopAtomicOp specifies the type of atomic operation for batch memory atomic reduction.
 type BatchMemopAtomicOp int32
 
 const (
@@ -5135,7 +5135,7 @@ func (e BatchMemopAtomicOp) String() string {
 	return fmt.Sprintf("BatchMemopAtomicOp(%d)", e)
 }
 
-// CallbackIdUvm Callback IDs for managed memory domain.
+// CallbackIdUvm represents callback IDs for managed memory domain.
 type CallbackIdUvm int32
 
 const (
@@ -5161,7 +5161,7 @@ func (e CallbackIdUvm) String() string {
 	return fmt.Sprintf("CallbackIdUvm(%d)", e)
 }
 
-// CallbackIdGraphs Callback IDs for graphs domain.
+// CallbackIdGraphs represents callback IDs for graphs domain.
 type CallbackIdGraphs int32
 
 const (
@@ -5204,7 +5204,7 @@ func (e CallbackIdGraphs) String() string {
 	return fmt.Sprintf("CallbackIdGraphs(%d)", e)
 }
 
-// CallbackIdEvents Callback IDs for events domain.
+// CallbackIdEvents represents callback IDs for events domain.
 type CallbackIdEvents int32
 
 const (
@@ -5256,7 +5256,7 @@ func (e CallbackIdEvents) String() string {
 	return fmt.Sprintf("CallbackIdEvents(%d)", e)
 }
 
-// CallbackIdExternalMemory Callback IDs for external memory domain.
+// CallbackIdExternalMemory represents callback IDs for external memory domain.
 type CallbackIdExternalMemory int32
 
 const (
@@ -5287,7 +5287,7 @@ func (e CallbackIdExternalMemory) String() string {
 	return fmt.Sprintf("CallbackIdExternalMemory(%d)", e)
 }
 
-// CallbackIdErrorLogging Callback IDs for external memory domain.
+// CallbackIdErrorLogging represents callback IDs for external memory domain.
 type CallbackIdErrorLogging int32
 
 const (
