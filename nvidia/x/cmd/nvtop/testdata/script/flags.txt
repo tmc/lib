@@ -6,11 +6,13 @@ stdout '^nvtop version 3\.3\.2-go$'
 exec nvtop --help
 stdout '^Available options:$'
 stdout '-s --snapshot'
+stdout '^Extensions \(not in nvtop\):$'
+stdout '-x --extensions'
 ! stderr .
 
 # A bad flag or argument prints the help to standard error and fails.
-! exec nvtop -x
-stderr 'flag provided but not defined: -x'
+! exec nvtop -Z
+stderr 'flag provided but not defined: -Z'
 stderr 'Available options:'
 ! stdout .
 

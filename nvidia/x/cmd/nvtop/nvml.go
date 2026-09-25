@@ -11,12 +11,16 @@ import (
 // An nvmlSource reads devices through NVML.
 type nvmlSource struct {
 	host    *host // for the memory of unified-memory devices
+	ext     bool  // read the -x fields
 	handles []nvml.Device
 	devs    []*device
 
 	// nvlinks is, per device, the NVLink counters kept between
 	// refreshes.
 	nvlinks []nvlinkCounters
+
+	// counters is, per device, the -x counters kept between refreshes.
+	counters []extCounters
 
 	// lastUtil is, per device, the newest process utilization sample
 	// seen, so that each refresh reads only newer samples.
@@ -36,7 +40,7 @@ func openNVML(h *host) (*nvmlSource, error) {
 		nvml.Shutdown()
 		return nil, fmt.Errorf("count devices: %w", err)
 	}
-	s := &nvmlSource{host: h, lastUtil: make([]uint64, n), nvlinks: make([]nvlinkCounters, n)}
+	s := &nvmlSource{host: h, lastUtil: make([]uint64, n), nvlinks: make([]nvlinkCounters, n), counters: make([]extCounters, n)}
 	for i := range n {
 		hd, err := nvml.NewDeviceByIndex(i)
 		if err != nil {
@@ -154,6 +158,9 @@ func (s *nvmlSource) refresh(d *device) {
 	}
 	if d.nvlink.links > 0 {
 		d.nvlinkRate, d.nvlinkErrs = s.nvlinks[d.index].read(hd, d.nvlink.links, time.Now())
+	}
+	if s.ext {
+		s.counters[d.index].read(hd, d, time.Now())
 	}
 }
 

@@ -28,7 +28,9 @@ func TestParseFlags(t *testing.T) {
 		{args: []string{"-d", "-1"}, status: 2, stderr: "time machine"},
 		{args: []string{"-d", "x"}, status: 2, stderr: "tenths of seconds"},
 		{args: []string{"-E", "x"}, status: 2, stderr: "encode/decode hide time"},
-		{args: []string{"-x"}, status: 2, stderr: "Available options:"},
+		{args: []string{"-Z"}, status: 2, stderr: "Extensions (not in nvtop):"},
+		{args: []string{"-x", "-i"}, want: options{ext: true, infoBar: true, encodeHide: 30 * time.Second}, ok: true},
+		{args: []string{"--extensions"}, want: options{ext: true, encodeHide: 30 * time.Second}, ok: true},
 		{args: []string{"extra"}, status: 2, stderr: "unexpected argument"},
 	}
 	for _, tt := range tests {

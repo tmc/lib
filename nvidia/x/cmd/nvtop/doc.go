@@ -35,6 +35,8 @@
 //	-E seconds
 //		Hide the encoder and decoder meters after this many idle
 //		seconds (default 30); zero or negative keeps them shown.
+//	-x
+//		Turn on the extensions: see Extensions.
 //	-v
 //		Print the version and exit.
 //	-h
@@ -73,6 +75,20 @@
 // devices with active NVLink links, the flit CRC (FL), ECC (EE), and data
 // CRC (CR) errors on those links since nvtop started. NVML reports
 // neither the L2 cache nor the execution engines, so they show N/A.
+//
+// # Extensions
+//
+// With -x, nvtop shows what nvtop proper does not. The help lists the
+// extension flags after nvtop's own.
+//
+// Each header gains a line with the energy the device has used since
+// nvtop started (NRG) and the reasons its clocks are below their maximum
+// (THR), as NVML's clock event reasons name them: idle, app-clocks,
+// sw-power, hw-slow, sync-boost, sw-therm, hw-therm, hw-brake, display,
+// board-limit, and reliability. Where NVML counts the time a reason has
+// held the clocks, the reason shows the share of the last refresh
+// interval it held them, and shows even when it is no longer active.
+// Hardware slowdowns are red; software power and thermal limits yellow.
 //
 // # Snapshots
 //

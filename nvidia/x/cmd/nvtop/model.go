@@ -74,6 +74,11 @@ type device struct {
 	nvlinkRate  opt[uint64] // NVLink TX+RX, KB/s
 	nvlinkErrs  opt[nvlinkErrors]
 
+	// Read only with -x.
+	reasons  opt[uint64]             // clock event reasons, a bitmask
+	throttle opt[[numReasons]uint32] // percent of the last interval each reason held the clocks
+	energy   opt[uint64]             // mJ since nvtop started
+
 	procs []process
 }
 

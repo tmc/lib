@@ -26,6 +26,7 @@ type options struct {
 	noColor    bool
 	fahrenheit bool
 	infoBar    bool
+	ext        bool          // -x: the extensions nvtop does not have
 	encodeHide time.Duration // negative keeps the meters shown
 }
 
@@ -42,6 +43,11 @@ const helpText = `Available options:
   -h --help         : Print help and exit
   -s --snapshot     : Output the current gpu stats without ncurses (useful for scripting)
   -l --loop         : Output the current gpu stats without ncurses in a loop
+`
+
+// extHelpText lists the flags nvtop does not have.
+const extHelpText = `Extensions (not in nvtop):
+  -x --extensions   : Show clock throttle reasons, energy, NVML events and process details
 `
 
 func main() {
@@ -62,6 +68,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	defer src.close()
+	src.ext = opts.ext
 	if len(src.devices()) == 0 {
 		fmt.Fprintln(stdout, "No GPU to monitor.")
 		return 0
@@ -87,7 +94,7 @@ func parseFlags(args []string, stdout, stderr io.Writer) (opts options, status i
 	fs := flag.NewFlagSet("nvtop", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "nvtop version %s\n%s", version, helpText)
+		fmt.Fprintf(fs.Output(), "nvtop version %s\n%s%s", version, helpText, extHelpText)
 	}
 	boolVar := func(p *bool, short, long, usage string) {
 		fs.BoolVar(p, short, false, usage)
@@ -118,6 +125,7 @@ func parseFlags(args []string, stdout, stderr io.Writer) (opts options, status i
 	fs.BoolVar(&opts.noColor, "no-colour", false, "do not use color")
 	boolVar(&opts.fahrenheit, "f", "freedom-unit", "show temperatures in Fahrenheit")
 	boolVar(&opts.infoBar, "i", "gpu-info", "show a bar of more device information")
+	boolVar(&opts.ext, "x", "extensions", "show what nvtop does not")
 	opts.encodeHide = 30 * time.Second
 	hide := func(s string) error {
 		f, err := strconv.ParseFloat(s, 64)
@@ -137,7 +145,7 @@ func parseFlags(args []string, stdout, stderr io.Writer) (opts options, status i
 		return opts, 2, false
 	}
 	if help {
-		fmt.Fprintf(stdout, "nvtop version %s\n%s", version, helpText)
+		fmt.Fprintf(stdout, "nvtop version %s\n%s%s", version, helpText, extHelpText)
 		return opts, 0, false
 	}
 	if fs.NArg() > 0 {

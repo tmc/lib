@@ -21,13 +21,10 @@ const (
 	pcieWidth      = 46
 )
 
-// headerRows is the height of a device header: three lines, and a
-// fourth with -i.
+// headerRows is the height of a device header: three lines, one more
+// with -i, and one more with -x.
 func (u *ui) headerRows() uint {
-	if u.opts.infoBar {
-		return 4
-	}
-	return 3
+	return 3 + b2u(u.opts.infoBar) + b2u(u.opts.ext)
 }
 
 // The widths of the fields on a header's fourth line.
@@ -293,8 +290,13 @@ func (u *ui) drawDevice(s *screen, r rect, i int, d *device, now time.Time) {
 		meter(memWin, "MEM", 0, "N/A")
 	}
 
+	y = r.y + 3
 	if u.opts.infoBar {
-		u.drawInfoBar(s, r.x, r.y+3, d)
+		u.drawInfoBar(s, r.x, y, d)
+		y++
+	}
+	if u.opts.ext {
+		u.drawExtLine(s.window(r.x, y, r.w, 1), d)
 	}
 }
 
