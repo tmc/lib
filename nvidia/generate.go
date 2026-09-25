@@ -76,7 +76,7 @@ package nvidia
 // what moved before committing.
 
 // Eject the pinned local ARM64 registrar before generating its NCCL callers.
-// FFI_SRC may name a clean checkout of the revision in scripts/ffi.sh.
+// FFI_SRC names a tmc/ffi clone holding the revision in scripts/ffi.sh.
 //go:generate sh scripts/ffi.sh
 
 //go:generate -command nvgen nvgen -output .
