@@ -24,19 +24,6 @@ type captureHandshake struct {
 	InjectionFailure string `json:"injection_failure,omitempty"`
 }
 
-const (
-	recordBootstrap  uint16 = 1
-	recordActivity   uint16 = 2
-	recordFinalized  uint16 = 3
-	recordCapability uint16 = 4
-	recordFailure    uint16 = 5
-	recordExternal   uint16 = 6
-	recordAPI        uint16 = 7
-	recordHost       uint16 = 8
-	recordModule     uint16 = 9
-	recordPCSample   uint16 = 10
-)
-
 type captureRecordPayload struct {
 	State               string     `json:"state"`
 	Kind                string     `json:"kind"`
@@ -140,7 +127,7 @@ type observeOptions struct {
 	// generation of its own is then a target that ran no CUDA, as a
 	// preloaded target reports in a journal of its own.
 	cudaInjection bool
-	noInject           bool
+	noInject      bool
 	// targetOnly restricts the totals and the projection to the target's own
 	// generation. It is spelled negatively because following children is the
 	// default -- injection is inherited across exec, so a child is already
@@ -907,7 +894,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				workers[key] = worker
 			}
 			worker.Records++
-			if record.Kind == recordActivity {
+			if record.Kind == wire.KindActivity {
 				worker.ActivityRecords++
 			}
 			var workerPayload captureRecordPayload
@@ -916,12 +903,12 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				continue
 			}
 			switch record.Kind {
-			case recordFinalized:
+			case wire.KindFinalized:
 				worker.Finalized = true
 				if workerPayload.State == "producer_failure" {
 					worker.Failure = workerPayload.State
 				}
-			case recordFailure:
+			case wire.KindFailure:
 				worker.Failure = workerPayload.State
 			}
 			if worker.Finalized {
@@ -958,19 +945,19 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("capture journal contains invalid typed record")
 		}
 		switch record.Kind {
-		case recordBootstrap:
+		case wire.KindBootstrap:
 			if terminal || state.bootstrap || payload.Kind != "bootstrap" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid bootstrap ordering")
 			}
 			state.bootstrap = true
-		case recordCapability:
+		case wire.KindCapability:
 			if terminal || !state.bootstrap || state.capability || payload.Kind != "capability" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid capability ordering")
 			}
 			state.capability = true
 			state.capabilityData = append(json.RawMessage(nil), record.Payload...)
 			state.agentRevision = agentRevision(record.Payload)
-		case recordActivity:
+		case wire.KindActivity:
 			if terminal || !state.bootstrap || !state.capability || payload.Kind != "activity" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order activity")
 			}
@@ -1136,7 +1123,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				}
 				metrics.duration += d
 			}
-		case recordExternal:
+		case wire.KindExternal:
 			if terminal || !state.bootstrap || !state.capability || payload.Kind != "external_correlation" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order external correlation")
 			}
@@ -1161,7 +1148,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 					ExternalID:   payload.ExternalID,
 				})
 			}
-		case recordAPI:
+		case wire.KindAPI:
 			if terminal || !state.bootstrap || !state.capability || payload.Kind != "api" {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order API record")
 			}
@@ -1169,7 +1156,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown API domain")
 			}
 			apis = append(apis, captureAPI{Domain: payload.Domain, CallbackID: payload.CallbackID, Start: payload.Start, End: payload.End, ProcessID: payload.ProcessID, ThreadID: payload.ThreadID, Correlation: payload.Correlation, ReturnValue: payload.ReturnValue})
-		case recordHost:
+		case wire.KindHost:
 			// Host run-state samples. They are not device work and never
 			// enter the activity totals: this stream says what the host was
 			// doing during a device gap, which is exactly the question the
@@ -1180,7 +1167,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order host sample")
 			}
 			metrics.hostSamples++
-		case recordModule:
+		case wire.KindModule:
 			// Module images. Like host samples these are not device work and
 			// never enter the activity totals; unlike them they are not gated
 			// by the capture range, because a module is loaded when the target
@@ -1198,7 +1185,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				Reason:    payload.ModuleReason,
 				Unchecked: payload.ModuleUnchecked,
 			})
-		case recordPCSample:
+		case wire.KindPCSample:
 			// PC samples and the sampler's own summary, gated like module
 			// records on nothing more than the producer having identified
 			// itself: both are written at finalization, after the ring has
@@ -1229,7 +1216,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			default:
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped PC sample record")
 			}
-		case recordFinalized:
+		case wire.KindFinalized:
 			if terminal || !state.bootstrap || !state.capability {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid finalized ordering")
 			}
@@ -1265,7 +1252,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			default:
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown finalized state")
 			}
-		case recordFailure:
+		case wire.KindFailure:
 			if terminal {
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("failure after finalized record")
 			}

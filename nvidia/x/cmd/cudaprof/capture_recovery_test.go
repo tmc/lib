@@ -26,9 +26,9 @@ func recoverySession(t *testing.T, writeWorker func(t *testing.T, dir string, si
 
 	writeHandshake(t, dir, session, 41, 2)
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
 	})
 
 	workerDir := filepath.Join(dir, "process-42-3")
@@ -74,10 +74,10 @@ func appendRecords(t *testing.T, path string, sid [16]byte, process, generation 
 func unfinalizedWorker(t *testing.T, dir string, sid [16]byte) {
 	t.Helper()
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 42, 3, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"memcpy","valid":true,"start":30,"end":40,"bytes":64}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"memcpy","valid":true,"start":30,"end":40,"bytes":64}`)},
 	})
 }
 
@@ -144,10 +144,10 @@ func TestRecoverUnfinalizedPartialOnly(t *testing.T) {
 func TestRecoverUnfinalizedKeepsFinalizedPositive(t *testing.T) {
 	dir := recoverySession(t, func(t *testing.T, dir string, sid [16]byte) {
 		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 42, 3, []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-			{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+			{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected"}`)},
 		})
 	})
 	for _, recover := range []bool{false, true} {
@@ -175,10 +175,10 @@ func TestRecoverUnfinalizedDemotesCollectedTarget(t *testing.T) {
 	copy(sid[:], raw)
 	writeHandshake(t, dir, session, 41, 2)
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected"}`)},
 	})
 	workerDir := filepath.Join(dir, "process-42-3")
 	if err := os.MkdirAll(workerDir, 0700); err != nil {
@@ -230,9 +230,9 @@ func TestRecoverUnfinalizedRejectsTruncated(t *testing.T) {
 func TestRecoverUnfinalizedRejectsIdentityMismatch(t *testing.T) {
 	dir := recoverySession(t, func(t *testing.T, dir string, sid [16]byte) {
 		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 42, 4, []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
 		})
 	})
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, "00112233445566778899aabbccddeeff", observeOptions{injectionRequested: true, recoverUnfinalized: true})
@@ -250,10 +250,10 @@ func TestRecoverUnfinalizedRejectsIdentityMismatch(t *testing.T) {
 func TestRecoverUnfinalizedPreservesLossDisposition(t *testing.T) {
 	dir := recoverySession(t, func(t *testing.T, dir string, sid [16]byte) {
 		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 42, 3, []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-			{Kind: recordFailure, Payload: []byte(`{"state":"producer_failure"}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+			{Kind: wire.KindFailure, Payload: []byte(`{"state":"producer_failure"}`)},
 		})
 	})
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, "00112233445566778899aabbccddeeff", observeOptions{injectionRequested: true, recoverUnfinalized: true})
@@ -283,8 +283,8 @@ func TestUnfinalizedTargetStillReportsWhatItRead(t *testing.T) {
 
 	writeHandshake(t, dir, session, 41, 2)
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 	})
 
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
@@ -333,10 +333,10 @@ func targetSession(t *testing.T, writeTarget func(t *testing.T, dir string, sid 
 func flushedTargetJournal(t *testing.T, dir string, sid [16]byte) {
 	t.Helper()
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"memcpy","valid":true,"start":30,"end":40,"bytes":64}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"memcpy","valid":true,"start":30,"end":40,"bytes":64}`)},
 	})
 }
 
@@ -417,8 +417,8 @@ func TestRecoverUnfinalizedTargetDefaultsOff(t *testing.T) {
 func TestRecoverUnfinalizedTargetKeepsDiagnosisWhenNothingWasFlushed(t *testing.T) {
 	dir := targetSession(t, func(t *testing.T, dir string, sid [16]byte) {
 		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 		})
 	})
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, "00112233445566778899aabbccddeeff", observeOptions{injectionRequested: true, recoverUnfinalized: true})
@@ -436,10 +436,10 @@ func TestRecoverUnfinalizedTargetKeepsDiagnosisWhenNothingWasFlushed(t *testing.
 func TestRecoverUnfinalizedTargetKeepsProducerFailure(t *testing.T) {
 	dir := targetSession(t, func(t *testing.T, dir string, sid [16]byte) {
 		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-			{Kind: recordFailure, Payload: []byte(`{"state":"cupti_unavailable","error":"libcupti.so not found"}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+			{Kind: wire.KindFailure, Payload: []byte(`{"state":"cupti_unavailable","error":"libcupti.so not found"}`)},
 		})
 	})
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, "00112233445566778899aabbccddeeff", observeOptions{injectionRequested: true, recoverUnfinalized: true})
@@ -526,9 +526,9 @@ func TestUnfinalizedTargetReportsTheTransportItUsed(t *testing.T) {
 	dir := t.TempDir()
 	writeHandshake(t, dir, session, 41, 2)
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
 	})
 
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
@@ -570,8 +570,8 @@ func TestUnfinalizedTargetReportsTheTransportItUsed(t *testing.T) {
 		t.Fatal(err)
 	}
 	appendRecords(t, filepath.Join(denied, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 	})
 	if got := observeCaptureSession(captureResult{TargetPID: 41}, denied, session, observeOptions{injectionRequested: true}); got.TransportReady {
 		t.Errorf("handshake said transport_ready:false and the capture published true: %+v", got)
@@ -596,9 +596,9 @@ func TestNotFinalizedIsNotATransportFailure(t *testing.T) {
 		dir := t.TempDir()
 		writeHandshake(t, dir, session, 41, 2)
 		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
 		})
 		return dir
 	}

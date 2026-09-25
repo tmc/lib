@@ -540,7 +540,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 		}
 		noCUDA.observe(r.Kind, p.Subtype, r.Payload)
 		switch r.Kind {
-		case recordActivity:
+		case wire.KindActivity:
 			if p.Dropped > 0 {
 				return fmt.Errorf("journal %s reports %d dropped record(s), so the timeline is missing activities", name, p.Dropped)
 			}
@@ -571,12 +571,12 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				continue
 			}
 			*out = append(*out, traceRecord{rec: activityRecord(p), kind: trackDevice, group: [2]uint32{p.Device, p.Stream}})
-		case recordAPI:
+		case wire.KindAPI:
 			if p.Start == 0 || p.End < p.Start {
 				continue
 			}
 			*out = append(*out, traceRecord{rec: apiRecord(p), kind: trackHost, group: [2]uint32{p.ProcessID, p.ThreadID}})
-		case recordExternal:
+		case wire.KindExternal:
 			// No interval, so no slice: this record is a link, not work. It
 			// is kept for the join below, which is the only thing that can
 			// say which framework scope the device records ran under.
@@ -589,7 +589,7 @@ func decodeTraceJournal(name string, reader io.Reader, maxRecords int64, out *[]
 				ExternalKind:  cupti.ExternalCorrelationKind(p.ExternalKind),
 				ExternalID:    p.ExternalID,
 			})
-		case recordFinalized:
+		case wire.KindFinalized:
 			finalized = true
 			if p.Dropped > 0 {
 				return fmt.Errorf("journal %s finalized with %d dropped record(s), so the timeline is missing activities", name, p.Dropped)

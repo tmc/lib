@@ -32,13 +32,13 @@ func TestModuleRecordsDecode(t *testing.T) {
 	dir := t.TempDir()
 	journalPath := filepath.Join(dir, "capture.journal")
 	appendRecords(t, journalPath, moduleSessionID(t), 1234, 1, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordModule, Payload: []byte(`{"kind":"module","module_id":22,"module_size":4096,"module_file":"module-0000-id22.cubin","module_stored":true,"module_reason":""}`)},
-		{Kind: recordModule, Payload: []byte(`{"kind":"module","module_id":23,"module_size":99999999,"module_file":"","module_stored":false,"module_reason":"file_budget"}`)},
-		{Kind: recordModule, Payload: []byte(`{"kind":"module","module_id":22,"module_size":4096,"module_file":"module-0002-id22.cubin","module_stored":true,"module_reason":"","module_unchecked":true}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200,"module_id":22}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindModule, Payload: []byte(`{"kind":"module","module_id":22,"module_size":4096,"module_file":"module-0000-id22.cubin","module_stored":true,"module_reason":""}`)},
+		{Kind: wire.KindModule, Payload: []byte(`{"kind":"module","module_id":23,"module_size":99999999,"module_file":"","module_stored":false,"module_reason":"file_budget"}`)},
+		{Kind: wire.KindModule, Payload: []byte(`{"kind":"module","module_id":22,"module_size":4096,"module_file":"module-0002-id22.cubin","module_stored":true,"module_reason":"","module_unchecked":true}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200,"module_id":22}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
 	})
 
 	_, _, metrics, activities, _, _, err := observeJournal(journalPath, moduleSession, 1234, 0)

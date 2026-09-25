@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 )
@@ -284,7 +285,7 @@ func TestUnreadSource(t *testing.T) {
 	ran := func(modules ...uint32) []byte {
 		b := newJournalBuilder()
 		for i, m := range modules {
-			b.append(recordActivity, map[string]any{
+			b.append(wire.KindActivity, map[string]any{
 				"kind": "activity", "subtype": "kernel", "valid": true, "name": "ds4_rms",
 				"start": 1000 * (i + 1), "end": 1000*(i+1) + 500, "device": 0, "correlation": i + 1, "module_id": m,
 			})

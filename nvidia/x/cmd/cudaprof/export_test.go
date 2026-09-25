@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 )
 
 // traceActivity appends one activity with an explicit stream and name, which
@@ -22,7 +23,7 @@ func (b *journalBuilder) traceActivity(subtype, name string, device, stream uint
 	case "graph_trace":
 		p["graph_id"] = 5
 	}
-	b.append(recordActivity, p)
+	b.append(wire.KindActivity, p)
 	return b
 }
 
@@ -30,7 +31,7 @@ func (b *journalBuilder) traceActivity(subtype, name string, device, stream uint
 // time, never as a pair, because that is how CUPTI delivers them: the range is
 // something a consumer reconstructs, not something the journal holds.
 func (b *journalBuilder) traceMarker(name, domain string, id, flags, pid, tid uint32, timestamp uint64) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": "marker", "valid": true, "name": name,
 		"marker_domain": domain, "marker_id": id, "marker_flags": flags,
 		"process_id": pid, "thread_id": tid,
@@ -103,7 +104,7 @@ func TestExportGroupsHostAndDeviceSeparately(t *testing.T) {
 	// would pass on the defect it is meant to catch -- which it did until this
 	// fixture was fixed.
 	b.traceActivity("kernel", "k", 0, 1, 5_000, 6_000, 1)
-	b.append(recordAPI, map[string]any{
+	b.append(wire.KindAPI, map[string]any{
 		"kind": "api", "domain": "driver", "start": 7_000, "end": 8_000,
 		"process_id": 0, "thread_id": 1, "correlation": 1,
 	})
@@ -137,7 +138,7 @@ func TestExportRefusesIncompleteJournals(t *testing.T) {
 			data: func() []byte {
 				b := newJournalBuilder()
 				b.traceActivity("kernel", "k", 0, 1, 1_000, 2_000, 1)
-				b.append(recordActivity, map[string]any{"kind": "activity", "dropped": 3})
+				b.append(wire.KindActivity, map[string]any{"kind": "activity", "dropped": 3})
 				return b.finalize()
 			},
 			want: "dropped",
@@ -156,7 +157,7 @@ func TestExportRefusesIncompleteJournals(t *testing.T) {
 			data: func() []byte {
 				b := newJournalBuilder()
 				b.traceActivity("kernel", "k", 0, 1, 1_000, 2_000, 1)
-				b.append(recordFinalized, map[string]any{"kind": "finalized", "state": "collected", "dropped": 2})
+				b.append(wire.KindFinalized, map[string]any{"kind": "finalized", "state": "collected", "dropped": 2})
 				return append([]byte(nil), b.buf.Bytes()...)
 			},
 			want: "dropped",
@@ -278,7 +279,7 @@ func TestExportPairsNVTXMarkersIntoRanges(t *testing.T) {
 func TestExportKeepsNVTXOffTheHostAPITrack(t *testing.T) {
 	b := newJournalBuilder()
 	b.traceActivity("kernel", "k", 0, 1, 5000, 6000, 1)
-	b.append(recordAPI, map[string]any{
+	b.append(wire.KindAPI, map[string]any{
 		"kind": "api", "domain": "runtime", "start": 1000, "end": 1100,
 		"process_id": 100, "thread_id": 200, "correlation": 1,
 	})
@@ -395,7 +396,7 @@ func TestExportKeepsCaptureRangeOutOfTheNVTXPairing(t *testing.T) {
 		edge string
 		ts   uint64
 	}{{"start", 3_000}, {"stop", 8_000}} {
-		b.append(recordActivity, map[string]any{
+		b.append(wire.KindActivity, map[string]any{
 			"kind": "activity", "subtype": "capture_range", "valid": true,
 			"edge": e.edge, "api": "cudaProfilerStart", "index": 0,
 			"toggle_failures": 0, "start": e.ts, "end": e.ts,
@@ -463,7 +464,7 @@ func TestExportKeepsMemsetsOutOfTheKernelKind(t *testing.T) {
 // that externalID was the framework scope on the stack while correlation was
 // the live native ID.
 func (b *journalBuilder) traceExternal(kind uint32, externalID uint64, correlation uint32) *journalBuilder {
-	b.append(recordExternal, map[string]any{
+	b.append(wire.KindExternal, map[string]any{
 		"kind": "external_correlation", "external_kind": kind, "external_id": externalID, "correlation": correlation,
 	})
 	return b
@@ -566,7 +567,7 @@ func TestExportKeepsTheIdleExplainingTiersOutOfTheKernelKind(t *testing.T) {
 	b.traceActivity("kernel", "k", 0, 7, 1_000, 2_000, 1)
 	b.traceActivity("graph_trace", "", 0, 7, 3_000, 4_000, 2)
 	b.traceActivity("sync", "", 0, 7, 5_000, 6_000, 3)
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": "overhead", "valid": true,
 		"start": 7_000, "end": 8_000, "overhead_kind": 1 << 16, "object_kind": 2,
 		"process_id": 4242, "thread_id": 99,

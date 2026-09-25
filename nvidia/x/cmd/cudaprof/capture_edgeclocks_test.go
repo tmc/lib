@@ -157,7 +157,7 @@ func TestEdgeClocksSampleWhileTargetRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	frame := func(seq uint64, ts uint64, payload string) []byte {
-		b, err := wire.Record{Kind: recordActivity, Identity: wire.Identity{Session: session, Process: 4242, Generation: 7}, Sequence: seq, Timestamp: ts, Payload: []byte(payload)}.MarshalBinary(wire.Limits{})
+		b, err := wire.Record{Kind: wire.KindActivity, Identity: wire.Identity{Session: session, Process: 4242, Generation: 7}, Sequence: seq, Timestamp: ts, Payload: []byte(payload)}.MarshalBinary(wire.Limits{})
 		if err != nil {
 			t.Fatal(err)
 		}

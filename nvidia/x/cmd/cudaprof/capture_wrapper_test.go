@@ -48,12 +48,12 @@ func TestObserveCaptureSessionKeepsAWrapperTargetsChildren(t *testing.T) {
 			t.Fatal(err)
 		}
 		all := []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(capability)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(capability)},
 		}
 		all = append(all, records...)
 		if finalized != "" {
-			all = append(all, wire.Record{Kind: recordFinalized, Payload: []byte(finalized)})
+			all = append(all, wire.Record{Kind: wire.KindFinalized, Payload: []byte(finalized)})
 		}
 		for i := range all {
 			all[i].Identity = wire.Identity{Session: sid, Process: process, Generation: generation}
@@ -67,8 +67,8 @@ func TestObserveCaptureSessionKeepsAWrapperTargetsChildren(t *testing.T) {
 		}
 	}
 	const notes = `{"kind":"capability","device_active_note":true}`
-	deviceActive := wire.Record{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"device_active"}`)}
-	kernel := wire.Record{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":30}`)}
+	deviceActive := wire.Record{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"device_active"}`)}
+	kernel := wire.Record{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":30}`)}
 
 	// session builds one capture session: a target generation of the given
 	// shape and one CUDA child that finalized cleanly.

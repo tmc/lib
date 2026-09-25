@@ -232,10 +232,10 @@ func TestObserveJournalKeepsLossBreakdown(t *testing.T) {
 		`"queue_oversize_dropped":0,"queue_contention_dropped":50,"queue_capacity_dropped":750,` +
 		`"offered":1000,"retained":100}`
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-		{Kind: recordFinalized, Payload: []byte(finalized)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(finalized)},
 	})
 
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
@@ -266,10 +266,10 @@ func TestObserveJournalLossBreakdownAbsent(t *testing.T) {
 	copy(sid[:], raw)
 	writeHandshake(t, dir, session, 41, 2)
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected"}`)},
 	})
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
 	if got.RecordLoss != nil {

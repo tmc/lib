@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 )
 
 // Callback IDs from cupti/enums.gen.go (CUPTI cupti_driver_cbid.h and
@@ -20,7 +22,7 @@ const (
 
 // hostAPI appends one API record with the fields the host-cost audit reads.
 func (b *journalBuilder) hostAPI(domain string, cbid uint32, start, end uint64, thread, correlation uint32) *journalBuilder {
-	b.append(recordAPI, map[string]any{
+	b.append(wire.KindAPI, map[string]any{
 		"kind": "api", "domain": domain, "callback_id": cbid, "start": start, "end": end,
 		"process_id": 4242, "thread_id": thread, "correlation": correlation,
 	})
@@ -30,7 +32,7 @@ func (b *journalBuilder) hostAPI(domain string, cbid uint32, start, end uint64, 
 // memcpy appends one copy activity naming the driver and runtime correlation
 // of the call that issued it.
 func (b *journalBuilder) memcpy(start, end, bytes uint64, kind uint8, stream, correlation, runtimeCorrelation uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": "memcpy", "valid": true, "start": start, "end": end,
 		"bytes": bytes, "copy_kind": kind, "device": 0, "stream": stream,
 		"correlation": correlation, "runtime_correlation": runtimeCorrelation,

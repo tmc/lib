@@ -19,13 +19,13 @@ func TestPCSampleRecordsDecode(t *testing.T) {
 	dir := t.TempDir()
 	journalPath := filepath.Join(dir, "capture.journal")
 	appendRecords(t, journalPath, moduleSessionID(t), 1234, 1, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200,"module_id":22}`)},
-		{Kind: recordPCSample, Payload: []byte(`{"kind":"pcsample","module_id":22,"pc_offset":112,"pc_samples":9,"pc_function":"fused_gate"}`)},
-		{Kind: recordPCSample, Payload: []byte(`{"kind":"pcsample","module_id":23,"pc_offset":16,"pc_samples":4,"pc_function":"fused_gate"}`)},
-		{Kind: recordPCSample, Payload: []byte(`{"kind":"pcsampling","pc_period":10,"pc_hardware_bytes":16777216,"pc_distinct":13,"pc_written":13,"pc_folded":78,"pc_total":144,"pc_hw_dropped":0,"pc_unkeyed":0,"pc_overflows":0}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200,"module_id":22}`)},
+		{Kind: wire.KindPCSample, Payload: []byte(`{"kind":"pcsample","module_id":22,"pc_offset":112,"pc_samples":9,"pc_function":"fused_gate"}`)},
+		{Kind: wire.KindPCSample, Payload: []byte(`{"kind":"pcsample","module_id":23,"pc_offset":16,"pc_samples":4,"pc_function":"fused_gate"}`)},
+		{Kind: wire.KindPCSample, Payload: []byte(`{"kind":"pcsampling","pc_period":10,"pc_hardware_bytes":16777216,"pc_distinct":13,"pc_written":13,"pc_folded":78,"pc_total":144,"pc_hw_dropped":0,"pc_unkeyed":0,"pc_overflows":0}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
 	})
 
 	_, _, metrics, activities, _, _, err := observeJournal(journalPath, moduleSession, 1234, 0)
@@ -59,10 +59,10 @@ func TestPCSampleRecordRejectsUnknownKind(t *testing.T) {
 	dir := t.TempDir()
 	journalPath := filepath.Join(dir, "capture.journal")
 	appendRecords(t, journalPath, moduleSessionID(t), 1234, 1, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordPCSample, Payload: []byte(`{"kind":"pcwhatever"}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindPCSample, Payload: []byte(`{"kind":"pcwhatever"}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected"}`)},
 	})
 	if _, _, _, _, _, _, err := observeJournal(journalPath, moduleSession, 1234, 0); err == nil {
 		t.Fatal("an unknown PC sample payload was accepted")

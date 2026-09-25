@@ -21,12 +21,12 @@ func projectionSession(t *testing.T) string {
 	copy(sid[:], raw)
 	writeHandshake(t, dir, completenessSessionID, 41, 2)
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"ampere_sgemm_128x64_tn","valid":true,"start":10,"end":30}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"elementwise_add","valid":true,"start":40,"end":55}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"memcpy","name":"ampere_sgemm_128x64_tn","valid":true,"start":60,"end":70,"bytes":1024}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":3}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"ampere_sgemm_128x64_tn","valid":true,"start":10,"end":30}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"elementwise_add","valid":true,"start":40,"end":55}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"memcpy","name":"ampere_sgemm_128x64_tn","valid":true,"start":60,"end":70,"bytes":1024}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":3}`)},
 	})
 	return dir
 }

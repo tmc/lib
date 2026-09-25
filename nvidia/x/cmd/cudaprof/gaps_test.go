@@ -26,8 +26,8 @@ type journalBuilder struct {
 func newJournalBuilder() *journalBuilder {
 	b := &journalBuilder{}
 	b.session[0] = 0x42
-	b.append(recordBootstrap, map[string]any{"kind": "bootstrap"})
-	b.append(recordCapability, map[string]any{"kind": "capability"})
+	b.append(wire.KindBootstrap, map[string]any{"kind": "bootstrap"})
+	b.append(wire.KindCapability, map[string]any{"kind": "capability"})
 	return b
 }
 
@@ -54,7 +54,7 @@ func (b *journalBuilder) kernel(start, end uint64, correlation uint32) *journalB
 }
 
 func (b *journalBuilder) activity(subtype string, device uint32, start, end uint64, correlation uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": subtype, "valid": true,
 		"start": start, "end": end, "device": device, "correlation": correlation,
 	})
@@ -65,7 +65,7 @@ func (b *journalBuilder) activity(subtype string, device uint32, start, end uint
 // matters only here: it is what a synchronization record is resolved through,
 // and a fixture whose kernels name no context can never exercise resolution.
 func (b *journalBuilder) kernelOn(device, context uint32, start, end uint64, correlation uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": "kernel", "valid": true,
 		"start": start, "end": end, "device": device, "context": context, "correlation": correlation,
 	})
@@ -75,7 +75,7 @@ func (b *journalBuilder) kernelOn(device, context uint32, start, end uint64, cor
 // overhead appends one CUPTI overhead span. It carries no device, exactly as
 // the producer writes it: CUPTI's own cost is charged to a host thread.
 func (b *journalBuilder) overhead(start, end uint64, overheadKind uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": "overhead", "valid": true,
 		"start": start, "end": end, "overhead_kind": overheadKind, "object_kind": 2,
 		"process_id": 4242, "thread_id": 99,
@@ -87,7 +87,7 @@ func (b *journalBuilder) overhead(start, end uint64, overheadKind uint32) *journ
 // which is what makes a replay envelope's exclusion sound: the envelope is
 // excluded because it spans records like this one.
 func (b *journalBuilder) graphNode(device, context uint32, start, end uint64, correlation, graphID uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": "kernel", "valid": true,
 		"start": start, "end": end, "device": device, "context": context,
 		"correlation": correlation, "graph_id": graphID,
@@ -97,7 +97,7 @@ func (b *journalBuilder) graphNode(device, context uint32, start, end uint64, co
 
 // graphTrace appends one graph replay envelope, which does carry a device.
 func (b *journalBuilder) graphTrace(device uint32, start, end uint64, graphID, correlation uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": "graph_trace", "valid": true,
 		"start": start, "end": end, "device": device, "graph_id": graphID, "correlation": correlation,
 	})
@@ -107,7 +107,7 @@ func (b *journalBuilder) graphTrace(device uint32, start, end uint64, graphID, c
 // sync appends one synchronization span. It names a context and no device,
 // because CUpti_ActivitySynchronization has no device field to name.
 func (b *journalBuilder) sync(context uint32, start, end uint64, syncType, correlation uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": "sync", "valid": true,
 		"start": start, "end": end, "context": context, "sync_type": syncType,
 		"cuda_event_id": 3, "correlation": correlation,
@@ -117,14 +117,14 @@ func (b *journalBuilder) sync(context uint32, start, end uint64, syncType, corre
 
 // api appends one driver launch record correlated to an activity.
 func (b *journalBuilder) api(start, end uint64, correlation uint32) *journalBuilder {
-	b.append(recordAPI, map[string]any{
+	b.append(wire.KindAPI, map[string]any{
 		"kind": "api", "domain": "driver", "start": start, "end": end, "correlation": correlation,
 	})
 	return b
 }
 
 func (b *journalBuilder) finalize() []byte {
-	b.append(recordFinalized, map[string]any{"kind": "finalized", "state": "collected"})
+	b.append(wire.KindFinalized, map[string]any{"kind": "finalized", "state": "collected"})
 	return append([]byte(nil), b.buf.Bytes()...)
 }
 
@@ -775,7 +775,7 @@ func TestGapsIgnoresNVTXMarkers(t *testing.T) {
 		{markerFlagEnd, 9_000},
 		{markerFlagInstantaneous, 4_500},
 	} {
-		marked.append(recordActivity, map[string]any{
+		marked.append(wire.KindActivity, map[string]any{
 			"kind": "activity", "subtype": "marker", "valid": true, "name": "prefill",
 			"marker_domain": "ds4", "marker_id": 1, "marker_flags": m.flags,
 			"process_id": 100, "thread_id": 200,
@@ -843,7 +843,7 @@ func TestGapsIgnoresCaptureRangeEdges(t *testing.T) {
 		{"stop", 4_400, 4_600},
 		{"start", 9_000, 9_500},
 	} {
-		ranged.append(recordActivity, map[string]any{
+		ranged.append(wire.KindActivity, map[string]any{
 			"kind": "activity", "subtype": "capture_range", "valid": true,
 			"edge": e.edge, "api": "cudaProfilerStart", "index": 0,
 			"toggle_failures": 0, "start": e.start, "end": e.end,
@@ -1327,7 +1327,7 @@ func TestOpaqueGraphReplayIsNotIdle(t *testing.T) {
 // namedKernel appends one kernel activity carrying its name, which is what the
 // per-kernel census counts by.
 func (b *journalBuilder) namedKernel(name string, start, end uint64, correlation uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": "kernel", "valid": true,
 		"name": name, "start": start, "end": end, "device": 0, "correlation": correlation,
 	})
@@ -1336,7 +1336,7 @@ func (b *journalBuilder) namedKernel(name string, start, end uint64, correlation
 
 // namedActivity appends one named activity of any subtype.
 func (b *journalBuilder) namedActivity(subtype, name string, start, end uint64, correlation uint32) *journalBuilder {
-	b.append(recordActivity, map[string]any{
+	b.append(wire.KindActivity, map[string]any{
 		"kind": "activity", "subtype": subtype, "valid": true,
 		"name": name, "start": start, "end": end, "device": 0, "correlation": correlation,
 	})
@@ -1538,8 +1538,8 @@ func TestUnfinalizedNoCUDAJournal(t *testing.T) {
 	worker := func(capability map[string]any, body func(*journalBuilder)) []byte {
 		b := &journalBuilder{}
 		b.session[0] = 0x42
-		b.append(recordBootstrap, map[string]any{"kind": "bootstrap"})
-		b.append(recordCapability, capability)
+		b.append(wire.KindBootstrap, map[string]any{"kind": "bootstrap"})
+		b.append(wire.KindCapability, capability)
 		if body != nil {
 			body(b)
 		}
@@ -1554,15 +1554,15 @@ func TestUnfinalizedNoCUDAJournal(t *testing.T) {
 		{name: "bootstrap and capability only", journal: worker(noted, nil)},
 		{name: "host api only", journal: worker(noted, func(b *journalBuilder) { b.api(1, 2, 99) })},
 		{name: "capture range edge only", journal: worker(noted, func(b *journalBuilder) {
-			b.append(recordActivity, map[string]any{"kind": "activity", "subtype": "capture_range", "valid": true, "start": 1, "end": 1})
+			b.append(wire.KindActivity, map[string]any{"kind": "activity", "subtype": "capture_range", "valid": true, "start": 1, "end": 1})
 		})},
 		{name: "producer without the note", journal: worker(map[string]any{"kind": "capability"}, nil), wantErr: "never finalized"},
 		{name: "device active", journal: worker(noted, func(b *journalBuilder) {
-			b.append(recordActivity, map[string]any{"kind": "activity", "subtype": "device_active"})
+			b.append(wire.KindActivity, map[string]any{"kind": "activity", "subtype": "device_active"})
 		}), wantErr: "never finalized"},
 		{name: "device work", journal: worker(noted, func(b *journalBuilder) { b.kernel(10, 20, 1) }), wantErr: "never finalized"},
 		{name: "producer failure", journal: worker(noted, func(b *journalBuilder) {
-			b.append(recordFailure, map[string]any{"kind": "failure", "state": "producer_failure"})
+			b.append(wire.KindFailure, map[string]any{"kind": "failure", "state": "producer_failure"})
 		}), wantErr: "never finalized"},
 	}
 	for _, tt := range tests {

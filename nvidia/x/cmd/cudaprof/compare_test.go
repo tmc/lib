@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
@@ -37,7 +38,7 @@ func compareJournal(recs []rec) []byte {
 			payload["block_x"], payload["block_y"], payload["block_z"] = c.Block[0], c.Block[1], c.Block[2]
 			payload["dynamic_shared_memory"] = c.SharedMemory
 		}
-		b.append(recordActivity, payload)
+		b.append(wire.KindActivity, payload)
 	}
 	return b.finalize()
 }

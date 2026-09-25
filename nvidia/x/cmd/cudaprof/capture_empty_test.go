@@ -63,20 +63,20 @@ func TestObserveGoExit(t *testing.T) {
 	goID := identifyExecutable(goExe)
 	bootstrapOnly := func(t *testing.T, dir string, sid [16]byte) {
 		appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 		})
 	}
 	finalized := func(state string) func(t *testing.T, dir string, sid [16]byte) {
 		return func(t *testing.T, dir string, sid [16]byte) {
 			records := []wire.Record{
-				{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-				{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+				{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+				{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 			}
 			if state == "collected" {
-				records = append(records, wire.Record{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)})
+				records = append(records, wire.Record{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)})
 			}
-			records = append(records, wire.Record{Kind: recordFinalized, Payload: []byte(`{"state":"` + state + `"}`)})
+			records = append(records, wire.Record{Kind: wire.KindFinalized, Payload: []byte(`{"state":"` + state + `"}`)})
 			appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, records)
 		}
 	}

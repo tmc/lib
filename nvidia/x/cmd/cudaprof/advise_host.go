@@ -133,7 +133,7 @@ func (j *hostAPIJournal) decode(name string, data []byte) error {
 		if err != nil {
 			return fmt.Errorf("decode journal %s: %w", name, err)
 		}
-		if r.Kind != recordAPI && r.Kind != recordActivity {
+		if r.Kind != wire.KindAPI && r.Kind != wire.KindActivity {
 			continue
 		}
 		var p hostAPIPayload
@@ -145,7 +145,7 @@ func (j *hostAPIJournal) decode(name string, data []byte) error {
 		}
 		start, end := int64(p.Start), int64(p.End)
 		switch {
-		case r.Kind == recordAPI && p.Kind == "api":
+		case r.Kind == wire.KindAPI && p.Kind == "api":
 			j.windowStart = min(j.windowStart, start)
 			j.windowEnd = max(j.windowEnd, end)
 			apiName, class := hostAPIName(p.Domain, p.CallbackID)
@@ -156,7 +156,7 @@ func (j *hostAPIJournal) decode(name string, data []byte) error {
 				domain: p.Domain, name: apiName, class: class,
 				start: start, end: end, thread: p.ThreadID, correlation: p.Correlation,
 			})
-		case r.Kind == recordActivity && p.Kind == "activity" && p.Subtype == "memcpy" && p.Valid:
+		case r.Kind == wire.KindActivity && p.Kind == "activity" && p.Subtype == "memcpy" && p.Valid:
 			c := hostCopy{bytes: p.Bytes, kind: p.CopyKind, stream: p.Stream, nanos: end - start}
 			if p.Correlation != 0 {
 				j.copies[p.Correlation] = c

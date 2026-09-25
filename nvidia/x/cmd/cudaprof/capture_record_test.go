@@ -207,17 +207,17 @@ func TestObserveJournalPreservesKernelGeometry(t *testing.T) {
 
 	journalPath := filepath.Join(dir, "capture.journal")
 	records := []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 		{
-			Kind:    recordActivity,
+			Kind:    wire.KindActivity,
 			Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"kernelArray","valid":true,"start":100,"end":200,"grid":[256,1,1],"block":[32,1,1],"registers_per_thread":48,"dynamic_shared_memory":4096}`),
 		},
 		{
-			Kind:    recordActivity,
+			Kind:    wire.KindActivity,
 			Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"kernelCoords","valid":true,"start":300,"end":400,"grid_x":64,"grid_y":2,"grid_z":1,"block_x":128,"block_y":1,"block_z":1,"registers":24,"smem":1024}`),
 		},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
 	}
 	appendRecords(t, journalPath, sid, 1234, 1, records)
 
@@ -377,9 +377,9 @@ func TestObserveCaptureSessionRequiresVerifiedCompletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, record := range []wire.Record{
-		{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 3, Payload: []byte(`{"state":"no_cuda_observed"}`)},
+		{Kind: wire.KindBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 3, Payload: []byte(`{"state":"no_cuda_observed"}`)},
 	} {
 		if err := j.Append(record); err != nil {
 			t.Fatal(err)
@@ -421,13 +421,13 @@ func TestObserveCaptureSessionIsolatesWorkerGenerations(t *testing.T) {
 			t.Fatal(err)
 		}
 		records := []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 		}
 		if activity != "" {
-			records = append(records, wire.Record{Kind: recordActivity, Payload: []byte(activity)})
+			records = append(records, wire.Record{Kind: wire.KindActivity, Payload: []byte(activity)})
 		}
-		records = append(records, wire.Record{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)})
+		records = append(records, wire.Record{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected"}`)})
 		for i := range records {
 			records[i].Identity = wire.Identity{Session: sid, Process: process, Generation: generation}
 			records[i].Sequence = uint64(i + 1)
@@ -496,10 +496,10 @@ func TestObserveCaptureSessionStatesTheProducersItDoesNotDescribe(t *testing.T) 
 				capability = fmt.Sprintf(`{"kind":"capability","agent_revision":%q,"memsets":true}`, revision)
 			}
 			records := []wire.Record{
-				{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-				{Kind: recordCapability, Payload: []byte(capability)},
-				{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-				{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)},
+				{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+				{Kind: wire.KindCapability, Payload: []byte(capability)},
+				{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+				{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected"}`)},
 			}
 			for i := range records {
 				records[i].Identity = wire.Identity{Session: sid, Process: process, Generation: generation}
@@ -568,9 +568,9 @@ func TestObserveCaptureSessionRejectsHandshakeGenerationMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i, record := range []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"no_cuda_observed"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"no_cuda_observed"}`)},
 	} {
 		record.Identity = wire.Identity{Session: sid, Process: 41, Generation: 3}
 		record.Sequence = uint64(i + 1)
@@ -603,11 +603,11 @@ func TestObserveCaptureSessionAcceptsIncompletePreloadGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	records := []wire.Record{
-		{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 1}, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 1}, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"state":"no_cuda_observed"}`)},
+		{Kind: wire.KindBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 1}, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 1}, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"state":"no_cuda_observed"}`)},
 	}
 	for i := range records {
 		records[i].Sequence = uint64(i + 1)
@@ -645,9 +645,9 @@ func TestObserveCaptureSessionDoesNotPromoteInitializedNoActivity(t *testing.T) 
 		t.Fatal(err)
 	}
 	for seq, record := range []wire.Record{
-		{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+		{Kind: wire.KindBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Payload: []byte(`{"state":"initialized_no_activity"}`)},
 	} {
 		record.Sequence = uint64(seq + 1)
 		if err := j.Append(record); err != nil {
@@ -693,7 +693,7 @@ func TestObserveCaptureSessionRequiresCompleteJournal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := j.Append(wire.Record{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)}); err != nil {
+	if err := j.Append(wire.Record{Kind: wire.KindBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)}); err != nil {
 		t.Fatal(err)
 	}
 	if err := j.Close(); err != nil {
@@ -724,10 +724,10 @@ func TestObserveCaptureSessionReportsUnsupportedCUPTI(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, record := range []wire.Record{
-		{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordFailure, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 3, Payload: []byte(`{"state":"cupti_unavailable"}`)},
-		{Kind: recordFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 4, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+		{Kind: wire.KindBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindFailure, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 3, Payload: []byte(`{"state":"cupti_unavailable"}`)},
+		{Kind: wire.KindFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 4, Payload: []byte(`{"state":"initialized_no_activity"}`)},
 	} {
 		if err := j.Append(record); err != nil {
 			t.Fatal(err)
@@ -746,16 +746,16 @@ func TestObserveCaptureSessionRejectsTerminalOrderAndUnknownSubtype(t *testing.T
 		records []wire.Record
 	}{
 		{name: "activity after finalize", records: []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
-			{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","start":1,"end":2}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+			{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","start":1,"end":2}`)},
 		}},
 		{name: "unknown subtype", records: []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"bogus","start":1,"end":2}`)},
-			{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"bogus","start":1,"end":2}`)},
+			{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected"}`)},
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -809,10 +809,10 @@ func TestObserveCaptureSessionRejectsInvalidIntervals(t *testing.T) {
 				t.Fatal(err)
 			}
 			for i, r := range []wire.Record{
-				{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-				{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-				{Kind: recordActivity, Payload: []byte(payload)},
-				{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)},
+				{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+				{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+				{Kind: wire.KindActivity, Payload: []byte(payload)},
+				{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected"}`)},
 			} {
 				r.Identity = wire.Identity{Session: sid, Process: 41, Generation: 2}
 				r.Sequence = uint64(i + 1)
@@ -850,8 +850,8 @@ func TestObserveCaptureSessionSurfacesCUPTIVersionMismatch(t *testing.T) {
 	// The agent records the failure immediately, never emits bootstrap/capability,
 	// and emits an initialized_no_activity finalized record at process exit.
 	records := []wire.Record{
-		{Kind: recordFailure, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"state":"cupti_unavailable","error":"CUPTI runtime/header version mismatch"}`)},
-		{Kind: recordFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"state":"initialized_no_activity","trigger":"exit"}`)},
+		{Kind: wire.KindFailure, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"state":"cupti_unavailable","error":"CUPTI runtime/header version mismatch"}`)},
+		{Kind: wire.KindFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"state":"initialized_no_activity","trigger":"exit"}`)},
 	}
 	for _, r := range records {
 		if err := j.Append(r); err != nil {
@@ -893,10 +893,10 @@ func TestObserveCaptureSessionSurfacesInvalidActivityFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	records := []wire.Record{
-		{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 3, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k1"}`)}, // no valid field
-		{Kind: recordFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 4, Payload: []byte(`{"state":"collected"}`)},
+		{Kind: wire.KindBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 3, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k1"}`)}, // no valid field
+		{Kind: wire.KindFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 4, Payload: []byte(`{"state":"collected"}`)},
 	}
 	for _, r := range records {
 		if err := j.Append(r); err != nil {
@@ -997,11 +997,11 @@ func TestObserveJournalKeepsNonTimelineSubtypes(t *testing.T) {
 
 			journalPath := filepath.Join(dir, "capture.journal")
 			appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
-				{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-				{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-				{Kind: recordActivity, Payload: []byte(tt.payload)},
-				{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
-				{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+				{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+				{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+				{Kind: wire.KindActivity, Payload: []byte(tt.payload)},
+				{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+				{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
 			})
 
 			_, _, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
@@ -1050,10 +1050,10 @@ func TestObserveJournalStillRejectsUnknownSubtypes(t *testing.T) {
 	copy(sid[:], raw)
 	journalPath := filepath.Join(dir, "capture.journal")
 	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"teleport","valid":true,"start":100,"end":200}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"teleport","valid":true,"start":100,"end":200}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
 	})
 	if _, _, _, _, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0); err == nil {
 		t.Error("an unrecognized activity subtype was accepted")
@@ -1089,15 +1089,15 @@ func TestObserveJournalCarriesMarkersToNVTXLabels(t *testing.T) {
 	// markerFlags: 1<<1 opens a range, 1<<2 closes it.
 	journalPath := filepath.Join(dir, "capture.journal")
 	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordAPI, Payload: []byte(`{"kind":"api","domain":"runtime","callback_id":211,"start":50,"end":60,"process_id":1234,"thread_id":7,"correlation":1}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"decode","marker_domain":"ds4","valid":true,"start":100,"end":100,"marker_id":1,"marker_flags":2,"process_id":1234,"thread_id":7}`)},
-		{Kind: recordAPI, Payload: []byte(`{"kind":"api","domain":"runtime","callback_id":211,"start":150,"end":160,"process_id":1234,"thread_id":7,"correlation":2}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"early","valid":true,"start":200,"end":300,"device":0,"correlation":1}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"decode","marker_domain":"ds4","valid":true,"start":400,"end":400,"marker_id":1,"marker_flags":4,"process_id":1234,"thread_id":7}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"inside","valid":true,"start":500,"end":600,"device":0,"correlation":2}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":4}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindAPI, Payload: []byte(`{"kind":"api","domain":"runtime","callback_id":211,"start":50,"end":60,"process_id":1234,"thread_id":7,"correlation":1}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"decode","marker_domain":"ds4","valid":true,"start":100,"end":100,"marker_id":1,"marker_flags":2,"process_id":1234,"thread_id":7}`)},
+		{Kind: wire.KindAPI, Payload: []byte(`{"kind":"api","domain":"runtime","callback_id":211,"start":150,"end":160,"process_id":1234,"thread_id":7,"correlation":2}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"early","valid":true,"start":200,"end":300,"device":0,"correlation":1}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"decode","marker_domain":"ds4","valid":true,"start":400,"end":400,"marker_id":1,"marker_flags":4,"process_id":1234,"thread_id":7}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"inside","valid":true,"start":500,"end":600,"device":0,"correlation":2}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":4}`)},
 	})
 
 	_, _, _, activities, apis, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
@@ -1144,11 +1144,11 @@ func TestObserveJournalCarriesMemsets(t *testing.T) {
 
 	journalPath := filepath.Join(dir, "capture.journal")
 	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"memset","name":"","valid":true,"start":300,"end":420,"bytes":8192,"queued":0,"submitted":0,"copy_kind":0,"value":7,"runtime_correlation":0,"device":1,"context":1,"stream":7,"correlation":9,"grid":[0,0,0],"block":[0,0,0],"registers_per_thread":0,"dynamic_shared_memory":0,"graph_id":0,"graph_node_id":0}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"memset","name":"","valid":true,"start":300,"end":420,"bytes":8192,"queued":0,"submitted":0,"copy_kind":0,"value":7,"runtime_correlation":0,"device":1,"context":1,"stream":7,"correlation":9,"grid":[0,0,0],"block":[0,0,0],"registers_per_thread":0,"dynamic_shared_memory":0,"graph_id":0,"graph_node_id":0}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
 	})
 
 	_, _, metrics, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
@@ -1213,16 +1213,16 @@ func externalJournal(t *testing.T, sessionHex string, externals ...string) []cap
 	var sid [16]byte
 	copy(sid[:], raw)
 	records := []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 	}
 	for _, e := range externals {
-		records = append(records, wire.Record{Kind: recordExternal, Payload: []byte(e)})
+		records = append(records, wire.Record{Kind: wire.KindExternal, Payload: []byte(e)})
 	}
 	records = append(records,
-		wire.Record{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"attributed","valid":true,"start":100,"end":200,"device":0,"correlation":9}`)},
-		wire.Record{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"unattributed","valid":true,"start":300,"end":400,"device":0,"correlation":11}`)},
-		wire.Record{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+		wire.Record{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"attributed","valid":true,"start":100,"end":200,"device":0,"correlation":9}`)},
+		wire.Record{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"unattributed","valid":true,"start":300,"end":400,"device":0,"correlation":11}`)},
+		wire.Record{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
 	)
 	journalPath := filepath.Join(t.TempDir(), "capture.journal")
 	appendRecords(t, journalPath, sid, 1234, 1, records)
@@ -1406,12 +1406,12 @@ func TestObserveJournalCarriesHostSamples(t *testing.T) {
 
 	journalPath := filepath.Join(dir, "capture.journal")
 	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordHost, Payload: []byte(partOne)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
-		{Kind: recordHost, Payload: []byte(partTwo)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindHost, Payload: []byte(partOne)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+		{Kind: wire.KindHost, Payload: []byte(partTwo)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
 	})
 
 	_, _, metrics, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
@@ -1449,31 +1449,31 @@ func TestObserveJournalRejectsEarlyHostSample(t *testing.T) {
 		records []wire.Record
 	}{
 		{"before bootstrap", []wire.Record{
-			{Kind: recordHost, Payload: []byte(sample)},
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+			{Kind: wire.KindHost, Payload: []byte(sample)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
 		}},
 		{"before capability", []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordHost, Payload: []byte(sample)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindHost, Payload: []byte(sample)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
 		}},
 		{"after finalized", []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
-			{Kind: recordHost, Payload: []byte(sample)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+			{Kind: wire.KindHost, Payload: []byte(sample)},
 		}},
 		// A record carrying the host kind but another payload type is a
 		// producer/consumer disagreement about what kind 8 means, which is
 		// the failure a shared kind number makes possible.
 		{"mistyped payload", []wire.Record{
-			{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-			{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-			{Kind: recordHost, Payload: []byte(`{"kind":"api","domain":"driver"}`)},
-			{Kind: recordFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
+			{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+			{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+			{Kind: wire.KindHost, Payload: []byte(`{"kind":"api","domain":"driver"}`)},
+			{Kind: wire.KindFinalized, Payload: []byte(`{"state":"initialized_no_activity"}`)},
 		}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1512,13 +1512,13 @@ func TestObserveJournalCarriesTheIdleExplainingTiers(t *testing.T) {
 
 	journalPath := filepath.Join(dir, "capture.journal")
 	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200,"device":1,"context":4}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"overhead","name":"","valid":true,"start":300,"end":370,"overhead_kind":65536,"object_kind":2,"process_id":4242,"thread_id":99}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"graph_trace","name":"","valid":true,"start":400,"end":490,"device":1,"context":4,"stream":7,"correlation":11,"graph_id":5}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"sync","name":"","valid":true,"start":500,"end":560,"sync_type":3,"cuda_event_id":3,"context":4,"stream":7,"correlation":12}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":4}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200,"device":1,"context":4}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"overhead","name":"","valid":true,"start":300,"end":370,"overhead_kind":65536,"object_kind":2,"process_id":4242,"thread_id":99}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"graph_trace","name":"","valid":true,"start":400,"end":490,"device":1,"context":4,"stream":7,"correlation":11,"graph_id":5}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"sync","name":"","valid":true,"start":500,"end":560,"sync_type":3,"cuda_event_id":3,"context":4,"stream":7,"correlation":12}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":4}`)},
 	})
 
 	_, _, metrics, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
@@ -1649,12 +1649,12 @@ func TestActivityRecordsCountsActivityRecords(t *testing.T) {
 
 	journalPath := filepath.Join(dir, "capture.journal")
 	appendRecords(t, journalPath, sid, 1234, 1, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"range","valid":true}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"memset","name":"","valid":true,"start":300,"end":420,"bytes":8192,"value":7,"device":1,"stream":7,"correlation":9,"grid":[0,0,0],"block":[0,0,0]}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k","valid":true,"start":100,"end":200}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"marker","name":"range","valid":true}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"memset","name":"","valid":true,"start":300,"end":420,"bytes":8192,"value":7,"device":1,"stream":7,"correlation":9,"grid":[0,0,0],"block":[0,0,0]}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
 	})
 
 	stats, state, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)

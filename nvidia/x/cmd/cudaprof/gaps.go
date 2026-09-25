@@ -492,11 +492,11 @@ type noCUDAJournal struct {
 
 func (j *noCUDAJournal) observe(kind uint16, subtype string, payload []byte) {
 	switch kind {
-	case recordCapability:
+	case wire.KindCapability:
 		j.state.capabilityData = append(json.RawMessage(nil), payload...)
-	case recordFailure:
+	case wire.KindFailure:
 		j.state.failure = "failure"
-	case recordActivity:
+	case wire.KindActivity:
 		switch subtype {
 		case "device_active":
 			j.state.deviceActive = true
@@ -628,7 +628,7 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 		}
 		noCUDA.observe(r.Kind, payload.Subtype, r.Payload)
 		switch r.Kind {
-		case recordActivity:
+		case wire.KindActivity:
 			if payload.Dropped > 0 {
 				return fmt.Errorf("journal %s reports %d dropped record(s), so the timeline is missing activities", name, payload.Dropped)
 			}
@@ -713,12 +713,12 @@ func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapReco
 				copyKind:     payload.CopyKind,
 				module:       payload.ModuleID,
 			})
-		case recordAPI:
+		case wire.KindAPI:
 			if payload.End < payload.Start || payload.End > math.MaxInt64 {
 				continue
 			}
 			apis[payload.Correlation] = gapAPI{start: int64(payload.Start), end: int64(payload.End)}
-		case recordFinalized:
+		case wire.KindFinalized:
 			finalized = true
 			if payload.Dropped > 0 {
 				return fmt.Errorf("journal %s finalized with %d dropped record(s), so the timeline is missing activities", name, payload.Dropped)

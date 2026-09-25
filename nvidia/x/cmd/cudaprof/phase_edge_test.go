@@ -72,12 +72,12 @@ func TestObserveCaptureSessionBuildsMeasuredPhaseReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability","capture_range":"cudaProfilerApi","clocks_unified":true}`)},
-		{Kind: recordActivity, Timestamp: 10, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":"start","api":"cudaProfilerStart","index":0,"toggle_failures":0}`)},
-		{Kind: recordActivity, Timestamp: 20, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":11,"end":19}`)},
-		{Kind: recordActivity, Timestamp: 30, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":"stop","api":"cudaProfilerStop","index":0,"toggle_failures":0}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1,"offered":6,"retained":6}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability","capture_range":"cudaProfilerApi","clocks_unified":true}`)},
+		{Kind: wire.KindActivity, Timestamp: 10, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":"start","api":"cudaProfilerStart","index":0,"toggle_failures":0}`)},
+		{Kind: wire.KindActivity, Timestamp: 20, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":11,"end":19}`)},
+		{Kind: wire.KindActivity, Timestamp: 30, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":"stop","api":"cudaProfilerStop","index":0,"toggle_failures":0}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":1,"offered":6,"retained":6}`)},
 	})
 	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
 	if got.PhaseReceipt == nil || got.PhaseReceipt.Status != "MEASURED" {
@@ -163,9 +163,9 @@ func TestPhaseEdgeJournalRejectsMalformedAndTruncatedInput(t *testing.T) {
 
 	malformed := filepath.Join(t.TempDir(), "malformed.journal")
 	appendRecords(t, malformed, sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":`)},
 	})
 	if _, _, _, _, _, _, err := observeJournal(malformed, "00112233445566778899aabbccddeeff", 41, 0); err == nil {
 		t.Fatal("malformed phase edge journal decoded successfully")
@@ -173,10 +173,10 @@ func TestPhaseEdgeJournalRejectsMalformedAndTruncatedInput(t *testing.T) {
 
 	valid := filepath.Join(t.TempDir(), "truncated.journal")
 	appendRecords(t, valid, sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":"start","api":"cudaProfilerStart","index":0}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"capture_range","edge":"start","api":"cudaProfilerStart","index":0}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected"}`)},
 	})
 	b, err := os.ReadFile(valid)
 	if err != nil {

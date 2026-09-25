@@ -1,4 +1,4 @@
-package main
+package wire
 
 import (
 	"fmt"
@@ -12,16 +12,16 @@ import (
 
 // The record kind numbers are a wire contract between two files that share no
 // header: the producer's KIND_ defines in internal/cudainject/native/cupti_agent.c
-// and the record* constants above in capture_controller.go. observeJournal's
-// kind switch ends in a default that rejects the whole capture, so a number
+// and the Kind constants in wire.go. The kind switch in cudaprof's
+// observeJournal ends in a default that rejects the whole capture, so a number
 // the two halves disagree about does not degrade a capture -- it fails every
 // capture that contains one record of that kind.
 //
 // Nothing else in the tree catches that. observeJournal is exercised only
-// against fixtures built in this package, and those fixtures write through the
-// same record* constants they are then decoded by: one author, two copies. A
-// constant here can be changed to any value at all and every test in this
-// package still passes, because the fixture moves with it. The producer's own
+// against fixtures built in cudaprof, and those fixtures write through the
+// same Kind constants they are then decoded by: one author, two copies. A
+// constant here can be changed to any value at all and every cudaprof test
+// still passes, because the fixture moves with it. The producer's own
 // numbers are pinned from the other side -- the nativecontrol controls decode
 // a real producer journal against their own literals -- but no test in the
 // tree feeds a producer-written journal to observeJournal, so the agreement
@@ -44,31 +44,31 @@ func TestRecordKindsMatchProducer(t *testing.T) {
 	// The Go half. Keyed by the producer's spelling so a mismatch can name
 	// both sides of the pair it broke.
 	golang := map[string]uint16{
-		"KIND_BOOTSTRAP":  recordBootstrap,
-		"KIND_ACTIVITY":   recordActivity,
-		"KIND_FINALIZED":  recordFinalized,
-		"KIND_CAPABILITY": recordCapability,
-		"KIND_FAILURE":    recordFailure,
-		"KIND_EXTERNAL":   recordExternal,
-		"KIND_API":        recordAPI,
-		"KIND_HOST":       recordHost,
-		"KIND_MODULE":     recordModule,
-		"KIND_PCSAMPLE":   recordPCSample,
+		"KIND_BOOTSTRAP":  KindBootstrap,
+		"KIND_ACTIVITY":   KindActivity,
+		"KIND_FINALIZED":  KindFinalized,
+		"KIND_CAPABILITY": KindCapability,
+		"KIND_FAILURE":    KindFailure,
+		"KIND_EXTERNAL":   KindExternal,
+		"KIND_API":        KindAPI,
+		"KIND_HOST":       KindHost,
+		"KIND_MODULE":     KindModule,
+		"KIND_PCSAMPLE":   KindPCSample,
 	}
 	goSpelling := map[string]string{
-		"KIND_BOOTSTRAP":  "recordBootstrap",
-		"KIND_ACTIVITY":   "recordActivity",
-		"KIND_FINALIZED":  "recordFinalized",
-		"KIND_CAPABILITY": "recordCapability",
-		"KIND_FAILURE":    "recordFailure",
-		"KIND_EXTERNAL":   "recordExternal",
-		"KIND_API":        "recordAPI",
-		"KIND_HOST":       "recordHost",
-		"KIND_MODULE":     "recordModule",
-		"KIND_PCSAMPLE":   "recordPCSample",
+		"KIND_BOOTSTRAP":  "KindBootstrap",
+		"KIND_ACTIVITY":   "KindActivity",
+		"KIND_FINALIZED":  "KindFinalized",
+		"KIND_CAPABILITY": "KindCapability",
+		"KIND_FAILURE":    "KindFailure",
+		"KIND_EXTERNAL":   "KindExternal",
+		"KIND_API":        "KindAPI",
+		"KIND_HOST":       "KindHost",
+		"KIND_MODULE":     "KindModule",
+		"KIND_PCSAMPLE":   "KindPCSample",
 	}
 
-	agent := filepath.Join("..", "..", "..", "internal", "cudainject", "native", "cupti_agent.c")
+	agent := filepath.Join("..", "native", "cupti_agent.c")
 	src, err := os.ReadFile(agent)
 	if err != nil {
 		t.Fatalf("read producer source: %v", err)
@@ -104,7 +104,7 @@ func TestRecordKindsMatchProducer(t *testing.T) {
 	for name, want := range producer {
 		got, ok := golang[name]
 		if !ok {
-			t.Errorf("%s defines %s = %d and this package has no constant for it: observeJournal rejects the whole capture on an unknown kind", agent, name, want)
+			t.Errorf("%s defines %s = %d and wire has no constant for it: observeJournal rejects the whole capture on an unknown kind", agent, name, want)
 			continue
 		}
 		if got != want {

@@ -21,17 +21,17 @@ func cdw1Journal(t *testing.T, path string, n int) int64 {
 	var sid [16]byte
 	copy(sid[:], "0123456789abcdef")
 	records := []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 	}
 	for i := 0; i < n; i++ {
 		records = append(records, wire.Record{
-			Kind: recordActivity,
+			Kind: wire.KindActivity,
 			Payload: []byte(fmt.Sprintf(`{"kind":"activity","subtype":"kernel","name":"ampere_bf16_gemm_128x128_tn","valid":true,"start":%d,"end":%d,"device":0,"stream":%d,"correlation":%d,"grid":[%d,1,1],"block":[256,1,1],"registers_per_thread":64,"dynamic_shared_memory":16384}`,
 				1000000+i*4200, 1000000+i*4200+3100, i%4, i, 132+i%16)),
 		})
 	}
-	records = append(records, wire.Record{Kind: recordFinalized, Payload: []byte(fmt.Sprintf(`{"state":"collected","activity":%d}`, n))})
+	records = append(records, wire.Record{Kind: wire.KindFinalized, Payload: []byte(fmt.Sprintf(`{"state":"collected","activity":%d}`, n))})
 	appendRecords(t, path, sid, 4242, 1, records)
 	fi, err := os.Stat(path)
 	if err != nil {

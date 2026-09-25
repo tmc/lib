@@ -20,6 +20,21 @@ const (
 	DefaultQueueBytes        = 64 << 20
 )
 
+// Record kinds. They match the KIND_ constants in the capture agent
+// (native/cupti_agent.c); a test in this package checks that they agree.
+const (
+	KindBootstrap  uint16 = 1
+	KindActivity   uint16 = 2
+	KindFinalized  uint16 = 3
+	KindCapability uint16 = 4
+	KindFailure    uint16 = 5
+	KindExternal   uint16 = 6
+	KindAPI        uint16 = 7
+	KindHost       uint16 = 8
+	KindModule     uint16 = 9
+	KindPCSample   uint16 = 10
+)
+
 var (
 	ErrBadMagic    = errors.New("wire: bad magic")
 	ErrBadVersion  = errors.New("wire: unsupported version")

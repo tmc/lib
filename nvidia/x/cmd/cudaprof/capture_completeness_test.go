@@ -35,10 +35,10 @@ func completenessSession(t *testing.T, workers ...completenessWorker) string {
 
 	writeHandshake(t, dir, completenessSessionID, 41, 2)
 	appendRecords(t, filepath.Join(dir, "capture.journal"), sid, 41, 2, []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
-		{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
-		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)},
+		{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":1}`)},
 	})
 
 	for _, w := range workers {
@@ -69,23 +69,23 @@ func writeFailedHandshake(t *testing.T, dir, session string, process, generation
 
 func healthyWorker(process, generation uint64, activities int) completenessWorker {
 	records := []wire.Record{
-		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: wire.KindBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: wire.KindCapability, Payload: []byte(`{"kind":"capability"}`)},
 	}
 	for i := 0; i < activities; i++ {
-		records = append(records, wire.Record{Kind: recordActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)})
+		records = append(records, wire.Record{Kind: wire.KindActivity, Payload: []byte(`{"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20}`)})
 	}
 	state := `{"state":"initialized_no_activity"}`
 	if activities > 0 {
 		state = `{"state":"collected","activity":1}`
 	}
-	records = append(records, wire.Record{Kind: recordFinalized, Payload: []byte(state)})
+	records = append(records, wire.Record{Kind: wire.KindFinalized, Payload: []byte(state)})
 	return completenessWorker{process: process, generation: generation, records: records}
 }
 
 func failedWorker(process, generation uint64, activities int) completenessWorker {
 	w := healthyWorker(process, generation, activities)
-	w.records[len(w.records)-1] = wire.Record{Kind: recordFinalized, Payload: []byte(`{"state":"producer_failure","activity":1,"dropped":7}`)}
+	w.records[len(w.records)-1] = wire.Record{Kind: wire.KindFinalized, Payload: []byte(`{"state":"producer_failure","activity":1,"dropped":7}`)}
 	return w
 }
 
@@ -390,7 +390,7 @@ func inspectCoverageOf(t *testing.T, status []byte) inspectCoverage {
 // all generations finalized cleanly without reported failures.
 func TestRunCompletenessDroppedRecordsIsPartial(t *testing.T) {
 	w := healthyWorker(50, 60, 2)
-	w.records[len(w.records)-1] = wire.Record{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2,"dropped":42}`)}
+	w.records[len(w.records)-1] = wire.Record{Kind: wire.KindFinalized, Payload: []byte(`{"state":"collected","activity":2,"dropped":42}`)}
 
 	got := observeCompleteness(t, completenessSession(t, w))
 	if got.DroppedRecords != 42 {

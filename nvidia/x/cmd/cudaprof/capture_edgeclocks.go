@@ -297,7 +297,7 @@ func (j *journalFollower) edges() []wire.Record {
 		}
 		frame := b[:size]
 		b = b[size:]
-		if binary.BigEndian.Uint16(frame[6:8]) != recordActivity || !bytes.Contains(frame[wire.HeaderSize:], captureRangeSubtype) {
+		if binary.BigEndian.Uint16(frame[6:8]) != wire.KindActivity || !bytes.Contains(frame[wire.HeaderSize:], captureRangeSubtype) {
 			continue
 		}
 		if r, err := wire.NewDecoder(bytes.NewReader(frame), wire.Limits{}).Next(); err == nil {
